@@ -88,46 +88,56 @@ assert_contains "zh block has Chinese directive" "中文" "$zh_block"
 echo "1.4 zh block uses localized language setting label"
 assert_contains "zh block uses Chinese / 中文 label" '**语言设置：** `Chinese / 中文`' "$zh_block"
 
-echo "1.5 zh block does not expose raw zh code in language setting"
+echo "1.5 zh block uses clean visible heading"
+zh_heading=$(printf '%s\n' "$zh_block" | sed -n '2p')
+assert_output "zh block uses clean visible heading" "## 语言与治理策略" "$zh_heading"
+assert_not_contains "zh block omits visible managed suffix" "## 语言与治理策略（由 spec-first 管理）" "$zh_block"
+
+echo "1.6 zh block does not expose raw zh code in language setting"
 assert_not_contains "zh block omits raw zh code" '**语言设置：** `zh`' "$zh_block"
 
-echo "1.6 en block contains English language directive"
+echo "1.7 en block contains English language directive"
 en_block=$(node_run "process.stdout.write(buildManagedBlock('en'))")
 assert_contains "en block has English directive" "English" "$en_block"
 
-echo "1.7 en block uses localized language setting label"
+echo "1.8 en block uses localized language setting label"
 assert_contains "en block uses English / 英文 label" '**Language setting:** `English / 英文`' "$en_block"
 
-echo "1.8 en block does not expose raw en code in language setting"
+echo "1.9 en block uses clean visible heading"
+en_heading=$(printf '%s\n' "$en_block" | sed -n '2p')
+assert_output "en block uses clean visible heading" "## Language and Governance Policy" "$en_heading"
+assert_not_contains "en block omits visible managed suffix" "## Language and Governance Policy (managed by spec-first)" "$en_block"
+
+echo "1.10 en block does not expose raw en code in language setting"
 assert_not_contains "en block omits raw en code" '**Language setting:** `en`' "$en_block"
 
-echo "1.9 en block contains START and END markers"
+echo "1.11 en block contains START and END markers"
 assert_contains "en block has start marker" "<!-- spec-first:lang:start -->" "$en_block"
 assert_contains "en block has end marker" "<!-- spec-first:lang:end -->" "$en_block"
 
-echo "1.10 zh block has strict generated-content language scope"
+echo "1.12 zh block has strict generated-content language scope"
 assert_contains "zh block applies to generated docs and task prose" "生成文档、需求/计划/任务" "$zh_block"
 assert_contains "zh block applies to commit and PR text" "commit/PR 文案" "$zh_block"
 
-echo "1.11 en block contains changelog governance rule"
+echo "1.13 en block contains changelog governance rule"
 assert_contains "en block has changelog rule" "CHANGELOG" "$en_block"
 
-echo "1.12 zh block contains changelog governance rule"
+echo "1.14 zh block contains changelog governance rule"
 assert_contains "zh block has changelog rule" "CHANGELOG" "$zh_block"
 
-echo "1.13 zh block contains refusal rule"
+echo "1.15 zh block contains refusal rule"
 assert_contains "zh block has refusal rule" "拒绝生成" "$zh_block"
 
-echo "1.14 en block contains refusal rule"
+echo "1.16 en block contains refusal rule"
 assert_contains "en block has refusal rule" "refuse to generate" "$en_block"
 
-echo "1.15 zh block does not contain governance file commit rule"
+echo "1.17 zh block does not contain governance file commit rule"
 assert_not_contains "zh block omits governance file commit rule" "规范文件提交规则" "$zh_block"
 
-echo "1.16 en block does not contain governance file commit rule"
+echo "1.18 en block does not contain governance file commit rule"
 assert_not_contains "en block omits governance file commit rule" "Governance File Commit Rule" "$en_block"
 
-echo "1.17 en block has strict generated-content language scope"
+echo "1.19 en block has strict generated-content language scope"
 assert_contains "en block applies to generated docs and task prose" "generated documentation, requirements, plans, tasks" "$en_block"
 assert_contains "en block applies to commit and PR text" "commit/PR text" "$en_block"
 

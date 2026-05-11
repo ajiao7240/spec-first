@@ -179,10 +179,12 @@ Before dispatching any reviewer, confirm the current host exposes a dispatch pri
 
 - A direct invocation of the current host's document-review workflow entrypoint authorizes this documented persona-reviewer phase; do not ask for a second "use subagents" confirmation.
 - Default doc-review posture is multi-persona reviewer dispatch. Do not interpret the absence of extra "use subagents" wording as report-only fallback; the workflow entrypoint already expresses that intent.
+- `mode:headless` is not a dispatch-disabling flag. It changes interaction/output behavior only; use normal bounded multi-persona dispatch when dispatch is otherwise safe.
 - If the user explicitly requested subagents, parallel agents, delegated review, or persona reviewer dispatch and the host exposes a dispatch primitive, continue with normal bounded multi-persona dispatch.
 - If an active workflow or parent orchestrator explicitly delegated this doc-review workflow, continue with normal bounded multi-persona dispatch.
 - If the user explicitly requests report-only/no-agents mode, the host lacks a dispatch primitive, or the current runtime cannot call it, do not call `Agent`, `Task`, `spawn_agent`, or equivalent dispatch tools.
 - Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex.
+- Never state or imply that fallback happened because the user did not additionally request subagents. That is not a valid fallback reason for this workflow.
 
 When dispatch is unavailable, explicitly disabled, or unsafe, set `single_agent_report_only_fallback: true` and run a read-only review in the current orchestrator:
 
@@ -190,7 +192,7 @@ When dispatch is unavailable, explicitly disabled, or unsafe, set `single_agent_
 - Do not apply `safe_auto` fixes, append Open Questions, or edit the document.
 - Use the selected persona list as an inline checklist, preserving the same classification boundaries where possible.
 - Skip the routing question, walk-through, and bulk-preview flow.
-- In Coverage, state `single-agent report-only fallback: reviewer dispatch unavailable, explicitly disabled, or unsafe`.
+- In Coverage, state `single-agent report-only fallback` and include at least one concrete reason code: `user_requested_report_only`, `user_requested_no_agents`, `dispatch_unavailable`, `runtime_dispatch_failed`, or `safety_boundary_not_met`.
 
 ### Dispatch
 

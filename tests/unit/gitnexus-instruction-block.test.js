@@ -56,7 +56,7 @@ describe('GitNexus instruction block governance', () => {
   test('renders English when the instruction language is English', () => {
     const existing = [
       '<!-- spec-first:lang:start -->',
-      '## Language and Governance Policy (managed by spec-first)',
+      '## Language and Governance Policy',
       '**Language setting:** `English / 英文`',
       '<!-- spec-first:lang:end -->',
       '',
@@ -116,7 +116,7 @@ describe('GitNexus instruction block governance', () => {
       '# Instructions',
       '',
       '<!-- spec-first:lang:start -->',
-      '## 语言与治理策略（由 spec-first 管理）',
+      '## 语言与治理策略',
       '**语言设置：** `Chinese / 中文`',
       '<!-- spec-first:lang:end -->',
     ].join('\n');
@@ -135,7 +135,7 @@ describe('GitNexus instruction block governance', () => {
       '# Instructions',
       '',
       '<!-- spec-first:lang:start -->',
-      '## Language and Governance Policy (managed by spec-first)',
+      '## Language and Governance Policy',
       '**Language setting:** `English / 英文`',
       '<!-- spec-first:lang:end -->',
     ].join('\n');

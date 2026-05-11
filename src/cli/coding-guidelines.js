@@ -109,7 +109,7 @@ function buildCodingGuidelinesBlock(lang = 'zh') {
 }
 
 function buildZhCodingGuidelinesBody() {
-  return `## 编码执行准则（由 spec-first 管理）
+  return `## 编码执行准则
 
 ### 1. 编码前思考
 
@@ -181,7 +181,7 @@ LLM 经常默默选择一种解释然后执行。这个原则强制明确推理�
 }
 
 function buildEnCodingGuidelinesBody() {
-  return `## Coding Execution Guidelines (managed by spec-first)
+  return `## Coding Execution Guidelines
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
@@ -304,10 +304,13 @@ function stripManagedCodingGuidelinesSections(content) {
 
 function matchManagedCodingGuidelinesSection(lines, startIndex) {
   const heading = lines[startIndex] ? lines[startIndex].trim() : '';
-  if (
-    heading !== '## 编码执行准则（由 spec-first 管理）' &&
-    heading !== '## Coding Execution Guidelines (managed by spec-first)'
-  ) {
+  const knownHeadings = [
+    '## 编码执行准则',
+    '## 编码执行准则（由 spec-first 管理）',
+    '## Coding Execution Guidelines',
+    '## Coding Execution Guidelines (managed by spec-first)',
+  ];
+  if (!knownHeadings.includes(heading)) {
     return -1;
   }
 
@@ -316,11 +319,18 @@ function matchManagedCodingGuidelinesSection(lines, startIndex) {
     return strictMatch;
   }
 
-  return matchLooseManagedCodingGuidelinesSection(lines, startIndex);
+  if (isLegacyManagedCodingGuidelinesHeading(heading) ||
+    hasManagedCodingGuidelinesAnchors(lines, startIndex)
+  ) {
+    return matchLooseManagedCodingGuidelinesSection(lines, startIndex);
+  }
+
+  return -1;
 }
 
 function matchStrictManagedCodingGuidelinesSection(lines, startIndex, heading) {
-  const isZh = heading === '## 编码执行准则（由 spec-first 管理）';
+  const isZh = heading === '## 编码执行准则' ||
+    heading === '## 编码执行准则（由 spec-first 管理）';
   const intro = isZh
     ? '### 1. 编码前思考'
     : 'Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.';
@@ -404,6 +414,45 @@ function matchLooseManagedCodingGuidelinesSection(lines, startIndex) {
   }
 
   return index;
+}
+
+function isLegacyManagedCodingGuidelinesHeading(heading) {
+  return heading === '## 编码执行准则（由 spec-first 管理）' ||
+    heading === '## Coding Execution Guidelines (managed by spec-first)';
+}
+
+function hasManagedCodingGuidelinesAnchors(lines, startIndex) {
+  const anchors = [
+    '### 1. 编码前思考',
+    '### 2. 简洁优先',
+    '### 3. 精准修改',
+    '### 4. 目标驱动执行',
+    '### 5. 工具参数卫生',
+    '### 1. Think Before Coding',
+    '### 2. Simplicity First',
+    '### 3. Surgical Changes',
+    '### 4. Goal-Driven Execution',
+    '### 5. Tool Parameter Hygiene',
+    'Behavioral guidelines to reduce common LLM coding mistakes',
+    'LLM 经常默默选择一种解释然后执行',
+  ];
+  let anchorCount = 0;
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const trimmed = lines[index].trim();
+    if (trimmed.startsWith('<!-- spec-first:')) {
+      break;
+    }
+    if (trimmed !== '' && /^(#|##)\s/.test(trimmed)) {
+      break;
+    }
+    if (anchors.some((anchor) => trimmed.includes(anchor))) {
+      anchorCount += 1;
+    }
+    if (anchorCount >= 2) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function normalizeRemovalResult(content) {

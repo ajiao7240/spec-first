@@ -49,7 +49,9 @@ function stripManagedRuntimeToolsSections(content) {
 function matchManagedRuntimeToolsSection(lines, startIndex) {
   const heading = lines[startIndex] ? lines[startIndex].trim() : '';
   if (
+    heading !== '## 代码智能与运行时工具' &&
     heading !== '## 代码智能与运行时工具（由 spec-first 管理）' &&
+    heading !== '## Runtime Code Intelligence Tools' &&
     heading !== '## Runtime Code Intelligence Tools (managed by spec-first)' &&
     !isLooseManagedRuntimeToolsHeading(heading)
   ) {

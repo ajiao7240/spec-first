@@ -203,6 +203,8 @@ Some public workflows own documented read-only reviewer or researcher subagent p
 
 This applies only to the workflow's documented read-only reviewer/researcher phase, for example `$spec-doc-review` multi-persona document reviewers, `$spec-code-review` reviewer personas, `$spec-plan` research agents, and `$spec-ideate` grounding or ideation agents. It does not authorize unrelated helper agents, hidden workflows, startup reminder agents, mutating worker dispatch, or beta delegation paths.
 
+If the user names `spec-doc-review` in a document-review request without the `$` prefix, normalize it to the current host's public document-review entrypoint when the intent is clearly to run that workflow. Do not treat a missing extra "use subagents" phrase as a request for single-agent report-only; only explicit `report-only`, `no-agents`, or workflow fallback conditions disable the documented reviewer dispatch phase.
+
 If the user explicitly asks for report-only/no-agents mode, the host lacks a dispatch primitive, the runtime cannot call it, or the workflow's own safety boundary is not satisfied, follow that workflow's documented fallback instead of dispatching. The selected workflow still owns reviewer selection, bounded parallelism, synthesis, artifacts, and final judgment.
 
 ### Host Surface

@@ -73,7 +73,7 @@ function buildManagedBlock(lang) {
 }
 
 function buildZhPolicy() {
-  return `## 语言与治理策略（由 spec-first 管理）
+  return `## 语言与治理策略
 
 **语言设置：** \`Chinese / 中文\`
 
@@ -97,7 +97,7 @@ function buildZhPolicy() {
 }
 
 function buildEnPolicy() {
-  return `## Language and Governance Policy (managed by spec-first)
+  return `## Language and Governance Policy
 
 **Language setting:** \`English / 英文\`
 

@@ -506,10 +506,15 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -CodeReviewGraphPackageSpec $codeReviewGraphPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy -GitNexusRepoName $gitNexusRepoName');
     expect(writeProviderSource).toContain("query_probe = @('uvx', $CodeReviewGraphPackageSpec, 'status', '--repo', $RepoRoot)");
     expect(writeProviderSource).toContain('function Test-CanonicalProviderFreshForCurrent');
+    expect(writeProviderSource).toContain('function Get-GitPorcelainStatusText');
     expect(writeProviderSource).toContain('function Get-ProviderCommandHashForCommands');
     expect(writeProviderSource).toContain('$status.bootstrap_fingerprint.provider');
     expect(writeProviderSource).toContain('[string]$fingerprint.command_hash -eq $CurrentCommandHash');
     expect(writeProviderSource).toContain('[bool]$Provider.enabled_for_bootstrap');
+    expect(writeProviderSource).toContain("$currentSourceRevision = Invoke-GitConfigValue -RepoRoot $repoRoot -GitArguments @('rev-parse', '--verify', 'HEAD^{commit}')");
+    expect(writeProviderSource).toContain('$currentWorktreeStatusHash = Get-StatusHash -Text $currentWorktreeStatus');
+    expect(writeProviderSource).toContain('$canonicalGraphSourceRevisionCurrent');
+    expect(writeProviderSource).toContain('$canonicalGraphWorktreeCurrent');
     expect(writeProviderSource).toContain('$canonicalArtifactsAvailable');
     expect(writeProviderSource).toContain('$canonicalArtifactsCurrent');
     expect(writeProviderSource).toContain('graph_bootstrap_required = ($providerBootstrapRequired -or $canonicalWorkflowMode -ne');

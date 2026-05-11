@@ -65,6 +65,8 @@ describe('coding guidelines instruction block', () => {
     const en = buildCodingGuidelinesBlock('en');
 
     expect(zh).toContain('### 1. 编码前思考');
+    expect(zh).toContain('## 编码执行准则');
+    expect(zh).not.toContain('## 编码执行准则（由 spec-first 管理）');
     expect(zh).toContain('LLM 经常默默选择一种解释然后执行。这个原则强制明确推理：');
     expect(zh).toContain('### 2. 简洁优先');
     expect(zh).toContain('检验标准：每一行修改都应该能直接追溯到用户的请求。');
@@ -73,6 +75,8 @@ describe('coding guidelines instruction block', () => {
     expect(zh).toContain('宿主文件读取工具');
     expect(zh).toContain('不能是 `""`');
     expect(en).toContain('Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.');
+    expect(en).toContain('## Coding Execution Guidelines');
+    expect(en).not.toContain('## Coding Execution Guidelines (managed by spec-first)');
     expect(en).toContain('### 2. Simplicity First');
     expect(en).toContain('The test: Every changed line should trace directly to the user\'s request.');
     expect(en).toContain('### 5. Tool Parameter Hygiene');
@@ -97,7 +101,7 @@ describe('coding guidelines instruction block', () => {
 
   test('keeps the English managed block aligned with the source rules template', () => {
     const template = fs.readFileSync(RULES_TEMPLATE_PATH, 'utf8').trimEnd()
-      .replace('# CLAUDE.md', '## Coding Execution Guidelines (managed by spec-first)')
+      .replace('# CLAUDE.md', '## Coding Execution Guidelines')
       .replace(/\n## (\d\. )/g, '\n### $1');
     const generated = buildCodingGuidelinesBlock('en')
       .replace(`${CODING_GUIDELINES_START}\n`, '')
@@ -148,7 +152,8 @@ describe('coding guidelines instruction block', () => {
     expect(updated).toContain('# Header');
     expect(updated).toContain('# Tail');
     expect(updated).not.toContain('CUSTOM DRIFT');
-    expect(updated.match(/## Coding Execution Guidelines \(managed by spec-first\)/g)).toHaveLength(1);
+    expect(updated.match(/## Coding Execution Guidelines$/gm)).toHaveLength(1);
+    expect(updated).not.toContain('## Coding Execution Guidelines (managed by spec-first)');
     expect(updated).toContain(CODING_GUIDELINES_END);
   });
 

@@ -1,6 +1,10 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-12 02:36:10 leokuang: fix(init): 移除 managed instruction block 可见标题中的 spec-first 管理后缀，保留隐藏 marker 作为生成边界 (user-visible)
+- v1.8.2 2026-05-12 02:30:38 leokuang: fix(doc-review): 明确 $spec-doc-review 默认多 persona dispatch admission 与 report-only fallback reason codes，禁止因缺少额外 subagent wording 误降级 (user-visible)
+- v1.8.2 2026-05-12 02:28:59 leokuang: docs(plan): 收紧 review pre-facts 计划的 path containment、adapter allowlist、untrusted facts、temp output 与 run-summary 边界 (user-visible)
+- v1.8.2 2026-05-12 02:08:22 leokuang: fix(mcp-setup): 校验 canonical graph facts 的 HEAD 与 worktree hash 新鲜度，避免 stale graph readiness 误推荐 standards (user-visible)
 - v1.8.2 2026-05-12 01:36:58 leokuang: docs(plans): 收口 2026-05-03、2026-05-06 与历史 April active 计划生命周期，补充 cleanup 判定记录 (user-visible)
 - v1.8.2 2026-05-12 01:30:51 leokuang: docs(review): 将全面审查与竞品对标文档顶部状态校准为 P2-008 已完成、近期待开发项清零，仅保留延后和暂缓观察项 (user-visible)
 - v1.8.2 2026-05-12 01:13:11 leokuang: feat(workflows): 实现 P2-008 compound trigger checklist，在 Work、Work Beta 与 Code Review final output 中加入 learning-worthy compound 建议边界和 contract tests (user-visible)

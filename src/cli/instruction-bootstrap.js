@@ -141,11 +141,11 @@ function buildZhBootstrapBody(hostId) {
     ? [
       '- 顶层 Codex orchestrator 在准备进入公开 `$spec-*` workflow 前，可 best-effort 运行 `spec-first startup-reminder --codex` 做只读版本提醒；缺失、失败或无输出都必须忽略，不阻塞路由',
       '- 该提醒只指向 `$spec-update` 由用户自主决策升级；bounded subagents、leaf reviewers、worker agents 不运行该检查，也不写 cooldown 状态',
-      '- Codex 公开 `$spec-*` workflow 入口调用本身即授权该 workflow 文档化的只读 reviewer/researcher subagent phase；`$spec-doc-review` 默认多 persona dispatch，只有用户要求 report-only/no-agents、dispatch primitive 缺失、runtime 无法调用或安全边界不满足时才降级',
+      '- Codex 公开 `$spec-*` workflow 入口调用本身即授权该 workflow 文档化的只读 reviewer/researcher subagent phase；`$spec-doc-review` 默认多 persona dispatch，缺少额外 `use subagents` 不是降级理由，只有用户要求 report-only/no-agents、dispatch primitive 缺失、runtime 无法调用或安全边界不满足时才降级',
     ].join('\n')
     : '';
 
-  return `## Workflow 入口治理（由 spec-first 管理）
+  return `## Workflow 入口治理
 
 - 本 block 是 spec-first workflow 入口提醒；\`using-spec-first\` 是 standalone meta skill，不是 workflow command
 - 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答
@@ -173,11 +173,11 @@ function buildEnBootstrapBody(hostId) {
     ? [
       '- Before a top-level Codex orchestrator enters a public `$spec-*` workflow, it may best-effort run `spec-first startup-reminder --codex` for a read-only version reminder; missing CLI, failure, or empty output must be ignored and must not block routing',
       '- This reminder only points to `$spec-update` for user-decided upgrade work; bounded subagents, leaf reviewers, and worker agents must not run the check or write cooldown state',
-      '- Invoking a Codex public `$spec-*` workflow itself authorizes that workflow\'s documented read-only reviewer/researcher subagent phase; `$spec-doc-review` defaults to multi-persona dispatch and falls back only when the user requests report-only/no-agents, dispatch is missing, runtime calls fail, or safety boundaries are not met',
+      '- Invoking a Codex public `$spec-*` workflow itself authorizes that workflow\'s documented read-only reviewer/researcher subagent phase; `$spec-doc-review` defaults to multi-persona dispatch, missing extra `use subagents` wording is not a fallback reason, and fallback applies only when the user requests report-only/no-agents, dispatch is missing, runtime calls fail, or safety boundaries are not met',
     ].join('\n')
     : '';
 
-  return `## Workflow Entry Governance (managed by spec-first)
+  return `## Workflow Entry Governance
 
 - This block is the spec-first workflow entry reminder; \`using-spec-first\` is a standalone meta skill, not a workflow command
 - Before editing files, running state-changing commands, or making architecture/prompt/workflow decisions, decide whether to enter a public spec-first workflow; lightweight Q&A and narrow factual lookups may be answered directly
@@ -242,10 +242,13 @@ function stripManagedBootstrapSections(content) {
 
 function matchManagedBootstrapSection(lines, startIndex) {
   const heading = lines[startIndex] ? lines[startIndex].trim() : '';
-  if (
-    heading !== '## Workflow 入口治理（由 spec-first 管理）' &&
-    heading !== '## Workflow Entry Governance (managed by spec-first)'
-  ) {
+  const knownHeadings = [
+    '## Workflow 入口治理',
+    '## Workflow 入口治理（由 spec-first 管理）',
+    '## Workflow Entry Governance',
+    '## Workflow Entry Governance (managed by spec-first)',
+  ];
+  if (!knownHeadings.includes(heading)) {
     return -1;
   }
 
@@ -255,12 +258,36 @@ function matchManagedBootstrapSection(lines, startIndex) {
   }
 
   let bulletCount = 0;
+  let managedAnchorCount = 0;
   while (index < lines.length && lines[index].trim().startsWith('- ')) {
+    if (isManagedBootstrapAnchor(lines[index])) {
+      managedAnchorCount += 1;
+    }
     bulletCount += 1;
     index += 1;
   }
 
-  return bulletCount >= 4 ? index : -1;
+  if (isLegacyManagedBootstrapHeading(heading)) {
+    return bulletCount >= 4 ? index : -1;
+  }
+
+  return bulletCount >= 4 && managedAnchorCount >= 2 ? index : -1;
+}
+
+function isLegacyManagedBootstrapHeading(heading) {
+  return heading === '## Workflow 入口治理（由 spec-first 管理）' ||
+    heading === '## Workflow Entry Governance (managed by spec-first)';
+}
+
+function isManagedBootstrapAnchor(line) {
+  return line.includes('using-spec-first') ||
+    line.includes('spec-brainstorm') ||
+    line.includes('Common entry anchors') ||
+    line.includes('常见入口锚点') ||
+    line.includes('spec-write-tasks') ||
+    line.includes('internal-only skills') ||
+    line.includes('workflow entry reminder') ||
+    line.includes('workflow 入口提醒');
 }
 
 function normalizeRemovalResult(content) {

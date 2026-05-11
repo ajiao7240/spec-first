@@ -36,6 +36,8 @@ describe('instruction bootstrap', () => {
     expect(twice).toBe(once);
     expect(twice.indexOf('<!-- spec-first:lang:start -->')).toBeLessThan(twice.indexOf(BOOTSTRAP_START));
     expect(twice.match(/<!-- spec-first:bootstrap:start -->/g)).toHaveLength(1);
+    expect(twice).toContain('## Workflow 入口治理');
+    expect(twice).not.toContain('## Workflow 入口治理（由 spec-first 管理）');
     expect(twice).toContain('Claude workflow 入口使用 `/spec:*`');
     expect(twice).toContain('本 block 是 spec-first workflow 入口提醒');
     expect(twice).toContain('`using-spec-first` 是 standalone meta skill，不是 workflow command');
@@ -68,6 +70,8 @@ describe('instruction bootstrap', () => {
     expect(updated.match(/<!-- spec-first:bootstrap:start -->/g)).toHaveLength(1);
     expect(updated.match(/<!-- spec-first:bootstrap:end -->/g)).toHaveLength(1);
     expect(updated).toContain('## Existing Notes');
+    expect(updated).toContain('## Workflow Entry Governance');
+    expect(updated).not.toContain('## Workflow Entry Governance (managed by spec-first)');
     expect(updated).toContain('Codex workflow entrypoints use `$spec-*`');
     expect(updated).toContain('startup-reminder --codex');
     expect(updated).toContain('must not block routing');
@@ -122,7 +126,9 @@ describe('instruction bootstrap', () => {
     const corrupted = [
       '# Header',
       '',
-      buildBootstrapBlock('claude', 'en').replace(`${BOOTSTRAP_START}\n`, ''),
+      buildBootstrapBlock('claude', 'en')
+        .replace('## Workflow Entry Governance', '## Workflow Entry Governance (managed by spec-first)')
+        .replace(`${BOOTSTRAP_START}\n`, ''),
       '',
       'custom tail',
     ].join('\n');
@@ -192,11 +198,13 @@ describe('instruction bootstrap', () => {
     expect(codexZh).toContain('不阻塞路由');
     expect(codexZh).toContain('bounded subagents、leaf reviewers、worker agents 不运行该检查');
     expect(codexZh).toContain('`$spec-doc-review` 默认多 persona dispatch');
+    expect(codexZh).toContain('缺少额外 `use subagents` 不是降级理由');
     expect(codexZh).toContain('入口调用本身即授权该 workflow 文档化的只读 reviewer/researcher subagent phase');
     expect(codexEn).toContain('top-level Codex orchestrator');
     expect(codexEn).toContain('missing CLI, failure, or empty output must be ignored');
     expect(codexEn).toContain('must not run the check or write cooldown state');
     expect(codexEn).toContain('`$spec-doc-review` defaults to multi-persona dispatch');
+    expect(codexEn).toContain('missing extra `use subagents` wording is not a fallback reason');
     expect(codexEn).toContain('Invoking a Codex public `$spec-*` workflow itself authorizes');
     expect(claudeZh).not.toContain('startup-reminder --codex');
     expect(claudeZh).not.toContain('$spec-update');

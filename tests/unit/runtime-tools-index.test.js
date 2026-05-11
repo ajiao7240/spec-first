@@ -93,6 +93,39 @@ describe('legacy runtime tools instruction cleanup', () => {
     expect(updated).not.toContain('Runtime Code Intelligence Tools');
   });
 
+  test('repairs partial legacy markers when the visible heading is clean', () => {
+    const corrupted = [
+      '# Header',
+      '',
+      RUNTIME_TOOLS_START,
+      '## Runtime Code Intelligence Tools',
+      '',
+      '`spec-mcp-setup` manages the MCP servers and helper tooling.',
+      '',
+      '### Usage Boundaries',
+      '- `GitNexus`: Use for global code knowledge.',
+      '- `code-review-graph`: Use for change-set impact analysis.',
+      '- `Serena MCP`: Use for symbol lookup.',
+      '- `ast-grep`: Use for structural code search.',
+      '',
+      '### Do Not',
+      '- Do not write helper tools into `mcp-tools.json` as MCP servers.',
+      '- Do not duplicate install commands.',
+      '',
+      '<!-- gitnexus:start -->',
+      '# GitNexus — Code Intelligence',
+      '<!-- gitnexus:end -->',
+      '',
+    ].join('\n');
+
+    const updated = removeManagedRuntimeToolsBlock(corrupted);
+
+    expect(updated).toContain('# Header');
+    expect(updated).toContain('<!-- gitnexus:start -->');
+    expect(updated).not.toContain(RUNTIME_TOOLS_START);
+    expect(updated).not.toContain('Runtime Code Intelligence Tools');
+  });
+
   test('leaves instruction files without legacy runtime tools unchanged except newline normalization', () => {
     const content = [
       '# Header',

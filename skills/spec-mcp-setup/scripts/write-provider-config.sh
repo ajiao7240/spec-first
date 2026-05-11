@@ -468,6 +468,14 @@ code_review_graph_command_hash="$(jq -n -S -c \
     status: ["uvx", $code_review_graph_package, "status"],
     query_probe: ["uvx", $code_review_graph_package, "status", "--repo", $repo_root]
   }' | hash_text)"
+current_source_revision="$(git -C "$REPO_ROOT" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true)"
+current_worktree_status="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)"
+if [ -n "$current_worktree_status" ]; then
+  current_worktree_dirty=true
+else
+  current_worktree_dirty=false
+fi
+current_worktree_status_hash="$(printf '%s' "$current_worktree_status" | hash_text)"
 
 graph_facts_exists=false
 provider_status_exists=false
@@ -498,6 +506,9 @@ jq --arg generated_at "$generated_at" \
    --arg code_review_graph_package "$code_review_graph_package" \
    --arg gitnexus_command_hash "$gitnexus_command_hash" \
    --arg code_review_graph_command_hash "$code_review_graph_command_hash" \
+   --arg current_source_revision "$current_source_revision" \
+   --argjson current_worktree_dirty "$current_worktree_dirty" \
+   --arg current_worktree_status_hash "$current_worktree_status_hash" \
    --argjson gitnexus_query_probe_policy "$gitnexus_query_probe_policy" \
    --argjson graph_facts_exists "$graph_facts_exists" \
    --argjson provider_status_exists "$provider_status_exists" \
@@ -509,12 +520,27 @@ jq --arg generated_at "$generated_at" \
   def canonical_graph_artifacts_exist:
     $graph_facts_exists and $provider_status_exists and $impact_capabilities_exists;
 
+  def canonical_graph_source_revision_current:
+    ($canonical_graph_facts.source_revision // "") as $recorded_source_revision
+    | ($current_source_revision != "")
+    and ($recorded_source_revision != "")
+    and ($recorded_source_revision == $current_source_revision);
+
+  def canonical_graph_worktree_current:
+    ($canonical_graph_facts.worktree_status_hash // $canonical_graph_facts.staleness_hints.worktree_status_hash // "") as $recorded_worktree_status_hash
+    | ($recorded_worktree_status_hash != "")
+    and ($current_worktree_status_hash != "")
+    and (($canonical_graph_facts | has("worktree_dirty")) and (($canonical_graph_facts.worktree_dirty == true) == $current_worktree_dirty))
+    and ($recorded_worktree_status_hash == $current_worktree_status_hash);
+
   def canonical_graph_artifacts_current:
     canonical_graph_artifacts_exist
     and ($canonical_graph_facts.schema_version == "graph-facts.v1")
     and ($canonical_provider_status.schema_version == "graph-provider-status.v1")
     and ($canonical_impact_capabilities.schema_version == "bootstrap-impact-capabilities.v1")
-    and (($canonical_graph_facts.repo_root // $repo_root) == $repo_root);
+    and (($canonical_graph_facts.repo_root // $repo_root) == $repo_root)
+    and canonical_graph_source_revision_current
+    and canonical_graph_worktree_current;
 
   def canonical_provider_status($key):
     [($canonical_provider_status.providers // [])[] | select(.provider == $key)][0] // null;
@@ -679,6 +705,9 @@ jq --arg generated_at "$generated_at" \
     )' "$FACTS_FILE" > "$PROJECTION_TMP"
 
 jq --arg generated_at "$generated_at" \
+   --arg current_source_revision "$current_source_revision" \
+   --argjson current_worktree_dirty "$current_worktree_dirty" \
+   --arg current_worktree_status_hash "$current_worktree_status_hash" \
    --argjson existing "$existing_runtime" \
    --argjson graph_facts_exists "$graph_facts_exists" \
    --argjson provider_status_exists "$provider_status_exists" \
@@ -698,12 +727,27 @@ jq --arg generated_at "$generated_at" \
   def canonical_graph_artifacts_exist:
     $graph_facts_exists and $provider_status_exists and $impact_capabilities_exists;
 
+  def canonical_graph_source_revision_current:
+    ($canonical_graph_facts.source_revision // "") as $recorded_source_revision
+    | ($current_source_revision != "")
+    and ($recorded_source_revision != "")
+    and ($recorded_source_revision == $current_source_revision);
+
+  def canonical_graph_worktree_current:
+    ($canonical_graph_facts.worktree_status_hash // $canonical_graph_facts.staleness_hints.worktree_status_hash // "") as $recorded_worktree_status_hash
+    | ($recorded_worktree_status_hash != "")
+    and ($current_worktree_status_hash != "")
+    and (($canonical_graph_facts | has("worktree_dirty")) and (($canonical_graph_facts.worktree_dirty == true) == $current_worktree_dirty))
+    and ($recorded_worktree_status_hash == $current_worktree_status_hash);
+
   def canonical_graph_artifacts_current:
     canonical_graph_artifacts_exist
     and ($canonical_graph_facts.schema_version == "graph-facts.v1")
     and ($canonical_provider_status.schema_version == "graph-provider-status.v1")
     and ($canonical_impact_capabilities.schema_version == "bootstrap-impact-capabilities.v1")
-    and (($canonical_graph_facts.repo_root // .repo_root) == .repo_root);
+    and (($canonical_graph_facts.repo_root // .repo_root) == .repo_root)
+    and canonical_graph_source_revision_current
+    and canonical_graph_worktree_current;
 
   (.tools.serena // {}) as $serena
   | (.helper_tools."ast-grep" // {}) as $ast_grep

@@ -112,16 +112,24 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('authorizes this documented persona-reviewer phase; do not ask for a second "use subagents" confirmation');
     expect(skill).toContain('Default doc-review posture is multi-persona reviewer dispatch.');
     expect(skill).toContain('Do not interpret the absence of extra "use subagents" wording as report-only fallback');
+    expect(skill).toContain('`mode:headless` is not a dispatch-disabling flag');
     expect(skill).toContain('Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex.');
+    expect(skill).toContain('Never state or imply that fallback happened because the user did not additionally request subagents');
     expect(skill).toContain('user explicitly requests report-only/no-agents mode');
     expect(skill).toContain('set `single_agent_report_only_fallback: true`');
     expect(skill).toContain('Treat the effective mode as report-only');
     expect(skill).toContain('Do not apply `safe_auto` fixes, append Open Questions, or edit the document.');
-    expect(skill).toContain('single-agent report-only fallback: reviewer dispatch unavailable, explicitly disabled, or unsafe');
+    expect(skill).toContain('include at least one concrete reason code');
+    expect(skill).toContain('user_requested_report_only');
+    expect(skill).toContain('user_requested_no_agents');
+    expect(skill).toContain('dispatch_unavailable');
+    expect(skill).toContain('runtime_dispatch_failed');
+    expect(skill).toContain('safety_boundary_not_met');
     expect(skill).toContain('Dispatch agents using **bounded parallelism**');
     expect(skill).toContain('active-agent/thread/concurrency-limit spawn errors as backpressure');
     expect(skill).not.toContain('Dispatch all agents in **parallel**');
     expect(skill).not.toContain('explicit user authorization');
+    expect(skill).not.toContain('because the user did not ask for subagents');
   });
 
   test('doc review treats Summary as a framing-level section for chain roots', () => {

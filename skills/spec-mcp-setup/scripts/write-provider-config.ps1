@@ -161,6 +161,18 @@ function Invoke-GitConfigValue {
   return ''
 }
 
+function Get-GitPorcelainStatusText {
+  param([string]$RepoRoot)
+  try {
+    $output = @(git -C $RepoRoot status --porcelain 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $null -ne $output) {
+      return ($output -join "`n")
+    }
+  } catch {
+  }
+  return ''
+}
+
 function Get-GitRemoteUrl {
   param([string]$RepoRoot)
   if ($null -eq (Get-Command git -ErrorAction SilentlyContinue)) {
@@ -666,6 +678,10 @@ if ([string]::IsNullOrWhiteSpace($codeReviewGraphPackage) -or [string]::IsNullOr
 $codeReviewGraphPackageSpec = "$codeReviewGraphPackage@$codeReviewGraphVersion"
 $gitNexusQueryProbePolicy = Get-GitNexusQueryProbePolicy -RepoRoot $repoRoot
 $gitNexusRepoName = Get-GitNexusRepoName -RepoRoot $repoRoot -Facts $facts
+$currentSourceRevision = Invoke-GitConfigValue -RepoRoot $repoRoot -GitArguments @('rev-parse', '--verify', 'HEAD^{commit}')
+$currentWorktreeStatus = Get-GitPorcelainStatusText -RepoRoot $repoRoot
+$currentWorktreeDirty = -not [string]::IsNullOrWhiteSpace($currentWorktreeStatus)
+$currentWorktreeStatusHash = Get-StatusHash -Text $currentWorktreeStatus
 $graphFactsPath = Join-Path $repoRoot '.spec-first/graph/graph-facts.json'
 $providerStatusPath = Join-Path $repoRoot '.spec-first/graph/provider-status.json'
 $impactCapabilitiesPath = Join-Path $repoRoot '.spec-first/impact/bootstrap-impact-capabilities.json'
@@ -678,7 +694,38 @@ $canonicalGraphFacts = Read-CanonicalJson -Path $graphFactsPath -SchemaVersion '
 $canonicalProviderStatus = Read-CanonicalJson -Path $providerStatusPath -SchemaVersion 'graph-provider-status.v1'
 $canonicalImpactCapabilities = Read-CanonicalJson -Path $impactCapabilitiesPath -SchemaVersion 'bootstrap-impact-capabilities.v1'
 $canonicalGraphFactsRepoRoot = if ($null -ne $canonicalGraphFacts -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'repo_root') { $canonicalGraphFacts.repo_root } else { $repoRoot }
-$canonicalArtifactsCurrent = $canonicalArtifactsAvailable -and $null -ne $canonicalGraphFacts -and $null -ne $canonicalProviderStatus -and $null -ne $canonicalImpactCapabilities -and $canonicalGraphFactsRepoRoot -eq $repoRoot
+$canonicalGraphFactsSourceRevision = if ($null -ne $canonicalGraphFacts -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'source_revision') { [string]$canonicalGraphFacts.source_revision } else { '' }
+$canonicalGraphFactsWorktreeHash = ''
+if ($null -ne $canonicalGraphFacts) {
+  if ($canonicalGraphFacts.PSObject.Properties.Name -contains 'worktree_status_hash') {
+    $canonicalGraphFactsWorktreeHash = [string]$canonicalGraphFacts.worktree_status_hash
+  } elseif (
+    ($canonicalGraphFacts.PSObject.Properties.Name -contains 'staleness_hints') -and
+    $null -ne $canonicalGraphFacts.staleness_hints -and
+    ($canonicalGraphFacts.staleness_hints.PSObject.Properties.Name -contains 'worktree_status_hash')
+  ) {
+    $canonicalGraphFactsWorktreeHash = [string]$canonicalGraphFacts.staleness_hints.worktree_status_hash
+  }
+}
+$canonicalGraphFactsWorktreeDirtyPresent = $false
+$canonicalGraphFactsWorktreeDirty = $false
+if ($null -ne $canonicalGraphFacts -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'worktree_dirty') {
+  $canonicalGraphFactsWorktreeDirtyPresent = $true
+  $canonicalGraphFactsWorktreeDirty = [bool]$canonicalGraphFacts.worktree_dirty
+}
+$canonicalGraphSourceRevisionCurrent = (
+  -not [string]::IsNullOrWhiteSpace($currentSourceRevision) -and
+  -not [string]::IsNullOrWhiteSpace($canonicalGraphFactsSourceRevision) -and
+  $canonicalGraphFactsSourceRevision -eq $currentSourceRevision
+)
+$canonicalGraphWorktreeCurrent = (
+  -not [string]::IsNullOrWhiteSpace($currentWorktreeStatusHash) -and
+  -not [string]::IsNullOrWhiteSpace($canonicalGraphFactsWorktreeHash) -and
+  $canonicalGraphFactsWorktreeDirtyPresent -and
+  $canonicalGraphFactsWorktreeDirty -eq $currentWorktreeDirty -and
+  $canonicalGraphFactsWorktreeHash -eq $currentWorktreeStatusHash
+)
+$canonicalArtifactsCurrent = $canonicalArtifactsAvailable -and $null -ne $canonicalGraphFacts -and $null -ne $canonicalProviderStatus -and $null -ne $canonicalImpactCapabilities -and $canonicalGraphFactsRepoRoot -eq $repoRoot -and $canonicalGraphSourceRevisionCurrent -and $canonicalGraphWorktreeCurrent
 $canonicalWorkflowMode = if ($canonicalArtifactsCurrent -and $canonicalProviderStatus.PSObject.Properties.Name -contains 'workflow_mode') {
   $canonicalProviderStatus.workflow_mode
 } elseif ($canonicalArtifactsCurrent -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'workflow_mode') {

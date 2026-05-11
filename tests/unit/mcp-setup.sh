@@ -1350,6 +1350,25 @@ GRAPH_FACTS="$FAKE_REPO/.spec-first/graph/graph-facts.json"
 PROVIDER_STATUS="$FAKE_REPO/.spec-first/graph/provider-status.json"
 graph_facts_backup="$(cat "$GRAPH_FACTS")"
 provider_status_backup="$(cat "$PROVIDER_STATUS")"
+jq '.source_revision = "0000000000000000000000000000000000000000"' "$GRAPH_FACTS" > "$GRAPH_FACTS.tmp"
+mv "$GRAPH_FACTS.tmp" "$GRAPH_FACTS"
+verify_after_stale_source_revision="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
+assert_contains "stale graph source revision requires graph bootstrap" "Graph providers are configured but not query-ready yet." "$verify_after_stale_source_revision"
+assert_eq "stale graph source revision resets provider readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers["code-review-graph"].query_ready == false)' "$PROVIDER_CONFIG")"
+assert_eq "stale graph source revision resets runtime summary" "not-bootstrapped:true" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required)"' "$RUNTIME_CAPABILITIES")"
+printf '%s\n' "$graph_facts_backup" > "$GRAPH_FACTS"
+
+jq '.worktree_status_hash = "sha256:stale" | .staleness_hints.worktree_status_hash = "sha256:stale"' "$GRAPH_FACTS" > "$GRAPH_FACTS.tmp"
+mv "$GRAPH_FACTS.tmp" "$GRAPH_FACTS"
+verify_after_stale_worktree_hash="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
+assert_contains "stale graph worktree hash requires graph bootstrap" "Graph providers are configured but not query-ready yet." "$verify_after_stale_worktree_hash"
+assert_eq "stale graph worktree hash resets provider readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers["code-review-graph"].query_ready == false)' "$PROVIDER_CONFIG")"
+assert_eq "stale graph worktree hash resets runtime summary" "not-bootstrapped:true" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required)"' "$RUNTIME_CAPABILITIES")"
+printf '%s\n' "$graph_facts_backup" > "$GRAPH_FACTS"
+verify_after_restored_freshness="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
+assert_contains "restored graph freshness projects query ready" "Graph providers are query-ready." "$verify_after_restored_freshness"
+assert_eq "restored graph freshness restores runtime summary" "primary:false:spec-mcp-setup" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required):\(.updated_by)"' "$RUNTIME_CAPABILITIES")"
+
 jq '
   .providers = (.providers | map(
     if .provider == "code-review-graph" then
