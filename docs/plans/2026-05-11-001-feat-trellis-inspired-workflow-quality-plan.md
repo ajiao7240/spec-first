@@ -1,12 +1,16 @@
 ---
 title: "feat: 吸收 Trellis、pro-workflow 与 Matt Pocock skills 启发的 workflow 质量提升"
 type: feat
-status: active
+status: completed
 date: 2026-05-11
 spec_id: 2026-05-11-001-external-workflow-quality
 ---
 
 # feat: 吸收 Trellis、pro-workflow 与 Matt Pocock skills 启发的 workflow 质量提升
+
+## 状态说明
+
+本文件已完成上游研究、对标分析、反向审查、业界最佳实践复审和 clean-room 证据整理。后续开发以 `docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrade-plan.md` 为执行基准；本文件保留为 provenance、设计依据和外部对标证据来源。
 
 ## 摘要
 

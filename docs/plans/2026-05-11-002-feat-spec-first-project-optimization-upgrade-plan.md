@@ -156,6 +156,50 @@ spec-first 已经具备双宿主 runtime generation、public workflow skills、t
 
 ---
 
+## 过度设计防线与 Phase 1 MVP
+
+本计划作为长期升级路线图是合理的，但不能作为一次 PR 或第一轮开发的完整执行范围。第一轮必须先证明 task handoff、execution evidence 和 token economy 三件事确实变好；未证明前，不扩大到全量 public workflow、release blocking guard 或完整 knowledge replay。
+
+### Phase 1 MVP 范围
+
+第一轮只做下面 7 件事：
+
+1. `spec-work` task-pack mode 必须回查 source plan 聚焦片段。
+2. `spec-write-tasks` 明确 `context_refs` 粒度要求，避免默认整份 plan 或全目录。
+3. `spec-work` 增加 evidence / not-run / degraded / deferred 收尾 contract。
+4. `spec-standards` 增加最小 `next_action_candidates` 设计，不做复杂 router。
+5. 只给核心链路补 contract summary：`using-spec-first`、`spec-plan`、`spec-write-tasks`、`spec-work`、`spec-standards`。`spec-doc-review`、`spec-code-review`、`spec-skill-audit` 只在测试或入口联动需要时做最小触达。
+6. U12 只落 intake order 和 progressive disclosure guidance，不做 token 计量平台。
+7. 更新 `CHANGELOG.md`，补 targeted contract tests，记录 runtime impact 和 fresh-source eval/not-run reason。
+
+### Phase 1 暂缓项
+
+以下内容保留在路线图中，但不得进入第一轮 MVP，除非先更新本计划并说明新的 consumer：
+
+- 全 public workflow summary 覆盖。
+- 完整 durable run artifact producer。
+- 复杂 `next_action_candidates` schema、排序或自动路由。
+- release blocking guard。
+- rejected/out-of-scope replay 扩展。
+- 全量 reviewer dispatch 重构。
+- 所有 skill 的 token economy 改造。
+- 新 agent profile 或 implement/check 双 agent lifecycle。
+
+### 过度设计红线
+
+如果 implementation PR 出现以下信号，应停下来回到 plan/doc-review，而不是继续扩大：
+
+- 一个 PR 修改 15 个以上 skill。
+- 新增 schema 或 artifact 但没有明确 consumer。
+- Contract summary 模板化变长，却没有改变执行者的判断路径。
+- Tests 只检查关键词存在，没有覆盖真实 workflow 风险。
+- `spec-work` evidence 开始记录 current progress、approval state 或 next active task。
+- `spec-standards` script 开始替 LLM 选择最终 workflow。
+- Reviewer dispatch 对低风险 docs-only 改动仍默认多 persona。
+- Token economy 变成硬 token 预算、自动压缩引擎或成本评分系统。
+
+---
+
 ## 假设
 
 - A1. 当前计划只规划 spec-first 自身升级，不在本轮实现代码。
@@ -295,6 +339,8 @@ flowchart LR
 **对应需求：** R1, R2, R17
 
 **依赖：** 无
+
+**Phase 1 MVP 范围：** 第一轮只覆盖核心执行链路：`using-spec-first`、`spec-plan`、`spec-write-tasks`、`spec-work`、`spec-standards`。`spec-doc-review`、`spec-code-review`、`spec-skill-audit` 只在测试、入口联动或 closeout 需要时做最小触达。全 public workflow 覆盖保留为后续批次。
 
 **文件：**
 - 修改: `skills/using-spec-first/SKILL.md`
@@ -768,7 +814,7 @@ flowchart LR
 
 包含：
 
-- U1
+- U1-core
 - U2
 - U3
 - U4-minimal
@@ -777,7 +823,7 @@ flowchart LR
 
 交付目标：
 
-- Public workflow contract summary 覆盖 public workflow inventory。
+- 核心执行链路 contract summary 覆盖，且不产生模板化 prose churn。
 - Task-pack execution 必须回查 source plan 聚焦片段。
 - `spec-work` durable evidence 触发条件明确。
 - `spec-standards` 产出最小 `next_action_candidates`。
@@ -865,7 +911,7 @@ Docs-only 当前计划验证：
 
 ## 开发入口建议
 
-推荐下一步不是直接全量执行 U1-U12，而是：
+推荐下一步不是直接全量执行 U1-U12，也不是直接全量覆盖所有 public workflow，而是：
 
 ```bash
 $spec-work docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrade-plan.md
@@ -874,7 +920,7 @@ $spec-work docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrad
 进入后明确执行：
 
 ```text
-只执行阶段 1：U1、U2、U3、U4-minimal、U12-minimal，并应用 U11 closeout checklist。
+只执行阶段 1 MVP：U1-core、U2、U3、U4-minimal、U12-minimal，并应用 U11 closeout checklist。
 ```
 
 如果执行者判断阶段 1 仍过大，应先运行 standalone `spec-write-tasks` 生成 derived task pack，再从 task pack 进入 `$spec-work`。

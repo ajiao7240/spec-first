@@ -1,9 +1,18 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.1 2026-05-11 14:05:00 leokuang: feat(git-npm-skill): 按 2026-05-11-004 plan 对外部用户级 skill ~/.claude/skills/git-npm/ 执行 U1–U8 实施（publish.sh 从 4 步扩展为 7 步含 R19 preflight / Step 4.5 bump-commit / Step 5 tag 幂等冲突分叉 / Step 6 facts 持久化+pending marker；新增 prompts/release-notes.md LLM 契约；SKILL.md 扩充 Phase 2 handoff / Failure Modes F1–F8 / Rollout Checklist / Important guardrails，保留所有 1.5.3/1.5.4 lessons；bash 语法通过，target repo 非 git 仓库故无分支/commit 流程）(user-visible)
+- v1.8.1 2026-05-11 13:54:21 leokuang: docs(plan): 新增 P2-007 release/package evidence v1 实施计划，收敛 package content manifest、tarball-installed init dry-run evidence 与 release artifact summary 的最小交付边界 (user-visible)
+- v1.8.1 2026-05-11 13:45:00 leokuang: docs(plan): 按 spec-doc-review 第 1 轮 Auto-resolve 修订 2026-05-11-004 git-npm plan，新增 R21/R22、U8 Step 4.5 bump-commit 解决 release snapshot commit ↔ tarball 漂移（P0）、修正 Step 5 tag 冲突语义（warn 不 exit）、git describe 算法、CHANGELOG 两段式抽取、SKIP_NOTES 入口初始化、Phase 2 pending marker + 跨会话触发、6-header 中英双语校验、U7 两步 smoke（throwaway→spec-first）及其余 P1 细节 (user-visible)
 - v1.8.1 2026-05-11 13:07:35 leokuang: feat(quality-gates): 新增 AI dev benchmark fixture suite v1、advisory gate 聚合与 deterministic result artifact，支撑 P2-003 v1 foundation (user-visible)
+- v1.8.1 2026-05-11 13:00:00 leokuang: docs(plan): 新增 2026-05-11-004 git-npm 发布后版本报告实施计划，收敛两阶段交接（publish.sh 6 步确定性流水线 + 宿主 Agent LLM Phase 2）、7 个实施单元、AE1–AE10 测试映射与 8 项 planning-time 决策 (user-visible)
+- v1.8.1 2026-05-11 12:40:00 leokuang: docs(brainstorms): 按 spec-doc-review Auto-resolve 整合 12 条 finding 修订 2026-05-11-001 git-npm 需求文档，新增 R17–R20（同名 tag 幂等/tag 创建失败降级/tarball 排除 preflight/LLM 质量灰区）、F1 preconditions、AE7–AE10，扩充 Key Decisions、Dependencies/Assumptions 与 Scope Boundaries，收敛 Outstanding Questions (user-visible)
+- v1.8.1 2026-05-11 12:25:30 leokuang: docs(plan): 为 spec-first 当前项目优化升级方案增加过度设计防线，收窄 Phase 1 MVP 范围并明确暂缓项 (user-visible)
 - v1.8.1 2026-05-11 12:21:01 leokuang: docs(plan): 收紧 P2-003 benchmark fixture 计划的过度设计防线，明确 v1 minimum foundation、延后 quality feedback 平台化和语义评分能力 (user-visible)
+- v1.8.1 2026-05-11 12:08:58 leokuang: docs(plan): 将三源对标 workflow 质量方案标记为上游研究已完成，并指向当前项目优化升级计划作为开发基准 (user-visible)
 - v1.8.1 2026-05-11 12:05:35 leokuang: docs(plan): 按 spec-doc-review 结果修订 P2-003 benchmark fixture 计划，收紧 v1 foundation、advisory gate、result schema、CI 与 README 可见性边界 (user-visible)
+- v1.8.1 2026-05-11 11:52:00 leokuang: docs(brainstorms): 在 2026-05-11-001 git-npm 需求文档中新增 tag 强制创建要求 (R14–R16)、AE5/AE6、相关 Key Decisions 与 Outstanding Questions (user-visible)
+- v1.8.1 2026-05-11 11:50:36 leokuang: docs(brainstorms): 新增 2026-05-11-001 git-npm 发布后生成面向用户版本报告的需求文档，收敛触发时机、生成策略、硬约定路径和失败降级 (user-visible)
 - v1.8.1 2026-05-11 11:49:58 leokuang: docs(plan): 新增 P2-003 AI dev benchmark fixture suite v1 计划，收敛 3 个 fixture、advisory gate 与脚本/LLM 边界 (user-visible)
 - v1.8.1 2026-05-11 11:48:36 leokuang: docs(review): 回写 P2-009 planned runtime contract catalog 可见性为已修复状态，并记录验证与 producer 边界 (user-visible)
 - v1.8.1 2026-05-11 10:58:24 leokuang: docs(catalog): 在 runtime capability catalog 中派生 planned workflow artifact contracts，明确 spec-work run artifact 仍未实现 producer (user-visible)
