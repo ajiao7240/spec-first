@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-12 03:39:16 leokuang: docs(plan): 补强 review pre-facts 计划的 executable query plan、doc-review baseline 与 provider output size limits (user-visible)
+- v1.8.2 2026-05-12 03:19:41 leokuang: docs(plan): 收敛 review pre-facts 计划的 live MCP normalization、code-review gate、report-only artifact 与 fresh-source eval 边界 (user-visible)
 - v1.8.2 2026-05-12 03:01:58 leokuang: fix(init): 收紧 managed instruction corrupted-marker 兜底清理条件，避免误删同名用户段落 (user-visible)
 - v1.8.2 2026-05-12 02:36:10 leokuang: fix(init): 移除 managed instruction block 可见标题中的 spec-first 管理后缀，保留隐藏 marker 作为生成边界 (user-visible)
 - v1.8.2 2026-05-12 02:30:38 leokuang: fix(doc-review): 明确 $spec-doc-review 默认多 persona dispatch admission 与 report-only fallback reason codes，禁止因缺少额外 subagent wording 误降级 (user-visible)
