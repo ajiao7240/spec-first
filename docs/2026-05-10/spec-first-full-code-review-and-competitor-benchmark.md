@@ -10,7 +10,7 @@
 审查范围：`package.json`、`bin/`、`src/cli/`、`skills/`、`agents/`、`scripts/`、`templates/`、`docs/`、`tests/`、`.spec-first/graph` 现有事实产物、generated runtime 目录边界、GitHub 同类项目。
 审查方法：直接读取源码、skill/agent/script/test 文档与产物；运行 skill-audit deterministic inventory；抽样 CLI help、doctor/init/task-pack/provider readiness 代码；读取 GitNexus / code-review-graph readiness artifacts；用 GitHub README/release/项目页面调研竞品。
 
-2026-05-11 状态校准：当前 HEAD 已吸收 release/package hardening 与二次 code review 收尾改动，原始草稿中部分 P1 不再成立。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”，并按 `5907e6ad` 的最新实现校准 release gate 顺序。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4，已完成/移出 P1=1。
+2026-05-11 状态校准：当前 HEAD 已吸收 release/package hardening 与二次 code review 收尾改动，原始草稿中部分 P1 不再成立。本文后续按当前代码口径交付：`P1-008` 降为 `P2-009`，`P1-009` 改为已完成校准项，`P1-006` 从“官网同步测试缺失”改写为“主仓缺跨 repo release gate”，并按 `5907e6ad` 的最新实现校准 release gate 顺序。`P2-009` 已在 `97479ee2` 修复并完成本报告回写。因此本报告当前计数为：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9（已修复 1，剩余待修 8），P3=4，已完成/移出 P1=1。
 
 ## 总体结论
 
@@ -300,14 +300,17 @@ compound
 
 ## [P2-009] `spec-work` planned run artifact catalog 可见性不足
 
+- 状态：已修复（2026-05-11，`97479ee2`）。
+- 修复内容：扩展 `scripts/generate-runtime-capability-catalog.js`，从 `docs/contracts/workflows/*.schema.json` 的 `x-spec-first-*` metadata 派生 planned runtime contracts；重新生成 `docs/catalog/runtime-capabilities.md`，新增 `Planned Runtime Contracts` 区块，明确 `spec-work` run artifact schema 仍是 docs-side `planned / unimplemented` contract，当前 runtime 不写 `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json`；扩展 `tests/unit/runtime-capability-catalog.test.js`，锁定 catalog 不声称 runtime producer 已存在。
+- 验证状态：已通过 `npm run docs:runtime-catalog`、`npx jest tests/unit/runtime-capability-catalog.test.js tests/unit/spec-work-contracts.test.js tests/unit/spec-work-run-artifact-contract.test.js tests/unit/changelog-format.test.js --runInBand`、`node --check scripts/generate-runtime-capability-catalog.js`、`git diff --check`、`git diff --cached --check`、`npm run typecheck`。
 - 问题类型：artifact truth / workflow evidence
 - 涉及文件：`skills/spec-work/SKILL.md`、`docs/contracts/workflows/spec-work-run-artifact.schema.json`
 - 代码证据：`skills/spec-work/SKILL.md` 已有 `Run Artifact Boundary`，明确当前 workflow source 不写 `.spec-first/workflows/spec-work/<slug>/<run-id>/run.json`；`docs/contracts/workflows/spec-work-run-artifact.schema.json` 已标 `x-spec-first-contract-status: planned` 与 `x-spec-first-producer: unimplemented`，并有 `tests/unit/spec-work-contracts.test.js` 覆盖。
-- 当前行为：误读风险已被 skill、schema 与测试显著降低；剩余问题是 runtime capability catalog 中没有 planned contracts 速查入口。
-- 期望行为：planned schema 与 runtime producer 状态在 catalog 中有集中 `planned|implemented` 标识。
-- 影响：外部集成者仍可能只读 catalog 时漏掉 planned/unimplemented 边界。
+- 当前行为：误读风险已被 skill、schema、runtime capability catalog 与测试覆盖；catalog 已集中展示 planned schema、producer 状态、planned runtime path 和 docs-side boundary。
+- 期望行为：planned schema 与 runtime producer 状态在 catalog 中有集中 `planned|implemented` 标识。当前已满足 planned/unimplemented 可见性；runtime producer 仍不在本项范围内。
+- 影响：已收敛为低；外部集成者只读 catalog 时也能看到 planned/unimplemented 边界。
 - 根因：contract 设计先行，producer 尚未落地；catalog 尚未列出 planned docs-side contracts。
-- 修复建议：runtime capability catalog 增加 planned contracts section；若近期不实现，再考虑把 schema 移到 `docs/contracts/planned/`。
+- 修复建议：已完成 catalog planned contracts section；不要在没有明确 downstream consumer 前实现 `run.json` producer。
 - 验证方式：catalog test 确认 planned schema 不被 `doctor` 或 downstream 当 runtime truth。
 
 ## [已完成校准项] Windows/PowerShell install matrix 已在当前 HEAD 固化
@@ -680,7 +683,7 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 ## P0: 稳定主流程
 
-当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复；短期没有剩余 P1，后续应按 P2 顺序推进 planned contract catalog、benchmark/release evidence 与轻量 goal envelope。
+当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复，`P2-009` planned contract catalog 可见性已完成；短期没有剩余 P1，后续应按 P2 顺序推进 benchmark/release evidence 与轻量 goal envelope。
 
 ## P1: 强化审查与验证
 
