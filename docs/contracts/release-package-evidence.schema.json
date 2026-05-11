@@ -46,12 +46,12 @@
         "release_artifact_summary"
       ],
       "properties": {
-        "summary": { "type": "string" },
-        "pack_output": { "type": "string" },
-        "package_content_manifest": { "type": "string" },
-        "init_claude_dry_run_log": { "type": "string" },
-        "init_codex_dry_run_log": { "type": "string" },
-        "release_artifact_summary": { "type": "string" }
+        "summary": { "type": "string", "const": "summary.json" },
+        "pack_output": { "type": "string", "const": "pack-output.log" },
+        "package_content_manifest": { "type": "string", "const": "package-content-manifest.json" },
+        "init_claude_dry_run_log": { "type": "string", "const": "init-claude-dry-run.log" },
+        "init_codex_dry_run_log": { "type": "string", "const": "init-codex-dry-run.log" },
+        "release_artifact_summary": { "type": "string", "const": "release-artifact-summary.json" }
       },
       "additionalProperties": false
     },

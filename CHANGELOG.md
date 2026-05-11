@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.1 2026-05-11 14:45:00 leokuang: fix(release): 修正 release-package-evidence schema 字段结构
 - v1.8.1 2026-05-11 14:40:00 leokuang: test(release): 为 P2-007 release package evidence 补充单测与 CI workflow 更新
 - v1.8.1 2026-05-11 14:35:00 leokuang: feat(release): 实现 P2-007 release/package evidence，新增 package content manifest 生成、tarball-installed init dry-run 验证与 release artifact summary schema (user-visible)
 - v1.8.1 2026-05-11 14:30:00 leokuang: fix(release): 给 pnpm publish 加 --no-git-checks，避免版本 bump 后工作区变脏导致 pnpm git-checks 拦截发布
