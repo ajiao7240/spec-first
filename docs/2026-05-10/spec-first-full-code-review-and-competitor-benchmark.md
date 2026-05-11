@@ -377,7 +377,7 @@ compound
 - 状态：v1 fixed（2026-05-11）。已在现有 npm install matrix smoke 上追加 package content manifest、tarball-installed `init --claude --dry-run` / `init --codex --dry-run` evidence，以及 release reviewer 可消费的 `release-artifact-summary.json`。
 - 当前行为：`scripts/npm-install-matrix-smoke.js` 在 `SPEC_FIRST_SMOKE_ARTIFACT_DIR` 存在时写入 `package-content-manifest.json`、`init-claude-dry-run.log`、`init-codex-dry-run.log`、`release-artifact-summary.json`、`summary.json` 和 `pack-output.log`；GitHub Actions 继续上传 `.spec-first/ci/npm-install-matrix/`，没有新增第二套 release telemetry 或扩大 OS/Node/shell matrix。
 - 能力边界：v1 只产出 deterministic release evidence，证明发布包内容和安装后 dry-run 行为；不提供 dashboard/history store/GitHub Release automation，也不替维护者或 LLM reviewer 判断是否应该发布。
-- 验证状态：已通过 `node --check scripts/npm-install-matrix-smoke.js`、`npx jest tests/unit/npm-install-matrix-smoke.test.js --runInBand`；最终收口仍需运行 `npm run test:release:install`、`npm run docs:runtime-catalog`、`npx jest tests/unit/runtime-capability-catalog.test.js tests/unit/changelog-format.test.js --runInBand`、`git diff --check`。
+- 验证状态：已通过 `node --check scripts/npm-install-matrix-smoke.js`、`node --check scripts/generate-runtime-capability-catalog.js`、`npx jest tests/unit/npm-install-matrix-smoke.test.js tests/unit/runtime-capability-catalog.test.js tests/unit/changelog-format.test.js --runInBand`、`npm run test:release:install`、`SPEC_FIRST_SMOKE_ARTIFACT_DIR=<tmp> node scripts/npm-install-matrix-smoke.js`、`npm run test:release`、`npm run docs:runtime-catalog`、`npm run build`、`npm run typecheck`、`git diff --check`。
 
 ## [P2-008] session/knowledge 闭环需要更明确“何时 compound”
 
