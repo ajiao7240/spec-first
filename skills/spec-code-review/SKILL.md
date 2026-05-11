@@ -749,11 +749,16 @@ Assemble the final report using **pipe-delimited markdown tables for findings** 
 5. **Residual Actionable Work.** Include when unresolved actionable findings were handed off or should be handed off.
 6. **Pre-existing.** Separate section, does not count toward verdict.
 7. **Learnings & Past Solutions.** Surface spec-learnings-researcher results: if past solutions are relevant, flag them as "Known Pattern" with links to docs/solutions/ files.
-8. **Agent-Native Gaps.** Surface spec-agent-native-reviewer results. Omit section if no gaps found.
-9. **Schema Drift Check.** If spec-schema-drift-detector ran, summarize whether drift was found. If drift exists, list the unrelated schema objects and the required cleanup command. If clean, say so briefly.
-10. **Deployment Notes.** If spec-deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage.
-11. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, and any intent uncertainty carried by non-interactive modes.
-12. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
+8. **Learning Capture Recommendation.** Decide whether the current review produced a new reusable lesson worth capturing. This recommendation is advisory only: it is not a finding, not residual actionable work, not a verdict input, not an autofix item, and not a merge gate. Use the same three-tier judgment as Work/Debug:
+   - **Skip silently** for mechanical fixes, one-off docs edits, formatting-only changes, or review results with no generalizable lesson. If the lesson cannot be stated in one sentence, skip rather than offer.
+   - **Offer neutrally** when the lesson can be stated in one sentence, such as a repeated finding pattern, reusable review heuristic, source/runtime or host-entrypoint boundary lesson, provider evidence limitation, or known pattern future reviews should remember.
+   - **Lean into the offer** when the pattern appears in 3+ places or reveals a wrong assumption about a shared dependency, framework, workflow, source/runtime boundary, or provider-evidence convention.
+   When offering, phrase it as the user's choice to run the current host's compound entrypoint with brief context. In report-only, autofix, and headless modes, ask no questions; include at most one advisory line when learning-worthy evidence exists. Do not automatically run `spec-compound`, do not write `docs/solutions/`, do not file tickets, and do not add extra prompts because of this checklist. If an older learning appears stale, recommend `spec-compound-refresh` only with a narrow scope hint and only after the new learning-capture path is clear.
+9. **Agent-Native Gaps.** Surface spec-agent-native-reviewer results. Omit section if no gaps found.
+10. **Schema Drift Check.** If spec-schema-drift-detector ran, summarize whether drift was found. If drift exists, list the unrelated schema objects and the required cleanup command. If clean, say so briefly.
+11. **Deployment Notes.** If spec-deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage.
+12. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, and any intent uncertainty carried by non-interactive modes.
+13. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
 
 Do not include time estimates.
 
@@ -802,6 +807,9 @@ Residual risks:
 
 Learnings & Past Solutions:
 - <learning>
+
+Learning Capture Recommendation:
+- <advisory recommendation, only when this review produced a reusable new lesson>
 
 Agent-Native Gaps:
 - <gap description>

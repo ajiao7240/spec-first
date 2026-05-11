@@ -1,6 +1,12 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-12 01:13:11 leokuang: feat(workflows): 实现 P2-008 compound trigger checklist，在 Work、Work Beta 与 Code Review final output 中加入 learning-worthy compound 建议边界和 contract tests (user-visible)
+- v1.8.2 2026-05-12 01:09:45 leokuang: docs(plan): 明确 review pre-facts script-callable provider adapter 使用 query-provider mode，闭合 adapter 执行入口与失败契约 (user-visible)
+- v1.8.2 2026-05-12 01:08:34 leokuang: docs(plan): 修复 P2-008 compound trigger checklist 计划 U3 测试场景小节标题缺失，保持实施单元结构一致 (user-visible)
+- v1.8.2 2026-05-12 00:57:12 leokuang: docs(plan): 继续收紧 review pre-facts injection 计划，闭合 helper mode 链路、prompt 变量注入、graph-fresh 验证前置与 provider fixture contract (user-visible)
+- v1.8.2 2026-05-12 00:56:25 leokuang: docs(plan): 按 doc-review 修订 P2-008 计划，纳入 spec-work-beta shipping workflow 与 contract test 范围，防止稳定版与 beta Work 完成契约漂移 (user-visible)
+- v1.8.2 2026-05-12 00:50:33 leokuang: docs(plan): 新增 P2-008 compound trigger checklist 轻量实施计划，限定 Work/Review final summary 只建议 compound、不自动写知识文档 (user-visible)
 - v1.8.2 2026-05-12 00:14:13 leokuang: feat(onboarding): 实现 P2-006 lightweight/no-graph fast path，明确轻量 workflow 可先于 graph readiness 启动并保留 enhanced readiness 边界 (user-visible)
 - v1.8.2 2026-05-12 00:06:12 leokuang: docs(plan): 逐项优化 pre-facts injection 计划，明确 hidden internal CLI helper、provider query session-local 边界、code-review baseline gate、read-count 判定与中文 target extraction 覆盖 (user-visible)
 - v1.8.2 2026-05-12 00:00:42 leokuang: docs(plan): 新增 P2-006 lightweight/no-graph fast path 轻量实施计划，收敛 no-graph onboarding、readiness enhanced path 与 quick-mode 过度设计边界 (user-visible)

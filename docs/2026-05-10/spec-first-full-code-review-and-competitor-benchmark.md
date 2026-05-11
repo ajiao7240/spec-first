@@ -18,19 +18,18 @@
 
 但当前还不适合用“稳定无风险的通用开源工具”口径推广，更适合定位为可用的 beta/preview 级 workflow harness：核心 CLI 和 provider readiness 已有强防线，风险主要集中在用户心智与产物消费契约，而不是单个命令完全不可用。
 
-本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。结论口径是：阻断级 P1 已开发完成并推送，`P2-002`、`P2-003`、`P2-004`、`P2-006`、`P2-007` 与 `P2-009` 已完成；剩余 P2/P3 应按“值得做、暂缓”分层推进，不应标记为全部完成，也不应把所有 backlog 都升格为核心架构任务。
+本次发现：P0=0，P1=7（`P1-001` 至 `P1-007` 均已修复，剩余待修 0），P2=9，P3=4；另有 1 个原 P1 经当前代码复核后已移出 P1。结论口径是：阻断级 P1 已开发完成并推送，`P2-002`、`P2-003`、`P2-004`、`P2-006`、`P2-007`、`P2-008` 与 `P2-009` 已完成；剩余 P2/P3 应按“暂缓、长期探索”分层推进，不应标记为全部完成，也不应把所有 backlog 都升格为核心架构任务。
 
 当前最大剩余风险：
 
-1. “何时 compound” 属于知识沉淀质量风险，不是当前阻断项；quick/no-graph path 已完成 v1，剩余只是未来真实 onboarding 量化验证。
+1. quick/no-graph path 已完成 v1，剩余只是未来真实 onboarding 量化验证。
 2. module scope manifest 与 agent catalog 属于长期治理项，当前没有足够高频痛点支撑进入核心路径。
 3. benchmark/eval 已完成 v1 full closure；剩余风险是未来如果继续扩展，必须保持 advisory fixture/evidence 边界，避免演化成 leaderboard/dashboard 平台。
 
 建议开发顺序：
 
-1. `P2-008`：补 learning-worthy checklist；只建议 `$spec-compound`，不自动写 learning doc。
-2. `P2-001`：延后处理；除非真实 monorepo scope drift 反复出现，或先证明能复用 `spec-standards` 的 `project-shape.json.modules[]` 而不新增系统。
-3. `P2-005`：暂缓，除非重复 agent dispatch 已成为真实噪音。
+1. `P2-001`：延后处理；除非真实 monorepo scope drift 反复出现，或先证明能复用 `spec-standards` 的 `project-shape.json.modules[]` 而不新增系统。
+2. `P2-005`：暂缓，除非重复 agent dispatch 已成为真实噪音。
 
 最值得借鉴集成的 3 个竞品能力：
 
@@ -50,16 +49,15 @@
 | `P2-003` benchmark/eval full closure | v1 fixed（2026-05-11） | v1 foundation 已能验证 fixture shape，但缺 API contract、多模块 refactor 与语义复审 evidence，会削弱开源可信度 | 已按轻量版落地：只扩到 5 个 fixtures，并记录 1 个 semantic-review evidence；runner 仍只做 deterministic validation，不执行 agent、不评分、不做 release hard gate |
 | `P2-004` standards/glue-map examples | v1 fixed（2026-05-11） | advisory facts 被误读成 hard rule 会污染 plan/work/review 判断；集中示例能低成本压低误读风险 | 已按轻量版落地：只加 docs/examples、source prose 指针与 contract tests；不新增 schema、producer、graph/provider 协议或 workflow 状态机 |
 | `P2-006` lightweight/no-graph fast path | v1 fixed（2026-05-12） | 新用户容易误以为必须完成 `mcp-setup -> graph-bootstrap -> standards` 才能进入任何 workflow，抬高首次闭环成本 | 已按轻量版落地：只更新 README、用户手册、`using-spec-first`、`init` guidance 和 contract tests；不新增 `$spec-quick`、CLI quick mode、runtime state 或自动低风险分类器 |
+| `P2-008` compound trigger checklist | v1 fixed（2026-05-12） | Work / Review 结束后是否进入知识沉淀主要依赖 agent 当场判断，容易漏掉可复用 workflow/source-runtime/provider evidence/review 经验 | 已按轻量版落地：只在 `spec-work`、`spec-work-beta` 和 `spec-code-review` final output contract 中加 learning-worthy checklist 与 contract tests；不自动运行 compound、不写 `docs/solutions/`、不新增 schema/scoring engine/runtime state |
 
 ### 近期必须做
 
-当前无剩余近期必须做 P2。后续按“值得做但非必须”和“暂缓/长期探索”推进，避免把所有 backlog 都升级成核心架构任务。
+当前无剩余近期必须做 P2。后续只保留已延后或暂缓的长期治理项，避免把所有 backlog 都升级成核心架构任务。
 
 ### 值得做但非必须
 
-| 项 | 结论 | 适合的最小落地 |
-|---|---|---|
-| `P2-008` compound trigger checklist | 值得做，改善知识沉淀稳定性 | 在 final summary contract 中加 learning-worthy signal checklist；只建议 `$spec-compound` |
+当前无剩余“值得做但非必须”的 P2 开发项。
 
 ### 暂缓/长期探索
 
@@ -437,12 +435,11 @@ compound
 ## [P2-008] session/knowledge 闭环需要更明确“何时 compound”
 
 - 问题类型：knowledge compounding
-- 当前优先级：值得做但非必须；改善知识沉淀稳定性。
+- 状态：v1 fixed（2026-05-12）。已在 `spec-work`、`spec-work-beta` 和 `spec-code-review` final output contract 中增加 learning-worthy compound checklist，并以 contract tests 锁定 host-neutral 建议、负向边界和不自动写知识文档的约束。
 - 证据：`spec-compound`、`spec-compound-refresh`、`spec-sessions` 均存在，但 work/code-review 完成后是否进入 compound 仍主要靠 agent 判断。
-- 影响：团队经验沉淀可能不稳定。
-- 修复建议：在 final summary contract 中加 “learning-worthy signal” checklist，不自动写 docs，只建议 `$spec-compound`。
-- 过度设计护栏：只给 LLM final summary 增加判断 checklist，不自动写 `docs/solutions/`。
-- 验证方式：spec-work/code-review final summary contract tests。
+- 当前行为：Work / Review completion 只在出现可复用 lesson 时建议当前宿主的 compound 入口；机械改动、一次性文案、纯格式或无法一句话说清的经验默认不提示。
+- 能力边界：只给 LLM final summary 增加判断 checklist；不自动运行 `spec-compound`，不自动写 `docs/solutions/`，不新增 schema、scoring engine、runtime state 或后台知识捕获器。
+- 验证状态：已通过 `npx jest tests/unit/spec-work-contracts.test.js tests/unit/spec-work-beta-contracts.test.js tests/unit/spec-code-review-contracts.test.js --runInBand`。
 
 ## [P3-001] OpenHands-like execution sandbox 适合长期探索，不宜近期内建
 
@@ -746,7 +743,7 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 ## P0: 稳定主流程
 
-当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复，`P2-002` light per-task review gate、`P2-003` benchmark/eval full closure v1、`P2-004` standards/glue-map consumption examples、`P2-006` lightweight/no-graph fast path、`P2-007` release/package evidence v1 与 `P2-009` planned contract catalog 可见性已完成。短期没有剩余 P1 或必须做 P2；`P2-001` module-level scope manifest 已延后，后续优先推进 `P2-008` compound trigger checklist，其他 P2 作为增益项分批处理。
+当前无代码级 P0。`P1-001` 至 `P1-007` 已完成修复，`P2-002` light per-task review gate、`P2-003` benchmark/eval full closure v1、`P2-004` standards/glue-map consumption examples、`P2-006` lightweight/no-graph fast path、`P2-007` release/package evidence v1、`P2-008` compound trigger checklist 与 `P2-009` planned contract catalog 可见性已完成。短期没有剩余 P1 或必须做 P2；`P2-001` module-level scope manifest 已延后，`P2-005` agent role boundary catalog 暂缓。
 
 ## P1: 强化审查与验证
 
@@ -812,9 +809,9 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
    - 边界：不新增独立 CLI quick mode，不把 graph 缺失包装成成功证据。
 
 5. Compound trigger checklist
-   - 当前优先级：值得做但非必须。
-   - 落点：`spec-work`/`spec-code-review` final summary learning-worthy checklist。
-   - 边界：只建议 `$spec-compound`，不自动写 docs。
+   - 状态：v1 fixed（2026-05-12）。
+   - 已落地：`spec-work` / `spec-work-beta` / `spec-code-review` final output learning-worthy checklist 与 contract tests。
+   - 边界：只建议当前宿主 compound 入口，不自动运行 compound，不自动写 docs，不新增 schema/scoring engine/runtime state。
 
 6. Module-level scope manifest
    - 当前优先级：延后处理。
@@ -867,9 +864,9 @@ CE/旧 CRG 残留结论：当前 source/README/skills 没有发现阻断级旧 C
 
 ### PR-4: 引入竞品借鉴的轻量能力（拆分落地）
 
-- 状态：PR-4a / `P2-002`、PR-4b / `P2-004` 与 PR-4c / `P2-006` 已完成 v1；下一步可从 `P2-008` 开始。
-- 目标：已解决必须做的 task 级反馈、standards facts 消费误读风险和 no-graph onboarding 仪式感问题；后续处理 knowledge trigger 增益项。
-- 修改范围：PR-4a 已聚焦 `P2-002` `spec-write-tasks` optional review metadata、task-pack validator/projection 与 `spec-work` handoff contract；PR-4b 已聚焦 `P2-004` standards/glue-map consumption examples；PR-4c 已聚焦 README/用户手册/using-spec-first/init no-graph fast path。
+- 状态：PR-4a / `P2-002`、PR-4b / `P2-004`、PR-4c / `P2-006` 与 PR-4d / `P2-008` 已完成 v1。
+- 目标：已解决必须做的 task 级反馈、standards facts 消费误读风险、no-graph onboarding 仪式感问题和 Work/Review knowledge trigger 稳定性问题。
+- 修改范围：PR-4a 已聚焦 `P2-002` `spec-write-tasks` optional review metadata、task-pack validator/projection 与 `spec-work` handoff contract；PR-4b 已聚焦 `P2-004` standards/glue-map consumption examples；PR-4c 已聚焦 README/用户手册/using-spec-first/init no-graph fast path；PR-4d 已聚焦 Work/Review final output compound trigger checklist。
 - 不做什么：不在一个 PR 内同时改 task-pack、work、standards examples 和 README 主路径，不引入重状态机或 dashboard。
 - 验证命令：skill contract tests、task pack fixtures、fresh-source eval。
 - 合并风险：中。

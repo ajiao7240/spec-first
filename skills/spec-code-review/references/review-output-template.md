@@ -63,6 +63,10 @@ Use this **exact format** when presenting synthesized review findings. Findings 
 
 - [Known Pattern] `docs/solutions/export-pagination.md` -- previous export pagination fix applies to this endpoint
 
+### Learning Capture Recommendation
+
+- Current review produced a reusable lesson about export pagination review heuristics; user may run the current host's compound entrypoint with brief context.
+
 ### Agent-Native Gaps
 
 - New export endpoint has no CLI/agent equivalent -- agent users cannot trigger exports
@@ -129,6 +133,7 @@ This fails because: no pipe-delimited tables, no severity-grouped `###` headers,
 - **Residual Actionable Work section** -- include only when unresolved actionable findings were handed off for later work
 - **Pre-existing section** -- separate table, no confidence-first column (these are informational)
 - **Learnings & Past Solutions section** -- results from spec-learnings-researcher, with links to docs/solutions/ files
+- **Learning Capture Recommendation section** -- include only when the current review produced a new reusable lesson; omit for mechanical, one-off, or formatting-only results
 - **Agent-Native Gaps section** -- results from spec-agent-native-reviewer. Omit if no gaps found.
 - **Schema Drift Check section** -- results from spec-schema-drift-detector. Omit if the agent did not run.
 - **Deployment Notes section** -- key checklist items from spec-deployment-verification-agent. Omit if the agent did not run.

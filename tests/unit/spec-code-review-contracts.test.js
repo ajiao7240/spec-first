@@ -50,6 +50,50 @@ describe('spec-code-review context orientation contract', () => {
   });
 });
 
+describe('spec-code-review compound recommendation contract', () => {
+  test('final report can recommend compound only as advisory learning capture', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const template = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'review-output-template.md'),
+      'utf8',
+    );
+
+    expect(skill).toContain('Learning Capture Recommendation');
+    expect(skill).toContain('new reusable lesson worth capturing');
+    expect(skill).toContain('advisory only');
+    expect(skill).toContain('not a finding');
+    expect(skill).toContain('not residual actionable work');
+    expect(skill).toContain('not a verdict input');
+    expect(skill).toContain('not an autofix item');
+    expect(skill).toContain('not a merge gate');
+    expect(skill).toContain('Skip silently');
+    expect(skill).toContain('mechanical fixes');
+    expect(skill).toContain('one-off docs edits');
+    expect(skill).toContain('formatting-only changes');
+    expect(skill).toContain('cannot be stated in one sentence');
+    expect(skill).toContain('Offer neutrally');
+    expect(skill).toContain('repeated finding pattern');
+    expect(skill).toContain('reusable review heuristic');
+    expect(skill).toContain('Lean into the offer');
+    expect(skill).toContain('pattern appears in 3+ places');
+    expect(skill).toContain('current host\'s compound entrypoint with brief context');
+    expect(skill).toContain('In report-only, autofix, and headless modes, ask no questions');
+    expect(skill).toContain('include at most one advisory line');
+    expect(skill).toContain('Do not automatically run `spec-compound`');
+    expect(skill).toContain('do not write `docs/solutions/`');
+    expect(skill).toContain('do not file tickets');
+    expect(skill).toContain('do not add extra prompts because of this checklist');
+    expect(skill).toContain('recommend `spec-compound-refresh` only with a narrow scope hint');
+    expect(skill).toContain('Learning Capture Recommendation:');
+    expect(template).toContain('### Learning Capture Recommendation');
+    expect(template).toContain('current host\'s compound entrypoint with brief context');
+    expect(template).toContain('include only when the current review produced a new reusable lesson');
+    expect(skill).not.toContain('$spec-compound-auto');
+    expect(skill).not.toContain('/spec:compound-auto');
+    expect(skill).not.toContain('spec-first compound-auto');
+  });
+});
+
 describe('spec-code-review CE sync contracts', () => {
   test('quick review only short-circuits to a real host built-in', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');

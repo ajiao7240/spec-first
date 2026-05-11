@@ -115,6 +115,29 @@ describe('spec-work requirements and shipping policy contract', () => {
     expect(shipping).toContain('omit `Next action` instead of inventing follow-up work');
   });
 
+  test('shipping notification can recommend compound only for reusable lessons', () => {
+    const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');
+
+    expect(shipping).toContain('Learning-worthy compound check');
+    expect(shipping).toContain('LLM-owned judgment, not a script classifier');
+    expect(shipping).toContain('Skip silently');
+    expect(shipping).toContain('mechanical fixes');
+    expect(shipping).toContain('one-off docs edits');
+    expect(shipping).toContain('formatting-only changes');
+    expect(shipping).toContain('cannot be stated in one sentence');
+    expect(shipping).toContain('Offer neutrally');
+    expect(shipping).toContain('reusable diagnostic path');
+    expect(shipping).toContain('Lean into the offer');
+    expect(shipping).toContain('pattern appears in 3+ places');
+    expect(shipping).toContain('current host\'s compound entrypoint with brief context');
+    expect(shipping).toContain('Do not automatically run `spec-compound`');
+    expect(shipping).toContain('do not write `docs/solutions/`');
+    expect(shipping).toContain('do not make compound capture a completion gate');
+    expect(shipping).not.toContain('$spec-compound-auto');
+    expect(shipping).not.toContain('/spec:compound-auto');
+    expect(shipping).not.toContain('spec-first compound-auto');
+  });
+
   test('tracker defer uses emitted review artifact path instead of hardcoded /tmp', () => {
     const trackerDefer = fs.readFileSync(TRACKER_DEFER_PATH, 'utf8');
 

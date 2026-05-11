@@ -121,6 +121,16 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
 
    If a check was not run, say `not run` with the concrete reason. If no user action remains, omit `Next action` instead of inventing follow-up work.
 
+   **Learning-worthy compound check**
+
+   Before sending the final response, decide whether the completed work produced a reusable lesson worth capturing. This is an LLM-owned judgment, not a script classifier, and it must remain advisory:
+
+   - **Skip silently** for mechanical fixes, one-off docs edits, formatting-only changes, or work with no generalizable lesson. If the lesson cannot be stated in one sentence, skip rather than offer.
+   - **Offer neutrally** when the lesson can be stated in one sentence, such as a reusable diagnostic path, a surprising workflow/source-runtime boundary, or a provider-evidence limitation future work should remember.
+   - **Lean into the offer** when the pattern appears in 3+ places or reveals a wrong assumption about a shared dependency, framework, workflow, source/runtime boundary, or provider-evidence convention.
+
+   When offering, add a compact `Next action` only if no higher-priority user action remains, and phrase it as the user's choice to run the current host's compound entrypoint with brief context. Do not automatically run `spec-compound`, do not write `docs/solutions/`, and do not make compound capture a completion gate.
+
 ## Quality Checklist
 
 Before creating PR, verify:

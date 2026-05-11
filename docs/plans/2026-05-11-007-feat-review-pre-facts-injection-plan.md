@@ -148,18 +148,31 @@ GitNexus graph 和 code-review-graph 已经暴露 query surface（architecture m
 - Create: `src/cli/helpers/review-pre-facts.js`
 - Create: `src/cli/commands/internal.js`
 - Modify: `src/cli/index.js`
+- Create: `tests/fixtures/review-pre-facts/query-plan.valid.json`
+- Create: `tests/fixtures/review-pre-facts/provider-results.valid.json`
+- Create: `tests/fixtures/review-pre-facts/provider-results.missing-provenance.json`
 - Create: `tests/unit/review-pre-facts-helper.test.js`
 - Create: `tests/unit/review-pre-facts-internal-command.test.js`
 
 **Approach：**
 - Shared base contract：定义 canonical readiness artifacts、snapshot freshness 比对、readiness state、output tier enum、`<codebase-facts>` block schema、omitted-targets summary、Coverage 行格式。
-- Shared base contract：定义 helper CLI modes：`--mode prepare` 产出 `review-pre-facts-query-plan.v1` 与 direct-read candidates；`--mode render --provider-results <path>` 验证 `review-pre-facts-provider-results.v1` 并渲染 `<codebase-facts>`；`--mode one-shot` 在无 provider results 时直接走 bounded direct reads / unavailable。默认 mode 为 `one-shot`，避免 workflow 必须执行 live MCP。
+- Shared base contract：定义 helper CLI modes 和执行边界：
+  - `--mode prepare` 只做确定性准备，产出 `review-pre-facts-query-plan.v1`、direct-read candidates、normalized artifact field inventory 和 snapshot/readiness status；它不得执行 live MCP。
+  - `--mode query-provider --query-plan <path> --adapter <name> --output <path>` 只执行显式注册的 script-callable provider adapter；输入必须是 `review-pre-facts-query-plan.v1`，输出必须写成 `review-pre-facts-provider-results.v1`，不得渲染 `<codebase-facts>`，不得执行 live MCP。
+  - `--mode render --provider-results <path>` 只验证 `review-pre-facts-provider-results.v1`（无论结果来自 orchestrator-owned live MCP、script-callable adapter，还是 normalized semantic artifact）并渲染 `<codebase-facts>`；provider result 缺 provenance 或 schema invalid 时必须输出 degraded reason，而不是静默提升为 graph-fresh fact。
+  - `--mode one-shot` 是确定性 fallback / convenience path：可消费已存在且通过 fact contract 的 normalized semantic artifact；否则走 target-aware bounded direct reads / unavailable。它不得执行 live MCP，也不得在没有合法 provider results / semantic artifact 时声明 graph-fresh provider-query behavior。
+  - 默认 mode 可为 `one-shot`，但任何声称验证 graph-fresh provider-query path 的 workflow 或测试必须使用 `prepare -> live MCP result 或 query-provider result -> render` 链路，不能只跑默认 one-shot。
+- Shared base contract：定义 Phase 1b / Stage 4a 的 provider-query 闭环：`prepare` 产出 bounded query plan；orchestrator 仅在当前 host 暴露相应 MCP tool 时按 plan 执行 session-local live MCP query 并写成 provider-results artifact，或调用 `spec-first internal review-pre-facts --mode query-provider --query-plan <path> --adapter <name> --output <path>` 产出 provider-results artifact；随后必须调用 `render` 让 helper 校验 schema/provenance 并输出 facts block；任一步不可用或无 usable facts 时才进入 `one-shot`/bounded-reads fallback。
 - Shared base contract：要求先通过 provider-status 的 `normalized_artifacts` 指针做 field inventory，记录哪些 artifact 字段可直接消费；当前 artifact 只有 capability/query-surface 时，不得声称已有 semantic facts。
-- Shared base contract：graph-fresh 且 query surface 可用时，helper 先产出 bounded query plan；runtime orchestrator 只可按该 plan 调用 live MCP，或让 helper 调用明确注册的 script-callable provider adapter。Normalized artifacts 缺语义 payload 不直接降级，只有 query 不可用、失败或返回无 usable semantic facts 时才降级到 target-aware direct reads。
-- Script-callable provider adapter contract：只有显式注册的 adapter 可由 helper 执行，命令输入必须是 `review-pre-facts-query-plan.v1`，输出必须是 `review-pre-facts-provider-results.v1`，每个 provider 默认 timeout 10s，可配置但必须有上限；失败必须输出 reason_code：`provider_adapter_unavailable`、`provider_query_timeout`、`provider_query_failed`、`provider_result_invalid` 或 `provider_result_no_usable_facts`。
+- Shared base contract：graph-fresh 且 query surface 可用时，helper 先产出 bounded query plan；runtime orchestrator 只可按该 plan 调用 live MCP，或通过 helper 的 `query-provider` mode 调用明确注册的 script-callable provider adapter。Normalized artifacts 缺语义 payload 不直接降级，只有 query 不可用、失败或返回无 usable semantic facts 时才降级到 target-aware direct reads。
+- Script-callable provider adapter contract：只有显式注册的 adapter 可由 `query-provider` mode 执行，命令输入必须是 `review-pre-facts-query-plan.v1`，输出必须是 `review-pre-facts-provider-results.v1`，每个 provider 默认 timeout 10s，可配置但必须有上限；失败必须输出 reason_code：`provider_adapter_unavailable`、`provider_query_timeout`、`provider_query_failed`、`provider_result_invalid` 或 `provider_result_no_usable_facts`，并由后续 `render` 或 fallback 处理。
 - Shared base contract：定义最小 provider fact contract；每条 fact 必须携带 provider、query/target、source_path、line/window 或 symbol anchor、readiness/tier、reason_code、excerpt 和 provenance source。Provider 只能返回 narrative 或 provenance 不完整时，helper 将其视为 pointer 并降级到 bounded direct reads 或 unavailable。
+- Shared base contract：必须包含最小 JSON example / fixture contract，至少覆盖：
+  - `review-pre-facts-query-plan.v1`：`schema_version`、`workflow`、`target_repo`、`readiness`、`snapshot`、`targets[]`、`queries[]`、`direct_read_candidates[]`。
+  - `review-pre-facts-provider-results.v1`：`schema_version`、`workflow`、`target_repo`、`source`、`query_plan_id`、`facts[]`；每条 fact 含 `provider`、`query_id` 或 `target`、`source_path`、`anchor` 或 `line_window`、`excerpt`、`reason_code`、`provenance`。
+  - rendered `<codebase-facts>`：包含 `readiness`、`tier`、`reason`、`target_repo`、`facts`、`omitted_targets`；空 / unavailable block 也要有合法示例。
 - Shared base contract：定义 pre-facts trust model；只有带 excerpt + path/line/window/symbol anchor 且 freshness 匹配的 facts 可支撑低风险背景或定向阅读。P0/P1 或高置信代码判断若只依赖 pre-facts，必须满足 trust model；否则补充 Read/graph query 或在 finding 中降级说明。
-- Shared helper：只读读取 readiness artifacts、当前 repo snapshot、provider normalized pointers 和 targets；执行 field inventory、query plan rendering、optional provider result normalization、target-aware direct reads、relevance truncation、omitted-target summary 和 `<codebase-facts>` block rendering。Helper 只产出 facts，不决定 reviewer 结论、不选择 persona、不阻塞 dispatch、不直接调用 live MCP。
+- Shared helper：只读读取 readiness artifacts、当前 repo snapshot、provider normalized pointers 和 targets；执行 field inventory、query plan rendering、`query-provider` adapter execution、optional provider result normalization、target-aware direct reads、relevance truncation、omitted-target summary 和 `<codebase-facts>` block rendering。Helper 只产出 facts，不决定 reviewer 结论、不选择 persona、不阻塞 dispatch、不直接调用 live MCP。
 - Hidden internal CLI：`spec-first internal review-pre-facts` 不出现在 `--help` 用户命令列表中；source checkout 可用 `node bin/spec-first.js internal review-pre-facts ...` 调用，installed Codex/Claude runtime 可用 `spec-first internal review-pre-facts ...` 调用。Workflow prose 只能调用 CLI 入口，不能直接调用 helper source path。
 - Doc-review 薄 reference：只定义从文档 `Sources & References`、`Context & Research`、`Context & Evidence`、`Patterns to follow`、`Files:` / `文件：`、`上下文与依据`、`上下文与研究`、`来源与参考`、`参考资料` 列表，以及实施单元 `**文件：**` / `**Patterns to follow：**` 提取 targets 的规则。
 - Code-review 薄 reference：只定义从 changed files、callers/callees 和 related tests 提取 targets 的规则；multi-repo diff 必须输出 repo-scoped entries，并明确 staged/unstaged dirty snapshot freshness 如何进入每个 repo entry 的 readiness reason。
@@ -174,8 +187,11 @@ GitNexus graph 和 code-review-graph 已经暴露 query surface（architecture m
 - Shared contract 要求读取 provider-status、graph-facts、impact-capabilities 并比较 `source_revision`、`worktree_dirty`、`worktree_status_hash`。
 - Shared contract 明确 normalized artifacts 可作为 capability/query-surface pointer，但不能无 inventory 地声明 semantic facts。
 - Helper 测试覆盖 snapshot mismatch、query plan rendering、provider result provenance 缺失、query failure、target-aware snippets、budget truncation 和 omitted-targets summary。
-- Helper 测试覆盖 `prepare` / `render` / `one-shot` modes、query-plan schema、provider-results schema、provider timeout/failure reason_code 和 invalid-result fallback。
-- Internal command tests 覆盖 `spec-first internal review-pre-facts` 可调用、只读、不出现在 public help、source checkout 与 installed runtime 调用文案一致。
+- Helper 测试覆盖 `prepare` / `query-provider` / `render` / `one-shot` modes、query-plan schema、provider-results schema、provider timeout/failure reason_code 和 invalid-result fallback。
+- Helper 测试必须证明 `prepare` 在 graph-fresh + query surface 条件下只产出 bounded query plan，不执行 live MCP；`query-provider` 只执行显式注册 adapter 并写出 provider-results artifact；`render` 对 missing provenance provider-results 降级；`one-shot` 不需要 MCP，且不会在缺少合法 provider results / semantic artifact 时伪造 graph-fresh provider-query facts。
+- Helper 测试覆盖 `query-provider` 缺少 `--query-plan` / `--adapter` / `--output`、adapter 未注册、adapter timeout、adapter exit non-zero、adapter output schema invalid 时的 reason_code 与 fallback handoff。
+- Fixture tests 必须解析 `tests/fixtures/review-pre-facts/*.json` 并校验 required fields，而不是只对 contract prose 做字符串断言。
+- Internal command tests 覆盖 `spec-first internal review-pre-facts` 可调用、`query-provider` flag contract、只读、不出现在 public help、source checkout 与 installed runtime 调用文案一致。
 - Shared contract 定义 pre-facts trust model，并说明哪些 facts 可支撑低风险背景、哪些需要补充验证。
 - Shared contract 定义 provider fact contract，缺 provenance 时不能进入 graph-fresh facts tier。
 - Contract 文档明确 pre-facts 是 advisory，不是 hard gate。
@@ -203,7 +219,12 @@ GitNexus graph 和 code-review-graph 已经暴露 query surface（architecture m
 
 **Approach：**
 - 在 Phase 1（Get and Analyze Document）和 Phase 2（Announce and Dispatch）之间插入 Phase 1b。
-- Phase 1b 读取 shared base contract 和 doc-review reference，调用 `spec-first internal review-pre-facts` 执行 graph readiness check、field inventory、query plan / target-aware direct reads，并格式化为 `<codebase-facts>` block；若 helper 返回 bounded live MCP query plan 且当前 host 暴露相应 MCP tool，orchestrator 可按 plan 执行查询并把结果交回 helper 验证渲染，否则直接使用 helper 的 bounded-reads / unavailable 输出。
+- Phase 1b 读取 shared base contract 和 doc-review reference，并按固定命令序列执行：
+  1. `spec-first internal review-pre-facts --mode prepare --workflow doc-review --document <path>`，得到 query plan、direct-read candidates 和 readiness/tier draft。
+  2. 若 prepare 返回 bounded query plan 且当前 host 暴露相应 MCP tool，orchestrator 只按 plan 执行 session-local live MCP query，并把结果写成 provider-results artifact 后调用 `spec-first internal review-pre-facts --mode render --provider-results <path>`；若使用 script-callable adapter，orchestrator 必须调用 `spec-first internal review-pre-facts --mode query-provider --query-plan <path> --adapter <name> --output <path>`，再把输出交给 `render`。
+  3. 若 query plan 不存在、host/tool 不可用、provider-results invalid、render 无 usable facts，调用 `spec-first internal review-pre-facts --mode one-shot --workflow doc-review --document <path>`，得到 bounded-reads / unavailable / no-targets block。
+- Phase 1b 的最终产物必须始终是一个可注入的 `<codebase-facts>` block；完全降级时注入空 block，不能让 dispatch prompt 留下未替换的 `{codebase_facts}`。
+- 修改 `skills/spec-doc-review/SKILL.md` 的 dispatch variable table 和 prompt-building contract，新增 `{codebase_facts}`：值为 Phase 1b 输出的 facts block；fallback 时为合法空 `<codebase-facts ...>` block。
 - 记录 `Pre-facts tier: <tier> (<reason>)` 到最终 review output 的 Coverage section。
 
 **Test scenarios：**
@@ -211,6 +232,8 @@ GitNexus graph 和 code-review-graph 已经暴露 query surface（architecture m
 - Phase 1b 在 Phase 1 之后、Phase 2 之前。
 - Pre-facts 描述为 advisory evidence，不阻塞 dispatch。
 - Phase 1b 不直接引用 `src/cli/helpers/*`，并说明 source checkout、Codex runtime、Claude runtime 的 CLI 调用路径。
+- Dispatch variable table 包含 `{codebase_facts}`，且说明 fallback 必须注入空 block。
+- Prompt rendering tests 覆盖没有 literal `{codebase_facts}` 残留；helper 失败时 dispatch 仍继续。
 - 降级路径明确：graph-fresh → bounded-reads → unavailable/no-targets。
 - Contract tests 覆盖 Coverage 行格式与 readiness/tier 枚举分离。
 
@@ -233,7 +256,7 @@ GitNexus graph 和 code-review-graph 已经暴露 query surface（architecture m
 
 **Approach：**
 - 在 `<review-context>` section 中 `Document content:` 之前增加 `{codebase_facts}`。
-- 在 `<output-contract>` 中增加 `<pre-facts-usage>` 指令块。
+- 在 `<output-contract>` 中增加 `<pre-facts-usage>` 指令块；该指令不得削弱既有 JSON-only output contract，不得让 reviewer 输出 prose、markdown 或非 schema 字段。
 - 指令明确：pre-facts 用于定向阅读和低风险背景；仅在与当前 persona lens 相关时使用；非代码 persona 可忽略；P0/P1 或高置信代码判断必须补充源码/graph 直接验证或在 finding 中降级说明。
 
 **Test scenarios：**
@@ -241,6 +264,7 @@ GitNexus graph 和 code-review-graph 已经暴露 query surface（architecture m
 - subagent-template.md 包含 pre-facts-usage 指令。
 - 指令不禁止 agent 使用工具（保留 fallback）。
 - 指令包含 persona relevance boundary 和 high-confidence verification boundary。
+- fallback 空 block 不改变 reviewer schema；prompt 渲染后不得残留 literal `{codebase_facts}`。
 
 **Verification：**
 - `npx jest tests/unit/spec-doc-review-contracts.test.js --runInBand`
@@ -293,6 +317,8 @@ GitNexus graph 和 code-review-graph 已经暴露 query surface（architecture m
 - 只有 U4a 记录 `Code-review pre-facts baseline: passed` 后，才在 Stage 4 的 Runtime readiness preflight 之后、Dispatch capability gate / Spawning 之前插入 Stage 4a；若 baseline 为 `inconclusive`，本单元延后。
 - Stage 4a 消费 runtime readiness preflight 结果；若 required MCP/server startup 已降级或不可用，直接按 provider-unavailable / bounded-reads / unavailable path 处理，不重复探测同一失败 provider。
 - Stage 4a 调用 `spec-first internal review-pre-facts`，从 changed files 提取 targets，按 clean/staged/unstaged snapshot 记录 freshness reason；helper 先产出 query plan 或 bounded direct reads。若当前 host 暴露相应 MCP tool，orchestrator 只按 query plan 执行 bounded live MCP query，并把结果交回 helper 验证渲染；helper 不直接调用 live MCP。
+- Stage 4a 使用与 doc-review Phase 1b 相同的 `prepare -> optional live MCP result 或 query-provider result -> render -> one-shot fallback` 闭环；不能用默认 `one-shot` 结果声明 code-review graph-fresh provider-query behavior。
+- 只有 U4a baseline gate `passed` 后，才修改 code-review dispatch prompt-building contract 增加 `{codebase_facts}` 变量；fallback 时同样注入合法空 block，不能留下未替换占位符。
 - Multi-repo diff 输出 repo-scoped entries；每个 repo entry 独立记录 readiness、tier、reason、targets、omitted targets 和 facts。
 - 记录 `Pre-facts tier: <tier> (<reason>)` 到最终 review output 的 Coverage section；multi-repo case 使用 per-repo tier lines 或 mixed summary。
 
@@ -301,6 +327,7 @@ GitNexus graph 和 code-review-graph 已经暴露 query surface（architecture m
 - Stage 4a 在 Runtime readiness preflight 之后、Dispatch capability gate / Spawning 之前。
 - Stage 4a 消费 preflight 结果，不在 preflight 之前发起 provider query。
 - Stage 4a 只有在 U4a baseline gate `passed` 后才进入 default path；`inconclusive` 时 U4/U5 延后。
+- Baseline 通过后的 dispatch variable table 包含 `{codebase_facts}`；fallback empty block 不阻塞 reviewer dispatch，且 prompt 渲染后无 literal `{codebase_facts}`。
 - Pre-facts 不替代 diff scope rules。
 - 降级路径明确，并覆盖 clean/staged/unstaged dirty diff review case。
 - Multi-repo diff 下 Coverage 支持 per-repo tier 或 mixed summary。
@@ -324,13 +351,15 @@ GitNexus graph 和 code-review-graph 已经暴露 query surface（architecture m
 - Modify: `tests/unit/spec-code-review-contracts.test.js`
 
 **Approach：**
-- 与 U3 相同模式：在 review-context 中增加 `{codebase_facts}` 变量，在 output-contract 中增加 pre-facts-usage 指令；指令必须说明 pre-facts 不替代 diff scope rules、changed-file ownership、repo-scoped evidence boundary 或 reviewer 的直接验证。
+- 与 U3 相同模式：在 review-context 中 `Changed files:` / `Diff:` 之前增加 `{codebase_facts}` 变量，在 output-contract 中增加 pre-facts-usage 指令；指令必须说明 pre-facts 不替代 diff scope rules、changed-file ownership、repo-scoped evidence boundary 或 reviewer 的直接验证。
+- 仅在 U4a baseline gate `passed` 且 U4 Stage 4a 已接入后修改 code-review subagent template；若 baseline `inconclusive`，U5 延后，避免模板要求一个 orchestrator 尚未提供的变量。
 
 **Test scenarios：**
 - subagent-template.md 包含 `{codebase_facts}` 变量。
 - subagent-template.md 包含 pre-facts-usage 指令。
 - 指令不禁止 agent 使用工具。
 - 指令包含 persona relevance boundary 和 high-confidence verification boundary。
+- fallback 空 block 不改变 reviewer schema；prompt 渲染后不得残留 literal `{codebase_facts}`。
 
 **Verification：**
 - `npx jest tests/unit/spec-code-review-contracts.test.js --runInBand`
@@ -398,7 +427,7 @@ Trust model 是 agent prompt 指令的一部分，但由 shared helper 输出 pr
 
 ## System-Wide Impact
 
-- **Interaction graph：** orchestrator 在 dispatch 前调用 `spec-first internal review-pre-facts`，helper 消费 `.spec-first/graph/`、`.spec-first/impact/` 和 `.spec-first/providers/` artifacts 判断 readiness/query surface，产出 query plan、normalized provider facts 或 bounded direct-read facts 后注入 dispatched agents。Live MCP query 仅由 orchestrator 按 query plan 在当前 session 执行，结果必须交回 helper 验证。Code-review 先消费 Stage 4 runtime readiness preflight 和 U4a baseline gate 结果，再决定是否进入 pre-facts extraction。
+- **Interaction graph：** orchestrator 在 dispatch 前调用 `spec-first internal review-pre-facts`，helper 消费 `.spec-first/graph/`、`.spec-first/impact/` 和 `.spec-first/providers/` artifacts 判断 readiness/query surface，产出 query plan、normalized provider facts 或 bounded direct-read facts 后注入 dispatched agents。Live MCP query 仅由 orchestrator 按 query plan 在当前 session 执行，结果必须交回 helper 验证；script-callable provider adapter 仅通过 `query-provider` mode 执行并产出 provider-results artifact。Code-review 先消费 Stage 4 runtime readiness preflight 和 U4a baseline gate 结果，再决定是否进入 pre-facts extraction。
 - **Error propagation：** pre-facts extraction 失败是 silent degradation，不是 workflow failure。
 - **State lifecycle：** 不引入新的 durable runtime state；pre-facts 是 session-scoped，不持久化。Code-review baseline gate 允许创建 `docs/validation/review-pre-facts/code-review-baseline-YYYY-MM-DD.md` 作为人工可审计 validation artifact。Measurement protocol 只读取当前 run transcript / reviewer returns / helper output，不新增长期计量平台。
 - **API surface：** subagent template 增加一个 optional 变量；空 block 等同于当前行为。
@@ -439,6 +468,13 @@ Trust model 是 agent prompt 指令的一部分，但由 shared helper 输出 pr
 - `npx jest tests/unit/changelog-format.test.js --runInBand`
 - `npm run typecheck`
 - `git diff --check`
+
+Graph-fresh 功能验证前置：
+- 运行 `$spec-graph-bootstrap` 或等价 graph readiness refresh，确保 canonical artifacts 是当前 checkout 产物。
+- 确认目标 provider `query_ready=true`。
+- 确认 `.spec-first/graph/graph-facts.json` 的 `source_revision` 等于当前 `git rev-parse HEAD`。
+- 确认 `worktree_dirty` 和 `worktree_status_hash` 与当前 `git status --porcelain` 派生 snapshot 匹配。
+- 任一前置不满足时，不得声明 graph-fresh functional verification pass；记录 `graph_fresh_functional_verification: not_run (graph_fresh_prerequisite_unmet)`，只验证 bounded-reads / unavailable path、schema/placeholder tests 和 degradation behavior。
 
 功能验证：
 - 对同一份 plan 文档在 graph-fresh 条件下运行 `spec-doc-review`，按 Measurement Protocol 记录 wall time、agent read count、pre-facts tier、可选 prompt token delta 和 findings parity；read count source 可用时目标是 runtime reads 降低 ≥70%，总耗时降低 ≥30%，且 synthesized findings 无明显质量损失；read count source 不可得时只评价 wall-time、tier 与 findings parity。
