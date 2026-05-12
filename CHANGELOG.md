@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-12 12:39:40 leokuang: docs(plan): 按 doc-review 修订 GitNexus 图谱刷新计划，纳入 spec-work-beta、freshness-check 执行契约、graph-heavy 触发基线与用户手册图谱审计范围 (user-visible)
+- v1.8.2 2026-05-12 11:39:34 leokuang: docs(plan): 新增 GitNexus 图谱刷新触发节点治理计划，明确 freshness check、graph-bootstrap refresh、consumer handoff 与 branch stale 边界 (user-visible)
+- v1.8.2 2026-05-12 11:38:29 leokuang: fix(review): 加固 pre-facts provider-results render 的 fact contract 校验、excerpt hard cap 与 fact count 预算边界 (user-visible)
 - v1.8.2 2026-05-12 09:44:14 leokuang: fix(review): 修复 pre-facts code-review 发现的 snapshot 复核、路径 containment、render hard cap、package allowlist 与 run-summary 证据保留问题 (user-visible)
 - v1.8.2 2026-05-12 09:18:35 leokuang: fix(review): 加固 pre-facts render 对合法 JSON 非对象 provider-results 的 degraded 输出边界 (user-visible)
 - v1.8.2 2026-05-12 09:03:55 leokuang: fix(catalog): 同步 runtime capability catalog generator 的 AI dev benchmark evidence 文案，修复派生 catalog drift 验证 (user-visible)

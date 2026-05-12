@@ -887,14 +887,16 @@ function normalizeRawFacts(raw, queryPlan, workflow) {
     for (const item of graphItems) {
       const sourcePath = normalizeProviderSourcePath(item.filePath || item.source_path, queryPlan.target_repo);
       if (!sourcePath) continue;
+      const lineWindow = coerceLineWindow({
+        start: item.startLine ?? item.start ?? 1,
+        end: item.endLine ?? item.end ?? item.startLine ?? item.start ?? 1,
+      });
+      if (!lineWindow) continue;
       facts.push({
         provider: query.provider,
         query_id: query.query_id,
         source_path: sourcePath,
-        line_window: {
-          start: Number(item.startLine || item.start || 1),
-          end: Number(item.endLine || item.end || item.startLine || 1),
-        },
+        line_window: lineWindow,
         excerpt: truncateExcerpt(`${item.name || path.basename(sourcePath)} ${item.module ? `(${item.module})` : ''}`.trim()),
         readiness: queryPlan.readiness,
         tier: 'graph-fresh',
@@ -929,13 +931,15 @@ function normalizeProviderFact(fact, query, result, queryPlan, source) {
   const targetPath = fact.target ? normalizeProviderSourcePath(fact.target, queryPlan.target_repo) : undefined;
   const excerpt = typeof fact.excerpt === 'string' ? fact.excerpt : '';
   const provenance = fact.provenance;
+  const anchor = normalizeNonEmptyString(fact.anchor);
+  const lineWindow = fact.line_window ? coerceLineWindow(fact.line_window) : undefined;
   if (!sourcePath || !excerpt || !provenance || typeof provenance !== 'object') {
     return null;
   }
   if (fact.target && !targetPath) {
     return null;
   }
-  if (!fact.anchor && !fact.line_window) {
+  if (!anchor && !lineWindow) {
     return null;
   }
   return {
@@ -943,8 +947,8 @@ function normalizeProviderFact(fact, query, result, queryPlan, source) {
     query_id: query.query_id,
     target: targetPath,
     source_path: sourcePath,
-    anchor: fact.anchor || undefined,
-    line_window: fact.line_window || undefined,
+    anchor,
+    line_window: lineWindow || undefined,
     excerpt: truncateExcerpt(excerpt),
     readiness: normalizeReadiness(fact.readiness, 'graph-fresh'),
     tier: normalizeTier(fact.tier, 'graph-fresh'),
@@ -989,6 +993,15 @@ function validateProviderResults(results) {
   if (!results || results.schema_version !== 'review-pre-facts-provider-results.v1') {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider results schema_version is invalid' };
   }
+  if (!['doc-review', 'code-review'].includes(results.workflow)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider results workflow is invalid' };
+  }
+  if (results.source !== 'live-mcp' || !results.query_plan_id) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider results source/query_plan_id is invalid' };
+  }
+  if (!READINESS.has(results.readiness) || !TIERS.has(results.tier)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider results readiness/tier is invalid' };
+  }
   if (!Array.isArray(results.facts)) {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider results lacks facts[]' };
   }
@@ -996,11 +1009,23 @@ function validateProviderResults(results) {
     return { ok: false, reason_code: 'provider_result_no_usable_facts', message: 'provider results contains no facts' };
   }
   for (const fact of results.facts) {
-    const hasAnchor = fact.anchor || fact.line_window;
+    const anchor = normalizeNonEmptyString(fact.anchor);
+    const lineWindowPresent = Object.prototype.hasOwnProperty.call(fact, 'line_window');
+    const lineWindowValid = lineWindowPresent && isValidLineWindow(fact.line_window);
+    const hasAnchor = anchor || lineWindowValid;
     const expectedSource = results.source || 'live-mcp';
     const sourcePath = normalizeProviderSourcePath(fact.source_path, results.target_repo || process.cwd());
     const targetPath = fact.target ? normalizeProviderSourcePath(fact.target, results.target_repo || process.cwd()) : undefined;
-    if (!fact.provider || !(fact.query_id || fact.target) || !sourcePath || (fact.target && !targetPath) || !hasAnchor || !fact.excerpt || !fact.reason_code) {
+    if (lineWindowPresent && !lineWindowValid) {
+      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact line_window is invalid' };
+    }
+    if (!READINESS.has(fact.readiness) || !TIERS.has(fact.tier)) {
+      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact readiness/tier is invalid' };
+    }
+    if (typeof fact.excerpt !== 'string' || fact.excerpt.length === 0 || fact.excerpt.length > LIMITS.perExcerptChars) {
+      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact excerpt is invalid' };
+    }
+    if (!fact.provider || !(fact.query_id || fact.target) || !sourcePath || (fact.target && !targetPath) || !hasAnchor || !fact.reason_code) {
       return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact lacks required contract fields' };
     }
     if (!fact.provenance || typeof fact.provenance !== 'object') {
@@ -1238,6 +1263,14 @@ function renderFactsBlock(input) {
   let reasonCode = input.reason_code || 'unknown';
   let facts = Array.isArray(input.facts) ? input.facts : [];
   let omittedTargets = Array.isArray(input.omitted_targets) ? input.omitted_targets : [];
+  let factBudgetTruncated = 0;
+  const factLimit = LIMITS.maxFacts[workflow] || LIMITS.maxFacts['doc-review'];
+  if (facts.length > factLimit) {
+    factBudgetTruncated = facts.length - factLimit;
+    facts = facts.slice(0, factLimit);
+    reasonCode = 'provider_fact_budget_truncated';
+    omittedTargets = appendFactBudgetSummary(omittedTargets, factBudgetTruncated);
+  }
   let block = buildFactsBlock({
     ...input,
     readiness,
@@ -1248,12 +1281,10 @@ function renderFactsBlock(input) {
   });
   while (block.length > maxChars && facts.length > 0) {
     facts = facts.slice(0, -1);
+    factBudgetTruncated += 1;
     tier = tier === 'graph-fresh' ? 'graph-fresh' : tier;
     reasonCode = 'provider_fact_budget_truncated';
-    omittedTargets = [
-      ...omittedTargets.filter((target) => target.reason_code !== 'provider_fact_budget_truncated'),
-      { path: '<facts>', reason_code: 'provider_fact_budget_truncated' },
-    ];
+    omittedTargets = appendFactBudgetSummary(omittedTargets, factBudgetTruncated);
     block = buildFactsBlock({
       ...input,
       readiness,
@@ -1289,6 +1320,17 @@ function renderFactsBlock(input) {
     targets_read: facts.map((fact) => fact.source_path).filter(Boolean),
     targets_omitted: omittedTargets,
   };
+}
+
+function appendFactBudgetSummary(omittedTargets, count) {
+  return [
+    ...omittedTargets.filter((target) => target.reason_code !== 'provider_fact_budget_truncated'),
+    {
+      path: '<facts>',
+      reason_code: 'provider_fact_budget_truncated',
+      count,
+    },
+  ];
 }
 
 function appendOmittedTargetsBudgetSummary(omittedTargets, count) {
@@ -1349,10 +1391,31 @@ function normalizeTier(value, fallback) {
   return TIERS.has(value) ? value : fallback;
 }
 
+function normalizeNonEmptyString(value) {
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function coerceLineWindow(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const start = Number(value.start);
+  const end = Number(value.end);
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
+    return null;
+  }
+  return { start, end };
+}
+
+function isValidLineWindow(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Number.isInteger(value.start) && Number.isInteger(value.end) && value.start >= 1 && value.end >= value.start;
+}
+
 function truncateExcerpt(value) {
   const text = String(value);
-  if (text.length <= LIMITS.perExcerptChars) return text;
-  return `${text.slice(0, LIMITS.perExcerptChars)}\n[truncated: excerpt exceeded ${LIMITS.perExcerptChars} chars]`;
+  const limit = LIMITS.perExcerptChars;
+  if (text.length <= limit) return text;
+  const marker = `\n[truncated: excerpt exceeded ${limit} chars]`;
+  return `${text.slice(0, Math.max(0, limit - marker.length))}${marker}`;
 }
 
 function recordNormalizationFailure(options, reasonCode) {

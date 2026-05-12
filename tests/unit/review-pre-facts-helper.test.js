@@ -8,6 +8,7 @@ const { spawnSync } = require('node:child_process');
 const {
   LIMITS,
   currentRepoSnapshot,
+  renderFactsBlock,
   resolveTargets,
   runReviewPreFacts,
   validateProviderResults,
@@ -151,6 +152,41 @@ function providerFact(index, overrides = {}) {
       query_plan_id: 'qplan-fixture',
       tool_name: 'gitnexus.query',
     },
+    ...overrides,
+  };
+}
+
+function normalizedProviderFact(index, overrides = {}) {
+  return {
+    provider: 'gitnexus',
+    query_id: 'q1',
+    source_path: 'src/cli/index.js',
+    line_window: { start: index + 1, end: index + 1 },
+    excerpt: `fact ${index}`,
+    readiness: 'graph-fresh',
+    tier: 'graph-fresh',
+    reason_code: 'provider_fact',
+    provenance: {
+      source: 'live-mcp',
+      query_plan_id: 'qplan-fixture',
+      tool_name: 'gitnexus.query',
+    },
+    ...overrides,
+  };
+}
+
+function providerResultsEnvelope(repo, facts, overrides = {}) {
+  return {
+    schema_version: 'review-pre-facts-provider-results.v1',
+    workflow: 'doc-review',
+    target_repo: repo,
+    source: 'live-mcp',
+    query_plan_id: 'qplan-fixture',
+    readiness: 'graph-fresh',
+    tier: 'graph-fresh',
+    snapshot: currentRepoSnapshot(repo),
+    reason_code: 'provider_results_normalized',
+    facts,
     ...overrides,
   };
 }
@@ -415,6 +451,64 @@ describe('review-pre-facts helper modes', () => {
     }
   });
 
+  test('validateProviderResults rejects facts that violate the fact contract', () => {
+    const repo = tempRepo();
+    try {
+      const invalidCases = [
+        { line_window: 'bad' },
+        { line_window: { start: 4, end: 3 } },
+        { readiness: undefined },
+        { tier: 'unknown-tier' },
+        { excerpt: 'x'.repeat(LIMITS.perExcerptChars + 1) },
+      ];
+
+      for (const overrides of invalidCases) {
+        const fact = normalizedProviderFact(0, overrides);
+        if (Object.prototype.hasOwnProperty.call(overrides, 'readiness') && overrides.readiness === undefined) {
+          delete fact.readiness;
+        }
+        const result = validateProviderResults(providerResultsEnvelope(repo, [fact]));
+        expect(result).toEqual(expect.objectContaining({
+          ok: false,
+          reason_code: 'provider_results_schema_invalid',
+        }));
+      }
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('render downgrades provider results with malformed fact contract fields', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      const providerResultsPath = path.join(dir, 'provider-results.json');
+      const blockPath = path.join(dir, 'codebase-facts.txt');
+      fs.writeFileSync(providerResultsPath, `${JSON.stringify(providerResultsEnvelope(repo, [
+        normalizedProviderFact(0, { line_window: 'bad' }),
+      ]), null, 2)}\n`, 'utf8');
+
+      const rendered = captureRun([
+        '--mode', 'render',
+        '--workflow', 'doc-review',
+        '--repo', repo,
+        '--provider-results', providerResultsPath,
+        '--output', blockPath,
+        '--run-id', runId,
+        '--summary-dir', dir,
+      ], repo);
+
+      expect(rendered.code).toBe(0);
+      expect(rendered.json.provider_results_valid).toBe(false);
+      expect(rendered.json.reason_code).toBe('provider_results_schema_invalid');
+      const block = fs.readFileSync(blockPath, 'utf8');
+      expect(block).toContain('tier="unavailable"');
+      expect(block).not.toContain('undefined-undefined');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test('render downgrades malformed or unsafe provider results deterministically', () => {
     const repo = tempRepo();
     const { runId, dir } = tempRun();
@@ -560,6 +654,57 @@ describe('review-pre-facts helper modes', () => {
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
+  });
+
+  test('render caps provider-results facts by workflow budget', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      const providerResultsPath = path.join(dir, 'provider-results.json');
+      const blockPath = path.join(dir, 'codebase-facts.txt');
+      const limit = LIMITS.maxFacts['doc-review'];
+      const facts = Array.from({ length: limit + 6 }, (_item, index) => normalizedProviderFact(index));
+      fs.writeFileSync(providerResultsPath, `${JSON.stringify(providerResultsEnvelope(repo, facts), null, 2)}\n`, 'utf8');
+
+      const rendered = captureRun([
+        '--mode', 'render',
+        '--workflow', 'doc-review',
+        '--repo', repo,
+        '--provider-results', providerResultsPath,
+        '--output', blockPath,
+        '--run-id', runId,
+        '--summary-dir', dir,
+      ], repo);
+
+      expect(rendered.code).toBe(0);
+      expect(rendered.json.provider_results_valid).toBe(true);
+      expect(rendered.json.reason_code).toBe('provider_fact_budget_truncated');
+      const block = fs.readFileSync(blockPath, 'utf8');
+      expect((block.match(/^- provider=/gm) || [])).toHaveLength(limit);
+      expect(block).toContain('&lt;facts&gt; (provider_fact_budget_truncated)');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('rendered excerpts stay within the per-excerpt hard cap including the truncation marker', () => {
+    const rendered = renderFactsBlock({
+      workflow: 'doc-review',
+      target_repo: REPO_ROOT,
+      readiness: 'graph-fresh',
+      tier: 'graph-fresh',
+      reason_code: 'provider_results_normalized',
+      facts: [
+        normalizedProviderFact(0, {
+          excerpt: 'x'.repeat(LIMITS.perExcerptChars + 100),
+        }),
+      ],
+      omitted_targets: [],
+    });
+
+    const excerpt = rendered.block.match(/<excerpt>\n([\s\S]*?)\n  <\/excerpt>/)[1].replace(/^  /gm, '');
+    expect(excerpt.length).toBeLessThanOrEqual(LIMITS.perExcerptChars);
+    expect(excerpt).toContain(`[truncated: excerpt exceeded ${LIMITS.perExcerptChars} chars]`);
   });
 
   test('render downgrades provider results when the repo snapshot changed after normalization', () => {
