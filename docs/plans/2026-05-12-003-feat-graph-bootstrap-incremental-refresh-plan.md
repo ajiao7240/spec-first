@@ -15,6 +15,18 @@ deepened: 2026-05-12
 
 **Rollout 策略**：初始 opt-in flag，U4 benchmark 通过后通过独立单行 PR 切换默认。本计划只覆盖 bootstrap 自身的两档模型，不捆绑其他 workflow 的治理或披露改动。
 
+### At a Glance
+
+| 维度 | 说明 |
+|---|---|
+| **问题** | commit 后 `.spec-first/graph/graph-facts.json` 立即 stale，脱困路径目前仅有 ~25 秒全量重跑 |
+| **核心机制** | bootstrap 按 fingerprint 决策 `incremental`（委托 `gitnexus analyze` / `code-review-graph update --base`）vs `full`；incremental 失败自动 fallback 到 full |
+| **已闭环的实施级 bug** | R6 `last_indexed_commit` carry-forward 避免原子 rewrite 擦除；R6 `^[0-9a-f]{40}$` 格式校验防 argv injection；R7 dirty worktree 强制降级 full（无 opt-in，避免索引 / base ref 错位） |
+| **验收 gate**（U4） | A→B 差分对照在 disposable temp clone 跑，per-provider pass matrix 全绿（correctness + readiness_source + no degradation + 耗时 ≤ B_full/3 AND 累计 ≤ 5s）→ 单行 PR 切默认 |
+| **实施前必做** | A4 协调（`2026-05-09-003` 串行 / 并行 ack） + A3 sanity check（`uvx code-review-graph@2.3.3 --help`） |
+| **显式 Scope 剥离** | dirty incremental opt-in / `spec-work` 披露契约 / 统一 redaction helper / `--all-repos` 多仓默认切换 → 全部 follow-up plan |
+| **回滚成本** | 单行修改 `DEFAULT_REFRESH_MODE_*` 常量即可，不需回滚 schema / flag |
+
 ---
 
 ## Problem Frame
@@ -217,6 +229,51 @@ spec-graph-bootstrap [--incremental | --full | (default)]
 ```
 
 Fingerprint 分层语义复用 `2026-05-09-003` 的定义（`repo_snapshot.*` 可变 / `spec_first.*` + `provider_projection.*` + `provider.*` 不可变）；本计划只消费不重定义。
+
+---
+
+## Implementation Roadmap
+
+关键路径串行，总工期 ~4-5 天；实施顺序和里程碑：
+
+```text
+Pre-flight   (~5 min)     A4 ack（与 2026-05-09-003 协调决策）
+                          A3 sanity check（uvx code-review-graph@2.3.3 --help）
+    │
+    ▼
+U1           (~0.5 d)     write-provider-config.sh/.ps1 扩展 provider_commands()
+                          加入 incremental argv；sentinel 原样落地 graph-providers.json
+    │
+    ▼
+U2           (~2-3 d)     bootstrap-providers.sh 核心改造：
+                          - shape gate 分层校验（必需 kind 无条件 / incremental 按需）
+                          - mkdir repo-scoped 原子锁（覆盖 provider 执行 + aggregate 写入）
+                          - jq carry-forward payload（R6 写入时机 + 40-hex 校验）
+                          - bootstrap_attempts[] array + fallback 分支 + 独立 log 路径
+                          - resolve_refresh_mode() + fingerprint preflight
+    │
+    ▼
+U3           (~1 d)       PowerShell parity：
+                          - bootstrap-providers.ps1 镜像 U2 全部行为
+                          - write-provider-config.ps1 镜像 U1
+                          - System.Threading.Mutex 替代 mkdir lock
+    │
+    ▼
+U4           (~1 d)       文档同步 + A→B benchmark（disposable temp clone）：
+                          - README / 用户手册 / contract doc truth table
+                          - 三类 diff（intra-file / cross-file / file lifecycle）
+                          - Per-provider pass matrix 全绿判决
+                          - validation doc 记录原始命令 / 耗时 / diff / 决策
+    │
+    ▼
+Rollout gate（~0 min）    benchmark 全绿 → 独立单行 PR：
+                          DEFAULT_REFRESH_MODE_SINGLE_REPO: full → incremental
+                          （DEFAULT_REFRESH_MODE_ALL_REPOS 保持 full）
+```
+
+**回滚**：运行期发现问题 → 单行反向修改常量，不回滚 schema / flag / canonical artifact 字段。
+
+**关键 blocker**：整个路径的唯一真 blocker 是 A4（P0）；A3 如果不支持，降级方案是"只对 GitNexus 启用 incremental，CRG 保留 full"，仍能推进。
 
 ---
 
