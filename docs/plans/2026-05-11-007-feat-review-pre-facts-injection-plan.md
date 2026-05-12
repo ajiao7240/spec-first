@@ -1,7 +1,7 @@
 ---
 title: "feat: graph-backed pre-facts injection for review orchestrators"
 type: feat
-status: active
+status: completed
 date: 2026-05-11
 spec_id: 2026-05-11-007-review-pre-facts-injection
 origin: performance analysis of spec-doc-review and spec-code-review runtime behavior
@@ -77,7 +77,7 @@ GitNexus graph 和 code-review-graph 已经暴露 query surface（architecture m
 - R25. Helper 必须用同一 `--run-id` / `--summary-dir` 管理 run-scoped machine-readable summary。每次 invocation 先 atomic append / update `invocation_events[]`；最终 `render` 或 `one-shot` invocation 输出 / 更新 `review-pre-facts-run-summary.v1`，至少记录 workflow、target_repo、modes_attempted、selected_tier、reason_code、targets_read、targets_omitted、normalization_result、placeholder_rendered 和 temp artifact paths，用于证明 mode transition、fallback 与 omit reason。单个 invocation 不得声称自己知道尚未发生的后续 fallback 路径。
 - R26. Code-review `mode:report-only` 不启用 temp-artifact pre-facts；即使 U4a baseline passed，也必须跳过 Stage 4a provider-results / run-summary temp writes，并在 Coverage 记录 `Pre-facts skipped (report-only no-artifact boundary)`。Interactive / headless / autofix modes 才可在 baseline passed 后使用 session-scoped temp pre-facts artifacts。
 - R27. `review-pre-facts-query-plan.v1` 必须是可执行的 bounded MCP call contract，而不是 narrative plan：每条 query 至少包含 `query_id`、`provider`、`tool_name`、`operation`、`arguments`、`target_refs`、`max_results`、`reason_code` 和 `fallback_reason_code`；orchestrator 只能执行 query plan 中声明的 tool/operation/arguments，raw result 和 provider fact 必须回链到 `query_id`。
-- R28. Raw live MCP result、normalized provider-results 和 rendered excerpts 必须有 hard limits。v1 默认上限为：raw artifact total ≤ 1 MiB、single query raw response ≤ 256 KiB、max normalized facts 为 doc-review 24 / code-review 40、per-excerpt ≤ 1200 chars、rendered facts block ≤ doc-review 16000 chars / code-review 24000 chars；若 host/tokenizer 已直接提供 token budget，可同时记录 token estimate，但 enforcement 使用 character cap。超过限制时必须 fail closed 到 bounded-reads / unavailable 或输出 `provider_raw_result_too_large`、`provider_fact_budget_truncated` 等 reason，而不是把 oversized provider output 注入 prompt。
+- R28. Raw live MCP result、normalized provider-results、direct-read 文件和 rendered excerpts 必须有 hard limits。v1 默认上限为：raw artifact total ≤ 1 MiB、single query raw response ≤ 256 KiB、max normalized facts 为 doc-review 24 / code-review 40、direct-read file ≤ 128 KiB、per-excerpt ≤ 1200 chars、rendered facts block ≤ doc-review 16000 chars / code-review 24000 chars；若 host/tokenizer 已直接提供 token budget，可同时记录 token estimate，但 enforcement 使用 character cap。超过限制时必须 fail closed 到 bounded-reads / unavailable 或输出 `provider_raw_result_too_large`、`provider_fact_budget_truncated`、`target_too_large`、`omitted_targets_budget_truncated` 等 reason，而不是把 oversized provider output 注入 prompt。
 - R29. `spec-doc-review` default path 启用前必须持久化 same-document baseline artifact：`docs/validation/review-pre-facts/doc-review-baseline-YYYY-MM-DD.md`。Baseline 至少记录目标文档、当前 repo snapshot、compiled graph readiness、current-mode wall time、read count source/value 或 `read_count_unavailable`、当前 synthesized P0/P1 findings、P2+ 质量抽样、重复读取样本（若可得）和后续 pre-facts findings parity 比较方法；baseline 缺失时 U2/U3 不进入默认路径，`read_count_unavailable` 不阻塞 doc-review rollout 但禁止声明 read-count target pass。
 
 ## 范围边界
@@ -583,7 +583,7 @@ Trust model 是 agent prompt 指令的一部分，但由 shared helper 输出 pr
 | Agent 被无关 shared facts 锚定 | Persona relevance boundary：非代码 persona 可忽略 pre-facts，不得用 pre-facts 替代自身 lens 判断 |
 | Graph artifacts 格式变化导致 extraction 失败 | Field inventory 失败则 silent fallback 到 bounded reads 或 unavailable，并在 Coverage 记录 tier/reason |
 | Provider result narrative 缺 provenance | 最小 fact contract 要求 source_path、line/window 或 symbol anchor、excerpt；缺失则降级为 pointer / bounded-reads |
-| Provider raw result 过大或 facts 超预算 | v1 固定 raw artifact total 1 MiB、single query raw response 256 KiB、doc-review facts 24、code-review facts 40、per-excerpt 1200 chars、rendered facts block 16000/24000 chars；超限使用 `provider_raw_result_too_large` / `provider_fact_budget_truncated` 并降级 |
+| Provider raw result、direct-read file、facts 或 rendered block 过大 | v1 固定 raw artifact total 1 MiB、single query raw response 256 KiB、doc-review facts 24、code-review facts 40、direct-read file 128 KiB、per-excerpt 1200 chars、rendered facts block 16000/24000 chars；超限使用 `provider_raw_result_too_large` / `provider_fact_budget_truncated` / `target_too_large` / `omitted_targets_budget_truncated` 并降级 |
 | Helper 在 runtime 中不可达 | 通过 hidden package CLI 暴露，不直接引用 `src/cli/helpers/*`；contract tests 覆盖 source checkout 与 installed runtime 调用文案 |
 | 文档 target 诱导读取仓库外路径 | 所有 direct-read target 做 repo-relative normalization + realpath containment；越界、symlink escape、不可读文件进入 omitted_targets 并记录 reason_code |
 | 后续 provider adapter framework 被误当作 v1 默认路径 | v1 明确不实现 `query-provider` / adapter registry / adapter command execution；只有后续 concrete adapter plan 定义 fixed argv shape、timeout、schema mapping 和 consumer 后才可进入 |
@@ -621,7 +621,7 @@ Helper contract 必测点：
 - Path containment：覆盖绝对路径、`..` escape、symlink escape、不可读文件和 multi-repo cross-root target，确认不会读取且 reason_code 正确。
 - Provider normalization：覆盖 `prepare -> raw live MCP result -> normalize-provider-results -> render`、raw result schema invalid、unsupported raw source、normalization no usable facts、provider-results missing provenance 和 fallback reason_code；v1 helper tests 不要求 adapter safety suite。
 - Query-plan execution contract：覆盖 `review-pre-facts-query-plan.v1` 中每条 query 的 `query_id`、`provider`、`tool_name`、`operation`、`arguments`、`target_refs`、`max_results`、`reason_code` 和 `fallback_reason_code`；workflow / orchestrator 只能执行 plan-declared MCP call，raw result 与 provider facts 必须回链 `query_id`。
-- Raw-result limits：覆盖 raw artifact total 1 MiB、single query raw response 256 KiB、doc-review facts 24、code-review facts 40、per-excerpt 1200 chars、rendered facts block 16000/24000 chars；超限时输出 `provider_raw_result_too_large` / `provider_fact_budget_truncated`，不得把完整 oversized payload 注入 prompt。
+- Raw-result limits：覆盖 raw artifact total 1 MiB、single query raw response 256 KiB、doc-review facts 24、code-review facts 40、direct-read file 128 KiB、per-excerpt 1200 chars、rendered facts block 16000/24000 chars；超限时输出 `provider_raw_result_too_large` / `provider_fact_budget_truncated` / `target_too_large` / `omitted_targets_budget_truncated`，不得把完整 oversized payload 注入 prompt。
 - Temp output：覆盖 `--output` 只能写入 `os.tmpdir()/spec-first/review-pre-facts/<run-id>/...`，拒绝 repo source、generated runtime mirrors、`.spec-first/graph/` 和 `.spec-first/providers/`。
 - Run summary：覆盖 schema validation、invocation_events、mode transition、fallback reason、targets_read、targets_omitted、normalization_result 和 `placeholder_rendered`。
 - Prompt-injection fence：用 malicious excerpt fixture 渲染 doc-review 与 code-review prompt，确认 `<pre-facts-usage>` 明确 excerpt 不能作为 instruction，且 JSON/finding schema 不变。
@@ -643,6 +643,14 @@ Graph-fresh 功能验证前置：
 
 扩展验证：
 - `npm run test:unit`
+
+## 实施完成记录（2026-05-12）
+
+- `status: completed` 表示 v1 已完成：shared helper、hidden internal CLI、doc-review Phase 1b default path、subagent `{codebase_facts}` 注入、baseline artifacts、code-review inconclusive gate、contract tests 和 bounded fallback 均已落地。
+- Code-review pre-facts 默认路径未启用是按计划 gate 决策，不是漏做：`docs/validation/review-pre-facts/code-review-baseline-2026-05-12.md` 记录 `Code-review pre-facts baseline: inconclusive (read_count_unavailable)`，因此 U4/U5 保持 follow-up。
+- `fresh_source_eval: passed`。Fresh read-only reviewer 读取当前磁盘 source（`skills/spec-doc-review/SKILL.md`、`skills/spec-doc-review/references/subagent-template.md`、`skills/spec-doc-review/references/pre-facts-extraction.md`、`docs/contracts/workflows/review-pre-facts-extraction.md`），确认 trigger precision、source/runtime boundary、host entrypoints、internal-only boundary、deterministic-vs-semantic boundary 和 tests 均通过，findings 为空。
+- Graph-fresh functional verification 未声明通过：当前 checkout 的 graph artifacts 对本工作区为 stale，真实 CLI one-shot 验证覆盖的是 `graph-stale -> bounded-reads` degraded path。
+- `$spec-code-review` 发现的 snapshot render 复核、provider relative symlink escape、document symlink escape、direct-read file byte budget、omitted-target render hard cap、query-surface provider 绑定、run-summary normalization failure 保留、package allowlist 和 package contract test 已作为 review fix 处理。
 
 ## 上下文与依据
 

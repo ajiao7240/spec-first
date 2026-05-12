@@ -146,6 +146,40 @@ Analyze the document content to determine which conditional personas to activate
 - High-stakes domains (auth, payments, data migrations, external integrations)
 - Proposals of new abstractions, frameworks, or significant architectural patterns
 
+## Phase 1b: Pre-Facts Extraction
+
+Before announcing or dispatching personas, build a single advisory `{codebase_facts}` block for every reviewer. Read `docs/contracts/workflows/review-pre-facts-extraction.md` and `references/pre-facts-extraction.md` for the trust model, target extraction rules, helper modes, and command boundary.
+
+Pre-facts are advisory evidence only. They improve reviewer navigation and reduce repeated runtime reads, but they are not a hard gate, do not select personas, do not replace reviewer judgment, and do not prevent dispatch. Agent tools remain available for fallback validation.
+
+Resolve `<review-pre-facts-cmd>` from the shared command table:
+
+| Context | Command |
+| --- | --- |
+| Source checkout | `node bin/spec-first.js internal review-pre-facts` |
+| Installed Codex runtime | `spec-first internal review-pre-facts` |
+| Installed Claude runtime | `spec-first internal review-pre-facts` |
+
+Do not call `src/cli/helpers/review-pre-facts.js` directly. Use the hidden package CLI boundary so source checkout, Codex runtime, and Claude runtime exercise the same helper.
+
+Use an orchestrator-owned temp directory under `os.tmpdir()/spec-first/review-pre-facts/<run-id>/`. Raw live MCP results, provider results, rendered facts, and run summary are session-scoped temp artifacts, not durable project state.
+
+Execution sequence:
+
+1. Run `<review-pre-facts-cmd> --mode prepare --workflow doc-review --document <path> --run-id <run-id> --summary-dir <temp-dir> --output <temp-dir>/query-plan.json`.
+2. If prepare returns a bounded query plan and the current host exposes the declared MCP tool, execute only the query plan's declared `tool_name`, `operation`, and `arguments`. Do not invent provider methods, add query args, expand target lists, or run plan-outside queries. Write the raw live MCP result to `<temp-dir>/provider-raw-result.json`.
+3. Call `<review-pre-facts-cmd> --mode normalize-provider-results --query-plan <temp-dir>/query-plan.json --raw-result <temp-dir>/provider-raw-result.json --source live-mcp --output <temp-dir>/provider-results.json --run-id <run-id> --summary-dir <temp-dir>`.
+4. If normalization writes provider results, call `<review-pre-facts-cmd> --mode render --provider-results <temp-dir>/provider-results.json --workflow doc-review --document <path> --run-id <run-id> --summary-dir <temp-dir> --output <temp-dir>/codebase-facts.txt`. Invalid provider results still render a legal degraded block with `tier="unavailable"` and return success; use that block instead of reusing the same output path for `one-shot`.
+5. If query plan execution is unavailable, raw result is oversized or invalid, normalization returns no usable facts before provider results exist, or render exits non-zero without writing the final facts block, call `<review-pre-facts-cmd> --mode one-shot --workflow doc-review --document <path> --run-id <run-id> --summary-dir <temp-dir> --output <temp-dir>/codebase-facts.txt`.
+
+The final Phase 1b output is always a complete `<codebase-facts readiness="..." tier="..." reason="...">` block. If every path degrades, inject a legal empty block with `tier="unavailable"` or `tier="no-targets"`; never leave a literal `{codebase_facts}` placeholder in reviewer prompts.
+
+The helper records `review-pre-facts-run-summary.v1` in the temp summary dir. Carry its selected tier and reason into the final Coverage section as:
+
+`Pre-facts tier: <tier> (<reason>)`
+
+For graph-fresh claims, require the helper's snapshot comparison to match `source_revision`, `worktree_dirty`, and `worktree_status_hash`. If graph readiness is stale, provider query fails, provider output lacks provenance, or raw/provider output exceeds v1 limits, use bounded reads / unavailable fallback and do not claim graph-fresh pass.
+
 ## Phase 2: Announce and Dispatch Personas
 
 ### Announce the Review Team
@@ -207,6 +241,7 @@ Each agent receives the prompt built from the subagent template included below w
 | `{document_type}` | "requirements", "plan", or "task-pack" from Phase 1 classification |
 | `{origin}` | Frontmatter `origin:` value when present, otherwise `none` |
 | `{document_path}` | Path to the document |
+| `{codebase_facts}` | Phase 1b `<codebase-facts>` block; fallback is a legal empty block, never an unreplaced placeholder |
 | `{document_content}` | Full text of the document |
 | `{decision_primer}` | Cumulative prior-round decisions in the current session, or an empty `<prior-decisions>` block on round 1. See "Decision primer" below. |
 

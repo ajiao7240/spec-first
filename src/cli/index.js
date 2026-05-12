@@ -4,6 +4,7 @@ const pkg = require('../../package.json');
 const { runClean } = require('./commands/clean');
 const { runDoctor } = require('./commands/doctor');
 const { runInit } = require('./commands/init');
+const { runInternal } = require('./commands/internal');
 const { runTasks } = require('./commands/tasks');
 const { runGitNexusInstructionBlockCommand } = require('./gitnexus-instruction-block');
 const {
@@ -51,6 +52,10 @@ async function runCli(argv) {
 
   if (cmd === 'tasks') {
     return Promise.resolve(runTasks(args.slice(1)));
+  }
+
+  if (cmd === 'internal') {
+    return Promise.resolve(runInternal(args.slice(1)));
   }
 
   if (cmd === 'gitnexus-instruction') {

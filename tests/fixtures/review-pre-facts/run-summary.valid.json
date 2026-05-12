@@ -1,0 +1,47 @@
+{
+  "schema_version": "review-pre-facts-run-summary.v1",
+  "workflow": "doc-review",
+  "target_repo": "/repo",
+  "run_id": "fixture-run",
+  "modes_attempted": [
+    "prepare",
+    "normalize-provider-results",
+    "render"
+  ],
+  "invocation_events": [
+    {
+      "mode": "prepare",
+      "status": "completed",
+      "reason_code": "provider_query_plan_rendered",
+      "message": null
+    },
+    {
+      "mode": "normalize-provider-results",
+      "status": "completed",
+      "reason_code": "provider_results_normalized",
+      "message": null
+    },
+    {
+      "mode": "render",
+      "status": "completed",
+      "reason_code": "provider_results_normalized",
+      "message": null
+    }
+  ],
+  "selected_tier": "graph-fresh",
+  "reason_code": "provider_results_normalized",
+  "targets_read": [
+    "src/cli/index.js"
+  ],
+  "targets_omitted": [],
+  "normalization_result": {
+    "source": "live-mcp",
+    "status": "completed",
+    "reason_code": "provider_results_normalized"
+  },
+  "placeholder_rendered": false,
+  "temp_artifacts": [
+    "/tmp/spec-first/review-pre-facts/fixture-run/provider-results.json",
+    "/tmp/spec-first/review-pre-facts/fixture-run/codebase-facts.txt"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "review-pre-facts-provider-raw-result.v1",
+  "workflow": "doc-review",
+  "target_repo": "/repo",
+  "source": "live-mcp",
+  "query_plan_id": "qplan-fixture",
+  "raw_results": [
+    {
+      "query_id": "undeclared",
+      "tool_name": "gitnexus.query",
+      "operation": "query",
+      "status": "ok",
+      "response": {
+        "process_symbols": []
+      }
+    }
+  ]
+}

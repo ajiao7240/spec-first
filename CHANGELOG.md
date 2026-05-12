@@ -1,6 +1,10 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-12 09:44:14 leokuang: fix(review): 修复 pre-facts code-review 发现的 snapshot 复核、路径 containment、render hard cap、package allowlist 与 run-summary 证据保留问题 (user-visible)
+- v1.8.2 2026-05-12 09:18:35 leokuang: fix(review): 加固 pre-facts render 对合法 JSON 非对象 provider-results 的 degraded 输出边界 (user-visible)
+- v1.8.2 2026-05-12 09:03:55 leokuang: fix(catalog): 同步 runtime capability catalog generator 的 AI dev benchmark evidence 文案，修复派生 catalog drift 验证 (user-visible)
+- v1.8.2 2026-05-12 03:58:33 leokuang: feat(review): 实现 doc-review pre-facts helper、hidden internal CLI、Phase 1b 注入、baseline artifacts、code-review baseline gate 与 review-fix 边界加固 (user-visible)
 - v1.8.2 2026-05-12 03:39:16 leokuang: docs(plan): 补强 review pre-facts 计划的 executable query plan、doc-review baseline 与 provider output size limits (user-visible)
 - v1.8.2 2026-05-12 03:19:41 leokuang: docs(plan): 收敛 review pre-facts 计划的 live MCP normalization、code-review gate、report-only artifact 与 fresh-source eval 边界 (user-visible)
 - v1.8.2 2026-05-12 03:01:58 leokuang: fix(init): 收紧 managed instruction corrupted-marker 兜底清理条件，避免误删同名用户段落 (user-visible)

@@ -1,0 +1,25 @@
+{
+  "schema_version": "review-pre-facts-provider-results.v1",
+  "workflow": "doc-review",
+  "target_repo": "/repo",
+  "source": "live-mcp",
+  "query_plan_id": "qplan-fixture",
+  "readiness": "graph-fresh",
+  "tier": "graph-fresh",
+  "reason_code": "provider_results_normalized",
+  "facts": [
+    {
+      "provider": "gitnexus",
+      "query_id": "q1",
+      "source_path": "src/cli/index.js",
+      "line_window": {
+        "start": 15,
+        "end": 63
+      },
+      "excerpt": "runCli (Cli)",
+      "readiness": "graph-fresh",
+      "tier": "graph-fresh",
+      "reason_code": "provider_graph_symbol"
+    }
+  ]
+}

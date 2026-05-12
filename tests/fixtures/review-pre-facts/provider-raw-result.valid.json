@@ -1,0 +1,26 @@
+{
+  "schema_version": "review-pre-facts-provider-raw-result.v1",
+  "workflow": "doc-review",
+  "target_repo": "/repo",
+  "source": "live-mcp",
+  "query_plan_id": "qplan-fixture",
+  "raw_results": [
+    {
+      "query_id": "q1",
+      "tool_name": "gitnexus.query",
+      "operation": "query",
+      "status": "ok",
+      "response": {
+        "process_symbols": [
+          {
+            "name": "runCli",
+            "filePath": "src/cli/index.js",
+            "startLine": 15,
+            "endLine": 63,
+            "module": "Cli"
+          }
+        ]
+      }
+    }
+  ]
+}

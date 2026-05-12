@@ -6,6 +6,24 @@ const path = require('node:path');
 const { getAdapter } = require('../../src/cli/adapters');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'SKILL.md');
+const PRE_FACTS_CONTRACT_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'docs',
+  'contracts',
+  'workflows',
+  'review-pre-facts-extraction.md',
+);
+const CODE_REVIEW_BASELINE_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'docs',
+  'validation',
+  'review-pre-facts',
+  'code-review-baseline-2026-05-12.md',
+);
 
 function renderWorkflowSkill(platform) {
   const adapter = getAdapter(platform);
@@ -47,6 +65,26 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');
+  });
+});
+
+describe('spec-code-review pre-facts baseline gate contract', () => {
+  test('shared contract defines code-review baseline gate and report-only no-artifact boundary', () => {
+    const contract = fs.readFileSync(PRE_FACTS_CONTRACT_PATH, 'utf8');
+    const baseline = fs.readFileSync(CODE_REVIEW_BASELINE_PATH, 'utf8');
+
+    expect(contract).toContain('docs/validation/review-pre-facts/code-review-baseline-YYYY-MM-DD.md');
+    expect(contract).toContain('Gate passes only when read count is available');
+    expect(contract).toContain('wall time is comparable');
+    expect(contract).toContain('at least two reviewers repeatedly read the same changed file/caller/test');
+    expect(contract).toContain('P0/P1 parity can be manually checked');
+    expect(contract).toContain('dirty snapshot behavior is recorded');
+    expect(contract).toContain('Code-review pre-facts baseline: inconclusive (<reason>)');
+    expect(contract).toContain('code-review Stage 4a and template injection remain follow-up work');
+    expect(contract).toContain('Pre-facts skipped (report-only no-artifact boundary)');
+    expect(baseline).toContain('Code-review pre-facts baseline: inconclusive (read_count_unavailable)');
+    expect(baseline).toContain('Stage 4a default pre-facts injection and code-review template `{codebase_facts}` injection remain follow-up work');
+    expect(baseline).toContain('Doc-review pre-facts delivery is not blocked');
   });
 });
 

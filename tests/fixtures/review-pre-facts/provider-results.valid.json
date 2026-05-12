@@ -1,0 +1,35 @@
+{
+  "schema_version": "review-pre-facts-provider-results.v1",
+  "workflow": "doc-review",
+  "target_repo": "/repo",
+  "source": "live-mcp",
+  "query_plan_id": "qplan-fixture",
+  "readiness": "graph-fresh",
+  "tier": "graph-fresh",
+  "snapshot": {
+    "source_revision": "0123456789abcdef0123456789abcdef01234567",
+    "worktree_dirty": false,
+    "worktree_status_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "reason_code": "provider_results_normalized",
+  "facts": [
+    {
+      "provider": "gitnexus",
+      "query_id": "q1",
+      "source_path": "src/cli/index.js",
+      "line_window": {
+        "start": 15,
+        "end": 63
+      },
+      "excerpt": "runCli (Cli)",
+      "readiness": "graph-fresh",
+      "tier": "graph-fresh",
+      "reason_code": "provider_graph_symbol",
+      "provenance": {
+        "source": "live-mcp",
+        "query_plan_id": "qplan-fixture",
+        "tool_name": "gitnexus.query"
+      }
+    }
+  ]
+}
