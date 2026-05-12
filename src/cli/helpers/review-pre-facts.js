@@ -966,26 +966,27 @@ function normalizeProviderFact(fact, query, result, queryPlan, source) {
 function normalizeProviderSourcePath(value, targetRepo) {
   const raw = String(value || '').trim();
   if (!raw || /^https?:\/\//i.test(raw)) return null;
+  const repoReal = safeRealpath(targetRepo) || path.resolve(targetRepo || '.');
+  let candidate;
   if (path.isAbsolute(raw)) {
-    const repoReal = safeRealpath(targetRepo) || path.resolve(targetRepo || '.');
-    const lstat = safeLstat(raw);
-    const sourceReal = safeRealpath(raw) || path.resolve(raw);
-    if (!isInsidePath(repoReal, sourceReal) && sourceReal !== repoReal) return null;
-    if (lstat && !lstat.isFile()) return null;
-    const rel = path.relative(repoReal, sourceReal).split(path.sep).join('/');
-    const normalized = normalizeTargetPath(rel);
-    return normalized.ok ? normalized.path : null;
+    candidate = path.resolve(raw);
+  } else {
+    const normalized = normalizeTargetPath(raw);
+    if (!normalized.ok) return null;
+    candidate = path.resolve(targetRepo || process.cwd(), normalized.path);
   }
-  const normalized = normalizeTargetPath(raw);
-  if (!normalized.ok) return null;
-  const absolute = path.resolve(targetRepo || process.cwd(), normalized.path);
-  const lstat = safeLstat(absolute);
-  if (lstat) {
-    const repoReal = safeRealpath(targetRepo) || path.resolve(targetRepo || '.');
-    const sourceReal = safeRealpath(absolute);
-    if (!sourceReal || (!isInsidePath(repoReal, sourceReal) && sourceReal !== repoReal)) return null;
-    if (!lstat.isFile()) return null;
+
+  const lstat = safeLstat(candidate);
+  if (!lstat || !lstat.isFile()) return null;
+  const sourceReal = safeRealpath(candidate);
+  if (!sourceReal || (!isInsidePath(repoReal, sourceReal) && sourceReal !== repoReal)) return null;
+  try {
+    fs.accessSync(sourceReal, fs.constants.R_OK);
+  } catch (_error) {
+    return null;
   }
+  const rel = path.relative(repoReal, sourceReal).split(path.sep).join('/');
+  const normalized = normalizeTargetPath(rel);
   return normalized.ok ? normalized.path : null;
 }
 

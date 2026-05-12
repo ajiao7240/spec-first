@@ -164,7 +164,7 @@ Do not chain multiple workflows automatically unless the active workflow explici
 | Intent | Claude | Codex |
 | --- | --- | --- |
 | environment setup, host setup, MCP setup, missing tools, host readiness, project-local setup | `/spec:mcp-setup` | `$spec-mcp-setup` |
-| build or refresh configured graph-provider indexes after MCP setup | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
+| compile or refresh graph readiness, GitNexus/code-review-graph provider indexes, or graph-provider query proof after setup | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
 | compile, refresh, import, or inspect project standards, repo-profile candidates, shared engineering standards, or glue/reuse baselines | `/spec:standards` | `$spec-standards` |
 | check/update spec-first, refresh generated runtime assets, or repair stale `/spec:*` / `$spec-*` entries | `/spec:update` | `$spec-update` |
 | retrieve past coding-agent sessions or ask what happened in prior work | `/spec:sessions` | `$spec-sessions` |
@@ -188,6 +188,12 @@ Do not chain multiple workflows automatically unless the active workflow explici
 `spec-write-tasks` is not a `/spec:*` or `$spec-*` workflow entrypoint. Do not recommend `$spec-work-beta` in User Next-Step Guide Mode unless the current request explicitly asks for beta execution, Codex delegation, `delegate:codex`, or delegation mode. Ordinary execution-ready work routes to the stable work entrypoint.
 
 If none of the above applies, do not force the request into `spec-first`.
+
+### Graph Refresh Routing Boundary
+
+Requests such as “refresh GitNexus”, “rebuild graph/index”, “update graph readiness after branch switch”, or “verify current graph impact evidence” route to `$spec-graph-bootstrap` / `/spec:graph-bootstrap` when setup-owned provider projection is already ready. If the request is about missing MCP config, stale provider package projection, host runtime repair, or generated runtime assets, route to setup/update first and let that workflow hand off to graph-bootstrap.
+
+Entry routing itself never runs provider analyze/build/status/query commands and never writes canonical `.spec-first/graph/*`, `.spec-first/providers/*`, or `.spec-first/impact/*` artifacts. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are freshness signals for the selected workflow to disclose or hand off; they are not automatic routing-governor rebuild triggers.
 
 ### Parent Workspace Graph Evidence
 

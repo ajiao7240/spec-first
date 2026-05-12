@@ -12,6 +12,7 @@ while IFS='=' read -r env_name _; do
 done < <(env)
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+MCP_SETUP_SKILL="$REPO_ROOT/skills/spec-mcp-setup/SKILL.md"
 SCRIPTS_DIR="$REPO_ROOT/skills/spec-mcp-setup/scripts"
 RESOLVER_SCRIPT="$SCRIPTS_DIR/resolve-project-target.sh"
 GRAPH_BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
@@ -177,6 +178,13 @@ make_repo() {
 }
 
 echo "=== spec-mcp-setup required runtime tests ==="
+
+mcp_setup_skill_source="$(cat "$MCP_SETUP_SKILL")"
+assert_contains "mcp setup owns setup projection not graph refresh" '`spec-mcp-setup` owns setup projection, not graph readiness refresh' "$mcp_setup_skill_source"
+assert_contains "mcp setup does not write graph readiness artifacts" 'must not write canonical `.spec-first/graph/*`, `.spec-first/providers/*`, or `.spec-first/impact/*`' "$mcp_setup_skill_source"
+assert_contains "mcp setup marks bootstrap required on fingerprint mismatch" 'provider fingerprint mismatch' "$mcp_setup_skill_source"
+assert_contains "mcp setup hands off to graph-bootstrap" 'hand off to `$spec-graph-bootstrap` / `/spec:graph-bootstrap`' "$mcp_setup_skill_source"
+assert_contains "mcp setup avoids branch-triggered refresh" 'branch/pull/rebase-triggered refresh' "$mcp_setup_skill_source"
 
 assert "project target resolver is executable" test -x "$RESOLVER_SCRIPT"
 TARGET_WORKSPACE="$TMP_DIR/target-workspace"

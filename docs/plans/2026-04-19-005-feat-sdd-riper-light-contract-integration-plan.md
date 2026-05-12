@@ -1,10 +1,12 @@
 ---
 title: sdd-riper 轻量协作约束集成计划
 type: feat
-status: backlog
+status: completed
 date: 2026-04-19
 deepened: 2026-04-19
 origin: docs/ideation/2026-04-19-sdd-riper-flow-node-borrowing.md
+completed_at: 2026-05-12
+completion_evidence: tests/unit/spec-work-run-artifact-contract.test.js
 ---
 
 # sdd-riper 轻量协作约束集成计划
@@ -27,6 +29,10 @@ Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound
 4. `spec-code-review` 三轴 verdict
 
 `spec-compound` 的双视角沉淀扩展只作为 follow-up 方向记录，不纳入本轮实施与验收。
+
+## 收口记录
+
+2026-05-12 lifecycle cleanup 复核后，本计划状态从 `backlog` 校准为 `completed`。本文档自身的 `Implementation Units` 与 `Final Review Checklist` 已记录 Unit 1-4 全部完成；现有 `spec-work` run artifact contract、workflow 锚点、freshness/partial 补读约束和 code-review 三轴 verdict 已由当前 source skill 与 contract tests 承接。`spec-compound` 双视角沉淀、数据库文档生成 contract 和进一步 runtime 持久化仍为后续独立方向，不属于本计划未完成范围。
 
 ## Expected Effects
 

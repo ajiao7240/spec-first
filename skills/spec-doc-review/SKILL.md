@@ -42,6 +42,12 @@ Detect mode and document type, select reviewer personas, dispatch with bounded p
 
 `spec-plan`, `spec-work`, task-pack validation/rebuild decisions, human document owners, and code-review handoffs when document findings imply implementation risk.
 
+## Graph Freshness / Refresh Trigger Boundary
+
+Before treating compiled graph facts or pre-facts as graph-fresh review evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, `.spec-first/impact/bootstrap-impact-capabilities.json`, provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Doc Review to rebuild providers.
+
+For stale graph + lightweight document review, such as docs-only prose, typo-level wording, first project trial, or a plan that can be checked from the document and bounded source reads, disclose limitations and continue with bounded reads or session-local live MCP pointers. For stale graph + graph-heavy document review, such as shared helper/API/route/provider contract/core workflow/cross-module plans, review-pre-facts changes, high-risk review, or conclusions that depend on execution flows, impact, `detect_changes`, or blast radius, recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap` before claiming graph-backed evidence. Doc Review must not run GitNexus analyze, code-review-graph build, provider repair, index rebuild, default git hooks, watchers, or daemons. A stale pre-facts tier degrades evidence; it is not a reviewer-dispatch failure by itself.
+
 ## Invocation Boundary
 
 `spec-doc-review` is a workflow orchestrator, not an agent type. Do not invoke it through Agent/Task/subagent primitives. Use the current host's document-review entrypoint instead; nested workflow callers execute the workflow inline in the current orchestrator. This workflow may dispatch persona agents during Phase 2, but the workflow itself is not one of those agents.

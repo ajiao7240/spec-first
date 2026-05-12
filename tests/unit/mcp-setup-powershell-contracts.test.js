@@ -109,6 +109,11 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(skillSource).toContain('parent workspace, that standards handoff batches child-local baselines for discovered child repos by default');
     expect(skillSource).toContain('parent advisory standards artifacts require `spec-standards --workspace`');
     expect(skillSource).toContain('setup does not write those artifacts itself');
+    expect(skillSource).toContain('`spec-mcp-setup` owns setup projection, not graph readiness refresh');
+    expect(skillSource).toContain('must not write canonical `.spec-first/graph/*`, `.spec-first/providers/*`, or `.spec-first/impact/*`');
+    expect(skillSource).toContain('provider fingerprint mismatch');
+    expect(skillSource).toContain('hand off to `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
+    expect(skillSource).toContain('branch/pull/rebase-triggered refresh');
     expect(verifySource).toContain('live MCP probe 前需要');
     expect(verifySource).toContain('graph_bootstrap_required');
     expect(verifySource).toContain('$spec-graph-bootstrap');

@@ -313,3 +313,4 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 - `docs/ideation/`、`docs/brainstorms/`、`docs/plans/`、`docs/tasks/` 和 `docs/solutions/` 才是长期协作文档层。
 - provider readiness facts 是当前代码和工具状态的投影，不要把它改造成第二套手工维护事实源。
 - 若 graph facts stale、blocked 或 degraded，下游 workflow 应说明限制，并回退到 bounded direct repo reads 或其他已配置 provider。
+- 切换分支、pull、rebase、merge、dirty worktree 变化和 provider fingerprint mismatch 是 freshness invalidation signal；只有 `spec-graph-bootstrap` 显式刷新 canonical graph readiness artifacts。

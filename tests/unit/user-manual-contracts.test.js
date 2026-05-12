@@ -160,6 +160,33 @@ describe('user manual contracts', () => {
     expect(guide).toContain('`.spec-first/impact/bootstrap-impact-capabilities.json`');
   });
 
+  test('user manual documents explicit graph refresh trigger boundaries', () => {
+    const manual = read(USER_MANUAL_README_PATH);
+    const quickstart = read(QUICKSTART_PATH);
+    const concepts = read(CORE_CONCEPTS_PATH);
+    const artifactMap = read(ARTIFACT_MAP_PATH);
+    const bestPractices = read(BEST_PRACTICES_PATH);
+
+    expect(manual).toContain('自动 freshness check，显式 graph-bootstrap refresh');
+    expect(manual).toContain('`spec-mcp-setup` 只刷新 setup-owned provider projection');
+    expect(manual).toContain('`spec-graph-bootstrap` 才写 canonical `.spec-first/graph/*`');
+    expect(manual).toContain('切换分支、pull、rebase、merge、dirty worktree 变化或 provider fingerprint mismatch');
+    expect(manual).toContain('不会自动运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons');
+    expect(manual).toContain('graph-heavy 任务再显式运行 `spec-graph-bootstrap`');
+
+    expect(quickstart).toContain('Graph refresh 触发节点可以按这张表理解');
+    expect(quickstart).toContain('需要当前 GitNexus / code-review-graph readiness');
+    expect(quickstart).toContain('不会自动 rebuild index');
+    expect(quickstart).toContain('shared API/route/provider contract、core workflow、跨模块变更或高风险 review');
+
+    expect(concepts).toContain('`spec-graph-bootstrap` 才是显式 graph readiness refresh 入口');
+    expect(concepts).toContain('不是自动 rebuild index trigger');
+    expect(concepts).toContain('graph-backed impact / execution-flow evidence');
+    expect(artifactMap).toContain('只有 `spec-graph-bootstrap` 显式刷新 canonical graph readiness artifacts');
+    expect(bestPractices).toContain('旧 graph facts 当 stale / bootstrap-required signal');
+    expect(bestPractices).toContain('隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons');
+  });
+
   test('FAQ covers Win64-native and cross-platform troubleshooting', () => {
     const faq = read(FAQ_PATH);
 

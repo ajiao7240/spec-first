@@ -199,6 +199,8 @@ describe('review-pre-facts fixtures', () => {
     const providerResults = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-results.valid.json'), 'utf8'));
     const missingProvenance = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-results.missing-provenance.json'), 'utf8'));
     const runSummary = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'run-summary.valid.json'), 'utf8'));
+    providerResults.target_repo = REPO_ROOT;
+    missingProvenance.target_repo = REPO_ROOT;
 
     expect(validateQueryPlan(queryPlan).ok).toBe(true);
     expect(validateRawResult(raw, queryPlan).ok).toBe(true);
@@ -245,6 +247,73 @@ describe('review-pre-facts helper modes', () => {
       expect(summary.invocation_events).toEqual([
         expect.objectContaining({ mode: 'prepare', status: 'completed' }),
       ]);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('prepare treats branch switch pull rebase equivalent HEAD changes as graph-stale', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      write(repo, 'src/cli/after-branch-switch.js', 'module.exports = {};\n');
+      spawnSync('git', ['add', 'src/cli/after-branch-switch.js'], { cwd: repo, encoding: 'utf8' });
+      spawnSync('git', ['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'test: branch equivalent change'], {
+        cwd: repo,
+        encoding: 'utf8',
+      });
+
+      const output = path.join(dir, 'query-plan.json');
+      const result = captureRun([
+        '--mode', 'prepare',
+        '--workflow', 'doc-review',
+        '--document', 'docs/plans/plan.md',
+        '--repo', repo,
+        '--run-id', runId,
+        '--summary-dir', dir,
+        '--output', output,
+      ], repo);
+
+      expect(result.code).toBe(0);
+      const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+      expect(plan.readiness).toBe('graph-stale');
+      expect(plan.tier).toBe('bounded-reads');
+      expect(plan.reason_code).toBe('graph_stale_bounded_reads');
+      expect(plan.queries).toEqual([]);
+      expect(plan.recorded_snapshot.source_revision).not.toBe(plan.snapshot.source_revision);
+      expect(plan.recorded_snapshot.worktree_status_hash).toBe(plan.snapshot.worktree_status_hash);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('prepare treats dirty worktree status hash changes as graph-stale', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      write(repo, 'src/cli/dirty-change.js', 'module.exports = { dirty: true };\n');
+
+      const output = path.join(dir, 'query-plan.json');
+      const result = captureRun([
+        '--mode', 'prepare',
+        '--workflow', 'doc-review',
+        '--document', 'docs/plans/plan.md',
+        '--repo', repo,
+        '--run-id', runId,
+        '--summary-dir', dir,
+        '--output', output,
+      ], repo);
+
+      expect(result.code).toBe(0);
+      const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+      expect(plan.readiness).toBe('graph-stale');
+      expect(plan.tier).toBe('bounded-reads');
+      expect(plan.reason_code).toBe('graph_stale_bounded_reads');
+      expect(plan.queries).toEqual([]);
+      expect(plan.recorded_snapshot.source_revision).toBe(plan.snapshot.source_revision);
+      expect(plan.recorded_snapshot.worktree_dirty).toBe(false);
+      expect(plan.snapshot.worktree_dirty).toBe(true);
+      expect(plan.recorded_snapshot.worktree_status_hash).not.toBe(plan.snapshot.worktree_status_hash);
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
@@ -460,6 +529,8 @@ describe('review-pre-facts helper modes', () => {
         { readiness: undefined },
         { tier: 'unknown-tier' },
         { excerpt: 'x'.repeat(LIMITS.perExcerptChars + 1) },
+        { source_path: 'src/cli/missing-provider-source.js' },
+        { target: 'src/cli/missing-provider-target.js' },
       ];
 
       for (const overrides of invalidCases) {

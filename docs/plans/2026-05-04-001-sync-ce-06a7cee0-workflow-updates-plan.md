@@ -1,12 +1,14 @@
 ---
 title: 同步 CE 06a7cee0 workflow 更新到 spec-first 技术方案
 date: 2026-05-04
-status: active
+status: completed
 type: plan
 source: ce-sync
 ce_range: 4b5f28da..06a7cee0
 ce_head: 06a7cee0ad68cb50cebdb8a2a864ec4148ffba78
 origin: docs/solutions/architecture-patterns/upstream-ce-sync-upgrade-methodology-2026-04-26.md
+completed_at: 2026-05-12
+completion_evidence: docs/validation/2026-05-05-ce-06a7cee0-sync-ledger.md
 ---
 
 # 同步 CE 06a7cee0 workflow 更新到 spec-first 技术方案
@@ -16,6 +18,10 @@ origin: docs/solutions/architecture-patterns/upstream-ce-sync-upgrade-methodolog
 本计划用于把 CE `4b5f28da..06a7cee0` 中适合 spec-first 的 workflow、agent、script 和 governance 变更同步到当前仓库。同步采用“事实取证 + 语义适配”方式：安全修复和既有 workflow 改良进入本轮实施，新产品能力入口先进入产品边界 spike，不把 CE 新 skill 机械复制进 spec-first。
 
 2026-05-04 再审校准后，本计划进一步收紧同步口径：目标文件已存在的 agent、skill、reference 和 script 变更不再使用“直接同步并改名”作为默认判定；执行前必须先对比 CE 实际 hunk、当前 spec-first 目标文件、调用方和验证契约，再只同步能被当前项目语义支撑的最小行为切片。
+
+## 收口记录
+
+2026-05-12 lifecycle cleanup 复核后，本计划状态收口为 `completed`。落地证据以 `docs/validation/2026-05-05-ce-06a7cee0-sync-ledger.md` 为准：U0、U1、U2、U3、U4、U5、U6、U7、U9、U10 已完成语义同步与验证记录；U8 作为产品边界 spike 已由 `docs/validation/2026-05-05-ce-06a7cee0-u8-product-boundary-spike.md` 完成，并明确不在本同步批次新增 `spec-strategy`、`spec-product-pulse` 或 `spec-simplify-code`。
 
 ## 问题背景
 

@@ -161,6 +161,16 @@ $spec-ideate / $spec-brainstorm / $spec-plan / $spec-work / $spec-code-review
 
 当任务依赖 MCP/helper tools、graph evidence、project standards、跨模块或跨仓影响分析时，再走 setup/bootstrap/standards 增强路径。缺失或过期的 graph facts 是需要披露的 degraded evidence，不是伪造的成功状态，也不是所有 workflow 的硬前置。
 
+Graph refresh 触发节点：
+
+| 事件或需求 | 默认动作 |
+|---|---|
+| 首次 setup 或 provider package projection 过期 | 运行 `/spec:mcp-setup` 或 `$spec-mcp-setup`；它刷新 setup-owned provider config，不刷新 graph index。 |
+| 需要当前 GitNexus / code-review-graph readiness | 运行 `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap`；这是显式 graph readiness refresh 入口。 |
+| 切换分支、pull、rebase、merge 或 dirty worktree 变化 | 下一个 graph consumer 检测 stale `source_revision` / `worktree_status_hash`；不会自动 rebuild index。 |
+| docs、typo、小型本地 bug 或首次试用 | graph facts stale / unavailable 时披露限制，并继续 bounded direct reads。 |
+| shared API/route/provider contract、core workflow、跨模块变更或高风险 review | 在声明 graph-backed impact 或 execution-flow evidence 前显式刷新 graph readiness。 |
+
 ### Readiness ladder / 就绪层级
 
 `doctor` 是第一层健康检查，不代表所有能力都 ready。请把三层 readiness 分开看：
@@ -543,6 +553,7 @@ your-project/
 
 - 用当前宿主的 setup workflow 安装并验证 required harness runtime：Serena、Sequential Thinking、Context7、GitNexus、code-review-graph、`agent-browser`、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。
 - 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus/code-review-graph probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
+- 把切换分支、pull、rebase、merge、dirty worktree 变化和 provider fingerprint mismatch 视为 graph freshness invalidation signals。下游 workflow 可以建议 graph bootstrap，但不会隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。
 - 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。
 - 在父 workspace 下存在多个 child Git repos 时，只读代码问题可以使用 `workspace-graph-targets.v1` advisory facts 选择 bounded candidate repos，并优先使用 GitNexus-first evidence。除下一条父 workspace 维护入口外，写入、测试、changelog、review autofix 和 commit 仍必须有明确 `target_repo` / per-child scope。
 - 父 workspace 维护操作中，init、setup 和 graph bootstrap 在未传 `--repo <child>` 时默认处理全部 child repos；`--repo <child>` 用于收窄范围，`--all-repos` 仍作为显式等价入口。首次 Serena 激活仍需要 per-child language evidence，缺语言的 child 会返回 `serena_language_required`，由 agent 用 `--serena-language-for <child>=<language>` 重跑。父目录可以写 advisory `.spec-first/workspace/*summary.json`；无参数 `spec-standards` 会给每个 discovered child repo 写 child-local `.spec-first/standards/` baseline facts，`spec-standards --workspace` 才写父级 advisory standards baseline。父目录不把 repo-local `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*`、`.spec-first/providers/*`、child-local `.spec-first/standards/*` 或 `.serena/*` 当作 parent-local truth。

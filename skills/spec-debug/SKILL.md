@@ -23,6 +23,12 @@ These principles govern every phase. They are repeated at decision points becaus
 
 Orient debugging from the reported symptom, reproduction path, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, recent diffs, and runtime logs. In a parent workspace containing multiple independent Git repos, use `workspace-graph-targets.v1` only as advisory read-only evidence: prefer bounded candidate repos with `primary` status, try GitNexus-first queries for the concrete symptom, and treat `degraded-fallback` or definitions-only GitNexus results as file/symbol pointers to verify with Serena, code-review-graph, tests, or direct reads. Before Phase 3 writes, the bug must have a single explicit `target_repo` or per-fix repo scope; do not let cwd, graph target facts, or live MCP results choose a sibling repo for edits.
 
+## Graph Freshness / Refresh Trigger Boundary
+
+Before using compiled graph facts as primary debugging evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, and `.spec-first/impact/bootstrap-impact-capabilities.json` for provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Debug to rebuild providers.
+
+For stale graph + lightweight debugging, such as a single-file typo, missing import, null dereference, off-by-one, or a small local bug with direct source evidence, disclose limitations and continue with bounded direct reads, tests, logs, or session-local live MCP pointers. For stale graph + graph-heavy debugging, such as shared helper/API/route/provider contract/core workflow/cross-module failures, review-pre-facts failures, high-risk regressions, or symptoms where execution flows and blast radius materially shape the root-cause search, recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap` before claiming graph-backed impact evidence. Debug must not run GitNexus analyze, code-review-graph build, provider repair, index rebuild, default git hooks, watchers, or daemons.
+
 ## Execution Flow
 
 | Phase | Name | Purpose |

@@ -1,13 +1,15 @@
 ---
 title: fix: 修复 CE 血缘带来的 skill 调度边界漂移
 date: 2026-05-05
-status: active
+status: completed
 type: fix
 spec_id: 2026-05-05-002-ce-dispatch-boundary-audit
 origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates-requirements.md
 target_repo: spec-first
 priority: P0
 scope: dispatch-boundary-control-plane
+completed_at: 2026-05-12
+completion_evidence: docs/validation/2026-05-05-ce-dispatch-boundary-audit-matrix.md
 ---
 
 # fix: 修复 CE 血缘带来的 skill 调度边界漂移
@@ -45,6 +47,10 @@ parallel / subagent / worker 语义没有绑定 isolation、write-set、fallback
 ```text
 先把 skill 调度控制权收回来，再谈能力扩展。
 ```
+
+## 收口记录
+
+2026-05-12 lifecycle cleanup 复核后，本计划状态收口为 `completed`。`docs/validation/2026-05-05-ce-dispatch-boundary-audit-matrix.md` 已覆盖主要 dispatch 边界矩阵，`spec-doc-review`、`spec-code-review`、`spec-plan`、`spec-ideate`、`resolve-pr-feedback`、`spec-work`、`spec-work-beta`、`agent-native-audit` 等 P0/P1 语义漂移已由 source 与 contract tests 固化。此前矩阵中的 `spec-optimize` P2 watch item 现已由 `skills/spec-optimize/SKILL.md`、`tests/unit/spec-optimize-contracts.test.js` 和 `tests/unit/spec-dispatch-boundary-contracts.test.js` 覆盖 optional backend、fallback 与 orchestrator-owned integration 边界。
 
 ---
 

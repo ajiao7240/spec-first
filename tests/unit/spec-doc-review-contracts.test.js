@@ -97,6 +97,30 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('spec-first tasks validate --json');
   });
 
+  test('doc review keeps graph freshness checks separate from provider refresh', () => {
+    const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+
+    expect(skill).toContain('Graph Freshness / Refresh Trigger Boundary');
+    expect(skill).toContain('.spec-first/graph/provider-status.json');
+    expect(skill).toContain('.spec-first/graph/graph-facts.json');
+    expect(skill).toContain('.spec-first/impact/bootstrap-impact-capabilities.json');
+    expect(skill).toContain('provider `query_ready=true`');
+    expect(skill).toContain('current `source_revision`, `worktree_dirty`, `worktree_status_hash`');
+    expect(skill).toContain('setup-owned provider projection / fingerprint freshness');
+    expect(skill).toContain('Branch switch, pull, rebase, merge');
+    expect(skill).toContain('provider fingerprint mismatch');
+    expect(skill).toContain('stale / bootstrap-required signals');
+    expect(skill).toContain('stale graph + lightweight document review');
+    expect(skill).toContain('stale graph + graph-heavy document review');
+    expect(skill).toContain('shared helper/API/route/provider contract/core workflow/cross-module plans');
+    expect(skill).toContain('review-pre-facts changes');
+    expect(skill).toContain('execution flows, impact, `detect_changes`, or blast radius');
+    expect(skill).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
+    expect(skill).toContain('Doc Review must not run GitNexus analyze, code-review-graph build');
+    expect(skill).toContain('provider repair, index rebuild, default git hooks, watchers, or daemons');
+    expect(skill).toContain('A stale pre-facts tier degrades evidence');
+  });
+
   test('doc review classifies by content shape and passes Origin to personas', () => {
     const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
     const template = fs.readFileSync(SUBAGENT_TEMPLATE_PATH, 'utf8');

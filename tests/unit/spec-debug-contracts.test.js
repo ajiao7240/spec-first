@@ -16,6 +16,24 @@ describe('spec-debug branch-aware handoff contract', () => {
     expect(text).toContain('definitions-only GitNexus results as file/symbol pointers');
     expect(text).toContain('single explicit `target_repo` or per-fix repo scope');
     expect(text).toContain('do not let cwd, graph target facts, or live MCP results choose a sibling repo for edits');
+    expect(text).toContain('Graph Freshness / Refresh Trigger Boundary');
+    expect(text).toContain('.spec-first/graph/provider-status.json');
+    expect(text).toContain('.spec-first/graph/graph-facts.json');
+    expect(text).toContain('.spec-first/impact/bootstrap-impact-capabilities.json');
+    expect(text).toContain('provider `query_ready=true`');
+    expect(text).toContain('current `source_revision`, `worktree_dirty`, `worktree_status_hash`');
+    expect(text).toContain('setup-owned provider projection / fingerprint freshness');
+    expect(text).toContain('Branch switch, pull, rebase, merge');
+    expect(text).toContain('provider fingerprint mismatch');
+    expect(text).toContain('stale / bootstrap-required signals');
+    expect(text).toContain('stale graph + lightweight debugging');
+    expect(text).toContain('stale graph + graph-heavy debugging');
+    expect(text).toContain('shared helper/API/route/provider contract/core workflow/cross-module failures');
+    expect(text).toContain('review-pre-facts failures');
+    expect(text).toContain('execution flows and blast radius');
+    expect(text).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
+    expect(text).toContain('Debug must not run GitNexus analyze, code-review-graph build');
+    expect(text).toContain('provider repair, index rebuild, default git hooks, watchers, or daemons');
   });
 
   test('skill-owned branches default to commit-and-PR with explicit override checks', () => {

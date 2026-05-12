@@ -107,9 +107,9 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('dirty-uncertain');
     expect(text).toContain('do not let scripts or graph facts choose semantically between child repos');
     expect(text).toContain('A cross-repo plan must name `target_repo` per implementation unit');
+    expect(text).toContain('$spec-' + 'graph' + '-bootstrap');
+    expect(text).toContain('/spec:' + 'graph' + '-bootstrap');
     expect(text).not.toContain('spec-first ' + 'crg hook');
-    expect(text).not.toContain('$spec-' + 'graph' + '-bootstrap');
-    expect(text).not.toContain('/spec:' + 'graph' + '-bootstrap');
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');
   });
@@ -119,6 +119,7 @@ describe('spec-plan context orientation contract', () => {
     const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
     const combined = `${text}\n${template}`;
 
+    expect(text).toContain('.spec-first/graph/provider-status.json');
     expect(text).toContain('.spec-first/graph/graph-facts.json');
     expect(text).toContain('.spec-first/impact/bootstrap-impact-capabilities.json');
     expect((combined.match(/## Graph Readiness/g) || []).length).toBeGreaterThanOrEqual(2);
@@ -142,6 +143,12 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('cannot be read as valid JSON');
     expect(text).toContain('reason `invalid-json`');
     expect(text).toContain('name the exact artifact path and parse/read error');
+    expect(text).toContain('provider `query_ready=true`');
+    expect(text).toContain('`worktree_status_hash`');
+    expect(text).toContain('setup-owned provider projection / fingerprint freshness');
+    expect(text).toContain('Branch switch, pull, rebase, merge');
+    expect(text).toContain('provider fingerprint mismatch');
+    expect(text).toContain('stale / bootstrap-required signals');
     expect(text).toContain('Do not rewrite, delete, or silently regenerate graph artifacts from `spec-plan`');
     expect(text).toContain('try live MCP evidence');
     expect(text).toContain('successful response as session-local evidence');
@@ -151,6 +158,16 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('successful, partial, or failed live MCP evidence');
     expect(text).toContain('bounded direct repo reads');
     expect(text).toContain('graph readiness is evidence context, not a planning gate');
+    expect(text).toContain('stale graph + lightweight planning');
+    expect(text).toContain('stale graph + graph-heavy planning');
+    expect(text).toContain('shared helper/API/route/provider contract/core workflow/cross-module changes');
+    expect(text).toContain('review-pre-facts changes');
+    expect(text).toContain('execution flows or blast radius');
+    expect(text).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
+    expect(text).toContain('must not run GitNexus analyze, code-review-graph build');
+    expect(text).toContain('default git hooks, watchers, or daemons');
+    expect(text).toContain('`detect_changes` / impact results are evidence');
+    expect(text).toContain('not refresh triggers');
     expect(text).toContain('Do not expand this into context selection, impact analysis, review evidence');
   });
 

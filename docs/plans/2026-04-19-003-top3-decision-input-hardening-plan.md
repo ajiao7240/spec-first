@@ -1,13 +1,19 @@
 ---
 title: Top 3 决策输入硬化实施计划
 created: 2026-04-19
-status: approved
+status: superseded
 owner: engineering
 origin: 2026-04-19 工程审查与 28 原则优先级筛选
 scope: Stage-0质量等级、资产一致性治理、doctor分层健康输出
+superseded_at: 2026-05-12
+superseded_by: docs/plans/2026-04-19-004-top3-runtime-safety-and-runnability-plan.md
 ---
 
 # Top 3 决策输入硬化实施计划
+
+## 收口记录
+
+2026-05-12 lifecycle cleanup 复核后，本计划状态从 `approved` 校准为 `superseded`。本计划的 Top 3 方向已被后续 runtime safety、runtime truth、runtime tool boundary、doctor runnability、dual-host governance 和 retired runtime guard 等计划及当前 source/tests 吸收；文中 `src/context-routing/*`、`src/bootstrap-compiler/*` 等早期 Stage-0 路径已不再是当前实施入口。如需继续演进，应从当前 graph/provider readiness、doctor/runtime capability 或 workflow evidence 计划进入，而不是按本文旧路径执行。
 
 ## 1. 背景
 

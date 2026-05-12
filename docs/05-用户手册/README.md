@@ -6,6 +6,8 @@
 
 完成 `doctor`、`init` 和宿主重启后，轻量任务可以先走 no-graph fast path：docs-only、小 bugfix、首次试用、轻量 plan/work/review 可以直接进入匹配的 `/spec:*` 或 `$spec-*` workflow。`spec-mcp-setup`、`spec-graph-bootstrap` 和 `spec-standards` 是增强 readiness 路径，适合需要 MCP provider、graph evidence、standards baseline 或跨模块/跨仓影响分析的任务。
 
+GitNexus / code-review-graph refresh 的默认策略是“自动 freshness check，显式 graph-bootstrap refresh”。`spec-mcp-setup` 只刷新 setup-owned provider projection；`spec-graph-bootstrap` 才写 canonical `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。切换分支、pull、rebase、merge、dirty worktree 变化或 provider fingerprint mismatch 只会让下游 consumer 判定 stale / bootstrap-required；普通 plan/work/debug/review 不会自动运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。轻量任务继续 bounded direct repo reads；graph-heavy 任务再显式运行 `spec-graph-bootstrap`。
+
 当前推荐的事实准备、专项审查与知识沉淀入口：
 
 - `spec-mcp-setup`：required harness runtime、MCP servers、graph providers 和 helper tools 的安装与验证入口

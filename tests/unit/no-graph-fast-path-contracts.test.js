@@ -29,20 +29,29 @@ describe('no-graph fast path contracts', () => {
     expect(readme).toContain('lightweight host-session workflows before graph readiness has been compiled');
     expect(readme).toContain('Use the setup/bootstrap/standards path when the task depends on MCP/helper tools, graph evidence, project standards, or cross-module/cross-repo impact analysis.');
     expect(readme).toContain('Missing or stale graph facts are degraded evidence to disclose');
+    expect(readme).toContain('Graph refresh trigger nodes:');
+    expect(readme).toContain('Need current GitNexus/code-review-graph readiness');
+    expect(readme).toContain('does not automatically rebuild indexes');
 
     expect(readmeZh).toContain('完成 `doctor`、`init` 和宿主重启后');
     expect(readmeZh).toContain('即使还没有编译 graph readiness，也可以先进入轻量宿主 workflow。');
     expect(readmeZh).toContain('当任务依赖 MCP/helper tools、graph evidence、project standards、跨模块或跨仓影响分析时');
     expect(readmeZh).toContain('不是所有 workflow 的硬前置');
+    expect(readmeZh).toContain('Graph refresh 触发节点：');
+    expect(readmeZh).toContain('不会自动 rebuild index');
 
     expect(quickstart).toContain('### 最小可用 fast path');
     expect(quickstart).toContain('不必等 graph readiness 编译完成');
     expect(quickstart).toContain('docs-only、小 bugfix、轻量 plan/work/review 和首次项目试用');
     expect(quickstart).toContain('不能包装成成功的 graph evidence，也不是所有 workflow 的硬前置');
+    expect(quickstart).toContain('Graph refresh 触发节点可以按这张表理解');
+    expect(quickstart).toContain('不会自动 rebuild index');
 
     expect(manual).toContain('轻量任务可以先走 no-graph fast path');
     expect(manual).toContain('bounded direct repo reads');
     expect(manual).toContain('不要把 setup/bootstrap 当成所有 workflow 的硬前置');
+    expect(manual).toContain('自动 freshness check，显式 graph-bootstrap refresh');
+    expect(manual).toContain('普通 plan/work/debug/review 不会自动运行 GitNexus analyze');
   });
 
   test('entry guidance routes clear lightweight goals without graph as a universal gate', () => {
@@ -68,6 +77,9 @@ describe('no-graph fast path contracts', () => {
       'spec-first quick',
       '--quick-workflow',
       '--no-graph',
+      'spec-first graph watch',
+      'graph daemon',
+      'default git hook',
     ]) {
       expect(combined).not.toContain(banned);
     }

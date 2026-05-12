@@ -24,6 +24,12 @@ Prepare a verified, repeatable spec-first harness runtime for Claude Code or Cod
 
 The workflow should leave deterministic facts behind for downstream workflows: host MCP config status, helper tool status, project-local setup facts, graph-provider projections, readiness ledger v2, and explicit next actions. Scripts own detection, installation, config writing, and JSON facts; the LLM owns host routing, Serena language choice, failure interpretation, and workflow handoff judgment.
 
+## Graph Refresh Boundary
+
+`spec-mcp-setup` owns setup projection, not graph readiness refresh. It may refresh `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, `.spec-first/config/provider-artifacts.json`, and ledger facts; it must not write canonical `.spec-first/graph/*`, `.spec-first/providers/*`, or `.spec-first/impact/*` graph readiness artifacts as a provider refresh.
+
+When setup detects stale provider projection, stale package/version pins, provider fingerprint mismatch, or graph readiness still pending, it should mark graph bootstrap required and hand off to `$spec-graph-bootstrap` / `/spec:graph-bootstrap`. It does not run GitNexus analyze/status/query, code-review-graph build/status, provider repair, index rebuild, or branch/pull/rebase-triggered refresh on behalf of downstream workflows.
+
 ## When To Use
 
 Use this workflow when the user asks to install, repair, verify, or diagnose spec-first's required runtime surface:

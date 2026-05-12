@@ -1,7 +1,7 @@
 ---
 title: feat: Govern GitNexus refresh trigger nodes
 type: feat
-status: active
+status: completed
 date: 2026-05-12
 spec_id: 2026-05-12-002-gitnexus-refresh-trigger-policy
 ---
@@ -11,6 +11,8 @@ spec_id: 2026-05-12-002-gitnexus-refresh-trigger-policy
 ## Summary
 
 本计划把 GitNexus 图谱刷新机制收敛为一套可执行的节点策略：所有 graph consumer 自动做 freshness check，只有 `$spec-graph-bootstrap` 拥有 canonical readiness refresh / provider rebuild，graph-heavy workflow 在 stale 时做显式 handoff 而不是静默重建。
+
+结合代码索引、静态分析、构建缓存和搜索索引系统的常见做法，当前最佳默认不是“切分支自动重建”，而是“便宜事实自动校验、昂贵刷新显式进入”。本计划的实施范围只覆盖默认本地治理：freshness contract、consumer handoff、graph-bootstrap ownership、deterministic tests 和用户文档。advisory hook 与 CI / policy-based refresh 只作为后续独立计划的边界说明，不进入本轮 U1-U6。
 
 ---
 
@@ -45,6 +47,7 @@ spec_id: 2026-05-12-002-gitnexus-refresh-trigger-policy
 - A1. 用户要的是 spec-first 内部 GitNexus 刷新节点治理，而不是要求现在立即刷新当前仓库索引。
 - A2. 当前已存在的 `2026-05-09-003-graph-bootstrap-fast-reuse` 计划继续负责 provider-level fast reuse 实现；本计划只定义何时允许进入 refresh 和何时只做 check / handoff。
 - A3. 第一版以 policy、workflow prose 和 contract tests 为主；只有测试暴露现有 helper 无法表达 branch/pull/fingerprint stale 时，才补最小 deterministic helper 代码。
+- A4. Sourcegraph / CodeQL / build cache / search refresh 等外部系统只能作为设计参照；spec-first 的 source-of-truth 仍是本仓库角色契约、workflow source、contracts 和 tests。
 
 ---
 
@@ -54,11 +57,29 @@ spec_id: 2026-05-12-002-gitnexus-refresh-trigger-policy
 - 不新增默认 `post-checkout` / `post-merge` / `pre-commit` git hook；git hook 最多作为 future optional advisory capability。
 - 不让 live MCP 成功回写 `.spec-first/graph/*`，也不把 session-local evidence 升级为 compiled `query_ready=true`。
 - 不恢复 retired internal CRG runtime，不创建新的中心化 graph state machine。
+- 不把行业对齐优化扩展成常驻索引服务、IDE 后台进程、CI refresh 平台或 provider 自动调度器。
 - 不手改 `.claude/`、`.codex/`、`.agents/skills/` generated runtime mirrors。
+
+### Current Implementation Scope
+
+本计划当前只实现默认本地工作流治理：
+
+- contract docs 定义 refresh trigger policy、evidence levels 和 canonical artifact ownership。
+- consumer workflows 对齐 freshness-check、graph-heavy handoff、lightweight fallback 和 no-hidden-rebuild 语义。
+- deterministic tests 覆盖 branch / pull / rebase 等价 stale、dirty hash mismatch、provider fingerprint mismatch 和 consumer contract parity。
+- README / user manual 说明 `$spec-graph-bootstrap` 是显式 graph readiness refresh 入口，同时保留 no-graph fast path。
+
+本计划当前不实现：
+
+- git hook、daemon、watcher 或后台刷新服务。
+- CI / scheduled graph refresh policy。
+- provider auto analyze、auto repair 或普通 workflow 内部 rebuild。
+- 新的中心化 graph state machine。
 
 ### Deferred to Follow-Up Work
 
-- Optional advisory git hook：未来可独立规划只写 “graph may be stale” marker 或 terminal hint 的 opt-in hook，但默认不安装、不运行 provider。
+- Optional advisory git hook：未来可独立规划只写 “graph may be stale” marker 或 terminal hint 的 opt-in hook；不属于本计划 U1-U6，且默认不安装、不运行 provider。
+- CI / policy-based refresh：未来可独立规划针对 default branch、protected branch、PR head 或 nightly schedule 的 `$spec-graph-bootstrap` 执行策略；不属于本计划 U1-U6，且必须保持显式配置、可审计 artifacts 和 provider fingerprint 校验。
 - Provider fast reuse cold-run skip：沿用 `docs/plans/2026-05-09-003-feat-graph-bootstrap-fast-reuse-plan.md`，不在本计划重复实现。
 - Full Windows behavioral parity runner：当前继续使用 shell behavior tests + PowerShell source contract parity；真实 Windows runner 可在后续 CI 计划补充。
 
@@ -105,7 +126,20 @@ spec_id: 2026-05-12-002-gitnexus-refresh-trigger-policy
 
 ### External References
 
-- None. This is an internal workflow governance and artifact contract plan; repo-local source, tests, and prior plans are the authoritative inputs.
+External systems are non-authoritative context. They help validate the shape of the policy, but repo-local source, tests, and prior plans remain the implementation authority.
+
+- Sourcegraph code navigation auto-indexing uses policies for branch / tag / commit selection and documents resource usage tradeoffs. Implication for spec-first: graph refresh should be policy-owned and scoped, not silently attached to every local branch switch.
+  - https://sourcegraph.com/docs/code-navigation/auto-indexing
+  - https://sourcegraph.com/docs/code-navigation/how-to/policies-resource-usage-best-practices
+- GitHub CodeQL analysis runs against an explicit checkout and workflow trigger such as pull request, push, schedule, or path filters. Implication for spec-first: CI / policy-based graph refresh is a better future extension point than local implicit rebuild.
+  - https://docs.github.com/en/code-security/reference/code-scanning/workflow-configuration-options
+  - https://docs.github.com/en/code-security/tutorials/customize-code-scanning/preparing-your-code-for-codeql-analysis
+- Gradle build cache keys task reuse from declared inputs and outputs. Implication for spec-first: graph evidence reuse should be guarded by deterministic snapshot and provider fingerprints, not by workflow intuition.
+  - https://docs.gradle.org/current/userguide/build_cache.html
+- Elasticsearch refresh defaults avoid forcing synchronous visibility and warns that explicit refresh should be used deliberately. Implication for spec-first: provider refresh is an expensive side-effecting operation and should stay explicit unless a user opted into a refresh policy.
+  - https://www.elastic.co/docs/reference/elasticsearch/rest-apis/refresh-parameter
+- JetBrains IDE indexing shows the main counterexample: an IDE may index in the background because it owns a persistent UI/process model. Implication for spec-first: do not import IDE-style hidden indexing into a workflow harness unless a future opt-in runtime surface can expose progress, cost, and cancellation.
+  - https://www.jetbrains.com/help/idea/indexing.html
 
 ---
 
@@ -118,6 +152,24 @@ spec_id: 2026-05-12-002-gitnexus-refresh-trigger-policy
 - Preserve no-graph fast path. Rationale: docs-only, small bug fixes, and lightweight plans should not be blocked by stale or missing graph facts.
 - Make graph-heavy handoff explicit. Rationale: shared API, provider contract, cross-module, route, workflow, or review-pre-facts changes benefit from current impact evidence and should surface stale graph risk.
 - Keep repair preview-first. Rationale: deleting `.gitnexus` or provider artifacts is a recovery action with filesystem side effects and must not be hidden behind ordinary workflow entry.
+- Prioritize a shared deterministic freshness-check contract before adding convenience refresh paths. Rationale: industry systems rely on input fingerprints / workflow triggers; prose-only consumer adoption would let graph evidence semantics drift across Plan, Work, Debug, and Review.
+- Defer future automation to separate opt-in policy work. Rationale: advisory hooks and CI refresh may improve developer ergonomics, but including them in this plan would expand a graph evidence contract into a refresh platform.
+
+### Industry-Aligned Boundary Notes
+
+| Industry pattern | Useful lesson | spec-first application | Boundary |
+| --- | --- | --- | --- |
+| Code intelligence policy indexing | Indexing coverage is chosen by branch / age / policy and resource cost | Keep `$spec-graph-bootstrap` as the canonical refresh node and add future CI policy refresh only when explicitly configured | Do not attach provider rebuild to every local branch switch |
+| Static analysis workflow triggers | Analysis runs on explicit checkout events such as PR, push, schedule, or path filters | Future CI refresh can target PR head / default branch / nightly windows | Do not make local consumer workflows run provider analyze silently |
+| Build cache fingerprints | Reuse is valid only when inputs and environment match | Normalize a shared freshness helper around `source_revision`, `worktree_status_hash`, `worktree_dirty`, provider projection, and fingerprint | Do not let each workflow invent a different freshness rule |
+| Search refresh economics | Explicit refresh trades correctness latency for indexing cost | Use fresh graph evidence when needed, otherwise disclose limitations and fallback | Do not turn graph freshness into a universal hard gate |
+| IDE background indexing | Background work can be acceptable when progress and ownership are visible | Future opt-in host/runtime integration may show stale hints or refresh status | Do not create hidden daemons or watchers inside workflow prose |
+
+Long-term optional layering, not current implementation scope:
+
+1. **Current scope - default local workflow:** automatic freshness check, explicit `$spec-graph-bootstrap` refresh, no hidden provider writes.
+2. **Deferred - optional local ergonomics:** advisory branch / merge hooks may write a stale hint or marker, but must not run GitNexus analyze.
+3. **Deferred - optional team policy:** CI or scheduled refresh may run `$spec-graph-bootstrap` for agreed refs and publish artifacts, guarded by the same fingerprint and query-proof contracts.
 
 ---
 
@@ -136,6 +188,7 @@ spec_id: 2026-05-12-002-gitnexus-refresh-trigger-policy
 - If existing tests already cover a branch-switch-equivalent `source_revision` mismatch, implementation may add naming/contract coverage rather than new helper code.
 - Whether README needs a dedicated trigger table or a short paragraph can be decided by document density; contract tests should guard the semantics, not one exact layout.
 - Whether the shared freshness-check execution contract reuses `review-pre-facts`, introduces a small graph-readiness helper, or stays as explicit per-workflow artifact-field checks is implementation-time detail; every consumer must still inspect the same minimum fields before claiming primary graph evidence.
+- Advisory hooks and CI / scheduled refresh are not implementation-time unknowns for this plan. If pursued, they require a separate plan with goals, non-goals, artifact ownership, failure modes, and opt-in boundaries.
 
 ---
 
@@ -185,7 +238,7 @@ Every graph consumer that wants to treat compiled graph facts as primary evidenc
 | Provider projection / fingerprint | Treat stale provider projection, unverifiable package identity, or mismatched provider fingerprint as bootstrap-required rather than current readiness. |
 | Live MCP | Successful live MCP calls remain session-local evidence and must not update compiled readiness fields. |
 
-The implementation may express this contract through a small shared helper, reuse of `review-pre-facts` logic, or explicit per-workflow checks. What must not happen is prose-only adoption where different consumers compare different freshness fields.
+The implementation should prefer a small shared helper or shared fixture-backed contract over per-workflow prose. Explicit per-workflow checks remain acceptable only as an intermediate step when tests assert the same minimum fields and stale reason codes across consumers. What must not happen is prose-only adoption where different consumers compare different freshness fields.
 
 ### Graph-Heavy Trigger Baseline
 
@@ -300,7 +353,7 @@ The minimum graph-heavy set is deliberately small and must be consistent across 
 **Approach:**
 - Add a shared prose pattern: consumers always check freshness; they do not rebuild provider indexes.
 - Define the minimum graph-heavy trigger set from this plan in prose and tests: shared helper/API/route/provider contract/core workflow/cross-module changes, review-pre-facts changes, high-risk review, or planning/review that depends on execution flows and blast radius.
-- Add a minimum freshness-check execution contract: before using compiled graph facts as primary evidence, consumers must inspect the same canonical artifact fields and snapshot values (`source_revision`, `worktree_dirty`, `worktree_status_hash`, provider `query_ready`, and provider projection/fingerprint freshness). A future helper is allowed, but the contract cannot remain prose-only.
+- Add a minimum freshness-check execution contract: before using compiled graph facts as primary evidence, consumers must inspect the same canonical artifact fields and snapshot values (`source_revision`, `worktree_dirty`, `worktree_status_hash`, provider `query_ready`, and provider projection/fingerprint freshness). Prefer a shared helper or shared test fixture now; a per-workflow implementation is only acceptable if the tests prove field parity and reason-code parity.
 - For stale graph + lightweight work, require limitation disclosure and bounded direct reads fallback.
 - For stale graph + graph-heavy work, require a clear handoff recommendation to `$spec-graph-bootstrap` before claiming graph-backed evidence.
 - Apply the same semantics to `spec-work-beta` delegation prompts so beta worker execution does not drift from stable Work.
@@ -322,6 +375,7 @@ The minimum graph-heavy set is deliberately small and must be consistent across 
 
 **Verification:**
 - Workflow prose makes the same refresh decision regardless of whether the user starts from plan, work, debug, or review.
+- A reviewer can identify one deterministic freshness-check mechanism or one shared fixture-backed contract rather than six unrelated prose variants.
 
 ---
 
@@ -458,6 +512,9 @@ The minimum graph-heavy set is deliberately small and must be consistent across 
 | Policy duplicates existing fast-reuse plan | Keep this plan scoped to trigger nodes and reference the fast-reuse plan for provider command skipping. |
 | Consumer prose becomes too abstract | Add concrete examples: branch switch, pull/rebase, lightweight docs change, shared API change, review/commit. |
 | Graph-heavy handoff becomes a new hard gate | Preserve no-graph fast path and require limitation disclosure rather than blocking lightweight work. |
+| Industry references pull the design toward heavyweight background indexing | Treat external systems as non-authoritative analogies and keep spec-first as a workflow harness, not a daemon or IDE indexer. |
+| Optional CI / hook ideas expand current scope | Keep them deferred unless separately planned; this plan only reserves boundaries and user-facing language. |
+| Shared helper becomes a mini state machine | Limit it to deterministic artifact reads, hash/fingerprint comparisons, reason_code output, and no semantic workflow decisions. |
 | Tests assert wording too tightly | Prefer semantic snippets and negative assertions for forbidden auto-refresh / hook wording. |
 | Generated runtime drift after skill edits | Validate source files and use fresh-source eval; regenerate runtime only through `spec-first init` when explicitly needed. |
 
@@ -467,6 +524,7 @@ The minimum graph-heavy set is deliberately small and must be consistent across 
 
 - Public docs should use “refresh graph readiness” for `$spec-graph-bootstrap`; avoid saying ordinary workflows “refresh GitNexus” unless they actually enter graph-bootstrap.
 - Branch switching guidance should be explicit: `HEAD` changes make compiled graph facts stale; the next graph consumer detects this and graph-heavy work should refresh explicitly.
+- If future docs mention hooks or CI refresh, they must say `opt-in`, name the artifact owner, and clarify whether the path writes only advisory markers or canonical graph readiness artifacts.
 - Repair guidance should tie user actions to structured reason codes such as provider projection stale, provider storage write failure, or query-unverified evidence.
 
 ---
@@ -485,3 +543,8 @@ The minimum graph-heavy set is deliberately small and must be consistent across 
 - Related plan: `docs/plans/2026-05-07-002-feat-gitnexus-evidence-governance-plan.md`
 - Related plan: `docs/plans/2026-05-11-010-feat-no-graph-fast-path-plan.md`
 - Related plan: `docs/plans/2026-05-03-001-feat-workspace-graph-query-router-plan.md`
+- External reference: Sourcegraph code navigation auto-indexing policies and resource guidance.
+- External reference: GitHub CodeQL workflow configuration and explicit checkout analysis guidance.
+- External reference: Gradle build cache input/output reuse model.
+- External reference: Elasticsearch refresh parameter cost boundary.
+- External reference: JetBrains indexing as an IDE-specific counterexample.

@@ -161,6 +161,16 @@ $spec-ideate / $spec-brainstorm / $spec-plan / $spec-work / $spec-code-review
 
 Use the setup/bootstrap/standards path when the task depends on MCP/helper tools, graph evidence, project standards, or cross-module/cross-repo impact analysis. Missing or stale graph facts are degraded evidence to disclose, not a fake success state and not a hard gate for every workflow.
 
+Graph refresh trigger nodes:
+
+| Event or need | Default action |
+|---|---|
+| First setup or stale provider package projection | Run `/spec:mcp-setup` or `$spec-mcp-setup`; it refreshes setup-owned provider config, not graph indexes. |
+| Need current GitNexus/code-review-graph readiness | Run `/spec:graph-bootstrap` or `$spec-graph-bootstrap`; this is the explicit graph readiness refresh entrypoint. |
+| Branch switch, pull, rebase, merge, or dirty worktree change | The next graph consumer detects stale `source_revision` / `worktree_status_hash`; it does not automatically rebuild indexes. |
+| Lightweight docs, typo, small local bug, or first trial | Continue with limitations and bounded direct reads when graph facts are stale or unavailable. |
+| Shared API/route/provider contract, core workflow, cross-module change, or high-risk review | Refresh graph readiness explicitly before claiming graph-backed impact or execution-flow evidence. |
+
 ### Readiness ladder
 
 `doctor` is the first health check, not the whole readiness story. Treat the three readiness layers separately:
@@ -543,6 +553,7 @@ Current context and graph readiness use this path:
 
 - Use the current host's setup workflow to install and verify the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, `agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, `ast-grep`, and the global `ast-grep` skill.
 - Use the current host's graph bootstrap workflow after setup reports `baseline_ready=true`. It reads setup-owned config facts, validates provider command arrays, runs transient GitNexus/code-review-graph probes, and writes `.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*` readiness artifacts.
+- Treat branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch as graph freshness invalidation signals. Downstream workflows may recommend graph bootstrap, but they do not run hidden GitNexus analyze, provider repair, default hooks, watchers, or daemons.
 - Use the current host's plan workflow as the first graph-readiness consumer. It reports graph status, checks staleness, and falls back to bounded direct repo reads when facts are unavailable, blocked, stale, or degraded.
 - In a parent workspace with multiple child Git repos, read-only code questions can use `workspace-graph-targets.v1` advisory facts to choose bounded candidate repos and prefer GitNexus-first evidence. Outside the parent-workspace maintenance entries below, writes, tests, changelog updates, review autofix, and commits still require explicit `target_repo` / per-child scope.
 - For parent-workspace maintenance, init, setup, and graph bootstrap default to all child repos when no `--repo <child>` is provided; `--repo <child>` narrows the run and `--all-repos` remains an explicit equivalent. First-time Serena activation still needs per-child language evidence, so language-gated children report `serena_language_required` until the agent reruns setup with `--serena-language-for <child>=<language>`. The parent workspace may write advisory `.spec-first/workspace/*summary.json` files; no-argument `spec-standards` writes child-local `.spec-first/standards/` baseline facts for every discovered child repo, while `spec-standards --workspace` writes the parent advisory standards baseline. The parent workspace never owns repo-local `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, `.spec-first/providers/*`, child-local `.spec-first/standards/*`, or `.serena/*` artifacts as parent-local truth.

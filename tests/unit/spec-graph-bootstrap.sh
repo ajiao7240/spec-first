@@ -4,6 +4,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+GRAPH_BOOTSTRAP_SKILL="$REPO_ROOT/skills/spec-graph-bootstrap/SKILL.md"
 BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
 WORKSPACE_TARGET_RESOLVER="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
@@ -316,6 +317,13 @@ JSON
 }
 
 echo "=== spec-graph-bootstrap compiler tests ==="
+
+graph_bootstrap_skill_source="$(cat "$GRAPH_BOOTSTRAP_SKILL")"
+assert_contains "graph-bootstrap skill owns canonical refresh artifacts" 'only default local workflow that may refresh canonical project graph readiness artifacts' "$graph_bootstrap_skill_source"
+assert_contains "graph-bootstrap skill names graph artifact paths" '`.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*`' "$graph_bootstrap_skill_source"
+assert_contains "graph-bootstrap skill treats branch changes as invalidation" 'branch switch, pull, rebase, merge' "$graph_bootstrap_skill_source"
+assert_contains "graph-bootstrap skill does not auto rebuild on invalidation" 'not automatic provider rebuild triggers' "$graph_bootstrap_skill_source"
+assert_contains "graph-bootstrap skill keeps repair preview first" 'GitNexus repair remains preview-first' "$graph_bootstrap_skill_source"
 
 FAKE_BIN="$TMP_DIR/bin"
 COMMAND_LOG="$TMP_DIR/commands.log"

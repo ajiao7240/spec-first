@@ -1,14 +1,20 @@
 ---
 title: spec-first 工程化优化技术方案
 created: 2026-04-19
-status: draft
+status: superseded
 owner: engineering
 scope: CLI治理、Stage-0决策输入、workflow资产一致性、测试体系、DevEx
 principle: 轻 contract + 明确边界 + 让 LLM 决策
 origin: 工程负责人视角深度审查
+superseded_at: 2026-05-12
+superseded_by: docs/validation/2026-05-12-plan-lifecycle-cleanup.md
 ---
 
 # spec-first 工程化优化技术方案
+
+## 收口记录
+
+2026-05-12 lifecycle cleanup 复核后，本 roadmap 状态从 `draft` 校准为 `superseded`。它仍保留为历史方向材料，但不再作为当前待执行计划。其主要主题已经被后续 graph readiness compiler、workspace graph router、doctor/runtime runnability、runtime tool boundary、dual-host governance、workflow quality、release/package evidence 和 graph evidence governance 等更具体计划拆分承接；其中早期 Stage-0/context-routing/CRG runtime 路径已被当前外部 provider 与 source/runtime 边界取代。
 
 ## 1. 背景与问题定义
 

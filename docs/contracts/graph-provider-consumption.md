@@ -11,6 +11,20 @@
 - 下游 workflow 读取 canonical artifacts 做输入判断，LLM 仍决定证据是否与当前任务语义相关。
 - live MCP 查询成功只算 `session-local` evidence，不能回写 compiled readiness，也不能把 `query_ready` 改成 true。
 
+## Refresh Ownership
+
+| 节点 | 默认行为 | Canonical graph artifact 写入 |
+| --- | --- | --- |
+| consumer freshness-check | plan/work/debug/review 读取 canonical artifacts，比较 `source_revision`、`worktree_dirty`、`worktree_status_hash`、provider `query_ready` 和 provider projection/fingerprint freshness | no |
+| branch switch / pull / rebase / merge 后的下一次 consumer check | 将 `source_revision` mismatch 或 dirty hash mismatch 解释为 stale / dirty-uncertain | no |
+| stale + lightweight work | 披露 graph limitations，使用 bounded direct reads、Serena/ast-grep 或 session-local live MCP pointer | no |
+| stale + graph-heavy work | 明确建议 `$spec-graph-bootstrap`，在刷新前不声称 primary graph-backed impact evidence | no |
+| `$spec-graph-bootstrap` | reuse 或 rebuild provider readiness，并写入 graph/provider/impact canonical artifacts | yes |
+| fresh graph before review / commit | 可运行 impact / detect changes 作为 review evidence | no rebuild |
+| repair-preview | 对 GitNexus storage 或 provider artifact 恢复先 preview / confirm | only after explicit repair/bootstrap |
+
+Graph-heavy 至少包括 shared helper/API/route/provider contract/core workflow/cross-module changes、review-pre-facts changes、高风险 review，以及依赖 execution flows 或 blast radius 的 planning/review。docs-only、窄 typo、小型本地 bug 和首次试用属于 lightweight counterexamples；这些场景不能被 stale graph 升级成硬阻断。
+
 ## Canonical Artifacts
 
 | Artifact | Producer | 主要用途 | Canonical fields | 不要读取或推断 |
@@ -31,6 +45,10 @@
 | no-source / not-applicable | `workflow_mode=no-source` 或 provider `status=query-not-applicable` | 这不是 provider 故障。跳过 GitNexus process routing，必要时使用 bounded direct repo reads |
 | blocked / action-required | `workflow_mode=blocked`、无 `query_ready=true` provider 且 fallback 不足，或 provider `recommended_action` 要求修复 | 不要消费 graph evidence。先执行 setup/bootstrap/repair 或走 direct repo fallback，并明确 action-required |
 | stale / dirty-uncertain | `graph-facts.source_revision` 与当前 `HEAD` 不一致，或 `worktree_status_hash` 与当前 dirty hash 不一致 | 降级为 stale/advisory pointer；可补一次 bounded live MCP probe，但不能更新 compiled readiness |
+| branch / pull / rebase equivalent stale | branch switch、pull、rebase 或 merge 后的当前 `HEAD` 与 compiled `source_revision` 不一致 | 视为 stale detection event；不自动运行 GitNexus analyze、provider build 或 index rebuild |
+| provider projection / fingerprint stale | setup-owned projection stale、provider package identity 不可验证，或 provider fingerprint mismatch | 标记 bootstrap-required；先刷新 setup projection 或进入 `$spec-graph-bootstrap`，普通 consumer 不运行 provider commands |
+| stale + graph-heavy | stale graph facts 且当前任务需要 shared contract、cross-module、route/API/provider、review-pre-facts、impact 或 blast radius evidence | 建议 `$spec-graph-bootstrap` 后再声明 primary graph evidence；若继续执行，只能披露 limitations 并使用 fallback evidence |
+| fresh graph before review / commit | freshness-check 通过且 provider `query_ready=true` | 可以运行 impact / detect changes 作为 evidence；detect changes 不触发 rebuild |
 
 ## Consumer Rules
 
@@ -39,6 +57,8 @@
 3. 比较 freshness 时同时检查 `source_revision`、`worktree_dirty` 和 `worktree_status_hash`；只检查 dirty boolean 不够。
 4. `runtime-capabilities.json.project_graph_readiness` 与 `graph-providers.json.derived_readiness` 是 setup-owned projection，只能作为指向 canonical artifacts 的提示；下游 readiness 判断以 canonical graph artifacts 为准。
 5. provider raw logs、diagnostics 和 live MCP 输出用于解释或补充本轮判断，不能替代 canonical fields。
+6. live MCP 成功是 session-local corroboration，不能把 `.spec-first/graph/graph-facts.json`、`.spec-first/graph/provider-status.json` 或 setup projection 中的 `query_ready` 改写为 true。
+7. consumer 可以推荐 `$spec-graph-bootstrap`，但不得在 plan/work/debug/review 内部静默运行 GitNexus analyze、provider build、index rebuild、repair 或 default hook/watch/daemon 路径。
 
 ## Forbidden Compatibility Reads
 

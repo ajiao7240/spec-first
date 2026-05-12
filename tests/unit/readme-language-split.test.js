@@ -112,6 +112,10 @@ describe('README language split contract', () => {
       'If you are not sure which workflow to use',
       '### Fast path vs enhanced readiness',
       'lightweight host-session workflows before graph readiness has been compiled',
+      'Graph refresh trigger nodes:',
+      'Need current GitNexus/code-review-graph readiness',
+      'Branch switch, pull, rebase, merge, or dirty worktree change',
+      'does not automatically rebuild indexes',
       '### Readiness ladder',
       '`doctor` is the first health check, not the whole readiness story.',
       '| CLI/runtime health | `spec-first doctor` |',
@@ -122,6 +126,8 @@ describe('README language split contract', () => {
     ]);
     expect(englishReadme).toContain('docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md');
     expect(englishReadme).toContain('`using-spec-first` will recommend one public entrypoint with a reason.');
+    expect(englishReadme).toContain('Treat branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch as graph freshness invalidation signals.');
+    expect(englishReadme).toContain('they do not run hidden GitNexus analyze, provider repair, default hooks, watchers, or daemons');
     expect(englishReadme).not.toContain('$spec-next');
     expect(englishReadme).not.toContain('/spec:next');
   });
@@ -165,12 +171,18 @@ describe('README language split contract', () => {
     expect(chineseReadme).toContain('`using-spec-first` 会推荐一个公开入口并说明原因。');
     expect(chineseReadme).toContain('### Fast path 与增强 readiness');
     expect(chineseReadme).toContain('即使还没有编译 graph readiness，也可以先进入轻量宿主 workflow。');
+    expect(chineseReadme).toContain('Graph refresh 触发节点：');
+    expect(chineseReadme).toContain('需要当前 GitNexus / code-review-graph readiness');
+    expect(chineseReadme).toContain('切换分支、pull、rebase、merge 或 dirty worktree 变化');
+    expect(chineseReadme).toContain('不会自动 rebuild index');
     expect(chineseReadme).toContain('### Readiness ladder / 就绪层级');
     expect(chineseReadme).toContain('`doctor` 是第一层健康检查，不代表所有能力都 ready。');
     expect(chineseReadme).toContain('| CLI/runtime health | `spec-first doctor` |');
     expect(chineseReadme).toContain('| Harness setup | `/spec:mcp-setup` 或 `$spec-mcp-setup` |');
     expect(chineseReadme).toContain('| Graph readiness | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` |');
     expect(chineseReadme).toContain('第一次 brainstorm 运行会生成类似这样的 requirements brief');
+    expect(chineseReadme).toContain('把切换分支、pull、rebase、merge、dirty worktree 变化和 provider fingerprint mismatch 视为 graph freshness invalidation signals。');
+    expect(chineseReadme).toContain('不会隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons');
     expect(chineseReadme).toContain('docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md');
     expect(chineseReadme).toContain('详细手册和实施文档均以中文为主。');
   });

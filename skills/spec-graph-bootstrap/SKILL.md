@@ -10,6 +10,14 @@ argument-hint: ""
 
 This workflow owns project graph readiness compilation. `spec-mcp-setup` installs/configures the harness runtime and writes setup-owned facts; `spec-graph-bootstrap` consumes those facts, transiently runs configured external graph-provider command arrays, captures evidence, and writes canonical project readiness artifacts.
 
+## Refresh Ownership
+
+`spec-graph-bootstrap` is the only default local workflow that may refresh canonical project graph readiness artifacts: child-local `.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*`. Its refresh work may reuse verified provider facts or run provider analyze/build/status/query-proof commands, but that side effect belongs here, not inside plan, work, debug, review, setup, startup reminder, branch switching, or reviewer subagents.
+
+branch switch, pull, rebase, merge, dirty worktree changes, `source_revision` mismatch, `worktree_status_hash` mismatch, and provider fingerprint mismatch are freshness invalidation signals for downstream consumers. They should become stale / bootstrap-required facts or `$spec-graph-bootstrap` handoff guidance; they are not automatic provider rebuild triggers.
+
+GitNexus repair remains preview-first. Deleting `.gitnexus`, provider raw artifacts, or canonical readiness artifacts is an explicit recovery action tied to structured reason codes, not a normal bootstrap side effect hidden behind another workflow.
+
 ## When To Use
 
 Use this workflow after `/spec:mcp-setup` or `$spec-mcp-setup` reports `baseline_ready=true` and graph bootstrap is still pending.
