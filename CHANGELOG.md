@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-13 21:25:15 leokuang: docs(plan): 将 2026-05-07-002 GitNexus evidence governance 计划标记为 completed，并补执行日志收口说明，明确已落地能力、后续拆分到 graph-provider-consumption 的契约，以及剩余词表/baseline 清理不再阻塞本计划完成 (user-visible)
+- v1.8.2 2026-05-13 21:19:25 leokuang: docs(plan): 按业界最佳实践继续优化 2026-05-12-003 增量刷新计划，新增 graph refresh 成熟度分层 L0-L4 与 promotion gates，明确本计划只交付 L1 显式可信增量刷新，L2 notify-only、L3 clean-only auto-refresh、L4 CI/scheduled refresh 均为独立后续 (user-visible)
+- v1.8.2 2026-05-13 20:53:19 leokuang: docs(plan): 继续优化 2026-05-12-003 增量刷新计划，新增 notify-only stale detector 推荐 follow-up 的最小契约、只读检查字段、写入边界、提示策略与体验闭环顺序，明确其不属于当前 `--incremental` 交付范围 (user-visible)
 - v1.8.2 2026-05-13 20:24:31 leokuang: docs(plan): 按 GitNexus 官方推荐模式更新 2026-05-12-003 增量刷新计划，补充 notify-only stale detection + explicit analyze 边界、hook-triggered rebuild 风险、GitNexus incremental caveat、graph-evidence-policy usage note 与官方 sources 链接 (user-visible)
 - v1.8.2 2026-05-13 20:15:00 leokuang: docs(plan): 完成 2026-05-12-003 增量刷新计划 doc-review walk-through 全部 deferred entries——Applied: PL-001/B(A1 待验证注记)、ADV-006(requires_clean_full_refresh 死锁自动 reset)、ADV-007+SEC-002(mkdir lock PID 文件+stale 检测)、SG-002(refresh_mode_summary 字段移除)、COH-001(命名不对称注记)、COH-006(Phase 1 决策流加 reason_code/readiness_source 映射说明)；Skipped: PL-002/ADV-004/ADV-005/PL-003；N/A: COH-005(随 SG-002 字段移除消解)；FYI 条目全部保留 advisory 状态 (user-visible)
 - v1.8.2 2026-05-13 20:13:16 leokuang: docs(plan): 补充 skill/agent 质量治理计划 Phase A U1/U2 安全子集 source-mod 执行证据，明确 U3 与 Phase B/C 仍未关闭 (user-visible)

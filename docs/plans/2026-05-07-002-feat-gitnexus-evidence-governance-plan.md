@@ -1,7 +1,7 @@
 ---
 title: feat: 收紧 GitNexus 证据层与全流程图谱治理
 type: feat
-status: active
+status: completed
 date: 2026-05-07
 spec_id: 2026-05-07-002-gitnexus-evidence-governance
 ---
@@ -417,6 +417,14 @@ npx -y gitnexus@<rc-tag> analyze --help
 - 最终 PR 包含：spike 输出、test output、GitNexus change-detection interpretation、generated runtime impact statement、CHANGELOG 终态条目。
 
 ## 执行日志
+
+### 2026-05-13 — Completion closure
+
+执行人：leokuang。
+
+完成状态：本计划按当前 source 状态标记为 `completed`。核心治理能力已经落地并由后续 contract tests 覆盖，包括 GitNexus host block normalizer、路径 C legacy marker + normalizer 收敛、`analyze --force` 后置 normalizer、`worktree_status_hash` freshness 边界、downstream workflow graph consumption guardrails、`detect_changes` evidence-not-gate 语义、GitNexus `1.6.4` official stable pin，以及 probe candidate / definitions-only / stale graph 边界测试。
+
+收口说明：后续实现已把部分消费细节拆到 `docs/contracts/graph-provider-consumption.md`，并把 workflow 运行时必要 guardrails 保留在各 `SKILL.md` 中。因此本文 U1 原始的三层词表和“派生件只引用不复述”表述不再作为未完成 blocker 继续推进；若未来需要重开，将以新的 follow-up plan 处理 policy vocabulary cleanup、baseline fixture 或 runtime lifecycle 收敛。
 
 ### 2026-05-13 — spec-first v1.8.2：GitNexus 1.6.4 official stable pin
 
