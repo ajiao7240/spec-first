@@ -38,7 +38,7 @@ After creation, switch to the worktree with `cd .worktrees/<branch-name>`.
 
 ## Env File Opt-In
 
-Use `--copy-env` only when the workflow explicitly needs local environment files in the new worktree. The opt-in path copies `.env*` files except `.env.example`, prints only file names, backs up pre-existing destination files, and appends `.env-copy.log` with timestamp, source path, destination path, byte size, and an 8-character content fingerprint. The log does not include file contents and is added to the worktree git exclude file.
+Use `--copy-env` only when the workflow explicitly needs local environment files in the new worktree. The opt-in path copies `.env*` files except `.env.example`, `.env.template`, and `.env.sample`, prints only file names, backs up pre-existing destination files, and appends `.env-copy.log` with timestamp, source path, destination path, byte size, and an 8-character content fingerprint. The log does not include file contents and is added to the worktree git exclude file.
 
 Even when env files were copied intentionally, downstream staging must still treat them as denied by default. A batch may stage an env file only when the task/implementation unit declares the exact env path in `expected_side_effects` and explicitly states that changing that env file is intended.
 

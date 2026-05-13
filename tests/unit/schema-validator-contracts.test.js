@@ -84,6 +84,18 @@ describe('lightweight schema validator contracts', () => {
     ]);
   });
 
+  test('enforces string pattern constraints', () => {
+    const result = validateAgainstSchema({
+      type: 'string',
+      pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+    }, 'Bad_Value');
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual([
+      'root: value "Bad_Value" does not match pattern ^[a-z0-9]+(?:-[a-z0-9]+)*$',
+    ]);
+  });
+
   test('keeps format advisory and documents supported keywords', () => {
     const result = validateAgainstSchema({
       type: 'string',
@@ -93,6 +105,7 @@ describe('lightweight schema validator contracts', () => {
     expect(result.errors).toEqual([]);
     expect(SUPPORTED_SCHEMA_KEYWORDS).toContain('additionalProperties');
     expect(SUPPORTED_SCHEMA_KEYWORDS).toContain('anyOf');
+    expect(SUPPORTED_SCHEMA_KEYWORDS).toContain('pattern');
     expect(SUPPORTED_SCHEMA_KEYWORDS).not.toContain('format');
   });
 });

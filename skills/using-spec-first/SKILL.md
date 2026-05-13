@@ -27,6 +27,10 @@ It is not a command-backed workflow, slash command, or `$spec-*` workflow. It do
 
 Core boundary: scripts and CLI commands prepare deterministic facts; the LLM decides the workflow recommendation. This governor must not fabricate command results, infer runtime readiness without evidence, or replace downstream workflow judgment with a local routing checklist.
 
+## Examples As Context
+
+When editing or reviewing this routing prompt, or when running fresh-source eval for routing posture drift, read `skills/using-spec-first/evals/examples.json` as examples-as-context. These examples are not a routing state machine, automatic workflow selector, or semantic readiness gate for ordinary requests.
+
 ## Source Of Truth And Runtime Surface
 
 `skills/using-spec-first/SKILL.md` is the source-of-truth routing policy.

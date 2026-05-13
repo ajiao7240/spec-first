@@ -1,0 +1,68 @@
+{
+  "schema_version": "prompt-examples/v1",
+  "skill": "spec-work",
+  "examples": [
+    {
+      "name": "execute validated task pack without expanding scope",
+      "user_intent": "用户提供一个已经通过 validator 的 task-pack，要求按任务包执行开发。",
+      "expected_posture": "读取 task-pack 和 source_plan，只按 Task Pack Contract 的 task boundaries、files、stop_if、review metadata 执行。",
+      "boundary_note": "不得从 free-form task card 或邻近代码推断新 scope；task pack 是 derived execution input，不是第二份 plan。",
+      "negative_signal": "未声明 expected_side_effects 却修改当前 batch 以外的大量文件。",
+      "context_snippets": [
+        "type: task-pack",
+        "Task Pack Contract",
+        "expected_side_effects"
+      ],
+      "source_note": "existing prompt clause: validated task packs are first-class executable work documents"
+    },
+    {
+      "name": "plan target repo missing blocks writes",
+      "user_intent": "用户给出 plan path，但 plan 没有 target_repo，当前 workspace 又可能包含多个 repo。",
+      "expected_posture": "停止并要求 repo scope 或回到 plan/task-pack handoff；不要写入任何 child repo。",
+      "boundary_note": "write, test, review autofix, and commit require a single selected repo or per-task repo scopes。",
+      "negative_signal": "根据 cwd 猜测目标仓库并开始改文件。",
+      "context_snippets": [
+        "target_repo missing",
+        "parent workspace"
+      ],
+      "source_note": "current source/runtime governance rule: Workspace Repo Scope in spec-work"
+    },
+    {
+      "name": "generated runtime mirror stays read-only for source fixes",
+      "user_intent": "计划要求修复 workflow 或 host runtime behavior，搜索命中 `.claude/` 或 `.agents/skills/`。",
+      "expected_posture": "优先修改 source-of-truth under `skills/`, `agents/`, `templates/`, or `src/cli`; runtime regeneration 是后续步骤。",
+      "boundary_note": "不得手改 generated runtime mirror 来冒充 source fix。",
+      "negative_signal": "直接改 `.claude/`, `.codex/`, or `.agents/skills/` 并把它当成完成。",
+      "context_snippets": [
+        "generated runtime assets",
+        "source-first"
+      ],
+      "source_note": "current source/runtime governance rule: Source 与 Runtime boundary in AGENTS.md"
+    },
+    {
+      "name": "unrelated complexity becomes follow-up",
+      "user_intent": "执行某个计划单元时发现邻近模块有旧债或可重构点。",
+      "expected_posture": "只修当前 plan/task scope；记录 residual risk 或 follow-up，不把 unrelated cleanup 纳入本次 diff。",
+      "boundary_note": "每一行修改都必须追溯到当前计划、task pack 或验证失败。",
+      "negative_signal": "顺手重构未触达的 helper、格式化大量邻近文件或删除预先存在的 dead code。",
+      "context_snippets": [
+        "scope boundaries",
+        "unrelated cleanup"
+      ],
+      "source_note": "existing prompt clause: execution stops or returns upstream when scope expands beyond plan/task pack"
+    },
+    {
+      "name": "secrets and staging require high-risk boundary",
+      "user_intent": "计划涉及 worktree、delegation、git staging、env 文件或 credentials。",
+      "expected_posture": "使用 batch-owned file set、expected_side_effects 和 secret deny patterns；env copy 必须 opt-in 且 staging 默认拒绝 secrets。",
+      "boundary_note": "允许写入不等于允许 stage；secrets 需要精确 allowlist 和明确 IU 意图。",
+      "negative_signal": "使用 unbounded `git add`, stage `.env`, token, key, or credential paths。",
+      "context_snippets": [
+        "batch-owned files",
+        "secret-deny-patterns.json",
+        "--copy-env"
+      ],
+      "source_note": "known failure mode: high-risk execution boundary from skill-agent quality governance plan"
+    }
+  ]
+}

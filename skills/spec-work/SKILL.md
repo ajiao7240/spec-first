@@ -46,6 +46,10 @@ Triage the input, verify repo/branch/task-pack boundaries, build the task list, 
 
 `spec-code-review`, git commit/push/PR workflows, `spec-compound`, release notes, and human reviewers consuming the final completion evidence.
 
+## Examples As Context
+
+When editing or reviewing this workflow prompt, or when running fresh-source eval for workflow posture drift, read `skills/spec-work/evals/examples.json` as examples-as-context. These examples are not an execution state machine, runtime readiness gate, or semantic quality proof for ordinary work runs.
+
 ## Context Orientation Anchor
 
 Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. When graph readiness artifacts are degraded, stale, or unavailable, prefer live MCP evidence for concrete execution questions when the relevant MCP tool is loaded and responsive, then fall back to bounded direct repo reads. Treat successful MCP calls as session-local evidence only; they do not update compiled `query_ready` or expand the plan/task-pack scope. If GitNexus returns definitions-only evidence, use it only as local file/symbol pointers and continue with code-review-graph, Serena, or bounded direct repo reads before changing behavior. External tools may prioritize inspection, but they do not define scope authority. Scope expansion is judged against the plan/task pack and concrete diff, not a graph work-run.

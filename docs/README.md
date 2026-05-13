@@ -19,7 +19,9 @@
 | `docs/05-用户手册/` | current | 用户使用手册、workflow 入口、产物目录和首次走查 |
 | `docs/contracts/` | current | schema、quality gate、workflow contract 与 verifier contract |
 | `docs/contracts/workflows/self-reflection-capability-upgrade.md` | current | 自我审视、CUD、最佳实践 intake、plan/review/compound handoff 和 30-cycle loop 的轻量 contract |
+| `docs/contracts/workflows/skill-agent-quality-governance.md` | current | skill / agent 质量治理的薄契约、执行边界语言和例外说明 |
 | `docs/10-prompt/结构化项目角色契约.md` | current | spec-first 演化判断和 source/runtime 边界基线 |
+| `docs/10-prompt/skill-agent-harness-audit/` | active-artifact | skill / agent harness 审查快照；作为治理计划证据，不覆盖当前 source、contract 或 tests |
 | `docs/archive-index.md` | current | 历史 CRG/CE/ECC 搜索命中的判读入口和 risky token allowlist |
 | `docs/2026-05-04/project-audit/` | active-artifact | 当前系统级审查报告与修复阶段证据 |
 | `docs/ideation/` | active-artifact | ideation artifact；进入 brainstorm 前需要确认 freshness 和所选方向 |
@@ -43,6 +45,7 @@
 | `docs/09-业界借鉴/` | external-reference | 外部实践材料和映射分析；只作启发和对照 |
 | `docs/11-文章系列/` | external-reference | 对外文章与素材，不作为工程 contract |
 | `docs/12-loop分析/` | historical-input | workflow loop 分析背景，不覆盖当前 skill source |
+| `docs/10-prompt/审查skill.md` | historical-input | skill / agent harness 审查 prompt 输入；需结合对应 audit artifact 判读，不代表当前 runtime contract |
 | `docs/2026-04-22-full-audit/` | historical-input | 旧全量审查快照；当前结论以最新审查报告和代码为准 |
 | `docs/archive/` | archived | 备份和归档内容，只用于追溯 |
 | `docs/项目介绍/` | historical-input | 项目介绍和 CRG 旧方案材料；当前 graph provider 边界以 `spec-mcp-setup` 与 `spec-graph-bootstrap` 为准 |

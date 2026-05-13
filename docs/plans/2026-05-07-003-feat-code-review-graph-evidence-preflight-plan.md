@@ -1,7 +1,7 @@
 ---
 title: feat: 为 spec-code-review 增加 code-review-graph evidence preflight
 type: feat
-status: active
+status: completed
 date: 2026-05-07
 spec_id: 2026-05-07-003-code-review-graph-evidence-preflight
 target_repo: spec-first

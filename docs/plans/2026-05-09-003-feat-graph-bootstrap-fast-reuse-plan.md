@@ -1,7 +1,7 @@
 ---
 title: feat: 加速 graph-bootstrap 并保证版本更新后自动失效
 type: feat
-status: active
+status: completed
 date: 2026-05-09
 spec_id: 2026-05-09-003-graph-bootstrap-fast-reuse
 ---

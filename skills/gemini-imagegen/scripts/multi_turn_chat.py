@@ -31,13 +31,15 @@ from PIL import Image
 from google import genai
 from google.genai import types
 
+DEFAULT_MODEL = "gemini-3-pro-image-preview"
+
 
 class ImageChat:
     """Interactive chat session for image generation and refinement."""
     
     def __init__(
         self,
-        model: str = "gemini-2.5-flash-image",
+        model: str = DEFAULT_MODEL,
         output_dir: str = ".",
     ):
         api_key = os.environ.get("GEMINI_API_KEY")
@@ -99,7 +101,7 @@ class ImageChat:
         if filename is None:
             self.image_count += 1
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"image_{timestamp}_{self.image_count}.png"
+            filename = f"image_{timestamp}_{self.image_count}.jpg"
         
         filepath = self.output_dir / filename
         self.current_image.save(filepath)
@@ -120,9 +122,9 @@ def main():
     )
     parser.add_argument(
         "--model", "-m",
-        default="gemini-2.5-flash-image",
+        default=DEFAULT_MODEL,
         choices=["gemini-2.5-flash-image", "gemini-3-pro-image-preview"],
-        help="Model to use"
+        help=f"Model to use (default: {DEFAULT_MODEL})"
     )
     parser.add_argument(
         "--output-dir", "-o",

@@ -18,6 +18,7 @@ const SUPPORTED_SCHEMA_KEYWORDS = [
   'maxItems',
   'minLength',
   'maxLength',
+  'pattern',
   'minimum',
   'maximum',
 ];
@@ -138,6 +139,9 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
     }
     if (Number.isInteger(schema.maxLength) && value.length > schema.maxLength) {
       errors.push(`${pointer}: expected string length at most ${schema.maxLength}, received ${value.length}`);
+    }
+    if (typeof schema.pattern === 'string' && !(new RegExp(schema.pattern).test(value))) {
+      errors.push(`${pointer}: value ${JSON.stringify(value)} does not match pattern ${schema.pattern}`);
     }
   }
 

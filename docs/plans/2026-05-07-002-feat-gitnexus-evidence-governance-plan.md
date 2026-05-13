@@ -4,6 +4,7 @@ type: feat
 status: completed
 date: 2026-05-07
 spec_id: 2026-05-07-002-gitnexus-evidence-governance
+last_updated: 2026-05-14T00:45+08:00
 ---
 
 # feat: 收紧 GitNexus 证据层与全流程图谱治理
@@ -319,14 +320,14 @@ CHANGELOG：U7 合并最终条目。
 
 ## 执行顺序
 
-当前落地状态校准（2026-05-10）：
+历史落地状态校准（2026-05-10，执行前快照）：
 
 - SP1、路径 C renderer / normalizer、host block 收敛、`analyze --force` 后置 normalizer、RC.100 pin 已经历史落地，不能按“U1 未完成所以 U2/U3 不应存在”来回滚或重做。
 - U1 policy 仍是 `partially landed`：`docs/contracts/graph-evidence-policy.md` 存在，但还缺 `readiness_status` / `evidence_class` / `scope_requirement` 分层、`worktree_status_hash` 说明、README 引用、派生件清单和 contract tests。
 - 后续实施顺序是先关闭 U1 policy gap，再审计已落地 U2/U3 是否还有缺口；不是重新创建 renderer、重复 pin 或把 future 路径 A 的 `--skip-agents-md` 混回当前路径 C。
 
 0. **SP1 spike**（历史硬门，pin 变更时重跑）：当前 RC.100 输出已记录；未来 GitNexus pin 变化必须重新跑 `analyze --help`、`--version` 和 forced analyze spike。
-1. **U1 + D1 校准**（当前硬门）：policy gap closure；ownership 路径按当前路径 C 写入 policy，并把已落地 U2/U3 标为 policy 派生件。
+1. **U1 + D1 校准**（历史硬门）：policy gap closure；ownership 路径按当前路径 C 写入 policy，并把已落地 U2/U3 标为 policy 派生件。
 2. **U2 audit / gap fill**：核对现有 host block ownership，补缺口（如 README/policy 派生断言或 doctor drift detection）；不得重复创建 renderer。
 3. **U3 audit / gap fill**：确认 bootstrap argv 与 allowlist 仍是当前路径 C（继续 `analyze --force`，验证后置 normalizer；不引入 `--skip-agents-md`）。
 4. **U4**：spec-plan 仅补字段；其他 4 个 workflow 引入显式比较步骤。
@@ -334,7 +335,7 @@ CHANGELOG：U7 合并最终条目。
 6. **U6**：probe baseline + 6 类 golden cases。
 7. **U7**：docs / changelog 合并 / runtime regeneration 验证。
 
-U1 policy gap closure 是后续新增 U4+ downstream consumer 和 003 CRG preflight consumer 的硬门；已历史落地的 U2/U3 只能做 audit / gap fill，不因 U1 未完成而回滚。
+上述顺序是执行前 handoff，不是 completed 状态下的当前 blocker。Completion closure 已将 remaining vocabulary cleanup、baseline fixture 和 runtime lifecycle 收敛为 follow-up 候选；若未来需要重开，必须新建 follow-up plan，而不是把本计划恢复为当前硬门。
 
 ## 验证计划
 
@@ -405,7 +406,7 @@ npx -y gitnexus@<rc-tag> analyze --help
 
 ## 交接标准
 
-进入 `$spec-work` 必须满足以下硬门：
+以下交接标准是本计划执行前的历史 hard gate；本计划完成后不再作为当前 `$spec-work` blocker 使用。未来若重开 policy vocabulary cleanup、baseline fixture 或 runtime lifecycle 收敛，应迁移到新的 follow-up plan：
 
 - SP1 spike 已执行，输出抄录到 plan execution log，D1 当前路径明确为路径 C；RC.100 pin 只作为 provider version governance 与未来路径 A 能力证据。
 - U1 初版 policy 文件已存在时，实施者必须先核对是否已补齐 README 引用、`readiness_status` / `evidence_class` / `scope_requirement` 分层、`worktree_status_hash` 说明和派生件清单；未补齐则标记 U1 `partially landed`，不得把 policy 当作完成态。

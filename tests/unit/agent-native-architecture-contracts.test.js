@@ -8,6 +8,7 @@ const CodexAdapter = require('../../src/cli/adapters/codex');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills/agent-native-architecture/SKILL.md');
+const AUDIT_SKILL_PATH = path.join(REPO_ROOT, 'skills/agent-native-audit/SKILL.md');
 const REFERENCES_DIR = path.join(REPO_ROOT, 'skills/agent-native-architecture/references');
 const CHECKLISTS_PATH = path.join(REFERENCES_DIR, 'checklists.md');
 
@@ -86,5 +87,17 @@ describe('agent-native-architecture contracts', () => {
     expect(references).not.toMatch(/claude-opus-4-\d{8}/);
     expect(references).toContain('Config.models.fast');
     expect(references).toContain('Config.models.frontier');
+  });
+});
+
+describe('agent-native-audit deterministic prompt drift contracts', () => {
+  test('agent-native-audit points to the correct action parity option and shared workspace label', () => {
+    const auditSkill = read(AUDIT_SKILL_PATH);
+
+    expect(auditSkill).toContain('1. **Action Parity**');
+    expect(auditSkill).toContain('Select option 1 (action parity) to load the full reference material.');
+    expect(auditSkill).toContain('Audit for SHARED WORKSPACE - "Agent and user work in the same data space"');
+    expect(auditSkill).not.toContain('Select option 7 (action parity)');
+    expect(auditSkill).not.toContain('SHARED WORKSPASpec-First');
   });
 });

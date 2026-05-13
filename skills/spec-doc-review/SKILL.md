@@ -42,6 +42,10 @@ Detect mode and document type, select reviewer personas, dispatch with bounded p
 
 `spec-plan`, `spec-work`, task-pack validation/rebuild decisions, human document owners, and code-review handoffs when document findings imply implementation risk.
 
+## Examples As Context
+
+When editing or reviewing this workflow prompt, or when running fresh-source eval for review posture drift, read `skills/spec-doc-review/evals/examples.json` as examples-as-context. These examples are not a replacement for persona selection, reviewer findings, or semantic readiness judgment during ordinary document reviews.
+
 ## Graph Freshness / Refresh Trigger Boundary
 
 Before treating compiled graph facts or pre-facts as graph-fresh review evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, `.spec-first/impact/bootstrap-impact-capabilities.json`, provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Doc Review to rebuild providers.

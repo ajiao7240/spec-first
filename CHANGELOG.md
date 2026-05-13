@@ -1,6 +1,19 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-14 01:35:15 leokuang: fix(review): 继续加固 spec-optimize shared_file 目录复制，拒绝 secret-denied 路径名、symlink 逃逸与文件目标 symlink 覆盖风险，并对齐 secret allowlist dot-segment schema 校验与高风险执行回归测试 (user-visible)
+- v1.8.2 2026-05-14 01:29:59 leokuang: docs(audit): 新增全量 skill/agent Harness 交叉审查报告，覆盖 40 个 skill 与 51 个 agent，记录 public/internal 边界、mutating agent、review-finding 与 runtime drift 风险 (user-visible)
+- v1.8.2 2026-05-14 01:19:17 leokuang: fix(review): 逐项修复 skill/agent 质量治理 code-review findings，补强 spec-optimize shared_file/--copy-env 安全边界、secret allowlist schema 校验、examples-as-context 引用、docs lifecycle/plan completion 收口与 gemini-imagegen 格式说明 (user-visible)
+- v1.8.2 2026-05-14 00:22:13 leokuang: docs(plan): 将 2026-05-07-001 skill/agent 质量治理、2026-05-07-003 code-review-graph evidence preflight 与 2026-05-09-003 graph-bootstrap fast reuse 计划状态标记为 completed (user-visible)
+- v1.8.2 2026-05-14 00:20:47 leokuang: U1 harden worktree env handling regression coverage; `--copy-env` 跳过 `.env.example` / `.env.template` / `.env.sample`，补默认不复制、审计日志不泄密与不入 git 的动态 contract tests (user-visible)
+- v1.8.2 2026-05-14 00:20:47 leokuang: U2 tighten high-risk staging contracts; 扩展 secret deny allowlist 精确路径说明与覆盖 env/key/token/cloud/mobile signing surfaces 的回归测试 (user-visible)
+- v1.8.2 2026-05-14 00:20:47 leokuang: U3 fix deterministic prompt/script drift; 修正 agent-native-audit 选项编号与 Shared Workspace typo，并统一 gemini-imagegen 默认模型与 `.jpg` 输出姿态 (user-visible)
+- v1.8.2 2026-05-14 00:20:47 leokuang: U4 add skill/agent quality thin contract; 新增 docs/contracts/workflows/skill-agent-quality-governance.md、docs 索引与机械 contract test (user-visible)
+- v1.8.2 2026-05-14 00:20:47 leokuang: U5 add minimal prompt examples baseline; 为 using-spec-first、spec-work、spec-doc-review 增加 prompt-examples/v1 examples-as-context 与 shape contract test (user-visible)
+- v1.8.2 2026-05-13 23:45:55 leokuang: docs(plan): 优化 skill/agent 质量治理计划文档结构，恢复工具可读 frontmatter，校准 U1/U2 已落地事实，补强 U5 examples 语义质量门槛并修复 PR 模板围栏与 CHANGELOG 示例格式 (user-visible)
+- v1.8.2 2026-05-13 23:07:52 leokuang: docs(plan): 根据 doc-review 收敛 graph-bootstrap 增量刷新计划，补齐 all-repos scope guard、fallback/query-unverified recovery、edge/速度 gate 与 U0 failure changelog 边界 (user-visible)
+- v1.8.2 2026-05-13 22:23:12 leokuang: docs(plan): 继续按第一性原理收窄 skill/agent 质量治理计划 U5，将 8 workflow eval fixture/readiness 方案改为 using-spec-first、spec-work、spec-doc-review 三个高杠杆 skill 的 examples-as-context 基线，明确不建 canonical schema、LLM-as-judge 或 eval platform (user-visible)
+- v1.8.2 2026-05-13 21:48:06 leokuang: docs(plan): 按推荐方案收窄 skill/agent 质量治理计划当前交付范围，明确 revision=5 只关闭 Phase A 并执行 minimal Phase B，修正 U1 env copy log 边界、U2 task-pack validator ownership 与 Phase C follow-up 候选状态 (user-visible)
 - v1.8.2 2026-05-13 21:25:15 leokuang: docs(plan): 将 2026-05-07-002 GitNexus evidence governance 计划标记为 completed，并补执行日志收口说明，明确已落地能力、后续拆分到 graph-provider-consumption 的契约，以及剩余词表/baseline 清理不再阻塞本计划完成 (user-visible)
 - v1.8.2 2026-05-13 21:19:25 leokuang: docs(plan): 按业界最佳实践继续优化 2026-05-12-003 增量刷新计划，新增 graph refresh 成熟度分层 L0-L4 与 promotion gates，明确本计划只交付 L1 显式可信增量刷新，L2 notify-only、L3 clean-only auto-refresh、L4 CI/scheduled refresh 均为独立后续 (user-visible)
 - v1.8.2 2026-05-13 20:53:19 leokuang: docs(plan): 继续优化 2026-05-12-003 增量刷新计划，新增 notify-only stale detector 推荐 follow-up 的最小契约、只读检查字段、写入边界、提示策略与体验闭环顺序，明确其不属于当前 `--incremental` 交付范围 (user-visible)

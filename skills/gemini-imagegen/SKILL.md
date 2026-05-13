@@ -14,6 +14,7 @@ Generate and edit images using Google's Gemini API. The environment variable `GE
 | `gemini-3-pro-image-preview` | 1K-4K | All image generation (default) |
 
 **Note:** Always use this Pro model. Only use a different model if explicitly requested.
+The helper scripts default to this model as well. If the API rejects the preview model for the current account or region, rerun with an explicit `--model` override and record that fallback; do not silently change the default.
 
 ## Quick Reference
 
@@ -51,7 +52,7 @@ for part in response.parts:
         print(part.text)
     elif part.inline_data:
         image = part.as_image()
-        image.save("output.png")
+        image.save("output.jpg")
 ```
 
 ## Custom Resolution & Aspect Ratio
@@ -194,19 +195,19 @@ response = client.models.generate_content(
 
 ## Important: File Format & Media Type
 
-**CRITICAL:** The Gemini API returns images in JPEG format by default. When saving, always use `.jpg` extension to avoid media type mismatches.
+The Gemini API commonly returns JPEG inline image data. Prefer `.jpg` for generated outputs unless the caller explicitly needs another format. PIL chooses the saved file format from the output extension when `format` is omitted, so saving to `.png` writes a PNG file rather than a JPEG-with-PNG-extension.
 
 ```python
-# CORRECT - Use .jpg extension (Gemini returns JPEG)
+# Recommended default for Gemini image outputs
 image.save("output.jpg")
 
-# WRONG - Will cause "Image does not match media type" errors
-image.save("output.png")  # Creates JPEG with PNG extension!
+# Also valid when PNG output is explicitly needed; PIL writes PNG here
+image.save("output.png")
 ```
 
-### Converting to PNG (if needed)
+### Choosing an Explicit Format
 
-If you specifically need PNG format:
+If downstream tooling requires a specific media type, pass `format` explicitly and make the extension match:
 
 ```python
 from PIL import Image
@@ -215,8 +216,8 @@ from PIL import Image
 for part in response.parts:
     if part.inline_data:
         img = part.as_image()
-        # Convert to PNG by saving with explicit format
         img.save("output.png", format="PNG")
+        img.convert("RGB").save("output.jpg", format="JPEG")
 ```
 
 ### Verifying Image Format
@@ -225,13 +226,13 @@ Check actual format vs extension with the `file` command:
 
 ```bash
 file image.png
-# If output shows "JPEG image data" - rename to .jpg!
+# If output and extension disagree, regenerate or resave with matching format.
 ```
 
 ## Notes
 
 - All generated images include SynthID watermarks
-- Gemini returns **JPEG format by default** - always use `.jpg` extension
+- Gemini commonly returns JPEG inline data; prefer `.jpg` by default, and pass an explicit PIL `format` when another media type is required
 - Image-only mode (`responseModalities: ["IMAGE"]`) won't work with Google Search grounding
 - For editing, describe changes conversationally—the model understands semantic masking
 - Default to 1K resolution for speed; use 2K/4K when quality is critical

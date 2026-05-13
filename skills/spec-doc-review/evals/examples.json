@@ -1,0 +1,66 @@
+{
+  "schema_version": "prompt-examples/v1",
+  "skill": "spec-doc-review",
+  "examples": [
+    {
+      "name": "default document review uses bounded personas",
+      "user_intent": "用户要求审查 requirements、plan 或 task-pack 文档，没有禁用 reviewer dispatch。",
+      "expected_posture": "按文档类型和内容信号选择 personas；可用时进行 bounded parallel dispatch，然后 synthesis findings。",
+      "boundary_note": "spec-doc-review 是 workflow orchestrator，不是 agent type；不要把 workflow 自身丢给 subagent。",
+      "negative_signal": "只做单一视角草率审查，或通过 Agent primitive 调用 spec-doc-review。",
+      "context_snippets": [
+        "Select Conditional Personas",
+        "Invocation Boundary"
+      ],
+      "source_note": "existing prompt clause: Document Review workflow and Invocation Boundary"
+    },
+    {
+      "name": "dispatch unavailable falls back honestly",
+      "user_intent": "运行环境没有 reviewer dispatch primitive，或用户明确要求 no-agents/report-only。",
+      "expected_posture": "执行 single-agent report-only fallback，并清楚说明多 persona dispatch 未运行。",
+      "boundary_note": "缺少 dispatch 不是跳过审查的理由，但不能声称 helper agents 已完成。",
+      "negative_signal": "编造 persona agent 输出或把 unavailable dispatch 当成 review pass。",
+      "context_snippets": [
+        "dispatch unavailable",
+        "single-agent report-only fallback"
+      ],
+      "source_note": "known failure mode: helper dispatch availability must be disclosed instead of simulated"
+    },
+    {
+      "name": "findings need severity evidence and confidence",
+      "user_intent": "审查产物需要 actionable findings，而不是泛泛建议。",
+      "expected_posture": "findings 必须包含 severity、section、why_it_matters、confidence 和 evidence；低信心内容要降级或抑制。",
+      "boundary_note": "reviewer 判断可以是语义的，但输出契约必须让 synthesis 能排序、过滤和呈现。",
+      "negative_signal": "无 evidence 的结论、连续 confidence 值、或使用 high/medium/low 替代 P0-P3。",
+      "context_snippets": [
+        "findings schema",
+        "confidence-first rubric"
+      ],
+      "source_note": "existing prompt clause: subagent-template output-contract injects findings schema"
+    },
+    {
+      "name": "document review does not implement code",
+      "user_intent": "用户要求审查一个 plan，review 发现可实施的修复方向。",
+      "expected_posture": "输出 finding、safe_auto document fixes 或 Open Questions；需要代码执行时交给 work/code-review handoff。",
+      "boundary_note": "doc-review 只拥有文档审查和允许的文档修复，不自动实施 plan code。",
+      "negative_signal": "审查过程中顺手修改 source code 或运行 implementation tests。",
+      "context_snippets": [
+        "When Not To Use",
+        "Downstream Consumers"
+      ],
+      "source_note": "existing prompt clause: spec-doc-review is not for implementing fixes as a work run"
+    },
+    {
+      "name": "runtime mirror confusion is high-risk",
+      "user_intent": "文档建议直接修改 `.claude/`, `.codex/`, or `.agents/skills/` 来修复 workflow 行为。",
+      "expected_posture": "将 source/runtime 混淆标为高风险 finding，并建议 source-first + runtime regeneration boundary。",
+      "boundary_note": "review 不应认可手改 generated runtime mirror 作为 source-of-truth 修复。",
+      "negative_signal": "把 runtime mirror diff 当作当前 contract 或 source evidence。",
+      "context_snippets": [
+        "generated runtime mirrors",
+        "source-of-truth"
+      ],
+      "source_note": "current source/runtime governance rule: AGENTS.md and thin governance contract"
+    }
+  ]
+}

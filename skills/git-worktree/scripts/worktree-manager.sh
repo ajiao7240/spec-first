@@ -68,15 +68,30 @@ append_env_copy_log() {
   local worktree_path="$1" source="$2" dest="$3"
   local size sha8 timestamp log_file
   size=$(wc -c < "$source" | tr -d '[:space:]')
-  sha8=$(git hash-object "$source" | cut -c1-8)
+  if command -v shasum >/dev/null 2>&1; then
+    sha8=$(shasum -a 256 "$source" | awk '{print substr($1, 1, 8)}')
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha8=$(sha256sum "$source" | awk '{print substr($1, 1, 8)}')
+  else
+    echo "Error: no SHA-256 tool found for env copy audit" >&2
+    return 1
+  fi
   timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   log_file="$worktree_path/.env-copy.log"
   printf 'timestamp=%s source_path=%s destination_path=%s size_bytes=%s sha256_8=%s\n' \
     "$timestamp" "$source" "$dest" "$size" "$sha8" >> "$log_file"
 }
 
-# Copy .env* files (except .env.example) from main repo to worktree when the
-# caller explicitly opts in. Backs up any pre-existing destination file.
+is_env_example_file() {
+  case "$1" in
+    .env.example|.env.template|.env.sample) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Copy .env* files (except documented examples/templates) from main repo to
+# worktree when the caller explicitly opts in. Backs up any pre-existing
+# destination file.
 copy_env_files() {
   local worktree_path="$1"
   local copied=0
@@ -89,7 +104,7 @@ copy_env_files() {
     [[ -f "$source" ]] || continue
     local name
     name=$(basename "$source")
-    [[ "$name" == ".env.example" ]] && continue
+    is_env_example_file "$name" && continue
     sources+=("$source")
   done
 

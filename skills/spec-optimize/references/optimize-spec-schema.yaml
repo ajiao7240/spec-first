@@ -311,7 +311,7 @@ optional_fields:
       shared_files:
         type: array
         default: []
-        description: "Files that must be copied into each experiment worktree (e.g., SQLite databases)"
+        description: "Exact repo-relative files/directories copied into each experiment worktree (e.g., SQLite databases); absolute paths, parent escapes, globs, secret-deny paths, and symlinks inside shared directories are rejected"
         items:
           type: string
       exclusive_resources:

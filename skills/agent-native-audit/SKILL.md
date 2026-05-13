@@ -32,7 +32,7 @@ First, invoke the agent-native-architecture skill to understand all principles:
 /agent-native-architecture
 ```
 
-Select option 7 (action parity) to load the full reference material.
+Select option 1 (action parity) to load the full reference material.
 
 ### Step 2: Launch Parallel Sub-Agents
 
@@ -115,7 +115,7 @@ Format:
 
 **Agent 4: Shared Workspace**
 ```
-Audit for SHARED WORKSPASpec-First - "Agent and user work in the same data space"
+Audit for SHARED WORKSPACE - "Agent and user work in the same data space"
 
 Tasks:
 1. Identify all data stores/tables/models

@@ -3,12 +3,12 @@
 Generate images from text prompts using Gemini API.
 
 Usage:
-    python generate_image.py "prompt" output.png [--model MODEL] [--aspect RATIO] [--size SIZE]
+    python generate_image.py "prompt" output.jpg [--model MODEL] [--aspect RATIO] [--size SIZE]
 
 Examples:
-    python generate_image.py "A cat in space" cat.png
-    python generate_image.py "A logo for Acme Corp" logo.png --model gemini-3-pro-image-preview --aspect 1:1
-    python generate_image.py "Epic landscape" landscape.png --aspect 16:9 --size 2K
+    python generate_image.py "A cat in space" cat.jpg
+    python generate_image.py "A logo for Acme Corp" logo.jpg --model gemini-3-pro-image-preview --aspect 1:1
+    python generate_image.py "Epic landscape" landscape.jpg --aspect 16:9 --size 2K
 
 Environment:
     GEMINI_API_KEY - Required API key
@@ -21,11 +21,13 @@ import sys
 from google import genai
 from google.genai import types
 
+DEFAULT_MODEL = "gemini-3-pro-image-preview"
+
 
 def generate_image(
     prompt: str,
     output_path: str,
-    model: str = "gemini-2.5-flash-image",
+    model: str = DEFAULT_MODEL,
     aspect_ratio: str | None = None,
     image_size: str | None = None,
 ) -> str | None:
@@ -91,12 +93,12 @@ def main():
         epilog=__doc__
     )
     parser.add_argument("prompt", help="Text prompt describing the image")
-    parser.add_argument("output", help="Output file path (e.g., output.png)")
+    parser.add_argument("output", help="Output file path (e.g., output.jpg)")
     parser.add_argument(
         "--model", "-m",
-        default="gemini-2.5-flash-image",
+        default=DEFAULT_MODEL,
         choices=["gemini-2.5-flash-image", "gemini-3-pro-image-preview"],
-        help="Model to use (default: gemini-2.5-flash-image)"
+        help=f"Model to use (default: {DEFAULT_MODEL})"
     )
     parser.add_argument(
         "--aspect", "-a",
