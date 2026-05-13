@@ -298,7 +298,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(toolsJson.schema_version).toBe('5');
     const gitnexus = toolsJson.tools.find((t) => t.id === 'gitnexus');
     expect(gitnexus.package).toBe('gitnexus');
-    expect(gitnexus.version).toBe('1.6.4-rc.100');
+    expect(gitnexus.version).toBe('1.6.4');
     expect(gitnexus.installation.unix.args).toEqual(['-y', '{{package}}@{{version}}', '--help']);
     expect(gitnexus.installation.windows.args).toEqual(['-y', '{{package}}@{{version}}', '--help']);
     expect(gitnexus.host_config.claude.args).toEqual(['-y', '{{package}}@{{version}}', 'mcp']);

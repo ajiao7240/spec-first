@@ -23,7 +23,7 @@ Analysis failed: COPY failed for File: IO exception: Cannot open file. path: <ch
 
 本计划原本把恢复策略收敛为：**`spec-mcp-setup` 刷新 provider projection 之后，`spec-graph-bootstrap` 执行 GitNexus analyze 之前，提供显式 GitNexus repair preflight。**
 
-后续源码审查和 npm package diff 证明，现场主要根因不是 spec-first 缺少 repair preflight，而是 `gitnexus@1.6.4-rc.85` 在 Windows forced reanalysis 复用既有 `.gitnexus/lbug` 时缺少 LadybugDB close/open retry 与 Windows handle-release probe。当前正确修复路径是把 setup-owned provider pin 升到 `gitnexus@1.6.4-rc.100`，并让 `spec-graph-bootstrap` 在旧 setup projection 时 fail closed，要求先重跑 `spec-mcp-setup`。本 repair 计划因此标记为 `superseded`；不要按本计划新增默认清理 `.gitnexus` 的主路径。
+后续源码审查和 npm package diff 证明，现场主要根因不是 spec-first 缺少 repair preflight，而是 `gitnexus@1.6.4-rc.85` 在 Windows forced reanalysis 复用既有 `.gitnexus/lbug` 时缺少 LadybugDB close/open retry 与 Windows handle-release probe。当前正确修复路径是使用 setup-owned provider pin `gitnexus@1.6.4` official stable（该 stable 替代曾用于 unblock 的 `gitnexus@1.6.4-rc.100`），并让 `spec-graph-bootstrap` 在旧 setup projection 时 fail closed，要求先重跑 `spec-mcp-setup`。本 repair 计划因此标记为 `superseded`；不要按本计划新增默认清理 `.gitnexus` 的主路径。
 
 保留本文档的价值是记录当时对 destructive repair 的 safety 约束。只有在 **当前 bundled GitNexus package 已确认投影并仍然失败** 时，repair 才能作为 explicit human-scoped recovery 重新开 plan。
 
