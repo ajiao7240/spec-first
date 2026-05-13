@@ -25,6 +25,7 @@ const ALLOWED_TASK_FIELDS = new Set([
   'context_refs',
   'entry_hint',
   'parallelizable',
+  'expected_side_effects',
   'risk_note',
   'notes',
   'review_gate',
@@ -221,6 +222,30 @@ function isConcreteRepoRelativeFile(filePath) {
   return true;
 }
 
+function isSafeExpectedSideEffectPattern(pattern) {
+  if (typeof pattern !== 'string' || pattern.trim() === '') return false;
+  if (pattern !== pattern.trim()) return false;
+  if (pattern.includes('\\')) return false;
+  if (path.isAbsolute(pattern)) return false;
+  if (pattern.includes('**')) return false;
+  if (pattern.includes('...')) return false;
+  if (pattern.endsWith('/')) return false;
+  const segments = pattern.split('/');
+  if (segments.some((segment) => segment === '..' || segment === '' || segment === '.')) return false;
+  if (segments.some((segment) => (
+    segment !== segment.trim() ||
+    /[. ]$/.test(segment) ||
+    WINDOWS_RESERVED_NAMES.test(segment.replace(/[*?]/g, 'x')) ||
+    WINDOWS_ILLEGAL_SEGMENT_CHARS.test(segment) ||
+    CONTROL_CHARS.test(segment)
+  ))) {
+    return false;
+  }
+  const normalized = path.normalize(pattern);
+  if (normalized === '.' || normalized.startsWith('..')) return false;
+  return true;
+}
+
 function addFinding(target, code, message, details = {}) {
   target.push({
     code,
@@ -251,6 +276,27 @@ function validateStringArray(value, field, task, errors) {
       addFinding(errors, `task-pack-task-${field.replace(/_/g, '-')}-item-invalid`, `Task '${task.task_id || '<unknown>'}' '${field}' entries must be non-empty strings.`, {
         task_id: task.task_id || null,
         field,
+        value: item,
+      });
+    }
+  }
+}
+
+function validateExpectedSideEffects(task, errors) {
+  const value = task.expected_side_effects;
+  if (value === undefined || value === null) return;
+  if (!Array.isArray(value)) {
+    addFinding(errors, 'task-pack-task-expected-side-effects-invalid', `Task '${task.task_id || '<unknown>'}' 'expected_side_effects' must be an array.`, {
+      task_id: task.task_id || null,
+      field: 'expected_side_effects',
+    });
+    return;
+  }
+  for (const item of value) {
+    if (!isSafeExpectedSideEffectPattern(item)) {
+      addFinding(errors, 'task-pack-task-expected-side-effect-invalid', `Task '${task.task_id || '<unknown>'}' expected_side_effects entries must be repo-relative exact paths or bounded globs without **.`, {
+        task_id: task.task_id || null,
+        field: 'expected_side_effects',
         value: item,
       });
     }
@@ -446,6 +492,7 @@ function validateTaskPack(taskPackPath, options = {}) {
       stop_if: task.stop_if || null,
       review_gate: task.review_gate || null,
       review_focus: task.review_focus || null,
+      expected_side_effects: Array.isArray(task.expected_side_effects) ? task.expected_side_effects : [],
     }));
   }
 
@@ -645,6 +692,7 @@ function validateTaskPackContract(contract, repoRoot, errors, limitations) {
 
     validateStringArray(task.requirement_refs, 'requirement_refs', task, errors);
     validateStringArray(task.context_refs, 'context_refs', task, errors);
+    validateExpectedSideEffects(task, errors);
 
     if (task.wave !== undefined && !waveIds.has(String(task.wave))) {
       addFinding(errors, 'task-pack-task-wave-missing', `Task '${task.task_id || '<unknown>'}' references a wave that is not declared.`, {

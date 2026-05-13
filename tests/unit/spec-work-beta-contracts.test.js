@@ -236,6 +236,22 @@ describe('spec-work-beta subagent and delegation isolation contract', () => {
     expect(reference).toContain('review_gate, review_focus, stop_if, declared files, and source_plan');
     expect(reference).toContain('Do not mark `review_gate: required` as satisfied');
   });
+
+  test('Codex delegation stages only batch-owned non-secret paths', () => {
+    const reference = fs.readFileSync(DELEGATION_REFERENCE_PATH, 'utf8');
+
+    expect(reference).not.toContain('git add $(git diff --name-only HEAD; git ls-files --others --exclude-standard)');
+    expect(reference).toContain('build the batch-owned set from the combined `Files` list');
+    expect(reference).toContain('expected_side_effects');
+    expect(reference).toContain('Compare actual modified/untracked files to `(batch-owned files ∪ expected_side_effects)` before staging');
+    expect(reference).toContain('extend-batch');
+    expect(reference).toContain('drop-stray');
+    expect(reference).toContain('abort');
+    expect(reference).toContain('src/cli/contracts/security/secret-deny-patterns.json');
+    expect(reference).toContain('Any path matching the deny list is rejected and surfaced, even when it is batch-owned');
+    expect(reference).toContain('Env files remain denied by default even when a worktree was created with `--copy-env`');
+    expect(reference).toContain('git add --pathspec-from-file "$batch_stage_paths" --pathspec-file-nul');
+  });
 });
 
 describe('spec-work-beta Codex delegation config contract', () => {

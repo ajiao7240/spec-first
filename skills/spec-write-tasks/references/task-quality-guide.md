@@ -107,6 +107,7 @@ Use these field-level checks before handing a task pack to `spec-work`:
 | `context_refs` | Names the smallest plan sections, code files, contracts, or pattern docs needed for this task; auxiliary to `source_unit` / `requirement_refs` | It points only to the whole plan, lists every reference, omits code/context needed to understand file boundaries, or is used as the only executable source anchor |
 | `orientation_evidence` | Records provider, posture, evidence_refs, and limitations for bounded source orientation used to compile task boundaries | It claims LSP/direct reads as scope authority, omits limitations, or lists broad repo exploration with no task-boundary impact |
 | `entry_hint` | Names where to start reading, such as a source section, helper, schema, or existing test pattern | It becomes a step-by-step implementation script or shell-command choreography |
+| `expected_side_effects` | Names narrow repo-relative side effects such as a lockfile, generated fixture, or formatter-adjacent file; uses bounded globs only when exact paths are not available | It expands product scope, includes secrets/env files without an explicit plan reason, uses `**`, or duplicates broad `files` ownership |
 | `test_focus` | States the primary verification surface and behavior category | It says only "tests" or requires acceptance criteria not present in the source plan |
 | `done_signal` | Can be observed through tests, CLI output, diff shape, document structure, or review | It is subjective, such as "works", "complete", or "looks good" |
 | `stop_if` | Names a concrete scope expansion or invalid assumption that should return to `spec-plan` | It is generic, such as "if unsure" or "if there is a problem" |
@@ -124,6 +125,7 @@ When reviewing a task pack, check:
 - identity and freshness can be validated with `spec-first tasks validate --json`,
 - every task has a source anchor through `source_unit` or `requirement_refs`,
 - every task has concrete repo-relative `files`,
+- `expected_side_effects` is absent or limited to explicit side effects; it never uses `**` whole-repo globs,
 - same-wave tasks do not share files,
 - Orientation Evidence names provider, posture, evidence_refs, and limitations without turning LSP/current code state into source-plan scope,
 - `context_refs` reduce first-pass reading instead of duplicating the whole plan,

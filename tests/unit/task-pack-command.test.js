@@ -465,6 +465,7 @@ describe('task pack hash and validation', () => {
     try {
       const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
       replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.tasks[0].expected_side_effects = ['package-lock.json', 'tests/fixtures/*.json'];
         contract.tasks[0].notes = 'Human-readable context.';
         contract.tasks[0].review_gate = 'optional';
         contract.tasks[0].review_focus = 'Check task pack boundary clarity.';
@@ -495,6 +496,24 @@ describe('task pack hash and validation', () => {
 
       expect(result.deterministic_handoff).toBe(false);
       expect(result.errors.map((error) => error.code)).toContain('task-pack-task-review-gate-invalid');
+      expect(result.limitations.map((limitation) => limitation.code)).not.toContain('task-pack-task-unknown-field');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('expected_side_effects rejects whole-repo globs and unsafe paths', () => {
+    const tmp = copyFixtureProject();
+    try {
+      const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+      replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.tasks[0].expected_side_effects = ['**/*.json', '../outside.env', '/tmp/secret.env'];
+      });
+
+      const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(result.deterministic_handoff).toBe(false);
+      expect(result.errors.filter((error) => error.code === 'task-pack-task-expected-side-effect-invalid')).toHaveLength(3);
       expect(result.limitations.map((limitation) => limitation.code)).not.toContain('task-pack-task-unknown-field');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });

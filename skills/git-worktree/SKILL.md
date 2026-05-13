@@ -9,7 +9,7 @@ allowed-tools: Bash(bash *worktree-manager.sh*)
 
 Create a worktree under `.worktrees/<branch>` with branch-specific setup that `git worktree add` alone does not handle:
 
-- Copies `.env`, `.env.local`, `.env.test`, etc. from the main repo (skips `.env.example`)
+- Does not copy `.env*` files by default; `--copy-env` is an explicit opt-in for workflows that need local env files
 - Trusts `mise`/`direnv` configs, with branch-aware safety rules so review branches do not auto-grant trust to untrusted `.envrc` content
 - Adds `.worktrees` to `.gitignore` if not already ignored
 - Does not modify the main repo checkout — `from-branch` is fetched, not checked out
@@ -19,20 +19,28 @@ Create a worktree under `.worktrees/<branch>` with branch-specific setup that `g
 Invoke the bundled script through a `bash -c` wrapper whose command text includes `exec bash ...worktree-manager.sh`. On Claude Code, `${CLAUDE_SKILL_DIR}` resolves to the skill's own runtime directory across marketplace-cached installs and local plugin development. In source or non-Claude runtime contexts, use the repo-root fallback path so generated Codex assets can rewrite it to the installed skill directory. This shape intentionally matches the narrow `allowed-tools` pattern.
 
 ```bash
-bash -c 'if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then exec bash "$CLAUDE_SKILL_DIR/scripts/worktree-manager.sh" "$@"; fi; exec bash "$(git rev-parse --show-toplevel)"/"skills/git-worktree/scripts/worktree-manager.sh" "$@"' _ create <branch-name> [from-branch]
+bash -c 'if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then exec bash "$CLAUDE_SKILL_DIR/scripts/worktree-manager.sh" "$@"; fi; exec bash "$(git rev-parse --show-toplevel)"/"skills/git-worktree/scripts/worktree-manager.sh" "$@"' _ create [--copy-env] <branch-name> [from-branch]
 ```
 
 Defaults:
 - `from-branch` defaults to origin's default branch (or `main` if that cannot be resolved)
 - The new branch is created at `origin/<from-branch>` (or the local ref if the remote is unavailable)
+- `.env*` files are not copied unless `--copy-env` is passed
 
 Examples:
 ```bash
 bash -c 'if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then exec bash "$CLAUDE_SKILL_DIR/scripts/worktree-manager.sh" "$@"; fi; exec bash "$(git rev-parse --show-toplevel)"/"skills/git-worktree/scripts/worktree-manager.sh" "$@"' _ create feat/login
 bash -c 'if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then exec bash "$CLAUDE_SKILL_DIR/scripts/worktree-manager.sh" "$@"; fi; exec bash "$(git rev-parse --show-toplevel)"/"skills/git-worktree/scripts/worktree-manager.sh" "$@"' _ create fix/email-validation develop
+bash -c 'if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then exec bash "$CLAUDE_SKILL_DIR/scripts/worktree-manager.sh" "$@"; fi; exec bash "$(git rev-parse --show-toplevel)"/"skills/git-worktree/scripts/worktree-manager.sh" "$@"' _ create --copy-env feat/local-env
 ```
 
 After creation, switch to the worktree with `cd .worktrees/<branch-name>`.
+
+## Env File Opt-In
+
+Use `--copy-env` only when the workflow explicitly needs local environment files in the new worktree. The opt-in path copies `.env*` files except `.env.example`, prints only file names, backs up pre-existing destination files, and appends `.env-copy.log` with timestamp, source path, destination path, byte size, and an 8-character content fingerprint. The log does not include file contents and is added to the worktree git exclude file.
+
+Even when env files were copied intentionally, downstream staging must still treat them as denied by default. A batch may stage an env file only when the task/implementation unit declares the exact env path in `expected_side_effects` and explicitly states that changing that env file is intended.
 
 ## Other worktree operations
 
@@ -45,14 +53,7 @@ cd .worktrees/<branch>                     # switch to a worktree
 cd "$(git rev-parse --show-toplevel)"      # return to main checkout
 ```
 
-To copy `.env*` files into an existing worktree created without them, run this from the main repo (not from inside the worktree, since branch names often contain slashes like `feat/login`):
-```bash
-for env_file in .env .env.*; do
-  [ -e "$env_file" ] || continue
-  [ "$env_file" = ".env.example" ] && continue
-  cp "$env_file" ".worktrees/<branch>/"
-done
-```
+Do not manually copy `.env*` files as a default setup step. If an existing worktree needs env files, recreate it with `--copy-env` or copy files manually only after a human explicitly opts in and records the same file-name-only audit information.
 
 ## Dev tool trust behavior
 

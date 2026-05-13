@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# Create a new git worktree with environment files and dev-tool trust.
+# Create a new git worktree with optional environment files and dev-tool trust.
 #
 # The distinctive work this script does (vs. raw `git worktree add`):
-#   1. Copies .env* files from the main repo (skipping .env.example)
+#   1. Optionally copies .env* files from the main repo with --copy-env
 #   2. Trusts mise/direnv configs with branch-aware safety rules,
 #      so hooks and scripts don't block on interactive trust prompts
 #   3. Ensures .worktrees is gitignored (via `git check-ignore`)
@@ -27,13 +27,15 @@ WORKTREE_DIR="$GIT_ROOT/.worktrees"
 
 usage() {
   cat <<'EOF'
-Usage: worktree-manager.sh create <branch-name> [from-branch]
+Usage: worktree-manager.sh create [--copy-env] <branch-name> [from-branch]
 
 Creates .worktrees/<branch-name> with <branch-name> branched from
 [from-branch] (default: origin's default branch, or main).
 
 The main repo checkout is not modified; from-branch is fetched but
 not checked out.
+
+By default, .env* files are not copied. Pass --copy-env to opt in.
 EOF
 }
 
@@ -52,25 +54,68 @@ ensure_gitignore() {
   echo "Added .worktrees to .gitignore"
 }
 
-# Copy .env* files (except .env.example) from main repo to worktree.
-# Backs up any pre-existing destination file.
+ensure_env_copy_log_excluded() {
+  local worktree_path="$1"
+  local exclude_file
+  exclude_file=$(git -C "$worktree_path" rev-parse --git-path info/exclude)
+  mkdir -p "$(dirname "$exclude_file")"
+  if ! grep -Fxq ".env-copy.log" "$exclude_file" 2>/dev/null; then
+    echo ".env-copy.log" >> "$exclude_file"
+  fi
+}
+
+append_env_copy_log() {
+  local worktree_path="$1" source="$2" dest="$3"
+  local size sha8 timestamp log_file
+  size=$(wc -c < "$source" | tr -d '[:space:]')
+  sha8=$(git hash-object "$source" | cut -c1-8)
+  timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  log_file="$worktree_path/.env-copy.log"
+  printf 'timestamp=%s source_path=%s destination_path=%s size_bytes=%s sha256_8=%s\n' \
+    "$timestamp" "$source" "$dest" "$size" "$sha8" >> "$log_file"
+}
+
+# Copy .env* files (except .env.example) from main repo to worktree when the
+# caller explicitly opts in. Backs up any pre-existing destination file.
 copy_env_files() {
   local worktree_path="$1"
   local copied=0
 
+  ensure_env_copy_log_excluded "$worktree_path"
   shopt -s nullglob
+
+  local sources=()
   for source in "$GIT_ROOT"/.env*; do
     [[ -f "$source" ]] || continue
     local name
     name=$(basename "$source")
     [[ "$name" == ".env.example" ]] && continue
+    sources+=("$source")
+  done
 
+  if [[ ${#sources[@]} -eq 0 ]]; then
+    echo "  No .env files in main repo"
+    shopt -u nullglob
+    return
+  fi
+
+  echo "  Copying env files by explicit --copy-env opt-in:"
+  for source in "${sources[@]}"; do
+    local name
+    name=$(basename "$source")
+    echo "  - $name"
+  done
+
+  for source in "${sources[@]}"; do
+    local name
+    name=$(basename "$source")
     local dest="$worktree_path/$name"
     if [[ -f "$dest" ]]; then
       cp "$dest" "${dest}.backup"
       echo "  Backed up existing $name to ${name}.backup"
     fi
     cp "$source" "$dest"
+    append_env_copy_log "$worktree_path" "$source" "$dest"
     echo "  Copied $name"
     copied=$((copied + 1))
   done
@@ -154,6 +199,12 @@ trust_dev_tools() {
 }
 
 create_worktree() {
+  local copy_env="false"
+  if [[ "${1:-}" == "--copy-env" ]]; then
+    copy_env="true"
+    shift
+  fi
+
   local branch_name="${1:-}"
   local from_branch="${2:-}"
 
@@ -193,7 +244,11 @@ create_worktree() {
   git worktree add -b "$branch_name" "$worktree_path" "$base_ref"
 
   echo "Environment files:"
-  copy_env_files "$worktree_path"
+  if [[ "$copy_env" == "true" ]]; then
+    copy_env_files "$worktree_path"
+  else
+    echo "  Not copied by default. Re-run create with --copy-env to opt in."
+  fi
 
   echo "Dev tool trust:"
   local trust_branch="$default_branch"

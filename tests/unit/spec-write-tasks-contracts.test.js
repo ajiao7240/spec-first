@@ -120,6 +120,8 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain("entry_hint: Start with the plan's Requirements and Scope Boundaries");
     expect(schema).not.toContain("entry_hint: Start with the plan's Requirements Trace");
     expect(schema).toContain('Quality Task Fields');
+    expect(schema).toContain('| `expected_side_effects` | Explicit side-effect allowlist for delegation staging');
+    expect(schema).toContain('must not use `**` whole-repo globs');
     expect(schema).toContain('| `review_gate` | Optional task-level review intent, either `optional` or `required`; not an approval state |');
     expect(schema).toContain('| `review_focus` | Specific review concern for mini review or final shipping review |');
     expect(schema).toContain('When present, `review_gate` must be exactly `optional` or `required`; absence means no task-level review gate.');
@@ -134,6 +136,7 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('Granularity Guide');
     expect(schema).toContain('Scripts must not judge task splitting quality');
     expect(schema).toContain('If `spec_id` does not match the current source plan, execution must be rejected');
+    expect(schema).toContain('expected_side_effects, when present, use repo-relative exact paths or bounded globs and never `**` whole-repo globs');
     expect(schema).not.toContain('`crg`');
   });
 
@@ -147,6 +150,8 @@ describe('spec-write-tasks contracts', () => {
     expect(guide).toContain('### Good');
     expect(guide).toContain('### Bad');
     expect(guide).toContain('Field Writing Guide');
+    expect(guide).toContain('| `expected_side_effects` | Names narrow repo-relative side effects');
+    expect(guide).toContain('it never uses `**` whole-repo globs');
     expect(guide).toContain('| `review_gate` | Uses `required` only for high-risk shared contracts');
     expect(guide).toContain('| `review_focus` | Names the concrete concern a mini review or final shipping review should inspect |');
     expect(guide).toContain('`review_gate` and `review_focus` are review intent');

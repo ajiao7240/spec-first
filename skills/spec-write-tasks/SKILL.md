@@ -259,7 +259,7 @@ next_action: spec-work-task-pack | review-task-pack | spec-work-plan | revise-pl
 Executable task cards have two layers:
 
 1. Deterministic contract fields validated by `spec-first tasks validate`: `task_id`, `dependencies`, non-empty concrete `files`, `goal`, `test_focus`, `done_signal`, `wave`, `stop_if`, plus at least one source anchor through `source_unit` or `requirement_refs`.
-2. LLM/human quality fields that should be present when they reduce execution context: `context_refs`, `entry_hint`, `parallelizable`, `risk_note`, `notes`, `review_gate`, `review_focus`, `handoff_owner`, and workspace-scoped `target_repo` when applicable.
+2. LLM/human quality fields that should be present when they reduce execution context or make delegation staging safe: `context_refs`, `entry_hint`, `parallelizable`, `expected_side_effects`, `risk_note`, `notes`, `review_gate`, `review_focus`, `handoff_owner`, and workspace-scoped `target_repo` when applicable.
 
 Every executable task card must express:
 
@@ -279,6 +279,7 @@ Add these quality fields when useful, but do not imply the CLI validator proves 
 - `context_refs`: plan sections, code patterns, contracts, research, or references the executor must read.
 - `entry_hint`: where to start reading; not a step-by-step implementation script.
 - `parallelizable`: whether the task can run in parallel.
+- `expected_side_effects`: optional repo-relative exact paths or bounded globs that may be touched in addition to `files`, such as lockfiles, generated fixtures, or formatter-adjacent files. Do not use `**` whole-repo globs. This is an explicit staging allowlist, not extra product scope.
 - `risk_note`: main risk.
 - `review_gate`: optional review intent metadata. Use `required` only for high-risk shared contracts, public workflow prose, validator/schema changes, source/runtime boundary changes, security/release/CI surfaces, or tasks that unblock multiple dependent tasks. Use `optional` for medium-risk behavior changes where review can usually merge into final shipping review. Omit it for docs-only, config-only, trivial copy edits, and low-risk single-file fixes. This is not lifecycle state, review status, or approval metadata.
 - `review_focus`: concrete review concern for a mini review or final shipping review. It must not replace `test_focus`, `done_signal`, or `stop_if`.

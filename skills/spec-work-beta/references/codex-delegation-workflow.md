@@ -338,10 +338,25 @@ git clean -fd -- <paths from the batch's combined Files list>
 
 Do NOT use bare `git clean -fd` without path arguments.
 
+Rollback paths must be scoped to the batch-owned file set plus explicitly declared `expected_side_effects`. If a delegated batch changed files outside that set, stop and surface the out-of-batch paths to the orchestrator instead of cleaning or staging them silently.
+
 **Commit on success:**
 
+Before staging, build the batch-owned set from the combined `Files` list for the plan units/tasks assigned to the batch. Add only explicit `expected_side_effects` declared by the implementation unit or task pack, such as a named lockfile, generated fixture, or formatter-adjacent file. `expected_side_effects` entries must be repo-relative exact paths or bounded globs and must not use `**` whole-repo globs.
+
+Compare actual modified/untracked files to `(batch-owned files ∪ expected_side_effects)` before staging. Use path-safe collection such as NUL-delimited `git diff --name-only -z HEAD` and `git ls-files -z --others --exclude-standard`; do not use unquoted command substitution. If any path is outside the allowed set, stop the batch commit and surface the paths to the orchestrator. The orchestrator must choose exactly one action:
+
+- `extend-batch`: explicitly add the paths to the batch after confirming they are legitimate side effects.
+- `drop-stray`: remove or revert only the stray paths, leaving batch-owned changes intact.
+- `abort`: stop delegation and return to standard mode or user decision.
+
+Before staging any allowed path, apply the deny patterns from `src/cli/contracts/security/secret-deny-patterns.json`. Any path matching the deny list is rejected and surfaced, even when it is batch-owned. Env files remain denied by default even when a worktree was created with `--copy-env`; staging an env file requires the exact env path in `expected_side_effects` and an implementation unit that explicitly states the env change is intended.
+
+Stage only the final allowed, non-denied file set. Prefer a pathspec file over shell expansion:
+
 ```bash
-git add $(git diff --name-only HEAD; git ls-files --others --exclude-standard)
+# batch_stage_paths is a NUL-delimited file created after the checks above.
+git add --pathspec-from-file "$batch_stage_paths" --pathspec-file-nul
 git commit -m "feat(<scope>): <batch summary>"
 ```
 

@@ -18,6 +18,7 @@ const {
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'git-worktree', 'SKILL.md');
+const SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'git-worktree', 'scripts', 'worktree-manager.sh');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -54,11 +55,36 @@ describe('git-worktree runtime delivery contracts', () => {
     expect(skill).toContain('`bash -c` wrapper whose command text includes `exec bash ...worktree-manager.sh`');
     expect(skill).toContain('exec bash "$CLAUDE_SKILL_DIR/scripts/worktree-manager.sh" "$@"');
     expect(skill).toContain('exec bash "$(git rev-parse --show-toplevel)"/"skills/git-worktree/scripts/worktree-manager.sh" "$@"');
-    expect(skill).toContain("' _ create <branch-name> [from-branch]");
+    expect(skill).toContain("' _ create [--copy-env] <branch-name> [from-branch]");
     expect(skill).toContain("' _ create feat/login");
+    expect(skill).toContain("' _ create --copy-env feat/local-env");
     expect(skill).not.toContain('\nif [ -n "${CLAUDE_SKILL_DIR:-}" ]; then');
     expect(skill).not.toContain('bash "${CLAUDE_SKILL_DIR}/scripts/worktree-manager.sh"');
     expect(skill).not.toContain('bash scripts/worktree-manager.sh create');
+  });
+
+  test('env file copying is explicit opt-in and audited without contents', () => {
+    const skill = read(SKILL_PATH);
+    const script = read(SCRIPT_PATH);
+
+    expect(skill).toContain('Does not copy `.env*` files by default');
+    expect(skill).toContain('Use `--copy-env` only when the workflow explicitly needs local environment files');
+    expect(skill).toContain('appends `.env-copy.log` with timestamp, source path, destination path, byte size, and an 8-character content fingerprint');
+    expect(skill).toContain('The log does not include file contents');
+    expect(skill).toContain('Even when env files were copied intentionally, downstream staging must still treat them as denied by default');
+    expect(skill).not.toContain('Copies `.env`, `.env.local`, `.env.test`, etc. from the main repo');
+    expect(skill).not.toContain('for env_file in .env .env.*');
+
+    expect(script).toContain('Usage: worktree-manager.sh create [--copy-env] <branch-name> [from-branch]');
+    expect(script).toContain('local copy_env="false"');
+    expect(script).toContain('if [[ "${1:-}" == "--copy-env" ]]');
+    expect(script).toContain('Not copied by default. Re-run create with --copy-env to opt in.');
+    expect(script).toContain('ensure_env_copy_log_excluded');
+    expect(script).toContain('.env-copy.log');
+    expect(script).toContain('git -C "$worktree_path" rev-parse --git-path info/exclude');
+    expect(script).toContain('git hash-object "$source" | cut -c1-8');
+    expect(script).toContain('timestamp=%s source_path=%s destination_path=%s size_bytes=%s sha256_8=%s');
+    expect(script).not.toContain('cat "$source"');
   });
 
   test('git-worktree is the only delivered agent-facing internal skill', () => {

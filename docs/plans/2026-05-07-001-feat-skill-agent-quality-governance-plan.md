@@ -3,8 +3,8 @@ title: "feat: 建立 skill/agent 质量治理与安全执行薄契约"
 type: feat
 status: active
 date: 2026-05-07
-revision: 3
-last_updated: 2026-05-07T19:16+08:00
+revision: 4
+last_updated: 2026-05-13T20:13+08:00
 spec_id: 2026-05-07-001-skill-agent-quality-governance
 target_repo: spec-first
 origin: docs/项目审查/2026-05-07-skill-agent-prompt-expert-review.md
@@ -49,7 +49,34 @@ referenced_reviews:
 - **source-mod**：修改 `skills/`、`agents/`、`scripts/`、`src/cli/`、`tests/` 等仓库源码。每条 source-mod 都必须有独立 CHANGELOG 记录与 IU 编号。
 - **runtime-effect**：source-mod 落地后，宿主行为发生变化（如 worktree 不再默认复制 env、delegation 不再 unbounded staging）。Phase exit gate 必须验证此层而非仅 plan-prose。
 
-本计划当前 revision=3 及之前的所有修订都属于 plan-prose；source-mod 与 runtime-effect 由 Phase A/B/C 在执行时分批产生。Verification 与 exit gate 引用 source-mod / runtime-effect 证据，不引用 plan-prose 修订。
+本计划 revision=3 及之前的所有修订都属于 plan-prose；revision=4 开始记录 Phase A 局部执行进展。source-mod 与 runtime-effect 由 Phase A/B/C 在执行时分批产生。Verification 与 exit gate 引用 source-mod / runtime-effect 证据，不引用 plan-prose 修订。
+
+## Implementation Progress
+
+### 2026-05-13 Phase A U1/U2 Security Subset
+
+本轮只处理用户点名的 Phase A 安全缺口：`git-worktree` / `spec-optimize` 默认复制 `.env*`、`spec-work-beta` delegation 成功路径无界 staging、缺少 high-risk execution contract test。当前证据层级为 **source-mod + focused runtime-effect contract tests**；整个计划仍保持 `active`，因为 U3、Phase B、Phase C 尚未执行。
+
+已落地：
+
+- U1：`skills/git-worktree/SKILL.md`、`skills/git-worktree/scripts/worktree-manager.sh` 与 `skills/spec-optimize/scripts/experiment-worktree.sh` 默认不再复制 `.env*`；复制 env 必须显式使用 `--copy-env`。`git-worktree` opt-in 路径输出文件名清单，写入不含内容的 `.env-copy.log` 指纹审计记录，并保持目标 env 备份行为只在 opt-in 路径发生。
+- U1：新增 `tests/unit/high-risk-execution-contracts.test.js`，并扩展 `tests/unit/git-worktree-contracts.test.js`，覆盖默认不传播 env、opt-in 行为、`.env-copy.log`、`.env.example` 跳过以及同类默认 secret propagation 扫描。
+- U2：`skills/spec-work-beta/references/codex-delegation-workflow.md` 移除无界 `git add $(...)` 成功路径，改为 batch-owned files 与 `expected_side_effects` 的显式集合门禁；批次外 diff 必须交由 orchestrator 在 `extend-batch` / `drop-stray` / `abort` 中选择。
+- U2：新增 `src/cli/contracts/security/secret-deny-patterns.json` 与 schema，作为 staging 前 secret deny pattern 的集中来源；env、私钥、token/secret 命名、工具凭据与移动签名文件默认拒绝 staging。
+- U2：`spec-write-tasks` 与 `src/cli/task-pack.js` 增加 `expected_side_effects` 字段，限制为 repo-relative 精确路径或有界 glob，并禁止 `**` 全仓 glob。
+
+已验证：
+
+- `bash -n skills/git-worktree/scripts/worktree-manager.sh`
+- `bash -n skills/spec-optimize/scripts/experiment-worktree.sh`
+- `npx jest tests/unit/git-worktree-contracts.test.js tests/unit/high-risk-execution-contracts.test.js tests/unit/spec-work-beta-contracts.test.js tests/unit/secret-deny-patterns-contracts.test.js tests/unit/task-pack-command.test.js tests/unit/spec-write-tasks-contracts.test.js --runInBand`
+- `npm run typecheck`
+
+未关闭项：
+
+- U3 尚未执行，因此 Phase A 不应标记为整体完成。
+- Phase B/C 未执行；eval fixtures、agent output/research evidence contract、prompt source lint 等仍按本计划后续单元推进。
+- `fresh_source_eval: not_run`。原因：当前 Codex 会话未启用独立 fresh-source reviewer dispatch；本轮以直接 source 读取、contract tests 和 syntax/typecheck 作为执行证据。后续提交或 PR 复审如果具备 fresh reviewer，应补跑或在 PR 描述中保留该 not-run 原因。
 
 ## Phase 1 Methodological Limits
 

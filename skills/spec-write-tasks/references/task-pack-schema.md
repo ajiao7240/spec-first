@@ -149,6 +149,7 @@ Executable task packs must include exactly one fenced JSON block under `## Task 
       "goal": "Validate task pack identity, freshness, and structure.",
       "dependencies": [],
       "files": ["src/cli/task-pack.js"],
+      "expected_side_effects": ["package-lock.json"],
       "test_focus": "Valid and stale task pack validation.",
       "done_signal": "Validator tests pass.",
       "wave": 1,
@@ -160,7 +161,7 @@ Executable task packs must include exactly one fenced JSON block under `## Task 
 }
 ```
 
-MVP required task fields are `task_id`, `dependencies`, non-empty concrete `files`, `goal`, `test_focus`, `done_signal`, `wave`, and `stop_if`, plus at least one source anchor through `source_unit` or `requirement_refs`. The deterministic validator treats `context_refs`, `entry_hint`, `parallelizable`, `risk_note`, `review_gate`, and `review_focus` as quality/review fields rather than hard executable fields. When present, `review_gate` must be exactly `optional` or `required`; absence means no task-level review gate. The validator checks only the enum structure, not whether the task semantically deserves a gate.
+MVP required task fields are `task_id`, `dependencies`, non-empty concrete `files`, `goal`, `test_focus`, `done_signal`, `wave`, and `stop_if`, plus at least one source anchor through `source_unit` or `requirement_refs`. The deterministic validator treats `context_refs`, `entry_hint`, `parallelizable`, `risk_note`, `expected_side_effects`, `review_gate`, and `review_focus` as quality/review fields rather than hard executable fields. When present, `expected_side_effects` must be an array of repo-relative exact paths or bounded globs and must not use `**` whole-repo globs. When present, `review_gate` must be exactly `optional` or `required`; absence means no task-level review gate. The validator checks only the enum structure, not whether the task semantically deserves a gate.
 
 ## Task Cards
 
@@ -188,6 +189,7 @@ These fields should be added when useful for context compression, review, or wor
 | `context_refs` | Plan sections, code patterns, contracts, research, or references the executor must read |
 | `entry_hint` | Suggested place to begin reading; not implementation steps |
 | `parallelizable` | Boolean hint for whether the task can run in parallel |
+| `expected_side_effects` | Explicit side-effect allowlist for delegation staging, such as a lockfile, generated fixture, or formatter-adjacent file; this is not extra scope |
 | `risk_note` | Main risk |
 | `notes` | Additional context for human readers |
 | `review_gate` | Optional task-level review intent, either `optional` or `required`; not an approval state |
@@ -205,6 +207,8 @@ These fields should be added when useful for context compression, review, or wor
   files:
     - src/cli/task-pack.js
     - tests/unit/task-pack-command.test.js
+  expected_side_effects:
+    - package-lock.json
   requirement_refs:
     - R1
   context_refs:
@@ -296,6 +300,7 @@ Scripts may check:
 - MVP required task fields, including `stop_if`, are present and structurally valid,
 - dependencies point to existing tasks,
 - files use concrete repo-relative paths,
+- expected_side_effects, when present, use repo-relative exact paths or bounded globs and never `**` whole-repo globs,
 - each task is listed in exactly one matching execution wave,
 - same-wave file overlap is absent or serialized.
 

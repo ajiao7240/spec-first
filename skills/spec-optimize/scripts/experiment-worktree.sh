@@ -5,7 +5,7 @@
 # Each experiment gets an isolated worktree with copied shared resources.
 #
 # Usage:
-#   experiment-worktree.sh create <spec_name> <exp_index> <base_branch> [shared_file ...]
+#   experiment-worktree.sh create [--copy-env] <spec_name> <exp_index> <base_branch> [shared_file ...]
 #   experiment-worktree.sh cleanup <spec_name> <exp_index>
 #   experiment-worktree.sh cleanup-all <spec_name>
 #   experiment-worktree.sh count
@@ -85,8 +85,47 @@ reset_worktree_to_base() {
   git -C "$worktree_path" clean -fdx >/dev/null
 }
 
+copy_env_files() {
+  local worktree_path="${1:?Error: worktree_path required}"
+  local copied=0
+
+  shopt -s nullglob
+  local env_files=()
+  for f in "$GIT_ROOT"/.env*; do
+    [[ -f "$f" ]] || continue
+    local basename
+    basename=$(basename "$f")
+    [[ "$basename" == ".env.example" ]] && continue
+    env_files+=("$f")
+  done
+
+  if [[ ${#env_files[@]} -eq 0 ]]; then
+    echo -e "${YELLOW}No .env files copied: none found in main repo${NC}" >&2
+    shopt -u nullglob
+    return
+  fi
+
+  echo -e "${YELLOW}Copying env files by explicit --copy-env opt-in:${NC}" >&2
+  for f in "${env_files[@]}"; do
+    local basename
+    basename=$(basename "$f")
+    echo -e "${YELLOW}  - $basename${NC}" >&2
+    cp "$f" "$worktree_path/$basename"
+    copied=$((copied + 1))
+  done
+  shopt -u nullglob
+
+  echo -e "${GREEN}Copied $copied env file(s) into experiment worktree${NC}" >&2
+}
+
 # Create an experiment worktree
 create_worktree() {
+  local copy_env="false"
+  if [[ "${1:-}" == "--copy-env" ]]; then
+    copy_env="true"
+    shift
+  fi
+
   local spec_name="${1:?Error: spec_name required}"
   local exp_index="${2:?Error: exp_index required}"
   local base_branch="${3:?Error: base_branch required}"
@@ -133,16 +172,11 @@ create_worktree() {
     fi
   fi
 
-  # Copy .env files from main repo
-  for f in "$GIT_ROOT"/.env*; do
-    if [[ -f "$f" ]]; then
-      local basename
-      basename=$(basename "$f")
-      if [[ "$basename" != ".env.example" ]]; then
-        cp "$f" "$worktree_path/$basename"
-      fi
-    fi
-  done
+  if [[ "$copy_env" == "true" ]]; then
+    copy_env_files "$worktree_path"
+  else
+    echo -e "${YELLOW}Environment files not copied by default. Pass --copy-env to opt in.${NC}" >&2
+  fi
 
   # Copy shared files
   for shared_file in "$@"; do
@@ -268,13 +302,13 @@ main() {
 Experiment Worktree Manager
 
 Usage:
-  experiment-worktree.sh create <spec_name> <exp_index> <base_branch> [shared_file ...]
+  experiment-worktree.sh create [--copy-env] <spec_name> <exp_index> <base_branch> [shared_file ...]
   experiment-worktree.sh cleanup <spec_name> <exp_index>
   experiment-worktree.sh cleanup-all <spec_name>
   experiment-worktree.sh count
 
 Commands:
-  create       Create an experiment worktree with copied shared files
+  create       Create an experiment worktree with copied shared files; .env* copy requires --copy-env
   cleanup      Remove a single experiment worktree and its branch
   cleanup-all  Remove all experiment worktrees for a spec
   count        Count total active worktrees (for budget checking)
