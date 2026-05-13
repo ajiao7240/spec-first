@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-14 02:07:09 leokuang: docs(audit): 终审并中文化 skill/agent Harness 最终建议，收敛 H4->H5 结论、P0 阻断风险、标杆/退役候选与下一阶段最小执行顺序 (user-visible)
 - v1.8.2 2026-05-14 01:35:15 leokuang: fix(review): 继续加固 spec-optimize shared_file 目录复制，拒绝 secret-denied 路径名、symlink 逃逸与文件目标 symlink 覆盖风险，并对齐 secret allowlist dot-segment schema 校验与高风险执行回归测试 (user-visible)
 - v1.8.2 2026-05-14 01:29:59 leokuang: docs(audit): 新增全量 skill/agent Harness 交叉审查报告，覆盖 40 个 skill 与 51 个 agent，记录 public/internal 边界、mutating agent、review-finding 与 runtime drift 风险 (user-visible)
 - v1.8.2 2026-05-14 01:19:17 leokuang: fix(review): 逐项修复 skill/agent 质量治理 code-review findings，补强 spec-optimize shared_file/--copy-env 安全边界、secret allowlist schema 校验、examples-as-context 引用、docs lifecycle/plan completion 收口与 gemini-imagegen 格式说明 (user-visible)
