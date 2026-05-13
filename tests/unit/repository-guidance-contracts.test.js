@@ -3,8 +3,24 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { getAdapter } = require('../../src/cli/adapters');
+const {
+  BOOTSTRAP_END,
+  BOOTSTRAP_START,
+  buildBootstrapBlock,
+} = require('../../src/cli/instruction-bootstrap');
+
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const GUIDANCE_FILES = ['AGENTS.md', 'CLAUDE.md'];
+
+function extractBootstrapBlock(text) {
+  const startIndex = text.indexOf(BOOTSTRAP_START);
+  const endIndex = text.indexOf(BOOTSTRAP_END);
+  if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
+    return null;
+  }
+  return text.slice(startIndex, endIndex + BOOTSTRAP_END.length);
+}
 
 describe('repository guidance contracts', () => {
   test.each(GUIDANCE_FILES)('%s explains source/runtime validation for agent and skill changes', (fileName) => {
@@ -30,13 +46,25 @@ describe('repository guidance contracts', () => {
     const summaries = block.match(/本项目已配置 GitNexus 图谱支持，仓库标识：\*\*spec-first\*\*/gu) || [];
     expect(summaries).toHaveLength(1);
     expect(block).toContain('当索引新鲜且 query-ready 时');
-    expect(block).toContain('本 block 是 spec-first 生成的轻量 GitNexus 使用边界');
-    expect(block).toContain('`.spec-first/graph/*` readiness facts');
+    expect(block).toContain('使用 GitNexus 前，先查看');
+    expect(block).toContain('`.spec-first/graph/provider-status.json`');
+    expect(block).toContain('`.spec-first/providers/gitnexus/status.json`');
     expect(block).not.toContain('docs/contracts/graph-evidence-policy.md');
-    expect(block).toContain('## 使用边界');
+    expect(block).toContain('边界：');
     expect(block).not.toMatch(/\([0-9,]+ symbols, [0-9,]+ relationships, [0-9,]+ execution flows\)/u);
     expect(block).not.toContain('MUST run impact analysis');
     expect(block).not.toContain('NEVER edit');
     expect(block).not.toContain('.claude/skills/gitnexus');
+  });
+
+  test.each([
+    ['AGENTS.md', 'codex'],
+    ['CLAUDE.md', 'claude'],
+  ])('%s managed bootstrap matches the zh generator output', (fileName, adapterId) => {
+    const text = fs.readFileSync(path.join(REPO_ROOT, fileName), 'utf8');
+    const startMarkers = text.match(new RegExp(BOOTSTRAP_START, 'g')) || [];
+
+    expect(startMarkers).toHaveLength(1);
+    expect(extractBootstrapBlock(text)).toBe(buildBootstrapBlock(getAdapter(adapterId), 'zh'));
   });
 });

@@ -206,8 +206,8 @@ describe('claude settings', () => {
         '<!-- spec-first:bootstrap:start -->',
         '## Workflow 入口治理',
         '',
-        '- 本 block 是 spec-first workflow 入口提醒；`using-spec-first` 是 standalone meta skill，不是 workflow command',
-        '- 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答',
+        '- 本 block 只做轻量 workflow entry context router；完整路由策略在 `skills/using-spec-first/SKILL.md`',
+        '- substantial work 前先判断是否进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答；已在 workflow 或 bounded subagent 中时不重新分流',
         '- Claude workflow 入口使用 `/spec:*`',
         '- 不要把 `using-spec-first` 本身当作 command-backed workflow',
         '<!-- spec-first:bootstrap:end -->',
@@ -230,7 +230,7 @@ describe('claude settings', () => {
       expect(payload.hookSpecificOutput.additionalContext).toContain('[spec-first] using-spec-first SessionStart injection');
       expect(payload.hookSpecificOutput.additionalContext).toContain('workflow-entry trigger');
       expect(payload.hookSpecificOutput.additionalContext).toContain('parent multi-repo workspaces');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('先判断是否应进入公开 spec-first workflow');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('substantial work 前先判断是否进入公开 spec-first workflow');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

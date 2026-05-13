@@ -77,23 +77,15 @@ function buildZhPolicy() {
 
 **语言设置：** \`Chinese / 中文\`
 
-### 语言规则
-- 默认输出语言是 **中文（Chinese）**。除非用户明确要求翻译、双语或指定其他语言，所有新生成的自然语言内容必须使用中文
-- 严格适用范围包括：回复、状态更新、问题澄清、生成文档、需求/计划/任务、评审意见、总结、变更说明、commit/PR 文案等
-- 如果输入、工具输出或被引用材料是其他语言，除非需要保留原文引用，新生成的说明、归纳和结论仍必须使用中文
-- 允许混用英文技术术语，不要求强行翻译常见技术词
-- 代码标识符（变量、函数、类、模块、文件名中的技术标识）保持英文
-- 新增代码注释使用中文，简洁清晰，不写空洞注释
-- 代码、命令、路径、配置键、环境变量名、API 名称、协议名等技术标识不因语言偏好而被翻译
+- 默认用中文生成回复、状态更新、澄清、生成文档、需求/计划/任务、评审、总结、变更说明和 commit/PR 文案；用户明确要求翻译、双语或其他语言时例外。
+- 输入、工具输出或引用材料可保留原文；新生成的说明和结论仍按语言设置输出。
+- 代码标识符、命令、路径、配置键、环境变量、API/协议名保持原文；常见英文技术术语可混用。
+- 新增代码注释使用中文，只说明非显然意图。
 
-### Changelog 治理规则
-**代码变动铁律（无例外）**
-- 任何对项目源码的新增、删除、修改，必须同步在项目根目录 \`CHANGELOG.md\` 中添加一条记录
-- 无此记录的代码变动，一律拒绝生成
-- 记录格式以仓库现行格式为准
-- \`作者\` 必须使用当前 host 的项目级 developer profile：Codex 读取 \`.codex/spec-first/.developer\`，Claude 读取 \`.claude/spec-first/.developer\`；如果缺失，先运行对应的 \`spec-first init --codex|--claude -u <name> --lang <zh|en>\`
-- **示例：** \`- vX.Y.Z YYYY-MM-DD 作者: 一句话摘要\`
-- 用户可见变更在末尾追加 \`(user-visible)\``;
+### Changelog
+- 任何项目 source 新增、删除或修改，都必须同步更新根目录 \`CHANGELOG.md\`；记录格式以仓库现行格式为准。
+- \`作者\` 使用当前 host developer profile：Codex 读 \`.codex/spec-first/.developer\`，Claude 读 \`.claude/spec-first/.developer\`；缺失时先运行 \`spec-first init --codex|--claude -u <name> --lang <zh|en>\`。
+- 用户可见变更追加 \`(user-visible)\`；缺少对应记录时，拒绝生成 source 变更。`;
 }
 
 function buildEnPolicy() {
@@ -101,22 +93,15 @@ function buildEnPolicy() {
 
 **Language setting:** \`English / 英文\`
 
-### Language Rules
-- The default output language is **English (英文)**. Unless the user explicitly asks for translation, bilingual output, or another language, all newly generated natural language content must use English
-- This strictly applies to responses, status updates, clarifying questions, generated documentation, requirements, plans, tasks, review findings, summaries, change descriptions, and commit/PR text
-- If input, tool output, or quoted material is in another language, preserve original quotes only when needed; newly generated explanations, summaries, and conclusions must still use English
-- Code identifiers (variables, functions, classes, modules, technical identifiers in filenames) remain in English
-- New code comments use English, concise and clear
-- Technical identifiers such as code, commands, paths, config keys, env var names, API names, and protocol names are never translated
+- Generate responses, status updates, clarifications, documentation, requirements/plans/tasks, reviews, summaries, change notes, and commit/PR text in English unless the user explicitly asks for translation, bilingual output, or another language.
+- Input, tool output, and quoted material may keep their original language; new explanations and conclusions still follow the language setting.
+- Keep code identifiers, commands, paths, config keys, env vars, API/protocol names, and common technical terms unchanged.
+- New code comments use English and explain only non-obvious intent.
 
-### Changelog Governance
-**Code Change Iron Law (No Exceptions)**
-- Any addition, deletion, or modification to project source code must include a matching entry in the repo-root \`CHANGELOG.md\`
-- If no matching entry exists, refuse to generate the code change
-- Use the repository's existing changelog format
-- \`author\` must use the current host's project developer profile: Codex reads \`.codex/spec-first/.developer\`, Claude reads \`.claude/spec-first/.developer\`; if it is missing, first run the matching \`spec-first init --codex|--claude -u <name> --lang <zh|en>\`
-- **Example:** \`- vX.Y.Z YYYY-MM-DD author: one-line summary\`
-- Append \`(user-visible)\` for user-visible changes`;
+### Changelog
+- Any project source addition, deletion, or modification must update the repo-root \`CHANGELOG.md\`; follow the repository's existing format.
+- \`author\` uses the current host developer profile: Codex reads \`.codex/spec-first/.developer\`, Claude reads \`.claude/spec-first/.developer\`; if missing, run \`spec-first init --codex|--claude -u <name> --lang <zh|en>\` first.
+- Append \`(user-visible)\` for user-visible changes; if the matching entry is missing, refuse to generate the source change.`;
 }
 
 module.exports = {

@@ -9,6 +9,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-05-13 | refactor | `init-bootstrap-context-router` | 将 `spec-first init` 写入 `CLAUDE.md` / `AGENTS.md` 的 `spec-first:bootstrap` managed block 收敛为轻量 context router：根入口文档只保留 workflow 触发提醒、当前 host 入口边界、父 workspace 写入安全线、Codex startup/dispatch 边界和常用锚点，完整路由策略继续由 `skills/using-spec-first/SKILL.md` 维护 |
 | 2026-04-21 | docs | `bootstrap-database-handoff-doc-sync` | 同步刷新 `spec-graph-bootstrap` source/mirror skill、solution learning 与 contract test 的数据库 handoff 口径：明确 `database-routing.json` 中 `candidate_readiness` 才是主信息面板，顶层 `recommended_action` / `blockers[]` 只是 compatibility projection，避免 prompt / 文档继续沿用旧的 route/fallback/provenance 真源叙事 |
 | 2026-04-21 | refactor | `bootstrap-database-compatibility-projection` | 将 `database-routing.json` 顶层 `recommended_action` / `blockers[]` 明确降格为 compatibility projection：这两个字段继续保留以兼容旧消费方，但已经不再是主真源，而是从候选级 readiness / blockers facts 派生出来；真正的数据库 handoff 判断面继续收敛到 `candidate_readiness` |
 | 2026-04-21 | refactor | `bootstrap-database-candidate-blockers` | 将数据库 handoff 的阻断语义进一步下放到候选级：现在具体哪个连接因为 route 不支持、工具缺失、env hints 不完整而被挡住，会直接写进 `candidate_readiness.candidates[].blockers[]`；顶层 `blockers[]` 只保留 repo 级 runtime 摘要，进一步减少脚本替 LLM 做全局阻断裁决 |

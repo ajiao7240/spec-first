@@ -41,7 +41,7 @@ spec-first 已经具备双宿主 runtime generation、public workflow skills、t
 
 - G1. 让 public workflow 入口更清晰：所有 public workflow skill 都有轻量 contract summary，说明 when to use、inputs、outputs、artifacts、failure modes、source/runtime boundary 和 downstream consumers。
 - G2. 让 task-pack handoff 更可靠：`spec-work` task-pack mode 必须核对 source plan 的 `source_unit`、`requirement_refs`、acceptance、scope boundaries、non-goals 和 deferred implementation notes。
-- G3. 让执行证据可恢复：长任务、validated task-pack、compaction/resume、deferred follow-up、degraded provider evidence 和 not-run validation 场景必须留下 durable 或 schema-aligned evidence。
+- G3. 让执行证据可恢复：长任务、validated task-pack、compaction/resume、deferred follow-up、degraded provider evidence 和 not-run validation 场景必须通过最小 schema-aligned closeout producer 留下安全脱敏的 durable evidence。
 - G4. 让 brownfield onboarding 更可操作：`spec-standards` 输出最小 `next_action_candidates` machine-readable contract，由 LLM 解释推荐入口。
 - G5. 让 source/runtime/customization 边界更难误用：文档和 workflow summary 明确 source-of-truth、generated runtime mirror、target repo artifact 和 provider/tool facts 的区别。
 - G6. 让 agent dispatch 更可治理：复用现有 agents，明确 research/review/worker suitability gate、fallback 和 fresh-source eval 要求。
@@ -90,7 +90,9 @@ spec-first 已经具备双宿主 runtime generation、public workflow skills、t
 - R21. Deterministic inventory 必须优先由 scripts/CLI 产出 facts，例如 public workflow inventory、governance coverage、catalog drift、package surface，而不是让 LLM 反复扫描长文件。
 - R22. Reviewer/persona dispatch 必须按风险和规模收缩；docs-only、小 diff、低风险改动默认使用最小 reviewer set，高风险 workflow/contract/release 变化再扩大。
 - R23. 长任务、深度审查和 context compaction 后必须有 durable checkpoint，记录已读 artifact、关键决策、验证状态、degraded evidence 和 next action，避免下轮重新读完整历史。
-- R24. 外部对标完成后，后续 workflow 默认消费 distilled inventory 和映射矩阵；除非需要复验新事实，不重复读取外部仓库全量 skill/agent 内容。
+- R24. 外部对标完成后，后续 workflow 默认消费 distilled inventory 和映射矩阵；只有命中显式复验触发器时才回外部仓库复验事实，未复验时必须标记 inventory freshness risk，不重复读取外部仓库全量 skill/agent 内容。
+- R25. Provider/MCP/tool raw results 必须被视为 untrusted quoted data；进入 prompt、facts block、report 或 durable artifact 前必须经过 schema validation、target-repo path containment、excerpt cap、escaping、provenance/readiness classification 和 prompt-injection boundary。
+- R26. Durable run evidence 不得默认持久化 raw secrets、完整 raw logs、本机绝对 temp path 或未分类 raw provider excerpts；必须优先记录 repo-relative refs、redacted summary、excerpt cap、degraded/untrusted classification 和 raw-log 外部位置说明。
 
 ---
 
@@ -98,7 +100,7 @@ spec-first 已经具备双宿主 runtime generation、public workflow skills、t
 
 | 阶段 | 用户结果级成功信号 | 反向验收 |
 |------|--------------------|----------|
-| 阶段 1 | 用户从 plan/task pack 进入 work 时，执行者能快速说清 scope authority、acceptance、non-goals、当前 task context 和验证方式；长任务恢复不依赖模型记忆。 | 如果 task pack 被当作第二份 plan，或 compaction 后无法说明 evidence source，则不通过。 |
+| 阶段 1 | 用户从 plan/task pack 进入 work 时，执行者能快速说清 scope authority、acceptance、non-goals、当前 task context 和验证方式；长任务或 compaction 场景能产出可校验 checkpoint，不再只依赖模型记忆。 | 如果 task pack 被当作第二份 plan，或 checkpoint 无法说明 evidence source / redaction status / degraded provider boundary，则不通过。 |
 | 阶段 2 | 新项目 onboarding 后，用户能看到 facts-backed next-action candidates；涉及领域术语、ADR 或 debug 时，agent 先查证再追问，先建立反馈环再修复。 | 如果 workflow 继续问可从 repo/docs 推导的问题，或把 advisory standards/provider facts 当 confirmed policy，则不通过。 |
 | 阶段 3 | 新增或修改 public skill 后，README、governance contract、runtime catalog、release/package surface drift 能在发布前被 guard 或 skill audit 暴露。 | 如果 guard 开始判断 skill 语义质量，或无法区分 blocking drift 与 docs-only no-impact，则不通过。 |
 
@@ -132,7 +134,8 @@ spec-first 已经具备双宿主 runtime generation、public workflow skills、t
 - 先消费 deterministic inventory，再让 LLM 做语义判断。
 - 先消费当前 phase/task 的 context refs，再按 source plan 聚焦片段回查 scope。
 - 先使用 durable checkpoint，再决定是否需要重读完整历史。
-- 外部对标默认消费 distilled inventory，只有复验事实时才回外部仓库。
+- 外部对标默认消费 distilled inventory；只有命中复验触发器时才回外部仓库，未复验时标记 freshness risk。
+- 外部对标命中刷新触发器时才复验：上游来源出现重大版本/结构变化、release/catalog guard 连续失败、当前计划距 inventory 生成超过 30 天，或 reviewer 明确指出外部事实可能 stale。
 
 ### 优化方向
 
@@ -162,22 +165,23 @@ spec-first 已经具备双宿主 runtime generation、public workflow skills、t
 
 ### Phase 1 MVP 范围
 
-第一轮只做下面 7 件事：
+第一轮只做下面 8 件事：
 
 1. `spec-work` task-pack mode 必须回查 source plan 聚焦片段。
 2. `spec-write-tasks` 明确 `context_refs` 粒度要求，避免默认整份 plan 或全目录。
-3. `spec-work` 增加 evidence / not-run / degraded / deferred 收尾 contract。
-4. `spec-standards` 增加最小 `next_action_candidates` 设计，不做复杂 router。
-5. 只给核心链路补 contract summary：`using-spec-first`、`spec-plan`、`spec-write-tasks`、`spec-work`、`spec-standards`。`spec-doc-review`、`spec-code-review`、`spec-skill-audit` 只在测试或入口联动需要时做最小触达。
-6. U12 只落 intake order 和 progressive disclosure guidance，不做 token 计量平台。
-7. 更新 `CHANGELOG.md`，补 targeted contract tests，记录 runtime impact 和 fresh-source eval/not-run reason。
+3. `spec-work` 增加 evidence / not-run / degraded / deferred 收尾 contract，并交付最小 schema-aligned run evidence producer；完整 progress store、replay index 和 reporting 扩展暂缓。
+4. `spec-work` 最小 checkpoint 必须记录已读 artifact、关键决策、验证状态、degraded evidence 和 next action；不记录 current progress、approval state 或 active task status。
+5. `spec-standards` 增加最小 `next_action_candidates` artifact 边界，不做复杂 router。
+6. 只给核心链路补 contract summary：`using-spec-first`、`spec-plan`、`spec-write-tasks`、`spec-work`、`spec-standards`。`spec-doc-review`、`spec-code-review`、`spec-skill-audit` 只在测试或入口联动需要时做最小触达。
+7. U12 只落核心链路 intake order、progressive disclosure guidance 和 existing facts substrate reuse，不做 token 计量平台。
+8. 更新 `CHANGELOG.md`，补 targeted contract tests，记录 runtime impact、evidence safety 和 fresh-source eval/not-run reason。
 
 ### Phase 1 暂缓项
 
 以下内容保留在路线图中，但不得进入第一轮 MVP，除非先更新本计划并说明新的 consumer：
 
 - 全 public workflow summary 覆盖。
-- 完整 durable run artifact producer。
+- 高级 durable run artifact producer 扩展，包括 progress tracking、reporting UI、checkpoint replay index 和跨 workflow replay；Phase 1 的最小 closeout producer 不属于暂缓项。
 - 复杂 `next_action_candidates` schema、排序或自动路由。
 - release blocking guard。
 - rejected/out-of-scope replay 扩展。
@@ -195,6 +199,8 @@ spec-first 已经具备双宿主 runtime generation、public workflow skills、t
 - Tests 只检查关键词存在，没有覆盖真实 workflow 风险。
 - `spec-work` evidence 开始记录 current progress、approval state 或 next active task。
 - `spec-standards` script 开始替 LLM 选择最终 workflow。
+- Provider/tool raw output 未经 schema validation、path containment、excerpt cap 和 untrusted-data handling 就进入 prompt、facts block 或 durable artifact。
+- Run evidence 默认嵌入 secrets、完整 raw logs、本机绝对 temp path 或未脱敏 provider excerpts。
 - Reviewer dispatch 对低风险 docs-only 改动仍默认多 persona。
 - Token economy 变成硬 token 预算、自动压缩引擎或成本评分系统。
 
@@ -286,7 +292,7 @@ Generated runtime assets：
 - D1. Workflow 行为放在 source skills，不放在 host runtime templates。Templates 和 generated runtime projection 保持薄层。
 - D2. 增加 contract summary，不新增状态机。Summary 是入口摘要，不是完整 workflow spec。
 - D3. Task pack 是派生执行索引，source plan 仍是 scope、acceptance 和 non-goals authority。
-- D4. Run evidence 是 run-scoped append-only evidence，不是 task progress store。
+- D4. Run evidence 是 run-scoped closeout evidence，不是 task progress store；Phase 1 producer 只写 schema-aligned checkpoint、repo-relative refs、redacted summary 和 degraded/untrusted classification。
 - D5. Brownfield next action 使用 deterministic candidate facts + LLM recommendation。脚本输出候选和原因码，LLM 解释下一步。
 - D6. Agent dispatch 默认复用现有 profiles；只有责任无法干净归属时才新增 agent。
 - D7. Release/catalog guards 必须窄而确定；脚本不判断 semantic release readiness。
@@ -342,8 +348,16 @@ flowchart LR
 
 **Phase 1 MVP 范围：** 第一轮只覆盖核心执行链路：`using-spec-first`、`spec-plan`、`spec-write-tasks`、`spec-work`、`spec-standards`。`spec-doc-review`、`spec-code-review`、`spec-skill-audit` 只在测试、入口联动或 closeout 需要时做最小触达。全 public workflow 覆盖保留为后续批次。
 
-**文件：**
+**Phase 1 U1-core 文件：**
 - 修改: `skills/using-spec-first/SKILL.md`
+- 修改: `skills/spec-plan/SKILL.md`
+- 修改: `skills/spec-write-tasks/SKILL.md`
+- 修改: `skills/spec-work/SKILL.md`
+- 修改: `skills/spec-standards/SKILL.md`
+- 测试: `tests/unit/public-workflow-contract-summary.test.js`，仅断言核心链路 summary 与 source/runtime/task-pack 边界。
+- 测试: `tests/unit/lint-skill-entrypoints.test.js`，仅保持现有入口治理不回退。
+
+**后续批次 U1-full 文件：**
 - 修改: `skills/spec-app-consistency-audit/SKILL.md`
 - 修改: `skills/spec-brainstorm/SKILL.md`
 - 修改: `skills/spec-code-review/SKILL.md`
@@ -355,19 +369,20 @@ flowchart LR
 - 修改: `skills/spec-ideate/SKILL.md`
 - 修改: `skills/spec-mcp-setup/SKILL.md`
 - 修改: `skills/spec-optimize/SKILL.md`
-- 修改: `skills/spec-plan/SKILL.md`
 - 修改: `skills/spec-polish-beta/SKILL.md`
 - 修改: `skills/spec-release-notes/SKILL.md`
 - 修改: `skills/spec-sessions/SKILL.md`
 - 修改: `skills/spec-skill-audit/SKILL.md`
 - 修改: `skills/spec-slack-research/SKILL.md`
-- 修改: `skills/spec-standards/SKILL.md`
 - 修改: `skills/spec-update/SKILL.md`
-- 修改: `skills/spec-work/SKILL.md`
 - 修改: `skills/spec-work-beta/SKILL.md`
-- 修改: `skills/spec-write-tasks/SKILL.md`
-- 测试: `tests/unit/public-workflow-contract-summary.test.js`
-- 测试: `tests/unit/lint-skill-entrypoints.test.js`
+- 测试: `tests/unit/public-workflow-contract-summary.test.js`，扩展为所有 `entry_surface: workflow_command` skills 覆盖。
+
+**U1-full 分批规则：**
+- U1-full 不作为单个 implementation PR 执行；必须按 workflow 家族拆成多个批次，每批不超过 12 个 skill，且不得触发“一个 PR 修改 15 个以上 skill”的红线。
+- 阶段 2 承接 U1-full-batch-1：`spec-brainstorm`、`spec-debug`、`spec-doc-review`、`spec-code-review`、`spec-mcp-setup`、`spec-graph-bootstrap`、`spec-update`、`spec-work-beta`。
+- 阶段 3 承接 U1-full-batch-2：`spec-app-consistency-audit`、`spec-compound`、`spec-compound-refresh`、`spec-ideate`、`spec-optimize`、`spec-polish-beta`、`spec-release-notes`、`spec-sessions`、`spec-skill-audit`、`spec-slack-research`。
+- 计划完成 gate 以所有 `entry_surface: workflow_command` skills 的 summary 与对应测试覆盖为准；阶段 2/3 完成但该 gate 未满足时，不得宣告本计划完成。
 
 **做法：**
 - 从 `src/cli/contracts/dual-host-governance/skills-governance.json` 读取 public workflow inventory。
@@ -376,11 +391,14 @@ flowchart LR
 - `spec-write-tasks` 说明它是 standalone derived task compilation，不是 mandatory stage。
 - Summary 不写 deep behavior；domain language、feedback loop、guard 等深层规则由后续单元负责。
 
-**测试场景：**
-- 每个 `entry_surface: workflow_command` skill 有 contract summary。
+**Phase 1 测试场景：**
+- 核心链路 5 个 skill 有 contract summary。
 - Summary 不把 generated runtime assets 描述为 source。
 - Summary 不把 task pack 描述为 mandatory。
 - Skill entrypoint lint 通过。
+
+**后续批次测试场景：**
+- 每个 `entry_surface: workflow_command` skill 有 contract summary。
 
 **验证：**
 - `npm run lint:skill-entrypoints`
@@ -428,7 +446,7 @@ flowchart LR
 
 **目标：** 定义 `spec-work` 执行证据边界，让长任务和恢复场景可审计、可继续。
 
-**对应需求：** R5, R17
+**对应需求：** R5, R17, R23, R25, R26
 
 **依赖：** U2
 
@@ -436,20 +454,39 @@ flowchart LR
 - 修改: `skills/spec-work/SKILL.md`
 - 修改: `skills/spec-work-beta/SKILL.md`
 - 修改: `docs/contracts/workflows/spec-work-run-artifact.schema.json`
+- 新增: `src/cli/helpers/spec-work-run-artifact.js`
+- 修改: `src/cli/commands/internal.js`
 - 测试: `tests/unit/spec-work-run-artifact-contract.test.js`
+- 测试: `tests/unit/spec-work-run-artifact-producer.test.js`
 - 测试: `tests/unit/spec-work-contracts.test.js`
 - 测试: `tests/unit/spec-work-beta-contracts.test.js`
 
 **做法：**
 - 与现有 run artifact schema 对齐，不新增第二套 evidence format。
+- Phase 1 必须交付最小 source-owned closeout producer，写入 `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json`，只在收尾时接收 workflow 提供的 evidence payload、做 schema/path/safety validation，并原子写入 run-scoped artifact；它不是 progress tracker。
 - 定义 durable evidence 触发条件：validated task-pack、长任务、compaction/resume、degraded evidence、deferred follow-up、not-run validation、handoff to review/compound/release。
-- Evidence 记录 changed surfaces、validation commands、exit status/summary、artifact/log path、not-run reason、degraded provider status、deferred follow-up。
+- 触发条件必须可判定：
+
+| 触发项 | 确定性阈值 |
+|--------|------------|
+| validated task-pack | 任何通过 `spec-first tasks validate` 的 task pack 进入 `spec-work`。 |
+| 长任务 | 覆盖多个 implementation unit、计划触达超过 5 个 source/test/doc 文件，或包含明确 wave/phase/handoff 描述。 |
+| compaction/resume | 当前会话需要压缩、恢复、交接，或用户明确要求后续继续。 |
+| degraded evidence | graph/provider readiness 非 `graph-fresh`、validation not-run、provider unavailable/stale，或 reviewer 只能使用 bounded reads。 |
+| deferred follow-up | 存在未完成验证、后续 review/compound/release handoff，或任何 deferred item。 |
+| 默认兜底 | 触发判断不确定时，按需要写 checkpoint 处理。 |
+
+- Evidence 记录 changed surfaces、validation commands、exit status/summary、repo-relative artifact/log ref、not-run reason、degraded provider status、deferred follow-up、已读 artifact、关键决策和 next action。
+- Evidence safety：默认不嵌入 raw secrets、完整 raw logs、本机绝对 temp path 或未分类 raw provider excerpts；需要保留 raw log 时只记录外部位置、redaction status 和 reason_code。
+- Retention policy：`run.json` 默认保留 180 天或直到关联计划/PR/release 明确关闭；external raw logs 默认只记录引用且 TTL 不超过 7 天。任何延长保留都必须记录 owner、expiry、reason_code 和 redaction status；producer 需要提供 deterministic prune mode，并在无法删除时写入 not-run reason。
 - 明确 run evidence 不存 current task progress、approval state、next active task 或 source scope。
 
 **测试场景：**
 - Final response 被描述为 human summary，不是 durable evidence 替代。
-- Task-pack/resume 场景要求 durable 或 schema-aligned artifact。
+- Task-pack/resume 场景要求最小 producer 写出 schema-aligned artifact，或在不可写时记录 `not-written` reason。
 - Not-run validation 必须有原因。
+- Producer 拒绝写入 repo source、generated runtime mirrors、`.spec-first/graph/`、未归属 target repo 的路径或本机绝对 temp path 字段。
+- Producer 对 command/log/provider excerpt 做 redaction/cap/classification，不把 raw untrusted provider output 原样写入 durable artifact。
 - Prose contract 拒绝 `.current-task` 或 task status store 语言。
 
 **验证：**
@@ -470,20 +507,28 @@ flowchart LR
 - 修改: `skills/spec-standards/scripts/prepare-baseline.js`
 - 修改: `skills/spec-standards/scripts/validate-artifacts.js`
 - 修改: `skills/spec-standards/examples/glue-map.example.json`
+- 新增: `skills/spec-standards/examples/next-action-candidates.example.json`
 - 测试: `tests/unit/spec-standards-contracts.test.js`
 - 测试: `tests/unit/spec-standards-validation.test.js`
 - 测试: `tests/unit/spec-standards-consumers.test.js`
 
 **做法：**
-- 增加最小 `next_action_candidates` contract：`schema_version`、`producer`、`candidate_id`、`reason_code`、`source_fact_refs`、`evidence_paths`、`target_entrypoint`、`target_repo_scope`、`authority_level`、`blocking`。
+- 明确唯一 machine-readable artifact 为 `.spec-first/standards/next-action-candidates.json`；它是 standards onboarding 的 workflow-handoff facts，不是 `standards-candidates.json` 的 standards 内容候选，也不是 `standards-update-decision.json` 的 freshness/reuse 决策。
+- 增加最小 `next_action_candidates` contract：`schema_version`、`producer`、`generated_at`、`scope`、`candidate_id`、`reason_code`、`source_fact_refs`、`evidence_paths`、`target_entrypoint`、`target_repo_scope`、`authority_level`、`blocking`。
+- Phase 1 U4-minimal 只交付 artifact path、最小字段、validator、example 和 consumers contract；不做排序、复杂 router、自动 workflow 选择或跨 workspace policy 写入。
+- Consumer version rule：未知 `schema_version` 必须 fail closed 并输出 reason_code；已知版本可前向忽略新增字段，但必须保留 migration note 位置和 changelog 记录。
 - Scripts 只产出 candidate facts；LLM 输出 human recommendation。
+- `target_entrypoint` 只能来自 deterministic reason_code mapping 和 documented public entrypoint inventory；当 facts 不足以确定 entrypoint 时，script 必须省略该字段或标记 `target_entrypoint: null`，由 LLM 推荐下一步。
 - Candidate examples 覆盖 missing graph readiness、workspace-advisory-only、absent tests、missing package scripts、stale validation、child repo ambiguity。
 - 保持 confirmed/observed/imported/suggested/conflict trust level 语义。
 
 **测试场景：**
-- Child-local baseline 输出 candidates。
+- Child-local baseline 输出 `.spec-first/standards/next-action-candidates.json`。
+- Artifact validator 校验字段形状、evidence path 可读性、scope 与 target repo 边界。
+- Unknown `schema_version` fails closed with reason_code；已知版本新增字段不破坏 consumer。
 - Workspace advisory run 建议收窄 repo，但不写 child policy。
 - Malformed candidate validation fails。
+- `target_entrypoint` 在 facts 不足时保持 null，不由 script 替 LLM 做最终 workflow recommendation。
 - Consumers 按 confirmed/advisory/degraded 消费。
 
 **验证：**
@@ -495,7 +540,7 @@ flowchart LR
 
 **目标：** 面向用户和维护者说明如何安全定制 spec-first，以及如何理解 generated runtime 与 provider facts。
 
-**对应需求：** R7, R9
+**对应需求：** R7, R9, R25
 
 **依赖：** U1 的统一措辞
 
@@ -512,12 +557,17 @@ flowchart LR
 - 文档化 checked-in source、generated host runtime、target repo workflow artifacts、external provider/tool facts。
 - 说明修改 source、运行 `spec-first init --claude|--codex`、使用 `doctor` 检测 drift 的路径。
 - 明确 GitNexus、code-review-graph、Serena、browser/MCP tools 等只提供 evidence/capability/logs，不拥有 semantic authority。
+- 明确 provider/MCP/tool raw results 是 untrusted quoted data；进入 prompts、facts blocks、reports 或 durable artifacts 前必须经过 schema validation、target-repo path containment、excerpt length cap、escaping、provenance/readiness classification 和 prompt-injection boundary。
+- 增加 provider credential 最小治理：凭证只能通过环境变量或 secret manager 注入，禁止写入 repo source、generated runtime assets、durable run artifacts 或 raw logs；必须说明 rotation cadence、泄露应急、dev/stage/prod 隔离和 `doctor`/setup 的安全提示边界。
+- 对 `review-pre-facts` 已有的 trust model 做链接式复用：review workflows 默认复用 `docs/contracts/workflows/review-pre-facts-extraction.md` 和 `src/cli/helpers/review-pre-facts.js` 的 boundary，不新建平行 reviewer fact pipeline。
 - README 只放简短链接，不复制完整 contract。
 
 **测试场景：**
 - 文档拒绝把 `.claude/`、`.codex/`、`.agents/skills/` 作为 source-of-truth。
 - README 中英文链接对齐。
 - Provider facts 被描述为 evidence inputs。
+- Provider raw output 被描述为 untrusted data，并有 validation、containment、escaping、excerpt cap 和 provenance/readiness requirements。
+- Provider credentials 不进入 source、runtime mirror、durable artifacts 或 raw logs，并有 rotation / incident / environment separation guidance。
 
 **验证：**
 - `npm run test:unit` 或 targeted 运行 docs/runtime boundary tests。
@@ -729,7 +779,7 @@ flowchart LR
 
 **目标：** 为每个 source-changing PR 提供统一收尾纪律。
 
-**对应需求：** R17
+**对应需求：** R17, R26
 
 **依赖：** 应用于所有实施单元
 
@@ -747,12 +797,15 @@ flowchart LR
 - 运行 changed unit 的最窄 targeted tests。
 - 触达 runtime/package/release surface 时扩大验证。
 - Skill/agent prose 变化执行 fresh-source eval 或记录 not-run reason。
+- 行为性 prose 变化如果跳过 fresh-source eval，必须记录可接受 not-run reason；因宿主缺 dispatch primitive、runtime 不可用或用户显式禁用 helper agents 可接受，因省时间或忘记执行不可接受。
+- Durable evidence / provider facts / run logs 变化必须说明 redaction、path containment、excerpt cap、untrusted-data classification、TTL、删除责任和 raw-log retention impact。
 - 说明是否运行 `spec-first init --claude|--codex`，以及 generated runtime 是否预期提交。
 
 **测试场景：**
 - Changelog 格式符合当前仓库规则。
 - User-visible docs 变更同步 README 或说明无影响。
 - Runtime catalog source change 后 catalog 不 stale。
+- Evidence safety checklist 覆盖 secrets、absolute temp paths、raw logs、provider excerpts、TTL/delete owner 和 degraded/untrusted classification。
 
 **验证：**
 - `git diff --check`
@@ -765,29 +818,35 @@ flowchart LR
 
 **目标：** 把 token economy 变成 workflow contract 和 tooling discipline，减少深度规划、审查和自我演化任务中的重复读取。
 
-**对应需求：** R18, R19, R20, R21, R22, R23, R24
+**对应需求：** R18, R19, R20, R21, R22, R23, R24, R25
 
 **依赖：** U1, U2, U3, U4；可与 U6、U9、U10 并行补强
 
-**文件：**
+**Phase 1 minimal scope 文件：**
 - 修改: `skills/spec-plan/SKILL.md`
 - 修改: `skills/spec-work/SKILL.md`
 - 修改: `skills/spec-write-tasks/SKILL.md`
+- 修改: `skills/spec-standards/SKILL.md`
+- 测试: `tests/unit/spec-plan-contracts.test.js`
+- 测试: `tests/unit/spec-work-contracts.test.js`
+- 测试: `tests/unit/spec-write-tasks-contracts.test.js`
+- 测试: `tests/unit/spec-standards-contracts.test.js`
+
+**后续批次文件：**
 - 修改: `skills/spec-doc-review/SKILL.md`
 - 修改: `skills/spec-code-review/SKILL.md`
 - 修改: `skills/spec-skill-audit/SKILL.md`
 - 修改: `skills/spec-sessions/SKILL.md`
 - 修改: `skills/spec-compound/SKILL.md`
 - 修改: `skills/spec-compound-refresh/SKILL.md`
-- 修改: `skills/spec-standards/SKILL.md`
-- 测试: `tests/unit/spec-plan-contracts.test.js`
-- 测试: `tests/unit/spec-work-contracts.test.js`
-- 测试: `tests/unit/spec-write-tasks-contracts.test.js`
 - 测试: `tests/unit/spec-doc-review-contracts.test.js`
 - 测试: `tests/unit/spec-code-review-contracts.test.js`
 - 测试: `tests/unit/spec-sessions-contracts.test.js`
 
 **做法：**
+- Phase 1 minimal scope 只更新核心链路 intake order：contract summary -> existing deterministic facts substrate -> current phase/task refs -> source-of-truth focused sections -> deeper references。
+- Phase 1 不改造 review dispatch、sessions/compound replay 或 skill-audit progressive-disclosure checks；这些保留到阶段 2/3。
+- Existing facts substrate reuse：review/token-economy 相关 deterministic inventory 默认复用 `docs/contracts/workflows/review-pre-facts-extraction.md` 和 `src/cli/helpers/review-pre-facts.js` 的 trust model、temp boundary、budget、provenance、reason_code 与 untrusted-data handling；不得新增第二条 reviewer facts pipeline。
 - 为 public workflows 增加 context intake order：summary -> deterministic inventory -> current task/phase refs -> source-of-truth focused sections -> deeper references。
 - 在 `spec-write-tasks` 中要求 `context_refs` 标注 section/file/test/contract 粒度，避免默认整份 plan 或全目录。
 - 在 `spec-work` 中要求大型计划先按 phase/wave 消费 task pack；直接执行整份大计划必须记录为什么不需要 task pack。
@@ -798,6 +857,8 @@ flowchart LR
 **测试场景：**
 - Workflow prose 明确先读 summary/inventory，再按需读取 references。
 - Task-pack guidance 拒绝把整份 plan 当作高质量 `context_refs`。
+- Phase 1 tests 不要求修改 `spec-doc-review`、`spec-code-review`、`spec-sessions`、`spec-compound`、`spec-compound-refresh` 或 `spec-skill-audit`。
+- Review/token-economy facts guidance 引用现有 `review-pre-facts` contract，不创建平行 facts pipeline。
 - Review workflow guidance 区分 low-risk docs-only 与 high-risk workflow/contract/release 变更的 reviewer set。
 - Sessions/compound guidance 支持 checkpoint/replay refs，不鼓励重读完整历史。
 - Skill audit 能识别 progressive disclosure drift。
@@ -825,19 +886,28 @@ flowchart LR
 
 - 核心执行链路 contract summary 覆盖，且不产生模板化 prose churn。
 - Task-pack execution 必须回查 source plan 聚焦片段。
-- `spec-work` durable evidence 触发条件明确。
-- `spec-standards` 产出最小 `next_action_candidates`。
-- Workflow intake order 明确 summary/inventory/context refs/source focused sections 的读取顺序。
+- `spec-work` 最小 run evidence producer 可在 closeout 写出 schema-aligned checkpoint，记录已读 artifact、关键决策、验证状态、degraded evidence、next action 和 not-run reason。
+- Run evidence 默认不持久化 secrets、完整 raw logs、本机绝对 temp path 或未分类 provider excerpts；只记录 repo-relative refs、redacted summary、excerpt cap、classification 和 raw-log 外部位置说明。
+- `spec-standards` 产出唯一 `.spec-first/standards/next-action-candidates.json` handoff artifact，且不与 standards 内容候选或 freshness decision artifact 混淆。
+- Workflow intake order 明确 summary/inventory/context refs/source focused sections 的读取顺序，并复用现有 `review-pre-facts` trust model，不新增平行 reviewer facts pipeline。
+
+Phase 1 放行门槛：
+
+- 至少一个阶段 1 task-pack 或 fixture 能证明 `spec-work` 回查 source plan 聚焦片段，且 stale/hash/spec-id mismatch 测试覆盖通过。
+- `spec-work` closeout producer 能写出 schema-valid checkpoint，并覆盖 degraded evidence、not-run validation、deferred follow-up、retention metadata 和 unsafe path/raw log 拒绝场景。
+- `spec-standards` U4-minimal artifact validator 与 consumer tests 通过，且 unknown `schema_version` fail closed。
+- 核心链路 contract summary tests 通过；仍有 P1 级 doc-review finding 未关闭时，不进入阶段 2。
 
 建议执行方式：
 
-- 如果直接开发，使用 `$spec-work` 并明确只执行阶段 1。
-- 如果发现阶段 1 仍过大，先用 `spec-write-tasks` 从本计划派生 task pack。
+- 优先先用 standalone `spec-write-tasks` 从本计划派生阶段 1 task pack，确保只包含 U1-core、U2、U3、U4-minimal、U12-minimal 和 U11 closeout checklist。
+- 如果直接开发，使用 `$spec-work` 并明确只执行阶段 1；不得一次性执行 U1-U12 全量范围。
 
 ### 阶段 2：边界、角色与工程纪律
 
 包含：
 
+- U1-full-batch-1
 - U5
 - U6
 - U7
@@ -848,6 +918,7 @@ flowchart LR
 交付目标：
 
 - Source/runtime/provider boundary 清晰。
+- U1-full-batch-1 的 public workflow summary coverage 完成，且未触发单 PR skill 超量红线。
 - Agent dispatch 明确 bounded/fallback/worker suitability。
 - Domain language 与 decision ledger 进入 plan/debug/work/review。
 - Debug/work/task 默认 feedback-loop-first 与 vertical slicing。
@@ -857,6 +928,7 @@ flowchart LR
 
 包含：
 
+- U1-full-batch-2
 - U9
 - U10
 - U12-checkpoint-replay
@@ -865,9 +937,10 @@ flowchart LR
 交付目标：
 
 - Release/catalog/governance drift deterministic checks 稳定。
+- 所有 public workflow contract summary coverage gate 关闭。
 - Skill audit 消费 guard results。
 - Dependency tier 和 rejected/out-of-scope replay 进入 plan/work/skill-audit。
-- Durable checkpoint 和 distilled replay refs 降低长任务恢复与深度审查重复读取成本。
+- Durable checkpoint replay 能消费阶段 1 write-side checkpoint，降低长任务恢复与深度审查重复读取成本。
 
 ---
 
@@ -883,7 +956,8 @@ Docs-only 当前计划验证：
 
 - Skill prose 变更：targeted `*-contracts.test.js` + fresh-source eval 或 not-run reason。
 - Task-pack/CLI 变更：`tests/unit/task-pack-command.test.js`、`tests/unit/spec-write-tasks-contracts.test.js`。
-- `spec-work` evidence 变更：`tests/unit/spec-work-run-artifact-contract.test.js`、`tests/unit/spec-work-contracts.test.js`。
+- `spec-work` evidence 变更：`tests/unit/spec-work-run-artifact-contract.test.js`、`tests/unit/spec-work-run-artifact-producer.test.js`、`tests/unit/spec-work-contracts.test.js`。
+- Evidence safety 变更：覆盖 secrets、absolute temp paths、raw logs、provider excerpts、path containment、excerpt cap、TTL/delete owner 和 degraded/untrusted classification。
 - Standards 变更：`tests/unit/spec-standards-validation.test.js`、`tests/unit/spec-standards-consumers.test.js`。
 - Release/catalog 变更：`npm run test:release:governance`，必要时 `npm run build`。
 - Public runtime surface 变更：考虑 `npm run test:smoke` 和 dual-host governance tests。
@@ -898,11 +972,16 @@ Docs-only 当前计划验证：
 | Contract summary 膨胀成第二份 spec | Summary 只放入口摘要；深层行为留在对应 workflow sections 和 tests。 |
 | Task pack 被误当 scope authority | 保留 `source_plan_hash`、`spec_id`、`source_unit`、`requirement_refs`；`spec-work` 强制回查 source plan 聚焦片段。 |
 | Run evidence 变成 progress state | Schema/prose 明确禁止 current task progress、approval state、next active task。 |
+| Run evidence 泄露 secrets、完整 raw logs 或本机 temp path | U3 producer 默认只写 redacted summary、repo-relative refs、excerpt cap、classification 和 raw-log 外部位置说明；测试覆盖拒绝未脱敏输入。 |
+| Provider/MCP raw output 造成 prompt injection 或污染 durable artifacts | R25/U5/U12 要求 raw results 作为 untrusted quoted data，经 schema validation、path containment、escaping、excerpt cap 和 provenance/readiness classification 后才能进入 prompt/facts/report/artifact。 |
+| `next_action_candidates` 与现有 standards artifacts 重叠 | U4 明确唯一 artifact path 与语义，只承载 workflow-handoff facts，不替代 standards 内容候选或 freshness decision。 |
+| Review/token-economy facts 出现第二套 pipeline | U5/U12 复用 `review-pre-facts` contract 与 helper 的 trust model、budget、provenance 和 untrusted-data handling。 |
 | Scripts 侵入语义判断 | Scripts 只输出 facts、reason_code、artifact path、classification；推荐和取舍由 LLM/agent 完成。 |
 | Runtime mirror 被误改 | U5 文档和 U1 summary 强调 source-first，runtime refresh 走 init。 |
 | Agent dispatch 成本过高或隐式化 | 增加 worker suitability gate 和 fallback；默认复用现有 agents。 |
 | Token economy 被误解为少做验证 | U12 明确不跳过 source-of-truth、acceptance、non-goals 和 validation evidence；只减少重复读取和无界 dispatch。 |
 | Summary 或 distilled inventory 变 stale | Summary 只是入口索引；争议点回 source。Inventory 由 deterministic scripts 生成并带 freshness/hash/reason_code。 |
+| 外部对标 distilled inventory 过期 | 复验触发器命中时回外部 source；未复验时标记 inventory freshness risk，不把旧映射当 confirmed truth。 |
 | Release guard 过严 | 区分 blocking/advisory/docs-only no-impact，保留人工/LLM judgment。 |
 | Knowledge replay 变成状态机 | 只消费 provenance-backed refs，不写 active workflow status。 |
 | 外部来源 license/prose 污染 | 所有外部启发均 clean-room 重新表达，不复制 code/prose/schema/template。 |
@@ -911,7 +990,14 @@ Docs-only 当前计划验证：
 
 ## 开发入口建议
 
-推荐下一步不是直接全量执行 U1-U12，也不是直接全量覆盖所有 public workflow，而是：
+推荐下一步不是直接全量执行 U1-U12，也不是直接全量覆盖所有 public workflow，而是先派生阶段 1 task pack：
+
+```text
+使用 standalone spec-write-tasks，从本计划派生 Phase 1 task pack：
+U1-core、U2、U3、U4-minimal、U12-minimal、U11 closeout checklist。
+```
+
+拿到 task pack 后再进入：
 
 ```bash
 $spec-work docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrade-plan.md
@@ -923,7 +1009,7 @@ $spec-work docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrad
 只执行阶段 1 MVP：U1-core、U2、U3、U4-minimal、U12-minimal，并应用 U11 closeout checklist。
 ```
 
-如果执行者判断阶段 1 仍过大，应先运行 standalone `spec-write-tasks` 生成 derived task pack，再从 task pack 进入 `$spec-work`。
+如果执行者选择跳过 task pack 直接开发，必须在 run evidence 中记录理由，并仍只执行阶段 1 MVP。
 
 ---
 
@@ -933,16 +1019,17 @@ $spec-work docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrad
 
 - 所有 public workflow 有轻量 contract summary，且由 tests 锁定。
 - Task pack handoff 不再绕过 source plan scope authority。
-- `spec-work` 长任务和恢复场景有 durable evidence。
-- `spec-standards` 能输出 machine-readable next-action candidates。
+- `spec-work` 长任务和恢复场景有最小 schema-aligned durable evidence producer，阶段 3 replay 能消费该 checkpoint，且 evidence safety 覆盖 redaction、path containment、excerpt cap、TTL/delete owner、raw-log retention 和 degraded/untrusted classification。
+- `spec-standards` 能输出 machine-readable `.spec-first/standards/next-action-candidates.json`，且 artifact boundary 与 standards 内容候选、freshness decision 清晰分离。
 - Token economy guardrails 进入 plan/work/write-tasks/review/sessions workflows，减少重复读取长计划、历史对话和外部仓库。
 - Source/runtime/customization boundary 有用户可读文档并从 README 链接。
+- Provider/MCP/tool raw results 被作为 untrusted quoted data 处理，review/token-economy facts 复用 `review-pre-facts` 现有 trust model，不新增平行 facts pipeline。
 - Agent dispatch boundary 和 worker suitability gate 明确。
 - Debug/work/task 默认先建立反馈环并偏向纵向切片。
 - Release/catalog/governance drift 能在发布前以 deterministic guard 暴露。
 - Skill audit 能消费 guard results，同时保留 LLM-owned semantic judgment。
 - Knowledge replay 能引用 provenance-backed rejected/out-of-scope rationale。
-- 外部对标默认消费 distilled inventory；需要复验时才回外部 source。
+- 外部对标默认消费 distilled inventory；命中复验触发器时才回外部 source，未复验时标记 freshness risk。
 - 每个 source-changing PR 都有 changelog、targeted verification 和 runtime impact 说明。
 
 ---
@@ -960,6 +1047,7 @@ $spec-work docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrad
 - Skill audit workflow：`skills/spec-skill-audit/SKILL.md`
 - Task-pack traceability：`docs/contracts/workflows/spec-id-traceability.md`
 - Work run artifact schema：`docs/contracts/workflows/spec-work-run-artifact.schema.json`
+- Review pre-facts extraction：`docs/contracts/workflows/review-pre-facts-extraction.md`
 - Fresh-source eval checklist：`docs/contracts/workflows/fresh-source-eval-checklist.md`
 - Graph evidence policy：`docs/contracts/graph-evidence-policy.md`
 - Source/runtime learning：`docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`

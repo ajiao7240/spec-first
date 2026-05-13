@@ -139,25 +139,20 @@ function buildZhBootstrapBody(hostId) {
     : '- 不要把 `using-spec-first` 写成 `/spec:*` 或 command-backed workflow';
   const codexStartupReminderLines = hostId === 'codex'
     ? [
-      '- 顶层 Codex orchestrator 在准备进入公开 `$spec-*` workflow 前，可 best-effort 运行 `spec-first startup-reminder --codex` 做只读版本提醒；缺失、失败或无输出都必须忽略，不阻塞路由',
-      '- 该提醒只指向 `$spec-update` 由用户自主决策升级；bounded subagents、leaf reviewers、worker agents 不运行该检查，也不写 cooldown 状态',
-      '- Codex 公开 `$spec-*` workflow 入口调用本身即授权该 workflow 文档化的只读 reviewer/researcher subagent phase；`$spec-doc-review` 默认多 persona dispatch，缺少额外 `use subagents` 不是降级理由，只有用户要求 report-only/no-agents、dispatch primitive 缺失、runtime 无法调用或安全边界不满足时才降级',
+      '- Codex：进入公开 `$spec-*` 前可 best-effort 运行 `spec-first startup-reminder --codex`；失败/空输出不阻塞，只提示 `$spec-update`，bounded subagents、leaf reviewers、worker agents 不运行',
+      '- Codex：公开 `$spec-*` 调用即授权该 workflow 文档化的只读 reviewer/researcher phase；`$spec-doc-review` 默认多 persona dispatch，仅 report-only/no-agents、dispatch/runtime 缺失或安全边界不满足时降级',
     ].join('\n')
     : '';
 
   return `## Workflow 入口治理
 
-- 本 block 是 spec-first workflow 入口提醒；\`using-spec-first\` 是 standalone meta skill，不是 workflow command
-- 修改文件、运行会改变状态的命令、或做架构/prompt/workflow 决策前，先判断是否应进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答
-- 按当前用户意图选择一个最匹配入口；不要默认进入 \`spec-brainstorm\`，也不要自动串联多个 workflow
-- 如果用户询问下一步、该用哪个命令或不知道 workflow，按 \`using-spec-first\` 的 guide mode 推荐一个公开入口、一句理由和一个下一步动作
-- 如果已经在 spec-first workflow 中或作为 bounded subagent 执行，遵循当前 workflow/父任务范围，不重新入口分流
-- 父级多仓 workspace 的只读代码问题可使用 \`workspace-graph-targets.v1\` advisory facts 做候选 repo 发现并优先 GitNexus；父 workspace 维护入口中的 \`init\` 可刷新 parent host runtime assets，setup 和 graph bootstrap 可默认按 discovered child repos 执行并只写父目录 advisory summary；\`spec-standards\` 无参数运行默认为每个 discovered child repo 写 child-local \`.spec-first/standards/\` baseline，\`--repo <child>\` 可收窄到单个 child，\`--workspace\` 才写父级 advisory standards baseline；其他写入、修复、测试、review autofix 或 commit 前仍必须有明确 \`target_repo\` / per-child scope
+- 本 block 只做轻量 workflow entry context router；完整路由策略在 \`skills/using-spec-first/SKILL.md\`
+- substantial work 前先判断是否进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答；已在 workflow 或 bounded subagent 中时不重新分流
+- 按当前意图选择一个入口；不要默认进入 \`spec-brainstorm\`，不要自动串联多个 workflow；用户询问下一步时，用 \`using-spec-first\` guide mode 推荐一个入口、一个理由、一个动作
+- 父级多仓 workspace：只读代码问题可用 \`workspace-graph-targets.v1\` advisory facts；写入、修复、测试、review autofix 或 commit 前必须有明确 \`target_repo\` / per-child scope
 ${hostLine}
-${surfaceLine}
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；graph readiness 编译→\`${entry('graph-bootstrap')}\`；项目规范/胶水基线→\`${entry('standards')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务编译/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`（standalone skill）/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\`
-- 完整选择策略、优先级和 red flags 由 spec-first 随包的 \`using-spec-first\` 维护；本 block 只保留启动提醒、host 入口边界和少量锚点
-- 不要直接暴露 internal-only skills；例如 \`git-worktree\` 只能由公开 workflow 在需要隔离工作区时委托使用`;
+${surfaceLine}；不要直接暴露 internal-only skills，例如 \`git-worktree\`
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；graph readiness→\`${entry('graph-bootstrap')}\`；项目规范/胶水→\`${entry('standards')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\``;
 }
 
 function buildEnBootstrapBody(hostId) {
@@ -171,25 +166,20 @@ function buildEnBootstrapBody(hostId) {
     : '- Do not write `using-spec-first` as `/spec:*` or as a command-backed workflow';
   const codexStartupReminderLines = hostId === 'codex'
     ? [
-      '- Before a top-level Codex orchestrator enters a public `$spec-*` workflow, it may best-effort run `spec-first startup-reminder --codex` for a read-only version reminder; missing CLI, failure, or empty output must be ignored and must not block routing',
-      '- This reminder only points to `$spec-update` for user-decided upgrade work; bounded subagents, leaf reviewers, and worker agents must not run the check or write cooldown state',
-      '- Invoking a Codex public `$spec-*` workflow itself authorizes that workflow\'s documented read-only reviewer/researcher subagent phase; `$spec-doc-review` defaults to multi-persona dispatch, missing extra `use subagents` wording is not a fallback reason, and fallback applies only when the user requests report-only/no-agents, dispatch is missing, runtime calls fail, or safety boundaries are not met',
+      '- Codex: before entering public `$spec-*`, a top-level orchestrator may best-effort run `spec-first startup-reminder --codex`; failure/empty output must not block routing, only points to `$spec-update`, and bounded subagents, leaf reviewers, and worker agents do not run it',
+      '- Codex: invoking public `$spec-*` authorizes that workflow\'s documented read-only reviewer/researcher phase; `$spec-doc-review` defaults to multi-persona dispatch and falls back only for report-only/no-agents, missing dispatch/runtime, or unmet safety boundaries',
     ].join('\n')
     : '';
 
   return `## Workflow Entry Governance
 
-- This block is the spec-first workflow entry reminder; \`using-spec-first\` is a standalone meta skill, not a workflow command
-- Before editing files, running state-changing commands, or making architecture/prompt/workflow decisions, decide whether to enter a public spec-first workflow; lightweight Q&A and narrow factual lookups may be answered directly
-- Pick one best-matching entrypoint by current user intent; do not default to \`spec-brainstorm\` or automatically chain workflows
-- If the user asks what to run next, which command to use, or does not know the workflow, use \`using-spec-first\` guide mode to recommend one public entrypoint, one reason, and one next action
-- If already inside a spec-first workflow or running as a bounded subagent, follow the active workflow/parent scope instead of restarting entry routing
-- Read-only code questions from a parent multi-repo workspace may use \`workspace-graph-targets.v1\` advisory facts for candidate repo discovery and prefer GitNexus-first evidence; parent-workspace maintenance \`init\` may refresh parent host runtime assets, while setup and graph bootstrap may default to discovered child repos and write only parent advisory summaries; no-argument \`spec-standards\` defaults to writing child-local \`.spec-first/standards/\` baselines for every discovered child repo, \`--repo <child>\` narrows to one child, and \`--workspace\` writes the parent advisory standards baseline; other writes, fixes, tests, review autofix, or commits still require explicit \`target_repo\` / per-child scope
+- This block is only a thin workflow entry context router; the full routing policy lives in \`skills/using-spec-first/SKILL.md\`
+- Before substantial work, decide whether to enter a public spec-first workflow; lightweight Q&A and narrow factual lookups may be answered directly; if already inside a workflow or bounded subagent, do not reroute
+- Pick one entrypoint by current intent; do not default to \`spec-brainstorm\` or automatically chain workflows; when the user asks what to run next, use \`using-spec-first\` guide mode to recommend one entrypoint, one reason, and one action
+- Parent multi-repo workspace: read-only code questions may use \`workspace-graph-targets.v1\` advisory facts; writes, fixes, tests, review autofix, or commits require explicit \`target_repo\` / per-child scope
 ${hostLine}
-${surfaceLine}
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; graph readiness compilation→\`${entry('graph-bootstrap')}\`; project standards/glue baseline→\`${entry('standards')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/task compilation/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\` (standalone skill)/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\`
-- The full selection policy, priority rules, and red flags are maintained by the bundled spec-first \`using-spec-first\`; this block only keeps the startup reminder, host entrypoint boundaries, and a few anchors
-- Do not expose internal-only skills directly; for example, \`git-worktree\` is delegated only by public workflows when isolated workspace setup is needed`;
+${surfaceLine}; do not expose internal-only skills directly, for example \`git-worktree\`
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; graph readiness→\`${entry('graph-bootstrap')}\`; project standards/glue→\`${entry('standards')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/tasks/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\``;
 }
 
 function stripStandaloneMarkerLines(content) {

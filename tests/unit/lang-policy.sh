@@ -138,7 +138,7 @@ echo "1.18 en block does not contain governance file commit rule"
 assert_not_contains "en block omits governance file commit rule" "Governance File Commit Rule" "$en_block"
 
 echo "1.19 en block has strict generated-content language scope"
-assert_contains "en block applies to generated docs and task prose" "generated documentation, requirements, plans, tasks" "$en_block"
+assert_contains "en block applies to generated docs and task prose" "documentation, requirements/plans/tasks" "$en_block"
 assert_contains "en block applies to commit and PR text" "commit/PR text" "$en_block"
 
 echo ""

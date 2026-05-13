@@ -126,7 +126,7 @@ if [[ "\${FAIL_CRG_CACHE_PERMISSION:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAP
   exit 2
 fi
 if [[ "\${FAIL_CRG_PACKAGE_NOT_FOUND:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE build "* ]]; then
-  echo "warning: Tools cannot be upgraded via \`uvx\`; use \`uv tool upgrade --all\` to upgrade all installed tools, or \`uvx package@latest\` to run the latest version of a tool." >&2
+  echo "warning: Tools cannot be upgraded via uvx; use uv tool upgrade --all to upgrade all installed tools, or uvx package@latest to run the latest version of a tool." >&2
   echo "  × No solution found when resolving tool dependencies:" >&2
   echo "  ╰─▶ Because code-review-graph was not found in the package registry and" >&2
   echo "      you require code-review-graph, we can conclude that your requirements" >&2
@@ -526,8 +526,9 @@ assert "normalized artifact exists" test -f "$PRIMARY_REPO/.spec-first/providers
 assert "old graph raw path is not used" test ! -e "$PRIMARY_REPO/.spec-first/graph/raw/gitnexus"
 assert_contains "graph-bootstrap normalizes GitNexus host block" "本项目已配置 GitNexus 图谱支持，仓库标识：**primary-repo**" "$(cat "$PRIMARY_REPO/AGENTS.md")"
 assert_contains "graph-bootstrap normalizes Claude GitNexus host block" "当索引新鲜且 query-ready 时" "$(cat "$PRIMARY_REPO/CLAUDE.md")"
-assert_contains "graph-bootstrap host block is self-contained" "本 block 是 spec-first 生成的轻量 GitNexus 使用边界" "$(cat "$PRIMARY_REPO/AGENTS.md")"
-assert_contains "graph-bootstrap host block points to readiness facts" ".spec-first/graph/*" "$(cat "$PRIMARY_REPO/AGENTS.md")"
+assert_contains "graph-bootstrap host block is self-contained" "使用 GitNexus 前，先查看" "$(cat "$PRIMARY_REPO/AGENTS.md")"
+assert_contains "graph-bootstrap host block points to graph readiness facts" ".spec-first/graph/provider-status.json" "$(cat "$PRIMARY_REPO/AGENTS.md")"
+assert_contains "graph-bootstrap host block points to GitNexus provider status" ".spec-first/providers/gitnexus/status.json" "$(cat "$PRIMARY_REPO/AGENTS.md")"
 assert_not_contains "graph-bootstrap host block does not point to a repo-local graph evidence policy" "docs/contracts/graph-evidence-policy.md" "$(cat "$PRIMARY_REPO/AGENTS.md")"
 if grep -Eq '[0-9,]+ symbols, [0-9,]+ relationships, [0-9,]+ execution flows|MUST run impact|\.claude/skills/gitnexus' "$PRIMARY_REPO/AGENTS.md" "$PRIMARY_REPO/CLAUDE.md"; then
   echo "FAIL: graph-bootstrap leaves unstable GitNexus instruction prose" >&2
@@ -558,7 +559,7 @@ missing_host_output="$(cd "$MISSING_HOST_REPO" && PATH="$TEST_PATH" bash "$BOOTS
 assert_eq "missing GitNexus host block does not block graph readiness" "primary:ready" "$(jq -r '.workflow_mode + ":" + .overall_status' <<<"$missing_host_output")"
 assert_eq "missing GitNexus host block is created as advisory normalization" "normalized:true:0" "$(jq -r '.results[] | select(.provider=="gitnexus") | .host_instruction_normalization | .status + ":" + (.advisory | tostring) + ":" + (.exit_code | tostring)' <<<"$missing_host_output")"
 assert_contains "graph-bootstrap creates AGENTS GitNexus host block" "本项目已配置 GitNexus 图谱支持，仓库标识：**missing-host-repo**" "$(cat "$MISSING_HOST_REPO/AGENTS.md")"
-assert_contains "graph-bootstrap creates CLAUDE GitNexus self-contained host block" "本 block 是 spec-first 生成的轻量 GitNexus 使用边界" "$(cat "$MISSING_HOST_REPO/CLAUDE.md")"
+assert_contains "graph-bootstrap creates CLAUDE GitNexus self-contained host block" "使用 GitNexus 前，先查看" "$(cat "$MISSING_HOST_REPO/CLAUDE.md")"
 
 PARTIAL_HOST_REPO="$TMP_DIR/partial-host-repo"
 PARTIAL_HOST_LEDGER="$TMP_DIR/partial-host-home/.codex/spec-first/host-setup.json"
