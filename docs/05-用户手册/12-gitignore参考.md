@@ -10,6 +10,7 @@
 - `.spec-first/config/`、`.spec-first/graph/`、`.spec-first/providers/`、`.spec-first/impact/` 和 `.spec-first/workspace/` 是本地 readiness/control-plane facts，默认不提交。
 - `.spec-first/audits/**` 和 generated runtime mirrors 也不应作为普通 LLM 上下文扫描源；只有 setup/update/runtime-drift/audit 任务或用户明确点名路径时才按需读取。
 - `.spec-first/standards/` 是本地 standards baseline、preview、scratch 和 evidence 工作区，默认不提交；需要团队共享的 confirmed standards 应 promote 到明确 source 路径。
+- `.spec-first/sessions/` 是 multi-actor 治理协议的 opt-in advisory 记录目录，由 `spec-first session register` 等命令写入；属于 runtime state，默认不提交。
 - `AGENTS.md`、`CLAUDE.md`、`docs/`、项目源码、测试和 confirmed standards source 应按团队正常协作策略提交。
 
 ## init 默认写入的 `.gitignore` block
@@ -46,6 +47,7 @@
 .spec-first/workflows/
 .spec-first/workspace/
 .spec-first/standards/
+.spec-first/sessions/
 
 # local project tooling used by spec-first workflows
 .serena/
@@ -160,6 +162,7 @@
 | `.spec-first/workspace/` | 父级多仓 advisory summaries，不是 child repo canonical truth |
 | `.spec-first/audits/`、`.spec-first/app-audit/`、`.spec-first/workflows/` | workflow execution evidence，默认本地留存 |
 | `.spec-first/standards/` | standards baseline、preview、import lock、scratch 和本地 evidence 工作区；confirmed standards 应 promote 到明确 source 路径 |
+| `.spec-first/sessions/` | multi-actor 治理协议的 opt-in advisory 记录目录，由 `spec-first session register` 写入；不启用时为空 |
 | `.serena/` | 本地符号索引配置/缓存 |
 
 `*.tgz` 是本地打包产物，可重新执行 `npm pack` 生成，但它不是 spec-first 专属产物，因此不进入 init 默认 managed block。团队如果希望统一忽略 npm pack 产物，可以在 block 外自行加入：

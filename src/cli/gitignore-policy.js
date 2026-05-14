@@ -37,6 +37,7 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
       '.spec-first/workflows/',
       '.spec-first/workspace/',
       '.spec-first/standards/',
+      '.spec-first/sessions/',
     ],
   },
   {

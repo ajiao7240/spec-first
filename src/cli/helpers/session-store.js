@@ -1,0 +1,205 @@
+'use strict';
+
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const { writeFileAtomic } = require('../atomic-write');
+const { validateAgainstSchema } = require('../../contracts/schema-validator');
+
+const SCHEMA_VERSION = 'spec-first-session.v1';
+const SESSION_DIR_REL = path.join('.spec-first', 'sessions');
+const SCHEMA_PATH = path.join(__dirname, '..', 'contracts', 'session', 'spec-first-session.schema.json');
+const STALE_MS = 24 * 60 * 60 * 1000;
+const ID_PATTERN = /^[A-Za-z0-9._-]+$/;
+const ALLOWED_AGENT_KINDS = ['claude-code', 'codex', 'other'];
+
+let cachedSchema = null;
+
+function getSchema() {
+  if (!cachedSchema) {
+    cachedSchema = JSON.parse(fs.readFileSync(SCHEMA_PATH, 'utf8'));
+  }
+  return cachedSchema;
+}
+
+function getSessionDir(repoRoot) {
+  return path.join(repoRoot, SESSION_DIR_REL);
+}
+
+function ensureSessionDir(repoRoot) {
+  const dir = getSessionDir(repoRoot);
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function getSessionFile(repoRoot, sessionId) {
+  return path.join(getSessionDir(repoRoot), `${sessionId}.json`);
+}
+
+function isValidSessionId(value) {
+  return typeof value === 'string' && value.length >= 1 && value.length <= 128 && ID_PATTERN.test(value);
+}
+
+function isValidAgentKind(value) {
+  return ALLOWED_AGENT_KINDS.includes(value);
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function generateSessionId() {
+  // crypto.randomUUID 生成 UUIDv4；本协议接受任何匹配 ID_PATTERN 的字符串
+  return crypto.randomUUID();
+}
+
+function readRecord(filePath) {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(raw);
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return null;
+    }
+    return { __invalid__: true, __reason__: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function validateRecord(record) {
+  const result = validateAgainstSchema(getSchema(), record);
+  return result.valid ? { valid: true, errors: [] } : { valid: false, errors: result.errors };
+}
+
+function isStale(record, now = Date.now()) {
+  if (!record || typeof record.last_heartbeat_at !== 'string') return true;
+  const ts = Date.parse(record.last_heartbeat_at);
+  if (Number.isNaN(ts)) return true;
+  return now - ts > STALE_MS;
+}
+
+function listSessions(repoRoot, { includeStale = false, now = Date.now() } = {}) {
+  const dir = getSessionDir(repoRoot);
+  if (!fs.existsSync(dir)) return [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'));
+
+  const sessions = [];
+  for (const entry of entries) {
+    const filePath = path.join(dir, entry.name);
+    const record = readRecord(filePath);
+    if (!record || record.__invalid__) {
+      sessions.push({
+        session_id: entry.name.replace(/\.json$/, ''),
+        invalid: true,
+        reason: record && record.__reason__ ? record.__reason__ : 'unreadable',
+        path: filePath,
+      });
+      continue;
+    }
+    const validation = validateRecord(record);
+    if (!validation.valid) {
+      sessions.push({
+        session_id: typeof record.session_id === 'string' ? record.session_id : entry.name.replace(/\.json$/, ''),
+        invalid: true,
+        reason: 'session-schema-invalid',
+        errors: validation.errors,
+        path: filePath,
+      });
+      continue;
+    }
+    const stale = isStale(record, now);
+    if (stale && !includeStale) continue;
+    sessions.push({ ...record, stale, path: filePath });
+  }
+  sessions.sort((a, b) => {
+    const aTs = a.started_at || '';
+    const bTs = b.started_at || '';
+    if (aTs < bTs) return -1;
+    if (aTs > bTs) return 1;
+    return 0;
+  });
+  return sessions;
+}
+
+function registerSession(repoRoot, options = {}) {
+  const sessionId = options.session_id || generateSessionId();
+  if (!isValidSessionId(sessionId)) {
+    return { ok: false, reason_code: 'session-id-invalid', session_id: sessionId };
+  }
+  const agentKind = options.agent_kind || 'other';
+  if (!isValidAgentKind(agentKind)) {
+    return { ok: false, reason_code: 'agent-kind-invalid', session_id: sessionId };
+  }
+  const filePath = getSessionFile(repoRoot, sessionId);
+  if (fs.existsSync(filePath)) {
+    return { ok: false, reason_code: 'session-already-registered', session_id: sessionId, path: filePath };
+  }
+  const record = {
+    schema_version: SCHEMA_VERSION,
+    session_id: sessionId,
+    agent_kind: agentKind,
+    host_marker_path: typeof options.host_marker_path === 'string' && options.host_marker_path.length > 0 ? options.host_marker_path : null,
+    started_at: nowIso(),
+    last_heartbeat_at: nowIso(),
+    scope_hint: typeof options.scope_hint === 'string' && options.scope_hint.length > 0 ? options.scope_hint : null,
+    pid: typeof options.pid === 'number' && options.pid > 0 ? options.pid : null,
+  };
+  const validation = validateRecord(record);
+  if (!validation.valid) {
+    return { ok: false, reason_code: 'session-schema-invalid', session_id: sessionId, errors: validation.errors };
+  }
+  ensureSessionDir(repoRoot);
+  writeFileAtomic(filePath, `${JSON.stringify(record, null, 2)}\n`);
+  return { ok: true, session_id: sessionId, path: filePath, record };
+}
+
+function heartbeatSession(repoRoot, sessionId) {
+  if (!isValidSessionId(sessionId)) {
+    return { ok: false, reason_code: 'session-id-invalid', session_id: sessionId };
+  }
+  const filePath = getSessionFile(repoRoot, sessionId);
+  const record = readRecord(filePath);
+  if (!record) {
+    return { ok: false, reason_code: 'session-not-found', session_id: sessionId };
+  }
+  if (record.__invalid__) {
+    return { ok: false, reason_code: 'session-schema-invalid', session_id: sessionId, reason: record.__reason__ };
+  }
+  const updated = { ...record, last_heartbeat_at: nowIso() };
+  const validation = validateRecord(updated);
+  if (!validation.valid) {
+    return { ok: false, reason_code: 'session-schema-invalid', session_id: sessionId, errors: validation.errors };
+  }
+  writeFileAtomic(filePath, `${JSON.stringify(updated, null, 2)}\n`);
+  return { ok: true, session_id: sessionId, path: filePath, record: updated };
+}
+
+function unregisterSession(repoRoot, sessionId) {
+  if (!isValidSessionId(sessionId)) {
+    return { ok: false, reason_code: 'session-id-invalid', session_id: sessionId };
+  }
+  const filePath = getSessionFile(repoRoot, sessionId);
+  if (!fs.existsSync(filePath)) {
+    return { ok: false, reason_code: 'session-not-found', session_id: sessionId };
+  }
+  fs.rmSync(filePath, { force: true });
+  return { ok: true, session_id: sessionId, path: filePath };
+}
+
+module.exports = {
+  SCHEMA_VERSION,
+  SESSION_DIR_REL,
+  STALE_MS,
+  ALLOWED_AGENT_KINDS,
+  generateSessionId,
+  getSessionDir,
+  getSessionFile,
+  getSchema,
+  isStale,
+  isValidSessionId,
+  isValidAgentKind,
+  listSessions,
+  registerSession,
+  heartbeatSession,
+  unregisterSession,
+};

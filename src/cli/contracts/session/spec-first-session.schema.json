@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec-first.dev/contracts/session/spec-first-session.schema.json",
+  "title": "spec-first session advisory record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "session_id",
+    "agent_kind",
+    "started_at",
+    "last_heartbeat_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "spec-first-session.v1"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "agent_kind": {
+      "type": "string",
+      "enum": ["claude-code", "codex", "other"]
+    },
+    "host_marker_path": {
+      "type": ["string", "null"],
+      "maxLength": 1024
+    },
+    "started_at": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 40,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+    },
+    "last_heartbeat_at": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 40,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+    },
+    "scope_hint": {
+      "type": ["string", "null"],
+      "maxLength": 512
+    },
+    "pid": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 4294967295
+    }
+  }
+}

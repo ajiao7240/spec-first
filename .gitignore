@@ -54,6 +54,7 @@ yarn-error.log*
 .spec-first/workflows/
 .spec-first/workspace/
 .spec-first/standards/
+.spec-first/sessions/
 
 # Published/package artifacts
 *.tgz
@@ -94,6 +95,7 @@ __pycache__/
 .spec-first/workflows/
 .spec-first/workspace/
 .spec-first/standards/
+.spec-first/sessions/
 
 # local project tooling used by spec-first workflows
 .serena/

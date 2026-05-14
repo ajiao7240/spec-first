@@ -1387,3 +1387,5 @@
 - v1.5.9 2026-04-27 09:53:25 leokuang: docs(plans): 收紧 agent-browser 外部 helper 迁移计划，补充删除前门禁、setup 入口收敛、host 权限、runtime 清理和发布验证要求
 - v1.8.2 2026-05-13 16:16:38 leokuang: 新增 init 入口内容瘦身计划，规划将 managed bootstrap 收敛为 context router 并保留 source/runtime 边界 (user-visible)
 - v1.8.2 2026-05-14 15:32:44 leokuang: docs(plan): 新增 multi-actor worktree governance 根治计划，定义 concurrent-write fingerprint、host pointer 自愈与 opt-in session advisory 三层最小契约扩展，明确实施顺序与跨会话冲突边界 (user-visible)
+- v1.8.2 2026-05-15 00:16:00 leokuang: feat(governance): 落地 multi-actor worktree 治理 plan U3 — 新增 spec-first-session.v1 opt-in advisory schema、CLI register/heartbeat/list/unregister 子命令、共享 helper、jest contract tests 与合同文档；未启用时所有现有 workflow 行为不变 (user-visible)
+- v1.8.2 2026-05-15 00:16:00 leokuang: feat(governance): 落地 multi-actor worktree 治理 plan U4 — using-spec-first guide mode 增加 Multi-Session Awareness 段落，substantial work 前可调用 `spec-first session list` 进行 read-only 感知，advisory 不阻塞;新增 prose 防漂移测试 (user-visible)

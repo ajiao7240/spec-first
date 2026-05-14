@@ -5,6 +5,7 @@ const { runClean } = require('./commands/clean');
 const { runDoctor } = require('./commands/doctor');
 const { runInit } = require('./commands/init');
 const { runInternal } = require('./commands/internal');
+const { runSession } = require('./commands/session');
 const { runTasks } = require('./commands/tasks');
 const { runGitNexusInstructionBlockCommand } = require('./gitnexus-instruction-block');
 const {
@@ -52,6 +53,10 @@ async function runCli(argv) {
 
   if (cmd === 'tasks') {
     return Promise.resolve(runTasks(args.slice(1)));
+  }
+
+  if (cmd === 'session') {
+    return Promise.resolve(runSession(args.slice(1)));
   }
 
   if (cmd === 'internal') {
@@ -149,6 +154,7 @@ function printHelp(withErrorPrefix = false) {
     '  init (--claude|--codex)  Install platform-specific workflows, skills, agents, and developer profile',
     '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
     '  tasks <subcommand>      Hash and validate derived task packs',
+    '  session <subcommand>    Opt-in multi-actor session advisory (register|list|heartbeat|unregister)',
     '  gitnexus-instruction    Create or normalize GitNexus host instruction blocks',
     '',
     '🪝 Installed workflow entrypoints are provided by the host after `spec-first init`.',
