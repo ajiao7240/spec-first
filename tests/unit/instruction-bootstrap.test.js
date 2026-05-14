@@ -39,7 +39,7 @@ describe('instruction bootstrap', () => {
     expect(twice).toContain('## Workflow 入口治理');
     expect(twice).not.toContain('## Workflow 入口治理（由 spec-first 管理）');
     expect(twice).toContain('Claude workflow 入口使用 `/spec:*`');
-    expect(block.split('\n')).toHaveLength(11);
+    expect(block.split('\n')).toHaveLength(12);
     expect(twice).toContain('轻量 workflow entry context router');
     expect(twice).toContain('完整路由策略在 `skills/using-spec-first/SKILL.md`');
     expect(twice).toContain('substantial work 前先判断是否进入公开 spec-first workflow');
@@ -50,6 +50,8 @@ describe('instruction bootstrap', () => {
     expect(twice).toContain('bounded subagent');
     expect(twice).toContain('workspace-graph-targets.v1');
     expect(twice).toContain('target_repo');
+    expect(twice).toContain('Runtime context 默认排除 `.spec-first/audits/**`');
+    expect(twice).toContain('generated mirrors（`.claude/**`、`.codex/**`、`.agents/skills/**`）');
     expect(twice).toContain('常见入口锚点：环境/MCP');
     expect(twice).toContain('可度量优化→`/spec:optimize`');
     expect(twice).toContain('不要直接暴露 internal-only skills');
@@ -89,6 +91,8 @@ describe('instruction bootstrap', () => {
     expect(updated).toContain('when the user asks what to run next');
     expect(updated).toContain('use `using-spec-first` guide mode to recommend one entrypoint, one reason, and one action');
     expect(updated).toContain('bounded subagents, leaf reviewers, and worker agents');
+    expect(updated).toContain('Runtime context excludes `.spec-first/audits/**`');
+    expect(updated).toContain('generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`)');
     expect(updated).toContain('Common entry anchors: environment/MCP');
     expect(updated).toContain('measurable optimization→`$spec-optimize`');
     expect(updated).not.toContain('priority rules, and red flags');
@@ -283,14 +287,14 @@ describe('instruction bootstrap', () => {
     expect(codexZh).toContain('`$spec-doc-review` 默认多 persona dispatch');
     expect(codexZh).toContain('仅 report-only/no-agents、dispatch/runtime 缺失或安全边界不满足时降级');
     expect(codexZh).toContain('公开 `$spec-*` 调用即授权该 workflow 文档化的只读 reviewer/researcher phase');
-    expect(codexZh.split('\n')).toHaveLength(13);
+    expect(codexZh.split('\n')).toHaveLength(14);
     expect(codexEn).toContain('a top-level orchestrator');
     expect(codexEn).toContain('failure/empty output must not block routing');
     expect(codexEn).toContain('worker agents do not run it');
     expect(codexEn).toContain('`$spec-doc-review` defaults to multi-persona dispatch');
     expect(codexEn).toContain('falls back only for report-only/no-agents, missing dispatch/runtime, or unmet safety boundaries');
     expect(codexEn).toContain('invoking public `$spec-*` authorizes');
-    expect(codexEn.split('\n')).toHaveLength(13);
+    expect(codexEn.split('\n')).toHaveLength(14);
     expect(claudeZh).not.toContain('startup-reminder --codex');
     expect(claudeZh).not.toContain('$spec-update');
     expect(claudeZh).not.toContain('默认多 persona dispatch');

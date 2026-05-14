@@ -753,7 +753,9 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).toContain('function Write-JsonFileAtomic');
     expect(source).toContain('Move-Item -Force -LiteralPath');
     expect(source).toContain('Set-Content -Encoding utf8 -LiteralPath');
-    expect(source).toContain('New-Item -ItemType Directory -Force -LiteralPath');
+    expect(source).toContain('function Ensure-Directory');
+    expect(source).toContain('[System.IO.Directory]::CreateDirectory($entry)');
+    expect(source).not.toContain('New-Item -ItemType Directory -Force -LiteralPath');
     expect(source).not.toContain('Move-Item -Force -Path');
     expect(source).not.toContain('Set-Content -Encoding utf8 -Path');
     expect(source).toContain('Invoke-ExternalCommandWithTimeout -Exe $exe');

@@ -27,6 +27,9 @@ GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
 }
 
 WORKTREE_DIR="$GIT_ROOT/.worktrees"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+SOURCE_SECRET_DENY_HELPER="$SCRIPT_DIR/../../../src/cli/helpers/secret-deny-patterns.js"
+SPEC_FIRST_CLI="${SPEC_FIRST_CLI:-spec-first}"
 
 experiment_branch_name() {
   local spec_name="${1:?Error: spec_name required}"
@@ -101,36 +104,33 @@ path_within() {
   [[ "$path" == "$root" || "$path" == "$root"/* ]]
 }
 
-is_exact_repo_relative_path() {
-  local path="${1:-}"
-  [[ -n "$path" ]] || return 1
-  [[ "$path" != "." && "$path" != ./* && "$path" != */. && "$path" != */./* ]] || return 1
-  [[ "$path" != /* && "$path" != ~* && "$path" != *\\* && "$path" != *//* ]] || return 1
-  case "$path" in
-    ..|../*|*/..|*/../*|*'*'*|*'?'*|*'['*|*']'*|*'{'*|*'}'*) return 1 ;;
-  esac
-  return 0
+run_secret_deny_helper() {
+  local mode="${1:?Error: mode required}"
+  local target_path="${2:?Error: path required}"
+  if [[ -f "$SOURCE_SECRET_DENY_HELPER" ]]; then
+    node "$SOURCE_SECRET_DENY_HELPER" "$mode" "$target_path"
+    return $?
+  fi
+  "$SPEC_FIRST_CLI" internal secret-deny "$mode" "$target_path"
 }
 
-is_env_example_file() {
-  case "$1" in
-    .env.example|.env.template|.env.sample|*/.env.example|*/.env.template|*/.env.sample) return 0 ;;
-    *) return 1 ;;
-  esac
+is_exact_repo_relative_path() {
+  run_secret_deny_helper is-exact-repo-relative "${1:-}"
 }
 
 is_secret_denied_path() {
-  local path="${1#./}"
-  local lower_path
-  is_env_example_file "$path" && return 1
-  lower_path=$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]')
-
-  case "$lower_path" in
-    .env|.env.*|*/.env|*/.env.*|*.pem|*.key|id_rsa*|*/id_rsa*|id_ed25519*|*/id_ed25519*|id_dsa*|*/id_dsa*|id_ecdsa*|*/id_ecdsa*|*.p12|*.pfx|*.keystore|*.kdbx|*.htpasswd) return 0 ;;
-    .npmrc|*/.npmrc|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|.aws/credentials|*/.aws/credentials|.aws/config|*/.aws/config) return 0 ;;
-    .gcp/*credentials*.json|*/.gcp/*credentials*.json|google-services.json|*/google-services.json|googleservice-info.plist|*/googleservice-info.plist|*serviceaccount*.json|firebase-adminsdk-*.json|*/firebase-adminsdk-*.json) return 0 ;;
-    *token*|*secret*|*credentials*|*password*|*apikey*|*api_key*|*.mobileprovision|*.cer|*.certsigningrequest) return 0 ;;
-    *) return 1 ;;
+  local status
+  set +e
+  run_secret_deny_helper is-denied "${1:-}"
+  status=$?
+  set -e
+  case "$status" in
+    0) return 0 ;;
+    1) return 1 ;;
+    *)
+      echo -e "${RED}Error: secret deny helper failed for path: ${1:-<empty>}${NC}" >&2
+      return 0
+      ;;
   esac
 }
 
@@ -353,7 +353,7 @@ create_worktree() {
     echo -e "${YELLOW}Environment files not copied by default. Pass --copy-env to opt in.${NC}" >&2
   fi
 
-  # Copy explicitly declared shared files after path and secret-boundary checks.
+  # 路径和 secret 边界校验后，再复制显式声明的 shared files。
   for shared_file in "$@"; do
     copy_shared_file "$worktree_path" "$shared_file"
   done
@@ -361,7 +361,7 @@ create_worktree() {
   echo "$worktree_path"
 }
 
-# Clean up a single experiment worktree
+# 清理单个 experiment worktree。
 cleanup_worktree() {
   local spec_name="${1:?Error: spec_name required}"
   local exp_index="${2:?Error: exp_index required}"

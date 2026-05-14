@@ -40,6 +40,15 @@ function Get-EpochMilliseconds {
 $script:ScriptStartedAt = Get-UtcTimestamp
 $script:ScriptStartedEpochMs = Get-EpochMilliseconds
 
+function Ensure-Directory {
+  param([string[]]$Path)
+
+  foreach ($entry in $Path) {
+    if ([string]::IsNullOrWhiteSpace($entry)) { continue }
+    [System.IO.Directory]::CreateDirectory($entry) | Out-Null
+  }
+}
+
 function Write-ResultAndExit {
   param(
     [string]$WorkflowMode,
@@ -53,8 +62,8 @@ function Write-ResultAndExit {
     [string]$GraphDir = ''
   )
 
-  if (-not [string]::IsNullOrWhiteSpace($GraphDir)) {
-    New-Item -ItemType Directory -Force -LiteralPath $GraphDir | Out-Null
+  if (-not $CanonicalArtifactsPreserved -and -not [string]::IsNullOrWhiteSpace($GraphDir)) {
+    Ensure-Directory -Path @($GraphDir)
     Write-TextFileAtomic -Path (Join-Path $GraphDir 'bootstrap-report.md') -Value @"
 # Graph Bootstrap Report
 
@@ -439,7 +448,7 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
   }
 
   $workspaceDir = Join-Path $TargetFacts.workspace_root '.spec-first/workspace'
-  New-Item -ItemType Directory -Force -LiteralPath $workspaceDir | Out-Null
+  Ensure-Directory -Path @($workspaceDir)
   Write-JsonFileAtomic -Path (Join-Path $workspaceDir 'graph-bootstrap-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
   [pscustomobject]$summary | ConvertTo-Json -Depth 30 -Compress
   if ($overallStatus -eq 'action-required') { exit 1 }
@@ -694,6 +703,23 @@ function Test-ProviderArtifactContractSupported {
   return $true
 }
 
+function Test-SafeProviderCommandString {
+  param([object]$Value)
+  if ($Value -isnot [string]) { return $false }
+  $text = [string]$Value
+  foreach ($char in $text.ToCharArray()) {
+    $code = [int][char]$char
+    if ($code -lt 32 -or $code -eq 127) { return $false }
+  }
+  return ($text -notmatch '[;&|`$<>]')
+}
+
+function Test-SafeProviderToken {
+  param([object]$Value)
+  if (-not (Test-SafeProviderCommandString -Value $Value)) { return $false }
+  return (-not [string]::IsNullOrWhiteSpace([string]$Value))
+}
+
 function Test-CommandShapeSupported {
   param(
     [object]$ProviderConfig,
@@ -704,8 +730,7 @@ function Test-CommandShapeSupported {
   $actual = @($ProviderConfig.providers.$Provider.commands.$Kind)
   if ($actual.Count -eq 0) { return $false }
   foreach ($arg in $actual) {
-    if ($arg -isnot [string]) { return $false }
-    if ([string]$arg -match '[;&|`$<>]') { return $false }
+    if (-not (Test-SafeProviderCommandString -Value $arg)) { return $false }
   }
 
   if ($Provider -eq 'gitnexus') {
@@ -862,7 +887,7 @@ function Test-QueryProbePolicySupported {
     }
   }
   if ($policy.PSObject.Properties.Name -contains 'token') {
-    if ([string]::IsNullOrWhiteSpace([string]$policy.token) -or [string]$policy.token -match '[;&|`$<>]') {
+    if (-not (Test-SafeProviderToken -Value $policy.token)) {
       return $false
     }
   }
@@ -870,7 +895,7 @@ function Test-QueryProbePolicySupported {
     return $true
   }
   foreach ($candidate in @($policy.candidates)) {
-    if (-not ($candidate.PSObject.Properties.Name -contains 'token') -or [string]::IsNullOrWhiteSpace([string]$candidate.token) -or [string]$candidate.token -match '[;&|`$<>]') {
+    if (-not ($candidate.PSObject.Properties.Name -contains 'token') -or -not (Test-SafeProviderToken -Value $candidate.token)) {
       return $false
     }
     foreach ($propertyName in @('selected_from', 'reason_code')) {
@@ -1056,7 +1081,7 @@ function Invoke-ConfiguredCommand {
     [string]$LogPath,
     [string]$RepoRoot
   )
-  New-Item -ItemType Directory -Force -LiteralPath (Split-Path -Parent $LogPath) | Out-Null
+  Ensure-Directory -Path @((Split-Path -Parent $LogPath))
   $command = @($ProviderConfig.providers.$Provider.commands.$Kind)
   $exe = [string]$command[0]
   $commandArgs = @($command | Select-Object -Skip 1)
@@ -1103,7 +1128,7 @@ function Invoke-ProviderCommandArray {
     [string]$RefreshMode = '',
     [string]$AttemptRole = ''
   )
-  New-Item -ItemType Directory -Force -LiteralPath (Split-Path -Parent $LogPath) | Out-Null
+  Ensure-Directory -Path @((Split-Path -Parent $LogPath))
   $exe = [string]$Command[0]
   $commandArgs = @($Command | Select-Object -Skip 1)
   [Console]::Error.WriteLine("spec-graph-bootstrap: running $Provider $Kind; dependencies may download on first use...")
@@ -1195,7 +1220,7 @@ function Invoke-GitNexusQueryProbeCandidate {
     [string]$LogPath,
     [string]$RepoRoot
   )
-  New-Item -ItemType Directory -Force -LiteralPath (Split-Path -Parent $LogPath) | Out-Null
+  Ensure-Directory -Path @((Split-Path -Parent $LogPath))
   $command = @($ProviderConfig.providers.$Provider.commands.query_probe)
   $command[4] = $Token
   $exe = [string]$command[0]
@@ -1856,7 +1881,7 @@ function Write-NormalizedArtifacts {
     [object[]]$QueryProbeAttempts = @()
   )
   $normalizedDir = Join-Path (Join-Path $ProvidersDir $Provider) 'normalized'
-  New-Item -ItemType Directory -Force -LiteralPath $normalizedDir | Out-Null
+  Ensure-Directory -Path @($normalizedDir)
   $sourceStatusPath = ".spec-first/providers/$Provider/status.json"
   $bootstrapLogs = @($CommandResults | Where-Object { [string]$_.kind -eq 'bootstrap' } | ForEach-Object { [string]$_.raw_log })
 
@@ -2151,7 +2176,7 @@ $providerArtifactsPath = Join-Path $configDir 'provider-artifacts.json'
 $graphDir = Join-Path $specDir 'graph'
 $impactDir = Join-Path $specDir 'impact'
 $providersDir = Join-Path $specDir 'providers'
-New-Item -ItemType Directory -Force -LiteralPath $graphDir, $impactDir, $providersDir | Out-Null
+Ensure-Directory -Path @($graphDir, $impactDir, $providersDir)
 
 $bootstrappedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 $sourceRevisionOutput = @(git -C $repoRoot rev-parse --verify 'HEAD^{commit}' 2>$null)
@@ -2226,7 +2251,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     }
   }
   $commands = $property.Value.commands
-  if ($Incremental -and $null -ne $commands -and $commands.PSObject.Properties.Name -contains 'incremental') {
+  if ($null -ne $commands -and $commands.PSObject.Properties.Name -contains 'incremental') {
     if (-not (Test-CommandShapeSupported -ProviderConfig $providerConfig -Provider $property.Name -Kind 'incremental' -RepoRoot $repoRoot)) {
       Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Provider command shape is unsupported for $($property.Name):incremental."
     }
@@ -2246,7 +2271,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $providerDir = Join-Path $providersDir $provider
   $rawDir = Join-Path $providerDir 'raw'
   $normalizedDir = Join-Path $providerDir 'normalized'
-  New-Item -ItemType Directory -Force -LiteralPath $rawDir, $normalizedDir | Out-Null
+  Ensure-Directory -Path @($rawDir, $normalizedDir)
   $commandResults = New-Object System.Collections.Generic.List[psobject]
   $status = 'skipped'
   $graphReady = $false
@@ -2756,7 +2781,8 @@ $providerReportRows = @($providerStatuses | ForEach-Object {
   "| $($_.provider) | $($_.graph_ready) | $($_.query_ready) | $token | $($_.status) | $($_.timing.duration_ms) | $reason |"
 })
 
-Write-TextFileAtomic -Path (Join-Path $graphDir 'bootstrap-report.md') -Value @"
+if (-not $preserveCanonicalFreshness) {
+  Write-TextFileAtomic -Path (Join-Path $graphDir 'bootstrap-report.md') -Value @"
 # Graph Bootstrap Report
 
 - workflow_mode: $workflowMode
@@ -2772,6 +2798,7 @@ Write-TextFileAtomic -Path (Join-Path $graphDir 'bootstrap-report.md') -Value @"
 | --- | --- | --- | --- | --- | ---: | --- |
 $($providerReportRows -join [Environment]::NewLine)
 "@
+}
 
 [pscustomobject]@{
   schema_version = 'graph-bootstrap-result.v1'

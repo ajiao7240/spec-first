@@ -114,6 +114,8 @@ When the user explicitly asks for patch preview, it may also write:
 
 `.spec-first/audits/` is a gitignored execution artifact directory. It is not source truth and can be deleted or regenerated.
 
+This workflow is an explicit exception to the ordinary runtime context exclusion in `docs/contracts/context-governance.md`: it may read `.spec-first/audits/skill-audit/**` for the current audit summary, scorecard, and drift evidence. Other workflows should treat `.spec-first/audits/**` as excluded runtime audit artifacts unless the user names a precise path or the task is explicitly about audit/runtime evidence.
+
 ## Workflow
 
 1. Confirm the target is local. Default to the current repository's `skills/`.

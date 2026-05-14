@@ -460,6 +460,8 @@ The operating rule is simple: Scripts prepare, LLM decides.
 - **What the LLM decides:** requirements framing, scope boundaries, tradeoffs, implementation judgment, review evidence, and next steps.
 - **What gets written:** repo-local docs, plans, task packs, durable review/debug summaries when explicitly routed, and managed runtime assets during init. Full-detail code-review JSON stays under the current OS temp root, for example `<os-temp>/spec-first/spec-code-review/<run-id>/`, as a temporary handoff unless a workflow writes a concise durable summary.
 - **What is generated:** `.claude/`, `.codex/`, and `.agents/skills/` runtime copies.
+- **What is excluded from ordinary context:** `.spec-first/audits/**` and generated mirrors such as `.claude/**`, `.codex/**`, and `.agents/skills/**`. Runtime/setup/audit workflows may read them only when explicitly needed or when the user names a precise path.
+- **What context handoffs prefer:** `artifact-summary.v1` and `context-bundle.v1` style summary-plus-path packets before full artifacts or raw tool output.
 - **What should be edited:** source assets under `skills/`, `agents/`, `templates/`, `src/cli/`, and docs. Rebuild runtime copies instead of hand-editing them.
 - **What spec-first does not do:** it is not a generic agent marketplace, not a single prompt pack, and not a standalone app that works without Claude Code or Codex.
 

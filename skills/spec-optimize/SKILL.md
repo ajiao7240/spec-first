@@ -61,6 +61,10 @@ If any item is missing, stop and help the user create a safe spec or route the w
 
 First-run specs should default to `execution.mode: serial`, `execution.max_concurrent: 1`, `stopping.max_iterations: 4`, `stopping.max_hours: 1`, `stopping.plateau_iterations: 3`, and `max_runner_up_merges_per_batch: 0`. Treat higher-throughput settings as opt-in. If a provided spec asks for `execution.max_concurrent > 4`, `stopping.max_iterations > 30`, `stopping.max_hours > 4`, or uncapped judge spend, surface those costs in the approval gate before running the baseline.
 
+## Runtime Context Exclusion
+
+Follow `docs/contracts/context-governance.md`: ordinary Optimize context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Optimization run state under `.spec-first/workflows/spec-optimize/**` is local scratch for this workflow only; pass compact strategy/result summaries to agents and avoid broad runtime/audit scans unless the metric explicitly targets runtime/setup/audit behavior.
+
 ## Dispatch And Backend Boundary
 
 Optimization dispatch is an optional capability selected by the approved optimization spec and runtime readiness, not a correctness requirement. Serial local/worktree execution remains the safe fallback when Codex delegation, subagent dispatch, or parallel execution is unavailable or unsafe.

@@ -54,6 +54,14 @@ When editing or reviewing this workflow prompt, or when running fresh-source eva
 
 Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. When graph readiness artifacts are degraded, stale, or unavailable, prefer live MCP evidence for concrete execution questions when the relevant MCP tool is loaded and responsive, then fall back to bounded direct repo reads. Treat successful MCP calls as session-local evidence only; they do not update compiled `query_ready` or expand the plan/task-pack scope. If GitNexus returns definitions-only evidence, use it only as local file/symbol pointers and continue with code-review-graph, Serena, or bounded direct repo reads before changing behavior. External tools may prioritize inspection, but they do not define scope authority. Scope expansion is judged against the plan/task pack and concrete diff, not a graph work-run.
 
+## Runtime Context Exclusion
+
+Follow `docs/contracts/context-governance.md`: ordinary Work context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Do not pass those paths to worker context, reviewer handoff, or broad repo search unless the current task explicitly targets setup/update/runtime drift/audit evidence or the user names a precise runtime path; when excluded, record the path or reason instead of silently scanning it.
+
+## Cache-Friendly Context Layout
+
+Keep workflow invariants, task-pack validation, source/runtime boundaries, and reference load conditions in the stable instruction prefix. Put current plan/task excerpts, changed files, diff summary, tool/test summaries, `artifact-summary.v1`, and `context-bundle.v1` from `docs/contracts/context-bundle.md` in the dynamic suffix. Work-to-review and work-to-compound handoffs should pass compact summaries plus paths first; open full artifacts only when `full_read_triggers` require exact evidence.
+
 ## Graph Freshness / Refresh Trigger Boundary
 
 Before treating compiled graph facts as primary evidence, check the shared freshness fields from `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, and `.spec-first/impact/bootstrap-impact-capabilities.json`: provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Work to rebuild providers.

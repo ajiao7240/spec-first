@@ -23,6 +23,10 @@ These principles govern every phase. They are repeated at decision points becaus
 
 Orient debugging from the reported symptom, reproduction path, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, recent diffs, and runtime logs. In a parent workspace containing multiple independent Git repos, use `workspace-graph-targets.v1` only as advisory read-only evidence: prefer bounded candidate repos with `primary` status, try GitNexus-first queries for the concrete symptom, and treat `degraded-fallback` or definitions-only GitNexus results as file/symbol pointers to verify with Serena, code-review-graph, tests, or direct reads. Before Phase 3 writes, the bug must have a single explicit `target_repo` or per-fix repo scope; do not let cwd, graph target facts, or live MCP results choose a sibling repo for edits.
 
+## Runtime Context Exclusion
+
+Follow `docs/contracts/context-governance.md`: ordinary Debug context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Runtime logs are task evidence only when they directly reproduce the symptom or the user points to them; do not scan audit snapshots or generated mirrors as source context unless debugging setup/update/runtime drift/audit behavior.
+
 ## Graph Freshness / Refresh Trigger Boundary
 
 Before using compiled graph facts as primary debugging evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, and `.spec-first/impact/bootstrap-impact-capabilities.json` for provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Debug to rebuild providers.

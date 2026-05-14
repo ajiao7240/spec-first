@@ -6,6 +6,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 GRAPH_BOOTSTRAP_SKILL="$REPO_ROOT/skills/spec-graph-bootstrap/SKILL.md"
 BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
+BOOTSTRAP_PS1="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1"
 WORKSPACE_TARGET_RESOLVER="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
@@ -678,20 +679,67 @@ commit_repo_changes "$DIRTY_REFRESH_REPO" "Commit normalized host files"
 dirty_gitnexus_status_before="$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/status.json")"
 dirty_aggregate_status_before="$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/provider-status.json")"
 dirty_graph_facts_before="$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/graph-facts.json")"
+dirty_bootstrap_report_before="$(cat "$DIRTY_REFRESH_REPO/.spec-first/graph/bootstrap-report.md")"
 dirty_normalized_before="$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
 before_dirty_refresh_log="$(cat "$COMMAND_LOG")"
 printf 'dirty refresh change\n' >> "$DIRTY_REFRESH_REPO/README.md"
-set +e
-dirty_refresh_output="$(cd "$DIRTY_REFRESH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
-dirty_refresh_status=$?
-set -e
-assert_eq "dirty refresh blocks before provider commands" "1" "$dirty_refresh_status"
-assert_eq "dirty refresh is provider-non-mutating" "blocked:dirty-refresh-non-canonical:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$dirty_refresh_output")"
-assert_eq "dirty refresh does not run provider commands" "$before_dirty_refresh_log" "$(cat "$COMMAND_LOG")"
-assert_eq "dirty refresh preserves GitNexus provider status" "$dirty_gitnexus_status_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/status.json")"
-assert_eq "dirty refresh preserves aggregate provider status" "$dirty_aggregate_status_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/provider-status.json")"
-assert_eq "dirty refresh preserves graph facts" "$dirty_graph_facts_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/graph-facts.json")"
-assert_eq "dirty refresh preserves normalized envelopes" "$dirty_normalized_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+for dirty_refresh_case in "default|" "incremental|--incremental" "full|--full" "force|--force"; do
+  dirty_refresh_label="${dirty_refresh_case%%|*}"
+  dirty_refresh_arg="${dirty_refresh_case#*|}"
+  set +e
+  if [ -n "$dirty_refresh_arg" ]; then
+    dirty_refresh_output="$(cd "$DIRTY_REFRESH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" "$dirty_refresh_arg")"
+  else
+    dirty_refresh_output="$(cd "$DIRTY_REFRESH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+  fi
+  dirty_refresh_status=$?
+  set -e
+  assert_eq "dirty $dirty_refresh_label refresh blocks before provider commands" "1" "$dirty_refresh_status"
+  assert_eq "dirty $dirty_refresh_label refresh is provider-non-mutating" "blocked:dirty-refresh-non-canonical:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$dirty_refresh_output")"
+  assert_eq "dirty $dirty_refresh_label refresh does not run provider commands" "$before_dirty_refresh_log" "$(cat "$COMMAND_LOG")"
+  assert_eq "dirty $dirty_refresh_label refresh preserves GitNexus provider status" "$dirty_gitnexus_status_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/status.json")"
+  assert_eq "dirty $dirty_refresh_label refresh preserves aggregate provider status" "$dirty_aggregate_status_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/provider-status.json")"
+  assert_eq "dirty $dirty_refresh_label refresh preserves graph facts" "$dirty_graph_facts_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/graph-facts.json")"
+  assert_eq "dirty $dirty_refresh_label refresh preserves bootstrap report" "$dirty_bootstrap_report_before" "$(cat "$DIRTY_REFRESH_REPO/.spec-first/graph/bootstrap-report.md")"
+  assert_eq "dirty $dirty_refresh_label refresh preserves normalized envelopes" "$dirty_normalized_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+done
+
+if command -v pwsh >/dev/null 2>&1; then
+  DIRTY_REFRESH_PS_REPO="$TMP_DIR/dirty-refresh-ps-repo"
+  DIRTY_REFRESH_PS_LEDGER="$TMP_DIR/dirty-refresh-ps-home/.codex/spec-first/host-setup.json"
+  make_repo "$DIRTY_REFRESH_PS_REPO"
+  write_fixture_config "$DIRTY_REFRESH_PS_REPO" "$DIRTY_REFRESH_PS_LEDGER" true
+  (cd "$DIRTY_REFRESH_PS_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" >/dev/null)
+  commit_repo_changes "$DIRTY_REFRESH_PS_REPO" "Commit normalized host files"
+  (cd "$DIRTY_REFRESH_PS_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" >/dev/null)
+  dirty_ps_gitnexus_status_before="$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/providers/gitnexus/status.json")"
+  dirty_ps_aggregate_status_before="$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/graph/provider-status.json")"
+  dirty_ps_graph_facts_before="$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/graph/graph-facts.json")"
+  dirty_ps_bootstrap_report_before="$(cat "$DIRTY_REFRESH_PS_REPO/.spec-first/graph/bootstrap-report.md")"
+  dirty_ps_normalized_before="$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+  before_dirty_ps_refresh_log="$(cat "$COMMAND_LOG")"
+  printf 'dirty PowerShell refresh change\n' >> "$DIRTY_REFRESH_PS_REPO/README.md"
+  for dirty_ps_refresh_case in "default|" "incremental|-Incremental" "full|-Full" "force|-Force"; do
+    dirty_ps_refresh_label="${dirty_ps_refresh_case%%|*}"
+    dirty_ps_refresh_arg="${dirty_ps_refresh_case#*|}"
+    set +e
+    if [ -n "$dirty_ps_refresh_arg" ]; then
+      dirty_ps_refresh_output="$(cd "$DIRTY_REFRESH_PS_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" "$dirty_ps_refresh_arg")"
+    else
+      dirty_ps_refresh_output="$(cd "$DIRTY_REFRESH_PS_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
+    fi
+    dirty_ps_refresh_status=$?
+    set -e
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh blocks before provider commands" "1" "$dirty_ps_refresh_status"
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh is provider-non-mutating" "blocked:dirty-refresh-non-canonical:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$dirty_ps_refresh_output")"
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh does not run provider commands" "$before_dirty_ps_refresh_log" "$(cat "$COMMAND_LOG")"
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves GitNexus provider status" "$dirty_ps_gitnexus_status_before" "$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/providers/gitnexus/status.json")"
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves aggregate provider status" "$dirty_ps_aggregate_status_before" "$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/graph/provider-status.json")"
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves graph facts" "$dirty_ps_graph_facts_before" "$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/graph/graph-facts.json")"
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves bootstrap report" "$dirty_ps_bootstrap_report_before" "$(cat "$DIRTY_REFRESH_PS_REPO/.spec-first/graph/bootstrap-report.md")"
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves normalized envelopes" "$dirty_ps_normalized_before" "$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+  done
+fi
 
 INCREMENTAL_REPO="$TMP_DIR/incremental-repo"
 INCREMENTAL_LEDGER="$TMP_DIR/incremental-home/.codex/spec-first/host-setup.json"
@@ -719,6 +767,21 @@ jq 'del(.providers.gitnexus.commands.incremental)' "$MISSING_INCREMENTAL_REPO/.s
 mv "$MISSING_INCREMENTAL_REPO/.spec-first/config/graph-providers.json.tmp" "$MISSING_INCREMENTAL_REPO/.spec-first/config/graph-providers.json"
 missing_incremental_output="$(cd "$MISSING_INCREMENTAL_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
 assert_eq "missing incremental command degrades to full" "full:cold-run:incremental-command-unavailable" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.reason_code)"' <<<"$missing_incremental_output")"
+
+CRG_BAD_INCREMENTAL_DEFAULT_REPO="$TMP_DIR/crg-bad-incremental-default-repo"
+CRG_BAD_INCREMENTAL_DEFAULT_LEDGER="$TMP_DIR/crg-bad-incremental-default-home/.codex/spec-first/host-setup.json"
+make_repo "$CRG_BAD_INCREMENTAL_DEFAULT_REPO"
+write_fixture_config "$CRG_BAD_INCREMENTAL_DEFAULT_REPO" "$CRG_BAD_INCREMENTAL_DEFAULT_LEDGER" true
+jq '.providers["code-review-graph"].commands.incremental[4] = "0123456789012345678901234567890123456789"' "$CRG_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json" > "$CRG_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$CRG_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json"
+before_crg_bad_incremental_default_log="$(cat "$COMMAND_LOG")"
+set +e
+crg_bad_incremental_default_output="$(cd "$CRG_BAD_INCREMENTAL_DEFAULT_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+crg_bad_incremental_default_status=$?
+set -e
+assert_eq "code-review-graph malformed incremental projection fails closed on default full refresh" "1" "$crg_bad_incremental_default_status"
+assert_eq "code-review-graph malformed incremental projection default reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_bad_incremental_default_output")"
+assert_eq "code-review-graph malformed incremental projection default is not executed" "$before_crg_bad_incremental_default_log" "$(cat "$COMMAND_LOG")"
 
 CRG_BAD_INCREMENTAL_REPO="$TMP_DIR/crg-bad-incremental-repo"
 CRG_BAD_INCREMENTAL_LEDGER="$TMP_DIR/crg-bad-incremental-home/.codex/spec-first/host-setup.json"
@@ -788,6 +851,119 @@ assert_eq "incremental and full failure marks provider clean-full-required" "fai
 assert_eq "incremental and full failure preserves aggregate provider status" "$both_failed_provider_status_before" "$(jq -S -c . "$INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/provider-status.json")"
 assert_eq "incremental and full failure preserves graph facts" "$both_failed_graph_facts_before" "$(jq -S -c . "$INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/graph-facts.json")"
 assert_eq "incremental and full failure preserves normalized envelopes" "$both_failed_normalized_before" "$(jq -S -c . "$INCREMENTAL_BOTH_FAILED_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+
+if command -v pwsh >/dev/null 2>&1; then
+  PS_INCREMENTAL_REPO="$TMP_DIR/ps-incremental-repo"
+  PS_INCREMENTAL_LEDGER="$TMP_DIR/ps-incremental-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_INCREMENTAL_REPO"
+  write_fixture_config "$PS_INCREMENTAL_REPO" "$PS_INCREMENTAL_LEDGER" true
+  (cd "$PS_INCREMENTAL_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" >/dev/null)
+  ps_incremental_base="$(git -C "$PS_INCREMENTAL_REPO" rev-parse HEAD)"
+  commit_repo_changes "$PS_INCREMENTAL_REPO" "Commit normalized host files"
+  ps_incremental_head="$(git -C "$PS_INCREMENTAL_REPO" rev-parse HEAD)"
+  ps_incremental_output="$(cd "$PS_INCREMENTAL_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" -Incremental)"
+  assert_eq "PowerShell incremental bootstrap remains primary" "primary" "$(jq -r '.workflow_mode' <<<"$ps_incremental_output")"
+  assert_eq "PowerShell GitNexus incremental status fields are recorded" "incremental:incremental-update:false:$ps_incremental_head:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.fallback_from_incremental):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' <<<"$ps_incremental_output")"
+  assert_eq "PowerShell code-review-graph incremental status fields are recorded" "incremental:incremental-update:false:$ps_incremental_head:false" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.refresh_mode):\(.readiness_source):\(.fallback_from_incremental):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' <<<"$ps_incremental_output")"
+  assert_eq "PowerShell code-review-graph incremental uses update base" "uvx $CODE_REVIEW_GRAPH_PACKAGE update --base $ps_incremental_base:incremental:primary" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .command_results[] | select(.kind=="bootstrap") | "\(.command):\(.refresh_mode):\(.attempt_role)"' <<<"$ps_incremental_output")"
+
+  PS_MISSING_INCREMENTAL_REPO="$TMP_DIR/ps-missing-incremental-repo"
+  PS_MISSING_INCREMENTAL_LEDGER="$TMP_DIR/ps-missing-incremental-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_MISSING_INCREMENTAL_REPO"
+  write_fixture_config "$PS_MISSING_INCREMENTAL_REPO" "$PS_MISSING_INCREMENTAL_LEDGER" true
+  (cd "$PS_MISSING_INCREMENTAL_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" >/dev/null)
+  commit_repo_changes "$PS_MISSING_INCREMENTAL_REPO" "Commit normalized host files"
+  jq 'del(.providers.gitnexus.commands.incremental)' "$PS_MISSING_INCREMENTAL_REPO/.spec-first/config/graph-providers.json" > "$PS_MISSING_INCREMENTAL_REPO/.spec-first/config/graph-providers.json.tmp"
+  mv "$PS_MISSING_INCREMENTAL_REPO/.spec-first/config/graph-providers.json.tmp" "$PS_MISSING_INCREMENTAL_REPO/.spec-first/config/graph-providers.json"
+  ps_missing_incremental_output="$(cd "$PS_MISSING_INCREMENTAL_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" -Incremental)"
+  assert_eq "PowerShell missing incremental command degrades to full" "full:cold-run:incremental-command-unavailable" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.reason_code)"' <<<"$ps_missing_incremental_output")"
+
+  PS_BAD_INCREMENTAL_DEFAULT_REPO="$TMP_DIR/ps-bad-incremental-default-repo"
+  PS_BAD_INCREMENTAL_DEFAULT_LEDGER="$TMP_DIR/ps-bad-incremental-default-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_BAD_INCREMENTAL_DEFAULT_REPO"
+  write_fixture_config "$PS_BAD_INCREMENTAL_DEFAULT_REPO" "$PS_BAD_INCREMENTAL_DEFAULT_LEDGER" true
+  jq '.providers["code-review-graph"].commands.incremental[4] = "0123456789012345678901234567890123456789"' "$PS_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json" > "$PS_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json.tmp"
+  mv "$PS_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json.tmp" "$PS_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json"
+  before_ps_bad_incremental_default_log="$(cat "$COMMAND_LOG")"
+  set +e
+  ps_bad_incremental_default_output="$(cd "$PS_BAD_INCREMENTAL_DEFAULT_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
+  ps_bad_incremental_default_status=$?
+  set -e
+  assert_eq "PowerShell malformed incremental projection fails closed on default full refresh" "1" "$ps_bad_incremental_default_status"
+  assert_eq "PowerShell malformed incremental projection default reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$ps_bad_incremental_default_output")"
+  assert_eq "PowerShell malformed incremental projection default is not executed" "$before_ps_bad_incremental_default_log" "$(cat "$COMMAND_LOG")"
+
+  PS_INVALID_BASE_REPO="$TMP_DIR/ps-invalid-base-repo"
+  PS_INVALID_BASE_LEDGER="$TMP_DIR/ps-invalid-base-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_INVALID_BASE_REPO"
+  write_fixture_config "$PS_INVALID_BASE_REPO" "$PS_INVALID_BASE_LEDGER" true
+  (cd "$PS_INVALID_BASE_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" >/dev/null)
+  commit_repo_changes "$PS_INVALID_BASE_REPO" "Commit normalized host files"
+  jq '.last_indexed_commit = "--force"' "$PS_INVALID_BASE_REPO/.spec-first/providers/gitnexus/status.json" > "$PS_INVALID_BASE_REPO/.spec-first/providers/gitnexus/status.json.tmp"
+  mv "$PS_INVALID_BASE_REPO/.spec-first/providers/gitnexus/status.json.tmp" "$PS_INVALID_BASE_REPO/.spec-first/providers/gitnexus/status.json"
+  ps_invalid_base_output="$(cd "$PS_INVALID_BASE_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" -Incremental)"
+  assert_eq "PowerShell invalid incremental base falls back to full" "full:cold-run:incremental-base-ref-invalid-format" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.reason_code)"' <<<"$ps_invalid_base_output")"
+
+  PS_UNTRUSTED_BASE_REPO="$TMP_DIR/ps-untrusted-base-repo"
+  PS_UNTRUSTED_BASE_LEDGER="$TMP_DIR/ps-untrusted-base-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_UNTRUSTED_BASE_REPO"
+  write_fixture_config "$PS_UNTRUSTED_BASE_REPO" "$PS_UNTRUSTED_BASE_LEDGER" true
+  (cd "$PS_UNTRUSTED_BASE_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" >/dev/null)
+  commit_repo_changes "$PS_UNTRUSTED_BASE_REPO" "Commit normalized host files"
+  jq '.query_ready = false' "$PS_UNTRUSTED_BASE_REPO/.spec-first/providers/gitnexus/status.json" > "$PS_UNTRUSTED_BASE_REPO/.spec-first/providers/gitnexus/status.json.tmp"
+  mv "$PS_UNTRUSTED_BASE_REPO/.spec-first/providers/gitnexus/status.json.tmp" "$PS_UNTRUSTED_BASE_REPO/.spec-first/providers/gitnexus/status.json"
+  ps_untrusted_base_output="$(cd "$PS_UNTRUSTED_BASE_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" -Incremental)"
+  assert_eq "PowerShell untrusted incremental base falls back to full" "full:cold-run:incremental-base-status-untrusted" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.reason_code)"' <<<"$ps_untrusted_base_output")"
+
+  PS_INCREMENTAL_FALLBACK_REPO="$TMP_DIR/ps-incremental-fallback-repo"
+  PS_INCREMENTAL_FALLBACK_LEDGER="$TMP_DIR/ps-incremental-fallback-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_INCREMENTAL_FALLBACK_REPO"
+  write_fixture_config "$PS_INCREMENTAL_FALLBACK_REPO" "$PS_INCREMENTAL_FALLBACK_LEDGER" true
+  (cd "$PS_INCREMENTAL_FALLBACK_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" >/dev/null)
+  commit_repo_changes "$PS_INCREMENTAL_FALLBACK_REPO" "Commit normalized host files"
+  ps_incremental_fallback_head="$(git -C "$PS_INCREMENTAL_FALLBACK_REPO" rev-parse HEAD)"
+  ps_incremental_fallback_output="$(cd "$PS_INCREMENTAL_FALLBACK_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_INCREMENTAL=1 pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" -Incremental)"
+  assert_eq "PowerShell incremental failure falls back to full successfully" "incremental-fallback-full:incremental-fallback-full:true:incremental-refresh-failed-fallback-full:$ps_incremental_fallback_head:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.fallback_from_incremental):\(.reason_code):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' <<<"$ps_incremental_fallback_output")"
+
+  PS_INCREMENTAL_BOTH_FAILED_REPO="$TMP_DIR/ps-incremental-both-failed-repo"
+  PS_INCREMENTAL_BOTH_FAILED_LEDGER="$TMP_DIR/ps-incremental-both-failed-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_INCREMENTAL_BOTH_FAILED_REPO"
+  write_fixture_config "$PS_INCREMENTAL_BOTH_FAILED_REPO" "$PS_INCREMENTAL_BOTH_FAILED_LEDGER" true
+  (cd "$PS_INCREMENTAL_BOTH_FAILED_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" >/dev/null)
+  commit_repo_changes "$PS_INCREMENTAL_BOTH_FAILED_REPO" "Commit normalized host files"
+  ps_both_failed_graph_facts_before="$(jq -S -c . "$PS_INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/graph-facts.json")"
+  ps_both_failed_provider_status_before="$(jq -S -c . "$PS_INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/provider-status.json")"
+  ps_both_failed_bootstrap_report_before="$(cat "$PS_INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/bootstrap-report.md")"
+  set +e
+  ps_incremental_both_failed_output="$(cd "$PS_INCREMENTAL_BOTH_FAILED_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_ANALYZE_SIGSEGV=1 pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" -Incremental)"
+  ps_incremental_both_failed_status=$?
+  set -e
+  assert_eq "PowerShell incremental and full failure remains degraded via fallback capabilities" "0" "$ps_incremental_both_failed_status"
+  assert_eq "PowerShell incremental and full failure returns top-level reason" "degraded-fallback:incremental-and-full-failed" "$(jq -r '.workflow_mode + ":" + .reason_code' <<<"$ps_incremental_both_failed_output")"
+  assert_eq "PowerShell incremental and full failure preserves aggregate provider status" "$ps_both_failed_provider_status_before" "$(jq -S -c . "$PS_INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/provider-status.json")"
+  assert_eq "PowerShell incremental and full failure preserves graph facts" "$ps_both_failed_graph_facts_before" "$(jq -S -c . "$PS_INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/graph-facts.json")"
+  assert_eq "PowerShell incremental and full failure preserves bootstrap report" "$ps_both_failed_bootstrap_report_before" "$(cat "$PS_INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/bootstrap-report.md")"
+
+  PS_ALL_REPOS_INCREMENTAL_WORKSPACE="$TMP_DIR/ps-all-repos-incremental-workspace"
+  PS_ALL_REPOS_INCREMENTAL_LEDGER="$TMP_DIR/ps-all-repos-incremental-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_ALL_REPOS_INCREMENTAL_WORKSPACE/project-a"
+  write_fixture_config "$PS_ALL_REPOS_INCREMENTAL_WORKSPACE/project-a" "$PS_ALL_REPOS_INCREMENTAL_LEDGER" true
+  before_ps_all_repos_incremental_log="$(cat "$COMMAND_LOG")"
+  set +e
+  ps_all_repos_incremental_output="$(cd "$PS_ALL_REPOS_INCREMENTAL_WORKSPACE" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" -AllRepos -Incremental)"
+  ps_all_repos_incremental_status=$?
+  set -e
+  assert_eq "PowerShell all-repos incremental is unsupported" "1" "$ps_all_repos_incremental_status"
+  assert_eq "PowerShell all-repos incremental blocks before providers" "workspace-graph-bootstrap-summary.v1:blocked:incremental-all-repos-unsupported:true" "$(jq -r '.schema_version + ":" + .workflow_mode + ":" + .reason_code + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$ps_all_repos_incremental_output")"
+  assert_eq "PowerShell all-repos incremental does not run provider commands" "$before_ps_all_repos_incremental_log" "$(cat "$COMMAND_LOG")"
+  set +e
+  ps_all_repos_conflict_output="$(cd "$PS_ALL_REPOS_INCREMENTAL_WORKSPACE" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" -AllRepos -Incremental -Full)"
+  ps_all_repos_conflict_status=$?
+  set -e
+  assert_eq "PowerShell all-repos conflicting refresh flags fail closed" "1" "$ps_all_repos_conflict_status"
+  assert_eq "PowerShell all-repos conflicting refresh flags reason" "conflicting-refresh-flags" "$(jq -r '.reason_code' <<<"$ps_all_repos_conflict_output")"
+  assert_eq "PowerShell all-repos conflicting refresh flags do not run provider commands" "$before_ps_all_repos_incremental_log" "$(cat "$COMMAND_LOG")"
+fi
 
 MULTI_PROBE_REPO="$TMP_DIR/multi-probe-repo"
 MULTI_PROBE_LEDGER="$TMP_DIR/multi-probe-home/.codex/spec-first/host-setup.json"
@@ -900,6 +1076,41 @@ set -e
 assert_eq "metachar command fails closed" "1" "$metachar_status"
 assert_eq "metachar command reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$metachar_output")"
 assert_eq "metachar command is not shell-interpreted" "$before_metachar_log" "$(cat "$COMMAND_LOG")"
+
+CONTROL_CHAR_REPO="$TMP_DIR/control-char-repo"
+CONTROL_CHAR_LEDGER="$TMP_DIR/control-char-home/.codex/spec-first/host-setup.json"
+make_repo "$CONTROL_CHAR_REPO"
+write_fixture_config "$CONTROL_CHAR_REPO" "$CONTROL_CHAR_LEDGER" true
+jq --arg bad $'Trade\n--repo\nevil' '.providers.gitnexus.commands.query_probe[4] = $bad' "$CONTROL_CHAR_REPO/.spec-first/config/graph-providers.json" > "$CONTROL_CHAR_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$CONTROL_CHAR_REPO/.spec-first/config/graph-providers.json.tmp" "$CONTROL_CHAR_REPO/.spec-first/config/graph-providers.json"
+before_control_char_log="$(cat "$COMMAND_LOG")"
+set +e
+control_char_output="$(cd "$CONTROL_CHAR_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+control_char_status=$?
+set -e
+assert_eq "control char command arg fails closed" "1" "$control_char_status"
+assert_eq "control char command arg reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$control_char_output")"
+assert_eq "control char command arg is not split into provider argv" "$before_control_char_log" "$(cat "$COMMAND_LOG")"
+
+CONTROL_TOKEN_REPO="$TMP_DIR/control-token-repo"
+CONTROL_TOKEN_LEDGER="$TMP_DIR/control-token-home/.codex/spec-first/host-setup.json"
+make_repo "$CONTROL_TOKEN_REPO"
+write_fixture_config "$CONTROL_TOKEN_REPO" "$CONTROL_TOKEN_LEDGER" true
+jq --arg bad $'Trade\n--repo\nevil' '
+  .providers.gitnexus.query_probe_policy.token = $bad
+  | .providers.gitnexus.query_probe_policy.candidates = [
+      {token:$bad, selected_from:"src/Trade.ts", reason_code:"workflow_named"}
+    ]
+' "$CONTROL_TOKEN_REPO/.spec-first/config/graph-providers.json" > "$CONTROL_TOKEN_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$CONTROL_TOKEN_REPO/.spec-first/config/graph-providers.json.tmp" "$CONTROL_TOKEN_REPO/.spec-first/config/graph-providers.json"
+before_control_token_log="$(cat "$COMMAND_LOG")"
+set +e
+control_token_output="$(cd "$CONTROL_TOKEN_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+control_token_status=$?
+set -e
+assert_eq "control char query token fails closed" "1" "$control_token_status"
+assert_eq "control char query token reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$control_token_output")"
+assert_eq "control char query token is not executed" "$before_control_token_log" "$(cat "$COMMAND_LOG")"
 
 CRG_LATEST_REPO="$TMP_DIR/crg-latest-repo"
 CRG_LATEST_LEDGER="$TMP_DIR/crg-latest-home/.codex/spec-first/host-setup.json"

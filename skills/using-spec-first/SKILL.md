@@ -39,6 +39,8 @@ The managed bootstrap blocks in `CLAUDE.md` and `AGENTS.md` are intentionally th
 
 Runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are generated mirrors. Repair stale or missing runtime guidance with `spec-first init --claude` or `spec-first init --codex`; do not hand-edit generated mirrors as the source of truth.
 
+Ordinary context routing follows `docs/contracts/context-governance.md`: `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) are excluded from default workflow context. Route to setup/update/runtime-drift/audit workflows, or require a precise user-named path, before treating those directories as evidence.
+
 ## Scope Guards
 
 ### If You Are Already In A Workflow

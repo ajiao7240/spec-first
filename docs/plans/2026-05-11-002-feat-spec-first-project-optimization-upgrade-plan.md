@@ -4,6 +4,7 @@ type: feat
 status: active
 date: 2026-05-11
 spec_id: 2026-05-11-002-spec-first-project-optimization-upgrade
+origin: docs/plans/2026-05-11-001-feat-trellis-inspired-workflow-quality-plan.md
 origin_plan: docs/plans/2026-05-11-001-feat-trellis-inspired-workflow-quality-plan.md
 origin_spec_id: 2026-05-11-001-external-workflow-quality
 ---
@@ -61,7 +62,7 @@ spec-first 已经具备双宿主 runtime generation、public workflow skills、t
 - 不强制目标项目采用 `CONTEXT.md`、`CONTEXT-MAP.md`、`docs/adr/`、issue labels 或固定 tracker lifecycle。
 - 不让 scripts 判断架构优先级、业务范围、review 结论、skill 语义质量或最终 workflow recommendation。
 - 不新增 agent profile，除非现有 agent 无法干净承接明确职责。
-- 不在本计划中实现跨 repo 官网同步 gate、长期 benchmark runner 或新 public workflow。
+- 不在本计划中新增跨 repo 官网同步 gate、长期 benchmark runner 或新 public workflow；已有 `test:release:website` / website sync release gate 必须作为 preserved release surface 纳入 U9 inventory，不能被移除、重复实现或降级。
 
 ---
 
@@ -182,6 +183,7 @@ spec-first 已经具备双宿主 runtime generation、public workflow skills、t
 
 - 全 public workflow summary 覆盖。
 - 高级 durable run artifact producer 扩展，包括 progress tracking、reporting UI、checkpoint replay index 和跨 workflow replay；Phase 1 的最小 closeout producer 不属于暂缓项。
+- Run evidence retention / prune / delete lifecycle，包括默认保留天数、external raw log TTL enforcement、owner/expiry 延长策略和 deterministic prune mode；Phase 1 只记录最小 retention boundary metadata 与 raw-log retention impact，不实现删除生命周期。
 - 复杂 `next_action_candidates` schema、排序或自动路由。
 - release blocking guard。
 - rejected/out-of-scope replay 扩展。
@@ -436,9 +438,11 @@ flowchart LR
 - spec id mismatch 阻断执行。
 - path traversal 或 unsafe generated runtime path 被拒绝。
 - `spec-work` prose contract 要求回查 source plan 聚焦片段。
+- Fresh-source eval 使用 synthetic task pack + source plan 证明执行者会读取 `source_unit`、`requirement_refs`、acceptance、scope boundaries、non-goals 和 deferred notes；如果未执行 eval，closeout 必须记录可接受的 not-run reason。
 
 **验证：**
 - `npm run test:unit` 或 targeted 运行 task-pack/spec-work tests。
+- Fresh-source eval 结果或 not-run reason。
 
 ---
 
@@ -454,16 +458,21 @@ flowchart LR
 - 修改: `skills/spec-work/SKILL.md`
 - 修改: `skills/spec-work-beta/SKILL.md`
 - 修改: `docs/contracts/workflows/spec-work-run-artifact.schema.json`
+- 修改: `scripts/generate-runtime-capability-catalog.js`
+- 修改: `docs/catalog/runtime-capabilities.md`
 - 新增: `src/cli/helpers/spec-work-run-artifact.js`
 - 修改: `src/cli/commands/internal.js`
 - 测试: `tests/unit/spec-work-run-artifact-contract.test.js`
 - 测试: `tests/unit/spec-work-run-artifact-producer.test.js`
+- 测试: `tests/unit/runtime-capability-catalog.test.js`
+- 测试: `tests/unit/runtime-contract-boundary.test.js`
 - 测试: `tests/unit/spec-work-contracts.test.js`
 - 测试: `tests/unit/spec-work-beta-contracts.test.js`
 
 **做法：**
 - 与现有 run artifact schema 对齐，不新增第二套 evidence format。
 - Phase 1 必须交付最小 source-owned closeout producer，写入 `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json`，只在收尾时接收 workflow 提供的 evidence payload、做 schema/path/safety validation，并原子写入 run-scoped artifact；它不是 progress tracker。
+- Phase 1 还必须把 runtime capability catalog 的 planned-contract 状态迁移为真实 producer 状态：`docs/contracts/workflows/spec-work-run-artifact.schema.json` 从 `planned/unimplemented` 改为 `implemented/src/cli/helpers/spec-work-run-artifact.js` 等价口径；消费者仍以实际 producer 写出的 `run.json` 为 runtime truth，不能只因 schema 存在就信任 artifact。
 - 定义 durable evidence 触发条件：validated task-pack、长任务、compaction/resume、degraded evidence、deferred follow-up、not-run validation、handoff to review/compound/release。
 - 触发条件必须可判定：
 
@@ -478,7 +487,8 @@ flowchart LR
 
 - Evidence 记录 changed surfaces、validation commands、exit status/summary、repo-relative artifact/log ref、not-run reason、degraded provider status、deferred follow-up、已读 artifact、关键决策和 next action。
 - Evidence safety：默认不嵌入 raw secrets、完整 raw logs、本机绝对 temp path 或未分类 raw provider excerpts；需要保留 raw log 时只记录外部位置、redaction status 和 reason_code。
-- Retention policy：`run.json` 默认保留 180 天或直到关联计划/PR/release 明确关闭；external raw logs 默认只记录引用且 TTL 不超过 7 天。任何延长保留都必须记录 owner、expiry、reason_code 和 redaction status；producer 需要提供 deterministic prune mode，并在无法删除时写入 not-run reason。
+- Phase 1 retention boundary：`run.json` 只记录最小 retention boundary metadata，例如 artifact category、raw-log retention impact、redaction status 和是否存在 external raw log ref；不实现默认保留天数、TTL enforcement、owner/expiry 延长策略或 deterministic prune mode。
+- Phase 3 follow-up：retention / prune lifecycle 作为独立 U3b 扩展，届时再定义默认保留天数、external raw log TTL、owner/expiry、删除失败 reason_code 和 prune validation；未补 U3b 前，不得声称 spec-work run evidence 具备自动清理能力。
 - 明确 run evidence 不存 current task progress、approval state、next active task 或 source scope。
 
 **测试场景：**
@@ -487,6 +497,8 @@ flowchart LR
 - Not-run validation 必须有原因。
 - Producer 拒绝写入 repo source、generated runtime mirrors、`.spec-first/graph/`、未归属 target repo 的路径或本机绝对 temp path 字段。
 - Producer 对 command/log/provider excerpt 做 redaction/cap/classification，不把 raw untrusted provider output 原样写入 durable artifact。
+- Runtime capability catalog 从 planned/unimplemented 迁移到 implemented/producer-backed，且 runtime-boundary tests 不再断言该 schema 永远不能被 CLI runtime 采用。
+- Retention/prune lifecycle 在 Phase 1 tests 中只覆盖 metadata 和 raw-log retention impact，不要求删除、TTL enforcement 或 prune command。
 - Prose contract 拒绝 `.current-task` 或 task status store 语言。
 
 **验证：**
@@ -522,11 +534,22 @@ flowchart LR
 - Candidate examples 覆盖 missing graph readiness、workspace-advisory-only、absent tests、missing package scripts、stale validation、child repo ambiguity。
 - 保持 confirmed/observed/imported/suggested/conflict trust level 语义。
 
+**Mode matrix：**
+
+| 模式 | `next-action-candidates.json` 行为 | 失效 / 降级规则 |
+|------|------------------------------------|----------------|
+| baseline / default child repo run | 在目标 child repo 的 `.spec-first/standards/` 下写入或覆盖；候选只来自本轮 deterministic facts。 | 当 `project-shape.json`、`standards-plan.json`、`glue-map.json`、validator result 或 public entrypoint inventory hash 变化时标记 stale 并重建。 |
+| `--quick` | 只读并校验现有 candidate artifact；默认不重新合成候选，也不把缺失 artifact 视为 standards baseline 失败。 | 缺失时输出 `next-action-candidates-missing` advisory；未知 `schema_version` fail closed。 |
+| `--refresh` | 仅对指定 `--domain` / `--module` / `--repo <child>` scope 重建对应 target repo 的 candidate artifact。 | 不删除其他 scope artifact；scope mismatch 输出 blocking reason_code。 |
+| parent workspace advisory run | 只写父级 `.spec-first/standards/next-action-candidates.json` 的 advisory-only 候选。 | child repo 目标不明确时 `target_entrypoint: null`，由 LLM 建议先收窄 repo；不得写 child-local policy。 |
+| child-local run | 写 child-local artifact，并把 `target_repo_scope` 固定为该 child repo。 | 如果 parent facts 与 child facts 冲突，child-local confirmed facts 优先，parent artifact 只作为 advisory context。 |
+
 **测试场景：**
 - Child-local baseline 输出 `.spec-first/standards/next-action-candidates.json`。
 - Artifact validator 校验字段形状、evidence path 可读性、scope 与 target repo 边界。
 - Unknown `schema_version` fails closed with reason_code；已知版本新增字段不破坏 consumer。
 - Workspace advisory run 建议收窄 repo，但不写 child policy。
+- `--quick` 只读校验，不因缺少 next-action candidates 阻断 standards baseline；`--refresh` 只重建指定 scope，不删除其他 scope artifact。
 - Malformed candidate validation fails。
 - `target_entrypoint` 在 facts 不足时保持 null，不由 script 替 LLM 做最终 workflow recommendation。
 - Consumers 按 confirmed/advisory/degraded 消费。
@@ -706,11 +729,13 @@ flowchart LR
 - 修改: `scripts/generate-runtime-capability-catalog.js`
 - 修改: `scripts/release-publish.cjs`
 - 修改: `scripts/run-test-suite.cjs`
+- 修改: `scripts/check-website-sync.cjs`
 - 修改: `docs/catalog/runtime-capabilities.md`
 - 修改: `src/cli/plugin.js`
 - 修改: `src/cli/contracts/dual-host-governance/skills-governance.json`
 - 测试: `tests/unit/runtime-capability-catalog.test.js`
 - 测试: `tests/unit/release-publish.test.js`
+- 测试: `tests/unit/website-sync-contracts.test.js`
 - 测试: `tests/unit/dual-host-governance-contracts.test.js`
 - 测试: `tests/unit/runtime-contract-boundary.test.js`
 - 测试: `tests/unit/changelog-format.test.js`
@@ -718,6 +743,7 @@ flowchart LR
 
 **做法：**
 - 先识别已有 checks，避免重复实现。
+- 把已有 `test:release:website` / website sync gate 作为 preserved external website consumer 纳入 source inventory；U9 不新增第二条官网同步 gate，也不得把现有 gate 从 `release-publish.cjs` 或 package scripts 中移除。
 - Guard 只在 deterministic failure 可提供 reason_code 和 actionable message 时进入 release/test runner。
 - 输出 guard result summary：guard id、checked source inventory、result、reason_code、artifact path、blocking/advisory classification。
 - 区分 user-visible docs drift、runtime catalog drift、package delivery drift。
@@ -728,6 +754,7 @@ flowchart LR
 - 新增 public skill 但缺 governance metadata 时失败。
 - Stale runtime capability catalog 给 regeneration command。
 - Docs-only no-impact 能解释为什么 README 不需要改。
+- Existing website sync release gate 保持可见：`package.json` 的 `test:release:website`、`scripts/release-publish.cjs` 的调用顺序和 `docs/contracts/website-sync-contract.md` consumer boundary 不回退。
 
 **验证：**
 - `npm run test:release:governance`
@@ -850,18 +877,18 @@ flowchart LR
 - 为 public workflows 增加 context intake order：summary -> deterministic inventory -> current task/phase refs -> source-of-truth focused sections -> deeper references。
 - 在 `spec-write-tasks` 中要求 `context_refs` 标注 section/file/test/contract 粒度，避免默认整份 plan 或全目录。
 - 在 `spec-work` 中要求大型计划先按 phase/wave 消费 task pack；直接执行整份大计划必须记录为什么不需要 task pack。
-- 在 `spec-doc-review` / `spec-code-review` 中加入 scale-aware reviewer dispatch guidance：小改动最小 reviewer set，高风险 contract/workflow/release 变化扩大 reviewer set。
-- 在 `spec-sessions` / `spec-compound` / `spec-compound-refresh` 中强调 durable checkpoint 和 distilled replay refs，避免重新读取完整历史。
-- 在 `spec-skill-audit` 中加入 progressive disclosure 检查：主入口过长、重复 examples、provider-specific 细节未下沉时标记为优化项。
+- 后续批次再在 `spec-doc-review` / `spec-code-review` 中加入 scale-aware reviewer dispatch guidance：小改动最小 reviewer set，高风险 contract/workflow/release 变化扩大 reviewer set。
+- 后续批次再在 `spec-sessions` / `spec-compound` / `spec-compound-refresh` 中强调 durable checkpoint 和 distilled replay refs，避免重新读取完整历史。
+- 后续批次再在 `spec-skill-audit` 中加入 progressive disclosure 检查：主入口过长、重复 examples、provider-specific 细节未下沉时标记为优化项。
 
 **测试场景：**
 - Workflow prose 明确先读 summary/inventory，再按需读取 references。
 - Task-pack guidance 拒绝把整份 plan 当作高质量 `context_refs`。
 - Phase 1 tests 不要求修改 `spec-doc-review`、`spec-code-review`、`spec-sessions`、`spec-compound`、`spec-compound-refresh` 或 `spec-skill-audit`。
 - Review/token-economy facts guidance 引用现有 `review-pre-facts` contract，不创建平行 facts pipeline。
-- Review workflow guidance 区分 low-risk docs-only 与 high-risk workflow/contract/release 变更的 reviewer set。
-- Sessions/compound guidance 支持 checkpoint/replay refs，不鼓励重读完整历史。
-- Skill audit 能识别 progressive disclosure drift。
+- 后续批次测试：Review workflow guidance 区分 low-risk docs-only 与 high-risk workflow/contract/release 变更的 reviewer set。
+- 后续批次测试：Sessions/compound guidance 支持 checkpoint/replay refs，不鼓励重读完整历史。
+- 后续批次测试：Skill audit 能识别 progressive disclosure drift。
 
 **验证：**
 - `npm run test:unit` 或 targeted 运行 plan/work/write-tasks/doc-review/code-review/sessions contract tests。
@@ -893,8 +920,8 @@ flowchart LR
 
 Phase 1 放行门槛：
 
-- 至少一个阶段 1 task-pack 或 fixture 能证明 `spec-work` 回查 source plan 聚焦片段，且 stale/hash/spec-id mismatch 测试覆盖通过。
-- `spec-work` closeout producer 能写出 schema-valid checkpoint，并覆盖 degraded evidence、not-run validation、deferred follow-up、retention metadata 和 unsafe path/raw log 拒绝场景。
+- 至少一个阶段 1 task-pack 或 fixture 通过 contract test + fresh-source eval 证明 `spec-work` 会回查 source plan 聚焦片段；若 fresh-source eval 未执行，closeout 必须记录可接受 not-run reason；stale/hash/spec-id mismatch 测试覆盖通过。
+- `spec-work` closeout producer 能写出 schema-valid checkpoint，并覆盖 degraded evidence、not-run validation、deferred follow-up、runtime capability catalog producer-status 迁移、Phase 1 retention boundary metadata 和 unsafe path/raw log 拒绝场景。
 - `spec-standards` U4-minimal artifact validator 与 consumer tests 通过，且 unknown `schema_version` fail closed。
 - 核心链路 contract summary tests 通过；仍有 P1 级 doc-review finding 未关闭时，不进入阶段 2。
 
@@ -931,6 +958,7 @@ Phase 1 放行门槛：
 - U1-full-batch-2
 - U9
 - U10
+- U3b retention / prune lifecycle
 - U12-checkpoint-replay
 - U11 closeout checklist
 
@@ -940,6 +968,7 @@ Phase 1 放行门槛：
 - 所有 public workflow contract summary coverage gate 关闭。
 - Skill audit 消费 guard results。
 - Dependency tier 和 rejected/out-of-scope replay 进入 plan/work/skill-audit。
+- Run evidence retention / prune lifecycle 有独立 consumer、reason_code、owner/expiry 和删除失败处理，不污染 Phase 1 closeout producer。
 - Durable checkpoint replay 能消费阶段 1 write-side checkpoint，降低长任务恢复与深度审查重复读取成本。
 
 ---
@@ -957,7 +986,7 @@ Docs-only 当前计划验证：
 - Skill prose 变更：targeted `*-contracts.test.js` + fresh-source eval 或 not-run reason。
 - Task-pack/CLI 变更：`tests/unit/task-pack-command.test.js`、`tests/unit/spec-write-tasks-contracts.test.js`。
 - `spec-work` evidence 变更：`tests/unit/spec-work-run-artifact-contract.test.js`、`tests/unit/spec-work-run-artifact-producer.test.js`、`tests/unit/spec-work-contracts.test.js`。
-- Evidence safety 变更：覆盖 secrets、absolute temp paths、raw logs、provider excerpts、path containment、excerpt cap、TTL/delete owner 和 degraded/untrusted classification。
+- Evidence safety 变更：覆盖 secrets、absolute temp paths、raw logs、provider excerpts、path containment、excerpt cap、degraded/untrusted classification；Phase 1 只覆盖 retention boundary metadata 和 raw-log retention impact，U3b 再覆盖 TTL/delete owner/prune lifecycle。
 - Standards 变更：`tests/unit/spec-standards-validation.test.js`、`tests/unit/spec-standards-consumers.test.js`。
 - Release/catalog 变更：`npm run test:release:governance`，必要时 `npm run build`。
 - Public runtime surface 变更：考虑 `npm run test:smoke` 和 dual-host governance tests。
@@ -1019,7 +1048,7 @@ $spec-work docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrad
 
 - 所有 public workflow 有轻量 contract summary，且由 tests 锁定。
 - Task pack handoff 不再绕过 source plan scope authority。
-- `spec-work` 长任务和恢复场景有最小 schema-aligned durable evidence producer，阶段 3 replay 能消费该 checkpoint，且 evidence safety 覆盖 redaction、path containment、excerpt cap、TTL/delete owner、raw-log retention 和 degraded/untrusted classification。
+- `spec-work` 长任务和恢复场景有最小 schema-aligned durable evidence producer，runtime catalog 标记真实 producer 状态，阶段 3 replay 能消费该 checkpoint；Phase 1 evidence safety 覆盖 redaction、path containment、excerpt cap、raw-log retention impact 和 degraded/untrusted classification，U3b 再补 TTL/delete owner/prune lifecycle。
 - `spec-standards` 能输出 machine-readable `.spec-first/standards/next-action-candidates.json`，且 artifact boundary 与 standards 内容候选、freshness decision 清晰分离。
 - Token economy guardrails 进入 plan/work/write-tasks/review/sessions workflows，减少重复读取长计划、历史对话和外部仓库。
 - Source/runtime/customization boundary 有用户可读文档并从 README 链接。

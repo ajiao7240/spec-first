@@ -46,6 +46,14 @@ Resolve scope and mode, run runtime/readiness preflight, select scale-aware revi
 
 Orient review from the diff scope, current user request, plan/task/work artifacts when present, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and test results. When graph readiness artifacts are degraded, stale, or unavailable, prefer live MCP evidence for concrete review questions when the relevant MCP tool is loaded and responsive, then fall back to bounded direct repo reads. Treat successful MCP calls as session-local evidence only; they do not update compiled `query_ready` or replace reviewer judgment. If GitNexus returns definitions-only evidence, use it only as local file/symbol pointers and continue with code-review-graph, Serena, or bounded direct repo reads before making findings. If a live MCP/provider startup or call fails, treat that provider as degraded evidence rather than a reviewer failure unless the reviewer itself cannot complete; do not repeatedly probe the same unavailable provider across personas in the same run. Record the provider degradation once in Coverage and continue with bounded direct repo reads. External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment.
 
+## Runtime Context Exclusion
+
+遵循 `docs/contracts/context-governance.md`：普通 Code Review context 默认排除 `.spec-first/audits/**` 和 generated mirrors（`.claude/**`、`.codex/**`、`.agents/skills/**`）。除非 diff 或用户请求明确指向 setup/update/runtime drift/audit evidence，否则不要把这些路径放进 reviewer prompt、broad repo search 或 review context bundle；被排除时，在 Coverage 中报告 path 或 reason，而不是静默扫描。
+
+## Cache-Friendly Context Layout
+
+保持本 `SKILL.md` 作为 stable instruction prefix：workflow contract、hard boundaries、reviewer routing 和 reference index。把 volatile data 放入 dynamic suffix：当前 user request、diff summary、tool summary、temporary evidence、`artifact-summary.v1`，以及来自 `docs/contracts/context-bundle.md` 的 `context-bundle.v1`。Review synthesis 应先消费 `docs/contracts/workflows/review-finding.md` 中紧凑的 `review-finding.v1` 字段，再打开 full reviewer prose 或 raw JSON。
+
 ## Graph Freshness / Refresh Trigger Boundary
 
 Before treating compiled graph facts as primary review evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, and `.spec-first/impact/bootstrap-impact-capabilities.json` for provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Code Review to rebuild providers.

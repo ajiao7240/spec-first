@@ -19,6 +19,10 @@ This command takes a work document (plan, task pack, or specification) or a bare
 
 Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. When parent-workspace read-only orientation needs repo candidates, use `workspace-graph-targets.v1` as advisory facts, prefer bounded candidate repos with `primary` status, and try GitNexus-first evidence per candidate before bounded direct repo reads. Treat `degraded-fallback` or definitions-only GitNexus results as pointers, not authority to change behavior. External tools may prioritize inspection, but they do not define scope authority. Delegate prompts should carry bounded direct repo-read context and explicit file boundaries, not graph work-run ids.
 
+## Runtime Context Exclusion
+
+Follow `docs/contracts/context-governance.md`: ordinary Work Beta context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Do not pass those paths to delegates, reviewer handoff, or broad repo search unless the current task explicitly targets setup/update/runtime drift/audit evidence or the user names a precise runtime path; when excluded, record the path or reason instead of silently scanning it.
+
 ## Graph Freshness / Refresh Trigger Boundary
 
 Before treating compiled graph facts as primary evidence, check the same shared freshness fields as stable Work: `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, `.spec-first/impact/bootstrap-impact-capabilities.json`, provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Work Beta or its delegates to rebuild providers.

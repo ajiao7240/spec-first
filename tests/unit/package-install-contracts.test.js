@@ -81,6 +81,9 @@ describe('package install contracts', () => {
     }
 
     expect(pkg.files).not.toContain('vendor/');
+    expect(pkg.files).toContain('docs/contracts/artifact-summary.md');
+    expect(pkg.files).toContain('docs/contracts/context-bundle.md');
+    expect(pkg.files).toContain('docs/contracts/context-governance.md');
     expect(pkg.files).toContain('docs/contracts/quality-gates/');
     expect(pkg.files).toContain('docs/contracts/release-package-evidence.schema.json');
     expect(pkg.files).toContain('docs/contracts/verifiers/');
@@ -166,7 +169,11 @@ describe('package install contracts', () => {
         filePath.includes('/__pycache__/') || /\.py[co]$/.test(filePath)
       ));
 
+      expect(packedPaths).toContain('docs/contracts/artifact-summary.md');
+      expect(packedPaths).toContain('docs/contracts/context-bundle.md');
       expect(packedPaths).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
+      expect(packedPaths).toContain('docs/contracts/workflows/review-finding.md');
+      expect(packedPaths).toContain('docs/contracts/context-governance.md');
       expect(bytecodePaths).toEqual([]);
     } finally {
       fs.rmSync(bytecodePath, { force: true });

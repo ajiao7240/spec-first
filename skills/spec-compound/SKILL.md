@@ -36,6 +36,14 @@ These files are the durable contract for the workflow. Read them on-demand at th
 
 When spawning subagents, pass the relevant file contents into the task prompt so they have the contract without needing cross-skill paths.
 
+## Runtime Context Exclusion
+
+Follow `docs/contracts/context-governance.md`: ordinary Compound research excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Compound from confirmed fix summaries, changed source/test paths, session extracts, and `docs/solutions/` candidates; read runtime/audit artifacts only when the reusable lesson is specifically about setup/update/runtime drift/audit evidence or the user names a precise path.
+
+## Summary-First Handoff
+
+Consume upstream `artifact-summary.v1`-style summaries from `docs/contracts/artifact-summary.md` before opening full plans, reviews, work logs, session extracts, or raw artifacts. The durable compound output should capture the reusable lesson delta and evidence paths, not copy full upstream reports or raw tool output. If a summary is missing, record `summary_missing` and read the smallest explicit source path needed to verify the lesson.
+
 ## Execution Strategy
 
 Present the user with two options before proceeding, using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to presenting options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.

@@ -1,6 +1,17 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-14 13:33:58 leokuang: fix(context): 补强 context-bundle symlink escape 排除，并将 context-bundle 合同消费规则中文化，避免 repo 内链接指向 repo 外时进入普通上下文 (user-visible)
+- v1.8.2 2026-05-14 12:01:13 leokuang: docs(context): 将新增 artifact-summary/review-finding 合同与 code-review context 布局段落对齐中文治理策略，并更新对应 contract tests (user-visible)
+- v1.8.2 2026-05-14 11:59:28 leokuang: fix(context): 修复 internal context-bundle 从仓库子目录调用时误用 invocation cwd 作为 repo root 的问题，兼容 repo-relative 与 cwd-relative 输入并补 CLI 回归测试 (user-visible)
+- v1.8.2 2026-05-14 11:50:00 leokuang: docs(plan): 逐项修复 spec-first 优化升级计划 doc-review findings，补标准 origin、run artifact producer/catalog 迁移、retention 拆期、standards next-action mode matrix、fresh-source eval gate 与 website release gate 保留边界 (user-visible)
+- v1.8.2 2026-05-14 11:43:08 leokuang: fix(graph): 补充 graph-bootstrap PowerShell dirty refresh 可执行 fixture，并用兼容的 Ensure-Directory 修复 PowerShell 目录创建路径 (user-visible)
+- v1.8.2 2026-05-14 11:36:34 leokuang: docs(plan): 新增 workflow harness evidence loop 三版本强化路线图，围绕 evidence envelope、context routing、review closure 和 repo-local release/knowledge 闭环规划 v1.9/v2.0/v2.1 演进顺序 (user-visible)
+- v1.8.2 2026-05-14 11:35:49 leokuang: fix(context): 在 context-bundle runtime exclusion 前规范化 repo-relative 路径，阻止 `..` traversal 绕过 generated mirror 排除，并明确 changelog 作者 profile 精确读取例外 (user-visible)
+- v1.8.2 2026-05-14 11:27:11 leokuang: test(review): 补强 context-bundle budget/CLI error 与 dirty graph refresh 测试，并将新增脚本注释调整为中文
+- v1.8.2 2026-05-14 11:26:56 leokuang: docs(audit): 将 skill/agent Harness 最终建议结构重写为 H4->H5 收敛决策备忘录，明确 audit snapshot/source truth/runtime mirror 边界、P0 landing plan、P1 contract work 与验证顺序 (user-visible)
+- v1.8.2 2026-05-14 10:27:53 leokuang: feat(context): 补齐 context-token-audit 最小实施方案，新增 artifact-summary/context-bundle/review-finding 合同、内部 context-bundle JSON helper，并让高频 workflow 采用 cache-friendly summary-first handoff (user-visible)
+- v1.8.2 2026-05-14 09:58:25 leokuang: feat(context): 新增 context-governance runtime exclusion policy，默认排除 `.spec-first/audits/**` 与 generated mirrors 普通上下文，并同步 host bootstrap、高频 workflow、用户文档与回归测试 (user-visible)
 - v1.8.2 2026-05-14 09:13:06 leokuang: docs(audit): 结合业界 token/cache/context 管理最佳实践深化 context-token-audit 最终建议，补充 stable prompt prefix、repo map/context bundle、tool result clearing、selective fanout 与分层预算落地顺序 (user-visible)
 - v1.8.2 2026-05-14 09:09:32 leokuang: docs(plan): 将 graph-bootstrap incremental refresh 计划按 U4 speed gate 实测结果收口为 diagnostic-only completed posture，明确 speed-backed opt-in 与 provider speed/pin investigation 拆为 follow-up (user-visible)
 - v1.8.2 2026-05-14 07:54:49 leokuang: docs(graph): 补录 code-review-graph 2.3.3 源码检查，确认 `--skip-flows` / `--skip-postprocess` 会改变 postprocess/readiness 语义，`status` 无低成本替代接口，不能救当前 U4 speed gate (user-visible)

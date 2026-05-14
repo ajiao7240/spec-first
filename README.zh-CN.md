@@ -460,6 +460,8 @@ your-project/
 - **LLM 决定什么：** 需求 framing、scope boundaries、tradeoffs、implementation judgment、review evidence 和 next steps。
 - **会写入什么：** repo-local docs、plans、task packs、显式路由后的 durable review/debug summaries，以及 init 期间生成的 managed runtime assets。full-detail code-review JSON 默认只写到当前 OS temp root 下，例如 `<os-temp>/spec-first/spec-code-review/<run-id>/`，作为临时 handoff，除非 workflow 写入 concise durable summary。
 - **哪些是生成产物：** `.claude/`、`.codex/` 和 `.agents/skills/` runtime copies。
+- **普通上下文默认排除什么：** `.spec-first/audits/**` 和 `.claude/**`、`.codex/**`、`.agents/skills/**` 等 generated mirrors。只有 runtime/setup/audit workflow 明确需要，或用户点名具体路径时才按需读取。
+- **上下文交接优先什么：** 优先使用 `artifact-summary.v1` 和 `context-bundle.v1` 风格的 summary-plus-path 包，再按需展开 full artifacts 或 raw tool output。
 - **应该修改什么：** 修改 `skills/`、`agents/`、`templates/`、`src/cli/` 和 docs 中的 source assets；不要手改 generated runtime copies。
 - **spec-first 不是什么：** 不是通用 agent marketplace，不是单次 prompt pack，也不是脱离 Claude Code/Codex 独立运行的应用。
 

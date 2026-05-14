@@ -46,6 +46,14 @@ Detect mode and document type, select reviewer personas, dispatch with bounded p
 
 When editing or reviewing this workflow prompt, or when running fresh-source eval for review posture drift, read `skills/spec-doc-review/evals/examples.json` as examples-as-context. These examples are not a replacement for persona selection, reviewer findings, or semantic readiness judgment during ordinary document reviews.
 
+## Runtime Context Exclusion
+
+Follow `docs/contracts/context-governance.md`: ordinary Document Review context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Do not include those paths in reviewer prompts, pre-facts targets, broad repo search, or section bundles unless the document or user request explicitly targets setup/update/runtime drift/audit evidence; when excluded, surface the path or reason in Coverage instead of silently scanning it.
+
+## Summary-First Section Bundles
+
+Use `docs/contracts/context-bundle.md` and `docs/contracts/artifact-summary.md` as the handoff posture: reviewers should receive selected document sections, summaries, evidence paths, full-read triggers, and relevant pre-facts instead of an automatic full-document broadcast. Findings should map to the shared `review-finding.v1` minimum fields in `docs/contracts/workflows/review-finding.md`; workflow-specific fields may remain as extensions. Apply reviewer budgets and finding caps as context controls, never as permission to drop P0/P1 evidence silently.
+
 ## Graph Freshness / Refresh Trigger Boundary
 
 Before treating compiled graph facts or pre-facts as graph-fresh review evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, `.spec-first/impact/bootstrap-impact-capabilities.json`, provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Doc Review to rebuild providers.

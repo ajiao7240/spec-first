@@ -89,9 +89,8 @@ is_env_example_file() {
   esac
 }
 
-# Copy .env* files (except documented examples/templates) from main repo to
-# worktree when the caller explicitly opts in. Backs up any pre-existing
-# destination file.
+# 调用方显式 opt in 时，将主仓库的 .env* 文件复制到 worktree，
+# 跳过文档化示例/模板，并备份已存在的目标文件。
 copy_env_files() {
   local worktree_path="$1"
   local copied=0

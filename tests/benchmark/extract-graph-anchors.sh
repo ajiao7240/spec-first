@@ -1,5 +1,5 @@
 #!/bin/bash
-# Benchmark-only helper for extracting stable graph anchors from provider-native stores.
+# 仅用于 benchmark：从 provider 原生存储中提取稳定 graph anchors。
 
 set -euo pipefail
 

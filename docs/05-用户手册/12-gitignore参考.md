@@ -8,6 +8,7 @@
 
 - `.claude/`、`.codex/` 和 `.agents/skills/` 下的 spec-first runtime mirror 可重建，不作为项目 source truth。
 - `.spec-first/config/`、`.spec-first/graph/`、`.spec-first/providers/`、`.spec-first/impact/` 和 `.spec-first/workspace/` 是本地 readiness/control-plane facts，默认不提交。
+- `.spec-first/audits/**` 和 generated runtime mirrors 也不应作为普通 LLM 上下文扫描源；只有 setup/update/runtime-drift/audit 任务或用户明确点名路径时才按需读取。
 - `.spec-first/standards/` 是本地 standards baseline、preview、scratch 和 evidence 工作区，默认不提交；需要团队共享的 confirmed standards 应 promote 到明确 source 路径。
 - `AGENTS.md`、`CLAUDE.md`、`docs/`、项目源码、测试和 confirmed standards source 应按团队正常协作策略提交。
 
