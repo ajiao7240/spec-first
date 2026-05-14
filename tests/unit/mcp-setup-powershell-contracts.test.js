@@ -472,7 +472,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain("$codeReviewGraphVersion = if ($null -ne $codeReviewGraphEntry.PSObject.Properties['version']) { [string]$codeReviewGraphEntry.version } else { '' }");
     expect(writeProviderSource).toContain('$codeReviewGraphPackageSpec = "$codeReviewGraphPackage@$codeReviewGraphVersion"');
     expect(writeProviderSource).toContain('[string]$CodeReviewGraphPackageSpec');
-    expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force')");
+    expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force', '--skip-agents-md', '--no-stats')");
     expect(writeProviderSource).toContain("status = @('npx', '-y', $GitNexusPackageSpec, 'status')");
     expect(writeProviderSource).toContain("bootstrap = @('uvx', $CodeReviewGraphPackageSpec, 'build')");
     expect(writeProviderSource).toContain("status = @('uvx', $CodeReviewGraphPackageSpec, 'status')");
@@ -509,6 +509,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('query_probe_policy = if ($property.Name -eq');
     expect(writeProviderSource).toContain('$gitNexusRepoName = Get-GitNexusRepoName -RepoRoot $repoRoot -Facts $facts');
     expect(writeProviderSource).toContain('Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -CodeReviewGraphPackageSpec $codeReviewGraphPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy -GitNexusRepoName $gitNexusRepoName');
+    expect(writeProviderSource).toContain("incremental = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--skip-agents-md', '--no-stats')");
+    expect(writeProviderSource).toContain("incremental = @('uvx', $CodeReviewGraphPackageSpec, 'update', '--base', '__SPEC_FIRST_LAST_INDEXED_COMMIT__')");
     expect(writeProviderSource).toContain("query_probe = @('uvx', $CodeReviewGraphPackageSpec, 'status', '--repo', $RepoRoot)");
     expect(writeProviderSource).toContain('function Test-CanonicalProviderFreshForCurrent');
     expect(writeProviderSource).toContain('function Get-GitPorcelainStatusText');
@@ -555,6 +557,7 @@ function Get-StatusHash {
 ${functionSource}
 $commands = [ordered]@{
   bootstrap = @('uvx', 'code-review-graph@2.3.3', 'build')
+  incremental = @('uvx', 'code-review-graph@2.3.3', 'update', '--base', '__SPEC_FIRST_LAST_INDEXED_COMMIT__')
   status = @('uvx', 'code-review-graph@2.3.3', 'status')
   query_probe = @('uvx', 'code-review-graph@2.3.3', 'status', '--repo', '/repo')
 }
@@ -567,7 +570,7 @@ $expected = Get-StatusHash -Text ($ordered | ConvertTo-Json -Depth 20 -Compress)
 if ($actual -ne $expected) {
   Write-Error "hash mismatch: $actual != $expected"
 }
-if (($ordered.Keys -join ',') -ne 'bootstrap,query_probe,status') {
+if (($ordered.Keys -join ',') -ne 'bootstrap,incremental,query_probe,status') {
   Write-Error "unexpected command keys: $($ordered.Keys -join ',')"
 }
 if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {

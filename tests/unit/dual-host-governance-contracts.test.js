@@ -364,7 +364,7 @@ describe('dual-host governance contracts', () => {
     }
 
     expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain(
-      '<configured-gitnexus-package>", "analyze", "--force"',
+      '<configured-gitnexus-package>", "analyze", "--force", "--skip-agents-md", "--no-stats"',
     );
     expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain('uvx <configured-code-review-graph-package> build');
   });

@@ -457,7 +457,8 @@ gitnexus_command_hash="$(jq -n -S -c \
   --arg gitnexus_package "$gitnexus_package" \
   --arg query_probe "$gitnexus_query_probe_token" \
   --arg repo_name "$gitnexus_repo_name" '{
-    bootstrap: ["npx", "-y", $gitnexus_package, "analyze", "--force"],
+    bootstrap: ["npx", "-y", $gitnexus_package, "analyze", "--force", "--skip-agents-md", "--no-stats"],
+    incremental: ["npx", "-y", $gitnexus_package, "analyze", "--skip-agents-md", "--no-stats"],
     status: ["npx", "-y", $gitnexus_package, "status"],
     query_probe: ["npx", "-y", $gitnexus_package, "query", $query_probe, "--repo", $repo_name]
   }' | hash_text)"
@@ -465,6 +466,7 @@ code_review_graph_command_hash="$(jq -n -S -c \
   --arg code_review_graph_package "$code_review_graph_package" \
   --arg repo_root "$REPO_ROOT" '{
     bootstrap: ["uvx", $code_review_graph_package, "build"],
+    incremental: ["uvx", $code_review_graph_package, "update", "--base", "__SPEC_FIRST_LAST_INDEXED_COMMIT__"],
     status: ["uvx", $code_review_graph_package, "status"],
     query_probe: ["uvx", $code_review_graph_package, "status", "--repo", $repo_root]
   }' | hash_text)"
@@ -579,12 +581,14 @@ jq --arg generated_at "$generated_at" \
 
   def provider_commands($key):
     if $key == "gitnexus" then {
-      bootstrap: ["npx", "-y", $gitnexus_package, "analyze", "--force"],
+      bootstrap: ["npx", "-y", $gitnexus_package, "analyze", "--force", "--skip-agents-md", "--no-stats"],
+      incremental: ["npx", "-y", $gitnexus_package, "analyze", "--skip-agents-md", "--no-stats"],
       status: ["npx", "-y", $gitnexus_package, "status"],
       query_probe: ["npx", "-y", $gitnexus_package, "query", $gitnexus_query_probe_policy.token, "--repo", $repo_name]
     }
     elif $key == "code-review-graph" then {
       bootstrap: ["uvx", $code_review_graph_package, "build"],
+      incremental: ["uvx", $code_review_graph_package, "update", "--base", "__SPEC_FIRST_LAST_INDEXED_COMMIT__"],
       status: ["uvx", $code_review_graph_package, "status"],
       query_probe: ["uvx", $code_review_graph_package, "status", "--repo", $repo_root]
     }

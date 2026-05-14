@@ -5,6 +5,8 @@ const path = require('node:path');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'SKILL.md');
+const BASH_SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.sh');
+const POWERSHELL_SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.ps1');
 const RETIRED_PROMPT_MIRROR_PATH = path.join(
   REPO_ROOT,
   'docs',
@@ -99,5 +101,62 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
         expect.stringContaining('worktree_status_hash'),
       ]),
     );
+  });
+
+  test('keeps incremental refresh contract source-parity across shell hosts', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const bashScript = fs.readFileSync(BASH_SCRIPT_PATH, 'utf8');
+    const powershellScript = fs.readFileSync(POWERSHELL_SCRIPT_PATH, 'utf8');
+
+    expect(skill).toContain('## Refresh Modes');
+    expect(skill).toContain('`--incremental` / `-Incremental`');
+    expect(skill).toContain('`--full` / `--force`');
+    expect(skill).toContain('`--all-repos --incremental` / `-AllRepos -Incremental` is unsupported');
+    expect(skill).toContain('parent workspace would otherwise enter the default all-repos path');
+    expect(skill).toContain('readiness_source=incremental-update');
+    expect(skill).toContain('readiness_source=incremental-fallback-full');
+    expect(skill).toContain('reason_code=dirty-refresh-non-canonical');
+    expect(skill).toContain('graph-facts.v1` does not expose refresh-mode convenience fields');
+    expect(skill).toContain('__SPEC_FIRST_LAST_INDEXED_COMMIT__');
+
+    for (const source of [bashScript, powershellScript]) {
+      expect(source).toContain('incremental-all-repos-unsupported');
+      expect(source).toContain('dirty-refresh-non-canonical');
+      expect(source).toContain('incremental-command-unavailable');
+      expect(source).toContain('incremental-base-ref-invalid-format');
+      expect(source).toContain('incremental-base-status-untrusted');
+      expect(source).toContain('incremental-base-ref-not-ancestor');
+      expect(source).toContain('incremental-refresh-failed-fallback-full');
+      expect(source).toContain('incremental-and-full-failed');
+      expect(source).toContain('last_indexed_commit');
+      expect(source).toContain('requires_clean_full_refresh');
+      expect(source).toContain('refresh_mode');
+      expect(source).toContain('fallback_from_incremental');
+      expect(source).toContain('__SPEC_FIRST_LAST_INDEXED_COMMIT__');
+    }
+
+    expect(bashScript).toContain('DEFAULT_REFRESH_MODE_SINGLE_REPO=full');
+    expect(bashScript).toContain('DEFAULT_REFRESH_MODE_ALL_REPOS=full');
+    expect(bashScript).toContain('ALL_REPOS_CHILD_REFRESH_ARGS+=(--full)');
+    expect(bashScript).toContain('child_output="$(bash "$0" --repo "$child_path" "${ALL_REPOS_CHILD_REFRESH_ARGS[@]}")"');
+    expect(bashScript).toContain('--incremental');
+    expect(bashScript).toContain('--full|--force');
+    expect(bashScript).toContain('provider_incremental_command_json');
+    expect(bashScript).toContain('.[length - 1] = $sha');
+
+    expect(powershellScript).toContain("$script:DefaultRefreshModeSingleRepo = 'full'");
+    expect(powershellScript).toContain("$script:DefaultRefreshModeAllRepos = 'full'");
+    expect(powershellScript).toContain('$targetDefaultAllRepos = (-not $AllRepos');
+    expect(powershellScript).toContain('if (($AllRepos -or $targetDefaultAllRepos) -and $Incremental)');
+    expect(powershellScript).toContain('$childRefreshArgs.Full = $true');
+    expect(powershellScript).toContain('$childArgs[$entry.Key] = $entry.Value');
+    expect(powershellScript).toContain('[switch]$Incremental');
+    expect(powershellScript).toContain('[switch]$Full');
+    expect(powershellScript).toContain('[switch]$Force');
+    expect(powershellScript).toContain('Get-ProviderIncrementalCommand');
+    expect(powershellScript).toContain('$command[$sentinelIndex] = $LastIndexedCommit');
+    expect(powershellScript).toContain('Resolve-ProviderRefreshMode');
+    expect(powershellScript).toContain('$bootstrapRawLogsForStatus');
+    expect(powershellScript).toContain('raw_logs = $providerRawLogs');
   });
 });

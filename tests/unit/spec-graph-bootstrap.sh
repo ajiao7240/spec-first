@@ -79,6 +79,10 @@ if [[ "\${FAIL_GITNEXUS_LBUG:-}" = "1" && " \$* " == *" gitnexus@"*" analyze "* 
   echo "Cannot open file D:\\codes\\workspace\\child\\.gitnexus\\lbug - Error 3" >&2
   exit 1
 fi
+if [[ "\${FAIL_GITNEXUS_INCREMENTAL:-}" = "1" && " \$* " == *" gitnexus@"*" analyze "* && " \$* " != *" --force "* ]]; then
+  echo "incremental analyze failed" >&2
+  exit 44
+fi
 if [[ "\${HANG_GITNEXUS_ANALYZE:-}" = "1" && " \$* " == *" gitnexus@"*" analyze "* ]]; then
   sleep 5
   exit 0
@@ -137,6 +141,10 @@ if [[ "\${FAIL_CRG_BUILD:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE b
   echo "build failed" >&2
   exit 43
 fi
+if [[ "\${FAIL_CRG_UPDATE:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE update --base "* ]]; then
+  echo "update failed" >&2
+  exit 45
+fi
 if [[ "\${HANG_CRG_BUILD:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE build "* ]]; then
   sleep 5
   exit 0
@@ -162,9 +170,19 @@ make_repo() {
   git -C "$repo_dir" config user.email "spec-first-test@example.invalid"
   git -C "$repo_dir" config core.hooksPath /dev/null
   printf '# fixture\n' > "$repo_dir/README.md"
-  git -C "$repo_dir" add README.md
+  printf '.spec-first/\n.gitnexus/\n.code-review-graph/\n' > "$repo_dir/.gitignore"
+  git -C "$repo_dir" add README.md .gitignore
   git -C "$repo_dir" commit -q -m "Initial fixture commit"
   mkdir -p "$repo_dir/.spec-first/config"
+}
+
+commit_repo_changes() {
+  local repo_dir="$1"
+  local message="$2"
+  git -C "$repo_dir" add -A
+  if ! git -C "$repo_dir" diff --cached --quiet; then
+    git -C "$repo_dir" commit -q -m "$message"
+  fi
 }
 
 make_unborn_repo() {
@@ -200,7 +218,8 @@ JSON
       "dependency_status": "ready",
       "host_config_status": "ready",
       "commands": {
-        "bootstrap": ["npx", "-y", "$GITNEXUS_PACKAGE", "analyze", "--force"],
+        "bootstrap": ["npx", "-y", "$GITNEXUS_PACKAGE", "analyze", "--force", "--skip-agents-md", "--no-stats"],
+        "incremental": ["npx", "-y", "$GITNEXUS_PACKAGE", "analyze", "--skip-agents-md", "--no-stats"],
         "status": ["npx", "-y", "$GITNEXUS_PACKAGE", "status"],
         "query_probe": ["npx", "-y", "$GITNEXUS_PACKAGE", "query", "$GITNEXUS_QUERY_PROBE", "--repo", "$(basename "$repo_root")"]
       },
@@ -218,6 +237,7 @@ JSON
       "host_config_status": "ready",
       "commands": {
         "bootstrap": ["uvx", "$CODE_REVIEW_GRAPH_PACKAGE", "build"],
+        "incremental": ["uvx", "$CODE_REVIEW_GRAPH_PACKAGE", "update", "--base", "__SPEC_FIRST_LAST_INDEXED_COMMIT__"],
         "status": ["uvx", "$CODE_REVIEW_GRAPH_PACKAGE", "status"],
         "query_probe": ["uvx", "$CODE_REVIEW_GRAPH_PACKAGE", "status", "--repo", "$repo_root"]
       }
@@ -394,6 +414,35 @@ assert "all-repos graph bootstrap does not write parent graph facts" test ! -e "
 assert_contains "all-repos graph bootstrap creates parent AGENTS GitNexus block" "本项目已配置 GitNexus 图谱支持，仓库标识：**all-repos-workspace**" "$(cat "$ALL_REPOS_WORKSPACE/AGENTS.md")"
 assert_contains "all-repos graph bootstrap creates parent CLAUDE GitNexus block" "当索引新鲜且 query-ready 时" "$(cat "$ALL_REPOS_WORKSPACE/CLAUDE.md")"
 
+ALL_REPOS_INCREMENTAL_WORKSPACE="$TMP_DIR/all-repos-incremental-workspace"
+ALL_REPOS_INCREMENTAL_LEDGER="$TMP_DIR/all-repos-incremental-home/.codex/spec-first/host-setup.json"
+make_repo "$ALL_REPOS_INCREMENTAL_WORKSPACE/project-a"
+write_fixture_config "$ALL_REPOS_INCREMENTAL_WORKSPACE/project-a" "$ALL_REPOS_INCREMENTAL_LEDGER" true
+before_all_repos_incremental_log="$(cat "$COMMAND_LOG")"
+set +e
+all_repos_incremental_output="$(cd "$ALL_REPOS_INCREMENTAL_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --all-repos --incremental)"
+all_repos_incremental_status=$?
+set -e
+assert_eq "all-repos incremental is unsupported" "1" "$all_repos_incremental_status"
+assert_eq "all-repos incremental blocks before providers" "workspace-graph-bootstrap-summary.v1:blocked:incremental-all-repos-unsupported:true" "$(jq -r '.schema_version + ":" + .workflow_mode + ":" + .reason_code + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$all_repos_incremental_output")"
+assert_eq "all-repos incremental does not run provider commands" "$before_all_repos_incremental_log" "$(cat "$COMMAND_LOG")"
+assert "all-repos incremental does not write child graph facts" test ! -e "$ALL_REPOS_INCREMENTAL_WORKSPACE/project-a/.spec-first/graph/graph-facts.json"
+set +e
+all_repos_conflict_output="$(cd "$ALL_REPOS_INCREMENTAL_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --all-repos --incremental --full)"
+all_repos_conflict_status=$?
+set -e
+assert_eq "all-repos conflicting refresh flags fail closed" "1" "$all_repos_conflict_status"
+assert_eq "all-repos conflicting refresh flags reason" "conflicting-refresh-flags" "$(jq -r '.reason_code' <<<"$all_repos_conflict_output")"
+assert_eq "all-repos conflicting refresh flags do not run provider commands" "$before_all_repos_incremental_log" "$(cat "$COMMAND_LOG")"
+
+set +e
+default_all_repos_incremental_output="$(cd "$ALL_REPOS_INCREMENTAL_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
+default_all_repos_incremental_status=$?
+set -e
+assert_eq "default all-repos incremental is unsupported" "1" "$default_all_repos_incremental_status"
+assert_eq "default all-repos incremental blocks before providers" "workspace-graph-bootstrap-summary.v1:blocked:incremental-all-repos-unsupported:true" "$(jq -r '.schema_version + ":" + .workflow_mode + ":" + .reason_code + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$default_all_repos_incremental_output")"
+assert_eq "default all-repos incremental does not run provider commands" "$before_all_repos_incremental_log" "$(cat "$COMMAND_LOG")"
+
 ALL_REPOS_DEGRADED_WORKSPACE="$TMP_DIR/all-repos-degraded-workspace"
 ALL_REPOS_DEGRADED_LEDGER="$TMP_DIR/all-repos-degraded-home/.codex/spec-first/host-setup.json"
 make_repo "$ALL_REPOS_DEGRADED_WORKSPACE/project-a"
@@ -480,8 +529,9 @@ assert_contains "workspace explicit child runs provider from child root" "uvx $C
 workspace_targets_after_bootstrap="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
 assert_eq "dirty graph facts with matching fingerprint stay usable" "primary:false" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .status + ":" + (.freshness.dirty_uncertain | tostring)' <<<"$workspace_targets_after_bootstrap")"
 assert_eq "graph facts record worktree status fingerprint" "true:true" "$(jq -r '(.worktree_status_hash | startswith("sha256:") | tostring) + ":" + (.staleness_hints.worktree_status_hash | startswith("sha256:") | tostring)' "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json")"
-jq 'del(.worktree_status_hash) | del(.staleness_hints.worktree_status_hash)' "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json" > "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json.tmp"
+jq '.worktree_dirty = true | del(.worktree_status_hash) | del(.staleness_hints.worktree_status_hash)' "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json" > "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json.tmp"
 mv "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json.tmp" "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json"
+printf 'dirty change\n' >> "$WORKSPACE_REPO_A/README.md"
 workspace_targets_without_fingerprint="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
 assert_eq "dirty graph facts without fingerprint are uncertain" "dirty-uncertain:true" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .status + ":" + (.freshness.dirty_uncertain | tostring)' <<<"$workspace_targets_without_fingerprint")"
 assert_contains "dirty uncertainty limitation is explicit" "dirty worktree without a matching status fingerprint" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .limitations | join(" ")' <<<"$workspace_targets_without_fingerprint")"
@@ -508,6 +558,8 @@ This project is indexed by GitNexus as **primary-repo** (26859 symbols, 31088 re
 <!-- gitnexus:end -->
 MD
 done
+git -C "$PRIMARY_REPO" add AGENTS.md CLAUDE.md
+git -C "$PRIMARY_REPO" commit -q -m "Add host instruction fixtures"
 primary_provider_config_before="$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 primary_runtime_capabilities_before="$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
 
@@ -545,6 +597,9 @@ assert_eq "provider status records provider timing" "true" "$(jq -r '(.timing.st
 assert_eq "final output records single repo timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' <<<"$primary_output")"
 assert_eq "GitNexus provider records version-safe reuse facts" "graph-bootstrap-fingerprint.v1:true:pinned:cold-run:$GITNEXUS_PACKAGE:$GITNEXUS_PACKAGE" "$(jq -r '.bootstrap_fingerprint.schema_version + ":" + (.reuse_eligible | tostring) + ":" + .bootstrap_fingerprint.provider.version_policy + ":" + .readiness_source + ":" + (.bootstrap_fingerprint.provider.configured_package_spec // "") + ":" + (.bootstrap_fingerprint.provider.bundled_package_spec // "")' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "code-review-graph provider records version-safe reuse facts" "graph-bootstrap-fingerprint.v1:true:pinned:cold-run:$CODE_REVIEW_GRAPH_PACKAGE:$CODE_REVIEW_GRAPH_PACKAGE" "$(jq -r '.bootstrap_fingerprint.schema_version + ":" + (.reuse_eligible | tostring) + ":" + .bootstrap_fingerprint.provider.version_policy + ":" + .readiness_source + ":" + (.bootstrap_fingerprint.provider.configured_package_spec // "") + ":" + (.bootstrap_fingerprint.provider.bundled_package_spec // "")' "$PRIMARY_REPO/.spec-first/providers/code-review-graph/status.json")"
+primary_head="$(git -C "$PRIMARY_REPO" rev-parse HEAD)"
+assert_eq "full bootstrap records refresh mode and clean marker" "full:false:$primary_head:false" "$(jq -r '"\(.refresh_mode):\(.fallback_from_incremental):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "graph facts does not add refresh-mode convenience fields" "false:false:false" "$(jq -r '[has("refresh_mode"), has("refresh_modes_by_provider"), has("refresh_mode_summary")] | map(tostring) | join(":")' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
 assert_eq "bootstrap fingerprint includes invalidation hashes" "true" "$(jq -r '(.bootstrap_fingerprint.repo_snapshot.worktree_status_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.graph_bootstrap_script_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.mcp_tools_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider_projection.graph_providers_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider.command_hash | startswith("sha256:"))' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 assert_eq "graph-bootstrap does not mutate runtime capabilities input" "$primary_runtime_capabilities_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
@@ -555,6 +610,8 @@ make_repo "$MISSING_HOST_REPO"
 write_fixture_config "$MISSING_HOST_REPO" "$MISSING_HOST_LEDGER" true
 printf '# Host\n' > "$MISSING_HOST_REPO/AGENTS.md"
 printf '# Host\n' > "$MISSING_HOST_REPO/CLAUDE.md"
+git -C "$MISSING_HOST_REPO" add AGENTS.md CLAUDE.md
+git -C "$MISSING_HOST_REPO" commit -q -m "Add host files"
 missing_host_output="$(cd "$MISSING_HOST_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "missing GitNexus host block does not block graph readiness" "primary:ready" "$(jq -r '.workflow_mode + ":" + .overall_status' <<<"$missing_host_output")"
 assert_eq "missing GitNexus host block is created as advisory normalization" "normalized:true:0" "$(jq -r '.results[] | select(.provider=="gitnexus") | .host_instruction_normalization | .status + ":" + (.advisory | tostring) + ":" + (.exit_code | tostring)' <<<"$missing_host_output")"
@@ -569,6 +626,8 @@ cat > "$PARTIAL_HOST_REPO/AGENTS.md" <<'MD'
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 MD
+git -C "$PARTIAL_HOST_REPO" add AGENTS.md
+git -C "$PARTIAL_HOST_REPO" commit -q -m "Add partial host block"
 partial_host_output="$(cd "$PARTIAL_HOST_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "partial GitNexus host block does not block graph readiness" "primary:ready" "$(jq -r '.workflow_mode + ":" + .overall_status' <<<"$partial_host_output")"
 assert_eq "partial GitNexus host block is recorded as advisory failure" "failed:true:gitnexus-instruction-block-partial:3" "$(jq -r '.results[] | select(.provider=="gitnexus") | .host_instruction_normalization | .status + ":" + (.advisory | tostring) + ":" + (.reason_code // "") + ":" + (.exit_code | tostring)' <<<"$partial_host_output")"
@@ -599,8 +658,6 @@ CLEAN_GRAPH_REPO="$TMP_DIR/clean-graph-repo"
 CLEAN_GRAPH_LEDGER="$TMP_DIR/clean-graph-home/.codex/spec-first/host-setup.json"
 make_repo "$CLEAN_GRAPH_REPO"
 write_fixture_config "$CLEAN_GRAPH_REPO" "$CLEAN_GRAPH_LEDGER" true
-git -C "$CLEAN_GRAPH_REPO" add .spec-first/config
-git -C "$CLEAN_GRAPH_REPO" commit -q -m "Add setup facts"
 clean_graph_output="$(cd "$CLEAN_GRAPH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "clean graph bootstrap is primary" "primary" "$(jq -r '.workflow_mode' <<<"$clean_graph_output")"
 clean_graph_targets="$(cd "$CLEAN_GRAPH_REPO" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
@@ -610,6 +667,127 @@ git -C "$CLEAN_GRAPH_REPO" add README.md
 git -C "$CLEAN_GRAPH_REPO" commit -q -m "Change source revision"
 stale_graph_targets="$(cd "$CLEAN_GRAPH_REPO" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
 assert_eq "source revision mismatch marks stale" "stale:true:false" "$(jq -r '.repos[0] | .status + ":" + (.freshness.stale | tostring) + ":" + (.freshness.source_revision_matches | tostring)' <<<"$stale_graph_targets")"
+
+DIRTY_REFRESH_REPO="$TMP_DIR/dirty-refresh-repo"
+DIRTY_REFRESH_LEDGER="$TMP_DIR/dirty-refresh-home/.codex/spec-first/host-setup.json"
+make_repo "$DIRTY_REFRESH_REPO"
+write_fixture_config "$DIRTY_REFRESH_REPO" "$DIRTY_REFRESH_LEDGER" true
+(cd "$DIRTY_REFRESH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" >/dev/null)
+commit_repo_changes "$DIRTY_REFRESH_REPO" "Commit normalized host files"
+(cd "$DIRTY_REFRESH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" >/dev/null)
+dirty_gitnexus_status_before="$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/status.json")"
+dirty_aggregate_status_before="$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/provider-status.json")"
+dirty_graph_facts_before="$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/graph-facts.json")"
+dirty_normalized_before="$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+before_dirty_refresh_log="$(cat "$COMMAND_LOG")"
+printf 'dirty refresh change\n' >> "$DIRTY_REFRESH_REPO/README.md"
+set +e
+dirty_refresh_output="$(cd "$DIRTY_REFRESH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
+dirty_refresh_status=$?
+set -e
+assert_eq "dirty refresh blocks before provider commands" "1" "$dirty_refresh_status"
+assert_eq "dirty refresh is provider-non-mutating" "blocked:dirty-refresh-non-canonical:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$dirty_refresh_output")"
+assert_eq "dirty refresh does not run provider commands" "$before_dirty_refresh_log" "$(cat "$COMMAND_LOG")"
+assert_eq "dirty refresh preserves GitNexus provider status" "$dirty_gitnexus_status_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "dirty refresh preserves aggregate provider status" "$dirty_aggregate_status_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/provider-status.json")"
+assert_eq "dirty refresh preserves graph facts" "$dirty_graph_facts_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "dirty refresh preserves normalized envelopes" "$dirty_normalized_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+
+INCREMENTAL_REPO="$TMP_DIR/incremental-repo"
+INCREMENTAL_LEDGER="$TMP_DIR/incremental-home/.codex/spec-first/host-setup.json"
+make_repo "$INCREMENTAL_REPO"
+write_fixture_config "$INCREMENTAL_REPO" "$INCREMENTAL_LEDGER" true
+(cd "$INCREMENTAL_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" >/dev/null)
+incremental_base="$(git -C "$INCREMENTAL_REPO" rev-parse HEAD)"
+commit_repo_changes "$INCREMENTAL_REPO" "Commit normalized host files"
+incremental_head="$(git -C "$INCREMENTAL_REPO" rev-parse HEAD)"
+incremental_output="$(cd "$INCREMENTAL_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
+assert_eq "incremental bootstrap remains primary" "primary" "$(jq -r '.workflow_mode' <<<"$incremental_output")"
+assert_eq "GitNexus incremental status fields are recorded" "incremental:incremental-update:false:$incremental_head:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.fallback_from_incremental):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' <<<"$incremental_output")"
+assert_eq "code-review-graph incremental status fields are recorded" "incremental:incremental-update:false:$incremental_head:false" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.refresh_mode):\(.readiness_source):\(.fallback_from_incremental):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' <<<"$incremental_output")"
+assert_eq "GitNexus incremental uses analyze without force" "npx -y $GITNEXUS_PACKAGE analyze --skip-agents-md --no-stats:incremental:primary" "$(jq -r '.results[] | select(.provider=="gitnexus") | .command_results[] | select(.kind=="bootstrap") | "\(.command):\(.refresh_mode):\(.attempt_role)"' <<<"$incremental_output")"
+assert_eq "code-review-graph incremental uses update base" "uvx $CODE_REVIEW_GRAPH_PACKAGE update --base $incremental_base:incremental:primary" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .command_results[] | select(.kind=="bootstrap") | "\(.command):\(.refresh_mode):\(.attempt_role)"' <<<"$incremental_output")"
+assert_eq "code-review-graph normalized envelope tracks incremental update log" "true:true" "$(jq -r '((.source_raw_logs | index(".spec-first/providers/code-review-graph/raw/update.log")) != null | tostring) + ":" + ((.source_raw_logs | index(".spec-first/providers/code-review-graph/raw/build.log")) == null | tostring)' "$INCREMENTAL_REPO/.spec-first/providers/code-review-graph/normalized/impact-capabilities.json")"
+
+MISSING_INCREMENTAL_REPO="$TMP_DIR/missing-incremental-repo"
+MISSING_INCREMENTAL_LEDGER="$TMP_DIR/missing-incremental-home/.codex/spec-first/host-setup.json"
+make_repo "$MISSING_INCREMENTAL_REPO"
+write_fixture_config "$MISSING_INCREMENTAL_REPO" "$MISSING_INCREMENTAL_LEDGER" true
+(cd "$MISSING_INCREMENTAL_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" >/dev/null)
+commit_repo_changes "$MISSING_INCREMENTAL_REPO" "Commit normalized host files"
+jq 'del(.providers.gitnexus.commands.incremental)' "$MISSING_INCREMENTAL_REPO/.spec-first/config/graph-providers.json" > "$MISSING_INCREMENTAL_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$MISSING_INCREMENTAL_REPO/.spec-first/config/graph-providers.json.tmp" "$MISSING_INCREMENTAL_REPO/.spec-first/config/graph-providers.json"
+missing_incremental_output="$(cd "$MISSING_INCREMENTAL_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
+assert_eq "missing incremental command degrades to full" "full:cold-run:incremental-command-unavailable" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.reason_code)"' <<<"$missing_incremental_output")"
+
+CRG_BAD_INCREMENTAL_REPO="$TMP_DIR/crg-bad-incremental-repo"
+CRG_BAD_INCREMENTAL_LEDGER="$TMP_DIR/crg-bad-incremental-home/.codex/spec-first/host-setup.json"
+make_repo "$CRG_BAD_INCREMENTAL_REPO"
+write_fixture_config "$CRG_BAD_INCREMENTAL_REPO" "$CRG_BAD_INCREMENTAL_LEDGER" true
+jq '.providers["code-review-graph"].commands.incremental[4] = "0123456789012345678901234567890123456789"' "$CRG_BAD_INCREMENTAL_REPO/.spec-first/config/graph-providers.json" > "$CRG_BAD_INCREMENTAL_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$CRG_BAD_INCREMENTAL_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_BAD_INCREMENTAL_REPO/.spec-first/config/graph-providers.json"
+before_crg_bad_incremental_log="$(cat "$COMMAND_LOG")"
+set +e
+crg_bad_incremental_output="$(cd "$CRG_BAD_INCREMENTAL_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
+crg_bad_incremental_status=$?
+set -e
+assert_eq "code-review-graph concrete incremental base in projection fails closed" "1" "$crg_bad_incremental_status"
+assert_eq "code-review-graph concrete incremental base reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_bad_incremental_output")"
+assert_eq "code-review-graph concrete incremental base is not executed" "$before_crg_bad_incremental_log" "$(cat "$COMMAND_LOG")"
+
+INVALID_BASE_REPO="$TMP_DIR/invalid-base-repo"
+INVALID_BASE_LEDGER="$TMP_DIR/invalid-base-home/.codex/spec-first/host-setup.json"
+make_repo "$INVALID_BASE_REPO"
+write_fixture_config "$INVALID_BASE_REPO" "$INVALID_BASE_LEDGER" true
+(cd "$INVALID_BASE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" >/dev/null)
+commit_repo_changes "$INVALID_BASE_REPO" "Commit normalized host files"
+jq '.last_indexed_commit = "--force"' "$INVALID_BASE_REPO/.spec-first/providers/gitnexus/status.json" > "$INVALID_BASE_REPO/.spec-first/providers/gitnexus/status.json.tmp"
+mv "$INVALID_BASE_REPO/.spec-first/providers/gitnexus/status.json.tmp" "$INVALID_BASE_REPO/.spec-first/providers/gitnexus/status.json"
+invalid_base_output="$(cd "$INVALID_BASE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
+assert_eq "invalid incremental base falls back to full" "full:cold-run:incremental-base-ref-invalid-format" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.reason_code)"' <<<"$invalid_base_output")"
+
+UNTRUSTED_BASE_REPO="$TMP_DIR/untrusted-base-repo"
+UNTRUSTED_BASE_LEDGER="$TMP_DIR/untrusted-base-home/.codex/spec-first/host-setup.json"
+make_repo "$UNTRUSTED_BASE_REPO"
+write_fixture_config "$UNTRUSTED_BASE_REPO" "$UNTRUSTED_BASE_LEDGER" true
+(cd "$UNTRUSTED_BASE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" >/dev/null)
+commit_repo_changes "$UNTRUSTED_BASE_REPO" "Commit normalized host files"
+jq '.query_ready = false' "$UNTRUSTED_BASE_REPO/.spec-first/providers/gitnexus/status.json" > "$UNTRUSTED_BASE_REPO/.spec-first/providers/gitnexus/status.json.tmp"
+mv "$UNTRUSTED_BASE_REPO/.spec-first/providers/gitnexus/status.json.tmp" "$UNTRUSTED_BASE_REPO/.spec-first/providers/gitnexus/status.json"
+untrusted_base_output="$(cd "$UNTRUSTED_BASE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
+assert_eq "untrusted incremental base falls back to full" "full:cold-run:incremental-base-status-untrusted" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.reason_code)"' <<<"$untrusted_base_output")"
+
+INCREMENTAL_FALLBACK_REPO="$TMP_DIR/incremental-fallback-repo"
+INCREMENTAL_FALLBACK_LEDGER="$TMP_DIR/incremental-fallback-home/.codex/spec-first/host-setup.json"
+make_repo "$INCREMENTAL_FALLBACK_REPO"
+write_fixture_config "$INCREMENTAL_FALLBACK_REPO" "$INCREMENTAL_FALLBACK_LEDGER" true
+(cd "$INCREMENTAL_FALLBACK_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" >/dev/null)
+commit_repo_changes "$INCREMENTAL_FALLBACK_REPO" "Commit normalized host files"
+incremental_fallback_head="$(git -C "$INCREMENTAL_FALLBACK_REPO" rev-parse HEAD)"
+incremental_fallback_output="$(cd "$INCREMENTAL_FALLBACK_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_INCREMENTAL=1 bash "$BOOTSTRAP_SCRIPT" --incremental)"
+assert_eq "incremental failure falls back to full successfully" "incremental-fallback-full:incremental-fallback-full:true:incremental-refresh-failed-fallback-full:$incremental_fallback_head:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.fallback_from_incremental):\(.reason_code):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' <<<"$incremental_fallback_output")"
+assert_eq "incremental fallback records primary and fallback attempts" "npx -y $GITNEXUS_PACKAGE analyze --skip-agents-md --no-stats:incremental:primary:44|npx -y $GITNEXUS_PACKAGE analyze --force --skip-agents-md --no-stats:full:fallback:0" "$(jq -r '.results[] | select(.provider=="gitnexus") | [.command_results[] | select(.kind=="bootstrap") | "\(.command):\(.refresh_mode):\(.attempt_role):\(.exit_code)"] | join("|")' <<<"$incremental_fallback_output")"
+assert_eq "GitNexus normalized envelope tracks fallback analyze log" "true:true" "$(jq -r '((.source_raw_logs | index(".spec-first/providers/gitnexus/raw/analyze.log")) != null | tostring) + ":" + ((.source_raw_logs | index(".spec-first/providers/gitnexus/raw/fallback-analyze.log")) != null | tostring)' "$INCREMENTAL_FALLBACK_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+
+INCREMENTAL_BOTH_FAILED_REPO="$TMP_DIR/incremental-both-failed-repo"
+INCREMENTAL_BOTH_FAILED_LEDGER="$TMP_DIR/incremental-both-failed-home/.codex/spec-first/host-setup.json"
+make_repo "$INCREMENTAL_BOTH_FAILED_REPO"
+write_fixture_config "$INCREMENTAL_BOTH_FAILED_REPO" "$INCREMENTAL_BOTH_FAILED_LEDGER" true
+(cd "$INCREMENTAL_BOTH_FAILED_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" >/dev/null)
+commit_repo_changes "$INCREMENTAL_BOTH_FAILED_REPO" "Commit normalized host files"
+both_failed_graph_facts_before="$(jq -S -c . "$INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/graph-facts.json")"
+both_failed_provider_status_before="$(jq -S -c . "$INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/provider-status.json")"
+both_failed_normalized_before="$(jq -S -c . "$INCREMENTAL_BOTH_FAILED_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+set +e
+incremental_both_failed_output="$(cd "$INCREMENTAL_BOTH_FAILED_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_ANALYZE_SIGSEGV=1 bash "$BOOTSTRAP_SCRIPT" --incremental)"
+incremental_both_failed_status=$?
+set -e
+assert_eq "incremental and full failure remains degraded via fallback capabilities" "0" "$incremental_both_failed_status"
+assert_eq "incremental and full failure returns top-level reason" "degraded-fallback:incremental-and-full-failed" "$(jq -r '.workflow_mode + ":" + .reason_code' <<<"$incremental_both_failed_output")"
+assert_eq "incremental and full failure marks provider clean-full-required" "failed:false:false:incremental-and-full-failed:true" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.graph_ready):\(.query_ready):\(.reason_code):\(.requires_clean_full_refresh)"' <<<"$incremental_both_failed_output")"
+assert_eq "incremental and full failure preserves aggregate provider status" "$both_failed_provider_status_before" "$(jq -S -c . "$INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/provider-status.json")"
+assert_eq "incremental and full failure preserves graph facts" "$both_failed_graph_facts_before" "$(jq -S -c . "$INCREMENTAL_BOTH_FAILED_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "incremental and full failure preserves normalized envelopes" "$both_failed_normalized_before" "$(jq -S -c . "$INCREMENTAL_BOTH_FAILED_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
 
 MULTI_PROBE_REPO="$TMP_DIR/multi-probe-repo"
 MULTI_PROBE_LEDGER="$TMP_DIR/multi-probe-home/.codex/spec-first/host-setup.json"
@@ -1014,6 +1192,8 @@ SIGSEGV_LEDGER="$TMP_DIR/sigsegv-home/.codex/spec-first/host-setup.json"
 make_repo "$SIGSEGV_REPO"
 write_fixture_config "$SIGSEGV_REPO" "$SIGSEGV_LEDGER" true
 printf '# Host\n' > "$SIGSEGV_REPO/AGENTS.md"
+git -C "$SIGSEGV_REPO" add AGENTS.md
+git -C "$SIGSEGV_REPO" commit -q -m "Add host file"
 sigsegv_output="$(cd "$SIGSEGV_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_ANALYZE_SIGSEGV=1 bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "GitNexus sigsegv degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$sigsegv_output")"
 assert_eq "GitNexus sigsegv has structured reason" "failed:gitnexus-analyze-sigsegv:provider-crash:bootstrap:139" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$sigsegv_output")"

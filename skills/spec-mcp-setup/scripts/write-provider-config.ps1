@@ -278,7 +278,8 @@ function Get-ProviderCommands {
   )
   if ($Provider -eq 'gitnexus') {
     return [ordered]@{
-      bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force')
+      bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force', '--skip-agents-md', '--no-stats')
+      incremental = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--skip-agents-md', '--no-stats')
       status = @('npx', '-y', $GitNexusPackageSpec, 'status')
       query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $GitNexusRepoName)
     }
@@ -286,6 +287,7 @@ function Get-ProviderCommands {
   if ($Provider -eq 'code-review-graph') {
     return [ordered]@{
       bootstrap = @('uvx', $CodeReviewGraphPackageSpec, 'build')
+      incremental = @('uvx', $CodeReviewGraphPackageSpec, 'update', '--base', '__SPEC_FIRST_LAST_INDEXED_COMMIT__')
       status = @('uvx', $CodeReviewGraphPackageSpec, 'status')
       query_probe = @('uvx', $CodeReviewGraphPackageSpec, 'status', '--repo', $RepoRoot)
     }

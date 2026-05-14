@@ -46,6 +46,8 @@ Optional invocation input:
 - no argument from a parent workspace: default all-child-repos maintenance action.
 - `--repo <child>` / `-Repo <child>` when the current directory is a parent workspace and the user wants one child only.
 - `--all-repos` / `-AllRepos` as an explicit parent-workspace maintenance action. This is equivalent to the default parent-workspace no-argument behavior. It loops over discovered child Git repos, runs the existing child-scoped bootstrap flow, writes an advisory `.spec-first/workspace/graph-bootstrap-summary.json` summary in the parent workspace, and refreshes existing parent `AGENTS.md` / `CLAUDE.md` GitNexus instruction blocks when at least one child GitNexus bootstrap succeeds.
+- `--incremental` / `-Incremental` as a clean single-repo diagnostic / validation-only expert refresh mode. It delegates to provider-native incremental commands when prior clean provider status can be trusted; otherwise it falls back to full refresh. Current validation does not establish it as a correctness-backed acceleration path.
+- `--full` / `--force` or `-Full` / `-Force` as explicit full refresh mode. This is also the default for single-repo and all-repos runs.
 
 Optional read-only workspace routing input:
 
@@ -56,7 +58,7 @@ Optional read-only workspace routing input:
 1. Resolve the project target. In a Git repo, bootstrap that repo. In a parent workspace, bootstrap all child repos by default unless `--repo <child>` selects one child.
 2. Validate setup-owned input schemas and host readiness ledger consistency.
 3. Validate provider ids, command arrays, and GitNexus query probe policy shape before running any provider command.
-4. Run configured provider bootstrap, status, and query proof commands without shell interpolation.
+4. Resolve refresh mode, then run configured provider bootstrap/incremental, status, and query proof commands without shell interpolation.
 5. GitNexus bootstrap 成功后可调用 spec-first source CLI 收敛 `AGENTS.md` / `CLAUDE.md` 中的 GitNexus host instruction block；这是 host prose cleanup，不是 graph readiness proof，不影响 `graph_ready` / `query_ready`，只作为 `host_instruction_normalization` advisory fact 写入 provider status。
 6. Write provider raw logs, provider status, normalized envelopes, canonical graph facts, impact capability facts, and a human-readable bootstrap report.
 7. If useful for handoff and the current session has GitNexus MCP loaded, perform one bounded live MCP probe as session-local evidence only.
@@ -107,6 +109,19 @@ Pass a selected child only when narrowing the run:
 bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh --repo project-a
 ```
 
+Explicit clean single-repo incremental refresh is available for expert diagnostics and validation:
+
+```bash
+bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh --incremental
+```
+
+Force the default full refresh explicitly:
+
+```bash
+bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh --full
+bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh --force
+```
+
 For read-only target discovery from a parent workspace, run the advisory resolver instead of bootstrap:
 
 ```bash
@@ -131,6 +146,14 @@ PowerShell with an explicit child repo:
 pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1 -Repo project-a
 ```
 
+PowerShell explicit refresh modes:
+
+```powershell
+pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1 -Incremental
+pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1 -Full
+pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1 -Force
+```
+
 Explicit all-repos maintenance from a parent workspace is also supported and is equivalent to the parent-workspace default:
 
 ```bash
@@ -142,6 +165,8 @@ pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1 -AllRepos
 ```
 
 The parent-workspace default and `--all-repos` / `-AllRepos` preserve per-child partial success, write child repo canonical artifacts only, and write the parent summary under `.spec-first/workspace/graph-bootstrap-summary.json` as advisory control-plane evidence. They may also normalize existing parent `AGENTS.md` / `CLAUDE.md` GitNexus instruction blocks after a child GitNexus bootstrap succeeds; this host prose cleanup is recorded as `parent_host_instruction_normalization` and does not create parent `.spec-first/graph/*`, `.spec-first/impact/*`, or `.spec-first/providers/*` artifacts.
+
+`--all-repos --incremental` / `-AllRepos -Incremental` is unsupported in this contract. The same block applies when a parent workspace would otherwise enter the default all-repos path and the operator passes only `--incremental` / `-Incremental`. Both forms exit before provider commands with `reason_code=incremental-all-repos-unsupported` and preserve child canonical artifacts. Multi-repo incremental optimization requires a separate validation plan.
 
 PowerShell read-only target discovery:
 
@@ -173,7 +198,8 @@ Allowed minimum command shapes are:
 {
   "gitnexus": {
     "commands": {
-      "bootstrap": ["npx", "-y", "<configured-gitnexus-package>", "analyze", "--force"],
+      "bootstrap": ["npx", "-y", "<configured-gitnexus-package>", "analyze", "--force", "--skip-agents-md", "--no-stats"],
+      "incremental": ["npx", "-y", "<configured-gitnexus-package>", "analyze", "--skip-agents-md", "--no-stats"],
       "status": ["npx", "-y", "<configured-gitnexus-package>", "status"],
       "query_probe": ["npx", "-y", "<configured-gitnexus-package>", "query", "<expected-source-basename>", "--repo", "<repo-name>"]
     }
@@ -181,6 +207,7 @@ Allowed minimum command shapes are:
   "code-review-graph": {
     "commands": {
       "bootstrap": ["uvx", "<configured-code-review-graph-package>", "build"],
+      "incremental": ["uvx", "<configured-code-review-graph-package>", "update", "--base", "__SPEC_FIRST_LAST_INDEXED_COMMIT__"],
       "status": ["uvx", "<configured-code-review-graph-package>", "status"],
       "query_probe": ["uvx", "<configured-code-review-graph-package>", "status", "--repo", "<repo-root>"]
     }
@@ -188,11 +215,27 @@ Allowed minimum command shapes are:
 }
 ```
 
-The current display forms are `npx -y <configured-gitnexus-package> analyze --force`, `npx -y <configured-gitnexus-package> status`, `npx -y <configured-gitnexus-package> query <expected-source-basename> --repo <repo-name>`, `uvx <configured-code-review-graph-package> build`, and `uvx <configured-code-review-graph-package> status --repo <repo-root>`; the script still executes the validated arrays from `graph-providers.json`, not these prose strings. The bootstrap script owns the safety allowlist (provider id, executable, package name, and subcommand shape); `mcp-tools.json` remains the package/version source, and `graph-providers.json` remains the projected command argv source.
+The current display forms are `npx -y <configured-gitnexus-package> analyze --force --skip-agents-md --no-stats`, `npx -y <configured-gitnexus-package> analyze --skip-agents-md --no-stats`, `npx -y <configured-gitnexus-package> status`, `npx -y <configured-gitnexus-package> query <expected-source-basename> --repo <repo-name>`, `uvx <configured-code-review-graph-package> build`, `uvx <configured-code-review-graph-package> update --base <last_indexed_commit>`, and `uvx <configured-code-review-graph-package> status --repo <repo-root>`; the script still executes the validated arrays from `graph-providers.json`, not these prose strings. The bootstrap script owns the safety allowlist (provider id, executable, package name, and subcommand shape); `mcp-tools.json` remains the package/version source, and `graph-providers.json` remains the projected command argv source. GitNexus analyze commands use `--skip-agents-md --no-stats` so provider indexing does not write volatile host-instruction prose; the spec-first GitNexus instruction normalizer remains the owner of stable `AGENTS.md` / `CLAUDE.md` block updates. The projected code-review-graph incremental command must contain the literal sentinel `__SPEC_FIRST_LAST_INDEXED_COMMIT__`; the runtime replacement value comes only from trusted per-provider status.
 
 Reject string commands, `bash -c`, `sh -c`, and unsupported executable/package shapes. Shell metacharacters inside an array argument must not be interpreted by a shell.
 
 After successful GitNexus bootstrap, call the spec-first CLI GitNexus instruction normalizer to ensure existing `AGENTS.md` / `CLAUDE.md` files contain the stable spec-first GitNexus evidence contract. If a host instruction file exists but lacks the GitNexus block, create it; if a provider refreshed a legacy block, rewrite it; if only one marker exists, report a partial-block advisory failure and do not guess the repair. Missing host instruction files remain `init` ownership and are not created by graph bootstrap. The renderer lives in `src/cli/gitnexus-instruction-block.js`; the Bash/PowerShell bootstrap scripts must not duplicate the block prose. The stable block omits dynamic index counts, avoids hard `MUST` / `NEVER` provider rules, avoids host-specific runtime skill paths, and frames GitNexus as freshness-aware evidence rather than a replacement for source reads, tests, or workflow judgment.
+
+## Refresh Modes
+
+The default refresh mode is `full` for both single-repo and all-repos runs. `--incremental` / `-Incremental` is an explicit diagnostic / validation-only expert path for clean single-repo operators after commit or merge when current query/review evidence is needed. Current validation does not establish it as a correctness-backed acceleration path.
+
+Refresh mode behavior:
+
+- `full`: runs GitNexus `analyze --force --skip-agents-md --no-stats` and code-review-graph `build`; writes `readiness_source=cold-run`.
+- `incremental`: runs GitNexus `analyze --skip-agents-md --no-stats` and code-review-graph `update --base <last_indexed_commit>`; writes `readiness_source=incremental-update` when the incremental command form ran.
+- incremental fallback success: if the incremental command fails and the fallback full refresh succeeds, writes `readiness_source=incremental-fallback-full`, `refresh_mode=incremental-fallback-full`, and `fallback_from_incremental=true`.
+- incremental and fallback full both fail: writes current per-provider failure status with `refresh_mode=failed`, sets `requires_clean_full_refresh=true`, preserves previous aggregate canonical freshness artifacts when present, and returns `reason_code=incremental-and-full-failed`.
+- dirty worktree: exits before provider commands with `reason_code=dirty-refresh-non-canonical` and `canonical_artifacts_preserved=true`; it does not run incremental or full provider refresh.
+
+Incremental preflight only trusts `.spec-first/providers/<provider>/status.json.last_indexed_commit` when the prior status is `provider-status.v1`, `graph_ready=true`, `query_ready=true`, clean, and tied to the same source revision in `repo_snapshot` and `bootstrap_fingerprint.repo_snapshot`. Missing, invalid, untrusted, non-existent, non-ancestor, provider-projection-changed, provider-changed, spec-first-changed, or `requires_clean_full_refresh=true` bases downgrade to full with the corresponding `reason_code`.
+
+`graph-facts.v1` does not expose refresh-mode convenience fields. Per-provider `.spec-first/providers/<provider>/status.json.refresh_mode` is the truth source, and `.spec-first/graph/provider-status.json.providers[]` may mirror it for list-oriented consumers.
 
 ## Freshness, Timing, And Reuse Facts
 
@@ -207,7 +250,7 @@ Each provider status also includes `readiness_source`, `reuse_eligible`, `reuse_
 - setup projection facts: `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json` hashes
 - provider command facts: provider id, command hash, configured package spec, bundled package spec, and version policy
 
-This phase does not skip provider commands and does not reuse existing graph artifacts. `reuse_eligible=true` only means the provider has enough deterministic freshness facts to be considered by a later explicit fast path. Downstream LLM workflows must treat it as a script-owned fact, not as proof that the current run reused cached evidence.
+Default full refresh still runs provider commands. Explicit `--incremental` may run provider-native incremental commands instead of full commands, but `readiness_source=incremental-update` means only that the incremental command form was used; it does not prove provider internals processed only a diff. `reuse_eligible=true` only means the provider has enough deterministic freshness facts to be considered by a later explicit fast path. Downstream LLM workflows must treat it as a script-owned fact, not as proof that the current run reused cached evidence.
 
 GitNexus and `code-review-graph` can be `reuse_eligible=true` only when the setup-projected package in `graph-providers.json` matches the bundled package/version from `skills/spec-mcp-setup/mcp-tools.json`, which records `version_policy=pinned`. If the projected package differs from the bundled package, bootstrap fails closed before running that provider's commands with `readiness_source=preflight-blocked`, `failure_class=provider-projection-stale`, and `failed_phase=preflight`. GitNexus uses `reason_code=gitnexus-provider-projection-stale`; `code-review-graph` uses `reason_code=code-review-graph-provider-projection-stale`. If `code-review-graph` package identity is floating or cannot be verified from the bundled registry, bootstrap also fails closed before provider execution with `failure_class=provider-version-unverifiable` and `reason_code=code-review-graph-provider-version-unverifiable`. The recommended action is to rerun `spec-mcp-setup` so setup refreshes the projected provider command argv.
 

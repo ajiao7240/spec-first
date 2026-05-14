@@ -1,6 +1,9 @@
 param(
   [string]$Repo = '',
-  [switch]$AllRepos
+  [switch]$AllRepos,
+  [switch]$Incremental,
+  [switch]$Full,
+  [switch]$Force
 )
 
 $ErrorActionPreference = 'Stop'
@@ -8,6 +11,8 @@ Set-StrictMode -Version Latest
 
 $script:GitNexusQueryProbeCandidateLimit = 5
 $script:BootstrapProvidersScript = $PSCommandPath
+$script:DefaultRefreshModeSingleRepo = 'full'
+$script:DefaultRefreshModeAllRepos = 'full'
 
 function Get-NonNegativeIntEnv {
   param(
@@ -40,15 +45,43 @@ function Write-ResultAndExit {
     [string]$WorkflowMode,
     [string]$ReasonCode,
     [string]$NextAction,
-    [int]$ExitCode = 1
+    [int]$ExitCode = 1,
+    [string]$RepoRoot = '',
+    [string]$InvocationWorkspaceRoot = '',
+    [string]$SelectionSource = '',
+    [bool]$CanonicalArtifactsPreserved = $false,
+    [string]$GraphDir = ''
   )
-  [pscustomobject]@{
+
+  if (-not [string]::IsNullOrWhiteSpace($GraphDir)) {
+    New-Item -ItemType Directory -Force -LiteralPath $GraphDir | Out-Null
+    Write-TextFileAtomic -Path (Join-Path $GraphDir 'bootstrap-report.md') -Value @"
+# Graph Bootstrap Report
+
+- workflow_mode: $WorkflowMode
+- reason_code: $ReasonCode
+- next_action: $NextAction
+"@
+  }
+
+  $payload = [ordered]@{
     schema_version = 'graph-bootstrap-result.v1'
     overall_status = 'action-required'
     workflow_mode = $WorkflowMode
     reason_code = $ReasonCode
     next_action = $NextAction
-  } | ConvertTo-Json -Compress
+    canonical_artifacts_preserved = $CanonicalArtifactsPreserved
+  }
+  if (-not [string]::IsNullOrWhiteSpace($RepoRoot)) {
+    $payload['repo_root'] = $RepoRoot
+  }
+  if (-not [string]::IsNullOrWhiteSpace($InvocationWorkspaceRoot)) {
+    $payload['invocation_workspace_root'] = $InvocationWorkspaceRoot
+  }
+  if (-not [string]::IsNullOrWhiteSpace($SelectionSource)) {
+    $payload['selection_source'] = $SelectionSource
+  }
+  [pscustomobject]$payload | ConvertTo-Json -Compress
   exit $ExitCode
 }
 
@@ -197,6 +230,12 @@ function Invoke-ChildJsonScript {
   $powerShellExe = Resolve-ChildPowerShellExecutable
   $childArgs = @('-NoProfile', '-File', $ScriptPath)
   foreach ($entry in $Arguments.GetEnumerator()) {
+    if ($entry.Value -is [bool]) {
+      if ([bool]$entry.Value) {
+        $childArgs += "-$($entry.Key)"
+      }
+      continue
+    }
     $childArgs += "-$($entry.Key)"
     foreach ($value in @($entry.Value)) {
       $childArgs += [string]$value
@@ -277,13 +316,38 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
 
   $runId = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
   $results = @()
+  $childRefreshArgs = @{}
+  switch ($script:DefaultRefreshModeAllRepos) {
+    'full' {
+      $childRefreshArgs.Full = $true
+    }
+    'incremental' {
+      $childRefreshArgs.Incremental = $true
+    }
+    default {
+      [pscustomobject]@{
+        schema_version = 'workspace-graph-bootstrap-summary.v1'
+        overall_status = 'action-required'
+        workflow_mode = 'blocked'
+        reason_code = 'unsupported-default-refresh-mode'
+        workspace_root = $TargetFacts.workspace_root
+        advisory = $true
+        next_action = "Unsupported DefaultRefreshModeAllRepos value: $script:DefaultRefreshModeAllRepos"
+      } | ConvertTo-Json -Compress
+      exit 1
+    }
+  }
   $childIndex = 0
   foreach ($child in $children) {
     $childIndex += 1
     $childStartedAt = Get-UtcTimestamp
     $childStartedEpochMs = Get-EpochMilliseconds
     [Console]::Error.WriteLine("spec-graph-bootstrap: all-repos child $childIndex/$($children.Count) start repo=$([string]$child.workspace_relative_path)")
-    $childRun = Invoke-ChildJsonScript -ScriptPath $script:BootstrapProvidersScript -Arguments @{ Repo = [string]$child.workspace_relative_path }
+    $childArgs = @{ Repo = [string]$child.workspace_relative_path }
+    foreach ($entry in $childRefreshArgs.GetEnumerator()) {
+      $childArgs[$entry.Key] = $entry.Value
+    }
+    $childRun = Invoke-ChildJsonScript -ScriptPath $script:BootstrapProvidersScript -Arguments $childArgs
     $childStatus = [int]$childRun.exit_code
     $childText = [string]$childRun.stdout
     $childFinishedAt = Get-UtcTimestamp
@@ -647,6 +711,7 @@ function Test-CommandShapeSupported {
   if ($Provider -eq 'gitnexus') {
     $subcommand = switch ($Kind) {
       'bootstrap' { 'analyze' }
+      'incremental' { 'analyze' }
       'status' { 'status' }
       'query_probe' { 'query' }
       default { $null }
@@ -678,6 +743,42 @@ function Test-CommandShapeSupported {
           [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
           [string]$actual[3] -eq 'analyze' -and
           [string]$actual[4] -eq '--force'
+        ) -or (
+          $actual.Count -eq 6 -and
+          [string]$actual[0] -eq 'npx' -and
+          [string]$actual[1] -eq '-y' -and
+          [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
+          [string]$actual[3] -eq 'analyze' -and
+          [string]$actual[4] -eq '--skip-agents-md' -and
+          [string]$actual[5] -eq '--no-stats'
+        ) -or (
+          $actual.Count -eq 7 -and
+          [string]$actual[0] -eq 'npx' -and
+          [string]$actual[1] -eq '-y' -and
+          [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
+          [string]$actual[3] -eq 'analyze' -and
+          [string]$actual[4] -eq '--force' -and
+          [string]$actual[5] -eq '--skip-agents-md' -and
+          [string]$actual[6] -eq '--no-stats'
+        )
+      )
+    }
+    if ($Kind -eq 'incremental') {
+      return (
+        (
+          $actual.Count -eq 4 -and
+          [string]$actual[0] -eq 'npx' -and
+          [string]$actual[1] -eq '-y' -and
+          [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
+          [string]$actual[3] -eq 'analyze'
+        ) -or (
+          $actual.Count -eq 6 -and
+          [string]$actual[0] -eq 'npx' -and
+          [string]$actual[1] -eq '-y' -and
+          [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
+          [string]$actual[3] -eq 'analyze' -and
+          [string]$actual[4] -eq '--skip-agents-md' -and
+          [string]$actual[5] -eq '--no-stats'
         )
       )
     }
@@ -701,6 +802,14 @@ function Test-CommandShapeSupported {
     }
     if ($Kind -eq 'bootstrap') {
       return ($tail.Count -eq 1 -and [string]$tail[0] -eq 'build')
+    }
+    if ($Kind -eq 'incremental') {
+      return (
+        $tail.Count -eq 3 -and
+        [string]$tail[0] -eq 'update' -and
+        [string]$tail[1] -eq '--base' -and
+        [string]$tail[2] -eq '__SPEC_FIRST_LAST_INDEXED_COMMIT__'
+      )
     }
     if ($Kind -eq 'status') {
       return ($tail.Count -eq 1 -and [string]$tail[0] -eq 'status')
@@ -982,6 +1091,100 @@ function Invoke-ConfiguredCommand {
     finished_at = $finishedAt
     duration_ms = $durationMs
   }
+}
+
+function Invoke-ProviderCommandArray {
+  param(
+    [object[]]$Command,
+    [string]$Provider,
+    [string]$Kind,
+    [string]$LogPath,
+    [string]$RepoRoot,
+    [string]$RefreshMode = '',
+    [string]$AttemptRole = ''
+  )
+  New-Item -ItemType Directory -Force -LiteralPath (Split-Path -Parent $LogPath) | Out-Null
+  $exe = [string]$Command[0]
+  $commandArgs = @($Command | Select-Object -Skip 1)
+  [Console]::Error.WriteLine("spec-graph-bootstrap: running $Provider $Kind; dependencies may download on first use...")
+  $startedAt = Get-UtcTimestamp
+  $startedEpochMs = Get-EpochMilliseconds
+  $result = Invoke-ExternalCommandWithTimeout -Exe $exe -CommandArguments $commandArgs -WorkingDirectory $RepoRoot -TimeoutSeconds $script:ProviderCommandTimeoutSeconds
+  $finishedAt = Get-UtcTimestamp
+  $durationMs = (Get-EpochMilliseconds) - $startedEpochMs
+  $exitCode = [int]$result.exit_code
+  if ($result.timed_out) {
+    [Console]::Error.WriteLine("spec-graph-bootstrap: timed out $Provider $Kind after ${script:ProviderCommandTimeoutSeconds}s")
+  } else {
+    [Console]::Error.WriteLine("spec-graph-bootstrap: finished $Provider $Kind with exit $exitCode")
+  }
+  $outputText = [string]$result.output
+  Set-Content -Encoding utf8 -LiteralPath $LogPath -Value $outputText
+  $diagnostic = (($outputText -replace '\s+', ' ').Trim())
+  $truncated = $false
+  if ($diagnostic.Length -gt 1000) {
+    $diagnostic = $diagnostic.Substring(0, 1000)
+    $truncated = $true
+  }
+  $payload = [ordered]@{
+    kind = 'bootstrap'
+    command = ($Command -join ' ')
+    exit_code = $exitCode
+    diagnostic = $diagnostic
+    diagnostics_truncated = $truncated
+    raw_log = ConvertTo-RepoRelativePath -Path $LogPath -RepoRoot $RepoRoot
+    started_at = $startedAt
+    finished_at = $finishedAt
+    duration_ms = $durationMs
+  }
+  if (-not [string]::IsNullOrWhiteSpace($RefreshMode)) {
+    $payload['refresh_mode'] = $RefreshMode
+  }
+  if (-not [string]::IsNullOrWhiteSpace($AttemptRole)) {
+    $payload['attempt_role'] = $AttemptRole
+  }
+  return [pscustomobject]$payload
+}
+
+function Get-ProviderIncrementalCommand {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider,
+    [string]$LastIndexedCommit
+  )
+  $command = @($ProviderConfig.providers.$Provider.commands.incremental)
+  if ($Provider -eq 'code-review-graph') {
+    $sentinelIndex = $command.Count - 1
+    if ($sentinelIndex -lt 0 -or [string]$command[$sentinelIndex] -ne '__SPEC_FIRST_LAST_INDEXED_COMMIT__') {
+      throw 'code-review-graph incremental command sentinel missing'
+    }
+    $command[$sentinelIndex] = $LastIndexedCommit
+  }
+  return @($command)
+}
+
+function Get-ProviderFullCommand {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider
+  )
+  return @($ProviderConfig.providers.$Provider.commands.bootstrap)
+}
+
+function Get-ProviderBootstrapLogPath {
+  param(
+    [string]$Provider,
+    [string]$RefreshMode,
+    [string]$AttemptRole,
+    [string]$RawDir
+  )
+  if ($Provider -eq 'gitnexus') {
+    if ($AttemptRole -eq 'fallback') { return (Join-Path $RawDir 'fallback-analyze.log') }
+    return (Join-Path $RawDir 'analyze.log')
+  }
+  if ($RefreshMode -eq 'incremental') { return (Join-Path $RawDir 'update.log') }
+  if ($AttemptRole -eq 'fallback') { return (Join-Path $RawDir 'fallback-build.log') }
+  return (Join-Path $RawDir 'build.log')
 }
 
 function Invoke-GitNexusQueryProbeCandidate {
@@ -1302,7 +1505,12 @@ function Get-ProviderConfiguredPackageSpec {
     [object]$ProviderConfig,
     [string]$Provider
   )
-  $packages = @('bootstrap', 'status', 'query_probe' | ForEach-Object {
+  $phases = @('bootstrap', 'status', 'query_probe')
+  $commands = $ProviderConfig.providers.$Provider.commands
+  if ($null -ne $commands -and $commands.PSObject.Properties.Name -contains 'incremental') {
+    $phases += 'incremental'
+  }
+  $packages = @($phases | ForEach-Object {
     Get-ProviderCommandPackageSpec -ProviderConfig $ProviderConfig -Provider $Provider -Kind $_
   })
   $missing = @($packages | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) })
@@ -1644,15 +1852,18 @@ function Write-NormalizedArtifacts {
     [bool]$QueryReady,
     [string]$BootstrappedAt,
     [string]$ProvidersDir,
+    [object[]]$CommandResults = @(),
     [object[]]$QueryProbeAttempts = @()
   )
   $normalizedDir = Join-Path (Join-Path $ProvidersDir $Provider) 'normalized'
   New-Item -ItemType Directory -Force -LiteralPath $normalizedDir | Out-Null
   $sourceStatusPath = ".spec-first/providers/$Provider/status.json"
+  $bootstrapLogs = @($CommandResults | Where-Object { [string]$_.kind -eq 'bootstrap' } | ForEach-Object { [string]$_.raw_log })
 
   if ($Provider -eq 'gitnexus') {
     $attemptLogs = @($QueryProbeAttempts | ForEach-Object { $_.raw_log })
-    $sourceRawLogs = @('.spec-first/providers/gitnexus/raw/analyze.log', '.spec-first/providers/gitnexus/raw/status.log')
+    $sourceRawLogs = if ($bootstrapLogs.Count -gt 0) { @($bootstrapLogs) } else { @('.spec-first/providers/gitnexus/raw/analyze.log') }
+    $sourceRawLogs += '.spec-first/providers/gitnexus/raw/status.log'
     if ($attemptLogs.Count -gt 0) {
       $sourceRawLogs += $attemptLogs
     } else {
@@ -1683,12 +1894,14 @@ function Write-NormalizedArtifacts {
     $availableQuerySurfaces = if ($QueryReady) { @('status', 'query_graph_tool', 'get_impact_radius_tool') } else { @() }
     $confidence = if ($QueryReady) { 'medium' } else { 'low' }
     $limitations = if ($QueryReady) { @('code-review-graph query-surface proof is conservative and should be treated as provider readiness, not semantic evidence.') } else { @('Provider query readiness is not verified.') }
+    $sourceRawLogs = if ($bootstrapLogs.Count -gt 0) { @($bootstrapLogs) } else { @('.spec-first/providers/code-review-graph/raw/build.log') }
+    $sourceRawLogs += @('.spec-first/providers/code-review-graph/raw/status.log', '.spec-first/providers/code-review-graph/raw/query.log')
     $payload = [ordered]@{
       schema_version = 'provider-normalized-envelope.v1'
       provider = $Provider
       generated_at = $BootstrappedAt
       source_status_path = $sourceStatusPath
-      source_raw_logs = @('.spec-first/providers/code-review-graph/raw/build.log', '.spec-first/providers/code-review-graph/raw/status.log', '.spec-first/providers/code-review-graph/raw/query.log')
+      source_raw_logs = $sourceRawLogs
       available_query_surfaces = $availableQuerySurfaces
       capabilities = @('detect_changes', 'blast_radius', 'minimal_context', 'review_context', 'related_tests', 'graph_stats')
       confidence = $confidence
@@ -1719,6 +1932,155 @@ function Test-FallbackSupported {
   return ($null -ne $Fallback -and $Fallback.support_level -and $Fallback.support_level -ne 'none')
 }
 
+function ConvertTo-ComparableJson {
+  param([AllowNull()][object]$Value)
+  return (ConvertTo-CanonicalJsonValue -Value $Value | ConvertTo-Json -Depth 100 -Compress)
+}
+
+function New-RefreshDecision {
+  param(
+    [string]$RefreshMode,
+    [string]$ReasonCode = '',
+    [string]$LastIndexedCommit = ''
+  )
+  return [pscustomobject][ordered]@{
+    refresh_mode = $RefreshMode
+    reason_code = if ([string]::IsNullOrWhiteSpace($ReasonCode)) { $null } else { $ReasonCode }
+    last_indexed_commit = if ([string]::IsNullOrWhiteSpace($LastIndexedCommit)) { $null } else { $LastIndexedCommit }
+  }
+}
+
+function New-RefreshPreflightFailureInfo {
+  param([string]$ReasonCode)
+  return [ordered]@{
+    failed_phase = 'preflight'
+    failure_class = 'refresh-mode-decision'
+    reason_code = $ReasonCode
+    exit_code = $null
+    recommended_action = $null
+    diagnostic = "Refresh mode preflight selected full refresh: $ReasonCode"
+  }
+}
+
+function New-IncrementalFallbackSuccessFailureInfo {
+  param([int]$ExitCode)
+  return [ordered]@{
+    failed_phase = 'bootstrap'
+    failure_class = 'incremental-fallback-recovered'
+    reason_code = 'incremental-refresh-failed-fallback-full'
+    exit_code = $ExitCode
+    recommended_action = $null
+    diagnostic = 'Incremental refresh failed, then full fallback completed successfully.'
+  }
+}
+
+function New-IncrementalBothFailedFailureInfo {
+  param([int]$ExitCode)
+  return [ordered]@{
+    failed_phase = 'bootstrap'
+    failure_class = 'provider-command-failed'
+    reason_code = 'incremental-and-full-failed'
+    exit_code = $ExitCode
+    recommended_action = 'Inspect the provider raw logs. Run a clean full graph bootstrap after fixing the provider command failure.'
+    diagnostic = 'Incremental refresh failed and the full fallback also failed.'
+  }
+}
+
+function Test-GitCommitExists {
+  param(
+    [string]$RepoRoot,
+    [string]$Commit
+  )
+  & git -C $RepoRoot cat-file -e "$Commit^{commit}" 2>$null
+  return ($LASTEXITCODE -eq 0)
+}
+
+function Test-GitCommitIsAncestor {
+  param(
+    [string]$RepoRoot,
+    [string]$Ancestor,
+    [string]$Descendant
+  )
+  & git -C $RepoRoot merge-base --is-ancestor $Ancestor $Descendant 2>$null
+  return ($LASTEXITCODE -eq 0)
+}
+
+function Resolve-ProviderRefreshMode {
+  param(
+    [object]$ProviderConfig,
+    [string]$Provider,
+    [string]$StatusPath,
+    [object]$BootstrapFingerprint,
+    [string]$InvocationRefreshMode,
+    [string]$RepoRoot,
+    [string]$SourceRevision
+  )
+  if ($InvocationRefreshMode -ne 'incremental') {
+    return (New-RefreshDecision -RefreshMode 'full')
+  }
+
+  $commands = $ProviderConfig.providers.$Provider.commands
+  if ($null -eq $commands -or -not ($commands.PSObject.Properties.Name -contains 'incremental')) {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'incremental-command-unavailable')
+  }
+  if (-not (Test-CommandShapeSupported -ProviderConfig $ProviderConfig -Provider $Provider -Kind 'incremental' -RepoRoot $RepoRoot)) {
+    return (New-RefreshDecision -RefreshMode 'blocked' -ReasonCode 'unsupported-provider-command')
+  }
+
+  if (-not (Test-Path -LiteralPath $StatusPath -PathType Leaf)) {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'incremental-base-ref-unset')
+  }
+  try {
+    $priorStatus = Read-JsonFile -Path $StatusPath
+  } catch {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'incremental-base-ref-unset')
+  }
+  if ($priorStatus.schema_version -ne 'provider-status.v1') {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'incremental-base-ref-unset')
+  }
+
+  if ($null -eq $priorStatus.bootstrap_fingerprint) {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'incremental-base-ref-unset')
+  }
+  if ((ConvertTo-ComparableJson -Value $priorStatus.bootstrap_fingerprint.spec_first) -ne (ConvertTo-ComparableJson -Value $BootstrapFingerprint.spec_first)) {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'fingerprint-spec-first-changed')
+  }
+  if ((ConvertTo-ComparableJson -Value $priorStatus.bootstrap_fingerprint.provider_projection) -ne (ConvertTo-ComparableJson -Value $BootstrapFingerprint.provider_projection)) {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'fingerprint-projection-changed')
+  }
+  if ((ConvertTo-ComparableJson -Value $priorStatus.bootstrap_fingerprint.provider) -ne (ConvertTo-ComparableJson -Value $BootstrapFingerprint.provider)) {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'fingerprint-provider-changed')
+  }
+
+  if ($priorStatus.PSObject.Properties.Name -contains 'requires_clean_full_refresh' -and [bool]$priorStatus.requires_clean_full_refresh) {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'clean-full-refresh-required')
+  }
+  $lastIndexedCommit = if ($priorStatus.PSObject.Properties.Name -contains 'last_indexed_commit') { [string]$priorStatus.last_indexed_commit } else { '' }
+  if ([string]::IsNullOrWhiteSpace($lastIndexedCommit)) {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'incremental-base-ref-unset')
+  }
+  if ($lastIndexedCommit -notmatch '^[0-9a-f]{40}$') {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'incremental-base-ref-invalid-format')
+  }
+  if (
+    -not [bool]$priorStatus.graph_ready -or
+    -not [bool]$priorStatus.query_ready -or
+    [bool]$priorStatus.repo_snapshot.worktree_dirty -or
+    [string]$priorStatus.repo_snapshot.source_revision -ne $lastIndexedCommit -or
+    [string]$priorStatus.bootstrap_fingerprint.repo_snapshot.source_revision -ne $lastIndexedCommit
+  ) {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'incremental-base-status-untrusted')
+  }
+  if (-not (Test-GitCommitExists -RepoRoot $RepoRoot -Commit $lastIndexedCommit)) {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'incremental-base-ref-missing')
+  }
+  if (-not (Test-GitCommitIsAncestor -RepoRoot $RepoRoot -Ancestor $lastIndexedCommit -Descendant $SourceRevision)) {
+    return (New-RefreshDecision -RefreshMode 'full' -ReasonCode 'incremental-base-ref-not-ancestor')
+  }
+
+  return (New-RefreshDecision -RefreshMode 'incremental' -LastIndexedCommit $lastIndexedCommit)
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $mcpToolsOverride = [Environment]::GetEnvironmentVariable('SPEC_FIRST_MCP_TOOLS_JSON')
 if ([string]::IsNullOrWhiteSpace($mcpToolsOverride)) {
@@ -1741,11 +2103,28 @@ if ([string]::IsNullOrWhiteSpace($resolverOverride)) {
 $resolverParams = @{ Format = 'json' }
 if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
 $targetFacts = (& $resolverPath @resolverParams) | ConvertFrom-Json
+$targetCandidates = @($targetFacts.candidates)
+$targetDefaultAllRepos = (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo) -and $targetFacts.mode -ne 'git-repo' -and $targetCandidates.Count -gt 0)
+if ($Incremental -and ($Full -or $Force)) {
+  Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'conflicting-refresh-flags' -NextAction 'Use either -Incremental or -Full/-Force, not both.'
+}
+if (($AllRepos -or $targetDefaultAllRepos) -and $Incremental) {
+  [pscustomobject]@{
+    schema_version = 'workspace-graph-bootstrap-summary.v1'
+    overall_status = 'action-required'
+    workflow_mode = 'blocked'
+    reason_code = 'incremental-all-repos-unsupported'
+    workspace_root = $targetFacts.workspace_root
+    parent_writes_repo_local_artifacts = $false
+    canonical_artifacts_preserved = $true
+    next_action = 'Run -AllRepos without -Incremental, or run -Incremental against one clean child repo with -Repo <child>.'
+  } | ConvertTo-Json -Compress
+  exit 1
+}
 if ($AllRepos) {
   Write-WorkspaceGraphBootstrapSummaryAndExit -TargetFacts $targetFacts -SelectionSource 'explicit-all-repos'
 }
-$targetCandidates = @($targetFacts.candidates)
-if (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo) -and $targetFacts.mode -ne 'git-repo' -and $targetCandidates.Count -gt 0) {
+if ($targetDefaultAllRepos) {
   Write-WorkspaceGraphBootstrapSummaryAndExit -TargetFacts $targetFacts -SelectionSource 'workspace-default-all-repos'
 }
 if (-not [bool]$targetFacts.state_write_allowed) {
@@ -1773,6 +2152,28 @@ $graphDir = Join-Path $specDir 'graph'
 $impactDir = Join-Path $specDir 'impact'
 $providersDir = Join-Path $specDir 'providers'
 New-Item -ItemType Directory -Force -LiteralPath $graphDir, $impactDir, $providersDir | Out-Null
+
+$bootstrappedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+$sourceRevisionOutput = @(git -C $repoRoot rev-parse --verify 'HEAD^{commit}' 2>$null)
+if ($LASTEXITCODE -ne 0 -or $sourceRevisionOutput.Count -eq 0 -or [string]::IsNullOrWhiteSpace([string]$sourceRevisionOutput[0])) {
+  Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'repo-snapshot-unavailable' -NextAction 'Resolve git repository state before graph bootstrap.' -RepoRoot $repoRoot -InvocationWorkspaceRoot $invocationWorkspaceRoot -SelectionSource $selectionSource -GraphDir $graphDir
+}
+$sourceRevision = [string]$sourceRevisionOutput[0]
+$worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
+$worktreeDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
+$worktreeStatusHash = Get-StatusHash -Text $worktreeStatus
+$invocationRefreshMode = if ($Incremental) { 'incremental' } elseif ($Full -or $Force) { 'full' } else { $script:DefaultRefreshModeSingleRepo }
+if ($worktreeDirty) {
+  Write-ResultAndExit `
+    -WorkflowMode 'blocked' `
+    -ReasonCode 'dirty-refresh-non-canonical' `
+    -NextAction 'Commit, stash, or clean worktree changes before graph bootstrap refresh; provider commands were not run.' `
+    -RepoRoot $repoRoot `
+    -InvocationWorkspaceRoot $invocationWorkspaceRoot `
+    -SelectionSource $selectionSource `
+    -CanonicalArtifactsPreserved $true `
+    -GraphDir $graphDir
+}
 
 $providerConfig = Assert-Schema -Path $providerConfigPath -SchemaVersion 'graph-providers.v1' -MissingReason 'missing_provider_config'
 $runtimeCapabilities = Assert-Schema -Path $runtimeCapabilitiesPath -SchemaVersion 'runtime-capabilities.v1' -MissingReason 'missing_runtime_capabilities'
@@ -1824,20 +2225,17 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
       Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Provider command shape is unsupported for $($property.Name):$kind."
     }
   }
+  $commands = $property.Value.commands
+  if ($Incremental -and $null -ne $commands -and $commands.PSObject.Properties.Name -contains 'incremental') {
+    if (-not (Test-CommandShapeSupported -ProviderConfig $providerConfig -Provider $property.Name -Kind 'incremental' -RepoRoot $repoRoot)) {
+      Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Provider command shape is unsupported for $($property.Name):incremental."
+    }
+  }
   if (-not (Test-QueryProbePolicySupported -ProviderConfig $providerConfig -Provider $property.Name)) {
     Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Provider query probe policy is unsupported for $($property.Name)."
   }
 }
 
-$bootstrappedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
-$sourceRevisionOutput = @(git -C $repoRoot rev-parse --verify 'HEAD^{commit}' 2>$null)
-if ($LASTEXITCODE -ne 0 -or $sourceRevisionOutput.Count -eq 0 -or [string]::IsNullOrWhiteSpace([string]$sourceRevisionOutput[0])) {
-  Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'repo-snapshot-unavailable' -NextAction 'Resolve git repository state before graph bootstrap.'
-}
-$sourceRevision = [string]$sourceRevisionOutput[0]
-$worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
-$worktreeDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
-$worktreeStatusHash = Get-StatusHash -Text $worktreeStatus
 $providerStatuses = New-Object System.Collections.Generic.List[psobject]
 
 foreach ($property in $providerConfig.providers.PSObject.Properties) {
@@ -1858,12 +2256,34 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $limitations = Get-ProviderSkipLimitations -SkipReason $skipReason
   $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase '' -ExitCode 0
   $readinessSource = 'skipped'
+  $priorLastIndexedCommit = ''
+  $priorRequiresCleanFullRefresh = $false
+  $providerRefreshMode = 'full'
+  $fallbackFromIncremental = $false
+  $refreshProcessFailed = $false
+  $finalFullAttemptSucceeded = $false
+  $skipNormalizedWrite = $false
   $queryProbeAttempts = New-Object System.Collections.Generic.List[psobject]
   $queryProbeCandidatesTruncated = $false
   $queryProbeExpectedHit = $true
   $hostInstructionNormalization = $null
   if ($provider -eq 'gitnexus') {
     $hostInstructionNormalization = New-GitNexusInstructionNormalizationResult -Status 'not-applicable' -ReasonCode 'gitnexus-provider-not-bootstrapped' -Results @()
+  }
+  $statusPath = Join-Path $providerDir 'status.json'
+  if (Test-Path -LiteralPath $statusPath -PathType Leaf) {
+    try {
+      $priorStatus = Read-JsonFile -Path $statusPath
+      if ($priorStatus.schema_version -eq 'provider-status.v1') {
+        if ($priorStatus.PSObject.Properties.Name -contains 'last_indexed_commit' -and $null -ne $priorStatus.last_indexed_commit) {
+          $priorLastIndexedCommit = [string]$priorStatus.last_indexed_commit
+        }
+        if ($priorStatus.PSObject.Properties.Name -contains 'requires_clean_full_refresh') {
+          $priorRequiresCleanFullRefresh = [bool]$priorStatus.requires_clean_full_refresh
+        }
+      }
+    } catch {
+    }
   }
   $configuredPackage = Get-ProviderConfiguredPackageSpec -ProviderConfig $providerConfig -Provider $provider
   $bundledPackage = Get-ProviderBundledPackageSpec -Provider $provider
@@ -1896,14 +2316,72 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
       $limitations = @("$providerDisplayName provider projection is not fresh/verifiable; provider commands were not run.", [string]$failureInfo['recommended_action'])
       $script:QueryProbeVerificationReason = [string]$failureInfo['diagnostic']
     } else {
-    $bootstrapLog = Join-Path $rawDir $(if ($provider -eq 'gitnexus') { 'analyze.log' } else { 'build.log' })
     $statusLog = Join-Path $rawDir 'status.log'
     $queryLog = Join-Path $rawDir 'query.log'
-    $bootstrap = Invoke-ConfiguredCommand -ProviderConfig $providerConfig -Provider $provider -Kind 'bootstrap' -LogPath $bootstrapLog -RepoRoot $repoRoot
+    $refreshDecision = Resolve-ProviderRefreshMode `
+      -ProviderConfig $providerConfig `
+      -Provider $provider `
+      -StatusPath $statusPath `
+      -BootstrapFingerprint ([pscustomobject]$bootstrapFingerprint) `
+      -InvocationRefreshMode $invocationRefreshMode `
+      -RepoRoot $repoRoot `
+      -SourceRevision $sourceRevision
+    $providerRefreshMode = [string]$refreshDecision.refresh_mode
+    $refreshReasonCode = [string]$refreshDecision.reason_code
+    $incrementalBaseCommit = [string]$refreshDecision.last_indexed_commit
+    if ($providerRefreshMode -eq 'blocked') {
+      Write-ResultAndExit `
+        -WorkflowMode 'blocked' `
+        -ReasonCode $refreshReasonCode `
+        -NextAction "Provider command shape is unsupported for ${provider}:incremental." `
+        -RepoRoot $repoRoot `
+        -InvocationWorkspaceRoot $invocationWorkspaceRoot `
+        -SelectionSource $selectionSource `
+        -GraphDir $graphDir
+    }
+    if ($providerRefreshMode -eq 'incremental') {
+      $readinessSource = 'incremental-update'
+      $bootstrapLog = Get-ProviderBootstrapLogPath -Provider $provider -RefreshMode 'incremental' -AttemptRole 'primary' -RawDir $rawDir
+      $incrementalCommand = Get-ProviderIncrementalCommand -ProviderConfig $providerConfig -Provider $provider -LastIndexedCommit $incrementalBaseCommit
+      $bootstrap = Invoke-ProviderCommandArray -Command $incrementalCommand -Provider $provider -Kind 'incremental' -LogPath $bootstrapLog -RepoRoot $repoRoot -RefreshMode 'incremental' -AttemptRole 'primary'
+      $commandResults.Add($bootstrap)
+      if ($bootstrap.exit_code -ne 0) {
+        $fallbackFromIncremental = $true
+        $providerRefreshMode = 'incremental-fallback-full'
+        $readinessSource = 'incremental-fallback-full'
+        $incrementalExitCode = [int]$bootstrap.exit_code
+        $bootstrapLog = Get-ProviderBootstrapLogPath -Provider $provider -RefreshMode 'full' -AttemptRole 'fallback' -RawDir $rawDir
+        $fullCommand = Get-ProviderFullCommand -ProviderConfig $providerConfig -Provider $provider
+        $bootstrap = Invoke-ProviderCommandArray -Command $fullCommand -Provider $provider -Kind 'bootstrap' -LogPath $bootstrapLog -RepoRoot $repoRoot -RefreshMode 'full' -AttemptRole 'fallback'
+        $commandResults.Add($bootstrap)
+        if ($bootstrap.exit_code -eq 0) {
+          $finalFullAttemptSucceeded = $true
+          $failureInfo = New-IncrementalFallbackSuccessFailureInfo -ExitCode $incrementalExitCode
+        } else {
+          $refreshProcessFailed = $true
+          $providerRefreshMode = 'failed'
+          $skipNormalizedWrite = $true
+          $failureInfo = New-IncrementalBothFailedFailureInfo -ExitCode ([int]$bootstrap.exit_code)
+        }
+      }
+    } else {
+      $readinessSource = 'cold-run'
+      if (-not [string]::IsNullOrWhiteSpace($refreshReasonCode)) {
+        $failureInfo = New-RefreshPreflightFailureInfo -ReasonCode $refreshReasonCode
+      }
+      $bootstrapLog = Get-ProviderBootstrapLogPath -Provider $provider -RefreshMode 'full' -AttemptRole 'primary' -RawDir $rawDir
+      $fullCommand = Get-ProviderFullCommand -ProviderConfig $providerConfig -Provider $provider
+      $bootstrap = Invoke-ProviderCommandArray -Command $fullCommand -Provider $provider -Kind 'bootstrap' -LogPath $bootstrapLog -RepoRoot $repoRoot -RefreshMode 'full' -AttemptRole 'primary'
+      $commandResults.Add($bootstrap)
+      if ($bootstrap.exit_code -eq 0) {
+        $finalFullAttemptSucceeded = $true
+      } else {
+        $refreshProcessFailed = $true
+      }
+    }
     if ($provider -eq 'gitnexus' -and $bootstrap.exit_code -eq 0) {
       $hostInstructionNormalization = Normalize-GitNexusInstructionBlockViaCli -RepoRoot $repoRoot
     }
-    $commandResults.Add($bootstrap)
     if ($bootstrap.exit_code -eq 0) {
       $statusProbe = Invoke-ConfiguredCommand -ProviderConfig $providerConfig -Provider $provider -Kind 'status' -LogPath $statusLog -RepoRoot $repoRoot
       $commandResults.Add($statusProbe)
@@ -2020,7 +2498,10 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
       }
     } else {
       $status = 'failed'
-      $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase 'bootstrap' -ExitCode ([int]$bootstrap.exit_code) -Diagnostic ([string]$bootstrap.diagnostic)
+      $providerRefreshMode = 'failed'
+      if ([string]$failureInfo['reason_code'] -ne 'incremental-and-full-failed') {
+        $failureInfo = Get-ProviderFailureInfo -Provider $provider -Phase 'bootstrap' -ExitCode ([int]$bootstrap.exit_code) -Diagnostic ([string]$bootstrap.diagnostic)
+      }
       $limitations = @('Provider bootstrap command failed.')
       if (-not [string]::IsNullOrWhiteSpace([string]$failureInfo['recommended_action'])) {
         $limitations += [string]$failureInfo['recommended_action']
@@ -2030,9 +2511,37 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   }
 
   $statusPath = Join-Path $providerDir 'status.json'
-  Write-NormalizedArtifacts -Provider $provider -StatusPath $statusPath -QueryReady $queryReady -BootstrappedAt $bootstrappedAt -ProvidersDir $providersDir -QueryProbeAttempts @($queryProbeAttempts)
+  if (-not $skipNormalizedWrite) {
+    Write-NormalizedArtifacts -Provider $provider -StatusPath $statusPath -QueryReady $queryReady -BootstrappedAt $bootstrappedAt -ProvidersDir $providersDir -CommandResults @($commandResults) -QueryProbeAttempts @($queryProbeAttempts)
+  }
   $providerFinishedAt = Get-UtcTimestamp
   $providerDurationMs = (Get-EpochMilliseconds) - $providerStartedEpochMs
+  $lastIndexedCommit = if ($graphReady -and $queryReady -and -not $worktreeDirty) {
+    $sourceRevision
+  } elseif (-not [string]::IsNullOrWhiteSpace($priorLastIndexedCommit)) {
+    $priorLastIndexedCommit
+  } else {
+    $null
+  }
+  $requiresCleanFullRefresh = if ((-not $worktreeDirty) -and $finalFullAttemptSucceeded -and $graphReady -and $queryReady) {
+    $false
+  } elseif ($refreshProcessFailed) {
+    $true
+  } else {
+    $priorRequiresCleanFullRefresh
+  }
+  $bootstrapRawLogsForStatus = @($commandResults | Where-Object { [string]$_.kind -eq 'bootstrap' } | ForEach-Object { [string]$_.raw_log })
+  $statusRawLogsForStatus = @($commandResults | Where-Object { [string]$_.kind -eq 'status' } | ForEach-Object { [string]$_.raw_log })
+  $queryRawLogsForStatus = @($commandResults | Where-Object { [string]$_.kind -eq 'query_probe' } | ForEach-Object { [string]$_.raw_log })
+  $providerRawLogs = [ordered]@{
+    bootstrap = if ($bootstrapRawLogsForStatus.Count -gt 0) {
+      $bootstrapRawLogsForStatus[$bootstrapRawLogsForStatus.Count - 1]
+    } else {
+      ".spec-first/providers/$provider/raw/" + $(if ($provider -eq 'gitnexus') { 'analyze.log' } else { 'build.log' })
+    }
+    status = if ($statusRawLogsForStatus.Count -gt 0) { $statusRawLogsForStatus[0] } else { ".spec-first/providers/$provider/raw/status.log" }
+    query_probe = if ($queryRawLogsForStatus.Count -gt 0) { $queryRawLogsForStatus[0] } else { ".spec-first/providers/$provider/raw/query.log" }
+  }
   $providerStatus = [ordered]@{
     schema_version = 'provider-status.v1'
     provider = $provider
@@ -2051,6 +2560,10 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     graph_ready = $graphReady
     query_ready = $queryReady
     readiness_source = $readinessSource
+    refresh_mode = $providerRefreshMode
+    fallback_from_incremental = $fallbackFromIncremental
+    last_indexed_commit = $lastIndexedCommit
+    requires_clean_full_refresh = $requiresCleanFullRefresh
     reuse_eligible = [bool]$reuseDecision.eligible
     reuse_ineligible_reason = $reuseDecision.reason
     bootstrap_fingerprint = $bootstrapFingerprint
@@ -2080,11 +2593,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     command_source = '.spec-first/config/graph-providers.json'
     diagnostics = @($commandResults | Where-Object { -not [string]::IsNullOrWhiteSpace($_.diagnostic) } | ForEach-Object { $_.diagnostic })
     diagnostics_truncated = [bool](@($commandResults | Where-Object { $_.diagnostics_truncated }).Count)
-    raw_logs = [ordered]@{
-      bootstrap = ".spec-first/providers/$provider/raw/" + $(if ($provider -eq 'gitnexus') { 'analyze.log' } else { 'build.log' })
-      status = ".spec-first/providers/$provider/raw/status.log"
-      query_probe = ".spec-first/providers/$provider/raw/query.log"
-    }
+    raw_logs = $providerRawLogs
     normalized_artifacts = if ($provider -eq 'gitnexus') {
       [ordered]@{
         architecture_facts = '.spec-first/providers/gitnexus/normalized/architecture-facts.json'
@@ -2105,6 +2614,7 @@ $providerCount = @($providerStatuses).Count
 $notApplicableCount = @($providerStatuses | Where-Object { $_.status -eq 'query-not-applicable' }).Count
 $blockingNotReadyCount = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'query-not-applicable' -and $_.status -ne 'skipped' }).Count
 $fallbackReady = [bool](@($runtimeCapabilities.fallback_capabilities.PSObject.Properties | Where-Object { $_.Value.support_level -ne 'none' }).Count)
+$preserveCanonicalFreshness = @($providerStatuses | Where-Object { $_.reason_code -eq 'incremental-and-full-failed' }).Count -gt 0
 if ($providerCount -gt 0 -and $readyCount -eq $providerCount) {
   $workflowMode = 'primary'
   $overallStatus = 'ready'
@@ -2124,6 +2634,7 @@ if ($providerCount -gt 0 -and $readyCount -eq $providerCount) {
 }
 $bootstrapFinishedAt = Get-UtcTimestamp
 $bootstrapDurationMs = (Get-EpochMilliseconds) - $script:ScriptStartedEpochMs
+$topLevelReasonCode = if ($preserveCanonicalFreshness) { 'incremental-and-full-failed' } elseif ($workflowMode -eq 'blocked') { 'graph-not-ready' } else { $null }
 
 $providerAggregate = [ordered]@{
   schema_version = 'graph-provider-status.v1'
@@ -2143,7 +2654,10 @@ $providerAggregate = [ordered]@{
   confidence = if ($workflowMode -eq 'primary') { 'high' } elseif ($workflowMode -eq 'degraded-fallback' -or $workflowMode -eq 'no-source') { 'medium' } else { 'low' }
   limitations = if ($workflowMode -eq 'primary') { @() } elseif ($workflowMode -eq 'degraded-fallback') { @('One or more primary graph providers are unavailable or query-unverified; fallback capabilities are required.') } elseif ($workflowMode -eq 'no-source') { @('No source-derived GitNexus process query target is available for this repo.') } else { @('No query-ready graph provider or fallback capability is available.') }
 }
-Write-JsonFileAtomic -Path (Join-Path $graphDir 'provider-status.json') -Payload ([pscustomobject]$providerAggregate) -Depth 30
+$providerAggregatePath = Join-Path $graphDir 'provider-status.json'
+if (-not $preserveCanonicalFreshness -or -not (Test-Path -LiteralPath $providerAggregatePath -PathType Leaf)) {
+  Write-JsonFileAtomic -Path $providerAggregatePath -Payload ([pscustomobject]$providerAggregate) -Depth 30
+}
 
 $graphFacts = [ordered]@{
   schema_version = 'graph-facts.v1'
@@ -2181,7 +2695,10 @@ $graphFacts = [ordered]@{
   confidence = $providerAggregate.confidence
   limitations = @($providerAggregate.limitations)
 }
-Write-JsonFileAtomic -Path (Join-Path $graphDir 'graph-facts.json') -Payload ([pscustomobject]$graphFacts) -Depth 20
+$graphFactsPath = Join-Path $graphDir 'graph-facts.json'
+if (-not $preserveCanonicalFreshness -or -not (Test-Path -LiteralPath $graphFactsPath -PathType Leaf)) {
+  Write-JsonFileAtomic -Path $graphFactsPath -Payload ([pscustomobject]$graphFacts) -Depth 20
+}
 
 $readyPrimaryProviders = @($providerStatuses | Where-Object { $_.query_ready } | ForEach-Object { $_.provider })
 $crgReadyProviders = @($providerStatuses | Where-Object { $_.provider -eq 'code-review-graph' -and $_.query_ready } | ForEach-Object { $_.provider })
@@ -2221,7 +2738,10 @@ $impactCapabilities = [ordered]@{
     limitations_required = ($workflowMode -ne 'primary')
   }
 }
-Write-JsonFileAtomic -Path (Join-Path $impactDir 'bootstrap-impact-capabilities.json') -Payload ([pscustomobject]$impactCapabilities) -Depth 20
+$impactCapabilitiesPath = Join-Path $impactDir 'bootstrap-impact-capabilities.json'
+if (-not $preserveCanonicalFreshness -or -not (Test-Path -LiteralPath $impactCapabilitiesPath -PathType Leaf)) {
+  Write-JsonFileAtomic -Path $impactCapabilitiesPath -Payload ([pscustomobject]$impactCapabilities) -Depth 20
+}
 
 $providerReportRows = @($providerStatuses | ForEach-Object {
   $attemptSummary = if ($_.PSObject.Properties.Name -contains 'query_probe_attempts' -and $null -ne $_.query_probe_attempts -and @($_.query_probe_attempts).Count -gt 0) {
@@ -2257,7 +2777,8 @@ $($providerReportRows -join [Environment]::NewLine)
   schema_version = 'graph-bootstrap-result.v1'
   overall_status = $overallStatus
   workflow_mode = $workflowMode
-  reason_code = if ($workflowMode -eq 'blocked') { 'graph-not-ready' } else { $null }
+  reason_code = $topLevelReasonCode
+  canonical_artifacts_preserved = $preserveCanonicalFreshness
   repo_root = $repoRoot
   invocation_workspace_root = $invocationWorkspaceRoot
   selection_source = $selectionSource

@@ -25,6 +25,11 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('`workflow_mode`');
     expect(doc).toContain('`ready_primary_providers[]`');
     expect(doc).toContain('`providers[].query_ready`');
+    expect(doc).toContain('`providers[].readiness_source`');
+    expect(doc).toContain('`providers[].refresh_mode`');
+    expect(doc).toContain('`providers[].fallback_from_incremental`');
+    expect(doc).toContain('`providers[].last_indexed_commit`');
+    expect(doc).toContain('`providers[].requires_clean_full_refresh`');
     expect(doc).toContain('`providers[].normalized_artifacts`');
 
     expect(doc).toContain('`.spec-first/graph/graph-facts.json`');
@@ -41,6 +46,11 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('`capabilities.impact_radius.*`');
     expect(doc).toContain('`capabilities.review_support.*`');
     expect(doc).toContain('`downstream_guidance.limitations_required`');
+
+    expect(doc).toContain('`.spec-first/providers/<provider>/status.json`');
+    expect(doc).toContain('`command_results[].refresh_mode`');
+    expect(doc).toContain('`command_results[].attempt_role`');
+    expect(doc).toContain('`last_indexed_commit` 来自 provider status，不来自 aggregate graph-facts');
   });
 
   test('forbids legacy graph artifact paths and graph-facts pseudo-fields', () => {
@@ -51,6 +61,9 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('`.spec-first/graph/reuse-candidates.json`');
     expect(doc).toContain('顶层 `query_ready`');
     expect(doc).toContain('顶层 `ready_primary_providers`');
+    expect(doc).toContain('顶层 `refresh_mode`');
+    expect(doc).toContain('顶层 `refresh_modes_by_provider`');
+    expect(doc).toContain('顶层 `refresh_mode_summary`');
     expect(doc).toContain('单纯用 `.spec-first/providers/<provider>/status.json` 是否存在判断 provider 可用');
   });
 
@@ -68,6 +81,10 @@ describe('graph provider consumption contract', () => {
     expect(evidencePolicy).toContain('invalidation signals，不是自动 rebuild triggers');
     expect(evidencePolicy).toContain('consumer 不运行 provider analyze、build、repair 或 index rebuild');
     expect(evidencePolicy).toContain('`gitnexus_detect_changes` 和 impact 查询不触发 provider rebuild');
+    expect(evidencePolicy).toContain('$spec-graph-bootstrap --incremental');
+    expect(evidencePolicy).toContain('显式 `--all-repos --incremental`');
+    expect(evidencePolicy).toContain('父级 workspace 隐式 all-repos `--incremental` 都 unsupported');
+    expect(evidencePolicy).toContain('dirty worktree 会在 provider command 前 blocked');
 
     expect(doc).toContain('## Refresh Ownership');
     expect(doc).toContain('consumer freshness-check');
@@ -76,6 +93,20 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('`$spec-graph-bootstrap` | reuse 或 rebuild provider readiness');
     expect(doc).toContain('Graph-heavy 至少包括 shared helper/API/route/provider contract/core workflow/cross-module changes');
     expect(doc).toContain('docs-only、窄 typo、小型本地 bug 和首次试用属于 lightweight counterexamples');
+  });
+
+  test('keeps failed speed-gate incremental path out of public onboarding docs', () => {
+    const publicDocs = [
+      'README.md',
+      'README.zh-CN.md',
+      'docs/05-用户手册/02-核心概念.md',
+      'docs/05-用户手册/04-workflows-artifacts-map.md',
+      'docs/05-用户手册/05-最佳实践.md',
+    ];
+
+    for (const filePath of publicDocs) {
+      expect(read(filePath)).not.toContain('$spec-graph-bootstrap --incremental');
+    }
   });
 
   test('keeps live MCP session-local and forbids consumer-side rebuilds', () => {
@@ -90,6 +121,48 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('provider fingerprint mismatch');
     expect(doc).toContain('consumer 可以推荐 `$spec-graph-bootstrap`');
     expect(doc).toContain('不得在 plan/work/debug/review 内部静默运行 GitNexus analyze');
+  });
+
+  test('documents incremental refresh fields, enums, and graph-facts non-surface', () => {
+    const doc = read(CONSUMPTION_DOC_PATH);
+
+    expect(doc).toContain('## Refresh Mode Truth Table');
+    for (const readinessSource of [
+      'cold-run',
+      'skipped',
+      'preflight-blocked',
+      'incremental-update',
+      'incremental-fallback-full',
+    ]) {
+      expect(doc).toContain(readinessSource);
+    }
+    for (const refreshMode of ['full', 'incremental', 'incremental-fallback-full', 'failed']) {
+      expect(doc).toContain(refreshMode);
+    }
+    for (const reasonCode of [
+      'incremental-command-unavailable',
+      'fingerprint-spec-first-changed',
+      'fingerprint-projection-changed',
+      'fingerprint-provider-changed',
+      'clean-full-refresh-required',
+      'incremental-base-ref-unset',
+      'incremental-base-ref-invalid-format',
+      'incremental-base-status-untrusted',
+      'incremental-base-ref-missing',
+      'incremental-base-ref-not-ancestor',
+      'incremental-refresh-failed-fallback-full',
+      'incremental-and-full-failed',
+      'dirty-refresh-non-canonical',
+      'incremental-all-repos-unsupported',
+    ]) {
+      expect(doc).toContain(reasonCode);
+    }
+
+    expect(doc).toContain('`readiness_source` 是命令来源事实，不是 readiness success');
+    expect(doc).toContain('`graph-facts.v1.source_revision` 不是 incremental base truth source');
+    expect(doc).toContain('父级 workspace 默认 all-repos 路径下只传 `--incremental`');
+    expect(doc).toContain('Tracked docs、README、用户手册、issue 或 PR 描述不得粘贴 provider raw stdout/stderr');
+    expect(doc).toContain('不要从 `graph-facts.v1` 推断 refresh mode');
   });
 
   test('representative fixtures keep aggregate readiness out of graph-facts top-level', () => {
@@ -107,6 +180,11 @@ describe('graph provider consumption contract', () => {
           status: 'ready',
           graph_ready: true,
           query_ready: true,
+          readiness_source: 'incremental-update',
+          refresh_mode: 'incremental',
+          fallback_from_incremental: false,
+          last_indexed_commit: '0'.repeat(40),
+          requires_clean_full_refresh: false,
           normalized_artifacts: {
             architecture_facts: '.spec-first/providers/gitnexus/normalized/architecture-facts.json',
             reuse_candidates: '.spec-first/providers/gitnexus/normalized/reuse-candidates.json',
@@ -159,6 +237,9 @@ describe('graph provider consumption contract', () => {
     expect(providerStatus.providers.every((provider) => provider.query_ready === true)).toBe(true);
     expect(graphFacts.query_ready).toBeUndefined();
     expect(graphFacts.ready_primary_providers).toBeUndefined();
+    expect(graphFacts.refresh_mode).toBeUndefined();
+    expect(graphFacts.refresh_modes_by_provider).toBeUndefined();
+    expect(graphFacts.refresh_mode_summary).toBeUndefined();
     expect(graphFacts.provider_summary.ready_primary_providers).toContain('gitnexus');
     expect(graphFacts.canonical_artifacts.impact_capabilities).toBe('.spec-first/impact/bootstrap-impact-capabilities.json');
     expect(impactCapabilities.capabilities.review_support.support_level).toBe('partial');

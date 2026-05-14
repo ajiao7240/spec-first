@@ -138,7 +138,7 @@
 | 文件 | 角色 |
 | --- | --- |
 | `raw/*.log` | provider build/status/query probe 原始输出 |
-| `status.json` | 单 provider 的状态、query readiness、diagnostics 和 raw log pointers |
+| `status.json` | 单 provider 的状态、query readiness、refresh mode、`last_indexed_commit`、diagnostics 和 raw log pointers |
 | `normalized/*.json` | provider 规范化事实，例如 architecture facts、reuse candidates 或 impact capabilities |
 
 provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 来判断工程决策。

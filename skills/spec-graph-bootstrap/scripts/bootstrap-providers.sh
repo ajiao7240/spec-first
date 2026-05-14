@@ -15,6 +15,10 @@ MCP_TOOLS_JSON="${SPEC_FIRST_MCP_TOOLS_JSON:-$SCRIPT_DIR/../../spec-mcp-setup/mc
 PACKAGE_JSON="${SPEC_FIRST_PACKAGE_JSON:-$SCRIPT_DIR/../../../package.json}"
 REPO_ARG=""
 ALL_REPOS=false
+REQUEST_INCREMENTAL=false
+REQUEST_FULL=false
+DEFAULT_REFRESH_MODE_SINGLE_REPO=full
+DEFAULT_REFRESH_MODE_ALL_REPOS=full
 PROVIDER_COMMAND_TIMEOUT_SECONDS="${SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS:-${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}}"
 
 utc_now() {
@@ -69,6 +73,14 @@ while [[ $# -gt 0 ]]; do
       ALL_REPOS=true
       shift
       ;;
+    --incremental)
+      REQUEST_INCREMENTAL=true
+      shift
+      ;;
+    --full|--force)
+      REQUEST_FULL=true
+      shift
+      ;;
     *)
       echo "bootstrap-providers.sh: unknown argument: $1" >&2
       exit 1
@@ -92,6 +104,36 @@ CANDIDATE_COUNT="$(jq -r '(.candidates // []) | length' <<<"$TARGET_JSON")"
 DEFAULT_ALL_REPOS=false
 if [ "$ALL_REPOS" != "true" ] && [ -z "$REPO_ARG" ] && [ "$TARGET_MODE" != "git-repo" ] && [ "$CANDIDATE_COUNT" -gt 0 ]; then
   DEFAULT_ALL_REPOS=true
+fi
+ALL_REPOS_SCOPE=false
+if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
+  ALL_REPOS_SCOPE=true
+fi
+
+if [ "$ALL_REPOS_SCOPE" = "true" ] && [ "$REQUEST_INCREMENTAL" = "true" ] && [ "$REQUEST_FULL" = "true" ]; then
+  jq -n --argjson target "$TARGET_JSON" '{
+    schema_version:"graph-bootstrap-result.v1",
+    overall_status:"action-required",
+    workflow_mode:"blocked",
+    reason_code:"conflicting-refresh-flags",
+    workspace_root:($target.workspace_root // null),
+    next_action:"Use either --incremental or --full/--force, not both."
+  }'
+  exit 1
+fi
+
+if [ "$ALL_REPOS_SCOPE" = "true" ] && [ "$REQUEST_INCREMENTAL" = "true" ]; then
+  jq -n --argjson target "$TARGET_JSON" '{
+    schema_version:"workspace-graph-bootstrap-summary.v1",
+    overall_status:"action-required",
+    workflow_mode:"blocked",
+    reason_code:"incremental-all-repos-unsupported",
+    workspace_root:($target.workspace_root // null),
+    parent_writes_repo_local_artifacts:false,
+    canonical_artifacts_preserved:true,
+    next_action:"Run --all-repos without --incremental, or run --incremental against one clean child repo with --repo <child>."
+  }'
+  exit 1
 fi
 
 write_file_atomic_path() {
@@ -318,6 +360,27 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
 
   SUMMARY_ITEMS="$(mktemp "${TMPDIR:-/tmp}/graph-bootstrap-all-repos.XXXXXX")"
   WORKSPACE_RUN_ID="$(date -u +"%Y%m%dT%H%M%SZ")"
+  ALL_REPOS_CHILD_REFRESH_ARGS=()
+  case "$DEFAULT_REFRESH_MODE_ALL_REPOS" in
+    full)
+      ALL_REPOS_CHILD_REFRESH_ARGS+=(--full)
+      ;;
+    incremental)
+      ALL_REPOS_CHILD_REFRESH_ARGS+=(--incremental)
+      ;;
+    *)
+      jq -n --arg workspace_root "$WORKSPACE_ROOT_FOR_ALL" --arg mode "$DEFAULT_REFRESH_MODE_ALL_REPOS" '{
+        schema_version:"workspace-graph-bootstrap-summary.v1",
+        overall_status:"action-required",
+        workflow_mode:"blocked",
+        reason_code:"unsupported-default-refresh-mode",
+        workspace_root:$workspace_root,
+        advisory:true,
+        next_action:("Unsupported DEFAULT_REFRESH_MODE_ALL_REPOS value: " + $mode)
+      }'
+      exit 1
+      ;;
+  esac
   child_index=0
   jq -n '[]' > "$SUMMARY_ITEMS"
   while IFS=$'\t' read -r child_label child_path; do
@@ -327,7 +390,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
     child_started_epoch_ms="$(epoch_ms)"
     printf 'spec-graph-bootstrap: all-repos child %s/%s start repo=%s\n' "$child_index" "$CANDIDATE_COUNT" "$child_path" >&2
     set +e
-    child_output="$(bash "$0" --repo "$child_path")"
+    child_output="$(bash "$0" --repo "$child_path" "${ALL_REPOS_CHILD_REFRESH_ARGS[@]}")"
     child_status=$?
     set -e
     child_finished_at="$(utc_now)"
@@ -533,6 +596,7 @@ emit_blocked() {
   local reason_code="$2"
   local next_action="$3"
   local exit_code="${4:-1}"
+  local canonical_artifacts_preserved="${5:-false}"
   write_blocked_report "$workflow_mode" "$reason_code" "$next_action"
   jq -n \
     --arg repo_root "$REPO_ROOT" \
@@ -541,6 +605,7 @@ emit_blocked() {
     --arg workflow_mode "$workflow_mode" \
     --arg reason_code "$reason_code" \
     --arg next_action "$next_action" \
+    --argjson canonical_artifacts_preserved "$canonical_artifacts_preserved" \
     '{
       schema_version:"graph-bootstrap-result.v1",
       overall_status:"action-required",
@@ -549,10 +614,27 @@ emit_blocked() {
       repo_root:$repo_root,
       invocation_workspace_root:$invocation_workspace_root,
       selection_source:$selection_source,
+      canonical_artifacts_preserved:$canonical_artifacts_preserved,
       next_action:$next_action
     }'
   exit "$exit_code"
 }
+
+if [ "$REQUEST_INCREMENTAL" = "true" ] && [ "$REQUEST_FULL" = "true" ]; then
+  emit_blocked blocked conflicting-refresh-flags "Use either --incremental or --full/--force, not both."
+fi
+
+if [ "$REQUEST_INCREMENTAL" = "true" ]; then
+  INVOCATION_REFRESH_MODE="incremental"
+elif [ "$REQUEST_FULL" = "true" ]; then
+  INVOCATION_REFRESH_MODE="full"
+else
+  INVOCATION_REFRESH_MODE="$DEFAULT_REFRESH_MODE_SINGLE_REPO"
+fi
+
+if [ "$WORKTREE_DIRTY" = "true" ]; then
+  emit_blocked blocked dirty-refresh-non-canonical "Commit, stash, or clean worktree changes before graph bootstrap refresh; provider commands were not run." 1 true
+fi
 
 require_file_schema() {
   local path="$1"
@@ -644,6 +726,7 @@ command_shape_supported() {
       all(.[]; (test("[;&|`$<>]") | not));
     def gitnexus_subcommand:
       if $kind == "bootstrap" then "analyze"
+      elif $kind == "incremental" then "analyze"
       elif $kind == "status" then "status"
       elif $kind == "query_probe" then "query"
       else null end;
@@ -658,6 +741,8 @@ command_shape_supported() {
     def crg_shape:
       (if (crg_pinned_tail | length) > 0 then crg_pinned_tail else crg_legacy_tail end) as $tail
       | if $kind == "bootstrap" then $tail == ["build"]
+      elif $kind == "incremental" then
+        ($tail | length == 3 and .[0] == "update" and .[1] == "--base" and .[2] == "__SPEC_FIRST_LAST_INDEXED_COMMIT__")
       elif $kind == "status" then $tail == ["status"]
       elif $kind == "query_probe" then $tail == ["status", "--repo", $repo_root]
       else false end;
@@ -673,6 +758,16 @@ command_shape_supported() {
             ($cmd | length == 4 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze")
             or
             ($cmd | length == 5 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze" and .[4] == "--force")
+            or
+            ($cmd | length == 6 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze" and .[4] == "--skip-agents-md" and .[5] == "--no-stats")
+            or
+            ($cmd | length == 7 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze" and .[4] == "--force" and .[5] == "--skip-agents-md" and .[6] == "--no-stats")
+          )
+        elif $kind == "incremental" then
+          (
+            ($cmd | length == 4 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze")
+            or
+            ($cmd | length == 6 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze" and .[4] == "--skip-agents-md" and .[5] == "--no-stats")
           )
         else
           ($cmd | length == 4 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == gitnexus_subcommand)
@@ -732,6 +827,11 @@ while IFS= read -r provider; do
       emit_blocked blocked unsupported-provider-command "Provider command shape is unsupported for $provider:$kind."
     fi
   done
+  if [ "$REQUEST_INCREMENTAL" = "true" ] \
+    && jq -e --arg provider "$provider" '(.providers[$provider].commands.incremental // null) != null' "$PROVIDER_CONFIG" >/dev/null \
+    && ! command_shape_supported "$provider" incremental; then
+    emit_blocked blocked unsupported-provider-command "Provider command shape is unsupported for $provider:incremental."
+  fi
   if ! query_probe_policy_supported "$provider"; then
     emit_blocked blocked unsupported-provider-command "Provider query probe policy is unsupported for $provider."
   fi
@@ -743,6 +843,11 @@ command_display() {
   jq -r --arg provider "$provider" --arg kind "$kind" '.providers[$provider].commands[$kind] | join(" ")' "$PROVIDER_CONFIG"
 }
 
+command_json_display() {
+  local command_json="$1"
+  jq -r 'join(" ")' <<<"$command_json"
+}
+
 RUN_EXIT_CODE=0
 RUN_DIAGNOSTIC=""
 RUN_TRUNCATED=false
@@ -750,17 +855,18 @@ RUN_STARTED_AT=""
 RUN_FINISHED_AT=""
 RUN_DURATION_MS=0
 
-run_configured_command() {
+run_command_json() {
   local provider="$1"
   local kind="$2"
   local log_path="$3"
+  local command_json="$4"
   local cmd=()
   local byte_count
 
   mkdir -p "$(dirname "$log_path")"
   while IFS= read -r arg; do
     cmd+=("$arg")
-  done < <(jq -r --arg provider "$provider" --arg kind "$kind" '.providers[$provider].commands[$kind][]' "$PROVIDER_CONFIG")
+  done < <(jq -r '.[]' <<<"$command_json")
 
   local started_epoch_ms finished_epoch_ms
   RUN_STARTED_AT="$(utc_now)"
@@ -786,6 +892,15 @@ run_configured_command() {
     RUN_TRUNCATED=false
   fi
   RUN_DIAGNOSTIC="$(tr '\n' ' ' < "$log_path" | cut -c 1-1000)"
+}
+
+run_configured_command() {
+  local provider="$1"
+  local kind="$2"
+  local log_path="$3"
+  local command_json
+  command_json="$(jq -c --arg provider "$provider" --arg kind "$kind" '.providers[$provider].commands[$kind]' "$PROVIDER_CONFIG")"
+  run_command_json "$provider" "$kind" "$log_path" "$command_json"
 }
 
 run_configured_gitnexus_query_probe() {
@@ -939,7 +1054,7 @@ provider_configured_package_spec() {
         else "" end;
     . as $config
     |
-    ["bootstrap", "status", "query_probe"] as $phases
+    (["bootstrap", "status", "query_probe"] + (if (($config.providers[$provider].commands.incremental // null) != null) then ["incremental"] else [] end)) as $phases
     | ($phases | map(command_package($config; $provider; .))) as $packages
     | ($packages | map(select(. != "")) | unique) as $unique
     | if (($packages | all(. != "")) and ($unique | length == 1)) then
@@ -1412,6 +1527,8 @@ append_command_result() {
   local probe_reason_code="${10:-}"
   local result_class="${11:-}"
   local verification_reason="${12:-}"
+  local refresh_mode="${13:-}"
+  local attempt_role="${14:-}"
   jq --arg kind "$kind" \
      --arg display "$display" \
      --argjson exit_code "$exit_code" \
@@ -1426,6 +1543,8 @@ append_command_result() {
      --arg probe_reason_code "$probe_reason_code" \
      --arg result_class "$result_class" \
      --arg verification_reason "$verification_reason" \
+     --arg refresh_mode "$refresh_mode" \
+     --arg attempt_role "$attempt_role" \
      '. + [{
        kind:$kind,
        command:$display,
@@ -1442,14 +1561,29 @@ append_command_result() {
      + (if $probe_reason_code != "" then {probe_reason_code:$probe_reason_code} else {} end)
      + (if $result_class != "" then {result_class:$result_class} else {} end)
      + (if $verification_reason != "" then {verification_reason:$verification_reason} else {} end)
+     + (if $refresh_mode != "" then {refresh_mode:$refresh_mode} else {} end)
+     + (if $attempt_role != "" then {attempt_role:$attempt_role} else {} end)
      ]' "$results_file" > "$results_file.next"
   mv "$results_file.next" "$results_file"
+}
+
+append_bootstrap_command_result() {
+  local results_file="$1"
+  local display="$2"
+  local exit_code="$3"
+  local diagnostic="$4"
+  local truncated="$5"
+  local raw_log="$6"
+  local refresh_mode="$7"
+  local attempt_role="$8"
+  append_command_result "$results_file" bootstrap "$display" "$exit_code" "$diagnostic" "$truncated" "$raw_log" "" "" "" "" "" "$refresh_mode" "$attempt_role"
 }
 
 write_normalized_artifacts() {
   local provider="$1"
   local provider_status_path="$2"
   local query_ready="$3"
+  local command_results="${4:-[]}"
   local normalized_dir="$PROVIDERS_DIR/$provider/normalized"
   mkdir -p "$normalized_dir"
 
@@ -1461,13 +1595,15 @@ write_normalized_artifacts() {
         --arg source_status_path "$(relpath "$provider_status_path")" \
         --argjson query_ready "$query_ready" \
         --argjson query_probe_attempts "$QUERY_PROBE_ATTEMPTS" \
+        --argjson command_results "$command_results" \
         '{
           schema_version:"provider-normalized-envelope.v1",
           provider:$provider,
           generated_at:$generated_at,
           source_status_path:$source_status_path,
           source_raw_logs:(
-            [".spec-first/providers/gitnexus/raw/analyze.log",".spec-first/providers/gitnexus/raw/status.log"]
+            (([$command_results[]? | select(.kind == "bootstrap") | .raw_log] | if length > 0 then . else [".spec-first/providers/gitnexus/raw/analyze.log"] end)
+            + [".spec-first/providers/gitnexus/raw/status.log"])
             + (if ($query_probe_attempts | length) > 0 then [$query_probe_attempts[].raw_log] else [".spec-first/providers/gitnexus/raw/query.log"] end)
           ),
           query_probe_attempt_logs:[$query_probe_attempts[].raw_log],
@@ -1484,18 +1620,182 @@ write_normalized_artifacts() {
       --arg generated_at "$BOOTSTRAPPED_AT" \
       --arg source_status_path "$(relpath "$provider_status_path")" \
       --argjson query_ready "$query_ready" \
+      --argjson command_results "$command_results" \
       '{
         schema_version:"provider-normalized-envelope.v1",
         provider:$provider,
         generated_at:$generated_at,
         source_status_path:$source_status_path,
-        source_raw_logs:[".spec-first/providers/code-review-graph/raw/build.log",".spec-first/providers/code-review-graph/raw/status.log",".spec-first/providers/code-review-graph/raw/query.log"],
+        source_raw_logs:(
+          ([$command_results[]? | select(.kind == "bootstrap") | .raw_log] | if length > 0 then . else [".spec-first/providers/code-review-graph/raw/build.log"] end)
+          + [".spec-first/providers/code-review-graph/raw/status.log",".spec-first/providers/code-review-graph/raw/query.log"]
+        ),
         available_query_surfaces:(if $query_ready then ["status","query_graph_tool","get_impact_radius_tool"] else [] end),
         capabilities:["detect_changes","blast_radius","minimal_context","review_context","related_tests","graph_stats"],
         confidence:(if $query_ready then "medium" else "low" end),
         limitations:(if $query_ready then ["code-review-graph query-surface proof is conservative and should be treated as provider readiness, not semantic evidence."] else ["Provider query readiness is not verified."] end)
       }' | write_file_atomic "$normalized_dir/impact-capabilities.json"
   fi
+}
+
+provider_incremental_command_present() {
+  local provider="$1"
+  jq -e --arg provider "$provider" '(.providers[$provider].commands.incremental // null) != null' "$PROVIDER_CONFIG" >/dev/null
+}
+
+provider_incremental_command_json() {
+  local provider="$1"
+  local last_indexed_commit="${2:-}"
+  if [ "$provider" = "code-review-graph" ]; then
+    jq -c --arg provider "$provider" --arg sha "$last_indexed_commit" '
+      .providers[$provider].commands.incremental
+      | if .[length - 1] != "__SPEC_FIRST_LAST_INDEXED_COMMIT__" then
+          error("code-review-graph incremental command sentinel missing")
+        else
+          .[length - 1] = $sha
+        end
+    ' "$PROVIDER_CONFIG"
+  else
+    jq -c --arg provider "$provider" '.providers[$provider].commands.incremental' "$PROVIDER_CONFIG"
+  fi
+}
+
+provider_full_command_json() {
+  local provider="$1"
+  jq -c --arg provider "$provider" '.providers[$provider].commands.bootstrap' "$PROVIDER_CONFIG"
+}
+
+provider_bootstrap_log_for_mode() {
+  local provider="$1"
+  local refresh_mode="$2"
+  local role="${3:-primary}"
+  local raw_dir="$4"
+  if [ "$provider" = "gitnexus" ]; then
+    if [ "$role" = "fallback" ]; then
+      printf '%s\n' "$raw_dir/fallback-analyze.log"
+    else
+      printf '%s\n' "$raw_dir/analyze.log"
+    fi
+  elif [ "$refresh_mode" = "incremental" ]; then
+    printf '%s\n' "$raw_dir/update.log"
+  elif [ "$role" = "fallback" ]; then
+    printf '%s\n' "$raw_dir/fallback-build.log"
+  else
+    printf '%s\n' "$raw_dir/build.log"
+  fi
+}
+
+make_preflight_reason_failure() {
+  local reason_code="$1"
+  jq -n --arg reason_code "$reason_code" '{
+    failed_phase:"preflight",
+    failure_class:"refresh-mode-decision",
+    reason_code:$reason_code,
+    exit_code:null,
+    recommended_action:null,
+    diagnostic:("Refresh mode preflight selected full refresh: " + $reason_code)
+  }'
+}
+
+incremental_fallback_success_failure_info() {
+  local exit_code="$1"
+  jq -n --argjson exit_code "$exit_code" '{
+    failed_phase:"bootstrap",
+    failure_class:"incremental-fallback-recovered",
+    reason_code:"incremental-refresh-failed-fallback-full",
+    exit_code:$exit_code,
+    recommended_action:null,
+    diagnostic:"Incremental refresh failed, then full fallback completed successfully."
+  }'
+}
+
+incremental_both_failed_failure_info() {
+  local exit_code="$1"
+  jq -n --argjson exit_code "$exit_code" '{
+    failed_phase:"bootstrap",
+    failure_class:"provider-command-failed",
+    reason_code:"incremental-and-full-failed",
+    exit_code:$exit_code,
+    recommended_action:"Inspect the provider raw logs. Run a clean full graph bootstrap after fixing the provider command failure.",
+    diagnostic:"Incremental refresh failed and the full fallback also failed."
+  }'
+}
+
+resolve_provider_refresh_mode() {
+  local provider="$1"
+  local status_path="$2"
+  local bootstrap_fingerprint="$3"
+  local reason_code=""
+  local last_indexed_commit=""
+
+  if [ "$INVOCATION_REFRESH_MODE" != "incremental" ]; then
+    jq -n '{refresh_mode:"full",reason_code:null,last_indexed_commit:null}'
+    return
+  fi
+
+  if ! provider_incremental_command_present "$provider"; then
+    jq -n '{refresh_mode:"full",reason_code:"incremental-command-unavailable",last_indexed_commit:null}'
+    return
+  fi
+  if ! command_shape_supported "$provider" incremental; then
+    jq -n '{refresh_mode:"blocked",reason_code:"unsupported-provider-command",last_indexed_commit:null}'
+    return
+  fi
+
+  if [ ! -f "$status_path" ] || ! jq -e '.schema_version == "provider-status.v1"' "$status_path" >/dev/null 2>&1; then
+    jq -n '{refresh_mode:"full",reason_code:"incremental-base-ref-unset",last_indexed_commit:null}'
+    return
+  fi
+
+  reason_code="$(jq -r --argjson current "$bootstrap_fingerprint" '
+    if ((.bootstrap_fingerprint // null) == null) then empty
+    elif (.bootstrap_fingerprint.spec_first != $current.spec_first) then "fingerprint-spec-first-changed"
+    elif (.bootstrap_fingerprint.provider_projection != $current.provider_projection) then "fingerprint-projection-changed"
+    elif (.bootstrap_fingerprint.provider != $current.provider) then "fingerprint-provider-changed"
+    else empty end
+  ' "$status_path")"
+  if [ -n "$reason_code" ]; then
+    jq -n --arg reason_code "$reason_code" '{refresh_mode:"full",reason_code:$reason_code,last_indexed_commit:null}'
+    return
+  fi
+
+  if jq -e '.requires_clean_full_refresh == true' "$status_path" >/dev/null 2>&1; then
+    jq -n '{refresh_mode:"full",reason_code:"clean-full-refresh-required",last_indexed_commit:null}'
+    return
+  fi
+
+  last_indexed_commit="$(jq -r '.last_indexed_commit // empty' "$status_path")"
+  if [ -z "$last_indexed_commit" ]; then
+    jq -n '{refresh_mode:"full",reason_code:"incremental-base-ref-unset",last_indexed_commit:null}'
+    return
+  fi
+  if ! [[ "$last_indexed_commit" =~ ^[0-9a-f]{40}$ ]]; then
+    jq -n '{refresh_mode:"full",reason_code:"incremental-base-ref-invalid-format",last_indexed_commit:null}'
+    return
+  fi
+
+  if ! jq -e --arg sha "$last_indexed_commit" '
+    .schema_version == "provider-status.v1"
+    and (.graph_ready == true)
+    and (.query_ready == true)
+    and (.repo_snapshot.worktree_dirty == false)
+    and ((.repo_snapshot.source_revision // "") == $sha)
+    and ((.bootstrap_fingerprint.repo_snapshot.source_revision // "") == $sha)
+  ' "$status_path" >/dev/null 2>&1; then
+    jq -n '{refresh_mode:"full",reason_code:"incremental-base-status-untrusted",last_indexed_commit:null}'
+    return
+  fi
+
+  if ! git -C "$REPO_ROOT" cat-file -e "$last_indexed_commit^{commit}" 2>/dev/null; then
+    jq -n '{refresh_mode:"full",reason_code:"incremental-base-ref-missing",last_indexed_commit:null}'
+    return
+  fi
+  if ! git -C "$REPO_ROOT" merge-base --is-ancestor "$last_indexed_commit" "$SOURCE_REVISION" 2>/dev/null; then
+    jq -n '{refresh_mode:"full",reason_code:"incremental-base-ref-not-ancestor",last_indexed_commit:null}'
+    return
+  fi
+
+  jq -n --arg sha "$last_indexed_commit" '{refresh_mode:"incremental",reason_code:null,last_indexed_commit:$sha}'
 }
 
 STATUS_FILES=()
@@ -1519,6 +1819,10 @@ write_provider_status() {
   local query_probe_expected_hit=true
   local provider_started_at provider_finished_at provider_started_epoch_ms provider_finished_epoch_ms provider_duration_ms
   local configured_package bundled_package version_policy reuse_decision reuse_eligible reuse_ineligible_reason bootstrap_fingerprint readiness_source
+  local prior_last_indexed_commit="" prior_requires_clean_full_refresh=false
+  local refresh_decision provider_refresh_mode="full" refresh_reason_code="" incremental_base_commit=""
+  local fallback_from_incremental=false refresh_process_failed=false final_full_attempt_succeeded=false skip_normalized_write=false
+  local bootstrap_command_json bootstrap_command_display bootstrap_exit_code bootstrap_diagnostic bootstrap_truncated
   provider_started_at="$(utc_now)"
   provider_started_epoch_ms="$(epoch_ms)"
   readiness_source="skipped"
@@ -1529,6 +1833,10 @@ write_provider_status() {
     host_instruction_normalization="$(jq -n '{provider:"gitnexus",status:"not-applicable",advisory:true,reason_code:"gitnexus-provider-not-bootstrapped",exit_code:null,results:[]}')"
   fi
   mkdir -p "$raw_dir" "$provider_dir/normalized"
+  if [ -f "$status_path" ] && jq -e '.schema_version == "provider-status.v1"' "$status_path" >/dev/null 2>&1; then
+    prior_last_indexed_commit="$(jq -r '.last_indexed_commit // empty' "$status_path")"
+    prior_requires_clean_full_refresh="$(jq -r 'if .requires_clean_full_refresh == true then "true" else "false" end' "$status_path")"
+  fi
 
   configured="$(jq -r --arg provider "$provider" '.providers[$provider].configured == true' "$PROVIDER_CONFIG")"
   enabled="$(jq -r --arg provider "$provider" '.providers[$provider].enabled_for_bootstrap == true' "$PROVIDER_CONFIG")"
@@ -1573,6 +1881,7 @@ write_provider_status() {
     readiness_source="cold-run"
     if [ "$version_policy" = "projection-stale" ] || { [ "$provider" = "code-review-graph" ] && [ "$version_policy" != "pinned" ]; }; then
       readiness_source="preflight-blocked"
+      provider_refresh_mode="failed"
       status="failed"
       graph_ready=false
       query_ready=false
@@ -1586,19 +1895,68 @@ write_provider_status() {
       limitations="$(jq -n --arg label "$stale_label" --argjson failure "$failure_info" '[($label + " provider projection is not fresh/verifiable; provider commands were not run.")] + (if ($failure.recommended_action // "") != "" then [$failure.recommended_action] else [] end)')"
       QUERY_PROBE_VERIFICATION_REASON="$(jq -r '.diagnostic' <<<"$failure_info")"
     else
-    if [ "$provider" = "gitnexus" ]; then
-      bootstrap_log="$raw_dir/analyze.log"
-    else
-      bootstrap_log="$raw_dir/build.log"
+    refresh_decision="$(resolve_provider_refresh_mode "$provider" "$status_path" "$bootstrap_fingerprint")"
+    provider_refresh_mode="$(jq -r '.refresh_mode' <<<"$refresh_decision")"
+    refresh_reason_code="$(jq -r '.reason_code // empty' <<<"$refresh_decision")"
+    incremental_base_commit="$(jq -r '.last_indexed_commit // empty' <<<"$refresh_decision")"
+    if [ "$provider_refresh_mode" = "blocked" ]; then
+      emit_blocked blocked "$refresh_reason_code" "Provider command shape is unsupported for $provider:incremental."
     fi
+    if [ "$provider_refresh_mode" = "incremental" ]; then
+      readiness_source="incremental-update"
+    else
+      readiness_source="cold-run"
+      if [ -n "$refresh_reason_code" ]; then
+        failure_info="$(make_preflight_reason_failure "$refresh_reason_code")"
+      fi
+    fi
+
     status_log="$raw_dir/status.log"
     query_log="$raw_dir/query.log"
 
-    run_configured_command "$provider" bootstrap "$bootstrap_log"
+    if [ "$provider_refresh_mode" = "incremental" ]; then
+      bootstrap_log="$(provider_bootstrap_log_for_mode "$provider" incremental primary "$raw_dir")"
+      bootstrap_command_json="$(provider_incremental_command_json "$provider" "$incremental_base_commit")"
+      bootstrap_command_display="$(command_json_display "$bootstrap_command_json")"
+      run_command_json "$provider" incremental "$bootstrap_log" "$bootstrap_command_json"
+      bootstrap_exit_code="$RUN_EXIT_CODE"
+      bootstrap_diagnostic="$RUN_DIAGNOSTIC"
+      bootstrap_truncated="$RUN_TRUNCATED"
+      append_bootstrap_command_result "$command_results_file" "$bootstrap_command_display" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$bootstrap_log")" incremental primary
+      if [ "$RUN_EXIT_CODE" -ne 0 ]; then
+        fallback_from_incremental=true
+        provider_refresh_mode="incremental-fallback-full"
+        readiness_source="incremental-fallback-full"
+        bootstrap_log="$(provider_bootstrap_log_for_mode "$provider" full fallback "$raw_dir")"
+        bootstrap_command_json="$(provider_full_command_json "$provider")"
+        bootstrap_command_display="$(command_json_display "$bootstrap_command_json")"
+        run_command_json "$provider" bootstrap "$bootstrap_log" "$bootstrap_command_json"
+        append_bootstrap_command_result "$command_results_file" "$bootstrap_command_display" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$bootstrap_log")" full fallback
+        if [ "$RUN_EXIT_CODE" -eq 0 ]; then
+          final_full_attempt_succeeded=true
+          failure_info="$(incremental_fallback_success_failure_info "$bootstrap_exit_code")"
+        else
+          refresh_process_failed=true
+          provider_refresh_mode="failed"
+          skip_normalized_write=true
+          failure_info="$(incremental_both_failed_failure_info "$RUN_EXIT_CODE")"
+        fi
+      fi
+    else
+      bootstrap_log="$(provider_bootstrap_log_for_mode "$provider" full primary "$raw_dir")"
+      bootstrap_command_json="$(provider_full_command_json "$provider")"
+      bootstrap_command_display="$(command_json_display "$bootstrap_command_json")"
+      run_command_json "$provider" bootstrap "$bootstrap_log" "$bootstrap_command_json"
+      append_bootstrap_command_result "$command_results_file" "$bootstrap_command_display" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$bootstrap_log")" full primary
+      if [ "$RUN_EXIT_CODE" -eq 0 ]; then
+        final_full_attempt_succeeded=true
+      else
+        refresh_process_failed=true
+      fi
+    fi
     if [ "$provider" = "gitnexus" ] && [ "$RUN_EXIT_CODE" -eq 0 ]; then
       host_instruction_normalization="$(normalize_gitnexus_instruction_block_for_root "$REPO_ROOT")"
     fi
-    append_command_result "$command_results_file" bootstrap "$(command_display "$provider" bootstrap)" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$bootstrap_log")"
     if [ "$RUN_EXIT_CODE" -eq 0 ]; then
       run_configured_command "$provider" status "$status_log"
       append_command_result "$command_results_file" status "$(command_display "$provider" status)" "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC" "$RUN_TRUNCATED" "$(relpath "$status_log")"
@@ -1727,7 +2085,10 @@ write_provider_status() {
       status="failed"
       query_ready=false
       confidence="low"
-      failure_info="$(classify_provider_failure "$provider" bootstrap "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC")"
+      provider_refresh_mode="failed"
+      if [ "$(jq -r '.reason_code // empty' <<<"$failure_info")" != "incremental-and-full-failed" ]; then
+        failure_info="$(classify_provider_failure "$provider" bootstrap "$RUN_EXIT_CODE" "$RUN_DIAGNOSTIC")"
+      fi
       limitations="$(jq -n --argjson failure "$failure_info" '["Provider bootstrap command failed."] + (if ($failure.recommended_action // "") != "" then [$failure.recommended_action] else [] end)')"
     fi
     fi
@@ -1735,7 +2096,9 @@ write_provider_status() {
 
   command_results="$(cat "$command_results_file")"
   rm -f "$command_results_file"
-  write_normalized_artifacts "$provider" "$status_path" "$query_ready"
+  if [ "$skip_normalized_write" != "true" ]; then
+    write_normalized_artifacts "$provider" "$status_path" "$query_ready" "$command_results"
+  fi
   provider_finished_at="$(utc_now)"
   provider_finished_epoch_ms="$(epoch_ms)"
   provider_duration_ms=$((provider_finished_epoch_ms - provider_started_epoch_ms))
@@ -1770,6 +2133,12 @@ write_provider_status() {
     --argjson reuse_eligible "$reuse_eligible" \
     --arg reuse_ineligible_reason "$reuse_ineligible_reason" \
     --arg readiness_source "$readiness_source" \
+    --arg provider_refresh_mode "$provider_refresh_mode" \
+    --argjson fallback_from_incremental "$fallback_from_incremental" \
+    --arg prior_last_indexed_commit "$prior_last_indexed_commit" \
+    --argjson prior_requires_clean_full_refresh "$prior_requires_clean_full_refresh" \
+    --argjson refresh_process_failed "$refresh_process_failed" \
+    --argjson final_full_attempt_succeeded "$final_full_attempt_succeeded" \
     --slurpfile provider_config "$PROVIDER_CONFIG" \
     '{
       schema_version:"provider-status.v1",
@@ -1789,6 +2158,18 @@ write_provider_status() {
       graph_ready:$graph_ready,
       query_ready:$query_ready,
       readiness_source:$readiness_source,
+      refresh_mode:$provider_refresh_mode,
+      fallback_from_incremental:$fallback_from_incremental,
+      last_indexed_commit:(
+        if ($graph_ready and $query_ready and ($worktree_dirty | not)) then $source_revision
+        elif $prior_last_indexed_commit != "" then $prior_last_indexed_commit
+        else null end
+      ),
+      requires_clean_full_refresh:(
+        if (($worktree_dirty | not) and $final_full_attempt_succeeded and $graph_ready and $query_ready) then false
+        elif $refresh_process_failed then true
+        else $prior_requires_clean_full_refresh end
+      ),
       reuse_eligible:$reuse_eligible,
       reuse_ineligible_reason:(if $reuse_ineligible_reason == "" then null else $reuse_ineligible_reason end),
       bootstrap_fingerprint:$bootstrap_fingerprint,
@@ -1841,6 +2222,10 @@ ready_count="$(jq '[.[] | select(.query_ready == true)] | length' <<<"$statuses_
 not_applicable_count="$(jq '[.[] | select(.status == "query-not-applicable")] | length' <<<"$statuses_json")"
 blocking_not_ready_count="$(jq '[.[] | select(.query_ready != true and .status != "query-not-applicable" and .status != "skipped")] | length' <<<"$statuses_json")"
 fallback_ready="$(jq -r '[.fallback_capabilities[]? | select(.support_level != "none")] | length > 0' "$RUNTIME_CAPABILITIES")"
+PRESERVE_CANONICAL_FRESHNESS=false
+if jq -e 'any(.[]; (.reason_code // "") == "incremental-and-full-failed")' >/dev/null <<<"$statuses_json"; then
+  PRESERVE_CANONICAL_FRESHNESS=true
+fi
 
 if [ "$provider_count" -gt 0 ] && [ "$ready_count" -eq "$provider_count" ]; then
   WORKFLOW_MODE="primary"
@@ -1861,14 +2246,17 @@ else
 fi
 
 reason_code=""
-if [ "$WORKFLOW_MODE" = "blocked" ]; then
+if [ "$PRESERVE_CANONICAL_FRESHNESS" = "true" ]; then
+  reason_code="incremental-and-full-failed"
+elif [ "$WORKFLOW_MODE" = "blocked" ]; then
   reason_code="graph-not-ready"
 fi
 BOOTSTRAP_FINISHED_AT="$(utc_now)"
 BOOTSTRAP_FINISHED_EPOCH_MS="$(epoch_ms)"
 BOOTSTRAP_DURATION_MS=$((BOOTSTRAP_FINISHED_EPOCH_MS - SCRIPT_STARTED_EPOCH_MS))
 
-jq -n \
+if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$GRAPH_DIR/graph-facts.json" ]; then
+  jq -n \
   --arg generated_at "$BOOTSTRAPPED_AT" \
   --arg started_at "$SCRIPT_STARTED_AT" \
   --arg finished_at "$BOOTSTRAP_FINISHED_AT" \
@@ -1955,8 +2343,10 @@ jq -n \
       end
     )
   }' | write_file_atomic "$GRAPH_DIR/graph-facts.json"
+fi
 
-jq -n \
+if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$IMPACT_DIR/bootstrap-impact-capabilities.json" ]; then
+  jq -n \
   --arg generated_at "$BOOTSTRAPPED_AT" \
   --arg workflow_mode "$WORKFLOW_MODE" \
   --argjson providers "$statuses_json" \
@@ -1994,6 +2384,7 @@ jq -n \
       limitations_required:($workflow_mode != "primary")
     }
   }' | write_file_atomic "$IMPACT_DIR/bootstrap-impact-capabilities.json"
+fi
 
 provider_report_rows="$(jq -r '
   .[]
@@ -2032,12 +2423,14 @@ jq -n \
   --arg started_at "$SCRIPT_STARTED_AT" \
   --arg finished_at "$BOOTSTRAP_FINISHED_AT" \
   --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
+  --argjson canonical_artifacts_preserved "$PRESERVE_CANONICAL_FRESHNESS" \
   --argjson results "$statuses_json" \
   '{
     schema_version:"graph-bootstrap-result.v1",
     overall_status:$overall_status,
     workflow_mode:$workflow_mode,
     reason_code:(if $reason_code == "" then null else $reason_code end),
+    canonical_artifacts_preserved:$canonical_artifacts_preserved,
     repo_root:$repo_root,
     invocation_workspace_root:$invocation_workspace_root,
     selection_source:$selection_source,
