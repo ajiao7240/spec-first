@@ -1386,3 +1386,4 @@
 - v1.5.9 2026-04-25 23:55:17 Codex: 补充 CE skill 覆盖迁移逐项审查报告，验证 27 个 skill 的脚本同步、mirror 一致性、命名残留清理与测试结果 (user-visible)
 - v1.5.9 2026-04-27 09:53:25 leokuang: docs(plans): 收紧 agent-browser 外部 helper 迁移计划，补充删除前门禁、setup 入口收敛、host 权限、runtime 清理和发布验证要求
 - v1.8.2 2026-05-13 16:16:38 leokuang: 新增 init 入口内容瘦身计划，规划将 managed bootstrap 收敛为 context router 并保留 source/runtime 边界 (user-visible)
+- v1.8.2 2026-05-14 15:32:44 leokuang: docs(plan): 新增 multi-actor worktree governance 根治计划，定义 concurrent-write fingerprint、host pointer 自愈与 opt-in session advisory 三层最小契约扩展，明确实施顺序与跨会话冲突边界 (user-visible)
