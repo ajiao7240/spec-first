@@ -641,3 +641,234 @@ describe('spec-app-consistency-audit CLI e2e', () => {
     }
   });
 });
+
+const {
+  applyDimensionCases,
+  auditFixtureCoverage,
+  createAppAuditFixture,
+  defaultFixturePlan,
+  loadDimensionsRegistry,
+} = require('../helpers/app-audit-fixture');
+
+describe('spec-app-consistency-audit headless runner', () => {
+  const RUNNER = script('run-audit.js');
+
+  test('emits failed envelope with mode_unsupported when caller forces mode:default', () => {
+    const result = runNodeRaw([RUNNER, 'mode:default', 'base:HEAD']);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain('App consistency audit failed (headless mode).');
+    expect(result.stdout).toContain('Reason code: mode_unsupported');
+    expect(result.stdout).toContain('App consistency audit complete');
+  });
+
+  test('emits scope_headless_missing_base when base is omitted', () => {
+    const result = runNodeRaw([RUNNER, 'mode:headless']);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain('Reason code: scope_headless_missing_base');
+  });
+
+  test('emits raw_issues_value_missing when --raw-issues is supplied without a value', () => {
+    const result = runNodeRaw([RUNNER, 'mode:headless', 'base:HEAD', '--raw-issues']);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain('Reason code: raw_issues_value_missing');
+  });
+
+  test('refuses to forward --issue-synthesis-status llm_provided without staged input', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-no-input-'));
+    try {
+      createAppAuditFixture(repoRoot, { runId: 'no-input-run' });
+      const result = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        'base:HEAD',
+        '--source', repoRoot,
+        '--run-id', 'no-input-run',
+        '--issue-synthesis-status', 'llm_provided',
+      ]);
+      expect(result.status).not.toBe(0);
+      const envelopePath = path.join(repoRoot, '.spec-first/app-audit/runs/no-input-run/headless-envelope.txt');
+      expect(fs.existsSync(envelopePath)).toBe(true);
+      const envelope = fs.readFileSync(envelopePath, 'utf8');
+      expect(envelope).toContain('Reason code: issue_synthesis_status_without_input');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('runs the full pipeline and finalizes metadata to status:complete with not_run synthesis', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-not-run-'));
+    const runId = 'runner-not-run-test';
+    try {
+      const fixture = createAppAuditFixture(repoRoot, { runId });
+      const headSha = runGit(['rev-parse', 'HEAD'], repoRoot).stdout.trim();
+      runNode([
+        RUNNER,
+        'mode:headless',
+        `base:${headSha}`,
+        '--source', repoRoot,
+        '--prd', fixture.paths.prd,
+        '--figma-context', fixture.paths.figmaContext,
+        '--run-id', runId,
+      ], repoRoot);
+
+      const runDir = path.join(repoRoot, '.spec-first/app-audit/runs', runId);
+      const issues = JSON.parse(fs.readFileSync(path.join(runDir, 'issues.json'), 'utf8'));
+      const report = JSON.parse(fs.readFileSync(path.join(runDir, 'audit-report.json'), 'utf8'));
+      const metadata = JSON.parse(fs.readFileSync(path.join(runDir, 'metadata.json'), 'utf8'));
+      const envelope = fs.readFileSync(path.join(runDir, 'headless-envelope.txt'), 'utf8');
+
+      expect(issues.issue_synthesis_status).toBe('not_run');
+      expect(issues.issues).toEqual([]);
+      expect(report.issue_synthesis_status).toBe('not_run');
+      expect(metadata.status).toBe('complete');
+      expect(typeof metadata.completed_at).toBe('string');
+      expect(envelope).toContain('Issue synthesis status: not_run');
+      expect(envelope).toContain('Verdict: Awaiting LLM audit');
+      expect(envelope).toContain('Awaiting LLM audit:');
+
+      const validate = runNode([
+        script('validate-artifacts.js'),
+        path.join(runDir, 'metadata.json'),
+        path.join(runDir, 'issues.json'),
+        path.join(runDir, 'audit-report.json'),
+      ]);
+      expect(JSON.parse(validate.stdout).valid).toBe(true);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('forwards fixture_provided when raw issues are staged via --raw-issues', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-fixture-'));
+    const runId = 'runner-fixture-test';
+    try {
+      const fixture = createAppAuditFixture(repoRoot, { runId });
+      const headSha = runGit(['rev-parse', 'HEAD'], repoRoot).stdout.trim();
+      const stagedIssue = {
+        id: 'APP-AUDIT-FIXTURE-001',
+        title: 'Submit interaction requires static review',
+        severity: 'medium',
+        category: 'interaction',
+        claim_family: 'architecture_static',
+        claim_type: 'submit_interaction_changed',
+        affected_surface: { type: 'screen', id: 'TradeBuyScreen', file: 'shared/src/commonMain/kotlin/trade/ui/TradeBuyScreen.kt' },
+        expert: 'engineering-quality-expert',
+        confidence: 0.82,
+        static_confirmed: true,
+        contract_status: 'confirmed',
+        data_sensitivity: 'internal',
+        requires_runtime_verification: true,
+        requires_real_device: false,
+        provenance: [{ source: 'code', file: 'shared/src/commonMain/kotlin/trade/ui/TradeBuyScreen.kt', summary: 'Submit interaction changed.' }],
+        evidence: { code: [{ source: 'code', file: 'shared/src/commonMain/kotlin/trade/ui/TradeBuyScreen.kt', summary: 'Submit interaction changed.' }] },
+        impact: ['Submit interaction behavior may drift.'],
+        recommendation: ['Review submit interaction against the App contract.'],
+        related_rule_packs: ['common-app'],
+        runtime_verification: { required: true, level: 'simulator', reason: 'Verify the submit interaction path.' },
+        validation_status: 'not_required',
+      };
+      const rawIssues = write(repoRoot, '.spec-first/staged-fixture-issues.json', JSON.stringify({
+        issues: [stagedIssue],
+        rejected_issues: [],
+      }, null, 2));
+
+      runNode([
+        RUNNER,
+        'mode:headless',
+        `base:${headSha}`,
+        '--source', repoRoot,
+        '--prd', fixture.paths.prd,
+        '--figma-context', fixture.paths.figmaContext,
+        '--run-id', runId,
+        '--raw-issues', rawIssues,
+        '--issue-synthesis-status', 'fixture_provided',
+      ], repoRoot);
+
+      const runDir = path.join(repoRoot, '.spec-first/app-audit/runs', runId);
+      const issues = JSON.parse(fs.readFileSync(path.join(runDir, 'issues.json'), 'utf8'));
+      const report = JSON.parse(fs.readFileSync(path.join(runDir, 'audit-report.json'), 'utf8'));
+      const envelope = fs.readFileSync(path.join(runDir, 'headless-envelope.txt'), 'utf8');
+
+      expect(issues.issue_synthesis_status).toBe('fixture_provided');
+      expect(report.issue_synthesis_status).toBe('fixture_provided');
+      expect(envelope).toContain('Issue synthesis status: fixture_provided');
+      expect(envelope).not.toContain('Verdict: Awaiting LLM audit');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects invalid issue_synthesis_status values via finalizeModeOptions', () => {
+    const result = runNodeRaw([RUNNER, 'mode:headless', 'base:HEAD', '--issue-synthesis-status', 'bogus_state']);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr + result.stdout).toContain('Invalid issue_synthesis_status: bogus_state');
+  });
+
+  test('refuses to silently default not_run when raw issues are staged without a synthesis-status flag', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-required-input-'));
+    const runId = 'runner-required-input';
+    try {
+      const fixture = createAppAuditFixture(repoRoot, { runId });
+      const headSha = runGit(['rev-parse', 'HEAD'], repoRoot).stdout.trim();
+      const rawIssues = write(repoRoot, '.spec-first/staged-issues.json', JSON.stringify({
+        issues: [],
+        rejected_issues: [],
+      }, null, 2));
+
+      const result = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        `base:${headSha}`,
+        '--source', repoRoot,
+        '--prd', fixture.paths.prd,
+        '--figma-context', fixture.paths.figmaContext,
+        '--run-id', runId,
+        '--raw-issues', rawIssues,
+      ]);
+      expect(result.status).not.toBe(0);
+      const envelopePath = path.join(repoRoot, '.spec-first/app-audit/runs', runId, 'headless-envelope.txt');
+      expect(fs.existsSync(envelopePath)).toBe(true);
+      const envelope = fs.readFileSync(envelopePath, 'utf8');
+      expect(envelope).toContain('Reason code: issue_synthesis_status_required_with_input');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('app-audit fixture dimensions registry', () => {
+  test('aggregate fixture plans cover every required dimension case', () => {
+    const aggregateRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-fixture-aggregate-'));
+    try {
+      const plans = [
+        defaultFixturePlan(),
+        { ...defaultFixturePlan(), prd: 'missing', figma_context: 'missing', kmp_shared_module: 'absent', analytics_events: 'empty', i18n_resources: 'missing' },
+      ];
+      const aggregateCoverage = [];
+      plans.forEach((plan, index) => {
+        const subRoot = path.join(aggregateRoot, `plan-${index}`);
+        fs.mkdirSync(subRoot, { recursive: true });
+        const { coverage } = applyDimensionCases(subRoot, plan, `fixture-aggregate-${index}`);
+        aggregateCoverage.push(...coverage);
+      });
+      expect(() => auditFixtureCoverage(aggregateCoverage)).not.toThrow();
+      const audit = auditFixtureCoverage(aggregateCoverage);
+      expect(audit.covered.length).toBeGreaterThan(0);
+      expect(audit.known_gaps).toEqual([]);
+    } finally {
+      fs.rmSync(aggregateRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('detects missing required cases without explicit known_gaps allowlist', () => {
+    const registry = loadDimensionsRegistry();
+    expect(registry.dimensions.length).toBeGreaterThan(0);
+    const partialCoverage = [{ dimension: 'prd', case: 'minimal' }];
+    expect(() => auditFixtureCoverage(partialCoverage)).toThrow(/Fixture coverage audit failed/);
+    expect(() => auditFixtureCoverage(partialCoverage, {
+      knownGaps: registry.dimensions
+        .flatMap((dim) => (dim.required_cases || []).map((c) => `${dim.id}:${c}`))
+        .filter((key) => key !== 'prd:minimal'),
+    })).not.toThrow();
+  });
+});

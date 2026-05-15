@@ -1,17 +1,19 @@
 # Review Finding 合同
 
-`review-finding.v1` 是 code、document 和 app consistency reviews 共享的最小 finding envelope。它为 synthesis 提供共同结构，同时不抹平各 workflow 的领域扩展。
+`review-finding.v1` 是 code、document 和 app consistency reviews 共享的最小 compact finding envelope。它用于 downstream handoff、summary-first artifact 和跨 workflow mapped summary，不是 `spec-code-review` reviewer JSON 返回 schema。`spec-code-review` reviewer schema 仍以 `skills/spec-code-review/references/findings-schema.json` 为准，使用 P0-P3 severity 与 0/25/50/75/100 confidence anchors。
 
 ## 目标
 
 - 让 review synthesis 消费 structured findings，而不是长篇 reviewer prose。
 - 保留 evidence、confidence、owner、verification 和 changelog requirements。
 - 支持 bounded fanout 与 finding caps，同时不丢失 P0/P1 evidence。
+- 为 workflow 间 handoff 提供紧凑映射层，而不是替代领域 reviewer schema。
 
 ## 非目标
 
 - 不是通用 issue tracker schema。
 - 不是现有 workflow-specific reviewer JSON 的替代品。
+- 不是 `spec-code-review` reviewer JSON schema；code-review reviewer returns 必须继续遵守 `skills/spec-code-review/references/findings-schema.json`。
 - 不授权 agent 在没有 evidence 的情况下编造 findings。
 
 ## `review-finding.v1`
@@ -45,7 +47,7 @@
 
 ## Consumption 规则
 
-1. 父级 synthesis 先读取 structured findings，只有 evidence 不足时才打开 reviewer prose。
+1. 父级 synthesis 先读取对应 workflow 的 structured findings，只有 evidence 不足时才打开 reviewer prose；`spec-code-review` 的 reviewer JSON 读取以 `skills/spec-code-review/references/findings-schema.json` 为准。
 2. 每个 actionable finding 必须至少包含一条带 path 或 command anchor 的 evidence entry。
 3. bounded fanout 可使用 finding caps，但不得静默丢弃 P0/P1 findings。
 4. 领域 workflows 可以增加 `extensions`，但共享字段必须保持 severity、evidence、verification 和 residual handling 可比较。

@@ -597,7 +597,9 @@ emit_blocked() {
   local next_action="$3"
   local exit_code="${4:-1}"
   local canonical_artifacts_preserved="${5:-false}"
-  write_blocked_report "$workflow_mode" "$reason_code" "$next_action"
+  if [ "$canonical_artifacts_preserved" != "true" ]; then
+    write_blocked_report "$workflow_mode" "$reason_code" "$next_action"
+  fi
   jq -n \
     --arg repo_root "$REPO_ROOT" \
     --arg invocation_workspace_root "$INVOCATION_WORKSPACE_ROOT" \
@@ -722,8 +724,11 @@ command_shape_supported() {
   jq -e --arg provider "$provider" --arg kind "$kind" --arg repo_root "$REPO_ROOT" '
     def string_array:
       type == "array" and length > 0 and all(.[]; type == "string");
+    def safe_string:
+      (explode | all(.[]; (. >= 32 and . != 127)))
+      and (test("[;&|`$<>]") | not);
     def safe_args:
-      all(.[]; (test("[;&|`$<>]") | not));
+      all(.[]; safe_string);
     def gitnexus_subcommand:
       if $kind == "bootstrap" then "analyze"
       elif $kind == "incremental" then "analyze"
@@ -786,7 +791,10 @@ query_probe_policy_supported() {
   fi
   jq -e --arg provider "$provider" '
     def safe_token:
-      type == "string" and length > 0 and (test("[;&|`$<>]") | not);
+      type == "string"
+      and length > 0
+      and (explode | all(.[]; (. >= 32 and . != 127)))
+      and (test("[;&|`$<>]") | not);
     def optional_nullable_string($key):
       ((has($key) | not) or (.[$key] == null) or (.[$key] | type == "string"));
     (.providers[$provider].query_probe_policy // {}) as $policy
@@ -827,8 +835,7 @@ while IFS= read -r provider; do
       emit_blocked blocked unsupported-provider-command "Provider command shape is unsupported for $provider:$kind."
     fi
   done
-  if [ "$REQUEST_INCREMENTAL" = "true" ] \
-    && jq -e --arg provider "$provider" '(.providers[$provider].commands.incremental // null) != null' "$PROVIDER_CONFIG" >/dev/null \
+  if jq -e --arg provider "$provider" '(.providers[$provider].commands.incremental // null) != null' "$PROVIDER_CONFIG" >/dev/null \
     && ! command_shape_supported "$provider" incremental; then
     emit_blocked blocked unsupported-provider-command "Provider command shape is unsupported for $provider:incremental."
   fi
@@ -864,9 +871,9 @@ run_command_json() {
   local byte_count
 
   mkdir -p "$(dirname "$log_path")"
-  while IFS= read -r arg; do
+  while IFS= read -r -d '' arg; do
     cmd+=("$arg")
-  done < <(jq -r '.[]' <<<"$command_json")
+  done < <(jq -j '.[] | . + "\u0000"' <<<"$command_json")
 
   local started_epoch_ms finished_epoch_ms
   RUN_STARTED_AT="$(utc_now)"
@@ -911,9 +918,9 @@ run_configured_gitnexus_query_probe() {
   local byte_count
 
   mkdir -p "$(dirname "$log_path")"
-  while IFS= read -r arg; do
+  while IFS= read -r -d '' arg; do
     cmd+=("$arg")
-  done < <(jq -r --arg provider "$provider" '.providers[$provider].commands.query_probe[]' "$PROVIDER_CONFIG")
+  done < <(jq -j --arg provider "$provider" '.providers[$provider].commands.query_probe[] | . + "\u0000"' "$PROVIDER_CONFIG")
   cmd[4]="$token"
 
   local started_epoch_ms finished_epoch_ms
@@ -2255,7 +2262,7 @@ BOOTSTRAP_FINISHED_AT="$(utc_now)"
 BOOTSTRAP_FINISHED_EPOCH_MS="$(epoch_ms)"
 BOOTSTRAP_DURATION_MS=$((BOOTSTRAP_FINISHED_EPOCH_MS - SCRIPT_STARTED_EPOCH_MS))
 
-if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$GRAPH_DIR/graph-facts.json" ]; then
+if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$GRAPH_DIR/provider-status.json" ]; then
   jq -n \
   --arg generated_at "$BOOTSTRAPPED_AT" \
   --arg started_at "$SCRIPT_STARTED_AT" \
@@ -2288,7 +2295,9 @@ if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$GRAPH_DIR/graph-fac
       end
     )
   }' | write_file_atomic "$GRAPH_DIR/provider-status.json"
+fi
 
+if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$GRAPH_DIR/graph-facts.json" ]; then
 jq -n \
   --arg generated_at "$BOOTSTRAPPED_AT" \
   --arg started_at "$SCRIPT_STARTED_AT" \
@@ -2392,7 +2401,8 @@ provider_report_rows="$(jq -r '
   | "| \(.provider) | \(.graph_ready) | \(.query_ready) | \(if $attempts == "" then (.query_probe_policy.token // "n/a") else $attempts end) | \(.status) | \(.timing.duration_ms // 0) | \((.query_verification_reason // ((.limitations // []) | join("; ")) // "n/a") | gsub("\\|"; "/")) |"
 ' <<<"$statuses_json")"
 
-write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
+if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ]; then
+  write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
 # Graph Bootstrap Report
 
 - workflow_mode: $WORKFLOW_MODE
@@ -2408,6 +2418,7 @@ write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
 | --- | --- | --- | --- | --- | ---: | --- |
 $provider_report_rows
 MD
+fi
 
 jq -n \
   --arg repo_root "$REPO_ROOT" \

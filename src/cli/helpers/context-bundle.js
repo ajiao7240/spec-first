@@ -15,6 +15,48 @@ const EXCLUDED_PREFIXES = [
     reason: 'runtime audit artifacts are excluded from ordinary context',
   },
   {
+    prefix: '.spec-first/graph',
+    kind: 'runtime_context_artifact',
+    reason_code: 'runtime_context_artifact_excluded',
+    reason: 'runtime context artifacts are excluded from ordinary context',
+  },
+  {
+    prefix: '.spec-first/providers',
+    kind: 'runtime_context_artifact',
+    reason_code: 'runtime_context_artifact_excluded',
+    reason: 'runtime context artifacts are excluded from ordinary context',
+  },
+  {
+    prefix: '.spec-first/impact',
+    kind: 'runtime_context_artifact',
+    reason_code: 'runtime_context_artifact_excluded',
+    reason: 'runtime context artifacts are excluded from ordinary context',
+  },
+  {
+    prefix: '.spec-first/workspace',
+    kind: 'runtime_context_artifact',
+    reason_code: 'runtime_context_artifact_excluded',
+    reason: 'runtime context artifacts are excluded from ordinary context',
+  },
+  {
+    prefix: '.spec-first/standards',
+    kind: 'runtime_context_artifact',
+    reason_code: 'runtime_context_artifact_excluded',
+    reason: 'runtime context artifacts are excluded from ordinary context',
+  },
+  {
+    prefix: '.spec-first/app-audit',
+    kind: 'runtime_context_artifact',
+    reason_code: 'runtime_context_artifact_excluded',
+    reason: 'runtime context artifacts are excluded from ordinary context',
+  },
+  {
+    prefix: '.spec-first/workflows',
+    kind: 'runtime_context_artifact',
+    reason_code: 'runtime_context_artifact_excluded',
+    reason: 'runtime context artifacts are excluded from ordinary context',
+  },
+  {
     prefix: '.claude',
     kind: 'generated_runtime_mirror',
     reason_code: 'generated_runtime_mirror_excluded',
@@ -44,6 +86,11 @@ function runContextBundle(argv, io = {}) {
   const stdout = io.stdout || process.stdout;
   const cwd = path.resolve(io.cwd || process.cwd());
   const parsed = parseArgs(argv);
+
+  if (parsed.help) {
+    stdout.write(contextBundleHelp());
+    return 0;
+  }
 
   if (parsed.error) {
     writeJson(stdout, {
@@ -90,6 +137,9 @@ function parseArgs(argv) {
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
+    if (arg === '--help' || arg === '-h') {
+      return { help: true };
+    }
     if (arg === '--json') {
       options.json = true;
       continue;
@@ -179,6 +229,27 @@ function parseArgs(argv) {
   }
 
   return { options };
+}
+
+function contextBundleHelp() {
+  return [
+    'Usage: spec-first internal context-bundle --json --stage <stage> [options]',
+    '',
+    'Options:',
+    '  --stage <stage>                 Required workflow stage.',
+    '  --intent <intent>               Optional short intent label.',
+    '  --changed-file <path>           Add a changed source path.',
+    '  --related-path <path>           Add an explicit related path.',
+    '  --artifact-summary <path>       Add a summary-first artifact path.',
+    '  --evidence-path <path>          Add path-backed evidence.',
+    '  --full-read-trigger <reason>    Add a full-read trigger.',
+    '  --max-files <n>                 Maximum included paths.',
+    '  --max-tokens <n>                Maximum estimated tokens.',
+    '  --allow-runtime-context         Include otherwise excluded runtime context.',
+    '  --json                          Emit the context bundle as JSON.',
+    '  -h, --help                      Show this help.',
+    '',
+  ].join('\n');
 }
 
 function buildContextBundle(options, env = {}) {

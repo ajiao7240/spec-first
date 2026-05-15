@@ -453,7 +453,7 @@ select_gitnexus_query_probe_policy() {
 gitnexus_query_probe_policy="$(select_gitnexus_query_probe_policy "$REPO_ROOT")"
 gitnexus_repo_name="$(resolve_gitnexus_repo_name "$REPO_ROOT" "$FACTS_FILE")"
 gitnexus_query_probe_token="$(jq -r '.token // ""' <<<"$gitnexus_query_probe_policy")"
-gitnexus_command_hash="$(jq -n -S -c \
+gitnexus_commands_json="$(jq -n -S -c \
   --arg gitnexus_package "$gitnexus_package" \
   --arg query_probe "$gitnexus_query_probe_token" \
   --arg repo_name "$gitnexus_repo_name" '{
@@ -461,15 +461,17 @@ gitnexus_command_hash="$(jq -n -S -c \
     incremental: ["npx", "-y", $gitnexus_package, "analyze", "--skip-agents-md", "--no-stats"],
     status: ["npx", "-y", $gitnexus_package, "status"],
     query_probe: ["npx", "-y", $gitnexus_package, "query", $query_probe, "--repo", $repo_name]
-  }' | hash_text)"
-code_review_graph_command_hash="$(jq -n -S -c \
+  }')"
+gitnexus_command_hash="$(printf '%s\n' "$gitnexus_commands_json" | hash_text)"
+code_review_graph_commands_json="$(jq -n -S -c \
   --arg code_review_graph_package "$code_review_graph_package" \
   --arg repo_root "$REPO_ROOT" '{
     bootstrap: ["uvx", $code_review_graph_package, "build"],
     incremental: ["uvx", $code_review_graph_package, "update", "--base", "__SPEC_FIRST_LAST_INDEXED_COMMIT__"],
     status: ["uvx", $code_review_graph_package, "status"],
     query_probe: ["uvx", $code_review_graph_package, "status", "--repo", $repo_root]
-  }' | hash_text)"
+  }')"
+code_review_graph_command_hash="$(printf '%s\n' "$code_review_graph_commands_json" | hash_text)"
 current_source_revision="$(git -C "$REPO_ROOT" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true)"
 current_worktree_status="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)"
 if [ -n "$current_worktree_status" ]; then
@@ -511,6 +513,8 @@ jq --arg generated_at "$generated_at" \
    --arg current_source_revision "$current_source_revision" \
    --argjson current_worktree_dirty "$current_worktree_dirty" \
    --arg current_worktree_status_hash "$current_worktree_status_hash" \
+   --argjson gitnexus_commands "$gitnexus_commands_json" \
+   --argjson code_review_graph_commands "$code_review_graph_commands_json" \
    --argjson gitnexus_query_probe_policy "$gitnexus_query_probe_policy" \
    --argjson graph_facts_exists "$graph_facts_exists" \
    --argjson provider_status_exists "$provider_status_exists" \
@@ -580,18 +584,8 @@ jq --arg generated_at "$generated_at" \
     );
 
   def provider_commands($key):
-    if $key == "gitnexus" then {
-      bootstrap: ["npx", "-y", $gitnexus_package, "analyze", "--force", "--skip-agents-md", "--no-stats"],
-      incremental: ["npx", "-y", $gitnexus_package, "analyze", "--skip-agents-md", "--no-stats"],
-      status: ["npx", "-y", $gitnexus_package, "status"],
-      query_probe: ["npx", "-y", $gitnexus_package, "query", $gitnexus_query_probe_policy.token, "--repo", $repo_name]
-    }
-    elif $key == "code-review-graph" then {
-      bootstrap: ["uvx", $code_review_graph_package, "build"],
-      incremental: ["uvx", $code_review_graph_package, "update", "--base", "__SPEC_FIRST_LAST_INDEXED_COMMIT__"],
-      status: ["uvx", $code_review_graph_package, "status"],
-      query_probe: ["uvx", $code_review_graph_package, "status", "--repo", $repo_root]
-    }
+    if $key == "gitnexus" then $gitnexus_commands
+    elif $key == "code-review-graph" then $code_review_graph_commands
     else {} end;
 
   def provider_artifacts($key):

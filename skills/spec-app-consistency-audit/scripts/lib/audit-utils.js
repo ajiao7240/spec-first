@@ -20,6 +20,7 @@ const SKIPPED_DIRS = new Set([
   'target',
 ]);
 const APP_AUDIT_MODES = new Set(['default', 'headless', 'report-only']);
+const ISSUE_SYNTHESIS_STATUSES = new Set(['not_run', 'llm_provided', 'fixture_provided']);
 const GIT_REF_PATTERN = /^[A-Za-z0-9._/@{}^~+-]+$/;
 const DEFAULT_MAX_SOURCE_HASH_BYTES = 1024 * 1024;
 const DEFAULT_MAX_SKIPPED_LARGE_FILES = 50;
@@ -460,6 +461,7 @@ function parseCommonArgs(argv) {
       options.issues = options.issues || [];
       options.issues.push(argv[++index]);
     } else if (arg === '--issues-artifact') options.issuesArtifact = true;
+    else if (arg === '--issue-synthesis-status') options.issueSynthesisStatus = argv[++index];
     else if (arg === '--output') options.output = argv[++index];
     else if (!arg.startsWith('--') && !options.source) options.source = arg;
   }
@@ -487,6 +489,7 @@ function parseCanonicalToken(arg) {
     'expected-input',
     'run-id',
     'run-dir',
+    'issue-synthesis-status',
   ]);
   return known.has(key) ? { key, value } : null;
 }
@@ -537,6 +540,9 @@ function applyCanonicalToken(options, token, modeTokens) {
     case 'run-dir':
       options.runDir = token.value;
       break;
+    case 'issue-synthesis-status':
+      options.issueSynthesisStatus = token.value;
+      break;
     default:
       break;
   }
@@ -556,6 +562,9 @@ function finalizeModeOptions(options, modeTokens) {
   }
   if (options.depth && !['default', 'deep'].includes(options.depth)) {
     throw new Error(`Invalid app-audit depth: ${options.depth}`);
+  }
+  if (options.issueSynthesisStatus && !ISSUE_SYNTHESIS_STATUSES.has(options.issueSynthesisStatus)) {
+    throw new Error(`Invalid issue_synthesis_status: ${options.issueSynthesisStatus}`);
   }
   if (options.mode === 'report-only' && options.output) {
     throw new Error('mode:report-only forbids --output and run artifact writes.');
@@ -871,6 +880,7 @@ function toPosix(value) {
 module.exports = {
   DEFAULT_MAX_SOURCE_HASH_BYTES,
   DEFAULT_MAX_SKIPPED_LARGE_FILES,
+  ISSUE_SYNTHESIS_STATUSES,
   assertCanWrite,
   buildFigmaReference,
   buildAppAuditCoverageCapabilities,

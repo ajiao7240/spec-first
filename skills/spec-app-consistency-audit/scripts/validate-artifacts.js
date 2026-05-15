@@ -4,6 +4,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { ISSUE_SYNTHESIS_STATUSES } = require('./lib/audit-utils');
+
 const ARTIFACT_CONTRACT_STATUSES = new Set(['candidate', 'confirmed', 'rejected', 'degraded']);
 const DATA_SENSITIVITY_VALUES = new Set(['public', 'internal', 'confidential', 'restricted']);
 const RUNTIME_MODES = new Set(['static_only', 'runtime_suggested', 'real_device_suggested']);
@@ -160,6 +162,7 @@ function validateAuditReportArtifact(artifact, errors, options = {}) {
   if (artifact.artifact_id !== 'audit-report') {
     errors.push(error('artifact_id', 'invalid_audit_report_artifact_id', 'audit report artifact_id must be audit-report.'));
   }
+  validateIssueSynthesisStatus(artifact, 'audit-report', errors);
   if (!artifact.summary || typeof artifact.summary !== 'object' || Array.isArray(artifact.summary)) {
     errors.push(error('summary', 'summary_object_required', 'audit report summary must be an object.'));
   }
@@ -189,6 +192,7 @@ function validateIssuesArtifact(artifact, errors, options = {}) {
   if (artifact.artifact_id !== 'issues') {
     errors.push(error('artifact_id', 'invalid_issues_artifact_id', 'issues artifact_id must be issues.'));
   }
+  validateIssueSynthesisStatus(artifact, 'issues', errors);
   if (!Array.isArray(artifact.issues)) {
     errors.push(error('issues', 'issues_array_required', 'issues artifact must include issues array.'));
   } else {
@@ -202,6 +206,16 @@ function validateIssuesArtifact(artifact, errors, options = {}) {
       strictIssues: true,
       issuePrefix: `rejected_issues[${index}]`,
     }));
+  }
+}
+
+function validateIssueSynthesisStatus(artifact, artifactKind, errors) {
+  if (typeof artifact.issue_synthesis_status !== 'string' || artifact.issue_synthesis_status.length === 0) {
+    errors.push(error('issue_synthesis_status', 'issue_synthesis_status_required', `${artifactKind} must include issue_synthesis_status.`));
+    return;
+  }
+  if (!ISSUE_SYNTHESIS_STATUSES.has(artifact.issue_synthesis_status)) {
+    errors.push(error('issue_synthesis_status', 'invalid_issue_synthesis_status', `issue_synthesis_status must be one of ${[...ISSUE_SYNTHESIS_STATUSES].join(', ')}.`));
   }
 }
 

@@ -74,6 +74,8 @@ describe('context bundle and summary contracts', () => {
 
     expect(contextBundle).toContain('不搜索 repo、不排序文件、不检查 provider internals，也不决定 semantic relevance');
     expect(artifactSummary).toContain('不是第二份完整报告');
+    expect(reviewFinding).toContain('不是 `spec-code-review` reviewer JSON 返回 schema');
+    expect(reviewFinding).toContain('skills/spec-code-review/references/findings-schema.json');
     expect(reviewFinding).toContain('不得静默丢弃 P0/P1 findings');
     expect(governance).toContain('stable instruction prefix');
     expect(governance).toContain('dynamic suffix');
@@ -97,7 +99,10 @@ describe('context bundle and summary contracts', () => {
     }
 
     expect(codeReview).toContain('docs/contracts/workflows/review-finding.md');
-    expect(codeReview).toContain('再打开 full reviewer prose 或 raw JSON');
+    expect(codeReview).toContain('skills/spec-code-review/references/findings-schema.json');
+    expect(codeReview).toContain('P0-P3 severity');
+    expect(codeReview).toContain('0/25/50/75/100 confidence anchors');
+    expect(codeReview).toContain('review-finding.v1` 仅用于 downstream / compact mapped summary');
     expect(docReview).toContain('selected document sections');
     expect(docReview).toContain('instead of an automatic full-document broadcast');
     expect(docReview).toContain('review-finding.v1');
@@ -110,10 +115,23 @@ describe('context bundle and summary contracts', () => {
     const bundle = buildContextBundle({
       stage: 'work',
       intent: 'execute_minimal_context_governance',
-      changedFiles: ['skills/spec-work/SKILL.md', '.spec-first/audits/old-run/summary.json'],
+      changedFiles: [
+        'skills/spec-work/SKILL.md',
+        '.spec-first/audits/old-run/summary.json',
+        '.spec-first/graph/graph-facts.json',
+        '.spec-first/providers/gitnexus/status.json',
+      ],
       relatedPaths: ['docs/contracts/context-bundle.md'],
       artifactSummaries: ['docs/contracts/artifact-summary.md'],
-      evidencePaths: ['.agents/skills/spec-work/SKILL.md', 'tests/unit/context-bundle-contracts.test.js'],
+      evidencePaths: [
+        '.spec-first/impact/bootstrap-impact-capabilities.json',
+        '.spec-first/workspace/workspace-graph-targets.json',
+        '.spec-first/standards/project-standards.json',
+        '.spec-first/app-audit/latest/summary.json',
+        '.spec-first/workflows/spec-work/run.json',
+        '.agents/skills/spec-work/SKILL.md',
+        'tests/unit/context-bundle-contracts.test.js',
+      ],
       fullReadTriggers: ['summary_missing'],
       maxFiles: 10,
       maxTokens: 1000000,
@@ -130,6 +148,34 @@ describe('context bundle and summary contracts', () => {
       expect.objectContaining({
         path: '.spec-first/audits/old-run/summary.json',
         reason_code: 'runtime_audit_artifact_excluded',
+      }),
+      expect.objectContaining({
+        path: '.spec-first/graph/graph-facts.json',
+        reason_code: 'runtime_context_artifact_excluded',
+      }),
+      expect.objectContaining({
+        path: '.spec-first/providers/gitnexus/status.json',
+        reason_code: 'runtime_context_artifact_excluded',
+      }),
+      expect.objectContaining({
+        path: '.spec-first/impact/bootstrap-impact-capabilities.json',
+        reason_code: 'runtime_context_artifact_excluded',
+      }),
+      expect.objectContaining({
+        path: '.spec-first/workspace/workspace-graph-targets.json',
+        reason_code: 'runtime_context_artifact_excluded',
+      }),
+      expect.objectContaining({
+        path: '.spec-first/standards/project-standards.json',
+        reason_code: 'runtime_context_artifact_excluded',
+      }),
+      expect.objectContaining({
+        path: '.spec-first/app-audit/latest/summary.json',
+        reason_code: 'runtime_context_artifact_excluded',
+      }),
+      expect.objectContaining({
+        path: '.spec-first/workflows/spec-work/run.json',
+        reason_code: 'runtime_context_artifact_excluded',
       }),
       expect.objectContaining({
         path: '.agents/skills/spec-work/SKILL.md',
@@ -298,7 +344,7 @@ describe('context bundle and summary contracts', () => {
       stage: 'skill-audit',
       intent: 'runtime_drift_check',
       changedFiles: [],
-      relatedPaths: ['.agents/skills/spec-work/SKILL.md'],
+      relatedPaths: ['.spec-first/graph/graph-facts.json', '.agents/skills/spec-work/SKILL.md'],
       artifactSummaries: [],
       evidencePaths: [],
       fullReadTriggers: [],
@@ -308,6 +354,10 @@ describe('context bundle and summary contracts', () => {
     }, { cwd: REPO_ROOT });
 
     expect(bundle.related_paths).toEqual([
+      expect.objectContaining({
+        path: '.spec-first/graph/graph-facts.json',
+        reason: 'explicitly provided related path; runtime context explicitly allowed',
+      }),
       expect.objectContaining({
         path: '.agents/skills/spec-work/SKILL.md',
         reason: 'explicitly provided related path; runtime context explicitly allowed',
@@ -320,6 +370,15 @@ describe('context bundle and summary contracts', () => {
     const help = await captureRunCli(['--help']);
     expect(help.code).toBe(0);
     expect(help.stdout).not.toContain('context-bundle');
+
+    const internalHelp = await captureRunCli([
+      'internal',
+      'context-bundle',
+      '--help',
+    ]);
+    expect(internalHelp.code).toBe(0);
+    expect(internalHelp.stdout).toContain('Usage: spec-first internal context-bundle');
+    expect(internalHelp.stdout).toContain('--allow-runtime-context');
 
     const result = await captureRunCli([
       'internal',

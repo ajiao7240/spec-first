@@ -52,7 +52,7 @@ Orient review from the diff scope, current user request, plan/task/work artifact
 
 ## Cache-Friendly Context Layout
 
-保持本 `SKILL.md` 作为 stable instruction prefix：workflow contract、hard boundaries、reviewer routing 和 reference index。把 volatile data 放入 dynamic suffix：当前 user request、diff summary、tool summary、temporary evidence、`artifact-summary.v1`，以及来自 `docs/contracts/context-bundle.md` 的 `context-bundle.v1`。Review synthesis 应先消费 `docs/contracts/workflows/review-finding.md` 中紧凑的 `review-finding.v1` 字段，再打开 full reviewer prose 或 raw JSON。
+保持本 `SKILL.md` 作为 stable instruction prefix：workflow contract、hard boundaries、reviewer routing 和 reference index。把 volatile data 放入 dynamic suffix：当前 user request、diff summary、tool summary、temporary evidence、`artifact-summary.v1`，以及来自 `docs/contracts/context-bundle.md` 的 `context-bundle.v1`。Stage 5 synthesis 先消费 reviewer JSON；reviewer 返回 schema 以 `skills/spec-code-review/references/findings-schema.json` 为准，使用 P0-P3 severity 与 0/25/50/75/100 confidence anchors。`docs/contracts/workflows/review-finding.md` 的 `review-finding.v1` 仅用于 downstream / compact mapped summary，不替代 code-review reviewer JSON schema。
 
 ## Graph Freshness / Refresh Trigger Boundary
 

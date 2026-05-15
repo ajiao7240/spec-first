@@ -126,6 +126,36 @@ function buildLatestSummary(metadata) {
   };
 }
 
+const FINAL_METADATA_STATUSES = new Set(['complete', 'degraded', 'failed']);
+
+function finalizeMetadata(options = {}) {
+  if (!options.metadataPath) {
+    throw new Error('finalizeMetadata: metadataPath is required.');
+  }
+  if (!FINAL_METADATA_STATUSES.has(options.status)) {
+    throw new Error(`finalizeMetadata: status must be one of ${[...FINAL_METADATA_STATUSES].join(', ')}.`);
+  }
+  const fs = require('node:fs');
+  const raw = fs.readFileSync(options.metadataPath, 'utf8');
+  const metadata = JSON.parse(raw);
+  const completedAt = options.completedAt || new Date().toISOString();
+  metadata.status = options.status;
+  metadata.completed_at = completedAt;
+  metadata.generated_at = completedAt;
+  if (Array.isArray(options.statusReasonCodes) && options.statusReasonCodes.length > 0) {
+    const existing = Array.isArray(metadata.status_reason_codes) ? metadata.status_reason_codes : [];
+    const merged = [...existing];
+    for (const code of options.statusReasonCodes) {
+      if (typeof code === 'string' && code.length > 0 && !merged.includes(code)) {
+        merged.push(code);
+      }
+    }
+    metadata.status_reason_codes = merged;
+  }
+  fs.writeFileSync(options.metadataPath, `${JSON.stringify(metadata, null, 2)}\n`);
+  return metadata;
+}
+
 function gitText(cwd, args) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
   return result.status === 0 ? result.stdout : '';
@@ -155,4 +185,5 @@ if (require.main === module) {
 module.exports = {
   buildLatestSummary,
   buildRunMetadata,
+  finalizeMetadata,
 };

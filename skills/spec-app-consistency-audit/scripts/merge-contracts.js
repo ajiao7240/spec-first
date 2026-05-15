@@ -4,6 +4,7 @@
 const path = require('node:path');
 
 const {
+  ISSUE_SYNTHESIS_STATUSES,
   makeArtifact,
   parseCommonArgs,
   redactForArtifactText,
@@ -197,6 +198,7 @@ function applyEvidenceGate(issues, options = {}) {
 function buildAuditReport(options = {}) {
   const artifacts = (options.artifacts || []).map((filePath) => readArtifact(filePath));
   const pilotValidation = options.pilotValidation ? readArtifact(options.pilotValidation) : null;
+  const inputIssueArtifacts = (options.issues || []).map((filePath) => readArtifact(filePath));
   const gatedIssues = gateInputIssues(options);
   const acceptedIssues = gatedIssues.filter((issue) => issue.contract_status !== 'rejected');
   const rejectedIssues = gatedIssues.filter((issue) => issue.contract_status === 'rejected');
@@ -215,6 +217,7 @@ function buildAuditReport(options = {}) {
       ? sourceInputs
       : [unavailableSourceInput('artifacts', 'artifacts', 'artifact_inputs_missing')],
     body: {
+      issue_synthesis_status: resolveIssueSynthesisStatus(options, inputIssueArtifacts),
       summary: summarizeIssues(acceptedIssues, rejectedIssues),
       scope_and_degraded_modes: scopeAndDegradedModes,
       issues: sortIssues(acceptedIssues),
@@ -234,6 +237,7 @@ function buildAuditReport(options = {}) {
 }
 
 function buildIssuesArtifact(options = {}) {
+  const inputIssueArtifacts = (options.issues || []).map((filePath) => readArtifact(filePath));
   const gatedIssues = gateInputIssues(options);
   const acceptedIssues = gatedIssues.filter((issue) => issue.contract_status !== 'rejected');
   const rejectedIssues = gatedIssues.filter((issue) => issue.contract_status === 'rejected');
@@ -246,11 +250,26 @@ function buildIssuesArtifact(options = {}) {
       : [unavailableSourceInput('issues', 'issues', 'issue_inputs_missing')],
     consumers: ['report-writer', 'spec-code-review'],
     body: {
+      issue_synthesis_status: resolveIssueSynthesisStatus(options, inputIssueArtifacts),
       issues: sortIssues(acceptedIssues),
       rejected_issues: rejectedIssues,
       summary: summarizeIssues(acceptedIssues, rejectedIssues),
     },
   });
+}
+
+function resolveIssueSynthesisStatus(options, inputArtifacts) {
+  if (options && typeof options.issueSynthesisStatus === 'string'
+    && ISSUE_SYNTHESIS_STATUSES.has(options.issueSynthesisStatus)) {
+    return options.issueSynthesisStatus;
+  }
+  for (const artifact of inputArtifacts || []) {
+    if (artifact && typeof artifact.issue_synthesis_status === 'string'
+      && ISSUE_SYNTHESIS_STATUSES.has(artifact.issue_synthesis_status)) {
+      return artifact.issue_synthesis_status;
+    }
+  }
+  return 'not_run';
 }
 
 function gateInputIssues(options = {}) {

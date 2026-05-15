@@ -4,6 +4,7 @@
 const path = require('node:path');
 
 const {
+  ISSUE_SYNTHESIS_STATUSES,
   parseCommonArgs,
   readJson,
   redactForArtifactText,
@@ -25,6 +26,10 @@ function renderHeadlessEnvelope(options = {}) {
   const degradedModes = collectDegradedModes(metadata, report);
   const confirmed = issues.filter((issue) => issue.contract_status === 'confirmed');
   const candidates = issues.filter((issue) => issue.contract_status !== 'confirmed');
+  const synthesisStatus = typeof report.issue_synthesis_status === 'string'
+    && ISSUE_SYNTHESIS_STATUSES.has(report.issue_synthesis_status)
+    ? report.issue_synthesis_status
+    : 'not_run';
   const lines = [
     'App consistency audit complete (headless mode).',
     '',
@@ -34,9 +39,13 @@ function renderHeadlessEnvelope(options = {}) {
     `Artifact: ${safePathLine(metadata.run_dir || inferRunDir(options), 240)}`,
     `Summary: ${safePathLine(metadata.summary_path || 'app-consistency-audit.summary.md', 240)}`,
     `Issues: ${safePathLine(metadata.issues_path || 'issues.json', 240)}`,
-    `Verdict: ${buildVerdict(issues, rejected, degradedModes)}`,
+    `Issue synthesis status: ${safeLine(synthesisStatus, 60)}`,
+    `Verdict: ${buildVerdict(issues, rejected, degradedModes, synthesisStatus)}`,
     `Verdict scope: ${safeLine(metadata.audit_verdict_scope || 'source_only_app_static_audit', 160)}`,
   ];
+  if (synthesisStatus === 'not_run') {
+    lines.push('Awaiting LLM audit: no semantic issues produced; runner did not invent issues.');
+  }
 
   renderIssues(lines, 'Confirmed issues', confirmed);
   renderIssues(lines, 'Candidate issues', candidates);
@@ -119,7 +128,8 @@ function collectDegradedModes(metadata, report) {
   ].map((entry) => entry.code || entry).filter(Boolean);
 }
 
-function buildVerdict(issues, rejected, degradedModes = []) {
+function buildVerdict(issues, rejected, degradedModes = [], synthesisStatus = 'not_run') {
+  if (synthesisStatus === 'not_run') return 'Awaiting LLM audit';
   if (issues.some((issue) => issue.severity === 'blocker')) return 'Not ready';
   if (issues.some((issue) => ['high', 'medium'].includes(issue.severity))) return 'Ready with follow-ups';
   if (issues.length === 0 && rejected.length === 0 && degradedModes.length > 0) return 'No issues in scoped audit';
