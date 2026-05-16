@@ -18,21 +18,22 @@ $MarkerDir = Split-Path -Parent $MarkerPath
 
 # U2 host pointer self-heal: 检测 setup-owned host pointer drift,
 # 在 ledger 中记录 reconciliation advisory event。
+# Caller 必须在 detect-tools.ps1 给出 facts 后传入 child repo root,
+# 以便 -Repo <child> / parent-workspace 路径下也能正确 reconcile。
 function Get-HostPointerReconciliation {
-  $currentHost = $HostInfo.host
-  if ([string]::IsNullOrWhiteSpace($currentHost)) { return $null }
-  $repoRoot = ''
-  try {
-    $repoRoot = (& git rev-parse --show-toplevel 2>$null).Trim()
-  } catch {
-    $repoRoot = ''
-  }
-  if ([string]::IsNullOrWhiteSpace($repoRoot)) { $repoRoot = (Get-Location).Path }
-  $runtimePath = Join-Path $repoRoot '.spec-first/config/runtime-capabilities.json'
+  param(
+    [string]$CurrentHost,
+    [string]$RepoRoot,
+    [string]$MarkerPathArg
+  )
+  if ([string]::IsNullOrWhiteSpace($CurrentHost)) { return $null }
+  if ([string]::IsNullOrWhiteSpace($RepoRoot)) { return $null }
+  $runtimePath = Join-Path $RepoRoot '.spec-first/config/runtime-capabilities.json'
   if (-not (Test-Path -LiteralPath $runtimePath -PathType Leaf)) { return $null }
   try {
     $runtimeJson = Get-Content -Raw -LiteralPath $runtimePath | ConvertFrom-Json -ErrorAction Stop
   } catch {
+    [Console]::Error.WriteLine("verify-tools.ps1: runtime-capabilities.json at $runtimePath is unreadable; host pointer reconciliation skipped (will be rewritten by setup)")
     return $null
   }
   $previousHost = $null
@@ -42,18 +43,17 @@ function Get-HostPointerReconciliation {
     $previousPath = $runtimeJson.host_ledger_pointer.path
   }
   if ([string]::IsNullOrWhiteSpace($previousHost)) { return $null }
-  if ($previousHost -eq $currentHost) { return $null }
+  if ($previousHost -eq $CurrentHost) { return $null }
   return [ordered]@{
     schema_version = 'host-pointer-reconciliation.v1'
     from_host = $previousHost
-    to_host = $currentHost
+    to_host = $CurrentHost
     from_marker_path = $previousPath
-    to_marker_path = $MarkerPath
+    to_marker_path = $MarkerPathArg
     reconciled_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     reason = 'host marker drift detected between previous setup run and current detect-host'
   }
 }
-$HostPointerReconciliation = Get-HostPointerReconciliation
 
 function Write-JsonFileAtomic {
   param(
@@ -251,6 +251,10 @@ $detectParams = @{}
 if (-not [string]::IsNullOrWhiteSpace($Repo)) { $detectParams.Repo = $Repo }
 $Facts = & (Join-Path $ScriptDir 'detect-tools.ps1') @detectParams | ConvertFrom-Json
 $HelperFacts = & (Join-Path $ScriptDir 'install-helpers.ps1') -VerifyOnly | ConvertFrom-Json
+
+$reconciliationHost = $Facts.host
+$reconciliationRepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$Facts.selected_repo_root)) { [string]$Facts.selected_repo_root } else { [string]$Facts.repo_root }
+$HostPointerReconciliation = Get-HostPointerReconciliation -CurrentHost $reconciliationHost -RepoRoot $reconciliationRepoRoot -MarkerPathArg $MarkerPath
 
 function Test-ToolReady {
   param([object]$Tool)

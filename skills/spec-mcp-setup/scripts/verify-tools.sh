@@ -34,14 +34,22 @@ MARKER_DIR="$(dirname "$MARKER_PATH")"
 # U2 host pointer self-heal: 检测 setup-owned host pointer drift,
 # 在 ledger 中记录 reconciliation advisory event。 detect-only,
 # 重写动作由后续构造 ledger 时统一完成。
+# Caller 必须在 detect-tools.sh 给出 facts 后传入 child repo root,
+# 以便 --repo <child> / parent-workspace 路径下也能正确 reconcile。
 compute_host_pointer_reconciliation() {
-  local current_host current_repo runtime_path previous_host previous_path
-  current_host="$(jq -r '.host // empty' <<<"$HOST_INFO_JSON")"
+  local current_host="$1"
+  local repo_root="$2"
+  local marker_path="$3"
+  local runtime_path previous_host previous_path
   [ -n "$current_host" ] || { printf 'null'; return 0; }
-  current_repo="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || true)"
-  [ -n "$current_repo" ] || current_repo="$PWD"
-  runtime_path="$current_repo/.spec-first/config/runtime-capabilities.json"
+  [ -n "$repo_root" ] || { printf 'null'; return 0; }
+  runtime_path="$repo_root/.spec-first/config/runtime-capabilities.json"
   [ -f "$runtime_path" ] || { printf 'null'; return 0; }
+  if ! jq -e . "$runtime_path" >/dev/null 2>&1; then
+    echo "verify-tools.sh: runtime-capabilities.json at $runtime_path is unreadable; host pointer reconciliation skipped (will be rewritten by setup)" >&2
+    printf 'null'
+    return 0
+  fi
   previous_host="$(jq -r '.host_ledger_pointer.host // empty' "$runtime_path" 2>/dev/null || true)"
   previous_path="$(jq -r '.host_ledger_pointer.path // empty' "$runtime_path" 2>/dev/null || true)"
   if [ -z "$previous_host" ] || [ "$previous_host" = "$current_host" ]; then
@@ -52,7 +60,7 @@ compute_host_pointer_reconciliation() {
     --arg from_host "$previous_host" \
     --arg to_host "$current_host" \
     --arg from_marker "$previous_path" \
-    --arg to_marker "$MARKER_PATH" \
+    --arg to_marker "$marker_path" \
     --arg reconciled_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
     '{
       schema_version: "host-pointer-reconciliation.v1",
@@ -64,7 +72,6 @@ compute_host_pointer_reconciliation() {
       reason: "host marker drift detected between previous setup run and current detect-host"
     }'
 }
-HOST_POINTER_RECONCILIATION="$(compute_host_pointer_reconciliation)"
 
 write_file_atomic_path() {
   local path="$1"
@@ -259,6 +266,12 @@ fi
 
 FACTS_JSON="$(bash "$SCRIPT_DIR/detect-tools.sh" ${DETECT_ARGS[@]+"${DETECT_ARGS[@]}"})"
 HELPER_JSON="$(bash "$SCRIPT_DIR/install-helpers.sh" --verify-only)"
+
+# U2: facts 给出 child repo root 后再做 reconciliation,
+# 让 --repo <child> 在 parent workspace 下也能正确比对 runtime-capabilities.json。
+RECONCILIATION_HOST="$(jq -r '.host // empty' <<<"$FACTS_JSON")"
+RECONCILIATION_REPO_ROOT="$(jq -r '.selected_repo_root // .repo_root // empty' <<<"$FACTS_JSON")"
+HOST_POINTER_RECONCILIATION="$(compute_host_pointer_reconciliation "$RECONCILIATION_HOST" "$RECONCILIATION_REPO_ROOT" "$MARKER_PATH")"
 
 mkdir -p "$MARKER_DIR"
 [ -w "$MARKER_DIR" ] || { echo "verify-tools.sh: 无法写入 ${MARKER_DIR}" >&2; exit 1; }

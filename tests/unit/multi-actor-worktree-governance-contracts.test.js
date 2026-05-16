@@ -1,7 +1,9 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const BOOTSTRAP_SH = path.join(
@@ -201,5 +203,219 @@ describe('plan documents U1 + U2 implementation requirements', () => {
   test('plan declares host pointer reconciliation requirement', () => {
     expect(plan).toContain('host_pointer_reconciliation');
     expect(plan).toMatch(/host-pointer-reconciled|host_pointer_reconciliation/);
+  });
+});
+
+function extractBashFunction(source, funcName) {
+  const start = source.indexOf(`${funcName}() {`);
+  if (start === -1) {
+    throw new Error(`bash function ${funcName} not found`);
+  }
+  const tail = source.slice(start);
+  const end = tail.search(/^\}\s*$/m);
+  if (end === -1) {
+    throw new Error(`bash function ${funcName} closing brace not found`);
+  }
+  const closingLineEnd = tail.indexOf('\n', end);
+  return tail.slice(0, closingLineEnd === -1 ? end + 1 : closingLineEnd);
+}
+
+function makeTempDir(prefix) {
+  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+}
+
+function runBash(script, env = {}) {
+  return spawnSync('bash', ['-c', script], {
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+}
+
+function gitInit(repoRoot) {
+  const setup = [
+    `git init --quiet "${repoRoot}"`,
+    `git -C "${repoRoot}" config user.email test@example.com`,
+    `git -C "${repoRoot}" config user.name "Test User"`,
+    `git -C "${repoRoot}" config commit.gpgsign false`,
+  ].join(' && ');
+  const r = spawnSync('bash', ['-c', setup], { encoding: 'utf8' });
+  if (r.status !== 0) {
+    throw new Error(`git init failed: ${r.stderr}`);
+  }
+}
+
+describe('U1 + U2 fixture-based semantic verification', () => {
+  const bashBootstrap = readFile(BOOTSTRAP_SH);
+  const bashVerify = readFile(VERIFY_SH);
+  const fingerprintBody = extractBashFunction(bashBootstrap, 'external_actor_fingerprint');
+  const reconciliationBody = extractBashFunction(bashVerify, 'compute_host_pointer_reconciliation');
+
+  const tmpDirs = [];
+  afterAll(() => {
+    for (const dir of tmpDirs) {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
+  function newTmp(prefix) {
+    const d = makeTempDir(prefix);
+    tmpDirs.push(d);
+    return d;
+  }
+
+  function fingerprintHash(repoRoot) {
+    const driver = `
+set -euo pipefail
+REPO_ROOT="${repoRoot}"
+${fingerprintBody}
+hash_text() { shasum -a 256 - 2>/dev/null | awk '{print $1}'; }
+external_actor_fingerprint | hash_text
+`;
+    const r = runBash(driver);
+    if (r.status !== 0) {
+      throw new Error(`fingerprint driver failed: ${r.stderr}`);
+    }
+    return r.stdout.trim();
+  }
+
+  test('external_actor_fingerprint: bootstrap-owned path edits do NOT change fingerprint', () => {
+    const repo = newTmp('eaf-owned-');
+    gitInit(repo);
+    fs.writeFileSync(path.join(repo, 'src.txt'), 'baseline');
+    spawnSync('bash', ['-c', `git -C "${repo}" add -A && git -C "${repo}" commit --quiet -m baseline`]);
+
+    fs.writeFileSync(path.join(repo, 'src.txt'), 'changed');
+    const baseline = fingerprintHash(repo);
+
+    fs.mkdirSync(path.join(repo, '.spec-first'), { recursive: true });
+    fs.writeFileSync(path.join(repo, '.spec-first', 'foo.json'), '{}');
+    fs.writeFileSync(path.join(repo, 'AGENTS.md'), 'agent');
+    fs.writeFileSync(path.join(repo, 'CLAUDE.md'), 'claude');
+    fs.mkdirSync(path.join(repo, '.gitnexus'), { recursive: true });
+    fs.writeFileSync(path.join(repo, '.gitnexus', 'a.json'), '{}');
+    fs.mkdirSync(path.join(repo, '.code-review-graph'), { recursive: true });
+    fs.writeFileSync(path.join(repo, '.code-review-graph', 'b.json'), '{}');
+
+    const afterBootstrapWrites = fingerprintHash(repo);
+    expect(afterBootstrapWrites).toBe(baseline);
+  });
+
+  test('external_actor_fingerprint: edits to non-bootstrap paths DO change fingerprint', () => {
+    const repo = newTmp('eaf-external-');
+    gitInit(repo);
+    fs.writeFileSync(path.join(repo, 'src.txt'), 'baseline');
+    spawnSync('bash', ['-c', `git -C "${repo}" add -A && git -C "${repo}" commit --quiet -m baseline`]);
+
+    fs.writeFileSync(path.join(repo, 'src.txt'), 'changed');
+    const before = fingerprintHash(repo);
+
+    fs.writeFileSync(path.join(repo, 'docs.md'), 'new doc');
+    const after = fingerprintHash(repo);
+
+    expect(after).not.toBe(before);
+  });
+
+  function runReconciliation(currentHost, repoRoot, markerPath, env = {}) {
+    const driver = `
+set -euo pipefail
+${reconciliationBody}
+compute_host_pointer_reconciliation "${currentHost}" "${repoRoot}" "${markerPath}"
+`;
+    return runBash(driver, env);
+  }
+
+  test('compute_host_pointer_reconciliation: missing runtime-capabilities returns null', () => {
+    const repo = newTmp('hpr-missing-');
+    const r = runReconciliation('claude-code', repo, '/tmp/marker.json');
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe('null');
+  });
+
+  test('compute_host_pointer_reconciliation: same host returns null', () => {
+    const repo = newTmp('hpr-same-');
+    fs.mkdirSync(path.join(repo, '.spec-first', 'config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(repo, '.spec-first', 'config', 'runtime-capabilities.json'),
+      JSON.stringify({ host_ledger_pointer: { host: 'claude-code', path: '/old/marker.json' } }),
+    );
+    const r = runReconciliation('claude-code', repo, '/new/marker.json');
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe('null');
+  });
+
+  test('compute_host_pointer_reconciliation: different host returns event with from/to/marker fields', () => {
+    const repo = newTmp('hpr-drift-');
+    fs.mkdirSync(path.join(repo, '.spec-first', 'config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(repo, '.spec-first', 'config', 'runtime-capabilities.json'),
+      JSON.stringify({ host_ledger_pointer: { host: 'codex', path: '/codex/marker.json' } }),
+    );
+    const r = runReconciliation('claude-code', repo, '/claude/marker.json');
+    expect(r.status).toBe(0);
+    const event = JSON.parse(r.stdout);
+    expect(event.schema_version).toBe('host-pointer-reconciliation.v1');
+    expect(event.from_host).toBe('codex');
+    expect(event.to_host).toBe('claude-code');
+    expect(event.from_marker_path).toBe('/codex/marker.json');
+    expect(event.to_marker_path).toBe('/claude/marker.json');
+    expect(typeof event.reconciled_at).toBe('string');
+    expect(event.reconciled_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    expect(event.reason).toMatch(/host marker drift/);
+  });
+
+  test('compute_host_pointer_reconciliation: corrupt JSON returns null and writes stderr advisory', () => {
+    const repo = newTmp('hpr-corrupt-');
+    fs.mkdirSync(path.join(repo, '.spec-first', 'config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(repo, '.spec-first', 'config', 'runtime-capabilities.json'),
+      'not-json-at-all{',
+    );
+    const r = runReconciliation('claude-code', repo, '/claude/marker.json');
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe('null');
+    expect(r.stderr).toMatch(/runtime-capabilities\.json/);
+    expect(r.stderr).toMatch(/unreadable|host pointer reconciliation skipped/);
+  });
+
+  test('compute_host_pointer_reconciliation: empty current host returns null', () => {
+    const repo = newTmp('hpr-empty-');
+    fs.mkdirSync(path.join(repo, '.spec-first', 'config'), { recursive: true });
+    fs.writeFileSync(
+      path.join(repo, '.spec-first', 'config', 'runtime-capabilities.json'),
+      JSON.stringify({ host_ledger_pointer: { host: 'codex', path: '/x' } }),
+    );
+    const r = runReconciliation('', repo, '/y');
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe('null');
+  });
+
+  test('verify-tools.sh resolves repo_root from facts (selected_repo_root or repo_root)', () => {
+    expect(bashVerify).toMatch(
+      /RECONCILIATION_REPO_ROOT="\$\(jq -r '\.selected_repo_root \/\/ \.repo_root \/\/ empty' <<<"\$FACTS_JSON"\)"/,
+    );
+    expect(bashVerify).toMatch(
+      /HOST_POINTER_RECONCILIATION="\$\(compute_host_pointer_reconciliation "\$RECONCILIATION_HOST" "\$RECONCILIATION_REPO_ROOT" "\$MARKER_PATH"\)"/,
+    );
+  });
+
+  test('verify-tools.ps1 resolves repo_root from facts (selected_repo_root or repo_root)', () => {
+    const verifyPs1 = readFile(VERIFY_PS1);
+    expect(verifyPs1).toMatch(
+      /\$reconciliationRepoRoot = if \(-not \[string\]::IsNullOrWhiteSpace\(\[string\]\$Facts\.selected_repo_root\)\) \{ \[string\]\$Facts\.selected_repo_root \} else \{ \[string\]\$Facts\.repo_root \}/,
+    );
+    expect(verifyPs1).toContain(
+      'Get-HostPointerReconciliation -CurrentHost $reconciliationHost -RepoRoot $reconciliationRepoRoot -MarkerPathArg $MarkerPath',
+    );
+  });
+
+  test('verify-tools.ps1 surfaces stderr advisory on corrupt runtime-capabilities.json', () => {
+    const verifyPs1 = readFile(VERIFY_PS1);
+    expect(verifyPs1).toMatch(
+      /\[Console\]::Error\.WriteLine\("verify-tools\.ps1: runtime-capabilities\.json at \$runtimePath is unreadable/,
+    );
   });
 });

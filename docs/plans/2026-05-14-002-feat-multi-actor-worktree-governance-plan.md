@@ -382,6 +382,8 @@ npm run test:integration
 
 ## 实施收口（2026-05-16）
 
+> 注：原 `## 实施顺序约束` 第 1 条要求 U1 等待 plan `2026-05-07-001` 的 secret-deny-patterns 加固落地。该 plan 已在 commit `b8ee82e9` (audit headless runner + safe_string) + `17cc7db1` (audit runner boundaries) 中合并，约束自此解除，U1 在 commit `4db7aaed` 实施完成。
+
 | Unit | 状态 | 说明 |
 |---|---|---|
 | U3 | ✅ 已落地 | `spec-first-session.v1` schema + `src/cli/commands/session.js` + 22 contract test (commit 23b9aaae) |
