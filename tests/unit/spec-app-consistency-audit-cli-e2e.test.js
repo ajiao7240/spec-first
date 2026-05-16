@@ -7,6 +7,7 @@ const { spawnSync } = require('node:child_process');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_ROOT = path.join(REPO_ROOT, 'skills/spec-app-consistency-audit');
+const { finalizeMetadata } = require(path.join(SKILL_ROOT, 'scripts/build-run-metadata.js'));
 
 function write(root, relativePath, content) {
   const filePath = path.join(root, relativePath);
@@ -63,6 +64,60 @@ describe('spec-app-consistency-audit CLI e2e', () => {
 
     expect(testSource).toContain("'commit', '--no-verify'");
     expect(testSource).not.toContain('core.hooksPath=' + '/dev/null');
+  });
+
+  test('metadata finalize only updates lifecycle fields without changing source facts', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-finalize-'));
+    try {
+      const metadataPath = path.join(tempRoot, 'metadata.json');
+      const metadata = {
+        schema_version: 'spec-app-consistency-audit-metadata.v1',
+        artifact_id: 'metadata',
+        producer: 'build-run-metadata.js',
+        generated_at: '2026-05-01T00:00:00.000Z',
+        run_id: 'finalize-test',
+        status: 'started',
+        source_inputs: [{
+          type: 'code',
+          path: '.',
+          source_hash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          freshness: 'current-worktree',
+        }],
+        head_sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        base_ref: 'HEAD~1',
+        diff_hash: 'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+        worktree_fingerprint: 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+        generated_against: {
+          source_root_hash: 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+          diff_hash: 'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+        },
+        audit_verdict_scope: 'static-artifact-chain',
+        run_dir: '.spec-first/app-audit/runs/finalize-test',
+        summary_path: '.spec-first/app-audit/runs/finalize-test/app-consistency-audit.summary.md',
+        issues_path: '.spec-first/app-audit/runs/finalize-test/issues.json',
+      };
+      fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`);
+
+      finalizeMetadata({
+        metadataPath,
+        status: 'complete',
+        completedAt: '2026-05-02T00:00:00.000Z',
+        statusReasonCodes: ['validated'],
+      });
+      const finalized = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+
+      expect(finalized.status).toBe('complete');
+      expect(finalized.completed_at).toBe('2026-05-02T00:00:00.000Z');
+      expect(finalized.status_reason_codes).toEqual(['validated']);
+      expect(finalized.generated_at).toBe(metadata.generated_at);
+      expect(finalized.source_inputs).toEqual(metadata.source_inputs);
+      expect(finalized.diff_hash).toBe(metadata.diff_hash);
+      expect(finalized.worktree_fingerprint).toBe(metadata.worktree_fingerprint);
+      expect(finalized.generated_against).toEqual(metadata.generated_against);
+      expect(JSON.stringify(finalized.source_inputs)).not.toContain('.spec-first/app-audit/runs');
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 
   test('runs the static app-audit artifact chain through subprocess CLIs', () => {
@@ -673,6 +728,219 @@ describe('spec-app-consistency-audit headless runner', () => {
     expect(result.stdout).toContain('Reason code: raw_issues_value_missing');
   });
 
+  test('does not honor --output before output boundary validation', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-early-output-'));
+    const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-early-output-outside-'));
+    try {
+      write(repoRoot, 'App.kt', 'class App');
+      const outsideOutput = path.join(outsideRoot, 'headless-envelope.txt');
+      const result = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        '--source', repoRoot,
+        '--run-id', 'safe-run',
+        '--output', outsideOutput,
+      ]);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).toContain('Reason code: scope_headless_missing_base');
+      expect(fs.existsSync(outsideOutput)).toBe(false);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      fs.rmSync(outsideRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects unsafe run-id before writing a run directory', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-run-id-'));
+    try {
+      write(repoRoot, 'App.kt', 'class App');
+      const result = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        'base:HEAD',
+        '--source', repoRoot,
+        '--run-id', '../../../escape',
+      ]);
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).toContain('Reason code: unsafe_run_id');
+      expect(fs.existsSync(path.join(repoRoot, '.spec-first/app-audit/runs'))).toBe(false);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects run-dir and output escapes before writing artifacts', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-path-'));
+    const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-outside-'));
+    try {
+      write(repoRoot, 'App.kt', 'class App');
+      const outsideRunDir = path.join(outsideRoot, 'run');
+      const runDirResult = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        'base:HEAD',
+        '--source', repoRoot,
+        '--run-id', 'safe-run',
+        '--run-dir', outsideRunDir,
+      ]);
+      expect(runDirResult.status).not.toBe(0);
+      expect(runDirResult.stdout).toContain('Reason code: run_dir_outside_default_root');
+      expect(fs.existsSync(outsideRunDir)).toBe(false);
+
+      const outsideOutput = path.join(outsideRoot, 'headless-envelope.txt');
+      const outputResult = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        'base:HEAD',
+        '--source', repoRoot,
+        '--run-id', 'safe-run',
+        '--output', outsideOutput,
+      ]);
+      expect(outputResult.status).not.toBe(0);
+      expect(outputResult.stdout).toContain('Reason code: output_outside_run_dir');
+      expect(fs.existsSync(outsideOutput)).toBe(false);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      fs.rmSync(outsideRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects run-dir symlink escapes before writing artifacts', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-run-dir-link-'));
+    const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-run-dir-link-outside-'));
+    try {
+      write(repoRoot, 'App.kt', 'class App');
+      const runRoot = path.join(repoRoot, '.spec-first/app-audit/runs');
+      fs.mkdirSync(runRoot, { recursive: true });
+      fs.symlinkSync(outsideRoot, path.join(runRoot, 'safe-run'), 'dir');
+
+      const result = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        'base:HEAD',
+        '--source', repoRoot,
+        '--run-id', 'safe-run',
+      ]);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).toContain('Reason code: run_dir_outside_default_root');
+      expect(fs.readdirSync(outsideRoot)).toEqual([]);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      fs.rmSync(outsideRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects output parent symlink escapes before writing artifacts', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-output-link-'));
+    const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-output-link-outside-'));
+    try {
+      write(repoRoot, 'App.kt', 'class App');
+      const runDir = path.join(repoRoot, '.spec-first/app-audit/runs/safe-run');
+      fs.mkdirSync(runDir, { recursive: true });
+      fs.symlinkSync(outsideRoot, path.join(runDir, 'output-link'), 'dir');
+
+      const result = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        'base:HEAD',
+        '--source', repoRoot,
+        '--run-id', 'safe-run',
+        '--output', path.join(runDir, 'output-link/headless-envelope.txt'),
+      ]);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).toContain('Reason code: output_outside_run_dir');
+      expect(fs.readdirSync(outsideRoot)).toEqual([]);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      fs.rmSync(outsideRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects raw-issues paths outside the source repo', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-raw-'));
+    const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-raw-outside-'));
+    try {
+      write(repoRoot, 'App.kt', 'class App');
+      const outsideIssues = path.join(outsideRoot, 'raw-issues.json');
+      fs.writeFileSync(outsideIssues, '{"issues":[],"rejected_issues":[]}\n');
+      const result = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        'base:HEAD',
+        '--source', repoRoot,
+        '--run-id', 'raw-outside',
+        '--raw-issues', outsideIssues,
+        '--issue-synthesis-status', 'fixture_provided',
+      ]);
+      expect(result.status).not.toBe(0);
+      const envelopePath = path.join(repoRoot, '.spec-first/app-audit/runs/raw-outside/headless-envelope.txt');
+      expect(fs.existsSync(envelopePath)).toBe(true);
+      expect(fs.readFileSync(envelopePath, 'utf8')).toContain('Reason code: path_outside_repo');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      fs.rmSync(outsideRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects source, PRD, and Figma context paths that escape the source repo', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-inputs-'));
+    const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-inputs-outside-'));
+    try {
+      write(repoRoot, 'App.kt', 'class App');
+      const missingSource = path.join(repoRoot, 'missing-source');
+      const missingSourceResult = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        'base:HEAD',
+        '--source', missingSource,
+        '--run-id', 'missing-source',
+      ]);
+      expect(missingSourceResult.status).not.toBe(0);
+      expect(missingSourceResult.stdout).toContain('Reason code: source_missing');
+      expect(fs.existsSync(path.join(repoRoot, '.spec-first/app-audit/runs/missing-source'))).toBe(false);
+
+      const outsidePrd = path.join(outsideRoot, 'prd.md');
+      fs.writeFileSync(outsidePrd, '# Outside PRD\n');
+      const outsidePrdResult = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        'base:HEAD',
+        '--source', repoRoot,
+        '--prd', outsidePrd,
+        '--run-id', 'outside-prd',
+      ]);
+      expect(outsidePrdResult.status).not.toBe(0);
+      expect(outsidePrdResult.stdout).toContain('Reason code: path_outside_repo');
+      expect(fs.existsSync(path.join(repoRoot, '.spec-first/app-audit/runs/outside-prd'))).toBe(false);
+
+      const outsideFigma = path.join(outsideRoot, 'figma-context.json');
+      fs.writeFileSync(outsideFigma, '{"nodes":[]}\n');
+      const figmaSymlink = path.join(repoRoot, 'figma-context-link.json');
+      try {
+        fs.symlinkSync(outsideFigma, figmaSymlink);
+      } catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+      }
+      const figmaSymlinkResult = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        'base:HEAD',
+        '--source', repoRoot,
+        '--figma-context', figmaSymlink,
+        '--run-id', 'figma-symlink',
+      ]);
+      expect(figmaSymlinkResult.status).not.toBe(0);
+      expect(figmaSymlinkResult.stdout).toContain('Reason code: symlink_escape');
+      expect(fs.existsSync(path.join(repoRoot, '.spec-first/app-audit/runs/figma-symlink'))).toBe(false);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      fs.rmSync(outsideRoot, { recursive: true, force: true });
+    }
+  });
+
   test('refuses to forward --issue-synthesis-status llm_provided without staged input', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-no-input-'));
     try {
@@ -715,6 +983,7 @@ describe('spec-app-consistency-audit headless runner', () => {
       const issues = JSON.parse(fs.readFileSync(path.join(runDir, 'issues.json'), 'utf8'));
       const report = JSON.parse(fs.readFileSync(path.join(runDir, 'audit-report.json'), 'utf8'));
       const metadata = JSON.parse(fs.readFileSync(path.join(runDir, 'metadata.json'), 'utf8'));
+      const auditContext = JSON.parse(fs.readFileSync(path.join(runDir, 'app-audit-context.json'), 'utf8'));
       const envelope = fs.readFileSync(path.join(runDir, 'headless-envelope.txt'), 'utf8');
 
       expect(issues.issue_synthesis_status).toBe('not_run');
@@ -725,12 +994,24 @@ describe('spec-app-consistency-audit headless runner', () => {
       expect(envelope).toContain('Issue synthesis status: not_run');
       expect(envelope).toContain('Verdict: Awaiting LLM audit');
       expect(envelope).toContain('Awaiting LLM audit:');
+      expect(auditContext.valid).toBe(true);
 
+      const contractArtifacts = fs.readdirSync(path.join(runDir, 'contracts'))
+        .filter((entry) => entry.endsWith('.json'))
+        .map((entry) => path.join(runDir, 'contracts', entry));
       const validate = runNode([
         script('validate-artifacts.js'),
-        path.join(runDir, 'metadata.json'),
-        path.join(runDir, 'issues.json'),
-        path.join(runDir, 'audit-report.json'),
+        ...[
+          'metadata.json',
+          'preflight.json',
+          'impact-facts.json',
+          'merged-context.json',
+          'issues.json',
+          'audit-report.json',
+          'app-audit-context.json',
+          'artifact-manifest.json',
+        ].map((entry) => path.join(runDir, entry)),
+        ...contractArtifacts,
       ]);
       expect(JSON.parse(validate.stdout).valid).toBe(true);
     } finally {
@@ -746,12 +1027,12 @@ describe('spec-app-consistency-audit headless runner', () => {
       const headSha = runGit(['rev-parse', 'HEAD'], repoRoot).stdout.trim();
       const stagedIssue = {
         id: 'APP-AUDIT-FIXTURE-001',
-        title: 'Submit interaction requires static review',
+        title: 'Submit interaction requires static review Authorization: Bearer runner-secret-token',
         severity: 'medium',
         category: 'interaction',
         claim_family: 'architecture_static',
         claim_type: 'submit_interaction_changed',
-        affected_surface: { type: 'screen', id: 'TradeBuyScreen', file: 'shared/src/commonMain/kotlin/trade/ui/TradeBuyScreen.kt' },
+        affected_surface: { type: 'screen', id: 'TradeBuyScreen', file: '/Users/example/private/TradeBuyScreen.kt' },
         expert: 'engineering-quality-expert',
         confidence: 0.82,
         static_confirmed: true,
@@ -759,12 +1040,12 @@ describe('spec-app-consistency-audit headless runner', () => {
         data_sensitivity: 'internal',
         requires_runtime_verification: true,
         requires_real_device: false,
-        provenance: [{ source: 'code', file: 'shared/src/commonMain/kotlin/trade/ui/TradeBuyScreen.kt', summary: 'Submit interaction changed.' }],
-        evidence: { code: [{ source: 'code', file: 'shared/src/commonMain/kotlin/trade/ui/TradeBuyScreen.kt', summary: 'Submit interaction changed.' }] },
-        impact: ['Submit interaction behavior may drift.'],
-        recommendation: ['Review submit interaction against the App contract.'],
+        provenance: [{ source: 'code', file: '/Users/example/private/TradeBuyScreen.kt', summary: 'Cookie: session=runner-secret' }],
+        evidence: { code: [{ source: 'code', file: '/Users/example/private/TradeBuyScreen.kt', summary: 'Calls https://internal.example.test/path?token=runner-secret' }] },
+        impact: ['Submit interaction behavior may drift with access_token=runner-secret.'],
+        recommendation: ['Review submit interaction against the App contract. Authorization: Bearer runner-secret-token'],
         related_rule_packs: ['common-app'],
-        runtime_verification: { required: true, level: 'simulator', reason: 'Verify the submit interaction path.' },
+        runtime_verification: { required: true, level: 'simulator', reason: 'Verify Authorization: Bearer runner-secret-token in the submit path.' },
         validation_status: 'not_required',
       };
       const rawIssues = write(repoRoot, '.spec-first/staged-fixture-issues.json', JSON.stringify({
@@ -772,7 +1053,7 @@ describe('spec-app-consistency-audit headless runner', () => {
         rejected_issues: [],
       }, null, 2));
 
-      runNode([
+      const result = runNode([
         RUNNER,
         'mode:headless',
         `base:${headSha}`,
@@ -788,11 +1069,27 @@ describe('spec-app-consistency-audit headless runner', () => {
       const issues = JSON.parse(fs.readFileSync(path.join(runDir, 'issues.json'), 'utf8'));
       const report = JSON.parse(fs.readFileSync(path.join(runDir, 'audit-report.json'), 'utf8'));
       const envelope = fs.readFileSync(path.join(runDir, 'headless-envelope.txt'), 'utf8');
+      const manifest = fs.readFileSync(path.join(runDir, 'artifact-manifest.json'), 'utf8');
+      const auditContext = fs.readFileSync(path.join(runDir, 'app-audit-context.json'), 'utf8');
+      const persistedText = [
+        result.stdout,
+        fs.readFileSync(path.join(runDir, 'issues.json'), 'utf8'),
+        fs.readFileSync(path.join(runDir, 'audit-report.json'), 'utf8'),
+        manifest,
+        auditContext,
+        envelope,
+      ].join('\n');
 
       expect(issues.issue_synthesis_status).toBe('fixture_provided');
       expect(report.issue_synthesis_status).toBe('fixture_provided');
       expect(envelope).toContain('Issue synthesis status: fixture_provided');
       expect(envelope).not.toContain('Verdict: Awaiting LLM audit');
+      expect(persistedText).not.toContain('runner-secret-token');
+      expect(persistedText).not.toContain('runner-secret');
+      expect(persistedText).not.toContain('Authorization: Bearer');
+      expect(persistedText).not.toContain('Cookie: session');
+      expect(persistedText).not.toContain('https://internal.example.test');
+      expect(persistedText).not.toContain('/Users/example/private');
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }

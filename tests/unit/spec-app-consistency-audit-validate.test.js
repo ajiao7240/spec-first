@@ -188,6 +188,7 @@ describe('spec-app-consistency-audit artifact validation', () => {
     const report = validBase({
       schema_version: 'spec-app-consistency-audit-report.v1',
       artifact_id: 'audit-report',
+      issue_synthesis_status: 'not_run',
       summary: { blocker_count: 0 },
       scope_and_degraded_modes: [],
       issues: [],
@@ -196,12 +197,30 @@ describe('spec-app-consistency-audit artifact validation', () => {
 
     expect(validateArtifact(report).valid).toBe(true);
     expect(validateArtifact({ ...report, issues: undefined }).errors.map((entry) => entry.code)).toContain('issues_array_required');
+    expect(validateArtifact({ ...report, issue_synthesis_status: undefined }).errors.map((entry) => entry.code))
+      .toContain('issue_synthesis_status_required');
+    expect(validateArtifact({ ...report, issue_synthesis_status: 'bogus_state' }).errors.map((entry) => entry.code))
+      .toContain('invalid_issue_synthesis_status');
+    const issuesArtifact = validBase({
+      schema_version: 'spec-app-consistency-audit-issues.v1',
+      artifact_id: 'issues',
+      issue_synthesis_status: 'not_run',
+      issues: [],
+      rejected_issues: [],
+      summary: { issue_count: 0, rejected_count: 0 },
+    });
+    expect(validateArtifact(issuesArtifact).valid).toBe(true);
+    expect(validateArtifact({ ...issuesArtifact, issue_synthesis_status: undefined }).errors.map((entry) => entry.code))
+      .toContain('issue_synthesis_status_required');
+    expect(validateArtifact({ ...issuesArtifact, issue_synthesis_status: 'bogus_state' }).errors.map((entry) => entry.code))
+      .toContain('invalid_issue_synthesis_status');
   });
 
   test('validates audit report issue protocol fields', () => {
     const report = validBase({
       schema_version: 'spec-app-consistency-audit-report.v1',
       artifact_id: 'audit-report',
+      issue_synthesis_status: 'fixture_provided',
       summary: { blocker_count: 0 },
       scope_and_degraded_modes: [],
       issues: [{
@@ -248,6 +267,7 @@ describe('spec-app-consistency-audit artifact validation', () => {
     const report = validBase({
       schema_version: 'spec-app-consistency-audit-report.v1',
       artifact_id: 'audit-report',
+      issue_synthesis_status: 'fixture_provided',
       summary: { blocker_count: 0 },
       scope_and_degraded_modes: [],
       issues: [{
@@ -284,6 +304,7 @@ describe('spec-app-consistency-audit artifact validation', () => {
     const strictReport = validBase({
       schema_version: 'spec-app-consistency-audit-report.v1',
       artifact_id: 'audit-report',
+      issue_synthesis_status: 'fixture_provided',
       summary: { blocker_count: 0 },
       scope_and_degraded_modes: [],
       issues: [{
@@ -349,6 +370,7 @@ describe('spec-app-consistency-audit artifact validation', () => {
     const report = validBase({
       schema_version: 'spec-app-consistency-audit-report.v1',
       artifact_id: 'audit-report',
+      issue_synthesis_status: 'fixture_provided',
       summary: { blocker_count: 0 },
       scope_and_degraded_modes: [],
       issues: [baseIssue],
@@ -366,6 +388,7 @@ describe('spec-app-consistency-audit artifact validation', () => {
     const report = validBase({
       schema_version: 'spec-app-consistency-audit-report.v1',
       artifact_id: 'audit-report',
+      issue_synthesis_status: 'fixture_provided',
       summary: { blocker_count: 0 },
       scope_and_degraded_modes: [],
       issues: [{
@@ -436,6 +459,7 @@ describe('spec-app-consistency-audit artifact validation', () => {
     const report = validBase({
       schema_version: 'spec-app-consistency-audit-report.v1',
       artifact_id: 'audit-report',
+      issue_synthesis_status: 'fixture_provided',
       summary: { blocker_count: 0 },
       scope_and_degraded_modes: [],
       issues: [],

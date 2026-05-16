@@ -141,7 +141,6 @@ function finalizeMetadata(options = {}) {
   const completedAt = options.completedAt || new Date().toISOString();
   metadata.status = options.status;
   metadata.completed_at = completedAt;
-  metadata.generated_at = completedAt;
   if (Array.isArray(options.statusReasonCodes) && options.statusReasonCodes.length > 0) {
     const existing = Array.isArray(metadata.status_reason_codes) ? metadata.status_reason_codes : [];
     const merged = [...existing];

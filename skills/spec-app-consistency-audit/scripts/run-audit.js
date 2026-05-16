@@ -21,6 +21,7 @@ const SCRIPTS_DIR = __dirname;
 
 const HEADLESS_FAILURE_BANNER = 'App consistency audit failed (headless mode).';
 const HEADLESS_REASON_CODE_PATTERN = /^Reason code:\s*([^\s]+)/m;
+const SAFE_RUN_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 function script(name) {
   return path.join(SCRIPTS_DIR, name);
@@ -117,6 +118,101 @@ function parseRunnerArgs(argv) {
   return { options, rawIssues, rawIssuesValueMissing, help };
 }
 
+function isInsideOrSame(parentPath, childPath) {
+  const relative = path.relative(path.resolve(parentPath), path.resolve(childPath));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function boundaryError(reasonCode, message) {
+  const error = new Error(`${reasonCode}: ${message}`);
+  error.reasonCode = reasonCode;
+  return error;
+}
+
+function validateRunId(runId) {
+  return typeof runId === 'string'
+    && SAFE_RUN_ID_PATTERN.test(runId)
+    && !runId.includes('..');
+}
+
+function validateBoundedExistingPath({ repoRoot, inputPath, kind, expected }) {
+  const resolution = require('./lib/audit-utils').resolveBoundedInputPath({
+    repoRoot,
+    inputPath,
+    kind,
+    expected,
+  });
+  if (!resolution.ok) {
+    const error = new Error(`${resolution.reason_code}: ${resolution.reason}`);
+    error.reasonCode = resolution.reason_code;
+    throw error;
+  }
+}
+
+function assertInsideBoundary({ parent, candidate, reasonCode, message }) {
+  if (!isInsideOrSame(parent, candidate)) {
+    throw boundaryError(reasonCode, message);
+  }
+}
+
+function lstatIfExists(filePath) {
+  try {
+    return fs.lstatSync(filePath);
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return null;
+    throw error;
+  }
+}
+
+function realpathExisting(filePath, reasonCode, message) {
+  try {
+    return fs.realpathSync.native
+      ? fs.realpathSync.native(filePath)
+      : fs.realpathSync(filePath);
+  } catch (_error) {
+    throw boundaryError(reasonCode, message);
+  }
+}
+
+function nearestExistingPathInfo(filePath, reasonCode, message) {
+  let currentPath = path.resolve(filePath);
+  while (true) {
+    if (lstatIfExists(currentPath)) {
+      return {
+        path: currentPath,
+        realPath: realpathExisting(currentPath, reasonCode, message),
+      };
+    }
+    const parentPath = path.dirname(currentPath);
+    if (parentPath === currentPath) {
+      throw boundaryError(reasonCode, message);
+    }
+    currentPath = parentPath;
+  }
+}
+
+function assertWritePathInsideBoundary({ boundaryRoot, parent, candidate, reasonCode, message }) {
+  assertInsideBoundary({ parent, candidate, reasonCode, message });
+
+  const rootInfo = nearestExistingPathInfo(boundaryRoot, reasonCode, message);
+  const parentInfo = nearestExistingPathInfo(parent, reasonCode, message);
+  if (!isInsideOrSame(rootInfo.realPath, parentInfo.realPath)) {
+    throw boundaryError(reasonCode, message);
+  }
+
+  const parentExists = lstatIfExists(parent);
+  const parentRealPath = parentExists
+    ? realpathExisting(parent, reasonCode, message)
+    : null;
+  const candidateInfo = nearestExistingPathInfo(candidate, reasonCode, message);
+  if (!isInsideOrSame(rootInfo.realPath, candidateInfo.realPath)) {
+    throw boundaryError(reasonCode, message);
+  }
+  if (parentRealPath && !isInsideOrSame(parentRealPath, candidateInfo.realPath)) {
+    throw boundaryError(reasonCode, message);
+  }
+}
+
 function main(argv) {
   let runId = null;
   let envelopePath = null;
@@ -132,7 +228,7 @@ function main(argv) {
         'raw_issues_value_missing',
         '--raw-issues 必须紧跟一个非空文件路径。',
         options.runId,
-        options.output,
+        null,
       );
       return;
     }
@@ -141,7 +237,7 @@ function main(argv) {
         'mode_unsupported',
         `Runner v1 仅支持 mode:headless,收到 mode:${options.mode}。`,
         options.runId,
-        options.output,
+        null,
       );
       return;
     }
@@ -150,20 +246,77 @@ function main(argv) {
         'scope_headless_missing_base',
         'mode:headless 必须显式提供 base:<git-ref>。',
         options.runId,
-        options.output,
+        null,
       );
       return;
     }
     runId = options.runId || createRunId();
+    if (!validateRunId(runId)) {
+      emitFailure(
+        'unsafe_run_id',
+        'run-id must be a simple identifier using letters, numbers, dot, underscore, or dash.',
+        runId,
+        null,
+      );
+      return;
+    }
     const repoRoot = resolveRepoRoot(options);
+    validateBoundedExistingPath({
+      repoRoot,
+      inputPath: options.source || repoRoot,
+      kind: 'source',
+      expected: 'directory',
+    });
+    if (options.prd) {
+      validateBoundedExistingPath({
+        repoRoot,
+        inputPath: options.prd,
+        kind: 'prd',
+        expected: 'file',
+      });
+    }
+    if (options.figmaContext) {
+      validateBoundedExistingPath({
+        repoRoot,
+        inputPath: options.figmaContext,
+        kind: 'figma_context',
+        expected: 'file',
+      });
+    }
+    const defaultRunRoot = path.join(repoRoot, '.spec-first', 'app-audit', 'runs');
     const absoluteRunDir = options.runDir
       ? resolvePathAgainstRoot(repoRoot, options.runDir)
-      : path.join(repoRoot, '.spec-first', 'app-audit', 'runs', runId);
+      : path.join(defaultRunRoot, runId);
+    assertWritePathInsideBoundary({
+      boundaryRoot: repoRoot,
+      parent: defaultRunRoot,
+      candidate: absoluteRunDir,
+      reasonCode: 'run_dir_outside_default_root',
+      message: 'run-dir must stay under .spec-first/app-audit/runs.',
+    });
+
+    envelopePath = options.output || path.join(absoluteRunDir, 'headless-envelope.txt');
+    envelopePath = resolvePathAgainstRoot(repoRoot, envelopePath);
+    assertWritePathInsideBoundary({
+      boundaryRoot: repoRoot,
+      parent: absoluteRunDir,
+      candidate: envelopePath,
+      reasonCode: 'output_outside_run_dir',
+      message: 'output must stay inside the selected app-audit run directory.',
+    });
+
+    if (rawIssues) {
+      validateBoundedExistingPath({
+        repoRoot,
+        inputPath: rawIssues,
+        kind: 'raw_issues',
+        expected: 'file',
+      });
+    }
+
     fs.mkdirSync(absoluteRunDir, { recursive: true });
     fs.mkdirSync(path.join(absoluteRunDir, 'contracts'), { recursive: true });
     fs.mkdirSync(path.join(absoluteRunDir, 'input'), { recursive: true });
-
-    envelopePath = options.output || path.join(absoluteRunDir, 'headless-envelope.txt');
 
     const artifacts = {
       metadata: path.join(absoluteRunDir, 'metadata.json'),
@@ -404,6 +557,12 @@ function main(argv) {
       '--artifacts-dir', absoluteRunDir,
       '--output', artifacts.context,
     ], repoRoot);
+    const auditContext = JSON.parse(fs.readFileSync(artifacts.context, 'utf8'));
+    if (auditContext.valid !== true) {
+      const error = new Error('artifact_validation_failed: generated artifacts failed validation.');
+      error.reasonCode = 'artifact_validation_failed';
+      throw error;
+    }
 
     const metadata = JSON.parse(fs.readFileSync(artifacts.metadata, 'utf8'));
     const summary = buildLatestSummary(metadata);
@@ -442,7 +601,8 @@ function main(argv) {
         process.stderr.write(`finalize_failed: ${finalizeError.message}\n`);
       }
     }
-    emitFailure(reasonCode, message, runId, envelopePath, error.upstreamEnvelope);
+    const failureOutput = reasonCode === 'output_outside_run_dir' ? null : envelopePath;
+    emitFailure(reasonCode, message, runId, failureOutput, error.upstreamEnvelope);
   }
 }
 

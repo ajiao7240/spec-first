@@ -196,6 +196,7 @@ describe('spec-app-consistency-audit report generation', () => {
         audit_verdict_scope: 'source_only_app_static_audit',
       }));
       const reportPath = write(root, 'audit-report.json', JSON.stringify({
+        issue_synthesis_status: 'not_run',
         issues: [],
         rejected_issues: [],
         scope_and_degraded_modes: [{ code: 'prd_and_figma_missing' }],
@@ -203,7 +204,9 @@ describe('spec-app-consistency-audit report generation', () => {
 
       const envelope = renderHeadlessEnvelope({ metadata: metadataPath, report: reportPath });
 
-      expect(envelope).toContain('Verdict: No issues in scoped audit');
+      expect(envelope).toContain('Issue synthesis status: not_run');
+      expect(envelope).toContain('Verdict: Awaiting LLM audit');
+      expect(envelope).toContain('Awaiting LLM audit:');
       expect(envelope).toContain('- Degraded modes: prd_and_figma_missing');
       expect(envelope).not.toContain('Verdict: Ready\n');
     } finally {

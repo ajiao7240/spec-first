@@ -1,6 +1,10 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-15 11:27:12 leokuang: fix(app-audit): 将 headless runner 写入边界从 lexical containment 加固为 realpath-aware containment，拒绝早期失败路径未校验 `--output` 写入以及已存在 run-dir/output 父路径 symlink 逃逸，并补 fail-closed 回归测试 (user-visible)
+- v1.8.2 2026-05-15 11:09:01 leokuang: docs(plan): 逐项修复 spec-first 当前项目优化升级方案复审 findings，收窄 Phase 1 为 1A-1D gate，补 run artifact producer API 与 authority 分层，降级 next-action candidates 单值路由，校准 retention/fresh-source eval/token economy 放行边界 (user-visible)
+- v1.8.2 2026-05-15 10:42:20 leokuang: fix(app-audit): 收口 headless runner 计划执行缺口，校准 runner v1 不直接产出 markdown report 的边界，补强 run-id/run-dir/output/raw-issues containment fail-closed 测试，让 runner 对 artifact validation 结果 fail closed，并修正 metadata finalize 不再覆盖 `generated_at`，锁定 source inputs、diff hash 与 worktree fingerprint 不自引用，同时将 headless runner plan 标记为 completed (user-visible)
+- v1.8.2 2026-05-15 10:15:01 leokuang: docs(plan): 将 workflow harness evidence loop 三版本路线图的用户可见模板、测试场景、系统影响与参考标签统一改为中文表述，保留路径、命令、schema 与版本标识原文 (user-visible)
 - v1.8.2 2026-05-15 09:00:00 leokuang: feat(app-audit): 新增 `skills/spec-app-consistency-audit/scripts/run-audit.js` headless runner，串联 21 个脚本与三种 merge-contracts 形态，落地 `issue_synthesis_status` 三态 (`not_run`/`llm_provided`/`fixture_provided`)、metadata finalize、auto-stub 安全闸与 fixture-dimensions registry，对齐 SKILL.md / 用户手册 / e2e 测试 (user-visible)
 - v1.8.2 2026-05-14 22:58:00 leokuang: docs(roadmap): 对 `docs/00-版本路线/00-版本路线.md` 做 doc-review 回归审查并修复 Auto-resolve 引入的问题——删除 §5.3 优先级矩阵中违反 emoji 政策的 `✅` 字符；统一 §5.3 主线 D 表格与正文（"模板治理基线可用，完整治理延后 V1.0+"）；§5.3 主线 E 显式标注 `ai-attribution` 子项优先级为 P2 可降级；§5.6 显式声明 ai-attribution 未落地时 "AI 改动分组度量" 与 "AI 改动回归率" 同步降级，闭合度量逻辑链；修正 Open Questions 第 4 项 §6.4 指向措辞；Open Questions 追加跨章节一致性 3 项（§2 关键词与 §5.6 推广语义、§5.5 全栈支持挂钩、§7 与 §11 功能重叠） (user-visible)
 - v1.8.2 2026-05-14 22:57:13 leokuang: docs(plan): 按 doc-review safe_auto 修复 app-audit headless runner 计划的 `issue_synthesis_status` 完成定义范围，限定为 `issues.json`、`audit-report.json` 与 `headless-envelope.txt` (user-visible)

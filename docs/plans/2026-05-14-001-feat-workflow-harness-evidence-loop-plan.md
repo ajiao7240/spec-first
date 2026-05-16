@@ -164,19 +164,19 @@ spec_id: 2026-05-14-001-workflow-harness-evidence-loop
 
 ```mermaid
 flowchart LR
-  A[User Request / Diff / Plan] --> B[Context Request]
-  B --> C[Context Bundle]
-  C --> D[Plan / Work / Review]
-  G[Graph / Standards / Sessions / Solutions] --> C
-  D --> E[Artifact Summary]
-  D --> F[Review Finding]
+  A[用户请求 / Diff / Plan] --> B[上下文请求]
+  B --> C[上下文包]
+  C --> D[计划 / 执行 / 评审]
+  G[图谱 / 标准 / 会话 / 方案沉淀] --> C
+  D --> E[产物摘要]
+  D --> F[评审发现]
   F --> H[Work 修复闭环]
-  F --> I[Accepted Residuals]
-  H --> J[Verification Evidence]
-  I --> K[Compound / Sessions]
-  J --> L[Release Drift Guard]
+  F --> I[已接受残余风险]
+  H --> J[验证证据]
+  I --> K[知识沉淀 / 会话]
+  J --> L[发布漂移防护]
   K --> B
-  L --> M[PR / Release Handoff]
+  L --> M[PR / 发布交接]
 ```
 
 该闭环是 repo-local 且 evidence-first 的。图示不是状态机；每条箭头表示 handoff contract 或消费路径。
@@ -187,30 +187,30 @@ flowchart LR
 
 ### U1. `v1.9` 紧凑阶段合同采纳
 
-**目标：** 让核心 workflow 顶部在 30 秒内说明 Inputs、Outputs、Artifacts、Evidence Requirements、Context Policy、Handoff 和 Degraded Mode。
+**目标：** 让核心 workflow 顶部在 30 秒内说明输入、输出、产物、证据要求、上下文策略、交接和降级模式。
 
 **需求：** R1, R2, R3, R7, R11
 
-**依赖：** None
+**依赖：** 无
 
 **文件：**
-- Modify: `skills/spec-brainstorm/SKILL.md`
-- Modify: `skills/spec-plan/SKILL.md`
-- Modify: `skills/spec-write-tasks/SKILL.md`
-- Modify: `skills/spec-work/SKILL.md`
-- Modify: `skills/spec-code-review/SKILL.md`
-- Modify: `skills/spec-doc-review/SKILL.md`
-- Modify: `skills/spec-compound/SKILL.md`
-- Test: `tests/unit/public-workflow-contract-summary.test.js`
-- Test: `tests/unit/spec-plan-contracts.test.js`
-- Test: `tests/unit/spec-work-contracts.test.js`
-- Test: `tests/unit/spec-code-review-contracts.test.js`
-- Test: `tests/unit/spec-doc-review-contracts.test.js`
-- Test: `tests/unit/spec-compound-contracts.test.js`
+- 修改：`skills/spec-brainstorm/SKILL.md`
+- 修改：`skills/spec-plan/SKILL.md`
+- 修改：`skills/spec-write-tasks/SKILL.md`
+- 修改：`skills/spec-work/SKILL.md`
+- 修改：`skills/spec-code-review/SKILL.md`
+- 修改：`skills/spec-doc-review/SKILL.md`
+- 修改：`skills/spec-compound/SKILL.md`
+- 测试：`tests/unit/public-workflow-contract-summary.test.js`
+- 测试：`tests/unit/spec-plan-contracts.test.js`
+- 测试：`tests/unit/spec-work-contracts.test.js`
+- 测试：`tests/unit/spec-code-review-contracts.test.js`
+- 测试：`tests/unit/spec-doc-review-contracts.test.js`
+- 测试：`tests/unit/spec-compound-contracts.test.js`
 
 **方案：**
 - 复用已有 workflow contract summary 结构，不复制完整 workflow。
-- 每个核心 stage 增加或校准 `Evidence Requirements` 与 `Context Policy`，明确 artifact summary、context bundle、graph readiness、standards 和 review finding 的消费姿态。
+- 每个核心 stage 增加或校准证据要求与上下文策略，明确 artifact summary、context bundle、graph readiness、standards 和 review finding 的消费姿态。
 - 保持 progressive disclosure：长 examples、rubric、provider-specific details 下沉到 `references/`。
 
 **执行说明：** 这是 skill prose 行为变化；实现后需要 focused contract tests，并执行 fresh-source eval 或记录未执行原因。
@@ -221,16 +221,16 @@ flowchart LR
 - `docs/10-prompt/skill-agent-harness-audit/11-final-recommendations.md` 的 Skill MD Minimum。
 
 **测试场景：**
-- 合同断言： core workflow skills all expose compact Inputs/Outputs/Artifacts/Handoff/Degraded Mode.
-- 合同断言： summaries do not recommend generated runtime mirrors as source truth.
-- 合同断言： summaries distinguish script-owned facts from LLM-owned judgment.
-- 合同断言： long provider-specific rules are referenced rather than duplicated.
+- 合同断言：核心 workflow skills 都暴露紧凑的输入、输出、产物、交接和降级模式。
+- 合同断言：summary 不把 generated runtime mirrors 推荐为 source truth。
+- 合同断言：summary 区分 script-owned facts 与 LLM-owned judgment。
+- 合同断言：长篇 provider-specific rules 只引用，不复制到入口正文。
 
 **验证：**
-- Focused workflow contract tests pass.
-- Fresh-source eval result or not-run reason is recorded in implementation closeout.
+- 聚焦 workflow contract tests 通过。
+- implementation closeout 记录 fresh-source eval 结果或 not-run reason。
 
-### U2. `v1.9` Evidence Packet 与 Artifact Summary 采纳
+### U2. `v1.9` 证据包与 Artifact Summary 采纳
 
 **目标：** 让 plan/work/review/compound handoff 默认传递 `artifact-summary.v1` 等价摘要，并为高风险 claim 提供 `evidence-packet.v1` 最小合同。
 
@@ -239,17 +239,17 @@ flowchart LR
 **依赖：** U1
 
 **文件：**
-- Modify: `docs/contracts/artifact-summary.md`
-- Create: `docs/contracts/evidence-packet.md`
-- Modify: `docs/contracts/workflows/spec-work-run-artifact.schema.json`
-- Modify: `skills/spec-plan/SKILL.md`
-- Modify: `skills/spec-work/SKILL.md`
-- Modify: `skills/spec-work-beta/SKILL.md`
-- Modify: `skills/spec-code-review/SKILL.md`
-- Modify: `skills/spec-compound/SKILL.md`
-- Test: `tests/unit/spec-work-run-artifact-contract.test.js`
-- Test: `tests/unit/context-governance-contracts.test.js`
-- Test: `tests/unit/spec-work-contracts.test.js`
+- 修改：`docs/contracts/artifact-summary.md`
+- 新增：`docs/contracts/evidence-packet.md`
+- 修改：`docs/contracts/workflows/spec-work-run-artifact.schema.json`
+- 修改：`skills/spec-plan/SKILL.md`
+- 修改：`skills/spec-work/SKILL.md`
+- 修改：`skills/spec-work-beta/SKILL.md`
+- 修改：`skills/spec-code-review/SKILL.md`
+- 修改：`skills/spec-compound/SKILL.md`
+- 测试：`tests/unit/spec-work-run-artifact-contract.test.js`
+- 测试：`tests/unit/context-governance-contracts.test.js`
+- 测试：`tests/unit/spec-work-contracts.test.js`
 
 **方案：**
 - 保持 `artifact-summary.v1` 是 summary-first handoff，不替代 full artifact。
@@ -263,13 +263,13 @@ flowchart LR
 - `docs/contracts/graph-evidence-policy.md`
 
 **测试场景：**
-- 正向路径： work closeout includes changed files, verification, not-run/degraded reason and next action.
-- 边界场景： graph stale evidence cannot be promoted to confirmed in evidence packet.
-- 错误路径： provider raw output without provenance must be classified as advisory/degraded.
-- 集成场景： compound can consume artifact summary without reading full review report.
+- 正向路径：work closeout 包含 changed files、verification、not-run/degraded reason 与 next action。
+- 边界场景：stale graph evidence 不能在 evidence packet 中升级为 confirmed。
+- 错误路径：缺少 provenance 的 provider raw output 必须归类为 advisory/degraded。
+- 集成场景：compound 可以消费 artifact summary，而不需要读取完整 review report。
 
 **验证：**
-- Contract tests prove summary-first consumption language and raw-output boundary.
+- Contract tests 证明 summary-first consumption language 与 raw-output boundary 已落地。
 
 ### U3. `v1.9` 跨 Review Workflow 采纳 Review Finding
 
@@ -280,15 +280,15 @@ flowchart LR
 **依赖：** U1, U2
 
 **文件：**
-- Modify: `docs/contracts/workflows/review-finding.md`
-- Modify: `skills/spec-code-review/SKILL.md`
-- Modify: `skills/spec-code-review/references/findings-schema.json`
-- Modify: `skills/spec-doc-review/SKILL.md`
-- Modify: `skills/spec-doc-review/references/findings-schema.json`
-- Modify: `skills/spec-app-consistency-audit/SKILL.md`
-- Test: `tests/unit/spec-code-review-contracts.test.js`
-- Test: `tests/unit/spec-doc-review-contracts.test.js`
-- Test: `tests/unit/spec-app-consistency-audit-evidence.test.js`
+- 修改：`docs/contracts/workflows/review-finding.md`
+- 修改：`skills/spec-code-review/SKILL.md`
+- 修改：`skills/spec-code-review/references/findings-schema.json`
+- 修改：`skills/spec-doc-review/SKILL.md`
+- 修改：`skills/spec-doc-review/references/findings-schema.json`
+- 修改：`skills/spec-app-consistency-audit/SKILL.md`
+- 测试：`tests/unit/spec-code-review-contracts.test.js`
+- 测试：`tests/unit/spec-doc-review-contracts.test.js`
+- 测试：`tests/unit/spec-app-consistency-audit-evidence.test.js`
 
 **方案：**
 - 不替换 domain-specific reviewer JSON；只要求 synthesis 可映射到 shared fields。
@@ -302,14 +302,14 @@ flowchart LR
 - `skills/spec-doc-review/references/synthesis-and-presentation.md`
 
 **测试场景：**
-- 正向路径： reviewer finding maps to shared severity/category/evidence/owner/residual_status.
-- 边界场景： low-confidence finding remains advisory and cannot block release without evidence.
-- 错误路径： actionable finding without evidence anchor is invalid or must be downgraded.
-- 集成场景： work follow-up can identify unresolved/high findings from final review output.
+- 正向路径：reviewer finding 能映射到共享的 severity、category、evidence、owner、residual_status。
+- 边界场景：low-confidence finding 保持 advisory，没有证据时不能阻塞 release。
+- 错误路径：没有 evidence anchor 的 actionable finding 无效，或必须降级。
+- 集成场景：work follow-up 能从 final review output 识别 unresolved/high findings。
 
 **验证：**
-- Focused review contract tests pass.
-- One doc-review or code-review dry run records `review-finding.v1` adoption status, or implementation closeout records why not run.
+- 聚焦 review contract tests 通过。
+- 一次 doc-review 或 code-review dry run 记录 `review-finding.v1` adoption status；若未执行，implementation closeout 记录原因。
 
 ### U4. `v2.0` Context Bundle Helper 与 Workflow Intake
 
@@ -320,16 +320,16 @@ flowchart LR
 **依赖：** U1, U2
 
 **文件：**
-- Modify: `docs/contracts/context-governance.md`
-- Modify: `docs/contracts/context-bundle.md`
-- Modify: `src/cli/commands/internal.js`
-- Modify: `src/cli/helpers/context-bundle.js`
-- Modify: `skills/spec-plan/SKILL.md`
-- Modify: `skills/spec-work/SKILL.md`
-- Modify: `skills/spec-code-review/SKILL.md`
-- Modify: `skills/spec-doc-review/SKILL.md`
-- Test: `tests/unit/context-bundle-contracts.test.js`
-- Test: `tests/unit/context-governance-contracts.test.js`
+- 修改：`docs/contracts/context-governance.md`
+- 修改：`docs/contracts/context-bundle.md`
+- 修改：`src/cli/commands/internal.js`
+- 修改：`src/cli/helpers/context-bundle.js`
+- 修改：`skills/spec-plan/SKILL.md`
+- 修改：`skills/spec-work/SKILL.md`
+- 修改：`skills/spec-code-review/SKILL.md`
+- 修改：`skills/spec-doc-review/SKILL.md`
+- 测试：`tests/unit/context-bundle-contracts.test.js`
+- 测试：`tests/unit/context-governance-contracts.test.js`
 
 **方案：**
 - `spec-first internal context-bundle --json` 只接受 explicit paths 或 workflow-provided path lists；不做 repo search 或 semantic ranking。
@@ -343,14 +343,14 @@ flowchart LR
 - `src/cli/helpers/review-pre-facts.js` 的 temp/output/path containment 思路。
 
 **测试场景：**
-- 正向路径： explicit source/test paths produce a valid context bundle.
-- 边界场景： `.spec-first/audits/**` is excluded with `runtime_audit_artifact_excluded`.
-- 错误路径： generated mirror path is excluded unless explicitly runtime-scoped.
-- 集成场景： spec-doc-review prompt context can reference bundle summary without copying full artifacts.
+- 正向路径：显式 source/test paths 能产出有效的 context bundle。
+- 边界场景：`.spec-first/audits/**` 以 `runtime_audit_artifact_excluded` 排除。
+- 错误路径：generated mirror path 默认排除，除非任务明确是 runtime-scoped。
+- 集成场景：spec-doc-review prompt context 可引用 bundle summary，而不复制完整 artifacts。
 
 **验证：**
-- Context bundle helper tests pass.
-- Workflow contract tests prove high-frequency workflows mention summary-first dynamic suffix.
+- Context bundle helper tests 通过。
+- Workflow contract tests 证明高频 workflows 提到 summary-first dynamic suffix。
 
 ### U5. `v2.0` Graph、Standards、Sessions 与 Solutions 的证据源选择
 
@@ -361,16 +361,16 @@ flowchart LR
 **依赖：** U4
 
 **文件：**
-- Modify: `docs/contracts/graph-evidence-policy.md`
-- Modify: `docs/examples/standards-glue-consumption-examples.md`
-- Modify: `skills/spec-plan/SKILL.md`
-- Modify: `skills/spec-work/SKILL.md`
-- Modify: `skills/spec-debug/SKILL.md`
-- Modify: `skills/spec-sessions/SKILL.md`
-- Modify: `skills/spec-compound/SKILL.md`
-- Test: `tests/unit/graph-provider-consumption-contracts.test.js`
-- Test: `tests/unit/spec-standards-consumers.test.js`
-- Test: `tests/unit/spec-sessions-contracts.test.js`
+- 修改：`docs/contracts/graph-evidence-policy.md`
+- 修改：`docs/examples/standards-glue-consumption-examples.md`
+- 修改：`skills/spec-plan/SKILL.md`
+- 修改：`skills/spec-work/SKILL.md`
+- 修改：`skills/spec-debug/SKILL.md`
+- 修改：`skills/spec-sessions/SKILL.md`
+- 修改：`skills/spec-compound/SKILL.md`
+- 测试：`tests/unit/graph-provider-consumption-contracts.test.js`
+- 测试：`tests/unit/spec-standards-consumers.test.js`
+- 测试：`tests/unit/spec-sessions-contracts.test.js`
 
 **方案：**
 - 建立 workflow-facing source selection rule：compiled readiness and confirmed standards first；session-local MCP and observed standards advisory；solutions/sessions require provenance-backed refs。
@@ -384,13 +384,13 @@ flowchart LR
 - `docs/contracts/graph-provider-consumption.md`
 
 **测试场景：**
-- 正向路径： confirmed standards can be cited as hard context.
-- 边界场景： observed/imported/suggested standards remain advisory.
-- 错误路径： stale graph facts trigger limitation and do not become primary evidence.
-- 集成场景： spec-plan can reference relevant solution doc through context bundle without scanning all `docs/solutions/**`.
+- 正向路径：confirmed standards 可作为 hard context 引用。
+- 边界场景：observed/imported/suggested standards 保持 advisory。
+- 错误路径：stale graph facts 触发 limitation，不能成为 primary evidence。
+- 集成场景：spec-plan 可通过 context bundle 引用相关 solution doc，而不扫描全部 `docs/solutions/**`。
 
 **验证：**
-- Standards consumer and graph consumption contract tests pass.
+- Standards consumer 与 graph consumption contract tests 通过。
 
 ### U6. `v2.0` 按规模调整的 Dispatch 与 Research Budget Policy
 
@@ -401,36 +401,36 @@ flowchart LR
 **依赖：** U4, U5
 
 **文件：**
-- Create: `docs/contracts/workflows/dispatch-budget-policy.md`
-- Modify: `skills/spec-code-review/SKILL.md`
-- Modify: `skills/spec-doc-review/SKILL.md`
-- Modify: `skills/spec-plan/SKILL.md`
-- Modify: `skills/spec-work-beta/SKILL.md`
-- Modify: `agents/*.agent.md` only when a specific agent lacks evidence/output boundary
-- Test: `tests/unit/spec-dispatch-boundary-contracts.test.js`
-- Test: `tests/unit/spec-code-review-contracts.test.js`
-- Test: `tests/unit/spec-doc-review-contracts.test.js`
+- 新增：`docs/contracts/workflows/dispatch-budget-policy.md`
+- 修改：`skills/spec-code-review/SKILL.md`
+- 修改：`skills/spec-doc-review/SKILL.md`
+- 修改：`skills/spec-plan/SKILL.md`
+- 修改：`skills/spec-work-beta/SKILL.md`
+- 按需修改：`agents/*.agent.md`，仅当具体 agent 缺少 evidence/output boundary。
+- 测试：`tests/unit/spec-dispatch-boundary-contracts.test.js`
+- 测试：`tests/unit/spec-code-review-contracts.test.js`
+- 测试：`tests/unit/spec-doc-review-contracts.test.js`
 
 **方案：**
-- Define small/medium/high-risk dispatch profiles for docs-only, narrow code, contract/runtime/security/release changes.
-- Research agents receive context bundle and budget, not full plan/audit dumps.
-- Implementation workers remain explicit opt-in/beta; ordinary review/research dispatch does not authorize mutation.
-- Require fresh-source eval for agent/skill behavior changes or record not-run reason.
+- 为 docs-only、窄范围代码、contract/runtime/security/release changes 定义 small/medium/high-risk dispatch profiles。
+- Research agents 接收 context bundle 和 budget，不接收完整 plan/audit dumps。
+- Implementation workers 继续保持 explicit opt-in/beta；普通 review/research dispatch 不授权写入。
+- Agent/skill behavior changes 需要 fresh-source eval，或记录 not-run reason。
 
 **遵循模式：**
-- Claude Code subagent principle: separate context and focused tool access.
-- Existing `spec-doc-review` multi-persona dispatch and fallback contract.
-- Current Codex delegation restrictions in `spec-work-beta`.
+- Claude Code subagent 原则：separate context 与 focused tool access。
+- 现有 `spec-doc-review` multi-persona dispatch 与 fallback contract。
+- 当前 `spec-work-beta` 中的 Codex delegation restrictions。
 
 **测试场景：**
-- 正向路径： docs-only review uses minimal reviewer set.
-- 边界场景： contract/runtime/security change escalates reviewer set and records why.
-- 错误路径： report-only/no-agents disables dispatch and records fallback reason.
-- 集成场景： worker delegation prompt carries context bundle, write scope and review gate metadata.
+- 正向路径：docs-only review 使用最小 reviewer set。
+- 边界场景：contract/runtime/security change 扩大 reviewer set，并记录原因。
+- 错误路径：report-only/no-agents 禁用 dispatch，并记录 fallback reason。
+- 集成场景：worker delegation prompt 携带 context bundle、write scope 与 review gate metadata。
 
 **验证：**
-- Dispatch boundary tests pass.
-- Fresh-source eval result or not-run reason is recorded.
+- Dispatch boundary tests 通过。
+- 记录 fresh-source eval 结果或 not-run reason。
 
 ### U7. `v2.1` Work 修复闭环与 Review Closure Handoff
 
@@ -441,14 +441,14 @@ flowchart LR
 **依赖：** U3, U4
 
 **文件：**
-- Create: `docs/contracts/workflows/review-closure.md`
-- Modify: `skills/spec-work/SKILL.md`
-- Modify: `skills/spec-work-beta/SKILL.md`
-- Modify: `skills/spec-code-review/SKILL.md`
-- Modify: `skills/spec-compound/SKILL.md`
-- Test: `tests/unit/spec-work-contracts.test.js`
-- Test: `tests/unit/spec-code-review-contracts.test.js`
-- Test: `tests/unit/spec-compound-contracts.test.js`
+- 新增：`docs/contracts/workflows/review-closure.md`
+- 修改：`skills/spec-work/SKILL.md`
+- 修改：`skills/spec-work-beta/SKILL.md`
+- 修改：`skills/spec-code-review/SKILL.md`
+- 修改：`skills/spec-compound/SKILL.md`
+- 测试：`tests/unit/spec-work-contracts.test.js`
+- 测试：`tests/unit/spec-code-review-contracts.test.js`
+- 测试：`tests/unit/spec-compound-contracts.test.js`
 
 **方案：**
 - `review-closure` 只记录 final review summary, finding ids, residual_status, verification evidence and next action；不记录 progress state。
@@ -462,13 +462,13 @@ flowchart LR
 - `skills/spec-work/references/shipping-workflow.md`
 
 **测试场景：**
-- 正向路径： fixed finding moves to `applied` with verification evidence.
-- 边界场景： accepted residual is preserved with owner and next action.
-- 错误路径： blocking finding cannot be silently deferred without explicit handoff.
-- 集成场景： compound final checklist can consume review closure summary.
+- 正向路径：fixed finding 带 verification evidence 移动到 `applied`。
+- 边界场景：accepted residual 保留 owner 与 next action。
+- 错误路径：blocking finding 不能在没有 explicit handoff 时静默推迟。
+- 集成场景：compound final checklist 可消费 review closure summary。
 
 **验证：**
-- Work/review/compound contract tests pass.
+- Work/review/compound contract tests 通过。
 
 ### U8. `v2.1` Release 与 Runtime Drift Guard
 
@@ -479,16 +479,16 @@ flowchart LR
 **依赖：** U1, U3, U6
 
 **文件：**
-- Modify: `src/cli/plugin.js`
-- Modify: `src/cli/contracts/dual-host-governance/skills-governance.json`
-- Modify: `scripts/generate-runtime-capability-catalog.js`
-- Modify: `scripts/release-publish.cjs`
-- Modify: `tests/smoke/release-dual-host-governance.sh`
-- Modify: `tests/unit/dual-host-governance-contracts.test.js`
-- Modify: `tests/unit/runtime-contract-boundary.test.js`
-- Modify: `tests/unit/package-install-contracts.test.js`
-- Modify: `README.md`
-- Modify: `README.zh-CN.md`
+- 修改：`src/cli/plugin.js`
+- 修改：`src/cli/contracts/dual-host-governance/skills-governance.json`
+- 修改：`scripts/generate-runtime-capability-catalog.js`
+- 修改：`scripts/release-publish.cjs`
+- 修改：`tests/smoke/release-dual-host-governance.sh`
+- 修改：`tests/unit/dual-host-governance-contracts.test.js`
+- 修改：`tests/unit/runtime-contract-boundary.test.js`
+- 修改：`tests/unit/package-install-contracts.test.js`
+- 修改：`README.md`
+- 修改：`README.zh-CN.md`
 
 **方案：**
 - Guard 输出 blocking/advisory/docs-only/degraded classifications，不做 semantic skill quality judgment。
@@ -502,38 +502,38 @@ flowchart LR
 - `docs/contracts/dual-host-governance/README.md`。
 
 **测试场景：**
-- 正向路径： public workflow inventory matches docs/catalog/package projection.
-- 边界场景： docs-only no-impact change is advisory, not blocking.
-- 错误路径： internal helper exposed as public entrypoint is blocking.
-- 集成场景： runtime parity failure emits degraded reason and next action.
+- 正向路径：public workflow inventory 与 docs/catalog/package projection 匹配。
+- 边界场景：docs-only no-impact change 是 advisory，不阻塞。
+- 错误路径：internal helper 暴露为 public entrypoint 时阻塞。
+- 集成场景：runtime parity failure 输出 degraded reason 与 next action。
 
 **验证：**
-- Release/governance focused tests pass.
-- `npm run build` only if package surface changes.
+- Release/governance focused tests 通过。
+- 仅当 package surface changes 时运行 `npm run build`。
 
 ### U9. `v2.1` 从 Findings、Residuals 与 Decisions 回放知识
 
-**目标：** 让 future plan/work/review 能复用 resolved findings、accepted residuals、rejected scope rationale、compound lessons 和 decision docs。
+**目标：** 让后续 plan/work/review 能复用 resolved findings、accepted residuals、rejected scope rationale、compound lessons 和 decision docs。
 
 **需求：** R5, R7, R13
 
 **依赖：** U2, U5, U7
 
 **文件：**
-- Modify: `skills/spec-compound/SKILL.md`
-- Modify: `skills/spec-compound-refresh/SKILL.md`
-- Modify: `skills/spec-sessions/SKILL.md`
-- Modify: `skills/spec-plan/SKILL.md`
-- Modify: `docs/contracts/artifact-summary.md`
-- Test: `tests/unit/spec-compound-contracts.test.js`
-- Test: `tests/unit/spec-sessions-contracts.test.js`
-- Test: `tests/unit/spec-plan-contracts.test.js`
+- 修改：`skills/spec-compound/SKILL.md`
+- 修改：`skills/spec-compound-refresh/SKILL.md`
+- 修改：`skills/spec-sessions/SKILL.md`
+- 修改：`skills/spec-plan/SKILL.md`
+- 修改：`docs/contracts/artifact-summary.md`
+- 测试：`tests/unit/spec-compound-contracts.test.js`
+- 测试：`tests/unit/spec-sessions-contracts.test.js`
+- 测试：`tests/unit/spec-plan-contracts.test.js`
 
 **方案：**
-- Compound captures only reusable lessons with source/test/review evidence; no auto-write from review without user/workflow decision.
-- Sessions/replay returns summary + provenance, not raw transcript dumps by default.
-- Rejected/out-of-scope rationale becomes queryable artifact summary when present.
-- Plan/work consume knowledge as advisory unless backed by confirmed source/contract/test evidence.
+- Compound 只捕获带 source/test/review evidence 的可复用经验；没有用户或 workflow decision 时，不从 review 自动写入。
+- Sessions/replay 默认返回 summary + provenance，不返回 raw transcript dumps。
+- Rejected/out-of-scope rationale 存在时，进入可查询的 artifact summary。
+- Plan/work 消费知识时默认视为 advisory；只有 confirmed source/contract/test evidence 支撑时才升级为更强证据。
 
 **遵循模式：**
 - `docs/solutions/**` existing structure.
@@ -541,24 +541,24 @@ flowchart LR
 - `docs/contracts/artifact-summary.md`
 
 **测试场景：**
-- 正向路径： compound can cite review closure summary and source evidence.
-- 边界场景： stale learning is flagged for refresh rather than treated as confirmed.
-- 错误路径： session summary without provenance remains advisory.
-- 集成场景： spec-plan uses relevant rejected/out-of-scope rationale to avoid re-planning a rejected direction.
+- 正向路径：compound 可引用 review closure summary 与 source evidence。
+- 边界场景：stale learning 被标记为需要 refresh，而不是当作 confirmed。
+- 错误路径：没有 provenance 的 session summary 保持 advisory。
+- 集成场景：spec-plan 使用相关 rejected/out-of-scope rationale，避免重新规划已拒绝方向。
 
 **验证：**
-- Compound/session/plan contract tests pass.
+- Compound/session/plan contract tests 通过。
 
 ---
 
 ## 系统级影响
 
-- **Interaction graph:** core public workflows will all touch shared contracts: `artifact-summary`, `context-bundle`, `review-finding`, graph evidence policy and release governance. Contract tests must prevent drift across skills.
-- **Error propagation:** stale/degraded evidence must travel as reason_code and limitation, not be normalized away by context bundle or artifact summary.
-- **State lifecycle risks:** closeout artifacts must not become active progress state; they only support resume, review, compound and release handoff.
-- **API surface parity:** Claude/Codex runtime delivery, README, runtime capability catalog and governance JSON must stay aligned.
+- **交互图谱：** 核心 public workflows 都会触达共享合同：`artifact-summary`、`context-bundle`、`review-finding`、graph evidence policy 和 release governance。Contract tests 必须防止 skills 之间漂移。
+- **错误传播：** stale/degraded evidence 必须随 reason_code 和 limitation 传递，不能被 context bundle 或 artifact summary 归一化掉。
+- **状态生命周期风险：** closeout artifacts 不能变成 active progress state；它们只支持 resume、review、compound 和 release handoff。
+- **API 表面一致性：** Claude/Codex runtime delivery、README、runtime capability catalog 和 governance JSON 必须保持一致。
 - **集成覆盖：** unit contract tests 证明 prose 与 schema 已被采纳；smoke / release tests 证明 package 与 dual-host surface；fresh-source eval 覆盖行为语义。
-- **Unchanged invariants:** source-of-truth remains `skills/`, `agents/`, `templates/`, `src/cli/`, `docs/`, `README*`, `AGENTS.md`, `CLAUDE.md`; generated runtime mirrors remain generated.
+- **不变约束：** source-of-truth 仍是 `skills/`、`agents/`、`templates/`、`src/cli/`、`docs/`、`README*`、`AGENTS.md`、`CLAUDE.md`；generated runtime mirrors 仍保持 generated。
 
 ---
 
@@ -597,24 +597,24 @@ flowchart LR
 
 ## 来源与参考
 
-- Role baseline: `docs/10-prompt/结构化项目角色契约.md`
-- Graph evidence: `docs/contracts/graph-evidence-policy.md`
-- Graph consumption: `docs/contracts/graph-provider-consumption.md`
-- Review pre-facts: `docs/contracts/workflows/review-pre-facts-extraction.md`
-- Context governance: `docs/contracts/context-governance.md`
-- Context bundle: `docs/contracts/context-bundle.md`
-- Artifact summary: `docs/contracts/artifact-summary.md`
-- Review finding: `docs/contracts/workflows/review-finding.md`
-- Harness audit recommendations: `docs/10-prompt/skill-agent-harness-audit/11-final-recommendations.md`
-- Existing optimization plan: `docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrade-plan.md`
-- OpenAI Codex cloud docs: `https://platform.openai.com/docs/codex`
-- OpenAI Codex agent internet access docs: `https://platform.openai.com/docs/codex/agent-network`
-- OpenAI Codex use cases: `https://developers.openai.com/codex/explore/`
-- Anthropic Claude Code subagents docs: `https://docs.anthropic.com/en/docs/claude-code/sub-agents`
-- Anthropic Claude Code hooks docs: `https://docs.anthropic.com/en/docs/claude-code/hooks`
-- GitHub Copilot cloud agent research/plan/iterate docs: `https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/research-plan-iterate`
-- GitHub Copilot custom instructions docs: `https://docs.github.com/en/copilot/concepts/about-customizing-github-copilot-chat-responses`
-- MCP resources docs: `https://modelcontextprotocol.io/docs/concepts/resources`
-- MCP prompts docs: `https://modelcontextprotocol.io/docs/concepts/prompts`
-- MCP roots docs: `https://modelcontextprotocol.io/docs/concepts/roots`
-- MCP sampling docs: `https://modelcontextprotocol.io/docs/concepts/sampling`
+- 角色基线：`docs/10-prompt/结构化项目角色契约.md`
+- 图谱证据：`docs/contracts/graph-evidence-policy.md`
+- 图谱消费：`docs/contracts/graph-provider-consumption.md`
+- Review pre-facts：`docs/contracts/workflows/review-pre-facts-extraction.md`
+- 上下文治理：`docs/contracts/context-governance.md`
+- Context bundle：`docs/contracts/context-bundle.md`
+- Artifact summary：`docs/contracts/artifact-summary.md`
+- Review finding：`docs/contracts/workflows/review-finding.md`
+- Harness audit 建议：`docs/10-prompt/skill-agent-harness-audit/11-final-recommendations.md`
+- 现有优化计划：`docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrade-plan.md`
+- OpenAI Codex cloud 文档：`https://platform.openai.com/docs/codex`
+- OpenAI Codex agent internet access 文档：`https://platform.openai.com/docs/codex/agent-network`
+- OpenAI Codex use cases：`https://developers.openai.com/codex/explore/`
+- Anthropic Claude Code subagents 文档：`https://docs.anthropic.com/en/docs/claude-code/sub-agents`
+- Anthropic Claude Code hooks 文档：`https://docs.anthropic.com/en/docs/claude-code/hooks`
+- GitHub Copilot cloud agent research/plan/iterate 文档：`https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/research-plan-iterate`
+- GitHub Copilot custom instructions 文档：`https://docs.github.com/en/copilot/concepts/about-customizing-github-copilot-chat-responses`
+- MCP resources 文档：`https://modelcontextprotocol.io/docs/concepts/resources`
+- MCP prompts 文档：`https://modelcontextprotocol.io/docs/concepts/prompts`
+- MCP roots 文档：`https://modelcontextprotocol.io/docs/concepts/roots`
+- MCP sampling 文档：`https://modelcontextprotocol.io/docs/concepts/sampling`
