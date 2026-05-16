@@ -85,6 +85,7 @@ Setup may write these deterministic artifacts:
 - `.serena/project.yml`, `.serena/project.local.yml` safe indexing overrides, and the configured Serena ready marker for selected child repos;
 - parent advisory summaries under `.spec-first/workspace/` when running all-repos modes.
 - downstream child-local standards artifacts under each child `.spec-first/standards/` when the later no-argument `spec-standards` workflow is run from a parent workspace; setup does not write those artifacts itself.
+- `host_pointer_reconciliation` advisory event in the readiness ledger v2 when host marker drift is detected. The event records `from_host` / `to_host` / `from_marker_path` / `to_marker_path` / `reconciled_at` so downstream workflows can audit cross-host setup runs without taking action; the original host's marker file is left intact.
 
 The assistant's final response must restate readiness from ledger v2 instead of relying only on command output.
 

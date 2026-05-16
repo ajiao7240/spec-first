@@ -1492,15 +1492,16 @@ CONFLICT_REPO="$TMP_DIR/conflict-repo"
 CONFLICT_LEDGER="$TMP_DIR/conflict-home/.codex/spec-first/host-setup.json"
 make_repo "$CONFLICT_REPO"
 write_fixture_config "$CONFLICT_REPO" "$CONFLICT_LEDGER" true
+# U2: runtime-capabilities/ledger baseline 不一致由 spec-mcp-setup 自愈,
+# bootstrap 不再替 setup 在此场景 fail-closed; 只要 ledger.baseline_ready=true,
+# bootstrap 应继续运行 provider 命令并产出可用结果。
 jq '.baseline_summary.baseline_ready = false' "$CONFLICT_REPO/.spec-first/config/runtime-capabilities.json" > "$CONFLICT_REPO/.spec-first/config/runtime-capabilities.json.tmp"
 mv "$CONFLICT_REPO/.spec-first/config/runtime-capabilities.json.tmp" "$CONFLICT_REPO/.spec-first/config/runtime-capabilities.json"
-before_conflict_log="$(cat "$COMMAND_LOG")"
 set +e
 conflict_output="$(cd "$CONFLICT_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 conflict_status=$?
 set -e
-assert_eq "readiness conflict fails" "1" "$conflict_status"
-assert_eq "readiness conflict reason" "readiness-conflict" "$(jq -r '.reason_code' <<<"$conflict_output")"
-assert_eq "readiness conflict does not run providers" "$before_conflict_log" "$(cat "$COMMAND_LOG")"
+assert_eq "host-pointer drift no longer fail-closes bootstrap" "0" "$conflict_status"
+assert_eq "host-pointer drift reason is null" "null" "$(jq -r '.reason_code // "null"' <<<"$conflict_output")"
 
 echo "=== spec-graph-bootstrap compiler tests passed ==="

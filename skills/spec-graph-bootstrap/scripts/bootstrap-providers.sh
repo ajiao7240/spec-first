@@ -553,6 +553,17 @@ else
 fi
 WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | hash_text)"
 
+# U1: external-actor fingerprint excludes paths bootstrap itself writes
+# (AGENTS.md / CLAUDE.md GitNexus host instruction normalization, generated runtime
+# under .spec-first/, and provider index dirs ignored by .gitignore). Used only for
+# concurrent-write detection; raw WORKTREE_STATUS_HASH is unchanged.
+external_actor_fingerprint() {
+  git -C "$REPO_ROOT" status --porcelain 2>/dev/null \
+    | grep -vE '^.{2} (\.spec-first/|\.gitnexus/|\.code-review-graph/|AGENTS\.md$|CLAUDE\.md$)' \
+    || true
+}
+EXTERNAL_ACTOR_FINGERPRINT_BEFORE="$(external_actor_fingerprint | hash_text)"
+
 relpath() {
   local path="$1"
   case "$path" in
@@ -709,11 +720,9 @@ LEDGER_PATH="$(resolve_pointer_path "$LEDGER_POINTER")"
 [ -f "$LEDGER_PATH" ] || emit_blocked blocked readiness-conflict "Rerun spec-mcp-setup; host readiness ledger pointer is not readable."
 [ "$(jq -r '.schema_version // empty' "$LEDGER_PATH")" = "v2" ] || emit_blocked blocked schema-unsupported "Rerun spec-mcp-setup to write readiness ledger v2."
 
-RUNTIME_BASELINE="$(jq -r 'if (.baseline_summary | type == "object" and has("baseline_ready")) then (.baseline_summary.baseline_ready | tostring) else "" end' "$RUNTIME_CAPABILITIES")"
+# Host pointer drift 由 spec-mcp-setup 自愈（U2: host_pointer_reconciliation event 写入 ledger）。
+# bootstrap 不再替 setup 检查 runtime/ledger baseline 是否一致;只校验当前 ledger baseline_ready。
 LEDGER_BASELINE="$(jq -r '.baseline_ready // false' "$LEDGER_PATH")"
-if [ -n "$RUNTIME_BASELINE" ] && [ "$RUNTIME_BASELINE" != "$LEDGER_BASELINE" ]; then
-  emit_blocked blocked readiness-conflict "Rerun spec-mcp-setup; runtime capabilities and host ledger disagree."
-fi
 if [ "$LEDGER_BASELINE" != "true" ]; then
   emit_blocked setup-not-ready baseline_not_ready "Fix Required Harness Runtime setup, then rerun spec-mcp-setup."
 fi
@@ -2253,7 +2262,17 @@ else
 fi
 
 reason_code=""
-if [ "$PRESERVE_CANONICAL_FRESHNESS" = "true" ]; then
+# U1: critical write window 内 worktree 被外部修改时,
+# 标记 concurrent-write-detected 并阻断,canonical_artifacts_preserved=false。
+# 使用 external_actor_fingerprint 排除 bootstrap 自身 owned 路径,避免 false positive。
+EXTERNAL_ACTOR_FINGERPRINT_AFTER="$(external_actor_fingerprint | hash_text)"
+if [ "$EXTERNAL_ACTOR_FINGERPRINT_AFTER" != "$EXTERNAL_ACTOR_FINGERPRINT_BEFORE" ]; then
+  reason_code="concurrent-write-detected"
+  WORKFLOW_MODE="blocked"
+  OVERALL_STATUS="action-required"
+  PRESERVE_CANONICAL_FRESHNESS=false
+  EXIT_CODE=1
+elif [ "$PRESERVE_CANONICAL_FRESHNESS" = "true" ]; then
   reason_code="incremental-and-full-failed"
 elif [ "$WORKFLOW_MODE" = "blocked" ]; then
   reason_code="graph-not-ready"

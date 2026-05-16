@@ -1,7 +1,7 @@
 ---
 title: "feat: multi-actor worktree governance 根治计划"
 type: feat
-status: active
+status: completed
 date: 2026-05-14
 spec_id: 2026-05-14-002-multi-actor-worktree-governance
 ---
@@ -377,3 +377,25 @@ npm run test:integration
 - codex→claude 宿主切换后第一次跑 `$spec-graph-bootstrap` 不再报 `readiness-conflict`；setup 自愈痕迹可在 ledger 中追溯
 - `.spec-first/sessions/` opt-in 启用时，`using-spec-first` guide mode 输出 advisory；未启用时完全静默
 - 全链路 e2e 测试覆盖以上四条
+
+---
+
+## 实施收口（2026-05-16）
+
+| Unit | 状态 | 说明 |
+|---|---|---|
+| U3 | ✅ 已落地 | `spec-first-session.v1` schema + `src/cli/commands/session.js` + 22 contract test (commit 23b9aaae) |
+| U4 | ✅ 已落地 | `using-spec-first` Multi-Session Awareness section + 7 prose drift test (commit 23b9aaae) |
+| U2 | ✅ 已落地 | verify-tools.{sh,ps1} 加 host pointer reconciliation 检测；bootstrap-providers.{sh,ps1} 删除 runtime/ledger baseline disagreement fail-closed 分支；SKILL.md 描述 advisory event |
+| U1 | ✅ 已落地 | bootstrap-providers.{sh,ps1} 在 critical write window 前后采 external-actor fingerprint（排除 `.spec-first/`、`.gitnexus/`、`.code-review-graph/`、AGENTS.md、CLAUDE.md），不一致时返回 `concurrent-write-detected` reason_code 并 `canonical_artifacts_preserved=false` |
+
+新增/调整测试：
+
+- `tests/unit/multi-actor-worktree-governance-contracts.test.js`：17 项 contract test 覆盖 U1 fingerprint + U2 reconciliation + plan 锚点
+- `tests/unit/spec-graph-bootstrap.sh`：把原 `readiness conflict fails` fixture 改写为 `host-pointer drift no longer fail-closes bootstrap`，验证 U2 by-design 行为
+- 全量回归：118 unit suites / 939 unit tests / smoke / integration 全绿
+
+仍未做（plan 范围外）：
+
+- e2e `tests/e2e/multi-actor-worktree.sh` 真并发模拟：U1 contract + 单元 + fixture 已覆盖核心语义；真并发 e2e 留作后续按需增补
+- session-aware readiness artifact（`produced_by_session` 字段贯穿所有 artifact）：仍按 plan 推迟到 advisory 协议接受度成熟后

@@ -85,7 +85,7 @@ Allowed provider ids are:
 - `gitnexus`
 - `code-review-graph`
 
-If required inputs are missing, schemas are unsupported, `baseline_ready=false`, or `runtime-capabilities.json` disagrees with the pointed host ledger, fail closed with machine-readable `workflow_mode` / `reason_code` and do not run provider commands.
+If required inputs are missing, schemas are unsupported, or `baseline_ready=false`, fail closed with machine-readable `workflow_mode` / `reason_code` and do not run provider commands. Host pointer drift between `runtime-capabilities.json` and the host ledger is reconciled by `spec-mcp-setup` (advisory `host_pointer_reconciliation` event); bootstrap itself only validates that a host ledger pointer exists, is readable, has `schema_version=v2`, and that `baseline_ready=true`.
 
 Do not read or depend on any top-level `crg` field. The retired internal CRG runtime, `src/crg/`, `graph.db`, and the retired internal graph CLI are not part of this workflow.
 
@@ -364,6 +364,7 @@ These workspace summaries are advisory control-plane evidence only. They do not 
 - Build/status success with query proof failure: preserve `graph_ready=true` where status verified, keep `query_ready=false`, record limitations and raw logs. If GitNexus query fails because the setup-projected `--repo` label differs from `.gitnexus/meta.json` or git remote basename, write `reason_code=gitnexus-repo-label-mismatch` with an action to rerun `spec-mcp-setup` and then `spec-graph-bootstrap`; do not mutate setup-owned `graph-providers.json`.
 - GitNexus FTS/read-only/missing-index query diagnostics: preserve `query_ready=false` and write a structured `recommended_action`. If the setup-projected GitNexus package differs from the bundled `spec-mcp-setup` tool contract, write `reason_code=gitnexus-query-provider-projection-stale` and recommend rerunning `spec-mcp-setup` before `spec-graph-bootstrap`; otherwise write `reason_code=gitnexus-query-fts-readonly` and recommend repairing GitNexus index storage/permissions or clean reanalysis with a fixed provider version. Do not mark the provider ready from build/status alone.
 - Definitions-only GitNexus evidence: use it only for local symbol/file pointers; do not mark compiled query readiness true.
+- Concurrent worktree write inside the bootstrap window: bootstrap samples a filtered `git status --porcelain` fingerprint before and after the critical write window. The filter excludes paths bootstrap itself writes (`.spec-first/`, `.gitnexus/`, `.code-review-graph/`, `AGENTS.md`, `CLAUDE.md`) so the check only sees external-actor changes. If the post-window fingerprint differs from the pre-window one (another agent session, IDE save, or background task wrote inside the window), bootstrap returns `workflow_mode=blocked`, `reason_code=concurrent-write-detected`, `canonical_artifacts_preserved=false`, and exits 1. The next action is to coordinate the conflicting writer (commit/abort their work, or move the work into an isolated worktree via the internal `git-worktree` skill) and rerun bootstrap; bootstrap itself does not retry, lock, or interrupt the other writer.
 
 ## Boundaries
 

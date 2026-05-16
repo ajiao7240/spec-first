@@ -16,6 +16,45 @@ $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $MarkerPath = $HostInfo.marker_path
 $MarkerDir = Split-Path -Parent $MarkerPath
 
+# U2 host pointer self-heal: 检测 setup-owned host pointer drift,
+# 在 ledger 中记录 reconciliation advisory event。
+function Get-HostPointerReconciliation {
+  $currentHost = $HostInfo.host
+  if ([string]::IsNullOrWhiteSpace($currentHost)) { return $null }
+  $repoRoot = ''
+  try {
+    $repoRoot = (& git rev-parse --show-toplevel 2>$null).Trim()
+  } catch {
+    $repoRoot = ''
+  }
+  if ([string]::IsNullOrWhiteSpace($repoRoot)) { $repoRoot = (Get-Location).Path }
+  $runtimePath = Join-Path $repoRoot '.spec-first/config/runtime-capabilities.json'
+  if (-not (Test-Path -LiteralPath $runtimePath -PathType Leaf)) { return $null }
+  try {
+    $runtimeJson = Get-Content -Raw -LiteralPath $runtimePath | ConvertFrom-Json -ErrorAction Stop
+  } catch {
+    return $null
+  }
+  $previousHost = $null
+  $previousPath = $null
+  if ($runtimeJson -and $runtimeJson.host_ledger_pointer) {
+    $previousHost = $runtimeJson.host_ledger_pointer.host
+    $previousPath = $runtimeJson.host_ledger_pointer.path
+  }
+  if ([string]::IsNullOrWhiteSpace($previousHost)) { return $null }
+  if ($previousHost -eq $currentHost) { return $null }
+  return [ordered]@{
+    schema_version = 'host-pointer-reconciliation.v1'
+    from_host = $previousHost
+    to_host = $currentHost
+    from_marker_path = $previousPath
+    to_marker_path = $MarkerPath
+    reconciled_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    reason = 'host marker drift detected between previous setup run and current detect-host'
+  }
+}
+$HostPointerReconciliation = Get-HostPointerReconciliation
+
 function Write-JsonFileAtomic {
   param(
     [string]$Path,
@@ -287,6 +326,7 @@ $combined = [ordered]@{
     path = $MarkerPath
     schema_version = 'v2'
   }
+  host_pointer_reconciliation = $HostPointerReconciliation
   repo_config_status = 'pending'
   repo_config_path = $null
   runtime_capabilities_status = 'pending'

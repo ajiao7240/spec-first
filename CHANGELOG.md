@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-16 22:05:00 leokuang: feat(governance): 落地 multi-actor worktree 治理 U1/U2——bootstrap-providers.{sh,ps1} 在 critical write window 前后采 external-actor fingerprint（排除 `.spec-first/`、`.gitnexus/`、`.code-review-graph/`、AGENTS.md、CLAUDE.md），不一致时返回 `concurrent-write-detected` reason_code 并 `canonical_artifacts_preserved=false`；spec-mcp-setup verify-tools.{sh,ps1} 检测 host marker drift，写 `host_pointer_reconciliation` advisory event 到 readiness ledger；删除 bootstrap-providers 中 runtime/ledger baseline 不一致的 fail-closed 分支，由 setup 自愈，附 17 项 contract test 与 fixture 重写 (user-visible)
 - v1.8.2 2026-05-15 11:27:12 leokuang: fix(app-audit): 将 headless runner 写入边界从 lexical containment 加固为 realpath-aware containment，拒绝早期失败路径未校验 `--output` 写入以及已存在 run-dir/output 父路径 symlink 逃逸，并补 fail-closed 回归测试 (user-visible)
 - v1.8.2 2026-05-15 11:09:01 leokuang: docs(plan): 逐项修复 spec-first 当前项目优化升级方案复审 findings，收窄 Phase 1 为 1A-1D gate，补 run artifact producer API 与 authority 分层，降级 next-action candidates 单值路由，校准 retention/fresh-source eval/token economy 放行边界 (user-visible)
 - v1.8.2 2026-05-15 10:42:20 leokuang: fix(app-audit): 收口 headless runner 计划执行缺口，校准 runner v1 不直接产出 markdown report 的边界，补强 run-id/run-dir/output/raw-issues containment fail-closed 测试，让 runner 对 artifact validation 结果 fail closed，并修正 metadata finalize 不再覆盖 `generated_at`，锁定 source inputs、diff hash 与 worktree fingerprint 不自引用，同时将 headless runner plan 标记为 completed (user-visible)

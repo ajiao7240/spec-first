@@ -31,6 +31,41 @@ HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 MARKER_PATH="$(jq -r '.marker_path' <<<"$HOST_INFO_JSON")"
 MARKER_DIR="$(dirname "$MARKER_PATH")"
 
+# U2 host pointer self-heal: 检测 setup-owned host pointer drift,
+# 在 ledger 中记录 reconciliation advisory event。 detect-only,
+# 重写动作由后续构造 ledger 时统一完成。
+compute_host_pointer_reconciliation() {
+  local current_host current_repo runtime_path previous_host previous_path
+  current_host="$(jq -r '.host // empty' <<<"$HOST_INFO_JSON")"
+  [ -n "$current_host" ] || { printf 'null'; return 0; }
+  current_repo="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || true)"
+  [ -n "$current_repo" ] || current_repo="$PWD"
+  runtime_path="$current_repo/.spec-first/config/runtime-capabilities.json"
+  [ -f "$runtime_path" ] || { printf 'null'; return 0; }
+  previous_host="$(jq -r '.host_ledger_pointer.host // empty' "$runtime_path" 2>/dev/null || true)"
+  previous_path="$(jq -r '.host_ledger_pointer.path // empty' "$runtime_path" 2>/dev/null || true)"
+  if [ -z "$previous_host" ] || [ "$previous_host" = "$current_host" ]; then
+    printf 'null'
+    return 0
+  fi
+  jq -nc \
+    --arg from_host "$previous_host" \
+    --arg to_host "$current_host" \
+    --arg from_marker "$previous_path" \
+    --arg to_marker "$MARKER_PATH" \
+    --arg reconciled_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    '{
+      schema_version: "host-pointer-reconciliation.v1",
+      from_host: $from_host,
+      to_host: $to_host,
+      from_marker_path: $from_marker,
+      to_marker_path: $to_marker,
+      reconciled_at: $reconciled_at,
+      reason: "host marker drift detected between previous setup run and current detect-host"
+    }'
+}
+HOST_POINTER_RECONCILIATION="$(compute_host_pointer_reconciliation)"
+
 write_file_atomic_path() {
   local path="$1"
   local tmp
@@ -236,6 +271,7 @@ chmod 600 "$combined_tmp" "$final_tmp"
 jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
   --arg marker_path "$MARKER_PATH" \
   --argjson helper "$HELPER_JSON" \
+  --argjson host_pointer_reconciliation "$HOST_POINTER_RECONCILIATION" \
   '
   def host_ready:
     ((.host_config_required == false) and (.host_config_status == "not-required"))
@@ -272,6 +308,7 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
         path: $marker_path,
         schema_version: "v2"
       },
+      host_pointer_reconciliation: $host_pointer_reconciliation,
       repo_config_status: "pending",
       repo_config_path: null,
       runtime_capabilities_status: "pending",

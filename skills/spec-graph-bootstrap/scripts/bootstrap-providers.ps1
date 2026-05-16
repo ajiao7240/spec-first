@@ -2187,6 +2187,15 @@ $sourceRevision = [string]$sourceRevisionOutput[0]
 $worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
 $worktreeDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
 $worktreeStatusHash = Get-StatusHash -Text $worktreeStatus
+# U1: external-actor fingerprint 排除 bootstrap 自身 owned 路径
+function Get-ExternalActorFingerprint {
+  $statusLines = @(git -C $repoRoot status --porcelain 2>$null)
+  $filtered = $statusLines | Where-Object {
+    $_ -notmatch '^.{2} (\.spec-first/|\.gitnexus/|\.code-review-graph/|AGENTS\.md$|CLAUDE\.md$)'
+  }
+  return ($filtered -join "`n")
+}
+$externalActorFingerprintBefore = Get-StatusHash -Text (Get-ExternalActorFingerprint)
 $invocationRefreshMode = if ($Incremental) { 'incremental' } elseif ($Full -or $Force) { 'full' } else { $script:DefaultRefreshModeSingleRepo }
 if ($worktreeDirty) {
   Write-ResultAndExit `
@@ -2234,9 +2243,8 @@ $ledger = Read-JsonFile -Path $ledgerPath
 if ($ledger.schema_version -ne 'v2') {
   Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'schema-unsupported' -NextAction 'Rerun spec-mcp-setup to write readiness ledger v2.'
 }
-if ($runtimeCapabilities.baseline_summary.baseline_ready -ne $ledger.baseline_ready) {
-  Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'readiness-conflict' -NextAction 'Rerun spec-mcp-setup; runtime capabilities and host ledger disagree.'
-}
+# Host pointer drift 由 spec-mcp-setup 自愈（U2: host_pointer_reconciliation event 写入 ledger）。
+# bootstrap 不再替 setup 检查 runtime/ledger baseline 是否一致;只校验当前 ledger baseline_ready。
 if (-not [bool]$ledger.baseline_ready) {
   Write-ResultAndExit -WorkflowMode 'setup-not-ready' -ReasonCode 'baseline_not_ready' -NextAction 'Fix Required Harness Runtime setup, then rerun spec-mcp-setup.'
 }
@@ -2659,7 +2667,23 @@ if ($providerCount -gt 0 -and $readyCount -eq $providerCount) {
 }
 $bootstrapFinishedAt = Get-UtcTimestamp
 $bootstrapDurationMs = (Get-EpochMilliseconds) - $script:ScriptStartedEpochMs
-$topLevelReasonCode = if ($preserveCanonicalFreshness) { 'incremental-and-full-failed' } elseif ($workflowMode -eq 'blocked') { 'graph-not-ready' } else { $null }
+# U1: critical write window 内 worktree 被外部修改时,
+# 标记 concurrent-write-detected 并阻断,canonical_artifacts_preserved=false。
+# 使用 external-actor fingerprint 排除 bootstrap 自身 owned 路径,避免 false positive。
+$externalActorFingerprintAfter = Get-StatusHash -Text (Get-ExternalActorFingerprint)
+if ($externalActorFingerprintAfter -ne $externalActorFingerprintBefore) {
+  $topLevelReasonCode = 'concurrent-write-detected'
+  $workflowMode = 'blocked'
+  $overallStatus = 'action-required'
+  $preserveCanonicalFreshness = $false
+  $exitCode = 1
+} elseif ($preserveCanonicalFreshness) {
+  $topLevelReasonCode = 'incremental-and-full-failed'
+} elseif ($workflowMode -eq 'blocked') {
+  $topLevelReasonCode = 'graph-not-ready'
+} else {
+  $topLevelReasonCode = $null
+}
 
 $providerAggregate = [ordered]@{
   schema_version = 'graph-provider-status.v1'
