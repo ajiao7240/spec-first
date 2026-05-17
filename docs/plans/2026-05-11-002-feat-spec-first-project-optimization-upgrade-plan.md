@@ -1,7 +1,7 @@
 ---
 title: "feat: spec-first 当前项目优化升级方案"
 type: feat
-status: active
+status: completed
 date: 2026-05-11
 spec_id: 2026-05-11-002-spec-first-project-optimization-upgrade
 origin: docs/plans/2026-05-11-001-feat-trellis-inspired-workflow-quality-plan.md

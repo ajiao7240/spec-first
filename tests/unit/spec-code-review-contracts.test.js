@@ -83,6 +83,33 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');
   });
+
+  test('consumes domain context before findings without fixed ADR directory mandates', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Domain Language And Decision Ledger');
+    expect(text).toContain('consume existing context before asking questions or raising gaps that repo/docs can answer');
+    expect(text).toContain('project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(text).toContain('repo-local glossary or ADR-like artifacts that actually exist');
+    expect(text).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
+    expect(text).toContain('record the limitation in Coverage as advisory context rather than blocking the review');
+    expect(text).toContain('`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`');
+    expect(text).toContain('`confirmed`, `advisory`, `session-local`, `stale`, or `user`');
+    expect(text).toContain('hard to reverse, would be surprising without context, and reflects a real tradeoff');
+    expect(text).not.toContain('must use `CONTEXT.md`');
+    expect(text).not.toContain('must use `docs/adr/`');
+  });
+
+  test('review checks feedback loops without forcing TDD ritual on docs-only changes', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Feedback Loop Review Boundary');
+    expect(text).toContain('When reviewing behavior-bearing changes, check whether the work established and reran a feedback loop appropriate to the change');
+    expect(text).toContain('failing or characterization tests, CLI invocation, HTTP/browser script, trace replay, throwaway harness, property/fuzz loop');
+    expect(text).toContain('Findings should name the missing observable risk, not demand TDD ritual by default');
+    expect(text).toContain('For docs-only and config-only changes, docs contract checks, schema/help/render checks, generated catalog diff checks, or diff-shape review can be sufficient verification');
+    expect(text).toContain('Do not flag "no test-first loop" when the change has no behavior-bearing code');
+  });
 });
 
 describe('spec-code-review pre-facts baseline gate contract', () => {
@@ -448,6 +475,9 @@ describe('spec-code-review CE sync contracts', () => {
     expect(skill).toContain('`docs_only == true`');
     expect(skill).toContain('`simple_config_only == true`');
     expect(skill).toContain('`non_test_non_generated_non_lock_line_count <= 25`');
+    expect(skill).toContain('Progressive disclosure boundary: low-risk docs-only, simple config, and tiny executable diffs may use a minimum reviewer set');
+    expect(skill).toContain('high-risk workflow, contract, release, source/runtime boundary, provider evidence, security, or cross-module changes must use the full default core plus applicable conditional reviewers');
+    expect(skill).toContain('avoid unbounded fan-out on small diffs without hiding risk');
     expect(skill).toContain('| `docs_only` | `spec-project-standards-reviewer`, `spec-maintainability-reviewer` |');
     expect(skill).toContain('| `simple_config_only` | `spec-correctness-reviewer`, `spec-testing-reviewer`, `spec-project-standards-reviewer` |');
     expect(skill).toContain('| tiny executable diff | `spec-correctness-reviewer`, `spec-testing-reviewer`, `spec-maintainability-reviewer` |');
@@ -539,6 +569,18 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).toContain('supports reviewer dispatch but not parallel sub-agents');
     expect(text).toContain('dispatch reviewers sequentially through the same Stage 4 scheduler');
     expect(text).toContain('If the platform has no dispatch primitive, or dispatch is explicitly disabled or unsafe, use the Stage 4 single-agent report-only fallback');
+  });
+
+  test('code-review dispatch is analysis-only and mutation is mode-bound', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Reviewers are analysis agents, not implementation workers.');
+    expect(text).toContain('Dispatch is bounded to the resolved diff scope, selected reviewer personas, advisory facts, and output schema.');
+    expect(text).toContain('Do not create hidden implement/check agents from code review.');
+    expect(text).toContain('Mutation is allowed only through documented `safe_auto` / selected Apply paths in the chosen mode');
+    expect(text).toContain('report-only fallback, unsafe runtime, or missing dispatch capability must not edit source, generated runtime mirrors, or workflow artifacts.');
+    expect(text).not.toContain('fallback may edit source');
+    expect(text).not.toContain('hidden implement/check lifecycle');
   });
 
   test('code-review leaf reviewers remain read-only while artifacts are parent-owned', () => {

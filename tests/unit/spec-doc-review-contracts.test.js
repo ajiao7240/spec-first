@@ -150,6 +150,22 @@ describe('spec-doc-review best-judgment wording contract', () => {
     }
   });
 
+  test('doc review consumes domain context before findings without fixed ADR directory mandates', () => {
+    const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+
+    expect(skill).toContain('Domain Language And Decision Ledger');
+    expect(skill).toContain('consume existing context before asking questions or raising gaps that repo/docs can answer');
+    expect(skill).toContain('project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(skill).toContain('repo-local glossary or ADR-like artifacts that actually exist');
+    expect(skill).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
+    expect(skill).toContain('record the limitation in Coverage as advisory context rather than blocking document review');
+    expect(skill).toContain('`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`');
+    expect(skill).toContain('`confirmed`, `advisory`, `session-local`, `stale`, or `user`');
+    expect(skill).toContain('hard to reverse, would be surprising without context, and reflects a real tradeoff');
+    expect(skill).not.toContain('must use `CONTEXT.md`');
+    expect(skill).not.toContain('must use `docs/adr/`');
+  });
+
   test('walkthrough keeps normal best-judgment route and confines Acknowledge to no-fix cases', () => {
     const walkthrough = fs.readFileSync(
       path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'references', 'walkthrough.md'),
@@ -188,6 +204,32 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).not.toContain('Dispatch all agents in **parallel**');
     expect(skill).not.toContain('explicit user authorization');
     expect(skill).not.toContain('because the user did not ask for subagents');
+  });
+
+  test('doc review uses scale-aware posture instead of unbounded reviewer fanout', () => {
+    const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+
+    expect(skill).toContain('Scale-Aware Document Review Posture');
+    expect(skill).toContain('Use the smallest reviewer posture that can still catch material risk');
+    expect(skill).toContain('Low-risk docs-only edits, typo-level prose updates, and narrow task-pack metadata checks can use the minimum document-review set');
+    expect(skill).toContain('`spec-coherence-reviewer`, `spec-maintainability-reviewer`, and `spec-scope-guardian-reviewer`');
+    expect(skill).toContain('High-risk workflow, contract, release, source/runtime boundary, provider evidence, security, or cross-module planning changes must use the full default document-review set plus applicable conditional personas');
+    expect(skill).toContain('Record the selected posture (`minimum` or `full`) and the reason in Coverage');
+    expect(skill).toContain('This is progressive disclosure, not evidence suppression');
+    expect(skill).toContain('Do not create a separate reviewer facts pipeline for this posture');
+    expect(skill).not.toContain('Dispatch every document reviewer for low-risk docs-only edits');
+  });
+
+  test('doc-review dispatch is analysis-only and fallback cannot mutate documents', () => {
+    const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+
+    expect(skill).toContain('Reviewers are analysis agents, not implementation workers.');
+    expect(skill).toContain('Dispatch is bounded to document-review personas with the current document scope, selected sections, pre-facts, and output contract.');
+    expect(skill).toContain('Do not create hidden implement/check agents from document review.');
+    expect(skill).toContain('Autofix is limited to this workflow\'s documented `safe_auto` document edits');
+    expect(skill).toContain('report-only fallback, user-requested no-agents mode, unsafe runtime, or missing dispatch capability must not edit documents or generated runtime mirrors.');
+    expect(skill).not.toContain('fallback may edit documents');
+    expect(skill).not.toContain('hidden implement/check lifecycle');
   });
 
   test('doc review treats Summary as a framing-level section for chain roots', () => {

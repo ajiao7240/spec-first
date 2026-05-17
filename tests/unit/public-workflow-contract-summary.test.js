@@ -4,52 +4,101 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..');
+const GOVERNANCE_PATH = path.join(
+  ROOT,
+  'src',
+  'cli',
+  'contracts',
+  'dual-host-governance',
+  'skills-governance.json',
+);
+const REQUIRED_STANDALONE_SUMMARIES = ['using-spec-first', 'spec-write-tasks'];
 
-const HIGH_FREQUENCY_WORKFLOWS = [
-  'spec-code-review',
-  'spec-plan',
-  'spec-work',
-  'spec-doc-review',
-];
+function publicWorkflowSkills() {
+  const governance = JSON.parse(fs.readFileSync(GOVERNANCE_PATH, 'utf8'));
+  return governance.skills
+    .filter((skill) => skill.entry_surface === 'workflow_command')
+    .map((skill) => skill.skill_name)
+    .sort((a, b) => a.localeCompare(b));
+}
 
 describe('public workflow contract summary', () => {
-  test('high-frequency public workflows expose a compact I/O and failure summary near the entrypoint', () => {
-    for (const workflow of HIGH_FREQUENCY_WORKFLOWS) {
+  test('all public workflow skills and required standalone entry skills expose a compact I/O and failure summary near the entrypoint', () => {
+    for (const workflow of [...publicWorkflowSkills(), ...REQUIRED_STANDALONE_SUMMARIES]) {
       const skillPath = path.join(ROOT, 'skills', workflow, 'SKILL.md');
       const text = fs.readFileSync(skillPath, 'utf8');
-      const firstHundredLines = text.split(/\r?\n/).slice(0, 100).join('\n');
+      const firstHundredTwentyLines = text.split(/\r?\n/).slice(0, 120).join('\n');
 
-      expect(firstHundredLines).toContain('## Workflow Contract Summary');
-      expect(firstHundredLines).toContain('### When To Use');
-      expect(firstHundredLines).toContain('### When Not To Use');
-      expect(firstHundredLines).toContain('### Inputs');
-      expect(firstHundredLines).toContain('### Outputs');
-      expect(firstHundredLines).toContain('### Artifacts');
-      expect(firstHundredLines).toContain('### Failure Modes');
-      expect(firstHundredLines).toContain('### Workflow');
-      expect(firstHundredLines).toContain('### Downstream Consumers');
+      expect(firstHundredTwentyLines).toMatch(/## (Workflow )?Contract Summary/);
+      for (const field of [
+        'When To Use',
+        'When Not To Use',
+        'Inputs',
+        'Outputs',
+        'Artifacts',
+        'Failure Modes',
+        'Workflow',
+        'Downstream Consumers',
+      ]) {
+        expect(firstHundredTwentyLines.toLowerCase()).toContain(field.toLowerCase());
+      }
     }
   });
 
   test('summaries preserve source/runtime and script/LLM boundaries', () => {
-    const codeReview = fs.readFileSync(
-      path.join(ROOT, 'skills', 'spec-code-review', 'SKILL.md'),
-      'utf8',
-    );
+    const usingSpecFirst = fs.readFileSync(path.join(ROOT, 'skills', 'using-spec-first', 'SKILL.md'), 'utf8');
     const plan = fs.readFileSync(path.join(ROOT, 'skills', 'spec-plan', 'SKILL.md'), 'utf8');
+    const writeTasks = fs.readFileSync(path.join(ROOT, 'skills', 'spec-write-tasks', 'SKILL.md'), 'utf8');
     const work = fs.readFileSync(path.join(ROOT, 'skills', 'spec-work', 'SKILL.md'), 'utf8');
-    const docReview = fs.readFileSync(
-      path.join(ROOT, 'skills', 'spec-doc-review', 'SKILL.md'),
-      'utf8',
-    );
+    const standards = fs.readFileSync(path.join(ROOT, 'skills', 'spec-standards', 'SKILL.md'), 'utf8');
 
-    expect(codeReview).toContain('graph/MCP evidence as advisory review context');
-    expect(codeReview).toContain('treating graph/provider startup failure as a reviewer failure');
+    expect(usingSpecFirst).toContain('Core boundary: scripts and CLI commands prepare deterministic facts; the LLM decides the workflow recommendation.');
     expect(plan).toContain('degraded standards/graph facts stay advisory');
     expect(plan).toContain('implementation-dependent questions are deferred to `spec-work`');
+    expect(writeTasks).toContain('Task packs are derived execution indexes and never replace the source plan.');
     expect(work).toContain('planned spec-work run JSON schema is not current runtime truth');
     expect(work).toContain('hand-editing generated runtime mirrors as source fixes');
-    expect(docReview).toContain('No repo-local JSON run artifact is promised');
-    expect(docReview).toContain('treating a task pack as an independent source plan');
+    expect(standards).toContain('generated runtime mirrors are not source');
+    expect(standards).toContain('Scripts prepare facts; the LLM decides standards.');
+  });
+
+  test('Phase 2 batch-1 summaries preserve workflow boundaries', () => {
+    const brainstorm = fs.readFileSync(path.join(ROOT, 'skills', 'spec-brainstorm', 'SKILL.md'), 'utf8');
+    const debug = fs.readFileSync(path.join(ROOT, 'skills', 'spec-debug', 'SKILL.md'), 'utf8');
+    const setup = fs.readFileSync(path.join(ROOT, 'skills', 'spec-mcp-setup', 'SKILL.md'), 'utf8');
+    const graph = fs.readFileSync(path.join(ROOT, 'skills', 'spec-graph-bootstrap', 'SKILL.md'), 'utf8');
+    const update = fs.readFileSync(path.join(ROOT, 'skills', 'spec-update', 'SKILL.md'), 'utf8');
+    const workBeta = fs.readFileSync(path.join(ROOT, 'skills', 'spec-work-beta', 'SKILL.md'), 'utf8');
+
+    expect(brainstorm).toContain('planning would otherwise invent WHAT to build');
+    expect(debug).toContain('root cause must be established before changing code');
+    expect(setup).toContain('Do not use to compile graph readiness');
+    expect(graph).toContain('only default local workflow that may refresh canonical project graph readiness artifacts');
+    expect(update).toContain('hand-editing generated runtime mirrors as source fixes');
+    expect(workBeta).toContain('user explicitly wants beta delegation');
+  });
+
+  test('Phase 3 batch-2 summaries preserve workflow-specific boundaries', () => {
+    const appAudit = fs.readFileSync(path.join(ROOT, 'skills', 'spec-app-consistency-audit', 'SKILL.md'), 'utf8');
+    const compound = fs.readFileSync(path.join(ROOT, 'skills', 'spec-compound', 'SKILL.md'), 'utf8');
+    const compoundRefresh = fs.readFileSync(path.join(ROOT, 'skills', 'spec-compound-refresh', 'SKILL.md'), 'utf8');
+    const ideate = fs.readFileSync(path.join(ROOT, 'skills', 'spec-ideate', 'SKILL.md'), 'utf8');
+    const optimize = fs.readFileSync(path.join(ROOT, 'skills', 'spec-optimize', 'SKILL.md'), 'utf8');
+    const polish = fs.readFileSync(path.join(ROOT, 'skills', 'spec-polish-beta', 'SKILL.md'), 'utf8');
+    const releaseNotes = fs.readFileSync(path.join(ROOT, 'skills', 'spec-release-notes', 'SKILL.md'), 'utf8');
+    const sessions = fs.readFileSync(path.join(ROOT, 'skills', 'spec-sessions', 'SKILL.md'), 'utf8');
+    const skillAudit = fs.readFileSync(path.join(ROOT, 'skills', 'spec-skill-audit', 'SKILL.md'), 'utf8');
+    const slack = fs.readFileSync(path.join(ROOT, 'skills', 'spec-slack-research', 'SKILL.md'), 'utf8');
+
+    expect(appAudit).toContain('static-first consistency audit');
+    expect(compound).toContain('One durable solution document');
+    expect(compoundRefresh).toContain('refresh report plus scoped edits under `docs/solutions/`');
+    expect(ideate).toContain('ranked ideation artifact in `docs/ideation/`');
+    expect(optimize).toContain('measurement scaffold and experiment log');
+    expect(polish).toContain('interactive polish loop');
+    expect(releaseNotes).toContain('version-cited release summary');
+    expect(sessions).toContain('distilled replay references');
+    expect(skillAudit).toContain('deterministic release/governance guard results');
+    expect(slack).toContain('interpreted Slack research digest');
   });
 });

@@ -7,6 +7,40 @@ description: "Search Slack for interpreted organizational context -- decisions, 
 
 Search Slack for organizational context and receive an interpreted research digest.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when planning, brainstorming, or implementation needs interpreted Slack context about organizational decisions, constraints, discussion arcs, or stakeholder history.
+
+### When Not To Use
+
+Do not use for generic web research, code search, direct message dumping, raw Slack result lists, or when Slack access is unavailable and no organizational context is needed.
+
+### Inputs
+
+Topic/question, optional Slack modifiers, workspace/search results from the Slack-capable researcher, thread context, and provenance dates/channels.
+
+### Outputs
+
+An interpreted Slack research digest with workspace identifier, research-value assessment, findings by topic, and cross-cutting analysis.
+
+### Artifacts
+
+No repo-local artifact by default; the returned digest is the workflow output and should summarize rather than paste raw Slack messages.
+
+### Failure Modes
+
+No topic, Slack MCP unavailable/auth expired, no relevant discussions, insufficient thread context, or privacy/sensitivity constraints.
+
+### Workflow
+
+Clarify the topic if needed, dispatch the Slack researcher, let it search/read/synthesize, then relay the digest or access failure without alternative scraping.
+
+### Downstream Consumers
+
+`spec-brainstorm`, `spec-plan`, `spec-work`, stakeholder alignment, and human decision makers needing organizational context.
+
 ## Usage
 
 ```

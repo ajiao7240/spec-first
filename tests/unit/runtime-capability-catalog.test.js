@@ -5,6 +5,7 @@ const {
   DEFAULT_OUTPUT_PATH,
   buildRuntimeCapabilityCatalog,
   listPlannedRuntimeContracts,
+  listWorkflowRuntimeContracts,
 } = require('../../scripts/generate-runtime-capability-catalog');
 const {
   buildFilteredAssetSet,
@@ -26,6 +27,7 @@ describe('runtime capability catalog', () => {
     expect(catalog).toContain('docs/contracts/workflows/*.schema.json');
     expect(catalog).toContain(`| Bundled source skills | ${listBundledSkills().length} |`);
     expect(catalog).toContain(`| Bundled source agents | ${listBundledAgents().length} |`);
+    expect(catalog).toContain(`| Workflow runtime contracts | ${listWorkflowRuntimeContracts().length} |`);
     expect(catalog).toContain(`| Planned runtime contracts | ${listPlannedRuntimeContracts().length} |`);
     expect(catalog).toContain(`| Claude runtime delivery | ${claudeAssets.commands.length} commands, ${claudeAssets.workflowSkills.length} workflow skills, ${claudeAssets.skills.length} standalone skills, ${claudeAssets.internalSkills.length} agent-facing internal skills, ${claudeAssets.agents.length} agents, ${claudeAssets.agentSupportFiles.length} agent support files |`);
     expect(catalog).toContain(`| Codex runtime delivery | ${codexAssets.commands.length} commands, ${codexAssets.workflowSkills.length} workflow skills, ${codexAssets.skills.length} standalone skills, ${codexAssets.internalSkills.length} agent-facing internal skills, ${codexAssets.agents.length} agents, ${codexAssets.agentSupportFiles.length} agent support files |`);
@@ -61,23 +63,25 @@ describe('runtime capability catalog', () => {
     expect(catalog).toContain('no dashboard, history store, GitHub Release automation, or release decision engine');
   });
 
-  test('catalog exposes planned workflow artifact contracts without claiming runtime production', () => {
+  test('catalog exposes workflow artifact contracts without claiming workflow integration', () => {
     const catalog = buildRuntimeCapabilityCatalog();
-    const plannedContracts = listPlannedRuntimeContracts();
+    const workflowContracts = listWorkflowRuntimeContracts();
 
-    expect(plannedContracts).toEqual(expect.arrayContaining([
+    expect(workflowContracts).toEqual(expect.arrayContaining([
       {
-        title: 'spec-first spec-work run artifact planned contract',
+        title: 'spec-first spec-work run artifact producer-available contract',
         contractPath: 'docs/contracts/workflows/spec-work-run-artifact.schema.json',
-        status: 'planned',
-        producer: 'unimplemented',
+        status: 'producer_available',
+        producer: 'internal spec-work-run-artifact write',
+        producerAvailable: true,
+        workflowIntegrated: false,
         runtimePath: '.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json',
-        boundary: 'docs-side contract; src/cli must not implicitly consume this schema',
+        boundary: 'source-owned write-side producer; workflow integration false until spec-work closeout calls it with fixture/fresh-source evidence',
       },
     ]));
-    expect(catalog).toContain('## Planned Runtime Contracts');
-    expect(catalog).toContain('They do not prove that the current runtime emits the artifact');
-    expect(catalog).toContain('| spec-first spec-work run artifact planned contract<br>docs/contracts/workflows/spec-work-run-artifact.schema.json | planned | unimplemented | .spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json | docs-side contract; src/cli must not implicitly consume this schema |');
-    expect(catalog).toContain('Planned runtime contracts 必须由 `docs/contracts/workflows/*.schema.json` 的 `x-spec-first-*` metadata 派生');
+    expect(catalog).toContain('## Workflow Runtime Contracts');
+    expect(catalog).toContain('`producer_available=true` only means a source-owned writer exists');
+    expect(catalog).toContain('| spec-first spec-work run artifact producer-available contract<br>docs/contracts/workflows/spec-work-run-artifact.schema.json | producer_available | internal spec-work-run-artifact write | true | false | .spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json | source-owned write-side producer; workflow integration false until spec-work closeout calls it with fixture/fresh-source evidence |');
+    expect(catalog).toContain('Workflow runtime contracts 必须由 `docs/contracts/workflows/*.schema.json` 的 `x-spec-first-*` metadata 派生');
   });
 });

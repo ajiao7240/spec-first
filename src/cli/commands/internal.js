@@ -3,6 +3,7 @@
 const { runContextBundle } = require('../helpers/context-bundle');
 const { runReviewPreFacts } = require('../helpers/review-pre-facts');
 const { runCli: runSecretDenyPatternsCli } = require('../helpers/secret-deny-patterns');
+const { runCli: runSpecWorkRunArtifactCli } = require('../helpers/spec-work-run-artifact');
 
 function runInternal(argv) {
   const args = Array.isArray(argv) ? [...argv] : [];
@@ -18,6 +19,10 @@ function runInternal(argv) {
 
   if (subcommand === 'secret-deny') {
     return runSecretDenyPatternsCli(args.slice(1));
+  }
+
+  if (subcommand === 'spec-work-run-artifact') {
+    return runSpecWorkRunArtifactCli(args.slice(1));
   }
 
   if (args.includes('--json')) {

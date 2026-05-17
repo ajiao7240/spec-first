@@ -8,6 +8,7 @@ const RESULT_SCHEMA = 'spec-first.standards-validation-result.v1';
 const STANDARDS_PLAN_SCHEMA = 'spec-first.standards-plan.v1';
 const SYNTHESIS_CONTRACT_SCHEMA = 'spec-first.standards-synthesis-contract.v1';
 const CANDIDATES_SCHEMA = 'spec-first.standards-candidates.v1';
+const NEXT_ACTION_CANDIDATES_SCHEMA = 'spec-first.standards-next-action-candidates.v1';
 const DEFAULT_ALLOWED_STATUSES = [
   'confirmed',
   'imported',
@@ -51,6 +52,47 @@ const CONSUMPTION_MODES = {
   drifted: 'risk',
 };
 const VALID_CONFIRMATION_TYPES = new Set(['user_input', 'human_confirmed']);
+const NEXT_ACTION_CANDIDATE_KINDS = new Set([
+  'standards_baseline_ready',
+  'missing_graph_readiness',
+  'workspace_advisory_only',
+  'absent_tests',
+  'missing_package_scripts',
+  'stale_validation',
+  'child_repo_ambiguity',
+]);
+const NEXT_ACTION_AUTHORITY_LEVELS = new Set(['facts_only', 'advisory']);
+const NEXT_ACTION_PROVENANCE = new Set(['script_confirmed', 'provider_untrusted', 'llm_asserted']);
+const NEXT_ACTION_READINESS = new Set(['ready', 'degraded', 'missing', 'stale', 'unknown']);
+const NEXT_ACTION_REDACTION = new Set(['none-required', 'redacted']);
+const FORBIDDEN_NEXT_ACTION_DECISION_FIELDS = [
+  'target_entrypoint',
+  'recommended_entrypoint',
+  'workflow_recommendation',
+  'recommendation',
+  'ranking',
+  'rank',
+  'score',
+  'blocking_policy',
+  'blocking',
+  'mode_matrix',
+];
+const PUBLIC_ENTRYPOINTS = new Set([
+  '/spec:brainstorm', '$spec-brainstorm',
+  '/spec:plan', '$spec-plan',
+  '/spec:work', '$spec-work',
+  '/spec:code-review', '$spec-code-review',
+  '/spec:doc-review', '$spec-doc-review',
+  '/spec:graph-bootstrap', '$spec-graph-bootstrap',
+  '/spec:mcp-setup', '$spec-mcp-setup',
+  '/spec:standards', '$spec-standards',
+]);
+const NEXT_ACTION_ARTIFACT_NAMES = new Set([
+  'project-shape.json',
+  'standards-plan.json',
+  'glue-map.json',
+  'next-action-candidates.json',
+]);
 
 function parseArgs(argv) {
   const args = {
@@ -60,6 +102,7 @@ function parseArgs(argv) {
     plan: null,
     projectShape: null,
     glueMap: null,
+    nextActionCandidates: null,
     patch: null,
     confirmations: null,
     json: false,
@@ -98,6 +141,11 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (arg === '--next-action-candidates') {
+      args.nextActionCandidates = requireValue(argv, index, arg);
+      index += 1;
+      continue;
+    }
     if (arg === '--patch') {
       args.patch = requireValue(argv, index, arg);
       index += 1;
@@ -125,10 +173,10 @@ function parseArgs(argv) {
 
   if (args.help) return args;
 
-  if (!args.standardsDir && (!args.candidates || !args.preview)) {
-    throw usageError('Either --standards-dir or both --candidates and --preview are required.');
+  if (!args.standardsDir && !args.nextActionCandidates && (!args.candidates || !args.preview)) {
+    throw usageError('Either --standards-dir, --next-action-candidates, or both --candidates and --preview are required.');
   }
-  if (args.standardsDir && (args.candidates || args.preview || args.plan || args.projectShape || args.glueMap)) {
+  if (args.standardsDir && (args.candidates || args.preview || args.plan || args.projectShape || args.glueMap || args.nextActionCandidates)) {
     throw usageError('--standards-dir cannot be combined with explicit artifact paths.');
   }
 
@@ -153,27 +201,32 @@ function resolveInputs(args, cwd = process.cwd()) {
   if (args.standardsDir) {
     const standardsDir = path.resolve(cwd, args.standardsDir);
     return {
+      cwd,
       standardsDir,
       candidates: path.join(standardsDir, 'standards-candidates.json'),
       preview: path.join(standardsDir, 'standards-preview.md'),
       plan: path.join(standardsDir, 'standards-plan.json'),
       projectShape: path.join(standardsDir, 'project-shape.json'),
       glueMap: path.join(standardsDir, 'glue-map.json'),
+      nextActionCandidates: path.join(standardsDir, 'next-action-candidates.json'),
       patch: args.patch ? path.resolve(cwd, args.patch) : path.join(standardsDir, 'repo-profile.patch.yaml'),
       confirmations: args.confirmations ? path.resolve(cwd, args.confirmations) : path.join(standardsDir, 'confirmations.json'),
     };
   }
 
-  const candidates = path.resolve(cwd, args.candidates);
-  const preview = path.resolve(cwd, args.preview);
-  const standardsDir = path.dirname(candidates);
+  const nextActionCandidates = args.nextActionCandidates ? path.resolve(cwd, args.nextActionCandidates) : null;
+  const candidates = args.candidates ? path.resolve(cwd, args.candidates) : null;
+  const preview = args.preview ? path.resolve(cwd, args.preview) : null;
+  const standardsDir = candidates ? path.dirname(candidates) : path.dirname(nextActionCandidates);
   return {
+    cwd,
     standardsDir,
     candidates,
     preview,
     plan: args.plan ? path.resolve(cwd, args.plan) : path.join(standardsDir, 'standards-plan.json'),
     projectShape: args.projectShape ? path.resolve(cwd, args.projectShape) : path.join(standardsDir, 'project-shape.json'),
     glueMap: args.glueMap ? path.resolve(cwd, args.glueMap) : path.join(standardsDir, 'glue-map.json'),
+    nextActionCandidates: nextActionCandidates || path.join(standardsDir, 'next-action-candidates.json'),
     patch: args.patch ? path.resolve(cwd, args.patch) : path.join(standardsDir, 'repo-profile.patch.yaml'),
     confirmations: args.confirmations ? path.resolve(cwd, args.confirmations) : path.join(standardsDir, 'confirmations.json'),
   };
@@ -206,6 +259,7 @@ function printHelp() {
   process.stdout.write(`Usage:
   node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json
   node skills/spec-standards/scripts/validate-artifacts.js --candidates <path> --preview <path> --plan <path> --json
+  node skills/spec-standards/scripts/validate-artifacts.js --next-action-candidates <path> --json
 
 Validate generated spec-standards candidates and preview artifacts. This checks artifact contracts only; it does not judge standards semantics.
 Optional --patch and --confirmations may point to external non-LLM-authored attestation files.
@@ -219,19 +273,33 @@ function validateArtifacts(args, cwd = process.cwd()) {
     status: 'pass',
     trust_level: 'trusted',
     checked: {
-      candidates: relativePath(cwd, inputs.candidates),
-      preview: relativePath(cwd, inputs.preview),
-      plan: relativePath(cwd, inputs.plan),
-      project_shape: fs.existsSync(inputs.projectShape) ? relativePath(cwd, inputs.projectShape) : null,
-      glue_map: fs.existsSync(inputs.glueMap) ? relativePath(cwd, inputs.glueMap) : null,
-      patch: fs.existsSync(inputs.patch) ? relativePath(cwd, inputs.patch) : null,
-      confirmations: fs.existsSync(inputs.confirmations) ? relativePath(cwd, inputs.confirmations) : null,
+      candidates: inputs.candidates ? relativePath(cwd, inputs.candidates) : null,
+      preview: inputs.preview ? relativePath(cwd, inputs.preview) : null,
+      plan: inputs.plan ? relativePath(cwd, inputs.plan) : null,
+      project_shape: inputs.projectShape && fs.existsSync(inputs.projectShape) ? relativePath(cwd, inputs.projectShape) : null,
+      glue_map: inputs.glueMap && fs.existsSync(inputs.glueMap) ? relativePath(cwd, inputs.glueMap) : null,
+      next_action_candidates: inputs.nextActionCandidates && fs.existsSync(inputs.nextActionCandidates) ? relativePath(cwd, inputs.nextActionCandidates) : null,
+      patch: inputs.patch && fs.existsSync(inputs.patch) ? relativePath(cwd, inputs.patch) : null,
+      confirmations: inputs.confirmations && fs.existsSync(inputs.confirmations) ? relativePath(cwd, inputs.confirmations) : null,
     },
     scope: null,
     consumption_boundary: 'trusted_baseline',
     errors: [],
     warnings: [],
   };
+
+  if (args.nextActionCandidates && !fs.existsSync(inputs.nextActionCandidates)) {
+    addIssue(result.errors, 'file-not-found', inputs.nextActionCandidates, 'Required artifact was not found.');
+    return finalize(result);
+  }
+  if (inputs.nextActionCandidates && fs.existsSync(inputs.nextActionCandidates)) {
+    const nextActionCandidates = readJsonArtifact(inputs.nextActionCandidates, result);
+    validateNextActionCandidates(nextActionCandidates, inputs, result);
+  }
+
+  if (!inputs.candidates || !inputs.preview) {
+    return finalize(result);
+  }
 
   const plan = readPlan(inputs.plan, args, result);
   const contract = buildContract(plan);
@@ -607,6 +675,261 @@ function validateCandidate(candidate, context, result) {
     validateEvidence(candidate, result);
   }
   validateStatusSupport(candidate, context, result);
+}
+
+function validateNextActionCandidates(doc, inputs, result) {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
+    addIssue(result.errors, 'missing-required-field', 'next-action-candidates.json', 'Next-action candidates document must be an object.');
+    return;
+  }
+  if (doc.schema_version !== NEXT_ACTION_CANDIDATES_SCHEMA) {
+    addIssue(result.errors, 'invalid-next-action-schema-version', 'next-action-candidates.json', `schema_version must be ${NEXT_ACTION_CANDIDATES_SCHEMA}.`, {
+      expected: NEXT_ACTION_CANDIDATES_SCHEMA,
+      actual: doc.schema_version,
+    });
+  }
+  if (doc.producer !== 'spec-standards.prepare-baseline') {
+    addIssue(result.errors, 'invalid-next-action-producer', 'next-action-candidates.json', 'producer must be spec-standards.prepare-baseline.');
+  }
+  if (!doc.scope || typeof doc.scope !== 'object' || Array.isArray(doc.scope) || !hasText(doc.scope.type)) {
+    addIssue(result.errors, 'missing-required-field', 'next-action-candidates.json', 'scope.type is required.');
+  }
+  validateForbiddenNextActionDecisionFields(doc, 'next-action-candidates.json', result);
+  if (!Array.isArray(doc.candidates)) {
+    addIssue(result.errors, 'missing-required-field', 'next-action-candidates.json', 'candidates[] is required.');
+    return;
+  }
+  validateNextActionSourceArtifacts(doc.source_artifacts, inputs, result);
+  const seen = new Set();
+  for (const candidate of doc.candidates) {
+    validateNextActionCandidate(candidate, seen, inputs, result);
+  }
+}
+
+function validateNextActionSourceArtifacts(sourceArtifacts, inputs, result) {
+  if (!Array.isArray(sourceArtifacts) || sourceArtifacts.length === 0) {
+    addIssue(result.errors, 'invalid-next-action-source-artifacts', 'next-action-candidates.json', 'source_artifacts must be a non-empty array.');
+    return;
+  }
+  for (const sourceArtifact of sourceArtifacts) {
+    if (!isSafeStandardsArtifactPath(sourceArtifact, inputs)) {
+      addIssue(result.errors, 'invalid-next-action-source-artifact', 'next-action-candidates.json', 'source_artifacts entries must match the actual standards artifact root.', {
+        path: sourceArtifact,
+      });
+    }
+  }
+}
+
+function validateNextActionCandidate(candidate, seen, inputs, result) {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    addIssue(result.errors, 'invalid-next-action-candidate', 'next-action-candidates.json', 'Candidate must be an object.');
+    return;
+  }
+  validateForbiddenNextActionDecisionFields(candidate, 'next-action-candidates.json', result);
+  for (const field of [
+    'candidate_id',
+    'candidate_kind',
+    'reason_code',
+    'source_fact_refs',
+    'evidence_paths',
+    'possible_entrypoints',
+    'target_repo_scope',
+    'authority_level',
+    'provenance_classification',
+    'readiness_status',
+    'redaction_status',
+  ]) {
+    if (!(field in candidate)) {
+      addIssue(result.errors, 'missing-next-action-field', 'next-action-candidates.json', `Candidate is missing required field: ${field}`, { field });
+    }
+  }
+  if (hasText(candidate.candidate_id)) {
+    if (seen.has(candidate.candidate_id)) {
+      addIssue(result.errors, 'duplicate-next-action-candidate-id', 'next-action-candidates.json', 'candidate_id must be unique.', {
+        candidate_id: candidate.candidate_id,
+      });
+    }
+    seen.add(candidate.candidate_id);
+  }
+  if (!NEXT_ACTION_CANDIDATE_KINDS.has(candidate.candidate_kind)) {
+    addIssue(result.errors, 'invalid-next-action-kind', 'next-action-candidates.json', `Invalid candidate_kind: ${candidate.candidate_kind}`);
+  }
+  if (!NEXT_ACTION_AUTHORITY_LEVELS.has(candidate.authority_level)) {
+    addIssue(result.errors, 'invalid-next-action-authority', 'next-action-candidates.json', `Invalid authority_level: ${candidate.authority_level}`);
+  }
+  if (!NEXT_ACTION_PROVENANCE.has(candidate.provenance_classification)) {
+    addIssue(result.errors, 'invalid-next-action-provenance', 'next-action-candidates.json', `Invalid provenance_classification: ${candidate.provenance_classification}`);
+  }
+  if (!NEXT_ACTION_READINESS.has(candidate.readiness_status)) {
+    addIssue(result.errors, 'invalid-next-action-readiness', 'next-action-candidates.json', `Invalid readiness_status: ${candidate.readiness_status}`);
+  }
+  if (!NEXT_ACTION_REDACTION.has(candidate.redaction_status)) {
+    addIssue(result.errors, 'invalid-next-action-redaction', 'next-action-candidates.json', `Invalid redaction_status: ${candidate.redaction_status}`);
+  }
+  validateNextActionSourceFactRefs(candidate.source_fact_refs, inputs, result);
+  validateNextActionEvidencePaths(candidate.evidence_paths, inputs, result);
+  validateNextActionEntrypoints(candidate.possible_entrypoints, result);
+}
+
+function validateForbiddenNextActionDecisionFields(value, filePath, result) {
+  scanForbiddenDecisionField(value, filePath, result, '', new WeakSet());
+}
+
+function scanForbiddenDecisionField(value, filePath, result, pointer, seen) {
+  if (!value || typeof value !== 'object') return;
+  if (seen.has(value)) return;
+  seen.add(value);
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => scanForbiddenDecisionField(entry, filePath, result, `${pointer}[${index}]`, seen));
+    return;
+  }
+  for (const field of FORBIDDEN_NEXT_ACTION_DECISION_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(value, field)) {
+      const reportedPointer = pointer ? `${pointer}.${field}` : field;
+      addIssue(result.errors, 'next-action-decision-field-forbidden', filePath, `${reportedPointer} is forbidden; scripts may only emit possible_entrypoints[] facts for LLM judgment.`, {
+        field: reportedPointer,
+      });
+    }
+  }
+  for (const [key, child] of Object.entries(value)) {
+    scanForbiddenDecisionField(child, filePath, result, pointer ? `${pointer}.${key}` : key, seen);
+  }
+}
+
+function validateNextActionSourceFactRefs(refs, inputs, result) {
+  if (!Array.isArray(refs) || refs.length === 0) {
+    addIssue(result.errors, 'invalid-source-fact-refs', 'next-action-candidates.json', 'source_fact_refs must be a non-empty array.');
+    return;
+  }
+  for (const ref of refs) {
+    if (!ref || typeof ref !== 'object' || Array.isArray(ref)) {
+      addIssue(result.errors, 'invalid-source-fact-refs', 'next-action-candidates.json', 'source_fact_refs entries must be objects.');
+      continue;
+    }
+    if (!isSafeStandardsArtifactPath(ref.artifact_path, inputs)) {
+      addIssue(result.errors, 'invalid-source-fact-ref-path', 'next-action-candidates.json', 'source_fact_refs[].artifact_path must be a repo-relative standards artifact path.');
+    }
+    if (!hasText(ref.pointer)) {
+      addIssue(result.errors, 'invalid-source-fact-ref-pointer', 'next-action-candidates.json', 'source_fact_refs[].pointer is required.');
+    }
+    if (!['script_confirmed', 'provider_untrusted', 'llm_asserted'].includes(ref.classification)) {
+      addIssue(result.errors, 'invalid-source-fact-ref-classification', 'next-action-candidates.json', 'source_fact_refs[].classification is invalid.');
+    }
+    if ('raw_excerpt' in ref || 'raw_provider_output' in ref) {
+      addIssue(result.errors, 'raw-provider-excerpt-forbidden', 'next-action-candidates.json', 'source_fact_refs must not inline raw provider excerpts.');
+    }
+  }
+}
+
+function validateNextActionEvidencePaths(paths, inputs, result) {
+  if (!Array.isArray(paths) || paths.length === 0) {
+    addIssue(result.errors, 'invalid-next-action-evidence-paths', 'next-action-candidates.json', 'evidence_paths must be a non-empty array.');
+    return;
+  }
+  for (const evidencePath of paths) {
+    if (!isSafeStandardsArtifactPath(evidencePath, inputs)) {
+      addIssue(result.errors, 'invalid-next-action-evidence-path', 'next-action-candidates.json', 'evidence_paths entries must be repo-relative standards artifact paths.', {
+        path: evidencePath,
+      });
+      continue;
+    }
+    const absolutePath = resolveStandardsArtifactPath(evidencePath, inputs);
+    if (!isPathWithin(inputs.standardsDir, absolutePath)) {
+      addIssue(result.errors, 'invalid-next-action-evidence-path', 'next-action-candidates.json', 'evidence path escapes standards dir.', {
+        path: evidencePath,
+      });
+      continue;
+    }
+    let lstat;
+    try {
+      lstat = fs.lstatSync(absolutePath);
+    } catch (_error) {
+      addIssue(result.errors, 'missing-next-action-evidence-path', 'next-action-candidates.json', 'evidence path must point at a readable standards artifact.', {
+        path: evidencePath,
+      });
+      continue;
+    }
+    if (lstat.isSymbolicLink()) {
+      addIssue(result.errors, 'invalid-next-action-evidence-path', 'next-action-candidates.json', 'evidence path must not be a symlink.', {
+        path: evidencePath,
+      });
+      continue;
+    }
+    if (!lstat.isFile()) {
+      addIssue(result.errors, 'missing-next-action-evidence-path', 'next-action-candidates.json', 'evidence path must point at a readable standards artifact.', {
+        path: evidencePath,
+      });
+      continue;
+    }
+    let realStandardsDir;
+    let realArtifactPath;
+    try {
+      realStandardsDir = realpathSync(inputs.standardsDir);
+      realArtifactPath = realpathSync(absolutePath);
+    } catch (_error) {
+      addIssue(result.errors, 'missing-next-action-evidence-path', 'next-action-candidates.json', 'evidence path must point at a readable standards artifact.', {
+        path: evidencePath,
+      });
+      continue;
+    }
+    if (!isPathWithin(realStandardsDir, realArtifactPath)) {
+      addIssue(result.errors, 'invalid-next-action-evidence-path', 'next-action-candidates.json', 'evidence path realpath escapes standards dir.', {
+        path: evidencePath,
+      });
+      continue;
+    }
+    try {
+      fs.accessSync(absolutePath, fs.constants.R_OK);
+    } catch (_error) {
+      addIssue(result.errors, 'unreadable-next-action-evidence-path', 'next-action-candidates.json', 'evidence path must point at a readable standards artifact.', {
+        path: evidencePath,
+      });
+    }
+  }
+}
+
+function validateNextActionEntrypoints(entrypoints, result) {
+  if (!Array.isArray(entrypoints)) {
+    addIssue(result.errors, 'invalid-possible-entrypoints', 'next-action-candidates.json', 'possible_entrypoints must be an array.');
+    return;
+  }
+  for (const entrypoint of entrypoints) {
+    if (!PUBLIC_ENTRYPOINTS.has(entrypoint)) {
+      addIssue(result.errors, 'invalid-possible-entrypoint', 'next-action-candidates.json', `Unknown possible entrypoint: ${entrypoint}`);
+    }
+  }
+}
+
+function isSafeStandardsArtifactPath(value, inputs = {}) {
+  if (!hasText(value)) return false;
+  if (String(value).includes('\\')) return false;
+  const normalized = normalizePath(value);
+  if (path.isAbsolute(normalized)) return false;
+  if (normalized.includes('//')) return false;
+  if (normalized.split('/').includes('..')) return false;
+  if (normalized.startsWith('.claude/') || normalized.startsWith('.codex/') || normalized.startsWith('.agents/skills/')) return false;
+  if (normalized.startsWith('.spec-first/graph/') || normalized.startsWith('.spec-first/providers/')) return false;
+  if (!inputs.cwd || !inputs.standardsDir) return false;
+  const artifactName = path.posix.basename(normalized);
+  if (!NEXT_ACTION_ARTIFACT_NAMES.has(artifactName)) return false;
+  const absolutePath = path.resolve(inputs.cwd, normalized);
+  return isPathWithin(inputs.standardsDir, absolutePath)
+    && path.relative(path.resolve(inputs.standardsDir), absolutePath) === artifactName;
+}
+
+function resolveStandardsArtifactPath(value, inputs) {
+  return path.resolve(inputs.cwd || process.cwd(), normalizePath(value));
+}
+
+function realpathSync(filePath) {
+  return fs.realpathSync.native
+    ? fs.realpathSync.native(filePath)
+    : fs.realpathSync(filePath);
+}
+
+function isPathWithin(parent, child) {
+  const relative = path.relative(parent, child);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function validateEvidence(candidate, result) {

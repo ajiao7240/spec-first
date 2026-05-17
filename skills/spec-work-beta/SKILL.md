@@ -15,6 +15,40 @@ This command takes a work document (plan, task pack, or specification) or a bare
 
 **Beta rollout note:** Invoke `spec-work-beta` manually only when the current request explicitly asks to trial beta execution, Codex delegation, `delegate:codex`, or delegation mode. During the beta period, guide-mode recommendations, planning handoffs, and ordinary execution-ready work remain pointed at stable `spec-work` to avoid dual-path orchestration complexity.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use only for execution-ready work where the user explicitly wants beta delegation, `delegate:codex`, Codex delegation mode, or a deliberate Work Beta trial.
+
+### When Not To Use
+
+Do not use for ordinary stable work, unresolved plans, ambiguous repo scope, setup/update/graph refresh, or tasks whose write set cannot be safely bounded for delegation.
+
+### Inputs
+
+A plan/task/spec path or concrete work prompt, optional delegation tokens/config, target repo scope, project instructions, package/test context, nearby source/tests, and diff state.
+
+### Outputs
+
+Scoped implementation changes, delegate batch results when enabled, verification results, integration decisions owned by the orchestrator, and a compact completion handoff.
+
+### Artifacts
+
+Repo diff, tests/checks, delegate summaries, optional run evidence from the Phase 1B producer, and downstream review/PR artifacts when explicitly routed.
+
+### Failure Modes
+
+Ambiguous work document, unsafe delegation scope, conflicting delegation flags, stale graph for graph-heavy work, delegate failure, validation failure, or generated runtime mirror edits becoming necessary.
+
+### Workflow
+
+Triage input, resolve stable-vs-beta eligibility, validate repo/task boundaries, split bounded delegate batches only when safe, integrate results locally, verify, review, and close out.
+
+### Downstream Consumers
+
+Stable `spec-work`, `spec-code-review`, PR preparation, `spec-compound`, and humans evaluating whether beta delegation should graduate.
+
 ## Context Orientation Anchor
 
 Orient execution from the current user request, the plan or task pack, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. When parent-workspace read-only orientation needs repo candidates, use `workspace-graph-targets.v1` as advisory facts, prefer bounded candidate repos with `primary` status, and try GitNexus-first evidence per candidate before bounded direct repo reads. Treat `degraded-fallback` or definitions-only GitNexus results as pointers, not authority to change behavior. External tools may prioritize inspection, but they do not define scope authority. Delegate prompts should carry bounded direct repo-read context and explicit file boundaries, not graph work-run ids.
@@ -22,6 +56,12 @@ Orient execution from the current user request, the plan or task pack, `AGENTS.m
 ## Runtime Context Exclusion
 
 Follow `docs/contracts/context-governance.md`: ordinary Work Beta context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Do not pass those paths to delegates, reviewer handoff, or broad repo search unless the current task explicitly targets setup/update/runtime drift/audit evidence or the user names a precise runtime path; when excluded, record the path or reason instead of silently scanning it.
+
+## Run Artifact Boundary
+
+`docs/contracts/workflows/spec-work-run-artifact.schema.json` is the Phase 1B write-side contract for the internal producer `spec-first internal spec-work-run-artifact write --input <payload.json> --run-id <run-id> --target-repo <repo>`. `producer_available=true` only means the CLI can validate a supplied closeout payload and write `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json`; it does not mean stable Work Beta delegation is fully integrated. `workflow_integrated` remains false until the workflow itself calls the producer during closeout and fresh-source/fixture evidence proves that path.
+
+When durable evidence triggers apply (validated task-pack, long task, compaction/resume, degraded provider evidence, deferred follow-up, not-run validation, or review/compound/release handoff), closeout should call the producer or record why it could not. Final responses remain human summaries and must include the repo-relative run artifact path when a run artifact was written. On resume, first try to read the latest explicitly named run artifact; if no readable artifact is available, record `resume_evidence.status=not-found|not-readable|not-run` with a reason code. Do not treat run evidence as source scope authority, progress state, approval state, or a full replay index. Retention/prune now has a minimal deterministic consumer, but the artifact still is not the retention policy source of truth.
 
 ## Graph Freshness / Refresh Trigger Boundary
 

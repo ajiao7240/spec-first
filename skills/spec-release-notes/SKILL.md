@@ -9,6 +9,40 @@ disable-model-invocation: true
 
 Look up what shipped in recent spec-first releases. Bare invocation summarizes the last 5 spec-first releases. Argument invocation searches the last 40 releases and answers a specific question, citing the release version that introduced the change.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when the user asks what changed in recent spec-first releases or asks a version-cited question about a past release.
+
+### When Not To Use
+
+Do not use for creating a new release, editing changelog entries, package publishing, general web research, or non-spec-first projects.
+
+### Inputs
+
+Optional free-text question, version/since/until/topic filters, GitHub Releases API output from the helper, and release tag/body metadata.
+
+### Outputs
+
+A version-cited release summary or answer with links to full release notes and bounded rendered release body excerpts.
+
+### Artifacts
+
+No repo-local artifact; the helper returns transient JSON and the workflow renders a user-facing release-notes response.
+
+### Failure Modes
+
+Missing Python runtime, GitHub transport failure, rate limit/network outage, malformed helper output, or no matching spec-first release.
+
+### Workflow
+
+Parse filters, fetch filtered spec-first releases through the helper, render a recent summary or targeted answer, cap long bodies safely, and cite release URLs.
+
+### Downstream Consumers
+
+Humans deciding whether to update, `spec-update`, release triage, and support/debug conversations needing version provenance.
+
 Data comes from the GitHub Releases API for `sunrain520/spec-first`, filtered to the `spec-first-v*` tag prefix so sibling components (`cli-v*`, `coding-tutor-v*`, `marketplace-v*`, `cursor-marketplace-v*`) are excluded.
 
 ## Phase 1 — Parse Arguments

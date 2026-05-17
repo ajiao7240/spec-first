@@ -13,6 +13,40 @@ Captures problem solutions while context is fresh, creating structured documenta
 
 **Why "compound"?** Each documented solution compounds your team's knowledge. The first time you solve a problem takes research. Document it, and the next occurrence takes minutes. Knowledge compounds.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use after a real problem has just been solved and the reusable lesson is worth preserving for future agents or teammates.
+
+### When Not To Use
+
+Do not use for active debugging, unresolved implementation work, one-off cosmetic edits, raw transcript archiving, or as a mandatory completion gate.
+
+### Inputs
+
+The solved problem context, changed files/tests, final work/review summaries, optional session-history refs, existing `docs/solutions/` candidates, and support-file contracts.
+
+### Outputs
+
+One durable solution document, duplicate/related-doc notes, optional discoverability maintenance, and a concise evidence-backed summary.
+
+### Artifacts
+
+The primary artifact is one `docs/solutions/` learning document; instruction-file edits happen only when the discoverability check finds a concrete gap.
+
+### Failure Modes
+
+No solved problem, missing reusable lesson, unclear scope, duplicate documentation, unsafe raw evidence, unavailable subagent/session search, or YAML/schema validation failure.
+
+### Workflow
+
+Choose full or lightweight mode, gather bounded evidence, check existing learnings, write the solution doc, validate frontmatter, and report the reusable lesson and evidence paths.
+
+### Downstream Consumers
+
+`spec-plan`, `spec-work`, `spec-code-review`, `spec-sessions`, future compound-refresh runs, and humans searching `docs/solutions/`.
+
 ## Usage
 
 ```bash
@@ -43,6 +77,12 @@ Follow `docs/contracts/context-governance.md`: ordinary Compound research exclud
 ## Summary-First Handoff
 
 Consume upstream `artifact-summary.v1`-style summaries from `docs/contracts/artifact-summary.md` before opening full plans, reviews, work logs, session extracts, or raw artifacts. The durable compound output should capture the reusable lesson delta and evidence paths, not copy full upstream reports or raw tool output. If a summary is missing, record `summary_missing` and read the smallest explicit source path needed to verify the lesson.
+
+## Distilled Replay References
+
+When using session or prior-work evidence, prefer distilled replay refs over full history. A replay ref should name the source session/extract or upstream checkpoint, the accepted or rejected decision, the evidence path, and the relevance to the new learning. Rejected or out-of-scope rationale can be captured when it teaches a reusable boundary, but it must not become workflow status or a task completion claim.
+
+Do not build a durable replay index from compound. The durable output remains one learning document plus evidence paths; full transcripts, raw tool output, and complete review bundles stay out of the learning unless a short excerpt is necessary and safe.
 
 ## Execution Strategy
 

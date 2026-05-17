@@ -54,6 +54,12 @@ Follow `docs/contracts/context-governance.md`: ordinary Document Review context 
 
 Use `docs/contracts/context-bundle.md` and `docs/contracts/artifact-summary.md` as the handoff posture: reviewers should receive selected document sections, summaries, evidence paths, full-read triggers, and relevant pre-facts instead of an automatic full-document broadcast. Findings should map to the shared `review-finding.v1` minimum fields in `docs/contracts/workflows/review-finding.md`; workflow-specific fields may remain as extensions. Apply reviewer budgets and finding caps as context controls, never as permission to drop P0/P1 evidence silently.
 
+## Domain Language And Decision Ledger
+
+When document findings depend on domain terminology, project-specific concepts, or ADR-like decisions, consume existing context before asking questions or raising gaps that repo/docs can answer: project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, record the limitation in Coverage as advisory context rather than blocking document review.
+
+For major document decisions or open questions, carry a lightweight decision note: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when unresolved. Use source tags such as `confirmed`, `advisory`, `session-local`, `stale`, or `user`. Recommend an ADR-like artifact only when the decision is hard to reverse, would be surprising without context, and reflects a real tradeoff; do not create the artifact from review unless an explicit workflow route chooses that work.
+
 ## Graph Freshness / Refresh Trigger Boundary
 
 Before treating compiled graph facts or pre-facts as graph-fresh review evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, `.spec-first/impact/bootstrap-impact-capabilities.json`, provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Doc Review to rebuild providers.
@@ -124,6 +130,12 @@ For plan documents with `Origin` set, do not routinely re-review the upstream WH
 ### Select Conditional Personas
 
 Analyze the document content to determine which conditional personas to activate. Check for these signals:
+
+### Scale-Aware Document Review Posture
+
+Use the smallest reviewer posture that can still catch material risk. Low-risk docs-only edits, typo-level prose updates, and narrow task-pack metadata checks can use the minimum document-review set: `spec-coherence-reviewer`, `spec-maintainability-reviewer`, and `spec-scope-guardian-reviewer` when scope is relevant. High-risk workflow, contract, release, source/runtime boundary, provider evidence, security, or cross-module planning changes must use the full default document-review set plus applicable conditional personas. Record the selected posture (`minimum` or `full`) and the reason in Coverage.
+
+This is progressive disclosure, not evidence suppression. A minimum set does not drop known P0/P1 risks; if the document is broad, sensitive, unclear, or has prior unresolved findings, use the full set. Do not create a separate reviewer facts pipeline for this posture; reuse existing document sections, summary-first bundles, and review-pre-facts evidence.
 
 **product-lens** -- activate when the document makes challengeable claims about what to build and why, or when the proposed work carries strategic weight beyond the immediate problem. The system's users may be end users, developers, operators, maintainers, or any other audience -- the criteria are domain-agnostic. Check for either leg:
 
@@ -228,6 +240,8 @@ Add activated conditional personas:
 ### Dispatch Capability Gate
 
 Before dispatching any reviewer, confirm the current host exposes a dispatch primitive and the selected reviewers are part of this documented document-review phase. Dispatch capability is part of the runtime boundary, not a reviewer-selection preference.
+
+Reviewers are analysis agents, not implementation workers. Dispatch is bounded to document-review personas with the current document scope, selected sections, pre-facts, and output contract. Do not create hidden implement/check agents from document review. Autofix is limited to this workflow's documented `safe_auto` document edits; report-only fallback, user-requested no-agents mode, unsafe runtime, or missing dispatch capability must not edit documents or generated runtime mirrors.
 
 - A direct invocation of the current host's document-review workflow entrypoint authorizes this documented persona-reviewer phase; do not ask for a second "use subagents" confirmation.
 - Default doc-review posture is multi-persona reviewer dispatch. Do not interpret the absence of extra "use subagents" wording as report-only fallback; the workflow entrypoint already expresses that intent.

@@ -114,6 +114,22 @@ describe('spec-plan context orientation contract', () => {
     expect(text).not.toContain('selected_assets');
   });
 
+  test('consumes domain context before planning questions without fixed ADR directory mandates', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Domain Language And Decision Ledger');
+    expect(text).toContain('consume existing context before asking questions that repo/docs can answer');
+    expect(text).toContain('project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(text).toContain('repo-local glossary or ADR-like artifacts that actually exist');
+    expect(text).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
+    expect(text).toContain('If those artifacts are absent, record the gap as advisory context and continue');
+    expect(text).toContain('`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`');
+    expect(text).toContain('`confirmed`, `advisory`, `session-local`, `stale`, or `user`');
+    expect(text).toContain('hard to reverse, would be surprising without context, and reflects a real tradeoff');
+    expect(text).not.toContain('must use `CONTEXT.md`');
+    expect(text).not.toContain('must use `docs/adr/`');
+  });
+
   test('consumes canonical graph readiness facts without making them a planning gate', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
@@ -158,6 +174,18 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('successful, partial, or failed live MCP evidence');
     expect(text).toContain('bounded direct repo reads');
     expect(text).toContain('graph readiness is evidence context, not a planning gate');
+    expect(text).toContain('Use this intake order for context economy');
+    expect(text).toContain('first read the request/requirements summary and contract metadata');
+    expect(text).toContain('then deterministic inventory or readiness facts');
+    expect(text).toContain('then current phase/task refs');
+    expect(text).toContain('then focused source-of-truth sections');
+    expect(text).toContain('only then deeper references');
+    expect(text).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
+    expect(text).toContain('src/cli/helpers/review-pre-facts.js');
+    expect(text).toContain('do not create a parallel reviewer facts pipeline');
+    expect(text).toContain('provenance-backed rejected/out-of-scope rationale');
+    expect(text).toContain('advisory boundary evidence');
+    expect(text).toContain('do not turn rejected rationale into active workflow state');
     expect(text).toContain('stale graph + lightweight planning');
     expect(text).toContain('stale graph + graph-heavy planning');
     expect(text).toContain('shared helper/API/route/provider contract/core workflow/cross-module changes');
@@ -204,6 +232,18 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('If dispatch is unavailable, explicitly disabled, or unsafe');
     expect(text).toContain('perform the selected research sequentially in the current agent');
     expect(text).toContain('dispatch_fallback: inline-current-agent');
+  });
+
+  test('planning can recommend workers only behind a suitability gate', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Implementation Worker Suitability Gate');
+    expect(text).toContain('Planning may recommend later worker delegation, but it must not dispatch implementation workers or create a hidden implement/check lifecycle.');
+    expect(text).toContain('A worker is suitable only when the scope is clear, the write set can be bounded, verification commands are known, no product/architecture blocker remains, and no sensitive/security-critical ambiguity is unresolved.');
+    expect(text).toContain('If any condition is missing, keep the task local to `spec-work`, return to planning, or require a smaller task pack slice.');
+    expect(text).toContain('Review autofix and mutation are off unless a documented workflow mode or explicit user choice authorizes them.');
+    expect(text).not.toContain('always dispatch implementation workers');
+    expect(text).not.toContain('hidden implement/check lifecycle for every plan');
   });
 });
 

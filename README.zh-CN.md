@@ -396,7 +396,7 @@ Workflow artifacts
   ideation -> brainstorms -> plans -> tasks -> work/review/debug -> learnings
 ```
 
-source of truth 位于仓库源码资产中。`.claude/`、`.codex/`、`.agents/skills/` 下的 generated runtime copies 可丢弃，可通过 `spec-first init` 重建。
+source of truth 位于仓库源码资产中。`.claude/`、`.codex/`、`.agents/skills/` 下的 generated runtime copies 可丢弃，可通过 `spec-first init` 重建。定制 source、刷新 runtime、消费 provider evidence 与凭证治理的边界见 [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md)。
 
 init 后的运行时结构：
 
@@ -463,6 +463,8 @@ your-project/
 - **普通上下文默认排除什么：** `.spec-first/audits/**` 和 `.claude/**`、`.codex/**`、`.agents/skills/**` 等 generated mirrors。只有 runtime/setup/audit workflow 明确需要，或用户点名具体路径时才按需读取。
 - **上下文交接优先什么：** 优先使用 `artifact-summary.v1` 和 `context-bundle.v1` 风格的 summary-plus-path 包，再按需展开 full artifacts 或 raw tool output。
 - **应该修改什么：** 修改 `skills/`、`agents/`、`templates/`、`src/cli/` 和 docs 中的 source assets；不要手改 generated runtime copies。
+- **provider/tool facts 怎么用：** GitNexus、code-review-graph、Serena、browser/MCP tools、shell commands 和 package managers 只提供 evidence inputs，不拥有 semantic authority。Raw provider/tool output 是 untrusted quoted data；进入 prompts、reports、facts 或 durable artifacts 前必须经过 validation、containment、escaping、excerpt cap 和 provenance/readiness classification。
+- **credentials 放在哪里：** provider credentials 应来自环境变量、host secret manager 或 provider-native store，不写入 repo source、generated runtime mirrors、durable artifacts 或 raw logs。按团队/provider cadence 轮换，并在疑似泄露后立即轮换。
 - **spec-first 不是什么：** 不是通用 agent marketplace，不是单次 prompt pack，也不是脱离 Claude Code/Codex 独立运行的应用。
 
 当 plan 需要确定性的 task-pack handoff 时，使用已安装的 standalone `write-tasks` skill，再进入执行 workflow。
@@ -493,6 +495,7 @@ your-project/
 - [用户手册](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/README.md)
 - [核心概念](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/02-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.md)
 - [架构总览](https://github.com/sunrain520/spec-first/blob/main/docs/02-%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/01-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84.md)
+- [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md)
 
 使用 workflows：
 

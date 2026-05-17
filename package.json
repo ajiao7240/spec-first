@@ -41,6 +41,7 @@
     "docs/contracts/website-sync-contract.md",
     "docs/contracts/workflows/",
     "scripts/check-website-sync.cjs",
+    "scripts/check-release-continuity.cjs",
     "scripts/generate-runtime-capability-catalog.js",
     "scripts/lint-skill-entrypoints.config.json",
     "scripts/lint-skill-entrypoints.js",

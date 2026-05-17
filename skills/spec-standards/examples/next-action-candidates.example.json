@@ -1,0 +1,263 @@
+{
+  "schema_version": "spec-first.standards-next-action-candidates.v1",
+  "producer": "spec-standards.prepare-baseline",
+  "generated_at": "2026-05-17T00:00:00.000Z",
+  "scope": {
+    "type": "repo",
+    "root": ".",
+    "domains": [],
+    "modules": []
+  },
+  "source_artifacts": [
+    ".spec-first/standards/project-shape.json",
+    ".spec-first/standards/standards-plan.json",
+    ".spec-first/standards/glue-map.json"
+  ],
+  "artifact_boundary": "Workflow handoff facts only. The script does not rank, route, block, or choose a final recommended entrypoint.",
+  "candidates": [
+    {
+      "candidate_id": "next-action.baseline-ready",
+      "candidate_kind": "standards_baseline_ready",
+      "reason_code": "standards-facts-generated",
+      "source_fact_refs": [
+        {
+          "artifact_path": ".spec-first/standards/project-shape.json",
+          "pointer": "project.project.detected_type",
+          "classification": "script_confirmed"
+        },
+        {
+          "artifact_path": ".spec-first/standards/standards-plan.json",
+          "pointer": "synthesis_contract.downstream_consumers",
+          "classification": "script_confirmed"
+        },
+        {
+          "artifact_path": ".spec-first/standards/glue-map.json",
+          "pointer": "capabilities",
+          "classification": "script_confirmed"
+        }
+      ],
+      "evidence_paths": [
+        ".spec-first/standards/project-shape.json",
+        ".spec-first/standards/standards-plan.json",
+        ".spec-first/standards/glue-map.json"
+      ],
+      "possible_entrypoints": [
+        "/spec:plan",
+        "$spec-plan",
+        "/spec:work",
+        "$spec-work"
+      ],
+      "target_repo_scope": {
+        "type": "repo",
+        "repo": null,
+        "workspace_child": null,
+        "boundary": "target-repo-local"
+      },
+      "authority_level": "facts_only",
+      "provenance_classification": "script_confirmed",
+      "readiness_status": "ready",
+      "redaction_status": "none-required"
+    },
+    {
+      "candidate_id": "next-action.graph-readiness-missing",
+      "candidate_kind": "missing_graph_readiness",
+      "reason_code": "graph-readiness-artifacts-not-detected",
+      "source_fact_refs": [
+        {
+          "artifact_path": ".spec-first/standards/project-shape.json",
+          "pointer": "graph.status",
+          "classification": "script_confirmed"
+        }
+      ],
+      "evidence_paths": [
+        ".spec-first/standards/project-shape.json"
+      ],
+      "possible_entrypoints": [
+        "/spec:graph-bootstrap",
+        "$spec-graph-bootstrap"
+      ],
+      "target_repo_scope": {
+        "type": "repo",
+        "repo": null,
+        "workspace_child": null,
+        "boundary": "target-repo-local"
+      },
+      "authority_level": "facts_only",
+      "provenance_classification": "script_confirmed",
+      "readiness_status": "degraded",
+      "redaction_status": "none-required"
+    },
+    {
+      "candidate_id": "next-action.workspace-advisory-only",
+      "candidate_kind": "workspace_advisory_only",
+      "reason_code": "parent-workspace-artifacts-advisory",
+      "source_fact_refs": [
+        {
+          "artifact_path": ".spec-first/standards/standards-plan.json",
+          "pointer": "synthesis_contract.workspace_policy",
+          "classification": "script_confirmed"
+        }
+      ],
+      "evidence_paths": [
+        ".spec-first/standards/standards-plan.json"
+      ],
+      "possible_entrypoints": [
+        "/spec:standards",
+        "$spec-standards"
+      ],
+      "target_repo_scope": {
+        "type": "workspace",
+        "repo": null,
+        "workspace_child": null,
+        "boundary": "parent-workspace-advisory"
+      },
+      "authority_level": "facts_only",
+      "provenance_classification": "script_confirmed",
+      "readiness_status": "degraded",
+      "redaction_status": "none-required"
+    },
+    {
+      "candidate_id": "next-action.tests-not-detected",
+      "candidate_kind": "absent_tests",
+      "reason_code": "test-surface-not-detected",
+      "source_fact_refs": [
+        {
+          "artifact_path": ".spec-first/standards/project-shape.json",
+          "pointer": "domains.tests",
+          "classification": "script_confirmed"
+        }
+      ],
+      "evidence_paths": [
+        ".spec-first/standards/project-shape.json"
+      ],
+      "possible_entrypoints": [
+        "/spec:plan",
+        "$spec-plan",
+        "/spec:work",
+        "$spec-work"
+      ],
+      "target_repo_scope": {
+        "type": "repo",
+        "repo": null,
+        "workspace_child": null,
+        "boundary": "target-repo-local"
+      },
+      "authority_level": "facts_only",
+      "provenance_classification": "script_confirmed",
+      "readiness_status": "degraded",
+      "redaction_status": "none-required"
+    },
+    {
+      "candidate_id": "next-action.package-scripts-missing",
+      "candidate_kind": "missing_package_scripts",
+      "reason_code": "package-scripts-not-detected",
+      "source_fact_refs": [
+        {
+          "artifact_path": ".spec-first/standards/project-shape.json",
+          "pointer": "package_scripts",
+          "classification": "script_confirmed"
+        }
+      ],
+      "evidence_paths": [
+        ".spec-first/standards/project-shape.json"
+      ],
+      "possible_entrypoints": [
+        "/spec:plan",
+        "$spec-plan",
+        "/spec:work",
+        "$spec-work"
+      ],
+      "target_repo_scope": {
+        "type": "repo",
+        "repo": null,
+        "workspace_child": null,
+        "boundary": "target-repo-local"
+      },
+      "authority_level": "facts_only",
+      "provenance_classification": "script_confirmed",
+      "readiness_status": "missing",
+      "redaction_status": "none-required"
+    },
+    {
+      "candidate_id": "next-action.validation-stale-or-missing",
+      "candidate_kind": "stale_validation",
+      "reason_code": "trusted-standards-validation-not-detected",
+      "source_fact_refs": [
+        {
+          "artifact_path": ".spec-first/standards/standards-plan.json",
+          "pointer": "artifacts.generate",
+          "classification": "script_confirmed"
+        }
+      ],
+      "evidence_paths": [
+        ".spec-first/standards/standards-plan.json"
+      ],
+      "possible_entrypoints": [
+        "/spec:standards",
+        "$spec-standards"
+      ],
+      "target_repo_scope": {
+        "type": "repo",
+        "repo": null,
+        "workspace_child": null,
+        "boundary": "target-repo-local"
+      },
+      "authority_level": "facts_only",
+      "provenance_classification": "script_confirmed",
+      "readiness_status": "missing",
+      "redaction_status": "none-required"
+    },
+    {
+      "candidate_id": "next-action.child-repo-ambiguity",
+      "candidate_kind": "child_repo_ambiguity",
+      "reason_code": "multiple-child-repos-detected",
+      "source_fact_refs": [
+        {
+          "artifact_path": ".spec-first/standards/project-shape.json",
+          "pointer": "workspace.child_repos",
+          "classification": "script_confirmed"
+        }
+      ],
+      "evidence_paths": [
+        ".spec-first/standards/project-shape.json"
+      ],
+      "possible_entrypoints": [
+        "/spec:standards",
+        "$spec-standards"
+      ],
+      "target_repo_scope": {
+        "type": "workspace_children",
+        "repo": null,
+        "workspace_child": null,
+        "boundary": "target-repo-local"
+      },
+      "authority_level": "facts_only",
+      "provenance_classification": "script_confirmed",
+      "readiness_status": "degraded",
+      "redaction_status": "none-required"
+    }
+  ],
+  "non_goals": [
+    "target_entrypoint",
+    "ranking",
+    "blocking_policy",
+    "mode_matrix",
+    "workflow_recommendation"
+  ],
+  "downstream_consumers": [
+    {
+      "workflow": "spec-plan",
+      "consume": [
+        "project-shape.json",
+        "standards-candidates.json"
+      ]
+    },
+    {
+      "workflow": "spec-work",
+      "consume": [
+        "standards-candidates.json",
+        "glue-map.json"
+      ]
+    }
+  ]
+}

@@ -58,6 +58,78 @@ function mutatePreview(dir, mutate) {
   fs.writeFileSync(filePath, mutate(preview), 'utf8');
 }
 
+function validNextActionCandidates() {
+  return {
+    schema_version: 'spec-first.standards-next-action-candidates.v1',
+    producer: 'spec-standards.prepare-baseline',
+    generated_at: '2026-05-17T00:00:00.000Z',
+    scope: {
+      type: 'repo',
+      root: '.',
+      domains: [],
+      modules: [],
+    },
+    source_artifacts: [
+      'project-shape.json',
+      'standards-plan.json',
+      'glue-map.json',
+    ],
+    artifact_boundary: 'Workflow handoff facts only. The script does not rank, route, block, or choose a final recommended entrypoint.',
+    candidates: [
+      {
+        candidate_id: 'next-action.baseline-ready',
+        candidate_kind: 'standards_baseline_ready',
+        reason_code: 'standards-facts-generated',
+        source_fact_refs: [
+          {
+            artifact_path: 'project-shape.json',
+            pointer: 'project.project.detected_type',
+            classification: 'script_confirmed',
+          },
+        ],
+        evidence_paths: [
+          'project-shape.json',
+          'standards-plan.json',
+          'glue-map.json',
+        ],
+        possible_entrypoints: ['/spec:plan', '$spec-plan', '/spec:work', '$spec-work'],
+        target_repo_scope: {
+          type: 'repo',
+          repo: null,
+          workspace_child: null,
+          boundary: 'target-repo-local',
+        },
+        authority_level: 'facts_only',
+        provenance_classification: 'script_confirmed',
+        readiness_status: 'ready',
+        redaction_status: 'none-required',
+      },
+    ],
+    non_goals: [
+      'target_entrypoint',
+      'ranking',
+      'blocking_policy',
+      'mode_matrix',
+      'workflow_recommendation',
+    ],
+    downstream_consumers: [],
+  };
+}
+
+function writeNextActionCandidates(dir, mutate = null) {
+  const filePath = path.join(dir, 'next-action-candidates.json');
+  const doc = validNextActionCandidates();
+  if (mutate) mutate(doc);
+  writeJson(filePath, doc);
+  return filePath;
+}
+
+function writeNextActionEvidenceFiles(dir) {
+  writeJson(path.join(dir, 'project-shape.json'), { schema_version: 'spec-first.project-shape.v1' });
+  writeJson(path.join(dir, 'standards-plan.json'), { schema_version: 'spec-first.standards-plan.v1' });
+  writeJson(path.join(dir, 'glue-map.json'), { schema_version: 'spec-first.glue-map.v1' });
+}
+
 function reasonCodes(result) {
   return [
     ...((result.json && result.json.errors) || []),
@@ -281,7 +353,125 @@ describe('spec-standards artifact validator', () => {
 
     expect(result.status).toBe(2);
     expect(result.stdout).toBe('');
-    expect(result.stderr).toContain('Either --standards-dir or both --candidates and --preview are required.');
+    expect(result.stderr).toContain('Either --standards-dir, --next-action-candidates, or both --candidates and --preview are required.');
+  });
+
+  test('standalone next-action candidates validation passes without standards candidates or preview', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-next-action-valid-'));
+    try {
+      writeNextActionEvidenceFiles(dir);
+      writeNextActionCandidates(dir);
+
+      const result = runValidator(['--next-action-candidates', 'next-action-candidates.json', '--json'], dir);
+      expect(result.status).toBe(0);
+      expect(result.json.status).toBe('pass');
+      expect(result.json.checked).toEqual(expect.objectContaining({
+        candidates: null,
+        preview: null,
+        next_action_candidates: 'next-action-candidates.json',
+      }));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('next-action candidates reject unknown schema and single target entrypoint', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-next-action-schema-'));
+    try {
+      writeNextActionCandidates(dir, (doc) => {
+        doc.schema_version = 'wrong';
+        doc.target_entrypoint = '$spec-work';
+        doc.candidates[0].target_entrypoint = '$spec-work';
+        doc.candidates[0].ranking = 1;
+        doc.candidates[0].blocking_policy = 'block';
+        doc.candidates[0].recommended_entrypoint = '$spec-work';
+      });
+
+      const result = runValidator(['--next-action-candidates', 'next-action-candidates.json', '--json'], dir);
+      expect(result.status).toBe(1);
+      expectReason(result, 'invalid-next-action-schema-version');
+      expectReason(result, 'next-action-decision-field-forbidden');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('next-action candidates reject malformed candidate fields', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-next-action-malformed-'));
+    try {
+      writeNextActionEvidenceFiles(dir);
+      writeNextActionCandidates(dir, (doc) => {
+        doc.candidates[0].candidate_kind = 'workflow_recommendation';
+        doc.candidates[0].authority_level = 'hard_rule';
+        doc.candidates[0].possible_entrypoints = ['$spec-private'];
+        delete doc.candidates[0].reason_code;
+      });
+
+      const result = runValidator(['--next-action-candidates', 'next-action-candidates.json', '--json'], dir);
+      expect(result.status).toBe(1);
+      expectReason(result, 'missing-next-action-field');
+      expectReason(result, 'invalid-next-action-kind');
+      expectReason(result, 'invalid-next-action-authority');
+      expectReason(result, 'invalid-possible-entrypoint');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('next-action candidates reject forbidden decision fields nested below the top level', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-next-action-nested-forbidden-'));
+    try {
+      writeNextActionEvidenceFiles(dir);
+      writeNextActionCandidates(dir, (doc) => {
+        doc.candidates[0].target_repo_scope.target_entrypoint = '$spec-work';
+      });
+
+      const result = runValidator(['--next-action-candidates', 'next-action-candidates.json', '--json'], dir);
+      expect(result.status).toBe(1);
+      expectReason(result, 'next-action-decision-field-forbidden');
+      const flagged = result.json.errors
+        .filter((entry) => entry.reason_code === 'next-action-decision-field-forbidden')
+        .map((entry) => entry.field);
+      expect(flagged).toEqual(expect.arrayContaining(['target_repo_scope.target_entrypoint']));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('next-action candidates reject unsafe evidence paths and raw source refs', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-next-action-paths-'));
+    try {
+      writeNextActionEvidenceFiles(dir);
+      writeNextActionCandidates(dir, (doc) => {
+        doc.candidates[0].evidence_paths = [
+          '/tmp/project-shape.json',
+          '.spec-first/standards/../outside.json',
+        ];
+        doc.candidates[0].source_fact_refs[0].artifact_path = '../project-shape.json';
+        doc.candidates[0].source_fact_refs[0].raw_provider_output = 'provider dump';
+      });
+
+      const result = runValidator(['--next-action-candidates', 'next-action-candidates.json', '--json'], dir);
+      expect(result.status).toBe(1);
+      expectReason(result, 'invalid-next-action-evidence-path');
+      expectReason(result, 'invalid-source-fact-ref-path');
+      expectReason(result, 'raw-provider-excerpt-forbidden');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('next-action candidates reject missing readable evidence artifacts', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-next-action-missing-evidence-'));
+    try {
+      writeNextActionCandidates(dir);
+
+      const result = runValidator(['--next-action-candidates', 'next-action-candidates.json', '--json'], dir);
+      expect(result.status).toBe(1);
+      expectReason(result, 'missing-next-action-evidence-path');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('unmapped allowed statuses cannot silently become hard context', () => {

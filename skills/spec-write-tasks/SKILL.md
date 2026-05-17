@@ -10,6 +10,40 @@ argument-hint: "[plan doc path, task-pack path, or task-splitting request]"
 
 It does not execute code. It compresses a settled plan into a task pack that is easier for `spec-work` to consume, reducing context load and making dependencies, file boundaries, verification focus, and parallelization opportunities explicit.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when a settled source plan is too large or dependent for direct execution, when the user explicitly asks to split a plan into tasks, or when an existing task pack needs validation before `spec-work`.
+
+### When Not To Use
+
+Do not use for unresolved product or architecture scope, small changes that do not need a derived layer, remote repositories or package names, or implementation prompts that should go directly to `spec-work`.
+
+### Inputs
+
+A local source plan path, existing task-pack path, or task-splitting request; focused source-plan sections; repo scope facts; nearby files/tests only when needed to make execution slices accurate.
+
+### Outputs
+
+Either an executable derived task pack, a validated existing task-pack handoff, a skip decision, a return-to-plan handoff, or a draft-only non-executable task outline.
+
+### Artifacts
+
+Derived task packs under `docs/tasks/` when compilation is worthwhile. Task packs are derived execution indexes and never replace the source plan.
+
+### Failure Modes
+
+Missing or stale source plan hash, missing `spec_id`, wrong-chain task pack, ambiguous target repo, unverifiable hash tooling, or scope questions that belong back in `spec-plan`.
+
+### Workflow
+
+Classify input, verify source-plan identity and repo scope, decide compile/skip/return/draft, use bounded source orientation, write task cards and validation metadata, then return a final decision envelope.
+
+### Downstream Consumers
+
+`spec-work`, human reviewers checking execution readiness, and later code-review/compound workflows that consume the completed work summary.
+
 ## Purpose
 
 Use this skill to decide whether task compilation is worthwhile, compile a task pack from a settled source plan when it is, or validate an existing task pack before execution. It preserves `spec-plan` as the single source of truth and keeps task packs as optional derived handoff artifacts.
@@ -41,10 +75,12 @@ When skipping, say explicitly that this is not an omission; this case does not n
 3. A task pack may only rearrange execution slices. It must not change scope, acceptance criteria, or non-goals.
 4. A task pack that can be handed to `spec-work` must include `spec_id`, verifiable `source_plan`, and `source_plan_hash` metadata so wrong-chain or stale tasks are not executed silently.
 5. `spec-write-tasks` does not introduce its own lifecycle hook. Context references and review intent may appear only as `context_refs`, `entry_hint`, `test_focus`, `review_gate`, `review_focus`, or orientation evidence; `spec-work` later executes from the source plan or task-pack handoff using direct repo reads.
-6. Each task should solve one clear subproblem and should usually have one primary verification target.
-7. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
-8. Source reads before task-pack generation must be bounded source orientation: use targeted direct repo reads first, read `.spec-first/standards/standards-candidates.json`, `.spec-first/standards/standards-preview.md`, validation result, and `glue-map.json` when present as context refs, optionally use Serena/LSP when available, and stop once task boundaries are accurate enough. Standards consumption contract: `confirmed` -> hard task constraint only when consistent with the source plan; `observed` / `imported` / `suggested` -> advisory context refs; `conflict` -> risk context; `unknown` -> question context. Validator fail, missing validator result, `trust_level=degraded`, `consumption_boundary=advisory_only`, or `workspace-advisory-only` means standards artifacts are degraded/advisory only. `glue-map.json` supports reuse-first task shaping and must not become a workflow state machine or expand source-plan scope. See `docs/examples/standards-glue-consumption-examples.md` for concrete examples; examples are context guidance, not task schema.
-9. If the source plan was created from a parent workspace, it must carry a top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work. If repo scope is missing, return to `spec-plan`; do not invent child repo targets while deriving tasks.
+6. `context_refs` must point to the smallest useful section, file, test, contract, or pattern reference. They are bounded reading pointers, not scope authority; whole-plan or whole-directory refs are low-quality handoff unless paired with narrower anchors.
+7. Each task should solve one clear subproblem and should usually have one primary verification target.
+8. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
+9. Source reads before task-pack generation must be bounded source orientation: use targeted direct repo reads first, read `.spec-first/standards/standards-candidates.json`, `.spec-first/standards/standards-preview.md`, validation result, and `glue-map.json` when present as context refs, optionally use Serena/LSP when available, and stop once task boundaries are accurate enough. Standards consumption contract: `confirmed` -> hard task constraint only when consistent with the source plan; `observed` / `imported` / `suggested` -> advisory context refs; `conflict` -> risk context; `unknown` -> question context. Validator fail, missing validator result, `trust_level=degraded`, `consumption_boundary=advisory_only`, or `workspace-advisory-only` means standards artifacts are degraded/advisory only. `glue-map.json` supports reuse-first task shaping and must not become a workflow state machine or expand source-plan scope. See `docs/examples/standards-glue-consumption-examples.md` for concrete examples; examples are context guidance, not task schema.
+10. If the source plan was created from a parent workspace, it must carry a top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work. If repo scope is missing, return to `spec-plan`; do not invent child repo targets while deriving tasks.
+11. Prefer independently verifiable vertical slices over horizontal layers when the source plan permits it. A good slice closes one behavior with implementation, verification, and any necessary docs/config evidence. Docs-only and config-only tasks should use docs contract checks, schema/help/render checks, or diff-shape checks; do not force TDD where no behavior-bearing code changes.
 
 ## Inputs
 
@@ -83,6 +119,8 @@ When the input is `docs/plans/*-plan.md` or another explicit plan file:
 ### Bounded Source Orientation
 
 Before writing task cards, you may inspect code only until task boundaries are accurate enough.
+
+Use this intake order for context economy: first read the plan/task summary and contract metadata, then deterministic inventory or validation facts, then current task/phase refs, then focused source-of-truth sections, and only then deeper references. Reuse the trust model in `docs/contracts/workflows/review-pre-facts-extraction.md` and `src/cli/helpers/review-pre-facts.js` for review/token-economy facts; do not create a parallel reviewer facts pipeline.
 
 Provider order:
 
@@ -150,10 +188,10 @@ This is an LLM semantic analysis order, not a script state machine. It does not 
 
 1. Extract source anchors: list requirements, scope boundaries, implementation units, files, verification, and deferred unknowns.
 2. Identify foundations: find shared schemas, contracts, adapters, fixtures, test helpers, and CLI surfaces.
-3. Identify executable slices: decide whether each unit should remain one task, split into story tasks, or merge with a nearby unit.
+3. Identify executable slices: decide whether each unit should remain one task, split into vertical story tasks, or merge with a nearby unit. Avoid horizontal "all tests first, then all implementation" waves when independent vertical tracer bullets can be verified.
 4. Build the dependency graph: record only real output dependencies, not preferred ordering.
 5. Assign waves: avoid shared files inside a wave; executable task packs must serialize overlapping files into different waves because deterministic validation rejects same-wave file overlap.
-6. Write task cards: each task must state goal, files, context_refs, test_focus, done_signal, and stop_if.
+6. Write task cards: each task must state goal, files, granular `context_refs`, test_focus, done_signal, and stop_if.
 7. Run the quality pass: check traceability, scope, granularity, dependency accuracy, verification, and consumption readiness.
 
 ### Quality Pass Before Output
@@ -168,7 +206,7 @@ Before outputting a task pack, verify:
 - no task is so small that it cannot be verified independently,
 - dependencies represent real dependencies rather than ordering preference,
 - same-wave tasks have no unmarked file overlap,
-- every task has a concrete `test_focus` and observable `done_signal`,
+- every task has granular `context_refs`, a concrete `test_focus`, and observable `done_signal`,
 - every task has a specific `stop_if` that can prevent scope creep.
 
 See [Task Quality Guide](references/task-quality-guide.md) for detailed quality guidance.
@@ -276,7 +314,7 @@ Every executable task card must express:
 
 Add these quality fields when useful, but do not imply the CLI validator proves their semantic adequacy:
 
-- `context_refs`: plan sections, code patterns, contracts, research, or references the executor must read.
+- `context_refs`: specific plan sections, source files, tests, contracts, pattern docs, or research notes the executor must read. Prefer section/file/test/contract granularity. A whole-plan ref is low quality unless it is paired with narrower anchors, and a whole-directory ref is acceptable only when the source plan explicitly makes that directory the bounded surface.
 - `entry_hint`: where to start reading; not a step-by-step implementation script.
 - `parallelizable`: whether the task can run in parallel.
 - `expected_side_effects`: optional repo-relative exact paths or bounded globs that may be touched in addition to `files`, such as lockfiles, generated fixtures, or formatter-adjacent files. Do not use `**` whole-repo globs. This is an explicit staging allowlist, not extra product scope.

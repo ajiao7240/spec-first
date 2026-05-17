@@ -9,6 +9,40 @@ argument-hint: "[PR number, branch name, or blank for current branch]"
 
 Start the dev server, open the feature in a browser, and iterate. You use the feature, say what feels off, and fixes happen.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when a browser-visible UI exists and the user explicitly wants an interactive polish loop on the current branch or a named PR/branch.
+
+### When Not To Use
+
+Do not use for non-UI code, backend-only work, headless code review, production deployment, or when the current branch is main/master.
+
+### Inputs
+
+Current branch or PR/branch argument, launch config or detected project type, package manager/port facts, dev-server command, browser URL, and user polish feedback.
+
+### Outputs
+
+Applied UI polish changes, dev-server URL/status, browser observations when requested, and a final commit when the user says the polish pass is done.
+
+### Artifacts
+
+Temporary dev-server log files and source changes in the target app; no durable spec-first audit artifact is promised.
+
+### Failure Modes
+
+Unsafe branch, missing launch/start command, dependency/server startup failure, port conflict, unavailable browser helper, or user stops the loop.
+
+### Workflow
+
+Resolve the branch, start the dev server, open or print the browser URL, iterate on user-visible feedback, verify hot reload or browser state, and commit when done.
+
+### Downstream Consumers
+
+Human UI reviewers, `spec-code-review`, PR preparation, and product/design stakeholders checking the polished experience.
+
 ## Phase 0: Get on the right branch
 
 1. If a PR number or branch name was provided, check it out (probe for existing worktrees first).

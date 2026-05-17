@@ -186,7 +186,7 @@ These fields should be added when useful for context compression, review, or wor
 
 | Field | Meaning |
 | --- | --- |
-| `context_refs` | Plan sections, code patterns, contracts, research, or references the executor must read |
+| `context_refs` | Specific plan sections, source files, tests, contracts, pattern docs, or research notes the executor must read; bounded reading pointers, not scope authority |
 | `entry_hint` | Suggested place to begin reading; not implementation steps |
 | `parallelizable` | Boolean hint for whether the task can run in parallel |
 | `expected_side_effects` | Explicit side-effect allowlist for delegation staging, such as a lockfile, generated fixture, or formatter-adjacent file; this is not extra scope |
@@ -212,8 +212,9 @@ These fields should be added when useful for context compression, review, or wor
   requirement_refs:
     - R1
   context_refs:
-    - docs/plans/...#Implementation-Units
-    - skills/spec-work/SKILL.md
+    - docs/plans/example-plan.md#U2-Task-pack-source-plan-focused-read
+    - skills/spec-work/SKILL.md#Phase-1-Quick-Start
+    - tests/unit/spec-work-contracts.test.js
   entry_hint: Start with the plan's Requirements and Scope Boundaries
   test_focus: Minimal happy path for core behavior
   done_signal: Relevant tests pass and the boundary is stable
@@ -242,6 +243,10 @@ Rules:
 - Do not treat current code state as a substitute for source-plan authority or bounded source reading.
 - Use targeted direct repo reads as the default orientation provider.
 - Serena/LSP is an optional orientation provider and must be recorded as advisory evidence when used.
+
+## Source/Runtime File Boundary
+
+Task `files` and `expected_side_effects` must point at source-of-truth or allowed generated artifacts, not generated host runtime mirrors. Executable handoff must reject `.claude/**`, `.codex/**`, and `.agents/skills/**` task file ownership because runtime mirrors are regenerated from source and must not be hand-edited as source fixes.
 
 ## Task Organization Views
 
@@ -300,6 +305,7 @@ Scripts may check:
 - MVP required task fields, including `stop_if`, are present and structurally valid,
 - dependencies point to existing tasks,
 - files use concrete repo-relative paths,
+- task files do not point at generated runtime mirrors such as `.claude/**`, `.codex/**`, or `.agents/skills/**`,
 - expected_side_effects, when present, use repo-relative exact paths or bounded globs and never `**` whole-repo globs,
 - each task is listed in exactly one matching execution wave,
 - same-wave file overlap is absent or serialized.

@@ -441,6 +441,27 @@ describe('task pack hash and validation', () => {
     }
   });
 
+  test('task files reject generated runtime mirror paths', () => {
+    const tmp = copyFixtureProject();
+    try {
+      const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+      replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.tasks[0].files = [
+          '.claude/commands/spec/work.md',
+          '.codex/skills/spec-work/SKILL.md',
+          '.agents/skills/spec-work/SKILL.md',
+        ];
+      });
+
+      const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(result.deterministic_handoff).toBe(false);
+      expect(result.errors.filter((error) => error.code === 'task-pack-task-file-generated-runtime')).toHaveLength(3);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   test('task pack contract must include at least one task and execution wave', () => {
     const tmp = copyFixtureProject();
     try {
@@ -507,13 +528,13 @@ describe('task pack hash and validation', () => {
     try {
       const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
       replaceTaskPackContract(taskPackPath, (contract) => {
-        contract.tasks[0].expected_side_effects = ['**/*.json', '../outside.env', '/tmp/secret.env'];
+        contract.tasks[0].expected_side_effects = ['**/*.json', '../outside.env', '/tmp/secret.env', '.agents/skills/spec-work/SKILL.md'];
       });
 
       const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
 
       expect(result.deterministic_handoff).toBe(false);
-      expect(result.errors.filter((error) => error.code === 'task-pack-task-expected-side-effect-invalid')).toHaveLength(3);
+      expect(result.errors.filter((error) => error.code === 'task-pack-task-expected-side-effect-invalid')).toHaveLength(4);
       expect(result.limitations.map((limitation) => limitation.code)).not.toContain('task-pack-task-unknown-field');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });

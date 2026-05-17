@@ -16,6 +16,40 @@ This skill does not implement code. It explores, clarifies, and documents decisi
 
 **IMPORTANT: All file references in generated documents must use repo-relative paths (e.g., `src/models/user.rb`), never absolute paths. Absolute paths break portability across machines, worktrees, and teammates.**
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when product behavior, problem framing, user goals, success criteria, or scope boundaries are still open enough that planning would otherwise invent WHAT to build.
+
+### When Not To Use
+
+Do not use for settled implementation work, code debugging, document/code review, setup/update/runtime repair, or narrow factual questions that can be answered directly.
+
+### Inputs
+
+A feature idea, problem statement, vague improvement request, existing brainstorm document, relevant repo/product context, and user decisions gathered one question at a time.
+
+### Outputs
+
+A right-sized requirements document or brief alignment summary that captures user-facing behavior, goals, non-goals, risks, and planning handoff context.
+
+### Artifacts
+
+Requirements or brainstorm documents under `docs/brainstorms/` when durable handoff is useful. Generated runtime mirrors are not source artifacts for brainstorm output.
+
+### Failure Modes
+
+Missing feature description, unresolved product choice after reasonable questioning, non-software topic needing the universal flow, or a request that is already execution-ready and should route downstream.
+
+### Workflow
+
+Assess scope and domain, ask focused questions, synthesize options and decisions, write the durable requirements artifact when useful, then hand off to planning.
+
+### Downstream Consumers
+
+`spec-plan`, human product owners, document reviewers, and future work/review flows that need stable WHAT/WHY context.
+
 ## Core Principles
 
 1. **Assess scope first** - Match the amount of ceremony to the size and ambiguity of the work.
@@ -39,6 +73,12 @@ These rules apply to every brainstorm, including the universal (non-software) fl
 
 - **Keep outputs concise** - Prefer short sections, brief bullets, and only enough detail to support the next decision.
 - **Use repo-relative paths** - When referencing files, use paths relative to the repo root (e.g., `src/models/user.rb`), never absolute paths. Absolute paths make documents non-portable across machines and teammates.
+
+## Domain Language And Decision Ledger
+
+When the idea involves domain terminology, team-specific concepts, or ADR-like choices, consume existing context before asking questions that repo/docs can answer: project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, record the gap as advisory context and continue with the best available evidence.
+
+For major open decisions, carry a lightweight decision note: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when unresolved. Use source tags such as `confirmed`, `advisory`, `session-local`, `stale`, or `user`. Suggest creating an ADR-like artifact only when the decision is hard to reverse, would be surprising without context, and reflects a real tradeoff.
 
 ## Feature Description
 

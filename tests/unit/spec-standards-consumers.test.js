@@ -112,6 +112,15 @@ describe('spec-standards downstream consumer contract', () => {
     }
   });
 
+  test('standards handoff facts do not replace LLM workflow recommendation judgment', () => {
+    const skill = read(path.join(REPO_ROOT, 'skills/spec-standards/SKILL.md'));
+
+    expect(skill).toContain('next-action-candidates.json');
+    expect(skill).toContain('Scripts may write candidate facts, reason codes, source fact refs, evidence paths, and possible public entrypoint sets');
+    expect(skill).toContain('scripts must not write a single `target_entrypoint`, ranking, blocking policy, or final workflow recommendation');
+    expect(skill).toContain('The LLM consumes the facts and chooses any human recommendation.');
+  });
+
   test('planning workflow consumes standards with trusted degraded and glue boundaries', () => {
     const skill = read(SPEC_PLAN_PATH);
 

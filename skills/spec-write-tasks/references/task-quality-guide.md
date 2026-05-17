@@ -39,6 +39,8 @@ Every executable task should point back to at least one deterministic source anc
 
 Use `context_refs` for the smallest plan sections, contracts, research notes, or code patterns the executor must read. Current deterministic validation treats `context_refs` as auxiliary context, not as a replacement for `source_unit` or `requirement_refs`.
 
+High-quality `context_refs` use section/file/test/contract granularity, for example a plan heading, a specific skill reference file, a test file, or a contract doc. A whole-plan ref is low quality unless paired with narrower anchors, and a whole-directory ref is acceptable only when the source plan explicitly makes that directory the bounded surface.
+
 Every requirement should be covered by at least one task unless it is explicitly `non-goal`, `already satisfied`, or `deferred`.
 
 Traceability should be short. Do not copy the requirement body into the task pack.
@@ -65,6 +67,16 @@ Merge tasks when:
 - each split item is too small to verify independently,
 - they are consecutive changes in the same file,
 - implementation and tests form one natural closed loop.
+
+## Vertical Slice And Feedback Loop Rules
+
+Prefer tasks that form independently verifiable vertical slices. A vertical tracer bullet includes the smallest implementation path, verification loop, and necessary docs/config evidence for one behavior before broadening to the next behavior.
+
+Acceptable feedback loops include failing or characterization tests, CLI invocations, HTTP/browser scripts, trace replay, throwaway harnesses, property/fuzz loops, docs contract checks, schema/help/render checks, or other focused commands tied to the task's `done_signal`.
+
+Docs-only and config-only tasks are not forced into TDD. They still need observable checks, but those checks can be document contract tests, generated catalog diffs, schema validation, help text snapshots, or diff-shape review.
+
+Horizontal slicing smell: a task pack that writes all tests for every unit first, then all implementation, then all docs makes feedback late and hides integration risk. Split into vertical slices unless the source plan explicitly requires a shared foundation before any slice can run.
 
 ## Dependency and Wave Rules
 
@@ -104,7 +116,7 @@ Use these field-level checks before handing a task pack to `spec-work`:
 
 | Field | Good value | Reject or revise when |
 | --- | --- | --- |
-| `context_refs` | Names the smallest plan sections, code files, contracts, or pattern docs needed for this task; auxiliary to `source_unit` / `requirement_refs` | It points only to the whole plan, lists every reference, omits code/context needed to understand file boundaries, or is used as the only executable source anchor |
+| `context_refs` | Names the smallest plan sections, code files, tests, contracts, or pattern docs needed for this task; auxiliary to `source_unit` / `requirement_refs` | It points only to the whole plan, lists every reference, omits code/context needed to understand file boundaries, uses a whole directory without a plan-declared bounded surface, or is used as the only executable source anchor |
 | `orientation_evidence` | Records provider, posture, evidence_refs, and limitations for bounded source orientation used to compile task boundaries | It claims LSP/direct reads as scope authority, omits limitations, or lists broad repo exploration with no task-boundary impact |
 | `entry_hint` | Names where to start reading, such as a source section, helper, schema, or existing test pattern | It becomes a step-by-step implementation script or shell-command choreography |
 | `expected_side_effects` | Names narrow repo-relative side effects such as a lockfile, generated fixture, or formatter-adjacent file; uses bounded globs only when exact paths are not available | It expands product scope, includes secrets/env files without an explicit plan reason, uses `**`, or duplicates broad `files` ownership |
@@ -125,6 +137,7 @@ When reviewing a task pack, check:
 - identity and freshness can be validated with `spec-first tasks validate --json`,
 - every task has a source anchor through `source_unit` or `requirement_refs`,
 - every task has concrete repo-relative `files`,
+- task `files` avoid generated runtime mirrors such as `.claude/**`, `.codex/**`, and `.agents/skills/**`,
 - `expected_side_effects` is absent or limited to explicit side effects; it never uses `**` whole-repo globs,
 - same-wave tasks do not share files,
 - Orientation Evidence names provider, posture, evidence_refs, and limitations without turning LSP/current code state into source-plan scope,
@@ -178,9 +191,11 @@ Bad stop signals:
 | Dependencies encode preference | Reduces parallelism | Keep only real output dependencies |
 | `files` uses broad globs, directories, or shorthand paths | Execution boundary is weak and deterministic validation cannot prove overlap safely | Use non-empty concrete repo-relative POSIX file paths |
 | `context_refs` lists everything | Executor still has to read the whole plan | Keep only task-critical refs |
+| `context_refs` points only to a whole plan or whole directory | Task pack fails to reduce intake context and can blur source-plan anchors | Add specific section, file, test, or contract refs |
 | Orientation Evidence is missing or overclaims | Executor cannot tell why boundaries are accurate, or evidence becomes a second plan | Record bounded provider/evidence/limitations and keep the source plan authoritative |
 | `done_signal` is subjective | Cannot verify completion | Use test, diff, CLI, docs, or review signals |
 | `stop_if` is vague | Cannot stop scope creep | Name concrete out-of-scope triggers |
+| Horizontal all-tests-then-all-implementation slicing | Feedback arrives too late and integration risk is hidden | Prefer vertical tracer bullets with one behavior, verification loop, and docs/config evidence closed together |
 | `review_gate` is required by default | Creates review noise and encourages executors to bypass the field | Reserve `required` for high-risk or dependency-unblocking tasks; use `optional` sparingly and omit for low-risk tasks |
 | `review_focus` repeats test focus | Review loses a distinct risk lens | Name the contract, boundary, or semantic concern review should inspect |
 | Task adds scope | Task pack becomes a second plan | Return to `spec-plan` |

@@ -5,6 +5,11 @@ const {
   resolveTestCommandTimeoutMs,
   run,
 } = require('../../scripts/run-test-suite.cjs');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const REPO_ROOT = path.join(__dirname, '..', '..');
+const TEST_RUNNER_PATH = path.join(REPO_ROOT, 'scripts', 'run-test-suite.cjs');
 
 describe('run-test-suite command runner', () => {
   test('uses a bounded default command timeout with env override', () => {
@@ -25,5 +30,15 @@ describe('run-test-suite command runner', () => {
       expect(error.message).toContain('timed out after 50ms');
       expect(error.status).toBe(124);
     }
+  });
+
+  test('release-governance runs release continuity guard before install smoke', () => {
+    const runner = fs.readFileSync(TEST_RUNNER_PATH, 'utf8');
+    const continuityIndex = runner.indexOf("runNode(['scripts/check-release-continuity.cjs'])");
+    const smokeIndex = runner.indexOf("runBash('tests/smoke/release-dual-host-governance.sh')");
+
+    expect(continuityIndex).toBeGreaterThan(-1);
+    expect(smokeIndex).toBeGreaterThan(-1);
+    expect(continuityIndex).toBeLessThan(smokeIndex);
   });
 });

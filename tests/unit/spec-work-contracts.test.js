@@ -39,6 +39,18 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('definitions-only evidence');
     expect(text).toContain('local file/symbol pointers');
     expect(text).toContain('Scope expansion is judged against the plan/task pack and concrete diff');
+    expect(text).toContain('Use this intake order for context economy');
+    expect(text).toContain('first read the plan/task summary and contract metadata');
+    expect(text).toContain('then deterministic inventory or validation facts');
+    expect(text).toContain('then current task/phase refs');
+    expect(text).toContain('then focused source-of-truth sections');
+    expect(text).toContain('only then deeper references');
+    expect(text).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
+    expect(text).toContain('src/cli/helpers/review-pre-facts.js');
+    expect(text).toContain('do not create a parallel reviewer facts pipeline');
+    expect(text).toContain('provenance-backed rejected/out-of-scope rationale');
+    expect(text).toContain('advisory boundary evidence');
+    expect(text).toContain('do not treat rejected rationale as task status');
     expect(text).toContain('Graph Freshness / Refresh Trigger Boundary');
     expect(text).toContain('.spec-first/graph/provider-status.json');
     expect(text).toContain('.spec-first/graph/graph-facts.json');
@@ -70,6 +82,37 @@ describe('spec-work context orientation contract', () => {
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');
   });
+
+  test('consumes domain context before implementation questions without fixed ADR directory mandates', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Domain Language And Decision Ledger');
+    expect(text).toContain('consume existing context before asking questions that repo/docs can answer');
+    expect(text).toContain('project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(text).toContain('repo-local glossary or ADR-like artifacts that actually exist');
+    expect(text).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
+    expect(text).toContain('If those artifacts are absent, treat the gap as advisory and continue');
+    expect(text).toContain('`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`');
+    expect(text).toContain('`confirmed`, `advisory`, `session-local`, `stale`, or `user`');
+    expect(text).toContain('hard to reverse, would be surprising without context, and reflects a real tradeoff');
+    expect(text).not.toContain('must use `CONTEXT.md`');
+    expect(text).not.toContain('must use `docs/adr/`');
+  });
+
+  test('uses feedback-loop-first execution without forcing TDD on docs-only work', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Feedback Loop And Vertical Slices');
+    expect(text).toContain('Before changing behavior, establish or attempt the smallest feedback loop that can observe the current slice');
+    expect(text).toContain('failing or characterization test, CLI invocation, HTTP/browser script, trace replay, throwaway harness, property/fuzz loop');
+    expect(text).toContain('docs contract check, schema validation, or other focused command');
+    expect(text).toContain('record `feedback_loop_not_possible` with the exact missing condition before editing');
+    expect(text).toContain('After the slice lands, rerun the same loop or record why it could not be rerun');
+    expect(text).toContain('Prefer vertical tracer bullets when scope permits');
+    expect(text).toContain('Do not split work into "write all tests first across every unit, then implement everything" when independent vertical slices can be verified');
+    expect(text).toContain('Docs-only and config-only tasks use docs contract checks, schema/help/render checks, or diff-shape checks as the feedback loop');
+    expect(text).toContain('do not force TDD where no behavior-bearing code changes');
+  });
 });
 
 describe('spec-work run artifact boundary contract', () => {
@@ -77,10 +120,12 @@ describe('spec-work run artifact boundary contract', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
     expect(text).toContain('Run Artifact Boundary');
-    expect(text).toContain('docs-side planned contract');
-    expect(text).toContain('does not currently write');
+    expect(text).toContain('Phase 1B write-side contract');
+    expect(text).toContain('producer_available=true');
+    expect(text).toContain('workflow_integrated');
+    expect(text).toContain('does not mean this workflow is fully integrated');
     expect(text).toContain('.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json');
-    expect(text).toContain('Do not claim this artifact exists');
+    expect(text).toContain('Do not treat run evidence as source scope authority');
   });
 });
 
@@ -185,9 +230,16 @@ describe('spec-work task-pack identity contract', () => {
 
     expect(text).toContain('Treat a validated task pack as a first-class executable work document.');
     expect(text).toContain('The task pack supplies execution order, task boundaries, file focus, `stop_if`, and validation notes');
+    expect(text).toContain('after selecting the current task, read the task card\'s `source_unit`, `requirement_refs`, `context_refs`, `test_focus`, `done_signal`, and `stop_if`');
+    expect(text).toContain('then read the focused source-plan sections that define those anchors before editing');
+    expect(text).toContain('`context_refs` are bounded reading pointers, not scope authority');
+    expect(text).toContain('whole plan or broad directories');
+    expect(text).toContain('source-plan focused reads must check the relevant implementation unit, requirement / acceptance refs, scope boundaries, non-goals, and any deferred implementation notes');
     expect(text).toContain('If the work document is already a validated task pack, do not offer task compilation again');
     expect(text).toContain('do not rebuild execution structure from the source plan');
     expect(text).toContain('Execute from the task pack\'s validated task structure');
+    expect(text).toContain('For large plans with phase/wave task packs, consume only the current phase/wave task pack plus its focused source-plan refs.');
+    expect(text).toContain('Direct execution of the whole large plan requires an explicit reason in closeout');
     expect(text).toContain('Requires plan-unit metadata or validated task-card metadata');
     expect(text).toContain('The full work-document path. If it is a task pack, also pass the `source_plan` path');
     expect(text).toContain('task-card equivalents (`task_id`, `dependencies`, `wave`, `files`, `test_focus`, `done_signal`, `stop_if`, `review_gate`, `review_focus`)');

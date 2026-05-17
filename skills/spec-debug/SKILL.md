@@ -10,6 +10,40 @@ Find root causes, then fix them. This skill investigates bugs systematically —
 
 <bug_description> #$ARGUMENTS </bug_description>
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use for failing tests, runtime errors, broken behavior, regressions, stack traces, issue references, or repeated failed fix attempts where root cause must be established before changing code.
+
+### When Not To Use
+
+Do not use for planned feature implementation, requirements/plan review, setup/update/runtime drift repair, or obvious non-bug enhancements that belong in `spec-work` or `spec-plan`.
+
+### Inputs
+
+Bug description, issue or error evidence, reproduction path, repo instructions, package/test commands, nearby source/tests, logs, and graph/MCP evidence as advisory debugging context.
+
+### Outputs
+
+Root-cause explanation, hypothesis/probe evidence, fix when authorized, verification results, residual risks, and a structured handoff or PR-ready summary.
+
+### Artifacts
+
+Tests, traces, logs, issue summaries, code changes, and final debug summary. Generated runtime mirrors are not source unless the bug explicitly targets setup/update/runtime drift.
+
+### Failure Modes
+
+Unreproducible bug, missing environment or credentials, ambiguous target repo, stale graph for graph-heavy debugging, contradicted hypothesis, unsafe branch state, or failed validation.
+
+### Workflow
+
+Triage the symptom, reproduce or record a not-possible reason, trace the causal path, test hypotheses, apply one scoped fix at a time, rerun the feedback loop, then hand off.
+
+### Downstream Consumers
+
+`spec-work` for larger fixes, `spec-code-review`, PR preparation, issue trackers, and `spec-compound` when the lesson is reusable.
+
 ## Core Principles
 
 These principles govern every phase. They are repeated at decision points because they matter most when the pressure to skip them is highest.
@@ -22,6 +56,12 @@ These principles govern every phase. They are repeated at decision points becaus
 ## Context Orientation Anchor
 
 Orient debugging from the reported symptom, reproduction path, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, recent diffs, and runtime logs. In a parent workspace containing multiple independent Git repos, use `workspace-graph-targets.v1` only as advisory read-only evidence: prefer bounded candidate repos with `primary` status, try GitNexus-first queries for the concrete symptom, and treat `degraded-fallback` or definitions-only GitNexus results as file/symbol pointers to verify with Serena, code-review-graph, tests, or direct reads. Before Phase 3 writes, the bug must have a single explicit `target_repo` or per-fix repo scope; do not let cwd, graph target facts, or live MCP results choose a sibling repo for edits.
+
+## Domain Language And Decision Ledger
+
+When symptoms involve domain terminology, policy names, workflow-specific concepts, or ADR-like tradeoffs, consume existing context before asking questions that repo/docs can answer: project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, treat the gap as advisory and continue with direct reproduction/source evidence.
+
+For major debugging decisions, carry a lightweight decision note: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when unresolved. Use source tags such as `confirmed`, `advisory`, `session-local`, `stale`, or `user`. Suggest creating an ADR-like artifact only when the fix direction is hard to reverse, would be surprising without context, and reflects a real tradeoff.
 
 ## Runtime Context Exclusion
 
@@ -48,6 +88,12 @@ All phases self-size — a simple bug flows through them in seconds, a complex b
 **Trivial-bug fast-path:** When investigation proves the full causal chain is a narrow, directly observable defect — a single-file typo, missing import, explicit null dereference, or off-by-one — compress Phase 1 and Phase 2 into the smallest evidence pass needed to explain it. Fast-path does not skip Phase 2: still present the root cause, proposed fix, tests, and the **Fix it now** / **Diagnosis only** choice gate. If the user chooses to fix, Phase 3 still starts with the **Workspace and branch check**.
 
 **Negative boundary:** Do not use the fast-path for multi-file causal chains, architecture regressions, state races, permission or environment failures, flaky behavior, or any issue whose invalid state cannot be directly located. Non-trivial bugs still require the full investigation path.
+
+## Feedback Loop And Hypothesis Ledger
+
+Before declaring root cause or proposing a fix, establish or attempt the smallest feedback loop that can observe the symptom: a failing test, CLI invocation, HTTP/browser script, trace replay, throwaway harness, property/fuzz loop, or another concrete reproducer. If no loop can be created in the current environment, record `feedback_loop_not_possible` with the exact missing condition and continue with bounded evidence; do not pretend a loop exists.
+
+Maintain a lightweight hypothesis ledger for non-obvious bugs: `hypothesis`, `prediction`, `evidence_for`, `evidence_against`, `probe_result`, and `final_root_cause`. The ledger is working evidence, not a durable schema. After a fix, rerun the same feedback loop or state why it cannot be rerun before handoff.
 
 ---
 

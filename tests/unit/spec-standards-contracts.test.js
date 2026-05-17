@@ -9,6 +9,7 @@ const {
   buildDownstreamConsumers,
   buildGlueMap,
   buildInventory,
+  buildNextActionCandidates,
   buildProjectShape,
   buildStandardsPlan,
   parseArgs,
@@ -27,6 +28,7 @@ const SCRIPT_PATH = path.join(REPO_ROOT, 'skills/spec-standards/scripts/prepare-
 const TARGETING_SCRIPT_PATH = path.join(REPO_ROOT, 'skills/spec-standards/scripts/standards-targeting.js');
 const WORKSPACE_FACTS_SCRIPT_PATH = path.join(REPO_ROOT, 'skills/spec-standards/scripts/standards-workspace-facts.js');
 const VALIDATOR_SCRIPT_PATH = path.join(REPO_ROOT, 'skills/spec-standards/scripts/validate-artifacts.js');
+const NEXT_ACTION_EXAMPLE_PATH = path.join(REPO_ROOT, 'skills/spec-standards/examples/next-action-candidates.example.json');
 const COMMAND_TEMPLATE_PATH = path.join(REPO_ROOT, 'templates/claude/commands/spec/standards.md');
 
 function read(filePath) {
@@ -53,6 +55,8 @@ describe('spec-standards workflow contract', () => {
     expect(skill).toContain('Invocation Boundary');
     expect(skill).toContain('not an agent type');
     expect(skill).toContain('Scripts prepare facts; the LLM decides standards.');
+    expect(skill).toContain('Workflow Contract Summary');
+    expect(skill).toContain('generated runtime mirrors are not source');
     expect(skill).toContain('Preview before writeback.');
     expect(skill).toContain('Observed is not confirmed.');
     expect(skill).toContain('Do not write `repo-profile.yaml`.');
@@ -69,8 +73,17 @@ describe('spec-standards workflow contract', () => {
     expect(skill).toContain('.spec-first/standards/project-shape.json');
     expect(skill).toContain('.spec-first/standards/standards-plan.json');
     expect(skill).toContain('.spec-first/standards/glue-map.json');
+    expect(skill).toContain('.spec-first/standards/next-action-candidates.json');
     expect(skill).toContain('.spec-first/standards/standards-candidates.json');
     expect(skill).toContain('.spec-first/standards/standards-preview.md');
+    expect(skill).toContain('distinct from `standards-candidates.json` standards content candidates and `standards-update-decision.json` freshness decisions');
+    expect(skill).toContain('scripts must not write a single `target_entrypoint`, ranking, blocking policy, or final workflow recommendation');
+    expect(skill).toContain('Phase 2 mode/freshness boundary');
+    expect(skill).toContain('`--quick` performs deterministic freshness validation and writes only `standards-update-decision.json`');
+    expect(skill).toContain('`--refresh` rebuilds a bounded domain/module/repo scope');
+    expect(skill).toContain('Child-local conflicts have priority over parent advisory summaries');
+    expect(skill).toContain('Stale/rebuild policy belongs in `standards-update-decision.json` reason codes and freshness fields');
+    expect(skill).toContain('scripts must not persist `blocking`, `blocking_policy`, or equivalent mode matrix fields in next-action candidates');
     expect(skill).toContain('node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json');
     expect(skill).toContain('trust_level=degraded');
     expect(skill).toContain('consumption_boundary=advisory_only');
@@ -96,7 +109,27 @@ describe('spec-standards workflow contract', () => {
     expect(skill).toContain('.spec-first/providers/gitnexus/normalized/reuse-candidates.json');
     expect(skill).toContain('.spec-first/providers/code-review-graph/normalized/impact-capabilities.json');
     expect(skill).toContain('docs/contracts/graph-provider-consumption.md');
+    expect(skill).toContain('Use this intake order for context economy');
+    expect(skill).toContain('first read the request/options and artifact summary');
+    expect(skill).toContain('then deterministic inventory/readiness facts');
+    expect(skill).toContain('then current mode/task refs');
+    expect(skill).toContain('then focused source-of-truth sections');
+    expect(skill).toContain('only then deeper references or examples');
+    expect(skill).toContain('Domain Language And Decision Ledger');
+    expect(skill).toContain('consume existing context before asking questions that repo/docs can answer');
+    expect(skill).toContain('current standards artifacts, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(skill).toContain('repo-local glossary or ADR-like artifacts that actually exist');
+    expect(skill).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
+    expect(skill).toContain('mark the gap as advisory or unknown evidence; absence alone does not block baseline preparation');
+    expect(skill).toContain('`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`');
+    expect(skill).toContain('`confirmed`, `advisory`, `session-local`, `stale`, or `user`');
+    expect(skill).toContain('Deterministic scripts may surface source/authority facts, but the LLM owns the decision note and any ADR-like recommendation.');
+    expect(skill).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
+    expect(skill).toContain('src/cli/helpers/review-pre-facts.js');
+    expect(skill).toContain('do not create a parallel reviewer facts pipeline');
     expect(skill).not.toContain('.spec-first/graph/bootstrap-impact-capabilities.json');
+    expect(skill).not.toContain('must use `CONTEXT.md`');
+    expect(skill).not.toContain('must use `docs/adr/`');
   });
 
   test('Claude command template is metadata-only and delegates behavior to the skill', () => {
@@ -218,16 +251,19 @@ describe('spec-standards workflow contract', () => {
         '.spec-first/standards/project-shape.json',
         '.spec-first/standards/standards-plan.json',
         '.spec-first/standards/glue-map.json',
+        '.spec-first/standards/next-action-candidates.json',
       ]);
       expect(fs.existsSync(path.join(tmp, '.spec-first/standards/project-shape.json'))).toBe(true);
       expect(fs.existsSync(path.join(tmp, '.spec-first/standards/standards-plan.json'))).toBe(true);
       expect(fs.existsSync(path.join(tmp, '.spec-first/standards/glue-map.json'))).toBe(true);
+      expect(fs.existsSync(path.join(tmp, '.spec-first/standards/next-action-candidates.json'))).toBe(true);
       expect(fs.existsSync(path.join(tmp, '.spec-first/standards/standards-candidates.json'))).toBe(false);
       expect(fs.existsSync(path.join(tmp, '.spec-first/specs/repo-profile.yaml'))).toBe(false);
 
       const projectShape = readJson(path.join(tmp, '.spec-first/standards/project-shape.json'));
       const standardsPlan = readJson(path.join(tmp, '.spec-first/standards/standards-plan.json'));
       const glueMap = readJson(path.join(tmp, '.spec-first/standards/glue-map.json'));
+      const nextActionCandidates = readJson(path.join(tmp, '.spec-first/standards/next-action-candidates.json'));
 
       expect(projectShape.schema_version).toBe('spec-first.project-shape.v1');
       expect(projectShape.scope).toEqual({
@@ -284,8 +320,229 @@ describe('spec-standards workflow contract', () => {
         'spec-work',
         'spec-code-review',
       ]));
+      expect(nextActionCandidates.schema_version).toBe('spec-first.standards-next-action-candidates.v1');
+      expect(nextActionCandidates.artifact_boundary).toContain('does not rank, route, block, or choose');
+      expect(nextActionCandidates.non_goals).toEqual(expect.arrayContaining([
+        'target_entrypoint',
+        'ranking',
+        'blocking_policy',
+        'workflow_recommendation',
+      ]));
+      expect(nextActionCandidates).not.toHaveProperty('target_entrypoint');
+      expect(nextActionCandidates.candidates[0]).toEqual(expect.objectContaining({
+        candidate_id: 'next-action.baseline-ready',
+        candidate_kind: 'standards_baseline_ready',
+        authority_level: 'facts_only',
+      }));
+      expect(nextActionCandidates.candidates[0]).not.toHaveProperty('target_entrypoint');
+      expect(nextActionCandidates.candidates[0].possible_entrypoints).toEqual(expect.arrayContaining([
+        '/spec:plan',
+        '$spec-plan',
+        '/spec:work',
+        '$spec-work',
+      ]));
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('next-action candidates use the actual standards output root for artifact refs', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-custom-output-'));
+    try {
+      writeFile(tmp, 'package.json', JSON.stringify({ name: 'custom-output-project' }));
+
+      const result = prepareBaseline({
+        root: tmp,
+        output: path.join(tmp, 'custom/standards'),
+        mode: 'baseline',
+        dryRun: false,
+      });
+
+      expect(result.artifacts).toEqual([
+        'custom/standards/project-shape.json',
+        'custom/standards/standards-plan.json',
+        'custom/standards/glue-map.json',
+        'custom/standards/next-action-candidates.json',
+      ]);
+      const nextActionCandidates = readJson(path.join(tmp, 'custom/standards/next-action-candidates.json'));
+      expect(nextActionCandidates.source_artifacts).toEqual([
+        'custom/standards/project-shape.json',
+        'custom/standards/standards-plan.json',
+        'custom/standards/glue-map.json',
+      ]);
+      expect(nextActionCandidates.candidates[0].evidence_paths).toEqual([
+        'custom/standards/project-shape.json',
+        'custom/standards/standards-plan.json',
+        'custom/standards/glue-map.json',
+      ]);
+      expect(nextActionCandidates.candidates[0].source_fact_refs.map((ref) => ref.artifact_path)).toEqual([
+        'custom/standards/project-shape.json',
+        'custom/standards/standards-plan.json',
+        'custom/standards/glue-map.json',
+      ]);
+
+      const validation = spawnSync(process.execPath, [
+        VALIDATOR_SCRIPT_PATH,
+        '--next-action-candidates',
+        'custom/standards/next-action-candidates.json',
+        '--json',
+      ], {
+        cwd: tmp,
+        encoding: 'utf8',
+      });
+      expect(validation.status).toBe(0);
+      expect(JSON.parse(validation.stdout).status).toBe('pass');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('next-action candidates reject stale default artifact refs under custom output root', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-custom-output-stale-'));
+    try {
+      writeFile(tmp, 'package.json', JSON.stringify({ name: 'custom-output-stale-project' }));
+
+      prepareBaseline({
+        root: tmp,
+        output: path.join(tmp, 'custom/standards'),
+        mode: 'baseline',
+        dryRun: false,
+      });
+
+      const filePath = path.join(tmp, 'custom/standards/next-action-candidates.json');
+      const nextActionCandidates = readJson(filePath);
+      const staleDefaultRef = (artifactPath) => artifactPath.replace(/^custom\/standards\//, '.spec-first/standards/');
+      nextActionCandidates.source_artifacts = nextActionCandidates.source_artifacts.map(staleDefaultRef);
+      for (const candidate of nextActionCandidates.candidates) {
+        candidate.evidence_paths = candidate.evidence_paths.map(staleDefaultRef);
+        candidate.source_fact_refs = candidate.source_fact_refs.map((ref) => ({
+          ...ref,
+          artifact_path: staleDefaultRef(ref.artifact_path),
+        }));
+      }
+      writeFile(tmp, 'custom/standards/next-action-candidates.json', JSON.stringify(nextActionCandidates, null, 2));
+
+      const validation = spawnSync(process.execPath, [
+        VALIDATOR_SCRIPT_PATH,
+        '--next-action-candidates',
+        'custom/standards/next-action-candidates.json',
+        '--json',
+      ], {
+        cwd: tmp,
+        encoding: 'utf8',
+      });
+      expect(validation.status).toBe(1);
+      const envelope = JSON.parse(validation.stdout);
+      expect(envelope.status).toBe('fail');
+      expect(envelope.errors.map((error) => error.reason_code)).toEqual(expect.arrayContaining([
+        'invalid-next-action-source-artifact',
+        'invalid-next-action-evidence-path',
+        'invalid-source-fact-ref-path',
+      ]));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('next-action candidates reject custom output evidence symlinks to default standards artifacts', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-custom-output-symlink-'));
+    try {
+      writeFile(tmp, 'package.json', JSON.stringify({ name: 'custom-output-symlink-project' }));
+
+      prepareBaseline({
+        root: tmp,
+        output: path.join(tmp, 'custom/standards'),
+        mode: 'baseline',
+        dryRun: false,
+      });
+      writeFile(tmp, '.spec-first/standards/project-shape.json', JSON.stringify({
+        schema_version: 'spec-first.project-shape.v1',
+        source: 'default-root',
+      }));
+      fs.rmSync(path.join(tmp, 'custom/standards/project-shape.json'), { force: true });
+      fs.symlinkSync(
+        path.join(tmp, '.spec-first/standards/project-shape.json'),
+        path.join(tmp, 'custom/standards/project-shape.json'),
+      );
+
+      const validation = spawnSync(process.execPath, [
+        VALIDATOR_SCRIPT_PATH,
+        '--next-action-candidates',
+        'custom/standards/next-action-candidates.json',
+        '--json',
+      ], {
+        cwd: tmp,
+        encoding: 'utf8',
+      });
+      expect(validation.status).toBe(1);
+      const envelope = JSON.parse(validation.stdout);
+      expect(envelope.status).toBe('fail');
+      expect(envelope.errors.map((error) => error.reason_code)).toContain('invalid-next-action-evidence-path');
+      expect(envelope.errors.map((error) => error.path)).toContain('custom/standards/project-shape.json');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('next-action candidates expose script facts without choosing a workflow recommendation', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-next-action-'));
+    try {
+      writeFile(tmp, 'package.json', JSON.stringify({ name: 'next-action-project' }));
+
+      const inventory = buildInventory(tmp);
+      const projectShape = buildProjectShape(tmp, inventory, { targetKind: 'repo' });
+      const standardsPlan = buildStandardsPlan(projectShape, inventory, { targetKind: 'repo', mode: 'baseline' });
+      const glueMap = buildGlueMap(projectShape, inventory, { targetKind: 'repo' });
+      const doc = buildNextActionCandidates(projectShape, standardsPlan, glueMap, {
+        targetKind: 'repo',
+        mode: 'baseline',
+      });
+
+      expect(doc.schema_version).toBe('spec-first.standards-next-action-candidates.v1');
+      expect(doc.source_artifacts).toEqual([
+        '.spec-first/standards/project-shape.json',
+        '.spec-first/standards/standards-plan.json',
+        '.spec-first/standards/glue-map.json',
+      ]);
+      expect(doc.candidates.map((candidate) => candidate.candidate_kind)).toEqual(expect.arrayContaining([
+        'standards_baseline_ready',
+        'missing_package_scripts',
+        'stale_validation',
+      ]));
+      expect(doc.candidates.every((candidate) => candidate.authority_level === 'facts_only')).toBe(true);
+      expect(doc.candidates.every((candidate) => Array.isArray(candidate.possible_entrypoints))).toBe(true);
+      expect(doc).not.toHaveProperty('target_entrypoint');
+      expect(doc).not.toHaveProperty('ranking');
+      for (const candidate of doc.candidates) {
+        expect(candidate).not.toHaveProperty('target_entrypoint');
+        expect(candidate).not.toHaveProperty('ranking');
+      }
+      expect(doc.artifact_boundary).toContain('Workflow handoff facts only');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('next-action candidates example covers required Phase 1C candidate kinds', () => {
+    const example = readJson(NEXT_ACTION_EXAMPLE_PATH);
+
+    expect(example.schema_version).toBe('spec-first.standards-next-action-candidates.v1');
+    expect(example.candidates.map((candidate) => candidate.candidate_kind)).toEqual(expect.arrayContaining([
+      'missing_graph_readiness',
+      'workspace_advisory_only',
+      'absent_tests',
+      'missing_package_scripts',
+      'stale_validation',
+      'child_repo_ambiguity',
+    ]));
+    expect(example).not.toHaveProperty('target_entrypoint');
+    for (const candidate of example.candidates) {
+      expect(candidate).not.toHaveProperty('target_entrypoint');
+      expect(candidate).not.toHaveProperty('ranking');
+      expect(candidate).not.toHaveProperty('blocking_policy');
+      expect(candidate).not.toHaveProperty('recommended_entrypoint');
+      expect(candidate.authority_level).toBe('facts_only');
+      expect(Array.isArray(candidate.possible_entrypoints)).toBe(true);
     }
   });
 
@@ -317,11 +574,13 @@ describe('spec-standards workflow contract', () => {
         '.spec-first/standards/project-shape.json',
         '.spec-first/standards/standards-plan.json',
         '.spec-first/standards/glue-map.json',
+        '.spec-first/standards/next-action-candidates.json',
       ]);
       expect(result.workspace_artifacts).toEqual([
         'packages/app/.spec-first/standards/project-shape.json',
         'packages/app/.spec-first/standards/standards-plan.json',
         'packages/app/.spec-first/standards/glue-map.json',
+        'packages/app/.spec-first/standards/next-action-candidates.json',
       ]);
       expect(fs.existsSync(path.join(tmp, '.spec-first/standards/project-shape.json'))).toBe(false);
       expect(fs.existsSync(path.join(tmp, 'packages/app/.spec-first/standards/project-shape.json'))).toBe(true);
@@ -380,9 +639,11 @@ describe('spec-standards workflow contract', () => {
         'apps/web/.spec-first/standards/project-shape.json',
         'apps/web/.spec-first/standards/standards-plan.json',
         'apps/web/.spec-first/standards/glue-map.json',
+        'apps/web/.spec-first/standards/next-action-candidates.json',
         'services/api/.spec-first/standards/project-shape.json',
         'services/api/.spec-first/standards/standards-plan.json',
         'services/api/.spec-first/standards/glue-map.json',
+        'services/api/.spec-first/standards/next-action-candidates.json',
       ]);
       expect(fs.existsSync(path.join(tmp, '.spec-first/standards/project-shape.json'))).toBe(false);
       expect(fs.existsSync(path.join(tmp, 'apps/web/.spec-first/standards/project-shape.json'))).toBe(true);
@@ -464,6 +725,7 @@ describe('spec-standards workflow contract', () => {
         'apps/web/.spec-first/standards/project-shape.json',
         'apps/web/.spec-first/standards/standards-plan.json',
         'apps/web/.spec-first/standards/glue-map.json',
+        'apps/web/.spec-first/standards/next-action-candidates.json',
       ]);
       expect(fs.existsSync(path.join(tmp, 'apps/web/.spec-first/standards/project-shape.json'))).toBe(true);
       expect(fs.existsSync(path.join(tmp, 'services/api/.spec-first/standards/project-shape.json'))).toBe(false);
@@ -776,6 +1038,76 @@ describe('spec-standards workflow contract', () => {
     }
   });
 
+  test('quick treats missing next-action candidates as missing fact artifacts', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-quick-missing-next-action-'));
+    try {
+      writeFile(tmp, 'package.json', JSON.stringify({ name: 'quick-missing-next-action' }));
+      prepareBaseline({
+        root: tmp,
+        output: path.join(tmp, '.spec-first/standards'),
+        mode: 'baseline',
+        dryRun: false,
+      });
+      fs.rmSync(path.join(tmp, '.spec-first/standards/next-action-candidates.json'), { force: true });
+      writeFile(tmp, '.spec-first/standards/standards-candidates.json', JSON.stringify({
+        schema_version: 'spec-first.standards-candidates.v1',
+        candidates: [],
+      }));
+      writeFile(tmp, '.spec-first/standards/standards-preview.md', '# Preview\n');
+
+      prepareBaseline({
+        root: tmp,
+        output: path.join(tmp, '.spec-first/standards'),
+        mode: 'quick',
+        dryRun: false,
+      });
+
+      const decision = readJson(path.join(tmp, '.spec-first/standards/standards-update-decision.json'));
+      expect(decision.recommendation).toBe('run-baseline');
+      expect(decision.reason_codes).toContain('missing-fact-artifacts');
+      expect(decision.missing_artifacts).toContain('.spec-first/standards/next-action-candidates.json');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('baseline marks existing review artifacts stale when deterministic facts are regenerated', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-baseline-stale-review-'));
+    try {
+      writeFile(tmp, 'package.json', JSON.stringify({ name: 'baseline-stale-review' }));
+      prepareBaseline({
+        root: tmp,
+        output: path.join(tmp, '.spec-first/standards'),
+        mode: 'baseline',
+        dryRun: false,
+      });
+      writeFile(tmp, '.spec-first/standards/standards-candidates.json', JSON.stringify({
+        schema_version: 'spec-first.standards-candidates.v1',
+        candidates: [],
+      }));
+      writeFile(tmp, '.spec-first/standards/standards-preview.md', '# Preview\n');
+      writeFile(tmp, 'src/new.js', "'use strict';\n");
+
+      prepareBaseline({
+        root: tmp,
+        output: path.join(tmp, '.spec-first/standards'),
+        mode: 'baseline',
+        dryRun: false,
+      });
+
+      const nextActionCandidates = readJson(path.join(tmp, '.spec-first/standards/next-action-candidates.json'));
+      expect(nextActionCandidates.candidates).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          candidate_id: 'next-action.validation-stale-or-missing',
+          reason_code: 'standards-facts-regenerated-review-artifacts-stale',
+          readiness_status: 'stale',
+        }),
+      ]));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   test('explicit workspace child repo samples stay consistently bounded across advisory artifacts', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-standards-workspace-truncated-'));
     try {
@@ -859,6 +1191,7 @@ describe('spec-standards workflow contract', () => {
         '.spec-first/standards/project-shape.json',
         '.spec-first/standards/standards-plan.json',
         '.spec-first/standards/glue-map.json',
+        '.spec-first/standards/next-action-candidates.json',
       ]);
       expect(fs.existsSync(path.join(tmp, '.spec-first/standards'))).toBe(false);
     } finally {

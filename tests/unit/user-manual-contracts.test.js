@@ -20,6 +20,7 @@ const ARTIFACT_CATALOG_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/10-产�
 const STANDARDS_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/11-项目规范与胶水基线.md');
 const GITIGNORE_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/12-gitignore参考.md');
 const GRAPH_PROVIDER_SCOPE_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/13-代码图谱Provider作用域与差异化.md');
+const SOURCE_RUNTIME_BOUNDARY_PATH = path.join(REPO_ROOT, 'docs/contracts/source-runtime-customization-boundary.md');
 const SPEC_IDEATE_SKILL_PATH = path.join(REPO_ROOT, 'skills/spec-ideate/SKILL.md');
 
 function read(filePath) {
@@ -138,6 +139,18 @@ describe('user manual contracts', () => {
     for (const pattern of getSpecFirstGitignorePatterns()) {
       expect(gitignoreGuide).toContain(pattern);
     }
+  });
+
+  test('user manual links to source runtime provider customization boundary', () => {
+    const manual = read(USER_MANUAL_README_PATH);
+    const contract = read(SOURCE_RUNTIME_BOUNDARY_PATH);
+
+    expect(manual).toContain('source/runtime/provider customization boundary');
+    expect(manual).toContain('../contracts/source-runtime-customization-boundary.md');
+    expect(contract).toContain('Generated Runtime Mirrors');
+    expect(contract).toContain('Provider And Tool Facts');
+    expect(contract).toContain('Raw Output Safety');
+    expect(contract).toContain('Credential Boundary');
   });
 
   test('user manual explains graph provider scope and differentiation', () => {

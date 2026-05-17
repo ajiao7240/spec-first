@@ -80,7 +80,7 @@ function formatCounts(counts) {
     .join(', ');
 }
 
-function listPlannedRuntimeContracts() {
+function listWorkflowRuntimeContracts() {
   if (!fs.existsSync(WORKFLOW_CONTRACTS_DIR)) return [];
 
   return fs.readdirSync(WORKFLOW_CONTRACTS_DIR)
@@ -94,12 +94,18 @@ function listPlannedRuntimeContracts() {
         contractPath: path.relative(REPO_ROOT, absolutePath),
         status: schema['x-spec-first-contract-status'] || '',
         producer: schema['x-spec-first-producer'] || '',
+        producerAvailable: schema['x-spec-first-producer-available'] === true,
+        workflowIntegrated: schema['x-spec-first-workflow-integrated'] === true,
         runtimePath: schema['x-spec-first-runtime-path'] || '',
         boundary: schema['x-spec-first-boundary'] || '',
       };
     })
-    .filter((contract) => contract.status === 'planned')
     .sort((a, b) => a.contractPath.localeCompare(b.contractPath));
+}
+
+function listPlannedRuntimeContracts() {
+  return listWorkflowRuntimeContracts()
+    .filter((contract) => contract.status === 'planned');
 }
 
 function buildRuntimeCapabilityCatalog() {
@@ -121,7 +127,8 @@ function buildRuntimeCapabilityCatalog() {
     claudeAssets.internalSkills.includes(record.skill_name) || codexAssets.internalSkills.includes(record.skill_name),
   );
   const betaRecords = workflowRecords.filter((record) => /-beta$/.test(record.skill_name));
-  const plannedRuntimeContracts = listPlannedRuntimeContracts();
+  const workflowRuntimeContracts = listWorkflowRuntimeContracts();
+  const plannedRuntimeContracts = workflowRuntimeContracts.filter((contract) => contract.status === 'planned');
 
   const lines = [
     '# Runtime Capability Catalog',
@@ -151,6 +158,7 @@ function buildRuntimeCapabilityCatalog() {
     `| Claude runtime delivery | ${deliverySummary(claudeAssets)} |`,
     `| Codex runtime delivery | ${deliverySummary(codexAssets)} |`,
     `| Beta workflow entries | ${betaRecords.map((record) => record.skill_name).join(', ') || 'none'} |`,
+    `| Workflow runtime contracts | ${workflowRuntimeContracts.length} |`,
     `| Planned runtime contracts | ${plannedRuntimeContracts.length} |`,
     '',
     '## Public Workflows',
@@ -205,21 +213,29 @@ function buildRuntimeCapabilityCatalog() {
     '| Codex | workflow, standalone, and agent-facing internal skills | `.agents/skills/` |',
     '| Codex | agents | `.codex/agents/` |',
     '',
-    '## Planned Runtime Contracts',
+    '## Source Runtime Customization Boundary',
     '',
-    'These contracts are docs-side visibility records for future artifacts. They do not prove that the current runtime emits the artifact; consumers must check the `Producer` and boundary before treating any path as current runtime truth.',
+    '`docs/contracts/source-runtime-customization-boundary.md` defines the customization contract for checked-in source, generated host runtime mirrors, target-repo workflow artifacts, and external provider/tool facts. Generated mirrors under `.claude/`, `.codex/`, and `.agents/skills/` are not source-of-truth; edit source assets and regenerate with `spec-first init --claude|--codex` when a runtime refresh is required.',
     '',
-    '| Contract | Status | Producer | Planned runtime path | Boundary |',
-    '|---|---|---|---|---|',
-    ...(plannedRuntimeContracts.length > 0
-      ? plannedRuntimeContracts.map((contract) => tableRow([
+    'Provider facts from GitNexus, code-review-graph, Serena, browser/MCP tools, package managers, and shell commands are evidence inputs. Raw provider/tool output is untrusted quoted data and must be schema-validated, target-repo-contained, escaped, excerpt-capped, and provenance/readiness-classified before it enters prompts, reports, facts, or durable artifacts. Provider credentials belong in environment variables, host secret managers, or provider-native stores, never in source, generated runtime mirrors, durable artifacts, or raw logs.',
+    '',
+    '## Workflow Runtime Contracts',
+    '',
+    'These contracts are docs-side visibility records for workflow artifacts. `producer_available=true` only means a source-owned writer exists. `workflow_integrated=true` requires the workflow itself to call that writer and provide fixture/fresh-source evidence.',
+    '',
+    '| Contract | Status | Producer | Producer available | Workflow integrated | Runtime path | Boundary |',
+    '|---|---|---|---|---|---|---|',
+    ...(workflowRuntimeContracts.length > 0
+      ? workflowRuntimeContracts.map((contract) => tableRow([
         `${contract.title}<br>${contract.contractPath}`,
         contract.status,
         contract.producer,
+        contract.producerAvailable ? 'true' : 'false',
+        contract.workflowIntegrated ? 'true' : 'false',
         contract.runtimePath,
         contract.boundary,
       ]))
-      : [tableRow(['none', 'none', 'none', 'none', 'none'])]),
+      : [tableRow(['none', 'none', 'none', 'false', 'false', 'none', 'none'])]),
     '',
     '## Quality Gate Evidence',
     '',
@@ -252,7 +268,7 @@ function buildRuntimeCapabilityCatalog() {
     '',
     '- 不手改 `.claude/`、`.codex/` 或 `.agents/skills/` 作为 source fix；需要刷新 runtime 时运行 `spec-first init --claude|--codex`。',
     '- 不在本 catalog 中手写能力数量；能力数量必须由 generator 从 source/governance 推导。',
-    '- Planned runtime contracts 必须由 `docs/contracts/workflows/*.schema.json` 的 `x-spec-first-*` metadata 派生；不能在 catalog 手写 planned/implemented 状态。',
+    '- Workflow runtime contracts 必须由 `docs/contracts/workflows/*.schema.json` 的 `x-spec-first-*` metadata 派生；不能在 catalog 手写 planned/producer/integrated 状态。',
     '- 新增、删除或改变 host delivery 时，同步更新 governance/source，运行 `npm run docs:runtime-catalog`，再运行 targeted governance tests。',
     '- 该 catalog 只描述 delivery surface，不判断某个 MCP/provider 当前是否 ready；provider readiness 由 `spec-mcp-setup` 和 `spec-graph-bootstrap` 产物表达。',
   ];
@@ -275,6 +291,7 @@ if (require.main === module) {
 module.exports = {
   DEFAULT_OUTPUT_PATH,
   buildRuntimeCapabilityCatalog,
+  listWorkflowRuntimeContracts,
   listPlannedRuntimeContracts,
   writeRuntimeCapabilityCatalog,
 };

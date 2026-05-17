@@ -8,6 +8,40 @@ argument-hint: "[path to optimization spec YAML, or describe the optimization go
 
 Run metric-driven iterative optimization. Define a goal, build measurement scaffolding, then run parallel experiments that converge toward the best solution.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when a measurable outcome can improve through iterative experiments, hard gates, and/or LLM-as-judge scoring.
+
+### When Not To Use
+
+Do not use for ordinary implementation, vague improvement requests without a metric, debugging without a feedback loop, or unbounded spend/concurrency.
+
+### Inputs
+
+An optimization spec or goal, mutable/immutable scope, measurement command or scaffold plan, budget limits, experiment settings, repository instructions, and baseline evidence.
+
+### Outputs
+
+A measurement scaffold and experiment log, scored experiment results, kept/rejected variants, final integrated changes when appropriate, and post-run recommendations.
+
+### Artifacts
+
+Run state under `.spec-first/workflows/spec-optimize/<spec-name>/`, experiment worktrees/results, strategy digests, and no hidden workflow state outside the documented log.
+
+### Failure Modes
+
+Missing metric, missing measurement command, unsafe scope, excessive or uncapped budget, failed baseline, write verification failure, or unavailable dispatch/worktree backend.
+
+### Workflow
+
+Validate the spec and budget, establish the baseline, run bounded experiments, measure and write results immediately, select winners, integrate only verified improvements, and summarize evidence.
+
+### Downstream Consumers
+
+`spec-work`, code review, benchmark maintainers, release reviewers when performance/relevance changes matter, and humans inspecting experiment logs.
+
 ## Interaction Method
 
 Use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.

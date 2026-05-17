@@ -7,6 +7,40 @@ description: "Search and ask questions about your coding agent session history. 
 
 Search Claude Code and Codex session history and synthesize findings about what was worked on, tried, decided, or learned in prior sessions.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when the user asks about prior coding-agent sessions, past attempts, previous decisions, or what happened recently across Claude Code/Codex history.
+
+### When Not To Use
+
+Do not use for the current session, active implementation, broad transcript archiving, personal-content mining, or tasks that can be answered from current repo source alone.
+
+### Inputs
+
+Question/topic, time window, repo/branch hints, extracted session metadata, keyword-filtered skeleton/error snippets, and any caller-provided checkpoint summaries.
+
+### Outputs
+
+A synthesized answer with distilled replay references, relevant prior decisions/attempts, evidence paths, and explicit limitations.
+
+### Artifacts
+
+Temporary scratch extracts only; no durable replay index, full transcript export, or repo-local workflow state is created.
+
+### Failure Modes
+
+No relevant sessions, inaccessible history files, parse errors, missing keyword matches, permissions failure, or unsafe sensitive/raw transcript content.
+
+### Workflow
+
+Determine the scan window, discover and filter sessions, extract bounded snippets, synthesize technical findings, and return distilled replay references instead of full history.
+
+### Downstream Consumers
+
+`spec-plan`, `spec-work`, `spec-compound`, `spec-compound-refresh`, user status questions, and future scope/replay decisions.
+
 ## Usage
 
 ```
@@ -39,6 +73,12 @@ These rules apply at all times during orchestration and synthesis.
 - **Surface technical content, not personal content.** Sessions contain everything: credentials, frustration, half-formed opinions. Use judgment about what belongs in a technical summary and what does not.
 - **Fail fast on access errors.** If session discovery fails on permissions, report the issue immediately. Do not retry the same operation with different tools or approaches; repeated retries waste tokens without changing the outcome.
 - **Apply runtime context exclusion.** Follow `docs/contracts/context-governance.md`: do not treat `.spec-first/audits/**` or generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) as ordinary session context. Mention them only as path-backed evidence when the user's question explicitly concerns runtime/setup/audit history.
+
+## Distilled Replay References
+
+Return distilled replay references, not full session replays. A useful replay ref names the prior session or scratch extract, the decision or failed attempt, the evidence path, and why it is relevant now. Include rejected or out-of-scope rationale when it explains current scope, but label it as prior rationale rather than workflow status.
+
+Use checkpoint-style summaries first when the caller provides them; open skeleton/error extracts only when needed to answer the current question. Do not create a durable replay index or require every future workflow to read complete history.
 
 ## Execution
 

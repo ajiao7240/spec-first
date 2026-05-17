@@ -48,11 +48,12 @@ The baseline script writes:
 .spec-first/standards/project-shape.json
 .spec-first/standards/standards-plan.json
 .spec-first/standards/glue-map.json
+.spec-first/standards/next-action-candidates.json
 ```
 
 Mode-support artifacts include `standards-update-decision.json`, `graph-query-index.json`, `standards-sources.json`, `import-lock.json`, and `imported-standards.json`.
 
-The script does not write standards candidates, previews, or repo-profile changes. Those require semantic judgment. Downstream workflow usage is described in `standards-plan.json` and `glue-map.json`; only `confirmed` candidates are hard constraints.
+The script does not write standards candidates, previews, final workflow recommendations, or repo-profile changes. Those require semantic judgment. `next-action-candidates.json` only carries handoff facts and possible public entrypoint sets; the LLM chooses any user-facing recommendation. Downstream workflow usage is described in `standards-plan.json` and `glue-map.json`; only `confirmed` candidates are hard constraints.
 
 ## Artifact Validator
 

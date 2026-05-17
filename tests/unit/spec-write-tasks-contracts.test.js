@@ -36,6 +36,8 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('optional derived layer between `spec-plan` and `spec-work`');
     expect(skill).toContain('`spec-plan` is always the single source of truth');
     expect(skill).toContain('A task pack is a derived artifact; it must not become a second plan.');
+    expect(skill).toContain('`context_refs` must point to the smallest useful section, file, test, contract, or pattern reference.');
+    expect(skill).toContain('whole-plan or whole-directory refs are low-quality handoff unless paired with narrower anchors');
     expect(skill).toContain('It does not accept remote repositories, package names, marketplace identifiers');
     expect(skill).toContain('End every run with the final decision envelope');
     expect(skill).toContain('Only an executable task pack with matching `spec_id`');
@@ -65,6 +67,15 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('`Requirements` (or legacy `Requirements Trace`)');
     expect(skill).toContain('A mismatch is a wrong-chain handoff');
     expect(skill).toContain('bounded source orientation');
+    expect(skill).toContain('Use this intake order for context economy');
+    expect(skill).toContain('first read the plan/task summary and contract metadata');
+    expect(skill).toContain('then deterministic inventory or validation facts');
+    expect(skill).toContain('then current task/phase refs');
+    expect(skill).toContain('then focused source-of-truth sections');
+    expect(skill).toContain('only then deeper references');
+    expect(skill).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
+    expect(skill).toContain('src/cli/helpers/review-pre-facts.js');
+    expect(skill).toContain('do not create a parallel reviewer facts pipeline');
     expect(skill).toContain('targeted direct repo reads first');
     expect(skill).toContain('optionally use Serena/LSP when available');
     expect(skill).toContain('Serena/LSP provider rule');
@@ -80,6 +91,12 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('Use `optional` for medium-risk behavior changes');
     expect(skill).toContain('Omit it for docs-only, config-only, trivial copy edits, and low-risk single-file fixes');
     expect(skill).toContain('This is not lifecycle state, review status, or approval metadata');
+    expect(skill).toContain('Prefer independently verifiable vertical slices over horizontal layers');
+    expect(skill).toContain('A good slice closes one behavior with implementation, verification, and any necessary docs/config evidence');
+    expect(skill).toContain('Docs-only and config-only tasks should use docs contract checks, schema/help/render checks, or diff-shape checks');
+    expect(skill).toContain('do not force TDD where no behavior-bearing code changes');
+    expect(skill).toContain('split into vertical story tasks');
+    expect(skill).toContain('Avoid horizontal "all tests first, then all implementation" waves when independent vertical tracer bullets can be verified');
     expect(skill).toContain('The deterministic validator checks `review_gate` structure only');
     expect(skill).toContain('does not decide which tasks semantically require review');
     expect(skill).toContain('docs/examples/standards-glue-consumption-examples.md');
@@ -124,6 +141,9 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('must not use `**` whole-repo globs');
     expect(schema).toContain('| `review_gate` | Optional task-level review intent, either `optional` or `required`; not an approval state |');
     expect(schema).toContain('| `review_focus` | Specific review concern for mini review or final shipping review |');
+    expect(schema).toContain('Task `files` and `expected_side_effects` must point at source-of-truth or allowed generated artifacts');
+    expect(schema).toContain('must reject `.claude/**`, `.codex/**`, and `.agents/skills/**` task file ownership');
+    expect(schema).toContain('task files do not point at generated runtime mirrors');
     expect(schema).toContain('When present, `review_gate` must be exactly `optional` or `required`; absence means no task-level review gate.');
     expect(schema).toContain('The validator checks only the enum structure, not whether the task semantically deserves a gate.');
     expect(schema).toContain('MVP required task fields');
@@ -160,10 +180,23 @@ describe('spec-write-tasks contracts', () => {
     expect(guide).toContain('`review_gate` is required by default');
     expect(guide).toContain('Task Pack Review Checklist');
     expect(guide).toContain('Current deterministic validation treats `context_refs` as auxiliary context, not as a replacement for `source_unit` or `requirement_refs`.');
+    expect(guide).toContain('section/file/test/contract granularity');
+    expect(guide).toContain('whole-plan ref is low quality unless paired with narrower anchors');
+    expect(guide).toContain('task `files` avoid generated runtime mirrors');
+    expect(guide).toContain('`.claude/**`, `.codex/**`, and `.agents/skills/**`');
     expect(guide).toContain('Use non-empty concrete repo-relative POSIX file paths');
     expect(guide).toContain('orientation_evidence');
     expect(guide).toContain('provider, posture, evidence_refs, and limitations');
     expect(guide).toContain('without turning LSP/current code state into source-plan scope');
+    expect(guide).toContain('Vertical Slice And Feedback Loop Rules');
+    expect(guide).toContain('Prefer tasks that form independently verifiable vertical slices');
+    expect(guide).toContain('A vertical tracer bullet includes the smallest implementation path, verification loop, and necessary docs/config evidence');
+    expect(guide).toContain('Acceptable feedback loops include failing or characterization tests, CLI invocations, HTTP/browser scripts, trace replay, throwaway harnesses, property/fuzz loops');
+    expect(guide).toContain('docs contract checks, schema/help/render checks');
+    expect(guide).toContain('Docs-only and config-only tasks are not forced into TDD');
+    expect(guide).toContain('Horizontal slicing smell: a task pack that writes all tests for every unit first, then all implementation, then all docs makes feedback late');
+    expect(guide).toContain('Horizontal all-tests-then-all-implementation slicing');
+    expect(guide).toContain('Prefer vertical tracer bullets with one behavior, verification loop, and docs/config evidence closed together');
     expect(guide).not.toContain('CR' + 'G');
   });
 
@@ -177,7 +210,7 @@ describe('spec-write-tasks contracts', () => {
       'failure-cases.json',
       'expected-behavior-cases.json',
     ];
-    const failureModesSection = skill.split('## Failure Modes')[1].split('## Scope Backoff')[0];
+    const failureModesSection = skill.split(/^## Failure Modes$/m)[1].split('## Scope Backoff')[0];
     const allowedDecisions = new Set(decisionLine[1].split('|').map((decision) => decision.trim()));
     const allowedFailures = new Set([...failureModesSection.matchAll(/^- `([a-z_]+)`: /gm)].map((match) => match[1]));
     const seenIds = new Set();

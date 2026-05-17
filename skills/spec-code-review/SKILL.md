@@ -46,6 +46,18 @@ Resolve scope and mode, run runtime/readiness preflight, select scale-aware revi
 
 Orient review from the diff scope, current user request, plan/task/work artifacts when present, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, and test results. When graph readiness artifacts are degraded, stale, or unavailable, prefer live MCP evidence for concrete review questions when the relevant MCP tool is loaded and responsive, then fall back to bounded direct repo reads. Treat successful MCP calls as session-local evidence only; they do not update compiled `query_ready` or replace reviewer judgment. If GitNexus returns definitions-only evidence, use it only as local file/symbol pointers and continue with code-review-graph, Serena, or bounded direct repo reads before making findings. If a live MCP/provider startup or call fails, treat that provider as degraded evidence rather than a reviewer failure unless the reviewer itself cannot complete; do not repeatedly probe the same unavailable provider across personas in the same run. Record the provider degradation once in Coverage and continue with bounded direct repo reads. External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment.
 
+## Domain Language And Decision Ledger
+
+When review findings depend on domain terminology, project-specific concepts, or ADR-like decisions, consume existing context before asking questions or raising gaps that repo/docs can answer: project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, record the limitation in Coverage as advisory context rather than blocking the review.
+
+For major review decisions or residuals, carry a lightweight decision note: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when unresolved. Use source tags such as `confirmed`, `advisory`, `session-local`, `stale`, or `user`. Recommend an ADR-like artifact only when the decision is hard to reverse, would be surprising without context, and reflects a real tradeoff; do not create the artifact from review unless an explicit workflow route chooses that work.
+
+## Feedback Loop Review Boundary
+
+When reviewing behavior-bearing changes, check whether the work established and reran a feedback loop appropriate to the change: failing or characterization tests, CLI invocation, HTTP/browser script, trace replay, throwaway harness, property/fuzz loop, or another focused command. Findings should name the missing observable risk, not demand TDD ritual by default.
+
+For docs-only and config-only changes, docs contract checks, schema/help/render checks, generated catalog diff checks, or diff-shape review can be sufficient verification. Do not flag "no test-first loop" when the change has no behavior-bearing code and another observable check proves the intended effect.
+
 ## Runtime Context Exclusion
 
 遵循 `docs/contracts/context-governance.md`：普通 Code Review context 默认排除 `.spec-first/audits/**` 和 generated mirrors（`.claude/**`、`.codex/**`、`.agents/skills/**`）。除非 diff 或用户请求明确指向 setup/update/runtime drift/audit evidence，否则不要把这些路径放进 reviewer prompt、broad repo search 或 review context bundle；被排除时，在 Coverage 中报告 path 或 reason，而不是静默扫描。
@@ -445,6 +457,8 @@ Compute and record these facts before choosing the reviewer team:
 - `prior_comments_present`: Stage 1 `hasPriorComments=true`.
 - `plan_explicit`: Stage 2b found an explicit plan.
 
+Progressive disclosure boundary: low-risk docs-only, simple config, and tiny executable diffs may use a minimum reviewer set; high-risk workflow, contract, release, source/runtime boundary, provider evidence, security, or cross-module changes must use the full default core plus applicable conditional reviewers. The goal is to avoid unbounded fan-out on small diffs without hiding risk.
+
 Use the minimum reviewer set only when all of these are true:
 
 1. `changed_file_count <= 2`.
@@ -537,6 +551,8 @@ When a required MCP server is not host-config-ready before dispatch, do not spaw
 ### Dispatch capability gate
 
 Before creating a run ID or dispatching any reviewer, confirm the current host exposes a dispatch primitive and the selected reviewers are part of this documented code-review phase. Dispatch capability is part of the runtime boundary, not a reviewer-selection preference.
+
+Reviewers are analysis agents, not implementation workers. Dispatch is bounded to the resolved diff scope, selected reviewer personas, advisory facts, and output schema. Do not create hidden implement/check agents from code review. Mutation is allowed only through documented `safe_auto` / selected Apply paths in the chosen mode; report-only fallback, unsafe runtime, or missing dispatch capability must not edit source, generated runtime mirrors, or workflow artifacts.
 
 - A direct invocation of the current host's code-review workflow entrypoint authorizes this documented reviewer phase; do not ask for a second "use subagents" confirmation.
 - Default code-review posture is multi-persona reviewer dispatch. Do not interpret the absence of extra "use subagents" wording as report-only fallback; the workflow entrypoint already expresses that intent.

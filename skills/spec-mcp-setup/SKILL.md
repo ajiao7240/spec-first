@@ -18,6 +18,40 @@ Project-local config and legacy residue facts do not affect `baseline_ready`. Re
 
 GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, then from git remote URL basename, and only falls back to the repo directory basename. Its probe token policy should write a bounded, ordered `candidates[]` list of at most 5 source-derived candidates while preserving legacy `token` / `selected_from` fields for compatibility. Candidate ordering is cross-stack: prefer entry/workflow basenames likely to participate in flows, such as main/launch/loading/home/login/router/navigation files, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and Android Activity/ViewModel classes. For controller-heavy repos where class basenames often return definitions-only, setup may extract bounded method-level source tokens from tracked workflow files and prefer flow-like method names such as step/save/add/delete/submit/validate/failure/options before controller class names. Android names are one platform signal, not the default universal front door. Low-signal lifecycle, config, type, schema, constants, display-only, advertisement/guide/dialog/adapter/bean/entity basenames should be demoted until no better source candidate exists.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use to install, verify, repair, or diagnose spec-first's required Claude Code or Codex harness runtime, helper tools, MCP servers, and setup-owned provider projections.
+
+### When Not To Use
+
+Do not use to compile graph readiness, make product or architecture decisions, review code/docs, update generated runtime assets as source fixes, or run provider analyze/build commands.
+
+### Inputs
+
+Current host, working directory, `skills/spec-mcp-setup/mcp-tools.json`, host config paths, git/workspace target facts, optional repo/language flags, and setup environment variables.
+
+### Outputs
+
+Readiness ledger facts, setup-owned config/projection artifacts, helper/tool status, grouped user-facing next actions, and handoff guidance to graph bootstrap or standards.
+
+### Artifacts
+
+Host readiness ledger v2, `.spec-first/config/*.json`, optional `.serena/*` config, parent workspace advisory summaries, and managed `.gitignore` entries when explicitly bootstrapped.
+
+### Failure Modes
+
+Missing dependency, Serena language ambiguity, invalid workspace target, host config precedence block, warmup/configure failure, skipped non-git repo, or credential/permission failure.
+
+### Workflow
+
+Resolve target scope, check dependencies, configure required helpers/MCP projections, bootstrap Serena, write setup-owned readiness facts, then report status and next action.
+
+### Downstream Consumers
+
+`spec-graph-bootstrap`, `spec-standards`, `using-spec-first`, downstream workflows reading readiness facts, and humans repairing host setup.
+
 ## Purpose
 
 Prepare a verified, repeatable spec-first harness runtime for Claude Code or Codex without turning setup into a semantic decision engine.

@@ -16,6 +16,40 @@ argument-hint: "[feature, focus area, or constraint]"
 
 This workflow produces a ranked ideation artifact in `docs/ideation/`. It does **not** produce requirements, plans, or code.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when the user wants grounded improvement ideas, surprising options, or a critically ranked set of directions before choosing one for brainstorming.
+
+### When Not To Use
+
+Do not use when the WHAT is already chosen and needs requirements, when HOW needs planning, when implementation should start, or when the request is a bug/debug task.
+
+### Inputs
+
+Focus hint, repository evidence, recent ideation artifacts, issue-tracker context when explicitly requested, grounding agent outputs, and user clarification when the subject is ambiguous.
+
+### Outputs
+
+A ranked ideation artifact in `docs/ideation/`, rejected-idea rationale, selected-survivor explanations, and a handoff recommendation to `spec-brainstorm`.
+
+### Artifacts
+
+One ideation document, optional scratch checkpoints, and no requirements, plan, task pack, code, or runtime artifact.
+
+### Failure Modes
+
+Unidentifiable subject, insufficient grounding evidence, dispatch unavailable/degraded, issue-tracker access unavailable, or no ideas survive critique.
+
+### Workflow
+
+Resolve subject and mode, gather grounded context, generate many candidate ideas, critique/reject explicitly, rank survivors, write the ideation artifact, and hand off to brainstorming.
+
+### Downstream Consumers
+
+`spec-brainstorm`, `spec-plan`, human product decisions, future ideation refreshes, and `spec-sessions` context lookups.
+
 ## Interaction Method
 
 Use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.

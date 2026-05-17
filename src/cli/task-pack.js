@@ -39,6 +39,11 @@ const ALLOWED_REVIEW_GATES = new Set(['optional', 'required']);
 const WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i;
 const WINDOWS_ILLEGAL_SEGMENT_CHARS = /[<>:"|]/;
 const CONTROL_CHARS = /[\x00-\x1f]/;
+const GENERATED_RUNTIME_MIRROR_PREFIXES = [
+  '.claude/',
+  '.codex/',
+  '.agents/skills/',
+];
 
 function normalizeNewlines(text) {
   return String(text).replace(/\r\n?/g, '\n');
@@ -222,11 +227,18 @@ function isConcreteRepoRelativeFile(filePath) {
   return true;
 }
 
+function isGeneratedRuntimeMirrorPath(filePath) {
+  if (typeof filePath !== 'string') return false;
+  const normalized = filePath.replace(/\\/g, '/');
+  return GENERATED_RUNTIME_MIRROR_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+}
+
 function isSafeExpectedSideEffectPattern(pattern) {
   if (typeof pattern !== 'string' || pattern.trim() === '') return false;
   if (pattern !== pattern.trim()) return false;
   if (pattern.includes('\\')) return false;
   if (path.isAbsolute(pattern)) return false;
+  if (isGeneratedRuntimeMirrorPath(pattern)) return false;
   if (pattern.includes('**')) return false;
   if (pattern.includes('...')) return false;
   if (pattern.endsWith('/')) return false;
@@ -666,6 +678,12 @@ function validateTaskPackContract(contract, repoRoot, errors, limitations) {
             file: filePath,
           });
           continue;
+        }
+        if (isGeneratedRuntimeMirrorPath(filePath)) {
+          addFinding(errors, 'task-pack-task-file-generated-runtime', `Task '${task.task_id || '<unknown>'}' file points at a generated runtime mirror path.`, {
+            task_id: task.task_id || null,
+            file: filePath,
+          });
         }
         const absolute = path.resolve(repoRoot, filePath);
         if (!isInsidePath(repoRoot, absolute)) {

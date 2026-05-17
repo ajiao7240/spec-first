@@ -25,6 +25,7 @@ const {
 const PROJECT_SHAPE_SCHEMA = 'spec-first.project-shape.v1';
 const STANDARDS_PLAN_SCHEMA = 'spec-first.standards-plan.v1';
 const GLUE_MAP_SCHEMA = 'spec-first.glue-map.v1';
+const NEXT_ACTION_CANDIDATES_SCHEMA = 'spec-first.standards-next-action-candidates.v1';
 const STANDARDS_UPDATE_DECISION_SCHEMA = 'spec-first.standards-update-decision.v1';
 const GRAPH_QUERY_INDEX_SCHEMA = 'spec-first.standards-graph-query-index.v1';
 const STANDARDS_SOURCES_SCHEMA = 'spec-first.standards-sources.v1';
@@ -51,12 +52,19 @@ const CANDIDATE_SOURCE_TYPES = [
   'docs_observed',
   'llm_suggested',
 ];
-const BASELINE_REVIEW_ARTIFACTS = [
+const BASELINE_FACT_ARTIFACTS = [
   'project-shape.json',
   'standards-plan.json',
   'glue-map.json',
+  'next-action-candidates.json',
+];
+const STANDARDS_REVIEW_ARTIFACTS = [
   'standards-candidates.json',
   'standards-preview.md',
+];
+const BASELINE_REVIEW_ARTIFACTS = [
+  ...BASELINE_FACT_ARTIFACTS,
+  ...STANDARDS_REVIEW_ARTIFACTS,
 ];
 const DEFAULT_STANDARDS_OUTPUT = '.spec-first/standards';
 const DEFAULT_INVENTORY_MAX_FILES = 4000;
@@ -226,6 +234,9 @@ function prepareBaseline(args) {
     : null;
   const standardsPlan = buildStandardsPlan(projectShape, inventory, options, importArtifacts);
   const glueMap = buildGlueMap(projectShape, inventory, options);
+  const nextActionCandidates = options.mode === 'quick'
+    ? null
+    : buildNextActionCandidates(projectShape, standardsPlan, glueMap, options);
   const updateDecision = ['quick', 'refresh'].includes(options.mode)
     ? buildUpdateDecision(repoRoot, options, projectShape)
     : null;
@@ -238,6 +249,7 @@ function prepareBaseline(args) {
     projectShape,
     standardsPlan,
     glueMap,
+    nextActionCandidates,
     updateDecision,
     graphQueryIndex,
     importArtifacts,
@@ -577,6 +589,7 @@ function buildArtifactWrites({
   projectShape,
   standardsPlan,
   glueMap,
+  nextActionCandidates,
   updateDecision,
   graphQueryIndex,
   importArtifacts,
@@ -589,6 +602,9 @@ function buildArtifactWrites({
       ['standards-plan.json', standardsPlan],
       ['glue-map.json', glueMap],
     );
+    if (nextActionCandidates) {
+      writes.push(['next-action-candidates.json', nextActionCandidates]);
+    }
   }
 
   if (updateDecision) {
@@ -768,6 +784,9 @@ function buildProjectShape(repoRoot, inventory, args = {}) {
     languages,
     frameworks,
     package_managers: packageManagers,
+    package_scripts: packageJson && packageJson.scripts
+      ? Object.keys(packageJson.scripts).sort()
+      : [],
     domains,
     graph: {
       available_artifacts: inventory.graph_artifacts,
@@ -1342,6 +1361,7 @@ function buildPlanArtifacts(options, importArtifacts) {
       '.spec-first/standards/project-shape.json',
       '.spec-first/standards/standards-plan.json',
       '.spec-first/standards/glue-map.json',
+      '.spec-first/standards/next-action-candidates.json',
       '.spec-first/standards/standards-candidates.json',
       '.spec-first/standards/standards-preview.md',
     ],
@@ -1352,6 +1372,7 @@ function buildPlanArtifacts(options, importArtifacts) {
       '.spec-first/standards/project-shape.json',
       '.spec-first/standards/standards-plan.json',
       '.spec-first/standards/glue-map.json',
+      '.spec-first/standards/next-action-candidates.json',
       '.spec-first/standards/standards-update-decision.json',
       '.spec-first/standards/standards-candidates.json',
       '.spec-first/standards/standards-preview.md',
@@ -1360,6 +1381,7 @@ function buildPlanArtifacts(options, importArtifacts) {
       '.spec-first/standards/project-shape.json',
       '.spec-first/standards/standards-plan.json',
       '.spec-first/standards/glue-map.json',
+      '.spec-first/standards/next-action-candidates.json',
       '.spec-first/standards/graph-query-index.json',
       '.spec-first/standards/standards-candidates.json',
       '.spec-first/standards/standards-preview.md',
@@ -1408,6 +1430,7 @@ function buildSynthesisContract(options, enabledDomains, importArtifacts) {
       candidates: '.spec-first/standards/standards-candidates.json',
       preview: '.spec-first/standards/standards-preview.md',
       repo_profile_patch: '.spec-first/standards/repo-profile.patch.yaml',
+      next_action_candidates: '.spec-first/standards/next-action-candidates.json',
     },
     candidate_required_fields: [
       'id',
@@ -1436,6 +1459,200 @@ function buildSynthesisContract(options, enabledDomains, importArtifacts) {
     },
     workspace_policy: buildWorkspacePolicy(options),
     downstream_consumers: buildDownstreamConsumers(),
+  };
+}
+
+function buildNextActionCandidates(projectShape, standardsPlan, glueMap, options) {
+  const scope = buildScope(options);
+  const projectShapePath = standardsArtifactPath('project-shape.json', options);
+  const standardsPlanPath = standardsArtifactPath('standards-plan.json', options);
+  const glueMapPath = standardsArtifactPath('glue-map.json', options);
+  const baseCandidate = {
+    candidate_id: 'next-action.baseline-ready',
+    candidate_kind: 'standards_baseline_ready',
+    reason_code: 'standards-facts-generated',
+    source_fact_refs: [
+      sourceFactRef(projectShapePath, 'project.project.detected_type', 'script_confirmed'),
+      sourceFactRef(standardsPlanPath, 'synthesis_contract.downstream_consumers', 'script_confirmed'),
+      sourceFactRef(glueMapPath, 'capabilities', 'script_confirmed'),
+    ],
+    evidence_paths: [
+      projectShapePath,
+      standardsPlanPath,
+      glueMapPath,
+    ],
+    possible_entrypoints: ['/spec:plan', '$spec-plan', '/spec:work', '$spec-work'],
+    target_repo_scope: buildNextActionTargetRepoScope(options, scope),
+    authority_level: 'facts_only',
+    provenance_classification: 'script_confirmed',
+    readiness_status: 'ready',
+    redaction_status: 'none-required',
+  };
+
+  const candidates = [baseCandidate];
+  if (projectShape.graph.status !== 'available') {
+    candidates.push({
+      candidate_id: 'next-action.graph-readiness-missing',
+      candidate_kind: 'missing_graph_readiness',
+      reason_code: 'graph-readiness-artifacts-not-detected',
+      source_fact_refs: [
+        sourceFactRef(projectShapePath, 'graph.status', 'script_confirmed'),
+      ],
+      evidence_paths: [projectShapePath],
+      possible_entrypoints: ['/spec:graph-bootstrap', '$spec-graph-bootstrap'],
+      target_repo_scope: buildNextActionTargetRepoScope(options, scope),
+      authority_level: 'facts_only',
+      provenance_classification: 'script_confirmed',
+      readiness_status: 'degraded',
+      redaction_status: 'none-required',
+    });
+  }
+  if (scope.type === 'workspace') {
+    candidates.push({
+      candidate_id: 'next-action.workspace-advisory-only',
+      candidate_kind: 'workspace_advisory_only',
+      reason_code: 'parent-workspace-artifacts-advisory',
+      source_fact_refs: [
+        sourceFactRef(standardsPlanPath, 'synthesis_contract.workspace_policy', 'script_confirmed'),
+      ],
+      evidence_paths: [standardsPlanPath],
+      possible_entrypoints: ['/spec:standards', '$spec-standards'],
+      target_repo_scope: buildNextActionTargetRepoScope(options, scope),
+      authority_level: 'facts_only',
+      provenance_classification: 'script_confirmed',
+      readiness_status: 'degraded',
+      redaction_status: 'none-required',
+    });
+  }
+  if (options.targetKind === 'workspace_children' || scope.type === 'workspace_children') {
+    candidates.push({
+      candidate_id: 'next-action.child-repo-ambiguity',
+      candidate_kind: 'child_repo_ambiguity',
+      reason_code: 'multiple-child-repos-detected',
+      source_fact_refs: [
+        sourceFactRef(projectShapePath, 'workspace.child_repos', 'script_confirmed'),
+      ],
+      evidence_paths: [projectShapePath],
+      possible_entrypoints: ['/spec:standards', '$spec-standards'],
+      target_repo_scope: buildNextActionTargetRepoScope(options, scope),
+      authority_level: 'facts_only',
+      provenance_classification: 'script_confirmed',
+      readiness_status: 'degraded',
+      redaction_status: 'none-required',
+    });
+  }
+  const packageManagers = Array.isArray(projectShape.package_managers) ? projectShape.package_managers : [];
+  const packageScripts = Array.isArray(projectShape.package_scripts) ? projectShape.package_scripts : [];
+  if (packageManagers.includes('npm') && packageScripts.length === 0) {
+    candidates.push({
+      candidate_id: 'next-action.package-scripts-missing',
+      candidate_kind: 'missing_package_scripts',
+      reason_code: 'package-scripts-not-detected',
+      source_fact_refs: [
+        sourceFactRef(projectShapePath, 'package_scripts', 'script_confirmed'),
+      ],
+      evidence_paths: [projectShapePath],
+      possible_entrypoints: ['/spec:plan', '$spec-plan', '/spec:work', '$spec-work'],
+      target_repo_scope: buildNextActionTargetRepoScope(options, scope),
+      authority_level: 'facts_only',
+      provenance_classification: 'script_confirmed',
+      readiness_status: 'missing',
+      redaction_status: 'none-required',
+    });
+  }
+  if ((projectShape.domains.tests && projectShape.domains.tests.detected === false) || !projectShape.domains.tests) {
+    candidates.push({
+      candidate_id: 'next-action.tests-not-detected',
+      candidate_kind: 'absent_tests',
+      reason_code: 'test-surface-not-detected',
+      source_fact_refs: [
+        sourceFactRef(projectShapePath, 'domains.tests', 'script_confirmed'),
+      ],
+      evidence_paths: [projectShapePath],
+      possible_entrypoints: ['/spec:plan', '$spec-plan', '/spec:work', '$spec-work'],
+      target_repo_scope: buildNextActionTargetRepoScope(options, scope),
+      authority_level: 'facts_only',
+      provenance_classification: 'script_confirmed',
+      readiness_status: 'degraded',
+      redaction_status: 'none-required',
+    });
+  }
+  const reviewArtifactsPresent = standardsReviewArtifactsPresent(options.output);
+  const deterministicFactsRebuilt = ['baseline', 'refresh', 'deep'].includes(options.mode);
+  if (!reviewArtifactsPresent || deterministicFactsRebuilt) {
+    candidates.push({
+      candidate_id: 'next-action.validation-stale-or-missing',
+      candidate_kind: 'stale_validation',
+      reason_code: reviewArtifactsPresent
+        ? 'standards-facts-regenerated-review-artifacts-stale'
+        : 'trusted-standards-validation-not-detected',
+      source_fact_refs: [
+        sourceFactRef(standardsPlanPath, 'artifacts.generate', 'script_confirmed'),
+      ],
+      evidence_paths: [standardsPlanPath],
+      possible_entrypoints: ['/spec:standards', '$spec-standards'],
+      target_repo_scope: buildNextActionTargetRepoScope(options, scope),
+      authority_level: 'facts_only',
+      provenance_classification: 'script_confirmed',
+      readiness_status: reviewArtifactsPresent ? 'stale' : 'missing',
+      redaction_status: 'none-required',
+    });
+  }
+
+  return {
+    schema_version: NEXT_ACTION_CANDIDATES_SCHEMA,
+    producer: 'spec-standards.prepare-baseline',
+    generated_at: new Date().toISOString(),
+    scope,
+    source_artifacts: [
+      projectShapePath,
+      standardsPlanPath,
+      glueMapPath,
+    ],
+    artifact_boundary: 'Workflow handoff facts only. The script does not rank, route, block, or choose a final recommended entrypoint.',
+    candidates,
+    non_goals: [
+      'target_entrypoint',
+      'ranking',
+      'blocking_policy',
+      'mode_matrix',
+      'workflow_recommendation',
+    ],
+    downstream_consumers: glueMap.downstream_consumers || standardsPlan.synthesis_contract.downstream_consumers || [],
+  };
+}
+
+function standardsReviewArtifactsPresent(outputDir) {
+  if (!outputDir) return false;
+  return ['standards-candidates.json', 'standards-preview.md'].every((fileName) => {
+    const filePath = path.join(outputDir, fileName);
+    return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+  });
+}
+
+function sourceFactRef(artifactPath, pointer, classification) {
+  return {
+    artifact_path: artifactPath,
+    pointer,
+    classification,
+  };
+}
+
+function standardsArtifactPath(fileName, options = {}) {
+  if (options.root && options.output) {
+    return path.relative(options.root, path.join(options.output, fileName)).replace(/\\/g, '/');
+  }
+  return path.join(DEFAULT_STANDARDS_OUTPUT, fileName).replace(/\\/g, '/');
+}
+
+function buildNextActionTargetRepoScope(options, scope) {
+  return {
+    type: scope.type,
+    repo: options.repo || null,
+    workspace_child: scope.workspace_child || null,
+    boundary: scope.type === 'workspace'
+      ? 'parent-workspace-advisory'
+      : 'target-repo-local',
   };
 }
 
@@ -1483,9 +1700,7 @@ function buildUpdateDecision(repoRoot, options, projectShape) {
   if (options.mode === 'refresh') {
     recommendation = 'refresh-requested';
     reasonCodes.push('explicit-refresh-request');
-  } else if (missingArtifacts.some((artifact) => artifact.endsWith('project-shape.json')
-    || artifact.endsWith('standards-plan.json')
-    || artifact.endsWith('glue-map.json'))) {
+  } else if (missingArtifacts.some(isBaselineFactArtifactPath)) {
     recommendation = 'run-baseline';
     reasonCodes.push('missing-fact-artifacts');
   } else if (!existingInventoryHash) {
@@ -1524,6 +1739,10 @@ function buildUpdateDecision(repoRoot, options, projectShape) {
     missing_artifacts: missingArtifacts,
     next_actions: buildUpdateNextActions(recommendation),
   };
+}
+
+function isBaselineFactArtifactPath(artifactPath) {
+  return BASELINE_FACT_ARTIFACTS.some((fileName) => artifactPath.endsWith(fileName));
 }
 
 function buildUpdateNextActions(recommendation) {
@@ -1971,6 +2190,7 @@ module.exports = {
   buildGlueMap,
   buildImportArtifacts,
   buildInventory,
+  buildNextActionCandidates,
   buildProjectShape,
   buildStandardsPlan,
   buildUpdateDecision,

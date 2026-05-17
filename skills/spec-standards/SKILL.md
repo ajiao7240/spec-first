@@ -10,6 +10,40 @@ argument-hint: "[--baseline|--quick|--refresh|--deep] [--repo <child>|--workspac
 
 It turns implicit project conventions, team standards, graph evidence, and reuse capabilities into reviewable project baseline artifacts. It is not a rules engine, a generic best-practice generator, or an automatic `repo-profile.yaml` writer.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when onboarding a brownfield project, refreshing project-level standards, preparing reusable standards/glue baselines before plan/work/review, or importing shared team standards for project confirmation.
+
+### When Not To Use
+
+Do not use to replace `spec-plan`, `spec-work`, `spec-code-review`, or `spec-graph-bootstrap`, to auto-confirm observed conventions, or to write `repo-profile.yaml` without explicit human confirmation.
+
+### Inputs
+
+Current request/options, target repo facts, existing standards artifacts, graph/provider readiness artifacts when available, shared standards inputs, package/config/test/docs signals, and host guidance.
+
+### Outputs
+
+Deterministic project-shape, standards-plan, glue-map, next-action candidate facts, optional mode-support artifacts, and LLM-authored standards candidates/preview when the workflow reaches semantic synthesis.
+
+### Artifacts
+
+Local `.spec-first/standards/*` artifacts by default. Confirmed standards that should travel with the team must be promoted to an explicit source path; generated runtime mirrors are not source.
+
+### Failure Modes
+
+Ambiguous target repo, parent workspace advisory scope, missing or stale graph/provider facts, invalid candidate/preview validation, unsafe writeback, or attempts to treat observed evidence as confirmed policy.
+
+### Workflow
+
+Resolve target scope, run deterministic baseline preparation, let the LLM synthesize candidate standards from bounded evidence, validate artifacts before trusted consumption, and keep writeback preview-first.
+
+### Downstream Consumers
+
+`spec-brainstorm`, `spec-plan`, `spec-write-tasks`, `spec-work`, `spec-code-review`, and humans reviewing standards promotion.
+
 ## Invocation Boundary
 
 This is a public workflow orchestrator, not an agent type. Do not invoke it through Agent/Task/subagent primitives.
@@ -74,6 +108,14 @@ Optional inputs:
 - Existing `.spec-first/standards/*` artifacts for quick checks or refresh runs.
 
 If graph artifacts are missing or stale, continue in degraded mode with direct repo facts and lower confidence. Do not fabricate graph-backed evidence.
+
+Use this intake order for context economy: first read the request/options and artifact summary, then deterministic inventory/readiness facts, then current mode/task refs, then focused source-of-truth sections, and only then deeper references or examples. Reuse the trust model in `docs/contracts/workflows/review-pre-facts-extraction.md` and `src/cli/helpers/review-pre-facts.js` for review/token-economy facts; do not create a parallel reviewer facts pipeline.
+
+## Domain Language And Decision Ledger
+
+When compiling standards for domain terminology, project-specific concepts, or ADR-like choices, consume existing context before asking questions that repo/docs can answer: current standards artifacts, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, mark the gap as advisory or unknown evidence; absence alone does not block baseline preparation.
+
+For major standards decisions, carry a lightweight decision note in the preview or handoff: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when unresolved. Use source tags such as `confirmed`, `advisory`, `session-local`, `stale`, or `user`. Suggest creating an ADR-like artifact only when the decision is hard to reverse, would be surprising without context, and reflects a real tradeoff. Deterministic scripts may surface source/authority facts, but the LLM owns the decision note and any ADR-like recommendation.
 
 ## Supported Modes
 
@@ -148,6 +190,10 @@ Default local artifact root:
 
 `spec-first init` adds this root to the managed `.gitignore` block. Treat it as a local standards workspace by default. Confirmed standards that should travel with the team must be promoted to an explicit source path, such as `.spec-first/specs/repo-profile.yaml`, `docs/specs/**`, or another project-owned standards document.
 
+`next-action-candidates.json` is a Phase 1C workflow-handoff facts artifact. It is distinct from `standards-candidates.json` standards content candidates and `standards-update-decision.json` freshness decisions. Scripts may write candidate facts, reason codes, source fact refs, evidence paths, and possible public entrypoint sets; scripts must not write a single `target_entrypoint`, ranking, blocking policy, or final workflow recommendation. The LLM consumes the facts and chooses any human recommendation.
+
+Phase 2 mode/freshness boundary: `--quick` performs deterministic freshness validation and writes only `standards-update-decision.json`; `--refresh` rebuilds a bounded domain/module/repo scope and records the requested scope in deterministic facts; parent workspace default runs write child-local baselines, while explicit `--workspace` writes parent advisory-only facts. Child-local conflicts have priority over parent advisory summaries for child workflows. Stale/rebuild policy belongs in `standards-update-decision.json` reason codes and freshness fields, not in `next-action-candidates.json`. "Blocking" is reviewer/LLM language for a handoff or report; scripts must not persist `blocking`, `blocking_policy`, or equivalent mode matrix fields in next-action candidates.
+
 Baseline artifacts by owner:
 
 ```text
@@ -155,6 +201,7 @@ Baseline artifacts by owner:
 .spec-first/standards/project-shape.json
 .spec-first/standards/standards-plan.json
 .spec-first/standards/glue-map.json
+.spec-first/standards/next-action-candidates.json
 
 # LLM-generated review artifacts
 .spec-first/standards/standards-candidates.json

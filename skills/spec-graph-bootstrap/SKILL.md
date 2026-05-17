@@ -6,6 +6,40 @@ argument-hint: ""
 
 # Graph Readiness Compiler
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use after setup baseline is ready, or when the user asks to compile, refresh, verify, or diagnose project graph-provider readiness facts for downstream workflows.
+
+### When Not To Use
+
+Do not use to install MCP servers, repair host config, compile standards, review code/docs, plan or implement features, or draw semantic architecture conclusions.
+
+### Inputs
+
+Setup-owned runtime capabilities, host readiness ledger pointer, graph provider config, provider artifact contracts, optional repo/all-repos/incremental/full flags, and current git/workspace scope.
+
+### Outputs
+
+Canonical graph/provider/impact readiness artifacts, bounded provider raw logs, normalized envelopes, bootstrap reports, and explicit stale/degraded reason codes.
+
+### Artifacts
+
+Child-local `.spec-first/graph/*`, `.spec-first/providers/*`, `.spec-first/impact/*`, and parent advisory `.spec-first/workspace/*` summaries for multi-repo maintenance.
+
+### Failure Modes
+
+Missing setup facts, `baseline_ready=false`, invalid provider config, provider command failure, stale fingerprint, unsafe parent workspace write, or explicit recovery action required.
+
+### Workflow
+
+Resolve repo scope, validate setup facts, run provider commands without shell interpolation, capture and normalize evidence, write canonical readiness artifacts, then hand off to standards or downstream work.
+
+### Downstream Consumers
+
+`spec-standards`, `spec-plan`, `spec-work`, `spec-debug`, `spec-code-review`, `spec-doc-review`, and humans checking graph readiness.
+
 ## Purpose
 
 This workflow owns project graph readiness compilation. `spec-mcp-setup` installs/configures the harness runtime and writes setup-owned facts; `spec-graph-bootstrap` consumes those facts, transiently runs configured external graph-provider command arrays, captures evidence, and writes canonical project readiness artifacts.

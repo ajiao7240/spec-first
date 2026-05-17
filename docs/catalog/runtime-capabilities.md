@@ -25,7 +25,8 @@
 | Claude runtime delivery | 21 commands, 21 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
 | Codex runtime delivery | 0 commands, 21 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
 | Beta workflow entries | spec-polish-beta, spec-work-beta |
-| Planned runtime contracts | 1 |
+| Workflow runtime contracts | 1 |
+| Planned runtime contracts | 0 |
 
 ## Public Workflows
 
@@ -82,13 +83,19 @@ Most `internal_only` governance records are source governance entries and are no
 | Codex | workflow, standalone, and agent-facing internal skills | `.agents/skills/` |
 | Codex | agents | `.codex/agents/` |
 
-## Planned Runtime Contracts
+## Source Runtime Customization Boundary
 
-These contracts are docs-side visibility records for future artifacts. They do not prove that the current runtime emits the artifact; consumers must check the `Producer` and boundary before treating any path as current runtime truth.
+`docs/contracts/source-runtime-customization-boundary.md` defines the customization contract for checked-in source, generated host runtime mirrors, target-repo workflow artifacts, and external provider/tool facts. Generated mirrors under `.claude/`, `.codex/`, and `.agents/skills/` are not source-of-truth; edit source assets and regenerate with `spec-first init --claude|--codex` when a runtime refresh is required.
 
-| Contract | Status | Producer | Planned runtime path | Boundary |
-|---|---|---|---|---|
-| spec-first spec-work run artifact planned contract<br>docs/contracts/workflows/spec-work-run-artifact.schema.json | planned | unimplemented | .spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json | docs-side contract; src/cli must not implicitly consume this schema |
+Provider facts from GitNexus, code-review-graph, Serena, browser/MCP tools, package managers, and shell commands are evidence inputs. Raw provider/tool output is untrusted quoted data and must be schema-validated, target-repo-contained, escaped, excerpt-capped, and provenance/readiness-classified before it enters prompts, reports, facts, or durable artifacts. Provider credentials belong in environment variables, host secret managers, or provider-native stores, never in source, generated runtime mirrors, durable artifacts, or raw logs.
+
+## Workflow Runtime Contracts
+
+These contracts are docs-side visibility records for workflow artifacts. `producer_available=true` only means a source-owned writer exists. `workflow_integrated=true` requires the workflow itself to call that writer and provide fixture/fresh-source evidence.
+
+| Contract | Status | Producer | Producer available | Workflow integrated | Runtime path | Boundary |
+|---|---|---|---|---|---|---|
+| spec-first spec-work run artifact producer-available contract<br>docs/contracts/workflows/spec-work-run-artifact.schema.json | producer_available | internal spec-work-run-artifact write | true | false | .spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json | source-owned write-side producer; workflow integration false until spec-work closeout calls it with fixture/fresh-source evidence |
 
 ## Quality Gate Evidence
 
@@ -121,6 +128,6 @@ Runtime delivery describes what commands, skills, and agents were generated. It 
 
 - 不手改 `.claude/`、`.codex/` 或 `.agents/skills/` 作为 source fix；需要刷新 runtime 时运行 `spec-first init --claude|--codex`。
 - 不在本 catalog 中手写能力数量；能力数量必须由 generator 从 source/governance 推导。
-- Planned runtime contracts 必须由 `docs/contracts/workflows/*.schema.json` 的 `x-spec-first-*` metadata 派生；不能在 catalog 手写 planned/implemented 状态。
+- Workflow runtime contracts 必须由 `docs/contracts/workflows/*.schema.json` 的 `x-spec-first-*` metadata 派生；不能在 catalog 手写 planned/producer/integrated 状态。
 - 新增、删除或改变 host delivery 时，同步更新 governance/source，运行 `npm run docs:runtime-catalog`，再运行 targeted governance tests。
 - 该 catalog 只描述 delivery surface，不判断某个 MCP/provider 当前是否 ready；provider readiness 由 `spec-mcp-setup` 和 `spec-graph-bootstrap` 产物表达。

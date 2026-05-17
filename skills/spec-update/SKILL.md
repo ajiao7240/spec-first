@@ -16,6 +16,40 @@ Verify the installed spec-first version and recommend the host-appropriate
 update command when it is stale. Also check whether generated runtime assets
 should be refreshed for the active host.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when checking spec-first version freshness, stale plugin/CLI symptoms, or whether Claude/Codex generated runtime assets should be refreshed from source.
+
+### When Not To Use
+
+Do not use for feature work, graph/provider readiness refresh, MCP setup repair, or hand-editing generated runtime mirrors as source fixes.
+
+### Inputs
+
+Current host signals, package/plugin version probes, startup reminder state, host runtime state, generated runtime drift facts, and optional user update intent.
+
+### Outputs
+
+Version comparison, stale/current classification, host-appropriate update or init command recommendation, and runtime refresh guidance.
+
+### Artifacts
+
+Startup reminder cooldown state may be reset. Source files remain authoritative; generated runtime mirrors are refreshed only through explicit init/update commands.
+
+### Failure Modes
+
+Ambiguous host, version probe failure, non-marketplace Claude plugin layout, npm/registry lookup failure, runtime drift, or user declines the update action.
+
+### Workflow
+
+Detect host, reset explicit-check cooldown, gather host-specific version/runtime facts, compare against upstream/source truth, then recommend the next command without silent mutation.
+
+### Downstream Consumers
+
+Human maintainers, startup reminder routing, setup/update troubleshooting, and `using-spec-first` guidance when runtime assets are stale.
+
 ## Host model
 
 - **Claude Code** installs spec-first as a Claude plugin. Version checks use the

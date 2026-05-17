@@ -76,6 +76,18 @@ describe('spec session history contracts', () => {
     expect(text).not.toContain('Cursor');
   });
 
+  test('spec-sessions returns distilled replay refs instead of full history', () => {
+    const text = fs.readFileSync(SESSIONS_SKILL, 'utf8');
+
+    expect(text).toContain('Distilled Replay References');
+    expect(text).toContain('Return distilled replay references, not full session replays.');
+    expect(text).toContain('A useful replay ref names the prior session or scratch extract, the decision or failed attempt, the evidence path, and why it is relevant now.');
+    expect(text).toContain('Include rejected or out-of-scope rationale when it explains current scope');
+    expect(text).toContain('label it as prior rationale rather than workflow status');
+    expect(text).toContain('Use checkpoint-style summaries first when the caller provides them');
+    expect(text).toContain('Do not create a durable replay index or require every future workflow to read complete history.');
+  });
+
   test('runtime projection rewrites session helper scripts to bundled workflow paths', () => {
     for (const [adapter, targetPath, runtimeScriptRoot] of [
       [new ClaudeAdapter(), '.claude/spec-first/workflows/spec-sessions/SKILL.md', '.claude/spec-first/workflows/spec-sessions/scripts'],

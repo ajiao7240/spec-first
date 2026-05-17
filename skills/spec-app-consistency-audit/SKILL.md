@@ -8,6 +8,40 @@ argument-hint: "[mode:headless|mode:report-only] [base:<ref>] [source:<path>] [p
 
 Run a static-first consistency audit for mobile App work before simulator, real-device, or package validation.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when mobile App PRD, Figma context, local source, routes, architecture, analytics, i18n, or industry rules need a static-first consistency audit before runtime validation.
+
+### When Not To Use
+
+Do not use for ordinary code review, pure test/lint/build execution, formatting-only changes, or product-source edits.
+
+### Inputs
+
+Mode tokens, diff base, source root, PRD/design refs, industry lens, task/tech-plan refs, repository instructions, and app audit extractor facts.
+
+### Outputs
+
+Static consistency findings, headless envelopes when requested, degraded-input notes, and report-writer handoff fields.
+
+### Artifacts
+
+Headless/default runs may write `.spec-first/app-audit/runs/<run-id>/` artifacts; report-only mode writes no run artifacts.
+
+### Failure Modes
+
+Conflicting modes, missing headless base, missing or reference-only Figma input, unreadable source/PRD facts, extractor gaps, or insufficient App surface evidence.
+
+### Workflow
+
+Resolve mode and scope, collect static product/design/source facts, apply architecture/component/analytics/i18n/industry lenses, synthesize findings, then return or write the requested audit envelope.
+
+### Downstream Consumers
+
+`spec-code-review`, mobile QA planning, App implementation owners, report-writer steps, and human reviewers preparing runtime validation.
+
 ## Purpose
 
 Use this workflow to compare product intent, design states, page routes, KMP / Clean Architecture boundaries, App engineering quality, component and module reuse, analytics, i18n, and industry-specific rules from the available local inputs.

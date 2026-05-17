@@ -42,6 +42,22 @@ const SYNTHESIS_PATH = path.join(
 );
 
 describe('spec-brainstorm host entrypoint contract', () => {
+  test('consumes domain context before questions without fixed ADR directory mandates', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(skill).toContain('Domain Language And Decision Ledger');
+    expect(skill).toContain('consume existing context before asking questions that repo/docs can answer');
+    expect(skill).toContain('project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(skill).toContain('repo-local glossary or ADR-like artifacts that actually exist');
+    expect(skill).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
+    expect(skill).toContain('If those artifacts are absent, record the gap as advisory context and continue');
+    expect(skill).toContain('`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`');
+    expect(skill).toContain('`confirmed`, `advisory`, `session-local`, `stale`, or `user`');
+    expect(skill).toContain('hard to reverse, would be surprising without context, and reflects a real tradeoff');
+    expect(skill).not.toContain('must use `CONTEXT.md`');
+    expect(skill).not.toContain('must use `docs/adr/`');
+  });
+
   test('planning handoffs use current-host entrypoint wording', () => {
     const combined = [
       fs.readFileSync(SKILL_PATH, 'utf8'),

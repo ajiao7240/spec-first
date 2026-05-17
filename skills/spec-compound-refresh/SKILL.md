@@ -7,6 +7,40 @@ description: Refresh stale learning docs and pattern docs under docs/solutions/ 
 
 Maintain the quality of `docs/solutions/` over time. This workflow reviews existing learnings against the current codebase, then refreshes any derived pattern docs that depend on them.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when learning or pattern docs under `docs/solutions/` are stale, overlapping, inaccurate, or explicitly named for refresh/consolidation.
+
+### When Not To Use
+
+Do not use for general code refactors, active debugging, ordinary code review, non-`docs/solutions/` documentation sweeps, or archiving raw session history.
+
+### Inputs
+
+Scope hint or `mode:autofix`, current codebase evidence, existing solution/pattern docs, inbound links, prior replay refs, and repository instructions.
+
+### Outputs
+
+A refresh report plus scoped edits under `docs/solutions/`: keep, update, consolidate, replace, delete, stale-mark, or recommended actions.
+
+### Artifacts
+
+Updated/deleted/replaced learning docs and the final refresh report; no durable replay index or full transcript archive.
+
+### Failure Modes
+
+Ambiguous classification, missing successor evidence, write failures, unsafe delete candidates, unreadable docs, or conflicting inbound-link evidence.
+
+### Workflow
+
+Select scope, inspect supporting learnings before derived patterns, classify each candidate, apply safe actions or record recommendations, then summarize applied and recommended outcomes.
+
+### Downstream Consumers
+
+`spec-compound`, future planning/work/review sessions, `spec-sessions`, and humans relying on `docs/solutions/` as reusable knowledge.
+
 ## Mode Detection
 
 Check if `$ARGUMENTS` contains `mode:autofix`. If present, strip it from arguments (use the remainder as a scope hint) and run in **autofix mode**.
@@ -83,6 +117,12 @@ For each candidate artifact, classify it into one of five outcomes:
 8. **Delete when the code is gone, and only after checking for inbound links.** If the referenced code, controller, or workflow no longer exists in the codebase and no successor can be found, delete the file — don't default to Keep just because the general advice is still "sound." When in doubt between Keep and Delete, ask the user (in interactive mode) or mark as stale (in autofix mode). Inbound links inform classification, not cleanup: cleanup is always mechanical, but **decorative** citations (principle stated inline) allow Delete, while **substantive** citations (citing doc relies on the cited doc) signal Replace. The auto-delete case is missing code, no matching successor, and citations absent or decorative.
 9. **Evaluate document-set design, not just accuracy.** In addition to checking whether each doc is accurate, evaluate whether it is still the right unit of knowledge. If two or more docs overlap heavily, determine whether they should remain separate, be cross-scoped more clearly, or be consolidated into one canonical document. Redundant docs are dangerous because they drift silently — two docs saying the same thing will eventually say different things.
 10. **Delete, don't archive.** There is no `_archived/` directory. When a doc is no longer useful, delete it. Git history preserves every deleted file — that is the archive. A dedicated archive directory creates problems: archived docs accumulate, pollute search results, and nobody reads them. If someone needs a deleted doc, `git log --diff-filter=D -- docs/solutions/` will find it.
+
+## Distilled Replay References
+
+When refreshing learnings, prefer distilled replay refs over complete prior-session or review history. A replay ref should name the source learning/session/checkpoint, the accepted or rejected rationale, the evidence path, and the specific refresh implication. Rejected or out-of-scope rationale can explain why an old learning remains stale, replaced, or intentionally not revived, but it must not become workflow status.
+
+Do not build a durable replay index from compound-refresh. The refresh report should summarize evidence and changed files; full transcripts, raw tool output, and complete review bundles stay out of durable docs unless a short safe excerpt is necessary.
 
 ## Scope Selection
 

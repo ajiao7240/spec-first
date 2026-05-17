@@ -1,33 +1,38 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "spec-first spec-work run artifact planned contract",
-  "description": "Planned docs-side contract only. Current spec-work runtime does not write run.json, and consumers must not treat this schema as runtime truth until an explicit producer is implemented.",
-  "x-spec-first-contract-status": "planned",
-  "x-spec-first-producer": "unimplemented",
+  "title": "spec-first spec-work run artifact producer-available contract",
+  "description": "Phase 1B source-owned write-side contract. The internal producer can write schema-aligned run.json artifacts, but workflow integration and replay/retention lifecycle remain separate follow-up gates.",
+  "x-spec-first-contract-status": "producer_available",
+  "x-spec-first-producer": "internal spec-work-run-artifact write",
+  "x-spec-first-producer-available": true,
+  "x-spec-first-workflow-integrated": false,
   "x-spec-first-runtime-path": ".spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json",
-  "x-spec-first-boundary": "docs-side contract; src/cli must not implicitly consume this schema",
+  "x-spec-first-boundary": "source-owned write-side producer; workflow integration false until spec-work closeout calls it with fixture/fresh-source evidence",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "schema_version",
     "generated_at",
     "workflow",
     "run_id",
     "mode",
+    "workspace_slug",
+    "producer",
     "plan_path",
     "plan_source",
-    "workspace_slug",
-    "current_core_goal",
-    "changes_made",
-    "plan_deviations",
-    "verification",
-    "residual_risks",
-    "resume_anchor",
-    "next_recommended_action"
+    "task_pack_path",
+    "source_refs",
+    "script_confirmed",
+    "llm_asserted",
+    "provider_untrusted",
+    "retention",
+    "artifact_path",
+    "warnings"
   ],
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "v1"
+      "const": "spec-work-run-artifact/v1"
     },
     "generated_at": {
       "type": "string"
@@ -37,120 +42,185 @@
       "const": "spec-work"
     },
     "run_id": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$"
     },
     "mode": {
       "type": "string",
       "enum": ["interactive", "non-interactive"]
     },
+    "workspace_slug": {
+      "type": "string"
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["producer_available", "workflow_integrated", "reason_code"],
+      "properties": {
+        "producer_available": { "type": "boolean", "const": true },
+        "workflow_integrated": { "type": "boolean", "const": false },
+        "reason_code": { "type": "string" }
+      }
+    },
     "plan_path": {
-      "type": ["string", "null"]
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
+        },
+        { "type": "null" }
+      ]
     },
     "plan_source": {
       "type": "string",
       "enum": ["explicit", "inferred", "missing"]
     },
-    "workspace_slug": {
-      "type": "string"
-    },
-    "git_branch": {
-      "type": ["string", "null"]
-    },
-    "head_sha": {
-      "type": ["string", "null"]
-    },
-    "current_core_goal": {
-      "type": "string"
-    },
-    "changes_made": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["summary"],
-        "properties": {
-          "summary": { "type": "string" },
-          "files": {
-            "type": "array",
-            "items": { "type": "string" }
-          }
-        }
-      }
-    },
-    "plan_deviations": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["summary", "disposition"],
-        "properties": {
-          "summary": { "type": "string" },
-          "disposition": {
-            "type": "string",
-            "enum": [
-              "accepted-deviation",
-              "required-dependency",
-              "separate-follow-up",
-              "unresolved"
-            ]
-          }
-        }
-      }
-    },
-    "verification": {
-      "type": "object",
-      "required": ["status", "summary", "evidence_items"],
-      "properties": {
-        "status": {
+    "task_pack_path": {
+      "anyOf": [
+        {
           "type": "string",
-          "enum": ["complete", "partial", "blocked"]
+          "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
         },
-        "summary": {
-          "type": "string"
-        },
-        "evidence_items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["label", "status"],
-            "properties": {
-              "label": { "type": "string" },
-              "status": {
-                "type": "string",
-                "enum": ["passed", "failed", "not-run", "advisory"]
-              },
-              "artifact_path": { "type": ["string", "null"] }
+        { "type": "null" }
+      ]
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
+      }
+    },
+    "script_confirmed": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["validation", "changed_files", "artifact_refs", "raw_log_ref", "resume_evidence"],
+      "properties": {
+        "validation": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["status", "commands"],
+          "properties": {
+            "status": { "type": "string", "enum": ["passed", "failed", "not-run", "degraded"] },
+            "reason_code": { "type": "string" },
+            "commands": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["command", "exit_code", "summary"],
+                "properties": {
+                  "command": { "type": "string" },
+                  "exit_code": { "type": "integer" },
+                  "summary": { "type": "string", "maxLength": 500 }
+                }
+              }
             }
           }
-        }
-      }
-    },
-    "residual_risks": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["summary"],
-        "properties": {
-          "summary": { "type": "string" },
-          "severity": {
-            "type": ["string", "null"],
-            "enum": ["P0", "P1", "P2", "P3", null]
+        },
+        "changed_files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
+          }
+        },
+        "artifact_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
+          }
+        },
+        "raw_log_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "display_ref",
+            "secret_stripped",
+            "redaction_status",
+            "retention_status",
+            "access_boundary",
+            "reason_code"
+          ],
+          "properties": {
+            "kind": { "type": "string", "enum": ["none", "repo_relative_artifact"] },
+            "display_ref": { "type": "string" },
+            "secret_stripped": { "type": "boolean", "const": true },
+            "redaction_status": { "type": "string", "enum": ["redacted", "none-required"] },
+            "retention_status": { "type": "string", "const": "lifecycle-deferred" },
+            "access_boundary": { "type": "string", "enum": ["repo-local", "none"] },
+            "reason_code": { "type": "string" }
+          }
+        },
+        "resume_evidence": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["status"],
+          "properties": {
+            "status": { "type": "string", "enum": ["read", "not-found", "not-readable", "not-run"] },
+            "reason_code": { "type": "string" }
           }
         }
       }
     },
-    "resume_anchor": {
+    "llm_asserted": {
       "type": "object",
-      "required": ["summary", "next_focus"],
+      "additionalProperties": false,
+      "required": ["summary", "read_artifacts", "key_decisions", "deferred_follow_up", "next_action"],
       "properties": {
-        "summary": { "type": "string" },
-        "next_focus": { "type": "string" },
-        "open_questions": {
+        "summary": { "type": "string", "maxLength": 1000 },
+        "read_artifacts": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string",
+            "maxLength": 500,
+            "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
+          }
+        },
+        "key_decisions": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 500 }
+        },
+        "deferred_follow_up": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 500 }
+        },
+        "next_action": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "provider_untrusted": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["readiness_status", "summaries"],
+      "properties": {
+        "readiness_status": { "type": "string", "enum": ["fresh", "stale", "degraded", "not-run", "unknown"] },
+        "summaries": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 500 }
         }
       }
     },
-    "next_recommended_action": {
-      "type": "string"
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["retention_status", "artifact_category", "raw_log_retention_impact", "redaction_status"],
+      "properties": {
+        "retention_status": { "type": "string", "const": "lifecycle-deferred" },
+        "artifact_category": { "type": "string", "const": "spec-work-run-evidence" },
+        "raw_log_retention_impact": { "type": "string", "enum": ["none", "repo-relative-redacted-ref"] },
+        "redaction_status": { "type": "string", "enum": ["redacted", "none-required"] },
+        "owner": { "type": "string" },
+        "expires_at": { "type": "string" }
+      }
+    },
+    "artifact_path": {
+      "type": "string",
+      "pattern": "^\\.spec-first/workflows/spec-work/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/run\\.json$"
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
     }
   }
 }

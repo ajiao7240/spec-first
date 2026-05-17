@@ -396,7 +396,7 @@ Workflow artifacts
   ideation -> brainstorms -> plans -> tasks -> work/review/debug -> learnings
 ```
 
-Source-of-truth assets live in the repository. Generated runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are disposable and can be rebuilt with `spec-first init`.
+Source-of-truth assets live in the repository. Generated runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are disposable and can be rebuilt with `spec-first init`. For customization, generated runtime, provider evidence, and credential boundaries, see [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md).
 
 Runtime shape after init:
 
@@ -463,6 +463,8 @@ The operating rule is simple: Scripts prepare, LLM decides.
 - **What is excluded from ordinary context:** `.spec-first/audits/**` and generated mirrors such as `.claude/**`, `.codex/**`, and `.agents/skills/**`. Runtime/setup/audit workflows may read them only when explicitly needed or when the user names a precise path.
 - **What context handoffs prefer:** `artifact-summary.v1` and `context-bundle.v1` style summary-plus-path packets before full artifacts or raw tool output.
 - **What should be edited:** source assets under `skills/`, `agents/`, `templates/`, `src/cli/`, and docs. Rebuild runtime copies instead of hand-editing them.
+- **How provider/tool facts are used:** GitNexus, code-review-graph, Serena, browser/MCP tools, shell commands, and package managers provide evidence inputs; they do not own semantic authority. Raw provider/tool output is untrusted quoted data and must be validated, contained, escaped, capped, and classified before it enters prompts, reports, facts, or durable artifacts.
+- **Where credentials belong:** provider credentials belong in environment variables, host secret managers, or provider-native stores, not in repo source, generated runtime mirrors, durable artifacts, or raw logs. Rotate them on team/provider cadence and immediately after suspected exposure.
 - **What spec-first does not do:** it is not a generic agent marketplace, not a single prompt pack, and not a standalone app that works without Claude Code or Codex.
 
 Use the installed standalone `write-tasks` skill when a plan needs a deterministic task-pack handoff before execution.
@@ -493,6 +495,7 @@ Learn the model:
 - [Chinese User Manual](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/README.md)
 - [Chinese Core Concepts](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/02-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.md)
 - [Chinese Architecture Overview](https://github.com/sunrain520/spec-first/blob/main/docs/02-%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/01-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84.md)
+- [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md)
 
 Use workflows:
 

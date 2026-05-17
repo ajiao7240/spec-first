@@ -14,6 +14,40 @@ This workflow is a source-quality auditor for skill assets. It reviews determini
 
 Do not invoke it through Agent/Task/subagent primitives. Use the current host's skill-audit entrypoint when the user wants a public workflow run.
 
+## Workflow Contract Summary
+
+### When To Use
+
+Use when the user wants to audit skill source quality, workflow boundaries, public-surface governance, progressive disclosure, eval readiness, or runtime drift risk.
+
+### When Not To Use
+
+Do not use to install/create skills, perform ordinary code review, mine remote skill repositories, rewrite source automatically, or patch generated runtime mirrors.
+
+### Inputs
+
+Target skill/path or audit options, deterministic release/governance guard results, skill/agent source, dual-host governance data, runtime/catalog facts, and repository role contracts.
+
+### Outputs
+
+Skill audit findings with trigger/boundary/contract/progressive-disclosure/runtime governance evidence, confidence, suggested action, and residual risk.
+
+### Artifacts
+
+Audit reports or patch-preview suggestions when explicitly requested; generated runtime mirrors remain evidence only, not source fixes.
+
+### Failure Modes
+
+Missing target source, unreadable governance/catalog facts, stale runtime evidence, ambiguous scope, unavailable deterministic guards, or unsafe generated-runtime edits.
+
+### Workflow
+
+Collect deterministic facts, inspect source skills/references/tests, compare public surface and runtime boundaries, apply semantic skill-quality judgment, and report prioritized findings.
+
+### Downstream Consumers
+
+`spec-work`, `spec-code-review`, release governance, skill maintainers, runtime setup/update decisions, and humans deciding remediation priority.
+
 ## Purpose
 
 Use this workflow to make skill debt visible before it turns into workflow debt.
@@ -39,6 +73,12 @@ In a spec-first repository, it also checks:
 - Claude/Codex delivery expectations
 - generated runtime drift
 - alignment with the spec-first principle: scripts prepare deterministic facts, LLMs make semantic judgments
+
+## Progressive Disclosure Checks
+
+Treat skill entry prompts as progressive-disclosure surfaces. Flag source skills whose main `SKILL.md` entrypoint carries long examples, duplicate rubrics, provider-specific details, large checklists, or operational reference material that should live in `references/`, `scripts/`, `assets/`, or eval files. The finding is an optimization/risk signal, not an automatic rewrite order.
+
+Audit facts may identify public-surface or runtime drift, but scripts only report deterministic evidence. The LLM explains whether the drift affects governance, catalog, README/user-doc visibility, or source/runtime boundaries. Hard dependency gaps should point to setup/doctor/init repair commands; soft context gaps only lower confidence.
 
 ## When To Use
 

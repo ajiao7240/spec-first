@@ -110,6 +110,7 @@ function runIntegration() {
 }
 
 function runReleaseGovernance() {
+  runNode(['scripts/check-release-continuity.cjs']);
   runBash('tests/smoke/release-dual-host-governance.sh');
 }
 

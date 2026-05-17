@@ -89,6 +89,7 @@ describe('package install contracts', () => {
     expect(pkg.files).toContain('docs/contracts/verifiers/');
     expect(pkg.files).toContain('docs/contracts/website-sync-contract.md');
     expect(pkg.files).toContain('docs/contracts/workflows/');
+    expect(pkg.files).toContain('scripts/check-release-continuity.cjs');
     expect(pkg.files).toContain('scripts/check-website-sync.cjs');
     expect(pkg.files).toContain('scripts/generate-runtime-capability-catalog.js');
     expect(pkg.files).toContain('scripts/lint-skill-entrypoints.config.json');

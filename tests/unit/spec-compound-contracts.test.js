@@ -57,6 +57,24 @@ describe('spec-compound host entrypoint contract', () => {
     expect(text).not.toContain('$spec-plan` on Codex');
   });
 
+  test('compound and refresh use distilled replay refs without creating a replay index', () => {
+    const compound = fs.readFileSync(SKILL_PATH, 'utf8');
+    const refresh = fs.readFileSync(COMPOUND_REFRESH_SKILL_PATH, 'utf8');
+
+    for (const text of [compound, refresh]) {
+      expect(text).toContain('Distilled Replay References');
+      expect(text).toContain('prefer distilled replay refs over');
+      expect(text).toContain('the accepted or rejected');
+      expect(text).toContain('evidence path');
+      expect(text).toContain('must not become workflow status');
+      expect(text).toContain('Do not build a durable replay index');
+      expect(text).toContain('full transcripts, raw tool output');
+    }
+
+    expect(compound).toContain('the reusable lesson delta and evidence paths');
+    expect(refresh).toContain('the specific refresh implication');
+  });
+
   test('compound-refresh checks inbound links before deleting solution docs', () => {
     const text = [
       fs.readFileSync(COMPOUND_REFRESH_SKILL_PATH, 'utf8'),

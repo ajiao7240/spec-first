@@ -6,6 +6,22 @@ const path = require('node:path');
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-debug', 'SKILL.md');
 
 describe('spec-debug branch-aware handoff contract', () => {
+  test('consumes domain context before debugging questions without fixed ADR directory mandates', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Domain Language And Decision Ledger');
+    expect(text).toContain('consume existing context before asking questions that repo/docs can answer');
+    expect(text).toContain('project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing plans/solutions');
+    expect(text).toContain('repo-local glossary or ADR-like artifacts that actually exist');
+    expect(text).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
+    expect(text).toContain('If those artifacts are absent, treat the gap as advisory and continue');
+    expect(text).toContain('`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`');
+    expect(text).toContain('`confirmed`, `advisory`, `session-local`, `stale`, or `user`');
+    expect(text).toContain('fix direction is hard to reverse, would be surprising without context, and reflects a real tradeoff');
+    expect(text).not.toContain('must use `CONTEXT.md`');
+    expect(text).not.toContain('must use `docs/adr/`');
+  });
+
   test('uses workspace graph targets only for read-only debugging evidence', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
@@ -90,6 +106,13 @@ describe('spec-debug branch-aware handoff contract', () => {
   test('hypotheses require concrete observations and failed fixes invalidate evidence first', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
+    expect(text).toContain('Feedback Loop And Hypothesis Ledger');
+    expect(text).toContain('Before declaring root cause or proposing a fix, establish or attempt the smallest feedback loop that can observe the symptom');
+    expect(text).toContain('a failing test, CLI invocation, HTTP/browser script, trace replay, throwaway harness, property/fuzz loop');
+    expect(text).toContain('record `feedback_loop_not_possible` with the exact missing condition');
+    expect(text).toContain('do not pretend a loop exists');
+    expect(text).toContain('`hypothesis`, `prediction`, `evidence_for`, `evidence_against`, `probe_result`, and `final_root_cause`');
+    expect(text).toContain('After a fix, rerun the same feedback loop or state why it cannot be rerun before handoff');
     expect(text).toContain('Concrete observation');
     expect(text).toContain('runtime value');
     expect(text).toContain('log line');
