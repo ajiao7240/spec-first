@@ -556,7 +556,7 @@ your-project/
 
 当前上下文与 graph readiness 使用以下路径：
 
-- 用当前宿主的 setup workflow 安装并验证 required harness runtime：Serena、Sequential Thinking、Context7、GitNexus、code-review-graph、`agent-browser`、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。
+- 用当前宿主的 setup workflow 安装并验证 required harness runtime：Serena、Sequential Thinking、Context7、GitNexus、code-review-graph、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。`agent-browser` 是 non-blocking browser automation helper capability；只有需要 browser evidence 或截图自动化时，才在 setup 前设置 `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1`。
 - 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus/code-review-graph probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
 - 把切换分支、pull、rebase、merge、dirty worktree 变化和 provider fingerprint mismatch 视为 graph freshness invalidation signals。下游 workflow 可以建议 graph bootstrap，但不会隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。
 - 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。

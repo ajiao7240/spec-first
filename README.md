@@ -556,7 +556,7 @@ External graph readiness compilation through the current host's graph bootstrap 
 
 Current context and graph readiness use this path:
 
-- Use the current host's setup workflow to install and verify the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, `agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, `ast-grep`, and the global `ast-grep` skill.
+- Use the current host's setup workflow to install and verify the required harness runtime: Serena, Sequential Thinking, Context7, GitNexus, code-review-graph, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, `ast-grep`, and the global `ast-grep` skill. `agent-browser` is a non-blocking browser automation helper capability; set `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1` before setup only when browser evidence or screenshot automation is needed.
 - Use the current host's graph bootstrap workflow after setup reports `baseline_ready=true`. It reads setup-owned config facts, validates provider command arrays, runs transient GitNexus/code-review-graph probes, and writes `.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*` readiness artifacts.
 - Treat branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch as graph freshness invalidation signals. Downstream workflows may recommend graph bootstrap, but they do not run hidden GitNexus analyze, provider repair, default hooks, watchers, or daemons.
 - Use the current host's plan workflow as the first graph-readiness consumer. It reports graph status, checks staleness, and falls back to bounded direct repo reads when facts are unavailable, blocked, stale, or degraded.

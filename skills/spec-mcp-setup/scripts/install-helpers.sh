@@ -13,6 +13,7 @@ UV_MIRROR_ENDPOINT="https://mirrors.tuna.tsinghua.edu.cn/pypi/simple"
 CHROME_MIRROR_ENDPOINT="https://npmmirror.com/mirrors/chrome-for-testing"
 LAST_INSTALL_SOURCE="official"
 LAST_INSTALL_MIRROR_USED="false"
+BROWSER_HELPER_OPT_IN_ACTION="set SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 and rerun spec-mcp-setup install"
 export NPM_MIRROR_ENDPOINT UV_MIRROR_ENDPOINT CHROME_MIRROR_ENDPOINT
 
 reset_install_provenance() {
@@ -470,6 +471,7 @@ add_helper_fact() {
   local baseline_blocking="${8:-true}"
   local install_source="${9:-official}"
   local mirror_used="${10:-false}"
+  local browser_capability_demand_signals="${11:-[]}"
 
   HELPER_JSON="$(jq \
     --arg id "$id" \
@@ -482,6 +484,7 @@ add_helper_fact() {
     --argjson baseline_blocking "$baseline_blocking" \
     --arg install_source "$install_source" \
     --argjson mirror_used "$mirror_used" \
+    --argjson browser_capability_demand_signals "$browser_capability_demand_signals" \
     '. + {($id): {
       required: true,
       baseline_blocking: $baseline_blocking,
@@ -494,7 +497,8 @@ add_helper_fact() {
       result: $result,
       next_action: $next_action,
       install_source: $install_source,
-      mirror_used: $mirror_used
+      mirror_used: $mirror_used,
+      browser_capability_demand_signals: $browser_capability_demand_signals
     }}' <<<"$HELPER_JSON")"
 }
 
@@ -517,6 +521,50 @@ write_agent_browser_install_marker() {
 global_skill_installed() {
   local skill_name="$1"
   [ -f "$HOME/.agents/skills/$skill_name/SKILL.md" ] || [ -f "$HOME/.claude/skills/$skill_name/SKILL.md" ]
+}
+
+browser_helper_required() {
+  case "${SPEC_FIRST_BROWSER_HELPER_REQUIRED:-}" in
+    1|true|TRUE|True|yes|YES|Yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+collect_browser_demand_signals_json() {
+  local -a signals=()
+  if [ -f package.json ]; then
+    local package_signals
+    package_signals="$(jq -r '
+      def deps: ((.dependencies // {}) + (.devDependencies // {}) + (.optionalDependencies // {}));
+      [
+        (deps | keys[]? | select(test("(@playwright/test|playwright|cypress|puppeteer|storybook|@storybook/)")) | "package.json:dependency:" + .),
+        (.scripts // {} | to_entries[]? | select((.key + " " + (.value|tostring)) | test("playwright|cypress|puppeteer|storybook|vite|next|nuxt|astro|remix|svelte-kit|sveltekit")) | "package.json:scripts." + .key)
+      ][]' package.json 2>/dev/null || true)"
+    if [ -n "$package_signals" ]; then
+      while IFS= read -r signal; do
+        [ -n "$signal" ] && signals+=("$signal")
+      done <<<"$package_signals"
+    fi
+  fi
+
+  local file
+  for file in next.config.js next.config.mjs vite.config.js vite.config.ts nuxt.config.js nuxt.config.ts astro.config.mjs remix.config.js svelte.config.js config/routes.rb manage.py mix.exs artisan storybook.config.js .storybook/main.js .storybook/main.ts; do
+    [ -e "$file" ] && signals+=("config-file:$file")
+  done
+
+  local dir
+  for dir in src/app pages app/views templates public storybook .storybook; do
+    if [ -d "$dir" ] && find "$dir" -mindepth 1 -maxdepth 1 2>/dev/null | read -r _; then
+      signals+=("dir:$dir")
+    fi
+  done
+
+  if [ "${#signals[@]}" -eq 0 ]; then
+    printf '[]'
+    return
+  fi
+
+  printf '%s\n' "${signals[@]}" | sort -u | jq -R -s 'split("\n") | map(select(length > 0))'
 }
 
 queue_parallel_task() {
@@ -622,7 +670,7 @@ process_agent_browser() {
   local install_status="ready"
   local skill_status="ready"
   local next_action=""
-  local baseline_blocking="true"
+  local baseline_blocking="false"
   local os="${OS:-$(detect_os)}"
   local agent_browser_install_command="agent-browser install"
   local agent_browser_install_args=(agent-browser install)
@@ -630,6 +678,12 @@ process_agent_browser() {
   local skill_install_queued="no"
   local install_source="official"
   local mirror_used="false"
+  local browser_required="no"
+  local demand_signals_json
+  demand_signals_json="$(collect_browser_demand_signals_json)"
+  if browser_helper_required; then
+    browser_required="yes"
+  fi
 
   if [ "$os" = "linux" ]; then
     agent_browser_install_command="agent-browser install --with-deps"
@@ -639,18 +693,25 @@ process_agent_browser() {
   if ! command -v agent-browser >/dev/null 2>&1; then
     dependency_status="missing"
     install_status="action-required"
-    status="action-required"
-    next_action="install agent-browser CLI"
+    status="skipped"
+    next_action="$BROWSER_HELPER_OPT_IN_ACTION"
   fi
 
-  if [ "$MODE" = "install" ] && ! global_skill_installed "agent-browser"; then
+  if ! global_skill_installed "agent-browser"; then
     skill_status="action-required"
-    status="action-required"
-    skill_install_queued="yes"
-    queue_parallel_task "agent-browser-skill-install" run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
+    if [ "$browser_required" = "yes" ]; then
+      status="degraded"
+      if [ "$MODE" = "install" ]; then
+        skill_install_queued="yes"
+        queue_parallel_task "agent-browser-skill-install" run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
+      fi
+    else
+      status="skipped"
+      next_action="$BROWSER_HELPER_OPT_IN_ACTION"
+    fi
   fi
 
-  if [ "$dependency_status" = "missing" ] && [ "$MODE" = "install" ]; then
+  if [ "$dependency_status" = "missing" ] && [ "$MODE" = "install" ] && [ "$browser_required" = "yes" ]; then
     stage_log "agent-browser" "installing CLI via npm"
     local npm_install_exit_code=0
     local provenance_file
@@ -677,7 +738,7 @@ process_agent_browser() {
       next_action=""
       stage_log "agent-browser" "CLI install finished"
     else
-      status="action-required"
+      status="degraded"
       install_status="action-required"
       if [ "$npm_install_exit_code" -eq 124 ]; then
         next_action="agent-browser CLI install timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
@@ -689,32 +750,34 @@ process_agent_browser() {
     fi
   fi
 
-  if [ "$MODE" = "verify-only" ] && [ "$status" = "ready" ] && [ ! -f "$AGENT_BROWSER_INSTALL_MARKER" ]; then
+  if [ "$dependency_status" = "ready" ] && [ ! -f "$AGENT_BROWSER_INSTALL_MARKER" ]; then
     install_status="action-required"
-    if [ "$os" = "windows" ]; then
+    if [ "$browser_required" = "yes" ]; then
       status="degraded"
-      baseline_blocking="false"
-      next_action="agent-browser browser runtime is not installed; browser automation may be unavailable. Rerun ${agent_browser_install_command} or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable."
-    elif [ "$os" = "macos" ]; then
-      status="action-required"
-      next_action="run ${agent_browser_install_command} or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable"
+      if [ "$MODE" = "verify-only" ]; then
+        next_action="$BROWSER_HELPER_OPT_IN_ACTION"
+      else
+        next_action="run ${agent_browser_install_command} or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable"
+      fi
     else
-      status="action-required"
-      next_action="run ${agent_browser_install_command}"
+      status="skipped"
+      next_action="$BROWSER_HELPER_OPT_IN_ACTION"
     fi
   fi
 
-  if [ "$MODE" = "verify-only" ] && [ "$dependency_status" = "ready" ] && ! global_skill_installed "agent-browser"; then
-    skill_status="action-required"
-    status="action-required"
-    baseline_blocking="true"
-    next_action="install global agent-browser skill"
+  if [ "$MODE" = "verify-only" ] && [ "$dependency_status" = "ready" ] && [ "$skill_status" = "action-required" ]; then
+    if [ "$browser_required" = "yes" ]; then
+      status="degraded"
+      next_action="$BROWSER_HELPER_OPT_IN_ACTION"
+    else
+      status="skipped"
+      next_action="$BROWSER_HELPER_OPT_IN_ACTION"
+    fi
   fi
 
-  if [ "$MODE" = "install" ] && [ "$dependency_status" = "ready" ] && [ ! -f "$AGENT_BROWSER_INSTALL_MARKER" ]; then
+  if [ "$MODE" = "install" ] && [ "$browser_required" = "yes" ] && [ "$dependency_status" = "ready" ] && [ ! -f "$AGENT_BROWSER_INSTALL_MARKER" ]; then
     install_status="action-required"
-    status="action-required"
-    baseline_blocking="true"
+    status="degraded"
     browser_install_queued="yes"
     queue_parallel_task "agent-browser-browser-install" run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" "${agent_browser_install_args[@]}"
   fi
@@ -731,9 +794,10 @@ process_agent_browser() {
   AGENT_BROWSER_SKILL_INSTALL_QUEUED="$skill_install_queued"
   AGENT_BROWSER_INSTALL_SOURCE="$install_source"
   AGENT_BROWSER_MIRROR_USED="$mirror_used"
+  AGENT_BROWSER_DEMAND_SIGNALS_JSON="$demand_signals_json"
 
   if [ "$browser_install_queued" = "no" ] && [ "$skill_install_queued" = "no" ]; then
-    add_helper_fact "agent-browser" "helper" "$dependency_status" "$install_status" "$skill_status" "$status" "$next_action" "$baseline_blocking" "$install_source" "$mirror_used"
+    add_helper_fact "agent-browser" "helper" "$dependency_status" "$install_status" "$skill_status" "$status" "$next_action" "$baseline_blocking" "$install_source" "$mirror_used" "$demand_signals_json"
   fi
 }
 
@@ -749,6 +813,7 @@ finalize_agent_browser() {
   local baseline_blocking="$9"
   local install_source="${10:-official}"
   local mirror_used="${11:-false}"
+  local demand_signals_json="${12:-[]}"
   local browser_failed="no"
   local install_command="${AGENT_BROWSER_INSTALL_COMMAND:-agent-browser install}"
 
@@ -764,17 +829,9 @@ finalize_agent_browser() {
       else
         install_status="action-required"
         browser_failed="yes"
-        if [ "$os" = "windows" ]; then
-          status="degraded"
-          baseline_blocking="false"
-          next_action="agent-browser browser runtime install failed; browser automation may be unavailable. Rerun ${install_command} or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable."
-        elif [ "$os" = "macos" ]; then
-          status="action-required"
-          next_action="run ${install_command} manually or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable"
-        else
-          status="action-required"
-          next_action="run ${install_command} manually"
-        fi
+        status="degraded"
+        baseline_blocking="false"
+        next_action="agent-browser browser runtime install failed; browser automation may be unavailable. Rerun ${install_command} or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable."
       fi
     fi
 
@@ -783,8 +840,8 @@ finalize_agent_browser() {
         skill_status="ready"
       else
         skill_status="action-required"
-        status="action-required"
-        baseline_blocking="true"
+        status="degraded"
+        baseline_blocking="false"
         if [ "$browser_failed" != "yes" ] && [ "$dependency_status" = "ready" ]; then
           next_action="install global agent-browser skill manually"
         fi
@@ -793,12 +850,12 @@ finalize_agent_browser() {
 
     if [ "$dependency_status" = "ready" ] && [ "$install_status" = "ready" ] && [ "$skill_status" = "ready" ]; then
       status="ready"
-      baseline_blocking="true"
+      baseline_blocking="false"
       next_action=""
     fi
   fi
 
-  add_helper_fact "agent-browser" "helper" "$dependency_status" "$install_status" "$skill_status" "$status" "$next_action" "$baseline_blocking" "$install_source" "$mirror_used"
+  add_helper_fact "agent-browser" "helper" "$dependency_status" "$install_status" "$skill_status" "$status" "$next_action" "$baseline_blocking" "$install_source" "$mirror_used" "$demand_signals_json"
 }
 
 process_global_skill() {
@@ -888,7 +945,8 @@ finalize_agent_browser \
   "$AGENT_BROWSER_SKILL_INSTALL_QUEUED" \
   "$AGENT_BROWSER_BASELINE_BLOCKING" \
   "${AGENT_BROWSER_INSTALL_SOURCE:-official}" \
-  "${AGENT_BROWSER_MIRROR_USED:-false}"
+  "${AGENT_BROWSER_MIRROR_USED:-false}" \
+  "${AGENT_BROWSER_DEMAND_SIGNALS_JSON:-[]}"
 finalize_global_skill "ast-grep-skill" "ast-grep"
 
 jq -n \

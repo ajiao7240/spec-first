@@ -156,6 +156,9 @@ describe('browser helper tool contracts', () => {
     expect(installHelpers).toContain('NPM_CONFIG_REGISTRY');
     expect(installHelpers).toContain('npm_config_registry');
     expect(installHelpers).toContain('CI=true npm install -g agent-browser@latest');
+    expect(installHelpers).toContain('SPEC_FIRST_BROWSER_HELPER_REQUIRED');
+    expect(installHelpers).toContain('browser_capability_demand_signals');
+    expect(installHelpers).toContain('status="skipped"');
     expect(installHelpers).not.toContain('env CI=true npm install -g agent-browser@latest');
     expect(checkHealth).toContain('"agent-browser|required"');
     expect(checkHealth).toContain('"ast-grep|required"');
@@ -164,10 +167,7 @@ describe('browser helper tool contracts', () => {
     expect(checkHealth).toContain('Skill install status');
     expect(checkHealth).toContain('Required');
     expect(checkHealth).toContain('Status');
-    expect(checkHealth).toContain('npm install -g agent-browser@latest');
-    expect(checkHealth).toContain('agent-browser install');
-    expect(checkHealth).toContain('agent-browser install --with-deps');
-    expect(checkHealth).toContain('npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y');
+    expect(checkHealth).toContain('SPEC_FIRST_BROWSER_HELPER_REQUIRED=1');
     expect(checkHealth).toContain('npx -y skills@latest add ast-grep/agent-skill -g -y');
     expect(reference).toContain('not an MCP server');
     expect(reference).toContain('"helper_tools"');
@@ -189,6 +189,13 @@ describe('browser helper tool contracts', () => {
       project_status: 'not-applicable',
     });
     expect(['ready', 'missing']).toContain(agentBrowser.dependency_status);
+    if (agentBrowser.dependency_status !== 'ready') {
+      expect(agentBrowser.result).toBe('skipped');
+      expect(agentBrowser.next_action).toContain('SPEC_FIRST_BROWSER_HELPER_REQUIRED=1');
+    }
+    if (agentBrowser.dependency_status === 'ready' && agentBrowser.result === 'skipped') {
+      expect(agentBrowser.next_action).toContain('SPEC_FIRST_BROWSER_HELPER_REQUIRED=1');
+    }
 
     const astGrepTool = payload.tools.find((tool) => tool.id === 'ast-grep');
     expect(astGrepTool).toMatchObject({
@@ -228,7 +235,8 @@ describe('browser helper tool contracts', () => {
       const prompt = read(promptPath);
 
       expect(prompt).toContain('agent-browser');
-      expect(prompt).toContain('current host\'s MCP setup entrypoint');
+      expect(prompt).toContain('SPEC_FIRST_BROWSER_HELPER_REQUIRED=1');
+      expect(prompt).toContain('This does not block spec-first baseline');
       expect(prompt).not.toContain('skills/agent-browser');
       expect(prompt).not.toMatch(/load\/use the `agent-browser` skill/i);
       expect(prompt).not.toContain('in Claude or `$spec-mcp-setup` in Codex');

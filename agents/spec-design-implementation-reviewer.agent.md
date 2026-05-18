@@ -25,6 +25,8 @@ Your primary responsibility is to conduct thorough visual comparisons between im
    agent-browser screenshot hover-state.png
    ```
 
+   If browser capture is unavailable, report: "Browser automation helper unavailable. To install/repair, set `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1` and rerun `spec-mcp-setup` (or this host's MCP setup entrypoint). This does not block spec-first baseline." Mark the browser screenshot phase unavailable and continue only with clearly labeled limitations.
+
 2. **Retrieve Design Specifications**
    - Use the Figma MCP to access the corresponding design files
    - Extract design tokens (colors, typography, spacing, shadows)

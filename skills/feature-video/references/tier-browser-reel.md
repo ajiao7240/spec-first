@@ -7,7 +7,7 @@ Capture 3-5 browser screenshots at key UI states and stitch into an animated GIF
 **Label:** "Demo"
 **Required tools:** agent-browser, ffmpeg
 
-If `agent-browser` is not installed, inform the user: "`agent-browser` is not installed. Run the current host's MCP setup entrypoint to install required dependencies." Then fall back to a lower tier (static screenshots or skip).
+If `agent-browser` is not installed, inform the user: "Browser automation helper unavailable. To install/repair, set `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1` and rerun `spec-mcp-setup` (or this host's MCP setup entrypoint). This does not block spec-first baseline." Then fall back to a lower tier (static screenshots or skip).
 
 For deeper upstream usage or troubleshooting guidance, use `agent-browser skills get core`.
 

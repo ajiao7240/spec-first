@@ -35,7 +35,8 @@ spec_id: 2026-05-18-003-init-untrack-managed-runtime
 - G1：让 `spec-first init` 在写 `.gitignore` managed block 之后，自动解除已被 git index 跟踪、且命中 spec-first managed runtime 路径的所有文件。
 - G2：完整保留现有 init 的 plan→preview→apply 三段式：`--dry-run` 必须可看到将要 untrack 的文件清单，不写任何变更；apply 阶段才真正执行 `git rm --cached`。
 - G3：仅解除索引跟踪，**不删工作区文件**。runtime 仍由生成器写出/维护。
-- G4：在 init 输出（人类可读 stdout）和 workspace 模式的 `init-summary.json` 里，新增一段 untrack 摘要：未发现 / 已解除 / 失败的文件计数与样例路径，便于用户和 LLM 复查。
+- G4a：apply 与 dry-run 的人类可读 stdout 中新增 untrack 摘要段（未发现 / 已解除 / 失败的文件计数与样例路径），便于用户与 LLM 复查；workspace 模式下每个 child result 增加 `runtime_untrack` 字段。
+- G4b：workspace 模式 `init-summary.json` 的 `summary.counts` 增加 `runtime_untrack_total` 父级聚合计数，方便 doctor / 后续工具消费；本期不引入 `runtime_untrack_action_required`，待出现真实 consumer 时再扩展。
 - G5：能力一次性、幂等：同一个 init 重复跑两次，第二次 untrack 计数应为 0；非 git 仓库或 git 不可用时，untrack 阶段降级为 advisory no-op，不影响其他 init 步骤。
 
 ## Non-Goals
@@ -67,8 +68,8 @@ spec_id: 2026-05-18-003-init-untrack-managed-runtime
   - 脚本职责（确定性）：用 `git ls-files -- <pattern>` 收集候选；用 `git rm --cached --quiet -- <files>` 解除跟踪；产出 reason_code、计数、路径样例。
   - LLM 职责（语义）：本能力**不需要 LLM 判断**，是一个纯确定性步骤。所以放在 init 主流程 apply 阶段，不进入任何 advisory 决策路径。
 - **operation 抽象选择**：复用现有 `operation.kind` 体系会带来语义混乱（`remove_file` 会真正删工作区文件）。决定**新增一个 `kind=untrack_index` 的 operation 类型**，由 `applyOperationPlan` 路由到一个独立 handler，handler 在执行前再检查目标文件是否仍被跟踪（防 TOCTOU）。
-- **写顺序**：`destructiveResetPlan` → `preSyncPlan` → `initWritePlan(含 gitignore + untrack)` 是当前顺序。untrack operation 必须**位于 gitignore write 之后**，否则即便用户没有 managed block 也强行解跟踪会让 `.gitignore` 无规则兜底，下次手动 `git add` 又会重新被跟踪。
-- **Workspace 模式**：父 workspace 不写子仓 git；不需改动 `runInitForWorkspace` 主体。仅在 child 结果里新增 `runtime_untrack` 摘要字段，并在父级 `init-summary.json` 总计数里聚合 `runtime_untrack_total`。
+- **写顺序**：`destructiveResetPlan` → `preSyncPlan` → `initWritePlan(含 gitignore + untrack)` 是当前顺序。untrack operation 必须**位于 gitignorePlan 之后**（无论该 plan 是否产生实际 write operation），否则即便用户没有 managed block 也强行解跟踪会让 `.gitignore` 无规则兜底，下次手动 `git add` 又会重新被跟踪。当 `applySpecFirstGitignoreBlock` 返回 `already-current` 时 gitignorePlan 为空 operations[]，untrack 仍按候选清单执行以处理历史残留索引；这是合法路径，依赖的不是"刚写过 gitignore"而是"gitignorePlan 已校验过 managed block 现状有效"。
+- **Workspace 模式**：父 workspace 不写子仓 git；不需改动 `runInitForWorkspace` 主体的 fan-out 逻辑。仅扩展子调用的返回 shape 与父级聚合：每个 child 通过 `runInitForProject` 返回 `runtime_untrack`，父级 `runInitForWorkspace` 把 `runtime_untrack` 透传到 `results[i]` 与 `parent_host_runtime`，并在 `summary.counts` 聚合 `runtime_untrack_total`。
 
 ## Implementation Units
 
@@ -76,9 +77,10 @@ spec_id: 2026-05-18-003-init-untrack-managed-runtime
 
 - 文件：`src/cli/runtime-untrack.js`（新增）
 - 职责：
-  - 导出 `planRuntimeUntrack({ projectRoot, runGit })`：用注入的 `runGit` 跑 `git ls-files -z -- <patterns>`，返回 `{ status: 'planned' | 'skipped' | 'failed', operations: [...], reason_code, diagnostic, sample_paths }`。
-  - 导出 `applyRuntimeUntrack({ projectRoot, operations, runGit })`：批量 `git rm --cached -- <files>`，回写计数；执行前对每条 operation `git ls-files -- <file>` 二次确认仍被跟踪，避免与并发的 git 操作打架。
-  - 内部 `runGit` 默认实现：`child_process.spawnSync('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })`，所有路径走 `--` 分隔符防 git argument injection；patterns 全部从 `getSpecFirstGitignorePatterns()` 来。
+  - 导出 `planRuntimeUntrack({ projectRoot, runGit })`：用注入的 `runGit` 跑 `git ls-files -z -- <patterns>`，返回 `{ operations: [...], reason_code, diagnostic, sample_paths }`；`reason_code` 是唯一状态信号（取值见下；不再单独维护 `status` 字段）。
+  - 导出 `applyOne({ projectRoot, operation, runGit })`：单条幂等执行，先 `git ls-files -- <path>` 二次确认仍被跟踪，再 `git rm --cached --quiet -f -- <path>`（`-f` 仅用于越过本地修改检查；`--cached` 决定不会动 worktree，仅从索引移除）；返回 `{ applied: boolean, reason_code }`。这是 state 层 `untrack_index` 路由真正调用的函数。
+  - 导出 `applyRuntimeUntrack({ projectRoot, operations, runGit })`：批量入口，内部循环调用 `applyOne`，最终聚合 `{ applied_count, skipped_count, reason_codes, diagnostic }` 用于 init stdout 与 workspace 摘要；不在此处直接 spawn `git rm --cached -- <files...>`，以保持与 `applyOne` 的可观测性一致（spawn 优化可在未来按需引入，但不影响本期 IU-3 路由形态）。
+  - 内部 `runGit` 默认实现：`child_process.spawnSync('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_LITERAL_PATHSPECS: '1' } })`，所有路径走 `--` 分隔符与 `GIT_LITERAL_PATHSPECS=1` 双保险，禁止 pathspec magic 对来自 `git ls-files -z` 的字面文件名生效；patterns 全部从 `getSpecFirstGitignorePatterns()` 来。
 - reason_code 集合：
   - `not-a-git-repo`：`git rev-parse --is-inside-work-tree` 不是 `true`
   - `git-binary-missing`：spawn ENOENT
@@ -91,17 +93,18 @@ spec_id: 2026-05-18-003-init-untrack-managed-runtime
 
 - 文件：`src/cli/commands/init.js`
 - 改动点：
-  - 新增 `buildInitUntrackPlan(projectRoot)`：调用 `planRuntimeUntrack`，把每条候选包装成 `{ kind: 'untrack_index', path, reason: 'managed_runtime_untrack' }` 写入 plan；如果 status 是 `skipped`/`failed`/`none-tracked`，返回空 operation plan + 一个 sidecar `untrackDiagnostic` 对象，单独保留并在 dry-run/apply 输出里读取（避免污染 plan.summary）。
-  - `buildInitWritePlan(...)` 返回值新增 `untrackDiagnostic`；调用方（`runInitForProject`）合并到主流程。
+  - 新增 `buildInitUntrackPlan(projectRoot)`：调用 `planRuntimeUntrack`，把每条候选包装成 `{ kind: 'untrack_index', path, reason: 'managed_runtime_untrack' }` 写入 plan；当 `reason_code` 不是 `untracked-runtime`（即 `none-tracked` / `not-a-git-repo` / `git-binary-missing` / `git-command-failed`）时，返回空 operation plan + 一个 sidecar `untrackDiagnostic` 对象，单独保留并在 dry-run/apply 输出里读取（避免污染 plan.summary）。
+  - `buildInitWritePlan(...)` 改为返回 `{ plan, untrackDiagnostic }`：`plan` 由 `mergeOperationPlans(assetPlan, runtimePlan, gitignorePlan, untrackPlan, metadataPlan)` 组装（untrackPlan 必须排在 gitignorePlan 之后），`untrackDiagnostic` 是 sidecar；`mergeOperationPlans` 本身不变，不做 sidecar 透传。调用方 `runInitForProject` 在 dry-run/apply 路径上读 `untrackDiagnostic` 控制 stdout 输出。
+  - `runInitForProject` 改为返回结构化对象 `{ exit_code, runtime_untrack }`；`runtime_untrack` shape 为 `{ count, reason_code, sample_paths, diagnostic }`。非 workspace 调用方仍以 `exit_code` 决定进程退出码；workspace 调用方读结构化字段。
+  - `runInitForWorkspace` 把 child 与 parent 的 `runtime_untrack` 透传到 `results[i].runtime_untrack` 与 `parent_host_runtime.runtime_untrack`，并在 `summary.counts` 新增 `runtime_untrack_total`（聚合所有 ready/non-ready 子仓的 count，不重复统计 parent；parent 自己的字段直接挂在 `parent_host_runtime` 下）。本期不引入 `runtime_untrack_action_required`，是否需要单独 action-required 计数交由后续 plan 在出现真实 consumer（doctor 二次报告等）时再加。
   - `printInitDryRun` 增加 untrack 段落：写 `Would untrack N managed runtime path(s):` 与样例最多 10 条；如有 diagnostic 也打印 reason_code。
-  - apply 后的 stdout 增加一行：`🧯 Untracked N managed runtime path(s) from git index (work tree files preserved).`；reason=`none-tracked` 时打印 `🧯 No managed runtime paths require untracking.`；其它非成功 reason 打印 advisory 警告但不返回非零 exit code。
-  - workspace 模式：在 per-child `results[].runtime_untrack` 里写 `{ status, count, reason_code, sample_paths, diagnostic }`，并在 `summary.counts` 增加 `runtime_untrack_total` 与 `runtime_untrack_action_required`。
+  - apply 后的 stdout 增加一行：`🧯 Untracked N managed runtime path(s) from git index (work tree files preserved).`；reason=`none-tracked` 时打印 `🧯 No managed runtime paths require untracking.`；其它非成功 reason（含 `not-a-git-repo` / `git-binary-missing` / `git-command-failed`）打印一行 `🧯 Runtime untrack skipped: <reason_code>` advisory，不返回非零 exit code。
 
 ### IU-3：state 层支持 `untrack_index` operation kind
 
 - 文件：`src/cli/state.js`
 - 改动点：
-  - 在 `applyOperationPlan` 的 kind 路由中新增分支：`if (operation.kind === 'untrack_index') { runtimeUntrack.applyOne(projectRoot, operation); continue; }`。
+  - 在 `applyOperationPlan` 的 kind 路由中新增分支：`if (operation.kind === 'untrack_index') { runtimeUntrack.applyOne({ projectRoot, operation }); continue; }`，签名与 IU-1 导出的 `applyOne({ projectRoot, operation, runGit })` 一致；`runGit` 留默认值，由 helper 内部 spawn。
   - 在 `summarizeOperations` 自然支持新 kind（已经是泛型计数）。
   - 在 `mergeOperationPlans` 自然支持新 kind（去重 key 已用 `${kind}:${path}`）。
   - `resolveOperationTarget` 不需要改：path 仍是项目相对路径，不写文件系统，但仍应通过 `isPathWithin` 安全检查。
@@ -113,11 +116,12 @@ spec_id: 2026-05-18-003-init-untrack-managed-runtime
   - 场景 A：仓库内已 commit 一份 `.codex/spec-first/.developer` → `planRuntimeUntrack` 返回 `untracked-runtime`，operations 含该路径；`applyRuntimeUntrack` 后 `git ls-files .codex/spec-first/.developer` 为空，工作区文件仍存在。
   - 场景 B：仓库内有 `.claude/spec-first/.developer` 但 .gitignore 已生效，从未被 add → `none-tracked`，operations 空。
   - 场景 C：纯目录无 git → `not-a-git-repo`，advisory，无副作用。
-  - 场景 D：连续两次 apply，第二次 `untracked-runtime` 但 operations 空（幂等）。
+  - 场景 D：连续两次 apply，第二次 `reason_code === 'none-tracked'` 且 operations 空（幂等：与 IU-1 reason_code 集合保持一致，第一次为 `untracked-runtime`，第二次因索引中已无候选回到 `none-tracked`）。
 - 文件：`tests/unit/init-dry-run.test.js`（更新）
-  - 新增测试：在临时 git 仓库里 `git add .codex/spec-first/.developer` 后 `git commit`，跑 `runInit(['--codex', '--dry-run', '-u', 't', '--lang', 'zh'])`，断言 stdout 含 `Would untrack 1 managed runtime path` 和 `.codex/spec-first/.developer`，断言 `git ls-files` 仍包含该路径。
-  - 新增测试：apply 路径（去掉 `--dry-run`）后断言 `git ls-files` 不再含该路径，工作区文件仍存在；stdout 含 `🧯 Untracked 1` 一行。
-  - 新增测试：非 git 临时目录跑 init，断言 untrack 阶段不阻塞 init 主流程，整体 exit code 仍为 0；stdout 不出现 `🧯 Untracked` 而是 `🧯 No managed runtime paths require untracking.`（reason=`not-a-git-repo` 时按 advisory 处理：仅日志）。
+  - 新增测试：在临时 git 仓库里 `git add .codex/spec-first/.developer` 后 `git commit`，跑 `runInit(['--codex', '--dry-run', '-u', 't', '--lang', 'zh'])`，断言 stdout 含**精确字符串** `Would untrack 1 managed runtime path(s):` 与候选路径 `.codex/spec-first/.developer`，断言 `git ls-files` 仍包含该路径。
+  - 新增测试：apply 路径（去掉 `--dry-run`）后断言 `git ls-files` 不再含该路径，工作区文件仍存在；stdout 含**精确字符串** `🧯 Untracked 1 managed runtime path(s) from git index (work tree files preserved).`。
+  - 新增测试：非 git 临时目录跑 init，断言 untrack 阶段不阻塞 init 主流程，整体 exit code 仍为 0；stdout 含**精确字符串** `🧯 Runtime untrack skipped: not-a-git-repo`，不含 `🧯 Untracked` 与 `🧯 No managed runtime paths require untracking.`。
+  - 新增测试（顺序不变量）：在临时 git 仓库里 commit 一份 `.codex/spec-first/.developer` 后调用 `buildInitWritePlan(...)`，断言返回的 `plan.operations` 中首条 `kind:'untrack_index'` 的索引大于全部 `kind:'write_file'` 且 `path === '.gitignore'` 的索引；防止后续重构调换 `mergeOperationPlans` 参数槽时静默打破 untrack-after-gitignore 不变量。
 - 文件：`tests/unit/gitignore-policy.test.js`（不改）：保持现有断言。
 
 ### IU-5：smoke / integration 触点
@@ -146,7 +150,7 @@ spec_id: 2026-05-18-003-init-untrack-managed-runtime
 | 非 git 目录 | 纯 fs.mkdtemp | plan | reason=`not-a-git-repo`，operations 空 |
 | git 不在 PATH | 注入 mock runGit ENOENT | plan | reason=`git-binary-missing`，advisory |
 | 连续两次 apply | 已 commit 该文件 | apply ×2 | 第一次 count=1，第二次 count=0 |
-| 路径含特殊字符 | 临时仓库 commit `.claude/agents/带 空格.md` 类似路径 | apply | 仍能解除（说明 `--` 与 `-z` ls-files 正常工作） |
+| 路径含特殊字符（含 pathspec magic 防御） | 临时仓库分别 commit `.claude/agents/带 空格.md`、`.claude/agents/-rf.md`（前导 `-`）、`.claude/agents/:(glob)evil.md`（字面包含 pathspec magic） | apply | 三条候选都能正确解除；同仓库内其它已跟踪源文件保持不变（即 `--` + `GIT_LITERAL_PATHSPECS=1` 双保险按字面解释路径，pathspec magic 不被展开为 glob 误伤源文件） |
 
 ### IU-2（init 主流程）
 
@@ -170,7 +174,8 @@ spec_id: 2026-05-18-003-init-untrack-managed-runtime
 
 | 风险 | 影响 | 缓解 |
 |------|------|------|
-| `git rm --cached` 误伤源文件（path 解析错） | source-of-truth 文件被解除跟踪 | 候选只来自 `getSpecFirstGitignorePatterns()`，且每条命令传 `--` 与具体相对路径；apply 前再次 `git ls-files -- <path>` 二次确认 |
+| `git rm --cached` 误伤源文件（path 解析错或 pathspec magic） | source-of-truth 文件被解除跟踪；恶意/巧合命名（如 `:(glob)*`）的已跟踪文件可能扩大解除范围 | 候选只来自 `getSpecFirstGitignorePatterns()`；每条命令同时使用 `--` 分隔符与 `GIT_LITERAL_PATHSPECS=1`（runGit 默认注入），禁止 pathspec magic 对来自 `git ls-files -z` 的字面文件名生效；apply 前再次 `git ls-files -- <path>` 二次确认仍被跟踪 |
+| 历史仓库受管 runtime 文件存在本地修改（staged 或 unstaged） | 不带 `-f` 时 `git rm --cached` 会非零退出，被 `git-command-failed` advisory 静默吞掉，noisy diff 复发 | apply 命令使用 `git rm --cached --quiet -f -- <path>`：`-f` 仅在 cached 模式下越过本地修改检查；`--cached` 保证不会动工作区文件，用户的本地修改保留 |
 | TOCTOU：plan→apply 之间用户手动 `git add` 了一个冲突文件 | apply 时 ls-files 二次确认会过滤掉新加项 | 不为该项执行 untrack；diagnostic 记录 `skipped-now-untracked` |
 | Windows 子进程编码与路径分隔符 | sample_paths 显示乱码 | 用 `git ls-files -z` + `Buffer` 分割；plan 内部统一存 POSIX `/` 路径（与 `normalizeOperationPath` 一致） |
 | 临时 git 仓库 CI 环境无 user.email | `git commit` 失败导致测试 flaky | 测试 helper 显式 `-c user.email=t@e -c user.name=t -c commit.gpgsign=false` |
@@ -203,4 +208,11 @@ spec_id: 2026-05-18-003-init-untrack-managed-runtime
 2. **次选**：直接进 `$spec-work --plan docs/plans/2026-05-18-003-feat-init-untrack-managed-runtime-plan.md`，让 work 自己按 IU 顺序执行。适合用户对 task pack 不感兴趣的情况。
 3. **不推荐**：把本能力直接合并到任意 in-flight plan。它是新增的独立 source 行为，混入会破坏 commit 历史的可追溯性。
 
-Doc-review 不必要：plan 范围窄、决策不可逆性低、只触及一个 source 文件 + 一个新文件 + 三个测试文件。
+> Doc-review 第 1 轮（2026-05-18）已对本 plan 完成审查并落地 8 条 P1 与 5 条 FYI 修订；剩余开放议题见下方 Deferred / Open Questions。spec-work 启动前请先扫一眼该区。
+
+## Deferred / Open Questions
+
+### From 2026-05-18 review
+
+- **`untrack_index` 复用 `applyOperationPlan` 是否抽象误用**（adversarial FYI，anchor 50）：当前 plan 通过新增 `untrack_index` operation kind 把 git 索引操作塞进通用 operation pipeline；reviewer 提议改为在 `runInitForProject` 完成 `applyOperationPlan(initWritePlan)` 之后直接调用 `applyRuntimeUntrack({ projectRoot, plan: untrackPlan })`，让 state.js 不新增 kind、`mergeOperationPlans/summarizeOperations` 保持单一语义。本期未采纳是因为：复用 operation pipeline 让 dry-run 段统一展示、与 plan 的"sidecar diagnostic + 顺序不变量测试"配合到位、且不会让 init 主函数再多一个手动 step。spec-work 阶段如果发现 `applyOperationPlan` 路由变得难维护，可在后续 plan 中把 untrack 抽出 pipeline。
+- **是否预留 `--no-untrack-runtime` opt-out flag**（adversarial FYI，anchor 50）：plan 当前把 untrack 设为 init 默认行为且明确推迟 opt-out。reviewer 担心 CI / smoke / fresh-source eval 频繁跑 init 会顺手改 git index，等真出现回归再补 flag 比当下加要贵。本期未采纳是因为：受管 runtime 路径都是 spec-first 生成的镜像，spec-first 自身的仓库与新规仓库都不应有这些路径被跟踪，flag 的真实使用面非常窄。若 spec-work 现场看到 CI 因 untrack 失败的真实案例，再回到本议题决定是否引入 flag。

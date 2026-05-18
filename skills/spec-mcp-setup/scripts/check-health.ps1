@@ -5,6 +5,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+$browserHelperOptInAction = 'set SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 and rerun spec-mcp-setup install'
 
 function Test-CommandExists {
   param([string]$Name)
@@ -40,8 +41,7 @@ function Get-InstallCommand {
 
   switch ($Name) {
     'agent-browser' {
-      $browserInstall = if ($Platform -eq 'linux') { 'agent-browser install --with-deps' } else { 'agent-browser install' }
-      return '$env:CI=''true''; npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error; if ($LASTEXITCODE -eq 0) { ' + $browserInstall + ' }; if ($LASTEXITCODE -eq 0) { npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y }'
+      return $browserHelperOptInAction
     }
     'gh' {
       if ($Platform -eq 'windows') { return (Get-WingetLatestInstallCommand -PackageId 'GitHub.cli') }
@@ -117,12 +117,14 @@ function New-HealthItem {
     [string]$Id,
     [bool]$Required,
     [bool]$Ready,
+    [Nullable[bool]]$DependencyReady,
     [string]$InstallCommand,
     [string]$Url
   )
 
-  $result = if ($Ready) { 'ready' } elseif ($Required) { 'action-required' } else { 'pending' }
-  $dependencyStatus = if ($Ready) { 'ready' } else { 'missing' }
+  $result = if ($Ready) { 'ready' } elseif ($Id -eq 'agent-browser') { 'skipped' } elseif ($Required) { 'action-required' } else { 'pending' }
+  $effectiveDependencyReady = if ($null -ne $DependencyReady) { [bool]$DependencyReady } else { [bool]$Ready }
+  $dependencyStatus = if ($effectiveDependencyReady) { 'ready' } else { 'missing' }
   $nextAction = if ($Ready) { '' } else { $InstallCommand }
   return [ordered]@{
     id = $Id
@@ -147,7 +149,7 @@ function Invoke-Git {
 
 $platform = Get-PlatformName
 $toolDefs = @(
-  @{ id = 'agent-browser'; required = $true; ready = (Test-AgentBrowserReady) },
+  @{ id = 'agent-browser'; required = $true; ready = (Test-AgentBrowserReady); dependency_ready = (Test-CommandExists 'agent-browser') },
   @{ id = 'gh'; required = $true; ready = (Test-CommandExists 'gh') },
   @{ id = 'jq'; required = $false; ready = (Test-CommandExists 'jq') },
   @{ id = 'vhs'; required = $true; ready = (Test-CommandExists 'vhs') },
@@ -159,12 +161,13 @@ $toolDefs = @(
 $tools = @()
 foreach ($tool in $toolDefs) {
   $installCommand = Get-InstallCommand -Name $tool.id -Platform $platform
-  $tools += New-HealthItem -Id $tool.id -Required ([bool]$tool.required) -Ready ([bool]$tool.ready) -InstallCommand $installCommand -Url (Get-ProjectUrl -Name $tool.id)
+  $dependencyReady = if ($tool.ContainsKey('dependency_ready')) { [Nullable[bool]]([bool]$tool.dependency_ready) } else { $null }
+  $tools += New-HealthItem -Id $tool.id -Required ([bool]$tool.required) -Ready ([bool]$tool.ready) -DependencyReady $dependencyReady -InstallCommand $installCommand -Url (Get-ProjectUrl -Name $tool.id)
 }
 
 $astGrepSkillReady = Test-GlobalSkillInstalled -SkillName 'ast-grep'
 $skills = @(
-  New-HealthItem -Id 'ast-grep' -Required $true -Ready $astGrepSkillReady -InstallCommand (Get-InstallCommand -Name 'ast-grep-skill' -Platform $platform) -Url (Get-ProjectUrl -Name 'ast-grep-skill')
+  New-HealthItem -Id 'ast-grep' -Required $true -Ready $astGrepSkillReady -DependencyReady $null -InstallCommand (Get-InstallCommand -Name 'ast-grep-skill' -Platform $platform) -Url (Get-ProjectUrl -Name 'ast-grep-skill')
 )
 
 $repoRoot = Invoke-Git -Arguments @('rev-parse', '--show-toplevel')

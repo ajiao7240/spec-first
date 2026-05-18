@@ -843,11 +843,14 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(installHelpersSource).toContain('.agent-browser/spec-first-install.json');
     expect(installHelpersSource).toContain('baseline_blocking');
     expect(installHelpersSource).toContain("$agentBrowserStatus = 'degraded'");
+    expect(installHelpersSource).toContain("$agentBrowserStatus = 'skipped'");
     expect(installHelpersSource).toContain('$agentBrowserBaselineBlocking = $false');
+    expect(installHelpersSource).toContain('SPEC_FIRST_BROWSER_HELPER_REQUIRED');
+    expect(installHelpersSource).toContain('browser_capability_demand_signals');
     expect(installHelpersSource).toContain('AGENT_BROWSER_EXECUTABLE_PATH');
     expect(verifySource).toContain('baseline_blocking');
-    expect(verifySource).toContain("$nonBlockingDegraded = (-not $baselineBlocking) -and $property.Value.result -eq 'degraded'");
-    expect(verifySource).toContain("$property.Value.result -ne 'ready' -and -not $nonBlockingDegraded");
+    expect(verifySource).toContain("$nonBlockingResult = (-not $baselineBlocking) -and @('degraded', 'skipped') -contains $property.Value.result");
+    expect(verifySource).toContain("$property.Value.result -ne 'ready' -and -not $nonBlockingResult");
     expect(installHelpersSource).toContain('Write-AgentBrowserInstallMarker');
     expect(installHelpersSource).toContain('agent-browser install');
     expect(installHelpersSource).toContain('agent-browser install --with-deps');
@@ -868,6 +871,8 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     const installHelpersShSource = fs.readFileSync(installHelpersSh, 'utf8');
     expect(installHelpersShSource).toContain('vhs|silicon|ffmpeg) process_cli_helper "$helper" "$OS" "false"');
     expect(installHelpersShSource).toContain('local baseline_blocking="${3:-true}"');
+    expect(installHelpersShSource).toContain('SPEC_FIRST_BROWSER_HELPER_REQUIRED');
+    expect(installHelpersShSource).toContain('browser_capability_demand_signals');
     expect(installHelpersShSource).toContain('optional helper for feature-video skill');
     expect(installHelpersSource).toContain('npx -y skills@latest add ast-grep/agent-skill -g -y');
     expect(installHelpersSource).toContain("'ast-grep-skill'");
@@ -896,7 +901,7 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(installHelpersSource).toContain('Stop-Job -Job $entry.Value.job -Force');
     expect(installHelpersSource).not.toContain('agent-browser doctor');
     expect(installHelpersSource).not.toContain('doctor --fix');
-    expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and $agentBrowserStatus -eq 'ready' -and -not (Test-Path $agentBrowserInstallMarker)");
+    expect(installHelpersSource).toContain("$mode -eq 'verify-only' -and $agentBrowserDependencyStatus -eq 'ready' -and $agentBrowserSkillStatus -eq 'action-required'");
   });
 
   test('helper install paths fall back to Chinese mirrors when official source fails', () => {
@@ -1089,6 +1094,8 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(skill).not.toContain('On Windows, run `check-health` from Git Bash or WSL');
     expect(source).toContain("schema_version = 'spec-mcp-setup-preflight.v2'");
     expect(source).toContain("if ($Json)");
+    expect(source).toContain("dependency_ready = (Test-CommandExists 'agent-browser')");
+    expect(source).toContain('$effectiveDependencyReady');
     expect(source).toContain("id = 'jq'; required = $false");
     expect(source).toContain("Test-Path -LiteralPath");
     expect(source).not.toContain('Invoke-Expression');
@@ -1114,6 +1121,10 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
       required: false,
       host_config_status: 'not-applicable',
     });
+    const agentBrowser = payload.tools.find((tool) => tool.id === 'agent-browser');
+    if (agentBrowser.dependency_status === 'ready' && agentBrowser.result === 'skipped') {
+      expect(agentBrowser.next_action).toContain('SPEC_FIRST_BROWSER_HELPER_REQUIRED=1');
+    }
   });
 
   test('setup skill runs bounded setup autonomously after explicit invocation', () => {

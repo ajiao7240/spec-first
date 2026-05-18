@@ -19,6 +19,8 @@ You are an expert design-to-code synchronization specialist with deep expertise 
    agent-browser screenshot implementation.png
    ```
 
+   If browser capture is unavailable, report: "Browser automation helper unavailable. To install/repair, set `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1` and rerun `spec-mcp-setup` (or this host's MCP setup entrypoint). This does not block spec-first baseline." Mark the implementation screenshot phase unavailable instead of treating setup baseline as failed.
+
 3. **Systematic Comparison**: Perform a meticulous visual comparison between the Figma design and the screenshot, analyzing:
 
    - Layout and positioning (alignment, spacing, margins, padding)

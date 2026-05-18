@@ -6,6 +6,7 @@ set -euo pipefail
 
 plugin_version=""
 json_output="no"
+BROWSER_HELPER_OPT_IN_ACTION="set SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 and rerun spec-mcp-setup install"
 while [ $# -gt 0 ]; do
   case "$1" in
     --version)
@@ -76,11 +77,7 @@ build_install_command() {
 
   case "$name" in
     agent-browser)
-      if [ "$os" = "linux" ]; then
-        echo "CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install --with-deps && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y"
-      else
-        echo "CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y"
-      fi
+      echo "$BROWSER_HELPER_OPT_IN_ACTION"
       ;;
     gh)
       if [ "$os" = "windows" ]; then
@@ -238,6 +235,9 @@ for entry in "${deps[@]}"; do
     if agent_browser_ready; then
       cli_ok=$((cli_ok + 1))
       results+=("$name|$tier|ok|$install_cmd|$url")
+    elif command -v agent-browser >/dev/null 2>&1; then
+      cli_ok=$((cli_ok + 1))
+      results+=("$name|$tier|agent-browser-cli-ready|$install_cmd|$url")
     else
       results+=("$name|$tier|missing|$install_cmd|$url")
     fi
@@ -347,6 +347,12 @@ if [ "$json_output" = "yes" ]; then
       dependency_status="ready"
       result_status="ready"
       next_action=""
+    elif [ "$name" = "agent-browser" ]; then
+      if [ "$status" = "agent-browser-cli-ready" ]; then
+        dependency_status="ready"
+      fi
+      result_status="skipped"
+      next_action="$BROWSER_HELPER_OPT_IN_ACTION"
     elif [ "$tier" = "required" ]; then
       result_status="action-required"
     fi

@@ -282,8 +282,8 @@ $helperTools = $HelperFacts.helper_tools
 $helperReady = $true
 foreach ($property in $helperTools.PSObject.Properties) {
   $baselineBlocking = if ($property.Value.PSObject.Properties.Name -contains 'baseline_blocking') { [bool]$property.Value.baseline_blocking } else { $true }
-  $nonBlockingDegraded = (-not $baselineBlocking) -and $property.Value.result -eq 'degraded'
-  if ($property.Value.result -ne 'ready' -and -not $nonBlockingDegraded) {
+  $nonBlockingResult = (-not $baselineBlocking) -and @('degraded', 'skipped') -contains $property.Value.result
+  if ($property.Value.result -ne 'ready' -and -not $nonBlockingResult) {
     $helperReady = $false
     break
   }
@@ -298,7 +298,9 @@ foreach ($action in @($Facts.next_actions)) {
 }
 foreach ($property in $helperTools.PSObject.Properties) {
   $helperAction = $property.Value.next_action
-  if (-not [string]::IsNullOrWhiteSpace($helperAction) -and -not $nextActions.Contains($helperAction)) {
+  $baselineBlocking = if ($property.Value.PSObject.Properties.Name -contains 'baseline_blocking') { [bool]$property.Value.baseline_blocking } else { $true }
+  $nonBlockingResult = (-not $baselineBlocking) -and @('degraded', 'skipped') -contains $property.Value.result
+  if (-not $nonBlockingResult -and -not [string]::IsNullOrWhiteSpace($helperAction) -and -not $nextActions.Contains($helperAction)) {
     $nextActions.Add($helperAction)
   }
 }
@@ -381,11 +383,20 @@ if ($providerResult.PSObject.Properties.Name -contains 'providers' -and $null -n
   }
 }
 $filteredNextActions = New-Object System.Collections.Generic.List[string]
+$nonBlockingHelperActions = New-Object System.Collections.Generic.List[string]
+foreach ($property in $combined.helper_tools.PSObject.Properties) {
+  $helper = $property.Value
+  $baselineBlocking = if ($helper.PSObject.Properties.Name -contains 'baseline_blocking') { [bool]$helper.baseline_blocking } else { $true }
+  if ((-not $baselineBlocking) -and @('degraded', 'skipped') -contains $helper.result -and -not [string]::IsNullOrWhiteSpace([string]$helper.next_action)) {
+    $nonBlockingHelperActions.Add([string]$helper.next_action)
+  }
+}
 foreach ($action in @($combined.next_actions)) {
   if (
     -not [string]::IsNullOrWhiteSpace($action) -and
     $action -ne 'run spec-graph-bootstrap' -and
     $action -ne 'enter a git repo and run spec-graph-bootstrap' -and
+    -not $nonBlockingHelperActions.Contains([string]$action) -and
     -not $filteredNextActions.Contains($action)
   ) {
     $filteredNextActions.Add($action)

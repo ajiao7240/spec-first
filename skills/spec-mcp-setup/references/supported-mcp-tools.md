@@ -31,7 +31,7 @@ Required helper tooling is not an MCP server category and is intentionally not l
 
 | Tool | Required | Type | Purpose |
 |---|---:|---|---|
-| `agent-browser` | Yes | helper CLI + global skill | Browser automation helper used by downstream workflows |
+| `agent-browser` | Non-blocking | helper CLI + global skill | Browser automation helper used by downstream workflows |
 | `gh` | Yes | helper CLI | GitHub issue/PR operations |
 | `jq` | Yes | helper CLI / script dependency | JSON parsing for deterministic setup scripts |
 | `vhs` | Yes | helper CLI | Terminal demo recording |
@@ -40,9 +40,10 @@ Required helper tooling is not an MCP server category and is intentionally not l
 | `ast-grep` | Yes | helper CLI | Structural code search and rewrite |
 | global `ast-grep` skill | Yes | global skill | Agent-facing ast-grep usage guidance |
 
-Default helper install mode runs:
+Default helper install mode runs baseline helpers and skips browser automation unless explicitly requested:
 
 ```bash
+SPEC_FIRST_BROWSER_HELPER_REQUIRED=1
 CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error
 agent-browser install
 npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
@@ -50,11 +51,11 @@ brew update && if brew list --formula <tool> >/dev/null 2>&1; then brew upgrade 
 npx -y skills@latest add ast-grep/agent-skill -g -y
 ```
 
-The helper install path preserves inherited npm registry / proxy env vars through the sudo fallback, so `NPM_CONFIG_REGISTRY` / `npm_config_registry` can point npm and npx at a domestic mirror without rewriting global config. On Linux, `agent-browser install` uses `--with-deps`; on macOS and Windows it stays `agent-browser install` and relies on existing browser detection or the upstream runtime download path. When missing, `install-helpers.*` installs `agent-browser` browser runtime, the global `agent-browser` skill, and the global `ast-grep` skill in parallel, while package-manager-backed helper CLIs stay serialized to avoid lock contention.
+The helper install path preserves inherited npm registry / proxy env vars through the sudo fallback, so `NPM_CONFIG_REGISTRY` / `npm_config_registry` can point npm and npx at a domestic mirror without rewriting global config. On Linux, `agent-browser install` uses `--with-deps`; on macOS and Windows it stays `agent-browser install` and relies on existing browser detection or the upstream runtime download path. `agent-browser` install/repair is demand-aware: without `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1`, setup records `result=skipped`, `baseline_blocking=false`, and `browser_capability_demand_signals[]` but does not download Chrome runtime. With explicit demand, `install-helpers.*` installs `agent-browser` browser runtime, the global `agent-browser` skill, and the global `ast-grep` skill in parallel, while package-manager-backed helper CLIs stay serialized to avoid lock contention.
 
 Package-backed setup paths normally request latest versions: npm/npx packages use `@latest`, floating `uvx` MCP/tool commands use `--upgrade`, Cargo installs use `--force`, and Homebrew/winget handoffs prefer upgrade-before-install semantics. Temporary package pins must live in `mcp-tools.json`; provider projections must read that package spec from the registry instead of hard-coding it in prose or tests. GitNexus is pinned to `gitnexus@1.6.4` as the official stable package for reproducible setup; this replaces the prior `gitnexus@1.6.4-rc.100` pin after package availability, `--version`, `analyze --help`, and representative query probe verification recorded in the GitNexus evidence governance plan. Future pin changes need the same explicit record in `CHANGELOG.md` and the governance plan execution log. `code-review-graph` is pinned to `code-review-graph@2.3.3` for the current daily graph-bootstrap stability path; use `@latest` / `--refresh` only in explicit update/probe work before changing the source pin and changelog. Successful MCP warmups are cached under `$HOME/.spec-first/cache/mcp-warmup/` so repeated setup in another repo can skip unchanged package warmups; set `SPEC_FIRST_WARMUP_CACHE_DIR` to move the cache root, `SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS` to tune the default 86400-second TTL for `@latest` / `--upgrade` commands, or `SPEC_FIRST_FORCE_WARMUP=1` / `SPEC_FIRST_DISABLE_WARMUP_CACHE=1` to bypass the cache. `--verify-only` only reads facts and does not upgrade.
 
-After `agent-browser install` succeeds, `install-helpers.*` writes `$HOME/.agent-browser/spec-first-install.json`. `--verify-only` only reads that marker, the CLI presence, and the global skill file; it does not run install or diagnostic commands.
+After `agent-browser install` succeeds, `install-helpers.*` writes `$HOME/.agent-browser/spec-first-install.json`. `--verify-only` only reads that marker, the CLI presence, and the global skill file; it does not run install or diagnostic commands. Missing marker does not block `baseline_ready`; it stays visible as `install_status=action-required` under the non-blocking `agent-browser` helper fact.
 
 `install-helpers.* --verify-only` only detects the helper facts and returns:
 
@@ -81,7 +82,7 @@ Readiness ledger v2 is written by `verify-tools.*` after merging MCP/graph-provi
 
 - required MCP tools are configured;
 - required graph providers are configured; host MCP config is required only for providers with `host_config_required=true`;
-- every required helper fact is ready.
+- every baseline-blocking helper fact is ready. Non-blocking `agent-browser` facts may be `ready`, `skipped`, or `degraded` without blocking the harness baseline.
 
 It does not mean graph facts are query-ready. On first setup, graph providers remain:
 

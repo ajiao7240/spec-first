@@ -15,6 +15,7 @@ $script:MirrorEndpoints = [ordered]@{
 }
 
 $script:LastInstallProvenance = $null
+$browserHelperOptInAction = 'set SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 and rerun spec-mcp-setup install'
 
 function Get-NonNegativeIntEnv {
   param(
@@ -380,6 +381,53 @@ function Test-GlobalSkill {
   )
 }
 
+function Test-BrowserHelperRequired {
+  $raw = [Environment]::GetEnvironmentVariable('SPEC_FIRST_BROWSER_HELPER_REQUIRED')
+  if ([string]::IsNullOrWhiteSpace($raw)) { return $false }
+  return @('1', 'true', 'yes') -contains $raw.ToLowerInvariant()
+}
+
+function Get-BrowserDemandSignals {
+  $signals = New-Object System.Collections.Generic.List[string]
+
+  if (Test-Path -LiteralPath 'package.json' -PathType Leaf) {
+    try {
+      $package = Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json -ErrorAction Stop
+      foreach ($section in @('dependencies', 'devDependencies', 'optionalDependencies')) {
+        if ($package.PSObject.Properties.Name -contains $section) {
+          foreach ($property in $package.$section.PSObject.Properties) {
+            if ($property.Name -match '(@playwright/test|playwright|cypress|puppeteer|storybook|@storybook/)') {
+              $signals.Add("package.json:dependency:$($property.Name)")
+            }
+          }
+        }
+      }
+      if ($package.PSObject.Properties.Name -contains 'scripts') {
+        foreach ($property in $package.scripts.PSObject.Properties) {
+          $scriptText = "$($property.Name) $($property.Value)"
+          if ($scriptText -match 'playwright|cypress|puppeteer|storybook|vite|next|nuxt|astro|remix|svelte-kit|sveltekit') {
+            $signals.Add("package.json:scripts.$($property.Name)")
+          }
+        }
+      }
+    } catch {
+      # Keep setup deterministic: unreadable package.json simply contributes no demand signal.
+    }
+  }
+
+  foreach ($file in @('next.config.js', 'next.config.mjs', 'vite.config.js', 'vite.config.ts', 'nuxt.config.js', 'nuxt.config.ts', 'astro.config.mjs', 'remix.config.js', 'svelte.config.js', 'config/routes.rb', 'manage.py', 'mix.exs', 'artisan', 'storybook.config.js', '.storybook/main.js', '.storybook/main.ts')) {
+    if (Test-Path -LiteralPath $file) { $signals.Add("config-file:$file") }
+  }
+
+  foreach ($dir in @('src/app', 'pages', 'app/views', 'templates', 'public', 'storybook', '.storybook')) {
+    if ((Test-Path -LiteralPath $dir -PathType Container) -and (@(Get-ChildItem -LiteralPath $dir -Force -ErrorAction SilentlyContinue | Select-Object -First 1).Count -gt 0)) {
+      $signals.Add("dir:$dir")
+    }
+  }
+
+  return @($signals | Sort-Object -Unique)
+}
+
 function Add-HelperFact {
   param(
     [System.Collections.IDictionary]$HelperTools,
@@ -392,7 +440,8 @@ function Add-HelperFact {
     [string]$NextAction,
     [bool]$BaselineBlocking = $true,
     [string]$InstallSource = 'official',
-    [bool]$MirrorUsed = $false
+    [bool]$MirrorUsed = $false,
+    [string[]]$BrowserCapabilityDemandSignals = @()
   )
 
   $HelperTools[$Id] = [ordered]@{
@@ -408,6 +457,7 @@ function Add-HelperFact {
     next_action = $NextAction
     install_source = $InstallSource
     mirror_used = [bool]$MirrorUsed
+    browser_capability_demand_signals = @($BrowserCapabilityDemandSignals)
   }
 }
 
@@ -480,9 +530,11 @@ $agentBrowserDependencyStatus = 'ready'
 $agentBrowserInstallStatus = 'ready'
 $agentBrowserSkillStatus = 'ready'
 $agentBrowserNextAction = ''
-$agentBrowserBaselineBlocking = $true
+$agentBrowserBaselineBlocking = $false
 $agentBrowserInstallSource = 'official'
 $agentBrowserMirrorUsed = $false
+$agentBrowserRequired = Test-BrowserHelperRequired
+$agentBrowserDemandSignals = Get-BrowserDemandSignals
 $agentBrowserInstallCommand = 'agent-browser install'
 if ($platform -eq 'linux') {
   $agentBrowserInstallCommand = 'agent-browser install --with-deps'
@@ -492,19 +544,26 @@ $agentBrowserBrowserInstallQueued = $false
 $agentBrowserSkillInstallQueued = $false
 $astGrepSkillInstallQueued = $false
 
-if ($mode -eq 'install' -and -not (Test-GlobalSkill 'agent-browser')) {
+if (-not (Test-GlobalSkill 'agent-browser')) {
   $agentBrowserSkillStatus = 'action-required'
-  $agentBrowserStatus = 'action-required'
-  $agentBrowserSkillInstallQueued = $true
-  Start-ParallelCommandTask -Name 'agent-browser-skill-install' -ScriptBlock { npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y } -Tasks $parallelTasks
+  if ($agentBrowserRequired) {
+    $agentBrowserStatus = 'degraded'
+    if ($mode -eq 'install') {
+      $agentBrowserSkillInstallQueued = $true
+      Start-ParallelCommandTask -Name 'agent-browser-skill-install' -ScriptBlock { npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y } -Tasks $parallelTasks
+    }
+  } else {
+    $agentBrowserStatus = 'skipped'
+    $agentBrowserNextAction = $browserHelperOptInAction
+  }
 }
 
 if (-not (Test-CommandExists 'agent-browser')) {
   $agentBrowserDependencyStatus = 'missing'
   $agentBrowserInstallStatus = 'action-required'
-  $agentBrowserStatus = 'action-required'
-  $agentBrowserNextAction = 'install agent-browser CLI'
-  if ($mode -eq 'install') {
+  $agentBrowserStatus = 'skipped'
+  $agentBrowserNextAction = $browserHelperOptInAction
+  if ($mode -eq 'install' -and $agentBrowserRequired) {
     Reset-InstallProvenance
     $installed = Invoke-NpmGlobalInstallWithOptionalSudo -Packages @('agent-browser@latest')
     $provenance = Get-InstallProvenance
@@ -523,35 +582,40 @@ if (-not (Test-CommandExists 'agent-browser')) {
         $agentBrowserNextAction = ''
       }
     } else {
-      $agentBrowserStatus = 'action-required'
+      $agentBrowserStatus = 'degraded'
       $agentBrowserNextAction = 'npm install -g agent-browser@latest failed'
     }
   }
 }
 
-if ($mode -eq 'verify-only' -and $agentBrowserStatus -eq 'ready' -and -not (Test-Path $agentBrowserInstallMarker)) {
+if ($agentBrowserDependencyStatus -eq 'ready' -and -not (Test-Path $agentBrowserInstallMarker)) {
   $agentBrowserInstallStatus = 'action-required'
-  if ($platform -eq 'windows') {
+  if ($agentBrowserRequired) {
     $agentBrowserStatus = 'degraded'
-    $agentBrowserBaselineBlocking = $false
-    $agentBrowserNextAction = "agent-browser browser runtime is not installed; browser automation may be unavailable. Rerun $agentBrowserInstallCommand or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable."
+    if ($mode -eq 'verify-only') {
+      $agentBrowserNextAction = $browserHelperOptInAction
+    } else {
+      $agentBrowserNextAction = "run $agentBrowserInstallCommand or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable"
+    }
   } else {
-    $agentBrowserStatus = 'action-required'
-    $agentBrowserNextAction = "run $agentBrowserInstallCommand"
+    $agentBrowserStatus = 'skipped'
+    $agentBrowserNextAction = $browserHelperOptInAction
   }
 }
 
-if ($mode -eq 'verify-only' -and $agentBrowserDependencyStatus -eq 'ready' -and -not (Test-GlobalSkill 'agent-browser')) {
-  $agentBrowserStatus = 'action-required'
-  $agentBrowserSkillStatus = 'action-required'
-  $agentBrowserBaselineBlocking = $true
-  $agentBrowserNextAction = 'install global agent-browser skill'
+if ($mode -eq 'verify-only' -and $agentBrowserDependencyStatus -eq 'ready' -and $agentBrowserSkillStatus -eq 'action-required') {
+  if ($agentBrowserRequired) {
+    $agentBrowserStatus = 'degraded'
+    $agentBrowserNextAction = $browserHelperOptInAction
+  } else {
+    $agentBrowserStatus = 'skipped'
+    $agentBrowserNextAction = $browserHelperOptInAction
+  }
 }
 
-if ($mode -eq 'install' -and (Test-CommandExists 'agent-browser') -and -not (Test-Path $agentBrowserInstallMarker)) {
+if ($mode -eq 'install' -and $agentBrowserRequired -and (Test-CommandExists 'agent-browser') -and -not (Test-Path $agentBrowserInstallMarker)) {
   $agentBrowserInstallStatus = 'action-required'
-  $agentBrowserStatus = 'action-required'
-  $agentBrowserBaselineBlocking = $true
+  $agentBrowserStatus = 'degraded'
   $agentBrowserBrowserInstallQueued = $true
   if ($platform -eq 'linux') {
     Start-ParallelCommandTask -Name 'agent-browser-browser-install' -ScriptBlock { & agent-browser install --with-deps } -Tasks $parallelTasks
@@ -560,7 +624,7 @@ if ($mode -eq 'install' -and (Test-CommandExists 'agent-browser') -and -not (Tes
   }
 }
 
-Add-HelperFact -HelperTools $helperTools -Id 'agent-browser' -Type 'helper' -DependencyStatus $agentBrowserDependencyStatus -InstallStatus $agentBrowserInstallStatus -SkillStatus $agentBrowserSkillStatus -Result $agentBrowserStatus -NextAction $agentBrowserNextAction -BaselineBlocking $agentBrowserBaselineBlocking -InstallSource $agentBrowserInstallSource -MirrorUsed $agentBrowserMirrorUsed
+Add-HelperFact -HelperTools $helperTools -Id 'agent-browser' -Type 'helper' -DependencyStatus $agentBrowserDependencyStatus -InstallStatus $agentBrowserInstallStatus -SkillStatus $agentBrowserSkillStatus -Result $agentBrowserStatus -NextAction $agentBrowserNextAction -BaselineBlocking $agentBrowserBaselineBlocking -InstallSource $agentBrowserInstallSource -MirrorUsed $agentBrowserMirrorUsed -BrowserCapabilityDemandSignals $agentBrowserDemandSignals
 
 $demoOnlyHelpers = @('vhs', 'silicon', 'ffmpeg')
 foreach ($helper in @('gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep')) {
@@ -635,17 +699,9 @@ $parallelResults = Wait-ParallelCommandTasks -Tasks $parallelTasks -TimeoutSecon
       $agentBrowserInstallStatus = 'ready'
     } else {
       $agentBrowserInstallStatus = 'action-required'
-      if ($platform -eq 'windows') {
-        $agentBrowserStatus = 'degraded'
-        $agentBrowserBaselineBlocking = $false
-        $agentBrowserNextAction = "agent-browser browser runtime install failed; browser automation may be unavailable. Rerun $agentBrowserInstallCommand or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable."
-      } elseif ($platform -eq 'macos') {
-        $agentBrowserStatus = 'action-required'
-        $agentBrowserNextAction = "run $agentBrowserInstallCommand manually or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable"
-      } else {
-        $agentBrowserStatus = 'action-required'
-        $agentBrowserNextAction = "run $agentBrowserInstallCommand manually"
-      }
+      $agentBrowserStatus = 'degraded'
+      $agentBrowserBaselineBlocking = $false
+      $agentBrowserNextAction = "agent-browser browser runtime install failed; browser automation may be unavailable. Rerun $agentBrowserInstallCommand or set AGENT_BROWSER_EXECUTABLE_PATH to an existing Chrome/Chromium/Brave executable."
     }
   }
 
@@ -654,8 +710,8 @@ $parallelResults = Wait-ParallelCommandTasks -Tasks $parallelTasks -TimeoutSecon
       $agentBrowserSkillStatus = 'ready'
     } else {
       $agentBrowserSkillStatus = 'action-required'
-      $agentBrowserStatus = 'action-required'
-      $agentBrowserBaselineBlocking = $true
+      $agentBrowserStatus = 'degraded'
+      $agentBrowserBaselineBlocking = $false
       if ($agentBrowserDependencyStatus -eq 'ready' -and $agentBrowserInstallStatus -eq 'ready') {
         $agentBrowserNextAction = 'install global agent-browser skill manually'
       }
@@ -664,7 +720,7 @@ $parallelResults = Wait-ParallelCommandTasks -Tasks $parallelTasks -TimeoutSecon
 
   if (($agentBrowserDependencyStatus -eq 'ready') -and ($agentBrowserInstallStatus -eq 'ready') -and ($agentBrowserSkillStatus -eq 'ready')) {
     $agentBrowserStatus = 'ready'
-    $agentBrowserBaselineBlocking = $true
+    $agentBrowserBaselineBlocking = $false
     $agentBrowserNextAction = ''
   }
 
@@ -681,6 +737,7 @@ $parallelResults = Wait-ParallelCommandTasks -Tasks $parallelTasks -TimeoutSecon
     next_action = $agentBrowserNextAction
     install_source = $agentBrowserInstallSource
     mirror_used = [bool]$agentBrowserMirrorUsed
+    browser_capability_demand_signals = @($agentBrowserDemandSignals)
   }
 }
 

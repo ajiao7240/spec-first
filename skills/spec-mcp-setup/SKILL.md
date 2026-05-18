@@ -12,9 +12,9 @@ argument-hint: ""
 This workflow is the single setup entrypoint for spec-first. It has two distinct layers:
 
 - Project Preflight / Local Setup: required developer helpers, project-local config bootstrap, and legacy Compound Engineering residue guidance.
-- Required Harness Runtime: required MCP servers, required graph providers, `agent-browser`, readiness ledger v2, and graph provider projection.
+- Required Harness Runtime: required MCP servers, required graph providers, required baseline helper tools, browser automation helper capability, readiness ledger v2, and graph provider projection.
 
-Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts affect `baseline_ready` when their `baseline_blocking` fact is not explicitly `false`. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
+Project-local config and legacy residue facts do not affect `baseline_ready`. Required helper facts affect `baseline_ready` when their `baseline_blocking` fact is not explicitly `false`. `agent-browser` is a browser automation helper capability: setup reports it in `helper_tools`, but missing/skipped/degraded `agent-browser` facts are non-baseline-blocking. This workflow does not expose selectable MCP registry entries, legacy pending states, or a browser MCP server.
 
 GitNexus `query_probe` must target the GitNexus indexed repo label, not blindly the directory basename. `write-provider-config.*` resolves the label deterministically from explicit setup facts when present, then from `.gitnexus/meta.json` `remoteUrl` basename, then from git remote URL basename, and only falls back to the repo directory basename. Its probe token policy should write a bounded, ordered `candidates[]` list of at most 5 source-derived candidates while preserving legacy `token` / `selected_from` fields for compatibility. Candidate ordering is cross-stack: prefer entry/workflow basenames likely to participate in flows, such as main/launch/loading/home/login/router/navigation files, controllers, handlers, services, repositories, forms, tables, pages, dashboards, and Android Activity/ViewModel classes. For controller-heavy repos where class basenames often return definitions-only, setup may extract bounded method-level source tokens from tracked workflow files and prefer flow-like method names such as step/save/add/delete/submit/validate/failure/options before controller class names. Android names are one platform signal, not the default universal front door. Low-signal lifecycle, config, type, schema, constants, display-only, advertisement/guide/dialog/adapter/bean/entity basenames should be demoted until no better source candidate exists.
 
@@ -70,7 +70,7 @@ Use this workflow when the user asks to install, repair, verify, or diagnose spe
 
 - first-time spec-first setup on Claude Code or Codex;
 - missing or stale required MCP servers;
-- missing helper tools such as `agent-browser`, `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, or `ast-grep`;
+- missing baseline helper tools such as `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, or `ast-grep`, or browser automation helper issues with `agent-browser`;
 - Serena project bootstrap or readiness issues;
 - parent workspace setup across child Git repos;
 - readiness ledger, graph-provider projection, or setup-owned `.spec-first/config/*.json` repair.
@@ -152,7 +152,6 @@ Graph provider does not always mean host MCP server. `gitnexus` remains a requir
 
 Required helper tooling outside `mcp-tools.json`:
 
-- `agent-browser`
 - `gh`
 - `jq`
 - `vhs`
@@ -160,6 +159,10 @@ Required helper tooling outside `mcp-tools.json`:
 - `ffmpeg`
 - `ast-grep`
 - global `ast-grep` skill
+
+Browser automation helper capability outside `mcp-tools.json`:
+
+- `agent-browser` CLI + upstream/global skill, installed or repaired only when `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1` is set. Without that explicit demand, setup reports `agent-browser` as `result=skipped`, `baseline_blocking=false`, and records browser demand signals for downstream judgment.
 
 All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp` or `graph-provider`. MCP tools must have `host_config_required=true`. Graph providers must declare whether host MCP config is required. `code-review-graph` must keep `host_config_required=false`, `provider_config.access_mode="cli_artifact"`, and `provider_config.optional_live_mcp=true` so host startup is not blocked by its optional MCP server. Required helper tooling must not be added to `mcp-tools.json`; it is managed by `install-helpers.*` and appears under readiness ledger `helper_tools`.
 
@@ -436,9 +439,9 @@ Windows:
 pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 ```
 
-`install-helpers.* --verify-only` must only detect helper facts. It must not install the CLI, run `agent-browser install`, or install the global skill. It checks `$HOME/.agent-browser/spec-first-install.json` as the marker that the default install path has completed `agent-browser install`; missing marker means `install_status=action-required`. On Windows only, when the `agent-browser` CLI and global skill are ready but the browser runtime marker is missing or `agent-browser install` fails, setup reports `result=degraded` and `baseline_blocking=false` with a repair `next_action` instead of blocking `baseline_ready`.
+`install-helpers.* --verify-only` must only detect helper facts. It must not install the CLI, run `agent-browser install`, or install the global skill. It checks `$HOME/.agent-browser/spec-first-install.json` as the marker that the default install path has completed `agent-browser install`; missing marker means `install_status=action-required`. `agent-browser` missing, skipped, or degraded facts must always use `baseline_blocking=false`; this preserves setup baseline while leaving browser automation repair visible in `next_action`.
 
-`install-helpers.*` preserves inherited npm registry, proxy, and mirror env vars through the helper install path. If you need a domestic npm source or corporate proxy, set the standard `NPM_CONFIG_REGISTRY` / `npm_config_registry` and proxy env vars before running setup; the install helpers will forward them through the sudo fallback instead of discarding them. On Linux, `agent-browser install` uses `--with-deps` so the browser runtime and system packages are installed together. When missing, `agent-browser` browser runtime, the global `agent-browser` skill, and the global `ast-grep` skill install in parallel; package-manager-backed helper CLIs stay serialized to avoid lock conflicts and keep the failure surface narrow.
+`install-helpers.*` preserves inherited npm registry, proxy, and mirror env vars through the helper install path. If you need a domestic npm source or corporate proxy, set the standard `NPM_CONFIG_REGISTRY` / `npm_config_registry` and proxy env vars before running setup; the install helpers will forward them through the sudo fallback instead of discarding them. On Linux, `agent-browser install` uses `--with-deps` so the browser runtime and system packages are installed together. By default setup does not install `agent-browser` or download browser runtime. Set `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1` before rerunning setup when browser automation is needed; then `agent-browser` browser runtime, the global `agent-browser` skill, and the global `ast-grep` skill may install in parallel, while package-manager-backed helper CLIs stay serialized to avoid lock conflicts and keep the failure surface narrow.
 
 ## Helper Output Shape
 
@@ -461,17 +464,18 @@ pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1
 
 Default helper install mode must:
 
-1. Install `agent-browser` CLI if missing.
-2. Run `agent-browser install` on macOS/Windows or `agent-browser install --with-deps` on Linux; Windows browser runtime failure is non-blocking when the CLI and global skill are ready.
-3. Write `$HOME/.agent-browser/spec-first-install.json` after the platform-appropriate `agent-browser install` succeeds.
-4. Install required helper CLIs: `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, and `ast-grep`.
-5. Install the upstream/global `agent-browser` skill:
+1. Skip `agent-browser` install/repair unless `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1` is set; record `browser_capability_demand_signals[]` either way.
+2. When explicitly required, install `agent-browser` CLI if missing.
+3. When explicitly required, run `agent-browser install` on macOS/Windows or `agent-browser install --with-deps` on Linux; browser runtime failure is non-blocking on every platform.
+4. Write `$HOME/.agent-browser/spec-first-install.json` only after the platform-appropriate `agent-browser install` succeeds.
+5. Install required helper CLIs: `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, and `ast-grep`.
+6. When explicitly required, install the upstream/global `agent-browser` skill:
 
 ```bash
 npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
 ```
 
-6. Install the global `ast-grep` skill:
+7. Install the global `ast-grep` skill:
 
 ```bash
 npx -y skills@latest add ast-grep/agent-skill -g -y

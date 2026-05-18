@@ -29,6 +29,8 @@ Before starting iterations, open the browser in headed mode to see and resize as
 agent-browser --headed open [url]
 ```
 
+If `agent-browser` is unavailable, stop the automated iteration loop and report: "Browser automation helper unavailable. To install/repair, set `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1` and rerun `spec-mcp-setup` (or this host's MCP setup entrypoint). This does not block spec-first baseline."
+
 Recommended viewport sizes for reference:
 - Small component (button, card): 800x600
 - Medium section (hero, features): 1200x800

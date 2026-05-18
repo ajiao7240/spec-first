@@ -294,9 +294,14 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
     (.dependency_status == "ready")
     and host_ready
     and ((.project_status == "ready") or (.project_status == "not-applicable") or (.project_status == "workspace-target-required"));
+  def baseline_blocking:
+    if has("baseline_blocking") then .baseline_blocking else true end;
   def helper_ready:
     ((.result // "action-required") == "ready")
-    or (((.baseline_blocking // true) == false) and ((.result // "") == "degraded"));
+    or ((baseline_blocking == false) and (((.result // "") == "degraded") or ((.result // "") == "skipped")));
+  def helper_action_required:
+    (baseline_blocking == true)
+    or (((.result // "") != "ready") and (((.result // "") != "degraded") and ((.result // "") != "skipped")));
 
   . as $facts
   | ($helper.helper_tools // {}) as $helper_tools
@@ -340,7 +345,7 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       recommended_environment_variables: ($helper.recommended_environment_variables // null),
       next_actions: (
         (($facts.next_actions // []) + [
-          ($helper_tools // {})[] | .next_action // ""
+          ($helper_tools // {})[] | select(helper_action_required) | .next_action // ""
         ] + (if $baseline_ready then ["run spec-graph-bootstrap"] else [] end))
         | map(select(. != ""))
         | unique
@@ -393,8 +398,13 @@ jq --argjson provider "$PROVIDER_RESULT" \
          .
        end
      )
+   | ([.helper_tools[]? | select((if has("baseline_blocking") then .baseline_blocking else true end) == false and (((.result // "") == "degraded") or ((.result // "") == "skipped"))) | .next_action // ""]) as $nonblocking_helper_actions
    | .next_actions = (
-       ((.next_actions // []) | map(select(. != "run spec-graph-bootstrap" and . != "enter a git repo and run spec-graph-bootstrap")))
+       ((.next_actions // []) | map(. as $action | select(
+         . != "run spec-graph-bootstrap"
+         and . != "enter a git repo and run spec-graph-bootstrap"
+         and (($nonblocking_helper_actions | index($action)) == null)
+       )))
        + (if ((.target.state_write_allowed // false) != true and ((.target.next_action // "") != "")) then
             [.target.next_action]
           elif .repo_status == "not-git-repo" then

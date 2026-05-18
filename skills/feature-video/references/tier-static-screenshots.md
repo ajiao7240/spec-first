@@ -13,7 +13,7 @@ Capture individual PNG screenshots. No animation, no stitching.
 
 ### Web app or desktop app (agent-browser available)
 
-If `agent-browser` is not installed, inform the user: "`agent-browser` is not installed. Run the current host's MCP setup entrypoint to install required dependencies." Then skip to the CLI or fallback sections below.
+If `agent-browser` is not installed, inform the user: "Browser automation helper unavailable. To install/repair, set `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1` and rerun `spec-mcp-setup` (or this host's MCP setup entrypoint). This does not block spec-first baseline." Then skip to the CLI or fallback sections below.
 
 ```bash
 agent-browser open [URL]
