@@ -552,15 +552,52 @@ else
   WORKTREE_DIRTY=false
 fi
 WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | hash_text)"
+HOST_INSTRUCTION_EXPECTED_AGENTS_HASH=""
+HOST_INSTRUCTION_EXPECTED_CLAUDE_HASH=""
 
-# U1: external-actor fingerprint excludes paths bootstrap itself writes
-# (AGENTS.md / CLAUDE.md GitNexus host instruction normalization, generated runtime
-# under .spec-first/, and provider index dirs ignored by .gitignore). Used only for
-# concurrent-write detection; raw WORKTREE_STATUS_HASH is unchanged.
+record_bootstrap_owned_host_instruction_hashes() {
+  local normalization_json="$1"
+  local file_path
+  for file_path in AGENTS.md CLAUDE.md; do
+    if jq -e --arg file_path "$file_path" \
+      'any(.results[]?; .file == $file_path and (.written == true or .changed == true or .status == "updated"))' \
+      >/dev/null 2>&1 <<<"$normalization_json"; then
+      case "$file_path" in
+        AGENTS.md) HOST_INSTRUCTION_EXPECTED_AGENTS_HASH="$(hash_file "$REPO_ROOT/$file_path")" ;;
+        CLAUDE.md) HOST_INSTRUCTION_EXPECTED_CLAUDE_HASH="$(hash_file "$REPO_ROOT/$file_path")" ;;
+      esac
+    fi
+  done
+}
+
+host_instruction_change_is_bootstrap_owned() {
+  local file_path="$1"
+  local expected_hash=""
+  case "$file_path" in
+    AGENTS.md) expected_hash="$HOST_INSTRUCTION_EXPECTED_AGENTS_HASH" ;;
+    CLAUDE.md) expected_hash="$HOST_INSTRUCTION_EXPECTED_CLAUDE_HASH" ;;
+    *) return 1 ;;
+  esac
+  [ -n "$expected_hash" ] && [ "$(hash_file "$REPO_ROOT/$file_path")" = "$expected_hash" ]
+}
+
+# U1: external-actor fingerprint 排除 bootstrap 自身写入的路径。
+# AGENTS.md / CLAUDE.md 只在当前内容等于本轮 normalizer 写入结果时排除，
+# 这样 critical write window 内后续外部编辑仍会触发 concurrent-write-detected。
+# 仅用于 concurrent-write detection；raw WORKTREE_STATUS_HASH 保持不变。
 external_actor_fingerprint() {
-  git -C "$REPO_ROOT" status --porcelain 2>/dev/null \
-    | grep -vE '^.{2} (\.spec-first/|\.gitnexus/|\.code-review-graph/|AGENTS\.md$|CLAUDE\.md$)' \
-    || true
+  git -C "$REPO_ROOT" status --porcelain 2>/dev/null | while IFS= read -r status_line; do
+    local status_path="${status_line:3}"
+    case "$status_path" in
+      .spec-first/*|.gitnexus/*|.code-review-graph/*) continue ;;
+      AGENTS.md|CLAUDE.md)
+        if host_instruction_change_is_bootstrap_owned "$status_path"; then
+          continue
+        fi
+        ;;
+    esac
+    printf '%s\n' "$status_line"
+  done || true
 }
 EXTERNAL_ACTOR_FINGERPRINT_BEFORE="$(external_actor_fingerprint | hash_text)"
 
@@ -1972,6 +2009,7 @@ write_provider_status() {
     fi
     if [ "$provider" = "gitnexus" ] && [ "$RUN_EXIT_CODE" -eq 0 ]; then
       host_instruction_normalization="$(normalize_gitnexus_instruction_block_for_root "$REPO_ROOT")"
+      record_bootstrap_owned_host_instruction_hashes "$host_instruction_normalization"
     fi
     if [ "$RUN_EXIT_CODE" -eq 0 ]; then
       run_configured_command "$provider" status "$status_log"

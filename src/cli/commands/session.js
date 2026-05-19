@@ -62,16 +62,19 @@ function takeOption(rest, flag) {
     const a = rest[i];
     if (a === flag) {
       const v = rest[i + 1];
+      if (v === undefined || v.startsWith('--')) {
+        return { found: true, value: undefined, error: 'missing-option-value', flag };
+      }
       rest.splice(i, 2);
-      return v;
+      return { found: true, value: v };
     }
     if (a.startsWith(`${flag}=`)) {
       const v = a.slice(flag.length + 1);
       rest.splice(i, 1);
-      return v;
+      return { found: true, value: v };
     }
   }
-  return undefined;
+  return { found: false, value: undefined };
 }
 
 function emit(json, payload, humanLines) {
@@ -94,14 +97,31 @@ function emitErr(json, payload, humanLines) {
   }
 }
 
+function emitMissingOptionValue(json, flag) {
+  emitErr(json, { ok: false, reason_code: 'missing-option-value', flag }, [
+    `Missing value for ${flag}`,
+  ]);
+  return 2;
+}
+
 function runRegister(args) {
   const parsed = parseCommonFlags(args);
   if (parsed.help) { printHelp(); return 0; }
-  const id = takeOption(parsed.rest, '--id');
-  const agentKind = takeOption(parsed.rest, '--agent-kind') || 'other';
-  const scopeHint = takeOption(parsed.rest, '--scope-hint');
-  const hostMarker = takeOption(parsed.rest, '--host-marker');
-  const pidStr = takeOption(parsed.rest, '--pid');
+  const idOpt = takeOption(parsed.rest, '--id');
+  const agentKindOpt = takeOption(parsed.rest, '--agent-kind');
+  const scopeHintOpt = takeOption(parsed.rest, '--scope-hint');
+  const hostMarkerOpt = takeOption(parsed.rest, '--host-marker');
+  const pidOpt = takeOption(parsed.rest, '--pid');
+  for (const opt of [idOpt, agentKindOpt, scopeHintOpt, hostMarkerOpt, pidOpt]) {
+    if (opt.error) {
+      return emitMissingOptionValue(parsed.json, opt.flag);
+    }
+  }
+  const id = idOpt.value;
+  const agentKind = agentKindOpt.found ? agentKindOpt.value : 'other';
+  const scopeHint = scopeHintOpt.value;
+  const hostMarker = hostMarkerOpt.value;
+  const pidStr = pidOpt.value;
   if (parsed.rest.length > 0) {
     emitErr(parsed.json, { ok: false, reason_code: 'unknown-option', unknown: parsed.rest }, [
       `Unknown options: ${parsed.rest.join(', ')}`,
@@ -146,7 +166,11 @@ function runRegister(args) {
 function runHeartbeat(args) {
   const parsed = parseCommonFlags(args);
   if (parsed.help) { printHelp(); return 0; }
-  const id = takeOption(parsed.rest, '--id');
+  const idOpt = takeOption(parsed.rest, '--id');
+  if (idOpt.error) {
+    return emitMissingOptionValue(parsed.json, idOpt.flag);
+  }
+  const id = idOpt.value;
   if (parsed.rest.length > 0) {
     emitErr(parsed.json, { ok: false, reason_code: 'unknown-option', unknown: parsed.rest }, [
       `Unknown options: ${parsed.rest.join(', ')}`,
@@ -174,7 +198,11 @@ function runHeartbeat(args) {
 function runUnregister(args) {
   const parsed = parseCommonFlags(args);
   if (parsed.help) { printHelp(); return 0; }
-  const id = takeOption(parsed.rest, '--id');
+  const idOpt = takeOption(parsed.rest, '--id');
+  if (idOpt.error) {
+    return emitMissingOptionValue(parsed.json, idOpt.flag);
+  }
+  const id = idOpt.value;
   if (parsed.rest.length > 0) {
     emitErr(parsed.json, { ok: false, reason_code: 'unknown-option', unknown: parsed.rest }, [
       `Unknown options: ${parsed.rest.join(', ')}`,

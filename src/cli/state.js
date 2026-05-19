@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { writeFileAtomic } = require('./atomic-write');
+const runtimeUntrack = require('./runtime-untrack');
 
 const REQUIRED_MANAGED_STATE_ARRAY_FIELDS = [
   'commands',
@@ -595,9 +596,10 @@ function planEmptyManagedRootCleanup(projectRoot, adapter) {
 
 function applyOperationPlan(projectRoot, plan) {
   if (!plan || !Array.isArray(plan.operations)) {
-    return;
+    return {};
   }
 
+  const untrackResults = [];
   for (const operation of plan.operations) {
     const targetPath = resolveOperationTarget(projectRoot, operation);
 
@@ -623,8 +625,37 @@ function applyOperationPlan(projectRoot, plan) {
 
     if (operation.kind === 'remove_empty_root') {
       removeEmptyRoot(targetPath, projectRoot);
+      continue;
+    }
+
+    if (operation.kind === 'untrack_index') {
+      untrackResults.push(runtimeUntrack.applyOne({ projectRoot, operation }));
     }
   }
+
+  return {
+    runtime_untrack: summarizeRuntimeUntrackResults(untrackResults),
+    untrack_results: untrackResults,
+  };
+}
+
+function summarizeRuntimeUntrackResults(results) {
+  const appliedCount = results.filter((result) => result.applied).length;
+  const skippedCount = results.length - appliedCount;
+  const reasonCodes = [...new Set(results.map((result) => result.reason_code).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right));
+  const diagnostic = results
+    .map((result) => result.diagnostic)
+    .filter(Boolean)
+    .join('\n');
+
+  return {
+    applied_count: appliedCount,
+    skipped_count: skippedCount,
+    reason_codes: reasonCodes,
+    reason_code: appliedCount > 0 ? 'untracked-runtime' : (reasonCodes[0] || 'none-tracked'),
+    diagnostic,
+  };
 }
 
 function ensureDirectory(directoryPath) {
@@ -650,7 +681,7 @@ function resolveOperationTarget(projectRoot, operation) {
   }
   if (
     targetPath === projectRootResolved &&
-    ['remove_file', 'remove_dir', 'remove_empty_root', 'prune_command'].includes(operation.kind)
+    ['remove_file', 'remove_dir', 'remove_empty_root', 'prune_command', 'untrack_index'].includes(operation.kind)
   ) {
     throw new Error(`Unsafe operation path targets project root: ${operation.path}`);
   }

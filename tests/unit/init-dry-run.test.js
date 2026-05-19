@@ -3,12 +3,15 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
-const { runInit } = require('../../src/cli/commands/init');
+const { buildInitWritePlan, runInit } = require('../../src/cli/commands/init');
+const { getAdapter } = require('../../src/cli/adapters');
 const {
   SPEC_FIRST_GITIGNORE_START,
   buildSpecFirstGitignoreBlock,
 } = require('../../src/cli/gitignore-policy');
+const { buildEmptyOperationPlan } = require('../../src/cli/state');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-init-dry-run-'));
@@ -72,6 +75,71 @@ function countGitignoreMarkers(content) {
 
 function countLiteral(content, literal) {
   return content.split(literal).length - 1;
+}
+
+function runGit(repoRoot, args) {
+  return execFileSync('git', args, {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+function initGitRepo(repoRoot) {
+  runGit(repoRoot, ['init']);
+}
+
+function writeFile(repoRoot, relativePath, contents = 'runtime\n') {
+  const absolutePath = path.join(repoRoot, relativePath);
+  fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+  fs.writeFileSync(absolutePath, contents, 'utf8');
+}
+
+function commitAll(repoRoot) {
+  runGit(repoRoot, ['add', '.']);
+  runGit(repoRoot, [
+    '-c',
+    'user.email=t@e',
+    '-c',
+    'user.name=t',
+    '-c',
+    'commit.gpgsign=false',
+    'commit',
+    '--no-verify',
+    '-m',
+    'bootstrap',
+  ]);
+}
+
+function tracked(repoRoot, relativePath) {
+  return runGit(repoRoot, ['ls-files', '--', relativePath]).trim();
+}
+
+function buildMinimalInitWritePlan(projectRoot) {
+  const adapter = getAdapter('codex');
+  return buildInitWritePlan({
+    projectRoot,
+    adapter,
+    developer: {
+      name: 'reviewer',
+      lang: 'zh',
+      initializedAt: '2026-05-19T00:00:00.000Z',
+      version: '1.8.2',
+    },
+    nextState: {
+      manifestVersion: '1.8.2',
+      platform: 'codex',
+      developer: null,
+      commands: [],
+      skills: [],
+      workflowSkills: [],
+      agents: [],
+      agentSupportFiles: [],
+    },
+    platform: 'codex',
+    assetPlan: buildEmptyOperationPlan(),
+    runtimePlan: buildEmptyOperationPlan(),
+  });
 }
 
 describe('init --dry-run', () => {
@@ -376,6 +444,86 @@ describe('init --dry-run', () => {
     }
   });
 
+  test('Codex init --dry-run previews managed runtime untrack without mutating git index', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      initGitRepo(projectRoot);
+      writeFile(projectRoot, '.codex/spec-first/.developer');
+      commitAll(projectRoot);
+
+      const result = captureInit(projectRoot, ['--codex', '--dry-run', '-u', 't', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('Would untrack 1 managed runtime path(s):');
+      expect(result.stdout).toContain('.codex/spec-first/.developer');
+      expect(tracked(projectRoot, '.codex/spec-first/.developer')).toBe('.codex/spec-first/.developer');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Codex init apply untracks managed runtime index entries while preserving worktree files', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      initGitRepo(projectRoot);
+      writeFile(projectRoot, '.codex/spec-first/.developer');
+      commitAll(projectRoot);
+
+      const result = captureInit(projectRoot, ['--codex', '-u', 't', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('🧯 Untracked 1 managed runtime path(s) from git index (work tree files preserved).');
+      expect(tracked(projectRoot, '.codex/spec-first/.developer')).toBe('');
+      expect(fs.existsSync(path.join(projectRoot, '.codex/spec-first/.developer'))).toBe(true);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init apply reports advisory runtime untrack skip outside git repos', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      const result = captureInit(projectRoot, ['--codex', '-u', 't', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('🧯 Runtime untrack skipped: not-a-git-repo');
+      expect(result.stdout).not.toContain('🧯 Untracked');
+      expect(result.stdout).not.toContain('🧯 No managed runtime paths require untracking.');
+      expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init write plan keeps runtime untrack operations after gitignore writes', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      initGitRepo(projectRoot);
+      writeFile(projectRoot, '.codex/spec-first/.developer');
+      commitAll(projectRoot);
+
+      const initWritePlan = buildMinimalInitWritePlan(projectRoot);
+      const operations = initWritePlan.plan.operations;
+      const gitignoreIndexes = operations
+        .map((operation, index) => ({ operation, index }))
+        .filter((entry) => entry.operation.path === '.gitignore' && entry.operation.reason === 'managed_gitignore_policy')
+        .map((entry) => entry.index);
+      const firstUntrackIndex = operations.findIndex((operation) => operation.kind === 'untrack_index');
+
+      expect(gitignoreIndexes.length).toBeGreaterThan(0);
+      expect(firstUntrackIndex).toBeGreaterThan(Math.max(...gitignoreIndexes));
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('init preserves existing user gitignore content around the managed block', () => {
     const projectRoot = makeTempDir();
 
@@ -463,6 +611,37 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('▶ Refresh parent host runtime assets');
       expect(result.stdout).toContain('Dry run: no parent advisory summary was written.');
       expect(snapshotTree(workspaceRoot)).toEqual(before);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('workspace init summary includes child runtime untrack evidence', () => {
+    const workspaceRoot = makeTempDir();
+    const childRoot = path.join(workspaceRoot, 'project-a');
+
+    try {
+      fs.mkdirSync(childRoot, { recursive: true });
+      initGitRepo(childRoot);
+      writeFile(childRoot, '.codex/spec-first/.developer');
+      commitAll(childRoot);
+
+      const result = captureInit(workspaceRoot, ['--codex', '--all-repos', '-u', 'reviewer', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(0);
+      expect(tracked(childRoot, '.codex/spec-first/.developer')).toBe('');
+      expect(fs.existsSync(path.join(childRoot, '.codex/spec-first/.developer'))).toBe(true);
+
+      const summary = JSON.parse(fs.readFileSync(
+        path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary.json'),
+        'utf8',
+      ));
+      expect(summary.counts.runtime_untrack_total).toBe(1);
+      expect(summary.results[0].runtime_untrack).toMatchObject({
+        count: 1,
+        reason_code: 'untracked-runtime',
+      });
+      expect(summary.parent_host_runtime.runtime_untrack).toBeDefined();
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }

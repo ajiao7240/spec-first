@@ -23,6 +23,15 @@ const SUPPORTED_SCHEMA_KEYWORDS = [
   'maximum',
 ];
 
+function getExpectedTypes(schema) {
+  if (!schema.type) return [];
+  return Array.isArray(schema.type) ? schema.type : [schema.type];
+}
+
+function schemaAllowsType(schema, typeName) {
+  return getExpectedTypes(schema).includes(typeName);
+}
+
 function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
   if (!schema || typeof schema !== 'object') {
     return { valid: false, errors: [`${pointer}: missing schema`] };
@@ -62,10 +71,9 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
     }
   }
 
-  const expectedType = schema.type;
-  if (expectedType) {
+  const expectedTypes = getExpectedTypes(schema);
+  if (expectedTypes.length > 0) {
     const actualType = Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value;
-    const expectedTypes = Array.isArray(expectedType) ? expectedType : [expectedType];
     const typeMatches = expectedTypes.some((typeName) => {
       if (typeName === 'number') return typeof value === 'number' && Number.isFinite(value);
       if (typeName === 'integer') return Number.isInteger(value);
@@ -88,7 +96,7 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
     errors.push(`${pointer}: value ${JSON.stringify(value)} does not equal const ${JSON.stringify(schema.const)}`);
   }
 
-  if (schema.type === 'object' && value && !Array.isArray(value)) {
+  if (schemaAllowsType(schema, 'object') && value && typeof value === 'object' && !Array.isArray(value)) {
     const required = Array.isArray(schema.required) ? schema.required : [];
     for (const key of required) {
       if (!Object.prototype.hasOwnProperty.call(value, key)) {
@@ -118,13 +126,13 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
     }
   }
 
-  if (schema.type === 'array' && Array.isArray(value) && schema.items) {
+  if (schemaAllowsType(schema, 'array') && Array.isArray(value) && schema.items) {
     value.forEach((item, index) => {
       validateAgainstSchema(schema.items, item, `${pointer}[${index}]`, errors);
     });
   }
 
-  if (schema.type === 'array' && Array.isArray(value)) {
+  if (schemaAllowsType(schema, 'array') && Array.isArray(value)) {
     if (Number.isInteger(schema.minItems) && value.length < schema.minItems) {
       errors.push(`${pointer}: expected at least ${schema.minItems} item(s), received ${value.length}`);
     }
@@ -133,7 +141,7 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
     }
   }
 
-  if (schema.type === 'string' && typeof value === 'string') {
+  if (schemaAllowsType(schema, 'string') && typeof value === 'string') {
     if (Number.isInteger(schema.minLength) && value.length < schema.minLength) {
       errors.push(`${pointer}: expected string length at least ${schema.minLength}, received ${value.length}`);
     }
@@ -145,7 +153,7 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
     }
   }
 
-  if ((schema.type === 'number' || schema.type === 'integer') && typeof value === 'number') {
+  if ((schemaAllowsType(schema, 'number') || schemaAllowsType(schema, 'integer')) && typeof value === 'number') {
     if (typeof schema.minimum === 'number' && value < schema.minimum) {
       errors.push(`${pointer}: expected number >= ${schema.minimum}, received ${value}`);
     }

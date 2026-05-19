@@ -267,6 +267,8 @@ Refresh mode behavior:
 - incremental and fallback full both fail: writes current per-provider failure status with `refresh_mode=failed`, sets `requires_clean_full_refresh=true`, preserves previous aggregate canonical freshness artifacts when present, and returns `reason_code=incremental-and-full-failed`.
 - dirty worktree: exits before provider commands with `reason_code=dirty-refresh-non-canonical` and `canonical_artifacts_preserved=true`; it does not run incremental or full provider refresh.
 
+If the dirty source is a historical generated runtime file already tracked in git, such as `.codex/spec-first/.developer` or `.claude/spec-first/.developer`, rerun `spec-first init --codex` or `spec-first init --claude` in that child repo first. Init owns the one-time `git rm --cached` cleanup for managed runtime paths; graph-bootstrap should keep treating the dirty worktree as non-canonical evidence rather than repairing it inline.
+
 Incremental preflight only trusts `.spec-first/providers/<provider>/status.json.last_indexed_commit` when the prior status is `provider-status.v1`, `graph_ready=true`, `query_ready=true`, clean, and tied to the same source revision in `repo_snapshot` and `bootstrap_fingerprint.repo_snapshot`. Missing, invalid, untrusted, non-existent, non-ancestor, provider-projection-changed, provider-changed, spec-first-changed, or `requires_clean_full_refresh=true` bases downgrade to full with the corresponding `reason_code`.
 
 `graph-facts.v1` does not expose refresh-mode convenience fields. Per-provider `.spec-first/providers/<provider>/status.json.refresh_mode` is the truth source, and `.spec-first/graph/provider-status.json.providers[]` may mirror it for list-oriented consumers.

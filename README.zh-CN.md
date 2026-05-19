@@ -396,7 +396,7 @@ Workflow artifacts
   ideation -> brainstorms -> plans -> tasks -> work/review/debug -> learnings
 ```
 
-source of truth 位于仓库源码资产中。`.claude/`、`.codex/`、`.agents/skills/` 下的 generated runtime copies 可丢弃，可通过 `spec-first init` 重建。定制 source、刷新 runtime、消费 provider evidence 与凭证治理的边界见 [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md)。
+source of truth 位于仓库源码资产中。`.claude/`、`.codex/`、`.agents/skills/` 下的 generated runtime copies 可丢弃，可通过 `spec-first init` 重建。init 期间也会一次性解除已被 git index 跟踪的 managed runtime 路径，保留工作区文件，同时避免历史 generated mirror 继续产生 noisy diff。定制 source、刷新 runtime、消费 provider evidence 与凭证治理的边界见 [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md)。
 
 init 后的运行时结构：
 

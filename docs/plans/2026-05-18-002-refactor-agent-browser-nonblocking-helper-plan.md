@@ -1,7 +1,7 @@
 ---
 title: refactor: agent-browser 降级为非 baseline 阻塞 helper
 type: refactor
-status: active
+status: completed
 date: 2026-05-18
 spec_id: 2026-05-18-002-agent-browser-nonblocking-helper
 ---

@@ -1,7 +1,7 @@
 ---
 title: "feat: spec-first init 一次性解除已被跟踪的 generated runtime 路径"
 type: feat
-status: active
+status: completed
 date: 2026-05-18
 spec_id: 2026-05-18-003-init-untrack-managed-runtime
 ---

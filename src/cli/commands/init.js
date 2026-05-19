@@ -28,6 +28,7 @@ const {
   readState,
   summarizeOperationPlan,
 } = require('../state');
+const { planRuntimeUntrack } = require('../runtime-untrack');
 const { getAdapter } = require('../adapters');
 const { applyManagedBlock, buildManagedBlock } = require('../lang-policy');
 const {
@@ -90,12 +91,13 @@ function runInit(argv) {
     });
   }
 
-  return runInitForProject({
+  const result = runInitForProject({
     parsed,
     platform,
     adapter,
     projectRoot: target.projectRoot,
   });
+  return getInitExitCode(result);
 }
 
 function runInitForProject({
@@ -212,10 +214,11 @@ function runInitForProject({
       });
       printInitDryRun({
         platform,
-        plan: mergeOperationPlans(hardResetPlan, postResetPreSyncPlan, initWritePlan),
+        plan: mergeOperationPlans(hardResetPlan, postResetPreSyncPlan, initWritePlan.plan),
+        untrackDiagnostic: initWritePlan.untrackDiagnostic,
         legacyStateDetected,
       });
-      return 0;
+      return buildProjectInitResult(0, initWritePlan.untrackDiagnostic);
     }
 
     destructiveResetPlan = planHardResetManagedAssets(projectRoot, legacyResetState, adapter);
@@ -244,10 +247,11 @@ function runInitForProject({
         });
         printInitDryRun({
           platform,
-          plan: mergeOperationPlans(hardResetPlan, postResetPreSyncPlan, initWritePlan),
+          plan: mergeOperationPlans(hardResetPlan, postResetPreSyncPlan, initWritePlan.plan),
+          untrackDiagnostic: initWritePlan.untrackDiagnostic,
           destructiveResetReason: 'current_runtime_drift',
         });
-        return 0;
+        return buildProjectInitResult(0, initWritePlan.untrackDiagnostic);
       }
 
       destructiveResetPlan = planHardResetManagedAssets(projectRoot, previousState, adapter);
@@ -272,22 +276,24 @@ function runInitForProject({
   if (parsed.dryRun) {
     printInitDryRun({
       platform,
-      plan: mergeOperationPlans(preSyncPlan, initWritePlan),
+      plan: mergeOperationPlans(preSyncPlan, initWritePlan.plan),
+      untrackDiagnostic: initWritePlan.untrackDiagnostic,
       legacyStateDetected,
     });
-    return 0;
+    return buildProjectInitResult(0, initWritePlan.untrackDiagnostic);
   }
 
   const changelogCreated = !fs.existsSync(path.join(projectRoot, 'CHANGELOG.md'));
+  let untrackApplyResult = null;
   if (destructiveResetPlan) {
     const destructiveBackup = createRuntimeRollbackBackup({
       projectRoot,
-      plans: [destructiveResetPlan, preSyncPlan, initWritePlan],
+      plans: [destructiveResetPlan, preSyncPlan, initWritePlan.plan],
     });
     try {
       applyOperationPlan(projectRoot, destructiveResetPlan);
       applyOperationPlan(projectRoot, preSyncPlan);
-      applyOperationPlan(projectRoot, initWritePlan);
+      untrackApplyResult = applyOperationPlan(projectRoot, initWritePlan.plan);
       removeRuntimeRollbackBackup(destructiveBackup);
     } catch (error) {
       restoreRuntimeRollbackBackup(projectRoot, destructiveBackup);
@@ -296,7 +302,7 @@ function runInitForProject({
     }
   } else {
     applyOperationPlan(projectRoot, preSyncPlan);
-    applyOperationPlan(projectRoot, initWritePlan);
+    untrackApplyResult = applyOperationPlan(projectRoot, initWritePlan.plan);
   }
   if (platform === 'claude') {
     console.log('🪝 Installed Claude SessionStart matcher in .claude/settings.json');
@@ -317,11 +323,13 @@ function runInitForProject({
   if (agentSupportFiles.length > 0) {
     console.log(`🧰 Generated ${agentSupportFiles.length} agent support file(s) in ${adapter.agentsRoot}`);
   }
-  const gitignoreOperation = initWritePlan.operations.find((operation) => operation.reason === 'managed_gitignore_policy');
+  const gitignoreOperation = initWritePlan.plan.operations.find((operation) => operation.reason === 'managed_gitignore_policy');
   if (gitignoreOperation) {
     const action = gitignoreOperation.gitignoreStatus === 'added' ? 'Added' : 'Updated';
     console.log(`🧹 ${action} .gitignore spec-first managed block`);
   }
+  const runtimeUntrack = buildRuntimeUntrackSummary(initWritePlan.untrackDiagnostic, untrackApplyResult);
+  printRuntimeUntrackApplySummary(runtimeUntrack);
   console.log('🪪 Wrote project developer profile:');
   console.log(`  📍 path: ${adapter.developerFile}`);
   console.log(`  👤 name: ${developer.name}`);
@@ -334,7 +342,10 @@ function runInitForProject({
 
   console.log('');
   printInitNextSteps(platform, developer.lang);
-  return 0;
+  return {
+    exit_code: 0,
+    runtime_untrack: runtimeUntrack,
+  };
 }
 
 function runInitForWorkspace({
@@ -358,19 +369,21 @@ function runInitForWorkspace({
     overall_status: 'ready',
     reason_code: null,
     diagnostic: '',
+    runtime_untrack: buildRuntimeUntrackSummary(),
   };
   try {
-    const exitCode = runInitForProject({
+    const projectResult = normalizeProjectInitResult(runInitForProject({
       parsed,
       platform,
       adapter,
       projectRoot: workspaceRoot,
-    });
+    }));
     parentRuntime = {
-      exit_code: exitCode,
-      overall_status: exitCode === 0 ? 'ready' : 'action-required',
-      reason_code: exitCode === 0 ? null : 'parent-runtime-init-failed',
+      exit_code: projectResult.exit_code,
+      overall_status: projectResult.exit_code === 0 ? 'ready' : 'action-required',
+      reason_code: projectResult.exit_code === 0 ? null : 'parent-runtime-init-failed',
       diagnostic: '',
+      runtime_untrack: projectResult.runtime_untrack,
     };
   } catch (error) {
     parentRuntime = {
@@ -378,6 +391,7 @@ function runInitForWorkspace({
       overall_status: 'action-required',
       reason_code: 'parent-runtime-init-exception',
       diagnostic: error instanceof Error ? error.message : String(error),
+      runtime_untrack: buildRuntimeUntrackSummary(),
     };
     console.error(`Parent runtime init failed: ${parentRuntime.diagnostic}`);
   }
@@ -389,15 +403,27 @@ function runInitForWorkspace({
     let reasonCode = null;
     let diagnostic = '';
     try {
-      exitCode = runInitForProject({
+      const projectResult = normalizeProjectInitResult(runInitForProject({
         parsed,
         platform,
         adapter,
         projectRoot: candidate.git_root,
-      });
+      }));
+      exitCode = projectResult.exit_code;
       if (exitCode !== 0) {
         reasonCode = 'init-failed';
       }
+      results.push({
+        repo_label: candidate.repo_label,
+        workspace_relative_path: candidate.workspace_relative_path,
+        git_root: candidate.git_root,
+        exit_code: exitCode,
+        overall_status: exitCode === 0 ? 'ready' : 'action-required',
+        reason_code: reasonCode,
+        diagnostic,
+        runtime_untrack: projectResult.runtime_untrack,
+      });
+      return;
     } catch (error) {
       exitCode = 1;
       reasonCode = 'init-exception';
@@ -412,6 +438,7 @@ function runInitForWorkspace({
       overall_status: exitCode === 0 ? 'ready' : 'action-required',
       reason_code: reasonCode,
       diagnostic,
+      runtime_untrack: buildRuntimeUntrackSummary(),
     });
   });
 
@@ -443,6 +470,11 @@ function runInitForWorkspace({
       action_required: childActionRequiredCount,
       parent_runtime_ready: parentRuntime.overall_status === 'ready' ? 1 : 0,
       parent_runtime_action_required: parentActionRequiredCount,
+      runtime_untrack_total: results.reduce((total, result) => (
+        total + (result.runtime_untrack && Number.isFinite(result.runtime_untrack.count)
+          ? result.runtime_untrack.count
+          : 0)
+      ), 0),
     },
     overall_status: overallStatus,
     reason_code: actionRequiredCount === 0 ? null : 'all-repos-partial-or-action-required',
@@ -1049,12 +1081,18 @@ function buildInitWritePlan({
   assetPlan,
   runtimePlan,
 }) {
-  return mergeOperationPlans(
+  const untrackPlan = buildInitUntrackPlan(projectRoot);
+  const plan = mergeOperationPlans(
     assetPlan,
     runtimePlan || buildInitRuntimePreviewPlan(projectRoot, adapter),
     buildInitGitignorePlan(projectRoot),
     buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }),
+    untrackPlan.plan,
   );
+  return {
+    plan,
+    untrackDiagnostic: untrackPlan.diagnostic,
+  };
 }
 
 function buildInitRuntimePreviewPlan(projectRoot, adapter) {
@@ -1086,6 +1124,23 @@ function buildInitGitignorePlan(projectRoot) {
   return {
     operations: [operation],
     summary: summarizeOperationPlan([operation]),
+  };
+}
+
+function buildInitUntrackPlan(projectRoot) {
+  const diagnostic = planRuntimeUntrack({ projectRoot });
+  const plan = {
+    operations: diagnostic.operations,
+    summary: summarizeOperationPlan(diagnostic.operations),
+  };
+  return {
+    plan,
+    diagnostic: {
+      count: diagnostic.count,
+      reason_code: diagnostic.reason_code,
+      sample_paths: diagnostic.sample_paths,
+      diagnostic: diagnostic.diagnostic,
+    },
   };
 }
 
@@ -1164,7 +1219,7 @@ function buildPlanFileOperation(projectRoot, relativePath, contents, reason) {
   return buildFileWriteOperation(projectRoot, absolutePath, contents, reason);
 }
 
-function printInitDryRun({ platform, plan, legacyStateDetected, destructiveResetReason = '' }) {
+function printInitDryRun({ platform, plan, untrackDiagnostic, legacyStateDetected, destructiveResetReason = '' }) {
   console.log(`Dry run: spec-first init (${platform})`);
   if (legacyStateDetected) {
     console.log('Would perform a managed hard reset before regenerating runtime assets.');
@@ -1200,9 +1255,88 @@ function printInitDryRun({ platform, plan, legacyStateDetected, destructiveReset
       console.log(`  - ${operation.path}`);
     }
   }
+  printRuntimeUntrackDryRunSummary(untrackDiagnostic);
   console.log('No files were changed.');
 }
 
+function printRuntimeUntrackDryRunSummary(untrackDiagnostic = buildRuntimeUntrackSummary()) {
+  const summary = buildRuntimeUntrackSummary(untrackDiagnostic);
+  if (summary.count > 0) {
+    console.log(`Would untrack ${summary.count} managed runtime path(s):`);
+    for (const samplePath of summary.sample_paths) {
+      console.log(`  - ${samplePath}`);
+    }
+    return;
+  }
+
+  if (summary.reason_code === 'none-tracked') {
+    console.log('No managed runtime paths require untracking.');
+    return;
+  }
+
+  console.log(`Runtime untrack check: ${summary.reason_code}`);
+  if (summary.diagnostic) {
+    console.log(`  ${summary.diagnostic}`);
+  }
+}
+
+function printRuntimeUntrackApplySummary(summary = buildRuntimeUntrackSummary()) {
+  if (summary.count > 0) {
+    console.log(`🧯 Untracked ${summary.count} managed runtime path(s) from git index (work tree files preserved).`);
+    return;
+  }
+
+  if (summary.reason_code === 'none-tracked') {
+    console.log('🧯 No managed runtime paths require untracking.');
+    return;
+  }
+
+  console.log(`🧯 Runtime untrack skipped: ${summary.reason_code}`);
+}
+
+function buildRuntimeUntrackSummary(untrackDiagnostic = {}, applyResult = null) {
+  const plannedReason = untrackDiagnostic.reason_code || 'none-tracked';
+  const applied = applyResult && applyResult.runtime_untrack ? applyResult.runtime_untrack : null;
+  const count = applied && plannedReason === 'untracked-runtime'
+    ? applied.applied_count
+    : Number(untrackDiagnostic.count || 0);
+  const reasonCode = applied && plannedReason === 'untracked-runtime'
+    ? applied.reason_code
+    : plannedReason;
+
+  return {
+    count,
+    reason_code: reasonCode || 'none-tracked',
+    sample_paths: Array.isArray(untrackDiagnostic.sample_paths) ? untrackDiagnostic.sample_paths : [],
+    diagnostic: applied && applied.diagnostic ? applied.diagnostic : (untrackDiagnostic.diagnostic || ''),
+  };
+}
+
+function buildProjectInitResult(exitCode, untrackDiagnostic = {}) {
+  return {
+    exit_code: exitCode,
+    runtime_untrack: buildRuntimeUntrackSummary(untrackDiagnostic),
+  };
+}
+
+function normalizeProjectInitResult(result) {
+  if (typeof result === 'number') {
+    return buildProjectInitResult(result);
+  }
+  if (result && typeof result === 'object') {
+    return {
+      exit_code: Number.isFinite(result.exit_code) ? result.exit_code : 1,
+      runtime_untrack: buildRuntimeUntrackSummary(result.runtime_untrack),
+    };
+  }
+  return buildProjectInitResult(1);
+}
+
+function getInitExitCode(result) {
+  return normalizeProjectInitResult(result).exit_code;
+}
+
 module.exports = {
+  buildInitWritePlan,
   runInit,
 };

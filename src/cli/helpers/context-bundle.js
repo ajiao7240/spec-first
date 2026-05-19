@@ -57,6 +57,12 @@ const EXCLUDED_PREFIXES = [
     reason: 'runtime context artifacts are excluded from ordinary context',
   },
   {
+    prefix: '.spec-first/sessions',
+    kind: 'runtime_context_artifact',
+    reason_code: 'runtime_context_artifact_excluded',
+    reason: 'runtime context artifacts are excluded from ordinary context',
+  },
+  {
     prefix: '.claude',
     kind: 'generated_runtime_mirror',
     reason_code: 'generated_runtime_mirror_excluded',

@@ -129,6 +129,7 @@ describe('context bundle and summary contracts', () => {
         '.spec-first/standards/project-standards.json',
         '.spec-first/app-audit/latest/summary.json',
         '.spec-first/workflows/spec-work/run.json',
+        '.spec-first/sessions/session-a.json',
         '.agents/skills/spec-work/SKILL.md',
         'tests/unit/context-bundle-contracts.test.js',
       ],
@@ -175,6 +176,10 @@ describe('context bundle and summary contracts', () => {
       }),
       expect.objectContaining({
         path: '.spec-first/workflows/spec-work/run.json',
+        reason_code: 'runtime_context_artifact_excluded',
+      }),
+      expect.objectContaining({
+        path: '.spec-first/sessions/session-a.json',
         reason_code: 'runtime_context_artifact_excluded',
       }),
       expect.objectContaining({

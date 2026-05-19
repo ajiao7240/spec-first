@@ -30,7 +30,7 @@ yarn-error.log*
 /*-loop.md
 /*-userskuang*.txt
 
-# External CLI tool runtime logs (e.g. nb / hst-mcp) - not part of spec-first repo
+# 外部 CLI 工具运行日志（如 nb / hst-mcp），不属于 spec-first 仓库源码
 logs/
 
 # Generated runtime assets in this repo checkout

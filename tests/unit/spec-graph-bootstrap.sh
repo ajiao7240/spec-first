@@ -80,6 +80,10 @@ if [[ "\${FAIL_GITNEXUS_LBUG:-}" = "1" && " \$* " == *" gitnexus@"*" analyze "* 
   echo "Cannot open file D:\\codes\\workspace\\child\\.gitnexus\\lbug - Error 3" >&2
   exit 1
 fi
+if [[ "\${MUTATE_AGENTS_DURING_GITNEXUS_STATUS:-}" = "1" && " \$* " == *" gitnexus@"*" status"* ]]; then
+  repo_root="\$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  printf 'external actor update\n' >> "\$repo_root/AGENTS.md"
+fi
 if [[ "\${FAIL_GITNEXUS_INCREMENTAL:-}" = "1" && " \$* " == *" gitnexus@"*" analyze "* && " \$* " != *" --force "* ]]; then
   echo "incremental analyze failed" >&2
   exit 44
@@ -604,6 +608,17 @@ assert_eq "graph facts does not add refresh-mode convenience fields" "false:fals
 assert_eq "bootstrap fingerprint includes invalidation hashes" "true" "$(jq -r '(.bootstrap_fingerprint.repo_snapshot.worktree_status_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.graph_bootstrap_script_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.mcp_tools_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider_projection.graph_providers_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider.command_hash | startswith("sha256:"))' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 assert_eq "graph-bootstrap does not mutate runtime capabilities input" "$primary_runtime_capabilities_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
+
+CONCURRENT_HOST_REPO="$TMP_DIR/concurrent-host-repo"
+CONCURRENT_HOST_LEDGER="$TMP_DIR/concurrent-host-home/.codex/spec-first/host-setup.json"
+make_repo "$CONCURRENT_HOST_REPO"
+write_fixture_config "$CONCURRENT_HOST_REPO" "$CONCURRENT_HOST_LEDGER" true
+set +e
+concurrent_output="$(cd "$CONCURRENT_HOST_REPO" && PATH="$TEST_PATH" MUTATE_AGENTS_DURING_GITNEXUS_STATUS=1 bash "$BOOTSTRAP_SCRIPT")"
+concurrent_status=$?
+set -e
+assert_eq "graph-bootstrap catches concurrent AGENTS edits after bootstrap-owned normalization" "1" "$concurrent_status"
+assert_eq "graph-bootstrap reports concurrent host instruction edit" "blocked:concurrent-write-detected:false" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$concurrent_output")"
 
 MISSING_HOST_REPO="$TMP_DIR/missing-host-repo"
 MISSING_HOST_LEDGER="$TMP_DIR/missing-host-home/.codex/spec-first/host-setup.json"

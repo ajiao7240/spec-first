@@ -2187,11 +2187,50 @@ $sourceRevision = [string]$sourceRevisionOutput[0]
 $worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
 $worktreeDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
 $worktreeStatusHash = Get-StatusHash -Text $worktreeStatus
-# U1: external-actor fingerprint 排除 bootstrap 自身 owned 路径
+$script:ExpectedHostInstructionHashes = @{}
+
+function Register-BootstrapOwnedHostInstructionHashes {
+  param(
+    [object]$Normalization,
+    [string]$RepoRoot
+  )
+  foreach ($fileName in @('AGENTS.md', 'CLAUDE.md')) {
+    $result = @($Normalization.results | Where-Object {
+      $file = if ($null -ne $_.PSObject.Properties['file']) { [string]$_.PSObject.Properties['file'].Value } else { '' }
+      $written = if ($null -ne $_.PSObject.Properties['written']) { [bool]$_.PSObject.Properties['written'].Value } else { $false }
+      $changed = if ($null -ne $_.PSObject.Properties['changed']) { [bool]$_.PSObject.Properties['changed'].Value } else { $false }
+      $status = if ($null -ne $_.PSObject.Properties['status']) { [string]$_.PSObject.Properties['status'].Value } else { '' }
+      $file -eq $fileName -and ($written -or $changed -or $status -eq 'updated')
+    } | Select-Object -First 1)
+    if ($result.Count -gt 0) {
+      $script:ExpectedHostInstructionHashes[$fileName] = Get-FileContentHash -Path (Join-Path $RepoRoot $fileName)
+    }
+  }
+}
+
+function Test-BootstrapOwnedHostInstructionChange {
+  param([string]$FileName)
+  if (-not $script:ExpectedHostInstructionHashes.ContainsKey($FileName)) {
+    return $false
+  }
+  $currentHash = Get-FileContentHash -Path (Join-Path $repoRoot $FileName)
+  return $currentHash -eq $script:ExpectedHostInstructionHashes[$FileName]
+}
+
+# U1: external-actor fingerprint 排除 bootstrap 自身写入的路径。
+# AGENTS.md / CLAUDE.md 只在当前内容等于本轮 normalizer 写入结果时排除，
+# 这样 critical write window 内后续外部编辑仍会触发 concurrent-write-detected。
 function Get-ExternalActorFingerprint {
   $statusLines = @(git -C $repoRoot status --porcelain 2>$null)
-  $filtered = $statusLines | Where-Object {
-    $_ -notmatch '^.{2} (\.spec-first/|\.gitnexus/|\.code-review-graph/|AGENTS\.md$|CLAUDE\.md$)'
+  $filtered = foreach ($line in $statusLines) {
+    $statusPath = if ($line.Length -gt 3) { $line.Substring(3) } else { '' }
+    if ($statusPath -like '.spec-first/*' -or $statusPath -like '.gitnexus/*' -or $statusPath -like '.code-review-graph/*') {
+      continue
+    }
+    if (($statusPath -eq 'AGENTS.md' -or $statusPath -eq 'CLAUDE.md') -and (Test-BootstrapOwnedHostInstructionChange -FileName $statusPath)) {
+      continue
+    }
+    $line
   }
   return ($filtered -join "`n")
 }
@@ -2414,6 +2453,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     }
     if ($provider -eq 'gitnexus' -and $bootstrap.exit_code -eq 0) {
       $hostInstructionNormalization = Normalize-GitNexusInstructionBlockViaCli -RepoRoot $repoRoot
+      Register-BootstrapOwnedHostInstructionHashes -Normalization $hostInstructionNormalization -RepoRoot $repoRoot
     }
     if ($bootstrap.exit_code -eq 0) {
       $statusProbe = Invoke-ConfiguredCommand -ProviderConfig $providerConfig -Provider $provider -Kind 'status' -LogPath $statusLog -RepoRoot $repoRoot

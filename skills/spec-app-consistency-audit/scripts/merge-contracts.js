@@ -384,7 +384,7 @@ function buildPilotValidationGate(report) {
 
 function normalizeIssue(issue, options = {}) {
   const normalized = {
-    ...issue,
+    ...pickIssueScalarFields(issue),
     title: redactForArtifactText(issue.title || issue.id || 'App consistency audit finding', { maxLength: 240 }),
     severity: normalizeSeverity(issue.severity),
     contract_status: issue.contract_status || 'candidate',
@@ -425,7 +425,29 @@ function normalizeIssue(issue, options = {}) {
   if ((options.fromCodeReview || issue.code_review_handoff) && (!issue.code_review_handoff || issue.code_review_handoff.enabled !== false)) {
     normalized.code_review_handoff = buildCodeReviewHandoff(normalized, options);
   }
+  if (issue.evidence_gate && typeof issue.evidence_gate === 'object' && !Array.isArray(issue.evidence_gate)) {
+    normalized.evidence_gate = sanitizeIssueObject(issue.evidence_gate, options);
+  }
+  if (Array.isArray(issue.missing_evidence_sources)) {
+    normalized.missing_evidence_sources = normalizeTextArray(issue.missing_evidence_sources)
+      .map((entry) => redactForArtifactText(entry, { maxLength: 160 }));
+  }
   return normalized;
+}
+
+function pickIssueScalarFields(issue) {
+  const result = {};
+  for (const field of ['id', 'category', 'claim_family', 'claim_type', 'expert']) {
+    if (typeof issue[field] === 'string' && issue[field].length > 0) {
+      result[field] = redactForArtifactText(issue[field], { maxLength: 240 });
+    }
+  }
+  for (const field of ['static_confirmed', 'requires_runtime_verification', 'requires_real_device']) {
+    if (typeof issue[field] === 'boolean') {
+      result[field] = issue[field];
+    }
+  }
+  return result;
 }
 
 function rejectIssue(issue, details) {
@@ -649,7 +671,8 @@ function buildWritebackPreview(artifacts, issues, options = {}) {
 
 function sanitizeAffectedSurface(surface, options = {}) {
   return {
-    ...surface,
+    type: redactForArtifactText(surface.type || 'unknown', { maxLength: 120 }),
+    id: redactForArtifactText(surface.id || 'unknown', { maxLength: 240 }),
     file: sanitizePathLike(surface.file || 'unknown', options),
   };
 }
@@ -657,10 +680,9 @@ function sanitizeAffectedSurface(surface, options = {}) {
 function sanitizeEvidence(evidence, options = {}) {
   if (Array.isArray(evidence)) return sanitizeEvidenceArray(evidence, undefined, options);
   if (!evidence || typeof evidence !== 'object') return evidence;
-  return Object.fromEntries(Object.entries(evidence).map(([source, values]) => {
-    if (!Array.isArray(values)) return [source, values];
-    return [source, sanitizeEvidenceArray(values, source, options)];
-  }));
+  return Object.fromEntries(Object.entries(evidence)
+    .filter(([, values]) => Array.isArray(values))
+    .map(([source, values]) => [source, sanitizeEvidenceArray(values, source, options)]));
 }
 
 function sanitizeEvidenceArray(values, source, options = {}) {
@@ -671,12 +693,12 @@ function sanitizeEvidenceArray(values, source, options = {}) {
 }
 
 function sanitizeEvidenceEntry(entry, options = {}) {
-  const sanitized = { ...entry };
-  for (const field of ['summary', 'file', 'path', 'artifact_id', 'node_id', 'route', 'event', 'key']) {
-    if (typeof sanitized[field] === 'string') {
+  const sanitized = {};
+  for (const field of ['source', 'summary', 'file', 'path', 'artifact_id', 'node_id', 'route', 'event', 'key', 'rule_pack', 'rule_pack_name', 'name']) {
+    if (typeof entry[field] === 'string') {
       sanitized[field] = field === 'file' || field === 'path'
-        ? sanitizePathLike(sanitized[field], options)
-        : redactForArtifactText(sanitized[field], { maxLength: field === 'summary' ? 500 : 240 });
+        ? sanitizePathLike(entry[field], options)
+        : redactForArtifactText(entry[field], { maxLength: field === 'summary' ? 500 : 240 });
     }
   }
   return sanitized;
@@ -695,10 +717,22 @@ function sanitizePathLike(value, options = {}) {
 
 function sanitizeRuntimeVerification(runtimeVerification) {
   return {
-    ...runtimeVerification,
+    required: Boolean(runtimeVerification.required),
     reason: redactForArtifactText(runtimeVerification.reason || '', { maxLength: 500 }),
     level: redactForArtifactText(runtimeVerification.level || 'simulator', { maxLength: 80 }),
   };
+}
+
+function sanitizeIssueObject(value, options = {}) {
+  if (Array.isArray(value)) return value.map((entry) => sanitizeIssueObject(entry, options));
+  if (!value || typeof value !== 'object') {
+    if (typeof value === 'string') return redactForArtifactText(value, { maxLength: 500 });
+    return value;
+  }
+  return Object.fromEntries(Object.entries(value).map(([key, child]) => {
+    if (key === 'file' || key === 'path') return [key, sanitizePathLike(child, options)];
+    return [key, sanitizeIssueObject(child, options)];
+  }));
 }
 
 if (require.main === module) {

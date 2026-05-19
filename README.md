@@ -396,7 +396,7 @@ Workflow artifacts
   ideation -> brainstorms -> plans -> tasks -> work/review/debug -> learnings
 ```
 
-Source-of-truth assets live in the repository. Generated runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are disposable and can be rebuilt with `spec-first init`. For customization, generated runtime, provider evidence, and credential boundaries, see [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md).
+Source-of-truth assets live in the repository. Generated runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are disposable and can be rebuilt with `spec-first init`. During init, spec-first also untracks already-indexed managed runtime paths once, preserving worktree files while preventing historical generated mirrors from creating noisy diffs. For customization, generated runtime, provider evidence, and credential boundaries, see [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md).
 
 Runtime shape after init:
 

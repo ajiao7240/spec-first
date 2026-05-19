@@ -47,6 +47,35 @@ describe('spec-first-session.v1 schema and helper contract', () => {
     expect(new Set(schema.properties.agent_kind.enum)).toEqual(new Set(ALLOWED_AGENT_KINDS));
   });
 
+  test('schema enforces nullable field constraints when values are non-null', () => {
+    const record = {
+      schema_version: 'spec-first-session.v1',
+      session_id: 'session-1',
+      agent_kind: 'codex',
+      started_at: '2026-05-14T12:00:00Z',
+      last_heartbeat_at: '2026-05-14T12:00:01Z',
+      host_marker_path: null,
+      scope_hint: null,
+      pid: null,
+    };
+
+    expect(validateAgainstSchema(getSchema(), record).errors).toEqual([]);
+    expect(validateAgainstSchema(getSchema(), {
+      ...record,
+      host_marker_path: 'x'.repeat(1025),
+      scope_hint: 'x'.repeat(513),
+      pid: 0,
+    }).errors).toEqual(expect.arrayContaining([
+      'root.host_marker_path: expected string length at most 1024, received 1025',
+      'root.scope_hint: expected string length at most 512, received 513',
+      'root.pid: expected number >= 1, received 0',
+    ]));
+    expect(validateAgainstSchema(getSchema(), {
+      ...record,
+      pid: 4294967296,
+    }).errors).toContain('root.pid: expected number <= 4294967295, received 4294967296');
+  });
+
   test('SESSION_DIR_REL points at .spec-first/sessions', () => {
     expect(SESSION_DIR_REL).toBe(path.join('.spec-first', 'sessions'));
   });
@@ -287,6 +316,34 @@ describe('CLI command surface', () => {
     expect(runSession(['register', '--id', 'bad', '--unknown-flag', '--json'])).toBe(2);
     const payload = JSON.parse(stderrChunks.join(''));
     expect(payload.reason_code).toBe('unknown-option');
+  });
+
+  test('register rejects missing option values before falling back to defaults', () => {
+    expect(runSession(['register', '--id', '--json'])).toBe(2);
+    const idPayload = JSON.parse(stderrChunks.join(''));
+    expect(idPayload.reason_code).toBe('missing-option-value');
+    expect(idPayload.flag).toBe('--id');
+    expect(stdoutChunks.join('')).toBe('');
+    expect(fs.existsSync(getSessionDir(repoRoot))).toBe(false);
+
+    stderrChunks.length = 0;
+    expect(runSession(['register', '--agent-kind', '--scope-hint', 'x', '--json'])).toBe(2);
+    const agentKindPayload = JSON.parse(stderrChunks.join(''));
+    expect(agentKindPayload.reason_code).toBe('missing-option-value');
+    expect(agentKindPayload.flag).toBe('--agent-kind');
+  });
+
+  test('heartbeat and unregister reject missing id values', () => {
+    expect(runSession(['heartbeat', '--id', '--json'])).toBe(2);
+    const heartbeatPayload = JSON.parse(stderrChunks.join(''));
+    expect(heartbeatPayload.reason_code).toBe('missing-option-value');
+    expect(heartbeatPayload.flag).toBe('--id');
+
+    stderrChunks.length = 0;
+    expect(runSession(['unregister', '--id', '--json'])).toBe(2);
+    const unregisterPayload = JSON.parse(stderrChunks.join(''));
+    expect(unregisterPayload.reason_code).toBe('missing-option-value');
+    expect(unregisterPayload.flag).toBe('--id');
   });
 
   test('subcommand without name prints help and returns 2', () => {

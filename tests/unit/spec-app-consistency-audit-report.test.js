@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { buildAuditReport } = require('../../skills/spec-app-consistency-audit/scripts/merge-contracts');
+const { buildAuditReport, buildIssuesArtifact } = require('../../skills/spec-app-consistency-audit/scripts/merge-contracts');
 const { renderHeadlessEnvelope } = require('../../skills/spec-app-consistency-audit/scripts/render-headless-envelope');
 const { validateArtifact } = require('../../skills/spec-app-consistency-audit/scripts/validate-artifacts');
 
@@ -243,6 +243,42 @@ describe('spec-app-consistency-audit report generation', () => {
       expect(serialized).not.toContain('internal.example.test');
       expect(serialized).not.toContain('Cookie: session');
       expect(serialized).not.toContain('abc.def.ghi');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('drops unknown raw issue fields before writing durable artifacts', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-unknown-fields-'));
+    try {
+      const rawIssuesPath = write(root, 'issues.json', JSON.stringify({
+        issues: [issue({
+          id: 'APP-AUDIT-UNKNOWN-FIELDS',
+          raw_log: 'Authorization: Bearer abc.def.ghi',
+          debug_output: { url: 'https://internal.example.test/path?token=secret' },
+          extra_notes: ['Cookie: session=secret'],
+        })],
+      }));
+
+      const issuesArtifact = buildIssuesArtifact({
+        repoRoot: root,
+        issues: [rawIssuesPath],
+      });
+      const report = buildAuditReport({
+        repoRoot: root,
+        issues: [rawIssuesPath],
+      });
+      const serialized = JSON.stringify({ issuesArtifact, report });
+
+      expect(validateArtifact(issuesArtifact).valid).toBe(true);
+      expect(validateArtifact(report).valid).toBe(true);
+      expect(issuesArtifact.issues[0]).not.toHaveProperty('raw_log');
+      expect(issuesArtifact.issues[0]).not.toHaveProperty('debug_output');
+      expect(issuesArtifact.issues[0]).not.toHaveProperty('extra_notes');
+      expect(report.issues[0]).not.toHaveProperty('raw_log');
+      expect(serialized).not.toContain('abc.def.ghi');
+      expect(serialized).not.toContain('internal.example.test');
+      expect(serialized).not.toContain('session=secret');
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
