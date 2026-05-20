@@ -33,7 +33,7 @@ spec_id: 2026-05-19-001-graph-bootstrap-dirty-classification
 ## Goals
 
 - G1：脚本对 dirty worktree 的 gate 按路径来源分类。命中 setup-owned 治理路径列表的 dirty 不阻断 provider 命令；命中其他路径（视为 graph-affecting）才阻断。`AGENTS.md` / `CLAUDE.md` 只有 spec-first managed block 内 diff 可豁免，managed block 外 diff 一律 graph-affecting。
-- G2：把 setup-owned ignore 规则提升为 source-of-truth，由 contract（`docs/contracts/graph-provider-consumption.md`）显式列出条目；Bash 与 PowerShell 脚本共读同一份事实，避免双源漂移。本能力**不复用** `external_actor_fingerprint` / `Get-ExternalActorFingerprint` 的现有窄列表；那条 fingerprint 服务于 concurrent-write-detected 检测，语义不同，保持独立常量。
+- G2：把 setup-owned ignore 规则提升为 source-of-truth，由 contract（`docs/contracts/graph-provider-consumption.md`）显式列出条目；Bash 与 PowerShell 保留各自脚本常量，但由同一份 contract 列表治理，并通过合同测试锁住集合等价，避免双源漂移。本能力**不复用** `external_actor_fingerprint` / `Get-ExternalActorFingerprint` 的现有窄列表；那条 fingerprint 服务于 concurrent-write-detected 检测，语义不同，保持独立常量。
 - G3：本轮不新增 `--allow-dirty` / `-AllowDirty` escape hatch。graph-affecting dirty 继续 fail-closed；override 需求作为 Future Work，只有出现明确 CI / 运维 / 历史回放 caller 后再单独设计 provenance、confidence 与 consumer contract。
 - G4：成功刷新后的 `graph-facts.v1` 顶层增加 `dirty_classification` 字段（取值 `clean` / `setup-owned-only`）以及 `dirty_paths_breakdown: { setup_owned_count, graph_affecting_count, sample_paths }`。`graph-affecting-blocked` 只出现在本轮 `graph-bootstrap-result.v1` / stdout blocked result 中，不写入 preserved canonical `graph-facts.v1`。`graph-provider-status.v1` **不重复写**这些字段（避免双源漂移）；该 schema 仍只描述 provider 维度。`worktree_dirty` 与 `worktree_status_hash` 字段语义保持兼容。
 - G5：reason_code 集合扩展 `dirty-source-blocked`（默认真源码 dirty 路径）。原 `dirty-refresh-non-canonical` 在 setup-owned-only 路径上不再触发；保留为兼容名称只在历史 artifacts 出现，新逻辑不再写出。
@@ -58,8 +58,8 @@ spec_id: 2026-05-19-001-graph-bootstrap-dirty-classification
 | R3 | blocked classification 不写入 preserved canonical artifacts | source/runtime 与 canonical artifact 边界 | unit test：先生成 clean `graph-facts.json`，再制造源码 dirty 后跑 bootstrap，断言 command result 有 `dirty_classification=graph-affecting-blocked`，但既有 `graph-facts.json` 内容保持不变；consumer contract 定义旧 v1 artifact 缺失 `dirty_classification` 的 fallback |
 | R4 | `.gitignore` / `AGENTS.md` / `CLAUDE.md` 仅 spec-first managed block 内 dirty 才豁免 | 现场：init 写 managed block 后立刻跑 bootstrap | unit test：分别只改 managed block 与只改 user 区域，断言前者 `setup-owned-only`、后者 `graph-affecting-blocked` |
 | R5 | Bash 与 PowerShell 行为等价 | spec-first 双平台治理 | smoke：两个脚本对相同 setup-owned-only 输入产出相同的 `dirty_classification` 与 `workflow_mode` |
-| R6 | 历史 reason_code `dirty-refresh-non-canonical` 不再被新逻辑写出，但 contract 与既有 schema 兼容历史 artifacts | spec-first contract evolution | contract test：findings-schema / consumer contract 同时承认 `dirty-source-blocked` 与 legacy `dirty-refresh-non-canonical` |
-| R7 | 下游 consumer 用 `dirty_classification` 增强 freshness 判断 | `docs/contracts/graph-provider-consumption.md` | contract test：消费契约表格列出新字段及消费规则 |
+| R6 | 历史 reason_code `dirty-refresh-non-canonical` 不再被新逻辑写出，但 graph-bootstrap / consumer contract 兼容历史 artifacts | spec-first contract evolution | contract test：graph-bootstrap 与 consumer contract 同时承认 `dirty-source-blocked` 与 legacy `dirty-refresh-non-canonical` |
+| R7 | consumer contract 记录 `dirty_classification` freshness 消费规则 | `docs/contracts/graph-provider-consumption.md` | contract test：消费契约表格列出新字段及新写 / 本轮更新 consumer 的消费规则 |
 | R8 | CHANGELOG 必填，行为变更 user-visible | CLAUDE.md 强制基线 | CHANGELOG.md 新增 `(user-visible)` 条目 |
 
 ## Architecture & Boundaries
@@ -103,7 +103,7 @@ spec_id: 2026-05-19-001-graph-bootstrap-dirty-classification
 - 在原 "dirty worktree refresh request" 行下方拆为两条：
   - dirty (graph-affecting) → `reason_code=dirty-source-blocked`、provider commands 不运行、`canonical_artifacts_preserved=true`。
   - dirty (setup-owned-only) → `reason_code=null`、provider commands 正常运行、artifacts 内 `dirty_classification=setup-owned-only`、`worktree_dirty=true` + `worktree_status_hash` 用于下游 freshness 判断。
-- 在消费规则段落新增一行：新写或本轮更新的 consumer 在比较 `worktree_status_hash` 之前应先读 `graph-facts.v1.dirty_classification`。`setup-owned-only` 视为 fresh 但 hash 与上一次可能不等价（AGENTS.md / CHANGELOG.md 改动会让 hash 漂移）；`graph-affecting-blocked` 只能来自本轮 command result，表示本次没有更新 canonical artifacts。现有 consumer 的全量迁移不属于本计划，除非 spec-work 阶段明确列出具体 consumer 文件与测试。
+- 在消费规则段落新增一行：新写或本轮更新的 consumer 在比较 `worktree_status_hash` 之前应先读 `graph-facts.v1.dirty_classification`。`setup-owned-only` 视为 fresh 但 hash 与上一次可能不等价（AGENTS.md / CHANGELOG.md 改动会让 hash 漂移）；`graph-affecting-blocked` 只能来自本轮 command result，表示本次没有更新 canonical artifacts。本计划只更新 consumer contract 与合同测试，不改造既有 consumer；若 spec-work 阶段决定触碰既有 consumer，必须先列出具体 consumer 文件与对应测试。
 - 旧 `graph-facts.v1` 兼容：缺失 `dirty_classification` 时，consumer 回退到既有 `worktree_dirty` + `worktree_status_hash` 逻辑，并把 dirty 情况标为 `dirty-uncertain` / advisory；不得从缺失字段推断 clean。
 - legacy reason_code 处理：`dirty-refresh-non-canonical` 仅出现在 `<release-version>` 之前的历史 artifacts 中；本 plan 落地后新写入永不出现。consumer 在 freshness 比较时**把它视同 `dirty-source-blocked`**。Sunset：可在下一次 `graph-facts.v2` major schema bump 时从契约删除，或当所有 live workspace 已滚动到新写入（以两者中先到达者为准）。
 
@@ -111,7 +111,7 @@ spec_id: 2026-05-19-001-graph-bootstrap-dirty-classification
 
 - 文件：`skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`（更新）
 - 改动点：
-  - 头部新增脚本级常量 `SETUP_OWNED_DIRTY_IGNORE_PREFIXES`（数组，逐字与 IU-1 契约 path 前缀对齐）；并新增帮助函数 `managed_block_diff_outside_owned_block()` 用于 `.gitignore` / `AGENTS.md` / `CLAUDE.md` 二级判断。
+  - 头部新增脚本级常量 `SETUP_OWNED_DIRTY_IGNORE_PREFIXES`（数组，集合与 IU-1 契约 path 前缀对齐，由合同测试锁住）；并新增帮助函数 `managed_block_diff_outside_owned_block()` 用于 `.gitignore` / `AGENTS.md` / `CLAUDE.md` 二级判断。
   - 把 dirty 检测从 `git status --porcelain` 切换为 `git status --porcelain=v2 -z`：新增 `parse_porcelain_v2_paths()`（按字段提取 path，rename 同时输出 old 与 new），返回 `(path, hint)` 元组列表，再用 `SETUP_OWNED_DIRTY_IGNORE_PREFIXES` 前缀匹配；rename 行任一 path 未命中即归为 graph-affecting。`WORKTREE_STATUS_HASH` 仍按原 `git status --porcelain` 文本计算（保持 `worktree_status_hash` 字段语义兼容）。
   - 既有 `if [ "$WORKTREE_DIRTY" = "true" ]; then emit_blocked ...` 替换为：
     - `clean` 与 `setup-owned-only`：直接通过；
@@ -126,7 +126,7 @@ spec_id: 2026-05-19-001-graph-bootstrap-dirty-classification
 - 文件：`skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1`（更新）
 - 改动点：
   - 不新增 `-AllowDirty` 参数；PowerShell 版本同样保持 graph-affecting dirty fail-closed。
-  - 新增 `$script:SetupOwnedDirtyIgnorePrefixes`（数组，与 Bash 完全相同的 path 前缀列表）；新增 `Test-ManagedBlockDiffOutsideOwnedBlock` 函数。
+  - 新增 `$script:SetupOwnedDirtyIgnorePrefixes`（数组，集合与 Bash 和 IU-1 契约 path 前缀列表等价，由合同测试锁住）；新增 `Test-ManagedBlockDiffOutsideOwnedBlock` 函数。
   - 把 dirty 检测从 `git status --porcelain` 切换为 `git status --porcelain=v2 -z`，新增 `Parse-PorcelainV2Paths` 按字段提取 path（rename 同时输出 old 与 new），再用前缀匹配；rename 任一 path 未命中即归为 graph-affecting。`worktree_status_hash` 仍按原 v1 status 文本计算。
   - 第 2200-2210 `if ($worktreeDirty)` 阻断分支替换为按 `$dirtyClassification` 分支处理；`graph-affecting-blocked` 走 `Write-ResultAndExit -ReasonCode 'dirty-source-blocked' -NextAction '...同上...'`。
   - `Get-ExternalActorFingerprint` 内部正则**保持为现状的窄列表**，并提升为脚本级常量 `$script:ExternalActorFingerprintIgnorePattern`（与 `$script:SetupOwnedDirtyIgnorePrefixes` 是两个独立常量，不合并）。
@@ -148,12 +148,10 @@ spec_id: 2026-05-19-001-graph-bootstrap-dirty-classification
   - 新增用例 `marker-deletion block stays setup-owned`：临时仓库已有完整 spec-first managed block，删除整块 marker + 内容，断言归类为 `setup-owned-only`，锁住 deletion 使用 HEAD 侧 marker 的判定。
   - 新增用例 `forged duplicate markers in .gitignore is graph-affecting`：在 `.gitignore` user 区域人工再加一对 `# spec-first:start` ... `# spec-first:end` 包住任意 ignore 规则，断言归类为 `graph-affecting-blocked`，锁住 marker 唯一性校验。
   - 新增用例 `all-repos result carries dirty classification`：父级 workspace 下一个 child 真源码 dirty、一个 child setup-owned-only，断言 parent summary `results[]` 直接包含 child stdout 的 `dirty_classification` 与 `dirty_paths_breakdown`，不从 child preserved `graph-facts.json` 推断。
-  - 新增 negative 用例 `ALLOW_DIRTY env is not honored`：调用前 `export ALLOW_DIRTY=true`（PS 等价 `$env:AllowDirty='true'`），真源码 dirty 场景仍 `dirty-source-blocked`，证明没有环境变量 escape hatch。
 - 文件：`tests/unit/spec-graph-bootstrap-contracts.test.js`（更新）
   - 把现有锁住 `dirty-refresh-non-canonical` 的两处断言扩展为同时承认 `dirty-source-blocked` 为新默认 reason_code；保留 legacy 名称在 contract（向后兼容历史 artifacts）。
   - 新增断言：`external_actor_fingerprint` / `Get-ExternalActorFingerprint` 不豁免 `CHANGELOG.md` / `.gitignore` / `.codex/spec-first/` / `.claude/spec-first/` / `.agents/skills/`（保护 concurrent-write-detected 检测窗口不被本能力静默放宽）；与 `SETUP_OWNED_DIRTY_IGNORE_PREFIXES` 两条常量分开断言。
   - 新增断言：脚本里的 `SETUP_OWNED_DIRTY_IGNORE_PREFIXES` 与契约文档列出的 path 前缀**集合等价**（行级比较，不依赖正则），Bash 与 PS1 各一条。
-  - 新增断言（双源一致性）：本 plan 的 `SETUP_OWNED_DIRTY_IGNORE_PREFIXES` 与 `2026-05-18-003` 的 `getSpecFirstGitignorePatterns()` 各自服务不同 gate，允许各自扩展，但二者覆盖的 runtime mirror 前缀子集（`.spec-first/`、`.codex/spec-first/`、`.claude/spec-first/`、`.agents/skills/`）必须**集合等价**；任何一边新增/删除 mirror 路径而不同步另一边时测试立刻失败。
 - 文件：`tests/unit/graph-provider-consumption-contracts.test.js`（更新）
   - 新增断言：消费契约表含 `dirty_classification` 行；含 `setup-owned-only` 与 command-result-only `graph-affecting-blocked` 的消费规则；明确旧 `graph-facts.v1` 缺失字段时回退为 dirty-aware legacy 判断。
 
@@ -194,7 +192,7 @@ spec_id: 2026-05-19-001-graph-bootstrap-dirty-classification
 | graph-affecting blocked result 与 preserved canonical artifacts 混淆 | 下游 freshness 判断读到旧 `graph-facts.json` 后误以为本轮 blocked 分类已写入 canonical | `graph-affecting-blocked` 只存在于本轮 command result；contract 规定 canonical `graph-facts.v1` 成功刷新才写 `clean` / `setup-owned-only` |
 | Bash / PowerShell 行为不等价 | 双平台输出差异，下游 consumer 难判断 | IU-4 PowerShell 等价用例对每条 Bash 用例同步覆盖；CI 矩阵已含 ps |
 | 历史 artifacts 仍带 `dirty-refresh-non-canonical` reason_code | 下游 contract 解析失败 | contract 同时承认 legacy 与新 reason_code；schema 不 bump major |
-| 受管 runtime mirror 路径列表与 `2026-05-18-003` 的 `getSpecFirstGitignorePatterns()` 重叠且漂移 | 双源治理 | 两份列表服务不同 gate（一个是 dirty 分类、一个是 git ignore policy），允许各自扩展，但 IU-4 加一条合同测试断言运行时 mirror 前缀子集（`.spec-first/`、`.codex/spec-first/`、`.claude/spec-first/`、`.agents/skills/`）在两份列表中**集合等价**；后续若一边新增 mirror 路径，测试会立刻拦下 |
+| setup-owned dirty ignore contract 与脚本常量漂移 | 实际分类与 contract 描述不一致 | IU-4 合同测试只断言 IU-1 contract 与 Bash/PowerShell `SETUP_OWNED_DIRTY_IGNORE_PREFIXES` 集合等价；不耦合其他 plan 的 git ignore helper |
 | 父 workspace 模式下 child fan-out 误把 setup-owned-only 视为 ready | 父级 summary 错估 | 父级 summary 直接复制 child command result 的 `dirty_classification` 与 `workflow_mode`，不重算、不读 preserved artifact；setup-owned-only 仍正常计入 ready |
 
 ## Assumptions
