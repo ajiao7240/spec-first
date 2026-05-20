@@ -684,6 +684,254 @@ git -C "$CLEAN_GRAPH_REPO" commit -q -m "Change source revision"
 stale_graph_targets="$(cd "$CLEAN_GRAPH_REPO" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
 assert_eq "source revision mismatch marks stale" "stale:true:false" "$(jq -r '.repos[0] | .status + ":" + (.freshness.stale | tostring) + ":" + (.freshness.source_revision_matches | tostring)' <<<"$stale_graph_targets")"
 
+write_spec_first_managed_host_file() {
+  local path="$1"
+  cat > "$path" <<'MD'
+# Host Entry
+
+user-owned line
+
+<!-- spec-first:bootstrap:start -->
+managed line
+<!-- spec-first:bootstrap:end -->
+MD
+}
+
+write_spec_first_managed_only_host_file() {
+  local path="$1"
+  cat > "$path" <<'MD'
+<!-- spec-first:lang:start -->
+language block
+<!-- spec-first:lang:end -->
+
+<!-- spec-first:bootstrap:start -->
+bootstrap block
+<!-- spec-first:bootstrap:end -->
+
+<!-- spec-first:coding-guidelines:start -->
+coding block
+<!-- spec-first:coding-guidelines:end -->
+MD
+}
+
+write_spec_first_managed_gitignore() {
+  local path="$1"
+  cat > "$path" <<'TXT'
+node_modules/
+
+# spec-first:start
+.spec-first/
+.gitnexus/
+.code-review-graph/
+# spec-first:end
+TXT
+}
+
+SETUP_DIRTY_REPO="$TMP_DIR/setup-dirty-repo"
+SETUP_DIRTY_LEDGER="$TMP_DIR/setup-dirty-home/.codex/spec-first/host-setup.json"
+make_repo "$SETUP_DIRTY_REPO"
+write_fixture_config "$SETUP_DIRTY_REPO" "$SETUP_DIRTY_LEDGER" true
+write_spec_first_managed_host_file "$SETUP_DIRTY_REPO/AGENTS.md"
+write_spec_first_managed_gitignore "$SETUP_DIRTY_REPO/.gitignore"
+printf '# Changelog\n' > "$SETUP_DIRTY_REPO/CHANGELOG.md"
+git -C "$SETUP_DIRTY_REPO" add AGENTS.md .gitignore CHANGELOG.md
+git -C "$SETUP_DIRTY_REPO" commit -q -m "Add setup-owned files"
+awk '{print} /managed line/ {print "managed dirty line"}' "$SETUP_DIRTY_REPO/AGENTS.md" > "$SETUP_DIRTY_REPO/AGENTS.md.tmp"
+mv "$SETUP_DIRTY_REPO/AGENTS.md.tmp" "$SETUP_DIRTY_REPO/AGENTS.md"
+awk '{print} /\.code-review-graph\// {print ".agents/skills/"}' "$SETUP_DIRTY_REPO/.gitignore" > "$SETUP_DIRTY_REPO/.gitignore.tmp"
+mv "$SETUP_DIRTY_REPO/.gitignore.tmp" "$SETUP_DIRTY_REPO/.gitignore"
+printf 'setup-owned changelog dirty\n' >> "$SETUP_DIRTY_REPO/CHANGELOG.md"
+set +e
+setup_dirty_output="$(cd "$SETUP_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+setup_dirty_status=$?
+set -e
+assert_eq "setup-owned dirty exits successfully" "0" "$setup_dirty_status"
+assert_eq "setup-owned dirty does not block bootstrap" "primary:setup-owned-only:true" "$(jq -r '.workflow_mode + ":" + .dirty_classification + ":" + (.dirty_paths_breakdown.setup_owned_count > 0 | tostring)' <<<"$setup_dirty_output")"
+assert_eq "setup-owned dirty graph facts are written" "setup-owned-only:true:true" "$(jq -r '.dirty_classification + ":" + (.worktree_dirty | tostring) + ":" + (.dirty_paths_breakdown.setup_owned_count > 0 | tostring)' "$SETUP_DIRTY_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "setup-owned dirty is not written to provider status aggregate" "false" "$(jq -r 'has("dirty_classification")' "$SETUP_DIRTY_REPO/.spec-first/graph/provider-status.json")"
+
+UNTRACKED_HOST_SEPARATOR_REPO="$TMP_DIR/untracked-host-separator-repo"
+UNTRACKED_HOST_SEPARATOR_LEDGER="$TMP_DIR/untracked-host-separator-home/.codex/spec-first/host-setup.json"
+make_repo "$UNTRACKED_HOST_SEPARATOR_REPO"
+write_fixture_config "$UNTRACKED_HOST_SEPARATOR_REPO" "$UNTRACKED_HOST_SEPARATOR_LEDGER" true
+write_spec_first_managed_only_host_file "$UNTRACKED_HOST_SEPARATOR_REPO/AGENTS.md"
+untracked_host_separator_output="$(cd "$UNTRACKED_HOST_SEPARATOR_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "untracked managed-only host entry permits blank separators" "primary:setup-owned-only" "$(jq -r '.workflow_mode + ":" + .dirty_classification' <<<"$untracked_host_separator_output")"
+
+HOST_OUTSIDE_DIRTY_REPO="$TMP_DIR/host-outside-dirty-repo"
+HOST_OUTSIDE_DIRTY_LEDGER="$TMP_DIR/host-outside-dirty-home/.codex/spec-first/host-setup.json"
+make_repo "$HOST_OUTSIDE_DIRTY_REPO"
+write_fixture_config "$HOST_OUTSIDE_DIRTY_REPO" "$HOST_OUTSIDE_DIRTY_LEDGER" true
+write_spec_first_managed_host_file "$HOST_OUTSIDE_DIRTY_REPO/AGENTS.md"
+git -C "$HOST_OUTSIDE_DIRTY_REPO" add AGENTS.md
+git -C "$HOST_OUTSIDE_DIRTY_REPO" commit -q -m "Add host entry"
+before_host_outside_log="$(cat "$COMMAND_LOG")"
+printf 'user outside dirty\n' >> "$HOST_OUTSIDE_DIRTY_REPO/AGENTS.md"
+set +e
+host_outside_dirty_output="$(cd "$HOST_OUTSIDE_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+host_outside_dirty_status=$?
+set -e
+assert_eq "host entry outside managed block is graph-affecting" "1" "$host_outside_dirty_status"
+assert_eq "host entry outside managed block uses source dirty reason" "blocked:dirty-source-blocked:graph-affecting-blocked:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + .dirty_classification + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$host_outside_dirty_output")"
+assert_eq "host entry outside managed block does not run providers" "$before_host_outside_log" "$(cat "$COMMAND_LOG")"
+
+UNICODE_SETUP_DIRTY_REPO="$TMP_DIR/unicode-setup-dirty-repo"
+UNICODE_SETUP_DIRTY_LEDGER="$TMP_DIR/unicode-setup-dirty-home/.codex/spec-first/host-setup.json"
+make_repo "$UNICODE_SETUP_DIRTY_REPO"
+write_fixture_config "$UNICODE_SETUP_DIRTY_REPO" "$UNICODE_SETUP_DIRTY_LEDGER" true
+mkdir -p "$UNICODE_SETUP_DIRTY_REPO/.codex/spec-first"
+printf 'tracked runtime root\n' > "$UNICODE_SETUP_DIRTY_REPO/.codex/spec-first/.keep"
+git -C "$UNICODE_SETUP_DIRTY_REPO" add .codex/spec-first/.keep
+git -C "$UNICODE_SETUP_DIRTY_REPO" commit -q -m "Track codex runtime root"
+mkdir -p "$UNICODE_SETUP_DIRTY_REPO/.codex/spec-first/带 空格"
+printf 'unicode setup dirty\n' > "$UNICODE_SETUP_DIRTY_REPO/.codex/spec-first/带 空格/中文.md"
+unicode_setup_dirty_output="$(cd "$UNICODE_SETUP_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "space and unicode setup-owned path is parsed from porcelain v2 z" "primary:setup-owned-only" "$(jq -r '.workflow_mode + ":" + .dirty_classification' <<<"$unicode_setup_dirty_output")"
+
+GITIGNORE_OUTSIDE_DIRTY_REPO="$TMP_DIR/gitignore-outside-dirty-repo"
+GITIGNORE_OUTSIDE_DIRTY_LEDGER="$TMP_DIR/gitignore-outside-dirty-home/.codex/spec-first/host-setup.json"
+make_repo "$GITIGNORE_OUTSIDE_DIRTY_REPO"
+write_fixture_config "$GITIGNORE_OUTSIDE_DIRTY_REPO" "$GITIGNORE_OUTSIDE_DIRTY_LEDGER" true
+write_spec_first_managed_gitignore "$GITIGNORE_OUTSIDE_DIRTY_REPO/.gitignore"
+git -C "$GITIGNORE_OUTSIDE_DIRTY_REPO" add .gitignore
+git -C "$GITIGNORE_OUTSIDE_DIRTY_REPO" commit -q -m "Add managed gitignore"
+printf 'user-ignore\n' >> "$GITIGNORE_OUTSIDE_DIRTY_REPO/.gitignore"
+set +e
+gitignore_outside_dirty_output="$(cd "$GITIGNORE_OUTSIDE_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+gitignore_outside_dirty_status=$?
+set -e
+assert_eq ".gitignore outside managed block is graph-affecting" "1:dirty-source-blocked:graph-affecting-blocked" "$gitignore_outside_dirty_status:$(jq -r '.reason_code + ":" + .dirty_classification' <<<"$gitignore_outside_dirty_output")"
+
+UNTRACKED_GITIGNORE_REPO="$TMP_DIR/untracked-gitignore-repo"
+UNTRACKED_GITIGNORE_LEDGER="$TMP_DIR/untracked-gitignore-home/.codex/spec-first/host-setup.json"
+make_repo "$UNTRACKED_GITIGNORE_REPO"
+write_fixture_config "$UNTRACKED_GITIGNORE_REPO" "$UNTRACKED_GITIGNORE_LEDGER" true
+git -C "$UNTRACKED_GITIGNORE_REPO" rm -q .gitignore
+git -C "$UNTRACKED_GITIGNORE_REPO" commit -q -m "Remove gitignore"
+cat > "$UNTRACKED_GITIGNORE_REPO/.gitignore" <<'TXT'
+# spec-first:start
+.spec-first/
+# spec-first:end
+TXT
+untracked_gitignore_output="$(cd "$UNTRACKED_GITIGNORE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "untracked managed-only .gitignore is setup-owned" "primary:setup-owned-only" "$(jq -r '.workflow_mode + ":" + .dirty_classification' <<<"$untracked_gitignore_output")"
+cat > "$UNTRACKED_GITIGNORE_REPO/.gitignore" <<'TXT'
+user-rule
+# spec-first:start
+.spec-first/
+# spec-first:end
+TXT
+set +e
+untracked_gitignore_user_output="$(cd "$UNTRACKED_GITIGNORE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+untracked_gitignore_user_status=$?
+set -e
+assert_eq "untracked .gitignore with user region is graph-affecting" "1:dirty-source-blocked" "$untracked_gitignore_user_status:$(jq -r '.reason_code' <<<"$untracked_gitignore_user_output")"
+cat > "$UNTRACKED_GITIGNORE_REPO/.gitignore" <<'TXT'
+# spec-first:start
+.spec-first/
+TXT
+set +e
+untracked_gitignore_bad_marker_output="$(cd "$UNTRACKED_GITIGNORE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+untracked_gitignore_bad_marker_status=$?
+set -e
+assert_eq "untracked .gitignore with malformed marker is graph-affecting" "1:dirty-source-blocked" "$untracked_gitignore_bad_marker_status:$(jq -r '.reason_code' <<<"$untracked_gitignore_bad_marker_output")"
+
+MM_GITIGNORE_REPO="$TMP_DIR/mm-gitignore-repo"
+MM_GITIGNORE_LEDGER="$TMP_DIR/mm-gitignore-home/.codex/spec-first/host-setup.json"
+make_repo "$MM_GITIGNORE_REPO"
+write_fixture_config "$MM_GITIGNORE_REPO" "$MM_GITIGNORE_LEDGER" true
+write_spec_first_managed_gitignore "$MM_GITIGNORE_REPO/.gitignore"
+git -C "$MM_GITIGNORE_REPO" add .gitignore
+git -C "$MM_GITIGNORE_REPO" commit -q -m "Add managed gitignore"
+awk '{print} /\.code-review-graph\// {print ".agents/skills/"}' "$MM_GITIGNORE_REPO/.gitignore" > "$MM_GITIGNORE_REPO/.gitignore.tmp"
+mv "$MM_GITIGNORE_REPO/.gitignore.tmp" "$MM_GITIGNORE_REPO/.gitignore"
+git -C "$MM_GITIGNORE_REPO" add .gitignore
+printf 'user-mm-rule\n' >> "$MM_GITIGNORE_REPO/.gitignore"
+set +e
+mm_gitignore_output="$(cd "$MM_GITIGNORE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+mm_gitignore_status=$?
+set -e
+assert_eq "staged managed plus unstaged user .gitignore dirty is graph-affecting" "1:dirty-source-blocked" "$mm_gitignore_status:$(jq -r '.reason_code' <<<"$mm_gitignore_output")"
+
+MARKER_CREATE_DELETE_REPO="$TMP_DIR/marker-create-delete-repo"
+MARKER_CREATE_DELETE_LEDGER="$TMP_DIR/marker-create-delete-home/.codex/spec-first/host-setup.json"
+make_repo "$MARKER_CREATE_DELETE_REPO"
+write_fixture_config "$MARKER_CREATE_DELETE_REPO" "$MARKER_CREATE_DELETE_LEDGER" true
+printf 'user-rule\n' > "$MARKER_CREATE_DELETE_REPO/.gitignore"
+git -C "$MARKER_CREATE_DELETE_REPO" add .gitignore
+git -C "$MARKER_CREATE_DELETE_REPO" commit -q -m "Reset gitignore"
+cat >> "$MARKER_CREATE_DELETE_REPO/.gitignore" <<'TXT'
+
+# spec-first:start
+.spec-first/
+# spec-first:end
+TXT
+marker_create_output="$(cd "$MARKER_CREATE_DELETE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "marker creation block permits blank separator" "setup-owned-only" "$(jq -r '.dirty_classification' <<<"$marker_create_output")"
+commit_repo_changes "$MARKER_CREATE_DELETE_REPO" "Commit marker block and normalized host files"
+printf 'user-rule\n' > "$MARKER_CREATE_DELETE_REPO/.gitignore"
+marker_delete_output="$(cd "$MARKER_CREATE_DELETE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "marker deletion block is setup-owned" "setup-owned-only" "$(jq -r '.dirty_classification' <<<"$marker_delete_output")"
+
+FORGED_MARKER_REPO="$TMP_DIR/forged-marker-repo"
+FORGED_MARKER_LEDGER="$TMP_DIR/forged-marker-home/.codex/spec-first/host-setup.json"
+make_repo "$FORGED_MARKER_REPO"
+write_fixture_config "$FORGED_MARKER_REPO" "$FORGED_MARKER_LEDGER" true
+write_spec_first_managed_gitignore "$FORGED_MARKER_REPO/.gitignore"
+git -C "$FORGED_MARKER_REPO" add .gitignore
+git -C "$FORGED_MARKER_REPO" commit -q -m "Add managed gitignore"
+cat >> "$FORGED_MARKER_REPO/.gitignore" <<'TXT'
+# spec-first:start
+forged-user-rule
+# spec-first:end
+TXT
+set +e
+forged_marker_output="$(cd "$FORGED_MARKER_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+forged_marker_status=$?
+set -e
+assert_eq "forged duplicate .gitignore markers are graph-affecting" "1:dirty-source-blocked" "$forged_marker_status:$(jq -r '.reason_code' <<<"$forged_marker_output")"
+
+RENAME_DIRTY_REPO="$TMP_DIR/rename-dirty-repo"
+RENAME_DIRTY_LEDGER="$TMP_DIR/rename-dirty-home/.codex/spec-first/host-setup.json"
+make_repo "$RENAME_DIRTY_REPO"
+write_fixture_config "$RENAME_DIRTY_REPO" "$RENAME_DIRTY_LEDGER" true
+mkdir -p "$RENAME_DIRTY_REPO/.spec-first" "$RENAME_DIRTY_REPO/src"
+printf 'tracked setup\n' > "$RENAME_DIRTY_REPO/.spec-first/a.txt"
+printf 'tracked source\n' > "$RENAME_DIRTY_REPO/src/foo.java"
+git -C "$RENAME_DIRTY_REPO" add -f .spec-first/a.txt src/foo.java
+git -C "$RENAME_DIRTY_REPO" commit -q -m "Add rename fixtures"
+git -C "$RENAME_DIRTY_REPO" mv .spec-first/a.txt .spec-first/b.txt
+rename_setup_output="$(cd "$RENAME_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "rename within setup-owned boundary stays setup-owned" "setup-owned-only" "$(jq -r '.dirty_classification' <<<"$rename_setup_output")"
+git -C "$RENAME_DIRTY_REPO" reset -q --hard HEAD
+git -C "$RENAME_DIRTY_REPO" mv .spec-first/a.txt src/a.txt
+set +e
+rename_to_source_output="$(cd "$RENAME_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+rename_to_source_status=$?
+set -e
+assert_eq "rename from setup-owned to source is graph-affecting" "1:dirty-source-blocked" "$rename_to_source_status:$(jq -r '.reason_code' <<<"$rename_to_source_output")"
+git -C "$RENAME_DIRTY_REPO" reset -q --hard HEAD
+git -C "$RENAME_DIRTY_REPO" mv src/foo.java .spec-first/foo.java
+set +e
+rename_from_source_output="$(cd "$RENAME_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+rename_from_source_status=$?
+set -e
+assert_eq "rename from source to setup-owned is graph-affecting" "1:dirty-source-blocked" "$rename_from_source_status:$(jq -r '.reason_code' <<<"$rename_from_source_output")"
+
+ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE="$TMP_DIR/all-repos-dirty-classification-workspace"
+ALL_REPOS_DIRTY_CLASSIFICATION_LEDGER="$TMP_DIR/all-repos-dirty-classification-home/.codex/spec-first/host-setup.json"
+make_repo "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-a"
+make_repo "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-b"
+write_fixture_config "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-a" "$ALL_REPOS_DIRTY_CLASSIFICATION_LEDGER" true
+write_fixture_config "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-b" "$ALL_REPOS_DIRTY_CLASSIFICATION_LEDGER" true
+printf 'setup dirty\n' >> "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-a/CHANGELOG.md"
+printf 'source dirty\n' >> "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-b/README.md"
+set +e
+all_repos_dirty_classification_output="$(cd "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --all-repos)"
+all_repos_dirty_classification_status=$?
+set -e
+assert_eq "all-repos dirty classification summary is partial" "0:partial:setup-owned-only:graph-affecting-blocked" "$all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.results[] | select(.workspace_relative_path=="project-a") | .dirty_classification) + ":" + (.results[] | select(.workspace_relative_path=="project-b") | .dirty_classification)' <<<"$all_repos_dirty_classification_output")"
+
 DIRTY_REFRESH_REPO="$TMP_DIR/dirty-refresh-repo"
 DIRTY_REFRESH_LEDGER="$TMP_DIR/dirty-refresh-home/.codex/spec-first/host-setup.json"
 make_repo "$DIRTY_REFRESH_REPO"
@@ -710,7 +958,8 @@ for dirty_refresh_case in "default|" "incremental|--incremental" "full|--full" "
   dirty_refresh_status=$?
   set -e
   assert_eq "dirty $dirty_refresh_label refresh blocks before provider commands" "1" "$dirty_refresh_status"
-  assert_eq "dirty $dirty_refresh_label refresh is provider-non-mutating" "blocked:dirty-refresh-non-canonical:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$dirty_refresh_output")"
+  assert_eq "dirty $dirty_refresh_label refresh is provider-non-mutating" "blocked:dirty-source-blocked:graph-affecting-blocked:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + .dirty_classification + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$dirty_refresh_output")"
+  assert_eq "dirty $dirty_refresh_label refresh reports graph-affecting count" "true" "$(jq -r '.dirty_paths_breakdown.graph_affecting_count > 0' <<<"$dirty_refresh_output")"
   assert_eq "dirty $dirty_refresh_label refresh does not run provider commands" "$before_dirty_refresh_log" "$(cat "$COMMAND_LOG")"
   assert_eq "dirty $dirty_refresh_label refresh preserves GitNexus provider status" "$dirty_gitnexus_status_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/status.json")"
   assert_eq "dirty $dirty_refresh_label refresh preserves aggregate provider status" "$dirty_aggregate_status_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/provider-status.json")"
@@ -746,7 +995,7 @@ if command -v pwsh >/dev/null 2>&1; then
     dirty_ps_refresh_status=$?
     set -e
     assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh blocks before provider commands" "1" "$dirty_ps_refresh_status"
-    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh is provider-non-mutating" "blocked:dirty-refresh-non-canonical:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$dirty_ps_refresh_output")"
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh is provider-non-mutating" "blocked:dirty-source-blocked:graph-affecting-blocked:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + .dirty_classification + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$dirty_ps_refresh_output")"
     assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh does not run provider commands" "$before_dirty_ps_refresh_log" "$(cat "$COMMAND_LOG")"
     assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves GitNexus provider status" "$dirty_ps_gitnexus_status_before" "$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/providers/gitnexus/status.json")"
     assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves aggregate provider status" "$dirty_ps_aggregate_status_before" "$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/graph/provider-status.json")"
@@ -754,6 +1003,15 @@ if command -v pwsh >/dev/null 2>&1; then
     assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves bootstrap report" "$dirty_ps_bootstrap_report_before" "$(cat "$DIRTY_REFRESH_PS_REPO/.spec-first/graph/bootstrap-report.md")"
     assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves normalized envelopes" "$dirty_ps_normalized_before" "$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
   done
+
+  PS_SETUP_DIRTY_REPO="$TMP_DIR/ps-setup-dirty-repo"
+  PS_SETUP_DIRTY_LEDGER="$TMP_DIR/ps-setup-dirty-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_SETUP_DIRTY_REPO"
+  write_fixture_config "$PS_SETUP_DIRTY_REPO" "$PS_SETUP_DIRTY_LEDGER" true
+  write_spec_first_managed_only_host_file "$PS_SETUP_DIRTY_REPO/AGENTS.md"
+  printf '# Changelog\nsetup-owned dirty\n' > "$PS_SETUP_DIRTY_REPO/CHANGELOG.md"
+  ps_setup_dirty_output="$(cd "$PS_SETUP_DIRTY_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
+  assert_eq "PowerShell setup-owned dirty permits host blank separators" "primary:setup-owned-only" "$(jq -r '.workflow_mode + ":" + .dirty_classification' <<<"$ps_setup_dirty_output")"
 fi
 
 INCREMENTAL_REPO="$TMP_DIR/incremental-repo"

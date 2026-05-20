@@ -13,6 +13,26 @@ $script:GitNexusQueryProbeCandidateLimit = 5
 $script:BootstrapProvidersScript = $PSCommandPath
 $script:DefaultRefreshModeSingleRepo = 'full'
 $script:DefaultRefreshModeAllRepos = 'full'
+$script:SetupOwnedDirtyIgnorePrefixes = @(
+  '.spec-first/',
+  '.gitnexus/',
+  '.code-review-graph/',
+  'AGENTS.md',
+  'CLAUDE.md',
+  'CHANGELOG.md',
+  '.gitignore',
+  '.codex/spec-first/',
+  '.claude/spec-first/',
+  '.agents/skills/'
+)
+$script:ExternalActorFingerprintIgnorePattern = '^(\.spec-first/|\.gitnexus/|\.code-review-graph/)'
+$script:DirtyClassification = ''
+$script:DirtyPathsBreakdown = [ordered]@{
+  setup_owned_count = 0
+  graph_affecting_count = 0
+  sample_paths = @()
+  truncated = $false
+}
 
 function Get-NonNegativeIntEnv {
   param(
@@ -89,6 +109,10 @@ function Write-ResultAndExit {
   }
   if (-not [string]::IsNullOrWhiteSpace($SelectionSource)) {
     $payload['selection_source'] = $SelectionSource
+  }
+  if (-not [string]::IsNullOrWhiteSpace($script:DirtyClassification)) {
+    $payload['dirty_classification'] = $script:DirtyClassification
+    $payload['dirty_paths_breakdown'] = $script:DirtyPathsBreakdown
   }
   [pscustomobject]$payload | ConvertTo-Json -Compress
   exit $ExitCode
@@ -384,6 +408,8 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
       overall_status = [string]($childResult.overall_status ?? 'unknown')
       workflow_mode = [string]($childResult.workflow_mode ?? 'unknown')
       reason_code = $childResult.reason_code
+      dirty_classification = if ($childResult.PSObject.Properties.Name -contains 'dirty_classification') { $childResult.dirty_classification } else { $null }
+      dirty_paths_breakdown = if ($childResult.PSObject.Properties.Name -contains 'dirty_paths_breakdown') { $childResult.dirty_paths_breakdown } else { $null }
       result = $childResult
     }
     [Console]::Error.WriteLine("spec-graph-bootstrap: all-repos child $childIndex/$($children.Count) finish repo=$([string]$child.workspace_relative_path) status=$([string]($childResult.overall_status ?? 'unknown')) workflow=$([string]($childResult.workflow_mode ?? 'unknown')) duration_ms=$childDurationMs")
@@ -2188,6 +2214,22 @@ $worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
 $worktreeDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
 $worktreeStatusHash = Get-StatusHash -Text $worktreeStatus
 $script:ExpectedHostInstructionHashes = @{}
+$script:BootstrapOwnedHostInstructionPaths = @{}
+$script:ExternalActorFingerprintBeforeText = ''
+$script:ExternalActorFingerprintBefore = ''
+
+function Remove-ExternalActorFingerprintBeforePath {
+  param([string]$Path)
+  if ([string]::IsNullOrEmpty($script:ExternalActorFingerprintBeforeText)) {
+    return
+  }
+  $lines = @($script:ExternalActorFingerprintBeforeText -split "`n" | Where-Object {
+    $line = [string]$_
+    ($line.Length -le 3) -or ($line.Substring(3) -ne $Path)
+  })
+  $script:ExternalActorFingerprintBeforeText = ($lines -join "`n")
+  $script:ExternalActorFingerprintBefore = Get-StatusHash -Text $script:ExternalActorFingerprintBeforeText
+}
 
 function Register-BootstrapOwnedHostInstructionHashes {
   param(
@@ -2204,8 +2246,15 @@ function Register-BootstrapOwnedHostInstructionHashes {
     } | Select-Object -First 1)
     if ($result.Count -gt 0) {
       $script:ExpectedHostInstructionHashes[$fileName] = Get-FileContentHash -Path (Join-Path $RepoRoot $fileName)
+      $script:BootstrapOwnedHostInstructionPaths[$fileName] = $true
+      Remove-ExternalActorFingerprintBeforePath -Path $fileName
     }
   }
+}
+
+function Test-BootstrapOwnedHostInstructionPath {
+  param([string]$FileName)
+  return $script:BootstrapOwnedHostInstructionPaths.ContainsKey($FileName)
 }
 
 function Test-BootstrapOwnedHostInstructionChange {
@@ -2217,6 +2266,287 @@ function Test-BootstrapOwnedHostInstructionChange {
   return $currentHash -eq $script:ExpectedHostInstructionHashes[$FileName]
 }
 
+function Test-BootstrapOwnedHostInstructionHashMismatch {
+  foreach ($fileName in @('AGENTS.md', 'CLAUDE.md')) {
+    if ((Test-BootstrapOwnedHostInstructionPath -FileName $fileName) -and -not (Test-BootstrapOwnedHostInstructionChange -FileName $fileName)) {
+      return $true
+    }
+  }
+  return $false
+}
+
+function Get-ManagedBlockRanges {
+  param(
+    [string]$Path,
+    [string]$Content
+  )
+
+  $lines = if ([string]::IsNullOrEmpty($Content)) { @() } else { $Content -split "`r?`n" }
+  if ($lines.Count -gt 0 -and $lines[$lines.Count - 1] -eq '') {
+    $lines = @($lines | Select-Object -First ($lines.Count - 1))
+  }
+  $ranges = @()
+  $inBlock = $false
+  $currentName = ''
+  $startLine = 0
+  $seenStart = @{}
+  $seenEnd = @{}
+
+  for ($i = 0; $i -lt $lines.Count; $i++) {
+    $line = [string]$lines[$i]
+    $lineNo = $i + 1
+    if ($Path -eq '.gitignore') {
+      if ($line -eq '# spec-first:start') {
+        if ($inBlock -or $seenStart.ContainsKey('__gitignore__')) { return $null }
+        $inBlock = $true
+        $currentName = '__gitignore__'
+        $seenStart[$currentName] = $true
+        $startLine = $lineNo
+      } elseif ($line -eq '# spec-first:end') {
+        if (-not $inBlock -or $seenEnd.ContainsKey('__gitignore__')) { return $null }
+        $inBlock = $false
+        $seenEnd[$currentName] = $true
+        $ranges += [pscustomobject]@{ Start = $startLine; End = $lineNo }
+      }
+      continue
+    }
+
+    if ($line -match '^<!-- spec-first:([^:]+):start -->$') {
+      $name = $Matches[1]
+      if ($inBlock -or $seenStart.ContainsKey($name)) { return $null }
+      $inBlock = $true
+      $currentName = $name
+      $seenStart[$name] = $true
+      $startLine = $lineNo
+    } elseif ($line -match '^<!-- spec-first:([^:]+):end -->$') {
+      $name = $Matches[1]
+      if (-not $inBlock -or $currentName -ne $name -or $seenEnd.ContainsKey($name)) { return $null }
+      $inBlock = $false
+      $seenEnd[$name] = $true
+      $ranges += [pscustomobject]@{ Start = $startLine; End = $lineNo }
+    }
+  }
+
+  if ($inBlock -or $ranges.Count -eq 0) { return $null }
+  foreach ($name in $seenStart.Keys) {
+    if (-not $seenEnd.ContainsKey($name)) { return $null }
+  }
+  return @($ranges)
+}
+
+function Test-LineInManagedRanges {
+  param(
+    [int]$LineNumber,
+    [object[]]$Ranges
+  )
+  foreach ($range in @($Ranges)) {
+    if ($LineNumber -ge [int]$range.Start -and $LineNumber -le [int]$range.End) {
+      return $true
+    }
+  }
+  return $false
+}
+
+function Test-BlankLine {
+  param([string]$Line)
+  return $Line -match '^\s*$'
+}
+
+function Test-UntrackedManagedFileSetupOwned {
+  param([string]$Path)
+  $absolutePath = Join-Path $repoRoot $Path
+  if (-not (Test-Path -LiteralPath $absolutePath -PathType Leaf)) { return $false }
+  $content = Get-Content -Raw -LiteralPath $absolutePath
+  $ranges = Get-ManagedBlockRanges -Path $Path -Content $content
+  if ($null -eq $ranges) { return $false }
+  $lines = if ([string]::IsNullOrEmpty($content)) { @() } else { $content -split "`r?`n" }
+  if ($lines.Count -gt 0 -and $lines[$lines.Count - 1] -eq '') {
+    $lines = @($lines | Select-Object -First ($lines.Count - 1))
+  }
+  if ($lines.Count -eq 0) { return $false }
+  for ($i = 0; $i -lt $lines.Count; $i++) {
+    if (-not (Test-LineInManagedRanges -LineNumber ($i + 1) -Ranges $ranges)) {
+      if (-not (Test-BlankLine -Line ([string]$lines[$i]))) {
+        return $false
+      }
+    }
+  }
+  return $true
+}
+
+function Test-ManagedBlockFileSetupOwned {
+  param(
+    [string]$Path,
+    [string]$StatusHint
+  )
+  if ($StatusHint -eq 'untracked') {
+    return (Test-UntrackedManagedFileSetupOwned -Path $Path)
+  }
+
+  $beforeContent = (@(git -C $repoRoot show "HEAD:$Path" 2>$null) -join "`n")
+  $afterPath = Join-Path $repoRoot $Path
+  $afterContent = if (Test-Path -LiteralPath $afterPath -PathType Leaf) { Get-Content -Raw -LiteralPath $afterPath } else { '' }
+  $beforeRanges = Get-ManagedBlockRanges -Path $Path -Content $beforeContent
+  $afterRanges = Get-ManagedBlockRanges -Path $Path -Content $afterContent
+  $diffLines = @(git -C $repoRoot diff --unified=0 --no-ext-diff HEAD -- $Path 2>$null)
+
+  $oldLine = 0
+  $newLine = 0
+  $sawChange = $false
+  foreach ($line in $diffLines) {
+    $text = [string]$line
+    if ($text -match '^@@ -([0-9]+)(?:,[0-9]+)? \+([0-9]+)(?:,[0-9]+)? @@') {
+      $oldLine = [int]$Matches[1]
+      $newLine = [int]$Matches[2]
+      continue
+    }
+    if ($text.StartsWith('+++') -or $text.StartsWith('---')) { continue }
+    if ($text.StartsWith('+')) {
+      $sawChange = $true
+      if ($null -eq $afterRanges -or -not (Test-LineInManagedRanges -LineNumber $newLine -Ranges $afterRanges)) {
+        if (-not (Test-BlankLine -Line $text.Substring(1))) {
+          return $false
+        }
+      }
+      $newLine += 1
+      continue
+    }
+    if ($text.StartsWith('-')) {
+      $sawChange = $true
+      if ($null -eq $beforeRanges -or -not (Test-LineInManagedRanges -LineNumber $oldLine -Ranges $beforeRanges)) {
+        if (-not (Test-BlankLine -Line $text.Substring(1))) {
+          return $false
+        }
+      }
+      $oldLine += 1
+      continue
+    }
+    if (-not ($text.StartsWith('diff --git') -or $text.StartsWith('index ') -or $text.StartsWith('new file mode') -or $text.StartsWith('deleted file mode'))) {
+      $oldLine += 1
+      $newLine += 1
+    }
+  }
+  return $sawChange
+}
+
+function Get-PorcelainPathField {
+  param(
+    [string]$Record,
+    [int]$FieldCount
+  )
+  $parts = $Record.Split([char[]]@(' '), $FieldCount, [System.StringSplitOptions]::None)
+  if ($parts.Count -lt $FieldCount) { return '' }
+  return [string]$parts[$FieldCount - 1]
+}
+
+function Get-SetupOwnedDirtyRule {
+  param([string]$Path)
+
+  foreach ($prefix in $script:SetupOwnedDirtyIgnorePrefixes) {
+    if ($prefix.EndsWith('/')) {
+      if ($Path.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
+        return 'whole-prefix'
+      }
+    } elseif ($Path -eq $prefix) {
+      if ($prefix -eq 'AGENTS.md' -or $prefix -eq 'CLAUDE.md' -or $prefix -eq '.gitignore') {
+        return 'managed-block'
+      }
+      return 'whole-file'
+    }
+  }
+  return 'graph-affecting'
+}
+
+function Get-DirtyPathClassification {
+  param(
+    [string]$Path,
+    [string]$StatusHint
+  )
+
+  $setupRule = Get-SetupOwnedDirtyRule -Path $Path
+  if ($setupRule -eq 'whole-prefix' -or $setupRule -eq 'whole-file') {
+    return 'setup-owned'
+  }
+  if ($setupRule -eq 'managed-block') {
+    if (Test-ManagedBlockFileSetupOwned -Path $Path -StatusHint $StatusHint) {
+      return 'setup-owned'
+    }
+    return 'graph-affecting'
+  }
+  return 'graph-affecting'
+}
+
+function Get-GitStatusPorcelainV2ZRecords {
+  $psi = [System.Diagnostics.ProcessStartInfo]::new()
+  $psi.FileName = 'git'
+  $psi.ArgumentList.Add('-C')
+  $psi.ArgumentList.Add($repoRoot)
+  $psi.ArgumentList.Add('status')
+  $psi.ArgumentList.Add('--porcelain=v2')
+  $psi.ArgumentList.Add('-z')
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  $psi.UseShellExecute = $false
+  $process = [System.Diagnostics.Process]::Start($psi)
+  $memory = [System.IO.MemoryStream]::new()
+  try {
+    $process.StandardOutput.BaseStream.CopyTo($memory)
+    $process.WaitForExit()
+    $text = [System.Text.Encoding]::UTF8.GetString($memory.ToArray())
+    return @($text -split "`0" | Where-Object { -not [string]::IsNullOrEmpty([string]$_) })
+  } finally {
+    $memory.Dispose()
+    $process.Dispose()
+  }
+}
+
+function Set-WorktreeDirtyClassification {
+  $classifications = @()
+  $records = @(Get-GitStatusPorcelainV2ZRecords)
+  for ($i = 0; $i -lt $records.Count; $i++) {
+    $record = [string]$records[$i]
+    $paths = @()
+    $statusHint = 'tracked'
+    if ($record.StartsWith('1 ')) {
+      $paths += Get-PorcelainPathField -Record $record -FieldCount 9
+    } elseif ($record.StartsWith('2 ')) {
+      $paths += Get-PorcelainPathField -Record $record -FieldCount 10
+      if (($i + 1) -lt $records.Count) {
+        $i += 1
+        $paths += [string]$records[$i]
+      }
+    } elseif ($record.StartsWith('u ')) {
+      $paths += Get-PorcelainPathField -Record $record -FieldCount 11
+    } elseif ($record.StartsWith('? ')) {
+      $paths += $record.Substring(2)
+      $statusHint = 'untracked'
+    }
+    foreach ($path in $paths) {
+      if ([string]::IsNullOrWhiteSpace($path)) { continue }
+      $classifications += [pscustomobject]@{
+        classification = Get-DirtyPathClassification -Path $path -StatusHint $statusHint
+        path = $path
+      }
+    }
+  }
+
+  $setupOwnedCount = @($classifications | Where-Object { $_.classification -eq 'setup-owned' }).Count
+  $graphAffectingCount = @($classifications | Where-Object { $_.classification -eq 'graph-affecting' }).Count
+  $script:DirtyPathsBreakdown = [ordered]@{
+    setup_owned_count = $setupOwnedCount
+    graph_affecting_count = $graphAffectingCount
+    sample_paths = @($classifications | Select-Object -First 20 | ForEach-Object { [string]$_.path })
+    truncated = ($classifications.Count -gt 20)
+  }
+  if ($classifications.Count -eq 0) {
+    $script:DirtyClassification = 'clean'
+  } elseif ($graphAffectingCount -gt 0) {
+    $script:DirtyClassification = 'graph-affecting-blocked'
+  } else {
+    $script:DirtyClassification = 'setup-owned-only'
+  }
+}
+
 # U1: external-actor fingerprint 排除 bootstrap 自身写入的路径。
 # AGENTS.md / CLAUDE.md 只在当前内容等于本轮 normalizer 写入结果时排除，
 # 这样 critical write window 内后续外部编辑仍会触发 concurrent-write-detected。
@@ -2224,23 +2554,28 @@ function Get-ExternalActorFingerprint {
   $statusLines = @(git -C $repoRoot status --porcelain 2>$null)
   $filtered = foreach ($line in $statusLines) {
     $statusPath = if ($line.Length -gt 3) { $line.Substring(3) } else { '' }
-    if ($statusPath -like '.spec-first/*' -or $statusPath -like '.gitnexus/*' -or $statusPath -like '.code-review-graph/*') {
+    if ($statusPath -match $script:ExternalActorFingerprintIgnorePattern) {
       continue
     }
-    if (($statusPath -eq 'AGENTS.md' -or $statusPath -eq 'CLAUDE.md') -and (Test-BootstrapOwnedHostInstructionChange -FileName $statusPath)) {
-      continue
+    if ($statusPath -eq 'AGENTS.md' -or $statusPath -eq 'CLAUDE.md') {
+      if (Test-BootstrapOwnedHostInstructionPath -FileName $statusPath) {
+        continue
+      }
     }
     $line
   }
   return ($filtered -join "`n")
 }
-$externalActorFingerprintBefore = Get-StatusHash -Text (Get-ExternalActorFingerprint)
+$script:ExternalActorFingerprintBeforeText = Get-ExternalActorFingerprint
+$script:ExternalActorFingerprintBefore = Get-StatusHash -Text $script:ExternalActorFingerprintBeforeText
+$externalActorFingerprintBefore = $script:ExternalActorFingerprintBefore
 $invocationRefreshMode = if ($Incremental) { 'incremental' } elseif ($Full -or $Force) { 'full' } else { $script:DefaultRefreshModeSingleRepo }
-if ($worktreeDirty) {
+Set-WorktreeDirtyClassification
+if ($script:DirtyClassification -eq 'graph-affecting-blocked') {
   Write-ResultAndExit `
     -WorkflowMode 'blocked' `
-    -ReasonCode 'dirty-refresh-non-canonical' `
-    -NextAction 'Commit, stash, or clean worktree changes before graph bootstrap refresh; provider commands were not run.' `
+    -ReasonCode 'dirty-source-blocked' `
+    -NextAction 'Source-affecting worktree changes detected; commit, stash, or clean worktree changes before graph bootstrap refresh.' `
     -RepoRoot $repoRoot `
     -InvocationWorkspaceRoot $invocationWorkspaceRoot `
     -SelectionSource $selectionSource `
@@ -2710,8 +3045,10 @@ $bootstrapDurationMs = (Get-EpochMilliseconds) - $script:ScriptStartedEpochMs
 # U1: critical write window 内 worktree 被外部修改时,
 # 标记 concurrent-write-detected 并阻断,canonical_artifacts_preserved=false。
 # 使用 external-actor fingerprint 排除 bootstrap 自身 owned 路径,避免 false positive。
+$externalActorFingerprintBefore = $script:ExternalActorFingerprintBefore
+$hostInstructionHashMismatch = Test-BootstrapOwnedHostInstructionHashMismatch
 $externalActorFingerprintAfter = Get-StatusHash -Text (Get-ExternalActorFingerprint)
-if ($externalActorFingerprintAfter -ne $externalActorFingerprintBefore) {
+if (($externalActorFingerprintAfter -ne $externalActorFingerprintBefore) -or $hostInstructionHashMismatch) {
   $topLevelReasonCode = 'concurrent-write-detected'
   $workflowMode = 'blocked'
   $overallStatus = 'action-required'
@@ -2760,6 +3097,8 @@ $graphFacts = [ordered]@{
   source_revision = $sourceRevision
   worktree_dirty = $worktreeDirty
   worktree_status_hash = $worktreeStatusHash
+  dirty_classification = $script:DirtyClassification
+  dirty_paths_breakdown = $script:DirtyPathsBreakdown
   workflow_mode = $workflowMode
   provider_summary = [ordered]@{
     ready_primary_providers = @($providerAggregate.ready_primary_providers)
@@ -2853,6 +3192,7 @@ if (-not $preserveCanonicalFreshness) {
 - overall_status: $overallStatus
 - source_revision: $sourceRevision
 - worktree_dirty: $worktreeDirty
+- dirty_classification: $script:DirtyClassification
 - duration_ms: $bootstrapDurationMs
 - provider_status: .spec-first/graph/provider-status.json
 - graph_facts: .spec-first/graph/graph-facts.json
@@ -2869,6 +3209,8 @@ $($providerReportRows -join [Environment]::NewLine)
   overall_status = $overallStatus
   workflow_mode = $workflowMode
   reason_code = $topLevelReasonCode
+  dirty_classification = $script:DirtyClassification
+  dirty_paths_breakdown = $script:DirtyPathsBreakdown
   canonical_artifacts_preserved = $preserveCanonicalFreshness
   repo_root = $repoRoot
   invocation_workspace_root = $invocationWorkspaceRoot

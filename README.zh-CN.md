@@ -168,6 +168,7 @@ Graph refresh 触发节点：
 | 首次 setup 或 provider package projection 过期 | 运行 `/spec:mcp-setup` 或 `$spec-mcp-setup`；它刷新 setup-owned provider config，不刷新 graph index。 |
 | 需要当前 GitNexus / code-review-graph readiness | 运行 `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap`；这是显式 graph readiness refresh 入口。 |
 | 切换分支、pull、rebase、merge 或 dirty worktree 变化 | 下一个 graph consumer 检测 stale `source_revision` / `worktree_status_hash`；不会自动 rebuild index。 |
+| setup/init 后只有 setup-owned dirty | `/spec:graph-bootstrap` / `$spec-graph-bootstrap` 会继续刷新 spec-first managed artifacts；源码 dirty 仍以 `dirty-source-blocked` fail-closed。 |
 | docs、typo、小型本地 bug 或首次试用 | graph facts stale / unavailable 时披露限制，并继续 bounded direct reads。 |
 | shared API/route/provider contract、core workflow、跨模块变更或高风险 review | 在声明 graph-backed impact 或 execution-flow evidence 前显式刷新 graph readiness。 |
 

@@ -20,6 +20,19 @@ REQUEST_FULL=false
 DEFAULT_REFRESH_MODE_SINGLE_REPO=full
 DEFAULT_REFRESH_MODE_ALL_REPOS=full
 PROVIDER_COMMAND_TIMEOUT_SECONDS="${SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS:-${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}}"
+SETUP_OWNED_DIRTY_IGNORE_PREFIXES=(
+  ".spec-first/"
+  ".gitnexus/"
+  ".code-review-graph/"
+  "AGENTS.md"
+  "CLAUDE.md"
+  "CHANGELOG.md"
+  ".gitignore"
+  ".codex/spec-first/"
+  ".claude/spec-first/"
+  ".agents/skills/"
+)
+EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX='^(\.spec-first/|\.gitnexus/|\.code-review-graph/)'
 
 utc_now() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
@@ -421,6 +434,8 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         overall_status:($result.overall_status // "unknown"),
         workflow_mode:($result.workflow_mode // "unknown"),
         reason_code:($result.reason_code // null),
+        dirty_classification:($result.dirty_classification // null),
+        dirty_paths_breakdown:($result.dirty_paths_breakdown // null),
         result:$result
       }]' "$SUMMARY_ITEMS" > "$SUMMARY_ITEMS.next"
     mv "$SUMMARY_ITEMS.next" "$SUMMARY_ITEMS"
@@ -552,8 +567,26 @@ else
   WORKTREE_DIRTY=false
 fi
 WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | hash_text)"
+DIRTY_CLASSIFICATION=""
+DIRTY_PATHS_BREAKDOWN_JSON='{"setup_owned_count":0,"graph_affecting_count":0,"sample_paths":[],"truncated":false}'
 HOST_INSTRUCTION_EXPECTED_AGENTS_HASH=""
 HOST_INSTRUCTION_EXPECTED_CLAUDE_HASH=""
+HOST_INSTRUCTION_BOOTSTRAP_OWNED_AGENTS=false
+HOST_INSTRUCTION_BOOTSTRAP_OWNED_CLAUDE=false
+EXTERNAL_ACTOR_FINGERPRINT_BEFORE_TEXT=""
+EXTERNAL_ACTOR_FINGERPRINT_BEFORE=""
+
+remove_external_actor_fingerprint_before_path() {
+  local file_path="$1"
+  if [ -z "$EXTERNAL_ACTOR_FINGERPRINT_BEFORE_TEXT" ]; then
+    return 0
+  fi
+  EXTERNAL_ACTOR_FINGERPRINT_BEFORE_TEXT="$(
+    printf '%s\n' "$EXTERNAL_ACTOR_FINGERPRINT_BEFORE_TEXT" |
+      awk -v file_path="$file_path" 'substr($0, 4) != file_path'
+  )"
+  EXTERNAL_ACTOR_FINGERPRINT_BEFORE="$(printf '%s' "$EXTERNAL_ACTOR_FINGERPRINT_BEFORE_TEXT" | hash_text)"
+}
 
 record_bootstrap_owned_host_instruction_hashes() {
   local normalization_json="$1"
@@ -563,11 +596,27 @@ record_bootstrap_owned_host_instruction_hashes() {
       'any(.results[]?; .file == $file_path and (.written == true or .changed == true or .status == "updated"))' \
       >/dev/null 2>&1 <<<"$normalization_json"; then
       case "$file_path" in
-        AGENTS.md) HOST_INSTRUCTION_EXPECTED_AGENTS_HASH="$(hash_file "$REPO_ROOT/$file_path")" ;;
-        CLAUDE.md) HOST_INSTRUCTION_EXPECTED_CLAUDE_HASH="$(hash_file "$REPO_ROOT/$file_path")" ;;
+        AGENTS.md)
+          HOST_INSTRUCTION_EXPECTED_AGENTS_HASH="$(hash_file "$REPO_ROOT/$file_path")"
+          HOST_INSTRUCTION_BOOTSTRAP_OWNED_AGENTS=true
+          ;;
+        CLAUDE.md)
+          HOST_INSTRUCTION_EXPECTED_CLAUDE_HASH="$(hash_file "$REPO_ROOT/$file_path")"
+          HOST_INSTRUCTION_BOOTSTRAP_OWNED_CLAUDE=true
+          ;;
       esac
+      remove_external_actor_fingerprint_before_path "$file_path"
     fi
   done
+}
+
+host_instruction_path_was_bootstrap_written() {
+  local file_path="$1"
+  case "$file_path" in
+    AGENTS.md) [ "$HOST_INSTRUCTION_BOOTSTRAP_OWNED_AGENTS" = "true" ] ;;
+    CLAUDE.md) [ "$HOST_INSTRUCTION_BOOTSTRAP_OWNED_CLAUDE" = "true" ] ;;
+    *) return 1 ;;
+  esac
 }
 
 host_instruction_change_is_bootstrap_owned() {
@@ -581,6 +630,300 @@ host_instruction_change_is_bootstrap_owned() {
   [ -n "$expected_hash" ] && [ "$(hash_file "$REPO_ROOT/$file_path")" = "$expected_hash" ]
 }
 
+bootstrap_owned_host_instruction_hash_mismatch() {
+  local file_path
+  for file_path in AGENTS.md CLAUDE.md; do
+    if host_instruction_path_was_bootstrap_written "$file_path" && ! host_instruction_change_is_bootstrap_owned "$file_path"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+marker_ranges() {
+  local path="$1"
+  local source_file="$2"
+  awk -v path="$path" '
+    function fail() { exit 2 }
+    function emit_range() {
+      if (start_line <= 0 || end_line <= 0 || end_line < start_line) fail()
+      print start_line " " end_line
+    }
+    path == ".gitignore" {
+      if ($0 == "# spec-first:start") {
+        if (in_block || gitignore_seen_start) fail()
+        in_block=1; gitignore_seen_start=1; start_line=NR
+      } else if ($0 == "# spec-first:end") {
+        if (!in_block || gitignore_seen_end) fail()
+        in_block=0; gitignore_seen_end=1; end_line=NR; emit_range()
+      }
+      next
+    }
+    {
+      if (match($0, /^<!-- spec-first:[^:]+:start -->$/)) {
+        name=$0
+        sub(/^<!-- spec-first:/, "", name)
+        sub(/:start -->$/, "", name)
+        if (in_block || seen_start[name]) fail()
+        in_block=1; current=name; seen_start[name]=1; start_line=NR
+      } else if (match($0, /^<!-- spec-first:[^:]+:end -->$/)) {
+        name=$0
+        sub(/^<!-- spec-first:/, "", name)
+        sub(/:end -->$/, "", name)
+        if (!in_block || current != name || seen_end[name]) fail()
+        in_block=0; seen_end[name]=1; end_line=NR; emit_range()
+      }
+    }
+    END {
+      if (in_block) fail()
+      if (path == ".gitignore") {
+        if (!gitignore_seen_start || !gitignore_seen_end) fail()
+      } else {
+        count=0
+        for (name in seen_start) {
+          count++
+          if (!seen_end[name]) fail()
+        }
+        if (count == 0) fail()
+      }
+    }
+  ' "$source_file"
+}
+
+line_in_ranges() {
+  local line_no="$1"
+  local ranges="$2"
+  local start_line
+  local end_line
+  while read -r start_line end_line; do
+    [ -n "${start_line:-}" ] || continue
+    if [ "$line_no" -ge "$start_line" ] && [ "$line_no" -le "$end_line" ]; then
+      return 0
+    fi
+  done <<<"$ranges"
+  return 1
+}
+
+line_is_blank() {
+  local line="$1"
+  [[ "$line" =~ ^[[:space:]]*$ ]]
+}
+
+untracked_managed_file_is_setup_owned() {
+  local path="$1"
+  local absolute_path="$REPO_ROOT/$path"
+  [ -f "$absolute_path" ] || return 1
+
+  local ranges
+  if ! ranges="$(marker_ranges "$path" "$absolute_path" 2>/dev/null)"; then
+    return 1
+  fi
+
+  local line_no=0
+  while IFS= read -r _line || [ -n "$_line" ]; do
+    line_no=$((line_no + 1))
+    if ! line_in_ranges "$line_no" "$ranges"; then
+      if ! line_is_blank "$_line"; then
+        return 1
+      fi
+    fi
+  done < "$absolute_path"
+  [ "$line_no" -gt 0 ]
+}
+
+managed_block_file_is_setup_owned() {
+  local path="$1"
+  local status_hint="$2"
+
+  if [ "$status_hint" = "untracked" ]; then
+    untracked_managed_file_is_setup_owned "$path"
+    return $?
+  fi
+
+  local before_file
+  local after_file
+  local before_ranges=""
+  local after_ranges=""
+  local diff_file
+  before_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-managed-before.XXXXXX")"
+  after_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-managed-after.XXXXXX")"
+  diff_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-managed-diff.XXXXXX")"
+
+  git -C "$REPO_ROOT" show "HEAD:$path" > "$before_file" 2>/dev/null || true
+  if [ -f "$REPO_ROOT/$path" ]; then
+    cp "$REPO_ROOT/$path" "$after_file"
+  fi
+  before_ranges="$(marker_ranges "$path" "$before_file" 2>/dev/null || true)"
+  after_ranges="$(marker_ranges "$path" "$after_file" 2>/dev/null || true)"
+
+  git -C "$REPO_ROOT" diff --unified=0 --no-ext-diff HEAD -- "$path" > "$diff_file" 2>/dev/null || true
+
+  local old_line=0
+  local new_line=0
+  local saw_change=false
+  local hunk
+  while IFS= read -r hunk || [ -n "$hunk" ]; do
+    case "$hunk" in
+      @@*)
+        local old_part
+        local new_part
+        old_part="$(printf '%s\n' "$hunk" | awk '{print $2}')"
+        new_part="$(printf '%s\n' "$hunk" | awk '{print $3}')"
+        old_part="${old_part#-}"
+        new_part="${new_part#+}"
+        old_line="${old_part%%,*}"
+        new_line="${new_part%%,*}"
+        if [ -z "$old_line" ]; then old_line=0; fi
+        if [ -z "$new_line" ]; then new_line=0; fi
+        ;;
+      "+++"*|"---"*)
+        ;;
+      +*)
+        saw_change=true
+        if [ -z "$after_ranges" ] || ! line_in_ranges "$new_line" "$after_ranges"; then
+          if ! line_is_blank "${hunk#+}"; then
+            rm -f "$before_file" "$after_file" "$diff_file"
+            return 1
+          fi
+        fi
+        new_line=$((new_line + 1))
+        ;;
+      -*)
+        saw_change=true
+        if [ -z "$before_ranges" ] || ! line_in_ranges "$old_line" "$before_ranges"; then
+          if ! line_is_blank "${hunk#-}"; then
+            rm -f "$before_file" "$after_file" "$diff_file"
+            return 1
+          fi
+        fi
+        old_line=$((old_line + 1))
+        ;;
+      *)
+        if [[ "$hunk" != diff\ --git* && "$hunk" != index\ * && "$hunk" != "new file mode"* && "$hunk" != "deleted file mode"* ]]; then
+          old_line=$((old_line + 1))
+          new_line=$((new_line + 1))
+        fi
+        ;;
+    esac
+  done < "$diff_file"
+
+  rm -f "$before_file" "$after_file" "$diff_file"
+  [ "$saw_change" = "true" ]
+}
+
+setup_owned_dirty_rule_for_path() {
+  local path="$1"
+  local prefix
+  for prefix in "${SETUP_OWNED_DIRTY_IGNORE_PREFIXES[@]}"; do
+    if [[ "$prefix" == */ ]]; then
+      if [[ "$path" == "$prefix"* ]]; then
+        printf '%s\n' "whole-prefix"
+        return 0
+      fi
+    elif [ "$path" = "$prefix" ]; then
+      case "$prefix" in
+        AGENTS.md|CLAUDE.md|.gitignore) printf '%s\n' "managed-block" ;;
+        *) printf '%s\n' "whole-file" ;;
+      esac
+      return 0
+    fi
+  done
+  printf '%s\n' "graph-affecting"
+}
+
+classify_dirty_path() {
+  local path="$1"
+  local status_hint="$2"
+  local setup_rule
+  setup_rule="$(setup_owned_dirty_rule_for_path "$path")"
+  case "$setup_rule" in
+    whole-prefix|whole-file)
+      printf '%s\n' "setup-owned"
+      ;;
+    managed-block)
+      if managed_block_file_is_setup_owned "$path" "$status_hint"; then
+        printf '%s\n' "setup-owned"
+      else
+        printf '%s\n' "graph-affecting"
+      fi
+      ;;
+    *)
+      printf '%s\n' "graph-affecting"
+      ;;
+  esac
+}
+
+append_dirty_path_classification() {
+  local output_file="$1"
+  local path="$2"
+  local status_hint="$3"
+  local path_class
+  path_class="$(classify_dirty_path "$path" "$status_hint")"
+  printf '%s\t%s\n' "$path_class" "$path" >> "$output_file"
+}
+
+parse_porcelain_v2_paths() {
+  local output_file="$1"
+  local status_file
+  status_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-status-v2.XXXXXX")"
+  git -C "$REPO_ROOT" status --porcelain=v2 -z > "$status_file" 2>/dev/null || true
+
+  local record
+  while IFS= read -r -d '' record; do
+    case "$record" in
+      "1 "*)
+        append_dirty_path_classification "$output_file" "$(printf '%s\n' "$record" | cut -d ' ' -f9-)" "tracked"
+        ;;
+      "2 "*)
+        append_dirty_path_classification "$output_file" "$(printf '%s\n' "$record" | cut -d ' ' -f10-)" "tracked"
+        if IFS= read -r -d '' record; then
+          append_dirty_path_classification "$output_file" "$record" "tracked"
+        fi
+        ;;
+      "u "*)
+        append_dirty_path_classification "$output_file" "$(printf '%s\n' "$record" | cut -d ' ' -f11-)" "tracked"
+        ;;
+      "? "*)
+        append_dirty_path_classification "$output_file" "${record#"? "}" "untracked"
+        ;;
+    esac
+  done < "$status_file"
+  rm -f "$status_file"
+}
+
+build_dirty_paths_breakdown() {
+  local classifications_file="$1"
+  if [ ! -s "$classifications_file" ]; then
+    jq -n '{setup_owned_count:0,graph_affecting_count:0,sample_paths:[],truncated:false}'
+    return 0
+  fi
+  jq -R -s '
+    split("\n")
+    | map(select(length > 0) | split("\t") | {classification:.[0], path:.[1]})
+    | {
+        setup_owned_count:([.[] | select(.classification == "setup-owned")] | length),
+        graph_affecting_count:([.[] | select(.classification == "graph-affecting")] | length),
+        sample_paths:([.[] | .path][0:20]),
+        truncated:(length > 20)
+      }
+  ' "$classifications_file"
+}
+
+classify_worktree_dirty() {
+  local classifications_file
+  classifications_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-dirty-classifications.XXXXXX")"
+  parse_porcelain_v2_paths "$classifications_file"
+  DIRTY_PATHS_BREAKDOWN_JSON="$(build_dirty_paths_breakdown "$classifications_file")"
+  if [ ! -s "$classifications_file" ]; then
+    DIRTY_CLASSIFICATION="clean"
+  elif awk -F '\t' '$1 == "graph-affecting" { found=1 } END { exit(found ? 0 : 1) }' "$classifications_file"; then
+    DIRTY_CLASSIFICATION="graph-affecting-blocked"
+  else
+    DIRTY_CLASSIFICATION="setup-owned-only"
+  fi
+  rm -f "$classifications_file"
+}
+
 # U1: external-actor fingerprint 排除 bootstrap 自身写入的路径。
 # AGENTS.md / CLAUDE.md 只在当前内容等于本轮 normalizer 写入结果时排除，
 # 这样 critical write window 内后续外部编辑仍会触发 concurrent-write-detected。
@@ -588,10 +931,12 @@ host_instruction_change_is_bootstrap_owned() {
 external_actor_fingerprint() {
   git -C "$REPO_ROOT" status --porcelain 2>/dev/null | while IFS= read -r status_line; do
     local status_path="${status_line:3}"
+    if [[ "$status_path" =~ $EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX ]]; then
+      continue
+    fi
     case "$status_path" in
-      .spec-first/*|.gitnexus/*|.code-review-graph/*) continue ;;
       AGENTS.md|CLAUDE.md)
-        if host_instruction_change_is_bootstrap_owned "$status_path"; then
+        if host_instruction_path_was_bootstrap_written "$status_path"; then
           continue
         fi
         ;;
@@ -599,7 +944,8 @@ external_actor_fingerprint() {
     printf '%s\n' "$status_line"
   done || true
 }
-EXTERNAL_ACTOR_FINGERPRINT_BEFORE="$(external_actor_fingerprint | hash_text)"
+EXTERNAL_ACTOR_FINGERPRINT_BEFORE_TEXT="$(external_actor_fingerprint)"
+EXTERNAL_ACTOR_FINGERPRINT_BEFORE="$(printf '%s' "$EXTERNAL_ACTOR_FINGERPRINT_BEFORE_TEXT" | hash_text)"
 
 relpath() {
   local path="$1"
@@ -655,6 +1001,8 @@ emit_blocked() {
     --arg workflow_mode "$workflow_mode" \
     --arg reason_code "$reason_code" \
     --arg next_action "$next_action" \
+    --arg dirty_classification "${DIRTY_CLASSIFICATION:-}" \
+    --argjson dirty_paths_breakdown "$DIRTY_PATHS_BREAKDOWN_JSON" \
     --argjson canonical_artifacts_preserved "$canonical_artifacts_preserved" \
     '{
       schema_version:"graph-bootstrap-result.v1",
@@ -666,7 +1014,8 @@ emit_blocked() {
       selection_source:$selection_source,
       canonical_artifacts_preserved:$canonical_artifacts_preserved,
       next_action:$next_action
-    }'
+    }
+    + (if $dirty_classification == "" then {} else {dirty_classification:$dirty_classification,dirty_paths_breakdown:$dirty_paths_breakdown} end)'
   exit "$exit_code"
 }
 
@@ -682,8 +1031,9 @@ else
   INVOCATION_REFRESH_MODE="$DEFAULT_REFRESH_MODE_SINGLE_REPO"
 fi
 
-if [ "$WORKTREE_DIRTY" = "true" ]; then
-  emit_blocked blocked dirty-refresh-non-canonical "Commit, stash, or clean worktree changes before graph bootstrap refresh; provider commands were not run." 1 true
+classify_worktree_dirty
+if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then
+  emit_blocked blocked dirty-source-blocked "Source-affecting worktree changes detected; commit, stash, or clean worktree changes before graph bootstrap refresh." 1 true
 fi
 
 require_file_schema() {
@@ -2303,8 +2653,13 @@ reason_code=""
 # U1: critical write window 内 worktree 被外部修改时,
 # 标记 concurrent-write-detected 并阻断,canonical_artifacts_preserved=false。
 # 使用 external_actor_fingerprint 排除 bootstrap 自身 owned 路径,避免 false positive。
-EXTERNAL_ACTOR_FINGERPRINT_AFTER="$(external_actor_fingerprint | hash_text)"
-if [ "$EXTERNAL_ACTOR_FINGERPRINT_AFTER" != "$EXTERNAL_ACTOR_FINGERPRINT_BEFORE" ]; then
+HOST_INSTRUCTION_HASH_MISMATCH=false
+if bootstrap_owned_host_instruction_hash_mismatch; then
+  HOST_INSTRUCTION_HASH_MISMATCH=true
+fi
+EXTERNAL_ACTOR_FINGERPRINT_AFTER_TEXT="$(external_actor_fingerprint)"
+EXTERNAL_ACTOR_FINGERPRINT_AFTER="$(printf '%s' "$EXTERNAL_ACTOR_FINGERPRINT_AFTER_TEXT" | hash_text)"
+if [ "$EXTERNAL_ACTOR_FINGERPRINT_AFTER" != "$EXTERNAL_ACTOR_FINGERPRINT_BEFORE" ] || [ "$HOST_INSTRUCTION_HASH_MISMATCH" = "true" ]; then
   reason_code="concurrent-write-detected"
   WORKFLOW_MODE="blocked"
   OVERALL_STATUS="action-required"
@@ -2363,6 +2718,8 @@ jq -n \
   --arg source_revision "$SOURCE_REVISION" \
   --arg worktree_status_hash "$WORKTREE_STATUS_HASH" \
   --argjson worktree_dirty "$WORKTREE_DIRTY" \
+  --arg dirty_classification "$DIRTY_CLASSIFICATION" \
+  --argjson dirty_paths_breakdown "$DIRTY_PATHS_BREAKDOWN_JSON" \
   --arg workflow_mode "$WORKFLOW_MODE" \
   --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ] || [ "$WORKFLOW_MODE" = "no-source" ]; then echo medium; else echo low; fi)" \
   --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
@@ -2379,6 +2736,8 @@ jq -n \
     source_revision:$source_revision,
     worktree_dirty:$worktree_dirty,
     worktree_status_hash:$worktree_status_hash,
+    dirty_classification:$dirty_classification,
+    dirty_paths_breakdown:$dirty_paths_breakdown,
     workflow_mode:$workflow_mode,
     provider_summary:{
       ready_primary_providers:[$providers[] | select(.query_ready == true) | .provider],
@@ -2466,6 +2825,7 @@ if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ]; then
 - overall_status: $OVERALL_STATUS
 - source_revision: $SOURCE_REVISION
 - worktree_dirty: $WORKTREE_DIRTY
+- dirty_classification: $DIRTY_CLASSIFICATION
 - duration_ms: $BOOTSTRAP_DURATION_MS
 - provider_status: .spec-first/graph/provider-status.json
 - graph_facts: .spec-first/graph/graph-facts.json
@@ -2488,6 +2848,8 @@ jq -n \
   --arg workflow_mode "$WORKFLOW_MODE" \
   --arg overall_status "$OVERALL_STATUS" \
   --arg reason_code "$reason_code" \
+  --arg dirty_classification "$DIRTY_CLASSIFICATION" \
+  --argjson dirty_paths_breakdown "$DIRTY_PATHS_BREAKDOWN_JSON" \
   --arg started_at "$SCRIPT_STARTED_AT" \
   --arg finished_at "$BOOTSTRAP_FINISHED_AT" \
   --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
@@ -2498,6 +2860,8 @@ jq -n \
     overall_status:$overall_status,
     workflow_mode:$workflow_mode,
     reason_code:(if $reason_code == "" then null else $reason_code end),
+    dirty_classification:$dirty_classification,
+    dirty_paths_breakdown:$dirty_paths_breakdown,
     canonical_artifacts_preserved:$canonical_artifacts_preserved,
     repo_root:$repo_root,
     invocation_workspace_root:$invocation_workspace_root,

@@ -73,10 +73,29 @@ describe('U1: bootstrap-providers concurrent-write fingerprint', () => {
     );
   });
 
-  test('external_actor_fingerprint excludes bootstrap-owned paths', () => {
-    expect(bashSource).toMatch(/\.spec-first\//);
-    expect(bashSource).toMatch(/AGENTS\\\.md/);
-    expect(bashSource).toMatch(/CLAUDE\\\.md/);
+  test('external_actor_fingerprint keeps a narrow provider/runtime regex', () => {
+    const match = bashSource.match(/EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX='([^']+)'/);
+    expect(match).not.toBeNull();
+    expect(match[1]).toContain('\\.spec-first/');
+    expect(match[1]).toContain('\\.gitnexus/');
+    expect(match[1]).toContain('\\.code-review-graph/');
+    expect(match[1]).not.toContain('AGENTS');
+    expect(match[1]).not.toContain('CLAUDE');
+    expect(match[1]).not.toContain('CHANGELOG');
+    expect(match[1]).not.toContain('\\.gitignore');
+  });
+
+  test('host instruction fingerprint exclusions are conditional, not regex-wide', () => {
+    const fingerprintFunction = extractBashFunction(bashSource, 'external_actor_fingerprint');
+    expect(bashSource).toContain('AGENTS.md|CLAUDE.md)');
+    expect(fingerprintFunction).toContain('host_instruction_path_was_bootstrap_written');
+    expect(bashSource).toContain('bootstrap_owned_host_instruction_hash_mismatch');
+    expect(fingerprintFunction).not.toContain('managed_block_file_is_setup_owned');
+    expect(ps1Source).toContain('Test-BootstrapOwnedHostInstructionPath -FileName $statusPath');
+    expect(ps1Source).toContain('Test-BootstrapOwnedHostInstructionHashMismatch');
+    expect(ps1Source).not.toContain(
+      'Test-ManagedBlockFileSetupOwned -Path $statusPath -StatusHint',
+    );
   });
 
   test('bash sets concurrent-write-detected reason_code and disables canonical preservation on mismatch', () => {
@@ -247,6 +266,10 @@ function gitInit(repoRoot) {
 describe('U1 + U2 fixture-based semantic verification', () => {
   const bashBootstrap = readFile(BOOTSTRAP_SH);
   const bashVerify = readFile(VERIFY_SH);
+  const hostInstructionChangeBody = extractBashFunction(
+    bashBootstrap,
+    'host_instruction_change_is_bootstrap_owned',
+  );
   const fingerprintBody = extractBashFunction(bashBootstrap, 'external_actor_fingerprint');
   const reconciliationBody = extractBashFunction(bashVerify, 'compute_host_pointer_reconciliation');
 
@@ -267,10 +290,17 @@ describe('U1 + U2 fixture-based semantic verification', () => {
     return d;
   }
 
-  function fingerprintHash(repoRoot) {
+  function fingerprintHash(repoRoot, options = {}) {
+    const expectedAgentsHash = options.expectedAgentsHash || '';
+    const expectedClaudeHash = options.expectedClaudeHash || '';
     const driver = `
 set -euo pipefail
 REPO_ROOT="${repoRoot}"
+EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX='^(\\.spec-first/|\\.gitnexus/|\\.code-review-graph/)'
+HOST_INSTRUCTION_EXPECTED_AGENTS_HASH="${expectedAgentsHash}"
+HOST_INSTRUCTION_EXPECTED_CLAUDE_HASH="${expectedClaudeHash}"
+hash_file() { shasum -a 256 "$1" 2>/dev/null | awk '{print $1}'; }
+${hostInstructionChangeBody}
 ${fingerprintBody}
 hash_text() { shasum -a 256 - 2>/dev/null | awk '{print $1}'; }
 external_actor_fingerprint | hash_text
@@ -282,7 +312,7 @@ external_actor_fingerprint | hash_text
     return r.stdout.trim();
   }
 
-  test('external_actor_fingerprint: bootstrap-owned path edits do NOT change fingerprint', () => {
+  test('external_actor_fingerprint: provider/runtime path edits do NOT change fingerprint', () => {
     const repo = newTmp('eaf-owned-');
     gitInit(repo);
     fs.writeFileSync(path.join(repo, 'src.txt'), 'baseline');
@@ -293,8 +323,6 @@ external_actor_fingerprint | hash_text
 
     fs.mkdirSync(path.join(repo, '.spec-first'), { recursive: true });
     fs.writeFileSync(path.join(repo, '.spec-first', 'foo.json'), '{}');
-    fs.writeFileSync(path.join(repo, 'AGENTS.md'), 'agent');
-    fs.writeFileSync(path.join(repo, 'CLAUDE.md'), 'claude');
     fs.mkdirSync(path.join(repo, '.gitnexus'), { recursive: true });
     fs.writeFileSync(path.join(repo, '.gitnexus', 'a.json'), '{}');
     fs.mkdirSync(path.join(repo, '.code-review-graph'), { recursive: true });
@@ -302,6 +330,44 @@ external_actor_fingerprint | hash_text
 
     const afterBootstrapWrites = fingerprintHash(repo);
     expect(afterBootstrapWrites).toBe(baseline);
+  });
+
+  test('external_actor_fingerprint: tracked host managed-block edits DO change fingerprint', () => {
+    const repo = newTmp('eaf-host-managed-');
+    gitInit(repo);
+    const agentsPath = path.join(repo, 'AGENTS.md');
+    fs.writeFileSync(
+      agentsPath,
+      [
+        '# Instructions',
+        '',
+        '<!-- spec-first:bootstrap:start -->',
+        'old bootstrap block',
+        '<!-- spec-first:bootstrap:end -->',
+        '',
+        'manual text',
+        '',
+      ].join('\n'),
+    );
+    spawnSync('bash', ['-c', `git -C "${repo}" add -A && git -C "${repo}" commit --quiet -m baseline`]);
+
+    const before = fingerprintHash(repo);
+    fs.writeFileSync(
+      agentsPath,
+      [
+        '# Instructions',
+        '',
+        '<!-- spec-first:bootstrap:start -->',
+        'new bootstrap block',
+        '<!-- spec-first:bootstrap:end -->',
+        '',
+        'manual text',
+        '',
+      ].join('\n'),
+    );
+    const after = fingerprintHash(repo);
+
+    expect(after).not.toBe(before);
   });
 
   test('external_actor_fingerprint: edits to non-bootstrap paths DO change fingerprint', () => {

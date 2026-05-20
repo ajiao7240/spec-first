@@ -168,6 +168,7 @@ Graph refresh trigger nodes:
 | First setup or stale provider package projection | Run `/spec:mcp-setup` or `$spec-mcp-setup`; it refreshes setup-owned provider config, not graph indexes. |
 | Need current GitNexus/code-review-graph readiness | Run `/spec:graph-bootstrap` or `$spec-graph-bootstrap`; this is the explicit graph readiness refresh entrypoint. |
 | Branch switch, pull, rebase, merge, or dirty worktree change | The next graph consumer detects stale `source_revision` / `worktree_status_hash`; it does not automatically rebuild indexes. |
+| Setup-owned dirty after setup/init | `/spec:graph-bootstrap` / `$spec-graph-bootstrap` continues when dirty paths are only spec-first managed artifacts; source-affecting dirty still fails closed with `dirty-source-blocked`. |
 | Lightweight docs, typo, small local bug, or first trial | Continue with limitations and bounded direct reads when graph facts are stale or unavailable. |
 | Shared API/route/provider contract, core workflow, cross-module change, or high-risk review | Refresh graph readiness explicitly before claiming graph-backed impact or execution-flow evidence. |
 

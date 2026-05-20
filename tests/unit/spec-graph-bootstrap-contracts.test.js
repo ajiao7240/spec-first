@@ -7,6 +7,7 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'SKILL.md');
 const BASH_SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.sh');
 const POWERSHELL_SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.ps1');
+const CONSUMPTION_DOC_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'graph-provider-consumption.md');
 const RETIRED_PROMPT_MIRROR_PATH = path.join(
   REPO_ROOT,
   'docs',
@@ -15,6 +16,30 @@ const RETIRED_PROMPT_MIRROR_PATH = path.join(
   'spec-graph-bootstrap',
   'SKILL.md',
 );
+
+function extractBashSetupOwnedPrefixes(source) {
+  const match = source.match(/SETUP_OWNED_DIRTY_IGNORE_PREFIXES=\(\n([\s\S]*?)\n\)/);
+  if (!match) return [];
+  return match[1]
+    .split('\n')
+    .map(line => line.trim().replace(/^"|"$/g, ''))
+    .filter(Boolean);
+}
+
+function extractPowerShellSetupOwnedPrefixes(source) {
+  const match = source.match(/\$script:SetupOwnedDirtyIgnorePrefixes = @\(\n([\s\S]*?)\n\)/);
+  if (!match) return [];
+  return match[1]
+    .split('\n')
+    .map(line => line.trim().replace(/,$/, '').replace(/^'|'$/g, ''))
+    .filter(Boolean);
+}
+
+function extractContractSetupOwnedPrefixes(source) {
+  const section = source.match(/## setup-owned-dirty-ignore\.v1\n([\s\S]*?)\n## /);
+  if (!section) return [];
+  return Array.from(section[1].matchAll(/\| `([^`]+)` \|/g)).map(match => match[1]);
+}
 
 describe('spec-graph-bootstrap live MCP probe contract', () => {
   test('keeps CLI readiness separate from session-local MCP evidence', () => {
@@ -115,13 +140,16 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('parent workspace would otherwise enter the default all-repos path');
     expect(skill).toContain('readiness_source=incremental-update');
     expect(skill).toContain('readiness_source=incremental-fallback-full');
-    expect(skill).toContain('reason_code=dirty-refresh-non-canonical');
+    expect(skill).toContain('reason_code=dirty-source-blocked');
+    expect(skill).toContain('dirty-refresh-non-canonical');
     expect(skill).toContain('graph-facts.v1` does not expose refresh-mode convenience fields');
     expect(skill).toContain('__SPEC_FIRST_LAST_INDEXED_COMMIT__');
 
     for (const source of [bashScript, powershellScript]) {
       expect(source).toContain('incremental-all-repos-unsupported');
-      expect(source).toContain('dirty-refresh-non-canonical');
+      expect(source).toContain('dirty-source-blocked');
+      expect(source).not.toContain("ReasonCode 'dirty-refresh-non-canonical'");
+      expect(source).not.toContain('dirty-refresh-non-canonical "Commit, stash');
       expect(source).toContain('incremental-command-unavailable');
       expect(source).toContain('incremental-base-ref-invalid-format');
       expect(source).toContain('incremental-base-status-untrusted');
@@ -158,5 +186,58 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(powershellScript).toContain('Resolve-ProviderRefreshMode');
     expect(powershellScript).toContain('$bootstrapRawLogsForStatus');
     expect(powershellScript).toContain('raw_logs = $providerRawLogs');
+  });
+
+  test('keeps setup-owned dirty classification contract equivalent across shell hosts', () => {
+    const contract = fs.readFileSync(CONSUMPTION_DOC_PATH, 'utf8');
+    const bashScript = fs.readFileSync(BASH_SCRIPT_PATH, 'utf8');
+    const powershellScript = fs.readFileSync(POWERSHELL_SCRIPT_PATH, 'utf8');
+    const expectedPrefixes = [
+      '.spec-first/',
+      '.gitnexus/',
+      '.code-review-graph/',
+      'AGENTS.md',
+      'CLAUDE.md',
+      'CHANGELOG.md',
+      '.gitignore',
+      '.codex/spec-first/',
+      '.claude/spec-first/',
+      '.agents/skills/',
+    ];
+
+    expect(extractContractSetupOwnedPrefixes(contract).sort()).toEqual([...expectedPrefixes].sort());
+    expect(extractBashSetupOwnedPrefixes(bashScript).sort()).toEqual([...expectedPrefixes].sort());
+    expect(extractPowerShellSetupOwnedPrefixes(powershellScript).sort()).toEqual([...expectedPrefixes].sort());
+
+    expect(bashScript).toContain('for prefix in "${SETUP_OWNED_DIRTY_IGNORE_PREFIXES[@]}"');
+    expect(powershellScript).toContain('foreach ($prefix in $script:SetupOwnedDirtyIgnorePrefixes)');
+    expect(bashScript).toContain('git -C "$REPO_ROOT" status --porcelain=v2 -z');
+    expect(powershellScript).toContain("$psi.ArgumentList.Add('--porcelain=v2')");
+    expect(powershellScript).toContain("$psi.ArgumentList.Add('-z')");
+    expect(bashScript).toContain('DIRTY_CLASSIFICATION="graph-affecting-blocked"');
+    expect(powershellScript).toContain("$script:DirtyClassification = 'graph-affecting-blocked'");
+    expect(contract).toContain('graph-affecting-blocked` 只来自本轮 command result');
+    expect(contract).toContain('blank-only 分隔行');
+    expect(fs.readFileSync(SKILL_PATH, 'utf8')).toContain('marker-adjacent blank-only separators');
+  });
+
+  test('keeps dirty gate list separate from concurrent-write fingerprint filters', () => {
+    const bashScript = fs.readFileSync(BASH_SCRIPT_PATH, 'utf8');
+    const powershellScript = fs.readFileSync(POWERSHELL_SCRIPT_PATH, 'utf8');
+
+    const bashFingerprintMatch = bashScript.match(/EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX='([^']+)'/);
+    const powershellFingerprintMatch = powershellScript.match(/\$script:ExternalActorFingerprintIgnorePattern = '([^']+)'/);
+    expect(bashFingerprintMatch).not.toBeNull();
+    expect(powershellFingerprintMatch).not.toBeNull();
+
+    for (const forbidden of ['CHANGELOG.md', '.gitignore', '.codex/spec-first/', '.claude/spec-first/', '.agents/skills/']) {
+      expect(bashFingerprintMatch[1]).not.toContain(forbidden);
+      expect(powershellFingerprintMatch[1]).not.toContain(forbidden);
+    }
+
+    expect(bashScript).toContain('SETUP_OWNED_DIRTY_IGNORE_PREFIXES');
+    expect(bashScript).toContain('EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX');
+    expect(powershellScript).toContain('$script:SetupOwnedDirtyIgnorePrefixes');
+    expect(powershellScript).toContain('$script:ExternalActorFingerprintIgnorePattern');
   });
 });

@@ -1,7 +1,7 @@
 ---
 title: "feat: spec-graph-bootstrap dirty 分类与 setup-owned gate"
 type: feat
-status: active
+status: completed
 date: 2026-05-19
 spec_id: 2026-05-19-001-graph-bootstrap-dirty-classification
 ---

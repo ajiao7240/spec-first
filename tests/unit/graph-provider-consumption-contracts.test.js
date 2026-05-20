@@ -38,6 +38,8 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('`capabilities.query_global_graph`');
     expect(doc).toContain('`capabilities.impact_context`');
     expect(doc).toContain('`worktree_status_hash`');
+    expect(doc).toContain('`dirty_classification`');
+    expect(doc).toContain('`dirty_paths_breakdown`');
     expect(doc).toContain('`canonical_artifacts.impact_capabilities`');
 
     expect(doc).toContain('`.spec-first/impact/bootstrap-impact-capabilities.json`');
@@ -152,6 +154,7 @@ describe('graph provider consumption contract', () => {
       'incremental-base-ref-not-ancestor',
       'incremental-refresh-failed-fallback-full',
       'incremental-and-full-failed',
+      'dirty-source-blocked',
       'dirty-refresh-non-canonical',
       'incremental-all-repos-unsupported',
     ]) {
@@ -163,6 +166,36 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('父级 workspace 默认 all-repos 路径下只传 `--incremental`');
     expect(doc).toContain('Tracked docs、README、用户手册、issue 或 PR 描述不得粘贴 provider raw stdout/stderr');
     expect(doc).toContain('不要从 `graph-facts.v1` 推断 refresh mode');
+  });
+
+  test('documents setup-owned dirty classification and legacy fallback rules', () => {
+    const doc = read(CONSUMPTION_DOC_PATH);
+
+    expect(doc).toContain('## setup-owned-dirty-ignore.v1');
+    for (const prefix of [
+      '.spec-first/',
+      '.gitnexus/',
+      '.code-review-graph/',
+      'AGENTS.md',
+      'CLAUDE.md',
+      'CHANGELOG.md',
+      '.gitignore',
+      '.codex/spec-first/',
+      '.claude/spec-first/',
+      '.agents/skills/',
+    ]) {
+      expect(doc).toContain(`| \`${prefix}\` |`);
+    }
+
+    expect(doc).toContain('dirty_classification=setup-owned-only');
+    expect(doc).toContain('dirty_classification=graph-affecting-blocked');
+    expect(doc).toContain('`graph-affecting-blocked` 只能来自本轮 command result');
+    expect(doc).toContain('marker 外仅允许 blank-only 分隔行');
+    expect(doc).toContain('缺失 `dirty_classification` 的旧 `graph-facts.v1` 必须回退');
+    expect(doc).toContain('不得从字段缺失推断 clean');
+    expect(doc).toContain('新逻辑不得再写出该 reason code');
+    expect(doc).toContain('consumer 读取历史 artifacts 时应把它视同 `dirty-source-blocked`');
+    expect(doc).toContain('不得复用到 `external_actor_fingerprint`');
   });
 
   test('representative fixtures keep aggregate readiness out of graph-facts top-level', () => {
@@ -198,6 +231,13 @@ describe('graph provider consumption contract', () => {
       source_revision: '0'.repeat(40),
       worktree_dirty: false,
       worktree_status_hash: `sha256:${'0'.repeat(64)}`,
+      dirty_classification: 'clean',
+      dirty_paths_breakdown: {
+        setup_owned_count: 0,
+        graph_affecting_count: 0,
+        sample_paths: [],
+        truncated: false,
+      },
       provider_summary: {
         ready_primary_providers: ['gitnexus', 'code-review-graph'],
         degraded_providers: [],
