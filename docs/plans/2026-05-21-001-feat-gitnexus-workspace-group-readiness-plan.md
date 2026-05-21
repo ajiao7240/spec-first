@@ -435,6 +435,8 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 - Create: `tests/fixtures/gitnexus-workspace/registry-list.kaz.example.json`
 - Create: `tests/fixtures/gitnexus-workspace/group-list.empty.example.json`
 - Create: `tests/fixtures/gitnexus-workspace/group-list.ready.example.json`
+- Create: `tests/fixtures/gitnexus-workspace/registry-list.invalid-shape.example.json`
+- Create: `tests/fixtures/gitnexus-workspace/group-list.invalid-shape.example.json`
 - Create: `tests/fixtures/gitnexus-workspace/workspace-graph-targets.dirty-overlay.example.json`
 - Create: `tests/fixtures/gitnexus-workspace/topology-single-repo.example.json`
 - Create: `tests/fixtures/gitnexus-workspace/topology-monorepo.example.json`
@@ -445,7 +447,7 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 - **Two invocation modes（必须显式区分，不要混用）：**
   - **Script mode（bootstrap-providers.sh 调用）：** 输入仅 `workspace-graph-targets.v1` 与 child `provider-status.v1`（脚本可读的 deterministic 输入）；不接受 `list_repos` / `group_list`（脚本不能调 live MCP，R6 强制）。Group 部分输出嵌套形态 `group: { name: null, status: "not-evaluated-no-mcp-input", query_selector: null }` 并把对应 limitation 记入 artifact；per-repo `query_usability` 仍可计算（按 query_ready 历史与 last_indexed_commit）。**Script mode 可写文件**（`.spec-first/workspace/gitnexus-readiness.json`），由调用方加 `--write-artifact` flag 控制。
   - **Skill-prose mode（U4 SKILL.md handoff 调用）：** session 内通过 LLM 调 live MCP 后，把 `list_repos` / `group_list` 结果作为 JSON 参数传入 classifier；可产出完整 group/registry 分类。**Skill-prose mode 只写 stdout，不持久化文件**（避免把 session-local 数据写成 canonical readiness）。
-- Accept supplied JSON snapshots accordingly: `workspace-graph-targets.v1` 与 child provider status 在两种 mode 都必需；`list_repos` / `group_list` 在 script mode 缺失合法、在 skill-prose mode 必需。
+- Accept supplied JSON snapshots accordingly: `workspace-graph-targets.v1` 与 child provider status 在两种 mode 都必需；`list_repos` / `group_list` 在 script mode 缺失合法、在 skill-prose mode 必需。Skill-prose mode must validate supplied snapshots against A2-Read fixtures/shape guards before classification; invalid live payloads degrade to `runtime_mcp_overlay=unavailable` and must not be persisted.
 - Emit `workspace-gitnexus-readiness.v1` to stdout in both modes; only script mode + `--write-artifact` 写文件。
 - Read `git_root_topology` from the resolver output (added in U2; values: `"single-repo"` or `"multi-repo-workspace"`). If `git_root_topology="single-repo"`, treat as repo-local and emit `not-applicable` or repo-local guidance; do not classify registry groups or write workspace advisory artifact, even when the repo contains multiple packages or modules. Only `git_root_topology="multi-repo-workspace"` allows group / registry fan-out classification.
 - Emit `development_mode` only on the multi-repo-workspace path:
@@ -460,6 +462,7 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
   - **Skill-prose mode**：6 类全部输出整数 ≥ 0，顶层 `registry_overlay_status="evaluated-with-live-mcp"`。
   Consumer 必须按"`null` ≠ 0"原则解读：null 是 mode 限制下"未评估"，0 是评估后无 child 落入该类。Contract test 覆盖两种 mode 的字段类型。
 - Include a `recommended_query_path`: `group-query`, `bounded-registry-fanout`, or `direct-read-fallback`.
+- Include a top-level `runtime_mcp_overlay` object only in stdout skill-prose mode, with `status`, `source="session-local"`, `evaluated_at`, and `persistence="stdout-only"`; durable script-mode artifact must either omit this object or set `status="not-evaluated-no-mcp-input"`.
 - Keep raw live MCP payloads out of durable docs; fixtures can be sanitized examples.
 
 **Execution note:** Keep this helper pure and deterministic; it should not shell out to GitNexus or read `.gitnexus` internals.
@@ -471,6 +474,8 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 **Test scenarios:**
 - Happy path: registry contains all workspace repos and group exists; output recommends `group-query`.
 - Happy path: only `git_root_topology="multi-repo-workspace"` input can recommend `group-query`; `git_root_topology="single-repo"` never produces a workspace group recommendation regardless of `development_mode` override.
+- Happy path: A2-Read fixtures validate representative `list_repos` / `group_list` payloads before skill-prose mode uses live MCP snapshots.
+- Edge case: invalid registry/group live snapshot shape degrades to `runtime_mcp_overlay.status="unavailable"` and writes no workspace artifact.
 - Edge case: single-repo input returns repo-local guidance and no workspace advisory artifact write.
 - Edge case: monorepo input (`git_root_topology="single-repo"` with caller-supplied `development_mode="single-repo-multi-module"`) is classified entirely as repo-local; does not match package/module names against GitNexus registry entries and does not emit workspace advisory artifact.
 - Edge case: registry contains repos but groups list is empty; output recommends bounded registry fan-out, not setup failure.
@@ -483,6 +488,7 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 - Edge case: script mode invocation 缺 `list_repos` / `group_list` 输入；artifact 中 `group.status="not-evaluated-no-mcp-input"`（嵌套形态，非顶层 `group_status`）与对应 limitation 出现，per-repo `query_usability` 仍按 query_ready 历史计算。
 - Edge case: skill-prose mode invocation 提供完整 list_repos / group_list；输出含 group/registry 分类，但 `--write-artifact` 必须为 false（即使 caller 误传 true，classifier 拒绝写入并报错 `skill-prose-mode-cannot-persist`）。
 - Integration: script mode + `--write-artifact` 真实写入 `.spec-first/workspace/gitnexus-readiness.json`；skill-prose mode 即使读取相同输入也只输出 stdout。
+- Integration: downstream fixture proves durable artifact with `group.status="not-evaluated-no-mcp-input"` plus live stdout overlay with `group.status="group-missing"` are rendered as two evidence layers, not merged into canonical readiness.
 
 **Verification:**
 - A deterministic unit test proves the exact failure mode from the user report is represented as partial refresh + usable stale/advisory query evidence.
