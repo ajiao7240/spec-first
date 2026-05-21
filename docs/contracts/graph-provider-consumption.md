@@ -63,6 +63,7 @@ Graph-heavy 至少包括 shared helper/API/route/provider contract/core workflow
 | incremental 和 fallback full 都失败 | top-level result `reason_code=incremental-and-full-failed`; provider `refresh_mode=failed`, `graph_ready=false`, `query_ready=false`, `requires_clean_full_refresh=true`; prior `last_indexed_commit` carry-forward | 不消费该 provider 的本轮 readiness。上一轮 aggregate canonical freshness artifacts 会在存在时保留；本轮 stdout/report 才表示 degraded/action context |
 | dirty worktree refresh request: graph-affecting | command result `workflow_mode=blocked`, `reason_code=dirty-source-blocked`, `dirty_classification=graph-affecting-blocked`, `canonical_artifacts_preserved=true`; provider commands 不运行 | 不把 dirty blocked 结果写成 canonical graph freshness。要求用户 commit、stash 或 clean 后再刷新。历史 `dirty-refresh-non-canonical` 兼容读取时视同 `dirty-source-blocked` |
 | dirty worktree refresh request: setup-owned-only | command result `workflow_mode` 按 provider readiness 正常计算，`reason_code=null`, `dirty_classification=setup-owned-only`; provider commands 正常运行；`graph-facts.v1` 写入 `worktree_dirty=true`、`worktree_status_hash`、`dirty_classification=setup-owned-only` 和 `dirty_paths_breakdown` | 可消费本轮 canonical artifacts，但下游仍必须把 `worktree_status_hash` 纳入 freshness 比较；setup-owned dirty 不等于 clean，只表示 dirty 路径未命中 graph-affecting 输入 |
+| dirty worktree refresh request: non-graph metadata only | command result `workflow_mode` 按 provider readiness 正常计算，`reason_code=null`, `dirty_classification=non-graph-only`; provider commands 正常运行；`graph-facts.v1` 写入 `dirty_paths_breakdown.non_graph_metadata_count` | 仅适用于窄名单变更日志元数据；下游仍必须按 `worktree_status_hash` 比较 freshness，且不得把该分类推广为 docs 全量豁免 |
 | 显式或隐式 all-repos incremental | command result `reason_code=incremental-all-repos-unsupported`, `canonical_artifacts_preserved=true`; provider commands 不运行。覆盖显式 `--all-repos --incremental`，也覆盖父级 workspace 默认 all-repos 路径下只传 `--incremental` | 多仓 incremental 未验证；运行 all-repos full 或对单个 clean child repo 显式运行 incremental |
 
 `last_indexed_commit` 是 per-provider status 的 clean readiness carry-forward 字段。只有 prior provider status 同时是 `provider-status.v1`、`graph_ready=true`、`query_ready=true`、clean，且 `repo_snapshot.source_revision` 与 `bootstrap_fingerprint.repo_snapshot.source_revision` 都等于该 commit 时，incremental preflight 才能把它当作 base。`graph-facts.v1.source_revision` 不是 incremental base truth source。
@@ -80,7 +81,6 @@ Tracked docs、README、用户手册、issue 或 PR 描述不得粘贴 provider 
 | `.code-review-graph/` | code-review-graph provider storage | 整个前缀归 setup-owned |
 | `AGENTS.md` | checked-in host entry source | 仅 spec-first managed blocks 内 diff 可豁免；managed block 外一律 graph-affecting |
 | `CLAUDE.md` | checked-in host entry source | 仅 spec-first managed blocks 内 diff 可豁免；managed block 外一律 graph-affecting |
-| `CHANGELOG.md` | repo policy 要求每次 source 变更同步更新 | 整个文件归 setup-owned |
 | `.gitignore` | spec-first init 管理忽略规则 | 仅 `# spec-first:start` / `# spec-first:end` managed block 内 diff 可豁免；managed block 外一律 graph-affecting |
 | `.codex/spec-first/` | Codex host runtime projection | 整个前缀归 setup-owned |
 | `.claude/spec-first/` | Claude host runtime projection | 整个前缀归 setup-owned |
@@ -96,10 +96,22 @@ Managed block 二级判断必须 fail-closed：
 
 此列表只服务 dirty gate。它不得复用到 `external_actor_fingerprint` / `Get-ExternalActorFingerprint` 的 concurrent-write detection；后者继续使用更窄的 bootstrap-owned 路径过滤，避免 critical write window 内的外部写入被静默放过。此列表不接受用户或项目级自定义；扩展条目必须修改本契约、Bash/PowerShell 常量和合同测试。
 
+## non-graph-metadata-dirty-ignore.v1
+
+`non-graph-metadata-dirty-ignore.v1` 是 graph readiness dirty gate 的窄元数据豁免列表。它只表示这些文件本身不改变 provider 可索引代码图谱；它们不是 setup-owned runtime 产物，也不是 docs 全量豁免入口。
+
+| Path | 归属 | 规则 |
+| --- | --- | --- |
+| `CHANGELOG.md` | repo-level changelog metadata | 整个文件归 non-graph-metadata |
+| `docs/变更日志.md` | localized changelog metadata | 整个文件归 non-graph-metadata |
+
+不得把该列表扩展为 `docs/**`、README、架构文档、ADR、接口契约、计划、任务包、用户手册或业务说明。这些文档可能是 standards、plan、review 或人工判断输入，dirty 时仍按 graph-affecting fail-closed，除非另有独立计划修改本契约。
+
 Dirty classification 值域：
 
 - `clean`：当前 worktree 无 dirty。
 - `setup-owned-only`：dirty 全部命中上表 setup-owned 规则；provider commands 可继续运行，成功刷新后 canonical `graph-facts.v1` 写入该值。
+- `non-graph-only`：dirty 至少包含一个 non-graph-metadata path，且不包含 graph-affecting path；provider commands 可继续运行，成功刷新后 canonical `graph-facts.v1` 写入该值，并在 `dirty_paths_breakdown.non_graph_metadata_count` 中保留数量。
 - `graph-affecting-blocked`：dirty 至少包含一个 graph-affecting path；provider commands 不运行，该值只出现在本轮 `graph-bootstrap-result.v1` / stdout，不写入 preserved canonical artifacts。
 
 Legacy compatibility：`dirty-refresh-non-canonical` 仅代表旧版本把所有 dirty 一律阻断的历史 command result。新逻辑不得再写出该 reason code。consumer 读取历史 artifacts 时应把它视同 `dirty-source-blocked`；可在下一次 `graph-facts.v2` major schema bump，或所有 live workspace 已滚动到新写入后删除该兼容名。
@@ -109,7 +121,7 @@ Legacy compatibility：`dirty-refresh-non-canonical` 仅代表旧版本把所有
 1. 先读 `.spec-first/graph/provider-status.json` 和 `.spec-first/graph/graph-facts.json`，再按 `normalized_artifacts` 指针读取 provider-specific normalized facts。
 2. 需要 context、impact 或 review 支持时，读 `.spec-first/impact/bootstrap-impact-capabilities.json` 的 per-capability `support_level`，而不是用 provider 是否 ready 推断所有能力都 full。
 3. 比较 freshness 时同时检查 `source_revision`、`worktree_dirty` 和 `worktree_status_hash`；只检查 dirty boolean 不够。
-4. 新写或本轮更新的 consumer 在比较 dirty freshness 前先读 `graph-facts.v1.dirty_classification`：`setup-owned-only` 表示 canonical artifact 是本轮成功刷新结果但 hash 可能随治理文件漂移；`graph-affecting-blocked` 只能来自本轮 command result，不能从 preserved `graph-facts.json` 推断。缺失 `dirty_classification` 的旧 `graph-facts.v1` 必须回退到既有 `worktree_dirty` + `worktree_status_hash` dirty-aware 判断，并把 dirty 情况标为 legacy/dirty-uncertain，不得从字段缺失推断 clean。
+4. 新写或本轮更新的 consumer 在比较 dirty freshness 前先读 `graph-facts.v1.dirty_classification`：`setup-owned-only` 与 `non-graph-only` 表示 canonical artifact 是本轮成功刷新结果但 hash 可能随治理或变更日志文件漂移；`graph-affecting-blocked` 只能来自本轮 command result，不能从 preserved `graph-facts.json` 推断。缺失 `dirty_classification` 的旧 `graph-facts.v1` 必须回退到既有 `worktree_dirty` + `worktree_status_hash` dirty-aware 判断，并把 dirty 情况标为 legacy/dirty-uncertain，不得从字段缺失推断 clean。
 5. `runtime-capabilities.json.project_graph_readiness` 与 `graph-providers.json.derived_readiness` 是 setup-owned projection，只能作为指向 canonical artifacts 的提示；下游 readiness 判断以 canonical graph artifacts 为准。
 6. provider raw logs、diagnostics 和 live MCP 输出用于解释或补充本轮判断，不能替代 canonical fields。
 7. live MCP 成功是 session-local corroboration，不能把 `.spec-first/graph/graph-facts.json`、`.spec-first/graph/provider-status.json` 或 setup projection 中的 `query_ready` 改写为 true。

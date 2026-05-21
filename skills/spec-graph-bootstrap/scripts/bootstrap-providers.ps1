@@ -19,16 +19,20 @@ $script:SetupOwnedDirtyIgnorePrefixes = @(
   '.code-review-graph/',
   'AGENTS.md',
   'CLAUDE.md',
-  'CHANGELOG.md',
   '.gitignore',
   '.codex/spec-first/',
   '.claude/spec-first/',
   '.agents/skills/'
 )
+$script:NonGraphMetadataDirtyPaths = @(
+  'CHANGELOG.md',
+  'docs/变更日志.md'
+)
 $script:ExternalActorFingerprintIgnorePattern = '^(\.spec-first/|\.gitnexus/|\.code-review-graph/)'
 $script:DirtyClassification = ''
 $script:DirtyPathsBreakdown = [ordered]@{
   setup_owned_count = 0
+  non_graph_metadata_count = 0
   graph_affecting_count = 0
   sample_paths = @()
   truncated = $false
@@ -2457,6 +2461,17 @@ function Get-SetupOwnedDirtyRule {
   return 'graph-affecting'
 }
 
+function Get-NonGraphMetadataDirtyRule {
+  param([string]$Path)
+
+  foreach ($metadataPath in $script:NonGraphMetadataDirtyPaths) {
+    if ($Path -eq $metadataPath) {
+      return 'whole-file'
+    }
+  }
+  return 'graph-affecting'
+}
+
 function Get-DirtyPathClassification {
   param(
     [string]$Path,
@@ -2472,6 +2487,10 @@ function Get-DirtyPathClassification {
       return 'setup-owned'
     }
     return 'graph-affecting'
+  }
+  $metadataRule = Get-NonGraphMetadataDirtyRule -Path $Path
+  if ($metadataRule -eq 'whole-file') {
+    return 'non-graph-metadata'
   }
   return 'graph-affecting'
 }
@@ -2531,9 +2550,11 @@ function Set-WorktreeDirtyClassification {
   }
 
   $setupOwnedCount = @($classifications | Where-Object { $_.classification -eq 'setup-owned' }).Count
+  $nonGraphMetadataCount = @($classifications | Where-Object { $_.classification -eq 'non-graph-metadata' }).Count
   $graphAffectingCount = @($classifications | Where-Object { $_.classification -eq 'graph-affecting' }).Count
   $script:DirtyPathsBreakdown = [ordered]@{
     setup_owned_count = $setupOwnedCount
+    non_graph_metadata_count = $nonGraphMetadataCount
     graph_affecting_count = $graphAffectingCount
     sample_paths = @($classifications | Select-Object -First 20 | ForEach-Object { [string]$_.path })
     truncated = ($classifications.Count -gt 20)
@@ -2542,6 +2563,8 @@ function Set-WorktreeDirtyClassification {
     $script:DirtyClassification = 'clean'
   } elseif ($graphAffectingCount -gt 0) {
     $script:DirtyClassification = 'graph-affecting-blocked'
+  } elseif ($nonGraphMetadataCount -gt 0) {
+    $script:DirtyClassification = 'non-graph-only'
   } else {
     $script:DirtyClassification = 'setup-owned-only'
   }

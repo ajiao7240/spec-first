@@ -26,6 +26,15 @@ function extractBashSetupOwnedPrefixes(source) {
     .filter(Boolean);
 }
 
+function extractBashNonGraphMetadataPaths(source) {
+  const match = source.match(/NON_GRAPH_METADATA_DIRTY_PATHS=\(\n([\s\S]*?)\n\)/);
+  if (!match) return [];
+  return match[1]
+    .split('\n')
+    .map(line => line.trim().replace(/^"|"$/g, ''))
+    .filter(Boolean);
+}
+
 function extractPowerShellSetupOwnedPrefixes(source) {
   const match = source.match(/\$script:SetupOwnedDirtyIgnorePrefixes = @\(\n([\s\S]*?)\n\)/);
   if (!match) return [];
@@ -35,8 +44,23 @@ function extractPowerShellSetupOwnedPrefixes(source) {
     .filter(Boolean);
 }
 
+function extractPowerShellNonGraphMetadataPaths(source) {
+  const match = source.match(/\$script:NonGraphMetadataDirtyPaths = @\(\n([\s\S]*?)\n\)/);
+  if (!match) return [];
+  return match[1]
+    .split('\n')
+    .map(line => line.trim().replace(/,$/, '').replace(/^'|'$/g, ''))
+    .filter(Boolean);
+}
+
 function extractContractSetupOwnedPrefixes(source) {
   const section = source.match(/## setup-owned-dirty-ignore\.v1\n([\s\S]*?)\n## /);
+  if (!section) return [];
+  return Array.from(section[1].matchAll(/\| `([^`]+)` \|/g)).map(match => match[1]);
+}
+
+function extractContractNonGraphMetadataPaths(source) {
+  const section = source.match(/## non-graph-metadata-dirty-ignore\.v1\n([\s\S]*?)\n## /);
   if (!section) return [];
   return Array.from(section[1].matchAll(/\| `([^`]+)` \|/g)).map(match => match[1]);
 }
@@ -198,25 +222,36 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
       '.code-review-graph/',
       'AGENTS.md',
       'CLAUDE.md',
-      'CHANGELOG.md',
       '.gitignore',
       '.codex/spec-first/',
       '.claude/spec-first/',
       '.agents/skills/',
     ];
+    const expectedNonGraphMetadataPaths = [
+      'CHANGELOG.md',
+      'docs/变更日志.md',
+    ];
 
     expect(extractContractSetupOwnedPrefixes(contract).sort()).toEqual([...expectedPrefixes].sort());
     expect(extractBashSetupOwnedPrefixes(bashScript).sort()).toEqual([...expectedPrefixes].sort());
     expect(extractPowerShellSetupOwnedPrefixes(powershellScript).sort()).toEqual([...expectedPrefixes].sort());
+    expect(extractContractNonGraphMetadataPaths(contract).sort()).toEqual([...expectedNonGraphMetadataPaths].sort());
+    expect(extractBashNonGraphMetadataPaths(bashScript).sort()).toEqual([...expectedNonGraphMetadataPaths].sort());
+    expect(extractPowerShellNonGraphMetadataPaths(powershellScript).sort()).toEqual([...expectedNonGraphMetadataPaths].sort());
 
     expect(bashScript).toContain('for prefix in "${SETUP_OWNED_DIRTY_IGNORE_PREFIXES[@]}"');
     expect(powershellScript).toContain('foreach ($prefix in $script:SetupOwnedDirtyIgnorePrefixes)');
+    expect(bashScript).toContain('for metadata_path in "${NON_GRAPH_METADATA_DIRTY_PATHS[@]}"');
+    expect(powershellScript).toContain('foreach ($metadataPath in $script:NonGraphMetadataDirtyPaths)');
     expect(bashScript).toContain('git -C "$REPO_ROOT" status --porcelain=v2 -z');
     expect(powershellScript).toContain("$psi.ArgumentList.Add('--porcelain=v2')");
     expect(powershellScript).toContain("$psi.ArgumentList.Add('-z')");
     expect(bashScript).toContain('DIRTY_CLASSIFICATION="graph-affecting-blocked"');
+    expect(bashScript).toContain('DIRTY_CLASSIFICATION="non-graph-only"');
     expect(powershellScript).toContain("$script:DirtyClassification = 'graph-affecting-blocked'");
+    expect(powershellScript).toContain("$script:DirtyClassification = 'non-graph-only'");
     expect(contract).toContain('graph-affecting-blocked` 只来自本轮 command result');
+    expect(contract).toContain('`non-graph-only`');
     expect(contract).toContain('blank-only 分隔行');
     expect(fs.readFileSync(SKILL_PATH, 'utf8')).toContain('marker-adjacent blank-only separators');
   });

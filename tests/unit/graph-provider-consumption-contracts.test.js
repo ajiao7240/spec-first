@@ -178,7 +178,6 @@ describe('graph provider consumption contract', () => {
       '.code-review-graph/',
       'AGENTS.md',
       'CLAUDE.md',
-      'CHANGELOG.md',
       '.gitignore',
       '.codex/spec-first/',
       '.claude/spec-first/',
@@ -187,6 +186,12 @@ describe('graph provider consumption contract', () => {
       expect(doc).toContain(`| \`${prefix}\` |`);
     }
 
+    expect(doc).toContain('## non-graph-metadata-dirty-ignore.v1');
+    expect(doc).toContain('| `CHANGELOG.md` |');
+    expect(doc).toContain('| `docs/变更日志.md` |');
+    expect(doc).toContain('dirty_classification=non-graph-only');
+    expect(doc).toContain('dirty_paths_breakdown.non_graph_metadata_count');
+    expect(doc).toContain('不得把该列表扩展为 `docs/**`');
     expect(doc).toContain('dirty_classification=setup-owned-only');
     expect(doc).toContain('dirty_classification=graph-affecting-blocked');
     expect(doc).toContain('`graph-affecting-blocked` 只能来自本轮 command result');
@@ -234,6 +239,7 @@ describe('graph provider consumption contract', () => {
       dirty_classification: 'clean',
       dirty_paths_breakdown: {
         setup_owned_count: 0,
+        non_graph_metadata_count: 0,
         graph_affecting_count: 0,
         sample_paths: [],
         truncated: false,

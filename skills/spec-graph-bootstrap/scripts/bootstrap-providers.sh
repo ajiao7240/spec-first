@@ -26,11 +26,14 @@ SETUP_OWNED_DIRTY_IGNORE_PREFIXES=(
   ".code-review-graph/"
   "AGENTS.md"
   "CLAUDE.md"
-  "CHANGELOG.md"
   ".gitignore"
   ".codex/spec-first/"
   ".claude/spec-first/"
   ".agents/skills/"
+)
+NON_GRAPH_METADATA_DIRTY_PATHS=(
+  "CHANGELOG.md"
+  "docs/变更日志.md"
 )
 EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX='^(\.spec-first/|\.gitnexus/|\.code-review-graph/)'
 
@@ -568,7 +571,7 @@ else
 fi
 WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | hash_text)"
 DIRTY_CLASSIFICATION=""
-DIRTY_PATHS_BREAKDOWN_JSON='{"setup_owned_count":0,"graph_affecting_count":0,"sample_paths":[],"truncated":false}'
+DIRTY_PATHS_BREAKDOWN_JSON='{"setup_owned_count":0,"non_graph_metadata_count":0,"graph_affecting_count":0,"sample_paths":[],"truncated":false}'
 HOST_INSTRUCTION_EXPECTED_AGENTS_HASH=""
 HOST_INSTRUCTION_EXPECTED_CLAUDE_HASH=""
 HOST_INSTRUCTION_BOOTSTRAP_OWNED_AGENTS=false
@@ -831,6 +834,18 @@ setup_owned_dirty_rule_for_path() {
   printf '%s\n' "graph-affecting"
 }
 
+non_graph_metadata_dirty_rule_for_path() {
+  local path="$1"
+  local metadata_path
+  for metadata_path in "${NON_GRAPH_METADATA_DIRTY_PATHS[@]}"; do
+    if [ "$path" = "$metadata_path" ]; then
+      printf '%s\n' "whole-file"
+      return 0
+    fi
+  done
+  printf '%s\n' "graph-affecting"
+}
+
 classify_dirty_path() {
   local path="$1"
   local status_hint="$2"
@@ -848,7 +863,13 @@ classify_dirty_path() {
       fi
       ;;
     *)
-      printf '%s\n' "graph-affecting"
+      local metadata_rule
+      metadata_rule="$(non_graph_metadata_dirty_rule_for_path "$path")"
+      if [ "$metadata_rule" = "whole-file" ]; then
+        printf '%s\n' "non-graph-metadata"
+      else
+        printf '%s\n' "graph-affecting"
+      fi
       ;;
   esac
 }
@@ -894,7 +915,7 @@ parse_porcelain_v2_paths() {
 build_dirty_paths_breakdown() {
   local classifications_file="$1"
   if [ ! -s "$classifications_file" ]; then
-    jq -n '{setup_owned_count:0,graph_affecting_count:0,sample_paths:[],truncated:false}'
+    jq -n '{setup_owned_count:0,non_graph_metadata_count:0,graph_affecting_count:0,sample_paths:[],truncated:false}'
     return 0
   fi
   jq -R -s '
@@ -902,6 +923,7 @@ build_dirty_paths_breakdown() {
     | map(select(length > 0) | split("\t") | {classification:.[0], path:.[1]})
     | {
         setup_owned_count:([.[] | select(.classification == "setup-owned")] | length),
+        non_graph_metadata_count:([.[] | select(.classification == "non-graph-metadata")] | length),
         graph_affecting_count:([.[] | select(.classification == "graph-affecting")] | length),
         sample_paths:([.[] | .path][0:20]),
         truncated:(length > 20)
@@ -918,6 +940,8 @@ classify_worktree_dirty() {
     DIRTY_CLASSIFICATION="clean"
   elif awk -F '\t' '$1 == "graph-affecting" { found=1 } END { exit(found ? 0 : 1) }' "$classifications_file"; then
     DIRTY_CLASSIFICATION="graph-affecting-blocked"
+  elif awk -F '\t' '$1 == "non-graph-metadata" { found=1 } END { exit(found ? 0 : 1) }' "$classifications_file"; then
+    DIRTY_CLASSIFICATION="non-graph-only"
   else
     DIRTY_CLASSIFICATION="setup-owned-only"
   fi

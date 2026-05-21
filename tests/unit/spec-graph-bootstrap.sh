@@ -733,14 +733,12 @@ make_repo "$SETUP_DIRTY_REPO"
 write_fixture_config "$SETUP_DIRTY_REPO" "$SETUP_DIRTY_LEDGER" true
 write_spec_first_managed_host_file "$SETUP_DIRTY_REPO/AGENTS.md"
 write_spec_first_managed_gitignore "$SETUP_DIRTY_REPO/.gitignore"
-printf '# Changelog\n' > "$SETUP_DIRTY_REPO/CHANGELOG.md"
-git -C "$SETUP_DIRTY_REPO" add AGENTS.md .gitignore CHANGELOG.md
+git -C "$SETUP_DIRTY_REPO" add AGENTS.md .gitignore
 git -C "$SETUP_DIRTY_REPO" commit -q -m "Add setup-owned files"
 awk '{print} /managed line/ {print "managed dirty line"}' "$SETUP_DIRTY_REPO/AGENTS.md" > "$SETUP_DIRTY_REPO/AGENTS.md.tmp"
 mv "$SETUP_DIRTY_REPO/AGENTS.md.tmp" "$SETUP_DIRTY_REPO/AGENTS.md"
 awk '{print} /\.code-review-graph\// {print ".agents/skills/"}' "$SETUP_DIRTY_REPO/.gitignore" > "$SETUP_DIRTY_REPO/.gitignore.tmp"
 mv "$SETUP_DIRTY_REPO/.gitignore.tmp" "$SETUP_DIRTY_REPO/.gitignore"
-printf 'setup-owned changelog dirty\n' >> "$SETUP_DIRTY_REPO/CHANGELOG.md"
 set +e
 setup_dirty_output="$(cd "$SETUP_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 setup_dirty_status=$?
@@ -749,6 +747,22 @@ assert_eq "setup-owned dirty exits successfully" "0" "$setup_dirty_status"
 assert_eq "setup-owned dirty does not block bootstrap" "primary:setup-owned-only:true" "$(jq -r '.workflow_mode + ":" + .dirty_classification + ":" + (.dirty_paths_breakdown.setup_owned_count > 0 | tostring)' <<<"$setup_dirty_output")"
 assert_eq "setup-owned dirty graph facts are written" "setup-owned-only:true:true" "$(jq -r '.dirty_classification + ":" + (.worktree_dirty | tostring) + ":" + (.dirty_paths_breakdown.setup_owned_count > 0 | tostring)' "$SETUP_DIRTY_REPO/.spec-first/graph/graph-facts.json")"
 assert_eq "setup-owned dirty is not written to provider status aggregate" "false" "$(jq -r 'has("dirty_classification")' "$SETUP_DIRTY_REPO/.spec-first/graph/provider-status.json")"
+
+NON_GRAPH_METADATA_REPO="$TMP_DIR/non-graph-metadata-repo"
+NON_GRAPH_METADATA_LEDGER="$TMP_DIR/non-graph-metadata-home/.codex/spec-first/host-setup.json"
+make_repo "$NON_GRAPH_METADATA_REPO"
+write_fixture_config "$NON_GRAPH_METADATA_REPO" "$NON_GRAPH_METADATA_LEDGER" true
+mkdir -p "$NON_GRAPH_METADATA_REPO/docs"
+printf '# Changelog\n' > "$NON_GRAPH_METADATA_REPO/CHANGELOG.md"
+printf '# 变更日志\n' > "$NON_GRAPH_METADATA_REPO/docs/变更日志.md"
+git -C "$NON_GRAPH_METADATA_REPO" add CHANGELOG.md docs/变更日志.md
+git -C "$NON_GRAPH_METADATA_REPO" commit -q -m "Add changelog metadata"
+printf 'root changelog metadata dirty\n' >> "$NON_GRAPH_METADATA_REPO/CHANGELOG.md"
+printf 'localized changelog metadata dirty\n' >> "$NON_GRAPH_METADATA_REPO/docs/变更日志.md"
+non_graph_metadata_output="$(cd "$NON_GRAPH_METADATA_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "non-graph metadata dirty exits successfully" "0" "$?"
+assert_eq "non-graph metadata dirty does not block bootstrap" "primary:non-graph-only:2:0" "$(jq -r '.workflow_mode + ":" + .dirty_classification + ":" + (.dirty_paths_breakdown.non_graph_metadata_count | tostring) + ":" + (.dirty_paths_breakdown.graph_affecting_count | tostring)' <<<"$non_graph_metadata_output")"
+assert_eq "non-graph metadata dirty graph facts are written" "non-graph-only:true:2" "$(jq -r '.dirty_classification + ":" + (.worktree_dirty | tostring) + ":" + (.dirty_paths_breakdown.non_graph_metadata_count | tostring)' "$NON_GRAPH_METADATA_REPO/.spec-first/graph/graph-facts.json")"
 
 UNTRACKED_HOST_SEPARATOR_REPO="$TMP_DIR/untracked-host-separator-repo"
 UNTRACKED_HOST_SEPARATOR_LEDGER="$TMP_DIR/untracked-host-separator-home/.codex/spec-first/host-setup.json"
@@ -924,13 +938,13 @@ make_repo "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-a"
 make_repo "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-b"
 write_fixture_config "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-a" "$ALL_REPOS_DIRTY_CLASSIFICATION_LEDGER" true
 write_fixture_config "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-b" "$ALL_REPOS_DIRTY_CLASSIFICATION_LEDGER" true
-printf 'setup dirty\n' >> "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-a/CHANGELOG.md"
+printf 'non-graph metadata dirty\n' >> "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-a/CHANGELOG.md"
 printf 'source dirty\n' >> "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-b/README.md"
 set +e
 all_repos_dirty_classification_output="$(cd "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --all-repos)"
 all_repos_dirty_classification_status=$?
 set -e
-assert_eq "all-repos dirty classification summary is partial" "0:partial:setup-owned-only:graph-affecting-blocked" "$all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.results[] | select(.workspace_relative_path=="project-a") | .dirty_classification) + ":" + (.results[] | select(.workspace_relative_path=="project-b") | .dirty_classification)' <<<"$all_repos_dirty_classification_output")"
+assert_eq "all-repos dirty classification summary is partial" "0:partial:non-graph-only:graph-affecting-blocked" "$all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.results[] | select(.workspace_relative_path=="project-a") | .dirty_classification) + ":" + (.results[] | select(.workspace_relative_path=="project-b") | .dirty_classification)' <<<"$all_repos_dirty_classification_output")"
 
 DIRTY_REFRESH_REPO="$TMP_DIR/dirty-refresh-repo"
 DIRTY_REFRESH_LEDGER="$TMP_DIR/dirty-refresh-home/.codex/spec-first/host-setup.json"
@@ -1009,9 +1023,22 @@ if command -v pwsh >/dev/null 2>&1; then
   make_repo "$PS_SETUP_DIRTY_REPO"
   write_fixture_config "$PS_SETUP_DIRTY_REPO" "$PS_SETUP_DIRTY_LEDGER" true
   write_spec_first_managed_only_host_file "$PS_SETUP_DIRTY_REPO/AGENTS.md"
-  printf '# Changelog\nsetup-owned dirty\n' > "$PS_SETUP_DIRTY_REPO/CHANGELOG.md"
   ps_setup_dirty_output="$(cd "$PS_SETUP_DIRTY_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
   assert_eq "PowerShell setup-owned dirty permits host blank separators" "primary:setup-owned-only" "$(jq -r '.workflow_mode + ":" + .dirty_classification' <<<"$ps_setup_dirty_output")"
+
+  PS_NON_GRAPH_METADATA_REPO="$TMP_DIR/ps-non-graph-metadata-repo"
+  PS_NON_GRAPH_METADATA_LEDGER="$TMP_DIR/ps-non-graph-metadata-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_NON_GRAPH_METADATA_REPO"
+  write_fixture_config "$PS_NON_GRAPH_METADATA_REPO" "$PS_NON_GRAPH_METADATA_LEDGER" true
+  mkdir -p "$PS_NON_GRAPH_METADATA_REPO/docs"
+  printf '# Changelog\n' > "$PS_NON_GRAPH_METADATA_REPO/CHANGELOG.md"
+  printf '# 变更日志\n' > "$PS_NON_GRAPH_METADATA_REPO/docs/变更日志.md"
+  git -C "$PS_NON_GRAPH_METADATA_REPO" add CHANGELOG.md docs/变更日志.md
+  git -C "$PS_NON_GRAPH_METADATA_REPO" commit -q -m "Add changelog metadata"
+  printf 'metadata dirty\n' >> "$PS_NON_GRAPH_METADATA_REPO/CHANGELOG.md"
+  printf 'metadata dirty\n' >> "$PS_NON_GRAPH_METADATA_REPO/docs/变更日志.md"
+  ps_non_graph_metadata_output="$(cd "$PS_NON_GRAPH_METADATA_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
+  assert_eq "PowerShell non-graph metadata dirty does not block" "primary:non-graph-only:2" "$(jq -r '.workflow_mode + ":" + .dirty_classification + ":" + (.dirty_paths_breakdown.non_graph_metadata_count | tostring)' <<<"$ps_non_graph_metadata_output")"
 fi
 
 INCREMENTAL_REPO="$TMP_DIR/incremental-repo"

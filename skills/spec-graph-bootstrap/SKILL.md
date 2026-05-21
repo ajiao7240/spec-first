@@ -267,6 +267,7 @@ Refresh mode behavior:
 - incremental and fallback full both fail: writes current per-provider failure status with `refresh_mode=failed`, sets `requires_clean_full_refresh=true`, preserves previous aggregate canonical freshness artifacts when present, and returns `reason_code=incremental-and-full-failed`.
 - dirty worktree with graph-affecting paths: exits before provider commands with `reason_code=dirty-source-blocked`, `dirty_classification=graph-affecting-blocked`, and `canonical_artifacts_preserved=true`; it does not run incremental or full provider refresh.
 - dirty worktree with setup-owned paths only: continues through provider commands and writes `dirty_classification=setup-owned-only` plus `dirty_paths_breakdown` into `graph-facts.v1`; `worktree_dirty=true` and `worktree_status_hash` remain the downstream freshness inputs.
+- dirty worktree with only changelog metadata plus optional setup-owned paths: continues through provider commands and writes `dirty_classification=non-graph-only` plus `dirty_paths_breakdown.non_graph_metadata_count`; this is a narrow changelog exemption, not a docs-wide exemption.
 
 If a dirty generated runtime file is still tracked in git and falls outside the setup-owned dirty contract, rerun `spec-first init --codex` or `spec-first init --claude` in that child repo first. Init owns the one-time `git rm --cached` cleanup for managed runtime paths; graph-bootstrap should not repair git index state inline.
 
@@ -274,7 +275,7 @@ If a dirty generated runtime file is still tracked in git and falls outside the 
 
 The setup-owned dirty source-of-truth is `docs/contracts/graph-provider-consumption.md#setup-owned-dirty-ignorev1`. The bootstrap scripts mirror that path-prefix list in Bash and PowerShell constants, and contract tests keep the sets equivalent.
 
-Setup-owned dirty includes `.spec-first/`, `.gitnexus/`, `.code-review-graph/`, `CHANGELOG.md`, `.codex/spec-first/`, `.claude/spec-first/`, `.agents/skills/`, and only the spec-first managed blocks inside `AGENTS.md`, `CLAUDE.md`, and `.gitignore`. Managed-block checks allow marker-adjacent blank-only separators produced by init, but fail closed for malformed, duplicate, or non-blank user-region marker changes.
+Setup-owned dirty includes `.spec-first/`, `.gitnexus/`, `.code-review-graph/`, `.codex/spec-first/`, `.claude/spec-first/`, `.agents/skills/`, and only the spec-first managed blocks inside `AGENTS.md`, `CLAUDE.md`, and `.gitignore`. Non-graph metadata dirty is limited to `CHANGELOG.md` and `docs/变更日志.md`; those paths may pass the dirty gate as `non-graph-only`, but broader docs remain graph-affecting by default. Managed-block checks allow marker-adjacent blank-only separators produced by init, but fail closed for malformed, duplicate, or non-blank user-region marker changes.
 
 Graph-affecting dirty remains fail-closed and has no `--allow-dirty` / `-AllowDirty` escape hatch in this release. The legacy `dirty-refresh-non-canonical` reason code is compatibility-only for historical command results; new bootstrap logic writes `dirty-source-blocked`.
 
