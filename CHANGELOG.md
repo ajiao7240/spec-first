@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-22 07:41:00 leokuang: docs(plan): 逐项修复 GitNexus workspace group readiness 方案复审 findings——拆清 durable script-owned readiness 与 session-local live MCP overlay，补 `gitnexus-instruction normalize --git-root-topology` CLI 传参路径，明确 Phase 1 单独交付必须更新 changelog/release caveat，校准 A2-Read fixture gate 的时态，定义 0/1 child parent workspace 的 blocked topology 输出，并把 checked-in `AGENTS.md` / `CLAUDE.md` source slice 纳入 host bootstrap 对齐范围 (user-visible)
 - v1.8.2 2026-05-21 23:10:04 leokuang: fix(init): 修复 `spec-standards` 删除后的升级残留清理缺口，`spec-first init --claude|--codex` 现在会 prune 旧 `.spec-first/standards/` artifact root，避免移除 gitignore 后暴露 retired standards 产物；同步 init 回归测试并清理审查报告行尾空格以恢复 diff whitespace gate (user-visible)
 - v1.8.2 2026-05-21 22:53:37 leokuang: docs(architecture): 清理 ECC 专家能力方案中残留的 `standards-aware` 与旧 standards candidate/preview 流程表述，改为通用 project guidance proposal 到 `AGENTS.md` / `CLAUDE.md` / `docs/contracts` 的 preview-first 路径，避免 active 架构文档复活 retired `spec-standards` 语义 (user-visible)
 - v1.8.2 2026-05-21 22:43:26 leokuang: test(workflows): 修正 no-graph fast path contract test 的 retired standards 断言，将旧 `setup/bootstrap/standards` 与 `standards-aware` 期望同步为 `written project guidance` / `project guidance` 新口径，避免 `spec-standards` 删除后单测继续依赖旧入口语义 (user-visible)
