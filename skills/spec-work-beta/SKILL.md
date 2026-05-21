@@ -460,7 +460,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - The plan should reference similar code - read those files first
    - Match naming conventions exactly
    - Reuse existing components where possible
-   - Follow project coding standards (see AGENTS.md; use CLAUDE.md only if the repo still keeps a compatibility shim); when `.spec-first/standards/` exists, treat confirmed standards as hard context and use `glue-map.json` to prefer existing capabilities over reimplementation
+   - Follow project coding standards from `AGENTS.md`, directory-scoped equivalents, and `CLAUDE.md` only if the repo still keeps a compatibility shim; use `docs/contracts/`, nearby source, and tests to prefer existing capabilities over reimplementation
    - When in doubt, grep for similar implementations
 
 4. **Test Continuously**

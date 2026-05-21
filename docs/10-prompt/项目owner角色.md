@@ -420,7 +420,7 @@ spec-brainstorm
 spec-plan
 spec-write-tasks
 spec-code-review
-spec-standards
+spec-graph-bootstrap
 spec-skill-audit
 ```
 

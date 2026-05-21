@@ -20,7 +20,7 @@ describe('spec-first gitignore policy', () => {
     expect(patterns).toContain('.gitnexus/');
     expect(patterns).toContain('.code-review-graph/');
     expect(patterns).toContain('.spec-first/config/*.json');
-    expect(patterns).toContain('.spec-first/standards/');
+    expect(patterns).not.toContain('.spec-first/' + 'standards/');
     expect(patterns).toContain('.spec-first/sessions/');
     expect(patterns).toContain('.serena/');
     expect(patterns).not.toContain('.claude/');

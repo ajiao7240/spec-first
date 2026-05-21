@@ -103,12 +103,14 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('Format-Remark');
     expect(verifySource).toContain('回复“继续完成”');
     expect(verifySource).toContain('现在可以运行 $graphCommand');
-    expect(verifySource).toContain('$standardsCommand');
-    expect(verifySource).toContain('推荐下一步运行 $standardsCommand');
+    expect(verifySource).toContain('按用户意图进入 plan/work/review/debug 等下游 workflow');
+    expect(verifySource).toContain('graph readiness 已就绪');
     expect(verifySource).toContain('如果已经有明确任务，可以在新会话直接描述目标');
-    expect(skillSource).toContain('parent workspace, that standards handoff batches child-local baselines for discovered child repos by default');
-    expect(skillSource).toContain('parent advisory standards artifacts require `spec-standards --workspace`');
-    expect(skillSource).toContain('setup does not write those artifacts itself');
+    expect(skillSource).toContain('handoff guidance to graph bootstrap or the user-intent workflow');
+    expect(skillSource).toContain('when graph readiness is already ready, route by user intent into plan/work/review/debug');
+    expect(skillSource).not.toContain('parent workspace, that standards handoff batches child-local baselines for discovered child repos by default');
+    expect(skillSource).not.toContain('parent advisory standards artifacts require `spec-' + 'standards --workspace`');
+    expect(skillSource).not.toContain('setup does not write those artifacts itself');
     expect(skillSource).toContain('`spec-mcp-setup` owns setup projection, not graph readiness refresh');
     expect(skillSource).toContain('must not write canonical `.spec-first/graph/*`, `.spec-first/providers/*`, or `.spec-first/impact/*`');
     expect(skillSource).toContain('provider fingerprint mismatch');
@@ -117,7 +119,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('live MCP probe 前需要');
     expect(verifySource).toContain('graph_bootstrap_required');
     expect(verifySource).toContain('$spec-graph-bootstrap');
-    expect(verifySource).toContain('$spec-standards');
+    expect(verifySource).not.toContain('$spec-' + 'standards');
   });
 
   test('PowerShell project target resolver matches workspace target contract', () => {

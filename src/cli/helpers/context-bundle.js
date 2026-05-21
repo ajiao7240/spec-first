@@ -39,12 +39,6 @@ const EXCLUDED_PREFIXES = [
     reason: 'runtime context artifacts are excluded from ordinary context',
   },
   {
-    prefix: '.spec-first/standards',
-    kind: 'runtime_context_artifact',
-    reason_code: 'runtime_context_artifact_excluded',
-    reason: 'runtime context artifacts are excluded from ordinary context',
-  },
-  {
     prefix: '.spec-first/app-audit',
     kind: 'runtime_context_artifact',
     reason_code: 'runtime_context_artifact_excluded',

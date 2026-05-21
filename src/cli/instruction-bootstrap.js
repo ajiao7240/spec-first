@@ -153,7 +153,7 @@ function buildZhBootstrapBody(hostId) {
 - Runtime context 默认排除 \`.spec-first/audits/**\` 和 generated mirrors（\`.claude/**\`、\`.codex/**\`、\`.agents/skills/**\`）；只有 setup/update/runtime-drift/audit 等明确运行时任务按需读取
 ${hostLine}
 ${surfaceLine}；不要直接暴露 internal-only skills，例如 \`git-worktree\`
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；graph readiness→\`${entry('graph-bootstrap')}\`；项目规范/胶水→\`${entry('standards')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\``;
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；graph readiness→\`${entry('graph-bootstrap')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\``;
 }
 
 function buildEnBootstrapBody(hostId) {
@@ -181,7 +181,7 @@ function buildEnBootstrapBody(hostId) {
 - Runtime context excludes \`.spec-first/audits/**\` and generated mirrors (\`.claude/**\`, \`.codex/**\`, \`.agents/skills/**\`) by default; only setup/update/runtime-drift/audit tasks read them when explicitly needed
 ${hostLine}
 ${surfaceLine}; do not expose internal-only skills directly, for example \`git-worktree\`
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; graph readiness→\`${entry('graph-bootstrap')}\`; project standards/glue→\`${entry('standards')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/tasks/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\``;
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; graph readiness→\`${entry('graph-bootstrap')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/tasks/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\``;
 }
 
 function stripStandaloneMarkerLines(content) {

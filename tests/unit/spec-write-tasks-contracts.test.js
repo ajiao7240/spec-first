@@ -99,8 +99,11 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('Avoid horizontal "all tests first, then all implementation" waves when independent vertical tracer bullets can be verified');
     expect(skill).toContain('The deterministic validator checks `review_gate` structure only');
     expect(skill).toContain('does not decide which tasks semantically require review');
-    expect(skill).toContain('docs/examples/standards-glue-consumption-examples.md');
-    expect(skill).toContain('examples are context guidance, not task schema');
+    expect(skill).toContain('read `AGENTS.md`, `CLAUDE.md`, directory-scoped standards files, `docs/contracts/`');
+    expect(skill).toContain('Written project standards may become hard task constraints only when they apply to the changed files');
+    expect(skill).not.toContain('docs/examples/standards-' + 'glue-consumption-examples.md');
+    expect(skill).not.toContain('.spec-first/' + 'standards/');
+    expect(skill).not.toContain('glue-' + 'map.json');
     expect(skill).toContain('The deterministic validator only proves frontmatter identity/freshness plus the `Task Pack Contract` machine-readable structure');
     expect(skill).not.toContain('spec-first ' + 'crg hook');
     expect(skill).not.toContain('$spec-' + 'graph' + '-bootstrap');

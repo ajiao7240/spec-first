@@ -56,7 +56,6 @@ logs/
 .spec-first/impact/
 .spec-first/workflows/
 .spec-first/workspace/
-.spec-first/standards/
 .spec-first/sessions/
 
 # Published/package artifacts
@@ -83,7 +82,7 @@ __pycache__/
 .agents/skills/
 .context/spec-first/
 
-# spec-first local setup, graph readiness, standards, and workflow runtime artifacts
+# spec-first local setup, graph readiness, and workflow runtime artifacts
 .gitnexus/
 .code-review-graph/
 .spec-first-graph/
@@ -97,7 +96,6 @@ __pycache__/
 .spec-first/impact/
 .spec-first/workflows/
 .spec-first/workspace/
-.spec-first/standards/
 .spec-first/sessions/
 
 # local project tooling used by spec-first workflows

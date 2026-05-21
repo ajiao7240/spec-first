@@ -27,7 +27,7 @@ describe('no-graph fast path contracts', () => {
 
     expect(readme).toContain('After `doctor`, `init`, and a host restart');
     expect(readme).toContain('lightweight host-session workflows before graph readiness has been compiled');
-    expect(readme).toContain('Use the setup/bootstrap/standards path when the task depends on MCP/helper tools, graph evidence, project standards, or cross-module/cross-repo impact analysis.');
+    expect(readme).toContain('Use the setup/bootstrap path when the task depends on MCP/helper tools, graph evidence, written project guidance, or cross-module/cross-repo impact analysis.');
     expect(readme).toContain('Missing or stale graph facts are degraded evidence to disclose');
     expect(readme).toContain('Graph refresh trigger nodes:');
     expect(readme).toContain('Need current GitNexus/code-review-graph readiness');
@@ -35,7 +35,7 @@ describe('no-graph fast path contracts', () => {
 
     expect(readmeZh).toContain('完成 `doctor`、`init` 和宿主重启后');
     expect(readmeZh).toContain('即使还没有编译 graph readiness，也可以先进入轻量宿主 workflow。');
-    expect(readmeZh).toContain('当任务依赖 MCP/helper tools、graph evidence、project standards、跨模块或跨仓影响分析时');
+    expect(readmeZh).toContain('当任务依赖 MCP/helper tools、graph evidence、书面项目指导、跨模块或跨仓影响分析时');
     expect(readmeZh).toContain('不是所有 workflow 的硬前置');
     expect(readmeZh).toContain('Graph refresh 触发节点：');
     expect(readmeZh).toContain('不会自动 rebuild index');
@@ -64,7 +64,7 @@ describe('no-graph fast path contracts', () => {
 
     expect(initCommand).toContain('For lightweight docs, small fixes, first trials, or lightweight plan/work/review');
     expect(initCommand).toContain('For enhanced readiness');
-    expect(initCommand).toContain('before graph-heavy or standards-aware downstream workflows');
+    expect(initCommand).toContain('Project guidance comes from AGENTS.md, CLAUDE.md, docs/contracts, direct source evidence, tests, and graph facts.');
     expect(initCommand).toContain('对 docs、小修复、首次试用或轻量 plan/work/review');
   });
 

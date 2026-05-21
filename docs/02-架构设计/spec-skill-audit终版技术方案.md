@@ -742,9 +742,6 @@ spec-work:
 spec-code-review:
   审查代码，不顺手实现新功能
 
-spec-standards:
-  生成 standards 候选，不静默写 confirmed standards
-
 spec-mcp-setup:
   安装/验证 provider，不解释业务架构
 

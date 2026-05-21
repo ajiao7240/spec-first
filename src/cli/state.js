@@ -37,6 +37,21 @@ const WINDOWS_RESERVED_PATH_NAMES = new Set([
 const RETIRED_UNMANAGED_COMMAND_FILES = new Set([
   ['graph', 'bootstrap'].join('-') + '.md',
 ]);
+const RETIRED_STANDARDS_SKILL = ['spec', 'standards'].join('-');
+const RETIRED_COMMON_RUNTIME_ASSET_PATHS = [
+  { kind: 'remove_dir', path: '.spec-first/standards' },
+];
+const RETIRED_RUNTIME_ASSET_PATHS = {
+  claude: [
+    { kind: 'remove_file', path: '.claude/commands/spec/standards.md' },
+    { kind: 'remove_dir', path: `.claude/spec-first/workflows/${RETIRED_STANDARDS_SKILL}` },
+    { kind: 'remove_dir', path: `.claude/skills/${RETIRED_STANDARDS_SKILL}` },
+  ],
+  codex: [
+    { kind: 'remove_dir', path: `.agents/skills/${RETIRED_STANDARDS_SKILL}` },
+    { kind: 'remove_file', path: '.codex/commands/spec/standards.md' },
+  ],
+};
 
 function getStateFilePath(projectRoot, adapter) {
   return path.join(projectRoot, adapter.stateFile);
@@ -528,6 +543,35 @@ function removeObsoleteManagedAssets(projectRoot, previousState, nextState, adap
   applyOperationPlan(projectRoot, planObsoleteManagedAssetRemoval(projectRoot, previousState, nextState, adapter));
 }
 
+function planRetiredRuntimeAssetPrune(projectRoot, adapter) {
+  const retiredPaths = [
+    ...RETIRED_COMMON_RUNTIME_ASSET_PATHS,
+    ...(RETIRED_RUNTIME_ASSET_PATHS[adapter.id] || []),
+  ];
+  const operations = [];
+
+  for (const retiredPath of retiredPaths) {
+    const absolutePath = path.join(projectRoot, retiredPath.path);
+    if (!fs.existsSync(absolutePath)) {
+      continue;
+    }
+
+    operations.push(
+      buildOperation(
+        retiredPath.kind,
+        absolutePath,
+        projectRoot,
+        'retired_runtime_asset',
+      ),
+    );
+  }
+
+  return {
+    operations,
+    summary: summarizeOperations(operations),
+  };
+}
+
 function planCommandNamespacePrune(projectRoot, managedCommandFiles, adapter) {
   const commandDir = path.join(projectRoot, adapter.commandRoot);
   if (!fs.existsSync(commandDir)) {
@@ -755,6 +799,7 @@ module.exports = {
   planHardResetManagedAssets,
   planManagedAssetRemoval,
   planObsoleteManagedAssetRemoval,
+  planRetiredRuntimeAssetPrune,
   pruneCommandNamespace,
   readStateFileRaw,
   readState,

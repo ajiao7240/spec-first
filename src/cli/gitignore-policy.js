@@ -21,7 +21,7 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
     ],
   },
   {
-    title: 'spec-first local setup, graph readiness, standards, and workflow runtime artifacts',
+    title: 'spec-first local setup, graph readiness, and workflow runtime artifacts',
     patterns: [
       '.gitnexus/',
       '.code-review-graph/',
@@ -36,7 +36,6 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
       '.spec-first/impact/',
       '.spec-first/workflows/',
       '.spec-first/workspace/',
-      '.spec-first/standards/',
       '.spec-first/sessions/',
     ],
   },

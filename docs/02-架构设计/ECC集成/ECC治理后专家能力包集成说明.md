@@ -380,7 +380,7 @@ spec-first 已有 public workflow 入口；
 | `/plan`, `/multi-plan`, `/feature-dev`, `/prp-plan`, `/prp-implement` | 参考到 `$spec-brainstorm`, `$spec-plan`, `spec-write-tasks`, `$spec-work` |
 | `/build-fix`, `/go-build`, `/rust-build`, `/kotlin-build`, `/flutter-build`, `/gradle-build` | 参考到 `$spec-debug` 和 `$spec-work` 的 build failure handling |
 | `/harness-audit`, `/skill-health`, `/learn-eval` | 参考到 `$spec-skill-audit` 与 `$spec-optimize` |
-| `/update-docs`, `/update-codemaps`, `/learn` | 参考到 `$spec-standards` 与 `$spec-compound` |
+| `/update-docs`, `/update-codemaps`, `/learn` | 参考到 `$spec-compound`、`$spec-skill-audit` 与现有 docs/contracts/source 维护流程 |
 | `/hookify*`, `/jira`, `/pm2`, `/model-route`, `/setup-pm` | 不进入核心，未来最多作为 optional tooling provider 参考 |
 
 后续可生成 `ecc-command-idea-matrix`，但它只能用于 reference：

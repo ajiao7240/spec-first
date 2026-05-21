@@ -99,9 +99,11 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('Definitions-only evidence can help locate files or symbols');
     expect(skill).toContain('Do not rewrite `.spec-first/graph/*`');
     expect(skill).toContain('do not set compiled `query_ready=true`');
-    expect(skill).toContain('Do not compile standards or glue baselines here.');
-    expect(skill).toContain('no-argument parent workspace runs batch child-local `.spec-first/standards/` baselines');
-    expect(skill).toContain('`spec-standards --workspace` owns parent advisory standards artifacts');
+    expect(skill).toContain('Do not infer semantic architecture conclusions or write project-guidance baselines here.');
+    expect(skill).toContain('downstream workflows should use the readiness facts as advisory evidence');
+    expect(skill).toContain('route by user intent into planning, work, debugging, review, or documentation workflows');
+    expect(skill).not.toContain('.spec-first/' + 'standards/');
+    expect(skill).not.toContain('spec-' + 'standards');
     expect(skill).toContain('update the final user-facing result table');
     expect(skill).toContain('ready/degraded/not-applicable/action-required counts');
     expect(skill).toContain('.spec-first/workspace/graph-bootstrap-summary.json');

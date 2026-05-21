@@ -38,7 +38,7 @@ Plan files under the appropriate docs location, reused source-document links, op
 
 ### Failure Modes
 
-Empty or ambiguous input requires a blocking clarification or planning bootstrap; missing/unreadable source documents are surfaced instead of silently ignored; degraded standards/graph facts stay advisory; implementation-dependent questions are deferred to `spec-work`.
+Empty or ambiguous input requires a blocking clarification or planning bootstrap; missing/unreadable source documents are surfaced instead of silently ignored; degraded graph or provider facts stay advisory; implementation-dependent questions are deferred to `spec-work`.
 
 ### Workflow
 
@@ -50,7 +50,7 @@ Resolve source and scope, gather required repo/research context, structure the p
 
 ## Context Orientation Anchor
 
-Orient from the current user request or requirement, existing plans or task packs, `AGENTS.md` / `CLAUDE.md` / project role docs, `.spec-first/standards/project-shape.json`, `.spec-first/standards/standards-candidates.json`, `.spec-first/standards/glue-map.json`, and the latest standards validation result when present, package manifests and command registries, nearby implementation files, nearby tests, and git diff or changed files when applicable. Standards consumption contract: `confirmed` -> hard project context; `observed` / `imported` / `suggested` -> advisory context; `conflict` -> risk context to resolve or call out in the plan; `unknown` -> question context for user/project evidence. If validation failed, is missing, reports `trust_level=degraded`, reports `consumption_boundary=advisory_only`, or carries `workspace-advisory-only`, consume standards artifacts as degraded/advisory only；遇到 workspace-advisory-only 时，可建议用户运行 `spec-standards --repo <child>` 获取 child-local standards baseline。 Use `glue-map.json` for reuse-first implementation boundaries, not as a workflow state machine. See `docs/examples/standards-glue-consumption-examples.md` for concrete consumption examples; the examples clarify usage and do not expand plan scope. External tools may prioritize inspection, but they do not define scope authority. The LLM still chooses the candidate change surface from explicit repo context and source-plan constraints.
+Orient from the current user request or requirement, existing plans or task packs, `AGENTS.md` / `CLAUDE.md` / project role docs, `docs/contracts/`, existing brainstorms/plans/solutions, package manifests and command registries, nearby implementation files, nearby tests, graph/provider readiness facts when relevant, and git diff or changed files when applicable. Written project standards in `AGENTS.md`, `CLAUDE.md`, or directory-scoped equivalents may define hard project context when they apply to the planned files; docs, prior plans, and provider facts remain advisory unless the current source plan or user request promotes them to scope authority. External tools may prioritize inspection, but they do not define scope authority. The LLM still chooses the candidate change surface from explicit repo context and source-plan constraints.
 
 Use this intake order for context economy: first read the request/requirements summary and contract metadata, then deterministic inventory or readiness facts, then current phase/task refs, then focused source-of-truth sections, and only then deeper references. Reuse the trust model in `docs/contracts/workflows/review-pre-facts-extraction.md` and `src/cli/helpers/review-pre-facts.js` for review/token-economy facts; do not create a parallel reviewer facts pipeline.
 
@@ -68,7 +68,7 @@ Follow `docs/contracts/context-governance.md`: ordinary Planning context exclude
 
 ## Cache-Friendly Context Layout
 
-Keep role boundaries, plan quality bar, graph/readiness limits, and reference load conditions in the stable instruction prefix. Put the current request, requirement summary, repo evidence, tool summaries, standards facts, `artifact-summary.v1`, and `context-bundle.v1` from `docs/contracts/context-bundle.md` in the dynamic suffix. Plan handoff should summarize goal, scope, non-goals, implementation units, verification, and open questions before asking downstream work to read the full plan.
+Keep role boundaries, plan quality bar, graph/readiness limits, and reference load conditions in the stable instruction prefix. Put the current request, requirement summary, repo evidence, tool summaries, project-guidance facts, `artifact-summary.v1`, and `context-bundle.v1` from `docs/contracts/context-bundle.md` in the dynamic suffix. Plan handoff should summarize goal, scope, non-goals, implementation units, verification, and open questions before asking downstream work to read the full plan.
 
 ## Interaction Method
 

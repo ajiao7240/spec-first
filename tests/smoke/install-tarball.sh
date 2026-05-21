@@ -48,6 +48,7 @@ tar -tf "$TARBALL_PATH" > "$PACK_LIST"
 obsolete_src="src/""crg"
 parser_dep="tree""-sitter"
 sqlite_dep="better""-sqlite3"
+retired_standards="standards"
 if grep -E "$obsolete_src|$parser_dep|$sqlite_dep" "$PACK_LIST"; then
   echo "✗ tarball 文件列表包含已删除的图谱运行时内容"
   exit 1
@@ -62,9 +63,14 @@ if grep -E '(^|/)__pycache__/|\.py[co]$' "$PACK_LIST"; then
 fi
 grep -q "skills/spec-graph-bootstrap/SKILL.md" "$PACK_LIST"
 grep -q "templates/claude/commands/spec/graph-bootstrap.md" "$PACK_LIST"
-grep -q "skills/spec-standards/SKILL.md" "$PACK_LIST"
-grep -q "skills/spec-standards/scripts/prepare-baseline.js" "$PACK_LIST"
-grep -q "templates/claude/commands/spec/standards.md" "$PACK_LIST"
+if grep -q "skills/spec-"standards"/" "$PACK_LIST"; then
+  echo "✗ tarball 文件列表不应包含已删除的 spec-"standards" skill"
+  exit 1
+fi
+if grep -q "templates/claude/commands/spec/${retired_standards}.md" "$PACK_LIST"; then
+  echo "✗ tarball 文件列表不应包含已删除的 spec-"standards" command template"
+  exit 1
+fi
 grep -q "skills/spec-skill-audit/SKILL.md" "$PACK_LIST"
 grep -q "skills/spec-skill-audit/scripts/write-audit-artifacts.js" "$PACK_LIST"
 grep -q "templates/claude/commands/spec/skill-audit.md" "$PACK_LIST"

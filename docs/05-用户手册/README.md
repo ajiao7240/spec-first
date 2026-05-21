@@ -4,7 +4,7 @@
 
 `spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init (--claude|--codex) / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、agent support files、项目级 `.developer` 和受管状态安装到当前项目中。
 
-完成 `doctor`、`init` 和宿主重启后，轻量任务可以先走 no-graph fast path：docs-only、小 bugfix、首次试用、轻量 plan/work/review 可以直接进入匹配的 `/spec:*` 或 `$spec-*` workflow。`spec-mcp-setup`、`spec-graph-bootstrap` 和 `spec-standards` 是增强 readiness 路径，适合需要 MCP provider、graph evidence、standards baseline 或跨模块/跨仓影响分析的任务。
+完成 `doctor`、`init` 和宿主重启后，轻量任务可以先走 no-graph fast path：docs-only、小 bugfix、首次试用、轻量 plan/work/review 可以直接进入匹配的 `/spec:*` 或 `$spec-*` workflow。`spec-mcp-setup` 和 `spec-graph-bootstrap` 是增强 readiness 路径，适合需要 MCP provider、graph evidence 或跨模块/跨仓影响分析的任务。
 
 GitNexus / code-review-graph refresh 的默认策略是“自动 freshness check，显式 graph-bootstrap refresh”。`spec-mcp-setup` 只刷新 setup-owned provider projection；`spec-graph-bootstrap` 才写 canonical `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。切换分支、pull、rebase、merge、dirty worktree 变化或 provider fingerprint mismatch 只会让下游 consumer 判定 stale / bootstrap-required；普通 plan/work/debug/review 不会自动运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。轻量任务继续 bounded direct repo reads；graph-heavy 任务再显式运行 `spec-graph-bootstrap`。
 
@@ -12,7 +12,6 @@ GitNexus / code-review-graph refresh 的默认策略是“自动 freshness check
 
 - `spec-mcp-setup`：required harness runtime、MCP servers、graph providers 和 helper tools 的安装与验证入口
 - `spec-graph-bootstrap`：external graph-provider readiness facts 编译入口
-- [`spec-standards`](./11-项目规范与胶水基线.md)：项目规范、freshness check、bounded refresh、shared standards alignment 和 glue/reuse capability baseline 的 preview-first 编译入口
 - `spec-app-consistency-audit`：移动 App 的 PRD / Figma / source / route / architecture / analytics / i18n 静态一致性审查入口
 - `spec-skill-audit`：source skill 质量、治理投递、runtime drift 与安全信号审计入口
 - `spec-compound`：工作完成后的稳定知识捕获入口
@@ -38,7 +37,7 @@ GitNexus / code-review-graph refresh 的默认策略是“自动 freshness check
 - 一个前置的 `/spec:ideate` 候选发散入口
 - Claude Code 的 `/spec:*` 命令入口
 - Codex 的 `$spec-*` skill 入口
-- 当前推荐的 graph readiness 事实入口 `spec-graph-bootstrap`、项目规范 baseline/refresh/import 入口 [`spec-standards`](./11-项目规范与胶水基线.md)、App 一致性审查入口 `spec-app-consistency-audit`、source skill 审计入口 `spec-skill-audit`，以及知识沉淀入口 `spec-compound`
+- 当前推荐的 graph readiness 事实入口 `spec-graph-bootstrap`、App 一致性审查入口 `spec-app-consistency-audit`、source skill 审计入口 `spec-skill-audit`，以及知识沉淀入口 `spec-compound`
 - 一条 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 的标准闭环
 - 项目级 `.claude/commands/spec`
 - 项目级 `.claude/skills`、`.claude/spec-first/workflows` 与 `.claude/agents`
@@ -57,7 +56,7 @@ GitNexus / code-review-graph refresh 的默认策略是“自动 freshness check
 主链路可以从 `Ideate -> Brainstorm -> Plan -> Work -> Review -> Compound` 理解，但当前用户手册覆盖的是更完整的工程闭环：
 
 ```text
-mcp-setup / graph-bootstrap / standards
+mcp-setup / graph-bootstrap
   -> ideate
   -> brainstorm
   -> doc-review
@@ -113,11 +112,10 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 3. [核心概念](./02-核心概念.md)
 4. [完整示例](./03-完整示例.md)
 5. [Workflows 与产物地图](./04-workflows-artifacts-map.md)
-6. [项目规范与胶水基线](./11-项目规范与胶水基线.md)
-7. [产物目录](./10-产物目录.md)
-8. [Gitignore 参考](./12-gitignore参考.md)
-9. [代码图谱 Provider 作用域与差异化](./13-代码图谱Provider作用域与差异化.md)
-10. [常见问题](./04-常见问题.md)
+6. [产物目录](./10-产物目录.md)
+7. [Gitignore 参考](./12-gitignore参考.md)
+8. [代码图谱 Provider 作用域与差异化](./13-代码图谱Provider作用域与差异化.md)
+9. [常见问题](./04-常见问题.md)
 11. [最佳实践](./05-最佳实践.md)
 12. [三种开发模式](./08-三种开发模式.md)
 13. [本地源码安装](./06-本地源码安装.md)
@@ -127,7 +125,7 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 
 - 如果你第一次使用，先看 [快速开始](./01-快速开始.md)，再看 [首次工作流走查](./09-首次工作流走查.md)
 - 如果你要理解运行模型、工程闭环和 graph readiness 边界，先看 [核心概念](./02-核心概念.md)
-- 如果你要建立或刷新项目规范 baseline，先看 [项目规范与胶水基线](./11-项目规范与胶水基线.md)
+- 如果你要共享 confirmed project standards，先看 [Gitignore 参考](./12-gitignore参考.md) 的共享 project standards 说明
 - 如果你要判断单仓、多模块或多仓 workspace 怎么使用，先看 [三种开发模式](./08-三种开发模式.md)
 - 如果你要确认真实执行过程，看 [完整示例](./03-完整示例.md)
 - 如果你要判断某个文档或 runtime 目录该不该手改、该不该提交，先看 [产物目录](./10-产物目录.md)

@@ -1,9 +1,0 @@
-{
-  "schema_version": "spec-first.glue-map.v1",
-  "capabilities": [
-    {
-      "id": "capability.workflow.skills",
-      "name": "Workflow skills"
-    }
-  ]
-}

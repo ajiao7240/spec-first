@@ -1,6 +1,6 @@
 # spec-first `.gitignore` 参考
 
-本文面向把 `spec-first` 安装到业务项目里的用户，说明在执行 `spec-first init`、`spec-mcp-setup`、`spec-graph-bootstrap` 和 `spec-standards` 后，哪些产物应该加入 `.gitignore`，哪些产物可以按团队协作需要提交。
+本文面向把 `spec-first` 安装到业务项目里的用户，说明在执行 `spec-first init`、`spec-mcp-setup` 和 `spec-graph-bootstrap` 后，哪些产物应该加入 `.gitignore`，哪些产物可以按团队协作需要提交。
 
 从 `v1.7.0` 起，`spec-first init --claude|--codex` 会在当前目标项目的 `.gitignore` 中自动写入或更新一个 `# spec-first:start` / `# spec-first:end` managed block。`init --dry-run` 会预览这次写入，但不会改变文件系统。团队仍然应该 review 并提交 `.gitignore`，让后续成员获得相同忽略规则。
 
@@ -9,7 +9,6 @@
 - `.claude/`、`.codex/` 和 `.agents/skills/` 下的 spec-first runtime mirror 可重建，不作为项目 source truth。
 - `.spec-first/config/`、`.spec-first/graph/`、`.spec-first/providers/`、`.spec-first/impact/` 和 `.spec-first/workspace/` 是本地 readiness/control-plane facts，默认不提交。
 - `.spec-first/audits/**` 和 generated runtime mirrors 也不应作为普通 LLM 上下文扫描源；只有 setup/update/runtime-drift/audit 任务或用户明确点名路径时才按需读取。
-- `.spec-first/standards/` 是本地 standards baseline、preview、scratch 和 evidence 工作区，默认不提交；需要团队共享的 confirmed standards 应 promote 到明确 source 路径。
 - `.spec-first/sessions/` 是 multi-actor 治理协议的 opt-in advisory 记录目录，由 `spec-first session register` 等命令写入；属于 runtime state，默认不提交。
 - `AGENTS.md`、`CLAUDE.md`、`docs/`、项目源码、测试和 confirmed standards source 应按团队正常协作策略提交。
 
@@ -32,7 +31,7 @@
 .agents/skills/
 .context/spec-first/
 
-# spec-first local setup, graph readiness, standards, and workflow runtime artifacts
+# spec-first local setup, graph readiness, and workflow runtime artifacts
 .gitnexus/
 .code-review-graph/
 .spec-first-graph/
@@ -46,7 +45,6 @@
 .spec-first/impact/
 .spec-first/workflows/
 .spec-first/workspace/
-.spec-first/standards/
 .spec-first/sessions/
 
 # local project tooling used by spec-first workflows
@@ -111,20 +109,6 @@
       bootstrap-impact-capabilities.json # impact capability envelope，忽略
     workspace/
       *.json                        # 父级多仓 advisory summaries，忽略
-    standards/
-      project-shape.json            # local standards baseline，忽略
-      standards-plan.json           # local synthesis contract，忽略
-      glue-map.json                 # local reuse-first context，忽略
-      standards-candidates.json     # local candidate baseline，忽略
-      standards-preview.md          # local review preview，忽略
-      standards-sources.json        # import-source 模式本地锁定信息，忽略
-      import-lock.json              # import-source 模式本地锁定信息，忽略
-      imported-standards.json       # imported standards 本地候选，忽略
-      graph-query-index.json        # deep 模式 bounded query plan，忽略
-      standards-update-decision.json # quick/refresh freshness，本地检查产物，忽略
-      standards-drift.md            # refresh/drift 本地报告，忽略
-      repo-profile.patch.yaml       # preview/apply patch，忽略
-      work/ tmp/ cache/ raw/ graph-query-raw/ *.log # scratch，忽略
 
   .serena/                          # 本地符号索引配置/缓存，忽略
 ```
@@ -161,7 +145,6 @@
 | `.spec-first/impact/` | impact capability envelope，可由 `spec-graph-bootstrap` 重建 |
 | `.spec-first/workspace/` | 父级多仓 advisory summaries，不是 child repo canonical truth |
 | `.spec-first/audits/`、`.spec-first/app-audit/`、`.spec-first/workflows/` | workflow execution evidence，默认本地留存 |
-| `.spec-first/standards/` | standards baseline、preview、import lock、scratch 和本地 evidence 工作区；confirmed standards 应 promote 到明确 source 路径 |
 | `.spec-first/sessions/` | multi-actor 治理协议的 opt-in advisory 记录目录，由 `spec-first session register` 写入；不启用时为空 |
 | `.serena/` | 本地符号索引配置/缓存 |
 
@@ -171,29 +154,9 @@
 *.tgz
 ```
 
-## standards baseline 的共享策略
+## 共享 project standards
 
-`spec-standards` 会生成 deterministic facts 和 LLM review artifacts，但这些文件默认属于本地 `.spec-first/standards/` 工作区，不直接提交。推荐策略是：
-
-| 产物 | 默认策略 | 说明 |
-| --- | --- | --- |
-| `project-shape.json`、`standards-plan.json`、`glue-map.json` | 不提交 | 本地 project facts 和 reuse context，可由 `$spec-standards` 重建 |
-| `standards-candidates.json`、`standards-preview.md` | 不提交 | 候选规范和 preview，只有经过确认后才应 promote 到 source |
-| `standards-sources.json`、`import-lock.json`、`imported-standards.json` | 不提交 | shared standards import-source 的本地来源和锁定信息；需要共享时应进入明确 source 文档或配置 |
-| `graph-query-index.json`、`standards-update-decision.json`、`standards-drift.md` | 不提交 | deep/quick/refresh 的本地 evidence 和 freshness 记录 |
-| `repo-profile.patch.yaml` | 不提交 | preview/apply 阶段的临时 patch；提交最终确认后的 `.spec-first/specs/repo-profile.yaml` 或其他 source 路径 |
-
-在把 `standards-candidates.json` 和 `standards-preview.md` 当作可信 baseline 前，先运行：
-
-```bash
-node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json
-```
-
-验证失败或 `trust_level=degraded` 时，下游 workflow 只能把 standards artifacts 当作 advisory context，不能把它们当作 confirmed project policy。
-
-## 共享 confirmed standards
-
-如果团队希望跨人复用 project standards，不要提交 `.spec-first/standards/` 本地工作区。应把已确认内容 promote 到明确 source-of-truth，例如 `.spec-first/specs/repo-profile.yaml`、`docs/specs/**`，或团队约定的 confirmed standards 文档。
+如果团队希望跨人复用 project standards，应把已确认内容写入明确 source-of-truth，例如 `AGENTS.md`、`CLAUDE.md`、目录级 standards 文件、`.spec-first/specs/repo-profile.yaml`、`docs/specs/**`，或团队约定的 confirmed standards 文档。
 
 ## 不建议加入的规则
 
@@ -212,4 +175,4 @@ node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-f
 - 整个 `.agents/` 可能会隐藏团队自定义 plugins 或 marketplace 配置。
 - 整个 `.spec-first/` 会隐藏 `.spec-first/config.local.example.yaml`、`.spec-first/specs/repo-profile.yaml` 和团队选择提交的 confirmed standards source。
 
-默认推荐是忽略 spec-first 可重建 runtime、本地 facts 和 standards 工作区，同时保留明确 source 路径的提交决策空间。
+默认推荐是忽略 spec-first 可重建 runtime 和本地 facts，同时保留明确 source 路径的提交决策空间。

@@ -103,4 +103,4 @@
 
 `spec-first internal context-bundle --help` 输出 helper 的完整参数说明；`spec-first internal context-bundle --json --stage <stage>` 可以从显式 path arguments 生成这个 envelope。它是 deterministic helper：把路径规范化为 repo-relative canonical paths，应用 runtime / outside-repo / symlink-escape exclusion，记录 budget pressure 并输出 JSON。它不搜索 repo、不排序文件、不检查 provider internals，也不决定 semantic relevance。
 
-普通上下文默认遵循 `docs/contracts/context-governance.md`，排除 `.spec-first/audits/**`、`.spec-first/graph/**`、`.spec-first/providers/**`、`.spec-first/impact/**`、`.spec-first/workspace/**`、`.spec-first/standards/**`、`.spec-first/app-audit/**`、`.spec-first/workflows/**` 和 generated mirrors。setup/update/runtime-drift/audit 等明确任务可用 `--allow-runtime-context` 将这些精确路径纳入 envelope。
+普通上下文默认遵循 `docs/contracts/context-governance.md`，排除 `.spec-first/audits/**`、`.spec-first/graph/**`、`.spec-first/providers/**`、`.spec-first/impact/**`、`.spec-first/workspace/**`、`.spec-first/app-audit/**`、`.spec-first/workflows/**` 和 generated mirrors。setup/update/runtime-drift/audit 等明确任务可用 `--allow-runtime-context` 将这些精确路径纳入 envelope。

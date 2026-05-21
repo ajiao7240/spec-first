@@ -152,7 +152,7 @@ graph 不完整时哪些结论需要降置信度？
 
 ---
 
-## 1.4 Graph-first, standards-aware, preview-first
+## 1.4 Graph-first, project-guidance-aware, preview-first
 
 ECC 专家能力必须优先消费 spec-first 已有证据：
 
@@ -172,10 +172,10 @@ diff / changed files / test results
 
 ```text
 finding
-  → standards candidate
-  → standards preview
+  → project guidance proposal
+  → preview
   → human confirmation
-  → repo-profile.yaml / standards index
+  → AGENTS.md / CLAUDE.md / docs/contracts
 ```
 
 不能 silent write。
@@ -1575,11 +1575,6 @@ workspace/
         evidence-manifest.json
         final-report.md
 
-  standards/
-    previews/
-      <preview-id>/
-        standards-preview.md
-        proposed-repo-profile.patch.yaml
 ```
 
 默认这些是 runtime 过程产物，不必长期提交，除非团队治理要求。

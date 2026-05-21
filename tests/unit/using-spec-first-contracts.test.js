@@ -164,8 +164,8 @@ describe('using-spec-first contracts', () => {
 
     expect(skill).toContain('/spec:' + 'graph' + '-bootstrap');
     expect(skill).toContain('$spec-' + 'graph' + '-bootstrap');
-    expect(skill).toContain('/spec:standards');
-    expect(skill).toContain('$spec-standards');
+    expect(skill).not.toContain('/spec:' + 'standards');
+    expect(skill).not.toContain('$spec-' + 'standards');
     expect(skill).not.toContain('/spec:setup');
     expect(skill).not.toContain('$spec-setup');
     expect(skill).not.toContain('spec-first ' + 'crg');

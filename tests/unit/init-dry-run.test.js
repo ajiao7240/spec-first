@@ -157,10 +157,10 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('init refreshes parent host runtime assets');
       expect(result.stdout).toContain('/spec:mcp-setup');
       expect(result.stdout).toContain('/spec:graph-bootstrap');
-      expect(result.stdout).toContain('/spec:standards');
+      expect(result.stdout).not.toContain('/spec:' + 'standards');
       expect(result.stdout).toContain('$spec-mcp-setup');
       expect(result.stdout).toContain('$spec-graph-bootstrap');
-      expect(result.stdout).toContain('$spec-standards');
+      expect(result.stdout).not.toContain('$spec-' + 'standards');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -245,7 +245,7 @@ describe('init --dry-run', () => {
       const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
       expect(gitignore).toContain(buildSpecFirstGitignoreBlock());
       expect(gitignore).toContain('.claude/commands/spec/');
-      expect(gitignore).toContain('.spec-first/standards/');
+      expect(gitignore).not.toContain('.spec-first/' + 'standards/');
 
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
@@ -253,7 +253,7 @@ describe('init --dry-run', () => {
       expect(claudeInstruction).toContain('完整路由策略在 `skills/using-spec-first/SKILL.md`');
       expect(claudeInstruction).toContain('target_repo');
       expect(claudeInstruction).toContain('/spec:optimize');
-      expect(claudeInstruction).not.toContain('spec-standards` 无参数运行默认为每个 discovered child repo');
+      expect(claudeInstruction).not.toContain('spec-' + 'standards` 无参数运行默认为每个 discovered child repo');
       expect(claudeInstruction).not.toContain('startup-reminder --codex');
       expect(claudeInstruction).not.toContain('<!-- spec-first:runtime-tools:start -->');
       expect(claudeInstruction).not.toContain('代码智能与运行时工具');
@@ -271,6 +271,83 @@ describe('init --dry-run', () => {
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('init prunes no-state retired standards runtime mirrors for both hosts', () => {
+    const cases = [
+      {
+        platform: 'claude',
+        args: ['--claude', '-u', 'reviewer', '--lang', 'zh'],
+        retiredPaths: [
+          '.claude/commands/spec/standards.md',
+          '.claude/spec-first/workflows/spec-standards/SKILL.md',
+          '.claude/skills/spec-standards/SKILL.md',
+        ],
+        currentPath: '.claude/spec-first/workflows/spec-plan/SKILL.md',
+      },
+      {
+        platform: 'codex',
+        args: ['--codex', '-u', 'reviewer', '--lang', 'zh'],
+        retiredPaths: [
+          '.agents/skills/spec-standards/SKILL.md',
+          '.codex/commands/spec/standards.md',
+        ],
+        currentPath: '.agents/skills/spec-plan/SKILL.md',
+      },
+    ];
+
+    for (const testCase of cases) {
+      const projectRoot = makeTempDir();
+
+      try {
+        for (const retiredPath of testCase.retiredPaths) {
+          writeFile(projectRoot, retiredPath, `old ${testCase.platform} standards runtime\n`);
+          expect(fs.existsSync(path.join(projectRoot, retiredPath))).toBe(true);
+        }
+
+        const result = captureInit(projectRoot, testCase.args);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stderr).toBe('');
+        for (const retiredPath of testCase.retiredPaths) {
+          expect(fs.existsSync(path.join(projectRoot, retiredPath))).toBe(false);
+        }
+        expect(fs.existsSync(path.join(projectRoot, testCase.currentPath))).toBe(true);
+      } finally {
+        fs.rmSync(projectRoot, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('init prunes retired standards artifact root before gitignore exposes it', () => {
+    const cases = [
+      ['claude', ['--claude', '-u', 'reviewer', '--lang', 'zh']],
+      ['codex', ['--codex', '-u', 'reviewer', '--lang', 'zh']],
+    ];
+
+    for (const [platform, args] of cases) {
+      const projectRoot = makeTempDir();
+      const retiredArtifactRoot = '.spec-first/standards';
+
+      try {
+        initGitRepo(projectRoot);
+        writeFile(
+          projectRoot,
+          `${retiredArtifactRoot}/standards-preview.md`,
+          `old ${platform} standards artifact\n`,
+        );
+        expect(fs.existsSync(path.join(projectRoot, retiredArtifactRoot))).toBe(true);
+
+        const result = captureInit(projectRoot, args);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stderr).toBe('');
+        expect(fs.existsSync(path.join(projectRoot, retiredArtifactRoot))).toBe(false);
+        expect(runGit(projectRoot, ['status', '--short', '--', retiredArtifactRoot]).trim()).toBe('');
+      } finally {
+        fs.rmSync(projectRoot, { recursive: true, force: true });
+      }
     }
   });
 
@@ -324,7 +401,7 @@ describe('init --dry-run', () => {
       expect(codexInstruction).toContain('$spec-update');
       expect(codexInstruction).toContain('失败/空输出不阻塞');
       expect(codexInstruction).toContain('bounded subagents、leaf reviewers、worker agents 不运行');
-      expect(codexInstruction).not.toContain('spec-standards` 无参数运行默认为每个 discovered child repo');
+      expect(codexInstruction).not.toContain('spec-' + 'standards` 无参数运行默认为每个 discovered child repo');
       expect(codexInstruction).not.toContain('<!-- spec-first:runtime-tools:start -->');
       expect(codexInstruction).not.toContain('代码智能与运行时工具');
       expect(codexInstruction).not.toContain('/spec:graph-bootstrap');
@@ -716,12 +793,11 @@ describe('init --dry-run', () => {
       expect(claude.stdout).toContain('需要增强 readiness 时');
       expect(claude.stdout).toContain('/spec:mcp-setup');
       expect(claude.stdout).toContain('/spec:graph-bootstrap');
-      expect(claude.stdout).toContain('/spec:standards');
+      expect(claude.stdout).not.toContain('/spec:' + 'standards');
       expect(claude.stdout).toContain('graph readiness 就绪后');
-      expect(claude.stdout).toContain('graph-heavy 或 standards-aware 下游 workflow');
-      expect(claude.stdout).toContain('为所有 discovered child repo 批量生成 child-local baselines');
-      expect(claude.stdout).toContain('使用 /spec:standards --repo <child> 收窄到单个 child');
-      expect(claude.stdout).toContain('/spec:standards --workspace 写父级 advisory artifacts');
+      expect(claude.stdout).toContain('按用户意图进入 brainstorm/plan/work/review/debug 等 workflow');
+      expect(claude.stdout).toContain('项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts');
+      expect(claude.stdout).not.toContain('child-local baselines');
 
       const codex = captureInit(codexProjectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']);
       expect(codex.exitCode).toBe(0);
@@ -732,12 +808,11 @@ describe('init --dry-run', () => {
       expect(codex.stdout).toContain('需要增强 readiness 时');
       expect(codex.stdout).toContain('$spec-mcp-setup');
       expect(codex.stdout).toContain('$spec-graph-bootstrap');
-      expect(codex.stdout).toContain('$spec-standards');
+      expect(codex.stdout).not.toContain('$spec-' + 'standards');
       expect(codex.stdout).toContain('graph readiness 就绪后');
-      expect(codex.stdout).toContain('graph-heavy 或 standards-aware 下游 workflow');
-      expect(codex.stdout).toContain('为所有 discovered child repo 批量生成 child-local baselines');
-      expect(codex.stdout).toContain('使用 $spec-standards --repo <child> 收窄到单个 child');
-      expect(codex.stdout).toContain('$spec-standards --workspace 写父级 advisory artifacts');
+      expect(codex.stdout).toContain('按用户意图进入 brainstorm/plan/work/review/debug 等 workflow');
+      expect(codex.stdout).toContain('项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts');
+      expect(codex.stdout).not.toContain('child-local baselines');
 
       const english = captureInit(englishProjectRoot, ['--codex', '-u', 'reviewer', '--lang', 'en']);
       expect(english.exitCode).toBe(0);
@@ -748,12 +823,11 @@ describe('init --dry-run', () => {
       expect(english.stdout).toContain('For enhanced readiness');
       expect(english.stdout).toContain('$spec-mcp-setup');
       expect(english.stdout).toContain('$spec-graph-bootstrap');
-      expect(english.stdout).toContain('$spec-standards');
+      expect(english.stdout).not.toContain('$spec-' + 'standards');
       expect(english.stdout).toContain('After graph readiness is ready');
-      expect(english.stdout).toContain('before graph-heavy or standards-aware downstream workflows');
-      expect(english.stdout).toContain('batches child-local baselines for every discovered child repo');
-      expect(english.stdout).toContain('use $spec-standards --repo <child> to narrow');
-      expect(english.stdout).toContain('$spec-standards --workspace for parent advisory artifacts');
+      expect(english.stdout).toContain('choose the next workflow by user intent');
+      expect(english.stdout).toContain('Project guidance comes from AGENTS.md, CLAUDE.md, docs/contracts');
+      expect(english.stdout).not.toContain('child-local baselines');
       expect(english.stdout).not.toContain('下一步:');
     } finally {
       fs.rmSync(claudeProjectRoot, { recursive: true, force: true });

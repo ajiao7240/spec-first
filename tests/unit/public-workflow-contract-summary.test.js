@@ -50,16 +50,13 @@ describe('public workflow contract summary', () => {
     const plan = fs.readFileSync(path.join(ROOT, 'skills', 'spec-plan', 'SKILL.md'), 'utf8');
     const writeTasks = fs.readFileSync(path.join(ROOT, 'skills', 'spec-write-tasks', 'SKILL.md'), 'utf8');
     const work = fs.readFileSync(path.join(ROOT, 'skills', 'spec-work', 'SKILL.md'), 'utf8');
-    const standards = fs.readFileSync(path.join(ROOT, 'skills', 'spec-standards', 'SKILL.md'), 'utf8');
 
     expect(usingSpecFirst).toContain('Core boundary: scripts and CLI commands prepare deterministic facts; the LLM decides the workflow recommendation.');
-    expect(plan).toContain('degraded standards/graph facts stay advisory');
+    expect(plan).toContain('degraded graph or provider facts stay advisory');
     expect(plan).toContain('implementation-dependent questions are deferred to `spec-work`');
     expect(writeTasks).toContain('Task packs are derived execution indexes and never replace the source plan.');
     expect(work).toContain('planned spec-work run JSON schema is not current runtime truth');
     expect(work).toContain('hand-editing generated runtime mirrors as source fixes');
-    expect(standards).toContain('generated runtime mirrors are not source');
-    expect(standards).toContain('Scripts prepare facts; the LLM decides standards.');
   });
 
   test('Phase 2 batch-1 summaries preserve workflow boundaries', () => {

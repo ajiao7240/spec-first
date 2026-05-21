@@ -62,7 +62,7 @@ describe('instruction bootstrap', () => {
     expect(twice).not.toContain('Routing Priority');
     expect(twice).not.toContain('Route Map');
     expect(twice).not.toContain('User Next-Step Guide Mode');
-    expect(twice).not.toContain('spec-standards` 无参数运行默认为每个 discovered child repo');
+    expect(twice).not.toContain('spec-' + 'standards` 无参数运行默认为每个 discovered child repo');
     expect(twice).not.toContain('setup 和 graph bootstrap 可默认按 discovered child repos');
     expect(twice).not.toContain('完整选择策略、优先级和 red flags');
     expect(twice).not.toContain('internal-only skills：`using-spec-first`');

@@ -18,12 +18,12 @@
 
 | 范围 | 当前值 |
 |---|---|
-| Bundled source skills | 40 |
+| Bundled source skills | 39 |
 | Bundled source agents | 51 |
 | Bundled agent support files | 0 |
-| Governance records by entry surface | internal_only: 17, standalone_skill: 2, workflow_command: 21 |
-| Claude runtime delivery | 21 commands, 21 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
-| Codex runtime delivery | 0 commands, 21 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Governance records by entry surface | internal_only: 17, standalone_skill: 2, workflow_command: 20 |
+| Claude runtime delivery | 20 commands, 20 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Codex runtime delivery | 0 commands, 20 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
 | Beta workflow entries | spec-polish-beta, spec-work-beta |
 | Workflow runtime contracts | 1 |
 | Planned runtime contracts | 0 |
@@ -49,7 +49,6 @@
 | sessions | spec-sessions | /spec:sessions | $spec-sessions | claude=command; codex=skill | no | Search and summarize prior coding agent sessions |
 | skill-audit | spec-skill-audit | /spec:skill-audit | $spec-skill-audit | claude=command; codex=skill | no | Run the Spec-First skill audit workflow |
 | slack-research | spec-slack-research | /spec:slack-research | $spec-slack-research | claude=command; codex=skill | no | Search Slack for interpreted organizational context |
-| standards | spec-standards | /spec:standards | $spec-standards | claude=command; codex=skill | no | Compile project standards and glue capability baseline artifacts |
 | update | spec-update | /spec:update | $spec-update | claude=command; codex=skill | no | Run the Spec-First update and runtime repair workflow |
 | work | spec-work | /spec:work | $spec-work | claude=command; codex=skill | no | Run the Spec-First execution workflow |
 | work-beta | spec-work-beta | /spec:work-beta | $spec-work-beta | claude=command; codex=skill | yes | [BETA] Run Spec-First execution with external delegate support |

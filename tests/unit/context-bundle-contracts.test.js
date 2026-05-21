@@ -126,7 +126,6 @@ describe('context bundle and summary contracts', () => {
       evidencePaths: [
         '.spec-first/impact/bootstrap-impact-capabilities.json',
         '.spec-first/workspace/workspace-graph-targets.json',
-        '.spec-first/standards/project-standards.json',
         '.spec-first/app-audit/latest/summary.json',
         '.spec-first/workflows/spec-work/run.json',
         '.spec-first/sessions/session-a.json',
@@ -164,10 +163,6 @@ describe('context bundle and summary contracts', () => {
       }),
       expect.objectContaining({
         path: '.spec-first/workspace/workspace-graph-targets.json',
-        reason_code: 'runtime_context_artifact_excluded',
-      }),
-      expect.objectContaining({
-        path: '.spec-first/standards/project-standards.json',
         reason_code: 'runtime_context_artifact_excluded',
       }),
       expect.objectContaining({

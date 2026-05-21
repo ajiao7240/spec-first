@@ -34,11 +34,11 @@ Missing setup facts, `baseline_ready=false`, invalid provider config, provider c
 
 ### Workflow
 
-Resolve repo scope, validate setup facts, run provider commands without shell interpolation, capture and normalize evidence, write canonical readiness artifacts, then hand off to standards or downstream work.
+Resolve repo scope, validate setup facts, run provider commands without shell interpolation, capture and normalize evidence, write canonical readiness artifacts, then hand off to the downstream workflow that matches the user's task.
 
 ### Downstream Consumers
 
-`spec-standards`, `spec-plan`, `spec-work`, `spec-debug`, `spec-code-review`, `spec-doc-review`, and humans checking graph readiness.
+`spec-plan`, `spec-work`, `spec-debug`, `spec-code-review`, `spec-doc-review`, and humans checking graph readiness.
 
 ## Purpose
 
@@ -64,7 +64,7 @@ Do not use this workflow to install MCP servers, repair host config, update spec
 
 Do not write repo-local graph artifacts into a parent workspace. When run from a parent workspace without `--repo`, the workflow defaults to the all-child-repos maintenance path and writes only parent advisory workspace summaries plus child-local canonical artifacts.
 
-Do not compile standards or glue baselines here. After graph readiness is compiled, `spec-standards` owns standards artifacts: no-argument parent workspace runs batch child-local `.spec-first/standards/` baselines for discovered child repos, `spec-standards --repo <child>` narrows to one child, and `spec-standards --workspace` owns parent advisory standards artifacts.
+Do not infer semantic architecture conclusions or write project-guidance baselines here. After graph readiness is compiled, downstream workflows should use the readiness facts as advisory evidence and route by user intent into planning, work, debugging, review, or documentation workflows.
 
 ## Inputs
 

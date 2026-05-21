@@ -17,7 +17,7 @@ const FAQ_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/04-常见问题.md')
 const BEST_PRACTICES_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/05-最佳实践.md');
 const LOCAL_INSTALL_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/06-本地源码安装.md');
 const ARTIFACT_CATALOG_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/10-产物目录.md');
-const STANDARDS_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/11-项目规范与胶水基线.md');
+const RETIRED_STANDARDS_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/11-项目规范与胶水基线.md');
 const GITIGNORE_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/12-gitignore参考.md');
 const GRAPH_PROVIDER_SCOPE_GUIDE_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/13-代码图谱Provider作用域与差异化.md');
 const SOURCE_RUNTIME_BOUNDARY_PATH = path.join(REPO_ROOT, 'docs/contracts/source-runtime-customization-boundary.md');
@@ -83,41 +83,24 @@ describe('user manual contracts', () => {
     expect(artifactCatalog).toContain('Figma ref 不等于 materialized evidence');
   });
 
-  test('user manual includes a standalone spec-standards guide', () => {
+  test('user manual no longer exposes retired standards workflow guide or artifacts', () => {
     const manual = read(USER_MANUAL_README_PATH);
     const quickstart = read(QUICKSTART_PATH);
     const artifactMap = read(ARTIFACT_MAP_PATH);
-    const standardsGuide = read(STANDARDS_GUIDE_PATH);
 
-    expect(manual).toContain('[项目规范与胶水基线](./11-项目规范与胶水基线.md)');
-    expect(quickstart).toContain('[`spec-standards`](./11-项目规范与胶水基线.md)');
-    expect(artifactMap).toContain('[项目规范与胶水基线](./11-项目规范与胶水基线.md)');
-    expect(standardsGuide).toContain('$spec-standards --quick');
-    expect(standardsGuide).toContain('$spec-standards --refresh --domain cli');
-    expect(standardsGuide).toContain('$spec-standards --deep');
-    expect(standardsGuide).toContain('$spec-standards --baseline --import-source ../shared-standards');
-    expect(standardsGuide).toContain('$spec-standards --repo <child>');
-    expect(standardsGuide).toContain('父 workspace 无参数默认运行会写每个 discovered child repo 的 `<child>/.spec-first/standards/` baseline facts');
-    expect(standardsGuide).toContain('只有显式 `$spec-standards --workspace` 才会写父级 `.spec-first/standards/` advisory artifacts');
-    expect(standardsGuide).toContain('不是任何 child repo 的 confirmed standards baseline');
-    expect(standardsGuide).toContain('node skills/spec-standards/scripts/prepare-baseline.js --quick');
-    expect(standardsGuide).toContain('node skills/spec-standards/scripts/prepare-baseline.js --workspace');
-    expect(standardsGuide).toContain('node skills/spec-standards/scripts/validate-artifacts.js --standards-dir .spec-first/standards --json');
-    expect(standardsGuide).toContain('trust_level=degraded');
-    expect(standardsGuide).toContain('consumption_boundary=advisory_only');
-    expect(standardsGuide).toContain('workspace-advisory-only');
-    expect(standardsGuide).toContain('validator 只检查 artifact handoff contract');
-    expect(standardsGuide).toContain('validator pass 是 trusted baseline 的完成标准');
-    expect(standardsGuide).toContain('不要为了消除诊断而改写 contract heading、candidate id、命令名、路径、工具名或作者名');
-    expect(standardsGuide).toContain('`advisory` 不是 candidate status，只是消费模式');
-    expect(standardsGuide).toContain('standards-update-decision.json');
-    expect(standardsGuide).toContain('graph-query-index.json');
-    expect(standardsGuide).toContain('import-lock.json');
-    expect(standardsGuide).toContain('下游 workflow 只能把 `confirmed` standards 当作硬约束');
-    expect(standardsGuide).toContain('`glue-map.json` 只用于 reuse-first 判断');
-    expect(standardsGuide).toContain('docs/examples/standards-glue-consumption-examples.md');
-    expect(standardsGuide).toContain('不是新的 schema、生成产物或规则引擎');
-    expect(standardsGuide).toContain('不要手改 `.claude/`、`.codex/` 或 `.agents/skills/` runtime mirror');
+    expect(fs.existsSync(RETIRED_STANDARDS_GUIDE_PATH)).toBe(false);
+    for (const content of [manual, quickstart, artifactMap]) {
+      expect(content).not.toContain('spec-' + 'standards');
+      expect(content).not.toContain('/spec:' + 'standards');
+      expect(content).not.toContain('$spec-' + 'standards');
+      expect(content).not.toContain('项目规范与胶水基线');
+      expect(content).not.toContain('11-项目规范与胶水基线.md');
+      expect(content).not.toContain('项目规范 baseline');
+      expect(content).not.toContain('.spec-first/' + 'standards/');
+      expect(content).not.toContain('glue-' + 'map.json');
+      expect(content).not.toContain('standards-' + 'candidates.json');
+      expect(content).not.toContain('standards-' + 'preview.md');
+    }
   });
 
   test('user manual documents init-managed gitignore policy boundaries', () => {
@@ -131,7 +114,7 @@ describe('user manual contracts', () => {
     expect(gitignoreGuide).toContain('# spec-first:start');
     expect(gitignoreGuide).toContain('.claude/commands/spec/');
     expect(gitignoreGuide).toContain('.agents/skills/');
-    expect(gitignoreGuide).toContain('.spec-first/standards/');
+    expect(gitignoreGuide).not.toContain('.spec-first/' + 'standards/');
     expect(gitignoreGuide).toContain('在父 workspace 且检测到多个 child Git repos 时，`init` 默认进入 all-child maintenance');
     expect(gitignoreGuide).toContain('父目录不写 `.gitignore`、`AGENTS.md`、`CLAUDE.md`');
     expect(gitignoreGuide).toContain('不要默认加入');

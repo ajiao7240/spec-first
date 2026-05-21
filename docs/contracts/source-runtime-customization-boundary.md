@@ -46,7 +46,6 @@ Target-repo workflow artifacts are local evidence, not source of behavior:
 - `docs/tasks/`
 - `docs/validation/`
 - `docs/solutions/`
-- `.spec-first/standards/`
 - `.spec-first/workflows/`
 - `.spec-first/app-audit/`
 

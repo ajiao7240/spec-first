@@ -76,7 +76,7 @@ Follow `docs/contracts/context-governance.md`: ordinary Work context excludes `.
 
 ## Cache-Friendly Context Layout
 
-Keep workflow invariants, task-pack validation, source/runtime boundaries, and reference load conditions in the stable instruction prefix. Put current plan/task excerpts, changed files, diff summary, tool/test summaries, `artifact-summary.v1`, and `context-bundle.v1` from `docs/contracts/context-bundle.md` in the dynamic suffix. Work-to-review and work-to-compound handoffs should pass compact summaries plus paths first; open full artifacts only when `full_read_triggers` require exact evidence.
+Keep workflow invariants, task-pack validation, source/runtime boundaries, and reference load conditions in the stable instruction prefix. Put current plan/task excerpts, changed files, diff summary, tool/test summaries, project-guidance facts, `artifact-summary.v1`, and `context-bundle.v1` from `docs/contracts/context-bundle.md` in the dynamic suffix. Work-to-review and work-to-compound handoffs should pass compact summaries plus paths first; open full artifacts only when `full_read_triggers` require exact evidence.
 
 ## Graph Freshness / Refresh Trigger Boundary
 
@@ -428,7 +428,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - The plan should reference similar code - read those files first
    - Match naming conventions exactly
    - Reuse existing components where possible
-   - Follow project coding standards (see AGENTS.md; use CLAUDE.md only if the repo still keeps a compatibility shim); when `.spec-first/standards/` exists, treat `confirmed` standards as hard context, treat `observed` / `imported` / `suggested` as advisory context, carry `conflict` as risk context and `unknown` as question context, and use `glue-map.json` to prefer existing capabilities over reimplementation. If standards validation failed, is missing, reports `trust_level=degraded`, reports `consumption_boundary=advisory_only`, or carries `workspace-advisory-only`, consume standards artifacts as degraded/advisory only. 遇到 `workspace-advisory-only` 时，可建议用户运行 `spec-standards --repo <child>` 获取 child-local standards baseline。 `glue-map.json` is reuse-first context, not a workflow state machine. See `docs/examples/standards-glue-consumption-examples.md` for concrete examples; examples do not expand plan or task-pack scope.
+   - Follow project coding standards from `AGENTS.md`, directory-scoped equivalents, and `CLAUDE.md` only if the repo still keeps a compatibility shim; use `docs/contracts/`, nearby source, and tests to prefer existing capabilities over reimplementation. Treat written standards that govern the changed files as hard context, and treat prior plans, learnings, and provider facts as advisory unless the current plan or user request makes them scope authority.
    - When in doubt, grep for similar implementations
 
 4. **Test Continuously**

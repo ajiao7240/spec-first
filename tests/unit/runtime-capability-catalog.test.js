@@ -39,6 +39,9 @@ describe('runtime capability catalog', () => {
     expect(catalog).toContain('| work | spec-work | /spec:work | $spec-work | claude=command; codex=skill | no |');
     expect(catalog).toContain('| work-beta | spec-work-beta | /spec:work-beta | $spec-work-beta | claude=command; codex=skill | yes |');
     expect(catalog).toContain('| polish-beta | spec-polish-beta | /spec:polish-beta | $spec-polish-beta | claude=command; codex=skill | yes |');
+    expect(catalog).not.toContain('spec-' + 'standards');
+    expect(catalog).not.toContain('/spec:' + 'standards');
+    expect(catalog).not.toContain('$spec-' + 'standards');
     expect(catalog).toContain('| spec-write-tasks | standalone skill: spec-write-tasks | standalone skill: spec-write-tasks |');
     expect(catalog).toContain('| Delivered agent-facing internal skills | git-worktree |');
     expect(catalog).not.toContain('spec-session-extract');
