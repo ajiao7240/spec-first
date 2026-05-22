@@ -69,6 +69,7 @@ deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantiv
 
 ## Graph Readiness
 
+- target_repo:
 - status: primary | degraded-fallback | stale | blocked | setup-not-ready | unavailable
 - source_revision:
 - current_revision:
@@ -78,6 +79,24 @@ deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantiv
 - fallback_capabilities:
 - runtime_mcp_evidence:
 - confidence:
+- limitations:
+
+---
+
+## Graph / GitNexus Evidence
+
+- provider: GitNexus | unavailable | not-applicable
+- native_tool_or_resource:
+- repo_scope:
+- capability_status: available | partial | unavailable | mutation-gated
+- evidence_grade: primary | session-local | advisory | stale
+- evidence_posture: primary | fallback
+- freshness_state: fresh | stale | dirty-advisory | query-unverified
+- source_contract_fields:
+- source_reads_required:
+- impact_on_plan:
+- capabilities_used:
+- key_findings:
 - limitations:
 
 ---

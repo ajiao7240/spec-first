@@ -316,6 +316,49 @@ In the generated plan, include a machine-testable Graph Readiness block before `
 
 Use `status: unavailable` when canonical artifacts are missing. For `degraded-fallback`, state usable primary providers, fallback capabilities, and any successful, partial, or failed live MCP evidence with limitations. For `blocked` or `setup-not-ready`, report the fact and proceed with live MCP evidence only if the tool is actually responsive; otherwise use bounded direct repo reads where possible. Do not expand this into context selection, impact analysis, review evidence, or task-level artifacts.
 
+#### 1.1a.1 Graph / GitNexus Evidence Posture
+
+When the plan involves code implementation, architecture, API/routes, cross-module or cross-repo behavior, execution flows, testing strategy, or review risk, run a lightweight GitNexus evidence posture probe immediately after interpreting Graph Readiness. This probe is task-specific evidence context: it is not canonical readiness truth, must not replace `Graph Readiness.status`, provider `query_ready`, workspace `query_usability`, or impact support levels, and must not write back to `.spec-first/graph/*`, `.spec-first/providers/*`, `.spec-first/impact/*`, setup projections, or workspace advisory artifacts.
+
+Use this envelope in the generated plan immediately after `## Graph Readiness` and before `## Context & Research`:
+
+```md
+## Graph / GitNexus Evidence
+
+- provider: GitNexus | unavailable | not-applicable
+- native_tool_or_resource:
+- repo_scope:
+- capability_status: available | partial | unavailable | mutation-gated
+- evidence_grade: primary | session-local | advisory | stale
+- evidence_posture: primary | fallback
+- freshness_state: fresh | stale | dirty-advisory | query-unverified
+- source_contract_fields:
+- source_reads_required:
+- impact_on_plan:
+- capabilities_used:
+- key_findings:
+- limitations:
+```
+
+Interpret the four axes with `docs/contracts/graph-evidence-policy.md` as source of truth. `evidence_grade=primary` is the Plan alias for confirmed evidence. `evidence_posture=fallback` means the Plan chose direct source reads / ast-grep / git diff / code-review-graph instead of GitNexus for this question; `evidence_posture=fallback + evidence_grade=primary` is valid when the fallback facts are current source, test, schema, or command evidence. `source_reads_required mandatory` means it is required for stale/advisory/session-local paths and for any `evidence_posture=fallback`; it is still strongly expected when primary graph evidence changes implementation scope or tests.
+
+Native capability selection is LLM-owned and task-matched, not a deterministic router:
+
+| Task signal | Prefer | Fallback when unavailable |
+| --- | --- | --- |
+| Route/API handler or consumer changes | `api_impact`, then `route_map`, then `shape_check` where applicable | `query` / `context` plus bounded source reads |
+| Response shape risk | `shape_check` | route handler reads plus consumer source reads |
+| Symbol/refactor/reuse question | `query`, `context`, `impact` | bounded `rg` / ast-grep / code-review-graph |
+| MCP/RPC/tool surface change | `tool_map` | tool definition source reads |
+| Complex graph structure question | `cypher` only after schema/resource orientation | direct contract/source reads |
+| Repo/workspace orientation | `list_repos`, `group_list`, and read-only MCP resources | workspace advisory artifacts or bounded per-repo reads |
+
+Always report the matched capability as `native_tool_or_resource`; never hide it behind "GitNexus used: yes". Current MCP tools and read-only MCP resources are session-local tool/resource selection guidance; verify the live surface before claiming availability, and label successful live evidence as `session-local`. If a specialized native capability is unavailable, continue with `query` / `context` plus source reads, or fall back to bounded direct repo reads; do not claim a static durable capability catalog is current truth.
+
+Scope authority remains with the user request, origin requirements, plan/task pack, and current git diff. GitNexus findings only propose risks, impacted surfaces, reuse candidates, test candidates, or follow-up options; they must not expand implementation scope automatically. Mutation-capable capabilities such as `workspace_group_sync`, `group_sync`, `symbol_rename`, GitNexus `rename`, or equivalent provider mutations must be labeled `mutation-gated` / `requires explicit user action`, kept preview-first, and must not become automatic implementation units.
+
+Multi-repo plans must report registry evidence, group evidence, per-repo `query_usability`, dirty/stale limitations, and the current write boundary. Any plan that could lead to edits, tests, changelog updates, commits, or review autofix must name `target_repo` or per-unit repo scope before write/test/changelog/commit-oriented work. If GitNexus impact returns extra repo candidates, record the extra repo candidates as risks or follow-ups unless the user changes scope explicitly.
+
 #### 1.1b Detect Execution Posture Signals
 
 Decide whether the plan should carry a lightweight execution posture signal.

@@ -160,11 +160,13 @@ describe('user manual contracts', () => {
     expect(guide).toContain('`group.status="group-ready"`');
     expect(guide).toContain('`group.status="group-missing"`：使用 bounded registry/per-repo fan-out fallback；这不是 provider failure');
     expect(guide).toContain('普通 plan/work/debug/review 不得静默运行 `group_sync`');
-    expect(guide).toContain('dirty refresh blocked 只说明当前 checkout 不适合刷新 provider index，不等于 GitNexus query 完全不可用');
+    expect(guide).toContain('dirty-advisory 或 stale GitNexus evidence 不等于 query 完全不可用');
     expect(modes).toContain('GitNexus group readiness 只在此拓扑有意义');
     expect(modes).toContain('不要把 module 当 GitNexus group 成员');
     expect(modes).toContain('`group.status="not-evaluated-no-mcp-input"`');
     expect(modes).toContain('不授权普通 workflow 自动运行 `group_sync`');
+    expect(modes).not.toContain('--serena-language-for');
+    expect(modes).not.toContain('child/.serena');
   });
 
   test('user manual documents explicit graph refresh trigger boundaries', () => {
@@ -173,6 +175,8 @@ describe('user manual contracts', () => {
     const concepts = read(CORE_CONCEPTS_PATH);
     const artifactMap = read(ARTIFACT_MAP_PATH);
     const bestPractices = read(BEST_PRACTICES_PATH);
+    const englishReadme = read(README_EN_PATH);
+    const chineseReadme = read(README_ZH_PATH);
 
     expect(manual).toContain('自动 freshness check，显式 graph-bootstrap refresh');
     expect(manual).toContain('`spec-mcp-setup` 只刷新 setup-owned provider projection');
@@ -192,11 +196,26 @@ describe('user manual contracts', () => {
     expect(artifactMap).toContain('只有 `spec-graph-bootstrap` 显式刷新 canonical graph readiness artifacts');
     expect(bestPractices).toContain('旧 graph facts 当 stale / bootstrap-required signal');
     expect(bestPractices).toContain('隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons');
-    expect(concepts).toContain('dirty refresh blocked 只表示当前 checkout 不适合刷新 index；不等于 GitNexus 旧索引完全不可查询');
+    expect(concepts).toContain('dirty-advisory 或 stale GitNexus evidence 不等于 query 完全不可用');
     expect(artifactMap).toContain('gitnexus-readiness.json');
     expect(artifactMap).toContain('workspace-gitnexus-readiness.v1');
-    expect(bestPractices).toContain('dirty refresh blocked 时，不需要为了提出只读问题而先 commit/stash/clean');
+    expect(bestPractices).toContain('使用 dirty-advisory / stale GitNexus evidence 做只读定向时，不需要先 commit/stash/clean');
     expect(bestPractices).toContain('在普通 plan/work/debug/review 中隐藏运行 `group_sync`');
+
+    for (const content of [englishReadme, chineseReadme, artifactMap, bestPractices]) {
+      expect(content).toContain('Graph / GitNexus Evidence');
+      expect(content).toContain('native_tool_or_resource');
+      expect(content).toContain('capability_status');
+      expect(content).toContain('evidence_grade');
+      expect(content).toContain('evidence_posture');
+      expect(content).toContain('freshness_state');
+    }
+    expect(englishReadme).toContain('source fallback shaped the plan');
+    expect(chineseReadme).toContain('源码 fallback');
+    expect(artifactMap).toContain('Plan-local GitNexus evidence posture');
+    expect(bestPractices).toContain('source_reads_required');
+    expect(bestPractices).toContain('dirty/stale GitNexus evidence 当定向线索');
+    expect(bestPractices).toContain('用 `evidence_posture=fallback` 替代 `evidence_grade` 的可信度判断');
   });
 
   test('FAQ covers Win64-native and cross-platform troubleshooting', () => {
@@ -264,14 +283,14 @@ describe('user manual contracts', () => {
     expect(englishReadme).toContain('workspace-gitnexus-readiness.v1');
     expect(englishReadme).toContain('group.status="group-ready"');
     expect(englishReadme).toContain('bounded registry/per-repo fan-out');
-    expect(englishReadme).toContain('Dirty refresh blocked means provider index refresh is blocked');
+    expect(englishReadme).toContain('Dirty-advisory or stale GitNexus evidence can still orient read-only planning');
     expect(englishReadme).toContain('Monorepo modules are not GitNexus group members.');
     expect(englishReadme).toContain('including `.spec-first/workspace/gitnexus-readiness.json`, are advisory only');
 
     expect(chineseReadme).toContain('workspace-gitnexus-readiness.v1');
     expect(chineseReadme).toContain('`group.status="group-ready"`');
     expect(chineseReadme).toContain('bounded registry/per-repo fan-out');
-    expect(chineseReadme).toContain('dirty refresh blocked 表示 provider index refresh 被阻断');
+    expect(chineseReadme).toContain('dirty-advisory 或 stale GitNexus evidence 仍可用于只读 plan 定向');
     expect(chineseReadme).toContain('Monorepo modules 不是 GitNexus group 成员');
     expect(chineseReadme).toContain('包括 `.spec-first/workspace/gitnexus-readiness.json`，只作 advisory');
   });

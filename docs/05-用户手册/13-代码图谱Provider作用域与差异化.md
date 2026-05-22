@@ -72,7 +72,7 @@ GitNexus group readiness 只适用于父目录下多个独立 Git repos 的 `mul
 - `group.status="group-missing"`：使用 bounded registry/per-repo fan-out fallback；这不是 provider failure。
 - `group.status="not-evaluated-no-mcp-input"`：durable script run 没有 live MCP overlay；下游 workflow 应披露限制，或在当前 session 读取 live registry/group facts。
 
-普通 plan/work/debug/review 不得静默运行 `group_sync`，也不得把 live `list_repos` / `group_list` 结果写回 durable readiness。dirty refresh blocked 只说明当前 checkout 不适合刷新 provider index，不等于 GitNexus query 完全不可用；但涉及 dirty path 的结论必须用当前源码直接验证。
+普通 plan/work/debug/review 不得静默运行 `group_sync`，也不得把 live `list_repos` / `group_list` 结果写回 durable readiness。dirty-advisory 或 stale GitNexus evidence 不等于 query 完全不可用；但涉及当前源码或测试事实的结论必须用当前源码直接验证。
 
 ## code-review-graph 作用域
 

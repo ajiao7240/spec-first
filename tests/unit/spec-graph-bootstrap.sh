@@ -992,17 +992,19 @@ printf 'dirty refresh change\n' >> "$DIRTY_REFRESH_REPO/README.md"
 for dirty_refresh_case in "default|" "incremental|--incremental" "full|--full" "force|--force"; do
   dirty_refresh_label="${dirty_refresh_case%%|*}"
   dirty_refresh_arg="${dirty_refresh_case#*|}"
+  dirty_refresh_err="$TMP_DIR/dirty-refresh-${dirty_refresh_label}.err"
   set +e
   if [ -n "$dirty_refresh_arg" ]; then
-    dirty_refresh_output="$(cd "$DIRTY_REFRESH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" "$dirty_refresh_arg")"
+    dirty_refresh_output="$(cd "$DIRTY_REFRESH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" "$dirty_refresh_arg" 2>"$dirty_refresh_err")"
   else
-    dirty_refresh_output="$(cd "$DIRTY_REFRESH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+    dirty_refresh_output="$(cd "$DIRTY_REFRESH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" 2>"$dirty_refresh_err")"
   fi
   dirty_refresh_status=$?
   set -e
   assert_eq "dirty $dirty_refresh_label refresh continues with warn-and-continue" "0" "$dirty_refresh_status"
   assert_eq "dirty $dirty_refresh_label refresh writes dirty-advisory" "ready-dirty-advisory:graph-affecting-blocked:dirty-advisory" "$(jq -r '.overall_status + ":" + .dirty_classification + ":" + .freshness_state' <<<"$dirty_refresh_output")"
   assert_eq "dirty $dirty_refresh_label refresh reports graph-affecting count" "true" "$(jq -r '.dirty_paths_breakdown.graph_affecting_count > 0' <<<"$dirty_refresh_output")"
+  assert_contains "dirty $dirty_refresh_label refresh warning includes sample path" "  dirty: README.md" "$(cat "$dirty_refresh_err")"
   assert_eq "dirty $dirty_refresh_label refresh runs provider commands" "true" "$([ "$(cat "$COMMAND_LOG")" != "$before_dirty_refresh_log" ] && echo true || echo false)"
 done
 
@@ -1024,16 +1026,18 @@ if command -v pwsh >/dev/null 2>&1; then
   for dirty_ps_refresh_case in "default|" "incremental|-Incremental" "full|-Full" "force|-Force"; do
     dirty_ps_refresh_label="${dirty_ps_refresh_case%%|*}"
     dirty_ps_refresh_arg="${dirty_ps_refresh_case#*|}"
+    dirty_ps_refresh_err="$TMP_DIR/dirty-ps-refresh-${dirty_ps_refresh_label}.err"
     set +e
     if [ -n "$dirty_ps_refresh_arg" ]; then
-      dirty_ps_refresh_output="$(cd "$DIRTY_REFRESH_PS_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" "$dirty_ps_refresh_arg")"
+      dirty_ps_refresh_output="$(cd "$DIRTY_REFRESH_PS_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" "$dirty_ps_refresh_arg" 2>"$dirty_ps_refresh_err")"
     else
-      dirty_ps_refresh_output="$(cd "$DIRTY_REFRESH_PS_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
+      dirty_ps_refresh_output="$(cd "$DIRTY_REFRESH_PS_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" 2>"$dirty_ps_refresh_err")"
     fi
     dirty_ps_refresh_status=$?
     set -e
     assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh continues with warn-and-continue" "0" "$dirty_ps_refresh_status"
     assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh writes dirty-advisory" "ready-dirty-advisory:graph-affecting-blocked:dirty-advisory" "$(jq -r '.overall_status + ":" + .dirty_classification + ":" + .freshness_state' <<<"$dirty_ps_refresh_output")"
+    assert_contains "dirty PowerShell $dirty_ps_refresh_label refresh warning includes sample path" "  dirty: README.md" "$(cat "$dirty_ps_refresh_err")"
     assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh runs provider commands" "true" "$([ "$(cat "$COMMAND_LOG")" != "$before_dirty_ps_refresh_log" ] && echo true || echo false)"
   done
 

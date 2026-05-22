@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 const { validateAgainstSchema } = require('../../src/contracts/schema-validator');
 const {
@@ -277,6 +278,24 @@ describe('CLI command surface', () => {
     expect(payload.ok).toBe(true);
     expect(payload.session_id).toBe(id);
     expect(fs.existsSync(getSessionFile(repoRoot, id))).toBe(true);
+  });
+
+  test('register and list resolve the Git repo root from a subdirectory', () => {
+    execFileSync('git', ['init'], { cwd: repoRoot, stdio: 'ignore' });
+    const subdir = path.join(repoRoot, 'packages', 'app');
+    fs.mkdirSync(subdir, { recursive: true });
+    process.chdir(subdir);
+
+    expect(runSession(['register', '--id', 'cli-subdir', '--agent-kind', 'codex', '--json'])).toBe(0);
+    expect(fs.existsSync(getSessionFile(repoRoot, 'cli-subdir'))).toBe(true);
+    expect(fs.existsSync(path.join(subdir, '.spec-first', 'sessions', 'cli-subdir.json'))).toBe(false);
+
+    stdoutChunks.length = 0;
+    expect(runSession(['list', '--json'])).toBe(0);
+    const payload = JSON.parse(stdoutChunks.join(''));
+    expect(payload.repo_root).toBe(fs.realpathSync(repoRoot));
+    expect(payload.session_dir).toBe(path.join('.spec-first', 'sessions'));
+    expect(payload.sessions.map((session) => session.session_id)).toContain('cli-subdir');
   });
 
   test('list --json reports active and stale counts', () => {

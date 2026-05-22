@@ -30,7 +30,7 @@
 | --- | --- | --- | --- | --- |
 | `docs/ideation/*-ideation.md` | 主动想法探索与候选方向收敛 | `/spec:ideate` 或 `$spec-ideate` | 保存候选想法、批判、排序、被拒原因和进入 brainstorm 的 handoff；不是 requirements、plan 或代码 | 通常提交，作为后续 brainstorm/plan 的背景输入 |
 | `docs/brainstorms/*-requirements.md` | 需求成型 | `/spec:brainstorm` 或 `$spec-brainstorm` | 保存一个已选想法的问题框架、actors、flows、边界、非目标和验收样例 | 通常提交，作为 plan 的上游输入 |
-| `docs/plans/*-plan.md` | 实施规划 | `/spec:plan` 或 `$spec-plan` | 保存实施单元、取舍、验证范围、风险和非目标 | 通常提交，作为 work 或 write-tasks 的上游输入 |
+| `docs/plans/*-plan.md` | 实施规划 | `/spec:plan` 或 `$spec-plan` | 保存实施单元、取舍、验证范围、风险、非目标，以及必要时紧邻 `Graph Readiness` 的 `Graph / GitNexus Evidence` posture | 通常提交，作为 work 或 write-tasks 的上游输入 |
 | `docs/tasks/*-tasks.md` | 任务包派生 | standalone `write-tasks` skill | 保存从 plan 派生的 executable handoff、依赖、任务身份和 freshness contract | 视团队协作需要提交 |
 | `docs/solutions/**/*` | 知识沉淀 | `/spec:compound` 或 `$spec-compound` | 保存已解决问题的可复用工程经验 | 通常提交 |
 
@@ -40,7 +40,7 @@
 | --- | --- | --- |
 | `docs/ideation/` | 候选方向与想法排序 | `spec-brainstorm` 选择一个想法继续成型；维护者回看被拒绝方向与取舍理由 |
 | `docs/brainstorms/` | 需求成型 brief | `spec-plan`、doc review、后续维护者复核 scope 和 acceptance examples |
-| `docs/plans/` / `docs/tasks/` | 计划与可执行任务交接 | `spec-work`、standalone `write-tasks`、code/doc review |
+| `docs/plans/` / `docs/tasks/` | 计划与可执行任务交接 | `spec-work`、standalone `write-tasks`、code/doc review；计划中的 `Graph / GitNexus Evidence` block 说明 `native_tool_or_resource`、`capability_status`、`evidence_grade`、`evidence_posture`、`freshness_state` 和源码验证要求 |
 | `docs/solutions/` | 可复用工程知识 | 后续 brainstorm/plan/work/debug/review 复用经验 |
 | `config/` | setup-owned machine facts | graph-bootstrap 前置校验、host readiness 指针、fallback 能力判断 |
 | `providers/<provider>/` | provider-local evidence | 失败诊断、原始日志追踪、provider 规范化事实复核 |
@@ -59,7 +59,7 @@
 | --- | --- | --- | --- |
 | `config/` | `skills/spec-graph-bootstrap/scripts/bootstrap-providers.*` | graph-bootstrap preflight | 校验 baseline、provider command arrays、artifact path contract 和 fallback 能力 |
 | `providers/<provider>/` | graph-bootstrap 报告、维护者排障 | bootstrap 后诊断 | 查看 provider 原始输出和规范化结果 |
-| `graph/` | `spec-plan`，后续 graph-aware workflow | plan / work / review 前置判断 | 判断 graph readiness、provider 覆盖、confidence、limitations 与 staleness |
+| `graph/` | `spec-plan`，后续 graph-aware workflow | plan / work / review 前置判断 | 判断 graph readiness、provider 覆盖、confidence、limitations 与 staleness；`spec-plan` 可把这些 facts 派生为 Plan-local GitNexus evidence posture，但不写回 readiness artifacts |
 | `impact/` | `spec-plan`，后续 impact-aware workflow | plan / work / review 前置判断 | 判断 impact radius、review support 与 context selection 是否有可信 provider 支持 |
 | `workspace/` | 父 workspace 下的 LLM workflow、维护者 | workspace 只读定位或批量维护后 | 查看 child repo 候选、per-child readiness 和 next action；不替代 child repo canonical artifacts |
 | `audits/skill-audit` | 维护者、`spec-skill-audit` 后续 LLM 审查 | skill 审计后 | 查看 deterministic facts、score signals、P0/P1 evidence 和 patch preview 建议 |

@@ -86,7 +86,8 @@ describe('graph provider consumption contract', () => {
     expect(evidencePolicy).toContain('$spec-graph-bootstrap --incremental');
     expect(evidencePolicy).toContain('显式 `--all-repos --incremental`');
     expect(evidencePolicy).toContain('父级 workspace 隐式 all-repos `--incremental` 都 unsupported');
-    expect(evidencePolicy).toContain('dirty worktree 会在 provider command 前 blocked');
+    expect(evidencePolicy).toContain('graph-affecting dirty worktree refresh 会标记 `dirty-advisory`');
+    expect(evidencePolicy).toContain('以 warn-and-continue 运行 provider commands');
 
     expect(doc).toContain('## Refresh Ownership');
     expect(doc).toContain('consumer freshness-check');
@@ -123,6 +124,40 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('provider fingerprint mismatch');
     expect(doc).toContain('consumer 可以推荐 `$spec-graph-bootstrap`');
     expect(doc).toContain('不得在 plan/work/debug/review 内部静默运行 GitNexus analyze');
+  });
+
+  test('documents spec-plan GitNexus evidence envelope as a four-axis task envelope', () => {
+    const doc = read(CONSUMPTION_DOC_PATH);
+    const evidencePolicy = read(EVIDENCE_POLICY_PATH);
+
+    expect(evidencePolicy).toContain('Plan evidence envelope');
+    expect(evidencePolicy).toContain('`capability_status=available|partial|unavailable|mutation-gated`');
+    expect(evidencePolicy).toContain('`evidence_grade=primary|session-local|advisory|stale`');
+    expect(evidencePolicy).toContain('`evidence_posture=primary|fallback`');
+    expect(evidencePolicy).toContain('`freshness_state=fresh|stale|dirty-advisory|query-unverified`');
+    expect(evidencePolicy).toContain('`primary` 是 `confirmed` 的 Plan 层别名');
+    expect(evidencePolicy).toContain('`fallback` 是 posture，不是 evidence grade');
+    expect(evidencePolicy).toContain('`evidence_posture=fallback + evidence_grade=primary` 是合法组合');
+    expect(evidencePolicy).toContain('`evidence_posture=primary` 与 `capability_status=unavailable` 互斥');
+    expect(evidencePolicy).toContain('`freshness_state=stale` 或 `freshness_state=dirty-advisory` 时');
+    expect(evidencePolicy).toContain('拒绝 `evidence_grade=primary`');
+    expect(evidencePolicy).toContain('`freshness_state=query-unverified` 必须配合 `evidence_grade=advisory` 或 `stale`');
+    expect(evidencePolicy).toContain('`capability_status=mutation-gated` 表示 capability 需要 explicit user action / preview-first 路径');
+    expect(evidencePolicy).toContain('不得自动产出 mutation implementation unit');
+
+    expect(doc).toContain('## Plan Evidence Envelope Boundary');
+    expect(doc).toContain('`## Graph / GitNexus Evidence`');
+    expect(doc).toContain('不是新的 readiness artifact');
+    expect(doc).toContain('四个独立 axis');
+    expect(doc).toContain('`runtime-capabilities.json.project_graph_readiness`');
+    expect(doc).toContain('`graph-providers.json.derived_readiness`');
+    expect(doc).toContain('setup-owned projection pointers');
+    expect(doc).toContain('当前会话 live MCP / CLI evidence');
+    expect(doc).toContain('不回写 compiled readiness');
+    expect(doc).toContain('不得替代 `Graph Readiness.status`');
+    expect(doc).toContain('provider `query_ready`');
+    expect(doc).toContain('workspace `query_usability`');
+    expect(doc).toContain('`definitions-only` 仍是 limitation / query-usability condition');
   });
 
   test('documents incremental refresh fields, enums, and graph-facts non-surface', () => {

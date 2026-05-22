@@ -13,6 +13,19 @@ Parent workspace 下 GitNexus registry / group evidence 的消费边界见 `docs
 - 下游 workflow 读取 canonical artifacts 做输入判断，LLM 仍决定证据是否与当前任务语义相关。
 - live MCP 查询成功只算 `session-local` evidence，不能回写 compiled readiness，也不能把 `query_ready` 改成 true。
 
+## Plan Evidence Envelope Boundary
+
+`$spec-plan` 可以在 `## Graph Readiness` 之后输出 `## Graph / GitNexus Evidence`，但该 block 是任务相关 evidence envelope，不是新的 readiness artifact。它必须保留四个独立 axis：`capability_status=available|partial|unavailable|mutation-gated`、`evidence_grade=primary|session-local|advisory|stale`、`evidence_posture=primary|fallback`、`freshness_state=fresh|stale|dirty-advisory|query-unverified`。
+
+Plan envelope 的输入可以来自：
+
+- canonical `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` artifacts；
+- setup-owned projection pointers，例如 `runtime-capabilities.json.project_graph_readiness` 或 `graph-providers.json.derived_readiness`，但这些只能指向 canonical artifacts，不是独立 truth；
+- parent workspace advisory facts，包括 `workspace-gitnexus-readiness.v1` 的 nested `group.status`、per-child `query_usability` 和 limitations；
+- 当前会话 live MCP / CLI evidence，标记为 `session-local`，不回写 compiled readiness。
+
+该 envelope 不得替代 `Graph Readiness.status`、provider `query_ready`、workspace `query_usability` 或 impact capability support level。`definitions-only` 仍是 limitation / query-usability condition，不是新的 `freshness_state`。当 compiled graph facts stale、dirty-advisory、query-unverified 或 unavailable 时，Plan 必须披露 limitations，并用直接源码读取、测试、ast-grep、git diff 或 code-review-graph fallback 验证关键结论。
+
 ## Refresh Ownership
 
 | 节点 | 默认行为 | Canonical graph artifact 写入 |
@@ -109,7 +122,7 @@ Managed block 二级判断必须 fail-closed：
 | `CHANGELOG.md` | repo-level changelog metadata | 整个文件归 non-graph-metadata |
 | `docs/变更日志.md` | localized changelog metadata | 整个文件归 non-graph-metadata |
 
-不得把该列表扩展为 `docs/**`、README、架构文档、ADR、接口契约、计划、任务包、用户手册或业务说明。这些文档可能是 standards、plan、review 或人工判断输入，dirty 时仍按 graph-affecting fail-closed，除非另有独立计划修改本契约。
+不得把该列表扩展为 `docs/**`、README、架构文档、ADR、接口契约、计划、任务包、用户手册或业务说明。这些文档可能是 standards、plan、review 或人工判断输入，dirty 时仍归为 graph-affecting，并按当前 `dirty-advisory` / warn-and-continue 语义降级处理，除非另有独立计划修改本契约。
 
 Dirty classification 值域：
 

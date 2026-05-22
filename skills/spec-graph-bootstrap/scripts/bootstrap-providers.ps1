@@ -2697,7 +2697,7 @@ Set-WorktreeDirtyClassification
 $script:DirtyIncrementalDowngrade = $false
 if ($script:DirtyClassification -eq 'graph-affecting-blocked') {
   $dirtyPaths = @()
-  try { $dirtyPaths = ($script:DirtyPathsBreakdown.graph_affecting_paths.sample_paths ?? @()) | Select-Object -First 20 } catch {}
+  try { $dirtyPaths = ($script:DirtyPathsBreakdown.sample_paths ?? @()) | Select-Object -First 20 } catch {}
   [Console]::Error.WriteLine('WARNING: graph-affecting dirty paths detected. Index will reflect current uncommitted disk state.')
   [Console]::Error.WriteLine('  source_revision will not precisely align with HEAD.')
   foreach ($p in $dirtyPaths) { [Console]::Error.WriteLine("  dirty: $p") }

@@ -1,7 +1,7 @@
 ---
 title: feat: 将 GitNexus evidence posture 接入 spec-plan
 type: feat
-status: active
+status: completed
 date: 2026-05-22
 spec_id: 2026-05-22-001-gitnexus-first-class-capability-plugin
 origin: docs/brainstorms/2026-05-22-001-gitnexus-first-class-capability-plugin-requirements.md
@@ -12,6 +12,10 @@ origin: docs/brainstorms/2026-05-22-001-gitnexus-first-class-capability-plugin-r
 ## Summary
 
 本计划把 GitNexus first-class capability 的首个实施切片收窄到 `$spec-plan`：保留现有 `## Graph Readiness` readiness block，在其后新增 GitNexus evidence posture，让计划阶段能按任务风险选择 lightweight probe、native deep dive、degraded fallback 和 scope/mutation guardrail。`$spec-mcp-setup` capability metadata 与长期 capability catalog 作为 follow-up，不进入本切片硬交付。
+
+**v1 P0 + v1 P1 同切片合并落地（origin 优先级显式提升）：** 本计划在 origin 分级基础上做出 explicit promotion——把 origin 列为 v1 P1 的 Multi Repo Workspace 证据 posture（R27-R32）一并放入本 precursor，与 v1 P0 的 Plan core（R1-R20、R-MUT、R-SCP）同切片落地。理由：mutation/scope 防护栏（R8/R-MUT/R-SCP）在多仓拓扑下是质变而非数量变化——`target_repo` 边界、group sync mutation、per-child scope 这些威胁面单仓不存在；evidence posture 与多仓 boundary 分两批落地会留下"多仓用户被默认值暴露"的窗口期。详细 rationale 见 Key Technical Decisions 中"Promote R27-R32 into precursor"行。
+
+**Setup capability metadata（R21-R26 / R33-R35）仍 follow-up，已知 user-experience cost：** 本切片不交付 setup-owned capability projection。直接后果是每个 fresh session 的 `$spec-plan` 都需要重跑一次 live MCP probe 来确认 GitNexus native tools / resources 是否暴露——这是 origin AE7 描述的"setup-owned facts 直接驱动 fresh-session discovery"暂时不可得。当前 fallback（Plan Phase 1b live probe）继续工作，capability availability 不会丢失，只是没有 cached 跨会话结论。这一摩擦在 R21-R26 setup capability projection 落地后消除，对应 follow-up 单独排计划。
 
 本计划是 `$spec-plan`-only precursor：它完成 Plan 阶段的一等消费能力，但不单独宣称完成完整 GitNexus first-class capability plugin 验收。完整 plugin completion 仍依赖后续 setup-owned discoverability / capability projection 与 durable capability catalog 的独立计划。
 
@@ -29,14 +33,14 @@ origin requirements 要求 GitNexus 成为 spec-first 的一等 capability enhan
 
 - R1. `$spec-plan` 必须在涉及代码实现、架构、API、跨模块、跨仓、执行流、测试或 review 风险时执行 lightweight GitNexus evidence probe，并在计划中说明是否建议 deep dive。（origin R1, R2, R3, R4, R5, R6, R10, F1, AE1）
 - R2. 新增的 GitNexus evidence posture 必须位于现有 `## Graph Readiness` block 之后，不改变该 block 的 readiness 字段语义。（origin R9）
-- R3. Plan 输出必须区分 `capability_status`、`evidence_grade` 和 `freshness_state`，并明确这些字段是 Plan 层 envelope，不是 canonical readiness truth。（origin R14, R14a, R14b, R14c, AE11）
-- R4. `primary` / `fallback` 只作为 Plan 层术语：`primary` 映射到 graph evidence policy 的 `confirmed`，`fallback` 是 direct source reads / ast-grep / git diff / code-review-graph posture，不是新的永久证据等级。（origin R14b）
+- R3. Plan 输出必须区分 `capability_status`、`evidence_grade`、`evidence_posture` 和 `freshness_state` 四个独立 axis，并明确这些字段是 Plan 层 envelope，不是 canonical readiness truth。（origin R14, R14a, R14b, R14c, AE11）
+- R4. `evidence_grade` 与 `evidence_posture` 是两个正交 axis，不得合并到同一字段。`evidence_grade` 复用 `docs/contracts/graph-evidence-policy.md` 的四值证据等级（含 Plan 层 `primary` 别名映射 `confirmed`），表达事实可信度；`evidence_posture` 表达本轮 Plan 选择的证据来源切换姿态，取值 `primary | fallback`：`primary` 指继续走 GitNexus native capability，`fallback` 指改用 direct source reads / ast-grep / git diff / code-review-graph。源码/测试自身仍可作为 `evidence_grade=primary`（即 confirmed）证据，与 `evidence_posture=fallback` 同时成立——posture 描述 "我用什么 provider"，grade 描述 "事实多可信"，互不替代。（origin R14b）
 - R5. 当任务出现 graph-heavy 信号时，`$spec-plan` 必须按任务匹配 GitNexus native capability：route/API 走 `api_impact` / `route_map` / `shape_check`，符号/复用走 `query` / `context` / `impact`，tool surface 走 `tool_map`，复杂结构才考虑 `cypher`。（origin R7, R8, AE2, AE14）
 - R6. GitNexus unavailable、stale、dirty-advisory、query-unverified 或 definitions-only 时，Plan 继续执行，但必须披露 limitations、降低图谱证据信心，并扩大 direct source reads / ast-grep / code-review-graph fallback。（origin R11, R12, AE3, AE4）
 - R7. Plan 不得静默运行 provider refresh、GitNexus group sync、GitNexus analyze、provider repair、host config 修改或 durable artifact refresh。（origin R13, R15, R16；AE5 的"不得静默 group sync / refresh"半边由本 R 覆盖，AE5 的"可使用 session-local query"半边由 R1/R6 与 origin R17/R18 覆盖）
 - R8. mutation-capable capability 必须标注 `mutation-gated` / `requires explicit user action`，不能成为自动 implementation unit；GitNexus 影响面发现也不能自动扩大当前 scope。（origin R-MUT1, R-MUT2, R-MUT3, R-SCP1, R-SCP2, AE12）
 - R9. Multi Repo Workspace 场景下，Plan evidence posture 必须说明 registry evidence、group evidence、per-repo query usability、dirty/stale limitations 和写入前 `target_repo` / per-child scope 要求。（origin R27, R28, R29, R30, R31, R32, F6, AE9, AE10）
-- R10. 本计划不实现 setup-owned capability metadata projection 或 durable capability catalog；`R21-R26` 与 `R33-R35` 作为 follow-up 保留，不阻塞 `$spec-plan` evidence posture，但也不计入本切片完成条件。（origin R21-R26, R33-R35）
+- R10. 本计划不实现 setup-owned capability metadata projection 或 durable capability catalog；`R21-R26` 与 `R33-R35` 作为 follow-up 保留，不阻塞 `$spec-plan` evidence posture，但也不计入本切片完成条件。例外：origin R34 的 **resource-consumption aspect**（即"允许把 read-only MCP resources 作为 session-local evidence 来源"这一行为）由 U3 在本切片覆盖，因为它不依赖 catalog 基础设施且天然属于 Plan session-local probe；R33 / R35 的 durable capability catalog / source-tag baseline 部分仍为 follow-up。（origin R21-R26, R33-R35）
 - R11. source 变更必须同步 focused contract tests、README/用户手册最小说明和 `CHANGELOG.md`，不手改 `.claude/`、`.codex/` 或 `.agents/skills/` generated mirrors。
 
 **Origin actors:** A1 Developer, A2 `$spec-plan`, A3 GitNexus capability plugin, A4 Generic Code Intelligence Plugin protocol, A5 `$spec-graph-bootstrap`, A6 Downstream workflows, A7 `$spec-mcp-setup`
@@ -60,7 +64,7 @@ origin requirements 要求 GitNexus 成为 spec-first 的一等 capability enhan
 ### Deferred to Follow-Up Work
 
 - `$spec-mcp-setup` capability metadata projection：覆盖 R21-R26，落点可能涉及 `skills/spec-mcp-setup/mcp-tools.json`、provider projection writer、runtime capability facts、setup skill prose 和 setup contract tests。
-- Durable capability catalog / checked-in baseline：覆盖 R33-R35；需先确认 provider pin、host MCP tool/resource surface 和 setup projection 的长期维护边界，避免形成第二套 source of truth。
+- Durable capability catalog / checked-in baseline：覆盖 R33 与 R35 的 durable catalog / source-tag baseline 部分（R34 的 resource-consumption aspect 由本切片 U3 覆盖，见 R10 例外说明）；需先确认 provider pin、host MCP tool/resource surface 和 setup projection 的长期维护边界，避免形成第二套 source of truth。
 - Downstream workflow adoption：覆盖 R19/R20 的 `$spec-work`、`$spec-code-review`、`$spec-debug` 深度接入；应基于本 `$spec-plan` precursor posture 经验单独规划。
 - `workspace_group_sync` maintenance workflow：若后续需要真实 group sync，应走 preview-first、explicit approval 和 setup/bootstrap-owned 边界，不由 Plan 自动执行。
 
@@ -116,7 +120,9 @@ origin requirements 要求 GitNexus 成为 spec-first 的一等 capability enhan
 | Decision | Rationale | Consequence |
 | --- | --- | --- |
 | Split `$spec-plan` precursor from full plugin completion | The requirements doc listed setup metadata and capability catalog in v1 P0, but `$spec-plan` can start from current canonical artifacts and live session-local MCP evidence | This plan ships the Plan-stage precursor only; R21-R26 and R33-R35 remain explicit follow-up work required before claiming full first-class plugin completion |
+| **Promote R27-R32 (origin v1 P1 Multi Repo Workspace) into precursor** | Mutation/scope 防护栏（R8、R-MUT、R-SCP）在多仓拓扑下是质变而非数量变化：`target_repo` 边界、group sync mutation、per-child scope 这些威胁面单仓不存在；evidence posture（U2）+ trigger matrix（U3）+ mutation gate（U4）若不与多仓 boundary 同步落地，多仓用户在 v1 与 v1.1 之间会被默认值暴露（plan 写出无 `target_repo` 的 query / 跨仓污染） | R9 与 U4 在本切片硬交付，与 origin v1 P0 同切片落地；origin v1 priority 不变（P1 标签保留为 origin 历史记录），plan 阶段基于 implementation cohesion 做出 explicit promotion |
 | Preserve `## Graph Readiness` unchanged | Existing tests and downstream expectations treat Graph Readiness as readiness/freshness context | Add a neighboring `Graph / GitNexus Evidence` block instead of overloading readiness status |
+| **Use four orthogonal axes for evidence envelope** | `capability_status`（provider 可用性）、`evidence_grade`（事实可信度）、`evidence_posture`（GitNexus vs source-fallback 切换姿态）、`freshness_state`（index 新鲜度）是四个独立信号；把 `fallback` 塞进 `evidence_grade` 会与 `docs/contracts/graph-evidence-policy.md` 的"fallback 不是独立证据等级"声明冲突，且会丢失 "fallback posture + confirmed grade"（源码 fallback 仍是 confirmed 事实）这一正交组合 | `evidence_grade=primary|session-local|advisory|stale` 与 canonical 四值字面对齐；`evidence_posture=primary|fallback` 独立表达 provider 切换；contract test 不再需要"既是 grade 又不是 grade"的自我矛盾断言 |
 | Keep Plan envelope light | A broad Generic Code Intelligence Plugin framework would violate the light-contract goal and duplicate existing graph evidence policy | Add capability/evidence posture terms to existing contracts and skill prose, not a new provider platform |
 | Treat native capability selection as LLM-owned | Scripts can verify artifact freshness; only the planning workflow can decide whether API impact, symbol context, route map, shape check, Cypher, or source reads fit the current task | `$spec-plan` gets trigger guidance and required disclosure, not a deterministic router |
 | Use session-local GitNexus evidence conservatively | Live MCP tools/resources are useful but cannot rewrite compiled readiness or become permanent catalog truth | Plans can cite `native_tool_or_resource` and source tags, with freshness and limitations |
@@ -129,10 +135,16 @@ origin requirements 要求 GitNexus 成为 spec-first 的一等 capability enhan
 ### Resolved During Planning
 
 - Should setup capability metadata stay in the first implementation slice? No. It is useful but not required for `$spec-plan` to consume existing readiness facts and session-local GitNexus evidence; implementing it in this slice would enlarge the first slice without an independent consumer.
-- Should `primary/fallback` be added as canonical evidence grades? No. `primary` is a Plan alias for `confirmed`; `fallback` is a Plan posture. `docs/contracts/graph-evidence-policy.md` remains canonical for evidence-grade semantics.
+- Should `primary/fallback` be added as canonical evidence grades? No. `primary` is a Plan alias for `confirmed`; `fallback` is a Plan **posture**, not a grade. `docs/contracts/graph-evidence-policy.md` remains canonical for evidence-grade semantics.
 - Should this precursor create a new code intelligence plugin framework? No. The Plan envelope lives in existing graph evidence and plan workflow contracts; a broader provider framework would be speculative until another provider needs the same surface.
 - Should Plan ever auto-run `group_sync` or `rename` preview? No. Plan can mention `mutation-gated` follow-up action, but execution requires explicit user authorization and a later workflow boundary.
 - Should stale canonical graph facts block this plan? No. This is a source-prose/contract plan, and current source reads plus session-local GitNexus evidence are sufficient. The plan records graph evidence as stale/advisory.
+
+### Resolved During Document Review (2026-05-22 review)
+
+- **`evidence_grade` 含 `fallback` 与 R4 的设计冲突？** Resolved as **split into independent axis**：把 `fallback` 从 `evidence_grade` 移出，新增独立 `evidence_posture=primary|fallback` 字段。Plan envelope 由三轴扩为四轴。`evidence_grade` 复用 canonical 四值（`primary|session-local|advisory|stale`），`evidence_posture` 表达 GitNexus vs source-fallback 切换姿态，二者正交。理由：保住 `docs/contracts/graph-evidence-policy.md` 作为 source of truth 不被反向稀释；保留 "fallback posture + confirmed grade" 这一正交组合的表达力（源码 fallback 仍是 confirmed 事实）；R4 字面与新设计 100% 一致，无需删除"fallback 不是 grade"语句。落点：R3、R4、U1 vocabulary lock、U1 validity matrix、U1 test scenarios、U2 字段列表与 compound failure、Risks 表 fallback 行均已同步。
+- **R27-R32 从 origin v1 P1 提升进入 precursor 是否合规？** Resolved as **explicit promotion with cohesion rationale**：本 plan 在 origin 分级基础上做 explicit promotion 把 R27-R32 与 v1 P0 同切片落地。理由：mutation/scope 防护栏（R8、R-MUT、R-SCP）在多仓拓扑下是质变而非数量变化（`target_repo` 边界、group sync mutation、per-child scope 单仓不存在），evidence posture 与多仓 boundary 分批落地会留下"多仓用户被默认值暴露"的窗口期；切分到 follow-up 反而增加协作成本（U2/U3/U4 字段定义会被反复回查）。落点：Summary 段加入 promotion 说明、KTD 新增 "Promote R27-R32 into precursor" 行；origin v1 priority 标签保留为历史记录，不修改 origin 文档。
+- **Setup capability metadata 推迟导致 origin AE7 fresh-session capability discovery 不被覆盖，怎么办？** Resolved as **explicit user-experience cost disclosure**：本切片不交付 setup-owned capability projection；选择保留 follow-up 安排，但在 Summary 段以 user-experience 语言（不仅 requirement ID）显式声明 user-experience cost——每个 fresh session 的 `$spec-plan` 都需要重跑一次 live MCP probe 来确认 GitNexus native tools / resources 是否暴露。理由：AE7 是延迟性退化（capability availability 不会丢失，只是无 cached 跨会话结论），非功能缺失；setup capability projection 自身有 provider pin / host MCP surface 长期维护边界等先决条件，race 在同一 plan 实现质量反而下降；plan Phase 1b live probe 已经存在并工作，增量成本可忽略。落点：Summary 段加入 "Setup capability metadata 仍 follow-up，已知 user-experience cost" 段。
 
 ### Deferred to Implementation
 
@@ -181,14 +193,17 @@ The implementation should keep the contract path short: contracts define evidenc
 - Modify: `tests/unit/workspace-gitnexus-contracts.test.js`
 
 **Approach:**
-- Ensure `docs/contracts/graph-evidence-policy.md` explicitly states that `primary` is a `$spec-plan` alias for `confirmed`, and `fallback` is a Plan posture, not a canonical evidence-grade enum.
-- Lock the complete three-axis Plan envelope values: `capability_status=available|partial|unavailable|mutation-gated`, `evidence_grade=primary|session-local|advisory|fallback`, and `freshness_state=fresh|stale|dirty-advisory|query-unverified`.
-- 锁定三轴的同时必须在 contract 中给出 validity 取值矩阵，至少枚举以下非法或自动归一组合（详细组合由实现选择 contract test 表达方式，但下列约束必须可由测试机械检查）：
-  - `capability_status=unavailable` 时 `evidence_grade` 不得为 `primary`/`session-local`，必须收敛到 `advisory` 或 `fallback`。
-  - `capability_status=mutation-gated` 不得自动产出 mutation 步骤；`evidence_grade` 仅可为 `session-local`/`advisory`/`fallback`，且 `freshness_state` 不得用于声称已验证 mutation 安全。
+- Ensure `docs/contracts/graph-evidence-policy.md` explicitly states that `primary` is a `$spec-plan` alias for `confirmed`，并加入 Plan envelope `evidence_posture` 解释：`evidence_posture=primary|fallback` 表达本轮 Plan 选择 GitNexus 还是切到 direct source/ast-grep/CRG，与 `evidence_grade` 是两个独立 axis；`fallback` posture 仍可携带 confirmed 级别的源码/测试事实，posture 不降证据可信度。
+- Lock the complete four-axis Plan envelope values: `capability_status=available|partial|unavailable|mutation-gated`、`evidence_grade=primary|session-local|advisory|stale`（`primary` 映射 canonical `confirmed`；其余三值与 `docs/contracts/graph-evidence-policy.md` 字面对齐）、`evidence_posture=primary|fallback`（独立 axis，不是 grade）、`freshness_state=fresh|stale|dirty-advisory|query-unverified`。
+- 锁定四轴的同时必须在 contract 中给出 validity 取值矩阵，至少枚举以下非法或自动归一组合（详细组合由实现选择 contract test 表达方式，但下列约束必须可由测试机械检查）：
+  - `capability_status=unavailable` 时 `evidence_grade` 不得为 `primary`/`session-local`，必须收敛到 `advisory` 或 `stale`，且 `evidence_posture` 必须为 `fallback`。
+  - `capability_status=mutation-gated` 不得自动产出 mutation 步骤；`evidence_grade` 仅可为 `session-local`/`advisory`/`stale`，且 `freshness_state` 不得用于声称已验证 mutation 安全。
   - `freshness_state=fresh` 仅当来自当前 fingerprint 匹配的 canonical 或 query-ready provider；`capability_status=unavailable` 时禁用 `freshness_state=fresh`。
-  - `freshness_state=query-unverified` 必须配合 `evidence_grade=advisory` 或 `fallback`；不得与 `primary` 共存。
-  - `evidence_grade=fallback` 表示 Plan 切到 direct source/test/ast-grep 等替代证据，与 capability availability 解耦；当且仅当源码/测试本身仍可作为 confirmed evidence 时使用，contract 必须保证它不被解释为低可信证据等级。
+  - `freshness_state=stale` 拒绝 `evidence_grade=primary`，envelope 必须收敛到 `session-local`、`advisory` 或 `stale`；这与 R6 要求的"stale 必须降低图谱证据信心"一致。
+  - `freshness_state=dirty-advisory` 同样拒绝 `evidence_grade=primary`，原因同上（R6 列出 dirty-advisory 与 stale 同属降信心条件）。
+  - `freshness_state=query-unverified` 必须配合 `evidence_grade=advisory` 或 `stale`；不得与 `primary` 共存。
+  - `evidence_posture=fallback` 与 `evidence_grade` 任意值都可共存：fallback 表达 "Plan 切到 direct source/test/ast-grep/git diff/CRG"，源码/测试事实自身仍可是 `evidence_grade=primary`；contract 必须保证 posture 不被解释为低可信证据等级。
+  - `evidence_posture=primary` 与 `capability_status=unavailable` 互斥（不能既"继续走 GitNexus"又声明 GitNexus 不可用）。
 - Add or tighten contract language that the GitNexus Plan envelope is derived from existing canonical artifacts, existing setup-owned readiness facts (e.g., `runtime-capabilities.json.project_graph_readiness` 与 `graph-providers.json.derived_readiness` 这类 setup-owned projection 指针，按 `docs/contracts/graph-provider-consumption.md` Consumer Rule 5 仅作为指向 canonical artifacts 的提示而非独立真相源)、workspace advisory facts 和 session-local MCP evidence；它必须不得写回 readiness artifacts。后续 R21-R26 setup capability projection 落地时，可在不破坏本 envelope 含义的前提下扩展该派生集合。
 - Add a short precursor/follow-up boundary note: origin R21-R26 and R33-R35 stay follow-up; `$spec-plan` evidence posture can ship before setup-owned capability metadata/catalog work, so setup/catalog remains a boundary reference rather than a current-slice implementation requirement.
 - Keep `docs/contracts/workspace-gitnexus-consumption.md` as the source for multi-repo registry/group evidence; do not restate the whole workspace contract in graph evidence policy.
@@ -198,10 +213,11 @@ The implementation should keep the contract path short: contracts define evidenc
 - `tests/unit/workspace-gitnexus-contracts.test.js` prose contract assertions that lock critical wording without overfitting full paragraphs.
 
 **Test scenarios:**
-- Happy path: contract tests assert `primary` maps to `confirmed`, `fallback` is a Plan posture, and `session-local` evidence cannot rewrite compiled readiness.
+- Happy path: contract tests assert `evidence_grade=primary` maps to canonical `confirmed`，`evidence_grade` 四值（primary/session-local/advisory/stale）字面对齐 `docs/contracts/graph-evidence-policy.md`；`evidence_posture=fallback` 是独立 axis，不出现在 `evidence_grade` enum 中。
 - Edge case: tests assert Plan envelope fields do not replace `Graph Readiness.status`, workspace `query_usability`, or provider `query_ready`.
-- Edge case: tests assert the full three-axis enum values remain visible and that `definitions-only` is treated as an evidence limitation / query-usability condition, not a new `freshness_state`.
-- Compound failure: tests assert envelope rejection or canonical degradation for the impossible cells in the validity matrix above — at least `capability_status=unavailable + evidence_grade=primary`、`capability_status=mutation-gated + 自动 mutation 步骤`、`freshness_state=query-unverified + evidence_grade=primary` 必须不通过 contract 校验。
+- Edge case: tests assert the full four-axis enum values remain visible and that `definitions-only` is treated as an evidence limitation / query-usability condition, not a new `freshness_state`.
+- Compound failure: tests assert envelope rejection or canonical degradation for the impossible cells in the validity matrix above — at least `capability_status=unavailable + evidence_grade=primary`、`capability_status=unavailable + evidence_posture=primary`、`capability_status=mutation-gated + 自动 mutation 步骤`、`freshness_state=stale + evidence_grade=primary`、`freshness_state=dirty-advisory + evidence_grade=primary`、`freshness_state=query-unverified + evidence_grade=primary` 必须不通过 contract 校验。
+- Posture/grade orthogonality: tests assert `evidence_posture=fallback + evidence_grade=primary` 是合法组合（源码/测试 fallback 仍可携带 confirmed 级证据），明确 posture 不影响 grade 含义。
 - Error path: tests assert mutation-capable `group_sync` / `rename` remain explicit / preview-first and are not treated as `unavailable`.
 - Integration: workspace GitNexus contract tests still pass and continue to prohibit `group_status` top-level drift and downstream hidden `group_sync`.
 
@@ -226,9 +242,9 @@ The implementation should keep the contract path short: contracts define evidenc
 
 **Approach:**
 - In `skills/spec-plan/SKILL.md`, add an explicit lightweight GitNexus evidence probe immediately after Graph Readiness facts are interpreted.
-- Define the new plan output block with fields such as `provider`, `native_tool_or_resource`, `repo_scope`, `capability_status`, `evidence_grade`, `freshness_state`, `source_contract_fields`, `source_reads_required`, `impact_on_plan`, `capabilities_used`, `key_findings`, and `limitations`.
-- Require the skill prose and template to show allowed values for `capability_status`, `evidence_grade`, and `freshness_state` so implementers do not invent provider-local status names.
-- Make `source_reads_required` mandatory for stale/advisory/session-local/fallback paths, and strongly expected even for primary graph evidence when the plan changes source.
+- Define the new plan output block with fields such as `provider`, `native_tool_or_resource`, `repo_scope`, `capability_status`, `evidence_grade`, `evidence_posture`, `freshness_state`, `source_contract_fields`, `source_reads_required`, `impact_on_plan`, `capabilities_used`, `key_findings`, and `limitations`.
+- Require the skill prose and template to show allowed values for `capability_status`, `evidence_grade`, `evidence_posture`, and `freshness_state` so implementers do not invent provider-local status names.
+- Make `source_reads_required` mandatory for stale/advisory/session-local 路径 and 任意 `evidence_posture=fallback` 输出，and strongly expected even for `evidence_grade=primary` graph evidence when the plan changes source.
 - Update `plan-template.md` so new plans include the GitNexus evidence block after Graph Readiness and before Context & Research.
 - Preserve the existing Graph Readiness machine-testable fields exactly.
 
@@ -242,8 +258,8 @@ The implementation should keep the contract path short: contracts define evidenc
 - Covers AE1. Happy path: when a plan is generated from code-affecting input and graph facts are fresh/query-ready, the template supports both Graph Readiness and Graph / GitNexus Evidence sections.
 - Covers AE3. Edge case: when graph facts are stale or dirty-advisory, the skill requires limitations and direct source validation instead of treating prior GitNexus evidence as current primary proof.
 - Covers AE4. Error path: when GitNexus is unavailable or query-unverified, the skill still proceeds with fallback evidence and requires the limitation to appear in the plan.
-- Compound failure: tests assert plan output for the realistic worst case — graph-stale + worktree dirty + GitNexus session-local-only + graph-heavy task + provider surface 包含 mutation-capable tool。在该场景下，Plan envelope 必须同时呈现降级 `capability_status`、`evidence_grade=session-local|advisory`、`freshness_state=stale|dirty-advisory`，limitations 必须可见，并且不得自动调用 mutation tool。
-- Integration: spec-plan contract tests assert the new evidence block appears adjacent to Graph Readiness, lists the allowed three-axis values, and does not replace existing Graph Readiness fields.
+- Compound failure: tests assert plan output for the realistic worst case — graph-stale + worktree dirty + GitNexus session-local-only + graph-heavy task + provider surface 包含 mutation-capable tool。在该场景下，Plan envelope 必须同时呈现 `capability_status=mutation-gated`（当 mutation-capable tool 是匹配的 capability 时）或 `capability_status=partial`（当 mutation tool 仅出现在 surface 但本任务匹配的 capability 仍是只读 query/context/impact 时）、`evidence_grade=session-local|advisory|stale`、`evidence_posture=primary`（GitNexus 仍在用，只是 grade 已降）或 `fallback`（已切到源码读取 + ast-grep）、`freshness_state=stale|dirty-advisory`，limitations 必须可见，并且不得自动调用 mutation tool。
+- Integration: spec-plan contract tests assert the new evidence block appears adjacent to Graph Readiness, lists the allowed four-axis values (capability_status / evidence_grade / evidence_posture / freshness_state), and does not replace existing Graph Readiness fields.
 
 **Verification:**
 - `tests/unit/spec-plan-contracts.test.js` locks the new block, field names, fallback behavior, and no-refresh boundary.
@@ -382,7 +398,7 @@ The implementation should keep the contract path short: contracts define evidenc
 | Precursor scope creeps back into setup/catalog work | Keep R21-R26 and R33-R35 under `Deferred to Follow-Up Work`; U5 docs should mention behavior, not schema projection. |
 | New evidence block duplicates Graph Readiness semantics | Require `Graph / GitNexus Evidence` to cite readiness fields as source inputs while keeping `Graph Readiness.status` unchanged. |
 | Trigger matrix becomes a rigid rules engine | Phrase it as task-matched guidance for LLM judgment, not as deterministic routing code. |
-| `fallback` gets mistaken for a low-confidence evidence grade | U1 contract must state fallback is a posture; direct source/test facts can still be confirmed evidence. |
+| `fallback` 被误读为低可信证据等级 | `evidence_posture=fallback` 与 `evidence_grade` 是两个独立 axis；contract 必须保证 posture 不影响 grade 的 confirmed/session-local/advisory/stale 解释，源码/测试 fallback 仍可携带 `evidence_grade=primary`。U1 validity matrix 显式覆盖 posture/grade orthogonality。 |
 | Live MCP surface snapshot becomes permanent truth | U3 requires current-session verification and source tags; P1 catalog work remains separate. |
 | Multi-repo GitNexus evidence expands write scope | U4 requires target_repo/per-child scope before write/test/changelog/commit-oriented work. |
 | Generated runtime drift after source changes | Do not patch generated mirrors; if runtime refresh is needed after implementation, run the appropriate `spec-first init --claude|--codex` path as a separate execution step. |
@@ -426,21 +442,28 @@ The implementation should keep the contract path short: contracts define evidenc
 
 ### From 2026-05-22 review
 
-- **`evidence_grade` 含 `fallback` 与 R4 / graph-evidence-policy 的 posture-only 声明矛盾** — U1 Approach + R4 + Risks (P1, adversarial-document/feasibility +1 anchor, confidence-first 100)
+> **状态：本节 3 条 entry 已全部 Resolved。** 决议详见上文 `## Open Questions > ### Resolved During Document Review (2026-05-22 review)` 段；下方保留原始 finding 描述与 dedup-key 注释作审计记录，不构成未决项。
 
-  Implementers will encounter contract tests that simultaneously assert (a) `evidence_grade` enum contains `fallback` 作为一个值，(b) `fallback` 是 Plan posture 而非 evidence grade。`docs/contracts/graph-evidence-policy.md` 已经写明 `fallback` 不是独立证据等级；锁住四值 enum 等同于在 contract 内部承认它是。需要先做出二选一设计决策：要么把 `fallback` 从 `evidence_grade` 移出、用单独的 `posture` / `evidence_role` 字段表达，要么修改 R4 与既有 contract，把 `fallback` 升格为正式第四等级。该决策不应在 U1 测试编写过程中临时定夺。
+- **[Resolved → split into independent axis]** `evidence_grade` 含 `fallback` 与 R4 / graph-evidence-policy 的 posture-only 声明矛盾 — U1 Approach + R4 + Risks (P1, adversarial-document/feasibility +1 anchor, confidence-first 100)
+
+  原始 finding：Implementers will encounter contract tests that simultaneously assert (a) `evidence_grade` enum contains `fallback` 作为一个值，(b) `fallback` 是 Plan posture 而非 evidence grade。`docs/contracts/graph-evidence-policy.md` 已经写明 `fallback` 不是独立证据等级；锁住四值 enum 等同于在 contract 内部承认它是。需要先做出二选一设计决策：要么把 `fallback` 从 `evidence_grade` 移出、用单独的 `posture` / `evidence_role` 字段表达，要么修改 R4 与既有 contract，把 `fallback` 升格为正式第四等级。该决策不应在 U1 测试编写过程中临时定夺。
+
+  决议：采纳前者——`evidence_grade=primary|session-local|advisory|stale`（与 canonical 对齐），新增独立 `evidence_posture=primary|fallback`，envelope 由三轴扩为四轴。
 
   <!-- dedup-key: section="u1 approach r4 risks" title="evidencegrade enum locks fallback while r4 and graphevidencepolicymd declare it a plan posture not an evidence grade  u1 contract tests would have to assert both contradictory claims" evidence="R4. `primary` / `fallback` 只作为 Plan 层术语：`primary` 映射到 graph evidence policy 的 `confirmed`，`fallback` 是 dir" -->
 
-- **R27-R32 (origin v1 P1) 被 plan R9/U4 静默提升进入 precursor** — Requirements R9 + U4 (P2, scope-guardian, confidence-first 100)
+- **[Resolved → explicit promotion]** R27-R32 (origin v1 P1) 被 plan R9/U4 静默提升进入 precursor — Requirements R9 + U4 (P2, scope-guardian, confidence-first 100)
 
-  Origin `v1 实现优先级` 把 R27-R32 标为 v1 P1，与 setup capability metadata (R21-R26 / R33-R35) 同列，但优先级低于 Plan 核心。本 plan 在 R9 / U4 把它们整体并入 precursor，而 Summary 强调 "narrow precursor that defers setup, catalog, downstream"。需要选择：要么在 Summary 与 Key Technical Decisions 显式承认 R27-R32 从 v1 P1 提升进入 precursor 并给出理由（例如 mutation/scope 防护栏在单仓也成立、多仓边界与 group sync 风险在本切片必须封装），要么把 R9 / U4 的多仓专属内容拆出去做单独 follow-up，让 U4 只保留 mutation/scope 防护栏。
+  原始 finding：Origin `v1 实现优先级` 把 R27-R32 标为 v1 P1，与 setup capability metadata (R21-R26 / R33-R35) 同列，但优先级低于 Plan 核心。本 plan 在 R9 / U4 把它们整体并入 precursor，而 Summary 强调 "narrow precursor that defers setup, catalog, downstream"。需要选择：要么在 Summary 与 Key Technical Decisions 显式承认 R27-R32 从 v1 P1 提升进入 precursor 并给出理由（例如 mutation/scope 防护栏在单仓也成立、多仓边界与 group sync 风险在本切片必须封装），要么把 R9 / U4 的多仓专属内容拆出去做单独 follow-up，让 U4 只保留 mutation/scope 防护栏。
+
+  决议：采纳前者——Summary 段加入 promotion 说明、KTD 新增 "Promote R27-R32 into precursor" 行；origin v1 priority 标签保留为历史记录。
 
   <!-- dedup-key: section="requirements r9  u4" title="origin lists r2732 multirepo workspace as v1 p1 this precursor pulls them in via r9u4 with no explicit promotion rationale contradicting the smallest precursor framing in summary" evidence="Origin: 'v1 P1 — Multi Repo Workspace: R27-R32 多仓 evidence posture，group-ready / group-missing 两路径'" -->
 
-- **Origin AE7 fresh-session capability discovery 不被本切片覆盖，user-experience cost 未在 Summary 暴露** — Summary + Deferred to Follow-Up Work (P2, product-lens, confidence-first 75)
+- **[Resolved → explicit user-experience cost disclosure]** Origin AE7 fresh-session capability discovery 不被本切片覆盖，user-experience cost 未在 Summary 暴露 — Summary + Deferred to Follow-Up Work (P2, product-lens, confidence-first 75)
 
-  Origin success criterion 要求 `$spec-mcp-setup 能清楚表达 GitNexus live capability 是否已配置 / 需要新会话 / 是否建议 graph-bootstrap`，对应 AE7。本 precursor 把 setup metadata 整体推到 follow-up，意味着每个 cold session 的 Plan 都必须重跑 live MCP probe 才能得知 native capability availability — 正是 origin Problem Frame 所指出的 "GitNexus 被压缩成 readiness compiler 输入源" 摩擦。需要选择：要么在 precursor 中加一个最小 setup capability projection sibling unit 让 AE7 在 v1 落地，要么在 Summary / Deferred to Follow-Up Work 里显式声明 "fresh-session capability discovery 不在本切片交付，Plan 输出依赖 per-session live probe，直到 R21-R26 ship"，以 user-experience 语言而非 requirement ID 表述。
+  原始 finding：Origin success criterion 要求 `$spec-mcp-setup 能清楚表达 GitNexus live capability 是否已配置 / 需要新会话 / 是否建议 graph-bootstrap`，对应 AE7。本 precursor 把 setup metadata 整体推到 follow-up，意味着每个 cold session 的 Plan 都必须重跑 live MCP probe 才能得知 native capability availability — 正是 origin Problem Frame 所指出的 "GitNexus 被压缩成 readiness compiler 输入源" 摩擦。需要选择：要么在 precursor 中加一个最小 setup capability projection sibling unit 让 AE7 在 v1 落地，要么在 Summary / Deferred to Follow-Up Work 里显式声明 "fresh-session capability discovery 不在本切片交付，Plan 输出依赖 per-session live probe，直到 R21-R26 ship"，以 user-experience 语言而非 requirement ID 表述。
+
+  决议：采纳后者——Summary 段加入 "Setup capability metadata 仍 follow-up，已知 user-experience cost" 段，以 user-experience 语言（而非 requirement ID）声明每个 fresh session 重跑 live MCP probe 的直接后果，并指明 R21-R26 落地后消除。
 
   <!-- dedup-key: section="summary  deferred to followup work" title="origin success criterion specmcpsetup 能清楚表达 gitnexus live capability 是否已配置 is unmet by this slice ae7 freshsession capability discovery from setupowned facts does not materialize but precursor disclosure names requirement ids without naming the userexperience cost every cold session reruns live mcp probe" evidence="本计划是 `$spec-plan`-only precursor：它完成 Plan 阶段的一等消费能力，但不单独宣称完成完整 GitNexus first-class capability plugin 验收。" -->
-

@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const {
   ALLOWED_AGENT_KINDS,
   generateSessionId,
@@ -39,6 +40,19 @@ function runSession(argv) {
   console.error(`Unknown session subcommand: ${sub}`);
   printHelp(true);
   return 2;
+}
+
+function resolveRepoRoot(cwd = process.cwd()) {
+  const current = path.resolve(cwd);
+  try {
+    const output = execFileSync('git', ['-C', current, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return output ? path.resolve(output) : current;
+  } catch (_error) {
+    return current;
+  }
 }
 
 function parseCommonFlags(args) {
@@ -141,7 +155,7 @@ function runRegister(args) {
     return 2;
   }
   const pid = pidStr === undefined ? process.ppid || process.pid : Number.parseInt(pidStr, 10);
-  const repoRoot = process.cwd();
+  const repoRoot = resolveRepoRoot();
   const result = registerSession(repoRoot, {
     session_id: id || generateSessionId(),
     agent_kind: agentKind,
@@ -183,7 +197,7 @@ function runHeartbeat(args) {
     ]);
     return 2;
   }
-  const repoRoot = process.cwd();
+  const repoRoot = resolveRepoRoot();
   const result = heartbeatSession(repoRoot, id);
   if (!result.ok) {
     emitErr(parsed.json, result, [`session heartbeat failed: ${result.reason_code}`]);
@@ -215,7 +229,7 @@ function runUnregister(args) {
     ]);
     return 2;
   }
-  const repoRoot = process.cwd();
+  const repoRoot = resolveRepoRoot();
   const result = unregisterSession(repoRoot, id);
   if (!result.ok) {
     emitErr(parsed.json, result, [`session unregister failed: ${result.reason_code}`]);
@@ -238,7 +252,7 @@ function runList(args) {
     ]);
     return 2;
   }
-  const repoRoot = process.cwd();
+  const repoRoot = resolveRepoRoot();
   const sessions = listSessions(repoRoot, { includeStale });
   const payload = {
     schema_version: 'spec-first-session-list.v1',
@@ -293,4 +307,5 @@ function printHelp(toErr = false) {
 
 module.exports = {
   runSession,
+  resolveRepoRoot,
 };

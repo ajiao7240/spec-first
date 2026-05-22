@@ -1203,11 +1203,11 @@ if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then
   # warn-and-continue: GitNexus analyze indexes current disk files regardless of commit state.
   # Emit a visible warning but do not block; downstream consumers use freshness_state=dirty-advisory.
   {
-    echo "WARNING: graph-affecting dirty paths detected. Index will reflect current uncommitted disk state."
-    echo "  source_revision will not precisely align with HEAD."
-    printf '%s\n' "$DIRTY_PATHS_BREAKDOWN_JSON" | jq -r '
-      (.graph_affecting_paths.sample_paths // [])[:20][] | "  dirty: " + .' 2>/dev/null || true
-  } >&2
+	    echo "WARNING: graph-affecting dirty paths detected. Index will reflect current uncommitted disk state."
+	    echo "  source_revision will not precisely align with HEAD."
+	    printf '%s\n' "$DIRTY_PATHS_BREAKDOWN_JSON" | jq -r '
+	      (.sample_paths // [])[:20][] | "  dirty: " + .' 2>/dev/null || true
+	  } >&2
   if [ "$INVOCATION_REFRESH_MODE" = "incremental" ]; then
     INVOCATION_REFRESH_MODE="full"
     DIRTY_INCREMENTAL_DOWNGRADE=true

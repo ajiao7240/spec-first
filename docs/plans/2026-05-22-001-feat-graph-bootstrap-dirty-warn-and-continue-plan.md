@@ -1,7 +1,7 @@
 ---
 title: "feat: Graph Bootstrap Dirty Warn-and-Continue"
 type: feat
-status: active
+status: completed
 date: 2026-05-22
 spec_id: 2026-05-22-002-graph-bootstrap-dirty-warn-and-continue
 origin: docs/brainstorms/2026-05-22-002-graph-bootstrap-dirty-warn-and-continue-requirements.md
@@ -12,6 +12,8 @@ origin: docs/brainstorms/2026-05-22-002-graph-bootstrap-dirty-warn-and-continue-
 ## 摘要
 
 移除 `bootstrap-providers.sh` / `.ps1` 对 `graph-affecting` dirty worktree 的 fail-closed 阻断，改为 warn-and-continue：GitNexus analyze 继续运行，dirty 状态写入 `freshness_state=dirty-advisory` 和 `overall_status=ready-dirty-advisory`，下游通过字段感知证据降级而不是被硬阻断。
+
+完成状态：已落地 Bash / PowerShell 脚本、canonical artifact 字段、all-repos 汇总、SKILL.md、contract 文档与测试更新；`npm run test:unit` 于 2026-05-22 通过。
 
 ---
 

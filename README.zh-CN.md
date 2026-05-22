@@ -168,7 +168,7 @@ Graph refresh 触发节点：
 | 首次 setup 或 provider package projection 过期 | 运行 `/spec:mcp-setup` 或 `$spec-mcp-setup`；它刷新 setup-owned provider config，不刷新 graph index。 |
 | 需要当前 GitNexus / code-review-graph readiness | 运行 `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap`；这是显式 graph readiness refresh 入口。 |
 | 切换分支、pull、rebase、merge 或 dirty worktree 变化 | 下一个 graph consumer 检测 stale `source_revision` / `worktree_status_hash`；不会自动 rebuild index。 |
-| setup/init 后只有 setup-owned dirty | `/spec:graph-bootstrap` / `$spec-graph-bootstrap` 会继续刷新 spec-first managed artifacts；源码 dirty 仍以 `dirty-source-blocked` fail-closed。 |
+| setup/init 后 worktree dirty | `/spec:graph-bootstrap` / `$spec-graph-bootstrap` 记录 dirty classification；setup-owned / non-graph metadata dirty 可正常刷新，graph-affecting dirty 走 warn-and-continue 并写入 `dirty-advisory`，不能当 fresh primary evidence。 |
 | docs、typo、小型本地 bug 或首次试用 | graph facts stale / unavailable 时披露限制，并继续 bounded direct reads。 |
 | shared API/route/provider contract、core workflow、跨模块变更或高风险 review | 在声明 graph-backed impact 或 execution-flow evidence 前显式刷新 graph readiness。 |
 
@@ -558,9 +558,9 @@ your-project/
 - 用当前宿主的 setup workflow 安装并验证 required harness runtime：Sequential Thinking、Context7、GitNexus、code-review-graph、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。`agent-browser` 是 non-blocking browser automation helper capability；只有需要 browser evidence 或截图自动化时，才在 setup 前设置 `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1`。
 - 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus/code-review-graph probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
 - 把切换分支、pull、rebase、merge、dirty worktree 变化和 provider fingerprint mismatch 视为 graph freshness invalidation signals。下游 workflow 可以建议 graph bootstrap，但不会隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。
-- 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。
+- 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。涉及代码、架构、API 或跨模块计划时，它还会在旁边写出 `Graph / GitNexus Evidence` posture，包含 `native_tool_or_resource`、`capability_status`、`evidence_grade`、`evidence_posture` 和 `freshness_state`，让读者看清计划使用了 GitNexus native evidence、session-local evidence 还是源码 fallback。
 - 在父 workspace 下存在多个 child Git repos 时，只读代码问题可以使用 `workspace-graph-targets.v1` 和 `workspace-gitnexus-readiness.v1` advisory facts 选择 bounded candidate repos；`group.status="group-ready"` 优先使用 GitNexus-first evidence via group query，group config 缺失或未评估时走 bounded registry/per-repo fan-out。除下一条父 workspace 维护入口外，写入、测试、changelog、review autofix 和 commit 仍必须有明确 `target_repo` / per-child scope。
-- dirty refresh blocked 表示 provider index refresh 被阻断，不等于 stale/advisory GitNexus query evidence 不能用于只读定向；dirty path 结论仍要直接读当前源码确认。
+- dirty-advisory 或 stale GitNexus evidence 仍可用于只读 plan 定向，但不能当作 fresh primary evidence；涉及当前源码或测试事实的结论必须直接读源码或测试确认。
 - 父 workspace 维护操作中，init、setup 和 graph bootstrap 在未传 `--repo <child>` 时默认处理全部 child repos；`--repo <child>` 用于收窄范围，`--all-repos` 仍作为显式等价入口。父目录可以写 advisory `.spec-first/workspace/*summary.json`。父目录不把 repo-local `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*` 或 `.spec-first/providers/*` 当作 parent-local truth。
 - 用已安装的 standalone `write-tasks` skill 做确定性的 task-pack handoff，再让当前宿主的 work、code-review 和 doc-review workflow 基于当前请求、plans/task packs、diffs、targeted file reads 与 tests 确定 scope authority。
 - 移动 App 的 PRD/Figma/source 对齐审查使用 App consistency audit workflow。它消费本地 `prd:<path>` 与 `figma-context:<path>` 输入；`figma-ref:<id-or-url>` 只是 reference，只有宿主提供的 Figma MCP 能力 materialize 出本地 JSON 后才成为 evidence。Figma MCP 是 App-audit 可选能力，不属于 required setup baseline。

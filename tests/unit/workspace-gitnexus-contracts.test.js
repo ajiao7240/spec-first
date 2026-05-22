@@ -14,6 +14,12 @@ const WORKFLOW_CONSUMER_PATHS = [
   'skills/spec-debug/SKILL.md',
   'skills/spec-code-review/SKILL.md',
 ];
+const NO_GROUP_SYNC_AUTOMATION_PATHS = [
+  'skills/spec-work/SKILL.md',
+  'skills/spec-work-beta/SKILL.md',
+  'skills/spec-debug/SKILL.md',
+  'skills/spec-code-review/SKILL.md',
+];
 
 function read(relativePath) {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
@@ -54,7 +60,8 @@ describe('workspace GitNexus consumption contract', () => {
   test('separates dirty refresh blocking from stale advisory query use', () => {
     const contract = fs.readFileSync(CONTRACT_PATH, 'utf8');
 
-    expect(contract).toContain('`dirty-source-blocked` 是 refresh result，不是 query result');
+    expect(contract).toContain('`dirty-source-blocked` 是 legacy refresh result，不是 query result');
+    expect(contract).toContain('当前 graph-affecting dirty refresh 以 `dirty-advisory` / warn-and-continue 写入降级证据');
     expect(contract).toContain('read-only `stale-advisory` evidence');
     expect(contract).toContain('`provider-status.v1.last_indexed_commit != null`');
     expect(contract).toContain('prior query-ready proof 的唯一可观测代理');
@@ -78,7 +85,7 @@ describe('workspace GitNexus consumption contract', () => {
     expect(provider).toContain('`refresh_eligibility`、`index_snapshot` 和 `query_usability`');
     expect(policy).toContain('docs/contracts/workspace-gitnexus-consumption.md');
     expect(policy).toContain('`group_missing` 不是 provider failure');
-    expect(policy).toContain('dirty refresh blocked 也不等于 query unusable');
+    expect(policy).toContain('dirty-advisory 或 legacy dirty refresh blocked 也不等于 query unusable');
   });
 
   test('downstream consumers do not collapse dirty refresh blocked into query unavailable', () => {
@@ -93,11 +100,33 @@ describe('workspace GitNexus consumption contract', () => {
   });
 
   test('group_sync stays out of downstream consumer workflows', () => {
-    for (const filePath of WORKFLOW_CONSUMER_PATHS) {
+    for (const filePath of NO_GROUP_SYNC_AUTOMATION_PATHS) {
       expect(read(filePath)).not.toContain('group_sync');
     }
 
+    const planSkill = read('skills/spec-plan/SKILL.md');
+    expect(planSkill).toContain('workspace_group_sync');
+    expect(planSkill).toContain('mutation-gated');
+    expect(planSkill).toContain('requires explicit user action');
+    expect(planSkill).toContain('must not become automatic implementation units');
+
     expect(read('skills/spec-graph-bootstrap/SKILL.md')).toContain('Do not run `group_sync` automatically');
+  });
+
+  test('spec-plan carries multi-repo evidence posture without changing write scope', () => {
+    const contract = fs.readFileSync(CONTRACT_PATH, 'utf8');
+
+    expect(contract).toContain('`$spec-plan` Evidence Posture Requirements');
+    expect(contract).toContain('registry evidence、group evidence、per-repo `query_usability`');
+    expect(contract).toContain('dirty/stale limitations');
+    expect(contract).toContain('写入前 `target_repo` / per-child scope 要求');
+    expect(contract).toContain('bounded registry/per-repo fallback');
+    expect(contract).toContain('GitNexus 发现的额外 repo、symbol、route 或 flow 只能作为 risk / follow-up / test-candidate evidence');
+    expect(contract).toContain('implementation scope 仍由用户请求、origin requirements、plan/task pack、当前 git diff 和显式 `target_repo` / per-unit repo scope 决定');
+    expect(contract).toContain('`workspace_group_sync`');
+    expect(contract).toContain('`symbol_rename`');
+    expect(contract).toContain('`mutation-gated` / `requires explicit user action`');
+    expect(contract).toContain('不得在 plan/work/debug/review 中成为自动 implementation unit');
   });
 
   test('graph bootstrap handoff separates child refresh and query usability summaries', () => {

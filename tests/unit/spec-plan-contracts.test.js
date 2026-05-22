@@ -152,6 +152,8 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain(
       'status: primary | degraded-fallback | stale | blocked | setup-not-ready | unavailable',
     );
+    expect(template).toContain('- target_repo:');
+    expect(template.indexOf('- target_repo:')).toBeLessThan(template.indexOf('- status:'));
     for (const field of [
       '- source_revision:',
       '- current_revision:',
@@ -207,6 +209,82 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('`detect_changes` / impact results are evidence');
     expect(text).toContain('not refresh triggers');
     expect(text).toContain('Do not expand this into context selection, impact analysis, review evidence');
+  });
+
+  test('emits GitNexus evidence posture after Graph Readiness with native capability guidance', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
+    const combined = `${text}\n${template}`;
+
+    expect(combined).toContain('## Graph / GitNexus Evidence');
+    expect(template.indexOf('## Graph Readiness')).toBeLessThan(template.indexOf('## Graph / GitNexus Evidence'));
+    expect(template.indexOf('## Graph / GitNexus Evidence')).toBeLessThan(template.indexOf('## Context & Research'));
+    for (const field of [
+      '- provider:',
+      '- native_tool_or_resource:',
+      '- repo_scope:',
+      '- capability_status:',
+      '- evidence_grade:',
+      '- evidence_posture:',
+      '- freshness_state:',
+      '- source_contract_fields:',
+      '- source_reads_required:',
+      '- impact_on_plan:',
+      '- capabilities_used:',
+      '- key_findings:',
+      '- limitations:',
+    ]) {
+      expect(combined).toContain(field);
+    }
+
+    expect(text).toContain('capability_status: available | partial | unavailable | mutation-gated');
+    expect(text).toContain('evidence_grade: primary | session-local | advisory | stale');
+    expect(text).toContain('evidence_posture: primary | fallback');
+    expect(text).toContain('freshness_state: fresh | stale | dirty-advisory | query-unverified');
+    expect(text).toContain('not canonical readiness truth');
+    expect(text).toContain('must not replace `Graph Readiness.status`');
+    expect(text).toContain('provider `query_ready`');
+    expect(text).toContain('workspace `query_usability`');
+    expect(text).toContain('`evidence_posture=fallback + evidence_grade=primary`');
+    expect(text).toContain('source_reads_required mandatory');
+
+    for (const capability of [
+      'api_impact',
+      'route_map',
+      'shape_check',
+      'query',
+      'context',
+      'impact',
+      'tool_map',
+      'cypher',
+      'list_repos',
+      'group_list',
+      'read-only MCP resources',
+    ]) {
+      expect(text).toContain(capability);
+    }
+    expect(text).toContain('verify the live surface before claiming availability');
+    expect(text).toContain('native_tool_or_resource');
+    expect(text).toContain('schema/resource orientation');
+    expect(text).toContain('session-local tool/resource selection guidance');
+    expect(text).toContain('do not claim a static durable capability catalog is current truth');
+  });
+
+  test('GitNexus planning posture keeps mutation and scope expansion gated', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('Scope authority remains with the user request, origin requirements, plan/task pack, and current git diff');
+    expect(text).toContain('GitNexus findings only propose risks, impacted surfaces, reuse candidates, test candidates, or follow-up options');
+    expect(text).toContain('must not expand implementation scope automatically');
+    expect(text).toContain('workspace_group_sync');
+    expect(text).toContain('symbol_rename');
+    expect(text).toContain('GitNexus `rename`');
+    expect(text).toContain('mutation-gated');
+    expect(text).toContain('requires explicit user action');
+    expect(text).toContain('must not become automatic implementation units');
+    expect(text).toContain('Multi-repo plans must report registry evidence, group evidence, per-repo `query_usability`, dirty/stale limitations');
+    expect(text).toContain('must name `target_repo` or per-unit repo scope before write/test/changelog/commit-oriented work');
+    expect(text).toContain('extra repo candidates as risks or follow-ups');
   });
 
   test('planning research dispatch is host-neutral with explicit inline fallback', () => {
