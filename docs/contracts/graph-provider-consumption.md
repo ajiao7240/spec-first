@@ -63,7 +63,7 @@ Graph-heavy 至少包括 shared helper/API/route/provider contract/core workflow
 | incremental preflight 降级 full | provider `readiness_source=cold-run`, `refresh_mode=full`, `reason_code` 为 `incremental-command-unavailable`、`fingerprint-spec-first-changed`、`fingerprint-projection-changed`、`fingerprint-provider-changed`、`clean-full-refresh-required`、`incremental-base-ref-unset`、`incremental-base-ref-invalid-format`、`incremental-base-status-untrusted`、`incremental-base-ref-missing` 或 `incremental-base-ref-not-ancestor` | 视为 full refresh attempt；把 `reason_code` 当过程审计字段，不把降级写成 provider 故障 |
 | incremental 失败后 fallback full 成功 | provider `readiness_source=incremental-fallback-full`, `refresh_mode=incremental-fallback-full`, `fallback_from_incremental=true`, `reason_code=incremental-refresh-failed-fallback-full`, `requires_clean_full_refresh=false` | 可在 ready/query-ready 时消费 readiness，但应披露发生过 fallback；operator 应调查后再继续依赖 incremental |
 | incremental 和 fallback full 都失败 | top-level result `reason_code=incremental-and-full-failed`; provider `refresh_mode=failed`, `graph_ready=false`, `query_ready=false`, `requires_clean_full_refresh=true`; prior `last_indexed_commit` carry-forward | 不消费该 provider 的本轮 readiness。上一轮 aggregate canonical freshness artifacts 会在存在时保留；本轮 stdout/report 才表示 degraded/action context |
-| dirty worktree refresh request: graph-affecting | command result `workflow_mode=blocked`, `reason_code=dirty-source-blocked`, `dirty_classification=graph-affecting-blocked`, `canonical_artifacts_preserved=true`; provider commands 不运行 | 不把 dirty blocked 结果写成 canonical graph freshness。要求用户 commit、stash 或 clean 后再刷新。历史 `dirty-refresh-non-canonical` 兼容读取时视同 `dirty-source-blocked` |
+| dirty worktree refresh request: graph-affecting | GitNexus provider commands 运行，索引当前磁盘文件；command result `workflow_mode=primary`（providers ready 时）或 `degraded`，`overall_status=ready-dirty-advisory`，`dirty_classification=graph-affecting-blocked`，`freshness_state=dirty-advisory`，`source_revision_dirty=true`；canonical artifacts 写入 `freshness_state=dirty-advisory`；legacy `dirty-source-blocked` reason code 不再写出，兼容读取时视同 dirty-uncertain | 可消费本轮 canonical artifacts，但必须标注 `evidence_grade=advisory`；下游必须结合当前源码直读验证关键结论；不把 `dirty-advisory` 结果当作 `fresh` 证据；历史 `dirty-source-blocked` command result 兼容读取为 legacy dirty-uncertain |
 | dirty worktree refresh request: setup-owned-only | command result `workflow_mode` 按 provider readiness 正常计算，`reason_code=null`, `dirty_classification=setup-owned-only`; provider commands 正常运行；`graph-facts.v1` 写入 `worktree_dirty=true`、`worktree_status_hash`、`dirty_classification=setup-owned-only` 和 `dirty_paths_breakdown` | 可消费本轮 canonical artifacts，但下游仍必须把 `worktree_status_hash` 纳入 freshness 比较；setup-owned dirty 不等于 clean，只表示 dirty 路径未命中 graph-affecting 输入 |
 | dirty worktree refresh request: non-graph metadata only | command result `workflow_mode` 按 provider readiness 正常计算，`reason_code=null`, `dirty_classification=non-graph-only`; provider commands 正常运行；`graph-facts.v1` 写入 `dirty_paths_breakdown.non_graph_metadata_count` | 仅适用于窄名单变更日志元数据；下游仍必须按 `worktree_status_hash` 比较 freshness，且不得把该分类推广为 docs 全量豁免 |
 | 显式或隐式 all-repos incremental | command result `reason_code=incremental-all-repos-unsupported`, `canonical_artifacts_preserved=true`; provider commands 不运行。覆盖显式 `--all-repos --incremental`，也覆盖父级 workspace 默认 all-repos 路径下只传 `--incremental` | 多仓 incremental 未验证；运行 all-repos full 或对单个 clean child repo 显式运行 incremental |
@@ -116,16 +116,23 @@ Dirty classification 值域：
 - `clean`：当前 worktree 无 dirty。
 - `setup-owned-only`：dirty 全部命中上表 setup-owned 规则；provider commands 可继续运行，成功刷新后 canonical `graph-facts.v1` 写入该值。
 - `non-graph-only`：dirty 至少包含一个 non-graph-metadata path，且不包含 graph-affecting path；provider commands 可继续运行，成功刷新后 canonical `graph-facts.v1` 写入该值，并在 `dirty_paths_breakdown.non_graph_metadata_count` 中保留数量。
-- `graph-affecting-blocked`：dirty 至少包含一个 graph-affecting path；provider commands 不运行，该值只出现在本轮 `graph-bootstrap-result.v1` / stdout，不写入 preserved canonical artifacts。
+- `graph-affecting-blocked`：dirty 至少包含一个 graph-affecting path；GitNexus provider commands 继续运行（warn-and-continue），canonical `graph-facts.v1` 写入该值，同时写入 `freshness_state=dirty-advisory` 和 `source_revision_dirty=true`；`overall_status=ready-dirty-advisory`。
 
-Legacy compatibility：`dirty-refresh-non-canonical` 仅代表旧版本把所有 dirty 一律阻断的历史 command result。新逻辑不得再写出该 reason code。consumer 读取历史 artifacts 时应把它视同 `dirty-source-blocked`；可在下一次 `graph-facts.v2` major schema bump，或所有 live workspace 已滚动到新写入后删除该兼容名。
+Legacy compatibility：`dirty-refresh-non-canonical` 仅代表旧版本把所有 dirty 一律阻断的历史 command result。新逻辑不得再写出该 reason code。`dirty-source-blocked` 是旧版 fail-closed 的 reason code，新逻辑不再写出；consumer 读取历史 command result 时应把它视同 dirty-uncertain。
+
+## freshness_state 字段（additive，graph-facts.v1）
+
+`freshness_state` 是 `graph-facts.v1` 的 additive 字段，consumer 缺失时回退到 `worktree_dirty` 判断：
+
+- `fresh`：clean worktree，source_revision 精确对齐 HEAD
+- `dirty-advisory`：`dirty_classification=graph-affecting-blocked`，index 基于当前未提交磁盘状态，source_revision 不精确对齐 HEAD；下游必须标注 `evidence_grade=advisory`
 
 ## Consumer Rules
 
 1. 先读 `.spec-first/graph/provider-status.json` 和 `.spec-first/graph/graph-facts.json`，再按 `normalized_artifacts` 指针读取 provider-specific normalized facts。
 2. 需要 context、impact 或 review 支持时，读 `.spec-first/impact/bootstrap-impact-capabilities.json` 的 per-capability `support_level`，而不是用 provider 是否 ready 推断所有能力都 full。
 3. 比较 freshness 时同时检查 `source_revision`、`worktree_dirty` 和 `worktree_status_hash`；只检查 dirty boolean 不够。
-4. 新写或本轮更新的 consumer 在比较 dirty freshness 前先读 `graph-facts.v1.dirty_classification`：`setup-owned-only` 与 `non-graph-only` 表示 canonical artifact 是本轮成功刷新结果但 hash 可能随治理或变更日志文件漂移；`graph-affecting-blocked` 只能来自本轮 command result，不能从 preserved `graph-facts.json` 推断。缺失 `dirty_classification` 的旧 `graph-facts.v1` 必须回退到既有 `worktree_dirty` + `worktree_status_hash` dirty-aware 判断，并把 dirty 情况标为 legacy/dirty-uncertain，不得从字段缺失推断 clean。
+4. 新写或本轮更新的 consumer 在比较 dirty freshness 前先读 `graph-facts.v1.freshness_state`（additive 字段，缺失时回退到 `worktree_dirty` + `dirty_classification`）：`fresh` 表示 clean；`dirty-advisory` 表示 index 基于未提交磁盘状态，必须标注 `evidence_grade=advisory`。缺失 `dirty_classification` 的旧 `graph-facts.v1` 必须回退到既有 `worktree_dirty` + `worktree_status_hash` dirty-aware 判断，并把 dirty 情况标为 legacy/dirty-uncertain，不得从字段缺失推断 clean。
 5. `runtime-capabilities.json.project_graph_readiness` 与 `graph-providers.json.derived_readiness` 是 setup-owned projection，只能作为指向 canonical artifacts 的提示；下游 readiness 判断以 canonical graph artifacts 为准。
 6. provider raw logs、diagnostics 和 live MCP 输出用于解释或补充本轮判断，不能替代 canonical fields。
 7. live MCP 成功是 session-local corroboration，不能把 `.spec-first/graph/graph-facts.json`、`.spec-first/graph/provider-status.json` 或 setup projection 中的 `query_ready` 改写为 true。

@@ -13,6 +13,11 @@
 - `advisory`: workspace candidate、fallback summary、definitions-only result、低置信 graph pointer 等辅助线索。
 - `stale`: source revision、worktree dirty 状态、provider package projection 或 query proof 与当前上下文不一致。
 
+> **Plan evidence posture 别名（供 `$spec-plan` 输出使用）：**
+> - `primary` 是 `confirmed` 的 Plan 层别名，强调来源为已验证的 durable bootstrap 证据。
+> - `fallback` 是 Plan 专用 posture 标签，表示放弃 GitNexus 改用 direct source reads / ast-grep / code-review-graph；它描述的是证据来源切换行为，对应 `advisory` 或 `stale` 降级后的处理结果，不是独立证据等级。
+> - `session-local` 和 `advisory` 在 Plan 输出中直接复用，语义不变。
+
 ## Refresh Trigger Policy
 
 spec-first 默认采用 “automatic check, explicit refresh” 模型。便宜、确定性的 freshness check 可以由所有 graph consumer 自动执行；会写入 provider 或 graph readiness artifact 的刷新动作只属于显式 bootstrap / repair 路径。

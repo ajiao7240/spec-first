@@ -204,16 +204,22 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('parent workspace would otherwise enter the default all-repos path');
     expect(skill).toContain('readiness_source=incremental-update');
     expect(skill).toContain('readiness_source=incremental-fallback-full');
-    expect(skill).toContain('reason_code=dirty-source-blocked');
+    expect(skill).toContain('warn-and-continue');
+    expect(skill).toContain('freshness_state=dirty-advisory');
+    expect(skill).not.toContain('reason_code=dirty-source-blocked');
     expect(skill).toContain('dirty-refresh-non-canonical');
     expect(skill).toContain('graph-facts.v1` does not expose refresh-mode convenience fields');
     expect(skill).toContain('__SPEC_FIRST_LAST_INDEXED_COMMIT__');
 
     for (const source of [bashScript, powershellScript]) {
       expect(source).toContain('incremental-all-repos-unsupported');
-      expect(source).toContain('dirty-source-blocked');
+      expect(source).not.toContain("'dirty-source-blocked'");
+      expect(source).not.toContain('"dirty-source-blocked"');
       expect(source).not.toContain("ReasonCode 'dirty-refresh-non-canonical'");
       expect(source).not.toContain('dirty-refresh-non-canonical "Commit, stash');
+      expect(source).toContain('freshness_state');
+      expect(source).toContain('dirty-advisory');
+      expect(source).toContain('ready-dirty-advisory');
       expect(source).toContain('incremental-command-unavailable');
       expect(source).toContain('incremental-base-ref-invalid-format');
       expect(source).toContain('incremental-base-status-untrusted');

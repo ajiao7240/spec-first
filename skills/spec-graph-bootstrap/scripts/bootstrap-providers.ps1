@@ -2694,16 +2694,17 @@ $script:ExternalActorFingerprintBefore = Get-StatusHash -Text $script:ExternalAc
 $externalActorFingerprintBefore = $script:ExternalActorFingerprintBefore
 $invocationRefreshMode = if ($Incremental) { 'incremental' } elseif ($Full -or $Force) { 'full' } else { $script:DefaultRefreshModeSingleRepo }
 Set-WorktreeDirtyClassification
+$script:DirtyIncrementalDowngrade = $false
 if ($script:DirtyClassification -eq 'graph-affecting-blocked') {
-  Write-ResultAndExit `
-    -WorkflowMode 'blocked' `
-    -ReasonCode 'dirty-source-blocked' `
-    -NextAction 'Source-affecting worktree changes detected; commit, stash, or clean worktree changes before graph bootstrap refresh.' `
-    -RepoRoot $repoRoot `
-    -InvocationWorkspaceRoot $invocationWorkspaceRoot `
-    -SelectionSource $selectionSource `
-    -CanonicalArtifactsPreserved $true `
-    -GraphDir $graphDir
+  $dirtyPaths = @()
+  try { $dirtyPaths = ($script:DirtyPathsBreakdown.graph_affecting_paths.sample_paths ?? @()) | Select-Object -First 20 } catch {}
+  [Console]::Error.WriteLine('WARNING: graph-affecting dirty paths detected. Index will reflect current uncommitted disk state.')
+  [Console]::Error.WriteLine('  source_revision will not precisely align with HEAD.')
+  foreach ($p in $dirtyPaths) { [Console]::Error.WriteLine("  dirty: $p") }
+  if ($invocationRefreshMode -eq 'incremental') {
+    $invocationRefreshMode = 'full'
+    $script:DirtyIncrementalDowngrade = $true
+  }
 }
 
 $providerConfig = Assert-Schema -Path $providerConfigPath -SchemaVersion 'graph-providers.v1' -MissingReason 'missing_provider_config'
@@ -3148,7 +3149,7 @@ $fallbackReady = [bool](@($runtimeCapabilities.fallback_capabilities.PSObject.Pr
 $preserveCanonicalFreshness = @($providerStatuses | Where-Object { $_.reason_code -eq 'incremental-and-full-failed' }).Count -gt 0
 if ($providerCount -gt 0 -and $readyCount -eq $providerCount) {
   $workflowMode = 'primary'
-  $overallStatus = 'ready'
+  $overallStatus = if ($script:DirtyClassification -eq 'graph-affecting-blocked') { 'ready-dirty-advisory' } else { 'ready' }
   $exitCode = 0
 } elseif ($providerCount -gt 0 -and $notApplicableCount -gt 0 -and $blockingNotReadyCount -eq 0) {
   $workflowMode = 'no-source'
@@ -3218,6 +3219,8 @@ $graphFacts = [ordered]@{
   }
   repo_root = $repoRoot
   source_revision = $sourceRevision
+  source_revision_dirty = ($script:DirtyClassification -eq 'graph-affecting-blocked')
+  freshness_state = if ($script:DirtyClassification -eq 'graph-affecting-blocked') { 'dirty-advisory' } else { 'fresh' }
   worktree_dirty = $worktreeDirty
   worktree_status_hash = $worktreeStatusHash
   dirty_classification = $script:DirtyClassification
@@ -3308,11 +3311,13 @@ $providerReportRows = @($providerStatuses | ForEach-Object {
 })
 
 if (-not $preserveCanonicalFreshness) {
+  $freshnessStateVal = if ($script:DirtyClassification -eq 'graph-affecting-blocked') { 'dirty-advisory' } else { 'fresh' }
   Write-TextFileAtomic -Path (Join-Path $graphDir 'bootstrap-report.md') -Value @"
 # Graph Bootstrap Report
 
 - workflow_mode: $workflowMode
 - overall_status: $overallStatus
+- freshness_state: $freshnessStateVal
 - source_revision: $sourceRevision
 - worktree_dirty: $worktreeDirty
 - dirty_classification: $script:DirtyClassification
@@ -3332,6 +3337,8 @@ $($providerReportRows -join [Environment]::NewLine)
   overall_status = $overallStatus
   workflow_mode = $workflowMode
   reason_code = $topLevelReasonCode
+  freshness_state = if ($script:DirtyClassification -eq 'graph-affecting-blocked') { 'dirty-advisory' } else { 'fresh' }
+  source_revision_dirty = ($script:DirtyClassification -eq 'graph-affecting-blocked')
   dirty_classification = $script:DirtyClassification
   dirty_paths_breakdown = $script:DirtyPathsBreakdown
   canonical_artifacts_preserved = $preserveCanonicalFreshness

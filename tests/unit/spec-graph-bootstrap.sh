@@ -814,9 +814,9 @@ set +e
 host_outside_dirty_output="$(cd "$HOST_OUTSIDE_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 host_outside_dirty_status=$?
 set -e
-assert_eq "host entry outside managed block is graph-affecting" "1" "$host_outside_dirty_status"
-assert_eq "host entry outside managed block uses source dirty reason" "blocked:dirty-source-blocked:graph-affecting-blocked:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + .dirty_classification + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$host_outside_dirty_output")"
-assert_eq "host entry outside managed block does not run providers" "$before_host_outside_log" "$(cat "$COMMAND_LOG")"
+assert_eq "host entry outside managed block is graph-affecting" "0" "$host_outside_dirty_status"
+assert_eq "host entry outside managed block uses dirty-advisory" "primary:ready-dirty-advisory:graph-affecting-blocked" "$(jq -r '.workflow_mode + ":" + .overall_status + ":" + .dirty_classification' <<<"$host_outside_dirty_output")"
+assert_eq "host entry outside managed block runs providers" "true" "$([ "$(cat "$COMMAND_LOG")" != "$before_host_outside_log" ] && echo true || echo false)"
 
 UNICODE_SETUP_DIRTY_REPO="$TMP_DIR/unicode-setup-dirty-repo"
 UNICODE_SETUP_DIRTY_LEDGER="$TMP_DIR/unicode-setup-dirty-home/.codex/spec-first/host-setup.json"
@@ -843,7 +843,7 @@ set +e
 gitignore_outside_dirty_output="$(cd "$GITIGNORE_OUTSIDE_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 gitignore_outside_dirty_status=$?
 set -e
-assert_eq ".gitignore outside managed block is graph-affecting" "1:dirty-source-blocked:graph-affecting-blocked" "$gitignore_outside_dirty_status:$(jq -r '.reason_code + ":" + .dirty_classification' <<<"$gitignore_outside_dirty_output")"
+assert_eq ".gitignore outside managed block is graph-affecting" "0:graph-affecting-blocked" "$gitignore_outside_dirty_status:$(jq -r '.dirty_classification' <<<"$gitignore_outside_dirty_output")"
 
 UNTRACKED_GITIGNORE_REPO="$TMP_DIR/untracked-gitignore-repo"
 UNTRACKED_GITIGNORE_LEDGER="$TMP_DIR/untracked-gitignore-home/.codex/spec-first/host-setup.json"
@@ -868,7 +868,7 @@ set +e
 untracked_gitignore_user_output="$(cd "$UNTRACKED_GITIGNORE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 untracked_gitignore_user_status=$?
 set -e
-assert_eq "untracked .gitignore with user region is graph-affecting" "1:dirty-source-blocked" "$untracked_gitignore_user_status:$(jq -r '.reason_code' <<<"$untracked_gitignore_user_output")"
+assert_eq "untracked .gitignore with user region is graph-affecting" "0:graph-affecting-blocked" "$untracked_gitignore_user_status:$(jq -r '.dirty_classification' <<<"$untracked_gitignore_user_output")"
 cat > "$UNTRACKED_GITIGNORE_REPO/.gitignore" <<'TXT'
 # spec-first:start
 .spec-first/
@@ -877,7 +877,7 @@ set +e
 untracked_gitignore_bad_marker_output="$(cd "$UNTRACKED_GITIGNORE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 untracked_gitignore_bad_marker_status=$?
 set -e
-assert_eq "untracked .gitignore with malformed marker is graph-affecting" "1:dirty-source-blocked" "$untracked_gitignore_bad_marker_status:$(jq -r '.reason_code' <<<"$untracked_gitignore_bad_marker_output")"
+assert_eq "untracked .gitignore with malformed marker is graph-affecting" "0:graph-affecting-blocked" "$untracked_gitignore_bad_marker_status:$(jq -r '.dirty_classification' <<<"$untracked_gitignore_bad_marker_output")"
 
 MM_GITIGNORE_REPO="$TMP_DIR/mm-gitignore-repo"
 MM_GITIGNORE_LEDGER="$TMP_DIR/mm-gitignore-home/.codex/spec-first/host-setup.json"
@@ -894,7 +894,7 @@ set +e
 mm_gitignore_output="$(cd "$MM_GITIGNORE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 mm_gitignore_status=$?
 set -e
-assert_eq "staged managed plus unstaged user .gitignore dirty is graph-affecting" "1:dirty-source-blocked" "$mm_gitignore_status:$(jq -r '.reason_code' <<<"$mm_gitignore_output")"
+assert_eq "staged managed plus unstaged user .gitignore dirty is graph-affecting" "0:graph-affecting-blocked" "$mm_gitignore_status:$(jq -r '.dirty_classification' <<<"$mm_gitignore_output")"
 
 MARKER_CREATE_DELETE_REPO="$TMP_DIR/marker-create-delete-repo"
 MARKER_CREATE_DELETE_LEDGER="$TMP_DIR/marker-create-delete-home/.codex/spec-first/host-setup.json"
@@ -932,7 +932,7 @@ set +e
 forged_marker_output="$(cd "$FORGED_MARKER_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 forged_marker_status=$?
 set -e
-assert_eq "forged duplicate .gitignore markers are graph-affecting" "1:dirty-source-blocked" "$forged_marker_status:$(jq -r '.reason_code' <<<"$forged_marker_output")"
+assert_eq "forged duplicate .gitignore markers are graph-affecting" "0:graph-affecting-blocked" "$forged_marker_status:$(jq -r '.dirty_classification' <<<"$forged_marker_output")"
 
 RENAME_DIRTY_REPO="$TMP_DIR/rename-dirty-repo"
 RENAME_DIRTY_LEDGER="$TMP_DIR/rename-dirty-home/.codex/spec-first/host-setup.json"
@@ -952,14 +952,14 @@ set +e
 rename_to_source_output="$(cd "$RENAME_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 rename_to_source_status=$?
 set -e
-assert_eq "rename from setup-owned to source is graph-affecting" "1:dirty-source-blocked" "$rename_to_source_status:$(jq -r '.reason_code' <<<"$rename_to_source_output")"
+assert_eq "rename from setup-owned to source is graph-affecting" "0:graph-affecting-blocked" "$rename_to_source_status:$(jq -r '.dirty_classification' <<<"$rename_to_source_output")"
 git -C "$RENAME_DIRTY_REPO" reset -q --hard HEAD
 git -C "$RENAME_DIRTY_REPO" mv src/foo.java .spec-first/foo.java
 set +e
 rename_from_source_output="$(cd "$RENAME_DIRTY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 rename_from_source_status=$?
 set -e
-assert_eq "rename from source to setup-owned is graph-affecting" "1:dirty-source-blocked" "$rename_from_source_status:$(jq -r '.reason_code' <<<"$rename_from_source_output")"
+assert_eq "rename from source to setup-owned is graph-affecting" "0:graph-affecting-blocked" "$rename_from_source_status:$(jq -r '.dirty_classification' <<<"$rename_from_source_output")"
 
 ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE="$TMP_DIR/all-repos-dirty-classification-workspace"
 ALL_REPOS_DIRTY_CLASSIFICATION_LEDGER="$TMP_DIR/all-repos-dirty-classification-home/.codex/spec-first/host-setup.json"
@@ -973,7 +973,7 @@ set +e
 all_repos_dirty_classification_output="$(cd "$ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --all-repos)"
 all_repos_dirty_classification_status=$?
 set -e
-assert_eq "all-repos dirty classification summary is partial" "0:partial:non-graph-only:graph-affecting-blocked" "$all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.results[] | select(.workspace_relative_path=="project-a") | .dirty_classification) + ":" + (.results[] | select(.workspace_relative_path=="project-b") | .dirty_classification)' <<<"$all_repos_dirty_classification_output")"
+assert_eq "all-repos dirty classification summary is ready" "0:ready:non-graph-only:graph-affecting-blocked" "$all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.results[] | select(.workspace_relative_path=="project-a") | .dirty_classification) + ":" + (.results[] | select(.workspace_relative_path=="project-b") | .dirty_classification)' <<<"$all_repos_dirty_classification_output")"
 
 DIRTY_REFRESH_REPO="$TMP_DIR/dirty-refresh-repo"
 DIRTY_REFRESH_LEDGER="$TMP_DIR/dirty-refresh-home/.codex/spec-first/host-setup.json"
@@ -1000,15 +1000,10 @@ for dirty_refresh_case in "default|" "incremental|--incremental" "full|--full" "
   fi
   dirty_refresh_status=$?
   set -e
-  assert_eq "dirty $dirty_refresh_label refresh blocks before provider commands" "1" "$dirty_refresh_status"
-  assert_eq "dirty $dirty_refresh_label refresh is provider-non-mutating" "blocked:dirty-source-blocked:graph-affecting-blocked:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + .dirty_classification + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$dirty_refresh_output")"
+  assert_eq "dirty $dirty_refresh_label refresh continues with warn-and-continue" "0" "$dirty_refresh_status"
+  assert_eq "dirty $dirty_refresh_label refresh writes dirty-advisory" "ready-dirty-advisory:graph-affecting-blocked:dirty-advisory" "$(jq -r '.overall_status + ":" + .dirty_classification + ":" + .freshness_state' <<<"$dirty_refresh_output")"
   assert_eq "dirty $dirty_refresh_label refresh reports graph-affecting count" "true" "$(jq -r '.dirty_paths_breakdown.graph_affecting_count > 0' <<<"$dirty_refresh_output")"
-  assert_eq "dirty $dirty_refresh_label refresh does not run provider commands" "$before_dirty_refresh_log" "$(cat "$COMMAND_LOG")"
-  assert_eq "dirty $dirty_refresh_label refresh preserves GitNexus provider status" "$dirty_gitnexus_status_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/status.json")"
-  assert_eq "dirty $dirty_refresh_label refresh preserves aggregate provider status" "$dirty_aggregate_status_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/provider-status.json")"
-  assert_eq "dirty $dirty_refresh_label refresh preserves graph facts" "$dirty_graph_facts_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/graph/graph-facts.json")"
-  assert_eq "dirty $dirty_refresh_label refresh preserves bootstrap report" "$dirty_bootstrap_report_before" "$(cat "$DIRTY_REFRESH_REPO/.spec-first/graph/bootstrap-report.md")"
-  assert_eq "dirty $dirty_refresh_label refresh preserves normalized envelopes" "$dirty_normalized_before" "$(jq -S -c . "$DIRTY_REFRESH_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+  assert_eq "dirty $dirty_refresh_label refresh runs provider commands" "true" "$([ "$(cat "$COMMAND_LOG")" != "$before_dirty_refresh_log" ] && echo true || echo false)"
 done
 
 if command -v pwsh >/dev/null 2>&1; then
@@ -1037,14 +1032,9 @@ if command -v pwsh >/dev/null 2>&1; then
     fi
     dirty_ps_refresh_status=$?
     set -e
-    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh blocks before provider commands" "1" "$dirty_ps_refresh_status"
-    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh is provider-non-mutating" "blocked:dirty-source-blocked:graph-affecting-blocked:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + .dirty_classification + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$dirty_ps_refresh_output")"
-    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh does not run provider commands" "$before_dirty_ps_refresh_log" "$(cat "$COMMAND_LOG")"
-    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves GitNexus provider status" "$dirty_ps_gitnexus_status_before" "$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/providers/gitnexus/status.json")"
-    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves aggregate provider status" "$dirty_ps_aggregate_status_before" "$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/graph/provider-status.json")"
-    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves graph facts" "$dirty_ps_graph_facts_before" "$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/graph/graph-facts.json")"
-    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves bootstrap report" "$dirty_ps_bootstrap_report_before" "$(cat "$DIRTY_REFRESH_PS_REPO/.spec-first/graph/bootstrap-report.md")"
-    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh preserves normalized envelopes" "$dirty_ps_normalized_before" "$(jq -S -c . "$DIRTY_REFRESH_PS_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh continues with warn-and-continue" "0" "$dirty_ps_refresh_status"
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh writes dirty-advisory" "ready-dirty-advisory:graph-affecting-blocked:dirty-advisory" "$(jq -r '.overall_status + ":" + .dirty_classification + ":" + .freshness_state' <<<"$dirty_ps_refresh_output")"
+    assert_eq "dirty PowerShell $dirty_ps_refresh_label refresh runs provider commands" "true" "$([ "$(cat "$COMMAND_LOG")" != "$before_dirty_ps_refresh_log" ] && echo true || echo false)"
   done
 
   PS_SETUP_DIRTY_REPO="$TMP_DIR/ps-setup-dirty-repo"

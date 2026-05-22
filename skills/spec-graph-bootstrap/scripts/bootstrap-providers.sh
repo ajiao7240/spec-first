@@ -631,24 +631,24 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         results:$results,
         counts:{
           total:($results | length),
-          ready:([$results[] | select(.overall_status == "ready")] | length),
+          ready:([$results[] | select(.overall_status == "ready" or .overall_status == "ready-dirty-advisory")] | length),
           degraded:([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length),
           not_applicable:([$results[] | select(.workflow_mode == "no-source" or .overall_status == "not-applicable")] | length),
-          action_required:([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length),
+          action_required:([$results[] | select(.overall_status != "ready" and .overall_status != "ready-dirty-advisory" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length),
           primary:([$results[] | select(.workflow_mode == "primary")] | length),
           blocked:([$results[] | select(.workflow_mode == "blocked" or .workflow_mode == "setup-not-ready")] | length)
         },
         overall_status:(
           if ($results | length) == 0 then "action-required"
-          elif ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length) == 0
+          elif ([$results[] | select(.overall_status != "ready" and .overall_status != "ready-dirty-advisory" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length) == 0
             and ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) == 0 then "ready"
-          elif ([$results[] | select(.overall_status == "ready" or .workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "partial"
+          elif ([$results[] | select(.overall_status == "ready" or .overall_status == "ready-dirty-advisory" or .workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "partial"
           else "action-required"
           end
         ),
         reason_code:(
           if ($results | length) == 0 then "workspace-no-git-candidates"
-          elif ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length) > 0 then "all-repos-partial-or-action-required"
+          elif ([$results[] | select(.overall_status != "ready" and .overall_status != "ready-dirty-advisory" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length) > 0 then "all-repos-partial-or-action-required"
           elif ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "all-repos-degraded-fallback"
           else null
           end
@@ -1198,8 +1198,20 @@ else
 fi
 
 classify_worktree_dirty
+DIRTY_INCREMENTAL_DOWNGRADE=false
 if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then
-  emit_blocked blocked dirty-source-blocked "Source-affecting worktree changes detected; commit, stash, or clean worktree changes before graph bootstrap refresh." 1 true
+  # warn-and-continue: GitNexus analyze indexes current disk files regardless of commit state.
+  # Emit a visible warning but do not block; downstream consumers use freshness_state=dirty-advisory.
+  {
+    echo "WARNING: graph-affecting dirty paths detected. Index will reflect current uncommitted disk state."
+    echo "  source_revision will not precisely align with HEAD."
+    printf '%s\n' "$DIRTY_PATHS_BREAKDOWN_JSON" | jq -r '
+      (.graph_affecting_paths.sample_paths // [])[:20][] | "  dirty: " + .' 2>/dev/null || true
+  } >&2
+  if [ "$INVOCATION_REFRESH_MODE" = "incremental" ]; then
+    INVOCATION_REFRESH_MODE="full"
+    DIRTY_INCREMENTAL_DOWNGRADE=true
+  fi
 fi
 
 require_file_schema() {
@@ -2799,7 +2811,11 @@ fi
 
 if [ "$provider_count" -gt 0 ] && [ "$ready_count" -eq "$provider_count" ]; then
   WORKFLOW_MODE="primary"
-  OVERALL_STATUS="ready"
+  if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then
+    OVERALL_STATUS="ready-dirty-advisory"
+  else
+    OVERALL_STATUS="ready"
+  fi
   EXIT_CODE=0
 elif [ "$provider_count" -gt 0 ] && [ "$not_applicable_count" -gt 0 ] && [ "$blocking_not_ready_count" -eq 0 ]; then
   WORKFLOW_MODE="no-source"
@@ -2887,6 +2903,8 @@ jq -n \
   --arg dirty_classification "$DIRTY_CLASSIFICATION" \
   --argjson dirty_paths_breakdown "$DIRTY_PATHS_BREAKDOWN_JSON" \
   --arg workflow_mode "$WORKFLOW_MODE" \
+  --arg freshness_state "$(if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then echo dirty-advisory; else echo fresh; fi)" \
+  --argjson source_revision_dirty "$(if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then echo true; else echo false; fi)" \
   --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ] || [ "$WORKFLOW_MODE" = "no-source" ]; then echo medium; else echo low; fi)" \
   --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
   --argjson providers "$statuses_json" \
@@ -2900,6 +2918,8 @@ jq -n \
     },
     repo_root:$repo_root,
     source_revision:$source_revision,
+    source_revision_dirty:$source_revision_dirty,
+    freshness_state:$freshness_state,
     worktree_dirty:$worktree_dirty,
     worktree_status_hash:$worktree_status_hash,
     dirty_classification:$dirty_classification,
@@ -2927,7 +2947,8 @@ jq -n \
     },
     confidence:$confidence,
     limitations:(
-      if $workflow_mode == "primary" then []
+      if $freshness_state == "dirty-advisory" then ["Index reflects uncommitted disk state; source_revision does not precisely align with HEAD. Validate critical conclusions with current source reads."]
+      elif $workflow_mode == "primary" then []
       elif $workflow_mode == "degraded-fallback" then ["Graph facts are partial; downstream workflows must disclose limitations."]
       elif $workflow_mode == "no-source" then ["Graph facts are not applicable for GitNexus process routing because no source-derived query target exists."]
       else ["Graph facts are not query-ready."]
@@ -2989,6 +3010,7 @@ if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ]; then
 
 - workflow_mode: $WORKFLOW_MODE
 - overall_status: $OVERALL_STATUS
+- freshness_state: $(if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then echo dirty-advisory; else echo fresh; fi)
 - source_revision: $SOURCE_REVISION
 - worktree_dirty: $WORKTREE_DIRTY
 - dirty_classification: $DIRTY_CLASSIFICATION
@@ -3016,6 +3038,8 @@ jq -n \
   --arg reason_code "$reason_code" \
   --arg dirty_classification "$DIRTY_CLASSIFICATION" \
   --argjson dirty_paths_breakdown "$DIRTY_PATHS_BREAKDOWN_JSON" \
+  --arg freshness_state "$(if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then echo dirty-advisory; else echo fresh; fi)" \
+  --argjson source_revision_dirty "$(if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then echo true; else echo false; fi)" \
   --arg started_at "$SCRIPT_STARTED_AT" \
   --arg finished_at "$BOOTSTRAP_FINISHED_AT" \
   --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
@@ -3026,6 +3050,8 @@ jq -n \
     overall_status:$overall_status,
     workflow_mode:$workflow_mode,
     reason_code:(if $reason_code == "" then null else $reason_code end),
+    freshness_state:$freshness_state,
+    source_revision_dirty:$source_revision_dirty,
     dirty_classification:$dirty_classification,
     dirty_paths_breakdown:$dirty_paths_breakdown,
     canonical_artifacts_preserved:$canonical_artifacts_preserved,

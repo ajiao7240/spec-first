@@ -155,8 +155,7 @@ describe('graph provider consumption contract', () => {
       'incremental-refresh-failed-fallback-full',
       'incremental-and-full-failed',
       'dirty-source-blocked',
-      'dirty-refresh-non-canonical',
-      'incremental-all-repos-unsupported',
+      'dirty-refresh-non-canonical',      'incremental-all-repos-unsupported',
     ]) {
       expect(doc).toContain(reasonCode);
     }
@@ -194,12 +193,15 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('不得把该列表扩展为 `docs/**`');
     expect(doc).toContain('dirty_classification=setup-owned-only');
     expect(doc).toContain('dirty_classification=graph-affecting-blocked');
-    expect(doc).toContain('`graph-affecting-blocked` 只能来自本轮 command result');
+    expect(doc).toContain('freshness_state=dirty-advisory');
+    expect(doc).toContain('ready-dirty-advisory');
+    expect(doc).toContain('warn-and-continue');
+    expect(doc).not.toContain('`graph-affecting-blocked` 只能来自本轮 command result');
     expect(doc).toContain('marker 外仅允许 blank-only 分隔行');
     expect(doc).toContain('缺失 `dirty_classification` 的旧 `graph-facts.v1` 必须回退');
     expect(doc).toContain('不得从字段缺失推断 clean');
     expect(doc).toContain('新逻辑不得再写出该 reason code');
-    expect(doc).toContain('consumer 读取历史 artifacts 时应把它视同 `dirty-source-blocked`');
+    expect(doc).toContain('dirty-uncertain');
     expect(doc).toContain('不得复用到 `external_actor_fingerprint`');
   });
 
