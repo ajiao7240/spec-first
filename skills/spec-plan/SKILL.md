@@ -282,6 +282,8 @@ If the current cwd is a non-Git parent workspace that contains child Git repos, 
 
 For parent-workspace read-only planning questions, consume the advisory `workspace-graph-targets.v1` facts when available, or run the read-only workspace graph target resolver to produce them. Treat `primary` children as bounded candidate repos for GitNexus-first evidence, include `degraded-fallback` children only with their limitations, and exclude `stale`, `dirty-uncertain`, `setup-ready-bootstrap-required`, and `unavailable` children from primary evidence unless the plan explicitly records the degraded fallback. The LLM still chooses the semantic target repo from the user request and evidence; the resolver only supplies deterministic readiness facts. For cross-repo plans, also read `.spec-first/workspace/gitnexus-readiness.json` when present and surface `workspace-gitnexus-readiness.v1` as advisory evidence with nested `group.status`, `query_usability_counts`, limitations, and per-unit `target_repo` requirements; do not invent a top-level `group_status`. If durable `group.status="not-evaluated-no-mcp-input"` or registry counts are `null`, either add a session-local live MCP overlay for the current planning question or explicitly disclose that group/registry overlay was not evaluated. Any implementation plan that can lead to edits, tests, changelog updates, or commits must still name `target_repo` at the plan or implementation-unit level.
 
+Fast unavailable path: after repo scope / `target_repo` is resolved, do a cheap surface gate before deeper graph probing. If the selected repo has no canonical graph readiness artifacts (`.spec-first/graph/` is absent and `.spec-first/impact/bootstrap-impact-capabilities.json` is absent) and the current host session exposes no current-session GitNexus MCP tool/resource surface, set `Graph Readiness.status: unavailable`, record `runtime_mcp_evidence: unavailable`, use `fallback_capabilities: bounded direct repo reads`, and continue to Phase 1.1b. Do not run 1.1a.1 detailed Graph / GitNexus Evidence Posture for this no-graph/no-MCP path, and do not run provider refresh, MCP setup, GitNexus analyze, group sync, or extra discovery commands just to prove absence. If the user explicitly asked for graph or GitNexus evidence, disclose the unavailable status and recommend `$spec-mcp-setup` or `$spec-graph-bootstrap` as the next readiness action instead of silently expanding this planning run.
+
 Check whether canonical graph readiness artifacts exist:
 
 - `.spec-first/graph/provider-status.json`
@@ -318,46 +320,11 @@ Use `status: unavailable` when canonical artifacts are missing. For `degraded-fa
 
 #### 1.1a.1 Graph / GitNexus Evidence Posture
 
-When the plan involves code implementation, architecture, API/routes, cross-module or cross-repo behavior, execution flows, testing strategy, or review risk, run a lightweight GitNexus evidence posture probe immediately after interpreting Graph Readiness. This probe is task-specific evidence context: it is not canonical readiness truth, must not replace `Graph Readiness.status`, provider `query_ready`, workspace `query_usability`, or impact support levels, and must not write back to `.spec-first/graph/*`, `.spec-first/providers/*`, `.spec-first/impact/*`, setup projections, or workspace advisory artifacts.
+When the plan involves code implementation, architecture, API/routes, cross-module or cross-repo behavior, execution flows, testing strategy, or review risk, and graph artifacts, workspace advisory facts, or a current-session GitNexus MCP tool/resource surface are present, run a lightweight GitNexus evidence posture probe immediately after interpreting Graph Readiness. The envelope is task-specific evidence context: it is not canonical readiness truth, must not replace `Graph Readiness.status`, provider `query_ready`, workspace `query_usability`, or impact support levels, and must not write back to `.spec-first/graph/*`, `.spec-first/providers/*`, `.spec-first/impact/*`, setup projections, or workspace advisory artifacts.
 
-Use this envelope in the generated plan immediately after `## Graph Readiness` and before `## Context & Research`:
+Skip the detailed posture probe on the no-graph/no-MCP fast unavailable path above. For docs-only, prose-only, narrow planning, or other non-code-affecting runs, use `provider: not-applicable` or omit the detailed fields when the plan output format does not need them; do not spend tokens enumerating GitNexus native capabilities that cannot affect the decision.
 
-```md
-## Graph / GitNexus Evidence
-
-- provider: GitNexus | unavailable | not-applicable
-- native_tool_or_resource:
-- repo_scope:
-- capability_status: available | partial | unavailable | mutation-gated
-- evidence_grade: primary | session-local | advisory | stale
-- evidence_posture: primary | fallback
-- freshness_state: fresh | stale | dirty-advisory | query-unverified
-- source_contract_fields:
-- source_reads_required:
-- impact_on_plan:
-- capabilities_used:
-- key_findings:
-- limitations:
-```
-
-Interpret the four axes with `docs/contracts/graph-evidence-policy.md` as source of truth. `evidence_grade=primary` is the Plan alias for confirmed evidence. `evidence_posture=fallback` means the Plan chose direct source reads / ast-grep / git diff / code-review-graph instead of GitNexus for this question; `evidence_posture=fallback + evidence_grade=primary` is valid when the fallback facts are current source, test, schema, or command evidence. `source_reads_required mandatory` means it is required for stale/advisory/session-local paths and for any `evidence_posture=fallback`; it is still strongly expected when primary graph evidence changes implementation scope or tests.
-
-Native capability selection is LLM-owned and task-matched, not a deterministic router:
-
-| Task signal | Prefer | Fallback when unavailable |
-| --- | --- | --- |
-| Route/API handler or consumer changes | `api_impact`, then `route_map`, then `shape_check` where applicable | `query` / `context` plus bounded source reads |
-| Response shape risk | `shape_check` | route handler reads plus consumer source reads |
-| Symbol/refactor/reuse question | `query`, `context`, `impact` | bounded `rg` / ast-grep / code-review-graph |
-| MCP/RPC/tool surface change | `tool_map` | tool definition source reads |
-| Complex graph structure question | `cypher` only after schema/resource orientation | direct contract/source reads |
-| Repo/workspace orientation | `list_repos`, `group_list`, and read-only MCP resources | workspace advisory artifacts or bounded per-repo reads |
-
-Always report the matched capability as `native_tool_or_resource`; never hide it behind "GitNexus used: yes". Current MCP tools and read-only MCP resources are session-local tool/resource selection guidance; verify the live surface before claiming availability, and label successful live evidence as `session-local`. If a specialized native capability is unavailable, continue with `query` / `context` plus source reads, or fall back to bounded direct repo reads; do not claim a static durable capability catalog is current truth.
-
-Scope authority remains with the user request, origin requirements, plan/task pack, and current git diff. GitNexus findings only propose risks, impacted surfaces, reuse candidates, test candidates, or follow-up options; they must not expand implementation scope automatically. Mutation-capable capabilities such as `workspace_group_sync`, `group_sync`, `symbol_rename`, GitNexus `rename`, or equivalent provider mutations must be labeled `mutation-gated` / `requires explicit user action`, kept preview-first, and must not become automatic implementation units.
-
-Multi-repo plans must report registry evidence, group evidence, per-repo `query_usability`, dirty/stale limitations, and the current write boundary. Any plan that could lead to edits, tests, changelog updates, commits, or review autofix must name `target_repo` or per-unit repo scope before write/test/changelog/commit-oriented work. If GitNexus impact returns extra repo candidates, record the extra repo candidates as risks or follow-ups unless the user changes scope explicitly.
+**STOP. Before filling the envelope, read `references/graph-evidence-posture.md`.** It carries the envelope shape pointer (the `## Graph / GitNexus Evidence` block in `references/plan-template.md` is the field/enum source of truth), the four-axis interpretation (including `evidence_posture=fallback + evidence_grade=primary` orthogonality and `source_reads_required mandatory`), the LLM-owned native capability selection matrix (route/API/shape, symbol/refactor, tool/RPC, cypher, orientation), the session-local tool/resource boundary, the scope authority rule, the `mutation-gated` capability handling for `workspace_group_sync` / `group_sync` / `symbol_rename` / GitNexus `rename`, and the multi-repo `target_repo` requirement. Do not reconstruct these rules from memory and do not inline them in this skill.
 
 #### 1.1b Detect Execution Posture Signals
 

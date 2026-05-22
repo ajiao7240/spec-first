@@ -184,10 +184,16 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('Dispatch Capability Gate');
     expect(skill).toContain('Dispatch capability is part of the runtime boundary, not a reviewer-selection preference.');
     expect(skill).toContain('authorizes this documented persona-reviewer phase; do not ask for a second "use subagents" confirmation');
+    expect(skill).toContain('For Codex, a direct `$spec-doc-review` invocation is the explicit user request for sub-agents/parallel reviewer work required by `spawn_agent` for this bounded phase.');
+    expect(skill).toContain('It authorizes only the selected document-review persona agents, not unrelated exploration, implementation, or hidden helper agents.');
     expect(skill).toContain('Default doc-review posture is multi-persona reviewer dispatch.');
     expect(skill).toContain('Do not interpret the absence of extra "use subagents" wording as report-only fallback');
     expect(skill).toContain('`mode:headless` is not a dispatch-disabling flag');
     expect(skill).toContain('Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex.');
+    expect(skill).toContain('Do not call `spawn_agent` solely because a persona profile exists');
+    expect(skill).toContain('workflow\'s documented document-review phase and host capability select it');
+    expect(skill).toContain('Do not report `safety_boundary_not_met` merely because the user did not repeat "use subagents"');
+    expect(skill).toContain('attempted work outside this documented reviewer phase');
     expect(skill).toContain('Never state or imply that fallback happened because the user did not additionally request subagents');
     expect(skill).toContain('user explicitly requests report-only/no-agents mode');
     expect(skill).toContain('set `single_agent_report_only_fallback: true`');
@@ -201,6 +207,11 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('safety_boundary_not_met');
     expect(skill).toContain('Dispatch agents using **bounded parallelism**');
     expect(skill).toContain('active-agent/thread/concurrency-limit spawn errors as backpressure');
+    expect(skill).toContain('Codex `spawn_agent` parameter hygiene');
+    expect(skill).toContain('Codex reviewer prompts are self-contained');
+    expect(skill).toContain('Dispatch one reviewer per `spawn_agent` call');
+    expect(skill).toContain('do not bundle multiple document-review personas into one sub-agent prompt');
+    expect(skill).toContain('omit `agent_type`');
     expect(skill).not.toContain('Dispatch all agents in **parallel**');
     expect(skill).not.toContain('explicit user authorization');
     expect(skill).not.toContain('because the user did not ask for subagents');

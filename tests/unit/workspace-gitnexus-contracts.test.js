@@ -105,10 +105,11 @@ describe('workspace GitNexus consumption contract', () => {
     }
 
     const planSkill = read('skills/spec-plan/SKILL.md');
+    const planGraphEvidencePosture = read('skills/spec-plan/references/graph-evidence-posture.md');
     expect(planSkill).toContain('workspace_group_sync');
     expect(planSkill).toContain('mutation-gated');
-    expect(planSkill).toContain('requires explicit user action');
-    expect(planSkill).toContain('must not become automatic implementation units');
+    expect(planGraphEvidencePosture).toContain('requires explicit user action');
+    expect(planGraphEvidencePosture).toContain('must not become automatic implementation units');
 
     expect(read('skills/spec-graph-bootstrap/SKILL.md')).toContain('Do not run `group_sync` automatically');
   });

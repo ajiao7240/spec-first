@@ -244,12 +244,14 @@ Before dispatching any reviewer, confirm the current host exposes a dispatch pri
 Reviewers are analysis agents, not implementation workers. Dispatch is bounded to document-review personas with the current document scope, selected sections, pre-facts, and output contract. Do not create hidden implement/check agents from document review. Autofix is limited to this workflow's documented `safe_auto` document edits; report-only fallback, user-requested no-agents mode, unsafe runtime, or missing dispatch capability must not edit documents or generated runtime mirrors.
 
 - A direct invocation of the current host's document-review workflow entrypoint authorizes this documented persona-reviewer phase; do not ask for a second "use subagents" confirmation.
+- For Codex, a direct `$spec-doc-review` invocation is the explicit user request for sub-agents/parallel reviewer work required by `spawn_agent` for this bounded phase. It authorizes only the selected document-review persona agents, not unrelated exploration, implementation, or hidden helper agents.
 - Default doc-review posture is multi-persona reviewer dispatch. Do not interpret the absence of extra "use subagents" wording as report-only fallback; the workflow entrypoint already expresses that intent.
 - `mode:headless` is not a dispatch-disabling flag. It changes interaction/output behavior only; use normal bounded multi-persona dispatch when dispatch is otherwise safe.
 - If the user explicitly requested subagents, parallel agents, delegated review, or persona reviewer dispatch and the host exposes a dispatch primitive, continue with normal bounded multi-persona dispatch.
 - If an active workflow or parent orchestrator explicitly delegated this doc-review workflow, continue with normal bounded multi-persona dispatch.
 - If the user explicitly requests report-only/no-agents mode, the host lacks a dispatch primitive, or the current runtime cannot call it, do not call `Agent`, `Task`, `spawn_agent`, or equivalent dispatch tools.
-- Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex.
+- Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex. Do not call `spawn_agent` solely because a persona profile exists; call it only when this workflow's documented document-review phase and host capability select it.
+- Do not report `safety_boundary_not_met` merely because the user did not repeat "use subagents" after invoking `$spec-doc-review`; reserve it for a real unsafe runtime boundary, such as attempted work outside this documented reviewer phase or a tool/runtime policy that still rejects dispatch after workflow-entrypoint authorization is accounted for.
 - Never state or imply that fallback happened because the user did not additionally request subagents. That is not a valid fallback reason for this workflow.
 
 When dispatch is unavailable, explicitly disabled, or unsafe, set `single_agent_report_only_fallback: true` and run a read-only review in the current orchestrator:
@@ -263,6 +265,8 @@ When dispatch is unavailable, explicitly disabled, or unsafe, set `single_agent_
 ### Dispatch
 
 Dispatch agents using **bounded parallelism** with the platform's subagent primitive (e.g., `Agent` in Claude Code or `spawn_agent` in Codex). Omit the `mode` parameter so the user's configured permission settings apply. Respect the current harness's active-subagent limit: queue selected reviewers, dispatch only as many as the harness accepts, and fill freed slots as reviewers complete. Treat active-agent/thread/concurrency-limit spawn errors as backpressure, not reviewer failure: leave the reviewer queued and retry after a slot frees. Record a reviewer as failed only after a successful dispatch times out/fails, or when dispatch fails for a non-capacity reason.
+
+**Codex `spawn_agent` parameter hygiene.** Codex reviewer prompts are self-contained: pass the persona, schema, document type, origin, document path, codebase facts, document content, and decision primer in the `message` or `items` payload instead of relying on inherited thread context. Dispatch one reviewer per `spawn_agent` call; do not bundle multiple document-review personas into one sub-agent prompt. For Codex reviewer personas, prefer the default sub-agent type and omit `agent_type`; these reviewers are specialized by the prompt, not by a generic explorer/worker role. If a specific runtime genuinely needs an `agent_type`, omit `fork_context` (or leave it false); do not combine `fork_context: true` with `agent_type`. If a Codex dispatch fails before the reviewer starts because of parameter incompatibility, correct the parameters once and retry through the bounded scheduler; record it as an orchestrator dispatch correction, not a reviewer failure.
 
 Each agent receives the prompt built from the subagent template included below with these variables filled:
 
