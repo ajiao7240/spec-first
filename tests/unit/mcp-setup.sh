@@ -142,10 +142,6 @@ SH
 #!/bin/bash
 echo "uvx \$*" >> "$log_file"
 if [ "\${1:-}" = "--version" ]; then echo "uvx 0.1.0"; fi
-if [[ " \$* " == *" serena project create "* ]]; then
-  mkdir -p .serena
-  printf 'created_by: fake-serena\n' > .serena/project.yml
-fi
 exit 0
 SH
   cat > "$bin_dir/agent-browser" <<SH
@@ -283,14 +279,12 @@ target_monorepo="$(cd "$MONOREPO_FIXTURE/packages/a" && bash "$RESOLVER_SCRIPT")
 assert_eq "monorepo packages stay inside one git repo target" "git-repo:cwd-git-root:0" "$(jq -r '"\(.mode):\(.selection_source):\(.candidates | length)"' <<<"$target_monorepo")"
 
 assert_eq "mcp-tools schema is v5" "5" "$(jq -r '.schema_version' "$TOOLS_JSON")"
-assert_eq "tool ids are fixed" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
+assert_eq "tool ids are fixed" "sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
 assert_eq "every registry tool is required" "true" "$(jq -r 'all(.tools[]; .required == true)' "$TOOLS_JSON")"
 assert_eq "categories are constrained" "true" "$(jq -r 'all(.tools[]; (.category == "mcp" or .category == "graph-provider"))' "$TOOLS_JSON")"
 assert_eq "agent-browser is outside MCP registry" "false" "$(jq -r '[.tools[].id] | index("agent-browser") != null' "$TOOLS_JSON")"
 assert_eq "browser MCP is not registered" "false" "$(jq -r '[.tools[].id] | any(. == "playwright")' "$TOOLS_JSON")"
 assert_eq "graph provider roles are configured" "global_knowledge,impact_context" "$(jq -r '[.tools[] | select(.category == "graph-provider") | .provider_role] | join(",")' "$TOOLS_JSON")"
-assert_eq "serena depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "serena") | .dependencies | join(",")' "$TOOLS_JSON")"
-assert_eq "Serena project bootstrap does not hard-code languages" "false" "$(jq -r '.tools[] | select(.id == "serena") | .project_bootstrap.index_command.args | index("--language") != null' "$TOOLS_JSON")"
 assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
 assert_eq "code-review-graph host MCP is optional" "false:cli_artifact:true" "$(jq -r '.tools[] | select(.id == "code-review-graph") | "\(.host_config_required):\(.provider_config.access_mode):\(.provider_config.optional_live_mcp)"' "$TOOLS_JSON")"
 assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.4" "$GITNEXUS_PACKAGE"
@@ -584,16 +578,20 @@ touch "$CONCURRENT_LOG"
 make_fake_bin "$CONCURRENT_BIN" "$CONCURRENT_LOG"
 mkdir -p "$CONCURRENT_HOME/.agents/skills/ast-grep"
 printf 'name: ast-grep\n' > "$CONCURRENT_HOME/.agents/skills/ast-grep/SKILL.md"
-concurrent_start_ms="$(python3 -c 'import time; print(int(time.time() * 1000))')"
-concurrent_output="$(PATH="$CONCURRENT_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$CONCURRENT_HOME" SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 SLOW_AGENT_BROWSER_INSTALL_SECONDS=2 SLOW_AGENT_BROWSER_SKILL_SECONDS=2 SPEC_FIRST_STAGE_TIMEOUT_SECONDS=10 bash "$SCRIPTS_DIR/install-helpers.sh")"
-concurrent_end_ms="$(python3 -c 'import time; print(int(time.time() * 1000))')"
-concurrent_duration_ms="$((concurrent_end_ms - concurrent_start_ms))"
+concurrent_stderr="$TMP_DIR/concurrent-stderr.log"
+concurrent_output="$(PATH="$CONCURRENT_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$CONCURRENT_HOME" SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 SLOW_AGENT_BROWSER_INSTALL_SECONDS=2 SLOW_AGENT_BROWSER_SKILL_SECONDS=2 SPEC_FIRST_STAGE_TIMEOUT_SECONDS=10 bash "$SCRIPTS_DIR/install-helpers.sh" 2>"$concurrent_stderr")"
+concurrent_stage_log="$(cat "$concurrent_stderr")"
 assert "helper install concurrent run emits JSON" jq -e . <<<"$concurrent_output"
 assert "helper install concurrent run writes browser marker" test -f "$CONCURRENT_HOME/.agent-browser/spec-first-install.json"
 assert_contains "helper install concurrent run starts browser install" "agent-browser install" "$(cat "$CONCURRENT_LOG")"
 assert_contains "helper install concurrent run starts browser skill install" "npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y" "$(cat "$CONCURRENT_LOG")"
-concurrent_fast_enough="$(python3 -c 'import sys; print(str(int(sys.argv[1]) < 3500).lower())' "$concurrent_duration_ms")"
-assert_eq "helper install concurrent run remains below serial baseline" "true" "$concurrent_fast_enough"
+assert_contains "helper install concurrent run logs browser start" "agent-browser-browser-install] start (parallel)" "$concurrent_stage_log"
+assert_contains "helper install concurrent run logs skill start" "agent-browser-skill-install] start (parallel)" "$concurrent_stage_log"
+browser_start_line="$(awk '/agent-browser-browser-install] start \(parallel\)/ { print NR; exit }' "$concurrent_stderr")"
+skill_start_line="$(awk '/agent-browser-skill-install] start \(parallel\)/ { print NR; exit }' "$concurrent_stderr")"
+first_done_line="$(awk '/agent-browser-browser-install] done|agent-browser-skill-install] done/ { print NR; exit }' "$concurrent_stderr")"
+concurrent_queued_before_wait="$(python3 -c 'import sys; b=int(sys.argv[1] or 0); s=int(sys.argv[2] or 0); d=int(sys.argv[3] or 0); print(str(b > 0 and s > 0 and d > 0 and b < d and s < d).lower())' "$browser_start_line" "$skill_start_line" "$first_done_line")"
+assert_eq "helper install concurrent run queues both tasks before waiting" "true" "$concurrent_queued_before_wait"
 assert_eq "helper install concurrent run keeps agent-browser ready" "ready" "$(jq -r '.helper_tools."agent-browser".result' <<<"$concurrent_output")"
 
 NO_BROWSER_BIN="$TMP_DIR/bin-no-browser"
@@ -741,18 +739,13 @@ assert "bootstrap-project-config parent default writes child b local config" tes
 assert "bootstrap-project-config parent default does not write parent config" test ! -e "$PROJECT_CONFIG_WORKSPACE/.spec-first/config.local.yaml"
 
 install_mcp_log="$TMP_DIR/install-mcp.log"
-install_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --serena-language typescript 2>"$install_mcp_log")"
+install_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" 2>"$install_mcp_log")"
 assert "install-mcp emits JSON" jq -e . <<<"$install_output"
-assert_eq "installer configures all required tools" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$install_output")"
+assert_eq "installer configures all required tools" "sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$install_output")"
 assert_eq "installer has no skipped optional results" "true" "$(jq -r 'all(.results[]; .status == "ready")' <<<"$install_output")"
 assert_eq "installer writes GitNexus config" "npx" "$(jq -r '.mcpServers.gitnexus.command' "$FAKE_HOME/.claude.json")"
 assert_eq "installer skips optional code-review-graph host MCP config" "false" "$(jq -r '.mcpServers | has("code-review-graph")' "$FAKE_HOME/.claude.json")"
 assert_eq "installer records code-review-graph host config skipped" "host-config-skipped" "$(jq -r '.results[] | select(.tool_id == "code-review-graph") | .last_action' <<<"$install_output")"
-assert_eq "installer does not write internal scope into Claude config" "false" "$(jq -r '.mcpServers.serena | has("scope")' "$FAKE_HOME/.claude.json")"
-assert "Serena ready marker exists" test -f "$FAKE_REPO/.serena/index-ready.json"
-assert_contains "installer uses explicit LLM-selected TypeScript language for Node repo" "serena project create . --index --language typescript" "$(cat "$COMMAND_LOG")"
-assert_contains "installer prints configure-host stage logs" "spec-mcp-setup: [mcp/configure:serena] start" "$(cat "$install_mcp_log")"
-assert_contains "installer prints Serena stage logs" "spec-mcp-setup: [mcp/serena:serena] start" "$(cat "$install_mcp_log")"
 
 gitnexus_warmup_count_before="$(grep -cF "npx -y $GITNEXUS_PACKAGE --help" "$COMMAND_LOG" || true)"
 WARMUP_CACHE_REUSE_REPO="$TMP_DIR/warmup-cache-reuse-repo"
@@ -782,44 +775,11 @@ assert_eq "broken warmup cache path does not fail setup" "ready:installed" "$(jq
 STDIN_DRAIN_REPO="$TMP_DIR/stdin-drain-repo"
 STDIN_DRAIN_HOME="$TMP_DIR/stdin-drain-home"
 make_repo "$STDIN_DRAIN_REPO"
-stdin_drain_output="$(cd "$STDIN_DRAIN_REPO" && PATH="$TEST_PATH" HOME="$STDIN_DRAIN_HOME" MCP_SETUP_HOST=claude DRAIN_NPX_STDIN=1 bash "$SCRIPTS_DIR/install-mcp.sh" --serena-language typescript)"
+stdin_drain_output="$(cd "$STDIN_DRAIN_REPO" && PATH="$TEST_PATH" HOME="$STDIN_DRAIN_HOME" MCP_SETUP_HOST=claude DRAIN_NPX_STDIN=1 bash "$SCRIPTS_DIR/install-mcp.sh")"
 assert "install-mcp with stdin-draining npx emits JSON" jq -e . <<<"$stdin_drain_output"
-assert_eq "installer protects tool iteration from child stdin drains" "serena,sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$stdin_drain_output")"
+assert_eq "installer protects tool iteration from child stdin drains" "sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$stdin_drain_output")"
 assert_eq "stdin-drain installer writes latest sequential-thinking config" "@modelcontextprotocol/server-sequential-thinking@latest" "$(jq -r '.mcpServers["sequential-thinking"].args[1]' "$STDIN_DRAIN_HOME/.claude.json")"
 assert_eq "stdin-drain installer writes latest context7 config" "@upstash/context7-mcp@latest" "$(jq -r '.mcpServers.context7.args[1]' "$STDIN_DRAIN_HOME/.claude.json")"
-
-INSTALL_LANG_REPO="$TMP_DIR/install-lang-repo"
-INSTALL_LANG_HOME="$TMP_DIR/install-lang-home"
-INSTALL_LANG_BIN="$TMP_DIR/install-lang-bin"
-INSTALL_LANG_LOG="$TMP_DIR/install-lang-commands.log"
-make_repo "$INSTALL_LANG_REPO"
-mkdir -p "$INSTALL_LANG_HOME"
-touch "$INSTALL_LANG_LOG"
-make_fake_bin "$INSTALL_LANG_BIN" "$INSTALL_LANG_LOG"
-install_lang_output="$(cd "$INSTALL_LANG_REPO" && PATH="$INSTALL_LANG_BIN:$TEST_PATH" HOME="$INSTALL_LANG_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only serena --serena-languages kotlin,java)"
-assert "install-mcp with Serena languages emits JSON" jq -e . <<<"$install_lang_output"
-assert_contains "install-mcp forwards LLM-selected Serena languages" "serena project create . --index --language kotlin --language java" "$(cat "$INSTALL_LANG_LOG")"
-assert_contains "Serena local override ignores node_modules before indexing" '"**/node_modules/"' "$(cat "$INSTALL_LANG_REPO/.serena/project.local.yml")"
-assert_contains "Serena local override ignores virtualenvs before indexing" '"**/.venv/"' "$(cat "$INSTALL_LANG_REPO/.serena/project.local.yml")"
-assert_contains "Serena local override ignores generated runtime before indexing" '".agents/skills/"' "$(cat "$INSTALL_LANG_REPO/.serena/project.local.yml")"
-
-INSTALL_NO_LANG_REPO="$TMP_DIR/install-no-lang-repo"
-INSTALL_NO_LANG_HOME="$TMP_DIR/install-no-lang-home"
-INSTALL_NO_LANG_BIN="$TMP_DIR/install-no-lang-bin"
-INSTALL_NO_LANG_LOG="$TMP_DIR/install-no-lang-commands.log"
-make_repo "$INSTALL_NO_LANG_REPO"
-mkdir -p "$INSTALL_NO_LANG_HOME"
-touch "$INSTALL_NO_LANG_LOG"
-make_fake_bin "$INSTALL_NO_LANG_BIN" "$INSTALL_NO_LANG_LOG"
-install_no_lang_output="$(cd "$INSTALL_NO_LANG_REPO" && PATH="$INSTALL_NO_LANG_BIN:$TEST_PATH" HOME="$INSTALL_NO_LANG_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only serena)"
-assert "install-mcp first-time no-language emits JSON" jq -e . <<<"$install_no_lang_output"
-assert_eq "install-mcp classifies first-time missing Serena language" "partial:serena_language_required" "$(jq -r '.results[] | select(.tool_id == "serena") | "\(.status):\(.reason_code)"' <<<"$install_no_lang_output")"
-assert_contains "install-mcp no-language next action names language flag" "--serena-language <language>" "$(jq -r '.results[] | select(.tool_id == "serena") | .next_action' <<<"$install_no_lang_output")"
-assert_contains "install-mcp no-language diagnostic preserves fast-fail cause" "first-time bootstrap requires --language" "$(jq -r '.results[] | select(.tool_id == "serena") | .diagnostic_summary' <<<"$install_no_lang_output")"
-if grep -q 'serena project create' "$INSTALL_NO_LANG_LOG"; then
-  echo "FAIL: install-mcp first-time no-language path must not invoke Serena interactive project create" >&2
-  exit 1
-fi
 
 assert_contains "setup does not run GitNexus analyze" "$GITNEXUS_PACKAGE --help" "$(cat "$COMMAND_LOG")"
 assert_contains "setup warms pinned code-review-graph package" "$CODE_REVIEW_GRAPH_PACKAGE --help" "$(cat "$COMMAND_LOG")"
@@ -832,203 +792,16 @@ if grep -q 'code-review-graph build' "$COMMAND_LOG"; then
   exit 1
 fi
 
-SERENA_SAFE_REPO="$TMP_DIR/serena-safe-repo"
-SERENA_FAIL_BIN="$TMP_DIR/serena-fail-bin"
-make_repo "$SERENA_SAFE_REPO"
-mkdir -p "$SERENA_SAFE_REPO/.serena" "$SERENA_FAIL_BIN"
-printf 'existing-project\n' > "$SERENA_SAFE_REPO/.serena/project.yml"
-printf '{"index_status":"ready"}\n' > "$SERENA_SAFE_REPO/.serena/index-ready.json"
-cat > "$SERENA_FAIL_BIN/uvx" <<'SH'
-#!/bin/bash
-exit 42
-SH
-chmod +x "$SERENA_FAIL_BIN/uvx"
-(cd "$SERENA_SAFE_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh")
-assert_eq "existing Serena project survives idempotent bootstrap" "existing-project" "$(cat "$SERENA_SAFE_REPO/.serena/project.yml")"
-assert "existing Serena ready marker survives idempotent bootstrap" test -f "$SERENA_SAFE_REPO/.serena/index-ready.json"
-serena_verify_ready="$(cd "$SERENA_SAFE_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --verify-only)"
-assert_eq "Serena verify-only reports ready project" "ready::$(cd "$SERENA_SAFE_REPO" && pwd -P)" "$(jq -r '"\(.overall_status):\(.reason_code // ""):\(.repo_root)"' <<<"$serena_verify_ready")"
-
-SERENA_VERIFY_MISSING_REPO="$TMP_DIR/serena-verify-missing-repo"
-make_repo "$SERENA_VERIFY_MISSING_REPO"
-serena_verify_missing="$(cd "$SERENA_VERIFY_MISSING_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --verify-only)"
-assert_eq "Serena verify-only reports missing project as action required" "action-required:serena-project-not-ready" "$(jq -r '"\(.overall_status):\(.reason_code)"' <<<"$serena_verify_missing")"
-assert "Serena verify-only does not create project directory" test ! -e "$SERENA_VERIFY_MISSING_REPO/.serena"
-
-SERENA_INCOMPLETE_REPO="$TMP_DIR/serena-incomplete-repo"
-SERENA_INCOMPLETE_BIN="$TMP_DIR/serena-incomplete-bin"
-SERENA_INCOMPLETE_LOG="$TMP_DIR/serena-incomplete-commands.log"
-make_repo "$SERENA_INCOMPLETE_REPO"
-mkdir -p "$SERENA_INCOMPLETE_REPO/.serena/cache/typescript"
-cat > "$SERENA_INCOMPLETE_REPO/.serena/project.yml" <<'YAML'
-languages:
-- typescript
-YAML
-printf 'stale-cache\n' > "$SERENA_INCOMPLETE_REPO/.serena/cache/typescript/raw_document_symbols.pkl"
-touch "$SERENA_INCOMPLETE_LOG"
-make_fake_bin "$SERENA_INCOMPLETE_BIN" "$SERENA_INCOMPLETE_LOG"
-serena_incomplete_verify="$(cd "$SERENA_INCOMPLETE_REPO" && PATH="$SERENA_INCOMPLETE_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --verify-only)"
-assert_eq "Serena verify-only reports incomplete cache without ready marker" "incomplete" "$(jq -r '.cache.status' <<<"$serena_incomplete_verify")"
-assert_contains "Serena verify-only next action names incomplete cache" ".serena/cache" "$(jq -r '.next_action' <<<"$serena_incomplete_verify")"
-(cd "$SERENA_INCOMPLETE_REPO" && PATH="$SERENA_INCOMPLETE_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh")
-assert "Serena rebuild removes stale incomplete cache file" test ! -e "$SERENA_INCOMPLETE_REPO/.serena/cache/typescript/raw_document_symbols.pkl"
-assert_contains "Serena incomplete rebuild reuses existing language" "serena project create . --index --language typescript" "$(cat "$SERENA_INCOMPLETE_LOG")"
-assert_contains "Serena incomplete rebuild keeps safe local ignored paths" '"**/node_modules/"' "$(cat "$SERENA_INCOMPLETE_REPO/.serena/project.local.yml")"
-
-SERENA_FIRST_TIME_NO_LANG_REPO="$TMP_DIR/serena-first-time-no-lang-repo"
-SERENA_FIRST_TIME_NO_LANG_BIN="$TMP_DIR/serena-first-time-no-lang-bin"
-SERENA_FIRST_TIME_NO_LANG_LOG="$TMP_DIR/serena-first-time-no-lang-commands.log"
-make_repo "$SERENA_FIRST_TIME_NO_LANG_REPO"
-touch "$SERENA_FIRST_TIME_NO_LANG_LOG"
-make_fake_bin "$SERENA_FIRST_TIME_NO_LANG_BIN" "$SERENA_FIRST_TIME_NO_LANG_LOG"
-set +e
-serena_first_time_no_lang_output="$(cd "$SERENA_FIRST_TIME_NO_LANG_REPO" && PATH="$SERENA_FIRST_TIME_NO_LANG_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" 2>&1)"
-serena_first_time_no_lang_status=$?
-set -e
-assert_eq "Serena first-time bootstrap without language fails fast" "1" "$serena_first_time_no_lang_status"
-assert_contains "Serena first-time bootstrap asks LLM for supported language" "first-time bootstrap requires --language" "$serena_first_time_no_lang_output"
-if grep -q 'serena project create' "$SERENA_FIRST_TIME_NO_LANG_LOG"; then
-  echo "FAIL: first-time no-language bootstrap must not invoke Serena interactive project create" >&2
-  exit 1
-fi
-assert "Serena first-time no-language failure does not create project directory" test ! -e "$SERENA_FIRST_TIME_NO_LANG_REPO/.serena"
-
-SERENA_RESTORE_REPO="$TMP_DIR/serena-restore-repo"
-make_repo "$SERENA_RESTORE_REPO"
-mkdir -p "$SERENA_RESTORE_REPO/.serena"
-printf 'existing-project\n' > "$SERENA_RESTORE_REPO/.serena/project.yml"
-set +e
-(cd "$SERENA_RESTORE_REPO" && PATH="$SERENA_FAIL_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" >/dev/null 2>&1)
-serena_restore_status=$?
-set -e
-assert_eq "Serena failed rebuild exits nonzero" "1" "$serena_restore_status"
-assert_eq "Serena failed rebuild restores existing project" "existing-project" "$(cat "$SERENA_RESTORE_REPO/.serena/project.yml")"
-
-SERENA_REFRESH_REPO="$TMP_DIR/serena-refresh-repo"
-SERENA_REFRESH_BIN="$TMP_DIR/serena-refresh-bin"
-SERENA_REFRESH_LOG="$TMP_DIR/serena-refresh-commands.log"
-make_repo "$SERENA_REFRESH_REPO"
-touch "$SERENA_REFRESH_LOG"
-make_fake_bin "$SERENA_REFRESH_BIN" "$SERENA_REFRESH_LOG"
-(cd "$SERENA_REFRESH_REPO" && PATH="$SERENA_REFRESH_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --refresh --language kotlin --language java)
-assert_contains "Serena refresh accepts LLM-selected languages" "serena project create . --index --language kotlin --language java" "$(cat "$SERENA_REFRESH_LOG")"
-
-SERENA_FALLBACK_REPO="$TMP_DIR/serena-fallback-repo"
-SERENA_FALLBACK_BIN="$TMP_DIR/serena-fallback-bin"
-SERENA_FALLBACK_LOG="$TMP_DIR/serena-fallback-commands.log"
-make_repo "$SERENA_FALLBACK_REPO"
-touch "$SERENA_FALLBACK_LOG"
-make_fake_bin "$SERENA_FALLBACK_BIN" "$SERENA_FALLBACK_LOG"
-cat > "$SERENA_FALLBACK_BIN/uvx" <<SH
-#!/bin/bash
-echo "uvx \$*" >> "$SERENA_FALLBACK_LOG"
-if [[ " \$* " == *" --language java "* && " \$* " != *" --language kotlin "* ]]; then
-  mkdir -p .serena
-  printf 'created_by: fake-serena-java\n' > .serena/project.yml
-  exit 0
-fi
-exit 42
-SH
-chmod +x "$SERENA_FALLBACK_BIN/uvx"
-(cd "$SERENA_FALLBACK_REPO" && PATH="$SERENA_FALLBACK_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --refresh --language kotlin,java)
-assert_contains "Serena refresh first tries the full LLM-selected language set" "serena project create . --index --language kotlin --language java" "$(cat "$SERENA_FALLBACK_LOG")"
-assert_contains "Serena refresh falls back to Java when Kotlin LSP fails" "serena project create . --index --language java" "$(cat "$SERENA_FALLBACK_LOG")"
-assert_eq "Serena fallback bootstrap writes project" "created_by: fake-serena-java" "$(cat "$SERENA_FALLBACK_REPO/.serena/project.yml")"
-
-SERENA_REUSE_REPO="$TMP_DIR/serena-reuse-repo"
-SERENA_REUSE_BIN="$TMP_DIR/serena-reuse-bin"
-SERENA_REUSE_LOG="$TMP_DIR/serena-reuse-commands.log"
-make_repo "$SERENA_REUSE_REPO"
-mkdir -p "$SERENA_REUSE_REPO/.serena"
-cat > "$SERENA_REUSE_REPO/.serena/project.yml" <<'YAML'
-languages:
-- typescript
-- vue
-YAML
-printf '{"index_status":"ready"}\n' > "$SERENA_REUSE_REPO/.serena/index-ready.json"
-touch "$SERENA_REUSE_LOG"
-make_fake_bin "$SERENA_REUSE_BIN" "$SERENA_REUSE_LOG"
-(cd "$SERENA_REUSE_REPO" && PATH="$SERENA_REUSE_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --refresh)
-assert_contains "Serena refresh without explicit languages reuses existing config languages" "serena project create . --index --language typescript --language vue" "$(cat "$SERENA_REUSE_LOG")"
-
-SERENA_REUSE_REBUILD_REPO="$TMP_DIR/serena-reuse-rebuild-repo"
-SERENA_REUSE_REBUILD_BIN="$TMP_DIR/serena-reuse-rebuild-bin"
-SERENA_REUSE_REBUILD_LOG="$TMP_DIR/serena-reuse-rebuild-commands.log"
-make_repo "$SERENA_REUSE_REBUILD_REPO"
-mkdir -p "$SERENA_REUSE_REBUILD_REPO/.serena"
-cat > "$SERENA_REUSE_REBUILD_REPO/.serena/project.yml" <<'YAML'
-languages:
-- typescript
-YAML
-touch "$SERENA_REUSE_REBUILD_LOG"
-make_fake_bin "$SERENA_REUSE_REBUILD_BIN" "$SERENA_REUSE_REBUILD_LOG"
-(cd "$SERENA_REUSE_REBUILD_REPO" && PATH="$SERENA_REUSE_REBUILD_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh")
-assert_contains "Serena non-refresh rebuild reuses existing config languages" "serena project create . --index --language typescript" "$(cat "$SERENA_REUSE_REBUILD_LOG")"
-
-SERENA_TIMEOUT_REPO="$TMP_DIR/serena-timeout-repo"
-SERENA_TIMEOUT_HOME="$TMP_DIR/serena-timeout-home"
-SERENA_TIMEOUT_BIN="$TMP_DIR/serena-timeout-bin"
-SERENA_TIMEOUT_LOG="$TMP_DIR/serena-timeout-commands.log"
-SERENA_TIMEOUT_CHILD_PID="$TMP_DIR/serena-timeout-child.pid"
-make_repo "$SERENA_TIMEOUT_REPO"
-mkdir -p "$SERENA_TIMEOUT_HOME"
-touch "$SERENA_TIMEOUT_LOG"
-make_fake_bin "$SERENA_TIMEOUT_BIN" "$SERENA_TIMEOUT_LOG"
-cat > "$SERENA_TIMEOUT_BIN/uvx" <<SH
-#!/bin/bash
-echo "uvx \$*" >> "$SERENA_TIMEOUT_LOG"
-if [[ " \$* " == *" serena project create "* ]]; then
-  (while true; do sleep 1; done) &
-  echo "\$!" > "$SERENA_TIMEOUT_CHILD_PID"
-  wait
-fi
-exit 0
-SH
-chmod +x "$SERENA_TIMEOUT_BIN/uvx"
-set +e
-serena_timeout_output="$(cd "$SERENA_TIMEOUT_REPO" && PATH="$SERENA_TIMEOUT_BIN:$TEST_PATH" HOME="$SERENA_TIMEOUT_HOME" MCP_SETUP_HOST=claude SPEC_FIRST_STAGE_TIMEOUT_SECONDS=1 bash "$SCRIPTS_DIR/install-mcp.sh" --only serena --serena-language typescript)"
-serena_timeout_status=$?
-set -e
-assert_eq "install-mcp timeout returns JSON without crashing" "0" "$serena_timeout_status"
-assert "install-mcp timeout output is JSON" jq -e . <<<"$serena_timeout_output"
-assert_eq "install-mcp classifies timed out Serena bootstrap as partial" "partial:serena_bootstrap_failed" "$(jq -r '.results[] | select(.tool_id == "serena") | "\(.status):\(.reason_code)"' <<<"$serena_timeout_output")"
-if [ -f "$SERENA_TIMEOUT_CHILD_PID" ] && kill -0 "$(cat "$SERENA_TIMEOUT_CHILD_PID")" 2>/dev/null; then
-  echo "FAIL: timed out Serena bootstrap left child process running" >&2
-  exit 1
-fi
-
-SERENA_NO_LANG_REPO="$TMP_DIR/serena-no-lang-repo"
-make_repo "$SERENA_NO_LANG_REPO"
-set +e
-serena_no_lang_output="$(cd "$SERENA_NO_LANG_REPO" && PATH="$SERENA_REFRESH_BIN:$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --refresh 2>&1)"
-serena_no_lang_status=$?
-set -e
-assert_eq "Serena refresh fails fast without language evidence" "1" "$serena_no_lang_status"
-assert_contains "Serena refresh failure asks LLM to pass language" "requires --language" "$serena_no_lang_output"
-
 PARENT_WORKSPACE="$TMP_DIR/parent-workspace"
 make_repo "$PARENT_WORKSPACE/project-a"
 make_repo "$PARENT_WORKSPACE/project-b"
-set +e
-serena_parent_output="$(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" 2>&1)"
-serena_parent_status=$?
-set -e
-assert_eq "Serena refuses unresolved parent workspace" "1" "$serena_parent_status"
-assert_contains "Serena unresolved workspace reports reason code" "workspace-target-required" "$serena_parent_output"
-assert "Serena does not initialize parent workspace" test ! -e "$PARENT_WORKSPACE/.serena"
-(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" bash "$SCRIPTS_DIR/activate-serena.sh" --repo project-a --language typescript)
-assert "Serena explicit child repo writes child project" test -f "$PARENT_WORKSPACE/project-a/.serena/project.yml"
-assert "Serena explicit child repo writes child ready marker" test -f "$PARENT_WORKSPACE/project-a/.serena/index-ready.json"
-assert "Serena explicit child repo still leaves parent clean" test ! -e "$PARENT_WORKSPACE/.serena"
-
 parent_detect_output="$(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh")"
 assert_eq "detect-tools exposes workspace target mode" "workspace-multi-repo" "$(jq -r '.target_mode' <<<"$parent_detect_output")"
-assert_eq "detect-tools marks Serena project target required" "workspace-target-required" "$(jq -r '.tools.serena.project_status' <<<"$parent_detect_output")"
 parent_verify_output="$(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert "verify-tools parent default emits JSON" jq -e . <<<"$parent_verify_output"
 assert_eq "verify-tools parent default schema" "workspace-mcp-verify-summary.v1" "$(jq -r '.schema_version' <<<"$parent_verify_output")"
 assert_eq "verify-tools parent default selection source" "workspace-default-all-repos" "$(jq -r '.selection_source' <<<"$parent_verify_output")"
-assert_eq "verify-tools parent default verifies all children" "partial:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$parent_verify_output")"
+assert_eq "verify-tools parent default verifies all children" "ready:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$parent_verify_output")"
 assert "verify-tools parent default writes advisory summary" test -f "$PARENT_WORKSPACE/.spec-first/workspace/mcp-verify-summary.json"
 assert "verify does not create parent project config dir" test ! -e "$PARENT_WORKSPACE/.spec-first/config"
 assert "verify does not create parent graph dir" test ! -e "$PARENT_WORKSPACE/.spec-first/graph"
@@ -1037,23 +810,19 @@ MCP_ALL_REPOS_WORKSPACE="$TMP_DIR/mcp-all-repos-workspace"
 MCP_ALL_REPOS_HOME="$FAKE_HOME"
 make_repo "$MCP_ALL_REPOS_WORKSPACE/project-a"
 make_repo "$MCP_ALL_REPOS_WORKSPACE/project-b"
-default_repos_install_output="$(cd "$MCP_ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_ALL_REPOS_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only serena --serena-language-for project-a=typescript)"
+default_repos_install_output="$(cd "$MCP_ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_ALL_REPOS_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --only sequential-thinking)"
 assert "install-mcp parent default emits JSON" jq -e . <<<"$default_repos_install_output"
 assert_eq "install-mcp parent default schema" "workspace-mcp-setup-summary.v1" "$(jq -r '.schema_version' <<<"$default_repos_install_output")"
 assert_eq "install-mcp parent default selection source" "workspace-default-all-repos" "$(jq -r '.selection_source' <<<"$default_repos_install_output")"
-assert_eq "install-mcp parent default reports partial language-gated success" "partial:1:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.partial):\(.counts.serena_language_required)"' <<<"$default_repos_install_output")"
+assert_eq "install-mcp parent default reports all child success" "ready:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.partial)"' <<<"$default_repos_install_output")"
 assert "install-mcp parent default writes advisory summary" test -f "$MCP_ALL_REPOS_WORKSPACE/.spec-first/workspace/mcp-setup-summary.json"
-rm -rf "$MCP_ALL_REPOS_WORKSPACE/project-a/.serena" "$MCP_ALL_REPOS_WORKSPACE/.spec-first/workspace/mcp-setup-summary.json"
-all_repos_install_output="$(cd "$MCP_ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_ALL_REPOS_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --all-repos --only serena --serena-language-for project-a=typescript)"
+rm -f "$MCP_ALL_REPOS_WORKSPACE/.spec-first/workspace/mcp-setup-summary.json"
+all_repos_install_output="$(cd "$MCP_ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_ALL_REPOS_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --all-repos --only sequential-thinking)"
 assert "install-mcp --all-repos emits JSON" jq -e . <<<"$all_repos_install_output"
 assert_eq "install-mcp --all-repos emits summary schema" "workspace-mcp-setup-summary.v1" "$(jq -r '.schema_version' <<<"$all_repos_install_output")"
 assert_eq "install-mcp --all-repos records explicit selection source" "explicit-all-repos" "$(jq -r '.selection_source' <<<"$all_repos_install_output")"
-assert_eq "install-mcp --all-repos reports partial language-gated success" "partial:1:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.partial):\(.counts.serena_language_required)"' <<<"$all_repos_install_output")"
-assert_eq "install-mcp --all-repos records per-child language gate" "project-b:serena_language_required" "$(jq -r '.results[] | select(.workspace_relative_path=="project-b") | "\(.repo_label):\(.reason_code)"' <<<"$all_repos_install_output")"
+assert_eq "install-mcp --all-repos reports all child success" "ready:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.partial)"' <<<"$all_repos_install_output")"
 assert "install-mcp --all-repos writes advisory workspace summary" test -f "$MCP_ALL_REPOS_WORKSPACE/.spec-first/workspace/mcp-setup-summary.json"
-assert "install-mcp --all-repos writes explicit-language child Serena project" test -f "$MCP_ALL_REPOS_WORKSPACE/project-a/.serena/project.yml"
-assert "install-mcp --all-repos does not create no-language child Serena project" test ! -e "$MCP_ALL_REPOS_WORKSPACE/project-b/.serena"
-assert "install-mcp --all-repos does not initialize parent Serena" test ! -e "$MCP_ALL_REPOS_WORKSPACE/.serena"
 assert "install-mcp --all-repos does not write parent project config" test ! -e "$MCP_ALL_REPOS_WORKSPACE/.spec-first/config"
 
 set +e
@@ -1074,7 +843,7 @@ all_repos_verify_output="$(cd "$MCP_ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" HO
 assert "verify-tools --all-repos emits JSON" jq -e . <<<"$all_repos_verify_output"
 assert_eq "verify-tools --all-repos emits summary schema" "workspace-mcp-verify-summary.v1" "$(jq -r '.schema_version' <<<"$all_repos_verify_output")"
 assert_eq "verify-tools --all-repos records explicit selection source" "explicit-all-repos" "$(jq -r '.selection_source' <<<"$all_repos_verify_output")"
-assert_eq "verify-tools --all-repos reports partial readiness" "partial:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$all_repos_verify_output")"
+assert_eq "verify-tools --all-repos reports all child readiness" "ready:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$all_repos_verify_output")"
 assert "verify-tools --all-repos writes advisory workspace summary" test -f "$MCP_ALL_REPOS_WORKSPACE/.spec-first/workspace/mcp-verify-summary.json"
 assert "verify-tools --all-repos writes child provider projection" test -f "$MCP_ALL_REPOS_WORKSPACE/project-a/.spec-first/config/graph-providers.json"
 assert "verify-tools --all-repos does not write parent graph facts" test ! -e "$MCP_ALL_REPOS_WORKSPACE/.spec-first/graph"
@@ -1107,7 +876,7 @@ assert_contains "verify prints helper table" "Helper tools:" "$verify_text"
 assert_contains "verify prints project setup table" "Project setup facts:" "$verify_text"
 assert_contains "verify prints aligned MCP columns" "| Name" "$verify_text"
 assert_contains "verify prints aligned project columns" "| Artifact" "$verify_text"
-assert_contains "verify prints tool remark" "符号级精确编辑和项目索引" "$verify_text"
+assert_contains "verify prints tool remark" "反思式推理辅助" "$verify_text"
 assert_contains "verify graph table includes bootstrap column" "Bootstrap" "$verify_text"
 assert_contains "verify graph table shows bootstrap required" "required" "$verify_text"
 assert_contains "verify prints friendly next steps" "下一步:" "$verify_text"
@@ -1357,7 +1126,7 @@ if grep -q 'mcp_servers.*code-review-graph' "$codex_config"; then
 fi
 assert_contains "Codex uninstall preserves following non-MCP table" '[profiles.default]' "$(cat "$codex_config")"
 
-printf '\n.spec-first/\n.gitnexus/\n.code-review-graph/\n.serena/\n' >> "$FAKE_REPO/.gitignore"
+printf '\n.spec-first/\n.gitnexus/\n.code-review-graph/\n' >> "$FAKE_REPO/.gitignore"
 git -C "$FAKE_REPO" add .gitignore
 git -C "$FAKE_REPO" commit -q -m "Prepare graph bootstrap fixture"
 

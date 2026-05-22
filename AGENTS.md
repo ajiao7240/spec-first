@@ -68,7 +68,7 @@ LLM 和 agents 负责语义判断：
 
 `spec-first` 不应成为 prompt collection、agent collection、强状态机、中心化流程引擎、复杂规则引擎、无边界脚本堆，或替代 LLM 判断的硬编码专家系统。
 
-GitNexus、code-review-graph、Serena、ast-grep、browser tooling 和其他 MCP providers 是外部或辅助能力。Downstream workflows 应消费 canonical artifacts、readiness facts、degraded-mode status 和 reason_code，不应依赖 provider 内部实现细节。
+GitNexus、code-review-graph、ast-grep、browser tooling 和其他 MCP providers 是外部或辅助能力。Downstream workflows 应消费 canonical artifacts、readiness facts、degraded-mode status 和 reason_code，不应依赖 provider 内部实现细节。
 
 ## Source 与 Runtime
 

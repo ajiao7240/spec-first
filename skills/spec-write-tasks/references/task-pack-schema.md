@@ -232,7 +232,7 @@ Orientation Evidence records the bounded source orientation used to make task bo
 
 Include:
 
-- `provider`: `direct-repo-reads`, `serena-lsp`, `mixed`, or `skipped`.
+- `provider`: `direct-repo-reads`, `lsp`, `mixed`, or `skipped`.
 - `posture`: `bounded`, `degraded`, `skipped-small-plan`, or `unavailable`.
 - `evidence_refs`: short references to candidate files, tests, shared surfaces, or direct repo reads that shaped task boundaries.
 - `limitations`: missing, stale, degraded, or intentionally skipped evidence.
@@ -242,7 +242,7 @@ Rules:
 - Do not turn current implementation state into new task scope.
 - Do not treat current code state as a substitute for source-plan authority or bounded source reading.
 - Use targeted direct repo reads as the default orientation provider.
-- Serena/LSP is an optional orientation provider and must be recorded as advisory evidence when used.
+- LSP is an optional orientation provider and must be recorded as advisory evidence when used.
 
 ## Source/Runtime File Boundary
 

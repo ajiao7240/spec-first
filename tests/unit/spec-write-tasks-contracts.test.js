@@ -77,8 +77,8 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('src/cli/helpers/review-pre-facts.js');
     expect(skill).toContain('do not create a parallel reviewer facts pipeline');
     expect(skill).toContain('targeted direct repo reads first');
-    expect(skill).toContain('optionally use Serena/LSP when available');
-    expect(skill).toContain('Serena/LSP provider rule');
+    expect(skill).toContain('optionally use LSP when available');
+    expect(skill).toContain('LSP provider rule');
     expect(skill).toContain('Do not let LSP references automatically expand task scope');
     expect(skill).toContain('top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work');
     expect(skill).toContain('do not invent child repo targets while deriving tasks');
@@ -125,7 +125,7 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).not.toContain('"done_signal": "Validator tests pass.",\n      "done_signal": "Validator tests pass.",');
     expect(schema).toContain('Orientation Evidence');
     expect(schema).toContain('provider');
-    expect(schema).toContain('`direct-repo-reads`, `serena-lsp`, `mixed`, or `skipped`');
+    expect(schema).toContain('`direct-repo-reads`, `lsp`, `mixed`, or `skipped`');
     expect(schema).toContain('evidence_refs');
     expect(schema).toContain('limitations');
     expect(schema).toContain('A task pack whose `spec_id` does not match the source plan is a wrong-chain handoff');

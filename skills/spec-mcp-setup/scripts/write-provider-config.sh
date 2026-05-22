@@ -100,7 +100,7 @@ GITNEXUS_QUERY_PROBE_SOURCE_FILE_LIMIT_BYTES=200000
 
 gitnexus_probe_path_excluded() {
   case "$1" in
-    .spec-first/*|.gitnexus/*|.code-review-graph/*|.agents/*|.codex/*|.claude/*|.serena/*|node_modules/*|vendor/*) return 0 ;;
+    .spec-first/*|.gitnexus/*|.code-review-graph/*|.agents/*|.codex/*|.claude/*|node_modules/*|vendor/*) return 0 ;;
     build/*|*/build/*|cache/*|*/cache/*|runtime/*|*/runtime/*|generated/*|*/generated/*|.gradle/*|*/.gradle/*) return 0 ;;
     */src/test/*|*/src/androidTest/*|test/*|tests/*|*/test/*|*/tests/*) return 0 ;;
     *.jar|*.aar|*.apk|*.dex|*.so|*.dylib|*.class|*.png|*.jpg|*.jpeg|*.gif|*.webp|*.zip|*.tar|*.gz|*.tgz|*.mp4|*.mov|*.pdf) return 0 ;;
@@ -747,9 +747,7 @@ jq --arg generated_at "$generated_at" \
     and canonical_graph_source_revision_current
     and canonical_graph_worktree_current;
 
-  (.tools.serena // {}) as $serena
-  | (.helper_tools."ast-grep" // {}) as $ast_grep
-  | (tool_ready($serena)) as $serena_ready
+  (.helper_tools."ast-grep" // {}) as $ast_grep
   | (helper_ready($ast_grep)) as $ast_grep_ready
   | {
       schema_version: "runtime-capabilities.v1",
@@ -770,13 +768,6 @@ jq --arg generated_at "$generated_at" \
         source: "host-readiness-ledger-v2"
       },
       fallback_tools: {
-        serena: {
-          support_level: (if $serena_ready then "partial" else "none" end),
-          readiness_status: (if $serena_ready then "ready" else "action-required" end),
-          confidence: (if $serena_ready then "medium" else "low" end),
-          capabilities: ["symbol_overview", "symbol_lookup", "references"],
-          limitations: (if $serena_ready then [] else ["Serena is not ready."] end)
-        },
         "ast-grep": {
           support_level: (if $ast_grep_ready then "partial" else "none" end),
           readiness_status: (if $ast_grep_ready then "ready" else "action-required" end),
@@ -787,9 +778,9 @@ jq --arg generated_at "$generated_at" \
       },
       fallback_capabilities: {
         context_selection: {
-          support_level: (if $serena_ready or $ast_grep_ready then "partial" else "none" end),
-          confidence: (if $serena_ready or $ast_grep_ready then "medium" else "low" end),
-          providers: ([if $serena_ready then "serena" else empty end, if $ast_grep_ready then "ast-grep" else empty end]),
+          support_level: (if $ast_grep_ready then "partial" else "none" end),
+          confidence: (if $ast_grep_ready then "medium" else "low" end),
+          providers: ([if $ast_grep_ready then "ast-grep" else empty end]),
           limitations: ["Fallback context is bounded local repo reads, not compiled graph evidence."]
         },
         impact_radius: {

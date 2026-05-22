@@ -11,8 +11,7 @@ Do not treat repo-root instruction files as the tool catalog, install guide, or 
 ## Required MCP Tools
 
 | Tool | Required | Category | Host Config | Project Bootstrap | Purpose |
-|---|---:|---|---|---|---|---|
-| Serena | Yes | `mcp` | Claude/Codex MCP server | Yes | Symbol-aware repo editing and project indexing |
+|---|---:|---|---|---|---|
 | Sequential Thinking | Yes | `mcp` | Claude/Codex MCP server | No | Reflective reasoning support |
 | Context7 | Yes | `mcp` | Claude/Codex MCP server | No | Current framework/library documentation |
 
@@ -109,4 +108,4 @@ Repeated setup, reinstall, or post-upgrade verification preserves existing proje
 
 The final setup output should make this handoff explicit below the grouped readiness blocks: the safe default is to restart Claude Code/Codex or start a new session first, then run the graph-bootstrap command. If the current agent determines it only needs the deterministic bootstrap script and does not need newly loaded MCP servers, it may accept "继续完成" in the current session; downstream workflows should still wait for a restarted/new session.
 
-Setup is idempotent: re-running it must not destroy an already ready Serena project, and host MCP config entries must not contain internal setup metadata such as selected scope. Before a controlled Serena index rebuild, setup maintains local `.serena/project.local.yml` ignore rules for common dependency/build/cache/virtualenv/generated runtime directories and may remove only incomplete `.serena/cache` when the ready marker is missing. It must not delete Serena project files, local overrides, memories, or user source. For Codex, higher-precedence config handling is per MCP server section, not per config file.
+Setup is idempotent: re-running it preserves existing setup-owned project facts and host MCP config entries must not contain internal setup metadata such as selected scope. For Codex, higher-precedence config handling is per MCP server section, not per config file.

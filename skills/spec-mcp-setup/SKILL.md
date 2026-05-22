@@ -30,7 +30,7 @@ Do not use to compile graph readiness, make product or architecture decisions, r
 
 ### Inputs
 
-Current host, working directory, `skills/spec-mcp-setup/mcp-tools.json`, host config paths, git/workspace target facts, optional repo/language flags, and setup environment variables.
+Current host, working directory, `skills/spec-mcp-setup/mcp-tools.json`, host config paths, git/workspace target facts, optional repo flags, and setup environment variables.
 
 ### Outputs
 
@@ -38,15 +38,15 @@ Readiness ledger facts, setup-owned config/projection artifacts, helper/tool sta
 
 ### Artifacts
 
-Host readiness ledger v2, `.spec-first/config/*.json`, optional `.serena/*` config, parent workspace advisory summaries, and managed `.gitignore` entries when explicitly bootstrapped.
+Host readiness ledger v2, `.spec-first/config/*.json`, parent workspace advisory summaries, and managed `.gitignore` entries when explicitly bootstrapped.
 
 ### Failure Modes
 
-Missing dependency, Serena language ambiguity, invalid workspace target, host config precedence block, warmup/configure failure, skipped non-git repo, or credential/permission failure.
+Missing dependency, invalid workspace target, host config precedence block, warmup/configure failure, skipped non-git repo, or credential/permission failure.
 
 ### Workflow
 
-Resolve target scope, check dependencies, configure required helpers/MCP projections, bootstrap Serena, write setup-owned readiness facts, then report status and next action.
+Resolve target scope, check dependencies, configure required helpers/MCP projections, write setup-owned readiness facts, then report status and next action.
 
 ### Downstream Consumers
 
@@ -56,7 +56,7 @@ Resolve target scope, check dependencies, configure required helpers/MCP project
 
 Prepare a verified, repeatable spec-first harness runtime for Claude Code or Codex without turning setup into a semantic decision engine.
 
-The workflow should leave deterministic facts behind for downstream workflows: host MCP config status, helper tool status, project-local setup facts, graph-provider projections, readiness ledger v2, and explicit next actions. Scripts own detection, installation, config writing, and JSON facts; the LLM owns host routing, Serena language choice, failure interpretation, and workflow handoff judgment.
+The workflow should leave deterministic facts behind for downstream workflows: host MCP config status, helper tool status, project-local setup facts, graph-provider projections, readiness ledger v2, and explicit next actions. Scripts own detection, installation, config writing, and JSON facts; the LLM owns host routing, failure interpretation, and workflow handoff judgment.
 
 ## Graph Refresh Boundary
 
@@ -71,7 +71,6 @@ Use this workflow when the user asks to install, repair, verify, or diagnose spe
 - first-time spec-first setup on Claude Code or Codex;
 - missing or stale required MCP servers;
 - missing baseline helper tools such as `gh`, `jq`, `vhs`, `silicon`, `ffmpeg`, or `ast-grep`, or browser automation helper issues with `agent-browser`;
-- Serena project bootstrap or readiness issues;
 - parent workspace setup across child Git repos;
 - readiness ledger, graph-provider projection, or setup-owned `.spec-first/config/*.json` repair.
 
@@ -92,8 +91,6 @@ Primary inputs are the current host, current working directory, `skills/spec-mcp
 
 - `--repo <child>` / `-Repo <child>` to select one child repo from a parent workspace;
 - `--all-repos` / `-AllRepos` to explicitly process every child repo from a parent workspace;
-- `--serena-language <language>` / `-SerenaLanguage <language>` for a selected repo;
-- `--serena-language-for <child>=<language>[,<language>]` / `-SerenaLanguageFor` for parent workspace batch setup;
 - host override env vars such as `MCP_SETUP_HOST`, `MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE`, and `MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE` for deterministic tests or unusual host layouts.
 
 ## Workflow
@@ -103,9 +100,8 @@ Primary inputs are the current host, current working directory, `skills/spec-mcp
 3. Run dependency checks with `check-deps.*`; missing installer suggestions must be review-first, current-platform aware, and must not pipe remote scripts directly into an interpreter. Linux/WSL suggestions should prefer the package manager actually available on the host.
 4. Install or verify required helper tooling with `install-helpers.*`; `--verify-only` remains read-only.
 5. Warm required MCP/provider packages and write host MCP config only for tools whose registry entry requires host config.
-6. Bootstrap Serena non-interactively with LLM-selected languages, or fail with `serena_language_required` when evidence is missing.
-7. Write readiness ledger v2 with `verify-tools.*` and setup-owned project facts with `write-provider-config.*`.
-8. Report the full grouped status and hand off to `spec-graph-bootstrap` when graph readiness is still pending, or to the user-intent workflow when graph readiness is already ready.
+6. Write readiness ledger v2 with `verify-tools.*` and setup-owned project facts with `write-provider-config.*`.
+7. Report the full grouped status and hand off to `spec-graph-bootstrap` when graph readiness is still pending, or to the user-intent workflow when graph readiness is already ready.
 
 ## Outputs
 
@@ -116,7 +112,6 @@ Setup may write these deterministic artifacts:
 - child-local `.spec-first/config/runtime-capabilities.json`;
 - child-local `.spec-first/config/provider-artifacts.json`;
 - project-local `.spec-first/config.local.example.yaml`, `.spec-first/config.local.yaml`, and `.gitignore` entries when explicitly bootstrapped;
-- `.serena/project.yml`, `.serena/project.local.yml` safe indexing overrides, and the configured Serena ready marker for selected child repos;
 - parent advisory summaries under `.spec-first/workspace/` when running all-repos modes.
 - `host_pointer_reconciliation` advisory event in the readiness ledger v2 when host marker drift is detected. The event records `from_host` / `to_host` / `from_marker_path` / `to_marker_path` / `reconciled_at` so downstream workflows can audit cross-host setup runs without taking action; the original host's marker file is left intact.
 
@@ -125,7 +120,6 @@ The assistant's final response must restate readiness from ledger v2 instead of 
 ## Failure Modes
 
 - `missing_dependency`: a required package manager, runtime, or CLI dependency is missing; report the install suggestion and stop before pretending setup succeeded.
-- `serena_language_required`: first-time Serena bootstrap lacks explicit language evidence; the LLM should inspect project files and rerun with selected supported languages.
 - `workspace-target-required` / `repo-target-*`: repo-local writes are blocked until a valid child Git repo is selected or all-repos mode is used.
 - `precedence-blocked`: a higher-precedence Codex config contains a mismatched MCP section; report the blocking path instead of overwriting it.
 - `configure_failed` / `warmup_failed`: capture stage, exit code, bounded diagnostic summary, and next action.
@@ -138,7 +132,6 @@ The assistant's final response must restate readiness from ledger v2 instead of 
 
 Required MCP tools:
 
-- `serena`
 - `sequential-thinking`
 - `context7`
 
@@ -173,12 +166,10 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 4. Checks required dependencies.
 5. Installs/verifies required helper tooling.
 6. Warms every required MCP/provider package and configures only host-MCP-required tools in the host MCP config.
-7. Bootstraps Serena for the current repo with bounded local ignore rules before indexing.
-8. Writes readiness ledger v2 to the host marker path.
-9. Writes setup-owned project facts inside a git repo: `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/config/provider-artifacts.json`.
-10. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now when it is pending; when graph readiness is already ready, route by user intent into plan/work/review/debug or let `using-spec-first` choose the matching workflow; restart Claude Code/Codex or start a new session before downstream workflows rely on newly written MCP config or live MCP probes.
+7. Writes readiness ledger v2 to the host marker path.
+8. Writes setup-owned project facts inside a git repo: `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/config/provider-artifacts.json`.
+9. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now when it is pending; when graph readiness is already ready, route by user intent into plan/work/review/debug or let `using-spec-first` choose the matching workflow; restart Claude Code/Codex or start a new session before downstream workflows rely on newly written MCP config or live MCP probes.
 
-Re-running setup must be idempotent and non-destructive. If Serena is already project-ready, setup should keep the existing `.serena/project.yml` and ready marker. If a Serena rebuild is needed, scripts must preserve the previous project files until the new bootstrap has succeeded and must restore them on failure. Before running `serena project create --index`, setup may maintain `.serena/project.local.yml` with safe local `ignored_paths` for common dependency, build, cache, virtualenv, and generated runtime directories. If `.serena/cache` exists while the ready marker is missing, setup may remove only that incomplete setup-owned cache before rebuilding; it must not delete `.serena/project.yml`, `.serena/project.local.yml`, memories, or user-authored project source.
 
 ## Autonomy And Permissions
 
@@ -190,7 +181,6 @@ An explicit `/spec:mcp-setup` or `$spec-mcp-setup` invocation is authorization t
 - installing or verifying required helper tooling
 - writing host MCP config for required host-MCP tools
 - writing readiness ledgers and setup-owned `.spec-first/config/*.json` facts
-- maintaining Serena local safe ignore rules and clearing incomplete `.serena/cache` before a controlled rebuild
 
 If a setup command fails because the host sandbox or OS denies permission, retry through the host's approved escalation path or the script's non-interactive sudo/package-manager path without asking the user first. Do not invent destructive escalation. If escalation is unavailable, requires credentials that the harness cannot provide, or still fails, record the failed command stage, reason, and next action in the final status instead of blocking on confirmation.
 
@@ -202,7 +192,7 @@ Setup is target-aware for three topology modes:
 
 - A normal Git repo: project-local facts are written under that repo.
 - A monorepo with multiple modules: the Git root remains the single project boundary; modules are not separate readiness targets.
-- A parent workspace containing multiple independent child Git repos: the parent is advisory only. It may discover candidates and configure host-level MCP settings, but it must not write parent `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, `.spec-first/config.local*.yaml`, `.spec-first/*.local.yaml` gitignore entries, or `.serena/*`.
+- A parent workspace containing multiple independent child Git repos: the parent is advisory only. It may discover candidates and configure host-level MCP settings, but it must not write parent `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, `.spec-first/config.local*.yaml`, or `.spec-first/*.local.yaml` gitignore entries.
 
 Use the shared project target resolver before any repo-local writer:
 
@@ -246,7 +236,7 @@ The setup scripts also support `--all-repos` / `-AllRepos` as an explicit equiva
 
 ```bash
 bash skills/spec-mcp-setup/scripts/bootstrap-project-config.sh --all-repos --refresh-example --create-local --ensure-gitignore --json
-bash skills/spec-mcp-setup/scripts/install-mcp.sh --all-repos --serena-language-for project-a=typescript --serena-language-for project-b=java
+bash skills/spec-mcp-setup/scripts/install-mcp.sh --all-repos
 bash skills/spec-mcp-setup/scripts/verify-tools.sh --all-repos
 ```
 
@@ -254,63 +244,13 @@ Windows:
 
 ```powershell
 pwsh -File skills/spec-mcp-setup/scripts/bootstrap-project-config.ps1 -AllRepos -RefreshExample -CreateLocal -EnsureGitignore -Json
-pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1 -AllRepos -SerenaLanguageFor project-a=typescript,project-b=java
+pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1 -AllRepos
 pwsh -File skills/spec-mcp-setup/scripts/verify-tools.ps1 -AllRepos
 ```
 
-Parent-workspace default all-repos and explicit `--all-repos` reject `--repo` and single Git repo execution. They must not write parent `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, `.spec-first/providers/*`, or `.serena/*`. First-time Serena bootstrap in batch mode requires an explicit language map entry for each child that lacks existing `.serena/project.yml` language evidence. Children without language evidence are reported as `serena_language_required`; the agent should inspect that child repo and rerun with `--serena-language-for <child>=<language>[,<language>]`. A global `--serena-language` is intentionally rejected in parent-workspace batch mode so a heterogeneous workspace is not silently treated as one language.
+Parent-workspace default all-repos and explicit `--all-repos` reject `--repo` and single Git repo execution. They must not write parent `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, or `.spec-first/providers/*`.
 
 `--repo` is workspace-scoped in this MVP. From a non-Git parent workspace it must resolve to a child Git repo inside the current workspace; escaping the workspace returns `repo-target-outside-workspace`.
-
-Serena project language selection is semantic and belongs to the LLM, not to shell scripts. Before a first-time Serena bootstrap, inspect bounded project evidence such as build files, package manifests, and representative source files, choose supported Serena language labels, and pass them through the installer. Do not ask the user to choose a language when the evidence is clear; continue with the LLM-selected language set. Node.js, JavaScript, TypeScript, and VitePress-style repos should use Serena language `typescript`; do not pass `javascript`, `json`, or `markdown` just because manifests, config files, or docs are present.
-
-The deterministic bootstrap must not hard-code TypeScript/Vue or any other project language, and it must not enter Serena's interactive language-selection flow. If no language values are passed for a first-time bootstrap, `activate-serena.*` fails fast with a diagnostic asking the agent to inspect project evidence and pass explicit supported languages. If the agent notices an existing `.serena/project.yml` language mismatch, it should inspect bounded project evidence, decide the intended language set, and run the safe refresh primitive instead of editing `.serena/project.yml` by hand:
-
-If `install-mcp.*` returns Serena `reason_code=serena_language_required`, do not ask the user for a language unless local evidence is genuinely ambiguous. Inspect project evidence, choose supported Serena language labels, and immediately rerun `install-mcp.*`: use `--serena-language` / `-SerenaLanguage` for a single selected repo, or `--serena-language-for <child>=<language>[,<language>]` / `-SerenaLanguageFor` for parent-workspace batch setup.
-
-```bash
-bash skills/spec-mcp-setup/scripts/activate-serena.sh --refresh --language kotlin --language java
-```
-
-Windows:
-
-```powershell
-pwsh -File skills/spec-mcp-setup/scripts/activate-serena.ps1 -Refresh -Language kotlin,java
-```
-
-For a read-only Serena project readiness check, use the explicit verify primitive. It only reads `.serena/project.yml`, the ready marker, and `.serena/cache` size/status facts, emits JSON facts, and must not run Serena or create `.serena/`:
-
-```bash
-bash skills/spec-mcp-setup/scripts/activate-serena.sh --verify-only
-```
-
-Windows:
-
-```powershell
-pwsh -File skills/spec-mcp-setup/scripts/activate-serena.ps1 -VerifyOnly
-```
-
-Refresh is intentionally non-interactive. If `--refresh` / `-Refresh` is used without explicit language values, the script may only reuse languages from the existing `.serena/project.yml`; when no existing languages are available, it must fail with a clear diagnostic and ask the agent to pass explicit languages. A non-refresh rebuild may also reuse languages from an existing `.serena/project.yml`; first-time setup without existing language facts must fail fast before invoking Serena. Do not use no-language setup as a way to ask Serena to re-decide a mismatched project.
-
-When the LLM supplies multiple languages, the safe refresh primitive should make a deterministic best-effort attempt: try the complete language set first, then retry each supplied language individually. This lets a large Android repo continue with `java` if the `kotlin` language server fails to initialize, without the script inventing a project language.
-
-For full setup, the agent may pass the LLM-selected language set through the installer:
-
-```bash
-bash skills/spec-mcp-setup/scripts/install-mcp.sh --serena-language kotlin --serena-language java
-```
-
-The installer also accepts a comma-separated form:
-
-```bash
-bash skills/spec-mcp-setup/scripts/install-mcp.sh --serena-languages kotlin,java
-```
-
-Windows:
-
-```powershell
-pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1 -SerenaLanguage kotlin,java
-```
 
 It must not run:
 
@@ -412,18 +352,6 @@ Windows:
 
 ```powershell
 pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1
-```
-
-For a first-time repo bootstrap, include the LLM-selected Serena language set in the install command:
-
-```bash
-bash skills/spec-mcp-setup/scripts/install-mcp.sh --serena-language typescript
-```
-
-Windows:
-
-```powershell
-pwsh -File skills/spec-mcp-setup/scripts/install-mcp.ps1 -SerenaLanguage typescript
 ```
 
 Write the final readiness ledger and project setup facts:
@@ -641,7 +569,6 @@ Execution result:
 MCP servers:
 | Name                | Role                     | Dependency | Host  | Project | Next |
 | ------------------- | ------------------------ | ---------- | ----- | ------- | ---- |
-| serena              | 符号级精确编辑和项目索引 | ready      | ready | ready   | n/a  |
 | sequential-thinking | 反思式推理辅助           | ready      | ready | n/a     | n/a  |
 | context7            | 当前框架和库文档         | ready      | ready | n/a     | n/a  |
 
@@ -689,7 +616,7 @@ Unix-only dependency details:
 - `python3` — required by shell scripts for: hashlib-backed warmup-cache hashing (`install-mcp.sh`), bounded subprocess timeout management with `start_new_session` + `os.killpg` (`install-mcp.sh`, `bootstrap-providers.sh`), and TOML section regex parsing (`lib-toml.sh`). Currently any reasonably modern `python3` (≥3.6) suffices; we do not depend on `tomllib` (3.11+).
 - `node` — required by `verify-tools.sh` to invoke `render-status-block.cjs` for CJK-width-aware status table rendering. Also implied by all `npx`-based MCP installs (gitnexus, sequential-thinking, context7).
 
-`uv` / `uvx` are still checked as required setup dependencies because required tools (Serena, code-review-graph) need them during the setup flow.
+`uv` / `uvx` are still checked as required setup dependencies because required tools (code-review-graph) need them during the setup flow.
 
 ## Reference
 

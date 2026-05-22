@@ -496,7 +496,6 @@ describe('init --dry-run', () => {
       '### 使用边界',
       '- `GitNexus`：旧全局提示。',
       '- `code-review-graph`：旧全局提示。',
-      '- `Serena MCP`：旧全局提示。',
       '- `ast-grep`：旧全局提示。',
       '',
       '### 不要做',

@@ -658,7 +658,6 @@ function discoverChildGitRepos(workspaceRoot, maxDepth = 3) {
     '.direnv',
     '.git',
     '.gitnexus',
-    '.serena',
     '.spec-first',
     '.venv',
     '.worktrees',

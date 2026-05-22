@@ -1,11 +1,7 @@
 param(
   [string]$Only,
   [string]$Repo = '',
-  [switch]$AllRepos,
-  [Alias('SerenaLanguages')]
-  [string[]]$SerenaLanguage = @(),
-  [Alias('SerenaLanguageMap')]
-  [string[]]$SerenaLanguageFor = @()
+  [switch]$AllRepos
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,56 +40,6 @@ function Parse-List {
   param([string]$Value)
   if ([string]::IsNullOrWhiteSpace($Value)) { return @() }
   @($Value -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-}
-
-function Normalize-LanguageValues {
-  param([string[]]$Values)
-  $normalized = New-Object System.Collections.Generic.List[string]
-  foreach ($value in @($Values)) {
-    if ([string]::IsNullOrWhiteSpace($value)) { continue }
-    foreach ($language in @($value -split ',')) {
-      $trimmed = $language.Trim()
-      if (-not [string]::IsNullOrWhiteSpace($trimmed)) {
-        $normalized.Add($trimmed)
-      }
-    }
-  }
-  @($normalized)
-}
-
-function Normalize-LanguageMapEntries {
-  param([string[]]$Values)
-  $entries = New-Object System.Collections.Generic.List[string]
-  foreach ($value in @($Values)) {
-    if ([string]::IsNullOrWhiteSpace($value)) { continue }
-    foreach ($entry in @($value -split ';')) {
-      $trimmed = $entry.Trim()
-      if ([string]::IsNullOrWhiteSpace($trimmed)) { continue }
-      if ($trimmed -notlike '*=*') {
-        throw 'install-mcp.ps1: -SerenaLanguageFor expects <child>=<language>[,<language>]'
-      }
-      $entries.Add($trimmed)
-    }
-  }
-  @($entries)
-}
-
-function Get-LanguageMapValue {
-  param(
-    [string[]]$Entries,
-    [string]$RepoLabel,
-    [string]$WorkspaceRelativePath
-  )
-  foreach ($entry in @($Entries)) {
-    $parts = $entry -split '=', 2
-    if ($parts.Count -ne 2) { continue }
-    $key = $parts[0].Trim()
-    $value = $parts[1].Trim()
-    if ($key -eq $RepoLabel -or $key -eq $WorkspaceRelativePath) {
-      return $value
-    }
-  }
-  return ''
 }
 
 function Write-JsonFileAtomic {
@@ -163,19 +109,6 @@ function Write-WorkspaceMcpSetupSummaryAndExit {
     exit 1
   }
 
-  if (@(Normalize-LanguageValues -Values $SerenaLanguage).Count -gt 0) {
-    [pscustomobject]@{
-      schema_version = 'workspace-mcp-setup-summary.v1'
-      overall_status = 'action-required'
-      workflow_mode = 'blocked'
-      reason_code = 'all-repos-requires-language-map'
-      workspace_root = $workspaceRoot
-      advisory = $true
-      next_action = 'Use -SerenaLanguageFor <child>=<language>[,<language>] with -AllRepos instead of a global -SerenaLanguage.'
-    } | ConvertTo-Json -Compress
-    exit 1
-  }
-
   if ($TargetFacts.mode -eq 'git-repo') {
     [pscustomobject]@{
       schema_version = 'workspace-mcp-setup-summary.v1'
@@ -204,15 +137,10 @@ function Write-WorkspaceMcpSetupSummaryAndExit {
     exit 1
   }
 
-  $languageMapEntries = @(Normalize-LanguageMapEntries -Values $SerenaLanguageFor)
   $results = @()
   foreach ($child in $children) {
     $childParams = @{ Repo = [string]$child.workspace_relative_path }
     if (-not [string]::IsNullOrWhiteSpace($Only)) { $childParams.Only = $Only }
-    $childLanguages = Get-LanguageMapValue -Entries $languageMapEntries -RepoLabel ([string]$child.repo_label) -WorkspaceRelativePath ([string]$child.workspace_relative_path)
-    if (-not [string]::IsNullOrWhiteSpace($childLanguages)) {
-      $childParams.SerenaLanguage = @($childLanguages)
-    }
     $childRun = Invoke-ChildJsonScript -ScriptPath $PSCommandPath -Arguments $childParams
     $childStatus = [int]$childRun.exit_code
     $childText = [string]$childRun.stdout
@@ -246,7 +174,6 @@ function Write-WorkspaceMcpSetupSummaryAndExit {
   $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
   $partialCount = @($results | Where-Object { $_.overall_status -eq 'partial' }).Count
   $actionRequiredCount = @($results | Where-Object { $_.overall_status -eq 'action-required' }).Count
-  $serenaLanguageRequiredCount = @($results | Where-Object { $_.reason_code -eq 'serena_language_required' }).Count
   $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -gt 0 -and ($readyCount + $partialCount) -eq 0) { 'action-required' } elseif (($partialCount + $actionRequiredCount) -gt 0) { 'partial' } else { 'ready' }
   $summary = [ordered]@{
     schema_version = 'workspace-mcp-setup-summary.v1'
@@ -256,18 +183,16 @@ function Write-WorkspaceMcpSetupSummaryAndExit {
     selection_source = $SelectionSource
     workspace_root = $workspaceRoot
     parent_writes_repo_local_artifacts = $false
-    language_map_required_for_first_time_serena = $true
     results = @($results)
     counts = [ordered]@{
       total = $results.Count
       ready = $readyCount
       partial = $partialCount
       action_required = $actionRequiredCount
-      serena_language_required = $serenaLanguageRequiredCount
     }
     overall_status = $overallStatus
     reason_code = if (($partialCount + $actionRequiredCount) -eq 0) { $null } else { 'all-repos-partial-or-action-required' }
-    next_action = if ($serenaLanguageRequiredCount -gt 0) { 'Inspect per-child project evidence and rerun with -SerenaLanguageFor <child>=<language>[,<language>] for action-required children.' } elseif (($partialCount + $actionRequiredCount) -gt 0) { 'Inspect per-child reason_code and rerun setup for action-required repos.' } else { 'All child repos completed MCP setup.' }
+    next_action = if (($partialCount + $actionRequiredCount) -gt 0) { 'Inspect per-child reason_code and rerun setup for action-required repos.' } else { 'All child repos completed MCP setup.' }
   }
 
   Write-JsonFileAtomic -Path (Join-Path $workspaceRoot '.spec-first/workspace/mcp-setup-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
@@ -285,10 +210,6 @@ if ($AllRepos) {
 $defaultChildren = @($TargetFacts.candidates)
 if (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo) -and $TargetFacts.mode -ne 'git-repo' -and $defaultChildren.Count -gt 0) {
   Write-WorkspaceMcpSetupSummaryAndExit -TargetFacts $TargetFacts -SelectionSource 'workspace-default-all-repos'
-}
-
-if (@(Normalize-LanguageMapEntries -Values $SerenaLanguageFor).Count -gt 0) {
-  throw 'install-mcp.ps1: -SerenaLanguageFor is only valid with -AllRepos or parent-workspace default all-repos'
 }
 
 function Should-Install {
@@ -661,44 +582,6 @@ foreach ($tool in @($ToolsJson.tools)) {
     $lastAction = 'host-config-skipped'
     $nextAction = 'run spec-graph-bootstrap'
     $diagnosticSummary = 'host MCP config is not required for this provider'
-  }
-
-  if ($tool.id -eq 'serena' -and $status -eq 'ready') {
-    if (-not [bool]$TargetFacts.state_write_allowed) {
-      $status = 'partial'
-      $lastAction = 'skipped'
-      $reasonCode = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.reason_code)) { 'workspace-target-required' } else { [string]$TargetFacts.reason_code }
-      $nextAction = [string]$TargetFacts.next_action
-      $diagnosticSummary = "project target unresolved: $reasonCode"
-    } else {
-      $filteredSerenaLanguages = @(Normalize-LanguageValues -Values $SerenaLanguage)
-      $activateParams = @{ Repo = $ResolvedRepoRoot }
-      if ($filteredSerenaLanguages.Count -gt 0) {
-        $activateParams.Language = @($filteredSerenaLanguages)
-      }
-      $activateRun = Invoke-Captured { & (Join-Path $ScriptDir 'activate-serena.ps1') @activateParams }
-      try {
-        if (-not $activateRun.ok) {
-          throw 'Serena bootstrap command failed'
-        }
-        $readyMarkerFile = if ($null -ne $tool.project_bootstrap.ready_marker_file) { $tool.project_bootstrap.ready_marker_file } else { '.serena/index-ready.json' }
-        $readyMarkerPath = Join-Path $ResolvedRepoRoot $readyMarkerFile
-        if (-not (Test-Path $readyMarkerPath)) {
-          throw 'Serena ready marker 缺失'
-        }
-      } catch {
-        $status = 'partial'
-        $lastAction = 'failed'
-        $reasonCode = 'serena_bootstrap_failed'
-        $nextAction = '检查当前仓库 Serena project bootstrap'
-        $exitCode = $activateRun.exit_code
-        $diagnosticSummary = $activateRun.diagnostic_summary
-        if ($diagnosticSummary -like '*first-time bootstrap requires -Language*') {
-          $reasonCode = 'serena_language_required'
-          $nextAction = '基于项目证据选择 Serena 语言，并用 -SerenaLanguage <language> 重试'
-        }
-      }
-    }
   }
 
   $results.Add([pscustomobject]@{

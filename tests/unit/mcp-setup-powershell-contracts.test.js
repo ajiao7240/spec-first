@@ -12,7 +12,6 @@ const resolveProjectTargetPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scrip
 const verifyToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const writeProviderConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/write-provider-config.ps1');
 const repairInstallPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/repair-install.ps1');
-const activateSerenaPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/activate-serena.ps1');
 const installMcpPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-mcp.ps1');
 const uninstallMcpPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/uninstall-mcp.ps1');
 const installMcpSh = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-mcp.sh');
@@ -127,7 +126,6 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     const detectSource = fs.readFileSync(detectToolsPs1, 'utf8');
     const verifySource = fs.readFileSync(verifyToolsPs1, 'utf8');
     const writeProviderSource = fs.readFileSync(writeProviderConfigPs1, 'utf8');
-    const activateSerenaSource = fs.readFileSync(activateSerenaPs1, 'utf8');
     const installMcpSource = fs.readFileSync(installMcpPs1, 'utf8');
     const projectConfigSource = fs.readFileSync(bootstrapProjectConfigPs1, 'utf8');
     const graphBootstrapSource = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
@@ -159,26 +157,16 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('choose a child repo and rerun with --repo <child>');
     expect(writeProviderSource).toContain('$targetWriteAllowed');
     expect(writeProviderSource).toContain('graph_bootstrap_required = $true');
-    expect(activateSerenaSource).toContain('[string]$Repo');
-    expect(activateSerenaSource).toContain('[switch]$VerifyOnly');
-    expect(activateSerenaSource).toContain('serena-project-bootstrap.v1');
-    expect(activateSerenaSource).toContain("reason_code = if ($ready) { $null } else { 'serena-project-not-ready' }");
-    expect(activateSerenaSource).not.toContain("try { git rev-parse --show-toplevel } catch { (Get-Location).Path }");
-    expect(installMcpSource).toContain('$activateParams = @{ Repo = $ResolvedRepoRoot }');
     expect(installMcpSource).toContain('[switch]$AllRepos');
-    expect(installMcpSource).toContain("[Alias('SerenaLanguageMap')]");
-    expect(installMcpSource).not.toContain("[Alias('SerenaLanguageMap', 'SerenaLanguageFor')]");
+    expect(installMcpSource).not.toContain('Se' + 'rena');
+    expect(installMcpSource).not.toContain('se' + 'rena');
     expect(installMcpSource).toContain('workspace-mcp-setup-summary.v1');
     expect(installMcpSource).toContain('mcp-setup-summary.json');
-    expect(installMcpSource).toContain('all-repos-requires-language-map');
-    expect(installMcpSource).toContain('language_map_required_for_first_time_serena');
-    expect(installMcpSource).toContain('-SerenaLanguageFor <child>=<language>[,<language>]');
     expect(installMcpSource).toContain('function Invoke-ChildJsonScript');
     expect(installMcpSource).toContain('2> $stderrPath 6> $informationPath');
     expect(installMcpSource).toContain('workspace-default-all-repos');
     expect(installMcpSource).toContain('explicit-all-repos');
     expect(installMcpSource).not.toContain('$PSCommandPath @childParams 2>&1');
-    expect(installMcpSource).toContain('workspace-target-required');
     expect(projectConfigSource).toContain('[string]$Repo');
     expect(projectConfigSource).toContain('[switch]$AllRepos');
     expect(projectConfigSource).toContain('resolve-project-target.ps1');
@@ -354,10 +342,9 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
 
   test('PowerShell external command runners keep Windows PowerShell 5.1 ProcessStartInfo fallback', () => {
     const installSource = fs.readFileSync(installMcpPs1, 'utf8');
-    const activateSerenaSource = fs.readFileSync(activateSerenaPs1, 'utf8');
     const graphBootstrapSource = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
 
-    for (const source of [installSource, activateSerenaSource, graphBootstrapSource]) {
+    for (const source of [installSource, graphBootstrapSource]) {
       expect(source).toContain('function Join-WindowsProcessArguments');
       expect(source).toContain('function Set-ProcessArgumentsCompat');
       expect(source).toContain("$ProcessInfo.PSObject.Properties.Name -contains 'ArgumentList'");
@@ -417,7 +404,6 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
       verifyToolsPs1,
       writeProviderConfigPs1,
       repairInstallPs1,
-      activateSerenaPs1,
       installMcpPs1,
       bootstrapProjectConfigPs1,
       installHelpersPs1,
@@ -991,62 +977,11 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(skillSource).toContain('It does not require `jq` or `python3` because JSON/TOML handling and bounded process execution are implemented with native PowerShell/.NET');
   });
 
-  test('Serena bootstrap is idempotent and recoverable', () => {
-    const activateSerenaSource = fs.readFileSync(activateSerenaPs1, 'utf8');
-
-    expect(activateSerenaSource).toContain('[switch]$Refresh');
-    expect(activateSerenaSource).toContain('[string[]]$Language = @()');
-    expect(activateSerenaSource).toContain('function Get-SerenaProjectLanguages');
-    expect(activateSerenaSource).toContain('function Normalize-LanguageValues');
-    const readyFastPathIndex = activateSerenaSource.indexOf('if (-not $Refresh -and (Test-Path -LiteralPath $projectFile -PathType Leaf) -and (Test-Path -LiteralPath $readyMarkerPath -PathType Leaf))');
-    const languageSelectionIndex = activateSerenaSource.indexOf('$effectiveLanguages = @(Normalize-LanguageValues -Values $Language)');
-    expect(readyFastPathIndex).toBeGreaterThan(-1);
-    expect(languageSelectionIndex).toBeGreaterThan(-1);
-    expect(readyFastPathIndex).toBeLessThan(languageSelectionIndex);
-    expect(activateSerenaSource).toContain('$effectiveLanguages = @(Normalize-LanguageValues -Values $Language)');
-    expect(activateSerenaSource).toContain('$effectiveLanguages.Count -eq 0 -and (Test-Path -LiteralPath $projectFile -PathType Leaf)');
-    expect(activateSerenaSource).toContain('Serena refresh requires -Language');
-    expect(activateSerenaSource).toContain('Serena first-time bootstrap requires -Language');
-    expect(activateSerenaSource).toContain('supported Serena languages');
-    expect(activateSerenaSource).toContain('function New-IndexArgs');
-    expect(activateSerenaSource).toContain('function New-LanguageAttempts');
-    expect(activateSerenaSource).toContain('function Ensure-SerenaLocalIgnoredPaths');
-    expect(activateSerenaSource).toContain('function Clear-IncompleteSerenaCache');
-    expect(activateSerenaSource).toContain("Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900");
-    expect(activateSerenaSource).toContain('function Resolve-ProcessExecutable');
-    expect(activateSerenaSource).toContain('function Invoke-ExternalCommandWithTimeout');
-    expect(activateSerenaSource).toContain('$processInfo.UseShellExecute = $false');
-    expect(activateSerenaSource).toContain('$process.WaitForExit($TimeoutSeconds * 1000)');
-    expect(activateSerenaSource).toContain('$process.Kill($true)');
-    expect(activateSerenaSource).toContain("'**/node_modules/'");
-    expect(activateSerenaSource).toContain("'.agents/skills/'");
-    expect(activateSerenaSource).toContain('.serena/cache');
-    expect(activateSerenaSource).toContain('Remove-Item -Recurse -Force (Join-Path $projectDir \'cache\')');
-    expect(activateSerenaSource).toContain('large-cache-high');
-    expect(activateSerenaSource).toContain("$args.Add('--language')");
-    expect(activateSerenaSource).toContain('foreach ($language in @($Languages))');
-    expect(activateSerenaSource).toContain('single-language:$language');
-    expect(activateSerenaSource).toContain('Test-Path -LiteralPath $projectFile -PathType Leaf');
-    expect(activateSerenaSource).toContain('-not $Refresh');
-    expect(activateSerenaSource).toContain('function Restore-ExistingState');
-    expect(activateSerenaSource).toContain('Restore-ExistingState');
-    expect(activateSerenaSource).toContain('$indexRun = Invoke-ExternalCommandWithTimeout -Exe $command -CommandArguments $indexArgArray -WorkingDirectory $repoRoot -TimeoutSeconds $stageTimeoutSeconds');
-    expect(activateSerenaSource).toContain('$global:LASTEXITCODE = [int]$indexRun.exit_code');
-    expect(activateSerenaSource).not.toContain('$serenaOutput = @(& $command @indexArgArray 2>&1)');
-    expect(activateSerenaSource).toContain('Serena bootstrap failed for all language attempts');
-    expect(activateSerenaSource).toContain('Move-Item -Force $tmpMarker $readyMarkerPath');
-    expect(activateSerenaSource).not.toContain('serena-project-facts.ps1');
-  });
-
-  test('Serena cache facts are advisory and cross-host detectable', () => {
+  test('setup scripts no longer carry project bootstrap cache facts for retired MCP tools', () => {
     const detectSource = fs.readFileSync(detectToolsPs1, 'utf8');
-    const activateSerenaSource = fs.readFileSync(activateSerenaPs1, 'utf8');
 
-    expect(detectSource).toContain('function Get-SerenaProjectFacts');
-    expect(detectSource).toContain('serena_cache');
-    expect(detectSource).toContain('large-cache-high');
-    expect(detectSource).toContain('remove incomplete .serena/cache and rerun spec-mcp-setup');
-    expect(activateSerenaSource).toContain("next_action = if ($ready) { '' } elseif ($cacheStatus -eq 'incomplete')");
+    expect(detectSource).not.toContain('Se' + 'rena');
+    expect(detectSource).not.toContain('se' + 'rena');
   });
 
   test('Unix setup timeouts terminate child process groups', () => {
@@ -1061,7 +996,7 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     }
   });
 
-  test('PowerShell install-mcp forwards LLM-selected Serena languages', () => {
+  test('PowerShell install-mcp keeps warmup timeout and all-repos behavior without project bootstrap flags', () => {
     const installMcpSource = fs.readFileSync(installMcpPs1, 'utf8');
 
     expect(installMcpSource).toContain("Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900");
@@ -1071,17 +1006,9 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(installMcpSource).toContain('$process.Kill($true)');
     expect(installMcpSource).toContain('timed out after $($script:StageTimeoutSeconds)s');
     expect(installMcpSource).toContain("@('/d', '/c', $command) + @($args)");
-    expect(installMcpSource).toContain("[Alias('SerenaLanguages')]");
-    expect(installMcpSource).toContain('[string[]]$SerenaLanguage = @()');
-    expect(installMcpSource).toContain('[string[]]$SerenaLanguageFor = @()');
-    expect(installMcpSource).toContain('function Normalize-LanguageValues');
-    expect(installMcpSource).toContain('function Normalize-LanguageMapEntries');
-    expect(installMcpSource).toContain('function Get-LanguageMapValue');
-    expect(installMcpSource).toContain('$filteredSerenaLanguages = @(Normalize-LanguageValues -Values $SerenaLanguage)');
-    expect(installMcpSource).toContain('$activateParams.Language = @($filteredSerenaLanguages)');
-    expect(installMcpSource).toContain("activate-serena.ps1') @activateParams");
-    expect(installMcpSource).toContain("serena_language_required");
-    expect(installMcpSource).toContain('-SerenaLanguage <language>');
+    expect(installMcpSource).toContain('Write-WorkspaceMcpSetupSummaryAndExit');
+    expect(installMcpSource).not.toContain('Se' + 'rena');
+    expect(installMcpSource).not.toContain('se' + 'rena');
   });
 
   test('project config bootstrap keeps local setup outside readiness ledger', () => {

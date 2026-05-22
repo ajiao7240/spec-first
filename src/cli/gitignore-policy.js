@@ -39,12 +39,6 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
       '.spec-first/sessions/',
     ],
   },
-  {
-    title: 'local project tooling used by spec-first workflows',
-    patterns: [
-      '.serena/',
-    ],
-  },
 ];
 
 function getSpecFirstGitignorePatterns() {

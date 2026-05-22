@@ -297,7 +297,7 @@ function Get-ProviderCommands {
 
 function Test-GitNexusProbePathExcluded {
   param([string]$Path)
-  return ($Path -match '(^|/)(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|\.serena|node_modules|vendor|build|cache|runtime|generated|\.gradle|test|tests|androidTest)(/|$)' -or
+  return ($Path -match '(^|/)(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|node_modules|vendor|build|cache|runtime|generated|\.gradle|test|tests|androidTest)(/|$)' -or
     $Path -match '\.(jar|aar|apk|dex|so|dylib|class|png|jpg|jpeg|gif|webp|zip|tar|gz|tgz|mp4|mov|pdf)$')
 }
 
@@ -824,12 +824,9 @@ $providerPayload = [ordered]@{
   }
 }
 
-$serena = if ($facts.tools.PSObject.Properties.Name -contains 'serena') { $facts.tools.serena } else { $null }
 $astGrep = if ($facts.helper_tools.PSObject.Properties.Name -contains 'ast-grep') { $facts.helper_tools.'ast-grep' } else { $null }
-$serenaReady = Test-ToolReady -Tool $serena
 $astGrepReady = Test-HelperReady -Helper $astGrep
 $fallbackProviders = @()
-if ($serenaReady) { $fallbackProviders += 'serena' }
 if ($astGrepReady) { $fallbackProviders += 'ast-grep' }
 
 $projectGraphReadiness = [ordered]@{
@@ -873,13 +870,6 @@ $runtimePayload = [ordered]@{
     source = 'host-readiness-ledger-v2'
   }
   fallback_tools = [ordered]@{
-    serena = [ordered]@{
-      support_level = if ($serenaReady) { 'partial' } else { 'none' }
-      readiness_status = if ($serenaReady) { 'ready' } else { 'action-required' }
-      confidence = if ($serenaReady) { 'medium' } else { 'low' }
-      capabilities = @('symbol_overview', 'symbol_lookup', 'references')
-      limitations = if ($serenaReady) { @() } else { @('Serena is not ready.') }
-    }
     'ast-grep' = [ordered]@{
       support_level = if ($astGrepReady) { 'partial' } else { 'none' }
       readiness_status = if ($astGrepReady) { 'ready' } else { 'action-required' }
@@ -890,8 +880,8 @@ $runtimePayload = [ordered]@{
   }
   fallback_capabilities = [ordered]@{
     context_selection = [ordered]@{
-      support_level = if ($serenaReady -or $astGrepReady) { 'partial' } else { 'none' }
-      confidence = if ($serenaReady -or $astGrepReady) { 'medium' } else { 'low' }
+      support_level = if ($astGrepReady) { 'partial' } else { 'none' }
+      confidence = if ($astGrepReady) { 'medium' } else { 'low' }
       providers = @($fallbackProviders)
       limitations = @('Fallback context is bounded local repo reads, not compiled graph evidence.')
     }

@@ -470,7 +470,6 @@ function Get-ProviderNamesByQueryReady {
 function Format-Remark {
   param([string]$Name)
   switch ($Name) {
-    'serena' { return '符号级精确编辑和项目索引' }
     'sequential-thinking' { return '反思式推理辅助' }
     'context7' { return '当前框架和库文档' }
     'gitnexus' { return '全局代码知识图谱与影响分析' }

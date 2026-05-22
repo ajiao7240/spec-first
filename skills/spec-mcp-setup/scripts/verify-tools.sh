@@ -448,8 +448,7 @@ jq -c '
     [(.tools // {} | to_entries[] | select((.value.type // "") == "graph-provider" and ((.value.query_ready // false) == $ready)) | .key)]
     | if length == 0 then "n/a" else join(",") end;
   def remark($key):
-    if $key == "serena" then "符号级精确编辑和项目索引"
-    elif $key == "sequential-thinking" then "反思式推理辅助"
+    if $key == "sequential-thinking" then "反思式推理辅助"
     elif $key == "context7" then "当前框架和库文档"
     elif $key == "gitnexus" then "全局代码知识图谱与影响分析"
     elif $key == "code-review-graph" then "变更影响半径与 review 上下文"

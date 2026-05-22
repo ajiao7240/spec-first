@@ -206,16 +206,12 @@ describe('dual-host governance contracts', () => {
     expect(mcpSetup).toContain('When graph readiness is already ready');
   });
 
-  test('mcp setup keeps Serena language selection with the agent and out of interactive CLI flows', () => {
+  test('mcp setup no longer carries retired project-bootstrap MCP language selection', () => {
     const mcpSetup = read(MCP_SETUP_SKILL_PATH);
 
     expect(fs.existsSync(RETIRED_MCP_SETUP_FLOW_PATH)).toBe(false);
-    expect(mcpSetup).toContain('Serena project language selection is semantic and belongs to the LLM');
-    expect(mcpSetup).toContain('Do not ask the user to choose a language when the evidence is clear');
-    expect(mcpSetup).toContain('use Serena language `typescript`');
-    expect(mcpSetup).toContain('reason_code=serena_language_required');
-    expect(mcpSetup).toContain('first-time setup without existing language facts must fail fast before invoking Serena');
-    expect(mcpSetup).not.toContain("Serena's own project creation may infer languages");
+    expect(mcpSetup).not.toContain('Se' + 'rena');
+    expect(mcpSetup).not.toContain('se' + 'rena');
   });
 
   test('docs prompt skills mirror directory is retired from active contract surfaces', () => {

@@ -1,6 +1,6 @@
 #!/bin/bash
 # install-mcp.sh - Unix installer pipeline for Required Harness Runtime MCP servers
-# Usage: install-mcp.sh [--only <tool-ids>] [--repo <child>] [--all-repos] [--serena-language <language>]... [--serena-languages <comma-list>] [--serena-language-for <child>=<comma-list>]...
+# Usage: install-mcp.sh [--only <tool-ids>] [--repo <child>] [--all-repos]
 
 set -euo pipefail
 
@@ -21,8 +21,6 @@ CONFIG_DIR="$(dirname "$CONFIG_PATH")"
 ONLY_FILTER=""
 REPO_ARG=""
 ALL_REPOS=false
-SERENA_LANGUAGES_TEXT=""
-SERENA_LANGUAGE_MAP_TEXT=""
 DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
 WARMUP_CACHE_ROOT="${SPEC_FIRST_WARMUP_CACHE_DIR:-$HOME/.spec-first/cache/mcp-warmup}"
 WARMUP_LATEST_TTL_SECONDS="${SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS:-86400}"
@@ -33,47 +31,6 @@ stage_log() {
   local stage="$1"
   local message="$2"
   printf 'spec-mcp-setup: [mcp/%s] %s\n' "$stage" "$message" >&2
-}
-
-append_serena_language_values() {
-  local raw="$1"
-  local language
-  IFS=',' read -ra language_values <<< "$raw"
-  for language in ${language_values[@]+"${language_values[@]}"}; do
-    language="$(printf '%s' "$language" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-    [ -n "$language" ] || continue
-    SERENA_LANGUAGES_TEXT="${SERENA_LANGUAGES_TEXT}${language}"$'\n'
-  done
-}
-
-append_serena_language_map_value() {
-  local raw="$1"
-  local entry
-  IFS=';' read -ra map_entries <<< "$raw"
-  for entry in ${map_entries[@]+"${map_entries[@]}"}; do
-    entry="$(printf '%s' "$entry" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-    [ -n "$entry" ] || continue
-    [[ "$entry" == *"="* ]] || { echo "install-mcp.sh: --serena-language-for expects <child>=<language>[,<language>]" >&2; exit 1; }
-    SERENA_LANGUAGE_MAP_TEXT="${SERENA_LANGUAGE_MAP_TEXT}${entry}"$'\n'
-  done
-}
-
-lookup_serena_language_map_value() {
-  local child_label="$1"
-  local child_path="$2"
-  local entry key value
-  while IFS= read -r entry; do
-    [ -n "$entry" ] || continue
-    key="${entry%%=*}"
-    value="${entry#*=}"
-    key="$(printf '%s' "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-    value="$(printf '%s' "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-    if [ "$key" = "$child_label" ] || [ "$key" = "$child_path" ]; then
-      printf '%s' "$value"
-      return 0
-    fi
-  done <<<"$SERENA_LANGUAGE_MAP_TEXT"
-  return 0
 }
 
 write_file_atomic_path() {
@@ -102,19 +59,6 @@ write_all_repos_install_summary_and_exit() {
       workspace_root:$workspace_root,
       advisory:true,
       next_action:"Use either --all-repos from a parent workspace or --repo <child>, not both."
-    }'
-    exit 1
-  fi
-
-  if [ -n "$SERENA_LANGUAGES_TEXT" ]; then
-    jq -n --arg workspace_root "$workspace_root" '{
-      schema_version:"workspace-mcp-setup-summary.v1",
-      overall_status:"action-required",
-      workflow_mode:"blocked",
-      reason_code:"all-repos-requires-language-map",
-      workspace_root:$workspace_root,
-      advisory:true,
-      next_action:"Use --serena-language-for <child>=<language>[,<language>] with --all-repos instead of a global --serena-language."
     }'
     exit 1
   fi
@@ -154,10 +98,6 @@ write_all_repos_install_summary_and_exit() {
     child_args=(--repo "$child_path")
     if [ -n "$ONLY_FILTER" ]; then
       child_args+=(--only "$ONLY_FILTER")
-    fi
-    child_languages="$(lookup_serena_language_map_value "$child_label" "$child_path")"
-    if [ -n "$child_languages" ]; then
-      child_args+=(--serena-languages "$child_languages")
     fi
     set +e
     child_output="$(bash "$0" ${child_args[@]+"${child_args[@]}"})"
@@ -207,14 +147,12 @@ write_all_repos_install_summary_and_exit() {
         selection_source:$selection_source,
         workspace_root:($target.workspace_root // null),
         parent_writes_repo_local_artifacts:false,
-        language_map_required_for_first_time_serena:true,
         results:$results,
         counts:{
           total:($results | length),
           ready:([$results[] | select(.overall_status == "ready")] | length),
           partial:([$results[] | select(.overall_status == "partial")] | length),
-          action_required:([$results[] | select(.overall_status == "action-required")] | length),
-          serena_language_required:([$results[] | select(.reason_code == "serena_language_required")] | length)
+          action_required:([$results[] | select(.overall_status == "action-required")] | length)
         },
         overall_status:(
           if ($results | length) == 0 then "action-required"
@@ -230,9 +168,7 @@ write_all_repos_install_summary_and_exit() {
           end
         ),
         next_action:(
-          if ([$results[] | select(.reason_code == "serena_language_required")] | length) > 0 then
-            "Inspect per-child project evidence and rerun with --serena-language-for <child>=<language>[,<language>] for action-required children."
-          elif ([$results[] | select(.overall_status != "ready")] | length) > 0 then
+          if ([$results[] | select(.overall_status != "ready")] | length) > 0 then
             "Inspect per-child reason_code and rerun setup for action-required repos."
           else
             "All child repos completed MCP setup."
@@ -262,21 +198,6 @@ while [[ $# -gt 0 ]]; do
     --all-repos)
       ALL_REPOS=true
       shift
-      ;;
-    --serena-language)
-      [ -n "${2:-}" ] || { echo "install-mcp.sh: --serena-language requires a value" >&2; exit 1; }
-      append_serena_language_values "$2"
-      shift 2
-      ;;
-    --serena-languages)
-      [ -n "${2:-}" ] || { echo "install-mcp.sh: --serena-languages requires a value" >&2; exit 1; }
-      append_serena_language_values "$2"
-      shift 2
-      ;;
-    --serena-language-for|--serena-language-map)
-      [ -n "${2:-}" ] || { echo "install-mcp.sh: $1 requires a value" >&2; exit 1; }
-      append_serena_language_map_value "$2"
-      shift 2
       ;;
     *)
       echo "未知参数: $1" >&2
@@ -324,11 +245,6 @@ fi
 
 if [ "$DEFAULT_ALL_REPOS" = "true" ]; then
   write_all_repos_install_summary_and_exit "$TARGET_JSON" "workspace-default-all-repos"
-fi
-
-if [ -n "$SERENA_LANGUAGE_MAP_TEXT" ]; then
-  echo "install-mcp.sh: --serena-language-for is only valid with --all-repos or parent-workspace default all-repos" >&2
-  exit 1
 fi
 
 if [ -n "$ONLY_FILTER" ]; then
@@ -704,44 +620,6 @@ EOF
     last_action="host-config-skipped"
     next_action="run spec-graph-bootstrap"
     diagnostic_summary="host MCP config is not required for this provider"
-  fi
-
-  if [ "$tool_id" = "serena" ] && [ "$status" = "ready" ]; then
-    if [ "$TARGET_STATE_WRITE_ALLOWED" != "true" ]; then
-      status="partial"
-      last_action="skipped"
-      reason_code="${TARGET_REASON_CODE:-workspace-target-required}"
-      next_action="${TARGET_NEXT_ACTION:-Choose a child Git repo and rerun with --repo <child>.}"
-      diagnostic_summary="project target unresolved: $reason_code"
-    else
-      serena_activate_args=(--repo "$REPO_ROOT")
-      while IFS= read -r language; do
-        [ -n "$language" ] || continue
-        serena_activate_args+=("--language" "$language")
-      done <<<"$SERENA_LANGUAGES_TEXT"
-      if ! run_and_capture "serena:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" bash "$SCRIPT_DIR/activate-serena.sh" ${serena_activate_args[@]+"${serena_activate_args[@]}"}; then
-        status="partial"
-        last_action="failed"
-        reason_code="serena_bootstrap_failed"
-        next_action="检查当前仓库 Serena project bootstrap"
-        exit_code="$RUN_EXIT_CODE"
-        diagnostic_summary="$RUN_DIAGNOSTIC"
-        if [[ "$RUN_DIAGNOSTIC" == *"first-time bootstrap requires --language"* ]]; then
-          reason_code="serena_language_required"
-          next_action="基于项目证据选择 Serena 语言，并用 --serena-language <language> 重试"
-        fi
-      fi
-    fi
-  fi
-
-  if [ "$status" = "ready" ] && [ "$tool_id" = "serena" ]; then
-    ready_marker_file="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.ready_marker_file // empty' "$TOOLS_JSON")"
-    if [ -n "$ready_marker_file" ] && [ ! -f "$REPO_ROOT/$ready_marker_file" ]; then
-      status="partial"
-      last_action="failed"
-      reason_code="serena_bootstrap_failed"
-      next_action="检查当前仓库 Serena project bootstrap"
-    fi
   fi
 
   append_result "$tool_id" "$status" "$last_action" "$install_kind" "$reason_code" "$next_action" "$configured_path" "$selected_scope" "$fallback_applied" "$exit_code" "$diagnostic_summary" "$repair_diagnostic_summary"

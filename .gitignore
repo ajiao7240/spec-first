@@ -97,7 +97,4 @@ __pycache__/
 .spec-first/workflows/
 .spec-first/workspace/
 .spec-first/sessions/
-
-# local project tooling used by spec-first workflows
-.serena/
 # spec-first:end

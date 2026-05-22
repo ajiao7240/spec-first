@@ -82,51 +82,6 @@ path_size_bytes() {
   du -sk "$path" 2>/dev/null | awk '{ printf "%d", $1 * 1024 }'
 }
 
-serena_cache_warning() {
-  local size_bytes="$1"
-  if [ "$size_bytes" -ge 1073741824 ]; then
-    echo "large-cache-high"
-  elif [ "$size_bytes" -ge 536870912 ]; then
-    echo "large-cache"
-  else
-    echo ""
-  fi
-}
-
-serena_project_facts_json() {
-  local tool_id="$1"
-  local ready_marker_file cache_dir cache_status cache_size cache_warning
-  if [ "$tool_id" != "serena" ] || [ "$TARGET_STATE_WRITE_ALLOWED" != "true" ]; then
-    jq -n '{}'
-    return
-  fi
-
-  ready_marker_file="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.ready_marker_file // ".serena/index-ready.json"' "$TOOLS_JSON")"
-  cache_dir="$REPO_ROOT/.serena/cache"
-  cache_size="$(path_size_bytes "$cache_dir")"
-  cache_warning="$(serena_cache_warning "$cache_size")"
-  if [ ! -d "$cache_dir" ]; then
-    cache_status="not-found"
-  elif [ -f "$REPO_ROOT/$ready_marker_file" ]; then
-    cache_status="ready"
-  else
-    cache_status="incomplete"
-  fi
-
-  jq -n \
-    --arg cache_status "$cache_status" \
-    --arg cache_warning "$cache_warning" \
-    --argjson cache_size "$cache_size" \
-    '{
-      serena_cache:{
-        path:".serena/cache",
-        status:$cache_status,
-        size_bytes:$cache_size,
-        warning:(if $cache_warning == "" then null else $cache_warning end)
-      }
-    }'
-}
-
 host_config_required() {
   local tool_id="$1"
   jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | if has("host_config_required") then .host_config_required else true end' "$TOOLS_JSON"
@@ -248,15 +203,6 @@ project_status() {
     return
   fi
 
-  if [ "$bootstrap_kind" = "serena" ]; then
-    if [ -n "$ready_marker_file" ] && [ -f "$REPO_ROOT/$ready_marker_file" ]; then
-      echo ready
-    else
-      echo failed
-    fi
-    return
-  fi
-
   echo ready
 }
 
@@ -289,7 +235,7 @@ while IFS= read -r tool_id; do
 
   cfg_status="$(host_config_status "$tool_id")"
   proj_status="$(project_status "$tool_id")"
-  tool_extra_json="$(serena_project_facts_json "$tool_id")"
+  tool_extra_json='{}'
   host_ready=false
   if [ "$cfg_status" = "ready" ] || [ "$cfg_status" = "fallback-active" ]; then
     host_ready=true
@@ -318,15 +264,9 @@ while IFS= read -r tool_id; do
   elif [ "$proj_status" = "pending" ]; then
     next_action="bootstrap project"
   elif [ "$proj_status" = "failed" ]; then
-    if [ "$(jq -r '.serena_cache.status // empty' <<<"$tool_extra_json")" = "incomplete" ]; then
-      next_action="remove incomplete .serena/cache and rerun spec-mcp-setup"
-    else
-      next_action="repair project bootstrap"
-    fi
+    next_action="repair project bootstrap"
   elif [ "$category" = "graph-provider" ] && [ "$configured" = "true" ]; then
     next_action="run spec-graph-bootstrap"
-  elif [ "$tool_id" = "serena" ] && [ "$(jq -r '.serena_cache.warning // empty' <<<"$tool_extra_json")" = "large-cache-high" ]; then
-    next_action="review .serena/cache size and clear stale cache only if Serena indexing is complete"
   fi
 
   append_next_action "$next_action"

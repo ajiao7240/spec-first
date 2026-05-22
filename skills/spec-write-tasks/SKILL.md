@@ -78,7 +78,7 @@ When skipping, say explicitly that this is not an omission; this case does not n
 6. `context_refs` must point to the smallest useful section, file, test, contract, or pattern reference. They are bounded reading pointers, not scope authority; whole-plan or whole-directory refs are low-quality handoff unless paired with narrower anchors.
 7. Each task should solve one clear subproblem and should usually have one primary verification target.
 8. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
-9. Source reads before task-pack generation must be bounded source orientation: use targeted direct repo reads first, read `AGENTS.md`, `CLAUDE.md`, directory-scoped standards files, `docs/contracts/`, plan-indicated source files, and nearby tests when they materially improve task boundaries, optionally use Serena/LSP when available, and stop once task boundaries are accurate enough. Written project standards may become hard task constraints only when they apply to the changed files and remain consistent with the source plan. Other docs, prior plans, and provider facts are advisory context refs and must not become a workflow state machine or expand source-plan scope.
+9. Source reads before task-pack generation must be bounded source orientation: use targeted direct repo reads first, read `AGENTS.md`, `CLAUDE.md`, directory-scoped standards files, `docs/contracts/`, plan-indicated source files, and nearby tests when they materially improve task boundaries, optionally use LSP when available, and stop once task boundaries are accurate enough. Written project standards may become hard task constraints only when they apply to the changed files and remain consistent with the source plan. Other docs, prior plans, and provider facts are advisory context refs and must not become a workflow state machine or expand source-plan scope.
 10. If the source plan was created from a parent workspace, it must carry a top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work. If repo scope is missing, return to `spec-plan`; do not invent child repo targets while deriving tasks.
 11. Prefer independently verifiable vertical slices over horizontal layers when the source plan permits it. A good slice closes one behavior with implementation, verification, and any necessary docs/config evidence. Docs-only and config-only tasks should use docs contract checks, schema/help/render checks, or diff-shape checks; do not force TDD where no behavior-bearing code changes.
 
@@ -125,11 +125,11 @@ Use this intake order for context economy: first read the plan/task summary and 
 Provider order:
 
 1. Start with targeted direct repo reads of the plan-indicated files, nearby tests, directory indexes, and local patterns.
-2. If direct reads are insufficient and Serena/LSP is available, use it only for bounded source orientation: symbol overview, symbol lookup, references, and local pattern search.
+2. If direct reads are insufficient and LSP is available, use it only for bounded source orientation: symbol overview, symbol lookup, references, and local pattern search.
 
 Orientation evidence is advisory. It must not turn the current implementation state into new tasks, replace source-plan authority, or override the source plan. If source orientation reveals missing scope, contract, acceptance, or verification decisions, return `return-to-plan` or `draft-only` instead of inventing task scope.
 
-Serena/LSP provider rule:
+LSP provider rule:
 
 - Activate the target project and use LSP quick indexing only for bounded source orientation: symbol overview, symbol lookup, references, and local pattern search.
 - Record the provider and limitations in orientation evidence.
@@ -283,7 +283,7 @@ validation:
   source_plan_path: resolved | missing | invalid
   task_pack_contract: valid | invalid | not_checked
 orientation:
-  provider: direct-repo-reads | serena-lsp | mixed | skipped
+  provider: direct-repo-reads | lsp | mixed | skipped
   posture: bounded | degraded | skipped-small-plan | unavailable
   evidence_refs: []
   limitations: []
