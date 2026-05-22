@@ -62,6 +62,18 @@ GitNexus 不应该承担：
 
 如果 GitNexus 只返回 definitions-only 证据，下游 workflow 只能把它当作 file/symbol pointer，不能把它当成完整 execution-flow evidence。
 
+### 多仓 workspace group readiness
+
+GitNexus group readiness 只适用于父目录下多个独立 Git repos 的 `multi-repo-workspace` 拓扑。单仓多 module 仍是 repo-local graph scope，不因为包含多个 packages/modules 就成为 GitNexus group。
+
+父 workspace 的 `.spec-first/workspace/gitnexus-readiness.json` 是 `workspace-gitnexus-readiness.v1` advisory artifact：
+
+- `group.status="group-ready"`：优先使用 GitNexus group query 做只读跨仓定向。
+- `group.status="group-missing"`：使用 bounded registry/per-repo fan-out fallback；这不是 provider failure。
+- `group.status="not-evaluated-no-mcp-input"`：durable script run 没有 live MCP overlay；下游 workflow 应披露限制，或在当前 session 读取 live registry/group facts。
+
+普通 plan/work/debug/review 不得静默运行 `group_sync`，也不得把 live `list_repos` / `group_list` 结果写回 durable readiness。dirty refresh blocked 只说明当前 checkout 不适合刷新 provider index，不等于 GitNexus query 完全不可用；但涉及 dirty path 的结论必须用当前源码直接验证。
+
 ## code-review-graph 作用域
 
 `code-review-graph` 在 spec-first 中的角色是 `impact_context`。
@@ -191,6 +203,7 @@ spec-code-review
 | `.spec-first/providers/<provider>/` | `spec-graph-bootstrap` | provider raw logs、status 和 normalized facts |
 | `.spec-first/graph/graph-facts.json` | `spec-graph-bootstrap` | graph readiness、repo snapshot、provider summary、staleness hints |
 | `.spec-first/impact/bootstrap-impact-capabilities.json` | `spec-graph-bootstrap` | context selection、impact radius、review support 的 capability envelope |
+| `.spec-first/workspace/gitnexus-readiness.json` | `spec-graph-bootstrap` parent all-repos / readiness classifier | parent workspace GitNexus group-ready / bounded registry fallback advisory facts |
 
 下游 workflow 使用这些产物前必须检查 freshness。artifact 存在不等于当前 checkout 已覆盖，尤其在 dirty worktree 或切换分支后。
 

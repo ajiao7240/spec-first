@@ -27,11 +27,14 @@ describe('spec-debug branch-aware handoff contract', () => {
 
     expect(text).toContain('Context Orientation Anchor');
     expect(text).toContain('workspace-graph-targets.v1');
+    expect(text).toContain('workspace-gitnexus-readiness.v1');
+    expect(text).toContain('group or bounded registry/per-repo evidence');
+    expect(text).toContain('`group-missing` is fallback context, not provider failure');
     expect(text).toContain('GitNexus-first queries');
     expect(text).toContain('degraded-fallback');
     expect(text).toContain('definitions-only GitNexus results as file/symbol pointers');
     expect(text).toContain('single explicit `target_repo` or per-fix repo scope');
-    expect(text).toContain('do not let cwd, graph target facts, or live MCP results choose a sibling repo for edits');
+    expect(text).toContain('do not let cwd, graph target facts, group readiness facts, or live MCP results choose a sibling repo for edits');
     expect(text).toContain('Graph Freshness / Refresh Trigger Boundary');
     expect(text).toContain('.spec-first/graph/provider-status.json');
     expect(text).toContain('.spec-first/graph/graph-facts.json');

@@ -4,6 +4,8 @@
 
 本文是下游 workflow 消费 graph/provider/impact readiness artifacts 的速查契约。它补充 `docs/contracts/graph-evidence-policy.md`：本文件回答“读哪个 artifact、读哪个字段、哪些旧字段或旧路径不能再读”，证据可信度与冲突处理仍按 graph evidence policy 执行。
 
+Parent workspace 下 GitNexus registry / group evidence 的消费边界见 `docs/contracts/workspace-gitnexus-consumption.md`。该 contract 定义 `workspace-gitnexus-readiness.v1`、`git_root_topology` gate、`group.status` 嵌套形态，以及 `refresh_eligibility` / `index_snapshot` / `query_usability` 三层拆分。
+
 核心边界：
 
 - `spec-mcp-setup` 只准备 provider 配置、host/tool readiness 和 setup-owned projection。
@@ -68,6 +70,8 @@ Graph-heavy 至少包括 shared helper/API/route/provider contract/core workflow
 
 `last_indexed_commit` 是 per-provider status 的 clean readiness carry-forward 字段。只有 prior provider status 同时是 `provider-status.v1`、`graph_ready=true`、`query_ready=true`、clean，且 `repo_snapshot.source_revision` 与 `bootstrap_fingerprint.repo_snapshot.source_revision` 都等于该 commit 时，incremental preflight 才能把它当作 base。`graph-facts.v1.source_revision` 不是 incremental base truth source。
 
+同一字段也是 `workspace-gitnexus-readiness.v1` 中 prior query-ready proof 的唯一可观测代理。GitNexus-aware workspace consumer 只能在 `provider-status.v1.last_indexed_commit != null`，或当前 session live query proof 通过时，把 dirty/stale child repo 的既有 index promote 为 `stale-advisory`。当上一轮 provider failure、provider upgrade、`requires_clean_full_refresh=true` reset、手动 clean 或其他原因导致当前 provider status 中 `last_indexed_commit=null` 时，consumer 必须按 `last_indexed_commit=null` 处理，降级为 `registry-present-query-unverified` / `definitions-pointer`，不得维护额外历史断言持久层。
+
 Tracked docs、README、用户手册、issue 或 PR 描述不得粘贴 provider raw stdout/stderr、完整 raw log、credentialed URL、token/API key、`Authorization:`、`Cookie:`、私有 registry URL、内网主机名或用户名绝对路径片段。问题上报只应包含 provider、`reason_code`、`fallback_from_incremental` 是否出现、发生频率、人工脱敏摘录和本地 artifact path。
 
 ## setup-owned-dirty-ignore.v1
@@ -128,6 +132,7 @@ Legacy compatibility：`dirty-refresh-non-canonical` 仅代表旧版本把所有
 8. consumer 可以推荐 `$spec-graph-bootstrap`，但不得在 plan/work/debug/review 内部静默运行 GitNexus analyze、provider build、index rebuild、repair 或 default hook/watch/daemon 路径。
 9. 需要 refresh-mode 细节时读取 per-provider status 或 aggregate `provider-status.json.providers[]` 镜像；不要从 `graph-facts.v1` 推断 refresh mode。
 10. `readiness_source` 是命令来源事实，不是 readiness success；消费 readiness 仍必须检查 `status=ready && query_ready=true`。
+11. Parent workspace GitNexus-aware consumer 读取 `workspace-graph-targets.v1.repos[].status` 只能作为向后兼容；新逻辑必须优先读取 `refresh_eligibility`、`index_snapshot` 和 `query_usability`，并遵守 `docs/contracts/workspace-gitnexus-consumption.md` 的 topology gate。
 
 ## Forbidden Compatibility Reads
 

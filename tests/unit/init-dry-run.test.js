@@ -7,6 +7,7 @@ const { execFileSync } = require('node:child_process');
 
 const { buildInitWritePlan, runInit } = require('../../src/cli/commands/init');
 const { getAdapter } = require('../../src/cli/adapters');
+const { buildBootstrapBlock } = require('../../src/cli/instruction-bootstrap');
 const {
   SPEC_FIRST_GITIGNORE_START,
   buildSpecFirstGitignoreBlock,
@@ -250,9 +251,13 @@ describe('init --dry-run', () => {
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(claudeInstruction).toContain('workspace-graph-targets.v1');
+      expect(claudeInstruction).toContain('workspace-gitnexus-readiness.v1');
+      expect(claudeInstruction).toContain('group-ready / bounded-fallback');
       expect(claudeInstruction).toContain('完整路由策略在 `skills/using-spec-first/SKILL.md`');
       expect(claudeInstruction).toContain('target_repo');
       expect(claudeInstruction).toContain('/spec:optimize');
+      expect(claudeInstruction).not.toContain('not-evaluated-no-mcp-input');
+      expect(claudeInstruction).not.toContain('group.status');
       expect(claudeInstruction).not.toContain('spec-' + 'standards` 无参数运行默认为每个 discovered child repo');
       expect(claudeInstruction).not.toContain('startup-reminder --codex');
       expect(claudeInstruction).not.toContain('<!-- spec-first:runtime-tools:start -->');
@@ -394,9 +399,13 @@ describe('init --dry-run', () => {
       expect(gitignore).not.toContain('.agents/\n');
       expect(codexInstruction).toContain('不要默认进入 `spec-brainstorm`');
       expect(codexInstruction).toContain('workspace-graph-targets.v1');
+      expect(codexInstruction).toContain('workspace-gitnexus-readiness.v1');
+      expect(codexInstruction).toContain('group-ready / bounded-fallback');
       expect(codexInstruction).toContain('完整路由策略在 `skills/using-spec-first/SKILL.md`');
       expect(codexInstruction).toContain('target_repo');
       expect(codexInstruction).toContain('$spec-optimize');
+      expect(codexInstruction).not.toContain('not-evaluated-no-mcp-input');
+      expect(codexInstruction).not.toContain('group.status');
       expect(codexInstruction).toContain('spec-first startup-reminder --codex');
       expect(codexInstruction).toContain('$spec-update');
       expect(codexInstruction).toContain('失败/空输出不阻塞');
@@ -462,6 +471,21 @@ describe('init --dry-run', () => {
     }
   });
 
+  test('generated bootstrap keeps thin workspace guidance equivalent across hosts', () => {
+    const codexBlock = buildBootstrapBlock(getAdapter('codex'), 'zh');
+    const claudeBlock = buildBootstrapBlock(getAdapter('claude'), 'zh');
+    const workspaceLine = '父级多仓 workspace：只读代码问题可用 `workspace-graph-targets.v1` advisory facts 和 `workspace-gitnexus-readiness.v1` 的 group-ready / bounded-fallback 提示；写入、修复、测试、review autofix 或 commit 前必须有明确 `target_repo` / per-child scope';
+
+    expect(codexBlock).toContain(workspaceLine);
+    expect(claudeBlock).toContain(workspaceLine);
+    for (const block of [codexBlock, claudeBlock]) {
+      expect(block).not.toContain('not-evaluated-no-mcp-input');
+      expect(block).not.toContain('group.status');
+      expect(block).not.toContain('query_usability_counts');
+      expect(block).not.toContain('workspace_gitnexus_readiness_pointer');
+    }
+  });
+
   test('init removes legacy runtime tool guidance and normalizes GitNexus blocks', () => {
     const projectRoot = makeTempDir();
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -499,6 +523,8 @@ describe('init --dry-run', () => {
       expect(codexInstruction).toContain('<!-- gitnexus:start -->');
       expect(codexInstruction).toContain('# GitNexus — Code Intelligence');
       expect(codexInstruction).toContain('仓库标识：**legacy-repo**');
+      expect(codexInstruction).toContain('`.spec-first/graph/provider-status.json`');
+      expect(codexInstruction).not.toContain('`.spec-first/workspace/graph-targets.json`');
       expect(codexInstruction).not.toContain('1 symbols');
     } finally {
       initLogSpy.mockRestore();

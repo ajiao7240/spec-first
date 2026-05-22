@@ -816,6 +816,18 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
 
     expect(source).toContain('workspace-graph-targets.v1');
     expect(source).toContain('resolve-project-target.ps1');
+    expect(source).toContain('git_root_topology');
+    expect(source).toContain("'single-repo'");
+    expect(source).toContain("'multi-repo-workspace'");
+    expect(source).toContain('refresh_eligibility');
+    expect(source).toContain('index_snapshot');
+    expect(source).toContain('query_usability');
+    expect(source).toContain('working_tree_overlay');
+    expect(source).toContain('query_usability_counts');
+    expect(source).toContain("'fresh-primary'");
+    expect(source).toContain("'stale-advisory'");
+    expect(source).toContain("'definitions-pointer'");
+    expect(source).toContain('last_indexed_commit');
     expect(source).toContain('graph-providers.v1');
     expect(source).toContain('runtime-capabilities.v1');
     expect(source).toContain('provider-artifacts.v1');

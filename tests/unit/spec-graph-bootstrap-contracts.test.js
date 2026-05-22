@@ -8,6 +8,7 @@ const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'SKILL
 const BASH_SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.sh');
 const POWERSHELL_SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.ps1');
 const CONSUMPTION_DOC_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'graph-provider-consumption.md');
+const WORKSPACE_GITNEXUS_CONTRACT_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'workspace-gitnexus-consumption.md');
 const RETIRED_PROMPT_MIRROR_PATH = path.join(
   REPO_ROOT,
   'docs',
@@ -68,6 +69,7 @@ function extractContractNonGraphMetadataPaths(source) {
 describe('spec-graph-bootstrap live MCP probe contract', () => {
   test('keeps CLI readiness separate from session-local MCP evidence', () => {
     const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const workspaceGitNexusContract = fs.readFileSync(WORKSPACE_GITNEXUS_CONTRACT_PATH, 'utf8');
 
     expect(fs.existsSync(RETIRED_PROMPT_MIRROR_PATH)).toBe(false);
     expect(skill).toContain('## Live MCP Probe');
@@ -110,6 +112,9 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('.spec-first/workspace/graph-targets.json');
     expect(skill).toContain('They do not replace child repo canonical graph facts.');
     expect(skill).toContain('reason_code=workspace-graph-targets-no-source');
+    expect(workspaceGitNexusContract).toContain('workspace-gitnexus-readiness.v1');
+    expect(workspaceGitNexusContract).toContain('`workspace-graph-targets.v1.repos[].status` 保留为向后兼容字段');
+    expect(workspaceGitNexusContract).toContain('新 GitNexus-aware consumer 必须优先读取 `refresh_eligibility`、`index_snapshot` 和 `query_usability`');
     expect(skill).toContain('worktree_status_hash');
     expect(skill).toContain('dirty fingerprints become `dirty-uncertain`');
     expect(skill).toContain('CLI graph_ready');
@@ -119,6 +124,14 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('Live MCP Probe');
     expect(skill).toContain('Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`');
     expect(skill).toContain('summarize `run_id`, total child count, ready/degraded/not-applicable/action-required counts');
+    expect(skill).toContain('workspace_gitnexus_readiness_pointer.reason_code=script-mode-no-mcp');
+    expect(skill).toContain('four-key `query_usability_counts`');
+    expect(skill).toContain('`group.status="not-evaluated-no-mcp-input"`');
+    expect(skill).toContain('call `list_repos` once and `group_list` once');
+    expect(skill).toContain('session-local `runtime_mcp_overlay`');
+    expect(skill).toContain('recommended_query_path="group-query"');
+    expect(skill).toContain('recommended_query_path="bounded-registry-fanout"');
+    expect(skill).toContain('Do not run `group_sync` automatically');
     expect(skill).toContain('every `results[]` child row carries the same `parent_run_id`');
     expect(skill).toContain('Always report the compiled artifacts first, then any session-local live MCP evidence');
     expect(skill).toContain('code-review-graph and bounded direct repo reads');
@@ -126,6 +139,30 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('reason_code=gitnexus-query-provider-projection-stale');
     expect(skill).toContain('reason_code=gitnexus-query-fts-readonly');
     expect(skill).toContain('recommended_action');
+  });
+
+  test('workspace GitNexus readiness summary is helper-owned across shell hosts', () => {
+    const bashScript = fs.readFileSync(BASH_SCRIPT_PATH, 'utf8');
+    const powershellScript = fs.readFileSync(POWERSHELL_SCRIPT_PATH, 'utf8');
+
+    expect(bashScript).toContain('compile_workspace_gitnexus_readiness_for_all_repos');
+    expect(bashScript).toContain('compile-workspace-gitnexus-readiness.sh');
+    expect(bashScript).toContain('workspace_gitnexus_readiness_pointer:$workspace_gitnexus_readiness.workspace_gitnexus_readiness_pointer');
+    expect(bashScript).toContain('query_usability_counts:$workspace_gitnexus_readiness.query_usability_counts');
+    expect(bashScript).toContain('group:$workspace_gitnexus_readiness.group');
+    expect(bashScript).toContain('"script-mode-no-mcp"');
+    expect(bashScript).toContain('"classifier-not-invoked"');
+    expect(bashScript).toContain('"classifier-failed"');
+    expect(bashScript).not.toContain('select(.query_usability == "stale-advisory")');
+
+    expect(powershellScript).toContain('Compile-WorkspaceGitNexusReadinessForAllRepos');
+    expect(powershellScript).toContain('compile-workspace-gitnexus-readiness.js');
+    expect(powershellScript).toContain('workspace_gitnexus_readiness_pointer = $workspaceGitNexusReadiness.workspace_gitnexus_readiness_pointer');
+    expect(powershellScript).toContain('query_usability_counts = $workspaceGitNexusReadiness.query_usability_counts');
+    expect(powershellScript).toContain('group = $workspaceGitNexusReadiness.group');
+    expect(powershellScript).toContain("'script-mode-no-mcp'");
+    expect(powershellScript).toContain("'classifier-not-invoked'");
+    expect(powershellScript).toContain("'classifier-failed'");
   });
 
   test('ships review fixtures for trigger, boundary, failure, and expected behavior cases', () => {
@@ -150,6 +187,7 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
       expect.arrayContaining([
         expect.stringContaining('counts.not_applicable'),
         expect.stringContaining('worktree_status_hash'),
+        expect.stringContaining('query_usability_counts.stale-advisory>=7'),
       ]),
     );
   });

@@ -73,6 +73,10 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('group changed files by Git repo');
     expect(text).toContain('Resolve graph readiness, diff context, impact evidence, and test suggestions per child repo');
     expect(text).toContain('workspace-graph-targets.v1');
+    expect(text).toContain('workspace-gitnexus-readiness.v1');
+    expect(text).toContain('`group.status="group-ready"`');
+    expect(text).toContain('bounded registry/per-repo fallback');
+    expect(text).toContain('Code-review-graph remains the primary diff impact provider when available.');
     expect(text).toContain('GitNexus-first evidence for bounded candidate repos');
     expect(text).toContain('degraded-fallback or definitions-only limitations');
     expect(text).toContain('autofix review must not edit a child repo unless that repo is explicit');

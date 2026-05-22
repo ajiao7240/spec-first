@@ -435,8 +435,9 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     if ($shouldNormalizeParentHostInstructions) { break }
   }
   if ($shouldNormalizeParentHostInstructions) {
-    $parentHostInstructionNormalization = Normalize-GitNexusInstructionBlockViaCli -RepoRoot ([string]$TargetFacts.workspace_root)
+    $parentHostInstructionNormalization = Normalize-GitNexusInstructionBlockViaCli -RepoRoot ([string]$TargetFacts.workspace_root) -GitRootTopology 'multi-repo-workspace'
   }
+  $workspaceGitNexusReadiness = Compile-WorkspaceGitNexusReadinessForAllRepos -TargetFacts $TargetFacts
   $parentWritesHostInstructionFiles = @($parentHostInstructionNormalization.results | Where-Object { [bool]$_.written }).Count -gt 0
 
   $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
@@ -457,6 +458,10 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     parent_writes_repo_local_artifacts = $false
     parent_writes_host_instruction_files = $parentWritesHostInstructionFiles
     parent_host_instruction_normalization = $parentHostInstructionNormalization
+    workspace_gitnexus_readiness_pointer = $workspaceGitNexusReadiness.workspace_gitnexus_readiness_pointer
+    query_usability_counts = $workspaceGitNexusReadiness.query_usability_counts
+    group = $workspaceGitNexusReadiness.group
+    group_reason_code = $workspaceGitNexusReadiness.group_reason_code
     timing = [ordered]@{
       started_at = $script:ScriptStartedAt
       finished_at = $finishedAt
@@ -620,8 +625,11 @@ function Resolve-SpecFirstCliInvocation {
 }
 
 function Normalize-GitNexusInstructionBlockViaCli {
-  param([string]$RepoRoot)
-  $captured = Invoke-SpecFirstCliCaptured -CliArguments @('gitnexus-instruction', 'normalize', '--repo-root', $RepoRoot, '--write', '--json')
+  param(
+    [string]$RepoRoot,
+    [string]$GitRootTopology = 'single-repo'
+  )
+  $captured = Invoke-SpecFirstCliCaptured -CliArguments @('gitnexus-instruction', 'normalize', '--repo-root', $RepoRoot, '--git-root-topology', $GitRootTopology, '--write', '--json')
   try {
     $payload = $captured.output | ConvertFrom-Json -ErrorAction Stop
     $results = if ($null -ne $payload -and ($payload.PSObject.Properties.Name -contains 'results')) { @($payload.results) } else { @() }
@@ -651,6 +659,98 @@ function Normalize-GitNexusInstructionBlockViaCli {
     [Console]::Error.WriteLine('spec-graph-bootstrap: warning: GitNexus instruction normalizer returned non-JSON output.')
     return New-GitNexusInstructionNormalizationResult -Status 'failed' -ReasonCode 'gitnexus-instruction-normalizer-output-invalid' -ExitCode 0 -Diagnostic $captured.output -Results @()
   }
+}
+
+function New-WorkspaceGitNexusReadinessDefaultSummary {
+  param([string]$ReasonCode)
+  return [ordered]@{
+    query_usability_counts = [ordered]@{
+      'fresh-primary' = 0
+      'stale-advisory' = 0
+      'definitions-pointer' = 0
+      unavailable = 0
+    }
+    workspace_gitnexus_readiness_pointer = [ordered]@{
+      path = $null
+      reason_code = $ReasonCode
+    }
+    group = [ordered]@{
+      name = $null
+      status = 'not-evaluated-no-mcp-input'
+      query_selector = $null
+    }
+    group_reason_code = $ReasonCode
+  }
+}
+
+function Compile-WorkspaceGitNexusReadinessForAllRepos {
+  param([object]$TargetFacts)
+  $workspaceDir = Join-Path ([string]$TargetFacts.workspace_root) '.spec-first/workspace'
+  Ensure-Directory -Path @($workspaceDir)
+  $targetsPath = Join-Path $workspaceDir 'graph-targets.json'
+  $readinessPath = Join-Path $workspaceDir 'gitnexus-readiness.json'
+  $workspaceTargets = $null
+  try {
+    $workspaceResolver = Join-Path $PSScriptRoot 'resolve-workspace-graph-targets.ps1'
+    Push-Location -LiteralPath ([string]$TargetFacts.workspace_root)
+    try {
+      $rawTargets = & $workspaceResolver -WriteSummary
+    } finally {
+      Pop-Location
+    }
+    $workspaceTargetsText = ($rawTargets -join "`n").Trim()
+    $workspaceTargets = $workspaceTargetsText | ConvertFrom-Json -ErrorAction Stop
+  } catch {
+    $summary = New-WorkspaceGitNexusReadinessDefaultSummary -ReasonCode 'classifier-failed'
+    $summary.workspace_gitnexus_readiness_pointer.diagnostic = 'workspace graph target resolver failed'
+    return $summary
+  }
+
+  if ([string]$workspaceTargets.git_root_topology -ne 'multi-repo-workspace') {
+    return New-WorkspaceGitNexusReadinessDefaultSummary -ReasonCode 'classifier-not-invoked'
+  }
+
+  $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
+  $helperPath = Join-Path $repoRoot 'src/cli/helpers/compile-workspace-gitnexus-readiness.js'
+  if (-not (Test-Path -LiteralPath $helperPath -PathType Leaf)) {
+    $summary = New-WorkspaceGitNexusReadinessDefaultSummary -ReasonCode 'classifier-failed'
+    $summary.workspace_gitnexus_readiness_pointer.diagnostic = 'missing compile-workspace-gitnexus-readiness.js helper'
+    return $summary
+  }
+
+  $output = ''
+  $exitCode = 0
+  try {
+    $output = (& node $helperPath --mode script --workspace-targets $targetsPath --write-artifact --output $readinessPath 2>&1 | Out-String).Trim()
+    $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+  } catch {
+    $output = [string]$_
+    $exitCode = 1
+  }
+
+  if ($exitCode -eq 0) {
+    try {
+      $payload = $output | ConvertFrom-Json -ErrorAction Stop
+      $reasonCode = if (Test-Path -LiteralPath $readinessPath -PathType Leaf) { 'script-mode-no-mcp' } else { 'script-mode-degraded' }
+      $pointerPath = if ($reasonCode -eq 'script-mode-no-mcp') { '.spec-first/workspace/gitnexus-readiness.json' } else { $null }
+      return [ordered]@{
+        query_usability_counts = $payload.query_usability_counts
+        workspace_gitnexus_readiness_pointer = [ordered]@{
+          path = $pointerPath
+          reason_code = $reasonCode
+        }
+        group = $payload.group
+        group_reason_code = $payload.group_reason_code
+      }
+    } catch {
+      $exitCode = 1
+    }
+  }
+
+  [Console]::Error.WriteLine('spec-graph-bootstrap: warning: workspace GitNexus readiness classifier failed.')
+  $failed = New-WorkspaceGitNexusReadinessDefaultSummary -ReasonCode 'classifier-failed'
+  $failed.workspace_gitnexus_readiness_pointer.diagnostic = if ($output.Length -gt 1200) { $output.Substring(0, 1200) } else { $output }
+  return $failed
 }
 
 function New-GitNexusInstructionNormalizationResult {
@@ -2810,7 +2910,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
       }
     }
     if ($provider -eq 'gitnexus' -and $bootstrap.exit_code -eq 0) {
-      $hostInstructionNormalization = Normalize-GitNexusInstructionBlockViaCli -RepoRoot $repoRoot
+      $hostInstructionNormalization = Normalize-GitNexusInstructionBlockViaCli -RepoRoot $repoRoot -GitRootTopology 'single-repo'
       Register-BootstrapOwnedHostInstructionHashes -Normalization $hostInstructionNormalization -RepoRoot $repoRoot
     }
     if ($bootstrap.exit_code -eq 0) {

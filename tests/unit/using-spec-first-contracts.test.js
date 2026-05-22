@@ -160,6 +160,9 @@ describe('using-spec-first contracts', () => {
       'Do not recommend `$spec-work-beta` in User Next-Step Guide Mode unless the current request explicitly asks for beta execution',
       'Ordinary execution-ready work routes to the stable work entrypoint.',
       'Legacy/internal `lfg` must not be recommended as a public workflow path.',
+      'workspace-gitnexus-readiness.v1',
+      'group.status="group-ready"',
+      'bounded registry/per-repo fallback or explicit disclosure, not provider failure',
     ]);
 
     expect(skill).toContain('/spec:' + 'graph' + '-bootstrap');

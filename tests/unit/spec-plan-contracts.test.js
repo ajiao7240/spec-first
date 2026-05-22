@@ -106,6 +106,12 @@ describe('spec-plan context orientation contract', () => {
     expect(text).not.toContain('glue-' + 'map.json');
     expect(text).toContain('target_repo');
     expect(text).toContain('workspace-graph-targets.v1');
+    expect(text).toContain('workspace-gitnexus-readiness.v1');
+    expect(text).toContain('.spec-first/workspace/gitnexus-readiness.json');
+    expect(text).toContain('nested `group.status`');
+    expect(text).toContain('`query_usability_counts`');
+    expect(text).toContain('do not invent a top-level `group_status`');
+    expect(text).toContain('group/registry overlay was not evaluated');
     expect(text).toContain('GitNexus-first evidence');
     expect(text).toContain('bounded candidate repos');
     expect(text).toContain('dirty-uncertain');

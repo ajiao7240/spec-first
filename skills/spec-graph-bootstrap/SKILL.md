@@ -79,7 +79,7 @@ Optional invocation input:
 
 - no argument from a parent workspace: default all-child-repos maintenance action.
 - `--repo <child>` / `-Repo <child>` when the current directory is a parent workspace and the user wants one child only.
-- `--all-repos` / `-AllRepos` as an explicit parent-workspace maintenance action. This is equivalent to the default parent-workspace no-argument behavior. It loops over discovered child Git repos, runs the existing child-scoped bootstrap flow, writes an advisory `.spec-first/workspace/graph-bootstrap-summary.json` summary in the parent workspace, and refreshes existing parent `AGENTS.md` / `CLAUDE.md` GitNexus instruction blocks when at least one child GitNexus bootstrap succeeds.
+- `--all-repos` / `-AllRepos` as an explicit parent-workspace maintenance action. This is equivalent to the default parent-workspace no-argument behavior. It loops over discovered child Git repos, runs the existing child-scoped bootstrap flow, writes advisory `.spec-first/workspace/graph-bootstrap-summary.json`, `.spec-first/workspace/graph-targets.json`, and script-owned `.spec-first/workspace/gitnexus-readiness.json` summaries in the parent workspace when applicable, and refreshes existing parent `AGENTS.md` / `CLAUDE.md` GitNexus instruction blocks when at least one child GitNexus bootstrap succeeds.
 - `--incremental` / `-Incremental` as a clean single-repo diagnostic / validation-only expert refresh mode. It delegates to provider-native incremental commands when prior clean provider status can be trusted; otherwise it falls back to full refresh. Current validation does not establish it as a correctness-backed acceleration path.
 - `--full` / `--force` or `-Full` / `-Force` as explicit full refresh mode. This is also the default for single-repo and all-repos runs.
 
@@ -95,7 +95,8 @@ Optional read-only workspace routing input:
 4. Resolve refresh mode, then run configured provider bootstrap/incremental, status, and query proof commands without shell interpolation.
 5. GitNexus bootstrap 成功后可调用 spec-first source CLI 收敛 `AGENTS.md` / `CLAUDE.md` 中的 GitNexus host instruction block；这是 host prose cleanup，不是 graph readiness proof，不影响 `graph_ready` / `query_ready`，只作为 `host_instruction_normalization` advisory fact 写入 provider status。
 6. Write provider raw logs, provider status, normalized envelopes, canonical graph facts, impact capability facts, and a human-readable bootstrap report.
-7. If useful for handoff and the current session has GitNexus MCP loaded, perform one bounded live MCP probe as session-local evidence only.
+7. For parent workspace all-repos runs, compile `workspace-gitnexus-readiness.v1` in script mode from deterministic `workspace-graph-targets.v1` only. The durable summary may include `workspace_gitnexus_readiness_pointer.reason_code=script-mode-no-mcp`, four-key `query_usability_counts`, top-level `group_reason_code`, and `group.status="not-evaluated-no-mcp-input"`; it must not contain live `list_repos` / `group_list` evidence or overlay-only query usability count keys.
+8. If useful for handoff and the current session has GitNexus MCP loaded, perform one bounded live MCP probe as session-local evidence only.
 
 ## Contract
 
@@ -162,7 +163,9 @@ For read-only target discovery from a parent workspace, run the advisory resolve
 bash skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh
 ```
 
-The resolver emits `schema_version=workspace-graph-targets.v1`, per-child `status` values such as `primary`, `degraded-fallback`, `no-source`, `dirty-uncertain`, `stale`, `setup-ready-bootstrap-required`, or `unavailable`, GitNexus repo/query probe pointers, setup-owned config pointers, and canonical graph artifact pointers. Downstream LLM workflows use this output to choose bounded candidate repos for read-only GitNexus-first evidence; scripts still do not decide semantic repo relevance.
+The resolver emits `schema_version=workspace-graph-targets.v1`, top-level `git_root_topology` (`single-repo`, `multi-repo-workspace`, or `null` for blocked target-resolution), per-child compatibility `status` values such as `primary`, `degraded-fallback`, `no-source`, `dirty-uncertain`, `stale`, `setup-ready-bootstrap-required`, or `unavailable`, and additive GitNexus-aware fields `refresh_eligibility`, `index_snapshot`, `query_usability`, and `working_tree_overlay`. Downstream LLM workflows use this output to choose bounded candidate repos for read-only GitNexus-first evidence; scripts still do not decide semantic repo relevance.
+
+For parent workspace GitNexus group/readiness decisions, prefer the new `refresh_eligibility` / `index_snapshot` / `query_usability` fields when present and keep old `status` as a compatibility label. `dirty-source-blocked` is a refresh limitation, not proof that existing GitNexus query evidence is unusable; stale or dirty index evidence must be disclosed and verified with direct source reads before final conclusions.
 
 If every discovered child repo is `status=no-source`, the resolver reports `reason_code=workspace-graph-targets-no-source` instead of generic degraded. That preserves the distinction between “no code-bearing graph target exists” and “a code-bearing graph target failed readiness.”
 
@@ -198,7 +201,7 @@ bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh --all-repos
 pwsh -File skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1 -AllRepos
 ```
 
-The parent-workspace default and `--all-repos` / `-AllRepos` preserve per-child partial success, write child repo canonical artifacts only, and write the parent summary under `.spec-first/workspace/graph-bootstrap-summary.json` as advisory control-plane evidence. They may also normalize existing parent `AGENTS.md` / `CLAUDE.md` GitNexus instruction blocks after a child GitNexus bootstrap succeeds; this host prose cleanup is recorded as `parent_host_instruction_normalization` and does not create parent `.spec-first/graph/*`, `.spec-first/impact/*`, or `.spec-first/providers/*` artifacts.
+The parent-workspace default and `--all-repos` / `-AllRepos` preserve per-child partial success, write child repo canonical artifacts only, and write parent summaries under `.spec-first/workspace/` as advisory control-plane evidence. `graph-bootstrap-summary.json` includes legacy ready/degraded/not-applicable/action-required counts plus helper-owned `query_usability_counts`, `workspace_gitnexus_readiness_pointer`, nested `group`, and top-level `group_reason_code`. `graph-targets.json` is the deterministic workspace target snapshot. `gitnexus-readiness.json` is script-owned and never contains live MCP `list_repos` / `group_list` results; in script mode `group.status` remains `not-evaluated-no-mcp-input`. Parent all-repos runs may also normalize existing parent `AGENTS.md` / `CLAUDE.md` GitNexus instruction blocks after a child GitNexus bootstrap succeeds; this host prose cleanup is recorded as `parent_host_instruction_normalization` and does not create parent `.spec-first/graph/*`, `.spec-first/impact/*`, or `.spec-first/providers/*` artifacts.
 
 `--all-repos --incremental` / `-AllRepos -Incremental` is unsupported in this contract. The same block applies when a parent workspace would otherwise enter the default all-repos path and the operator passes only `--incremental` / `-Incremental`. Both forms exit before provider commands with `reason_code=incremental-all-repos-unsupported` and preserve child canonical artifacts. Multi-repo incremental optimization requires a separate validation plan.
 
@@ -347,15 +350,25 @@ When live MCP probing is attempted or would clarify an otherwise degraded GitNex
 
 Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`. If live MCP succeeds while compiled GitNexus `query_ready=false`, say that GitNexus MCP may be used in the current session, but downstream compiled facts still remain degraded or query-unverified.
 
+For a multi-repo parent workspace, keep durable workspace readiness and live GitNexus workspace evidence as two layers:
+
+1. First read `.spec-first/workspace/graph-bootstrap-summary.json`, `.spec-first/workspace/graph-targets.json`, and `.spec-first/workspace/gitnexus-readiness.json` if present. Treat these as script-owned facts.
+2. If GitNexus MCP is available in the current session, call `list_repos` once and `group_list` once, sanitize the JSON payloads, then run `skills/spec-graph-bootstrap/scripts/compile-workspace-gitnexus-readiness.sh --mode skill-prose --workspace-targets .spec-first/workspace/graph-targets.json --registry-list <sanitized-list-repos.json> --group-list <sanitized-group-list.json>`.
+3. Treat the classifier stdout as session-local `runtime_mcp_overlay`; it may report `group.status="group-ready"` with `recommended_query_path="group-query"`, `group.status="group-missing"` / `group-sync-required` with bounded registry fan-out, or `group.status="unavailable"` with bounded registry fan-out when registry evidence is still usable.
+4. Do not write the live overlay back into `.spec-first/workspace/gitnexus-readiness.json`, `graph-bootstrap-summary.json`, child provider status, or `.spec-first/graph/*`.
+5. Do not run `group_sync` automatically. If group config is missing, report bounded registry/per-repo fallback; if group config exists but registry freshness is unclear, give a preview-first next action.
+
 ## Final Response Contract
 
 Always report the compiled artifacts first, then any session-local live MCP evidence:
 
 1. For a single repo, summarize `workflow_mode`, `overall_status`, provider `graph_ready/query_ready`, key `reason_code`, and the canonical artifact paths.
-2. For parent workspace all-repos runs, summarize `run_id`, total child count, ready/degraded/not-applicable/action-required counts, and per-child status. Keep parent `.spec-first/workspace/graph-bootstrap-summary.json` explicitly advisory.
-3. If any GitNexus provider is `query-unverified` or the live MCP probe was attempted, include the separate compiled-vs-session table from the Live MCP Probe section. Do not omit this table just because code-review-graph is ready.
-4. If the final answer mentions rerunning with elevated permissions, network repair, cache repair, restart/new session, or degraded fallback use, tie that advice to structured `reason_code`, `failure_class`, raw log paths, or live MCP evidence.
-5. Never rewrite or imply updated compiled readiness based on a live MCP response. A live MCP response is only current-session evidence for the LLM handoff.
+2. For parent workspace all-repos runs, summarize `run_id`, total child count, ready/degraded/not-applicable/action-required counts, per-child status, `query_usability_counts`, `workspace_gitnexus_readiness_pointer.reason_code`, `group.status`, and `group_reason_code`. Keep parent `.spec-first/workspace/graph-bootstrap-summary.json` explicitly advisory.
+   - Use two separate tables: `Child refresh status` for per-child `overall_status` / `reason_code` / refresh eligibility, and `GitNexus query usability` for `query_usability_counts` / `group.status` / `recommended_query_path` / limitations.
+3. If parent workspace live GitNexus MCP evidence was evaluated, show it as a separate session-local `runtime_mcp_overlay` layer with `recommended_query_path`. Do not imply the durable readiness file contains live group readiness.
+4. If any GitNexus provider is `query-unverified` or the live MCP probe was attempted, include the separate compiled-vs-session table from the Live MCP Probe section. Do not omit this table just because code-review-graph is ready.
+5. If the final answer mentions rerunning with elevated permissions, network repair, cache repair, restart/new session, or degraded fallback use, tie that advice to structured `reason_code`, `failure_class`, raw log paths, or live MCP evidence.
+6. Never rewrite or imply updated compiled readiness based on a live MCP response. A live MCP response is only current-session evidence for the LLM handoff.
 
 ## Outputs
 

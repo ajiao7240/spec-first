@@ -4,13 +4,15 @@ const path = require('node:path');
 const GITNEXUS_START = '<!-- gitnexus:start -->';
 const GITNEXUS_END = '<!-- gitnexus:end -->';
 const GUIDANCE_FILES = ['AGENTS.md', 'CLAUDE.md'];
+const GIT_ROOT_TOPOLOGIES = new Set(['single-repo', 'multi-repo-workspace']);
 
 function renderGitNexusInstructionBlock(options = {}) {
   const repoName = sanitizeRepoName(options.repoName || 'unknown');
   const lang = options.lang === 'en' ? 'en' : 'zh';
+  const gitRootTopology = normalizeGitRootTopology(options.gitRootTopology);
   const body = lang === 'en'
-    ? renderEnglishGitNexusBody(repoName)
-    : renderChineseGitNexusBody(repoName);
+    ? renderEnglishGitNexusBody(repoName, gitRootTopology)
+    : renderChineseGitNexusBody(repoName, gitRootTopology);
 
   return `${GITNEXUS_START}\n${body}\n${GITNEXUS_END}`;
 }
@@ -24,12 +26,14 @@ function normalizeGitNexusInstructionBlock(existing, options = {}) {
     if (options.createMissing) {
       const repoName = sanitizeRepoName(options.defaultRepoName || 'unknown');
       const lang = options.lang || detectInstructionLanguage(content);
-      const nextBlock = renderGitNexusInstructionBlock({ repoName, lang });
+      const gitRootTopology = normalizeGitRootTopology(options.gitRootTopology);
+      const nextBlock = renderGitNexusInstructionBlock({ repoName, lang, gitRootTopology });
       return {
         status: 'created',
         content: appendGitNexusInstructionBlock(content, nextBlock),
         changed: true,
         repoName,
+        gitRootTopology,
       };
     }
 
@@ -54,7 +58,8 @@ function normalizeGitNexusInstructionBlock(existing, options = {}) {
   const currentBlock = content.slice(startIdx, blockEnd);
   const repoName = extractGitNexusRepoName(currentBlock, options.defaultRepoName);
   const lang = options.lang || detectInstructionLanguage(content);
-  const nextBlock = renderGitNexusInstructionBlock({ repoName, lang });
+  const gitRootTopology = normalizeGitRootTopology(options.gitRootTopology);
+  const nextBlock = renderGitNexusInstructionBlock({ repoName, lang, gitRootTopology });
   const nextContent = `${content.slice(0, startIdx)}${nextBlock}${content.slice(blockEnd)}`;
 
   return {
@@ -62,6 +67,7 @@ function normalizeGitNexusInstructionBlock(existing, options = {}) {
     content: nextContent,
     changed: nextContent !== content,
     repoName,
+    gitRootTopology,
   };
 }
 
@@ -84,6 +90,7 @@ function normalizeGitNexusInstructionFiles(projectRoot, options = {}) {
       createMissing: options.createMissing,
       defaultRepoName: options.defaultRepoName || path.basename(projectRoot),
       lang: options.lang,
+      gitRootTopology: options.gitRootTopology,
     });
     if (options.write && result.changed) {
       writeFileAtomic(filePath, result.content);
@@ -97,6 +104,7 @@ function normalizeGitNexusInstructionFiles(projectRoot, options = {}) {
       written: Boolean(options.write && result.changed),
       action,
       repoName: result.repoName,
+      gitRootTopology: result.gitRootTopology || normalizeGitRootTopology(options.gitRootTopology),
     });
   }
   return results;
@@ -125,6 +133,7 @@ function runGitNexusInstructionBlockCommand(argv) {
     createMissing: true,
     lang: parsed.lang,
     defaultRepoName: parsed.repoName || path.basename(projectRoot),
+    gitRootTopology: parsed.gitRootTopology,
   });
   const summary = summarizeGitNexusInstructionResults(results);
 
@@ -133,6 +142,7 @@ function runGitNexusInstructionBlockCommand(argv) {
       schema_version: 'gitnexus-instruction-normalize.v1',
       repo_root: projectRoot,
       write: parsed.write,
+      git_root_topology: parsed.gitRootTopology,
       overall_status: summary.overallStatus,
       reason_code: summary.reasonCode,
       results,
@@ -222,7 +232,24 @@ function extractManagedLanguageBlock(content) {
   return content.slice(start, end);
 }
 
-function renderChineseGitNexusBody(repoName) {
+function renderChineseGitNexusBody(repoName, gitRootTopology) {
+  if (gitRootTopology === 'multi-repo-workspace') {
+    return `# GitNexus — Code Intelligence
+
+本工作区包含多个 child Git repo，GitNexus repo-local artifacts 由各 child repo 拥有。
+
+使用 GitNexus 前，先查看 \`.spec-first/workspace/graph-targets.json\` 和 \`.spec-first/workspace/gitnexus-readiness.json\`（如已生成）判断 workspace target、child refresh eligibility、index snapshot 与 query usability；具体 child repo 的 provider artifacts 仍在各自 repo 内。
+
+当 workspace readiness 显示 group-ready 或 registry fan-out 可用时，可优先用 GitNexus 辅助跨 repo 代码理解、影响分析和 review 取证；结果仍必须结合 child 源码阅读、测试结果和当前 workflow 判断。
+
+边界：
+
+- parent workspace 不拥有 child repo 的 \`.spec-first/graph/*\` canonical artifacts。
+- stale、degraded、definitions-only 或 unavailable 的结果只能作为有限证据。
+- GitNexus 不能替代源码、测试或 spec-first workflow 判断。
+- 若 GitNexus 与源码、测试或 readiness facts 冲突，明确说明冲突，并优先采用已验证事实。`;
+  }
+
   return `# GitNexus — Code Intelligence
 
 本项目已配置 GitNexus 图谱支持，仓库标识：**${repoName}**。
@@ -238,7 +265,24 @@ function renderChineseGitNexusBody(repoName) {
 - 若 GitNexus 与源码、测试或 readiness facts 冲突，明确说明冲突，并优先采用已验证事实。`;
 }
 
-function renderEnglishGitNexusBody(repoName) {
+function renderEnglishGitNexusBody(repoName, gitRootTopology) {
+  if (gitRootTopology === 'multi-repo-workspace') {
+    return `# GitNexus — Code Intelligence
+
+This workspace contains multiple child Git repos. GitNexus repo-local artifacts are owned by each child repo.
+
+Before using GitNexus, read \`.spec-first/workspace/graph-targets.json\` and \`.spec-first/workspace/gitnexus-readiness.json\` when present for workspace targets, child refresh eligibility, index snapshots, and query usability. Provider artifacts for specific child repos remain inside those child repos.
+
+When workspace readiness shows group-ready or registry fan-out evidence, prefer GitNexus for cross-repo code understanding, impact analysis, and review evidence; still combine results with child source reads, tests, and current workflow judgment.
+
+Boundaries:
+
+- The parent workspace does not own child repo \`.spec-first/graph/*\` canonical artifacts.
+- Treat stale, degraded, definitions-only, or unavailable results as limited evidence.
+- GitNexus cannot replace source reads, tests, or spec-first workflow judgment.
+- If GitNexus conflicts with source, tests, or readiness facts, disclose the conflict and prefer verified facts.`;
+  }
+
   return `# GitNexus — Code Intelligence
 
 This project has GitNexus graph support for **${repoName}**.
@@ -259,6 +303,10 @@ function sanitizeRepoName(value) {
     .replace(/[\r\n]/g, ' ')
     .replace(/\*/g, '')
     .trim() || 'unknown';
+}
+
+function normalizeGitRootTopology(value) {
+  return GIT_ROOT_TOPOLOGIES.has(value) ? value : 'single-repo';
 }
 
 function appendGitNexusInstructionBlock(existing, block) {
@@ -312,6 +360,7 @@ function parseArgs(argv) {
     repoRoot: '',
     repoName: '',
     lang: '',
+    gitRootTopology: 'single-repo',
     write: false,
     json: false,
     quiet: false,
@@ -352,6 +401,14 @@ function parseArgs(argv) {
       }
       continue;
     }
+    if (arg === '--git-root-topology') {
+      parsed.gitRootTopology = args.shift() || '';
+      if (!GIT_ROOT_TOPOLOGIES.has(parsed.gitRootTopology)) {
+        parsed.error = '--git-root-topology must be single-repo or multi-repo-workspace';
+        break;
+      }
+      continue;
+    }
     if (arg === '--write') {
       parsed.write = true;
       continue;
@@ -373,7 +430,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log([
-    'Usage: spec-first gitnexus-instruction normalize [--repo-root <path>] [--repo-name <name>] [--lang zh|en] [--write] [--json] [--quiet]',
+    'Usage: spec-first gitnexus-instruction normalize [--repo-root <path>] [--repo-name <name>] [--lang zh|en] [--git-root-topology single-repo|multi-repo-workspace] [--write] [--json] [--quiet]',
     '',
     'Create or normalize GitNexus instruction blocks into the spec-first evidence contract.',
   ].join('\n'));
@@ -382,6 +439,7 @@ function printHelp() {
 module.exports = {
   GITNEXUS_END,
   GITNEXUS_START,
+  GIT_ROOT_TOPOLOGIES,
   renderGitNexusInstructionBlock,
   normalizeGitNexusInstructionBlock,
   normalizeGitNexusInstructionFiles,

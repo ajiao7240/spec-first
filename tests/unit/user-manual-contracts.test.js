@@ -139,6 +139,7 @@ describe('user manual contracts', () => {
   test('user manual explains graph provider scope and differentiation', () => {
     const manual = read(USER_MANUAL_README_PATH);
     const guide = read(GRAPH_PROVIDER_SCOPE_GUIDE_PATH);
+    const modes = read(path.join(REPO_ROOT, 'docs/05-用户手册/08-三种开发模式.md'));
 
     expect(manual).toContain('[代码图谱 Provider 作用域与差异化](./13-代码图谱Provider作用域与差异化.md)');
     expect(guide).toContain('GitNexus = 全局代码知识');
@@ -154,6 +155,16 @@ describe('user manual contracts', () => {
     expect(guide).toContain('默认评估、条件派发');
     expect(guide).toContain('Scripts prepare, LLM decides');
     expect(guide).toContain('`.spec-first/impact/bootstrap-impact-capabilities.json`');
+    expect(guide).toContain('workspace-gitnexus-readiness.v1');
+    expect(guide).toContain('`.spec-first/workspace/gitnexus-readiness.json`');
+    expect(guide).toContain('`group.status="group-ready"`');
+    expect(guide).toContain('`group.status="group-missing"`：使用 bounded registry/per-repo fan-out fallback；这不是 provider failure');
+    expect(guide).toContain('普通 plan/work/debug/review 不得静默运行 `group_sync`');
+    expect(guide).toContain('dirty refresh blocked 只说明当前 checkout 不适合刷新 provider index，不等于 GitNexus query 完全不可用');
+    expect(modes).toContain('GitNexus group readiness 只在此拓扑有意义');
+    expect(modes).toContain('不要把 module 当 GitNexus group 成员');
+    expect(modes).toContain('`group.status="not-evaluated-no-mcp-input"`');
+    expect(modes).toContain('不授权普通 workflow 自动运行 `group_sync`');
   });
 
   test('user manual documents explicit graph refresh trigger boundaries', () => {
@@ -181,6 +192,11 @@ describe('user manual contracts', () => {
     expect(artifactMap).toContain('只有 `spec-graph-bootstrap` 显式刷新 canonical graph readiness artifacts');
     expect(bestPractices).toContain('旧 graph facts 当 stale / bootstrap-required signal');
     expect(bestPractices).toContain('隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons');
+    expect(concepts).toContain('dirty refresh blocked 只表示当前 checkout 不适合刷新 index；不等于 GitNexus 旧索引完全不可查询');
+    expect(artifactMap).toContain('gitnexus-readiness.json');
+    expect(artifactMap).toContain('workspace-gitnexus-readiness.v1');
+    expect(bestPractices).toContain('dirty refresh blocked 时，不需要为了提出只读问题而先 commit/stash/clean');
+    expect(bestPractices).toContain('在普通 plan/work/debug/review 中隐藏运行 `group_sync`');
   });
 
   test('FAQ covers Win64-native and cross-platform troubleshooting', () => {
@@ -239,5 +255,24 @@ describe('user manual contracts', () => {
     expect(artifactCatalog).toContain('候选想法、批判、排序和拒绝理由');
     expect(englishReadme).toContain('| Generate and rank ideas | `/spec:ideate` | `$spec-ideate` | Ideation artifact under `docs/ideation/` |');
     expect(chineseReadme).toContain('| 生成并排序想法 | `/spec:ideate` | `$spec-ideate` | `docs/ideation/` 下的 ideation artifact |');
+  });
+
+  test('README documents multi-repo GitNexus readiness without contradicting repo scope', () => {
+    const englishReadme = read(README_EN_PATH);
+    const chineseReadme = read(README_ZH_PATH);
+
+    expect(englishReadme).toContain('workspace-gitnexus-readiness.v1');
+    expect(englishReadme).toContain('group.status="group-ready"');
+    expect(englishReadme).toContain('bounded registry/per-repo fan-out');
+    expect(englishReadme).toContain('Dirty refresh blocked means provider index refresh is blocked');
+    expect(englishReadme).toContain('Monorepo modules are not GitNexus group members.');
+    expect(englishReadme).toContain('including `.spec-first/workspace/gitnexus-readiness.json`, are advisory only');
+
+    expect(chineseReadme).toContain('workspace-gitnexus-readiness.v1');
+    expect(chineseReadme).toContain('`group.status="group-ready"`');
+    expect(chineseReadme).toContain('bounded registry/per-repo fan-out');
+    expect(chineseReadme).toContain('dirty refresh blocked 表示 provider index refresh 被阻断');
+    expect(chineseReadme).toContain('Monorepo modules 不是 GitNexus group 成员');
+    expect(chineseReadme).toContain('包括 `.spec-first/workspace/gitnexus-readiness.json`，只作 advisory');
   });
 });

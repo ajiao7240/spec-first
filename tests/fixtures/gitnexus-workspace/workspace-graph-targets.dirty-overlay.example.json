@@ -1,0 +1,153 @@
+{
+  "schema_version": "workspace-graph-targets.v1",
+  "generated_at": "2026-05-22T00:00:00Z",
+  "advisory": true,
+  "git_root_topology": "multi-repo-workspace",
+  "mode": "workspace-multi-repo",
+  "workspace_root": "/workspace/kaz",
+  "parent_writes_repo_local_artifacts": false,
+  "repos": [
+    {
+      "target_repo": "project-ready",
+      "repo_label": "project-ready",
+      "git_root": "/workspace/kaz/project-ready",
+      "workspace_relative_path": "project-ready",
+      "status": "primary",
+      "refresh_eligibility": "eligible",
+      "index_snapshot": "current-clean",
+      "query_usability": "fresh-primary",
+      "working_tree_overlay": {
+        "dirty": false,
+        "status_hash": "sha256:clean",
+        "indexed_status_hash": "sha256:clean",
+        "limitation": null
+      },
+      "providers": {
+        "gitnexus": {
+          "repo": "project-ready",
+          "graph_ready": true,
+          "query_ready": true,
+          "last_indexed_commit": "1111111111111111111111111111111111111111"
+        }
+      },
+      "limitations": []
+    },
+    {
+      "target_repo": "project-dirty-1",
+      "repo_label": "project-dirty-1",
+      "git_root": "/workspace/kaz/project-dirty-1",
+      "workspace_relative_path": "project-dirty-1",
+      "status": "primary",
+      "refresh_eligibility": "blocked-dirty-source",
+      "index_snapshot": "current-with-dirty-overlay",
+      "query_usability": "stale-advisory",
+      "working_tree_overlay": {
+        "dirty": true,
+        "status_hash": "sha256:dirty-1",
+        "indexed_status_hash": "sha256:clean-1",
+        "limitation": "current working tree may differ from indexed GitNexus graph; verify dirty paths with direct source reads"
+      },
+      "providers": {
+        "gitnexus": {
+          "repo": "project-dirty-1",
+          "graph_ready": true,
+          "query_ready": true,
+          "last_indexed_commit": "2222222222222222222222222222222222222222"
+        }
+      },
+      "limitations": [
+        "current working tree overlay is not guaranteed to be indexed; verify dirty paths directly"
+      ]
+    },
+    {
+      "target_repo": "project-dirty-2",
+      "repo_label": "project-dirty-2",
+      "git_root": "/workspace/kaz/project-dirty-2",
+      "workspace_relative_path": "project-dirty-2",
+      "status": "primary",
+      "refresh_eligibility": "blocked-dirty-source",
+      "index_snapshot": "current-with-dirty-overlay",
+      "query_usability": "stale-advisory",
+      "working_tree_overlay": {
+        "dirty": true,
+        "status_hash": "sha256:dirty-2",
+        "indexed_status_hash": "sha256:clean-2",
+        "limitation": "current working tree may differ from indexed GitNexus graph; verify dirty paths with direct source reads"
+      },
+      "providers": {
+        "gitnexus": {
+          "repo": "project-dirty-2",
+          "graph_ready": true,
+          "query_ready": true,
+          "last_indexed_commit": "3333333333333333333333333333333333333333"
+        }
+      },
+      "limitations": []
+    },
+    {
+      "target_repo": "project-dirty-3",
+      "repo_label": "project-dirty-3",
+      "git_root": "/workspace/kaz/project-dirty-3",
+      "workspace_relative_path": "project-dirty-3",
+      "status": "primary",
+      "refresh_eligibility": "blocked-dirty-source",
+      "index_snapshot": "current-with-dirty-overlay",
+      "query_usability": "stale-advisory",
+      "working_tree_overlay": { "dirty": true, "status_hash": "sha256:dirty-3", "indexed_status_hash": "sha256:clean-3", "limitation": null },
+      "providers": { "gitnexus": { "repo": "project-dirty-3", "graph_ready": true, "query_ready": true, "last_indexed_commit": "4444444444444444444444444444444444444444" } },
+      "limitations": []
+    },
+    {
+      "target_repo": "project-dirty-4",
+      "repo_label": "project-dirty-4",
+      "git_root": "/workspace/kaz/project-dirty-4",
+      "workspace_relative_path": "project-dirty-4",
+      "status": "primary",
+      "refresh_eligibility": "blocked-dirty-source",
+      "index_snapshot": "current-with-dirty-overlay",
+      "query_usability": "stale-advisory",
+      "working_tree_overlay": { "dirty": true, "status_hash": "sha256:dirty-4", "indexed_status_hash": "sha256:clean-4", "limitation": null },
+      "providers": { "gitnexus": { "repo": "project-dirty-4", "graph_ready": true, "query_ready": true, "last_indexed_commit": "5555555555555555555555555555555555555555" } },
+      "limitations": []
+    },
+    {
+      "target_repo": "project-dirty-5",
+      "repo_label": "project-dirty-5",
+      "git_root": "/workspace/kaz/project-dirty-5",
+      "workspace_relative_path": "project-dirty-5",
+      "status": "primary",
+      "refresh_eligibility": "blocked-dirty-source",
+      "index_snapshot": "current-with-dirty-overlay",
+      "query_usability": "stale-advisory",
+      "working_tree_overlay": { "dirty": true, "status_hash": "sha256:dirty-5", "indexed_status_hash": "sha256:clean-5", "limitation": null },
+      "providers": { "gitnexus": { "repo": "project-dirty-5", "graph_ready": true, "query_ready": true, "last_indexed_commit": "6666666666666666666666666666666666666666" } },
+      "limitations": []
+    },
+    {
+      "target_repo": "project-dirty-6",
+      "repo_label": "project-dirty-6",
+      "git_root": "/workspace/kaz/project-dirty-6",
+      "workspace_relative_path": "project-dirty-6",
+      "status": "primary",
+      "refresh_eligibility": "blocked-dirty-source",
+      "index_snapshot": "current-with-dirty-overlay",
+      "query_usability": "stale-advisory",
+      "working_tree_overlay": { "dirty": true, "status_hash": "sha256:dirty-6", "indexed_status_hash": "sha256:clean-6", "limitation": null },
+      "providers": { "gitnexus": { "repo": "project-dirty-6", "graph_ready": true, "query_ready": true, "last_indexed_commit": "7777777777777777777777777777777777777777" } },
+      "limitations": []
+    },
+    {
+      "target_repo": "project-dirty-7",
+      "repo_label": "project-dirty-7",
+      "git_root": "/workspace/kaz/project-dirty-7",
+      "workspace_relative_path": "project-dirty-7",
+      "status": "primary",
+      "refresh_eligibility": "blocked-dirty-source",
+      "index_snapshot": "current-with-dirty-overlay",
+      "query_usability": "stale-advisory",
+      "working_tree_overlay": { "dirty": true, "status_hash": "sha256:dirty-7", "indexed_status_hash": "sha256:clean-7", "limitation": null },
+      "providers": { "gitnexus": { "repo": "project-dirty-7", "graph_ready": true, "query_ready": true, "last_indexed_commit": "8888888888888888888888888888888888888888" } },
+      "limitations": []
+    }
+  ]
+}

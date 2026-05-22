@@ -221,7 +221,7 @@ Entry routing itself never runs provider analyze/build/status/query commands and
 
 ### Parent Workspace Graph Evidence
 
-If the user asks a read-only codebase question from a parent workspace containing multiple child Git repos, do not force a workflow only because there are multiple repos. Use `workspace-graph-targets.v1` as advisory evidence when available, prefer bounded candidate repos with `primary` status, and try GitNexus-first evidence for the concrete question before bounded direct reads. `degraded-fallback`, `stale`, `dirty-uncertain`, and definitions-only GitNexus evidence must be named as limitations.
+If the user asks a read-only codebase question from a parent workspace containing multiple child Git repos, do not force a workflow only because there are multiple repos. Use `workspace-graph-targets.v1` as advisory evidence when available, prefer bounded candidate repos with `primary` status, and try GitNexus-first evidence for the concrete question before bounded direct reads. When `.spec-first/workspace/gitnexus-readiness.json` exists, treat `workspace-gitnexus-readiness.v1` as advisory routing evidence: `group.status="group-ready"` prefers group query, while `group-missing` or `not-evaluated-no-mcp-input` means bounded registry/per-repo fallback or explicit disclosure, not provider failure. `degraded-fallback`, `stale`, `dirty-uncertain`, and definitions-only GitNexus evidence must be named as limitations.
 
 If the request asks for planning, writing, fixing, testing, changelog updates, review autofix, or commits, route normally but require explicit `target_repo` / per-child scope before any repo-local write.
 

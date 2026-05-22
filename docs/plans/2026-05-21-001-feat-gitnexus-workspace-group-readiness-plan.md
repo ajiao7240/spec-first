@@ -1,7 +1,7 @@
 ---
 title: feat: 建立 GitNexus 多仓 workspace group readiness 正确用法
 type: feat
-status: active
+status: completed
 date: 2026-05-21
 spec_id: 2026-05-21-001-gitnexus-workspace-group-readiness
 ---
@@ -12,9 +12,9 @@ spec_id: 2026-05-21-001-gitnexus-workspace-group-readiness
 
 本计划把 GitNexus 多仓能力从“child repo refresh 批处理的副产品”提升为一等只读查询模型：child repo 继续拥有 canonical graph artifacts，GitNexus registry/group 负责多仓 query surface，workspace 只保存 advisory 控制面事实。
 
-核心改变是先明确 topology gate 的两个互补字段——机器侧 `git_root_topology`（脚本确定性输出；target-resolved 时非空值只有 `single-repo` / `multi-repo-workspace`，blocked/no-target 状态可为 `null`）+ 语义侧 `development_mode`（LLM/contract 三值：`single-repo-single-project` / `single-repo-multi-module` / `multi-repo-workspace`）——再在 `multi-repo-workspace` 模式下拆开 `refresh_eligibility`、`index_snapshot` 和 `query_usability`。dirty child repo 可以阻断该 repo 的新一轮 refresh，但若该 child 历史上至少有过一次 `query_ready=true` 快照或当前 live query proof 通过，已有 GitNexus index 仍可作为 stale/advisory evidence 使用，并要求源码验证；从未达到过 query-ready 的 child 只能归为 `registry-present-query-unverified`。单仓单项目和单仓多模块仍是 repo-local GitNexus 语义，不进入 workspace group path。
+核心改变是先明确 topology gate：artifact 层只持久化机器确定性字段 `git_root_topology`（脚本输出；target-resolved 时非空值只有 `single-repo` / `multi-repo-workspace`，blocked/no-target 状态可为 `null`）。文档与 SKILL prose 层继续沿用"三种开发模式"概念（`single-repo-single-project` / `single-repo-multi-module` / `multi-repo-workspace`，详见 `docs/05-用户手册/08-三种开发模式.md`），但**不进 artifact schema**——单仓单/多模块的语义区分由 LLM 在 plan/SKILL prose 中表达，不需要持久化字段。再在 `git_root_topology="multi-repo-workspace"` 路径下拆开 `refresh_eligibility`、`index_snapshot` 和 `query_usability`。dirty child repo 可以阻断该 repo 的新一轮 refresh，但若该 child 当前 `provider-status.v1.last_indexed_commit` 非空（即至少一轮达到过 `graph_ready=true && query_ready=true && clean` 后被 carry-forward 保留，见 `docs/contracts/graph-provider-consumption.md` 中 `last_indexed_commit` 字段语义），或当前 session live query proof 通过，已有 GitNexus index 仍可作为 stale/advisory evidence 使用，并要求源码验证；`last_indexed_commit=null` 且本轮 `query_ready=false` 的 child 只能归为 `registry-present-query-unverified`。单仓单项目和单仓多模块仍是 repo-local GitNexus 语义，不进入 workspace group path。
 
-脚本唯一的确定性 topology 边界是 Git root 数量（`git_root_topology` 非空值仅两类），`single-project` vs `multi-module` 的语义区分由 LLM 在 contract 层用 `development_mode` 表达。分阶段交付：Phase 1（U1+U2）建立 contract 与 resolver facts，可独立交付为 contract milestone（向后兼容、不破坏老 consumer）；用户可见的 workflow 行为变化（skill prose / durable summary / host instruction block / 用户文档）在 Phase 2-3 完成后体现。
+脚本唯一的确定性 topology 边界是 Git root 数量（`git_root_topology` 非空值仅两类）。`single-project` vs `multi-module` 的语义区分由 LLM 在 plan / SKILL prose 中表达，不进 artifact、不进 schema、不进 classifier 输入输出。分阶段交付：Phase 1（U1+U2）建立 contract 与 resolver facts，可独立交付为 contract milestone（向后兼容、不破坏老 consumer）；用户可见的 workflow 行为变化（skill prose / durable summary / host instruction block / 用户文档）在 Phase 2-3 完成后体现。
 
 ---
 
@@ -25,7 +25,7 @@ spec_id: 2026-05-21-001-gitnexus-workspace-group-readiness
 问题在于下游容易把“refresh 被 dirty gate 拦住”误读为“GitNexus 多仓查询不可用”。近期 KAZ 多仓 workspace 的现象正是如此：parent summary 变成 partial，7 个 child repo 是 `dirty-source-blocked`，但 GitNexus registry 实际上已经有这些 child repo 的既有 index。正确理解应该是：
 
 - refresh readiness：这些 dirty child repo 不能安全刷新。
-- query availability：若 child provider status 历史上至少有过一次 `query_ready=true` 快照（或当前 session live query proof 通过），其历史 index 仍可用于 read-only orientation，标为 `stale-advisory`；若 child 从未达到过 query-ready，最高只能归为 `registry-present-query-unverified` 或 `definitions-pointer`，不得作为 stale-advisory。
+- query availability：若 child `provider-status.v1.last_indexed_commit` 非空（即上一轮至少达到过 `graph_ready=true && query_ready=true && clean` 后被 carry-forward 保留），或当前 session live query proof 通过，其历史 index 仍可用于 read-only orientation，标为 `stale-advisory`；若 `last_indexed_commit=null` 且本轮 `query_ready=false`，最高只能归为 `registry-present-query-unverified` 或 `definitions-pointer`，不得作为 stale-advisory。
 - workspace/group readiness：GitNexus 是否有 group，可否用 `repo="@<groupName>"` 做多仓查询，是独立于本轮 refresh 是否全绿的事实。
 
 现有 `workspace-graph-targets.v1` 已解决 provider-neutral parent workspace target discovery；但 `2026-05-03-001` 计划把 GitNexus group mode 放在 optional future，导致现在的 consumer 仍偏向 per-repo refresh summary，而没有把 GitNexus registry/group 作为正确的多仓 query primitive 来建模。本计划补上这一层。
@@ -34,10 +34,10 @@ spec_id: 2026-05-21-001-gitnexus-workspace-group-readiness
 
 ## Requirements
 
-- R0. 所有 GitNexus workspace/group 行为必须先通过 topology gate；该 gate 由两个互补字段表达：
+- R0. 所有 GitNexus workspace/group 行为必须先通过 topology gate；artifact 层 gate 由单一字段 `git_root_topology` 表达，并由 prose 层"三种开发模式"概念辅助说明：
   - `git_root_topology`（脚本确定性输出）：成功解析到 target topology 时只能是 `single-repo` 或 `multi-repo-workspace`，仅由 Git root 数量决定；`workspace-no-git-candidates` / `workspace-single-candidate` 等 blocked target-resolution 状态必须显式输出 `null` 或省略 group-readiness artifact，并附 reason code，不能猜测拓扑；
-  - `development_mode`（LLM / contract 语义层，三值）：`single-repo-single-project`、`single-repo-multi-module`、`multi-repo-workspace`，前两者要求 `git_root_topology="single-repo"`，后者要求 `git_root_topology="multi-repo-workspace"`。
-  只有 `development_mode="multi-repo-workspace"` 允许 workspace group / registry fan-out；单仓和 monorepo 模式只能使用 repo-local GitNexus selector。
+  - 三种开发模式（prose / SKILL.md / 用户文档层概念，**不进 artifact**）：`single-repo-single-project`、`single-repo-multi-module`、`multi-repo-workspace`，前两者对应 `git_root_topology="single-repo"`，后者对应 `git_root_topology="multi-repo-workspace"`。LLM 在 plan、SKILL handoff、用户文档中可继续以这三种模式做语义陈述，但不要求 classifier 输入或输出该字段。
+  只有 `git_root_topology="multi-repo-workspace"` 允许 workspace group / registry fan-out；单仓（含 monorepo modules）只能使用 repo-local GitNexus selector。
 - R1. 明确区分 child repo refresh 资格、GitNexus index 快照状态、workspace/group 查询可用性，不能再用单个 `ready/action-required` 状态承载三种含义。
 - R2. graph-affecting dirty worktree 必须继续阻断该 child repo 的 provider refresh；不得新增 `--allow-dirty` 或隐藏刷新路径。
 - R3. dirty / stale child repo 的既有 GitNexus index 可作为 read-only stale/advisory evidence 使用；下游必须披露 limitations，并用源码读取或测试验证最终结论。
@@ -48,7 +48,7 @@ spec_id: 2026-05-21-001-gitnexus-workspace-group-readiness
 - R8. 下游 workflow 在 parent workspace 的 read-only 问题中应优先使用 GitNexus group 查询；group 缺失时使用 bounded registry/per-repo fan-out；写入、测试、autofix、commit 前仍必须有 `target_repo` 或 per-unit repo scope。
 - R9. 当前 completed 的 `workspace-graph-targets.v1` provider-neutral fallback 必须保留；GitNexus group 是可用时优先的 provider-specific acceleration，不是唯一多仓能力。
 - R10. 所有 source 变更必须同步 tests、docs、CHANGELOG，并通过 source-first 再 runtime regeneration 的边界交付；不手改 generated mirrors。
-- R11. 回归测试必须覆盖 blocked target-resolution、两类非空机器输出 + 三类语义模式：(1) `workspace-no-git-candidates` 与 `workspace-single-candidate` 不产生 workspace group readiness；(2) 脚本输出的非空 `git_root_topology` 仅有两值 `single-repo` / `multi-repo-workspace`；(3) `development_mode` 三种语义模式分别有对应行为——单仓单项目不生成 workspace readiness，单仓多模块不把 modules 当 group members，多仓工作区才启用 group / bounded registry fan-out。
+- R11. 回归测试必须覆盖 blocked target-resolution 与两类非空 `git_root_topology`：(1) `workspace-no-git-candidates` 与 `workspace-single-candidate` 不产生 workspace group readiness；(2) 脚本输出的非空 `git_root_topology` 仅有两值 `single-repo` / `multi-repo-workspace`；(3) 单仓 fixture（无论 prose 层视为 `single-repo-single-project` 还是 `single-repo-multi-module`）一律不生成 workspace readiness、不把 packages/modules 当 group members；多仓工作区才启用 group / bounded registry fan-out。三种开发模式作为 prose 概念的覆盖由 SKILL.md / 用户文档测试承担，不要求 artifact 字段断言。
 
 ---
 
@@ -68,7 +68,7 @@ spec_id: 2026-05-21-001-gitnexus-workspace-group-readiness
 - 不把 dirty repo 的 live working tree 内容当成 GitNexus index 已覆盖的事实。
 - 不在 plan/work/debug/review 中运行 GitNexus `analyze`、provider repair、group sync、hooks、watchers 或 daemon。
 - 不把 GitNexus group readiness 写成 child repo canonical graph readiness。
-- 不在 `development_mode="single-repo-single-project"` 或 `development_mode="single-repo-multi-module"`（即 `git_root_topology="single-repo"`）下创建或建议 GitNexus workspace group；monorepo modules 是 repo-local topology，不是 group members。
+- 不在 `git_root_topology="single-repo"` 路径下（无论 prose 层视为 `single-repo-single-project` 或 `single-repo-multi-module`）创建或建议 GitNexus workspace group；monorepo modules 是 repo-local topology，不是 group members。
 - 不让脚本替用户或 LLM 判断“哪个业务问题属于哪个 repo”。
 - 不删除现有 `workspace-graph-targets.v1`、all-repos maintenance 或 per-repo refresh 能力。
 - 不在本计划里把 GitNexus 从 optional global-knowledge enhancement 改回核心 review/impact gate；code-review-graph 的 impact/review 角色不变。
@@ -134,8 +134,8 @@ spec_id: 2026-05-21-001-gitnexus-workspace-group-readiness
 
 | Decision | Rationale | Consequence |
 | --- | --- | --- |
-| Gate GitNexus group usage by topology fields | Single repo and monorepo are one Git root; GitNexus group is only meaningful when a parent workspace contains multiple independent child Git repos | `workspace-gitnexus-readiness.v1` must carry `git_root_topology` (script-side, two values) and `development_mode` (LLM-side, three values); downstream group logic is disabled outside `development_mode="multi-repo-workspace"` |
-| Split topology into deterministic vs semantic field | Scripts can only count Git roots deterministically; the `single-project` vs `multi-module` distinction is an architectural / LLM judgment that must not be hard-coded into a resolver script | Resolver emits `git_root_topology`; LLM/contract layer chooses `development_mode`. R0 contract enforces invariant `development_mode ∈ allowed_set(git_root_topology)` |
+| Gate GitNexus group usage by topology field | Single repo and monorepo are one Git root; GitNexus group is only meaningful when a parent workspace contains multiple independent child Git repos | `workspace-gitnexus-readiness.v1` carries only `git_root_topology` (two values); downstream group logic is disabled outside `git_root_topology="multi-repo-workspace"`; the three "development modes" remain as prose-layer concept in SKILL.md / 用户文档 / plans, but are not artifact fields |
+| Keep semantic mode out of artifact schema | Scripts can only count Git roots deterministically; the `single-project` vs `multi-module` distinction is an architectural / LLM judgment whose persisted value adds no information beyond `git_root_topology` and would force a `development_mode_source` meta-field to track provenance | Resolver / classifier emit only `git_root_topology`; LLM may discuss the three development modes in plan/SKILL prose but does not pass them as classifier input or persist them as artifact output |
 | Treat GitNexus group as query model, not refresh gate | GitNexus registry can contain usable prior indexes even when current refresh is blocked by dirty worktree | `dirty-source-blocked` no longer implies `query_unusable`; it implies stale/advisory query evidence |
 | Preserve child canonical artifact ownership | Parent workspace canonical graph truth would conflate multiple Git repos and break freshness semantics | New workspace facts stay under `.spec-first/workspace/*` and are advisory |
 | Add query usability fields instead of replacing `status` | Existing consumers and tests already use `workspace-graph-targets.v1.status` | Backward compatible migration; new consumers prefer `query_usability` / `refresh_eligibility` |
@@ -154,7 +154,7 @@ spec_id: 2026-05-21-001-gitnexus-workspace-group-readiness
 - Should `group_missing` block multi-repo use? No. It blocks group-mode query, but registry/per-repo bounded fan-out remains available.
 - Should `spec-graph-bootstrap --all-repos` be replaced by GitNexus group sync? No. all-repos bootstrap refreshes child canonical readiness; GitNexus group sync prepares query aggregation. They are different operations.
 - Should scripts choose the semantic repo from group results? No. Scripts emit candidates, statuses, and limitations; LLM chooses relevance.
-- Should current dirty worktree with clean HEAD index remain `primary`? For old `status` compatibility it may remain `primary`, but new `query_usability` must mark dirty overlay limitations so consumers do not over-trust indexed facts.
+- Should current dirty worktree with clean HEAD index remain `primary`? For old `status` compatibility it may remain `primary`, but new `query_usability` must mark dirty overlay limitations so consumers do not over-trust indexed facts. **老 consumer 迁移名单（仍读 `workspace-graph-targets.v1.repos[].status` 的代码）：** `skills/spec-graph-bootstrap/SKILL.md`、`skills/spec-plan/SKILL.md`、`skills/spec-work/SKILL.md`、`skills/spec-debug/SKILL.md`、`skills/spec-code-review/SKILL.md`、`src/cli/instruction-bootstrap.js`、`tests/unit/spec-graph-bootstrap.sh` 与 `tests/unit/spec-graph-bootstrap-contracts.test.js`。**迁移 deadline：** Phase 3 (U5+U6+U7) 完成时所有 SKILL prose 必须优先读新字段；老 `status` 字段保留至下一个 minor 版本 milestone（独立 plan 处理 deprecation）。本计划不在 Phase 3 内删除老字段以避免破坏未迁移 consumer。
 - Should monorepo packages/modules become GitNexus group members? No. A monorepo has one Git root and one repo-local graph/provider boundary; modules may appear in plan units, but not as child repos or workspace group members.
 
 ### Deferred to Implementation
@@ -204,29 +204,30 @@ The classifier 主体放在 `src/cli/helpers/compile-workspace-gitnexus-readines
 
 ### Topology Mode Contract
 
-所有 consumer 在应用 GitNexus workspace/group 逻辑前，必须先识别研发拓扑。该 gate 由两个互补字段组成：
+所有 consumer 在应用 GitNexus workspace/group 逻辑前，必须先识别研发拓扑。Artifact 层 gate 由单一字段表达，prose 层"三种开发模式"概念辅助说明：
 
-- **`git_root_topology`（脚本确定性输出）：** 仅由 Git root 数量决定。当前目录解析到一个 Git root → `"single-repo"`；当前目录不是 Git repo 且包含多个独立 child Git roots → `"multi-repo-workspace"`；当前目录不是 Git repo 且为 0 个 child 或仅 1 个 child 时是 target-resolution blocked state，不进入 workspace group readiness，输出 `null` / no artifact + reason code。
-- **`development_mode`（LLM / contract 语义层，三值枚举）：** 由 LLM 基于文件布局、plan/module scope 或架构判断在 contract 层指定，取值为 `single-repo-single-project` / `single-repo-multi-module` / `multi-repo-workspace`。脚本不输出该字段。
+- **`git_root_topology`（脚本确定性输出，artifact 字段）：** 仅由 Git root 数量决定。当前目录解析到一个 Git root → `"single-repo"`；当前目录不是 Git repo 且包含多个独立 child Git roots → `"multi-repo-workspace"`；当前目录不是 Git repo 且为 0 个 child 或仅 1 个 child 时是 target-resolution blocked state，不进入 workspace group readiness，输出 `null` / no artifact + reason code。
+- **三种开发模式（prose / SKILL.md / 用户文档层概念，不进 artifact）：** `single-repo-single-project` / `single-repo-multi-module` / `multi-repo-workspace`，详见 `docs/05-用户手册/08-三种开发模式.md`。LLM 在 plan、SKILL handoff、用户文档中可继续以这三种模式做语义陈述，但 classifier 不接受 / 不输出该字段，artifact schema 不包含该字段。
 
-**字段不变量（仅适用于 `git_root_topology` 非空时）：**
+**Artifact gate 不变量：**
 
 ```
-git_root_topology="single-repo"            ⇔  development_mode ∈ {single-repo-single-project, single-repo-multi-module}
-git_root_topology="multi-repo-workspace"   ⇔  development_mode = "multi-repo-workspace"
+git_root_topology="single-repo"           → 单仓路径（无论 prose 视为 single-project 还是 multi-module），repo-local GitNexus
+git_root_topology="multi-repo-workspace"  → 多仓 workspace 路径，允许 group / bounded registry fan-out
+git_root_topology=null / absent           → blocked target-resolution，无 group readiness，附 reason code
 ```
 
-Blocked target-resolution states（例如 `workspace-no-git-candidates`、`workspace-single-candidate`）不能填充 `development_mode`，也不能建议 group / registry fan-out；它们只返回 reason code 与 next action（例如要求用户 `--repo <child>`）。
+Blocked target-resolution states（例如 `workspace-no-git-candidates`、`workspace-single-candidate`）不能建议 group / registry fan-out；它们只返回 reason code 与 next action（例如要求用户 `--repo <child>`）。
 
-下表的"模式"列指 `development_mode`。
+下表的"模式"列是 prose 概念，仅作 GitNexus 用法的语义说明；artifact 中只持久化 `git_root_topology`。
 
-| development_mode | git_root_topology | 判定边界 | Source of truth | GitNexus 用法 | Workspace group | 写入门槛 |
+| 模式（prose 概念） | git_root_topology | 判定边界 | Source of truth | GitNexus 用法 | Workspace group | 写入门槛 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `single-repo-single-project` | `single-repo` | 当前目录解析到一个 Git root，且无需 module 级路由 | repo root `.spec-first/*` | 当前 Git repo 的 repo-local selector | 不适用；不得配置或查询 workspace group | 当前 Git root |
 | `single-repo-multi-module` | `single-repo` | 当前目录解析到一个 Git root，packages/modules/apps 都在该 root 下 | repo root `.spec-first/*`；module 边界只是 planning context | 覆盖同一 repo 内所有 modules 的 repo-local selector | 禁止；modules 不是 child repos 或 group members | 当前 Git root，可在 implementation units 中标 module scope |
 | `multi-repo-workspace` | `multi-repo-workspace` | 当前目录不是 Git repo，且包含多个独立 child Git roots | child repo canonical artifacts；父级 `.spec-first/workspace/*` 仅 advisory | 有 group 时优先 group；否则 bounded registry/per-repo fan-out | 仅作为只读 query acceleration；sync 仍 explicit / preview-first | 写入、测试、autofix、commit 前必须有 `target_repo` 或 per-unit repo scope |
 
-这个 contract 刻意区分"一个 repo 内的 module routing"和"多个 Git roots 之间的 repo routing"。`git_root_topology` 是机器可验证事实；`development_mode` 是 LLM/contract 层的架构表达。`single-project` 与 `multi-module` 的区分仅在 `development_mode` 层存在，不是 resolver 脚本的输出枚举值。
+这个 contract 刻意区分"一个 repo 内的 module routing"和"多个 Git roots 之间的 repo routing"。`git_root_topology` 是机器可验证事实并写入 artifact；"三种开发模式"是 prose / SKILL / 用户文档层架构表达，不持久化。`single-project` 与 `multi-module` 的区分仅作为人类语义存在，不是 resolver 或 classifier 的输出枚举。
 
 ```mermaid
 flowchart TD
@@ -264,15 +265,17 @@ flowchart TD
 | Child repo condition | Refresh eligibility | GitNexus query usability | Required disclosure |
 | --- | --- | --- | --- |
 | Clean, compiled `source_revision` equals `HEAD`, `query_ready=true` | `eligible` / already current | `fresh-primary` | Normal graph evidence caveat |
-| Registry has the repo, but child provider status `query_ready=false` (definitions-only / probe-failed / never-verified) | refresh may be needed | `registry-present-query-unverified` | Treat as pointer evidence only; do not promote to `stale-advisory` until live query proof passes or a prior `query_ready=true` snapshot is recorded |
-| Current worktree has graph-affecting dirty paths, prior `query_ready=true` snapshot exists | `blocked-dirty-source` | `stale-advisory` | Index excludes dirty overlay; read dirty files directly |
-| Current worktree dirty, but child has never reached `query_ready=true` | `blocked-dirty-source` | `registry-present-query-unverified` | Cannot use as stale-advisory; need clean refresh + live proof |
-| Compiled `source_revision` behind `HEAD`, prior `query_ready=true` snapshot exists | `eligible-after-refresh` | `stale-advisory` | Index is behind current branch |
+| Registry has the repo, but child provider status `query_ready=false` and `last_indexed_commit=null` (definitions-only / probe-failed / never-verified) | refresh may be needed | `registry-present-query-unverified` | Treat as pointer evidence only; do not promote to `stale-advisory` until live query proof passes or `last_indexed_commit` becomes non-null |
+| Current worktree has graph-affecting dirty paths, `provider-status.v1.last_indexed_commit` non-null | `blocked-dirty-source` | `stale-advisory` | Index excludes dirty overlay; read dirty files directly |
+| Current worktree dirty, `last_indexed_commit=null` and current `query_ready=false` | `blocked-dirty-source` | `registry-present-query-unverified` | Cannot use as stale-advisory; need clean refresh + live proof |
+| Compiled `source_revision` behind `HEAD`, `last_indexed_commit` non-null | `eligible-after-refresh` | `stale-advisory` | Index is behind current branch |
 | Group exists and member repos are registered | independent of refresh | `group-ready` | Group query may still return stale members |
 | Group missing, repos registered | independent of refresh | `registry-fanout-advisory` | Query bounded repo list; recommend group setup |
 | Repo missing from GitNexus registry | refresh may be needed | `unavailable` | Run setup/bootstrap for that repo |
 
-**Promotion gate：** `stale-advisory` 要求 child provider status 满足 (a) 当前或历史 `query_ready=true` 至少出现过一次（保留在 provider status snapshot 或 `last_indexed_commit`），或 (b) 当前 session 内 live query proof 已通过。仅 registry entry 存在但无任何 `query_ready=true` 历史的情况，最高只能归为 `registry-present-query-unverified` 或 `definitions-pointer`，不得归为 `stale-advisory` 或 `fresh-primary`。
+**Promotion gate：** `stale-advisory` 要求 child provider status 满足 (a) `provider-status.v1.last_indexed_commit` 非空——按 `docs/contracts/graph-provider-consumption.md` 中 `last_indexed_commit` 字段语义，该字段仅当 prior provider status 同时是 `graph_ready=true && query_ready=true && clean` 时才被填，是"曾经 query-ready"的唯一可观测代理；或 (b) 当前 session 内 live query proof 已通过（仅作 session-local overlay，不持久化）。仅 registry entry 存在但 `last_indexed_commit=null` 且本轮 `query_ready=false` 的情况，最高只能归为 `registry-present-query-unverified` 或 `definitions-pointer`，不得归为 `stale-advisory` 或 `fresh-primary`。
+
+**Carry-forward 断裂规则：** 当上一轮 provider failure / 升级 / `requires_clean_full_refresh=true` 重置 / 手动 clean 等原因导致 `last_indexed_commit` 在本轮 status 中不再 carry-forward（即字段为 null）时，即便 child 曾经 query-ready，本计划亦按 `last_indexed_commit=null` 处理，降至 `registry-present-query-unverified`。这意味着 classifier 不维护独立的"历史断言"持久层，只读 provider status 当前快照——保持 R6（脚本只读 deterministic facts）与 source-of-truth 单一性。
 
 ### Directional Artifact Shape
 
@@ -281,11 +284,8 @@ flowchart TD
   "schema_version": "workspace-gitnexus-readiness.v1",
   "advisory": true,
   "git_root_topology": "multi-repo-workspace",
-  "development_mode": "multi-repo-workspace",
-  "development_mode_source": "inferred-from-topology | caller-supplied",
   "gitnexus_selector_strategy": "workspace-group | bounded-registry-fanout | repo-local | direct-read-fallback",
   "parent_writes_repo_local_artifacts": false,
-  "registry_overlay_status": "not-evaluated-no-mcp-input | evaluated-with-live-mcp",
   "group": {
     "name": "workspace-name",
     "status": "group-ready | group-missing | group-sync-required | unavailable | not-evaluated-no-mcp-input",
@@ -305,13 +305,14 @@ flowchart TD
 }
 ```
 
-The JSON shape above is a review sketch, not a schema to copy verbatim. Implementation may refine enum names, but must preserve (a) the two-field topology gate (`git_root_topology` deterministic + `development_mode` semantic), (b) the field invariant `git_root_topology="single-repo" ⇔ development_mode ∈ {single-repo-single-project, single-repo-multi-module}` when `git_root_topology` is non-null, (c) blocked/no-target states do not produce workspace group readiness, and (d) the three-way separation between refresh, index snapshot, and query usability. For `development_mode="single-repo-single-project"` and `development_mode="single-repo-multi-module"`, the classifier should either emit a compact `not-applicable` advisory result or let the repo-local graph facts remain the only readiness object; it must not synthesize workspace group members from modules.
+The JSON shape above is a review sketch, not a schema to copy verbatim. Implementation may refine enum names, but must preserve (a) the single-field artifact topology gate (`git_root_topology` deterministic, two non-null values + null/absent for blocked target-resolution), (b) blocked/no-target states do not produce workspace group readiness, and (c) the three-way separation between refresh, index snapshot, and query usability. For `git_root_topology="single-repo"` (whether prose layer treats it as single-project or multi-module), the classifier should either emit a compact `not-applicable` advisory result or let the repo-local graph facts remain the only readiness object; it must not synthesize workspace group members from packages/modules. The artifact does not persist a `development_mode` field; the three "development mode" labels are prose-layer concepts only.
 
 **Durable vs session-local overlay：**
 
-- Durable `.spec-first/workspace/gitnexus-readiness.json` is script-owned. It may contain `group.status="not-evaluated-no-mcp-input"` and `registry_overlay_status="not-evaluated-no-mcp-input"`; consumers must treat these as "live MCP not evaluated", not as `group_missing` or zero registry candidates.
-- Session-local live MCP evidence is LLM/workflow-owned. When U4 calls `list_repos` / `group_list`, it feeds sanitized JSON into the classifier in stdout-only skill-prose mode and reports a live overlay in the handoff. That overlay may say `group-ready`, `group-missing`, or registry fan-out is available, but it is not persisted into durable readiness artifacts.
-- Downstream workflows must combine the durable script facts and the session-local overlay explicitly. If the durable artifact has `not-evaluated-no-mcp-input`, downstream either performs a fresh live probe in the current session or discloses that group/registry overlay is unavailable.
+- Durable `.spec-first/workspace/gitnexus-readiness.json` is script-owned. It contains `group.status="not-evaluated-no-mcp-input"` when bootstrap shell ran in script mode (无 live MCP 输入); consumers treat this as "live MCP not evaluated", not as `group_missing` or zero registry candidates. Durable artifact 不写 `registry_overlay_status` 字段；durable artifact 是否评估过 live MCP 直接由 `group.status` 取值表达。
+- Session-local live MCP evidence is LLM/workflow-owned. When U4 calls `list_repos` / `group_list`, it feeds sanitized JSON into the classifier in stdout-only skill-prose mode. Stdout 中含 `runtime_mcp_overlay: { status: "evaluated | unavailable" }`（**仅 status 一个字段**，不持久化 `evaluated_at` / `persistence` / `source` 等元元数据）；该 overlay 不写回 durable artifact。
+- `workspace_gitnexus_readiness_pointer`：在 `workspace-graph-bootstrap-summary.v1` 中以 `{ path: string|null, reason: <enum> }` 两字段对的形式出现；`path` 是相对路径 string（如 `.spec-first/workspace/gitnexus-readiness.json`）或 null；`reason` 严格按 P0-3 失败矩阵四值之一。Consumer 读 `path` 决定是否能读到 durable artifact，读 `reason` 解释 null 原因。
+- Downstream workflows must combine the durable script facts and the session-local overlay explicitly. If the durable artifact has `group.status="not-evaluated-no-mcp-input"`, downstream either performs a fresh live probe in the current session or discloses that group/registry overlay was not evaluated.
 
 ---
 
@@ -336,12 +337,13 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 - Record a proof gate: current source may rely on live MCP `list_repos`, `group_list`, and group-mode selector evidence, but may not implement a group config writer until provider group config path/schema is verified from GitNexus source/docs or a controlled local fixture.
 - Add A2-Read fixture gate language: U3/U4/U5 may consume live `list_repos` / `group_list` only after sanitized static fixtures for those response shapes exist and tests prove the classifier rejects incompatible snapshots.
 - Define `workspace-gitnexus-readiness.v1` as advisory workspace evidence, not child canonical graph truth.
-- Define the topology contract in `docs/contracts/workspace-gitnexus-consumption.md` using two fields: `git_root_topology` (script-deterministic; non-null values only `single-repo` / `multi-repo-workspace`, blocked target-resolution states use null/absent + reason code) and `development_mode` (LLM-facing, three values: `single-repo-single-project` / `single-repo-multi-module` / `multi-repo-workspace`). State the invariant `git_root_topology="single-repo" ⇔ development_mode ∈ {single-repo-single-project, single-repo-multi-module}` when topology is non-null. Only `development_mode="multi-repo-workspace"` allows group / registry fan-out.
+- Define the topology contract in `docs/contracts/workspace-gitnexus-consumption.md` using a single artifact field `git_root_topology` (script-deterministic; non-null values only `single-repo` / `multi-repo-workspace`, blocked target-resolution states use null/absent + reason code). The three "development modes" (`single-repo-single-project` / `single-repo-multi-module` / `multi-repo-workspace`) remain a prose-layer concept (referenced by `docs/05-用户手册/08-三种开发模式.md` and SKILL.md handoffs) but are not artifact fields and not classifier inputs/outputs. Only `git_root_topology="multi-repo-workspace"` allows group / registry fan-out.
 - Document the three independent fields: `refresh_eligibility`, `index_snapshot`, and `query_usability`.
 - Document that `dirty-source-blocked` is a refresh result, not a query result.
 - Document that `group_ready`, `group_missing`, and `registry-fanout-advisory` are GitNexus query-surface facts.
 - Document that live MCP `list_repos` / `group_list` / group-mode query is session-local evidence unless a deterministic script consumes a supplied snapshot.
 - Add a short compatibility note to `graph-provider-consumption.md`: old consumers may still read `workspace-graph-targets.v1.status`, but new GitNexus-aware consumers must prefer the new fields when present.
+- **扩展 `graph-provider-consumption.md` 中 `last_indexed_commit` 字段语义（关键）：** 在 "Refresh Mode Truth Table" 与 "carry-forward 规则" 段补一条声明：`provider-status.v1.last_indexed_commit != null` 是 `workspace-gitnexus-readiness.v1` 中"prior query-ready proof"的唯一可观测代理；下游 GitNexus-aware consumer（含 U3 classifier）只能据此 promote 到 `stale-advisory`，不得自行维护额外的"历史断言"持久层。同步声明 carry-forward 断裂规则：当上一轮 provider failure / 升级 / `requires_clean_full_refresh=true` 重置 / 手动 clean 等原因导致 `last_indexed_commit` 在本轮 status 中变 null 时，按 `last_indexed_commit=null` 处理，降至 `registry-present-query-unverified`。该扩展属于 contract slice 调整，不引入新字段，不破坏既有 incremental preflight 用法。
 - **Canonical shape pinning（防止 consumer 漂移）：** 在 `workspace-gitnexus-consumption.md` 中明确：
   - **`group` 是嵌套对象，不是顶层 snake_case 字段。** 形状固定为 `group: { name: string|null, status: "group-ready"|"group-missing"|"group-sync-required"|"unavailable"|"not-evaluated-no-mcp-input", query_selector: string|null }`。
   - 任何下游 consumer（`workspace-graph-bootstrap-summary.v1`、spec-plan 引用、SKILL prose、tests）必须使用 `group.status` 路径，**禁止写顶层 `group_status`**（包括字段名混用 snake_case 与 kebab-case 的情况）。
@@ -388,8 +390,8 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 **Approach:**
 - Preserve existing `.repos[].status` for backward compatibility.
 - Preserve existing resolver topology semantics: when cwd resolves to a Git root, return repo-local facts and do not discover modules/packages as workspace repos.
-- Add a new `git_root_topology` field to the top-level resolver output: map current `mode=git-repo` → `git_root_topology="single-repo"`; non-Git parent workspace with multiple child repos → `git_root_topology="multi-repo-workspace"`. Non-null values have exactly two possibilities; blocked target-resolution states may use `null`/absent with reason code. Do not introduce a `single-project` vs `multi-module` distinction in the resolver script. Keep `schema_version="workspace-graph-targets.v1"`; new fields are additive and backward-compatible. The semantic `development_mode` (three values) is **not** emitted by the resolver; it is set by LLM/contract layer in U3 / U5 consumers.
-- For `workspace-no-git-candidates` and `workspace-single-candidate`, emit no workspace group readiness and either set `git_root_topology=null` or omit the field with a reason code. A single discovered child from a non-Git parent is not automatically `single-repo`; the user must select it with `--repo <child>` before repo-local facts apply.
+- Add a new `git_root_topology` field to the top-level resolver output: map current `mode=git-repo` → `git_root_topology="single-repo"`; non-Git parent workspace with multiple child repos → `git_root_topology="multi-repo-workspace"`. Non-null values have exactly two possibilities; blocked target-resolution states may use `null`/absent with reason code. Do not introduce a `single-project` vs `multi-module` distinction in the resolver script. Keep `schema_version="workspace-graph-targets.v1"`; new fields are additive and backward-compatible. The three "development modes" remain prose-only and are not emitted by the resolver, classifier, or any artifact.
+- For `workspace-no-git-candidates` and `workspace-single-candidate`, emit no workspace group readiness; **resolver 必须显式输出 `git_root_topology: null`（JSON null，字段始终存在）**，不允许字段缺席（absent）。Bash 与 PowerShell 端必须严格一致；contract test 断言：blocked target-resolution 状态下 JSON 中 `git_root_topology` key 存在且值为 `null`，consumer 解析时不需要区分"absent vs null"两种语义。A single discovered child from a non-Git parent is not automatically `single-repo`; the user must select it with `--repo <child>` before repo-local facts apply.
 - Add fields such as `refresh_eligibility`, `index_snapshot`, `query_usability`, and `working_tree_overlay` to each child row.
 - Classify current dirty worktree with prior clean index as usable only as stale/advisory for dirty-aware conclusions, even when the old `status` remains `primary`.
 - Classify `source_revision` mismatch as `query_usability=stale-advisory` when GitNexus prior index exists, not as `unavailable`.
@@ -406,10 +408,10 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 **Test scenarios:**
 - Happy path: clean child with current graph facts and `query_ready=true` reports `query_usability=fresh-primary`.
 - Happy path: single Git repo returns repo-local readiness, emits `git_root_topology="single-repo"`, and produces no workspace group recommendation.
-- Happy path: multi-repo parent fixture（非 Git 父目录，含 ≥2 child Git repos）emits `git_root_topology="multi-repo-workspace"`，`repos[]` 长度等于 child Git repo 数量，且 resolver 不输出 `development_mode`。
+- Happy path: multi-repo parent fixture（非 Git 父目录，含 ≥2 child Git repos）emits `git_root_topology="multi-repo-workspace"`，`repos[]` 长度等于 child Git repo 数量，且 resolver 输出不含任何 `development_mode` 字段。
 - Edge case: non-Git parent with exactly one child Git repo returns `workspace-single-candidate`, no group readiness, and `git_root_topology=null`/absent with `reason_code=workspace-target-required`; selecting the child with `--repo` then returns repo-local `single-repo`.
 - Edge case: non-Git parent with zero child Git repos returns `workspace-no-git-candidates`, no group readiness, and `git_root_topology=null`/absent.
-- Edge case: monorepo fixture with multiple packages/modules under one `.git` root emits `git_root_topology="single-repo"` and does not emit workspace group members; the script's deterministic criterion is number of Git roots, not directory structure. The resolver does not emit `development_mode`.
+- Edge case: monorepo fixture with multiple packages/modules under one `.git` root emits `git_root_topology="single-repo"` and does not emit workspace group members; the script's deterministic criterion is number of Git roots, not directory structure. Resolver output contains no `development_mode` field.
 - Edge case: current child worktree has graph-affecting dirty paths but prior clean graph facts exist; old `status` stays compatible while new fields report dirty overlay and stale/advisory query use.
 - Edge case: child HEAD differs from graph facts `source_revision`; row reports stale advisory query usability and a refresh recommendation.
 - Edge case: GitNexus provider status exists but `query_ready=false`; row reports definitions/pointer limitation rather than fresh primary.
@@ -432,11 +434,13 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 **Files:**
 - Create: `src/cli/helpers/compile-workspace-gitnexus-readiness.js` — classifier 主体，与 `review-pre-facts.js` 等 helper 同位置，便于测试 `require()` 与单元测试
 - Create: `skills/spec-graph-bootstrap/scripts/compile-workspace-gitnexus-readiness.sh` — thin wrapper，仅做参数转发到 helper；为 skill prose 提供 shell-callable 入口（保持 source/runtime 边界）
-- Create: `tests/fixtures/gitnexus-workspace/registry-list.kaz.example.json`
-- Create: `tests/fixtures/gitnexus-workspace/group-list.empty.example.json`
-- Create: `tests/fixtures/gitnexus-workspace/group-list.ready.example.json`
-- Create: `tests/fixtures/gitnexus-workspace/registry-list.invalid-shape.example.json`
+- Create: `tests/fixtures/gitnexus-workspace/registry-list.kaz.gitnexus-<observed-version>.captured-<YYYY-MM-DD>.example.json`（命名约束：嵌入观测到的 GitNexus 版本号与 capture date，便于版本升级时核对 fixture 是否仍代表当前 live response shape）
+- Create: `tests/fixtures/gitnexus-workspace/group-list.empty.gitnexus-<observed-version>.captured-<YYYY-MM-DD>.example.json`
+- Create: `tests/fixtures/gitnexus-workspace/group-list.ready.gitnexus-<observed-version>.captured-<YYYY-MM-DD>.example.json`
+- Create: `tests/fixtures/gitnexus-workspace/registry-list.invalid-shape.example.json`（不含版本/日期，因为是合成的 invalid shape，不来自 live capture）
 - Create: `tests/fixtures/gitnexus-workspace/group-list.invalid-shape.example.json`
+- Create: `tests/fixtures/gitnexus-workspace/registry-list.missing-required-field.example.json`（用于 shape guard fail-mode 三分中的 "degrade with reason" case）
+- Create: `tests/fixtures/gitnexus-workspace/registry-list.unknown-extra-field.example.json`（用于 forward-compatible "未知字段忽略" case）
 - Create: `tests/fixtures/gitnexus-workspace/workspace-graph-targets.dirty-overlay.example.json`
 - Create: `tests/fixtures/gitnexus-workspace/topology-single-repo.example.json`
 - Create: `tests/fixtures/gitnexus-workspace/topology-monorepo.example.json`
@@ -445,24 +449,36 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 
 **Approach:**
 - **Two invocation modes（必须显式区分，不要混用）：**
-  - **Script mode（bootstrap-providers.sh 调用）：** 输入仅 `workspace-graph-targets.v1` 与 child `provider-status.v1`（脚本可读的 deterministic 输入）；不接受 `list_repos` / `group_list`（脚本不能调 live MCP，R6 强制）。Group 部分输出嵌套形态 `group: { name: null, status: "not-evaluated-no-mcp-input", query_selector: null }` 并把对应 limitation 记入 artifact；per-repo `query_usability` 仍可计算（按 query_ready 历史与 last_indexed_commit）。**Script mode 可写文件**（`.spec-first/workspace/gitnexus-readiness.json`），由调用方加 `--write-artifact` flag 控制。
+  - **Script mode（bootstrap-providers.sh 调用）：** 输入仅 `workspace-graph-targets.v1` 与 child `provider-status.v1`（脚本可读的 deterministic 输入）；不接受 `list_repos` / `group_list`（脚本不能调 live MCP，R6 强制）。Group 部分输出嵌套形态 `group: { name: null, status: "not-evaluated-no-mcp-input", query_selector: null }` 并把对应 limitation 记入 artifact；per-repo `query_usability` 仍可计算（按 `provider-status.v1.query_ready` 与 `last_indexed_commit` 当前快照）。**Script mode 可写文件**（`.spec-first/workspace/gitnexus-readiness.json`），由调用方加 `--write-artifact` flag 控制。**R6 合规说明：** classifier helper 在 script mode 下只读 deterministic input（child `provider-status.v1` 与 `workspace-graph-targets.v1`），不调 MCP、不调 GitNexus CLI、不读 `.gitnexus` internals；因此 bootstrap shell 调 helper 仍属"脚本只编译确定性事实"路径，不违反 R6。
   - **Skill-prose mode（U4 SKILL.md handoff 调用）：** session 内通过 LLM 调 live MCP 后，把 `list_repos` / `group_list` 结果作为 JSON 参数传入 classifier；可产出完整 group/registry 分类。**Skill-prose mode 只写 stdout，不持久化文件**（避免把 session-local 数据写成 canonical readiness）。
-- Accept supplied JSON snapshots accordingly: `workspace-graph-targets.v1` 与 child provider status 在两种 mode 都必需；`list_repos` / `group_list` 在 script mode 缺失合法、在 skill-prose mode 必需。Skill-prose mode must validate supplied snapshots against A2-Read fixtures/shape guards before classification; invalid live payloads degrade to `runtime_mcp_overlay.status="unavailable"` and must not be persisted.
+- Accept supplied JSON snapshots accordingly: `workspace-graph-targets.v1` 与 child provider status 在两种 mode 都必需；`list_repos` / `group_list` 在 script mode 缺失合法、在 skill-prose mode 至少需要 `list_repos`（`group_list` 缺失/失败合法，处理见下）。
+- **Skill-prose mode 的 shape guard fail-mode 三分（必须显式区分，不要静默 degrade 到 unavailable）：**
+  - **未知字段（forward-compatible）：** payload 含 fixture 未列出的额外字段时忽略，不报错；保证 GitNexus provider 升级追加字段不破坏 classifier。
+  - **缺失必需字段或 type mismatch（degrade with reason）：** 例如 `list_repos` 缺 `repos[].name` 或字段 type 不匹配 → 该子部分降级（`runtime_mcp_overlay.list_repos.status="unavailable"`，reason `unknown-payload-shape`），但其他子部分（如 `group_list` 仍可用）继续分类。**这是 KAZ 类用户最常见形态：必须支持 `list_repos` 成功 + `group_list` 失败混合证据**——输出为 per-repo `query_usability` 仍可分类，`group.status="unavailable"`，而不是整个 overlay unavailable。
+  - **完全无法 parse（fail closed）：** payload 不是合法 JSON 或 root shape 完全错误 → exit 非 0，reason `invalid-registry-snapshot`，不写 artifact。
+- A2-Read fixture 文件名嵌入 capture date 与观测到的 GitNexus 版本号（例如 `registry-list.kaz.gitnexus-v0.4.x.captured-2026-05-21.example.json`），release notes 在 GitNexus 版本提升时显式核对 fixture 是否仍代表当前 live response shape。
 - Emit `workspace-gitnexus-readiness.v1` to stdout in both modes; only script mode + `--write-artifact` 写文件。
 - Read `git_root_topology` from the resolver output (added in U2; non-null values: `"single-repo"` or `"multi-repo-workspace"`). If `git_root_topology` is null/absent because target resolution is blocked, return a no-artifact summary with the resolver reason code. If `git_root_topology="single-repo"`, treat as repo-local and emit `not-applicable` or repo-local guidance; do not classify registry groups or write workspace advisory artifact, even when the repo contains multiple packages or modules. Only `git_root_topology="multi-repo-workspace"` allows group / registry fan-out classification.
-- Emit `development_mode` only on the multi-repo-workspace path:
-  - `git_root_topology="multi-repo-workspace"`：classifier 输出 readiness artifact，包含 `development_mode="multi-repo-workspace"`（caller 可提供同值或显式覆盖；该路径下三值中只有 `"multi-repo-workspace"` 是合法值）。
-  - `git_root_topology="single-repo"`：classifier 仅返回 compact `not-applicable` 摘要（不写 advisory artifact，不持久化 `development_mode`）。如果 caller 显式提供了 `development_mode`（`"single-repo-single-project"` 或 `"single-repo-multi-module"`），classifier 在摘要 stdout 中**回显**该值并设置 `development_mode_source="caller-supplied"`，但**不写入** `.spec-first/workspace/*` 文件。Classifier 自己永远不发明 `single-project` 与 `multi-module` 的区分。
+- Classifier 不接受、不输出 `development_mode` 字段：
+  - `git_root_topology="multi-repo-workspace"`：classifier 输出 readiness artifact，artifact 中仅有 `git_root_topology` 一个 topology 字段；不再写 `development_mode` 或 `development_mode_source`。
+  - `git_root_topology="single-repo"`：classifier 仅返回 compact `not-applicable` 摘要（不写 advisory artifact）。caller 即便在调用层有"三种开发模式"概念性陈述，也不通过 classifier 参数传入；该区分留在 plan / SKILL prose / 用户文档层。Classifier 永远不发明 `single-project` 与 `multi-module` 的区分，也不需要"caller-supplied vs inferred"的元字段。
 - Match child repos to registry by explicit GitNexus repo label first, then by repo basename as a fallback with low confidence.
 - Report group readiness independently from repo refresh eligibility.
-- **Apply the query usability promotion gate：** classifier 不得仅凭 "registry contains repo" 就给出 `stale-advisory`。必须读 child provider status (`provider-status.v1` 中的 `providers[].query_ready` 与历史 `last_indexed_commit`) 决定可升级到 `stale-advisory`；只有 registry entry、无 `query_ready=true` 历史的归类为 `registry-present-query-unverified` 或 `definitions-pointer`。Live MCP query proof（如 U4 在 session 内调用）可作为升级依据，但不持久化为 canonical readiness。
-- **Counts 与 mode 可计算性绑定（必须）：** `query_usability_counts` 字段固定 6 个 key：`fresh-primary`、`stale-advisory`、`registry-present-query-unverified`、`registry-fanout-advisory`、`definitions-pointer`、`unavailable`。但每个 key 在不同 mode 下值类型不同：
-  - **Script-mode 可计算的 4 类**（仅依赖 child provider-status）：`fresh-primary`、`stale-advisory`、`definitions-pointer`、`unavailable`，输出整数 ≥ 0。
-  - **Script-mode 不可计算的 2 类**（依赖 list_repos / group_list）：`registry-present-query-unverified`、`registry-fanout-advisory`，输出 `null` 表示"未评估"，并伴随顶层 `registry_overlay_status="not-evaluated-no-mcp-input"`。
-  - **Skill-prose mode**：6 类全部输出整数 ≥ 0，顶层 `registry_overlay_status="evaluated-with-live-mcp"`。
-  Consumer 必须按"`null` ≠ 0"原则解读：null 是 mode 限制下"未评估"，0 是评估后无 child 落入该类。Contract test 覆盖两种 mode 的字段类型。
+- **Apply the query usability promotion gate：** classifier 不得仅凭 "registry contains repo" 就给出 `stale-advisory`。必须读 child `provider-status.v1` 当前快照中的 `providers[].query_ready` 与 `providers[].last_indexed_commit`，并按 U1 在 `graph-provider-consumption.md` 扩展的字段语义解释：`last_indexed_commit != null` 是"曾经 query-ready"的唯一可观测代理（详见该 contract 的 carry-forward 规则）。升级条件为 (a) `last_indexed_commit` 非空，或 (b) 当前 session 内 live query proof 已通过（仅 skill-prose mode overlay，不持久化）。`last_indexed_commit=null` 且本轮 `query_ready=false` 时归类为 `registry-present-query-unverified` 或 `definitions-pointer`，**不得归为 `stale-advisory`**。Carry-forward 断裂时（provider failure / 升级 / `requires_clean_full_refresh=true` 重置 / 手动 clean 导致 `last_indexed_commit` 在本轮变 null）按同样规则降级，classifier 不维护独立"历史断言"持久层。
+- **Counts 与 mode 解耦（durable 与 stdout 分形态，免 null≠0 复杂度）：**
+  - **Durable artifact（script mode `--write-artifact`）的 `query_usability_counts` 只含 4 个 key**：`fresh-primary`、`stale-advisory`、`definitions-pointer`、`unavailable`，全部输出整数 ≥ 0。这是 script mode 仅依赖 child `provider-status.v1` 即可计算的子集；durable artifact 中**不出现** `registry-present-query-unverified` / `registry-fanout-advisory` 两个 key，避免 "null vs 0" 的 contract 复杂度。
+  - **Skill-prose mode 的 stdout overlay** 单独输出完整 6 个 key 的 `query_usability_counts`（含 `registry-present-query-unverified` / `registry-fanout-advisory`），全部整数 ≥ 0，作为 session-local overlay；不持久化进 durable artifact。
+  - 顶层 `registry_overlay_status` 字段 deprecated（被 P2-10 进一步精简——见 `runtime_mcp_overlay.status`）；本计划不要求 durable artifact 写该字段。
+  Consumer 不再需要"null ≠ 0"特殊处理；缺失的 2 个 key 直接通过 stdout overlay 获取，缺 overlay 时按 "未评估" 自然降级。Contract test 仅断言两种 mode 的 key 集合（4 vs 6），不再断言 null 类型。
+- **Helper 是 derived counts 的单一来源（关键约束）：** `query_usability_counts`（durable 4 类 / overlay 6 类）与 per-repo `query_usability` 的派生逻辑只能在 `compile-workspace-gitnexus-readiness.js` helper 内实现；任何 shell（`bootstrap-providers.sh` / `.ps1`）调用方均**不得**用 jq / PowerShell hashtable 重写派生分类。Helper `--write-artifact` 模式把派生 counts（4 类）与 group 占位对象 emit 到 stdout（JSON 格式），调用方只做浅合并（jq `*` 或 PS hashtable merge）到自己的 summary。这条约束 + durable 只 4 类的设计，共同消除 shell 处理 "null vs 0 严格区分" + Bash/PS byte-for-byte parity 的高维护负担。Contract test 强制：bootstrap shell 修改后字段同 helper stdout 完全一致；任何重复实现派生逻辑（如 shell 自行计算 `stale-advisory` count）使测试失败。
+- **Classifier invocation 失败矩阵（统一 reason 枚举）：** classifier helper 失败/未运行时的 reason code 由本计划锁定为以下四值，跨 U3/U4/Risk 表/contract test 全部使用同一枚举：
+  - `script-mode-no-mcp`：classifier 成功运行（script mode），artifact 已写入；pointer 非 null。
+  - `classifier-not-invoked`：bootstrap 路径未调用 classifier（例如 single-repo / 非多仓父级）；pointer 为 null；不视为失败。
+  - `classifier-failed`：classifier 被调用但退出非 0（含 Node 不可用、wrapper not on PATH、子进程异常退出、SIGINT、stdin/jq pipeline 失败、provider-status 缺必需字段被拒）；pointer 为 null；bootstrap 必须在 summary 中保留同时输出 stderr tail 的 raw log 路径以便诊断。
+  - `script-mode-degraded`：classifier 成功 invoked 但拒绝写入（如 `workspace-graph-targets.v1` 输入被识别为 blocked target-resolution、git_root_topology=null）；pointer 为 null；与 `classifier-not-invoked` 区分在于已运行过 input validation。
+  Bash/PS bootstrap 均按同一矩阵处理；contract test 覆盖每条 reason 的触发条件与 pointer/null 配对。**禁止再出现 `classifier-not-run` 旧称**。
 - Include a `recommended_query_path`: `group-query`, `bounded-registry-fanout`, or `direct-read-fallback`.
-- Include a top-level `runtime_mcp_overlay` object only in stdout skill-prose mode, with `status`, `source="session-local"`, `evaluated_at`, and `persistence="stdout-only"`; durable script-mode artifact must either omit this object or set `status="not-evaluated-no-mcp-input"`.
+- Include a top-level `runtime_mcp_overlay` object only in stdout skill-prose mode, with **only `status`** (`"evaluated"` | `"unavailable"`)；不持久化 `source` / `evaluated_at` / `persistence` 等元元数据（这些是无信息量的 no-op 字段）。Durable script-mode artifact 完全省略 `runtime_mcp_overlay` 对象——durable artifact 是否评估过 live MCP 通过 `group.status="not-evaluated-no-mcp-input"` 表达即可。
 - Keep raw live MCP payloads out of durable docs; fixtures can be sanitized examples.
 
 **Execution note:** Keep this helper pure and deterministic; it should not shell out to GitNexus or read `.gitnexus` internals.
@@ -473,15 +489,20 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 
 **Test scenarios:**
 - Happy path: registry contains all workspace repos and group exists; output recommends `group-query`.
-- Happy path: only `git_root_topology="multi-repo-workspace"` input can recommend `group-query`; `git_root_topology="single-repo"` never produces a workspace group recommendation regardless of `development_mode` override.
+- Happy path: only `git_root_topology="multi-repo-workspace"` input can recommend `group-query`; `git_root_topology="single-repo"` never produces a workspace group recommendation regardless of any prose-layer "development mode" labels.
 - Happy path: A2-Read fixtures validate representative `list_repos` / `group_list` payloads before skill-prose mode uses live MCP snapshots.
-- Edge case: invalid registry/group live snapshot shape degrades to `runtime_mcp_overlay.status="unavailable"` and writes no workspace artifact.
+- Edge case: completely unparseable live snapshot (root shape mismatch / non-JSON) fails closed with reason `invalid-registry-snapshot` and writes no workspace artifact.
+- Edge case: `list_repos` 成功 + `group_list` 失败混合（KAZ 类用户最常见形态）→ per-repo `query_usability` 仍按 registry 命中分类，`group.status="unavailable"`，**不是**整个 overlay 降级 `unavailable`；reason `unknown-payload-shape` 仅记在 group 子部分。
+- Edge case: `list_repos` payload 含未来 GitNexus 版本追加的未知字段 → 忽略未知字段，分类正常进行（forward-compatible）。
+- Edge case: `list_repos` payload 缺 `repos[].name` 必需字段 → list_repos 子部分降级（`runtime_mcp_overlay.list_repos.status="unavailable"`、reason `unknown-payload-shape`），其余子部分（含 group_list 若 OK）保留分类。
 - Edge case: single-repo input returns repo-local guidance and no workspace advisory artifact write.
-- Edge case: monorepo input (`git_root_topology="single-repo"` with caller-supplied `development_mode="single-repo-multi-module"`) is classified entirely as repo-local; does not match package/module names against GitNexus registry entries and does not emit workspace advisory artifact.
+- Edge case: monorepo input (`git_root_topology="single-repo"`, prose layer视为 single-repo-multi-module) is classified entirely as repo-local; classifier does not accept or emit `development_mode`; does not match package/module names against GitNexus registry entries and does not emit workspace advisory artifact.
+- Edge case: classifier 拒绝任何 `development_mode` 输入参数（即便 caller 误传，也以 `unsupported-input` reason 拒绝并不写 artifact），保证字段彻底从 schema 中移除。
 - Edge case: registry contains repos but groups list is empty; output recommends bounded registry fan-out, not setup failure.
-- Edge case: seven repos are dirty-refresh-blocked but registry has prior `query_ready=true` snapshots; output counts them as `stale-advisory` query candidates.
-- Edge case: registry contains a repo but its child provider status has `query_ready=false` and no `last_indexed_commit`; classifier returns `registry-present-query-unverified`, **not** `stale-advisory`.
-- Edge case: dirty-refresh-blocked repo whose child has never reached `query_ready=true`; classifier returns `registry-present-query-unverified` and explicitly forbids promotion to `stale-advisory`.
+- Edge case: seven repos are dirty-refresh-blocked but `provider-status.v1.last_indexed_commit` 非空（carry-forward 自上一轮 ready 快照）; output counts them as `stale-advisory` query candidates.
+- Edge case: registry contains a repo but its child provider status has `query_ready=false` 且 `last_indexed_commit=null`; classifier returns `registry-present-query-unverified`, **not** `stale-advisory`.
+- Edge case: dirty-refresh-blocked repo whose `last_indexed_commit=null` 且本轮 `query_ready=false`; classifier returns `registry-present-query-unverified` and explicitly forbids promotion to `stale-advisory`.
+- Edge case: carry-forward 断裂（child 上一轮曾 ready 但本轮 `requires_clean_full_refresh=true` 重置或 provider 升级，导致 `last_indexed_commit` 在本轮 status 中变 null）；classifier 按 `last_indexed_commit=null` 处理，降至 `registry-present-query-unverified`，不读历史 status snapshot 试图恢复"曾经 ready"。
 - Edge case: one repo is present in workspace targets but missing from registry; output marks only that repo unavailable.
 - Error path: supplied registry JSON is invalid; helper exits with an explicit `invalid-registry-snapshot` reason and writes no workspace artifact.
 - Integration: sanitized KAZ-like fixture proves `1 ready / 7 refresh-blocked` can still produce multi-repo advisory query candidates.
@@ -503,18 +524,26 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 
 **Dependencies:** U1, U2, U3
 
+**Internal sub-units（可并行实施，失败模式正交）：**
+
+- **U4a — Host instruction block topology 修复**：仅依赖 U1（topology contract）。修复 parent workspace 下的 GitNexus block 仍指向 child-only canonical 路径的盲点；扩展 renderer 签名 + CLI flag + bootstrap shell 调用方传 flag。失败模式：renderer 签名变更 regression、CLI flag 误传、init dry-run 输出走错分支。**不依赖 U3 classifier**，可与 U4b 并行起步。
+- **U4b — SKILL.md handoff + summary 三层扩展 + eval case**：依赖 U1+U2+U3（需要 classifier 与 resolver 新字段）。修改 `skills/spec-graph-bootstrap/SKILL.md` 的 handoff prose、扩展 `bootstrap-providers.sh/.ps1` 的 `workspace-graph-bootstrap-summary.v1`、新增 KAZ-like eval case。失败模式：JSON artifact 字段语义误用、bootstrap shell + classifier 链路失败、PS parity 漂移。
+
+二者下方的 Files / Approach / Test scenarios 段以 [U4a] / [U4b] 前缀标注归属；Phase Delivery 中仍以 "U4 完成"作为整体里程碑。
+
 **Files:**
+
+[U4a — Host instruction block topology 修复]
+- Modify: `src/cli/gitnexus-instruction-block.js` — 扩展 renderer 签名（见下）、CLI parser/help/JSON summary（新增 `--git-root-topology`）、新增 multi-repo workspace 渲染分支（详见 Approach「Host instruction block parity」）
+- Modify: `src/cli/commands/init.js` — child path 在调用 `normalizeGitNexusInstructionBlock` 时直接传 `gitRootTopology="single-repo"`（child init 的 `projectRoot` 已是 git root，无需新增 probe helper）。Multi-repo parent runtime 路径不渲染 GitNexus block 到 parent 目录，因此 init.js 不识别 multi-repo case
+- Modify: `tests/unit/gitnexus-instruction-block.test.js` — 加 case 覆盖 multi-repo workspace 渲染分支 + CLI parser case（验证 `--git-root-topology multi-repo-workspace` 透传 + JSON summary 记录该值，非法值 fail closed）
+- Modify `tests/unit/init-dry-run.test.js`（dry-run 模式断言生成的 GitNexus block 文本，复用现有 fixture 工厂；不实跑 init `--write`）— 验证 init child path 默认传入 `gitRootTopology="single-repo"`，dry-run 输出走 single-repo 分支文案；multi-repo 分支由 bootstrap shell 路径单独覆盖（见 `tests/unit/spec-graph-bootstrap.sh`），不要求 init.js 端到端再覆盖一次
+
+[U4b — SKILL.md handoff + summary 扩展 + eval case]
 - Modify: `skills/spec-graph-bootstrap/SKILL.md` — 加 GitNexus workspace query evidence handoff 与 multi-repo / single-repo 分支文案（详见 Approach）
 - Modify: `skills/spec-graph-bootstrap/evals/expected-behavior-cases.json` — 加 KAZ-like 场景 eval case
-- Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh` — 扩展 `workspace-graph-bootstrap-summary.v1`：新增 `query_usability_counts`（6 个 key 固定，但 script mode 下 `registry-present-query-unverified` / `registry-fanout-advisory` 为 `null`，其余 4 类为整数；详见 Approach「Durable summary 三层拆分」）、`registry_overlay_status` 与 `workspace_gitnexus_readiness_pointer`
-- Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1` — 与 `.sh` 完全等价的 PS 实现：相同字段名、相同 null 语义、相同 6 类枚举与 reason 值。**这是 dual-host parity 的硬要求**（System-Wide Impact API surface parity 条目）
+- Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh` 与 `.ps1` — (a) 扩展 `workspace-graph-bootstrap-summary.v1` 新增 `query_usability_counts`（durable 4 类整数）/ `workspace_gitnexus_readiness_pointer`（含 reason） / `group` 嵌套占位（详见 Approach「Durable summary 扩展」与 P0-3 helper 浅合并约束）；(b) all-repos normalize parent host instruction block 时同样传入 `git_root_topology="multi-repo-workspace"` flag。**dual-host parity 是硬要求**（System-Wide Impact API surface parity 条目）
 - Create (if absent) or Modify: `tests/unit/bootstrap-providers-powershell-contracts.test.js` — PS bootstrap summary 字段覆盖测试：验证 PS 输出与 Bash JSON shape 完全一致（key 列表、null 语义、reason 值集合）
-- Modify: `src/cli/gitnexus-instruction-block.js` — 扩展 renderer 签名（见下）、CLI parser/help/JSON summary（新增 `--git-root-topology`）、新增 multi-repo workspace 渲染分支（详见 Approach「Host instruction block parity」）
-- Modify: `src/cli/commands/init.js` — 在调用 `normalizeGitNexusInstructionBlock` 前 resolve 当前 cwd 的 topology（通过新建 helper 复用 resolver 的 git-root detection 逻辑或直接调 `resolve-workspace-graph-targets`）；将解析得到的 `git_root_topology` 与 workspace facts pointer 传给 renderer。**修改前 init 不知 topology，修改后才能选 multi-repo / single-repo 分支**
-- Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh` 与 `.ps1` — all-repos normalize parent host instruction block 时同样传入 `git_root_topology="multi-repo-workspace"`（已知是多仓父级）
-- Modify: `tests/unit/gitnexus-instruction-block.test.js` — 加 case 覆盖 multi-repo workspace 渲染分支
-- Modify: `tests/unit/gitnexus-instruction-block.test.js` — 加 CLI parser case，验证 `--git-root-topology multi-repo-workspace` 透传到 renderer、JSON summary 记录该值，非法值 fail closed
-- Modify (if exists) `tests/unit/init-dry-run.test.js` 或新增 `tests/unit/init-gitnexus-block-topology.test.js` — 端到端验证 init 在 single-repo 与 multi-repo parent 两种 cwd 下生成的 GitNexus block 文案分别正确（不只是 renderer unit 通过）
 - Modify: `tests/unit/spec-graph-bootstrap.sh` — 更新 parent GitNexus block 断言改为 workspace-aware 措辞；新增 summary 字段断言
 - Modify: `tests/unit/spec-graph-bootstrap-contracts.test.js` — 同步 contract 断言
 
@@ -529,12 +558,12 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 - Do not write live MCP results into `.spec-first/graph/*` or child provider status.
 - Do not run `group_sync` automatically. If group config exists but contract registry is stale, report a preview-first next action owned by setup/bootstrap.
 - Update final response contract to show two separate tables: child refresh status and GitNexus workspace query usability.
-- **Durable summary 三层拆分（`bootstrap-providers.sh` 的 `workspace-graph-bootstrap-summary.v1`）：** 当前 summary 仅有 `counts.{ready,degraded,not_applicable,action_required,...}` 与单值 `overall_status`，无法表达 R1 要求的三层。本 unit 把 summary 扩展为：
+- **Durable summary 扩展（`bootstrap-providers.sh` 的 `workspace-graph-bootstrap-summary.v1`）：** 当前 summary 仅有 `counts.{ready,degraded,not_applicable,action_required,...}` 与单值 `overall_status`，无法表达 R1 要求的三层（refresh / index snapshot / query usability）。本 unit 把 summary 扩展为：
   - (a) 保留 `counts` 与 `overall_status` 以兼容老 consumer；
-  - (b) 新增 `query_usability_counts`，6 个 key 固定与 U3 classifier 一致；script mode 下 `registry-present-query-unverified` 与 `registry-fanout-advisory` 为 `null`，其余 4 类（`fresh-primary` / `stale-advisory` / `definitions-pointer` / `unavailable`）为 ≥0 整数。**`null` 表示"script mode 无 MCP 输入未评估"，与 0（评估后无 child）严格区分**；
-  - (c) 新增 `registry_overlay_status`：script mode 下值为 `"not-evaluated-no-mcp-input"`；skill-prose mode 下值为 `"evaluated-with-live-mcp"`（注：skill-prose mode 不持久化 summary，此值仅为 schema 完整性保留）；
-  - (d) 新增 `workspace_gitnexus_readiness_pointer`：**bootstrap-providers.sh 以 script mode 调 classifier 并加 `--write-artifact` flag**，若成功写入则指向 `.spec-first/workspace/gitnexus-readiness.json` 并附 reason `script-mode-no-mcp`；若 classifier 未运行/失败则 null 并附对应 reason（`classifier-not-run` / `classifier-failed`）。
-  **bootstrap-providers.sh 不调 live MCP**（R6 强制）；group/registry 部分由后续 skill prose 在 skill-prose mode 补，不持久化进 artifact。`schema_version` 保持 `workspace-graph-bootstrap-summary.v1`（additive 兼容）。Headless / CI consumer 必须优先读新字段才能不被旧的 ready/action-required 二元误导，且必须容忍 `query_usability_counts` 中的 null 值。
+  - (b) 新增 `query_usability_counts`，**只含 4 个 key**（与 P2-9 简化一致）：`fresh-primary`、`stale-advisory`、`definitions-pointer`、`unavailable`，全部 ≥0 整数；durable artifact 中**不出现** `registry-present-query-unverified` / `registry-fanout-advisory` 两个 key（这两类只在 skill-prose mode stdout overlay 中出现）。Helper stdout 浅合并到 summary，shell 不重写派生逻辑（详见 P0-3 helper 单一来源约束）。
+  - (c) 新增 `workspace_gitnexus_readiness_pointer`：**bootstrap-providers.sh 以 script mode 调 classifier 并加 `--write-artifact` flag**，若成功写入则指向 `.spec-first/workspace/gitnexus-readiness.json` 并附 reason `script-mode-no-mcp`；若 classifier 未运行/失败则 null 并附对应 reason（统一枚举见 P0-3 classifier invocation 失败矩阵：`script-mode-no-mcp` / `classifier-not-invoked` / `classifier-failed` / `script-mode-degraded`）。
+  - (d) 新增 `group` 嵌套对象，与 U1 line 347 canonical shape pinning 强制规则保持一致，避免 summary consumer 与 advisory artifact consumer 走出两套字段路径。**Script mode 下 bootstrap shell 不调 live MCP（R6 强制），因此 group 部分恒为占位形态：** `group: { name: null, status: "not-evaluated-no-mcp-input", query_selector: null }`。Skill-prose mode 下若由 SKILL.md handoff 在 stdout overlay 补 live group status，**不写回 summary artifact**；下游 consumer 必须把 durable group 占位与 session-local overlay 视作两层独立证据。Contract test 强制 summary 中 group 是嵌套对象（不允许顶层 `group_status`）、status 字段位于 `group.status`。
+  **bootstrap-providers.sh 不调 live MCP**（R6 强制）；group/registry 部分由后续 skill prose 在 skill-prose mode 补，不持久化进 artifact。`schema_version` 保持 `workspace-graph-bootstrap-summary.v1`（additive 兼容）。Headless / CI consumer 必须优先读新字段才能不被旧的 ready/action-required 二元误导。**`registry_overlay_status` 字段不再持久化进 summary**（P2-10 进一步精简）。
 - For single-repo and monorepo bootstrap results, keep the existing repo-local GitNexus handoff and do not mention workspace group setup.
 - **Host instruction block parity (`src/cli/gitnexus-instruction-block.js` + `src/cli/commands/init.js`)：** parent workspace 下渲染的 GitNexus block 当前指引读 `.spec-first/graph/graph-facts.json`、`.spec-first/graph/provider-status.json` 等 repo-local canonical 路径，但 R5 已禁止 parent 拥有这些路径。**当前 renderer 签名不接收 topology 输入**（`renderGitNexusInstructionBlock({repoName, lang})`），init.js 调用时也只传 `defaultRepoName + lang`，无法在代码层选分支——这是上一轮遗漏的实施盲点。本 unit 修复路径：
   1. **扩展 renderer 签名：** `renderGitNexusInstructionBlock({ repoName, lang, gitRootTopology })`，`gitRootTopology` 取值 `"single-repo"` / `"multi-repo-workspace"`；缺省值视为 `"single-repo"` 以保证旧 caller 行为不变（向后兼容）。`normalizeGitNexusInstructionBlock` 同样接收并透传。
@@ -542,9 +571,9 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
   3. **single-repo 分支：** 保留现有 repo-local 文案与路径，行为完全不变。
   4. **CLI surface：** `spec-first gitnexus-instruction normalize` 新增 `--git-root-topology single-repo|multi-repo-workspace`；`parseArgs`、`printHelp`、JSON summary、`normalizeGitNexusInstructionFiles` 都必须传递/记录该值。非法值返回结构化错误并不写文件。
   5. **中英两份模板同步。**
-  6. **调用方修复：**
-     - `src/cli/commands/init.js`：在 `normalizeGitNexusInstructionBlock` 调用前，对 `projectRoot` 执行 git-root probe（复用 resolver 的 `--target-only` 模式或新建轻量 helper），得到 `git_root_topology`，传给 renderer。
-     - `bootstrap-providers.sh` / `.ps1`：normalize parent block 路径已知是多仓父级，调用 CLI 时传 `--git-root-topology multi-repo-workspace`。
+  6. **调用方修复（无需新增 git-root probe helper）：**
+     - `src/cli/commands/init.js`：child path（`runInitForProject` → `buildInitMetadataPlan` → `normalizeGitNexusInstructionBlock`）已经保证 `projectRoot` 是单个 git root，直接传 `gitRootTopology="single-repo"`；无需 probe，避免 init 在尚未 `git init` 的目录跑 dry-run 时引入 probe 失败回退路径。**Multi-repo parent runtime 路径不渲染 `AGENTS.md` / `CLAUDE.md` 的 GitNexus block 到 parent 目录**（parent 只放 runtime mirror），因此 init.js 不需要识别 multi-repo case。
+     - `bootstrap-providers.sh` / `.ps1`：multi-repo parent normalize 责任**仅**由 bootstrap shell 承担——已知是多仓父级，调用 CLI 时传 `--git-root-topology multi-repo-workspace`。
   7. **测试覆盖：** renderer unit 测试覆盖两个分支；CLI parser/help/summary 测试覆盖 topology flag；init 端到端测试覆盖 init 在两种 cwd 下生成正确文案（单测打桩不能替代）。
 
 **Execution note:** This is prose/workflow contract work, not provider execution logic. Validate with contract tests and eval cases; do not add hidden MCP calls to scripts.
@@ -563,14 +592,13 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 - Integration: eval case covers KAZ-like `1 ready / 7 dirty-source-blocked` and expects a query-usability explanation.
 - Edge case: rendered GitNexus host instruction block in multi-repo parent workspace **does not** include any string pointing to `.spec-first/graph/graph-facts.json` or `.spec-first/graph/provider-status.json`; instead points to `.spec-first/workspace/*` and child boundaries.
 - Happy path: rendered GitNexus host instruction block in `git_root_topology="single-repo"` retains existing repo-local pointers (no regression for single-repo / monorepo hosts).
-- E2E: `spec-first init` 在 multi-repo parent cwd 下生成的 AGENTS.md / CLAUDE.md GitNexus block 走 multi-repo 分支（**不只是 renderer unit 测试通过，必须 init 端到端走通**）。
-- E2E: `spec-first init` 在 single-repo cwd 下生成的 block 走 single-repo 分支，行为与历史一致。
+- E2E (dry-run): `spec-first init` 在 single-repo cwd 下 dry-run 输出走 single-repo 分支文案，行为与历史一致；不要求 init 在 multi-repo parent cwd 走端到端，多仓 parent 路径由 `tests/unit/spec-graph-bootstrap.sh` 通过 bootstrap shell 调 normalize 的集成测试覆盖。
 - Regression: 旧 caller 不传 `gitRootTopology` 时 renderer 默认 `single-repo`，行为不变（向后兼容性）。
 - Regression: `spec-first gitnexus-instruction normalize --git-root-topology multi-repo-workspace --json` 输出记录 `git_root_topology="multi-repo-workspace"`，且 parent bootstrap shell/PowerShell 路径实际传该 flag；非法 topology 值 fail closed。
 - Integration: `tests/unit/spec-graph-bootstrap.sh` "all-repos graph bootstrap creates parent ... GitNexus block" assertions are updated to require workspace-aware language and explicitly reject the old `.spec-first/graph/graph-facts.json` mention.
-- Integration: `workspace-graph-bootstrap-summary.v1` 输出包含 6 个 key 的 `query_usability_counts`（script mode 下 `registry-present-query-unverified` 与 `registry-fanout-advisory` 必为 `null`，其余 4 类必为整数）、`registry_overlay_status="not-evaluated-no-mcp-input"`、与 `workspace_gitnexus_readiness_pointer`（非 null 时配 reason，null 时也带 reason）；旧的 `counts.{ready,...}` 仍存在以保证向后兼容。
-- Edge case: KAZ-like fixture（1 ready / 7 dirty-source-blocked）的 summary 中 `query_usability_counts.stale-advisory` ≥ 7（前提：7 个 dirty child 历史上至少有过一次 `query_ready=true`），`registry-present-query-unverified` 与 `registry-fanout-advisory` 为 `null`（script mode 未评估），`overall_status` 仍可能为 `partial`，但新字段使下游能区分"refresh partial"与"query unusable"。
-- Contract: consumer 容忍性测试 — 当 `query_usability_counts.registry-fanout-advisory === null` 时不得当作 0 解读；测试用例验证 SKILL prose / spec-plan 引用文案明确处理 null。
+- Integration: `workspace-graph-bootstrap-summary.v1` durable 输出包含 4 个 key 的 `query_usability_counts`（`fresh-primary` / `stale-advisory` / `definitions-pointer` / `unavailable`，全部整数 ≥0）、`workspace_gitnexus_readiness_pointer`（非 null 时配 reason，null 时也带 reason，统一枚举详见 P0-3 失败矩阵）、`group` 嵌套对象（占位形态 `{ name:null, status:"not-evaluated-no-mcp-input", query_selector:null }`）；旧的 `counts.{ready,...}` 仍存在以保证向后兼容。Skill-prose stdout overlay 单独输出完整 6 个 key 的 `query_usability_counts`（追加 `registry-present-query-unverified` / `registry-fanout-advisory`），不持久化。
+- Contract: durable artifact 中**不允许出现** `registry-present-query-unverified` / `registry-fanout-advisory` 两个 key（contract test 显式断言这两个 key 缺席），消除 "null vs 0" 复杂度。
+- Edge case: KAZ-like fixture（1 ready / 7 dirty-source-blocked）的 durable summary 中 `query_usability_counts.stale-advisory` ≥ 7（前提：7 个 dirty child 的 `provider-status.v1.last_indexed_commit` 均非空，即 carry-forward 自上一轮 ready 快照），4 个 durable key 均为整数；`overall_status` 仍可能为 `partial`，但新字段使下游能区分"refresh partial"与"query unusable"。Skill-prose stdout 在同一 fixture 上调 live MCP 后追加 `registry-present-query-unverified=0` / `registry-fanout-advisory=8` 等整数（视 group_list 状态）。
 - Contract: final handoff must label durable `.spec-first/workspace/gitnexus-readiness.json` as script-owned and any live `group_list`/`list_repos` classifier stdout as session-local `runtime_mcp_overlay`; it must not imply the durable file contains live group readiness.
 
 **Verification:**
@@ -595,9 +623,9 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 - Modify: `skills/spec-work-beta/SKILL.md` — 与 spec-work 同步等范围改动（orientation 段 1-2 句）
 - Modify: `skills/spec-debug/SKILL.md` — 在 investigation 段说明可用 bounded registry evidence；fix scope 仍需 explicit child repo
 - Modify: `skills/spec-code-review/SKILL.md` — 说明 GitNexus group 可用于跨仓风险定向；review grouping 仍 per Git repo，code-review-graph 仍为主 diff provider
-- Modify: `src/cli/instruction-bootstrap.js` — 在 parent workspace 段补充一句 group-ready / bounded-fallback 路由提示；不拷贝完整 schema 或枚举列表
-- Modify: `AGENTS.md` — 更新 checked-in Codex host entry source slice 中的 managed bootstrap block，使其与 `src/cli/instruction-bootstrap.js` 的 parent workspace GitNexus guidance 对齐；不编辑 `.agents/skills/**` runtime mirror
-- Modify: `CLAUDE.md` — 更新 checked-in Claude host entry source slice 中的 managed bootstrap block，使其与 `src/cli/instruction-bootstrap.js` 的 parent workspace GitNexus guidance 对齐；不编辑 `.claude/**` runtime mirror
+- Modify: `src/cli/instruction-bootstrap.js` — **source-of-truth：本文件的 `buildBootstrapBlock` 输出是 managed bootstrap block 的唯一定义来源**；在 parent workspace 段补充一句 group-ready / bounded-fallback 路由提示；不拷贝完整 schema 或枚举列表
+- Modify: `AGENTS.md` — checked-in Codex host entry source slice 中的 managed bootstrap block 由 `applyManagedBootstrapBlock` 整段替换；**不直接手改本文件该 block，而是改 `instruction-bootstrap.js` 后跑 `spec-first init --codex` regenerate**；不编辑 `.agents/skills/**` runtime mirror
+- Modify: `CLAUDE.md` — checked-in Claude host entry source slice 中的 managed bootstrap block 由 `applyManagedBootstrapBlock` 整段替换；**不直接手改本文件该 block，而是改 `instruction-bootstrap.js` 后跑 `spec-first init --claude` regenerate**；不编辑 `.claude/**` runtime mirror
 - Modify: `tests/unit/spec-plan-contracts.test.js` — 验证 spec-plan 跨仓段引用 `workspace-gitnexus-readiness.v1` artifact 路径（1 个断言）
 - Modify: `tests/unit/spec-work-contracts.test.js` — 验证 write gate 仍要求 target_repo（1 个断言）
 - Modify: `tests/unit/spec-debug-contracts.test.js` — 验证 fix phase 要求 explicit child repo（1 个断言）
@@ -616,6 +644,13 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 - Host bootstrap: keep a thin reminder; do not copy the full contract into `AGENTS.md` / `CLAUDE.md`. Because `AGENTS.md` and `CLAUDE.md` are checked-in host entry source files, U5 must update their managed source slices alongside `src/cli/instruction-bootstrap.js`; generated runtime mirrors are refreshed only through `spec-first init`.
 
 **Execution note:** Keep changes small and source-first. Runtime mirrors update only through `spec-first init --codex|--claude` when needed.
+
+**Execution order（source-of-truth 顺序，必须遵守）：**
+
+1. 改 `src/cli/instruction-bootstrap.js` 的 `buildBootstrapBlock(adapter, lang)` 输出（managed block 的唯一定义来源）。
+2. 跑 `spec-first init --codex` 与 `spec-first init --claude`，让 `applyManagedBootstrapBlock` 把新 block 整段写入 checked-in `AGENTS.md` / `CLAUDE.md` 的 `<!-- spec-first:bootstrap:start --> ... <!-- spec-first:bootstrap:end -->` 区段。
+3. Commit 时同时包含 `src/cli/instruction-bootstrap.js` source 改动 + `AGENTS.md` / `CLAUDE.md` source slice 同步更新。
+4. **禁止顺序倒置**：先手改 `AGENTS.md` / `CLAUDE.md` 的 managed block 会在下次任何人跑 `spec-first init` 时被回滚；同时只改 `.js` 不 regenerate 会导致 source slice 与 generator 输出 drift。
 
 **Patterns to follow:**
 - Existing parent workspace language in `src/cli/instruction-bootstrap.js`
@@ -696,16 +731,12 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 - Modify: `tests/unit/workspace-gitnexus-readiness.test.js`（U3 已 Create；本 unit 追加 KAZ-like / monorepo / group-ready / group-missing / missing-registry / query-unverified fixture 场景）
 - Create: `tests/fixtures/gitnexus-workspace/README.md`
 
-**Approach:**
-- Add a KAZ-like fixture: one clean/ready child, seven dirty-refresh-blocked children, all present in GitNexus registry, no group configured.
-- Add a single-repo fixture proving repo-local GitNexus evidence does not produce workspace group readiness.
-- Add a monorepo fixture proving package/module directories under one `.git` root are not group members.
-- Add a group-ready fixture: same children, group configured, query selector available.
-- Add a group-missing fixture: registry present, group absent, bounded fan-out expected.
-- Add a missing-registry fixture: workspace target exists but GitNexus repo absent.
-- Add a registry-present-query-unverified fixture: registry 含 repo，但 child provider status `query_ready=false` 且无 `last_indexed_commit`，验证 promotion gate 阻止升为 `stale-advisory`。
-- Add contract assertions that no consumer says dirty refresh blocked equals query unavailable.（U1 已建立的 prose contract 测试不重写；U7 补充 fixture-based 场景测试和跨 unit 集成路径覆盖。）
-- Add contract assertions that `group_sync` appears only in setup/bootstrap-owned explicit context.
+**Approach（去重原则）：** U7 不重复 U3 已经在 `tests/unit/workspace-gitnexus-readiness.test.js` 用 fixtures 覆盖的场景（KAZ-like / single-repo / monorepo / group-ready / group-missing / missing-registry / registry-present-query-unverified / carry-forward-broken / 混合失败模式）；这些 fixture 与单测由 U3 建立并归 U3 维护。U7 只补：
+
+- **R5 写入路径强制断言（U7 独有）：** parent workspace fixture 验证写入路径仅在 `.spec-first/workspace/*`，**不**写入 `.spec-first/graph/*`、`.spec-first/providers/*` 或 `.spec-first/impact/*`；任一 child canonical 路径出现在 parent 即测试失败。这是 U3 单测之外的端到端路径断言。
+- **跨 unit integration 路径覆盖：** 用 U3 fixtures 串起 resolver (U2) → classifier (U3) → bootstrap summary (U4b) → SKILL prose (U4b) → downstream consumer (U5) 的端到端数据流；2-3 条断言验证字段在每一跳保持一致语义（例如 `group.status` 嵌套路径、`workspace_gitnexus_readiness_pointer` 非 null 时 path 文件确实存在）。
+- **下游契约不弱化的负面断言：** contract assertions that no consumer says dirty refresh blocked equals query unavailable；contract assertions that `group_sync` appears only in setup/bootstrap-owned explicit context；contract assertions that `development_mode` 字段不出现在任何 artifact 输出中。这些都是 prose-level 断言，U1 已建立的 prose contract 测试不重写。
+- **fixture README**：在 `tests/fixtures/gitnexus-workspace/README.md` 中索引 U3 创建的所有 fixture，标注 capture-date 与 GitNexus 版本号（与 P1-6 fixture 命名约束一致），帮助未来 GitNexus 升级时核对 fixture drift。
 
 **Execution note:** Run the narrowest unit and contract tests first, then expand only if touched docs or source require it.
 
@@ -714,16 +745,12 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 - `tests/unit/init-dry-run.test.js` generated prose assertions
 - `tests/unit/spec-graph-bootstrap-contracts.test.js` contract string checks
 
-**Test scenarios:**
-- Happy path: group-ready fixture recommends group query.
-- Happy path: single-repo fixture recommends repo-local query, not group query.
-- Edge case: group-missing fixture recommends bounded registry fan-out.
-- Edge case: monorepo fixture keeps one Git root and emits no per-module registry matches.
-- Edge case: dirty-refresh-blocked fixture with at-least-one historical `query_ready=true` snapshot reports `stale-advisory` query candidates.
-- Edge case: registry-present-query-unverified fixture（child 从未达到过 query-ready）reports `registry-present-query-unverified` 而非 `stale-advisory`。
-- Error path: invalid registry fixture fails with structured reason and no artifact write.
-- Integration: downstream workflow contract tests all preserve write-target gates.
-- Integration (R5)：parent workspace fixture 验证写入路径仅在 `.spec-first/workspace/*`，**不**写入 `.spec-first/graph/*`、`.spec-first/providers/*` 或 `.spec-first/impact/*`；任一 child canonical 路径出现在 parent 即测试失败。
+**Test scenarios（U7 独有，不重复 U3 已覆盖的 fixture-level 场景）：**
+- Integration (R5, U7 独有)：parent workspace fixture 验证写入路径仅在 `.spec-first/workspace/*`，**不**写入 `.spec-first/graph/*`、`.spec-first/providers/*` 或 `.spec-first/impact/*`；任一 child canonical 路径出现在 parent 即测试失败。
+- Integration (跨 unit data-flow，U7 独有)：U3 fixture（如 KAZ-like）串起 resolver → classifier → bootstrap summary → SKILL prose 端到端流，断言 `group.status` 嵌套路径与 `workspace_gitnexus_readiness_pointer.path` 在每一跳保持一致语义；非 null pointer 时实际文件存在。
+- Negative contract (U7 独有)：no consumer prose says "dirty refresh blocked = query unavailable"；`group_sync` 不出现在 plan/work/debug/review SKILL prose 中；`development_mode` 字段不出现在任何 artifact JSON 输出（grep 强制断言）。
+- Error path (U7 独有)：invalid registry fixture 端到端跑通整条 bootstrap → handoff 链路，验证失败 reason 在 summary `workspace_gitnexus_readiness_pointer.reason`、SKILL prose handoff、downstream consumer 三层都不丢失。
+- 注：fixture-level 场景（group-ready / group-missing / single-repo / monorepo / KAZ-like / registry-present-query-unverified / carry-forward-broken / 混合失败模式）由 U3 在 `tests/unit/workspace-gitnexus-readiness.test.js` 覆盖；U7 不重写。
 
 **Verification:**
 - Regressions in dirty/query semantics fail deterministic tests before reaching runtime workflows.
@@ -756,7 +783,7 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 
 ## Success Metrics
 
-- A KAZ-like workspace with `1 ready / 7 dirty-source-blocked` produces a clear "refresh partial, query stale/advisory available" explanation **when the seven dirty children have at least one historical `query_ready=true` snapshot**；若任一 child 从未达到过 query-ready，则归为 `registry-present-query-unverified`，handoff 据此提示用户 setup/bootstrap。**Before/after 对比：** 修复前 LLM/handoff 看到 `overall_status=partial` + `counts.action_required=7` 一律推断"GitNexus 多仓查询不可用 / group 缺失"；修复后 durable summary 同时携带 `query_usability_counts`（按 `stale-advisory` / `registry-present-query-unverified` 分桶）与 `workspace_gitnexus_readiness_pointer`，handoff 文案区分"refresh 部分阻塞"、"只读 query 可用"和"需先 bootstrap 验证 query proof"。
+- A KAZ-like workspace with `1 ready / 7 dirty-source-blocked` produces a clear "refresh partial, query stale/advisory available" explanation **when the seven dirty children all have `provider-status.v1.last_indexed_commit` 非空**（即 carry-forward 自上一轮 query-ready 快照，详见 `graph-provider-consumption.md` 中该字段语义）；若任一 child 的 `last_indexed_commit=null` 且本轮 `query_ready=false`（含 carry-forward 断裂场景），则归为 `registry-present-query-unverified`，handoff 据此提示用户 setup/bootstrap。**Before/after 对比：** 修复前 LLM/handoff 看到 `overall_status=partial` + `counts.action_required=7` 一律推断"GitNexus 多仓查询不可用 / group 缺失"；修复后 durable summary 同时携带 `query_usability_counts`（按 `stale-advisory` / `registry-present-query-unverified` 分桶）与 `workspace_gitnexus_readiness_pointer`，handoff 文案区分"refresh 部分阻塞"、"只读 query 可用"和"需先 bootstrap 验证 query proof"。
 - Single-repo and monorepo fixtures remain repo-local and never recommend workspace group setup or per-module group membership.
 - Parent workspace read-only planning can use GitNexus registry/group evidence without requiring the user to commit dirty child repos.
 - Work/debug/review fix paths still refuse to edit without explicit `target_repo`.
@@ -777,8 +804,8 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 | Docs become too provider-specific | Medium | Medium | Keep provider-neutral resolver and CRG impact role unchanged; GitNexus group docs live in a focused contract |
 | Generated runtime drift after source prose changes | Medium | Medium | Source-first changes, then `spec-first init --codex|--claude` only when runtime refresh is explicitly part of implementation |
 | PowerShell resolver 字段同步遗漏 | Medium | Low | U2 测试要求 Bash / PS 输出字段名与枚举值完全一致；`mcp-setup-powershell-contracts.test.js` 覆盖新字段 |
-| `development_mode` caller-supplied 默认值或 echo 值被 consumer 误读为已确认架构判断 | Medium | Medium | classifier 输出含 `development_mode_source` 标记（值域至少 `"caller-supplied"` / `"default"`）；下游 consumer 必须根据该字段决定是否提示 LLM 显式确认 module 拓扑；contract test 验证字段同时出现 |
-| `workspace_gitnexus_readiness_pointer` 指向不存在文件，或 null 处理不一致 | Medium | Medium | classifier 在 pointer 非 null 时必须确保文件已写；pointer 必定与 reason 字段配对（非 null 时 reason 描述写入条件，null 时 reason 描述未写原因如 `classifier-not-run` / `script-mode-degraded`）；consumer 必须容忍 null 并按 reason 降级；contract test 验证两种状态下 pointer + reason 配对一致 |
+| `workspace_gitnexus_readiness_pointer` 指向不存在文件，或 null 处理不一致 | Medium | Medium | classifier 在 pointer 非 null 时必须确保文件已写；pointer 必与 reason 字段配对，统一 reason 枚举为 `script-mode-no-mcp` / `classifier-not-invoked` / `classifier-failed` / `script-mode-degraded`（详见 U3 Approach classifier invocation 失败矩阵）；consumer 必须容忍 null 并按 reason 降级；contract test 验证四种 reason 与 pointer/null 配对一致；禁止旧称 `classifier-not-run` |
+| Bash/PS bootstrap shell 重写 helper 派生逻辑导致 parity 漂移 | Medium | High | U3 强制约束 helper 是 derived counts 与 group 占位的唯一来源；shell 调用方只做浅合并；contract test 验证 shell 修改后字段同 helper stdout 完全一致 |
 
 ---
 
@@ -787,7 +814,7 @@ The JSON shape above is a review sketch, not a schema to copy verbatim. Implemen
 ### Phase 1: Correct Facts and Vocabulary
 
 - Deliver U1 and U2.
-- Outcome: topology fields (`git_root_topology` + `development_mode`) are explicit, and workspace target facts can express refresh eligibility and query usability separately.
+- Outcome: topology field `git_root_topology` is explicit (artifact-level), prose-layer "三种开发模式" remain in plan/SKILL/用户文档 references, and workspace target facts can express refresh eligibility and query usability separately.
 - **Phase 1 可独立交付（非终端可见）：** U1+U2 完成后，contract 已建立、resolver facts 已能正确表达三层拆分；新字段对现有 consumer 向后兼容（additive 添加），不破坏老路径。但用户可见的 workflow 行为变化（skill prose 引用、durable summary 三层、host instruction block 文案、用户文档）要等 Phase 2-3 才体现。如有时间压力，Phase 1 可先行交付为 contract milestone，但不要对 KAZ 类用户宣称"误解已消除"。
 - **Phase 1 已知未修复项（明示给 release notes 与 stakeholder）：**
   1. parent workspace 的 GitNexus host instruction block 仍指向不存在的 `.spec-first/graph/graph-facts.json` / `.spec-first/graph/provider-status.json`（修复在 U4，Phase 2）；

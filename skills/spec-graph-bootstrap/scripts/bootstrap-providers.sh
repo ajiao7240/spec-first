@@ -221,6 +221,7 @@ resolve_spec_first_cli_command() {
 
 normalize_gitnexus_instruction_block_for_root() {
   local repo_root="$1"
+  local git_root_topology="${2:-single-repo}"
   local output_file
   local output
   local exit_code
@@ -235,7 +236,7 @@ normalize_gitnexus_instruction_block_for_root() {
       "$PROVIDER_COMMAND_TIMEOUT_SECONDS" \
       "$output_file" \
       "${SPEC_FIRST_CLI_COMMAND[@]}" \
-      gitnexus-instruction normalize --repo-root "$repo_root" --write --json
+      gitnexus-instruction normalize --repo-root "$repo_root" --git-root-topology "$git_root_topology" --write --json
     exit_code=$?
   else
     exit_code=127
@@ -327,6 +328,141 @@ normalize_gitnexus_instruction_block_for_root() {
       '{provider:$provider,status:$status,advisory:true,reason_code:$reason_code,exit_code:0,diagnostic:$diagnostic,started_at:$started_at,finished_at:$finished_at,duration_ms:$duration_ms,results:[]}'
     return 0
   fi
+}
+
+compile_workspace_gitnexus_readiness_for_all_repos() {
+  local workspace_root="$1"
+  local workspace_dir="$workspace_root/.spec-first/workspace"
+  local targets_path="$workspace_dir/graph-targets.json"
+  local readiness_path="$workspace_dir/gitnexus-readiness.json"
+  local output_file
+  local error_file
+  local output
+  local diagnostic
+  local exit_code
+  local topology
+  local workspace_targets_json
+
+  mkdir -p "$workspace_dir"
+  set +e
+  workspace_targets_json="$(cd "$workspace_root" && bash "$SCRIPT_DIR/resolve-workspace-graph-targets.sh" --write-summary)"
+  exit_code=$?
+  set -e
+  if [ "$exit_code" -ne 0 ] || ! jq -e . >/dev/null 2>&1 <<<"$workspace_targets_json"; then
+    jq -n '{
+      query_usability_counts:{
+        "fresh-primary":0,
+        "stale-advisory":0,
+        "definitions-pointer":0,
+        unavailable:0
+      },
+      workspace_gitnexus_readiness_pointer:{
+        path:null,
+        reason_code:"classifier-failed",
+        diagnostic:"workspace graph target resolver failed"
+      },
+      group:{
+        name:null,
+        status:"not-evaluated-no-mcp-input",
+        query_selector:null
+      },
+      group_reason_code:"classifier-failed"
+    }'
+    return 0
+  fi
+
+  topology="$(jq -r '.git_root_topology // ""' <<<"$workspace_targets_json")"
+  if [ "$topology" != "multi-repo-workspace" ]; then
+    jq -n '{
+      query_usability_counts:{
+        "fresh-primary":0,
+        "stale-advisory":0,
+        "definitions-pointer":0,
+        unavailable:0
+      },
+      workspace_gitnexus_readiness_pointer:{
+        path:null,
+        reason_code:"classifier-not-invoked"
+      },
+      group:{
+        name:null,
+        status:"not-evaluated-no-mcp-input",
+        query_selector:null
+      },
+      group_reason_code:"classifier-not-invoked"
+    }'
+    return 0
+  fi
+
+  output_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-workspace-gitnexus-readiness.XXXXXX")"
+  error_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-workspace-gitnexus-readiness.err.XXXXXX")"
+  set +e
+  bash "$SCRIPT_DIR/compile-workspace-gitnexus-readiness.sh" \
+    --mode script \
+    --workspace-targets "$targets_path" \
+    --write-artifact \
+    --output "$readiness_path" \
+    >"$output_file" 2>"$error_file"
+  exit_code=$?
+  set -e
+  output="$(cat "$output_file" 2>/dev/null || true)"
+  diagnostic="$(cat "$error_file" 2>/dev/null || true)"
+  rm -f "$output_file" "$error_file"
+
+  if [ "$exit_code" -eq 0 ] && jq -e . >/dev/null 2>&1 <<<"$output"; then
+    local reason_code="script-mode-degraded"
+    local pointer_path="null"
+    if [ -f "$readiness_path" ]; then
+      reason_code="script-mode-no-mcp"
+      pointer_path="\".spec-first/workspace/gitnexus-readiness.json\""
+    fi
+    jq -n \
+      --arg reason_code "$reason_code" \
+      --argjson payload "$output" \
+      --argjson pointer_path "$pointer_path" \
+      '{
+        query_usability_counts:($payload.query_usability_counts // {
+          "fresh-primary":0,
+          "stale-advisory":0,
+          "definitions-pointer":0,
+          unavailable:0
+        }),
+        workspace_gitnexus_readiness_pointer:{
+          path:$pointer_path,
+          reason_code:$reason_code
+        },
+        group:($payload.group // {
+          name:null,
+          status:"not-evaluated-no-mcp-input",
+          query_selector:null
+        }),
+        group_reason_code:($payload.group_reason_code // null)
+      }'
+    return 0
+  fi
+
+  printf 'spec-graph-bootstrap: warning: workspace GitNexus readiness classifier failed.\n' >&2
+  jq -n \
+    --arg diagnostic "$diagnostic$output" \
+    '{
+      query_usability_counts:{
+        "fresh-primary":0,
+        "stale-advisory":0,
+        "definitions-pointer":0,
+        unavailable:0
+      },
+      workspace_gitnexus_readiness_pointer:{
+        path:null,
+        reason_code:"classifier-failed",
+        diagnostic:($diagnostic | if length > 1200 then .[0:1200] else . end)
+      },
+      group:{
+        name:null,
+        status:"not-evaluated-no-mcp-input",
+        query_selector:null
+      },
+      group_reason_code:"classifier-failed"
+    }'
 }
 
 if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
@@ -453,8 +589,9 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
 
   PARENT_HOST_INSTRUCTION_NORMALIZATION="$(jq -n '{provider:"gitnexus",status:"not-applicable",advisory:true,reason_code:"all-repos-gitnexus-provider-not-bootstrapped",exit_code:null,results:[]}')"
   if jq -e 'any(.[]; ((.result.results // []) | any(.provider == "gitnexus" and ((.command_results // []) | any(.kind == "bootstrap" and .exit_code == 0)))))' "$SUMMARY_ITEMS" >/dev/null; then
-    PARENT_HOST_INSTRUCTION_NORMALIZATION="$(normalize_gitnexus_instruction_block_for_root "$WORKSPACE_ROOT_FOR_ALL")"
+    PARENT_HOST_INSTRUCTION_NORMALIZATION="$(normalize_gitnexus_instruction_block_for_root "$WORKSPACE_ROOT_FOR_ALL" "multi-repo-workspace")"
   fi
+  WORKSPACE_GITNEXUS_READINESS_SUMMARY="$(compile_workspace_gitnexus_readiness_for_all_repos "$WORKSPACE_ROOT_FOR_ALL")"
 
   WORKSPACE_FINISHED_AT="$(utc_now)"
   WORKSPACE_FINISHED_EPOCH_MS="$(epoch_ms)"
@@ -467,6 +604,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
     --arg finished_at "$WORKSPACE_FINISHED_AT" \
     --argjson duration_ms "$WORKSPACE_DURATION_MS" \
     --argjson parent_host_instruction_normalization "$PARENT_HOST_INSTRUCTION_NORMALIZATION" \
+    --argjson workspace_gitnexus_readiness "$WORKSPACE_GITNEXUS_READINESS_SUMMARY" \
     --argjson target "$TARGET_JSON" \
     --slurpfile items "$SUMMARY_ITEMS" \
     '($items[0] // []) as $results
@@ -481,6 +619,10 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         parent_writes_repo_local_artifacts:false,
         parent_writes_host_instruction_files:any($parent_host_instruction_normalization.results[]?; .written == true),
         parent_host_instruction_normalization:$parent_host_instruction_normalization,
+        workspace_gitnexus_readiness_pointer:$workspace_gitnexus_readiness.workspace_gitnexus_readiness_pointer,
+        query_usability_counts:$workspace_gitnexus_readiness.query_usability_counts,
+        group:$workspace_gitnexus_readiness.group,
+        group_reason_code:($workspace_gitnexus_readiness.group_reason_code // null),
         timing:{
           started_at:$started_at,
           finished_at:$finished_at,
@@ -2382,7 +2524,7 @@ write_provider_status() {
       fi
     fi
     if [ "$provider" = "gitnexus" ] && [ "$RUN_EXIT_CODE" -eq 0 ]; then
-      host_instruction_normalization="$(normalize_gitnexus_instruction_block_for_root "$REPO_ROOT")"
+      host_instruction_normalization="$(normalize_gitnexus_instruction_block_for_root "$REPO_ROOT" "single-repo")"
       record_bootstrap_owned_host_instruction_hashes "$host_instruction_normalization"
     fi
     if [ "$RUN_EXIT_CODE" -eq 0 ]; then

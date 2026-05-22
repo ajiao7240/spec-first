@@ -160,6 +160,9 @@ function Inspect-Repo {
   } elseif ([bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'graph_ready' -Default $false) -and -not [bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'query_ready' -Default $false)) {
     $limitations.Add('GitNexus graph exists but query readiness is unverified; use live MCP probe or bounded direct reads')
   }
+  if ($currentDirty) {
+    $limitations.Add('current working tree overlay is not guaranteed to be indexed; verify dirty paths directly')
+  }
 
   $queryProbePolicy = Get-PropertyValue -Object $gitNexusProvider -Name 'query_probe_policy' -Default $null
   $candidateTokens = @()
@@ -181,6 +184,25 @@ function Inspect-Repo {
     }
   }
 
+  $gitNexusQueryReady = [bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'query_ready' -Default (Get-PropertyValue -Object $gitNexusStatus -Name 'query_ready' -Default $false))
+  $gitNexusGraphReady = [bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'graph_ready' -Default (Get-PropertyValue -Object $gitNexusStatus -Name 'graph_ready' -Default $false))
+  $gitNexusLastIndexedCommit = Get-PropertyValue -Object $gitNexusProviderStatus -Name 'last_indexed_commit' -Default (Get-PropertyValue -Object $gitNexusStatus -Name 'last_indexed_commit' -Default $null)
+  $gitNexusRequiresCleanFullRefresh = [bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'requires_clean_full_refresh' -Default (Get-PropertyValue -Object $gitNexusStatus -Name 'requires_clean_full_refresh' -Default $false))
+  $gitNexusPriorQueryReady = -not $gitNexusRequiresCleanFullRefresh -and -not [string]::IsNullOrWhiteSpace([string]$gitNexusLastIndexedCommit)
+  $refreshEligibility = if ($currentDirty) { 'blocked-dirty-source' } elseif ($graphStatus -eq 'stale') { 'eligible-after-refresh' } elseif ($setupReady) { 'eligible' } else { 'setup-required' }
+  $indexSnapshot = if ($null -eq $graphFacts) { 'missing' } elseif ($stale) { 'stale-commit' } elseif ($currentDirty) { 'current-with-dirty-overlay' } else { 'current-clean' }
+  $queryUsability = if ($graphStatus -eq 'no-source') {
+    'definitions-pointer'
+  } elseif ($gitNexusQueryReady -and -not $gitNexusRequiresCleanFullRefresh -and -not $stale -and -not $currentDirty) {
+    'fresh-primary'
+  } elseif ($gitNexusPriorQueryReady) {
+    'stale-advisory'
+  } elseif ($gitNexusGraphReady) {
+    'definitions-pointer'
+  } else {
+    'unavailable'
+  }
+
   [ordered]@{
     target_repo = $repoLabel
     repo_label = $repoLabel
@@ -188,6 +210,15 @@ function Inspect-Repo {
     workspace_relative_path = $workspaceRelativePath
     status = $graphStatus
     graph_status = $graphStatus
+    refresh_eligibility = $refreshEligibility
+    index_snapshot = $indexSnapshot
+    query_usability = $queryUsability
+    working_tree_overlay = [ordered]@{
+      dirty = $currentDirty
+      status_hash = $currentStatusHash
+      indexed_status_hash = $recordedHash
+      limitation = if ($currentDirty) { 'current working tree may differ from indexed GitNexus graph; verify dirty paths with direct source reads' } else { $null }
+    }
     workflow_mode = [string]($graphWorkflowMode ?? $setupWorkflowMode ?? $graphStatus)
     setup_status = if ($setupReady) { 'ready' } else { 'missing-or-unsupported' }
     setup_ready = $setupReady
@@ -207,9 +238,11 @@ function Inspect-Repo {
     providers = [ordered]@{
       gitnexus = [ordered]@{
         configured = [bool](Get-PropertyValue -Object $gitNexusProvider -Name 'configured' -Default $false)
-        graph_ready = [bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'graph_ready' -Default (Get-PropertyValue -Object $gitNexusStatus -Name 'graph_ready' -Default $false))
-        query_ready = [bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'query_ready' -Default (Get-PropertyValue -Object $gitNexusStatus -Name 'query_ready' -Default $false))
+        graph_ready = $gitNexusGraphReady
+        query_ready = $gitNexusQueryReady
         status = Get-PropertyValue -Object $gitNexusProviderStatus -Name 'status' -Default (Get-PropertyValue -Object $gitNexusStatus -Name 'status' -Default $null)
+        last_indexed_commit = $gitNexusLastIndexedCommit
+        requires_clean_full_refresh = $gitNexusRequiresCleanFullRefresh
         repo = if ($null -ne $gitNexusProvider -and $null -ne $gitNexusProvider.commands -and $null -ne $gitNexusProvider.commands.query_probe -and $gitNexusProvider.commands.query_probe.Count -gt 6) { $gitNexusProvider.commands.query_probe[6] } else { $null }
         query_probe_policy = $queryProbePolicy
         status_artifact = '.spec-first/providers/gitnexus/status.json'
@@ -262,11 +295,19 @@ if ($null -ne $targetFacts.selected_repo_root) {
 $repos = @($targets | ForEach-Object { Inspect-Repo -TargetItem $_ })
 $primaryCount = @($repos | Where-Object { $_.status -eq 'primary' }).Count
 $noSourceCount = @($repos | Where-Object { $_.status -eq 'no-source' }).Count
+$gitRootTopology = if ($null -ne $targetFacts.selected_repo_root) {
+  'single-repo'
+} elseif ([string]($targetFacts.mode ?? '') -eq 'workspace-multi-repo' -and $repos.Count -gt 1) {
+  'multi-repo-workspace'
+} else {
+  $null
+}
 
 $result = [ordered]@{
   schema_version = 'workspace-graph-targets.v1'
   generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
   advisory = $true
+  git_root_topology = $gitRootTopology
   mode = [string]($targetFacts.mode ?? 'unknown')
   repo_status = [string]($targetFacts.repo_status ?? 'not-git-repo')
   invocation_cwd = $targetFacts.invocation_cwd
@@ -284,6 +325,12 @@ $result = [ordered]@{
     dirty_uncertain = @($repos | Where-Object { $_.status -eq 'dirty-uncertain' }).Count
     setup_ready_bootstrap_required = @($repos | Where-Object { $_.status -eq 'setup-ready-bootstrap-required' }).Count
     unavailable = @($repos | Where-Object { $_.status -eq 'unavailable' }).Count
+  }
+  query_usability_counts = [ordered]@{
+    'fresh-primary' = @($repos | Where-Object { $_.query_usability -eq 'fresh-primary' }).Count
+    'stale-advisory' = @($repos | Where-Object { $_.query_usability -eq 'stale-advisory' }).Count
+    'definitions-pointer' = @($repos | Where-Object { $_.query_usability -eq 'definitions-pointer' }).Count
+    unavailable = @($repos | Where-Object { $_.query_usability -eq 'unavailable' }).Count
   }
   reason_code = if ($repos.Count -eq 0) { [string]($targetFacts.reason_code ?? 'workspace-no-git-candidates') } elseif ($primaryCount -gt 0) { 'workspace-graph-targets-ready' } elseif ($noSourceCount -eq $repos.Count) { 'workspace-graph-targets-no-source' } else { 'workspace-graph-targets-degraded' }
   next_action = if ($repos.Count -eq 0) { [string]($targetFacts.next_action ?? 'Run from a Git repo or parent workspace with child Git repos.') } elseif ($primaryCount -gt 0) { 'Use bounded GitNexus-first routing for read-only questions; require target_repo before writes.' } elseif ($noSourceCount -eq $repos.Count) { 'No code-bearing graph target is available; skip GitNexus process routing for no-source child repos.' } else { 'Use per-child next_action values to bootstrap or refresh graph readiness.' }

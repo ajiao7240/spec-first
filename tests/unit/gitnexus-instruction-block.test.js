@@ -157,6 +157,31 @@ describe('GitNexus instruction block governance', () => {
     expect(result.content).toContain('<!-- gitnexus:end -->');
   });
 
+  test('renders single-repo GitNexus block with repo-local provider status paths', () => {
+    const block = renderGitNexusInstructionBlock({
+      repoName: 'sample-repo',
+      lang: 'zh',
+      gitRootTopology: 'single-repo',
+    });
+
+    expect(block).toContain('`.spec-first/graph/provider-status.json`');
+    expect(block).toContain('`.spec-first/providers/gitnexus/status.json`');
+    expect(block).not.toContain('`.spec-first/workspace/graph-targets.json`');
+    expect(block).not.toContain('`.spec-first/workspace/gitnexus-readiness.json`');
+  });
+
+  test('renders parent workspace GitNexus block with workspace advisory paths', () => {
+    const block = renderGitNexusInstructionBlock({
+      repoName: 'sample-repo',
+      lang: 'zh',
+      gitRootTopology: 'multi-repo-workspace',
+    });
+
+    expect(block).toContain('`.spec-first/workspace/graph-targets.json`');
+    expect(block).toContain('`.spec-first/workspace/gitnexus-readiness.json`');
+    expect(block).not.toContain('`.spec-first/graph/provider-status.json`');
+  });
+
   test('CLI creates missing blocks in existing host instruction files', () => {
     const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitnexus-instruction-create-'));
     const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -272,6 +297,73 @@ describe('GitNexus instruction block governance', () => {
     expect(block).not.toMatch(/\d+ symbols/u);
     expect(block).not.toContain('MUST');
     expect(block).not.toContain('NEVER');
+  });
+
+  test('renders multi-repo workspace instructions with workspace artifact pointers only', () => {
+    const block = renderGitNexusInstructionBlock({
+      repoName: 'workspace-parent',
+      lang: 'zh',
+      gitRootTopology: 'multi-repo-workspace',
+    });
+
+    expect(block).toContain('本工作区包含多个 child Git repo');
+    expect(block).toContain('`.spec-first/workspace/graph-targets.json`');
+    expect(block).toContain('`.spec-first/workspace/gitnexus-readiness.json`');
+    expect(block).toContain('parent workspace 不拥有 child repo 的 `.spec-first/graph/*` canonical artifacts');
+    expect(block).not.toContain('`.spec-first/graph/graph-facts.json`');
+    expect(block).not.toContain('`.spec-first/graph/provider-status.json`');
+    expect(block).not.toContain('仓库标识：**workspace-parent**');
+  });
+
+  test('CLI passes multi-repo topology into JSON summary and rendered files', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitnexus-instruction-topology-'));
+    const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      fs.writeFileSync(path.join(projectRoot, 'AGENTS.md'), '# Host\n', 'utf8');
+      fs.writeFileSync(path.join(projectRoot, 'CLAUDE.md'), '# Host\n', 'utf8');
+
+      const exitCode = runGitNexusInstructionBlockCommand([
+        'normalize',
+        '--repo-root',
+        projectRoot,
+        '--repo-name',
+        'workspace-parent',
+        '--git-root-topology',
+        'multi-repo-workspace',
+        '--write',
+        '--json',
+      ]);
+      const payload = JSON.parse(stdoutSpy.mock.calls.map((call) => call[0]).join(''));
+
+      expect(exitCode).toBe(0);
+      expect(payload.git_root_topology).toBe('multi-repo-workspace');
+      expect(payload.results).toEqual([
+        expect.objectContaining({ file: 'AGENTS.md', gitRootTopology: 'multi-repo-workspace' }),
+        expect.objectContaining({ file: 'CLAUDE.md', gitRootTopology: 'multi-repo-workspace' }),
+      ]);
+      const content = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
+      expect(content).toContain('`.spec-first/workspace/graph-targets.json`');
+      expect(content).not.toContain('`.spec-first/graph/provider-status.json`');
+    } finally {
+      stdoutSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('CLI rejects invalid git root topology values', () => {
+    const stderrSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const exitCode = runGitNexusInstructionBlockCommand([
+        'normalize',
+        '--git-root-topology',
+        'single-repo-multi-module',
+      ]);
+
+      expect(exitCode).toBe(2);
+      expect(stderrSpy).toHaveBeenCalledWith('gitnexus-instruction: --git-root-topology must be single-repo or multi-repo-workspace');
+    } finally {
+      stderrSpy.mockRestore();
+    }
   });
 
   test('summarizes partial blocks as actionable failures', () => {

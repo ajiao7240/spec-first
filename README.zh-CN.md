@@ -309,8 +309,8 @@ mcp-setup / graph-bootstrap
 | 模式 | 典型形态 | `.spec-first` 权威边界 | 处理方式 |
 |---|---|---|---|
 | 单仓单项目 | 一个 Git repo 中就是一个应用、SDK、CLI 或服务 | 当前 repo root | requirements、plan、work、review、graph facts 都以当前 repo 为边界。 |
-| 单仓多模块 | 一个 Git repo 中包含多个 app、package、service 或 Android module | 同一个 repo root | 不为每个 module 拆多套 `.spec-first`；由 plan、task pack、work 和 review 在 repo 内按 module 边界拆分和路由。 |
-| 多仓工作区 | 父目录下有多个独立 child Git repos | 每个 child repo 自己的 repo root；父级 workspace artifacts 仅作 advisory context | 父 workspace 负责候选发现并可写 advisory workspace summaries；repo-local setup、graph、plan、work、review 必须落到显式 child repo。 |
+| 单仓多模块 | 一个 Git repo 中包含多个 app、package、service 或 Android module | 同一个 repo root | 不为每个 module 拆多套 `.spec-first`；由 plan、task pack、work 和 review 在 repo 内按 module 边界拆分和路由。Monorepo modules 不是 GitNexus group 成员。 |
+| 多仓工作区 | 父目录下有多个独立 child Git repos | 每个 child repo 自己的 repo root；父级 workspace artifacts 仅作 advisory context | 父 workspace 负责候选发现并可写 advisory workspace summaries，可用 GitNexus group readiness 做只读路由；repo-local setup、graph、plan、work、review 必须落到显式 child repo。 |
 
 ```text
 单仓单项目
@@ -343,7 +343,7 @@ workspace/
 核心 contract 是：`.spec-first` 的事实边界永远是 **selected Git repo root**。
 
 - 单仓多模块不要在每个 module 下各放一套 `.spec-first`，否则 plan、review、graph facts 和 knowledge 会分裂。
-- 多仓工作区的父目录不拥有 repo-local truth。父级 workspace summaries 只作 advisory；plan、task pack、setup、graph bootstrap、work、review、测试、changelog 更新和 commit 仍需要写明 `target_repo` 或 per-unit/per-task `target_repo`。
+- 多仓工作区的父目录不拥有 repo-local truth。父级 workspace summaries，包括 `.spec-first/workspace/gitnexus-readiness.json`，只作 advisory；plan、task pack、setup、graph bootstrap、work、review、测试、changelog 更新和 commit 仍需要写明 `target_repo` 或 per-unit/per-task `target_repo`。
 - `mode:headless`、`mode:report-only`、`mode:autofix`、`depth:deep` 等是 workflow 或 skill 的运行姿态，不是开发模式分类。
 
 ## 你会得到什么
@@ -559,7 +559,8 @@ your-project/
 - 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus/code-review-graph probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
 - 把切换分支、pull、rebase、merge、dirty worktree 变化和 provider fingerprint mismatch 视为 graph freshness invalidation signals。下游 workflow 可以建议 graph bootstrap，但不会隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。
 - 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。
-- 在父 workspace 下存在多个 child Git repos 时，只读代码问题可以使用 `workspace-graph-targets.v1` advisory facts 选择 bounded candidate repos，并优先使用 GitNexus-first evidence。除下一条父 workspace 维护入口外，写入、测试、changelog、review autofix 和 commit 仍必须有明确 `target_repo` / per-child scope。
+- 在父 workspace 下存在多个 child Git repos 时，只读代码问题可以使用 `workspace-graph-targets.v1` 和 `workspace-gitnexus-readiness.v1` advisory facts 选择 bounded candidate repos；`group.status="group-ready"` 优先使用 GitNexus-first evidence via group query，group config 缺失或未评估时走 bounded registry/per-repo fan-out。除下一条父 workspace 维护入口外，写入、测试、changelog、review autofix 和 commit 仍必须有明确 `target_repo` / per-child scope。
+- dirty refresh blocked 表示 provider index refresh 被阻断，不等于 stale/advisory GitNexus query evidence 不能用于只读定向；dirty path 结论仍要直接读当前源码确认。
 - 父 workspace 维护操作中，init、setup 和 graph bootstrap 在未传 `--repo <child>` 时默认处理全部 child repos；`--repo <child>` 用于收窄范围，`--all-repos` 仍作为显式等价入口。首次 Serena 激活仍需要 per-child language evidence，缺语言的 child 会返回 `serena_language_required`，由 agent 用 `--serena-language-for <child>=<language>` 重跑。父目录可以写 advisory `.spec-first/workspace/*summary.json`。父目录不把 repo-local `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*`、`.spec-first/providers/*` 或 `.serena/*` 当作 parent-local truth。
 - 用已安装的 standalone `write-tasks` skill 做确定性的 task-pack handoff，再让当前宿主的 work、code-review 和 doc-review workflow 基于当前请求、plans/task packs、diffs、targeted file reads 与 tests 确定 scope authority。
 - 移动 App 的 PRD/Figma/source 对齐审查使用 App consistency audit workflow。它消费本地 `prd:<path>` 与 `figma-context:<path>` 输入；`figma-ref:<id-or-url>` 只是 reference，只有宿主提供的 Figma MCP 能力 materialize 出本地 JSON 后才成为 evidence。Figma MCP 是 App-audit 可选能力，不属于 required setup baseline。

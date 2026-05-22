@@ -1,0 +1,22 @@
+{
+  "schema_version": "gitnexus-group-list.example.v1",
+  "gitnexus_version": "1.6.4",
+  "captured_at": "2026-05-22",
+  "groups": [
+    {
+      "name": "kaz-workspace",
+      "status": "group-ready",
+      "query_selector": "@kaz-workspace",
+      "members": [
+        "project-ready",
+        "project-dirty-1",
+        "project-dirty-2",
+        "project-dirty-3",
+        "project-dirty-4",
+        "project-dirty-5",
+        "project-dirty-6",
+        "project-dirty-7"
+      ]
+    }
+  ]
+}

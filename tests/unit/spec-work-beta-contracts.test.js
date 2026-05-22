@@ -57,6 +57,9 @@ describe('spec-work-beta context orientation contract', () => {
     expect(text).toContain('Context Orientation Anchor');
     expect(text).toContain('the plan or task pack');
     expect(text).toContain('workspace-graph-targets.v1');
+    expect(text).toContain('workspace-gitnexus-readiness.v1');
+    expect(text).toContain('`group.status="group-ready"` may orient cross-repo GitNexus queries');
+    expect(text).toContain('stale/advisory group evidence never expands work or delegation scope');
     expect(text).toContain('bounded candidate repos');
     expect(text).toContain('GitNexus-first evidence per candidate');
     expect(text).toContain('bounded direct repo reads');

@@ -30,6 +30,12 @@
       "input": "A child repo was dirty during bootstrap and still has the same git status fingerprint when the resolver runs.",
       "expected_decision": "keep-compiled-status",
       "expected_output": "Resolver keeps the compiled child status; only missing or mismatched worktree_status_hash becomes dirty-uncertain."
+    },
+    {
+      "id": "kaz-like-workspace-readiness",
+      "input": "A parent workspace has one clean ready child and seven dirty-refresh-blocked children with prior GitNexus last_indexed_commit values.",
+      "expected_decision": "separate-refresh-from-query-usability",
+      "expected_output": "Final handoff reports durable workspace_gitnexus_readiness_pointer.reason_code=script-mode-no-mcp, query_usability_counts.stale-advisory>=7, group.status=not-evaluated-no-mcp-input, then any live list_repos/group_list classifier output as session-local runtime_mcp_overlay with group-query or bounded-registry-fanout guidance."
     }
   ]
 }

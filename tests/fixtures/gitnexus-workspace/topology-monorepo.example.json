@@ -1,0 +1,18 @@
+{
+  "schema_version": "workspace-graph-targets.v1",
+  "advisory": true,
+  "git_root_topology": "single-repo",
+  "mode": "git-repo",
+  "workspace_root": "/workspace/monorepo",
+  "repos": [
+    {
+      "target_repo": "monorepo",
+      "repo_label": "monorepo",
+      "git_root": "/workspace/monorepo",
+      "workspace_relative_path": "monorepo",
+      "status": "primary",
+      "query_usability": "fresh-primary",
+      "modules": ["packages/a", "apps/web"]
+    }
+  ]
+}

@@ -1166,6 +1166,7 @@ function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, pla
   const normalizedGitNexusInstruction = normalizeGitNexusInstructionBlock(finalInstruction, {
     defaultRepoName: path.basename(projectRoot),
     lang: developer.lang,
+    gitRootTopology: 'single-repo',
   }).content;
   operations.push(buildPlanFileOperation(
     projectRoot,

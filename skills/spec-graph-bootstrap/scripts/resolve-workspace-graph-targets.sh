@@ -180,10 +180,13 @@ inspect_repo() {
     | (obj($provider_status[0])) as $status
     | (obj($impact_capabilities[0])) as $impact
     | (obj($gitnexus_status[0])) as $gitnexus
+    | (provider_status_for("gitnexus")) as $gitnexus_provider_status
     | ($graph.source_revision // null) as $source_revision
     | ($graph.worktree_status_hash // $graph.staleness_hints.worktree_status_hash // null) as $recorded_status_hash
     | (($source_revision != null and $source_revision != "" and $current_revision != "" and $source_revision != $current_revision)) as $stale
     | ((($graph | length) > 0) and (($graph.worktree_dirty // false) == true) and (($recorded_status_hash == null) or ($recorded_status_hash != $current_worktree_status_hash))) as $dirty_uncertain
+    | (($gitnexus_provider_status.requires_clean_full_refresh // $gitnexus.requires_clean_full_refresh // false) == true) as $gitnexus_requires_clean_full_refresh
+    | (((($gitnexus_provider_status.last_indexed_commit // $gitnexus.last_indexed_commit // "") != "") and ($gitnexus_requires_clean_full_refresh | not))) as $gitnexus_prior_query_ready
     | ($gp.derived_readiness.workflow_mode // (if $setup_ready then "setup-ready-bootstrap-required" else null end)) as $setup_workflow_mode
     | ($graph.workflow_mode // null) as $graph_workflow_mode
     | (
@@ -200,6 +203,28 @@ inspect_repo() {
         else "unavailable"
         end
       ) as $graph_status
+    | (
+        if $current_worktree_dirty then "blocked-dirty-source"
+        elif $graph_status == "stale" then "eligible-after-refresh"
+        elif $setup_ready then "eligible"
+        else "setup-required"
+        end
+      ) as $refresh_eligibility
+    | (
+        if ($graph | length) == 0 then "missing"
+        elif $stale then "stale-commit"
+        elif $current_worktree_dirty then "current-with-dirty-overlay"
+        else "current-clean"
+        end
+      ) as $index_snapshot
+    | (
+        if $graph_status == "no-source" then "definitions-pointer"
+        elif (($gitnexus_provider_status.query_ready // $gitnexus.query_ready // false) == true and ($gitnexus_requires_clean_full_refresh | not) and ($stale | not) and ($current_worktree_dirty | not)) then "fresh-primary"
+        elif $gitnexus_prior_query_ready then "stale-advisory"
+        elif (($gitnexus_provider_status.graph_ready // $gitnexus.graph_ready // false) == true) then "definitions-pointer"
+        else "unavailable"
+        end
+      ) as $query_usability
     | {
         target_repo:$target_repo,
         repo_label:$target_repo,
@@ -207,6 +232,15 @@ inspect_repo() {
         workspace_relative_path:$workspace_relative_path,
         status:$graph_status,
         graph_status:$graph_status,
+        refresh_eligibility:$refresh_eligibility,
+        index_snapshot:$index_snapshot,
+        query_usability:$query_usability,
+        working_tree_overlay:{
+          dirty:$current_worktree_dirty,
+          status_hash:$current_worktree_status_hash,
+          indexed_status_hash:($recorded_status_hash // null),
+          limitation:(if $current_worktree_dirty then "current working tree may differ from indexed GitNexus graph; verify dirty paths with direct source reads" else null end)
+        },
         workflow_mode:($graph_workflow_mode // $setup_workflow_mode // $graph_status),
         setup_status:(if $setup_ready then "ready" else "missing-or-unsupported" end),
         setup_ready:$setup_ready,
@@ -226,9 +260,11 @@ inspect_repo() {
         providers:{
           gitnexus:{
             configured:($gp.providers.gitnexus.configured // false),
-            graph_ready:(provider_status_for("gitnexus").graph_ready // $gitnexus.graph_ready // false),
-            query_ready:(provider_status_for("gitnexus").query_ready // $gitnexus.query_ready // false),
-            status:(provider_status_for("gitnexus").status // $gitnexus.status // null),
+            graph_ready:($gitnexus_provider_status.graph_ready // $gitnexus.graph_ready // false),
+            query_ready:($gitnexus_provider_status.query_ready // $gitnexus.query_ready // false),
+            status:($gitnexus_provider_status.status // $gitnexus.status // null),
+            last_indexed_commit:($gitnexus_provider_status.last_indexed_commit // $gitnexus.last_indexed_commit // null),
+            requires_clean_full_refresh:$gitnexus_requires_clean_full_refresh,
             repo:($gp.providers.gitnexus.commands.query_probe[6] // null),
             query_probe_policy:($gp.providers.gitnexus.query_probe_policy // null),
             status_artifact:".spec-first/providers/gitnexus/status.json"
@@ -270,7 +306,8 @@ inspect_repo() {
           + (if $stale then ["compiled graph facts source revision differs from current HEAD"] else [] end)
           + (if $dirty_uncertain then ["compiled graph facts were generated from a dirty worktree without a matching status fingerprint"] else [] end)
           + (if (($graph | length) == 0 and $setup_ready) then ["graph bootstrap has not produced canonical graph facts"] else [] end)
-          + (if ((provider_status_for("gitnexus").status // null) == "query-not-applicable") then ["GitNexus process routing is not applicable because no source-derived query target exists"] elif ((provider_status_for("gitnexus").graph_ready // false) == true and (provider_status_for("gitnexus").query_ready // false) != true) then ["GitNexus graph exists but query readiness is unverified; use live MCP probe or bounded direct reads"] else [] end)
+          + (if $current_worktree_dirty then ["current working tree overlay is not guaranteed to be indexed; verify dirty paths directly"] else [] end)
+          + (if ((($gitnexus_provider_status.status // null) == "query-not-applicable")) then ["GitNexus process routing is not applicable because no source-derived query target exists"] elif ((($gitnexus_provider_status.graph_ready // false) == true) and (($gitnexus_provider_status.query_ready // false) != true)) then ["GitNexus graph exists but query readiness is unverified; use live MCP probe or bounded direct reads"] else [] end)
         ),
         next_action:(
           if $graph_status == "primary" then "Use GitNexus-first for bounded read-only evidence."
@@ -302,6 +339,12 @@ RESULT_JSON="$(jq -n \
       schema_version:"workspace-graph-targets.v1",
       generated_at:$generated_at,
       advisory:true,
+      git_root_topology:(
+        if ($target.selected_repo_root // null) != null then "single-repo"
+        elif (($target.mode // "") == "workspace-multi-repo" and ($repos | length) > 1) then "multi-repo-workspace"
+        else null
+        end
+      ),
       mode:($target.mode // "unknown"),
       repo_status:($target.repo_status // "not-git-repo"),
       invocation_cwd:($target.invocation_cwd // null),
@@ -319,6 +362,12 @@ RESULT_JSON="$(jq -n \
         dirty_uncertain:([$repos[] | select(.status == "dirty-uncertain")] | length),
         setup_ready_bootstrap_required:([$repos[] | select(.status == "setup-ready-bootstrap-required")] | length),
         unavailable:([$repos[] | select(.status == "unavailable")] | length)
+      },
+      query_usability_counts:{
+        "fresh-primary":([$repos[] | select(.query_usability == "fresh-primary")] | length),
+        "stale-advisory":([$repos[] | select(.query_usability == "stale-advisory")] | length),
+        "definitions-pointer":([$repos[] | select(.query_usability == "definitions-pointer")] | length),
+        unavailable:([$repos[] | select(.query_usability == "unavailable")] | length)
       },
       reason_code:(
         if ($repos | length) == 0 then ($target.reason_code // "workspace-no-git-candidates")

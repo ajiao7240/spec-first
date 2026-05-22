@@ -1,0 +1,17 @@
+{
+  "schema_version": "workspace-graph-targets.v1",
+  "advisory": true,
+  "git_root_topology": "single-repo",
+  "mode": "git-repo",
+  "workspace_root": "/workspace/app",
+  "repos": [
+    {
+      "target_repo": "app",
+      "repo_label": "app",
+      "git_root": "/workspace/app",
+      "workspace_relative_path": "app",
+      "status": "primary",
+      "query_usability": "fresh-primary"
+    }
+  ]
+}
