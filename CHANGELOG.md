@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-23 13:38:33 leokuang: docs(review): 继续补充当前分支代码审查台账 Finding 118，保持 `docs/**` 排除范围，新增 `review-pre-facts` temp run root symlink containment 问题并记录 targeted setup/graph/plan 验证结果
 - v1.8.2 2026-05-23 13:36:22 leokuang: docs(plan): 新增 `docs/plans/2026-05-23-002-feat-gitnexus-capability-catalog-plan.md`，覆盖 GitNexus 一等 capability 的 R33-R35（checked-in baseline / source tag / verification posture / read-only MCP resource provenance / setup projection 与 `$spec-plan` session-local probe 边界），并经两轮 spec-doc-review 形成 1 条 inline 修订（U1 把 verification posture 改为 source_tags + 当前会话 live verification 的派生视图，移除并行 enum）与 7 条 `## Deferred / Open Questions → ### From 2026-05-23 review` 条目（含 P1/100 root：与 active Plan 001 的 source-tag 词表/文件并发 + 6 个相关 dependents）
 - v1.8.2 2026-05-23 13:28:38 leokuang: docs(review): 继续补充当前分支代码审查台账 Finding 114-117，保持 `docs/**` 排除范围，新增 release continuity guard 结构化失败/package delivery proof、Gemini image chat JPG 保存模式回归与 app-audit raw issue synthesis 状态矛盾等非 docs 目标问题
 - v1.8.2 2026-05-23 13:15:08 leokuang: docs(review): 继续补充当前分支代码审查台账 Finding 101-113，保持 `docs/**` 排除范围，仅记录 secret-deny、spec-work run artifact、project-target resolver、app-audit parser、session metadata、task-pack handoff、spec-optimize worktree cleanup 与 git-worktree 脚本的非 docs 代码/脚本问题
