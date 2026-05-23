@@ -373,6 +373,50 @@ describe('spec-code-review CE sync contracts', () => {
     expect(codexRuntime).not.toContain('| Claude runtime | `bash .agents/skills/spec-mcp-setup/scripts/detect-tools.sh` |');
   });
 
+  test('preflight consumes plan and work graph evidence once and reports Coverage posture', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const template = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'review-output-template.md'),
+      'utf8',
+    );
+
+    expect(text).toContain('After `detect-tools.sh` and before reviewer dispatch, consolidate downstream graph evidence once');
+    expect(text).toContain('`## Graph / GitNexus Evidence` block');
+    expect(text).toContain('`evidence_grade`, `evidence_posture`, `capabilities_used`, `limitations`');
+    expect(text).toContain('`Graph evidence: unavailable (no plan evidence)`');
+    expect(text).toContain('spec-work run artifact path / `run_id`');
+    expect(text).toContain('read `graph_evidence_used` as best-effort session-local supplement');
+    expect(text).toContain('spec-first internal spec-work-run-artifact read --target-repo <repo>');
+    expect(text).toContain('do not directly scan `.spec-first/workflows/spec-work/**`');
+    expect(text).toContain('artifact `plan_path` / `source_refs` reasonably match');
+    expect(text).toContain('reader returns not-found/not-readable');
+    expect(text).toContain('scope mismatches');
+    expect(text).toContain('do not inject the artifact evidence into reviewer prompts or native routing');
+    expect(text).toContain('Do not ask each persona reviewer to repeat the same provider probe');
+    expect(text).toContain('**Degraded-once rule:**');
+    expect(text).toContain('record it once in Coverage');
+    expect(text).toContain('for multi-repo review, report graph evidence per child repo');
+    expect(template).toContain('Graph evidence: <posture>');
+  });
+
+  test('routes graph-heavy diffs to GitNexus native capabilities while requiring source confirmation', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('GitNexus native capability routing candidates');
+    expect(text).toContain('Activation happens only after Stage 4 confirms graph-native use is allowed');
+    expect(text).toContain('`evidence_posture=primary` and `evidence_grade=primary|session-local`');
+    expect(text).toContain('`fallback`, `advisory`, or `stale` evidence remains orientation only');
+    expect(text).toContain('Route handler / public API diff -> prefer `api_impact`, then `route_map`');
+    expect(text).toContain('use `shape_check` for response-shape drift risk');
+    expect(text).toContain('Response shape / consumer access diff -> prefer `shape_check`');
+    expect(text).toContain('Shared symbol / helper diff -> use `context` and `impact`');
+    expect(text).toContain('MCP/RPC tool definition diff -> use `tool_map`');
+    expect(text).toContain('Workspace multi-repo diff -> resolve graph evidence per child repo');
+    expect(text).toContain('Stale / unavailable / definitions-only GitNexus -> fall back to direct diff reads');
+    expect(text).toContain('Do not raise a finding solely from graph output');
+    expect(text).toContain('confirmed by diff/source/test/contract evidence');
+  });
+
   test('Codex reviewer dispatch avoids fork_context and agent_type parameter conflicts', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     const codexRuntime = renderWorkflowSkill('codex');

@@ -513,6 +513,19 @@ Review team:
 
 This is progress reporting, not a blocking confirmation.
 
+#### GitNexus native capability routing candidates
+
+When the diff is graph-heavy, Stage 3 records candidate GitNexus native capability routing, but does not activate those calls yet. Activation happens only after Stage 4 confirms graph-native use is allowed: `evidence_posture=primary` and `evidence_grade=primary|session-local`. `fallback`, `advisory`, or `stale` evidence remains orientation only until source/diff/test/contract reads confirm the relevant fact.
+
+- Route handler / public API diff -> prefer `api_impact`, then `route_map`, then `query` / `context`; use `shape_check` for response-shape drift risk.
+- Response shape / consumer access diff -> prefer `shape_check`; a finding still needs source/diff/test/contract confirmation.
+- Shared symbol / helper diff -> use `context` and `impact` for caller/callee and blast-radius pointers.
+- MCP/RPC tool definition diff -> use `tool_map` for handler, description, and consumer mismatch evidence.
+- Workspace multi-repo diff -> resolve graph evidence per child repo, using group resources only as read-only orientation and keeping findings scoped to the child repo that owns the file.
+- Stale / unavailable / definitions-only GitNexus -> fall back to direct diff reads, record the limitation in Coverage, and continue reviewer dispatch when dispatch is otherwise safe.
+
+GitNexus output is supporting evidence only. Do not raise a finding solely from graph output; every finding must be confirmed by diff/source/test/contract evidence before it enters the merged finding set.
+
 ### Stage 3b: Discover project standards paths
 
 Before spawning sub-agents, find the file paths (not contents) of all relevant standards files for the `project-standards` persona. Use the native file-search/glob tool to locate:
@@ -544,6 +557,15 @@ Interpret the JSON facts narrowly:
 - `host_config_status: action-required | precedence-blocked`, missing required dependencies, or a non-ready required MCP project status means the current runtime is not safe for multi-persona dispatch.
 - A required MCP startup/config failure is a **runtime boundary issue**, not a code-review finding. Record it once in Coverage with the tool id, status, and next action.
 - Graph provider `query_ready: false` or definitions-only evidence does not by itself disable reviewer dispatch; it only limits graph evidence and should be carried into Coverage.
+
+After `detect-tools.sh` and before reviewer dispatch, consolidate downstream graph evidence once:
+
+- If a `plan:` argument or Stage 2b discovery found a plan, inspect its `## Graph / GitNexus Evidence` block for `evidence_grade`, `evidence_posture`, `capabilities_used`, `limitations`, and repo scope. If no plan exists or the plan has no evidence block, record `Graph evidence: unavailable (no plan evidence)` in Coverage and continue.
+- If the caller explicitly handed off a spec-work run artifact path / `run_id`, or if the source-owned reader can read a recent artifact, read `graph_evidence_used` as best-effort session-local supplement. Prefer `spec-first internal spec-work-run-artifact read --target-repo <repo>` and add `--workspace-slug` / `--run-id` when an exact selector is available; do not directly scan `.spec-first/workflows/spec-work/**` or implement "latest run.json" selection in this skill prose.
+- Before consuming work artifact evidence, confirm it is bound to the current review scope: explicit path/run id came from this handoff, or artifact `plan_path` / `source_refs` reasonably match the current `plan:`, review base, and changed files. If the reader returns not-found/not-readable, `graph_evidence_used` is missing, schema/shape is unavailable, or scope mismatches, record `Graph evidence: unavailable` / `stale` with the reason and do not inject the artifact evidence into reviewer prompts or native routing.
+- Carry the consolidated graph evidence posture to Stage 6 Coverage and native capability routing. Do not ask each persona reviewer to repeat the same provider probe.
+
+**Degraded-once rule:** if GitNexus startup, readiness, or native capability probing fails or returns degraded/stale in this preflight, record it once in Coverage with the tool/resource and reason. Do not repeatedly probe the same unavailable provider across personas or hypotheses.
 
 When a required MCP server is not host-config-ready before dispatch, do not spawn reviewer agents in Codex or Claude. Set `single_agent_report_only_fallback: true`, treat the effective mode as report-only, and run the selected persona lenses inline with bounded direct repo reads. This avoids multiplying the same MCP startup failure across every leaf reviewer. If the preflight script is missing or cannot run, do not invent readiness facts; record `runtime readiness preflight unavailable` in Coverage and continue only if the host has not already reported MCP startup failure in the current session. If the host has already reported `MCP startup incomplete` or equivalent startup failure, use the single-agent report-only fallback.
 
@@ -786,7 +808,7 @@ Assemble the final report using **pipe-delimited markdown tables for findings** 
 9. **Agent-Native Gaps.** Surface spec-agent-native-reviewer results. Omit section if no gaps found.
 10. **Schema Drift Check.** If spec-schema-drift-detector ran, summarize whether drift was found. If drift exists, list the unrelated schema objects and the required cleanup command. If clean, say so briefly.
 11. **Deployment Notes.** If spec-deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage.
-12. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, and any intent uncertainty carried by non-interactive modes.
+12. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, graph evidence posture, and any intent uncertainty carried by non-interactive modes. Include `Graph evidence: <fresh/session-local/advisory/fallback/unavailable> (from plan: <capabilities_used> / work: <graph_evidence_used if available>) | limitations: <reason>`; for multi-repo review, report graph evidence per child repo.
 13. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
 
 Do not include time estimates.

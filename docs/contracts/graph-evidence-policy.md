@@ -6,6 +6,10 @@
 
 下游 workflow 读取 graph/provider/impact readiness artifacts 时，字段级速查契约见 `docs/contracts/graph-provider-consumption.md`。GitNexus native capability baseline、source tags 和 read-only MCP resource provenance 边界见 `docs/contracts/gitnexus-capability-catalog.md`。本政策定义证据等级与冲突处理；消费契约定义 canonical artifact、字段层级和禁止读取的旧路径/旧字段。
 
+## Downstream Workflow Consumption
+
+`$spec-work`、`$spec-code-review` 和 `$spec-debug` 消费 Plan envelope 或 `$spec-work` run artifact 中 graph evidence 摘要时，遵循 `docs/contracts/downstream-graph-evidence-consumption.md`。下游消费沿用本文的四轴枚举和 Plan envelope validity matrix；不得引入第二套 downstream 合法性 enum，也不得把 GitNexus 发现的额外影响面自动变成 implementation scope。
+
 ## 证据等级
 
 - `confirmed`: 来自源码、测试、schema 校验、命令 exit code、compiled readiness facts 或 provider raw log 的可复验事实。

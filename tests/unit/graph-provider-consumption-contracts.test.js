@@ -6,6 +6,12 @@ const path = require('node:path');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const CONSUMPTION_DOC_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'graph-provider-consumption.md');
 const EVIDENCE_POLICY_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'graph-evidence-policy.md');
+const DOWNSTREAM_GRAPH_EVIDENCE_CONSUMPTION_PATH = path.join(
+  REPO_ROOT,
+  'docs',
+  'contracts',
+  'downstream-graph-evidence-consumption.md',
+);
 const GITNEXUS_CAPABILITY_CATALOG_PATH = path.join(
   REPO_ROOT,
   'docs',
@@ -178,6 +184,35 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('provider `query_ready`');
     expect(doc).toContain('workspace `query_usability`');
     expect(doc).toContain('`definitions-only` 仍是 limitation / query-usability condition');
+  });
+
+  test('documents downstream graph evidence consumption boundaries without new enums', () => {
+    const downstream = read(DOWNSTREAM_GRAPH_EVIDENCE_CONSUMPTION_PATH);
+    const evidencePolicy = read(EVIDENCE_POLICY_PATH);
+
+    expect(evidencePolicy).toContain('docs/contracts/downstream-graph-evidence-consumption.md');
+    expect(evidencePolicy).toContain('不得引入第二套 downstream 合法性 enum');
+    expect(downstream).toContain('Consumer Role Vocabulary');
+    expect(downstream).toContain('`plan-intake`');
+    expect(downstream).toContain('`review-preflight`');
+    expect(downstream).toContain('`debug-trace`');
+    expect(downstream).toContain('Repo Scope Vocabulary');
+    expect(downstream).toContain('`<target-repo-name>`');
+    expect(downstream).toContain('`per-unit`');
+    expect(downstream).toContain('`per-fix`');
+    expect(downstream).toContain('`parent-workspace-orientation-only`');
+    expect(downstream).toContain('`degraded-once rule`');
+    expect(downstream).toContain('`non-expansion rule`');
+    expect(downstream).toContain('共用 `docs/contracts/graph-evidence-policy.md` 的 Plan envelope validity matrix');
+    expect(downstream).toContain('不得为 downstream workflow 引入第二套合法性 enum');
+    expect(downstream).toContain('不得把 `fallback` 当作 `evidence_grade`');
+    expect(downstream).toContain('`workspace_group_sync`');
+    expect(downstream).toContain('`symbol_rename`');
+    expect(downstream).toContain('`mutation-gated ≠ unavailable`');
+    expect(downstream).toContain('preview-first output');
+    expect(downstream).toContain('explicit user action');
+    expect(downstream).not.toContain('automatically execute group_sync');
+    expect(downstream).not.toContain('silent rename');
   });
 
   test('documents setup-inferred GitNexus capability discovery contract', () => {

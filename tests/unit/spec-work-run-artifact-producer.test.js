@@ -76,6 +76,20 @@ function validPayload(overrides = {}) {
   };
 }
 
+function validGraphEvidenceUsed() {
+  return {
+    capabilities_used: ['api_impact', 'shape_check'],
+    evidence_grade: 'primary',
+    evidence_posture: 'fallback',
+    freshness_state: 'fresh',
+    repo_scope: 'spec-first',
+    graph_findings_applied: ['shape_check focused response-shape contract reads'],
+    graph_findings_as_risk_only: ['consumer outside plan scope recorded as follow-up'],
+    source_reads_validated: ['docs/contracts/downstream-graph-evidence-consumption.md direct read'],
+    redaction_status: 'none-required',
+  };
+}
+
 function writePayload(repo, payload, fileName = 'payload.json') {
   const filePath = path.join(repo, fileName);
   fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`);
@@ -131,6 +145,48 @@ describe('spec-work run artifact producer', () => {
       expect(Date.parse(artifact.retention.expires_at)).not.toBeNaN();
       const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, 'utf8'));
       expect(validateAgainstSchema(schema, artifact).errors).toEqual([]);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('writes compact graph_evidence_used when provided and remains backward compatible when omitted', () => {
+    const repo = makeRepo();
+    try {
+      const withGraphPath = writePayload(repo, validPayload({
+        graph_evidence_used: validGraphEvidenceUsed(),
+      }), 'with-graph.json');
+      const withoutGraphPath = writePayload(repo, validPayload(), 'without-graph.json');
+
+      const withGraph = captureStdout(() => runInternal([
+        'spec-work-run-artifact',
+        'write',
+        '--input',
+        withGraphPath,
+        '--run-id',
+        'run-with-graph',
+        '--target-repo',
+        repo,
+      ]));
+      const withGraphOutput = JSON.parse(withGraph.stdout);
+      expect(withGraph.code).toBe(0);
+      const withGraphArtifact = JSON.parse(fs.readFileSync(path.join(repo, withGraphOutput.artifact_path), 'utf8'));
+      expect(withGraphArtifact.graph_evidence_used).toEqual(validGraphEvidenceUsed());
+
+      const withoutGraph = captureStdout(() => runInternal([
+        'spec-work-run-artifact',
+        'write',
+        '--input',
+        withoutGraphPath,
+        '--run-id',
+        'run-without-graph',
+        '--target-repo',
+        repo,
+      ]));
+      const withoutGraphOutput = JSON.parse(withoutGraph.stdout);
+      expect(withoutGraph.code).toBe(0);
+      const withoutGraphArtifact = JSON.parse(fs.readFileSync(path.join(repo, withoutGraphOutput.artifact_path), 'utf8'));
+      expect(Object.prototype.hasOwnProperty.call(withoutGraphArtifact, 'graph_evidence_used')).toBe(false);
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
@@ -221,6 +277,10 @@ describe('spec-work run artifact producer', () => {
       }),
       validPayload({ llm_asserted: { ...validPayload().llm_asserted, summary: '/var/folders/raw/path' } }),
       validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, raw_output: 'provider raw text' } }),
+      validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), provider_raw_output: 'provider raw text' } }),
+      validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), redaction_status: undefined } }),
+      validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), evidence_grade: 'fallback' } }),
+      validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), capabilities_used: Array.from({ length: 21 }, (_, index) => `cap-${index}`) } }),
       validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, summaries: ['Authorization: Bearer secret-token'] } }),
       validPayload({ llm_asserted: { ...validPayload().llm_asserted, summary: 'https://example.com/log?token=abc123' } }),
       validPayload({ llm_asserted: { ...validPayload().llm_asserted, summary: oversizedLog } }),

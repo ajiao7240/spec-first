@@ -119,6 +119,42 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('Docs-only and config-only tasks use docs contract checks, schema/help/render checks, or diff-shape checks as the feedback loop');
     expect(text).toContain('do not force TDD where no behavior-bearing code changes');
   });
+
+  test('consumes plan Graph GitNexus evidence without expanding implementation scope', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');
+
+    expect(text).toContain('`## Graph / GitNexus Evidence` block');
+    for (const field of ['capabilities_used', 'key_findings', 'impact_on_plan', 'source_reads_required']) {
+      expect(text).toContain(field);
+    }
+    expect(text).toContain('advisory implementation focus');
+    expect(text).toContain('mandatory direct read evidence');
+    expect(text).toContain('evidence_grade=primary');
+    expect(text).toContain('evidence_posture=fallback');
+    expect(text).toContain('candidate file/symbol pointers only');
+    expect(text).toContain('downstream `non-expansion rule`');
+    expect(text).toContain('not silently added to the implementation unit');
+    expect(text).toContain('repo_scope: parent-workspace-orientation-only');
+    expect(text).toContain('resolve an explicit `target_repo` or per-unit/per-task repo scope before writing files');
+
+    expect(shipping).toContain('Graph evidence used (when applicable)');
+    expect(shipping).toContain('graph_evidence_used');
+    for (const field of [
+      'capabilities_used',
+      'evidence_grade',
+      'evidence_posture',
+      'freshness_state',
+      'repo_scope',
+      'graph_findings_applied',
+      'graph_findings_as_risk_only',
+      'source_reads_validated',
+    ]) {
+      expect(shipping).toContain(field);
+    }
+    expect(shipping).toContain('`fallback` belongs to `evidence_posture`, not `evidence_grade`');
+    expect(shipping).toContain('must not expand implementation scope');
+  });
 });
 
 describe('spec-work run artifact boundary contract', () => {

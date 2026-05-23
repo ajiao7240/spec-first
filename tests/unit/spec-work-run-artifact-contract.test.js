@@ -86,6 +86,20 @@ function validArtifact() {
   };
 }
 
+function validGraphEvidenceUsed() {
+  return {
+    capabilities_used: ['api_impact', 'shape_check'],
+    evidence_grade: 'primary',
+    evidence_posture: 'fallback',
+    freshness_state: 'fresh',
+    repo_scope: 'spec-first',
+    graph_findings_applied: ['shape_check pointed at existing response-shape test coverage'],
+    graph_findings_as_risk_only: ['extra consumer outside plan scope kept as follow-up'],
+    source_reads_validated: ['skills/spec-work/SKILL.md direct read confirmed closeout wording'],
+    redaction_status: 'none-required',
+  };
+}
+
 describe('spec-work run artifact contract', () => {
   test('schema is producer-available while workflow integration remains explicit', () => {
     const schema = readJson(SCHEMA_PATH);
@@ -108,6 +122,71 @@ describe('spec-work run artifact contract', () => {
     const schema = readJson(SCHEMA_PATH);
 
     expect(validateAgainstSchema(schema, validArtifact()).errors).toEqual([]);
+  });
+
+  test('schema adds optional graph_evidence_used without breaking old artifacts', () => {
+    const schema = readJson(SCHEMA_PATH);
+
+    expect(schema.properties.graph_evidence_used).toBeDefined();
+    expect(schema.required).not.toContain('graph_evidence_used');
+    expect(schema.properties.graph_evidence_used.required).toEqual([
+      'capabilities_used',
+      'evidence_grade',
+      'evidence_posture',
+      'freshness_state',
+      'repo_scope',
+      'graph_findings_applied',
+      'graph_findings_as_risk_only',
+      'source_reads_validated',
+      'redaction_status',
+    ]);
+    expect(schema.properties.graph_evidence_used.properties.evidence_grade.enum).toEqual([
+      'primary',
+      'session-local',
+      'advisory',
+      'stale',
+    ]);
+    expect(schema.properties.graph_evidence_used.properties.evidence_grade.enum).not.toContain('fallback');
+    expect(schema.properties.graph_evidence_used.properties.evidence_posture.enum).toContain('fallback');
+    expect(schema.properties.graph_evidence_used.properties.capabilities_used.maxItems).toBe(20);
+    expect(schema.properties.graph_evidence_used.properties.graph_findings_applied.items.maxLength).toBe(300);
+
+    expect(validateAgainstSchema(schema, validArtifact()).errors).toEqual([]);
+  });
+
+  test('schema validates compact graph evidence including primary fallback orthogonality', () => {
+    const schema = readJson(SCHEMA_PATH);
+    const artifact = validArtifact();
+    artifact.graph_evidence_used = validGraphEvidenceUsed();
+
+    expect(validateAgainstSchema(schema, artifact).errors).toEqual([]);
+  });
+
+  test('schema rejects incomplete or unbounded graph evidence summaries', () => {
+    const schema = readJson(SCHEMA_PATH);
+    const missingRedaction = validArtifact();
+    missingRedaction.graph_evidence_used = validGraphEvidenceUsed();
+    delete missingRedaction.graph_evidence_used.redaction_status;
+    const tooManyFindings = validArtifact();
+    tooManyFindings.graph_evidence_used = {
+      ...validGraphEvidenceUsed(),
+      graph_findings_applied: Array.from({ length: 21 }, (_, index) => `finding-${index}`),
+    };
+    const tooLongScope = validArtifact();
+    tooLongScope.graph_evidence_used = {
+      ...validGraphEvidenceUsed(),
+      repo_scope: 'x'.repeat(161),
+    };
+
+    expect(validateAgainstSchema(schema, missingRedaction).errors).toContain(
+      'root.graph_evidence_used: missing required key redaction_status'
+    );
+    expect(validateAgainstSchema(schema, tooManyFindings).errors).toContain(
+      'root.graph_evidence_used.graph_findings_applied: expected at most 20 item(s), received 21'
+    );
+    expect(validateAgainstSchema(schema, tooLongScope).errors).toContain(
+      'root.graph_evidence_used.repo_scope: expected string length at most 160, received 161'
+    );
   });
 
   test('schema rejects artifacts that claim workflow integration before the workflow gate', () => {

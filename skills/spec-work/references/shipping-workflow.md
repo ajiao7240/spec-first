@@ -121,6 +121,24 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
 
    If a check was not run, say `not run` with the concrete reason. If no user action remains, omit `Next action` instead of inventing follow-up work.
 
+   **Graph evidence used (when applicable)**
+
+   If the plan/task-pack or this work run consumed GitNexus evidence, include a compact `graph_evidence_used` mini-section in closeout or handoff evidence. Omit the section when no graph evidence was available or consumed.
+
+   ```text
+   Graph evidence used:
+   - capabilities_used: <list or none>
+   - evidence_grade: <primary | session-local | advisory | stale>
+   - evidence_posture: <primary | fallback>
+   - freshness_state: <fresh | stale | dirty-advisory | query-unverified>
+   - repo_scope: <target-repo-name | per-unit | per-fix | parent-workspace-orientation-only>
+   - graph_findings_applied: <which findings influenced file/test selection>
+   - graph_findings_as_risk_only: <extra discovered surfaces recorded as risk/follow-up, not implemented>
+   - source_reads_validated: <key findings confirmed by direct source reads>
+   ```
+
+   `fallback` belongs to `evidence_posture`, not `evidence_grade`. Extra graph findings outside the plan/task scope stay in `graph_findings_as_risk_only` and must not expand implementation scope.
+
    **Learning-worthy compound check**
 
    Before sending the final response, decide whether the completed work produced a reusable lesson worth capturing. This is an LLM-owned judgment, not a script classifier, and it must remain advisory:

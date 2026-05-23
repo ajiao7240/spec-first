@@ -125,6 +125,33 @@ describe('spec-debug branch-aware handoff contract', () => {
     expect(text).toContain('Failed fix evidence reset');
     expect(text).toContain('record the invalidated evidence before forming the next hypothesis');
     expect(text).toContain('Do not stack another fix attempt on top of a contradicted hypothesis');
+    expect(text).toContain('optional `graph_evidence`');
+    expect(text).toContain('Use `graph_evidence` only when GitNexus evidence shaped the hypothesis');
+    expect(text).toContain('capability name, compact result summary, freshness/grade');
+    expect(text).toContain('`graph_evidence` does not replace `evidence_for` source/test confirmed facts');
+    expect(text).toContain('stale graph + graph-heavy debugging should still recommend `$spec-graph-bootstrap`');
+    expect(text).toContain('every uncertain link informed by that graph evidence must be closed by at least one non-graph observation');
+    expect(text).toContain('reproduction, source read, log line, runtime value, or test result');
+    expect(text).toContain('GitNexus-backed root cause with no non-graph confirmation violates this gate');
+    expect(text).toContain('applies only to hypotheses that use `graph_evidence`');
+  });
+
+  test('debug summary can disclose validated and advisory graph claims', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('**Graph evidence** (when applicable):');
+    expect(text).toContain('graph_claims_validated_by');
+    expect(text).toContain('graph_claims_remaining_advisory');
+    expect(text).toContain('confirmed by reproduction/source/log/test');
+    expect(text).toContain('not independently confirmed');
+  });
+
+  test('multi-repo debug requires target repo before fixes even with group evidence', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('single explicit `target_repo` or per-fix repo scope');
+    expect(text).toContain('even when GitNexus group evidence is ready');
+    expect(text).toContain('do not let cwd, graph target facts, group readiness facts, or live MCP results choose a sibling repo for edits');
   });
 
   test('fix phase preserves project test conventions and right-sized review', () => {

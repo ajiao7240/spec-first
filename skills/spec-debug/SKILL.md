@@ -55,7 +55,7 @@ These principles govern every phase. They are repeated at decision points becaus
 
 ## Context Orientation Anchor
 
-Orient debugging from the reported symptom, reproduction path, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, recent diffs, and runtime logs. In a parent workspace containing multiple independent Git repos, use `workspace-graph-targets.v1` only as advisory read-only evidence: prefer bounded candidate repos with `primary` status, try GitNexus-first queries for the concrete symptom, and treat `degraded-fallback` or definitions-only GitNexus results as file/symbol pointers to verify with code-review-graph, tests, or direct reads. `workspace-gitnexus-readiness.v1` can orient investigation with group or bounded registry/per-repo evidence, but `group-missing` is fallback context, not provider failure. Before Phase 3 writes, the bug must have a single explicit `target_repo` or per-fix repo scope; do not let cwd, graph target facts, group readiness facts, or live MCP results choose a sibling repo for edits.
+Orient debugging from the reported symptom, reproduction path, `AGENTS.md` / `CLAUDE.md` / project role docs, package manifests and command registries, nearby implementation files, nearby tests, recent diffs, and runtime logs. In a parent workspace containing multiple independent Git repos, use `workspace-graph-targets.v1` only as advisory read-only evidence: prefer bounded candidate repos with `primary` status, try GitNexus-first queries for the concrete symptom, and treat `degraded-fallback` or definitions-only GitNexus results as file/symbol pointers to verify with code-review-graph, tests, or direct reads. `workspace-gitnexus-readiness.v1` can orient investigation with group or bounded registry/per-repo evidence, but `group-missing` is fallback context, not provider failure. Before Phase 3 writes, the bug must have a single explicit `target_repo` or per-fix repo scope, even when GitNexus group evidence is ready; do not let cwd, graph target facts, group readiness facts, or live MCP results choose a sibling repo for edits.
 
 ## Domain Language And Decision Ledger
 
@@ -93,7 +93,7 @@ All phases self-size — a simple bug flows through them in seconds, a complex b
 
 Before declaring root cause or proposing a fix, establish or attempt the smallest feedback loop that can observe the symptom: a failing test, CLI invocation, HTTP/browser script, trace replay, throwaway harness, property/fuzz loop, or another concrete reproducer. If no loop can be created in the current environment, record `feedback_loop_not_possible` with the exact missing condition and continue with bounded evidence; do not pretend a loop exists.
 
-Maintain a lightweight hypothesis ledger for non-obvious bugs: `hypothesis`, `prediction`, `evidence_for`, `evidence_against`, `probe_result`, and `final_root_cause`. The ledger is working evidence, not a durable schema. After a fix, rerun the same feedback loop or state why it cannot be rerun before handoff.
+Maintain a lightweight hypothesis ledger for non-obvious bugs: `hypothesis`, `prediction`, `evidence_for`, `evidence_against`, `probe_result`, and `final_root_cause`. The ledger is working evidence, not a durable schema. Add optional `graph_evidence` when GitNexus evidence shaped the hypothesis. Use `graph_evidence` only when GitNexus evidence shaped the hypothesis; include the capability name, compact result summary, freshness/grade, and which causal-chain link it informs. `graph_evidence` does not replace `evidence_for` source/test confirmed facts. If graph evidence is `stale` or `dirty-advisory`, mark that in the field; stale graph + graph-heavy debugging should still recommend `$spec-graph-bootstrap` before claiming graph-backed causality. After a fix, rerun the same feedback loop or state why it cannot be rerun before handoff.
 
 ---
 
@@ -192,6 +192,8 @@ Before forming a new hypothesis, review what has already been ruled out and why.
 
 **Causal chain gate:** Do not proceed to Phase 3 until you can explain the full causal chain — from the original trigger through every step to the observed symptom — with no gaps. The user can explicitly authorize proceeding with the best-available hypothesis if investigation is stuck.
 
+If a hypothesis ledger entry uses `graph_evidence`, every uncertain link informed by that graph evidence must be closed by at least one non-graph observation before declaring root cause: reproduction, source read, log line, runtime value, or test result. A GitNexus-backed root cause with no non-graph confirmation violates this gate. This requirement applies only to hypotheses that use `graph_evidence`; trivial-bug fast-path and hypotheses without graph evidence keep the existing chain gate.
+
 *Reminder: if a prediction was wrong but the fix appears to work, you found a symptom. The real cause is still active.*
 
 #### Present findings
@@ -281,6 +283,9 @@ Analyze how this was introduced and what allowed it to survive. Note any systemi
 **Problem**: [What was broken]
 **Root Cause**: [Full causal chain, with file:line references]
 **Recommended Tests**: [Tests to add/modify to prevent recurrence, with specific file and assertion guidance]
+**Graph evidence** (when applicable):
+- graph_claims_validated_by: [Which graph findings were confirmed by reproduction/source/log/test, or "none"]
+- graph_claims_remaining_advisory: [Which graph findings were not independently confirmed, or "none"]
 **Fix**: [What was changed — or "diagnosis only" if Phase 3 was skipped]
 **Prevention**: [Test coverage added; defense-in-depth if applicable]
 **Confidence**: [High/Medium/Low]

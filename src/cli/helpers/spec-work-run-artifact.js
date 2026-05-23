@@ -12,11 +12,29 @@ const DEFAULT_RETENTION_DAYS = 30;
 const ALLOWED_RAW_LOG_KINDS = new Set(['none', 'repo_relative_artifact']);
 const ALLOWED_PLAN_SOURCES = new Set(['explicit', 'inferred', 'missing']);
 const ALLOWED_LLM_ASSERTED_FIELDS = new Set(['summary', 'read_artifacts', 'key_decisions', 'deferred_follow_up', 'next_action']);
+const ALLOWED_GRAPH_EVIDENCE_FIELDS = new Set([
+  'capabilities_used',
+  'evidence_grade',
+  'evidence_posture',
+  'freshness_state',
+  'repo_scope',
+  'graph_findings_applied',
+  'graph_findings_as_risk_only',
+  'source_reads_validated',
+  'redaction_status',
+]);
+const ALLOWED_GRAPH_EVIDENCE_GRADES = new Set(['primary', 'session-local', 'advisory', 'stale']);
+const ALLOWED_GRAPH_EVIDENCE_POSTURES = new Set(['primary', 'fallback']);
+const ALLOWED_GRAPH_FRESHNESS_STATES = new Set(['fresh', 'stale', 'dirty-advisory', 'query-unverified']);
+const ALLOWED_GRAPH_REDACTION_STATUSES = new Set(['redacted', 'none-required']);
 const GENERATED_RUNTIME_PREFIXES = ['.claude/', '.codex/', '.agents/skills/'];
 const FORBIDDEN_ARTIFACT_PREFIXES = ['.spec-first/graph/', '.spec-first/providers/'];
 const LLM_SUMMARY_MAX_LENGTH = 1000;
 const LLM_NEXT_ACTION_MAX_LENGTH = 500;
 const LLM_ARRAY_ITEM_MAX_LENGTH = 500;
+const GRAPH_EVIDENCE_SHORT_MAX_LENGTH = 160;
+const GRAPH_EVIDENCE_ITEM_MAX_LENGTH = 300;
+const GRAPH_EVIDENCE_MAX_ITEMS = 20;
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/;
 
 function runCli(argv) {
@@ -786,6 +804,10 @@ function validatePayload(payload) {
     validateStringArray(payload.provider_untrusted.summaries, 'provider_untrusted.summaries', errors, { maxLength: 500 });
   }
 
+  if (Object.prototype.hasOwnProperty.call(payload, 'graph_evidence_used')) {
+    validateGraphEvidenceUsed(payload.graph_evidence_used, errors);
+  }
+
   validateRetention(payload.retention, errors);
   scanUnsafeStrings(payload, errors);
 
@@ -793,6 +815,49 @@ function validatePayload(payload) {
     errors,
     reasonCode: errors.length > 0 ? classifyErrors(errors) : null,
   };
+}
+
+function validateGraphEvidenceUsed(graphEvidenceUsed, errors) {
+  if (graphEvidenceUsed === null) return;
+  if (!graphEvidenceUsed || typeof graphEvidenceUsed !== 'object' || Array.isArray(graphEvidenceUsed)) {
+    errors.push('graph_evidence_used must be an object or null');
+    return;
+  }
+  for (const field of Object.keys(graphEvidenceUsed)) {
+    if (!ALLOWED_GRAPH_EVIDENCE_FIELDS.has(field)) errors.push(`graph_evidence_used.${field} is not allowed`);
+  }
+  for (const field of ALLOWED_GRAPH_EVIDENCE_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(graphEvidenceUsed, field)) {
+      errors.push(`graph_evidence_used.${field} is required`);
+    }
+  }
+  validateStringArray(graphEvidenceUsed.capabilities_used, 'graph_evidence_used.capabilities_used', errors, {
+    maxLength: GRAPH_EVIDENCE_SHORT_MAX_LENGTH,
+    maxItems: GRAPH_EVIDENCE_MAX_ITEMS,
+  });
+  if (!ALLOWED_GRAPH_EVIDENCE_GRADES.has(graphEvidenceUsed.evidence_grade)) {
+    errors.push('graph_evidence_used.evidence_grade is invalid');
+  }
+  if (!ALLOWED_GRAPH_EVIDENCE_POSTURES.has(graphEvidenceUsed.evidence_posture)) {
+    errors.push('graph_evidence_used.evidence_posture is invalid');
+  }
+  if (!ALLOWED_GRAPH_FRESHNESS_STATES.has(graphEvidenceUsed.freshness_state)) {
+    errors.push('graph_evidence_used.freshness_state is invalid');
+  }
+  validateBoundedString(graphEvidenceUsed.repo_scope, 'graph_evidence_used.repo_scope', errors, {
+    maxLength: GRAPH_EVIDENCE_SHORT_MAX_LENGTH,
+    maxLines: 1,
+  });
+  for (const field of ['graph_findings_applied', 'graph_findings_as_risk_only', 'source_reads_validated']) {
+    validateStringArray(graphEvidenceUsed[field], `graph_evidence_used.${field}`, errors, {
+      maxLength: GRAPH_EVIDENCE_ITEM_MAX_LENGTH,
+      maxItems: GRAPH_EVIDENCE_MAX_ITEMS,
+      maxLines: 4,
+    });
+  }
+  if (!ALLOWED_GRAPH_REDACTION_STATUSES.has(graphEvidenceUsed.redaction_status)) {
+    errors.push('graph_evidence_used.redaction_status is invalid');
+  }
 }
 
 function validateValidation(validation, errors) {
@@ -880,6 +945,7 @@ function validateStringArray(values, field, errors, options = {}) {
     errors.push(`${field} must be an array`);
     return;
   }
+  if (options.maxItems && values.length > options.maxItems) errors.push(`${field} must contain <= ${options.maxItems} items`);
   for (const value of values) {
     validateBoundedString(value, `${field} entries`, errors, options);
   }
@@ -955,6 +1021,7 @@ function buildArtifact(payload, { runId, workspaceSlug, artifactPath, warnings }
     script_confirmed: payload.script_confirmed,
     llm_asserted: payload.llm_asserted,
     provider_untrusted: payload.provider_untrusted,
+    ...(Object.prototype.hasOwnProperty.call(payload, 'graph_evidence_used') ? { graph_evidence_used: payload.graph_evidence_used } : {}),
     retention,
     artifact_path: artifactPath,
     warnings,

@@ -16,6 +16,7 @@
 | `.spec-first/audits/skill-audit/` | `spec-skill-audit` source skill audit 阶段 | `/spec:skill-audit`、`$spec-skill-audit` 或直接运行 `write-audit-artifacts.js` | 保存 source skill inventory、scorecard、安全/治理/runtime drift 信号和改进计划 | `latest/skill-audit-summary.md`、`latest/skill-improvement-plan.md`、`latest/*.json`、`latest/patch-preview/*` |
 | `.spec-first/app-audit/runs/<run-id>/` | `spec-app-consistency-audit` App 一致性审查阶段 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit`；headless 自动化下亦可直接调用 `node skills/spec-app-consistency-audit/scripts/run-audit.js mode:headless base:<ref>` | 保存移动 App PRD / Figma / source / route / architecture / analytics / i18n 静态一致性审查证据；`issue_synthesis_status` 三态(`not_run` / `llm_provided` / `fixture_provided`)区分确定性 runner 产物与上游 LLM/fixture 注入的语义 issue；markdown 摘要由下游 Report Writer 产出，不由 runner 直接生成 | 由 runner 产出: `metadata.json`、`preflight.json`、`impact-facts.json`、`issues.json`、`audit-report.json`、`app-audit-context.json`、`merged-context.json`、`artifact-manifest.json`、`headless-envelope.txt`；由下游 Report Writer 产出: `app-consistency-audit.md`、`app-consistency-audit.summary.md` |
 | `.spec-first/workflows/verification/<slug>/` | verification evidence 阶段 | 上游 verification 流程写入，`doctor` 读取 | 作为验证证据投递目录 | `verification-evidence.json` |
+| `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/` | `spec-work` closeout evidence 阶段 | `$spec-work` closeout durable evidence trigger 适用时，由 source-owned producer 写入 | 保存本次 work 的 compact run evidence、验证摘要、source refs 和可选 `graph_evidence_used` session-local GitNexus evidence 摘要；`workflow_integrated=false` 仍表示完整 replay/retention lifecycle 未完成 | `run.json` |
 | `.spec-first/workflows/quality-gates/ai-dev-quality-gate/` | AI Dev Quality Gate 阶段 | `npm run test:ai-dev:gate` | 记录质量门结果与失败主题，供后续诊断和知识沉淀 | `ai-dev-quality-gate-result.json`、`quality-feedback-topics.json`、JUnit 输出 |
 
 不在 `.spec-first/` 下、但容易被误解的临时 handoff：
@@ -50,6 +51,7 @@
 | `audits/skill-audit/` | skill audit execution artifacts | 维护者读取审计摘要、P0/P1 evidence、score signals 和改进计划 |
 | `app-audit/runs/` | App consistency audit execution artifacts | 评审者读取静态一致性报告、degraded modes、issues 和 runtime follow-up 建议 |
 | `verification/*` | 验证证据投递目录 | `doctor` 校验与汇总 |
+| `workflows/spec-work/*` | Work run evidence | 后续 `spec-code-review` 可通过 source-owned reader best-effort 读取 `graph_evidence_used`；缺失、not-readable 或 scope mismatch 时只在 Coverage 记录 unavailable/stale |
 | `quality-gates/*` | 质量门机器结果 | gate 结果留痕与失败主题沉淀 |
 | `<os-temp>/spec-first/spec-code-review/*` | Code review 临时 handoff | 当前 run 的 reviewer/orchestrator 协调，不作为 repo-local durable artifact |
 
@@ -66,6 +68,7 @@
 | `app-audit/runs/<run-id>` | 评审者、`spec-code-review` headless 调用、后续 QA / runtime validation | App 一致性审查后 | 查看 PRD/Figma/source 一致性问题、证据链、降级范围和运行时验证建议 |
 | `verification/<slug>` | `src/cli/commands/doctor.js` | `doctor` 检查阶段 | 校验 verification evidence 是否存在、有效、足够新 |
 | `quality-gates/ai-dev-quality-gate` | `scripts/run-ai-dev-quality-gate.js`、`src/verification/quality-feedback.js` | AI gate 执行后 | 记录 gate 结果并提取失败主题 |
+| `workflows/spec-work/<workspace-slug>/<run-id>` | `spec-code-review`、shipping handoff、维护者 | work closeout 后 | 读取 compact work evidence、验证摘要和可选 `graph_evidence_used`；不得把 run artifact 当作 source scope authority |
 
 ## 1. config/
 
@@ -109,6 +112,12 @@
 | `gitnexus-readiness.json` | `workspace-gitnexus-readiness.v1`，记录 GitNexus group-ready / bounded registry fallback 的只读 advisory routing facts |
 
 `workspace/` 只帮助 LLM 或维护者看清候选、批量维护结果和 GitNexus group readiness fallback。它不能替代 child repo 内的 `.spec-first/config/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/providers/`、prior GitNexus evidence、code-review-graph facts、ast-grep 或 bounded direct source reads，也不允许普通 plan/work/debug/review 隐式运行 `group_sync`。
+
+## Spec-work run evidence
+
+`spec-work` 的 run artifact 写入 `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json`。它是 closeout evidence，不是 plan/task 的 source authority；当前 contract 标记 `producer_available=true` 且 `workflow_integrated=false`，表示 producer 可写 schema-aligned payload，但完整 replay/retention lifecycle 仍是后续工作。
+
+`graph_evidence_used` 是 optional compact summary，用于把 `$spec-work` 从 plan envelope 消费到的 GitNexus evidence 传递给下游 `$spec-code-review`。它只保存 `capabilities_used`、`evidence_grade`、`evidence_posture`、`freshness_state`、`repo_scope`、`graph_findings_applied`、`graph_findings_as_risk_only`、`source_reads_validated` 和 `redaction_status`，不保存 raw provider output、源码摘录或 credentialed URL。`spec-code-review` 读取失败、artifact scope 不匹配或字段缺失时，应在 Coverage 的 `Graph evidence:` 行记录 unavailable/stale 并继续 direct source reads。
 
 ## Code review temporary handoff
 

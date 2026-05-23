@@ -201,6 +201,61 @@
         }
       }
     },
+    "graph_evidence_used": {
+      "type": ["object", "null"],
+      "description": "Compact session-local GitNexus evidence summary from plan intake. Absent means no graph evidence was consumed or available.",
+      "additionalProperties": false,
+      "required": [
+        "capabilities_used",
+        "evidence_grade",
+        "evidence_posture",
+        "freshness_state",
+        "repo_scope",
+        "graph_findings_applied",
+        "graph_findings_as_risk_only",
+        "source_reads_validated",
+        "redaction_status"
+      ],
+      "properties": {
+        "capabilities_used": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 160 }
+        },
+        "evidence_grade": {
+          "type": "string",
+          "enum": ["primary", "session-local", "advisory", "stale"]
+        },
+        "evidence_posture": {
+          "type": "string",
+          "enum": ["primary", "fallback"]
+        },
+        "freshness_state": {
+          "type": "string",
+          "enum": ["fresh", "stale", "dirty-advisory", "query-unverified"]
+        },
+        "repo_scope": { "type": "string", "maxLength": 160 },
+        "graph_findings_applied": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 300 }
+        },
+        "graph_findings_as_risk_only": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 300 }
+        },
+        "source_reads_validated": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 300 }
+        },
+        "redaction_status": {
+          "type": "string",
+          "enum": ["redacted", "none-required"]
+        }
+      }
+    },
     "retention": {
       "type": "object",
       "additionalProperties": false,

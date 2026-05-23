@@ -222,6 +222,28 @@ describe('user manual contracts', () => {
     expect(bestPractices).toContain('dirty/stale GitNexus evidence 当定向线索');
     expect(bestPractices).toContain('用 `evidence_posture=fallback` 替代 `evidence_grade` 的可信度判断');
     expect(bestPractices).toContain('setup-internal diagnostics');
+    expect(artifactMap).toContain('.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/');
+    expect(artifactMap).toContain('`graph_evidence_used` session-local GitNexus evidence 摘要');
+    expect(artifactMap).toContain('Coverage 的 `Graph evidence:` 行');
+    expect(artifactMap).toContain('不得把 run artifact 当作 source scope authority');
+    expect(bestPractices).toContain('$spec-work`、`$spec-code-review` 和 `$spec-debug` 复用 plan 阶段的 GitNexus evidence');
+    expect(bestPractices).toContain('work 用于收窄 source reads / test selection 并输出 `graph_evidence_used`');
+    expect(bestPractices).toContain('review 在 Coverage 写 `Graph evidence:`');
+    expect(bestPractices).toContain('debug 只在 hypothesis ledger 需要时填写 `graph_evidence`');
+    expect(bestPractices).toContain('downstream workflow 自动扩大 plan/task/debug scope');
+    expect(bestPractices).toContain('把 stale/degraded GitNexus evidence 当成 downstream workflow 失败');
+    expect(bestPractices).toContain('仅凭 `graph_evidence` 声明 debug root cause');
+
+    expect(englishReadme).toContain('$spec-work` uses it to focus source reads and test selection');
+    expect(englishReadme).toContain('reports `graph_evidence_used`');
+    expect(englishReadme).toContain('$spec-code-review` discloses `Graph evidence:` in Coverage');
+    expect(englishReadme).toContain('$spec-debug` may record `graph_evidence` in its hypothesis ledger');
+    expect(englishReadme).toContain('root cause still requires reproduction, source, log, or test confirmation');
+    expect(chineseReadme).toContain('`$spec-work` 用它收窄 source reads 和 test selection');
+    expect(chineseReadme).toContain('报告 `graph_evidence_used`');
+    expect(chineseReadme).toContain('`$spec-code-review` 在 Coverage 中披露 `Graph evidence:`');
+    expect(chineseReadme).toContain('`$spec-debug` 可在 hypothesis ledger 中记录 `graph_evidence`');
+    expect(chineseReadme).toContain('root cause 仍必须由 reproduction、source、log 或 test 证据确认');
   });
 
   test('FAQ covers Win64-native and cross-platform troubleshooting', () => {

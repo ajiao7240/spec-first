@@ -1,7 +1,7 @@
 ---
 title: "feat: GitNexus downstream workflow 深度接入（spec-work / spec-code-review / spec-debug）"
 type: feat
-status: active
+status: completed
 date: 2026-05-23
 spec_id: 2026-05-22-003-gitnexus-downstream-workflows-deep-integration
 origin: docs/brainstorms/2026-05-22-003-gitnexus-downstream-workflows-deep-integration.md
@@ -15,7 +15,7 @@ deepened: 2026-05-23
 
 本计划实现 `docs/brainstorms/2026-05-22-003-gitnexus-downstream-workflows-deep-integration.md` 定义的 R19 companion，把 `$spec-plan` 已经产出的 `Graph / GitNexus Evidence` envelope 向下游三个 workflow 传递：`$spec-work`（D1）、`$spec-code-review`（D2）、`$spec-debug`（D3）。D4 mutation-gated maintenance path 只以 boundary doc 形式落地，不进入普通 workflow。
 
-核心思路：先建立轻量共享契约（U1），再逐 skill 补强消费 prose 和输出结构（U2-U7），最后同步文档（U8）。三个 downstream skill 消费 plan/work 输出的 evidence envelope，用于缩小读码范围、改善 review coverage 和提升 debug hypothesis quality。GitNexus 仍不拥有 scope authority，图谱发现的额外影响面进入 risk/follow-up 而非静默实现。
+核心思路：先建立轻量共享契约（U1），再逐 skill 补强消费 prose 和输出结构（U2-U6），最后同步文档（U8）。三个 downstream skill 消费 plan/work 输出的 evidence envelope，用于缩小读码范围、改善 review coverage 和提升 debug hypothesis quality。GitNexus 仍不拥有 scope authority，图谱发现的额外影响面进入 risk/follow-up 而非静默实现。
 
 **本计划是 `$spec-plan` 一等接入（plan-002）的 follow-up 接入切片**，依赖 `docs/contracts/graph-evidence-policy.md`、`docs/contracts/graph-provider-consumption.md` 和 `docs/contracts/workspace-gitnexus-consumption.md` 的既有 vocabulary；不重新发明 evidence 语义。
 
@@ -33,7 +33,7 @@ deepened: 2026-05-23
 
 - R1. 必须定义一个轻量共享契约（`docs/contracts/downstream-graph-evidence-consumption.md`），统一规范三个 downstream workflow 的 evidence 消费边界、输出结构和非法组合，避免各 skill 独立发明词汇。（see origin: AE-D1/AE-D2/AE-D3/AE-D4/AE-D5/AE-D6）
 - R2. `$spec-work` 必须在执行阶段把 plan envelope 中的 GitNexus evidence 用于缩小 source reads 和 test selection，在 closeout/handoff 中以可读格式输出 `graph_evidence_used`；scope 不因图谱发现的额外影响面自动扩大。（see origin: AE-D1/AE-D2）
-- R3. `$spec-work` 的 run-artifact schema 必须通过 additive optional `graph_evidence_used` 字段扩展，向下游 `$spec-code-review` 和 `$spec-compound` 传递 session-local 证据摘要，不破坏现有 fixtures。（see origin: AE-D1）
+- R3. `$spec-work` 的 run-artifact schema 与现有 producer 必须通过 additive optional `graph_evidence_used` 字段扩展，向下游 `$spec-code-review` 传递 session-local 证据摘要，不破坏现有 fixtures。（see origin: AE-D1）
 - R4. `$spec-code-review` 必须在 review preflight 阶段读取 plan/work evidence posture，并在 Coverage section 中以统一格式披露 graph evidence 状态（fresh/session-local/advisory/fallback）；degraded provider 只记录一次，不让各 persona 重复探测。（see origin: AE-D3/AE-D4）
 - R5. `$spec-code-review` 必须为 graph-heavy diff（route/API/shape/tool surface）提供明确的 native capability 首选路由（`api_impact` → `route_map` → `shape_check`；tool diff → `tool_map`；symbol/reuse → `query`/`context`/`impact`），并在 finding evidence 中明确区分 graph-backed evidence 和 source-read-confirmed evidence。（see origin: AE-D3）
 - R6. `$spec-debug` 的 hypothesis ledger 必须支持 `graph_evidence` 可选字段，并在 Debug Summary handoff 中说明哪些 graph claims 已被 reproduction/source/log/test 验证，哪些仍属 advisory。root cause 只有在 causal chain 被非图谱证据确认后才能声明。（see origin: AE-D5）
@@ -53,7 +53,7 @@ deepened: 2026-05-23
 
 | # | 问题 | 决策 |
 |---|------|------|
-| Q1 | 是否需要新增 shared helper 代码，还是只在各 workflow prose 中消费 plan envelope？ | **轻量契约（prose contract），无新代码 helper**。共享 vocabulary 放入新 contract doc。各 skill 独立在 prose 中消费。 |
+| Q1 | 是否需要新增 shared helper 代码，还是只在各 workflow prose 中消费 plan envelope？ | **轻量契约（prose contract），无新 shared helper**。共享 vocabulary 放入新 contract doc。各 skill 独立在 prose 中消费；U3 只扩展既有 `spec-work-run-artifact` producer/reader 边界，不新增跨 workflow helper。 |
 | Q2 | `$spec-work` closeout 的 `graph_evidence_used` 是结构化字段还是人类可读文段？ | **两者均有**：prose closeout 加 mini-section；run-artifact schema 加 additive optional object。向下游提供机器可读数据，不破坏现有 fixtures。 |
 | Q3 | code-review Coverage 中 graph evidence posture 映射到现有 reviewer JSON schema，还是只在 synthesis 输出中呈现？ | **只在 synthesis 输出（review-output-template.md Coverage section）呈现**。findings-schema.json 是 per-finding contract，不做变更。Coverage 是 review-wide summary，是正确的落点。 |
 | Q4 | debug hypothesis ledger 需要固定字段还是保持轻量工作记录？ | **轻量可选字段**。`graph_evidence` 是 ledger entry 的可选字段，不强制。Debug Summary 加 `graph_claims_validated_by` 和 `graph_claims_remaining_advisory` prose，保持灵活。 |
@@ -66,7 +66,7 @@ deepened: 2026-05-23
 - A1. `$spec-plan` 的 `## Graph / GitNexus Evidence` block 已经 shipped（plan-002 completed），四轴 vocabulary（capability_status / evidence_grade / evidence_posture / freshness_state）已锁定在 `docs/contracts/graph-evidence-policy.md`。
 - A2. `docs/contracts/workspace-gitnexus-consumption.md` 和 `docs/contracts/gitnexus-capability-catalog.md` 继续作为 canonical source；本计划只添加 downstream-facing complement，不重写现有契约。
 - A3. D4 mutation-gated maintenance（group_sync、rename）在此计划中只做 boundary documentation，不进入任何 skill 自动步骤；实际 maintenance workflow 如需要将走单独计划。
-- A4. spec-work-run-artifact schema 是 source-owned spec；additive optional field 不破坏 `producer_available=true` 语义和现有 fixtures。
+- A4. spec-work-run-artifact schema 与 producer 是 source-owned spec；additive optional field 不破坏 `producer_available=true` 语义和现有 fixtures。
 
 ---
 
@@ -83,6 +83,7 @@ deepened: 2026-05-23
 
 - D4 mutation-gated maintenance workflow 实体（含 group_sync preview-first、symbol_rename dry-run）：需要显式用户授权 + preview-first contract，独立排计划。
 - spec-work run-artifact replay/retention lifecycle 完整集成（schema 在 `workflow_integrated: false` 状态下只能 additive extension）。
+- `$spec-compound` 消费 `graph_evidence_used`：本计划只保证 `$spec-code-review` 下游消费；compound 知识沉淀消费需要单独确认 artifact retention、redaction 和 summary shape 后再排计划。
 - code-review persona-level graph evidence routing（如让各 reviewer sub-agent 各自做 GitNexus probe）：本计划只做 orchestrator-level preflight 和 Coverage，persona-level 是 P2 follow-up。
 
 ---
@@ -131,6 +132,7 @@ deepened: 2026-05-23
 - `skills/spec-work/SKILL.md` — Phase 1 Read Work Document；Phase 2 Execute；Graph Freshness section；Workspace Repo Scope；Run Artifact Boundary。当前已有 graph freshness prose 但无 evidence 消费/输出。
 - `skills/spec-work/references/shipping-workflow.md` — closeout handoff format；是 graph_evidence_used 输出的正确落点。
 - `docs/contracts/workflows/spec-work-run-artifact.schema.json` — producer-available contract；additive `graph_evidence_used` object 落点。
+- `src/cli/helpers/spec-work-run-artifact.js` — 现有 run-artifact producer / reader 边界；U3 需要让 producer 接受并写出 `graph_evidence_used`，U4 消费时不得在 workflow prose 中重写目录扫描逻辑。
 - `skills/spec-code-review/SKILL.md` — Stage 4 runtime readiness preflight；Stage 6 Coverage section；graph evidence prose 现状。
 - `skills/spec-code-review/references/review-output-template.md` — Coverage section template；graph evidence 披露格式的落点。
 - `skills/spec-code-review/references/findings-schema.json` — per-finding schema；本计划不修改此 schema。
@@ -160,7 +162,7 @@ deepened: 2026-05-23
 | 决策 | 理由 | 后果 |
 |------|------|------|
 | Shared lightweight contract doc，无代码 helper | `Light contract` 原则；三个 skill 的消费逻辑各自不同（work=closeout, review=Coverage, debug=ledger）；shared code helper 会在 skill 边界间引入不必要耦合。**反驳考量（scope-guardian）：** 核心规则已被现有三份契约覆盖，可以只在 `graph-evidence-policy.md` 新增一节而非独立文件——已考虑，但独立 `downstream-graph-evidence-consumption.md` 文件使"downstream consumer 专用边界"查阅不依赖理解 plan-level evidence schema，信息组织清晰度优于在 plan-policy 中内嵌 consumer 规则。 | 三个 skill 各自有独立 prose；新 contract doc 是 single source of truth for vocabulary |
-| spec-work run-artifact schema additive extension | producer_available=true 但 workflow_integrated=false；additive optional field 不破坏现有 fixtures，同时向下游提供机器可读 evidence | graph_evidence_used 是 optional object；schema validators 必须把缺失视为合法 |
+| spec-work run-artifact additive extension | producer_available=true 但 workflow_integrated=false；additive optional field 不破坏现有 fixtures，同时现有 producer 必须在收到合法 payload 时写出机器可读 evidence | graph_evidence_used 是 optional object；schema validators 必须把缺失视为合法；非空对象走 compact summary-only + redaction boundary |
 | Coverage 而非 per-finding schema | per-finding `findings-schema.json` 是 reviewer-level contract；graph evidence posture 是 review-wide coverage fact，与 finding 正交 | review-output-template.md 加一行 Coverage 字段；findings-schema.json 不变 |
 | hypothesis ledger 轻量可选字段 | 过度固化 ledger schema 会把 debugging 变成表单填写；graph_evidence 只在图谱真正辅助了 hypothesis 时才填 | `graph_evidence` 是 ledger entry 可选 field；Debug Summary 的 graph_claims 段也是 when-applicable prose |
 | D4 boundary doc only（不实现 maintenance workflow）| brainstorm 003 明确 "不并入普通 plan/work/review/debug happy path"；mutation-gated capability 的实现需要 preview-first + explicit user authorization contract 单独设计 | D4 只在 U1 contract 中写 boundary note；maintenance workflow 是单独的 future follow-up |
@@ -299,12 +301,13 @@ flowchart TB
 **Verification:**
 - contract tests 锁定 shipping-workflow.md 的新 mini-section 字段名。
 - 现有 spec-work-contracts.test.js 全部通过。
+- 对 `skills/spec-work/SKILL.md` 和 `skills/spec-work/references/shipping-workflow.md` 的 evidence intake / closeout 语义执行 fresh-source eval，或记录当前 host 无法执行 fresh-source eval 的具体原因和替代检查。
 
 ---
 
-### U3. spec-work — run-artifact schema additive 扩展（D1）
+### U3. spec-work — run-artifact schema / producer additive 扩展（D1）
 
-**Goal:** 在 `docs/contracts/workflows/spec-work-run-artifact.schema.json` 中以 additive optional 方式添加 `graph_evidence_used` object，向下游 `$spec-code-review` 和 `$spec-compound` 传递 session-local 证据摘要。
+**Goal:** 在 `docs/contracts/workflows/spec-work-run-artifact.schema.json` 和现有 `spec-work-run-artifact` producer 中以 additive optional 方式添加 `graph_evidence_used` object，向下游 `$spec-code-review` 传递 session-local 证据摘要。
 
 **Requirements:** R3, R9
 
@@ -312,38 +315,57 @@ flowchart TB
 
 **Files:**
 - Modify: `docs/contracts/workflows/spec-work-run-artifact.schema.json`
+- Modify: `src/cli/helpers/spec-work-run-artifact.js`
 - Modify: `tests/unit/spec-work-run-artifact-contract.test.js`
+- Modify: `tests/unit/spec-work-run-artifact-producer.test.js`
 
 **Approach:**
 - 在 schema 的 `properties` 中添加 `graph_evidence_used` object，标记为 optional（不加入 `required` 数组）：
   ```json
   "graph_evidence_used": {
     "type": ["object", "null"],
-    "description": "Session-local GitNexus evidence summary from plan intake. Absent means no graph evidence was consumed or available.",
+    "description": "Compact session-local GitNexus evidence summary from plan intake. Absent means no graph evidence was consumed or available.",
     "additionalProperties": false,
+    "required": [
+      "capabilities_used",
+      "evidence_grade",
+      "evidence_posture",
+      "freshness_state",
+      "repo_scope",
+      "graph_findings_applied",
+      "graph_findings_as_risk_only",
+      "source_reads_validated",
+      "redaction_status"
+    ],
     "properties": {
-      "capabilities_used": { "type": "array", "items": { "type": "string" } },
+      "capabilities_used": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 160 } },
       "evidence_grade": { "type": "string", "enum": ["primary", "session-local", "advisory", "stale"] },
       "evidence_posture": { "type": "string", "enum": ["primary", "fallback"] },
       "freshness_state": { "type": "string", "enum": ["fresh", "stale", "dirty-advisory", "query-unverified"] },
-      "repo_scope": { "type": "string" },
-      "graph_findings_applied": { "type": "array", "items": { "type": "string" } },
-      "graph_findings_as_risk_only": { "type": "array", "items": { "type": "string" } },
-      "source_reads_validated": { "type": "array", "items": { "type": "string" } }
+      "repo_scope": { "type": "string", "maxLength": 160 },
+      "graph_findings_applied": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 300 } },
+      "graph_findings_as_risk_only": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 300 } },
+      "source_reads_validated": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 300 } },
+      "redaction_status": { "type": "string", "enum": ["redacted", "none-required"] }
     }
   }
   ```
 - `graph_evidence_used` 必须同时加入顶层 `properties` 块（不加入 `required` 数组）。`additionalProperties: false` 拒绝的是未在 `properties` 中声明的字段，与 `required` 无关——仅不加入 `required` 是不够的；必须出现在 `properties` 中，现有不含此字段的 payload 才能通过 schema 验证（缺失即合法）。
+- `graph_evidence_used` 非空时只保存 compact summary：禁止 raw provider output、source excerpts、credentialed URLs、token-like values、unbounded logs 或 prompt-like quoted content；需要更长证据时引用既有 `provider_untrusted` / raw-log redaction boundary，而不是把原始内容塞入该字段。
+- 扩展 `src/cli/helpers/spec-work-run-artifact.js` 的 payload validation 与 `buildArtifact` 路径，使合法 payload 中的 `graph_evidence_used` 被验证后写入 `run.json`；缺失字段继续合法，保持 additive backward compatibility。
 
 **Patterns to follow:**
 - schema 现有 `warnings` array pattern（同样是 optional）。
 - `evidence_grade` enum 与 `docs/contracts/graph-evidence-policy.md` 字面对齐，含 Plan 层 `primary` 别名。
+- `src/cli/helpers/spec-work-run-artifact.js` 现有显式字段构造模式：不要透传未知 top-level 字段，只添加受 schema 约束的 `graph_evidence_used`。
 
 **Test scenarios:**
 - Happy path: contract tests 断言 `graph_evidence_used` 字段存在于 schema `properties` 且不在 `required` 数组中（向后兼容）。
 - Happy path: tests 断言 `evidence_grade` 枚举值严格对齐 `docs/contracts/graph-evidence-policy.md` 四轴（primary / session-local / advisory / stale）；`fallback` 不出现在 `evidence_grade` 枚举，只属于 `evidence_posture`。
 - Edge case: tests 断言现有不含 `graph_evidence_used` 的 payload 不因新字段变成非法（additive backward compat）。
 - Error path: tests 断言 `evidence_grade=primary + evidence_posture=fallback` 是合法组合（对应 graph-evidence-policy.md orthogonality rule：posture 不降低 grade 可信度）。
+- Error path: tests 断言非空 `graph_evidence_used` 必须包含下游消费所需字段与 `redaction_status`，字符串与数组受长度/数量上限约束，不能持久化 raw provider/source snippets。
+- Integration: producer test 写入包含 `graph_evidence_used` 的 payload，断言输出 `run.json` 保留该字段；另保留一个缺失该字段的 payload 作为旧 fixture 回归。
 - (此 integration test 移至 U4，由 spec-code-review-contracts.test.js 验证；不在 U3 schema contract test 中断言 skill prose 内容)
 
 **Verification:**
@@ -358,7 +380,7 @@ flowchart TB
 
 **Requirements:** R4, R7, R9
 
-**Dependencies:** U1
+**Dependencies:** U1, U3
 
 **Files:**
 - Modify: `skills/spec-code-review/SKILL.md`
@@ -367,7 +389,8 @@ flowchart TB
 **Approach:**
 - 在 Stage 4 runtime readiness preflight 段，在现有 `detect-tools.sh` 调用之后、reviewer dispatch 之前，添加 plan/work evidence intake prose：
   - 若 `plan:` argument 或 Stage 2b plan discovery 找到 plan，检查 plan 是否含 `## Graph / GitNexus Evidence` block（`evidence_grade`、`evidence_posture`、`capabilities_used`、`limitations`）。
-  - 若能找到 spec-work run artifact，可读取其 `graph_evidence_used` 字段作为 session-local 补充（optional，best-effort）。发现策略：扫描 `.spec-first/workflows/spec-work/<repo-basename>/` 目录取最新 `run.json`（`<repo-basename>` 通常等于 `git rev-parse --show-toplevel | xargs basename`）；若目录不存在或扫描失败，写 `Graph evidence: unavailable (no work run artifact found)` 并继续，不阻断 review。
+  - 若调用上下文显式给出 spec-work run artifact path / `run_id`，或可通过 source-owned reader 读取最近 artifact，则读取其 `graph_evidence_used` 字段作为 session-local 补充（optional，best-effort）。优先使用 `spec-first internal spec-work-run-artifact read --target-repo <repo>`（需要精确 artifact 时加 reader 支持的 `--workspace-slug` / `--run-id` selector）或 spec-work closeout 明确传入的 artifact path；不要在 `$spec-code-review` prose 中直接扫描 `.spec-first/workflows/spec-work/**` 目录或自行实现“最新 run.json”选择逻辑。
+  - 消费 work artifact 前必须确认它与当前 review scope 绑定：显式 artifact path / run id 来自本轮 handoff，或 artifact 的 `plan_path` / `source_refs` 与当前 `plan:`、review base、changed files 能合理匹配。若 reader 返回 not-found/not-readable、artifact 缺少 `graph_evidence_used`、schema/shape 不可用，或 scope 不匹配，Coverage 写 `Graph evidence: unavailable` / `stale` 并说明原因；不要用可疑 work evidence 降低 reviewer 探测强度。
   - 把 consolidated evidence posture 携带到 Stage 6 Coverage，而不是由各 reviewer persona 各自重新探测 provider。
   - 若 plan 不存在或 plan 不含 evidence block，Coverage 记录 `Graph evidence: unavailable (no plan evidence)` 并继续。
 - **Degraded-once rule**（关键）：若 GitNexus 在本轮 preflight 中 startup 失败或返回 degraded，在 Coverage 中记录一次；Stage 6 synthesis 不再让各 persona 重复探测同一不可用 provider。
@@ -386,12 +409,14 @@ flowchart TB
 - Covers AE-D4. Edge case: tests 断言 SKILL.md 含 "degraded-once rule"——provider unavailable/stale 只在 Coverage 中记录一次，各 persona 不重复探测。
 - Covers AE-D3. Error path: tests 断言 plan 不存在或 plan 不含 evidence block 时，Coverage 记录 `unavailable` 并继续（不阻断 review）。
 - Covers AE-D6. Integration: tests 断言 multi-repo review 按 child repo 分组 evidence，Coverage 包含 per-child graph evidence posture。
-- Integration (moved from U3): tests 断言 SKILL.md 的 Stage 4 preflight prose 提及从 spec-work run artifact 读取 `graph_evidence_used`（best-effort，artifact 不存在时 continue）。
+- Integration (moved from U3): tests 断言 SKILL.md 的 Stage 4 preflight prose 提及从 spec-work run artifact 读取 `graph_evidence_used`（best-effort，artifact 不存在时 continue），但必须通过 source-owned reader 或显式 artifact handoff，不得直接扫描 runtime artifact 目录。
+- Error path: tests 断言 work artifact scope 不匹配、reader not-found/not-readable 或 `graph_evidence_used` shape 不可用时只在 Coverage 记录 unavailable/stale，不把 artifact evidence 注入 reviewer prompt 或 native routing。
 - Integration: 现有 graph boundary assertions（`Code Review must not run GitNexus analyze`，`workspace-graph-targets.v1`，`workspace-gitnexus-readiness.v1`）仍通过。
 
 **Verification:**
 - contract tests 锁定 preflight plan intake prose 和 Coverage `Graph evidence:` 字段存在。
 - 现有 `spec-code-review-contracts.test.js` 全部通过。
+- 对 `skills/spec-code-review/SKILL.md` 的 Stage 4 evidence intake 语义执行 fresh-source eval，或记录当前 host 无法执行 fresh-source eval 的具体原因和替代检查。
 
 ---
 
@@ -409,7 +434,7 @@ flowchart TB
 - Modify: `tests/unit/spec-code-review-contracts.test.js`
 
 **Approach:**
-- 在 `SKILL.md` Stage 3 reviewer selection 段，在 "Graph Freshness / Refresh Trigger Boundary" 之后、Stage 4 之前，添加 GitNexus native capability routing guidance（仅当 graph evidence 为 primary 或 session-local 时激活）：
+- 在 `SKILL.md` Stage 3 reviewer selection 段，在 "Graph Freshness / Refresh Trigger Boundary" 之后、Stage 4 之前，添加 GitNexus native capability routing guidance。Stage 3 只标记 graph-heavy diff 的候选路由；真正激活 native capability routing 必须等 U4 的 Stage 4 plan/work evidence intake 合并出 `primary` 或 `session-local` posture 后再发生：
   - **Route handler / public API diff** → 首选 `api_impact`，次选 `route_map`，再次 `query/context`；`shape_check` 覆盖 response shape drift 风险。
   - **Response shape / consumer access diff** → 首选 `shape_check`，需要源码确认方可作为 finding evidence。
   - **Shared symbol / helper diff** → `context`、`impact` 找 caller/callee 风险。
@@ -449,6 +474,7 @@ flowchart TB
 **Verification:**
 - `review-output-template.md` Coverage section 包含 `Graph evidence:` line。
 - contract tests 锁定 routing prose 关键词（api_impact, shape_check, tool_map）。
+- 对 `skills/spec-code-review/SKILL.md` 的 Stage 3 candidate routing + Stage 4 activation 语义执行 fresh-source eval，或记录当前 host 无法执行 fresh-source eval 的具体原因和替代检查。
 
 ---
 
@@ -494,6 +520,7 @@ flowchart TB
 **Verification:**
 - contract tests 锁定 causal chain gate 的 non-graph confirmation rule 和 Debug Summary 的 graph claims 段。
 - 现有 `spec-debug-contracts.test.js` 全部通过。
+- 对 `skills/spec-debug/SKILL.md` 的 hypothesis ledger / root-cause gate 语义执行 fresh-source eval，或记录当前 host 无法执行 fresh-source eval 的具体原因和替代检查。
 
 ---
 
@@ -517,7 +544,7 @@ flowchart TB
 
 **Requirements:** R9
 
-**Dependencies:** U2, U4, U6（所有 skill prose 变更完成后）
+**Dependencies:** U2, U3, U4, U5, U6（所有 skill prose、run-artifact schema/producer 和 Coverage template 变更完成后）
 
 **Files:**
 - Modify: `README.md`
@@ -550,10 +577,10 @@ flowchart TB
 
 ## System-Wide Impact
 
-- **Interaction graph**: 三个 downstream skill 新增 plan/work evidence intake；不新增脚本执行路径、artifact writer 或 provider command path。
+- **Interaction graph**: 三个 downstream skill 新增 plan/work evidence intake；U3 扩展现有 `spec-work-run-artifact` producer 以写出 optional summary 字段，但不新增脚本执行路径、新 artifact writer 或 provider command path。
 - **Backwards compatibility**: spec-work-run-artifact schema 的 `graph_evidence_used` 是 optional；现有 fixtures 不受影响。
 - **Error propagation**: GitNexus unavailable/stale/degraded 在 work closeout 和 review Coverage 中可见；不中断 workflow。debug root cause gate 加强了非图谱证据确认要求，实质上提高了 hypothesis quality bar。
-- **Source/runtime boundary**: 所有变更都在 source files（skills/、docs/contracts/、tests/unit/）；不手改 `.claude/`、`.codex/`、`.agents/skills/` generated mirrors。
+- **Source/runtime boundary**: 所有变更都在 source files（skills/、docs/contracts/、src/cli/helpers/、tests/unit/）；不手改 `.claude/`、`.codex/`、`.agents/skills/` generated mirrors。
 - **Dual-host parity**: source 变更后若需要 runtime 同步，走 `spec-first init --claude|--codex`；本计划不直接生成 runtime assets。
 - **Unchanged invariants**: code-review-graph 仍是主 diff impact provider（2026-05-18-001 already established）；GitNexus 仍是 optional orientation/enhancement；`$spec-graph-bootstrap` 仍是 durable refresh 唯一入口；mutation-capable capability 仍不进入自动 workflow。
 
@@ -567,8 +594,8 @@ flowchart TB
 | spec-work `non-expansion rule` 被实现者误解成"禁止读 graph evidence" | U2 prose 明确区分：evidence 可以影响文件/测试选择（focused reads）；但不能扩大 implementation unit scope |
 | spec-code-review 个别 persona sub-agent 重复探测不可用 provider | U4 明确 degraded-once rule：orchestrator-level Coverage 记录一次；persona 不重复探测 |
 | debug causal chain gate 新增 non-graph evidence requirement 与现有 fast-path 冲突 | U6 prose 仅在 `graph_evidence` 字段中注明此规则，不改变 trivial-bug fast-path 逻辑；fast-path 本来就是"obvious defect without uncertain links" |
-| run-artifact schema additive extension 破坏 producer 边界 | U3 只在 `properties` 中添加可选 object，不改变 `required` 数组；`workflow_integrated=false` 不变 |
-| D4 boundary doc 被误读为"可以实现 group_sync" | U7 contract note 明确 "D4 是 boundary document，不是 maintenance workflow 实现"；tests 断言不含 "automatically execute" 类措辞 |
+| run-artifact schema additive extension 破坏 producer 边界 | U3 只在顶层添加 optional object，不改变 existing payload 的 required shape；现有 producer 仅复制 schema-valid compact summary，不透传未知字段；`workflow_integrated=false` 不变 |
+| D4 boundary doc 被误读为"可以实现 group_sync" | U1 D4 boundary note 明确 "D4 是 boundary document，不是 maintenance workflow 实现"；tests 断言不含 "automatically execute" 类措辞 |
 
 ---
 

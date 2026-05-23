@@ -172,6 +172,8 @@ Graph refresh 触发节点：
 | docs、typo、小型本地 bug 或首次试用 | graph facts stale / unavailable 时披露限制，并继续 bounded direct reads。 |
 | shared API/route/provider contract、core workflow、跨模块变更或高风险 review | 在声明 graph-backed impact 或 execution-flow evidence 前显式刷新 graph readiness。 |
 
+当 `$spec-plan` 输出 `Graph / GitNexus Evidence` 后，下游 workflow 会把它作为有边界的 evidence 输入，而不是新的 scope authority。`$spec-work` 用它收窄 source reads 和 test selection，并在 closeout 中报告 `graph_evidence_used`；`$spec-code-review` 在 Coverage 中披露 `Graph evidence:`，且只在 evidence fresh 或 session-local 时优先使用 `api_impact`、`shape_check`、`tool_map` 等 GitNexus native capability；`$spec-debug` 可在 hypothesis ledger 中记录 `graph_evidence`，但 root cause 仍必须由 reproduction、source、log 或 test 证据确认。stale / degraded evidence 会降级到 direct source reads，本身不阻断 workflow。
+
 ### Readiness ladder / 就绪层级
 
 `doctor` 是第一层健康检查，不代表所有能力都 ready。请把三层 readiness 分开看：
