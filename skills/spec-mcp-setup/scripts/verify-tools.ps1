@@ -230,7 +230,7 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
 
   Write-JsonFileAtomic -Path (Join-Path $workspaceRoot '.spec-first/workspace/mcp-verify-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
   [pscustomobject]$summary | ConvertTo-Json -Depth 30 -Compress
-  if ($overallStatus -eq 'action-required') { exit 1 }
+  if ($overallStatus -ne 'ready') { exit 1 }
   exit 0
 }
 

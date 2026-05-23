@@ -81,6 +81,7 @@ describe('package install contracts', () => {
     }
 
     expect(pkg.files).not.toContain('vendor/');
+    expect(pkg.files).toContain('docs/catalog/runtime-capabilities.md');
     expect(pkg.files).toContain('docs/contracts/artifact-summary.md');
     expect(pkg.files).toContain('docs/contracts/context-bundle.md');
     expect(pkg.files).toContain('docs/contracts/context-governance.md');

@@ -28,7 +28,7 @@ $script:NonGraphMetadataDirtyPaths = @(
   'CHANGELOG.md',
   'docs/变更日志.md'
 )
-$script:ExternalActorFingerprintIgnorePattern = '^(\.spec-first/|\.gitnexus/|\.code-review-graph/)'
+$script:ExternalActorFingerprintIgnorePattern = '^(\.spec-first/(providers|graph|impact|workspace)/|\.gitnexus/|\.code-review-graph/)'
 $script:DirtyClassification = ''
 $script:DirtyPathsBreakdown = [ordered]@{
   setup_owned_count = 0
@@ -486,7 +486,7 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
   Ensure-Directory -Path @($workspaceDir)
   Write-JsonFileAtomic -Path (Join-Path $workspaceDir 'graph-bootstrap-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
   [pscustomobject]$summary | ConvertTo-Json -Depth 30 -Compress
-  if ($overallStatus -eq 'action-required') { exit 1 }
+  if ($overallStatus -ne 'ready') { exit 1 }
   exit 0
 }
 

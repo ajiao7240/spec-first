@@ -2,7 +2,9 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const { writeFileAtomic } = require('../atomic-write');
+const { validateAgainstSchema } = require('../../contracts/schema-validator');
 const { isExactRepoRelativePath } = require('./secret-deny-patterns');
 
 const PAYLOAD_SCHEMA_VERSION = 'spec-work-run-artifact-payload/v1';
@@ -36,6 +38,54 @@ const GRAPH_EVIDENCE_SHORT_MAX_LENGTH = 160;
 const GRAPH_EVIDENCE_ITEM_MAX_LENGTH = 300;
 const GRAPH_EVIDENCE_MAX_ITEMS = 20;
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/;
+const ARTIFACT_SCHEMA_PATH = path.join(__dirname, '..', '..', '..', 'docs', 'contracts', 'workflows', 'spec-work-run-artifact.schema.json');
+const ALLOWED_PAYLOAD_FIELDS = new Set([
+  'schema_version',
+  'workflow',
+  'mode',
+  'plan_path',
+  'plan_source',
+  'task_pack_path',
+  'source_refs',
+  'script_confirmed',
+  'llm_asserted',
+  'provider_untrusted',
+  'graph_evidence_used',
+  'retention',
+]);
+const ALLOWED_SCRIPT_CONFIRMED_FIELDS = new Set([
+  'validation',
+  'changed_files',
+  'artifact_refs',
+  'raw_log_ref',
+  'resume_evidence',
+]);
+const ALLOWED_RAW_LOG_REF_FIELDS = new Set([
+  'kind',
+  'display_ref',
+  'secret_stripped',
+  'redaction_status',
+  'retention_status',
+  'access_boundary',
+  'reason_code',
+]);
+const ALLOWED_RETENTION_FIELDS = new Set([
+  'retention_status',
+  'artifact_category',
+  'raw_log_retention_impact',
+  'redaction_status',
+  'owner',
+  'expires_at',
+]);
+
+let cachedArtifactSchema = null;
+
+function getArtifactSchema() {
+  if (!cachedArtifactSchema) {
+    cachedArtifactSchema = JSON.parse(fs.readFileSync(ARTIFACT_SCHEMA_PATH, 'utf8'));
+  }
+  return cachedArtifactSchema;
+}
 
 function runCli(argv) {
   const args = Array.isArray(argv) ? [...argv] : [];
@@ -393,6 +443,23 @@ function readSpecWorkRunArtifact({ targetRepo, workspaceSlug = '', runId = '' })
       },
     };
   }
+  const artifactValidation = validateArtifact(artifact);
+  if (artifactValidation.errors.length > 0) {
+    return {
+      exitCode: 1,
+      output: {
+        status: 'not-readable',
+        reason_code: 'artifact-schema-invalid',
+        artifact_path: artifactInfo.relativePath,
+        schema_version: ARTIFACT_SCHEMA_VERSION,
+        producer_available: true,
+        workflow_integrated: false,
+        warnings: [],
+        errors: artifactValidation.errors,
+        artifact: null,
+      },
+    };
+  }
 
   return {
     exitCode: 0,
@@ -507,6 +574,14 @@ function pruneSpecWorkRunArtifacts({ targetRepo, retentionDays, dryRun }) {
         retained.push({
           artifact_path: path.relative(targetRepoRoot, artifactPath),
           reason_code: 'artifact-unreadable',
+        });
+        continue;
+      }
+      const artifactValidation = validateArtifact(artifact);
+      if (artifactValidation.errors.length > 0) {
+        retained.push({
+          artifact_path: path.relative(targetRepoRoot, artifactPath),
+          reason_code: 'artifact-schema-invalid',
         });
         continue;
       }
@@ -711,8 +786,17 @@ function resolveTargetRepoRoot(targetRepo) {
     if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
       return { ok: false, errors: ['target repo does not exist or is not a directory'] };
     }
+    const topLevel = execFileSync('git', ['-C', root, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    const realRoot = fs.realpathSync(root);
+    const realTopLevel = fs.realpathSync(path.resolve(topLevel));
+    if (realRoot !== realTopLevel) {
+      return { ok: false, errors: ['target repo must be a Git repository root'] };
+    }
   } catch (error) {
-    return { ok: false, errors: [`target repo cannot be inspected: ${error.message}`] };
+    return { ok: false, errors: [`target repo must be a Git repository root: ${error.message}`] };
   }
   return { ok: true, root };
 }
@@ -763,6 +847,7 @@ function validatePayload(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return { errors: ['payload must be a JSON object'], reasonCode: 'payload-invalid' };
   }
+  validateObjectFields(payload, 'payload', ALLOWED_PAYLOAD_FIELDS, errors);
   if (payload.schema_version !== PAYLOAD_SCHEMA_VERSION) errors.push(`schema_version must be ${PAYLOAD_SCHEMA_VERSION}`);
   if (payload.workflow !== WORKFLOW) errors.push(`workflow must be ${WORKFLOW}`);
   if (!['interactive', 'non-interactive'].includes(payload.mode)) errors.push('mode must be interactive or non-interactive');
@@ -778,6 +863,7 @@ function validatePayload(payload) {
   validateRepoRelativeArray(payload.source_refs, 'source_refs', errors);
 
   if (payload.script_confirmed && typeof payload.script_confirmed === 'object') {
+    validateObjectFields(payload.script_confirmed, 'script_confirmed', ALLOWED_SCRIPT_CONFIRMED_FIELDS, errors);
     validateRepoRelativeArray(payload.script_confirmed.changed_files, 'script_confirmed.changed_files', errors);
     validateRepoRelativeArray(payload.script_confirmed.artifact_refs, 'script_confirmed.artifact_refs', errors, { allowSpecFirstWorkflows: true });
     validateValidation(payload.script_confirmed.validation, errors);
@@ -891,6 +977,7 @@ function validateRawLogRef(rawLogRef, errors) {
     errors.push('script_confirmed.raw_log_ref must be an object');
     return;
   }
+  validateObjectFields(rawLogRef, 'script_confirmed.raw_log_ref', ALLOWED_RAW_LOG_REF_FIELDS, errors);
   if (!ALLOWED_RAW_LOG_KINDS.has(rawLogRef.kind)) errors.push('raw_log_ref.kind is invalid for Phase 1B');
   if (rawLogRef.kind === 'repo_relative_artifact') {
     validateRepoRelativeField(rawLogRef.display_ref, 'raw_log_ref.display_ref', errors, { allowSpecFirstWorkflows: true });
@@ -921,6 +1008,7 @@ function validateRetention(retention, errors) {
     errors.push('retention must be an object');
     return;
   }
+  validateObjectFields(retention, 'retention', ALLOWED_RETENTION_FIELDS, errors);
   if (retention.retention_status !== 'lifecycle-deferred') errors.push('retention.retention_status must be lifecycle-deferred');
   if (retention.artifact_category !== 'spec-work-run-evidence') errors.push('retention.artifact_category must be spec-work-run-evidence');
   if (!['none', 'repo-relative-redacted-ref'].includes(retention.raw_log_retention_impact)) {
@@ -928,7 +1016,25 @@ function validateRetention(retention, errors) {
   }
   if (!['redacted', 'none-required'].includes(retention.redaction_status)) errors.push('retention.redaction_status is invalid');
   if (retention.owner !== undefined && typeof retention.owner !== 'string') errors.push('retention.owner must be a string when present');
-  if (retention.expires_at !== undefined && Number.isNaN(Date.parse(retention.expires_at))) errors.push('retention.expires_at must be an ISO date when present');
+  if (retention.expires_at !== undefined && typeof retention.expires_at !== 'string') {
+    errors.push('retention.expires_at must be a string when present');
+  } else if (retention.expires_at !== undefined && Number.isNaN(Date.parse(retention.expires_at))) {
+    errors.push('retention.expires_at must be an ISO date when present');
+  }
+}
+
+function validateObjectFields(value, pointer, allowedFields, errors) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+  for (const field of Object.keys(value)) {
+    if (!allowedFields.has(field)) {
+      errors.push(`${pointer}.${field} is not allowed`);
+    }
+  }
+}
+
+function validateArtifact(artifact) {
+  const result = validateAgainstSchema(getArtifactSchema(), artifact);
+  return result.valid ? { errors: [] } : { errors: result.errors };
 }
 
 function validateRepoRelativeArray(values, field, errors, options = {}) {

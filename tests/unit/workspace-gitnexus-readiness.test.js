@@ -47,11 +47,14 @@ function expectExactKeys(value, keys) {
 describe('workspace GitNexus readiness classifier', () => {
   test('script mode writes durable readiness with deterministic four-key query counts', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-readiness-'));
+    const targets = readFixture('workspace-graph-targets.dirty-overlay.example.json');
+    targets.workspace_root = tmp;
+    const targetsPath = writeJson(tmp, 'workspace-targets.json', targets);
     const output = path.join(tmp, '.spec-first', 'workspace', 'gitnexus-readiness.json');
 
     const result = runHelper([
       '--mode', 'script',
-      '--workspace-targets', fixture('workspace-graph-targets.dirty-overlay.example.json'),
+      '--workspace-targets', targetsPath,
       '--write-artifact',
       '--output', output,
     ], tmp);
@@ -83,11 +86,14 @@ describe('workspace GitNexus readiness classifier', () => {
 
   test('script mode writes only parent workspace advisory path, not child canonical graph paths', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-readiness-'));
+    const targets = readFixture('topology-multi-repo-workspace.example.json');
+    targets.workspace_root = tmp;
+    const targetsPath = writeJson(tmp, 'workspace-targets.json', targets);
     const output = path.join(tmp, '.spec-first', 'workspace', 'gitnexus-readiness.json');
 
     const result = runHelper([
       '--mode', 'script',
-      '--workspace-targets', fixture('topology-multi-repo-workspace.example.json'),
+      '--workspace-targets', targetsPath,
       '--write-artifact',
       '--output', output,
     ], tmp);
@@ -149,6 +155,70 @@ describe('workspace GitNexus readiness classifier', () => {
     });
     expectExactKeys(result.payload.group, ['name', 'status', 'query_selector']);
     expect(result.payload.group_reason_code).toBe('group-list-empty');
+  });
+
+  test('skill-prose mode ignores empty-member groups when deciding group query readiness', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-readiness-'));
+    const groupList = writeJson(tmp, 'group-list-empty-member-ready.json', {
+      groups: [
+        {
+          name: 'empty-ready',
+          status: 'group-ready',
+          query_selector: '@empty-ready',
+          members: [],
+        },
+      ],
+    });
+    const registryList = writeJson(tmp, 'registry-service-a.json', {
+      repos: [{ name: 'service-a', path: path.join(tmp, 'service-a') }],
+    });
+
+    const result = compileWorkspaceGitNexusReadiness({
+      mode: 'skill-prose',
+      workspaceTargets: fixture('topology-multi-repo-workspace.example.json'),
+      registryList,
+      groupList,
+    }, tmp);
+
+    expect(result.payload.recommended_query_path).toBe('bounded-registry-fanout');
+    expect(result.payload.group).toEqual({
+      name: null,
+      status: 'group-missing',
+      query_selector: null,
+    });
+    expect(result.payload.group_reason_code).toBe('group-list-no-workspace-match');
+  });
+
+  test('skill-prose mode fails closed for unsupported matching group status', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-readiness-'));
+    const groupList = writeJson(tmp, 'group-list-unsupported-status.json', {
+      groups: [
+        {
+          name: 'future-group',
+          status: 'future-ready',
+          query_selector: '@future-group',
+          members: ['service-a'],
+        },
+      ],
+    });
+    const registryList = writeJson(tmp, 'registry-service-a.json', {
+      repos: [{ name: 'service-a', path: path.join(tmp, 'service-a') }],
+    });
+
+    const result = compileWorkspaceGitNexusReadiness({
+      mode: 'skill-prose',
+      workspaceTargets: fixture('topology-multi-repo-workspace.example.json'),
+      registryList,
+      groupList,
+    }, tmp);
+
+    expect(result.payload.recommended_query_path).toBe('bounded-registry-fanout');
+    expect(result.payload.group).toEqual({
+      name: 'future-group',
+      status: 'unavailable',
+      query_selector: null,
+    });
+    expect(result.payload.group_reason_code).toBe('group-status-unsupported:future-ready');
   });
 
   test.each([
@@ -317,6 +387,52 @@ describe('workspace GitNexus readiness classifier', () => {
       unavailable: 1,
     });
     expect(Object.values(result.payload.query_usability_counts).reduce((sum, value) => sum + value, 0)).toBe(result.payload.repos.length);
+  });
+
+  test('script mode rejects artifact output outside the workspace root', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-readiness-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-outside-'));
+    const targets = readFixture('topology-multi-repo-workspace.example.json');
+    targets.workspace_root = tmp;
+    const targetsPath = writeJson(tmp, 'workspace-targets.json', targets);
+    const output = path.join(outside, 'gitnexus-readiness.json');
+
+    const result = runHelper([
+      '--mode', 'script',
+      '--workspace-targets', targetsPath,
+      '--write-artifact',
+      '--output', output,
+    ], tmp);
+
+    expect(result.status).toBe(2);
+    expect(result.json.error.code).toBe('artifact-output-outside-workspace');
+    expect(fs.existsSync(output)).toBe(false);
+  });
+
+  test('script mode rejects artifact output through a workspace symlink escape', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-readiness-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-outside-'));
+    const targets = readFixture('topology-multi-repo-workspace.example.json');
+    targets.workspace_root = tmp;
+    const targetsPath = writeJson(tmp, 'workspace-targets.json', targets);
+    fs.mkdirSync(path.join(tmp, '.spec-first'), { recursive: true });
+    try {
+      fs.symlinkSync(outside, path.join(tmp, '.spec-first', 'workspace'), 'dir');
+    } catch (_error) {
+      return;
+    }
+    const output = path.join(tmp, '.spec-first', 'workspace', 'gitnexus-readiness.json');
+
+    const result = runHelper([
+      '--mode', 'script',
+      '--workspace-targets', targetsPath,
+      '--write-artifact',
+      '--output', output,
+    ], tmp);
+
+    expect(result.status).toBe(2);
+    expect(result.json.error.code).toBe('artifact-output-symlink-escape');
+    expect(fs.existsSync(path.join(outside, 'gitnexus-readiness.json'))).toBe(false);
   });
 
   test('skill-prose mode rejects artifact persistence', () => {

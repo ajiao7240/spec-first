@@ -137,6 +137,34 @@ describe('register / heartbeat / unregister roundtrip', () => {
       .toBe('agent-kind-invalid');
   });
 
+  test('register, list, heartbeat, and unregister reject session store symlink escapes', () => {
+    const outside = makeRepoRoot();
+    try {
+      fs.symlinkSync(outside, path.join(repoRoot, '.spec-first'), 'dir');
+    } catch (_error) {
+      fs.rmSync(outside, { recursive: true, force: true });
+      return;
+    }
+
+    const id = generateSessionId();
+    const register = registerSession(repoRoot, { session_id: id, agent_kind: 'codex' });
+    expect(register.ok).toBe(false);
+    expect(register.reason_code).toBe('session-path-escape');
+    expect(fs.existsSync(path.join(outside, 'sessions'))).toBe(false);
+
+    const list = listSessions(repoRoot, { includeStale: true });
+    expect(list).toEqual([
+      expect.objectContaining({
+        invalid: true,
+        reason: 'session-path-escape',
+      }),
+    ]);
+
+    expect(heartbeatSession(repoRoot, id).reason_code).toBe('session-path-escape');
+    expect(unregisterSession(repoRoot, id).reason_code).toBe('session-path-escape');
+    fs.rmSync(outside, { recursive: true, force: true });
+  });
+
   test('heartbeat updates last_heartbeat_at and preserves started_at', async () => {
     const id = generateSessionId();
     const reg = registerSession(repoRoot, { session_id: id, agent_kind: 'codex' });

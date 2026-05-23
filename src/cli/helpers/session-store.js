@@ -28,7 +28,15 @@ function getSessionDir(repoRoot) {
 
 function ensureSessionDir(repoRoot) {
   const dir = getSessionDir(repoRoot);
+  const containment = validateSessionPathContainment(repoRoot, path.join(dir, 'containment-probe.json'));
+  if (!containment.ok) {
+    throw new Error(containment.errors.join('; '));
+  }
   fs.mkdirSync(dir, { recursive: true });
+  const postMkdirContainment = validateSessionPathContainment(repoRoot, path.join(dir, 'containment-probe.json'));
+  if (!postMkdirContainment.ok) {
+    throw new Error(postMkdirContainment.errors.join('; '));
+  }
   return dir;
 }
 
@@ -79,6 +87,16 @@ function isStale(record, now = Date.now()) {
 
 function listSessions(repoRoot, { includeStale = false, now = Date.now() } = {}) {
   const dir = getSessionDir(repoRoot);
+  const containment = validateSessionPathContainment(repoRoot, path.join(dir, 'containment-probe.json'));
+  if (!containment.ok) {
+    return [{
+      session_id: 'session-store',
+      invalid: true,
+      reason: 'session-path-escape',
+      errors: containment.errors,
+      path: dir,
+    }];
+  }
   if (!fs.existsSync(dir)) return [];
   const entries = fs.readdirSync(dir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith('.json'));
@@ -131,6 +149,10 @@ function registerSession(repoRoot, options = {}) {
     return { ok: false, reason_code: 'agent-kind-invalid', session_id: sessionId };
   }
   const filePath = getSessionFile(repoRoot, sessionId);
+  const containment = validateSessionPathContainment(repoRoot, filePath);
+  if (!containment.ok) {
+    return { ok: false, reason_code: 'session-path-escape', session_id: sessionId, errors: containment.errors };
+  }
   if (fs.existsSync(filePath)) {
     return { ok: false, reason_code: 'session-already-registered', session_id: sessionId, path: filePath };
   }
@@ -148,8 +170,12 @@ function registerSession(repoRoot, options = {}) {
   if (!validation.valid) {
     return { ok: false, reason_code: 'session-schema-invalid', session_id: sessionId, errors: validation.errors };
   }
-  ensureSessionDir(repoRoot);
-  writeFileAtomic(filePath, `${JSON.stringify(record, null, 2)}\n`);
+  try {
+    ensureSessionDir(repoRoot);
+    writeFileAtomic(filePath, `${JSON.stringify(record, null, 2)}\n`);
+  } catch (error) {
+    return { ok: false, reason_code: 'session-path-escape', session_id: sessionId, errors: [error.message] };
+  }
   return { ok: true, session_id: sessionId, path: filePath, record };
 }
 
@@ -158,6 +184,10 @@ function heartbeatSession(repoRoot, sessionId) {
     return { ok: false, reason_code: 'session-id-invalid', session_id: sessionId };
   }
   const filePath = getSessionFile(repoRoot, sessionId);
+  const containment = validateSessionPathContainment(repoRoot, filePath);
+  if (!containment.ok) {
+    return { ok: false, reason_code: 'session-path-escape', session_id: sessionId, errors: containment.errors };
+  }
   const record = readRecord(filePath);
   if (!record) {
     return { ok: false, reason_code: 'session-not-found', session_id: sessionId };
@@ -170,7 +200,11 @@ function heartbeatSession(repoRoot, sessionId) {
   if (!validation.valid) {
     return { ok: false, reason_code: 'session-schema-invalid', session_id: sessionId, errors: validation.errors };
   }
-  writeFileAtomic(filePath, `${JSON.stringify(updated, null, 2)}\n`);
+  try {
+    writeFileAtomic(filePath, `${JSON.stringify(updated, null, 2)}\n`);
+  } catch (error) {
+    return { ok: false, reason_code: 'session-path-escape', session_id: sessionId, errors: [error.message] };
+  }
   return { ok: true, session_id: sessionId, path: filePath, record: updated };
 }
 
@@ -179,11 +213,61 @@ function unregisterSession(repoRoot, sessionId) {
     return { ok: false, reason_code: 'session-id-invalid', session_id: sessionId };
   }
   const filePath = getSessionFile(repoRoot, sessionId);
+  const containment = validateSessionPathContainment(repoRoot, filePath);
+  if (!containment.ok) {
+    return { ok: false, reason_code: 'session-path-escape', session_id: sessionId, errors: containment.errors };
+  }
   if (!fs.existsSync(filePath)) {
     return { ok: false, reason_code: 'session-not-found', session_id: sessionId };
   }
   fs.rmSync(filePath, { force: true });
   return { ok: true, session_id: sessionId, path: filePath };
+}
+
+function validateSessionPathContainment(repoRoot, targetPath) {
+  const errors = [];
+  let realRepoRoot;
+  const resolvedRepoRoot = path.resolve(repoRoot);
+  const resolvedTarget = path.resolve(targetPath);
+  if (!isPathInside(resolvedRepoRoot, resolvedTarget)) {
+    return { ok: false, errors: [`session path escapes repo root: ${path.relative(resolvedRepoRoot, resolvedTarget)}`] };
+  }
+
+  try {
+    realRepoRoot = fs.realpathSync(resolvedRepoRoot);
+  } catch (error) {
+    return { ok: false, errors: [`repo root realpath failed: ${error.message}`] };
+  }
+
+  const inspectPath = fs.existsSync(resolvedTarget) ? resolvedTarget : findExistingAncestor(path.dirname(resolvedTarget), resolvedRepoRoot);
+  try {
+    const stat = fs.lstatSync(inspectPath);
+    if (stat.isSymbolicLink()) {
+      errors.push(`session path must not use symlink ancestor: ${path.relative(resolvedRepoRoot, inspectPath) || '.'}`);
+    }
+    const realInspectPath = fs.realpathSync(inspectPath);
+    if (!isPathInside(realRepoRoot, realInspectPath)) {
+      errors.push(`session path realpath escapes repo root: ${path.relative(resolvedRepoRoot, inspectPath) || '.'}`);
+    }
+  } catch (error) {
+    errors.push(`session path cannot be inspected: ${error.message}`);
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+function findExistingAncestor(candidate, stopAt) {
+  let current = path.resolve(candidate);
+  const boundary = path.resolve(stopAt);
+  while (!fs.existsSync(current) && current !== boundary && path.dirname(current) !== current) {
+    current = path.dirname(current);
+  }
+  return current;
+}
+
+function isPathInside(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 module.exports = {

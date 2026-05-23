@@ -575,12 +575,12 @@ Before creating a run ID or dispatching any reviewer, confirm the current host e
 
 Reviewers are analysis agents, not implementation workers. Dispatch is bounded to the resolved diff scope, selected reviewer personas, advisory facts, and output schema. Do not create hidden implement/check agents from code review. Mutation is allowed only through documented `safe_auto` / selected Apply paths in the chosen mode; report-only fallback, unsafe runtime, or missing dispatch capability must not edit source, generated runtime mirrors, or workflow artifacts.
 
-- A direct invocation of the current host's code-review workflow entrypoint authorizes this documented reviewer phase; do not ask for a second "use subagents" confirmation.
-- Default code-review posture is multi-persona reviewer dispatch. Do not interpret the absence of extra "use subagents" wording as report-only fallback; the workflow entrypoint already expresses that intent.
+- In Codex, the current tool contract controls dispatch permission. A workflow entrypoint by itself is not enough to call `spawn_agent`; require an explicit user request for subagents/parallel agents/delegated review or an explicit parent-orchestrator delegation that carries that permission.
+- In Claude, follow the current host's documented workflow-owned dispatch admission rules; if the host contract is unavailable or ambiguous, prefer the single-agent report-only fallback.
 - If the user explicitly requested subagents, parallel agents, or delegated review and the host exposes a dispatch primitive, continue with normal multi-persona dispatch.
-- If the active workflow or parent orchestrator explicitly delegated this code-review workflow, continue with normal multi-persona dispatch.
+- If the active workflow or parent orchestrator explicitly delegated this code-review workflow and that delegation includes reviewer-dispatch permission, continue with normal multi-persona dispatch.
 - If the user explicitly requests report-only/no-agents mode, the host lacks a dispatch primitive, or the current runtime cannot call it, do not call `Agent`, `Task`, `spawn_agent`, or equivalent dispatch tools.
-- Codex supports reviewer dispatch through `spawn_agent`. Do not downgrade solely because the host is Codex. Do not call `spawn_agent` solely because a profile exists; call it only when the workflow's documented reviewer phase and host capability select it.
+- Codex may expose reviewer dispatch through `spawn_agent`, but use it only when both the host capability and the current permission boundary allow it. Do not downgrade solely because the host is Codex when the permission boundary is satisfied.
 
 When dispatch is unavailable, explicitly disabled, or unsafe, set `single_agent_report_only_fallback: true` and run the rest of the review in read-only form:
 

@@ -28,6 +28,7 @@ describe('release continuity guard', () => {
       reason_code: 'package-delivery-surface-current',
       classification: 'blocking',
     });
+    expect(guardsById.get('package-delivery-surface').checked_sources).toContain('npm pack --dry-run --json');
     expect(guardsById.get('website-sync-release-gate-preserved')).toMatchObject({
       result: 'pass',
       reason_code: 'website-sync-release-gate-preserved',

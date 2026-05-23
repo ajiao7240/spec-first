@@ -35,7 +35,7 @@ NON_GRAPH_METADATA_DIRTY_PATHS=(
   "CHANGELOG.md"
   "docs/变更日志.md"
 )
-EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX='^(\.spec-first/|\.gitnexus/|\.code-review-graph/)'
+EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX='^(\.spec-first/(providers|graph|impact|workspace)/|\.gitnexus/|\.code-review-graph/)'
 
 utc_now() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
@@ -666,7 +666,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
   rm -f "$SUMMARY_ITEMS"
   printf '%s\n' "$SUMMARY_JSON" | write_file_atomic_path "$WORKSPACE_ROOT_FOR_ALL/.spec-first/workspace/graph-bootstrap-summary.json"
   printf '%s\n' "$SUMMARY_JSON"
-  if [ "$(jq -r '.overall_status' <<<"$SUMMARY_JSON")" = "action-required" ]; then
+  if [ "$(jq -r '.overall_status' <<<"$SUMMARY_JSON")" != "ready" ]; then
     exit 1
   fi
   exit 0

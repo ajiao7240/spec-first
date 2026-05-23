@@ -520,7 +520,7 @@ write_agent_browser_install_marker() {
 
 global_skill_installed() {
   local skill_name="$1"
-  [ -f "$HOME/.agents/skills/$skill_name/SKILL.md" ] || [ -f "$HOME/.claude/skills/$skill_name/SKILL.md" ]
+  [ -f "$HOME/.agents/skills/$skill_name/SKILL.md" ] || [ -f "$HOME/.claude/skills/$skill_name/SKILL.md" ] || [ -f "$HOME/.codex/skills/$skill_name/SKILL.md" ]
 }
 
 browser_helper_required() {

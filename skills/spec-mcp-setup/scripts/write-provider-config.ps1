@@ -390,7 +390,7 @@ function Get-GitNexusProbeMethodTokensFromPath {
     if (@($tokens | Where-Object { $_ -eq $token }).Count -gt 0) { continue }
     $tokens.Add($token) | Out-Null
   }
-  return @($tokens)
+  return $tokens.ToArray()
 }
 
 function Get-GitNexusQueryProbePolicy {
@@ -491,7 +491,7 @@ function Get-GitNexusQueryProbePolicy {
       source = $source
       token = [string]$first.token
       selected_from = [string]$first.selected_from
-      candidates = @($candidates)
+      candidates = @($candidates.ToArray())
     }
   }
 
@@ -669,7 +669,7 @@ function Get-NativeCapabilitySourceTags {
   if (-not $tags.Contains('setup-projection')) {
     $tags.Add('setup-projection') | Out-Null
   }
-  return @($tags)
+  return $tags.ToArray()
 }
 
 function Get-NativeCapabilityArrayField {
@@ -749,7 +749,7 @@ function Get-NativeCapabilityLimitations {
   if ($null -ne $Metadata -and $Metadata.PSObject.Properties.Name -contains 'mutation_boundary' -and [string]$Metadata.mutation_boundary -eq 'policy-blocked') {
     $limitations.Add('setup-inferred availability only; policy-blocked surfaces such as group_sync, group creation, or rename-like mutations must not run in setup or Plan.') | Out-Null
   }
-  return @($limitations)
+  return $limitations.ToArray()
 }
 
 function Get-GitNexusNativeCapabilityProjection {

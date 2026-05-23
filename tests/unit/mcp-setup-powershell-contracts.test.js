@@ -118,6 +118,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('live MCP probe 前需要');
     expect(verifySource).toContain('graph_bootstrap_required');
     expect(verifySource).toContain('$spec-graph-bootstrap');
+    expect(verifySource).toContain("if ($overallStatus -ne 'ready') { exit 1 }");
     expect(verifySource).not.toContain('$spec-' + 'standards');
   });
 
@@ -166,6 +167,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installMcpSource).toContain('2> $stderrPath 6> $informationPath');
     expect(installMcpSource).toContain('workspace-default-all-repos');
     expect(installMcpSource).toContain('explicit-all-repos');
+    expect(installMcpSource).toContain("if ($overallStatus -ne 'ready') { exit 1 }");
+    expect(graphBootstrapSource).toContain("if ($overallStatus -ne 'ready') { exit 1 }");
     expect(installMcpSource).not.toContain('$PSCommandPath @childParams 2>&1');
     expect(projectConfigSource).toContain('[string]$Repo');
     expect(projectConfigSource).toContain('[switch]$AllRepos');
@@ -406,6 +409,40 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(detectHostSource).not.toMatch(/\[string\]\$Host\b/);
   });
 
+  test('PowerShell host detection serializes Codex higher-precedence targets as a JSON array', () => {
+    const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'spec-ps-detect-host-'));
+    const fakeHome = path.join(tmpDir, 'home');
+    const systemConfig = path.join(tmpDir, 'system-codex.toml');
+    fs.mkdirSync(path.join(fakeHome, '.codex'), { recursive: true });
+    fs.writeFileSync(systemConfig, '# system codex config\n');
+
+    try {
+      const result = spawnPwsh(['-NoLogo', '-NoProfile', '-NonInteractive', '-File', detectHostPs1], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          HOME: fakeHome,
+          MCP_SETUP_HOST: 'codex',
+          MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE: systemConfig,
+        },
+      });
+      if (!result) return;
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      const payload = JSON.parse(result.stdout);
+      expect(payload.precedence_blocked).toBe(true);
+      expect(Array.isArray(payload.higher_precedence_targets)).toBe(true);
+      expect(payload.higher_precedence_targets[0]).toMatchObject({
+        key: 'system',
+        config_path: systemConfig,
+        precedence: 100,
+      });
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test('PowerShell setup scripts avoid load-time parameter hazards', () => {
     const automaticVariables = new Set([
       'args',
@@ -545,7 +582,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('workflow_named');
     expect(writeProviderSource).toContain('workflow_display_named');
     expect(writeProviderSource).toContain('src_high_signal');
-    expect(writeProviderSource).toContain('candidates = @($candidates)');
+    expect(writeProviderSource).toContain('candidates = @($candidates.ToArray())');
     expect(writeProviderSource).toContain('postinstall|preinstall');
     expect(writeProviderSource).toContain('git-ls-files-code-basename');
     expect(writeProviderSource).toContain('query_probe_policy = if ($property.Name -eq');
@@ -598,7 +635,9 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
       runGit(['config', 'user.email', 'spec-first-test@example.invalid'], repoDir);
       runGit(['config', 'core.hooksPath', '/dev/null'], repoDir);
       fs.writeFileSync(path.join(repoDir, 'README.md'), `${name} fixture\n`);
-      runGit(['add', 'README.md'], repoDir);
+      fs.mkdirSync(path.join(repoDir, 'src'), { recursive: true });
+      fs.writeFileSync(path.join(repoDir, 'src', 'PaymentWorkflow.js'), 'function PaymentWorkflow() { return true; }\n');
+      runGit(['add', 'README.md', 'src/PaymentWorkflow.js'], repoDir);
       runGit(['commit', '-q', '-m', `Add ${name} fixture`], repoDir);
 
       const factsPath = path.join(tmpDir, `${name}-facts.json`);
@@ -1283,6 +1322,8 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(installHelpersSource).toContain('Install gh from https://cli.github.com');
     expect(installHelpersSource).toContain('npm install -g @ast-grep/cli@latest');
     expect(installHelpersSource).toContain("Test-GlobalSkill 'agent-browser'");
+    expect(installHelpersSource).toContain(".codex/skills/$Name/SKILL.md");
+    expect(installHelpersShSource).toContain('$HOME/.codex/skills/$skill_name/SKILL.md');
     expect(installHelpersSource).toContain("$agentBrowserNextAction = 'agent-browser CLI not found after npm install'");
     expect(installHelpersSource).toContain("$agentBrowserStatus = 'ready'\n        $agentBrowserNextAction = ''");
     expect(installHelpersSource).toContain('Start-ParallelCommandTask');

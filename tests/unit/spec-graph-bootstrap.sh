@@ -380,7 +380,11 @@ assert_eq "workspace graph target resolver does not emit development_mode" "fals
 assert_eq "workspace graph target resolver reads setup-owned config pointers" ".spec-first/config/graph-providers.json|.spec-first/config/runtime-capabilities.json|.spec-first/config/provider-artifacts.json" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | [.artifacts.graph_providers,.artifacts.runtime_capabilities,.artifacts.provider_artifacts] | join("|")' <<<"$workspace_targets_output")"
 assert "workspace graph target resolver does not create parent graph artifacts" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
 
+set +e
 workspace_default_output="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+workspace_default_status=$?
+set -e
+assert_eq "workspace parent default all-repos exits non-zero on partial" "1" "$workspace_default_status"
 assert_eq "workspace parent without repo defaults to all repos" "workspace-graph-bootstrap-summary.v1" "$(jq -r '.schema_version' <<<"$workspace_default_output")"
 assert_eq "workspace parent default all-repos selection source" "workspace-default-all-repos" "$(jq -r '.selection_source' <<<"$workspace_default_output")"
 assert_eq "workspace parent default all-repos reports partial success" "partial:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$workspace_default_output")"
@@ -416,7 +420,11 @@ write_fixture_config "$ALL_REPOS_WORKSPACE/project-a" "$ALL_REPOS_LEDGER" true
 printf '# Parent Agents\n' > "$ALL_REPOS_WORKSPACE/AGENTS.md"
 printf '# Parent Claude\n' > "$ALL_REPOS_WORKSPACE/CLAUDE.md"
 all_repos_progress_err="$TMP_DIR/all-repos-progress.err"
+set +e
 all_repos_output="$(cd "$ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --all-repos 2>"$all_repos_progress_err")"
+all_repos_status=$?
+set -e
+assert_eq "all-repos graph bootstrap exits non-zero on partial" "1" "$all_repos_status"
 assert_eq "all-repos graph bootstrap emits workspace summary" "workspace-graph-bootstrap-summary.v1" "$(jq -r '.schema_version' <<<"$all_repos_output")"
 assert_eq "all-repos graph bootstrap records explicit selection source" "explicit-all-repos" "$(jq -r '.selection_source' <<<"$all_repos_output")"
 assert_eq "all-repos graph bootstrap records run id" "true" "$(jq -r '(.run_id | type == "string") and (.run_id | length > 0)' <<<"$all_repos_output")"
@@ -482,7 +490,11 @@ make_repo "$ALL_REPOS_DEGRADED_WORKSPACE/project-a"
 make_repo "$ALL_REPOS_DEGRADED_WORKSPACE/project-b"
 write_fixture_config "$ALL_REPOS_DEGRADED_WORKSPACE/project-a" "$ALL_REPOS_DEGRADED_LEDGER" true
 write_fixture_config "$ALL_REPOS_DEGRADED_WORKSPACE/project-b" "$ALL_REPOS_DEGRADED_LEDGER" true
+set +e
 all_repos_degraded_output="$(cd "$ALL_REPOS_DEGRADED_WORKSPACE" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT" --all-repos)"
+all_repos_degraded_status=$?
+set -e
+assert_eq "all-repos graph bootstrap exits non-zero on degraded partial" "1" "$all_repos_degraded_status"
 assert_eq "all-repos graph bootstrap keeps degraded children non-blocking" "partial:0:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.degraded):\(.counts.action_required)"' <<<"$all_repos_degraded_output")"
 assert_eq "all-repos graph bootstrap reports degraded reason separately" "all-repos-degraded-fallback" "$(jq -r '.reason_code' <<<"$all_repos_degraded_output")"
 assert_contains "all-repos degraded next action discloses limitations" "Use degraded child artifacts with disclosed limitations" "$(jq -r '.next_action' <<<"$all_repos_degraded_output")"

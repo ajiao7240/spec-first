@@ -323,5 +323,5 @@ $selectedExists = if ($null -ne $selectedTarget) { ConvertTo-BoolValue -Value (G
   precedence_blocked = [bool]$precedenceBlocked
   precedence_blocking_scope = $precedenceBlockingScope
   precedence_blocking_path = $precedenceBlockingPath
-  higher_precedence_targets = @($higherPrecedenceTargets)
+  higher_precedence_targets = @($higherPrecedenceTargets.ToArray())
 } | ConvertTo-Json -Depth 8 -Compress

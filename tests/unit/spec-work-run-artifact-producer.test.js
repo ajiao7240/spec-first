@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 const { runInternal } = require('../../src/cli/commands/internal');
 const { validateAgainstSchema } = require('../../src/contracts/schema-validator');
@@ -16,7 +17,12 @@ const {
 const SCHEMA_PATH = path.join(__dirname, '..', '..', 'docs', 'contracts', 'workflows', 'spec-work-run-artifact.schema.json');
 
 function makeRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-work-run-artifact-'));
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-work-run-artifact-'));
+  execFileSync('git', ['init', '-q'], { cwd: repo });
+  execFileSync('git', ['config', 'user.name', 'Spec First Test'], { cwd: repo });
+  execFileSync('git', ['config', 'user.email', 'spec-first-test@example.invalid'], { cwd: repo });
+  execFileSync('git', ['config', 'core.hooksPath', '/dev/null'], { cwd: repo });
+  return repo;
 }
 
 function validPayload(overrides = {}) {
@@ -211,6 +217,29 @@ describe('spec-work run artifact producer', () => {
     }
   });
 
+  test('direct helpers reject non-Git target directories', () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-work-run-artifact-nongit-'));
+    try {
+      const inputPath = writePayload(repo, validPayload());
+      const write = writeSpecWorkRunArtifact({
+        inputPath,
+        runId: 'run-1',
+        targetRepo: repo,
+      });
+      const read = readSpecWorkRunArtifact({ targetRepo: repo });
+      const prune = pruneSpecWorkRunArtifacts({ targetRepo: repo, retentionDays: 1, dryRun: true });
+
+      for (const result of [write, read, prune]) {
+        expect(result.exitCode).toBe(0);
+        expect(result.output.status).toBe('not-written');
+        expect(result.output.reason_code).toBe('target-repo-not-found');
+        expect(result.output.errors.join('\n')).toContain('target repo must be a Git repository root');
+      }
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test('direct helpers reject omitted target repo instead of falling back to cwd', () => {
     const repo = makeRepo();
     const originalCwd = process.cwd();
@@ -286,6 +315,34 @@ describe('spec-work run artifact producer', () => {
       validPayload({ llm_asserted: { ...validPayload().llm_asserted, summary: oversizedLog } }),
       validPayload({ llm_asserted: { ...validPayload().llm_asserted, key_decisions: [oversizedLog] } }),
       validPayload({ llm_asserted: { ...validPayload().llm_asserted, raw_log_dump: oversizedLog } }),
+      validPayload({ unexpected_root_field: true }),
+      validPayload({
+        script_confirmed: {
+          ...validPayload().script_confirmed,
+          unexpected_script_field: true,
+        },
+      }),
+      validPayload({
+        script_confirmed: {
+          ...validPayload().script_confirmed,
+          raw_log_ref: {
+            ...validPayload().script_confirmed.raw_log_ref,
+            unexpected_raw_log_field: true,
+          },
+        },
+      }),
+      validPayload({
+        retention: {
+          ...validPayload().retention,
+          unexpected_retention_field: true,
+        },
+      }),
+      validPayload({
+        retention: {
+          ...validPayload().retention,
+          expires_at: 123,
+        },
+      }),
     ];
 
     for (const payload of badPayloads) {
@@ -391,6 +448,48 @@ describe('spec-work run artifact producer', () => {
       expect(specificPayload.status).toBe('read');
       expect(specificPayload.artifact.retention.owner).toBe('owner-a');
       expect(specificPayload.artifact_path).toMatch(/run-a\/run\.json$/);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('read and prune reject schema-invalid artifacts instead of consuming them', () => {
+    const repo = makeRepo();
+    try {
+      const workspaceSlug = path.basename(repo);
+      const runDir = path.join(repo, '.spec-first', 'workflows', 'spec-work', workspaceSlug, 'bad-run');
+      fs.mkdirSync(runDir, { recursive: true });
+      fs.writeFileSync(path.join(runDir, 'run.json'), `${JSON.stringify({
+        schema_version: 'spec-work-run-artifact/v1',
+        workflow: 'spec-work',
+        retention: {
+          expires_at: '2000-01-01T00:00:00.000Z',
+        },
+        unexpected: true,
+      })}\n`);
+
+      const read = readSpecWorkRunArtifact({
+        targetRepo: repo,
+        workspaceSlug,
+        runId: 'bad-run',
+      });
+      expect(read.exitCode).toBe(1);
+      expect(read.output.status).toBe('not-readable');
+      expect(read.output.reason_code).toBe('artifact-schema-invalid');
+      expect(read.output.artifact).toBeNull();
+
+      const prune = pruneSpecWorkRunArtifacts({
+        targetRepo: repo,
+        retentionDays: 1,
+        dryRun: true,
+      });
+      expect(prune.exitCode).toBe(0);
+      expect(prune.output.retained).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          artifact_path: path.join('.spec-first', 'workflows', 'spec-work', workspaceSlug, 'bad-run', 'run.json'),
+          reason_code: 'artifact-schema-invalid',
+        }),
+      ]));
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }

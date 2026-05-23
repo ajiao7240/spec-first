@@ -179,7 +179,7 @@ write_all_repos_install_summary_and_exit() {
   rm -f "$summary_items"
   printf '%s\n' "$summary_json" | write_file_atomic_path "$workspace_root/.spec-first/workspace/mcp-setup-summary.json"
   printf '%s\n' "$summary_json"
-  if [ "$(jq -r '.overall_status' <<<"$summary_json")" = "action-required" ]; then
+  if [ "$(jq -r '.overall_status' <<<"$summary_json")" != "ready" ]; then
     exit 1
   fi
   exit 0

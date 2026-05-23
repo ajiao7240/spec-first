@@ -377,7 +377,8 @@ function Test-GlobalSkill {
   param([string]$Name)
   return (
     (Test-Path (Join-Path $HOME ".agents/skills/$Name/SKILL.md")) -or
-    (Test-Path (Join-Path $HOME ".claude/skills/$Name/SKILL.md"))
+    (Test-Path (Join-Path $HOME ".claude/skills/$Name/SKILL.md")) -or
+    (Test-Path (Join-Path $HOME ".codex/skills/$Name/SKILL.md"))
   )
 }
 

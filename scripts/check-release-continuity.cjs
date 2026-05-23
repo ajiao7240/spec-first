@@ -3,6 +3,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const {
   DEFAULT_OUTPUT_PATH,
   buildRuntimeCapabilityCatalog,
@@ -102,6 +103,7 @@ function checkPublicWorkflowSummaries() {
 function checkPackageDeliverySurface() {
   const pkg = readJson(PACKAGE_JSON_PATH);
   const requiredFiles = [
+    'docs/catalog/runtime-capabilities.md',
     'docs/contracts/workflows/',
     ...REQUIRED_GRAPH_CONTRACT_FILES,
     'scripts/check-release-continuity.cjs',
@@ -114,6 +116,13 @@ function checkPackageDeliverySurface() {
   ];
   const declaredFiles = Array.isArray(pkg.files) ? pkg.files : [];
   const missing = requiredFiles.filter((entry) => !declaredFiles.includes(entry));
+  const tarball = readPackageDryRunFiles();
+  const missingFromTarball = tarball.ok
+    ? requiredFiles
+      .filter((entry) => !entry.endsWith('/'))
+      .filter((entry) => !tarball.files.has(entry))
+    : requiredFiles;
+  const ok = declaredFiles.length > 0 && missing.length === 0 && tarball.ok && missingFromTarball.length === 0;
 
   return guard({
     guardId: 'package-delivery-surface',
@@ -123,13 +132,45 @@ function checkPackageDeliverySurface() {
       'package.json',
       'skills/spec-plan/references/graph-evidence-posture.md',
       ...REQUIRED_GRAPH_CONTRACT_FILES,
+      'npm pack --dry-run --json',
     ],
-    ok: declaredFiles.length > 0 && missing.length === 0,
+    ok,
     passReason: 'package-delivery-surface-current',
     failReason: declaredFiles.length === 0
       ? 'package-delivery-surface-missing-files-field'
-      : `package-delivery-surface-missing:${missing.join(',')}`,
+      : missing.length > 0
+        ? `package-delivery-surface-missing:${missing.join(',')}`
+        : tarball.ok
+          ? `package-delivery-tarball-missing:${missingFromTarball.join(',')}`
+          : `package-delivery-tarball-unavailable:${tarball.reason}`,
   });
+}
+
+function readPackageDryRunFiles() {
+  const result = spawnSync('npm', ['pack', '--dry-run', '--json'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  if (result.error) {
+    return { ok: false, reason: result.error.message, files: new Set() };
+  }
+  if (result.status !== 0) {
+    return { ok: false, reason: `exit-${result.status}`, files: new Set() };
+  }
+  try {
+    const payload = JSON.parse(result.stdout);
+    const entries = Array.isArray(payload) && payload[0] && Array.isArray(payload[0].files)
+      ? payload[0].files
+      : [];
+    return {
+      ok: entries.length > 0,
+      reason: entries.length > 0 ? null : 'empty-pack-file-list',
+      files: new Set(entries.map((entry) => entry.path).filter(Boolean)),
+    };
+  } catch (error) {
+    return { ok: false, reason: `invalid-json:${error.message}`, files: new Set() };
+  }
 }
 
 function checkWebsiteGatePreserved() {

@@ -132,4 +132,14 @@ describe('PowerShell graph bootstrap workspace GitNexus summary contract', () =>
     expect(powershell).not.toContain('.spec-first/workspace/graph-facts.json');
     expect(powershell).not.toContain('.spec-first/workspace/provider-status.json');
   });
+
+  test('concurrent-write fingerprint does not ignore setup config inputs', () => {
+    const powershell = fs.readFileSync(PS_BOOTSTRAP_PATH, 'utf8');
+    const bash = fs.readFileSync(BASH_BOOTSTRAP_PATH, 'utf8');
+
+    expect(powershell).toContain("'^(.spec-first/(providers|graph|impact|workspace)/|.gitnexus/|.code-review-graph/)'".replaceAll('.', '\\.'));
+    expect(bash).toContain("'^(.spec-first/(providers|graph|impact|workspace)/|.gitnexus/|.code-review-graph/)'".replaceAll('.', '\\.'));
+    expect(powershell).not.toContain("ExternalActorFingerprintIgnorePattern = '^(\\.spec-first/|");
+    expect(bash).not.toContain("EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX='^(\\.spec-first/|");
+  });
 });

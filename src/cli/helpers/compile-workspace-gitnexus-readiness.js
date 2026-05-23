@@ -161,7 +161,7 @@ function compileNotApplicable({ mode, workspaceTargets, topology, cwd, writeArti
   return {
     payload,
     write_path: null,
-    would_write_path: writeArtifact ? resolveArtifactPath(null, workspaceTargets, cwd) : null,
+    would_write_path: writeArtifact ? path.join(path.resolve(cwd, workspaceTargets.workspace_root || workspaceTargets.invocation_cwd || cwd), '.spec-first', 'workspace', 'gitnexus-readiness.json') : null,
   };
 }
 
@@ -257,18 +257,44 @@ function classifyGroup(groupState, repos) {
   }
 
   const repoNames = new Set(repos.map((repo) => repo.gitnexus_repo).filter(Boolean));
-  const ready = groupState.groups.find((group) => {
-    if (group.members.length === 0) return true;
-    return group.members.some((member) => repoNames.has(member));
-  }) || groupState.groups[0];
+  const matchingGroups = groupState.groups.filter((group) => (
+    group.members.length > 0 && group.members.some((member) => repoNames.has(member))
+  ));
+  if (matchingGroups.length === 0) {
+    return {
+      group: {
+        name: null,
+        status: 'group-missing',
+        query_selector: null,
+      },
+      reason_code: 'group-list-no-workspace-match',
+    };
+  }
+
+  const unsupported = matchingGroups.find((group) => !GROUP_STATUSES.has(group.status));
+  if (unsupported) {
+    return {
+      group: {
+        name: unsupported.name,
+        status: 'unavailable',
+        query_selector: null,
+      },
+      reason_code: `group-status-unsupported:${unsupported.status}`,
+    };
+  }
+
+  const ready = matchingGroups.find((group) => group.status === 'group-ready') || matchingGroups[0];
+  const querySelector = ready.status === 'group-ready'
+    ? (ready.query_selector || (ready.name ? `@${ready.name}` : null))
+    : null;
 
   return {
     group: {
       name: ready.name,
-      status: GROUP_STATUSES.has(ready.status) ? ready.status : 'group-ready',
-      query_selector: ready.query_selector || (ready.name ? `@${ready.name}` : null),
+      status: ready.status,
+      query_selector: querySelector,
     },
-    reason_code: null,
+    reason_code: ready.status === 'group-ready' ? null : ready.status,
   };
 }
 
@@ -455,7 +481,19 @@ function normalizeQueryUsability(value, allowedKeys = OVERLAY_QUERY_KEYS) {
 }
 
 function normalizeEnum(value, fallback) {
-  return typeof value === 'string' && value !== '' ? value : fallback;
+  const allowed = new Set([
+    'blocked-dirty-source',
+    'current-clean',
+    'current-with-dirty-overlay',
+    'eligible',
+    'eligible-after-refresh',
+    'missing',
+    'setup-required',
+    'stale',
+    'stale-commit',
+    'unknown',
+  ]);
+  return allowed.has(value) ? value : fallback;
 }
 
 function countQueryUsability(repos, keys) {
@@ -470,9 +508,54 @@ function countQueryUsability(repos, keys) {
 }
 
 function resolveArtifactPath(output, workspaceTargets, cwd) {
-  if (output) return path.resolve(cwd, output);
   const workspaceRoot = workspaceTargets.workspace_root || workspaceTargets.invocation_cwd || cwd;
-  return path.join(workspaceRoot, '.spec-first', 'workspace', 'gitnexus-readiness.json');
+  const baseRoot = path.resolve(cwd, workspaceRoot);
+  const artifactPath = output
+    ? path.resolve(cwd, output)
+    : path.join(baseRoot, '.spec-first', 'workspace', 'gitnexus-readiness.json');
+  validateArtifactOutputPath(baseRoot, artifactPath);
+  return artifactPath;
+}
+
+function validateArtifactOutputPath(workspaceRoot, artifactPath) {
+  const root = path.resolve(workspaceRoot);
+  const candidate = path.resolve(artifactPath);
+  if (!isSubpath(root, candidate)) {
+    throw reasonError('artifact-output-outside-workspace', `artifact output must stay under workspace root: ${candidate}`);
+  }
+
+  let realRoot;
+  try {
+    realRoot = fs.realpathSync.native(root);
+  } catch (error) {
+    throw reasonError('artifact-output-root-unavailable', `workspace root realpath failed: ${error.message}`);
+  }
+
+  const existingAncestor = findExistingAncestor(path.dirname(candidate), root);
+  let realAncestor;
+  try {
+    realAncestor = fs.realpathSync.native(existingAncestor);
+  } catch (error) {
+    throw reasonError('artifact-output-symlink-escape', `artifact output ancestor realpath failed: ${error.message}`);
+  }
+  if (!isSubpath(realRoot, realAncestor)) {
+    throw reasonError('artifact-output-symlink-escape', `artifact output ancestor escapes workspace root: ${existingAncestor}`);
+  }
+}
+
+function findExistingAncestor(candidate, root) {
+  let current = path.resolve(candidate);
+  const resolvedRoot = path.resolve(root);
+  while (!fs.existsSync(current)) {
+    if (current === resolvedRoot || path.dirname(current) === current) return current;
+    current = path.dirname(current);
+  }
+  return current;
+}
+
+function isSubpath(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function parseArgs(argv) {

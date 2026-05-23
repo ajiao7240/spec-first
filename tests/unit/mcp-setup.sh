@@ -679,6 +679,8 @@ mkdir -p "$PREFLIGHT_CODEX_SKILL_HOME/.codex/skills/ast-grep"
 printf 'name: ast-grep\n' > "$PREFLIGHT_CODEX_SKILL_HOME/.codex/skills/ast-grep/SKILL.md"
 preflight_codex_skill="$(cd "$TMP_DIR" && PATH="$TEST_PATH" HOME="$PREFLIGHT_CODEX_SKILL_HOME" bash "$SCRIPTS_DIR/check-health" --json)"
 assert_eq "check-health detects Codex global skill fallback even when skills CLI omits it" "ready" "$(jq -r '.skills[] | select(.id == "ast-grep") | .result' <<<"$preflight_codex_skill")"
+helper_codex_skill="$(cd "$TMP_DIR" && PATH="$TEST_PATH" HOME="$PREFLIGHT_CODEX_SKILL_HOME" bash "$SCRIPTS_DIR/install-helpers.sh" --verify-only)"
+assert_eq "install-helpers detects Codex global skill fallback" "ready" "$(jq -r '.helper_tools."ast-grep-skill".result' <<<"$helper_codex_skill")"
 
 WINDOWS_PREFLIGHT_HOME="$TMP_DIR/windows-preflight-home"
 mkdir -p "$WINDOWS_PREFLIGHT_HOME"
