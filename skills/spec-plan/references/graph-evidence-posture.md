@@ -1,6 +1,6 @@
 # Graph / GitNexus Evidence Posture (spec-plan reference)
 
-This reference is loaded only when `skills/spec-plan/SKILL.md` Phase 1.1a.1 condition fires: the plan involves code implementation, architecture, API/routes, cross-module or cross-repo behavior, execution flows, testing strategy, or review risk, and graph artifacts, workspace advisory facts, or a current-session GitNexus MCP tool/resource surface are present. It does not apply to the no-graph/no-MCP fast unavailable path resolved earlier in 1.1a, and it does not apply to docs-only / prose-only / narrow non-code-affecting runs.
+This reference is loaded only when `skills/spec-plan/SKILL.md` Phase 1.1a.1 condition fires: the plan involves code implementation, architecture, API/routes, cross-module or cross-repo behavior, execution flows, testing strategy, or review risk, and graph artifacts, workspace advisory facts, setup-owned GitNexus capability projection, or a current-session GitNexus MCP tool/resource surface are present. It does not apply to the no-graph/no-MCP/no-setup-projection fast unavailable path resolved earlier in 1.1a, and it does not apply to docs-only / prose-only / narrow non-code-affecting runs.
 
 The probe is task-specific evidence context. It is not canonical readiness truth, must not replace `Graph Readiness.status`, provider `query_ready`, workspace `query_usability`, or impact support levels, and must not write back to `.spec-first/graph/*`, `.spec-first/providers/*`, `.spec-first/impact/*`, setup projections, or workspace advisory artifacts.
 
@@ -15,7 +15,7 @@ The four axes are:
 - `evidence_posture=primary|fallback`
 - `freshness_state=fresh|stale|dirty-advisory|query-unverified`
 
-Vocabulary semantics are locked by `docs/contracts/graph-evidence-policy.md`; consumption boundary is locked by `docs/contracts/graph-provider-consumption.md` and `docs/contracts/workspace-gitnexus-consumption.md`.
+GitNexus capability provenance uses `source_tags[]` with the locked values `checked-in-baseline`, `setup-projection`, `provider-pin`, `live-mcp-tool`, `live-mcp-resource`, `session-local-inference`, and `user-decision`. Preserve all applicable tags when setup projection and live probe evidence both participate; do not collapse the field to the single strongest-looking source. Vocabulary semantics are locked by `docs/contracts/graph-evidence-policy.md` and `docs/contracts/gitnexus-capability-catalog.md`; consumption boundary is locked by `docs/contracts/graph-provider-consumption.md` and `docs/contracts/workspace-gitnexus-consumption.md`.
 
 ## Four-Axis Interpretation
 
@@ -41,7 +41,9 @@ Native capability selection is LLM-owned and task-matched, not a deterministic r
 | Complex graph structure question | `cypher` only after schema/resource orientation | direct contract/source reads |
 | Repo/workspace orientation | `list_repos`, `group_list`, and read-only MCP resources | workspace advisory artifacts or bounded per-repo reads |
 
-Always report the matched capability as `native_tool_or_resource`; never hide it behind "GitNexus used: yes". Setup-owned projection paths such as `.spec-first/config/graph-providers.json.providers.gitnexus.native_capabilities` and `.spec-first/config/runtime-capabilities.json.gitnexus_capability_discovery` are setup-inferred availability hints, not live-surface proof and not graph-backed evidence. Current MCP tools and read-only MCP resources are session-local tool/resource selection guidance; verify the live surface before claiming availability, and label successful live evidence as `session-local`. If a specialized native capability is unavailable, continue with `query` / `context` plus source reads, or fall back to bounded direct repo reads; do not claim a static durable capability catalog is current truth.
+Always report the matched capability as `native_tool_or_resource`; never hide it behind "GitNexus used: yes". Setup-owned projection paths such as `.spec-first/config/graph-providers.json.providers.gitnexus.native_capabilities` and `.spec-first/config/runtime-capabilities.json.gitnexus_capability_discovery` are setup-inferred availability hints, not live-surface proof and not graph-backed evidence. Current MCP tools and read-only MCP resources are session-local tool/resource selection guidance; verify the live surface before claiming availability, tag live tool evidence as `live-mcp-tool`, tag live resource evidence as `live-mcp-resource`, and tag LLM interpretation of those results as `session-local-inference`. If a specialized native capability is unavailable, continue with `query` / `context` plus source reads, or fall back to bounded direct repo reads; do not claim a static durable capability catalog is current truth.
+
+When setup projection provides `native_tools[]` and `native_resources[]`, keep them separate in the reasoning. A resource such as `gitnexus://repo/{name}/schema` can justify schema/resource orientation, but it does not prove the matching tool is callable unless the current session also exposes that tool. Conversely, a live tool call does not prove read-only resources exist unless resource discovery or a resource read happened in the current session.
 
 ## Scope Authority and Mutation Boundary
 

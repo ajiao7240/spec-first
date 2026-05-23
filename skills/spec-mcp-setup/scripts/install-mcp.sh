@@ -11,6 +11,7 @@ source "$SCRIPT_DIR/lib-template.sh"
 
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
+require_mcp_tools_schema_version 6 "$TOOLS_JSON"
 HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
 HOST_DISPLAY_NAME="$(jq -r '.display_name' <<<"$HOST_INFO_JSON")"
@@ -536,7 +537,7 @@ done < <(jq -r '.tools[].id' "$TOOLS_JSON")
 for tool_id in "${TOOL_IDS[@]}"; do
   required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .required' "$TOOLS_JSON")"
   if [ "$required" != "true" ]; then
-    append_result "$tool_id" "action-required" "failed" "warmup" "registry_not_required" "mcp-tools.json schema v5 只允许 required tools" "" "" false "" "" ""
+    append_result "$tool_id" "action-required" "failed" "warmup" "registry_not_required" "mcp-tools.json schema v6 只允许 required tools" "" "" false "" "" ""
     continue
   fi
 

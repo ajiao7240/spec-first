@@ -21,7 +21,8 @@ function ConvertFrom-JsonCompat {
   return $Json | ConvertFrom-Json
 }
 
-$ToolsJson = ConvertFrom-JsonCompat -Json (Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json')) -AsHashtable
+$ToolsJson = Read-McpToolsJson -Path (Join-Path $SkillDir 'mcp-tools.json') -AsHashtable
+Assert-McpToolsSchemaVersion -ToolsJson $ToolsJson
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
 $Platform = $HostInfo.platform

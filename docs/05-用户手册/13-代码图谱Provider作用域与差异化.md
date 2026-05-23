@@ -62,6 +62,12 @@ GitNexus 不应该承担：
 
 如果 GitNexus 只返回 definitions-only 证据，下游 workflow 只能把它当作 file/symbol pointer，不能把它当成完整 execution-flow evidence。
 
+### Capability catalog 与 provenance
+
+GitNexus capability catalog 是 checked-in baseline，不是 readiness truth。它列出 capability 语义、candidate `native_tools[]`、candidate read-only `native_resources[]`、mutation boundary 和 fallback posture，并用 `source_tags[]` 区分 `checked-in-baseline`、`provider-pin`、`setup-projection`、`live-mcp-tool`、`live-mcp-resource`、`session-local-inference` 与 `user-decision`。
+
+`spec-mcp-setup` 只能投影 setup-inferred availability/discovery facts；`$spec-plan` 需要在当前 session 复核 tool/resource surface 后，才能把某个 GitNexus tool 或 read-only resource 写成 live evidence。资源如 `gitnexus://repo/{name}/schema`、`gitnexus://repo/{name}/processes` 或 `gitnexus://group/{name}/status` 是 evidence surface，不等于执行能力，也不替代源码读取和 freshness limitations。
+
 ### 多仓 workspace group readiness
 
 GitNexus group readiness 只适用于父目录下多个独立 Git repos 的 `multi-repo-workspace` 拓扑。单仓多 module 仍是 repo-local graph scope，不因为包含多个 packages/modules 就成为 GitNexus group。

@@ -4,7 +4,7 @@
 
 本文是下游 workflow 消费 graph/provider/impact readiness artifacts 的速查契约。它补充 `docs/contracts/graph-evidence-policy.md`：本文件回答“读哪个 artifact、读哪个字段、哪些旧字段或旧路径不能再读”，证据可信度与冲突处理仍按 graph evidence policy 执行。
 
-Parent workspace 下 GitNexus registry / group evidence 的消费边界见 `docs/contracts/workspace-gitnexus-consumption.md`。该 contract 定义 `workspace-gitnexus-readiness.v1`、`git_root_topology` gate、`group.status` 嵌套形态，以及 `refresh_eligibility` / `index_snapshot` / `query_usability` 三层拆分。
+Parent workspace 下 GitNexus registry / group evidence 的消费边界见 `docs/contracts/workspace-gitnexus-consumption.md`。GitNexus checked-in capability baseline、公共 `source_tags[]` 词表和 read-only MCP resource provenance 边界见 `docs/contracts/gitnexus-capability-catalog.md`。该 contract 定义 `workspace-gitnexus-readiness.v1`、`git_root_topology` gate、`group.status` 嵌套形态，以及 `refresh_eligibility` / `index_snapshot` / `query_usability` 三层拆分。
 
 核心边界：
 
@@ -24,6 +24,8 @@ Plan envelope 的输入可以来自：
 - parent workspace advisory facts，包括 `workspace-gitnexus-readiness.v1` 的 nested `group.status`、per-child `query_usability` 和 limitations；
 - 当前会话 live MCP / CLI evidence，标记为 `session-local`，不回写 compiled readiness。
 
+GitNexus source tags 必须区分 `checked-in-baseline`、`setup-projection`、`provider-pin`、`live-mcp-tool`、`live-mcp-resource`、`session-local-inference` 和 `user-decision`。不要把 setup projection 与 live MCP evidence 合并成一个 `available` fact；live tool/resource claim 需要当前 session surface 复核。
+
 该 envelope 不得替代 `Graph Readiness.status`、provider `query_ready`、workspace `query_usability` 或 impact capability support level。`definitions-only` 仍是 limitation / query-usability condition，不是新的 `freshness_state`。当 compiled graph facts stale、dirty-advisory、query-unverified 或 unavailable 时，Plan 必须披露 limitations，并用直接源码读取、测试、ast-grep、git diff 或 code-review-graph fallback 验证关键结论。
 
 ## Setup-Inferred GitNexus Capability Discovery
@@ -35,9 +37,15 @@ Plan envelope 的输入可以来自：
 
 这些字段只表达 setup-inferred availability。它们可以帮助 `$spec-plan` 选择候选 `native_tool_or_resource`、设置 Plan envelope 的 `capability_status`、补充 `capabilities_used` 和 limitations，但不得让 consumer 推断 `query_ready=true`、不得改变 `Graph Readiness.status`、不得替代 workspace `query_usability`，也不得成为 GitNexus task-level query 结果。`status=available` 或 `status=mutation-gated` 与 `runtime-capabilities.json.project_graph_readiness.status=not-bootstrapped` 可以同时成立：前者表示 setup-inferred native surface 可发现，后者表示 durable graph evidence 尚未 ready。
 
+Projection fields use the catalog vocabulary:
+
+- `source_tags[]` 只能使用 `checked-in-baseline`、`provider-pin` 和 `setup-projection` 等公共 catalog tags；setup 不得写 `live-mcp-tool`、`live-mcp-resource`、`session-local-inference` 或 `user-decision`。
+- `native_tools[]` 与 `native_resources[]` 必须分开。Resources such as `gitnexus://repos`, `gitnexus://repo/{name}/context`, `gitnexus://repo/{name}/schema`, `gitnexus://repo/{name}/processes`, `gitnexus://repo/{name}/process/{processName}`, `gitnexus://group/{name}/contracts`, and `gitnexus://group/{name}/status` are read-only evidence surfaces and still require provenance/freshness limitations.
+- setup-internal facts such as host config, dependency readiness, and workspace advisory status must not become `source_tags[]`. Host config and dependency readiness belong in `source_provenance`; prior projection reuse and workspace advisory status belong in provider fingerprint facts, setup logs, or `limitations[]`.
+
 Plan consumer 的 status mapping 固定为：setup `available` -> Plan `capability_status=available`；setup `unavailable` -> `unavailable`；setup `mutation-gated` -> `mutation-gated`；setup `unknown` -> `partial`，并且 limitations 中必须包含 `setup-inferred unknown`。Plan 不得从 setup `unknown` 发明 `available`。
 
-`source_provenance=registry-only|configured-not-verified|inherited-prior-run` 在任何 current live-surface claim 前都需要 live MCP probe。`configured-and-detected|observed-this-run` 只帮助选择候选 surface，仍不是 graph-backed evidence 或 query success。`mutation_boundary=policy-blocked` 是 setup/Plan 的硬边界：consumer 不得在当前 workflow 中请求批准后执行该 surface；只能记录 limitation、选择 read-only alternatives，或在用户明确要求维护动作时另起 preview-first maintenance plan。不要新增 TTL、aging window 或 `capability_metadata_freshness` 字段；consumer 继续复用 provider projection / fingerprint freshness。
+`source_provenance=registry-only|configured-not-verified` 在任何 current live-surface claim 前都需要 live MCP probe。`configured-and-detected` 只帮助选择候选 surface，仍不是 graph-backed evidence 或 query success。`mutation_boundary=policy-blocked` 是 setup/Plan 的硬边界：consumer 不得在当前 workflow 中请求批准后执行该 surface；只能记录 limitation、选择 read-only alternatives，或在用户明确要求维护动作时另起 preview-first maintenance plan。不要新增 TTL、aging window 或 `capability_metadata_freshness` 字段；consumer 继续复用 provider projection / fingerprint freshness。
 
 ## Refresh Ownership
 

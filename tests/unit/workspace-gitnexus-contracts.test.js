@@ -72,6 +72,10 @@ describe('workspace GitNexus consumption contract', () => {
     expect(contract).toContain('`group.status="group-sync-required"`');
     expect(contract).toContain('`group.status="unavailable"`');
     expect(contract).toContain('plan/work/debug/review 不得静默运行 `group_sync`');
+    expect(contract).toContain('Read-only group resources are first-class evidence surfaces');
+    expect(contract).toContain('`gitnexus://group/{name}/contracts`');
+    expect(contract).toContain('`gitnexus://group/{name}/status`');
+    expect(contract).toContain('`live-mcp-resource` / `session-local-inference` provenance');
   });
 
   test('links provider and evidence policy contracts to workspace GitNexus rules', () => {

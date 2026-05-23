@@ -13,7 +13,8 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
 . (Join-Path $ScriptDir 'lib-toml.ps1')
 . (Join-Path $ScriptDir 'lib-template.ps1')
-$ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json
+$ToolsJson = Read-McpToolsJson -Path (Join-Path $SkillDir 'mcp-tools.json')
+Assert-McpToolsSchemaVersion -ToolsJson $ToolsJson
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
 $SelectedScope = $HostInfo.selected_scope

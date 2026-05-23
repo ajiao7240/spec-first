@@ -5,6 +5,7 @@ Set-StrictMode -Version Latest
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
+. (Join-Path $ScriptDir 'lib-template.ps1')
 
 function ConvertFrom-JsonCompat {
   param(
@@ -72,7 +73,8 @@ function ConvertTo-BoolValue {
   return ([string]$Value).Equals('true', [System.StringComparison]::OrdinalIgnoreCase)
 }
 
-$ToolsJson = ConvertFrom-JsonCompat -Json (Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json')) -AsHashtable
+$ToolsJson = Read-McpToolsJson -Path (Join-Path $SkillDir 'mcp-tools.json') -AsHashtable
+Assert-McpToolsSchemaVersion -ToolsJson $ToolsJson
 
 function Get-DetectedHost {
   if ($env:MCP_SETUP_HOST -in @('claude', 'codex')) {

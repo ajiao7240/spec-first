@@ -209,13 +209,19 @@ describe('user manual contracts', () => {
       expect(content).toContain('evidence_grade');
       expect(content).toContain('evidence_posture');
       expect(content).toContain('freshness_state');
+      expect(content).toContain('source_tags');
     }
     expect(englishReadme).toContain('source fallback shaped the plan');
+    expect(englishReadme).toContain('checked-in baseline, setup projection, live MCP tool/resource evidence');
     expect(chineseReadme).toContain('源码 fallback');
+    expect(chineseReadme).toContain('checked-in baseline、setup projection、live MCP tool/resource evidence');
     expect(artifactMap).toContain('Plan-local GitNexus evidence posture');
+    expect(artifactMap).toContain('candidate tools/resources');
     expect(bestPractices).toContain('source_reads_required');
+    expect(bestPractices).toContain('候选 `native_tools[]` / `native_resources[]`');
     expect(bestPractices).toContain('dirty/stale GitNexus evidence 当定向线索');
     expect(bestPractices).toContain('用 `evidence_posture=fallback` 替代 `evidence_grade` 的可信度判断');
+    expect(bestPractices).toContain('setup-internal diagnostics');
   });
 
   test('FAQ covers Win64-native and cross-platform troubleshooting', () => {

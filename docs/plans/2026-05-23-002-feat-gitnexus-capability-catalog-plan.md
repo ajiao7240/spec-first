@@ -1,7 +1,7 @@
 ---
 title: feat: Define GitNexus capability catalog and resource provenance
 type: feat
-status: active
+status: completed
 date: 2026-05-23
 spec_id: 2026-05-22-001-gitnexus-first-class-capability-plugin
 origin: docs/brainstorms/2026-05-22-001-gitnexus-first-class-capability-plugin-requirements.md

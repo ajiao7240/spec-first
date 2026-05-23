@@ -10,6 +10,7 @@ SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
 source "$SCRIPT_DIR/lib-toml.sh"
 source "$SCRIPT_DIR/lib-template.sh"
+require_mcp_tools_schema_version 6 "$TOOLS_JSON"
 
 REPO_ARG=""
 while [[ $# -gt 0 ]]; do

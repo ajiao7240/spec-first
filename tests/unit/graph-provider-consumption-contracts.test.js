@@ -6,6 +6,12 @@ const path = require('node:path');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const CONSUMPTION_DOC_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'graph-provider-consumption.md');
 const EVIDENCE_POLICY_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'graph-evidence-policy.md');
+const GITNEXUS_CAPABILITY_CATALOG_PATH = path.join(
+  REPO_ROOT,
+  'docs',
+  'contracts',
+  'gitnexus-capability-catalog.md',
+);
 const SOURCE_RUNTIME_BOUNDARY_PATH = path.join(
   REPO_ROOT,
   'docs',
@@ -148,6 +154,8 @@ describe('graph provider consumption contract', () => {
     expect(evidencePolicy).toContain('`freshness_state=stale` 或 `freshness_state=dirty-advisory` 时');
     expect(evidencePolicy).toContain('拒绝 `evidence_grade=primary`');
     expect(evidencePolicy).toContain('`freshness_state=query-unverified` 必须配合 `evidence_grade=advisory` 或 `stale`');
+    expect(evidencePolicy).toContain('`source_tags[]`');
+    expect(evidencePolicy).toContain('checked-in baseline、setup projection、provider pin、live MCP tool/resource');
     expect(evidencePolicy).toContain('`capability_status=mutation-gated` 表示 capability 需要 explicit user action / preview-first 路径');
     expect(evidencePolicy).toContain('不得自动产出 mutation implementation unit');
 
@@ -162,6 +170,9 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('setup-inferred availability / pointer inputs');
     expect(doc).toContain('setup-owned projection pointers');
     expect(doc).toContain('当前会话 live MCP / CLI evidence');
+    expect(doc).toContain('`live-mcp-tool`');
+    expect(doc).toContain('`live-mcp-resource`');
+    expect(doc).toContain('不要把 setup projection 与 live MCP evidence 合并成一个 `available` fact');
     expect(doc).toContain('不回写 compiled readiness');
     expect(doc).toContain('不得替代 `Graph Readiness.status`');
     expect(doc).toContain('provider `query_ready`');
@@ -181,12 +192,45 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('setup `unknown` -> `partial`');
     expect(doc).toContain('`setup-inferred unknown`');
     expect(doc).toContain('Plan 不得从 setup `unknown` 发明 `available`');
-    expect(doc).toContain('`source_provenance=registry-only|configured-not-verified|inherited-prior-run`');
-    expect(doc).toContain('`configured-and-detected|observed-this-run`');
+    expect(doc).toContain('`source_provenance=registry-only|configured-not-verified`');
+    expect(doc).toContain('`configured-and-detected`');
+    expect(doc).not.toContain('observed-this-run');
+    expect(doc).not.toContain('inherited-prior-run');
     expect(doc).toContain('`mutation_boundary=policy-blocked` 是 setup/Plan 的硬边界');
     expect(doc).toContain('不得在当前 workflow 中请求批准后执行该 surface');
     expect(doc).toContain('不要新增 TTL、aging window 或 `capability_metadata_freshness` 字段');
     expect(doc).toContain('provider projection / fingerprint freshness');
+    expect(doc).toContain('`native_tools[]` 与 `native_resources[]` 必须分开');
+    expect(doc).toContain('`gitnexus://repo/{name}/schema`');
+    expect(doc).toContain('setup-internal facts such as host config, dependency readiness');
+  });
+
+  test('links GitNexus capability catalog source tags and resource provenance', () => {
+    const catalog = read(GITNEXUS_CAPABILITY_CATALOG_PATH);
+    const evidencePolicy = read(EVIDENCE_POLICY_PATH);
+
+    expect(catalog).toContain('checked-in baseline 只定义 capability 语义');
+    for (const tag of [
+      'checked-in-baseline',
+      'setup-projection',
+      'provider-pin',
+      'live-mcp-tool',
+      'live-mcp-resource',
+      'session-local-inference',
+      'user-decision',
+    ]) {
+      expect(catalog).toContain(tag);
+    }
+    expect(catalog).toContain('verification posture 是派生判断');
+    expect(catalog).toContain('不是独立闭合 enum');
+    expect(catalog).toContain('`native_tools[]`');
+    expect(catalog).toContain('`native_resources[]`');
+    expect(catalog).toContain('`gitnexus://repos`');
+    expect(catalog).toContain('`gitnexus://group/{name}/status`');
+    expect(catalog).toContain('不得包含 `query_ready`');
+    expect(catalog).toContain('Setup 不得调用或读取 live MCP resources');
+    expect(catalog).toContain('No-graph/no-MCP/no-setup-projection fast path 不枚举静态 catalog');
+    expect(evidencePolicy).toContain('docs/contracts/gitnexus-capability-catalog.md');
   });
 
   test('keeps retired Serena wording out of active provider evidence contracts', () => {

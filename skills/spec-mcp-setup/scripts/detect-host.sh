@@ -9,6 +9,8 @@ command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
+source "$SCRIPT_DIR/lib-template.sh"
+require_mcp_tools_schema_version 6 "$TOOLS_JSON"
 
 resolve_path_template() {
   local template="$1"

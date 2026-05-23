@@ -14,10 +14,10 @@ if (-not (Test-Path $FactsFile)) {
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $skillDir = Split-Path -Parent $scriptDir
+. (Join-Path $scriptDir 'lib-template.ps1')
 $toolsJsonPath = Join-Path $skillDir 'mcp-tools.json'
-if (-not (Test-Path $toolsJsonPath)) {
-  throw "mcp-tools.json not found: $toolsJsonPath"
-}
+$toolsJson = Read-McpToolsJson -Path $toolsJsonPath
+Assert-McpToolsSchemaVersion -ToolsJson $toolsJson
 
 $facts = Get-Content -Raw $FactsFile | ConvertFrom-Json
 $targetWriteAllowed = if ($null -ne $facts.PSObject.Properties['target']) { [bool]$facts.target.state_write_allowed } else { $facts.repo_status -eq 'git-repo' }
@@ -632,29 +632,94 @@ function Get-NativeCapabilityStatus {
   if ([string]$Provider.dependency_status -ne 'ready') { return 'unavailable' }
   if ([string]::IsNullOrWhiteSpace([string]$Provider.host_config_status) -or [string]$Provider.host_config_status -eq 'unknown') { return 'unknown' }
   if (-not (Test-ProviderHostReady -Provider $Provider)) { return 'unavailable' }
-  if ($null -ne $Metadata -and $Metadata.PSObject.Properties.Name -contains 'mutation_boundary' -and [string]$Metadata.mutation_boundary -eq 'mutation-gated') { return 'mutation-gated' }
+  if (
+    $null -ne $Metadata -and
+    $Metadata.PSObject.Properties.Name -contains 'mutation_boundary' -and
+    ([string]$Metadata.mutation_boundary -eq 'mutation-gated' -or [string]$Metadata.mutation_boundary -eq 'policy-blocked')
+  ) { return 'mutation-gated' }
   return 'available'
 }
 
 function Get-NativeCapabilitySourceTags {
   param(
-    [object]$Provider,
-    [string]$Capability
+    [object]$Metadata
   )
   $tags = New-Object System.Collections.Generic.List[string]
-  foreach ($tag in @('registry-baseline', 'provider-pin', 'setup-projection')) {
-    if (-not $tags.Contains($tag)) { $tags.Add($tag) | Out-Null }
+  $allowedRegistryTags = @('checked-in-baseline', 'provider-pin')
+  if ($null -eq $Metadata -or -not ($Metadata.PSObject.Properties.Name -contains 'source_tags')) {
+    throw 'invalid_gitnexus_source_tags:missing-field'
   }
-  if ($null -ne $Provider -and -not [string]::IsNullOrWhiteSpace([string]$Provider.host_config_status) -and -not $tags.Contains('host-config')) {
-    $tags.Add('host-config') | Out-Null
+  $sourceTagsValue = $Metadata.PSObject.Properties['source_tags'].Value
+  if ($sourceTagsValue -is [string] -or -not ($sourceTagsValue -is [System.Collections.IEnumerable])) {
+    throw 'invalid_gitnexus_source_tags:not-array'
   }
-  if ($null -ne $Provider -and [string]$Provider.dependency_status -eq 'ready' -and -not $tags.Contains('dependency-ready')) {
-    $tags.Add('dependency-ready') | Out-Null
+  $baselineTags = @($sourceTagsValue)
+  foreach ($tag in @($baselineTags)) {
+    $tagValue = [string]$tag
+    if ([string]::IsNullOrWhiteSpace($tagValue) -or -not ($allowedRegistryTags -contains $tagValue)) {
+      throw "invalid_gitnexus_source_tag:$tagValue"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($tagValue) -and -not $tags.Contains($tagValue)) {
+      $tags.Add($tagValue) | Out-Null
+    }
   }
-  if ($Capability -eq 'workspace_group' -and -not $tags.Contains('workspace-advisory')) {
-    $tags.Add('workspace-advisory') | Out-Null
+  if (-not $tags.Contains('checked-in-baseline') -or -not $tags.Contains('provider-pin')) {
+    throw 'invalid_gitnexus_source_tags:missing-baseline'
+  }
+  if (-not $tags.Contains('setup-projection')) {
+    $tags.Add('setup-projection') | Out-Null
   }
   return @($tags)
+}
+
+function Get-NativeCapabilityArrayField {
+  param(
+    [object]$Metadata,
+    [string]$FieldName
+  )
+  if ($null -eq $Metadata -or -not ($Metadata.PSObject.Properties.Name -contains $FieldName)) {
+    throw ('invalid_gitnexus_{0}:missing-field' -f $FieldName)
+  }
+  $fieldValue = $Metadata.PSObject.Properties[$FieldName].Value
+  if ($fieldValue -is [string] -or -not ($fieldValue -is [System.Collections.IEnumerable])) {
+    throw ('invalid_gitnexus_{0}:not-array' -f $FieldName)
+  }
+  foreach ($entry in @($fieldValue)) {
+    if ($entry -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$entry)) {
+      throw ('invalid_gitnexus_{0}:invalid-entry' -f $FieldName)
+    }
+  }
+  return @($fieldValue)
+}
+
+function Get-NativeCapabilityStringField {
+  param(
+    [object]$Metadata,
+    [string]$FieldName
+  )
+  if ($null -eq $Metadata -or -not ($Metadata.PSObject.Properties.Name -contains $FieldName)) {
+    throw ('invalid_gitnexus_{0}:missing-field' -f $FieldName)
+  }
+  $fieldValue = $Metadata.PSObject.Properties[$FieldName].Value
+  if ($fieldValue -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$fieldValue)) {
+    throw ('invalid_gitnexus_{0}:invalid-entry' -f $FieldName)
+  }
+  return [string]$fieldValue
+}
+
+function Get-NativeCapabilityMutationBoundary {
+  param(
+    [object]$Metadata
+  )
+  if ($null -eq $Metadata -or -not ($Metadata.PSObject.Properties.Name -contains 'mutation_boundary')) {
+    throw 'invalid_gitnexus_mutation_boundary:missing-field'
+  }
+  $boundary = [string]$Metadata.mutation_boundary
+  $allowedBoundaries = @('read-only', 'mutation-gated', 'policy-blocked', 'unknown')
+  if (-not ($allowedBoundaries -contains $boundary)) {
+    throw "invalid_gitnexus_mutation_boundary:$boundary"
+  }
+  return $boundary
 }
 
 function Get-NativeCapabilitySourceProvenance {
@@ -662,9 +727,8 @@ function Get-NativeCapabilitySourceProvenance {
     [object]$Provider,
     [string]$Status
   )
-  if ($Status -eq 'available' -or $Status -eq 'mutation-gated') { return 'observed-this-run' }
   if ($null -eq $Provider) { return 'registry-only' }
-  if ([bool]$Provider.configured -and ([string]$Provider.dependency_status -eq 'ready') -and (Test-ProviderHostReady -Provider $Provider)) { return 'configured-and-detected' }
+  if (($Status -eq 'available' -or $Status -eq 'mutation-gated') -and (Test-ProviderReady -Provider $Provider)) { return 'configured-and-detected' }
   if ([bool]$Provider.configured) { return 'configured-not-verified' }
   return 'registry-only'
 }
@@ -697,14 +761,29 @@ function Get-GitNexusNativeCapabilityProjection {
   if ($null -eq $RegistryCapabilities) { return $projection }
   foreach ($property in @($RegistryCapabilities.PSObject.Properties)) {
     $metadata = $property.Value
-    $status = Get-NativeCapabilityStatus -Provider $Provider -Metadata $metadata
-    $surfaces = if ($null -ne $metadata -and $metadata.PSObject.Properties.Name -contains 'native_surfaces') { @($metadata.native_surfaces) } else { @() }
-    $mutationBoundary = if ($null -ne $metadata -and $metadata.PSObject.Properties.Name -contains 'mutation_boundary') { [string]$metadata.mutation_boundary } else { 'unknown' }
+    if ($null -ne $metadata -and $metadata.PSObject.Properties.Name -contains 'native_surfaces') {
+      throw 'invalid_gitnexus_native_surfaces:retired-field'
+    }
+    $meaning = Get-NativeCapabilityStringField -Metadata $metadata -FieldName 'meaning'
+    $fallbackPosture = Get-NativeCapabilityStringField -Metadata $metadata -FieldName 'fallback_posture'
+    $tools = @(Get-NativeCapabilityArrayField -Metadata $metadata -FieldName 'native_tools')
+    $resources = @(Get-NativeCapabilityArrayField -Metadata $metadata -FieldName 'native_resources')
+    if ((@($tools).Count + @($resources).Count) -eq 0) {
+      throw 'invalid_gitnexus_native_capability:no-surfaces'
+    }
+    $mutationBoundary = Get-NativeCapabilityMutationBoundary -Metadata $metadata
+    $statusMetadata = [pscustomobject]@{
+      mutation_boundary = $mutationBoundary
+      meaning = $meaning
+      fallback_posture = $fallbackPosture
+    }
+    $status = Get-NativeCapabilityStatus -Provider $Provider -Metadata $statusMetadata
     $projection[$property.Name] = [ordered]@{
       status = $status
-      source_tags = @(Get-NativeCapabilitySourceTags -Provider $Provider -Capability $property.Name)
+      source_tags = @(Get-NativeCapabilitySourceTags -Metadata $metadata)
       source_provenance = Get-NativeCapabilitySourceProvenance -Provider $Provider -Status $status
-      native_surfaces = @($surfaces)
+      native_tools = @($tools)
+      native_resources = @($resources)
       mutation_boundary = $mutationBoundary
       limitations = @(Get-NativeCapabilityLimitations -Provider $Provider -Metadata $metadata -Status $status)
     }
@@ -761,7 +840,6 @@ $existingRuntime = Read-ExistingJson -Path $runtimeFile -SchemaVersion 'runtime-
 $generatedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 $script:gitNexusQueryProbeCandidateLimit = 5
 $script:gitNexusQueryProbeSourceFileLimitBytes = 200000
-$toolsJson = Get-Content -Raw $toolsJsonPath | ConvertFrom-Json
 $gitNexusTool = @($toolsJson.tools | Where-Object { $_.id -eq 'gitnexus' } | Select-Object -First 1)
 if ($gitNexusTool.Count -eq 0) {
   throw 'GitNexus tool entry not found in mcp-tools.json'
@@ -941,10 +1019,12 @@ $providerPayload = [ordered]@{
   }
 }
 
-$astGrep = if ($facts.helper_tools.PSObject.Properties.Name -contains 'ast-grep') { $facts.helper_tools.'ast-grep' } else { $null }
+$helperTools = if ($facts.PSObject.Properties.Name -contains 'helper_tools') { $facts.helper_tools } else { $null }
+$helperToolProperties = if ($null -ne $helperTools) { @($helperTools.PSObject.Properties) } else { @() }
+$astGrepProperty = @($helperToolProperties | Where-Object { $_.Name -eq 'ast-grep' } | Select-Object -First 1)
+$astGrep = if ($astGrepProperty.Count -gt 0) { $astGrepProperty[0].Value } else { $null }
 $astGrepReady = Test-HelperReady -Helper $astGrep
-$fallbackProviders = @()
-if ($astGrepReady) { $fallbackProviders += 'ast-grep' }
+$fallbackProviders = if ($astGrepReady) { New-StringList -Values @('ast-grep') } else { New-StringList }
 
 $projectGraphReadiness = [ordered]@{
   status = 'not-bootstrapped'
@@ -1013,28 +1093,28 @@ $runtimePayload = [ordered]@{
       support_level = if ($astGrepReady) { 'partial' } else { 'none' }
       readiness_status = if ($astGrepReady) { 'ready' } else { 'action-required' }
       confidence = if ($astGrepReady) { 'medium' } else { 'low' }
-      capabilities = @('structural_search', 'safe_rewrite')
-      limitations = if ($astGrepReady) { @() } else { @('ast-grep helper is not ready.') }
+      capabilities = New-StringList -Values @('structural_search', 'safe_rewrite')
+      limitations = if ($astGrepReady) { New-StringList } else { New-StringList -Values @('ast-grep helper is not ready.') }
     }
   }
   fallback_capabilities = [ordered]@{
     context_selection = [ordered]@{
       support_level = if ($astGrepReady) { 'partial' } else { 'none' }
       confidence = if ($astGrepReady) { 'medium' } else { 'low' }
-      providers = @($fallbackProviders)
-      limitations = @('Fallback context is bounded local repo reads, not compiled graph evidence.')
+      providers = $fallbackProviders
+      limitations = New-StringList -Values @('Fallback context is bounded local repo reads, not compiled graph evidence.')
     }
     impact_radius = [ordered]@{
       support_level = if ($astGrepReady) { 'partial' } else { 'none' }
       confidence = if ($astGrepReady) { 'low' } else { 'unknown' }
-      providers = if ($astGrepReady) { @('ast-grep') } else { @() }
-      limitations = @('Fallback impact is heuristic and does not replace graph-provider impact radius.')
+      providers = if ($astGrepReady) { New-StringList -Values @('ast-grep') } else { New-StringList }
+      limitations = New-StringList -Values @('Fallback impact is heuristic and does not replace graph-provider impact radius.')
     }
     review_support = [ordered]@{
       support_level = if ($astGrepReady) { 'partial' } else { 'none' }
       confidence = if ($astGrepReady) { 'low' } else { 'unknown' }
-      providers = if ($astGrepReady) { @('ast-grep') } else { @() }
-      limitations = @('Fallback review support has no canonical graph facts.')
+      providers = if ($astGrepReady) { New-StringList -Values @('ast-grep') } else { New-StringList }
+      limitations = New-StringList -Values @('Fallback review support has no canonical graph facts.')
     }
   }
   project_graph_readiness = $projectGraphReadiness

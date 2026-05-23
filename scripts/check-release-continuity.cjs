@@ -19,6 +19,12 @@ const GOVERNANCE_PATH = path.join(
   'skills-governance.json',
 );
 const REQUIRED_STANDALONE_SUMMARIES = ['using-spec-first', 'spec-write-tasks'];
+const REQUIRED_GRAPH_CONTRACT_FILES = [
+  'docs/contracts/gitnexus-capability-catalog.md',
+  'docs/contracts/graph-evidence-policy.md',
+  'docs/contracts/graph-provider-consumption.md',
+  'docs/contracts/workspace-gitnexus-consumption.md',
+];
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -97,6 +103,7 @@ function checkPackageDeliverySurface() {
   const pkg = readJson(PACKAGE_JSON_PATH);
   const requiredFiles = [
     'docs/contracts/workflows/',
+    ...REQUIRED_GRAPH_CONTRACT_FILES,
     'scripts/check-release-continuity.cjs',
     'scripts/check-website-sync.cjs',
     'scripts/generate-runtime-capability-catalog.js',
@@ -112,7 +119,11 @@ function checkPackageDeliverySurface() {
     guardId: 'package-delivery-surface',
     classification: 'blocking',
     artifactPath: 'package.json',
-    checkedSources: ['package.json'],
+    checkedSources: [
+      'package.json',
+      'skills/spec-plan/references/graph-evidence-posture.md',
+      ...REQUIRED_GRAPH_CONTRACT_FILES,
+    ],
     ok: declaredFiles.length > 0 && missing.length === 0,
     passReason: 'package-delivery-surface-current',
     failReason: declaredFiles.length === 0

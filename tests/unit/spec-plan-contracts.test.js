@@ -262,8 +262,17 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('setup `available` -> Plan `capability_status: available`');
     expect(text).toContain('setup `unknown` -> `partial` with a non-empty limitation containing the literal phrase `setup-inferred unknown`');
     expect(text).toContain('Plan never invents `available` from setup `unknown`');
-    expect(text).toContain('`registry-only`, `configured-not-verified`, and `inherited-prior-run` require a current live MCP probe');
-    expect(text).toContain('`configured-and-detected` and `observed-this-run` can guide surface selection');
+    expect(text).toContain('Treat `source_tags[]` as the GitNexus catalog provenance field');
+    expect(text).toContain('`checked-in-baseline`, `provider-pin`, and `setup-projection`');
+    expect(text).toContain('must not be reported as `live-mcp-tool` or `live-mcp-resource`');
+    expect(text).toContain('Read `native_tools[]` and `native_resources[]` separately');
+    expect(text).toContain('`registry-only` and `configured-not-verified` require a current live MCP probe');
+    expect(text).toContain('`configured-and-detected` can guide surface selection');
+    expect(text).not.toContain('observed-this-run');
+    expect(text).not.toContain('inherited-prior-run');
+    expect(text).toContain('A live tool claim requires a current-session surface tagged `live-mcp-tool`');
+    expect(text).toContain('a live resource claim requires `live-mcp-resource`');
+    expect(text).toContain('LLM conclusions drawn from those results should add `session-local-inference`');
     expect(text).toContain('Missing, invalid, stale-by-fingerprint, or capability-missing projection is advisory/unknown');
     expect(text).toContain('Do not run setup, graph-bootstrap, provider refresh, GitNexus analyze/status/query CLI commands, group sync');
     expect(text).toContain('`mutation_boundary: policy-blocked` is a hard setup/Plan workflow boundary');
@@ -284,7 +293,9 @@ describe('spec-plan context orientation contract', () => {
     expect(combined).toContain('## Graph / GitNexus Evidence');
     expect(template.indexOf('## Graph Readiness')).toBeLessThan(template.indexOf('## Graph / GitNexus Evidence'));
     expect(template.indexOf('## Graph / GitNexus Evidence')).toBeLessThan(template.indexOf('## Context & Research'));
-    for (const field of [
+    const evidenceBlock = template.match(/## Graph \/ GitNexus Evidence\n\n[\s\S]*?\n---/)?.[0] ?? '';
+    expect(evidenceBlock).not.toBe('');
+    const expectedFields = [
       '- provider:',
       '- native_tool_or_resource:',
       '- repo_scope:',
@@ -292,20 +303,43 @@ describe('spec-plan context orientation contract', () => {
       '- evidence_grade:',
       '- evidence_posture:',
       '- freshness_state:',
+      '- source_tags:',
       '- source_contract_fields:',
       '- source_reads_required:',
       '- impact_on_plan:',
       '- capabilities_used:',
       '- key_findings:',
       '- limitations:',
-    ]) {
-      expect(combined).toContain(field);
-    }
+    ];
+    expect(
+      evidenceBlock
+        .split('\n')
+        .filter((line) => line.startsWith('- '))
+        .map((line) => line.replace(/:.*/, ':')),
+    ).toEqual(expectedFields);
 
     expect(template).toContain('capability_status: available | partial | unavailable | mutation-gated');
     expect(template).toContain('evidence_grade: primary | session-local | advisory | stale');
     expect(template).toContain('evidence_posture: primary | fallback');
     expect(template).toContain('freshness_state: fresh | stale | dirty-advisory | query-unverified');
+    const sourceTagsLine = evidenceBlock
+      .split('\n')
+      .find((line) => line.startsWith('- source_tags:'));
+    const sourceTags = sourceTagsLine
+      .match(/\[replace with applicable tags: ([^\]]+)\]/)[1]
+      .split(',')
+      .map((tag) => tag.trim());
+    expect(sourceTags).toEqual([
+      'checked-in-baseline',
+      'provider-pin',
+      'setup-projection',
+      'live-mcp-tool',
+      'live-mcp-resource',
+      'session-local-inference',
+      'user-decision',
+    ]);
+    expect(sourceTags).toEqual(expect.arrayContaining(['live-mcp-tool', 'live-mcp-resource', 'session-local-inference', 'user-decision']));
+    expect(sourceTags).not.toEqual(['checked-in-baseline', 'provider-pin', 'setup-projection']);
     expect(text).not.toContain('capability_status: available | partial | unavailable | mutation-gated');
     expect(text).toContain('not canonical readiness truth');
     expect(text).toContain('setup-owned GitNexus capability projection');
@@ -318,6 +352,10 @@ describe('spec-plan context orientation contract', () => {
     expect(reference).toContain('`evidence_grade=primary|session-local|advisory|stale`');
     expect(reference).toContain('`evidence_posture=primary|fallback`');
     expect(reference).toContain('`freshness_state=fresh|stale|dirty-advisory|query-unverified`');
+    expect(reference).toContain('`source_tags[]`');
+    expect(reference).toContain('`checked-in-baseline`, `setup-projection`, `provider-pin`, `live-mcp-tool`, `live-mcp-resource`, `session-local-inference`, and `user-decision`');
+    expect(reference).toContain('Preserve all applicable tags');
+    expect(reference).toContain('do not collapse the field to the single strongest-looking source');
 
     expect(reference).toContain('`evidence_posture=fallback + evidence_grade=primary`');
     expect(reference).toContain('source_reads_required mandatory');
@@ -340,6 +378,9 @@ describe('spec-plan context orientation contract', () => {
     expect(reference).toContain('native_tool_or_resource');
     expect(reference).toContain('schema/resource orientation');
     expect(reference).toContain('session-local tool/resource selection guidance');
+    expect(reference).toContain('tag live tool evidence as `live-mcp-tool`');
+    expect(reference).toContain('tag live resource evidence as `live-mcp-resource`');
+    expect(reference).toContain('When setup projection provides `native_tools[]` and `native_resources[]`, keep them separate');
     expect(reference).toContain('do not claim a static durable capability catalog is current truth');
   });
 

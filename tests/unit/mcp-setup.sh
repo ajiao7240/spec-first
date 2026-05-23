@@ -282,7 +282,7 @@ mkdir -p "$MONOREPO_FIXTURE/packages/a" "$MONOREPO_FIXTURE/packages/b"
 target_monorepo="$(cd "$MONOREPO_FIXTURE/packages/a" && bash "$RESOLVER_SCRIPT")"
 assert_eq "monorepo packages stay inside one git repo target" "git-repo:cwd-git-root:0" "$(jq -r '"\(.mode):\(.selection_source):\(.candidates | length)"' <<<"$target_monorepo")"
 
-assert_eq "mcp-tools schema is v5" "5" "$(jq -r '.schema_version' "$TOOLS_JSON")"
+assert_eq "mcp-tools schema is v6" "6" "$(jq -r '.schema_version' "$TOOLS_JSON")"
 assert_eq "tool ids are fixed" "sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
 assert_eq "every registry tool is required" "true" "$(jq -r 'all(.tools[]; .required == true)' "$TOOLS_JSON")"
 assert_eq "categories are constrained" "true" "$(jq -r 'all(.tools[]; (.category == "mcp" or .category == "graph-provider"))' "$TOOLS_JSON")"
@@ -294,10 +294,11 @@ assert_eq "code-review-graph host MCP is optional" "false:cli_artifact:true" "$(
 assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.4" "$GITNEXUS_PACKAGE"
 assert_eq "code-review-graph package pin is explicit" "code-review-graph@2.3.3" "$CODE_REVIEW_GRAPH_PACKAGE"
 assert_eq "GitNexus native capability keys are locked" "context,cypher,impact,query,repo_registry,route_api_evidence,shape_check,tool_map,workspace_group" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | keys | sort | join(",")' "$TOOLS_JSON")"
-assert_eq "GitNexus native capability registry uses locked fields" "true" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | to_entries | all(.value | (keys | sort | join(",")) == "fallback_posture,meaning,mutation_boundary,native_surfaces")' "$TOOLS_JSON")"
+assert_eq "GitNexus native capability registry uses locked fields" "true" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | to_entries | all(.value | (keys | sort | join(",")) == "fallback_posture,meaning,mutation_boundary,native_resources,native_tools,source_tags")' "$TOOLS_JSON")"
+assert_eq "GitNexus native capability registry uses catalog source tags" "true" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | to_entries | all(.value.source_tags == ["checked-in-baseline","provider-pin"])' "$TOOLS_JSON")"
 assert_eq "GitNexus native capability registry has no task-level outputs" "true" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | tostring | ((contains("query_result") or contains("result_snippet") or contains("semantic_conclusion") or contains("task_conclusion") or contains("raw_log")) | not)' "$TOOLS_JSON")"
-assert_eq "GitNexus workspace group capability is policy-blocked" "policy-blocked" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.workspace_group.mutation_boundary' "$TOOLS_JSON")"
-assert_eq "GitNexus workspace group registry exposes only read-only group surface" "group_list:false" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.workspace_group.native_surfaces as $surfaces | "\($surfaces | join(",")):\($surfaces | index("group_sync") != null)"' "$TOOLS_JSON")"
+assert_eq "GitNexus workspace group capability is read-only orientation" "read-only" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.workspace_group.mutation_boundary' "$TOOLS_JSON")"
+assert_eq "GitNexus workspace group registry exposes only read-only group tools and resources" "group_list:false:true" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.workspace_group as $cap | "\($cap.native_tools | join(",")):\((($cap.native_tools + $cap.native_resources) | index("group_sync")) != null):\($cap.native_resources | index("gitnexus://group/{name}/status") != null)"' "$TOOLS_JSON")"
 assert_eq "GitNexus native capability contract avoids alternate top-level name" "false" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config | has("capability_metadata")' "$TOOLS_JSON")"
 assert_eq "gitnexus warmup command uses configured package" "npx -y $GITNEXUS_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "gitnexus") as $t | [$t.installation.unix.command] + ($t.installation.unix.args | map(gsub("\\{\\{package\\}\\}"; ($t.package // "")) | gsub("\\{\\{version\\}\\}"; ($t.version // "")))) | join(" ")' "$TOOLS_JSON")"
 assert_eq "code-review-graph warmup command uses configured package" "uvx $CODE_REVIEW_GRAPH_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "code-review-graph") as $t | [$t.installation.unix.command] + ($t.installation.unix.args | map(gsub("\\{\\{package\\}\\}"; ($t.package // "")) | gsub("\\{\\{version\\}\\}"; ($t.version // "")))) | join(" ")' "$TOOLS_JSON")"
@@ -1078,13 +1079,495 @@ assert_eq "GitNexus method candidates stay bounded and source-derived" "stepSave
 
 assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "GitNexus native capability projection keys are locked" "context,cypher,impact,query,repo_registry,route_api_evidence,shape_check,tool_map,workspace_group" "$(jq -r '.providers.gitnexus.native_capabilities | keys | sort | join(",")' "$PROVIDER_CONFIG")"
-assert_eq "GitNexus native capability projection uses locked fields" "true" "$(jq -r '.providers.gitnexus.native_capabilities | to_entries | all(.value | (keys | sort | join(",")) == "limitations,mutation_boundary,native_surfaces,source_provenance,source_tags,status")' "$PROVIDER_CONFIG")"
-assert_eq "GitNexus native capability projection uses locked enums" "true" "$(jq -r '.providers.gitnexus.native_capabilities | all(.[]; (.status as $status | ["available","unavailable","unknown","mutation-gated"] | index($status) != null) and (.source_provenance as $provenance | ["registry-only","configured-not-verified","configured-and-detected","observed-this-run","inherited-prior-run"] | index($provenance) != null) and (.mutation_boundary as $boundary | ["read-only","mutation-gated","policy-blocked","unknown"] | index($boundary) != null))' "$PROVIDER_CONFIG")"
-assert_eq "GitNexus available capabilities have non-empty closed source tags" "true" "$(jq -r '.providers.gitnexus.native_capabilities as $caps | ([$caps[] | select(.status == "available" or .status == "mutation-gated") | (.source_tags | length > 0)] | all) and ([$caps[] | .source_tags[]] | all(. as $tag | ["registry-baseline","provider-pin","host-config","dependency-ready","setup-projection","workspace-advisory"] | index($tag) != null))' "$PROVIDER_CONFIG")"
-assert_eq "GitNexus normal capability source tags keep cross-host order" "registry-baseline,provider-pin,setup-projection,host-config,dependency-ready" "$(jq -r '.providers.gitnexus.native_capabilities.query.source_tags | join(",")' "$PROVIDER_CONFIG")"
-assert_eq "GitNexus workspace capability source tags keep cross-host order" "registry-baseline,provider-pin,setup-projection,host-config,dependency-ready,workspace-advisory" "$(jq -r '.providers.gitnexus.native_capabilities.workspace_group.source_tags | join(",")' "$PROVIDER_CONFIG")"
-assert_eq "GitNexus ready setup projection is setup-inferred observed this run" "true" "$(jq -r '.providers.gitnexus.native_capabilities | all(.[]; .source_provenance == "observed-this-run")' "$PROVIDER_CONFIG")"
-assert_eq "GitNexus workspace group projection remains policy-blocked and read-only surfaced" "available:policy-blocked:group_list:false:true" "$(jq -r '.providers.gitnexus.native_capabilities.workspace_group | "\(.status):\(.mutation_boundary):\(.native_surfaces | join(",")):\(.native_surfaces | index("group_sync") != null):\(.limitations | join(" ") | contains("policy-blocked surfaces"))"' "$PROVIDER_CONFIG")"
+assert_eq "GitNexus native capability projection uses locked fields" "true" "$(jq -r '.providers.gitnexus.native_capabilities | to_entries | all(.value | (keys | sort | join(",")) == "limitations,mutation_boundary,native_resources,native_tools,source_provenance,source_tags,status")' "$PROVIDER_CONFIG")"
+assert_eq "GitNexus native capability projection uses locked enums" "true" "$(jq -r '.providers.gitnexus.native_capabilities | all(.[]; (.status as $status | ["available","unavailable","unknown","mutation-gated"] | index($status) != null) and (.source_provenance as $provenance | ["registry-only","configured-not-verified","configured-and-detected"] | index($provenance) != null) and (.mutation_boundary as $boundary | ["read-only","mutation-gated","policy-blocked","unknown"] | index($boundary) != null))' "$PROVIDER_CONFIG")"
+assert_eq "GitNexus native capability projection keeps non-empty tool or resource arrays" "true" "$(jq -r '.providers.gitnexus.native_capabilities | all(.[]; (.native_tools | type) == "array" and (.native_resources | type) == "array" and (((.native_tools | length) + (.native_resources | length)) > 0))' "$PROVIDER_CONFIG")"
+assert_eq "GitNexus available capabilities have required closed setup source tags" "true" "$(jq -r '.providers.gitnexus.native_capabilities as $caps | ([$caps[] | select(.status == "available" or .status == "mutation-gated") | ((.source_tags | index("checked-in-baseline") != null) and (.source_tags | index("provider-pin") != null) and (.source_tags | index("setup-projection") != null))] | all) and ([$caps[] | .source_tags[]] | all(. as $tag | ["checked-in-baseline","provider-pin","setup-projection"] | index($tag) != null))' "$PROVIDER_CONFIG")"
+assert_eq "GitNexus normal capability source tags keep cross-host order" "checked-in-baseline,provider-pin,setup-projection" "$(jq -r '.providers.gitnexus.native_capabilities.query.source_tags | join(",")' "$PROVIDER_CONFIG")"
+assert_eq "GitNexus workspace capability source tags keep cross-host order" "checked-in-baseline,provider-pin,setup-projection" "$(jq -r '.providers.gitnexus.native_capabilities.workspace_group.source_tags | join(",")' "$PROVIDER_CONFIG")"
+CUSTOM_TAG_SKILL="$TMP_DIR/custom-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$CUSTOM_TAG_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.source_tags) = ["provider-pin","checked-in-baseline","provider-pin"]' "$CUSTOM_TAG_SKILL/mcp-tools.json" > "$CUSTOM_TAG_SKILL/mcp-tools.json.tmp"
+mv "$CUSTOM_TAG_SKILL/mcp-tools.json.tmp" "$CUSTOM_TAG_SKILL/mcp-tools.json"
+CUSTOM_TAG_REPO="$TMP_DIR/custom-tag-repo"
+make_repo "$CUSTOM_TAG_REPO"
+printf 'custom tags fixture\n' > "$CUSTOM_TAG_REPO/README.md"
+git -C "$CUSTOM_TAG_REPO" add README.md
+git -C "$CUSTOM_TAG_REPO" commit -q -m "Add custom tags fixture"
+CUSTOM_TAG_FACTS="$TMP_DIR/custom-tag-facts.json"
+jq -n \
+  --arg repo_root "$CUSTOM_TAG_REPO" \
+  '{
+    schema_version:"v2",
+    host:"claude",
+    platform:"macos",
+    repo_status:"git-repo",
+    repo_root:$repo_root,
+    selected_repo_root:$repo_root,
+    target:{state_write_allowed:true},
+    baseline_ready:true,
+    host_runtime_ready:true,
+    tools:{},
+    helper_tools:{},
+    graph_providers:{
+      gitnexus:{
+        configured:true,
+        enabled_for_bootstrap:true,
+        required:true,
+        role:"global_knowledge",
+        access_mode:"live_mcp",
+        host_config_required:true,
+        dependency_status:"ready",
+        host_config_status:"ready",
+        capabilities:[]
+      },
+      "code-review-graph":{
+        configured:true,
+        enabled_for_bootstrap:true,
+        required:true,
+        role:"impact_context",
+        access_mode:"cli_artifact",
+        host_config_required:false,
+        dependency_status:"ready",
+        host_config_status:"not-required",
+        capabilities:[]
+      }
+    }
+  }' > "$CUSTOM_TAG_FACTS"
+custom_tag_projection="$(bash "$CUSTOM_TAG_SKILL/scripts/write-provider-config.sh" --facts-file "$CUSTOM_TAG_FACTS")"
+assert "custom source tag projection emits JSON" jq -e . <<<"$custom_tag_projection"
+CUSTOM_TAG_PROVIDER_CONFIG="$CUSTOM_TAG_REPO/.spec-first/config/graph-providers.json"
+assert_eq "GitNexus source tags projection derives and deduplicates registry tags" "provider-pin,checked-in-baseline,setup-projection" "$(jq -r '.providers.gitnexus.native_capabilities.query.source_tags | join(",")' "$CUSTOM_TAG_PROVIDER_CONFIG")"
+INVALID_TAG_SKILL="$TMP_DIR/invalid-tag-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$INVALID_TAG_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.source_tags) = ["checked-in-baseline","live-mcp-tool"]' "$INVALID_TAG_SKILL/mcp-tools.json" > "$INVALID_TAG_SKILL/mcp-tools.json.tmp"
+mv "$INVALID_TAG_SKILL/mcp-tools.json.tmp" "$INVALID_TAG_SKILL/mcp-tools.json"
+INVALID_TAG_REPO="$TMP_DIR/invalid-tag-repo"
+make_repo "$INVALID_TAG_REPO"
+printf 'invalid tags fixture\n' > "$INVALID_TAG_REPO/README.md"
+git -C "$INVALID_TAG_REPO" add README.md
+git -C "$INVALID_TAG_REPO" commit -q -m "Add invalid tags fixture"
+INVALID_TAG_FACTS="$TMP_DIR/invalid-tag-facts.json"
+jq --arg repo_root "$INVALID_TAG_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$INVALID_TAG_FACTS"
+invalid_tag_log="$TMP_DIR/invalid-tag.log"
+if bash "$INVALID_TAG_SKILL/scripts/write-provider-config.sh" --facts-file "$INVALID_TAG_FACTS" >"$invalid_tag_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects live MCP source tags from registry" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects live MCP source tags from registry" "invalid_gitnexus_source_tag:live-mcp-tool" "$(cat "$invalid_tag_log")"
+assert_eq "GitNexus invalid source tag projection does not write provider config" "false" "$(test -f "$INVALID_TAG_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+SCALAR_TAG_SKILL="$TMP_DIR/scalar-tag-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$SCALAR_TAG_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.source_tags) = "checked-in-baseline"' "$SCALAR_TAG_SKILL/mcp-tools.json" > "$SCALAR_TAG_SKILL/mcp-tools.json.tmp"
+mv "$SCALAR_TAG_SKILL/mcp-tools.json.tmp" "$SCALAR_TAG_SKILL/mcp-tools.json"
+SCALAR_TAG_REPO="$TMP_DIR/scalar-tag-repo"
+make_repo "$SCALAR_TAG_REPO"
+printf 'scalar tags fixture\n' > "$SCALAR_TAG_REPO/README.md"
+git -C "$SCALAR_TAG_REPO" add README.md
+git -C "$SCALAR_TAG_REPO" commit -q -m "Add scalar tags fixture"
+SCALAR_TAG_FACTS="$TMP_DIR/scalar-tag-facts.json"
+jq --arg repo_root "$SCALAR_TAG_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$SCALAR_TAG_FACTS"
+scalar_tag_log="$TMP_DIR/scalar-tag.log"
+if bash "$SCALAR_TAG_SKILL/scripts/write-provider-config.sh" --facts-file "$SCALAR_TAG_FACTS" >"$scalar_tag_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects scalar source tags from registry" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects scalar source tags from registry" "invalid_gitnexus_source_tags:not-array" "$(cat "$scalar_tag_log")"
+assert_eq "GitNexus scalar source tag projection does not write provider config" "false" "$(test -f "$SCALAR_TAG_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+EMPTY_TAG_SKILL="$TMP_DIR/empty-tag-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$EMPTY_TAG_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.source_tags) = []' "$EMPTY_TAG_SKILL/mcp-tools.json" > "$EMPTY_TAG_SKILL/mcp-tools.json.tmp"
+mv "$EMPTY_TAG_SKILL/mcp-tools.json.tmp" "$EMPTY_TAG_SKILL/mcp-tools.json"
+EMPTY_TAG_REPO="$TMP_DIR/empty-tag-repo"
+make_repo "$EMPTY_TAG_REPO"
+printf 'empty tags fixture\n' > "$EMPTY_TAG_REPO/README.md"
+git -C "$EMPTY_TAG_REPO" add README.md
+git -C "$EMPTY_TAG_REPO" commit -q -m "Add empty tags fixture"
+EMPTY_TAG_FACTS="$TMP_DIR/empty-tag-facts.json"
+jq --arg repo_root "$EMPTY_TAG_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$EMPTY_TAG_FACTS"
+empty_tag_log="$TMP_DIR/empty-tag.log"
+if bash "$EMPTY_TAG_SKILL/scripts/write-provider-config.sh" --facts-file "$EMPTY_TAG_FACTS" >"$empty_tag_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects empty source tags from registry" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects empty source tags from registry" "invalid_gitnexus_source_tags:missing-baseline" "$(cat "$empty_tag_log")"
+assert_eq "GitNexus empty source tag projection does not write provider config" "false" "$(test -f "$EMPTY_TAG_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+MISSING_TAG_SKILL="$TMP_DIR/missing-tag-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$MISSING_TAG_SKILL"
+jq 'del(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.source_tags)' "$MISSING_TAG_SKILL/mcp-tools.json" > "$MISSING_TAG_SKILL/mcp-tools.json.tmp"
+mv "$MISSING_TAG_SKILL/mcp-tools.json.tmp" "$MISSING_TAG_SKILL/mcp-tools.json"
+MISSING_TAG_REPO="$TMP_DIR/missing-tag-repo"
+make_repo "$MISSING_TAG_REPO"
+printf 'missing tags fixture\n' > "$MISSING_TAG_REPO/README.md"
+git -C "$MISSING_TAG_REPO" add README.md
+git -C "$MISSING_TAG_REPO" commit -q -m "Add missing tags fixture"
+MISSING_TAG_FACTS="$TMP_DIR/missing-tag-facts.json"
+jq --arg repo_root "$MISSING_TAG_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$MISSING_TAG_FACTS"
+missing_tag_log="$TMP_DIR/missing-tag.log"
+if bash "$MISSING_TAG_SKILL/scripts/write-provider-config.sh" --facts-file "$MISSING_TAG_FACTS" >"$missing_tag_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects missing source_tags field" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects missing source_tags field" "invalid_gitnexus_source_tags:missing-field" "$(cat "$missing_tag_log")"
+assert_eq "GitNexus missing source_tags projection does not write provider config" "false" "$(test -f "$MISSING_TAG_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+MISSING_MEANING_SKILL="$TMP_DIR/missing-meaning-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$MISSING_MEANING_SKILL"
+jq 'del(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.meaning)' "$MISSING_MEANING_SKILL/mcp-tools.json" > "$MISSING_MEANING_SKILL/mcp-tools.json.tmp"
+mv "$MISSING_MEANING_SKILL/mcp-tools.json.tmp" "$MISSING_MEANING_SKILL/mcp-tools.json"
+MISSING_MEANING_REPO="$TMP_DIR/missing-meaning-repo"
+make_repo "$MISSING_MEANING_REPO"
+printf 'missing meaning fixture\n' > "$MISSING_MEANING_REPO/README.md"
+git -C "$MISSING_MEANING_REPO" add README.md
+git -C "$MISSING_MEANING_REPO" commit -q -m "Add missing meaning fixture"
+MISSING_MEANING_FACTS="$TMP_DIR/missing-meaning-facts.json"
+jq --arg repo_root "$MISSING_MEANING_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$MISSING_MEANING_FACTS"
+missing_meaning_log="$TMP_DIR/missing-meaning.log"
+if bash "$MISSING_MEANING_SKILL/scripts/write-provider-config.sh" --facts-file "$MISSING_MEANING_FACTS" >"$missing_meaning_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects missing meaning field" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects missing meaning field" "invalid_gitnexus_meaning:missing-field" "$(cat "$missing_meaning_log")"
+assert_eq "GitNexus missing meaning projection does not write provider config" "false" "$(test -f "$MISSING_MEANING_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+MISSING_FALLBACK_SKILL="$TMP_DIR/missing-fallback-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$MISSING_FALLBACK_SKILL"
+jq 'del(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.fallback_posture)' "$MISSING_FALLBACK_SKILL/mcp-tools.json" > "$MISSING_FALLBACK_SKILL/mcp-tools.json.tmp"
+mv "$MISSING_FALLBACK_SKILL/mcp-tools.json.tmp" "$MISSING_FALLBACK_SKILL/mcp-tools.json"
+MISSING_FALLBACK_REPO="$TMP_DIR/missing-fallback-repo"
+make_repo "$MISSING_FALLBACK_REPO"
+printf 'missing fallback fixture\n' > "$MISSING_FALLBACK_REPO/README.md"
+git -C "$MISSING_FALLBACK_REPO" add README.md
+git -C "$MISSING_FALLBACK_REPO" commit -q -m "Add missing fallback fixture"
+MISSING_FALLBACK_FACTS="$TMP_DIR/missing-fallback-facts.json"
+jq --arg repo_root "$MISSING_FALLBACK_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$MISSING_FALLBACK_FACTS"
+missing_fallback_log="$TMP_DIR/missing-fallback.log"
+if bash "$MISSING_FALLBACK_SKILL/scripts/write-provider-config.sh" --facts-file "$MISSING_FALLBACK_FACTS" >"$missing_fallback_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects missing fallback_posture field" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects missing fallback_posture field" "invalid_gitnexus_fallback_posture:missing-field" "$(cat "$missing_fallback_log")"
+assert_eq "GitNexus missing fallback_posture projection does not write provider config" "false" "$(test -f "$MISSING_FALLBACK_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+BLANK_FALLBACK_SKILL="$TMP_DIR/blank-fallback-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$BLANK_FALLBACK_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.fallback_posture) = " "' "$BLANK_FALLBACK_SKILL/mcp-tools.json" > "$BLANK_FALLBACK_SKILL/mcp-tools.json.tmp"
+mv "$BLANK_FALLBACK_SKILL/mcp-tools.json.tmp" "$BLANK_FALLBACK_SKILL/mcp-tools.json"
+BLANK_FALLBACK_REPO="$TMP_DIR/blank-fallback-repo"
+make_repo "$BLANK_FALLBACK_REPO"
+printf 'blank fallback fixture\n' > "$BLANK_FALLBACK_REPO/README.md"
+git -C "$BLANK_FALLBACK_REPO" add README.md
+git -C "$BLANK_FALLBACK_REPO" commit -q -m "Add blank fallback fixture"
+BLANK_FALLBACK_FACTS="$TMP_DIR/blank-fallback-facts.json"
+jq --arg repo_root "$BLANK_FALLBACK_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$BLANK_FALLBACK_FACTS"
+blank_fallback_log="$TMP_DIR/blank-fallback.log"
+if bash "$BLANK_FALLBACK_SKILL/scripts/write-provider-config.sh" --facts-file "$BLANK_FALLBACK_FACTS" >"$blank_fallback_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects blank fallback_posture field" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects blank fallback_posture field" "invalid_gitnexus_fallback_posture:invalid-entry" "$(cat "$blank_fallback_log")"
+assert_eq "GitNexus blank fallback_posture projection does not write provider config" "false" "$(test -f "$BLANK_FALLBACK_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+SCHEMA_V5_SKILL="$TMP_DIR/schema-v5-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$SCHEMA_V5_SKILL"
+jq '.schema_version = "5"' "$SCHEMA_V5_SKILL/mcp-tools.json" > "$SCHEMA_V5_SKILL/mcp-tools.json.tmp"
+mv "$SCHEMA_V5_SKILL/mcp-tools.json.tmp" "$SCHEMA_V5_SKILL/mcp-tools.json"
+SCHEMA_V5_REPO="$TMP_DIR/schema-v5-repo"
+make_repo "$SCHEMA_V5_REPO"
+printf 'schema v5 fixture\n' > "$SCHEMA_V5_REPO/README.md"
+git -C "$SCHEMA_V5_REPO" add README.md
+git -C "$SCHEMA_V5_REPO" commit -q -m "Add schema v5 fixture"
+SCHEMA_V5_FACTS="$TMP_DIR/schema-v5-facts.json"
+jq --arg repo_root "$SCHEMA_V5_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$SCHEMA_V5_FACTS"
+schema_v5_log="$TMP_DIR/schema-v5.log"
+if bash "$SCHEMA_V5_SKILL/scripts/write-provider-config.sh" --facts-file "$SCHEMA_V5_FACTS" >"$schema_v5_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects stale mcp-tools schema version" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects stale mcp-tools schema version" "invalid_mcp_tools_schema_version:5" "$(cat "$schema_v5_log")"
+assert_eq "GitNexus stale schema projection does not write provider config" "false" "$(test -f "$SCHEMA_V5_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+SCHEMA_V5_HOME="$TMP_DIR/schema-v5-home"
+mkdir -p "$SCHEMA_V5_HOME"
+assert_stale_schema_script_rejects() {
+  local label="$1"
+  shift
+  local log="$TMP_DIR/schema-v5-${label}.log"
+  if PATH="$TEST_PATH" HOME="$SCHEMA_V5_HOME" MCP_SETUP_HOST=codex "$@" >"$log" 2>&1; then
+    echo "FAIL: $label should reject stale mcp-tools schema version" >&2
+    exit 1
+  fi
+  assert_contains "$label rejects stale mcp-tools schema version" "invalid_mcp_tools_schema_version:5" "$(cat "$log")"
+}
+assert_stale_schema_script_rejects "detect-host" bash "$SCHEMA_V5_SKILL/scripts/detect-host.sh"
+assert_stale_schema_script_rejects "detect-tools" bash "$SCHEMA_V5_SKILL/scripts/detect-tools.sh"
+assert_stale_schema_script_rejects "configure-host" bash "$SCHEMA_V5_SKILL/scripts/configure-host.sh" --tool context7
+assert_stale_schema_script_rejects "repair-install" bash "$SCHEMA_V5_SKILL/scripts/repair-install.sh" --tool context7
+assert_stale_schema_script_rejects "uninstall-mcp" bash "$SCHEMA_V5_SKILL/scripts/uninstall-mcp.sh" --tool context7
+assert_stale_schema_script_rejects "install-mcp" bash "$SCHEMA_V5_SKILL/scripts/install-mcp.sh" --only context7
+assert_eq "stale schema host scripts do not write Codex config" "false" "$(test -f "$SCHEMA_V5_HOME/.codex/config.toml" && echo true || echo false)"
+SCALAR_TOOLS_SKILL="$TMP_DIR/scalar-tools-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$SCALAR_TOOLS_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.native_tools) = "query"' "$SCALAR_TOOLS_SKILL/mcp-tools.json" > "$SCALAR_TOOLS_SKILL/mcp-tools.json.tmp"
+mv "$SCALAR_TOOLS_SKILL/mcp-tools.json.tmp" "$SCALAR_TOOLS_SKILL/mcp-tools.json"
+SCALAR_TOOLS_REPO="$TMP_DIR/scalar-tools-repo"
+make_repo "$SCALAR_TOOLS_REPO"
+printf 'scalar tools fixture\n' > "$SCALAR_TOOLS_REPO/README.md"
+git -C "$SCALAR_TOOLS_REPO" add README.md
+git -C "$SCALAR_TOOLS_REPO" commit -q -m "Add scalar tools fixture"
+SCALAR_TOOLS_FACTS="$TMP_DIR/scalar-tools-facts.json"
+jq --arg repo_root "$SCALAR_TOOLS_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$SCALAR_TOOLS_FACTS"
+scalar_tools_log="$TMP_DIR/scalar-tools.log"
+if bash "$SCALAR_TOOLS_SKILL/scripts/write-provider-config.sh" --facts-file "$SCALAR_TOOLS_FACTS" >"$scalar_tools_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects scalar native tools from registry" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects scalar native tools from registry" "invalid_gitnexus_native_tools:not-array" "$(cat "$scalar_tools_log")"
+assert_eq "GitNexus scalar native tools projection does not write provider config" "false" "$(test -f "$SCALAR_TOOLS_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+SCALAR_RESOURCES_SKILL="$TMP_DIR/scalar-resources-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$SCALAR_RESOURCES_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.native_resources) = "gitnexus://repo/{name}/status"' "$SCALAR_RESOURCES_SKILL/mcp-tools.json" > "$SCALAR_RESOURCES_SKILL/mcp-tools.json.tmp"
+mv "$SCALAR_RESOURCES_SKILL/mcp-tools.json.tmp" "$SCALAR_RESOURCES_SKILL/mcp-tools.json"
+SCALAR_RESOURCES_REPO="$TMP_DIR/scalar-resources-repo"
+make_repo "$SCALAR_RESOURCES_REPO"
+printf 'scalar resources fixture\n' > "$SCALAR_RESOURCES_REPO/README.md"
+git -C "$SCALAR_RESOURCES_REPO" add README.md
+git -C "$SCALAR_RESOURCES_REPO" commit -q -m "Add scalar resources fixture"
+SCALAR_RESOURCES_FACTS="$TMP_DIR/scalar-resources-facts.json"
+jq --arg repo_root "$SCALAR_RESOURCES_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$SCALAR_RESOURCES_FACTS"
+scalar_resources_log="$TMP_DIR/scalar-resources.log"
+if bash "$SCALAR_RESOURCES_SKILL/scripts/write-provider-config.sh" --facts-file "$SCALAR_RESOURCES_FACTS" >"$scalar_resources_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects scalar native resources from registry" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects scalar native resources from registry" "invalid_gitnexus_native_resources:not-array" "$(cat "$scalar_resources_log")"
+assert_eq "GitNexus scalar native resources projection does not write provider config" "false" "$(test -f "$SCALAR_RESOURCES_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+OBJECT_TOOLS_SKILL="$TMP_DIR/object-tools-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$OBJECT_TOOLS_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.native_tools) = [{"name":"query"}]' "$OBJECT_TOOLS_SKILL/mcp-tools.json" > "$OBJECT_TOOLS_SKILL/mcp-tools.json.tmp"
+mv "$OBJECT_TOOLS_SKILL/mcp-tools.json.tmp" "$OBJECT_TOOLS_SKILL/mcp-tools.json"
+OBJECT_TOOLS_REPO="$TMP_DIR/object-tools-repo"
+make_repo "$OBJECT_TOOLS_REPO"
+printf 'object tools fixture\n' > "$OBJECT_TOOLS_REPO/README.md"
+git -C "$OBJECT_TOOLS_REPO" add README.md
+git -C "$OBJECT_TOOLS_REPO" commit -q -m "Add object tools fixture"
+OBJECT_TOOLS_FACTS="$TMP_DIR/object-tools-facts.json"
+jq --arg repo_root "$OBJECT_TOOLS_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$OBJECT_TOOLS_FACTS"
+object_tools_log="$TMP_DIR/object-tools.log"
+if bash "$OBJECT_TOOLS_SKILL/scripts/write-provider-config.sh" --facts-file "$OBJECT_TOOLS_FACTS" >"$object_tools_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects object native tool entries" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects object native tool entries" "invalid_gitnexus_native_tools:invalid-entry" "$(cat "$object_tools_log")"
+assert_eq "GitNexus object native tool projection does not write provider config" "false" "$(test -f "$OBJECT_TOOLS_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+BLANK_RESOURCES_SKILL="$TMP_DIR/blank-resources-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$BLANK_RESOURCES_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.native_resources) = [" "]' "$BLANK_RESOURCES_SKILL/mcp-tools.json" > "$BLANK_RESOURCES_SKILL/mcp-tools.json.tmp"
+mv "$BLANK_RESOURCES_SKILL/mcp-tools.json.tmp" "$BLANK_RESOURCES_SKILL/mcp-tools.json"
+BLANK_RESOURCES_REPO="$TMP_DIR/blank-resources-repo"
+make_repo "$BLANK_RESOURCES_REPO"
+printf 'blank resources fixture\n' > "$BLANK_RESOURCES_REPO/README.md"
+git -C "$BLANK_RESOURCES_REPO" add README.md
+git -C "$BLANK_RESOURCES_REPO" commit -q -m "Add blank resources fixture"
+BLANK_RESOURCES_FACTS="$TMP_DIR/blank-resources-facts.json"
+jq --arg repo_root "$BLANK_RESOURCES_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$BLANK_RESOURCES_FACTS"
+blank_resources_log="$TMP_DIR/blank-resources.log"
+if bash "$BLANK_RESOURCES_SKILL/scripts/write-provider-config.sh" --facts-file "$BLANK_RESOURCES_FACTS" >"$blank_resources_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects blank native resource entries" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects blank native resource entries" "invalid_gitnexus_native_resources:invalid-entry" "$(cat "$blank_resources_log")"
+assert_eq "GitNexus blank native resource projection does not write provider config" "false" "$(test -f "$BLANK_RESOURCES_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+MISSING_TOOLS_SKILL="$TMP_DIR/missing-tools-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$MISSING_TOOLS_SKILL"
+jq 'del(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.native_tools)' "$MISSING_TOOLS_SKILL/mcp-tools.json" > "$MISSING_TOOLS_SKILL/mcp-tools.json.tmp"
+mv "$MISSING_TOOLS_SKILL/mcp-tools.json.tmp" "$MISSING_TOOLS_SKILL/mcp-tools.json"
+MISSING_TOOLS_REPO="$TMP_DIR/missing-tools-repo"
+make_repo "$MISSING_TOOLS_REPO"
+printf 'missing tools fixture\n' > "$MISSING_TOOLS_REPO/README.md"
+git -C "$MISSING_TOOLS_REPO" add README.md
+git -C "$MISSING_TOOLS_REPO" commit -q -m "Add missing tools fixture"
+MISSING_TOOLS_FACTS="$TMP_DIR/missing-tools-facts.json"
+jq --arg repo_root "$MISSING_TOOLS_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$MISSING_TOOLS_FACTS"
+missing_tools_log="$TMP_DIR/missing-tools.log"
+if bash "$MISSING_TOOLS_SKILL/scripts/write-provider-config.sh" --facts-file "$MISSING_TOOLS_FACTS" >"$missing_tools_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects missing native_tools field" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects missing native_tools field" "invalid_gitnexus_native_tools:missing-field" "$(cat "$missing_tools_log")"
+assert_eq "GitNexus missing native_tools projection does not write provider config" "false" "$(test -f "$MISSING_TOOLS_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+MISSING_RESOURCES_SKILL="$TMP_DIR/missing-resources-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$MISSING_RESOURCES_SKILL"
+jq 'del(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.native_resources)' "$MISSING_RESOURCES_SKILL/mcp-tools.json" > "$MISSING_RESOURCES_SKILL/mcp-tools.json.tmp"
+mv "$MISSING_RESOURCES_SKILL/mcp-tools.json.tmp" "$MISSING_RESOURCES_SKILL/mcp-tools.json"
+MISSING_RESOURCES_REPO="$TMP_DIR/missing-resources-repo"
+make_repo "$MISSING_RESOURCES_REPO"
+printf 'missing resources fixture\n' > "$MISSING_RESOURCES_REPO/README.md"
+git -C "$MISSING_RESOURCES_REPO" add README.md
+git -C "$MISSING_RESOURCES_REPO" commit -q -m "Add missing resources fixture"
+MISSING_RESOURCES_FACTS="$TMP_DIR/missing-resources-facts.json"
+jq --arg repo_root "$MISSING_RESOURCES_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$MISSING_RESOURCES_FACTS"
+missing_resources_log="$TMP_DIR/missing-resources.log"
+if bash "$MISSING_RESOURCES_SKILL/scripts/write-provider-config.sh" --facts-file "$MISSING_RESOURCES_FACTS" >"$missing_resources_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects missing native_resources field" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects missing native_resources field" "invalid_gitnexus_native_resources:missing-field" "$(cat "$missing_resources_log")"
+assert_eq "GitNexus missing native_resources projection does not write provider config" "false" "$(test -f "$MISSING_RESOURCES_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+LEGACY_SURFACES_SKILL="$TMP_DIR/legacy-surfaces-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$LEGACY_SURFACES_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query) |= (del(.native_tools) | .native_surfaces = ["query"])' "$LEGACY_SURFACES_SKILL/mcp-tools.json" > "$LEGACY_SURFACES_SKILL/mcp-tools.json.tmp"
+mv "$LEGACY_SURFACES_SKILL/mcp-tools.json.tmp" "$LEGACY_SURFACES_SKILL/mcp-tools.json"
+LEGACY_SURFACES_REPO="$TMP_DIR/legacy-surfaces-repo"
+make_repo "$LEGACY_SURFACES_REPO"
+printf 'legacy surfaces fixture\n' > "$LEGACY_SURFACES_REPO/README.md"
+git -C "$LEGACY_SURFACES_REPO" add README.md
+git -C "$LEGACY_SURFACES_REPO" commit -q -m "Add legacy surfaces fixture"
+LEGACY_SURFACES_FACTS="$TMP_DIR/legacy-surfaces-facts.json"
+jq --arg repo_root "$LEGACY_SURFACES_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$LEGACY_SURFACES_FACTS"
+legacy_surfaces_log="$TMP_DIR/legacy-surfaces.log"
+if bash "$LEGACY_SURFACES_SKILL/scripts/write-provider-config.sh" --facts-file "$LEGACY_SURFACES_FACTS" >"$legacy_surfaces_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects retired native_surfaces from registry" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects retired native_surfaces from registry" "invalid_gitnexus_native_surfaces:retired-field" "$(cat "$legacy_surfaces_log")"
+assert_eq "GitNexus retired native surfaces projection does not write provider config" "false" "$(test -f "$LEGACY_SURFACES_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+EMPTY_SURFACES_SKILL="$TMP_DIR/empty-surfaces-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$EMPTY_SURFACES_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.native_tools) = [] | (.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.native_resources) = []' "$EMPTY_SURFACES_SKILL/mcp-tools.json" > "$EMPTY_SURFACES_SKILL/mcp-tools.json.tmp"
+mv "$EMPTY_SURFACES_SKILL/mcp-tools.json.tmp" "$EMPTY_SURFACES_SKILL/mcp-tools.json"
+EMPTY_SURFACES_REPO="$TMP_DIR/empty-surfaces-repo"
+make_repo "$EMPTY_SURFACES_REPO"
+printf 'empty surfaces fixture\n' > "$EMPTY_SURFACES_REPO/README.md"
+git -C "$EMPTY_SURFACES_REPO" add README.md
+git -C "$EMPTY_SURFACES_REPO" commit -q -m "Add empty surfaces fixture"
+EMPTY_SURFACES_FACTS="$TMP_DIR/empty-surfaces-facts.json"
+jq --arg repo_root "$EMPTY_SURFACES_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$EMPTY_SURFACES_FACTS"
+empty_surfaces_log="$TMP_DIR/empty-surfaces.log"
+if bash "$EMPTY_SURFACES_SKILL/scripts/write-provider-config.sh" --facts-file "$EMPTY_SURFACES_FACTS" >"$empty_surfaces_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects empty native capability surfaces" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects empty native capability surfaces" "invalid_gitnexus_native_capability:no-surfaces" "$(cat "$empty_surfaces_log")"
+assert_eq "GitNexus empty native capability surfaces projection does not write provider config" "false" "$(test -f "$EMPTY_SURFACES_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+POLICY_BLOCKED_SKILL="$TMP_DIR/policy-blocked-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$POLICY_BLOCKED_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.mutation_boundary) = "policy-blocked"' "$POLICY_BLOCKED_SKILL/mcp-tools.json" > "$POLICY_BLOCKED_SKILL/mcp-tools.json.tmp"
+mv "$POLICY_BLOCKED_SKILL/mcp-tools.json.tmp" "$POLICY_BLOCKED_SKILL/mcp-tools.json"
+POLICY_BLOCKED_REPO="$TMP_DIR/policy-blocked-repo"
+make_repo "$POLICY_BLOCKED_REPO"
+printf 'policy blocked fixture\n' > "$POLICY_BLOCKED_REPO/README.md"
+git -C "$POLICY_BLOCKED_REPO" add README.md
+git -C "$POLICY_BLOCKED_REPO" commit -q -m "Add policy blocked fixture"
+POLICY_BLOCKED_FACTS="$TMP_DIR/policy-blocked-facts.json"
+jq --arg repo_root "$POLICY_BLOCKED_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$POLICY_BLOCKED_FACTS"
+bash "$POLICY_BLOCKED_SKILL/scripts/write-provider-config.sh" --facts-file "$POLICY_BLOCKED_FACTS" > /dev/null
+POLICY_BLOCKED_CONFIG="$POLICY_BLOCKED_REPO/.spec-first/config/graph-providers.json"
+assert_eq "GitNexus policy-blocked boundary projects as mutation-gated status" "mutation-gated:policy-blocked:true" "$(jq -r '.providers.gitnexus.native_capabilities.query | "\(.status):\(.mutation_boundary):\(.limitations | join(" ") | contains("must not run in setup or Plan"))"' "$POLICY_BLOCKED_CONFIG")"
+INVALID_BOUNDARY_SKILL="$TMP_DIR/invalid-boundary-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$INVALID_BOUNDARY_SKILL"
+jq '(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.mutation_boundary) = "dangerous-write"' "$INVALID_BOUNDARY_SKILL/mcp-tools.json" > "$INVALID_BOUNDARY_SKILL/mcp-tools.json.tmp"
+mv "$INVALID_BOUNDARY_SKILL/mcp-tools.json.tmp" "$INVALID_BOUNDARY_SKILL/mcp-tools.json"
+INVALID_BOUNDARY_REPO="$TMP_DIR/invalid-boundary-repo"
+make_repo "$INVALID_BOUNDARY_REPO"
+printf 'invalid boundary fixture\n' > "$INVALID_BOUNDARY_REPO/README.md"
+git -C "$INVALID_BOUNDARY_REPO" add README.md
+git -C "$INVALID_BOUNDARY_REPO" commit -q -m "Add invalid boundary fixture"
+INVALID_BOUNDARY_FACTS="$TMP_DIR/invalid-boundary-facts.json"
+jq --arg repo_root "$INVALID_BOUNDARY_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$INVALID_BOUNDARY_FACTS"
+invalid_boundary_log="$TMP_DIR/invalid-boundary.log"
+if bash "$INVALID_BOUNDARY_SKILL/scripts/write-provider-config.sh" --facts-file "$INVALID_BOUNDARY_FACTS" >"$invalid_boundary_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects invalid mutation boundary" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects invalid mutation boundary" "invalid_gitnexus_mutation_boundary:dangerous-write" "$(cat "$invalid_boundary_log")"
+assert_eq "GitNexus invalid mutation boundary projection does not write provider config" "false" "$(test -f "$INVALID_BOUNDARY_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+MISSING_BOUNDARY_SKILL="$TMP_DIR/missing-boundary-spec-mcp-setup"
+cp -R "$REPO_ROOT/skills/spec-mcp-setup" "$MISSING_BOUNDARY_SKILL"
+jq 'del(.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.query.mutation_boundary)' "$MISSING_BOUNDARY_SKILL/mcp-tools.json" > "$MISSING_BOUNDARY_SKILL/mcp-tools.json.tmp"
+mv "$MISSING_BOUNDARY_SKILL/mcp-tools.json.tmp" "$MISSING_BOUNDARY_SKILL/mcp-tools.json"
+MISSING_BOUNDARY_REPO="$TMP_DIR/missing-boundary-repo"
+make_repo "$MISSING_BOUNDARY_REPO"
+printf 'missing boundary fixture\n' > "$MISSING_BOUNDARY_REPO/README.md"
+git -C "$MISSING_BOUNDARY_REPO" add README.md
+git -C "$MISSING_BOUNDARY_REPO" commit -q -m "Add missing boundary fixture"
+MISSING_BOUNDARY_FACTS="$TMP_DIR/missing-boundary-facts.json"
+jq --arg repo_root "$MISSING_BOUNDARY_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+' "$CUSTOM_TAG_FACTS" > "$MISSING_BOUNDARY_FACTS"
+missing_boundary_log="$TMP_DIR/missing-boundary.log"
+if bash "$MISSING_BOUNDARY_SKILL/scripts/write-provider-config.sh" --facts-file "$MISSING_BOUNDARY_FACTS" >"$missing_boundary_log" 2>&1; then
+  echo "FAIL: GitNexus setup projection rejects missing mutation_boundary field" >&2
+  exit 1
+fi
+assert_contains "GitNexus setup projection rejects missing mutation_boundary field" "invalid_gitnexus_mutation_boundary:missing-field" "$(cat "$missing_boundary_log")"
+assert_eq "GitNexus missing mutation boundary projection does not write provider config" "false" "$(test -f "$MISSING_BOUNDARY_REPO/.spec-first/config/graph-providers.json" && echo true || echo false)"
+assert_eq "GitNexus ready setup projection stays setup-inferred configured-and-detected" "true" "$(jq -r '.providers.gitnexus.native_capabilities | all(.[]; .source_provenance == "configured-and-detected")' "$PROVIDER_CONFIG")"
+DISABLED_PROVIDER_REPO="$TMP_DIR/disabled-provider-repo"
+make_repo "$DISABLED_PROVIDER_REPO"
+printf 'disabled provider fixture\n' > "$DISABLED_PROVIDER_REPO/README.md"
+git -C "$DISABLED_PROVIDER_REPO" add README.md
+git -C "$DISABLED_PROVIDER_REPO" commit -q -m "Add disabled provider fixture"
+DISABLED_PROVIDER_FACTS="$TMP_DIR/disabled-provider-facts.json"
+jq --arg repo_root "$DISABLED_PROVIDER_REPO" '
+  .repo_root = $repo_root
+  | .selected_repo_root = $repo_root
+  | .graph_providers.gitnexus.enabled_for_bootstrap = false
+' "$CUSTOM_TAG_FACTS" > "$DISABLED_PROVIDER_FACTS"
+bash "$SCRIPTS_DIR/write-provider-config.sh" --facts-file "$DISABLED_PROVIDER_FACTS" > /dev/null
+DISABLED_PROVIDER_CONFIG="$DISABLED_PROVIDER_REPO/.spec-first/config/graph-providers.json"
+assert_eq "GitNexus disabled provider projection is unavailable and not detected" "unavailable:configured-not-verified" "$(jq -r '.providers.gitnexus.native_capabilities.query | "\(.status):\(.source_provenance)"' "$DISABLED_PROVIDER_CONFIG")"
+assert_eq "GitNexus workspace group projection remains read-only and resource surfaced" "available:read-only:group_list:false:true" "$(jq -r '.providers.gitnexus.native_capabilities.workspace_group | "\(.status):\(.mutation_boundary):\(.native_tools | join(",")):\((.native_tools + .native_resources | index("group_sync")) != null):\(.native_resources | index("gitnexus://group/{name}/contracts") != null)"' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities points to host ledger" "$LEDGER_PATH" "$(jq -r '.host_ledger_pointer.path' "$RUNTIME_CAPABILITIES")"
 assert_eq "runtime capabilities starts not bootstrapped" "not-bootstrapped" "$(jq -r '.project_graph_readiness.status' "$RUNTIME_CAPABILITIES")"
 assert_eq "runtime GitNexus capability discovery keys match provider projection" "context,cypher,impact,query,repo_registry,route_api_evidence,shape_check,tool_map,workspace_group" "$(jq -r '.gitnexus_capability_discovery.capabilities | keys | sort | join(",")' "$RUNTIME_CAPABILITIES")"

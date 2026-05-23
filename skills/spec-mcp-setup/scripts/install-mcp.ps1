@@ -11,7 +11,8 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
 . (Join-Path $ScriptDir 'lib-template.ps1')
 $ToolsJsonPath = Join-Path $SkillDir 'mcp-tools.json'
-$ToolsJson = Get-Content -Raw $ToolsJsonPath | ConvertFrom-Json
+$ToolsJson = Read-McpToolsJson -Path $ToolsJsonPath
+Assert-McpToolsSchemaVersion -ToolsJson $ToolsJson
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
 $HostDisplayName = $HostInfo.display_name
@@ -487,7 +488,7 @@ foreach ($tool in @($ToolsJson.tools)) {
       last_action = 'failed'
       install_kind = $tool.installation.kind
       reason_code = 'registry_not_required'
-      next_action = 'mcp-tools.json schema v5 只允许 required tools'
+      next_action = 'mcp-tools.json schema v6 只允许 required tools'
       configured_path = ''
       selected_scope = ''
       fallback_applied = $false

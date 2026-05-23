@@ -14,6 +14,53 @@ function Get-ToolField {
   return $null
 }
 
+function Read-McpToolsJson {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [switch]$AsHashtable
+  )
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    throw "mcp-tools.json not found: $Path"
+  }
+  $raw = Get-Content -Raw -LiteralPath $Path
+  if ($AsHashtable -and $PSVersionTable.PSVersion.Major -ge 6) {
+    return $raw | ConvertFrom-Json -AsHashtable
+  }
+  return $raw | ConvertFrom-Json
+}
+
+function Get-McpToolsSchemaVersion {
+  param([Parameter(Mandatory = $true)]$ToolsJson)
+  $schemaVersion = Get-ToolField -Tool $ToolsJson -Name 'schema_version'
+  if ($null -eq $schemaVersion -or [string]::IsNullOrWhiteSpace([string]$schemaVersion)) {
+    return 'missing'
+  }
+  return [string]$schemaVersion
+}
+
+function Assert-McpToolsSchemaVersion {
+  param(
+    [Parameter(Mandatory = $true)]$ToolsJson,
+    [string]$Expected = '6'
+  )
+  $schemaVersion = Get-McpToolsSchemaVersion -ToolsJson $ToolsJson
+  if ($schemaVersion -ne $Expected) {
+    throw "invalid_mcp_tools_schema_version:$schemaVersion"
+  }
+}
+
+function New-StringList {
+  param([object[]]$Values = @())
+  $list = New-Object 'System.Collections.Generic.List[string]'
+  foreach ($value in @($Values)) {
+    if ($null -eq $value) { continue }
+    $text = [string]$value
+    if ($text.Length -eq 0) { continue }
+    $list.Add($text) | Out-Null
+  }
+  return , $list
+}
+
 function Expand-ToolTemplate {
   param(
     [Parameter(Mandatory = $true)]$Tool,

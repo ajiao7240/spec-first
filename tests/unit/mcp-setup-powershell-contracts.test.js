@@ -285,7 +285,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     const toolsJson = JSON.parse(
       fs.readFileSync(path.join(repoRoot, 'skills/spec-mcp-setup/mcp-tools.json'), 'utf8'),
     );
-    expect(toolsJson.schema_version).toBe('5');
+    expect(toolsJson.schema_version).toBe('6');
     const gitnexus = toolsJson.tools.find((t) => t.id === 'gitnexus');
     expect(gitnexus.package).toBe('gitnexus');
     expect(gitnexus.version).toBe('1.6.4');
@@ -309,11 +309,15 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
         'fallback_posture',
         'meaning',
         'mutation_boundary',
-        'native_surfaces',
+        'native_resources',
+        'native_tools',
+        'source_tags',
       ]);
+      expect(capability.source_tags).toEqual(['checked-in-baseline', 'provider-pin']);
     }
-    expect(gitnexus.provider_config.native_capabilities.workspace_group.mutation_boundary).toBe('policy-blocked');
-    expect(gitnexus.provider_config.native_capabilities.workspace_group.native_surfaces).toEqual(['group_list']);
+    expect(gitnexus.provider_config.native_capabilities.workspace_group.mutation_boundary).toBe('read-only');
+    expect(gitnexus.provider_config.native_capabilities.workspace_group.native_tools).toEqual(['group_list']);
+    expect(gitnexus.provider_config.native_capabilities.workspace_group.native_resources).toContain('gitnexus://group/{name}/status');
     const codeReviewGraph = toolsJson.tools.find((t) => t.id === 'code-review-graph');
     expect(codeReviewGraph.package).toBe('code-review-graph');
     expect(codeReviewGraph.version).toBe('2.3.3');
@@ -383,9 +387,11 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(detectHostSource).toContain('function ConvertTo-BoolValue');
     expect(detectHostSource).toContain('[System.Collections.IDictionary]$McpHostContract');
     expect(detectHostSource.indexOf('function ConvertFrom-JsonCompat')).toBeLessThan(
-      detectHostSource.indexOf('$ToolsJson = ConvertFrom-JsonCompat -Json'),
+      detectHostSource.indexOf('$ToolsJson = Read-McpToolsJson'),
     );
-    expect(detectHostSource).toContain("$ToolsJson = ConvertFrom-JsonCompat -Json (Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json')) -AsHashtable");
+    expect(detectHostSource).toContain(". (Join-Path $ScriptDir 'lib-template.ps1')");
+    expect(detectHostSource).toContain("$ToolsJson = Read-McpToolsJson -Path (Join-Path $SkillDir 'mcp-tools.json') -AsHashtable");
+    expect(detectHostSource).toContain('Assert-McpToolsSchemaVersion -ToolsJson $ToolsJson');
     expect(detectHostSource).toContain('return (ConvertFrom-JsonCompat -Json $uniqueContracts[0] -AsHashtable)');
     expect(detectHostSource).not.toContain('| ConvertFrom-JsonCompat -AsHashtable');
     expect(detectHostSource).toContain('$hasIsWindows = $null -ne (Get-Variable -Name IsWindows -ErrorAction SilentlyContinue)');
@@ -479,9 +485,22 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('gitnexus_capability_discovery');
     expect(writeProviderSource).toContain('setup-inferred availability only; not query-ready graph evidence.');
     expect(writeProviderSource).toContain('policy-blocked surfaces such as group_sync');
+    expect(writeProviderSource).toContain('native_tools');
+    expect(writeProviderSource).toContain('native_resources');
+    expect(writeProviderSource).toContain('function Get-NativeCapabilityArrayField');
+    expect(writeProviderSource).toContain("throw ('invalid_gitnexus_{0}:not-array' -f $FieldName)");
+    expect(writeProviderSource).toContain("PSObject.Properties.Name -contains 'source_tags'");
+    expect(writeProviderSource).toContain('$sourceTagsValue = $Metadata.PSObject.Properties[\'source_tags\'].Value');
+    expect(writeProviderSource).toContain("throw 'invalid_gitnexus_source_tags:not-array'");
+    expect(writeProviderSource).toContain("$allowedRegistryTags = @('checked-in-baseline', 'provider-pin')");
+    expect(writeProviderSource).toContain('invalid_gitnexus_source_tag:$tagValue');
+    expect(writeProviderSource).toContain("'setup-projection'");
+    expect(writeProviderSource).toContain('source_tags = @(Get-NativeCapabilitySourceTags -Metadata $metadata)');
     expect(writeProviderSource).not.toContain('capability_metadata_freshness');
     expect(writeProviderSource).toContain('generated_at is audit metadata only');
-    expect(writeProviderSource).toContain("[string]$Provider.dependency_status -eq 'ready') -and (Test-ProviderHostReady -Provider $Provider)");
+    expect(writeProviderSource).toContain('function Test-ProviderReady');
+    expect(writeProviderSource).toContain('[bool]$Provider.enabled_for_bootstrap');
+    expect(writeProviderSource).toContain("if (($Status -eq 'available' -or $Status -eq 'mutation-gated') -and (Test-ProviderReady -Provider $Provider)) { return 'configured-and-detected' }");
     expect(writeProviderSource).toContain('host_ledger_pointer');
     expect(writeProviderSource).toContain("$toolsJsonPath = Join-Path $skillDir 'mcp-tools.json'");
     expect(writeProviderSource).toContain("$gitNexusPackage = if ($null -ne $gitNexusEntry.PSObject.Properties['package']) { [string]$gitNexusEntry.package } else { '' }");
@@ -552,6 +571,337 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('project_graph_readiness');
     expect(writeProviderSource).toContain("$repoConfigStatus = 'ready'");
     expect(writeProviderSource).toContain('repo_config_status = $providerStatus');
+  });
+
+  test('PowerShell provider projection enforces GitNexus capability array registry shapes at runtime', () => {
+    const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'spec-ps-capability-arrays-'));
+
+    function runGit(args, cwd) {
+      const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
+      expect(result.status).toBe(0);
+    }
+
+    function runProjectionCase(name, mutateGitNexus, mutateFacts = null) {
+      const skillCopy = path.join(tmpDir, `${name}-spec-mcp-setup`);
+      const repoDir = path.join(tmpDir, `${name}-repo`);
+      fs.cpSync(path.join(repoRoot, 'skills/spec-mcp-setup'), skillCopy, { recursive: true });
+
+      const toolsJsonPath = path.join(skillCopy, 'mcp-tools.json');
+      const toolsJson = JSON.parse(fs.readFileSync(toolsJsonPath, 'utf8'));
+      const gitnexus = toolsJson.tools.find((tool) => tool.id === 'gitnexus');
+      mutateGitNexus(gitnexus, toolsJson);
+      fs.writeFileSync(toolsJsonPath, `${JSON.stringify(toolsJson, null, 2)}\n`);
+
+      fs.mkdirSync(repoDir, { recursive: true });
+      runGit(['init', '-q'], repoDir);
+      runGit(['config', 'user.name', 'Spec First Test'], repoDir);
+      runGit(['config', 'user.email', 'spec-first-test@example.invalid'], repoDir);
+      runGit(['config', 'core.hooksPath', '/dev/null'], repoDir);
+      fs.writeFileSync(path.join(repoDir, 'README.md'), `${name} fixture\n`);
+      runGit(['add', 'README.md'], repoDir);
+      runGit(['commit', '-q', '-m', `Add ${name} fixture`], repoDir);
+
+      const factsPath = path.join(tmpDir, `${name}-facts.json`);
+      const facts = {
+        schema_version: 'v2',
+        host: 'claude',
+        platform: 'windows',
+        repo_status: 'git-repo',
+        repo_root: repoDir,
+        selected_repo_root: repoDir,
+        target: {
+          state_write_allowed: true,
+          reason_code: '',
+          next_action: '',
+          candidates: [],
+        },
+        baseline_ready: true,
+        host_runtime_ready: true,
+        host_ledger_pointer: { path: '.spec-first/host-readiness.json' },
+        tools: {},
+        helper_tools: {},
+        graph_providers: {
+          gitnexus: {
+            configured: true,
+            enabled_for_bootstrap: true,
+            required: true,
+            role: 'global_knowledge',
+            access_mode: 'live_mcp',
+            host_config_required: true,
+            dependency_status: 'ready',
+            host_config_status: 'ready',
+            capabilities: [],
+          },
+          'code-review-graph': {
+            configured: true,
+            enabled_for_bootstrap: true,
+            required: true,
+            role: 'impact_context',
+            access_mode: 'cli_artifact',
+            host_config_required: false,
+            dependency_status: 'ready',
+            host_config_status: 'not-required',
+            capabilities: [],
+          },
+        },
+      };
+      if (mutateFacts) {
+        mutateFacts(facts);
+      }
+      fs.writeFileSync(factsPath, `${JSON.stringify(facts, null, 2)}\n`);
+
+      return {
+        providerConfigPath: path.join(repoDir, '.spec-first/config/graph-providers.json'),
+        runtimeCapabilitiesPath: path.join(repoDir, '.spec-first/config/runtime-capabilities.json'),
+        result: spawnPwsh(
+          ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', path.join(skillCopy, 'scripts/write-provider-config.ps1'), '-FactsFile', factsPath],
+          { cwd: repoRoot, encoding: 'utf8' },
+        ),
+      };
+    }
+
+    try {
+      const valid = runProjectionCase('valid-source-tags', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.source_tags = ['checked-in-baseline', 'provider-pin', 'checked-in-baseline'];
+      });
+      if (!valid.result) return;
+      expect(valid.result.status).toBe(0);
+      expect(valid.result.stderr).toBe('');
+      const providerConfig = JSON.parse(fs.readFileSync(valid.providerConfigPath, 'utf8'));
+      expect(providerConfig.providers.gitnexus.native_capabilities.query.source_tags).toEqual([
+        'checked-in-baseline',
+        'provider-pin',
+        'setup-projection',
+      ]);
+      expect(providerConfig.providers.gitnexus.native_capabilities.query.native_tools).toEqual(['query']);
+      expect(Array.isArray(providerConfig.providers.gitnexus.native_capabilities.query.native_resources)).toBe(true);
+      const runtimeCapabilities = JSON.parse(fs.readFileSync(valid.runtimeCapabilitiesPath, 'utf8'));
+      expect(runtimeCapabilities.fallback_tools['ast-grep'].support_level).toBe('none');
+      expect(runtimeCapabilities.fallback_tools['ast-grep'].capabilities).toEqual(['structural_search', 'safe_rewrite']);
+      expect(runtimeCapabilities.fallback_tools['ast-grep'].limitations).toEqual(['ast-grep helper is not ready.']);
+      expect(runtimeCapabilities.fallback_capabilities.context_selection.providers).toEqual([]);
+      expect(runtimeCapabilities.fallback_capabilities.impact_radius.providers).toEqual([]);
+      expect(runtimeCapabilities.fallback_capabilities.review_support.providers).toEqual([]);
+
+      const readyAstGrep = runProjectionCase(
+        'ready-ast-grep-runtime-arrays',
+        () => {},
+        (facts) => {
+          facts.helper_tools['ast-grep'] = { result: 'ready' };
+        },
+      );
+      expect(readyAstGrep.result.status).toBe(0);
+      const readyAstGrepRuntime = JSON.parse(fs.readFileSync(readyAstGrep.runtimeCapabilitiesPath, 'utf8'));
+      expect(readyAstGrepRuntime.fallback_tools['ast-grep'].limitations).toEqual([]);
+      expect(readyAstGrepRuntime.fallback_capabilities.context_selection.providers).toEqual(['ast-grep']);
+      expect(readyAstGrepRuntime.fallback_capabilities.impact_radius.providers).toEqual(['ast-grep']);
+      expect(readyAstGrepRuntime.fallback_capabilities.review_support.providers).toEqual(['ast-grep']);
+
+      const disabledProvider = runProjectionCase(
+        'disabled-provider-provenance',
+        () => {},
+        (facts) => {
+          facts.graph_providers.gitnexus.enabled_for_bootstrap = false;
+        },
+      );
+      expect(disabledProvider.result.status).toBe(0);
+      const disabledConfig = JSON.parse(fs.readFileSync(disabledProvider.providerConfigPath, 'utf8'));
+      expect(disabledConfig.providers.gitnexus.native_capabilities.query.status).toBe('unavailable');
+      expect(disabledConfig.providers.gitnexus.native_capabilities.query.source_provenance).toBe('configured-not-verified');
+
+      const invalidLive = runProjectionCase('invalid-live-tag', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.source_tags = ['checked-in-baseline', 'live-mcp-tool'];
+      });
+      expect(invalidLive.result.status).not.toBe(0);
+      expect(`${invalidLive.result.stderr}\n${invalidLive.result.stdout}`).toContain('invalid_gitnexus_source_tag:live-mcp-tool');
+      expect(fs.existsSync(invalidLive.providerConfigPath)).toBe(false);
+
+      const scalarTag = runProjectionCase('scalar-source-tag', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.source_tags = 'checked-in-baseline';
+      });
+      expect(scalarTag.result.status).not.toBe(0);
+      expect(`${scalarTag.result.stderr}\n${scalarTag.result.stdout}`).toContain('invalid_gitnexus_source_tags:not-array');
+      expect(fs.existsSync(scalarTag.providerConfigPath)).toBe(false);
+
+      const emptyTag = runProjectionCase('empty-source-tags', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.source_tags = [];
+      });
+      expect(emptyTag.result.status).not.toBe(0);
+      expect(`${emptyTag.result.stderr}\n${emptyTag.result.stdout}`).toContain('invalid_gitnexus_source_tags:missing-baseline');
+      expect(fs.existsSync(emptyTag.providerConfigPath)).toBe(false);
+
+      const missingTag = runProjectionCase('missing-source-tags', (gitnexus) => {
+        delete gitnexus.provider_config.native_capabilities.query.source_tags;
+      });
+      expect(missingTag.result.status).not.toBe(0);
+      expect(`${missingTag.result.stderr}\n${missingTag.result.stdout}`).toContain('invalid_gitnexus_source_tags:missing-field');
+      expect(fs.existsSync(missingTag.providerConfigPath)).toBe(false);
+
+      const missingMeaning = runProjectionCase('missing-meaning', (gitnexus) => {
+        delete gitnexus.provider_config.native_capabilities.query.meaning;
+      });
+      expect(missingMeaning.result.status).not.toBe(0);
+      expect(`${missingMeaning.result.stderr}\n${missingMeaning.result.stdout}`).toContain('invalid_gitnexus_meaning:missing-field');
+      expect(fs.existsSync(missingMeaning.providerConfigPath)).toBe(false);
+
+      const missingFallbackPosture = runProjectionCase('missing-fallback-posture', (gitnexus) => {
+        delete gitnexus.provider_config.native_capabilities.query.fallback_posture;
+      });
+      expect(missingFallbackPosture.result.status).not.toBe(0);
+      expect(`${missingFallbackPosture.result.stderr}\n${missingFallbackPosture.result.stdout}`).toContain('invalid_gitnexus_fallback_posture:missing-field');
+      expect(fs.existsSync(missingFallbackPosture.providerConfigPath)).toBe(false);
+
+      const blankFallbackPosture = runProjectionCase('blank-fallback-posture', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.fallback_posture = ' ';
+      });
+      expect(blankFallbackPosture.result.status).not.toBe(0);
+      expect(`${blankFallbackPosture.result.stderr}\n${blankFallbackPosture.result.stdout}`).toContain('invalid_gitnexus_fallback_posture:invalid-entry');
+      expect(fs.existsSync(blankFallbackPosture.providerConfigPath)).toBe(false);
+
+      const schemaV5 = runProjectionCase('schema-v5', (_gitnexus, toolsJson) => {
+        toolsJson.schema_version = '5';
+      });
+      expect(schemaV5.result.status).not.toBe(0);
+      expect(`${schemaV5.result.stderr}\n${schemaV5.result.stdout}`).toContain('invalid_mcp_tools_schema_version:5');
+      expect(fs.existsSync(schemaV5.providerConfigPath)).toBe(false);
+
+      const scalarTools = runProjectionCase('scalar-native-tools', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.native_tools = 'query';
+      });
+      expect(scalarTools.result.status).not.toBe(0);
+      expect(`${scalarTools.result.stderr}\n${scalarTools.result.stdout}`).toContain('invalid_gitnexus_native_tools:not-array');
+      expect(fs.existsSync(scalarTools.providerConfigPath)).toBe(false);
+
+      const scalarResources = runProjectionCase('scalar-native-resources', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.native_resources = 'gitnexus://repo/{name}/status';
+      });
+      expect(scalarResources.result.status).not.toBe(0);
+      expect(`${scalarResources.result.stderr}\n${scalarResources.result.stdout}`).toContain('invalid_gitnexus_native_resources:not-array');
+      expect(fs.existsSync(scalarResources.providerConfigPath)).toBe(false);
+
+      const objectTools = runProjectionCase('object-native-tools', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.native_tools = [{ name: 'query' }];
+      });
+      expect(objectTools.result.status).not.toBe(0);
+      expect(`${objectTools.result.stderr}\n${objectTools.result.stdout}`).toContain('invalid_gitnexus_native_tools:invalid-entry');
+      expect(fs.existsSync(objectTools.providerConfigPath)).toBe(false);
+
+      const blankResources = runProjectionCase('blank-native-resources', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.native_resources = [' '];
+      });
+      expect(blankResources.result.status).not.toBe(0);
+      expect(`${blankResources.result.stderr}\n${blankResources.result.stdout}`).toContain('invalid_gitnexus_native_resources:invalid-entry');
+      expect(fs.existsSync(blankResources.providerConfigPath)).toBe(false);
+
+      const missingTools = runProjectionCase('missing-native-tools', (gitnexus) => {
+        delete gitnexus.provider_config.native_capabilities.query.native_tools;
+      });
+      expect(missingTools.result.status).not.toBe(0);
+      expect(`${missingTools.result.stderr}\n${missingTools.result.stdout}`).toContain('invalid_gitnexus_native_tools:missing-field');
+      expect(fs.existsSync(missingTools.providerConfigPath)).toBe(false);
+
+      const missingResources = runProjectionCase('missing-native-resources', (gitnexus) => {
+        delete gitnexus.provider_config.native_capabilities.query.native_resources;
+      });
+      expect(missingResources.result.status).not.toBe(0);
+      expect(`${missingResources.result.stderr}\n${missingResources.result.stdout}`).toContain('invalid_gitnexus_native_resources:missing-field');
+      expect(fs.existsSync(missingResources.providerConfigPath)).toBe(false);
+
+      const legacySurfaces = runProjectionCase('legacy-native-surfaces', (gitnexus) => {
+        delete gitnexus.provider_config.native_capabilities.query.native_tools;
+        gitnexus.provider_config.native_capabilities.query.native_surfaces = ['query'];
+      });
+      expect(legacySurfaces.result.status).not.toBe(0);
+      expect(`${legacySurfaces.result.stderr}\n${legacySurfaces.result.stdout}`).toContain('invalid_gitnexus_native_surfaces:retired-field');
+      expect(fs.existsSync(legacySurfaces.providerConfigPath)).toBe(false);
+
+      const emptySurfaces = runProjectionCase('empty-native-surfaces', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.native_tools = [];
+        gitnexus.provider_config.native_capabilities.query.native_resources = [];
+      });
+      expect(emptySurfaces.result.status).not.toBe(0);
+      expect(`${emptySurfaces.result.stderr}\n${emptySurfaces.result.stdout}`).toContain('invalid_gitnexus_native_capability:no-surfaces');
+      expect(fs.existsSync(emptySurfaces.providerConfigPath)).toBe(false);
+
+      const policyBlocked = runProjectionCase('policy-blocked-boundary', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.mutation_boundary = 'policy-blocked';
+      });
+      expect(policyBlocked.result.status).toBe(0);
+      const policyBlockedConfig = JSON.parse(fs.readFileSync(policyBlocked.providerConfigPath, 'utf8'));
+      expect(policyBlockedConfig.providers.gitnexus.native_capabilities.query.status).toBe('mutation-gated');
+      expect(policyBlockedConfig.providers.gitnexus.native_capabilities.query.mutation_boundary).toBe('policy-blocked');
+      expect(policyBlockedConfig.providers.gitnexus.native_capabilities.query.limitations.join(' ')).toContain('must not run in setup or Plan');
+
+      const invalidBoundary = runProjectionCase('invalid-mutation-boundary', (gitnexus) => {
+        gitnexus.provider_config.native_capabilities.query.mutation_boundary = 'dangerous-write';
+      });
+      expect(invalidBoundary.result.status).not.toBe(0);
+      expect(`${invalidBoundary.result.stderr}\n${invalidBoundary.result.stdout}`).toContain('invalid_gitnexus_mutation_boundary:dangerous-write');
+      expect(fs.existsSync(invalidBoundary.providerConfigPath)).toBe(false);
+
+      const missingBoundary = runProjectionCase('missing-mutation-boundary', (gitnexus) => {
+        delete gitnexus.provider_config.native_capabilities.query.mutation_boundary;
+      });
+      expect(missingBoundary.result.status).not.toBe(0);
+      expect(`${missingBoundary.result.stderr}\n${missingBoundary.result.stdout}`).toContain('invalid_gitnexus_mutation_boundary:missing-field');
+      expect(fs.existsSync(missingBoundary.providerConfigPath)).toBe(false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('PowerShell mcp-tools schema v6 gate covers host detection, setup, repair, and uninstall entrypoints', () => {
+    const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'spec-ps-schema-gate-'));
+    try {
+      const skillCopy = path.join(tmpDir, 'spec-mcp-setup');
+      const fakeHome = path.join(tmpDir, 'home');
+      fs.cpSync(path.join(repoRoot, 'skills/spec-mcp-setup'), skillCopy, { recursive: true });
+      fs.mkdirSync(fakeHome, { recursive: true });
+
+      const toolsJsonPath = path.join(skillCopy, 'mcp-tools.json');
+      const toolsJson = JSON.parse(fs.readFileSync(toolsJsonPath, 'utf8'));
+      toolsJson.schema_version = '5';
+      fs.writeFileSync(toolsJsonPath, `${JSON.stringify(toolsJson, null, 2)}\n`);
+
+      const factsPath = path.join(tmpDir, 'facts.json');
+      fs.writeFileSync(
+        factsPath,
+        `${JSON.stringify(
+          {
+            schema_version: 'v2',
+            repo_status: 'not-git-repo',
+            repo_root: tmpDir,
+            target: { state_write_allowed: false },
+          },
+          null,
+          2,
+        )}\n`,
+      );
+
+      const cases = [
+        ['detect-host', ['-File', path.join(skillCopy, 'scripts/detect-host.ps1')]],
+        ['detect-tools', ['-File', path.join(skillCopy, 'scripts/detect-tools.ps1')]],
+        ['configure-host', ['-File', path.join(skillCopy, 'scripts/configure-host.ps1'), '-Tool', 'context7']],
+        ['repair-install', ['-File', path.join(skillCopy, 'scripts/repair-install.ps1'), '-Tool', 'context7']],
+        ['uninstall-mcp', ['-File', path.join(skillCopy, 'scripts/uninstall-mcp.ps1'), '-Tool', 'context7']],
+        ['install-mcp', ['-File', path.join(skillCopy, 'scripts/install-mcp.ps1'), '-Only', 'context7']],
+        ['write-provider-config', ['-File', path.join(skillCopy, 'scripts/write-provider-config.ps1'), '-FactsFile', factsPath]],
+      ];
+
+      for (const [name, args] of cases) {
+        const result = spawnPwsh(['-NoLogo', '-NoProfile', '-NonInteractive', ...args], {
+          cwd: repoRoot,
+          encoding: 'utf8',
+          env: { ...process.env, HOME: fakeHome, MCP_SETUP_HOST: 'codex' },
+        });
+        if (!result) return;
+        expect({ name, status: result.status }).not.toEqual(expect.objectContaining({ status: 0 }));
+        expect(`${result.stderr}\n${result.stdout}`).toContain('invalid_mcp_tools_schema_version:5');
+      }
+      expect(fs.existsSync(path.join(fakeHome, '.codex', 'config.toml'))).toBe(false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   test('PowerShell provider command hash uses command keys, not OrderedDictionary metadata', () => {

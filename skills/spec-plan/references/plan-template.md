@@ -97,6 +97,7 @@ deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantiv
 - evidence_grade: primary | session-local | advisory | stale
 - evidence_posture: primary | fallback
 - freshness_state: fresh | stale | dirty-advisory | query-unverified
+- source_tags: [replace with applicable tags: checked-in-baseline, provider-pin, setup-projection, live-mcp-tool, live-mcp-resource, session-local-inference, user-decision]
 - source_contract_fields:
 - source_reads_required:
 - impact_on_plan:

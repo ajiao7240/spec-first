@@ -64,7 +64,7 @@ The workflow should leave deterministic facts behind for downstream workflows: h
 
 When setup detects stale provider projection, stale package/version pins, provider fingerprint mismatch, or graph readiness still pending, it should mark graph bootstrap required and hand off to `$spec-graph-bootstrap` / `/spec:graph-bootstrap`. It does not run GitNexus analyze/status/query, code-review-graph build/status, provider repair, index rebuild, group sync, or branch/pull/rebase-triggered refresh on behalf of downstream workflows.
 
-Setup may write GitNexus `native_capabilities` and `gitnexus_capability_discovery` as setup-inferred availability/discovery facts. These facts are not task-level query results, not semantic evidence, and not proof of `query_ready=true`; downstream LLM workflows still decide whether a capability fits the current question and verify critical claims with canonical readiness, live MCP evidence, direct source reads, tests, ast-grep, code-review-graph, prior GitNexus evidence, or bounded per-repo fallback.
+Setup may write GitNexus `native_capabilities` and `gitnexus_capability_discovery` as setup-inferred availability/discovery facts. These facts are not task-level query results, not semantic evidence, and not proof of `query_ready=true`; downstream LLM workflows still decide whether a capability fits the current question and verify critical claims with canonical readiness, live MCP tool/resource evidence, direct source reads, tests, ast-grep, code-review-graph, prior GitNexus evidence, or bounded per-repo fallback. Public `source_tags[]` use the GitNexus catalog vocabulary (`checked-in-baseline`, `provider-pin`, `setup-projection`, live MCP tags, session-local inference, and user decision); setup does not write live MCP tags because it does not call tools or resources.
 
 ## When To Use
 
@@ -130,7 +130,7 @@ The assistant's final response must restate readiness from ledger v2 instead of 
 
 ## Runtime Baseline
 
-`skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph providers. Schema version is `5`. Package/version specs for every MCP and graph-provider command are sourced from this file; tools that declare top-level `package` + `version` fields must expand `{{package}}` / `{{version}}` templates through the shared template helpers before warmup, host config, detection, or provider projection. Setup projections such as `.spec-first/config/graph-providers.json` must derive from this registry and must not become a second version registry.
+`skills/spec-mcp-setup/mcp-tools.json` is the only machine registry for MCP servers and graph providers. Schema version is `6`. Package/version specs for every MCP and graph-provider command are sourced from this file; tools that declare top-level `package` + `version` fields must expand `{{package}}` / `{{version}}` templates through the shared template helpers before warmup, host config, detection, or provider projection. The GitNexus `provider_config.native_capabilities` object is a checked-in baseline: it defines meaning, candidate `native_tools[]`, candidate read-only `native_resources[]`, mutation boundary, fallback posture, and baseline source tags. Setup projections such as `.spec-first/config/graph-providers.json` derive from this registry and must not become a second version or capability registry.
 
 Required MCP tools:
 

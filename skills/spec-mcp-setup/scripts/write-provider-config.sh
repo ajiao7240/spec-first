@@ -16,9 +16,10 @@ hash_text() {
 }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib-template.sh"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
-[ -f "$TOOLS_JSON" ] || { echo "mcp-tools.json not found: $TOOLS_JSON" >&2; exit 1; }
+require_mcp_tools_schema_version 6 "$TOOLS_JSON"
 
 FACTS_FILE=""
 while [[ $# -gt 0 ]]; do
@@ -603,19 +604,99 @@ jq --arg generated_at "$generated_at" \
     elif (($provider.dependency_status // "") != "ready") then "unavailable"
     elif ((($provider.host_config_status // "unknown") == "unknown") or (($provider.host_config_status // "") == "")) then "unknown"
     elif (provider_host_ready($provider) | not) then "unavailable"
-    elif (($metadata.mutation_boundary // "unknown") == "mutation-gated") then "mutation-gated"
+    elif (($metadata.mutation_boundary // "unknown") == "mutation-gated" or ($metadata.mutation_boundary // "unknown") == "policy-blocked") then "mutation-gated"
     else "available"
     end;
 
-  def native_capability_source_tags($provider; $capability):
-    ["registry-baseline", "provider-pin", "setup-projection"]
-      + (if (($provider.host_config_status // "") != "") then ["host-config"] else [] end)
-      + (if (($provider.dependency_status // "") == "ready") then ["dependency-ready"] else [] end)
-      + (if $capability == "workspace_group" then ["workspace-advisory"] else [] end);
+  def valid_native_capability_mutation_boundaries:
+    ["read-only", "mutation-gated", "policy-blocked", "unknown"];
+
+  def native_capability_mutation_boundary($metadata):
+    if ($metadata | has("mutation_boundary") | not) then
+      error("invalid_gitnexus_mutation_boundary:missing-field")
+    else
+      $metadata.mutation_boundary as $boundary
+      | if (valid_native_capability_mutation_boundaries | index($boundary)) == null then
+        error("invalid_gitnexus_mutation_boundary:" + ($boundary | tostring))
+      else
+        $boundary
+      end
+    end;
+
+  def valid_native_capability_registry_source_tags:
+    ["checked-in-baseline", "provider-pin"];
+
+  def invalid_native_capability_registry_source_tag($tags):
+    [$tags[] | select(. as $tag | (valid_native_capability_registry_source_tags | index($tag)) == null)] | first;
+
+  def invalid_native_capability_array_entry($values):
+    [$values[] | select(if (type != "string") then true else test("^\\s*$") end)] | first;
+
+  def native_capability_string_field($metadata; $field):
+    if ($metadata | has($field) | not) then
+      error("invalid_gitnexus_" + $field + ":missing-field")
+    else
+      $metadata[$field] as $value
+      | if (($value | type) != "string" or ($value | test("^\\s*$"))) then
+          error("invalid_gitnexus_" + $field + ":invalid-entry")
+        else
+          $value
+        end
+    end;
+
+  def native_capability_array_field($metadata; $field):
+    if ($metadata | has($field)) then
+      $metadata[$field] as $value
+      | if (($value | type) != "array") then
+          error("invalid_gitnexus_" + $field + ":not-array")
+        elif ((invalid_native_capability_array_entry($value)) != null) then
+          error("invalid_gitnexus_" + $field + ":invalid-entry")
+        else
+          $value
+        end
+    else
+      error("invalid_gitnexus_" + $field + ":missing-field")
+    end;
+
+  def native_capability_source_tags($metadata):
+    if ($metadata | has("source_tags") | not) then
+      error("invalid_gitnexus_source_tags:missing-field")
+    else
+      $metadata.source_tags as $registry_tags
+    | if (($registry_tags | type) != "array") then
+        error("invalid_gitnexus_source_tags:not-array")
+      elif ((invalid_native_capability_registry_source_tag($registry_tags)) != null) then
+        error("invalid_gitnexus_source_tag:" + (invalid_native_capability_registry_source_tag($registry_tags) | tostring))
+      elif (($registry_tags | index("checked-in-baseline")) == null or ($registry_tags | index("provider-pin")) == null) then
+        error("invalid_gitnexus_source_tags:missing-baseline")
+      else
+        ($registry_tags + ["setup-projection"])
+      end
+    | reduce .[] as $tag ([]; if index($tag) then . else . + [$tag] end)
+    end;
+
+  def native_capability_candidate_surfaces($metadata):
+    if ($metadata | has("native_surfaces")) then
+      error("invalid_gitnexus_native_surfaces:retired-field")
+    else
+      native_capability_array_field($metadata; "native_tools") as $tools
+      | native_capability_array_field($metadata; "native_resources") as $resources
+      | if (($tools | length) + ($resources | length)) == 0 then
+          error("invalid_gitnexus_native_capability:no-surfaces")
+        else
+          {native_tools: $tools, native_resources: $resources}
+        end
+    end;
 
   def native_capability_source_provenance($provider; $status):
-    if ($status == "available" or $status == "mutation-gated") then "observed-this-run"
-    elif (($provider.configured // false) == true and (($provider.dependency_status // "") == "ready") and provider_host_ready($provider)) then "configured-and-detected"
+    if (($provider | type) != "object") then "registry-only"
+    elif (
+      ($status == "available" or $status == "mutation-gated")
+      and (($provider.configured // false) == true)
+      and (($provider.enabled_for_bootstrap // false) == true)
+      and (($provider.dependency_status // "") == "ready")
+      and provider_host_ready($provider)
+    ) then "configured-and-detected"
     elif (($provider.configured // false) == true) then "configured-not-verified"
     else "registry-only"
     end;
@@ -639,16 +720,22 @@ jq --arg generated_at "$generated_at" \
     | map(
         .key as $capability
         | .value as $metadata
-        | native_capability_status($provider; $metadata) as $status
+        | native_capability_string_field($metadata; "meaning") as $meaning
+        | native_capability_string_field($metadata; "fallback_posture") as $fallback_posture
+        | native_capability_mutation_boundary($metadata) as $mutation_boundary
+        | ($metadata + {meaning: $meaning, fallback_posture: $fallback_posture, mutation_boundary: $mutation_boundary}) as $validated_metadata
+        | native_capability_candidate_surfaces($metadata) as $surfaces
+        | native_capability_status($provider; $validated_metadata) as $status
         | {
             key: $capability,
             value: {
               status: $status,
-              source_tags: native_capability_source_tags($provider; $capability),
+              source_tags: native_capability_source_tags($metadata),
               source_provenance: native_capability_source_provenance($provider; $status),
-              native_surfaces: ($metadata.native_surfaces // []),
-              mutation_boundary: ($metadata.mutation_boundary // "unknown"),
-              limitations: native_capability_limitations($provider; $metadata; $status)
+              native_tools: $surfaces.native_tools,
+              native_resources: $surfaces.native_resources,
+              mutation_boundary: $mutation_boundary,
+              limitations: native_capability_limitations($provider; $validated_metadata; $status)
             }
           }
       )

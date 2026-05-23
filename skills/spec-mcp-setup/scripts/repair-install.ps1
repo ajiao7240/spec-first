@@ -11,7 +11,9 @@ if ([string]::IsNullOrWhiteSpace($Tool)) {
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
-$ToolsJson = Get-Content -Raw (Join-Path $SkillDir 'mcp-tools.json') | ConvertFrom-Json
+. (Join-Path $ScriptDir 'lib-template.ps1')
+$ToolsJson = Read-McpToolsJson -Path (Join-Path $SkillDir 'mcp-tools.json')
+Assert-McpToolsSchemaVersion -ToolsJson $ToolsJson
 $ToolDef = @($ToolsJson.tools | Where-Object { $_.id -eq $Tool })[0]
 if ($null -eq $ToolDef) {
   throw "未知工具: $Tool"

@@ -84,10 +84,14 @@ describe('package install contracts', () => {
     expect(pkg.files).toContain('docs/contracts/artifact-summary.md');
     expect(pkg.files).toContain('docs/contracts/context-bundle.md');
     expect(pkg.files).toContain('docs/contracts/context-governance.md');
+    expect(pkg.files).toContain('docs/contracts/gitnexus-capability-catalog.md');
+    expect(pkg.files).toContain('docs/contracts/graph-evidence-policy.md');
+    expect(pkg.files).toContain('docs/contracts/graph-provider-consumption.md');
     expect(pkg.files).toContain('docs/contracts/quality-gates/');
     expect(pkg.files).toContain('docs/contracts/release-package-evidence.schema.json');
     expect(pkg.files).toContain('docs/contracts/verifiers/');
     expect(pkg.files).toContain('docs/contracts/website-sync-contract.md');
+    expect(pkg.files).toContain('docs/contracts/workspace-gitnexus-consumption.md');
     expect(pkg.files).toContain('docs/contracts/workflows/');
     expect(pkg.files).toContain('scripts/check-release-continuity.cjs');
     expect(pkg.files).toContain('scripts/check-website-sync.cjs');
@@ -172,9 +176,13 @@ describe('package install contracts', () => {
 
       expect(packedPaths).toContain('docs/contracts/artifact-summary.md');
       expect(packedPaths).toContain('docs/contracts/context-bundle.md');
+      expect(packedPaths).toContain('docs/contracts/gitnexus-capability-catalog.md');
+      expect(packedPaths).toContain('docs/contracts/graph-evidence-policy.md');
+      expect(packedPaths).toContain('docs/contracts/graph-provider-consumption.md');
       expect(packedPaths).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
       expect(packedPaths).toContain('docs/contracts/workflows/review-finding.md');
       expect(packedPaths).toContain('docs/contracts/context-governance.md');
+      expect(packedPaths).toContain('docs/contracts/workspace-gitnexus-consumption.md');
       expect(bytecodePaths).toEqual([]);
     } finally {
       fs.rmSync(bytecodePath, { force: true });

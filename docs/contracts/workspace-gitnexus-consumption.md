@@ -67,6 +67,8 @@ GitNexus registry/group 是多仓 query model，不是 refresh gate。
 
 `group_sync` 或等价 provider mutation 必须 explicit、preview-first，并由 setup/bootstrap-owned 路径执行。plan/work/debug/review 不得静默运行 `group_sync`、GitNexus analyze、provider repair、hooks、watchers 或 daemon。
 
+Read-only group resources are first-class evidence surfaces, not mutation approval. `gitnexus://group/{name}/contracts` and `gitnexus://group/{name}/status` may be reported with `live-mcp-resource` / `session-local-inference` provenance when current-session resource discovery or reads actually occurred. Checked-in baseline or setup projection can list those resources as candidates, but cannot claim current group readiness or replace `workspace-gitnexus-readiness.v1` / per-child source reads.
+
 ## Consumer Rules
 
 1. parent workspace 只读问题可以先读 `workspace-graph-targets.v1`，再在 `git_root_topology="multi-repo-workspace"` 时合并 GitNexus registry/group evidence。
