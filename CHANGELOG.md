@@ -1,6 +1,95 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-23 13:36:22 leokuang: docs(plan): 新增 `docs/plans/2026-05-23-002-feat-gitnexus-capability-catalog-plan.md`，覆盖 GitNexus 一等 capability 的 R33-R35（checked-in baseline / source tag / verification posture / read-only MCP resource provenance / setup projection 与 `$spec-plan` session-local probe 边界），并经两轮 spec-doc-review 形成 1 条 inline 修订（U1 把 verification posture 改为 source_tags + 当前会话 live verification 的派生视图，移除并行 enum）与 7 条 `## Deferred / Open Questions → ### From 2026-05-23 review` 条目（含 P1/100 root：与 active Plan 001 的 source-tag 词表/文件并发 + 6 个相关 dependents）
+- v1.8.2 2026-05-23 13:28:38 leokuang: docs(review): 继续补充当前分支代码审查台账 Finding 114-117，保持 `docs/**` 排除范围，新增 release continuity guard 结构化失败/package delivery proof、Gemini image chat JPG 保存模式回归与 app-audit raw issue synthesis 状态矛盾等非 docs 目标问题
+- v1.8.2 2026-05-23 13:15:08 leokuang: docs(review): 继续补充当前分支代码审查台账 Finding 101-113，保持 `docs/**` 排除范围，仅记录 secret-deny、spec-work run artifact、project-target resolver、app-audit parser、session metadata、task-pack handoff、spec-optimize worktree cleanup 与 git-worktree 脚本的非 docs 代码/脚本问题
+- v1.8.2 2026-05-23 12:50:54 leokuang: docs(review): 按用户要求从当前分支代码审查台账中过滤以 `docs/**` 内容为主目标的旧 finding，保留非 docs 目标条目的稳定编号并补充审查范围说明
+- v1.8.2 2026-05-23 12:47:31 leokuang: docs(review): 继续补充当前分支深度代码审查台账，在排除 `docs/**` 审查目标后新增 Finding 087-100，覆盖 GitNexus instruction normalizer 重复/partial 写入、all-repos partial exit code、workspace summary symlink containment、PowerShell writer empty helper_tools、graph-bootstrap host instruction normalization gating、workspace graph target/readiness artifact containment 以及 project config symlink 写入边界
+- v1.8.2 2026-05-23 12:23:43 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `verify-tools` all-repos summary 跟随 `.spec-first/workspace` symlink 写到 parent workspace 外的 P2 finding
+- v1.8.2 2026-05-23 12:23:43 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `verify-tools --all-repos` 在部分 child action-required 时仍返回 exit 0 的 P2 finding
+- v1.8.2 2026-05-23 12:23:43 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `run-audit.js` 将 headless 参数错误折叠成 `runner_failed`、调用方拿不到稳定 reason code 的 P3 finding
+- v1.8.2 2026-05-23 12:23:43 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 app-audit source scanner 在应用 `maxFiles` 前不排序目录项、bounded source hash 会随 filesystem traversal 顺序漂移的 P2 finding
+- v1.8.2 2026-05-23 12:23:43 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 app-audit 接受负数 `--max-files` 并输出空目录 hash 且标记 `freshness:"current-worktree"` 的 P2 finding
+- v1.8.2 2026-05-23 12:23:43 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `validate-artifacts` 不校验 `source_inputs[].path` public path / secret-deny 边界的 P2 finding
+- v1.8.2 2026-05-23 12:13:11 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `merge-contracts` 将 `artifact_id:"rule-pack-selection"` contract evidence 当作 project evidence、绕过 confirmed evidence gate 的 P2 finding
+- v1.8.2 2026-05-23 12:13:11 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `merge-contracts` industry confirmed gate 只校验 caller 行业名合法、不校验 issue/rule-pack 行业匹配的 P2 finding
+- v1.8.2 2026-05-23 12:13:11 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `run-audit.js` 最终 report 只传 routes/quality、导致 section coverage 与 degraded modes 丢失的 P2 finding
+- v1.8.2 2026-05-23 12:13:11 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 Bash GitNexus query probe 只排根级 `vendor` / `node_modules`、嵌套 vendored source 会被选作 probe token 的 P3 finding
+- v1.8.2 2026-05-23 12:13:11 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 Bash provider writer 在 selected child repo 场景写入 child 但 artifact `repo_root` 仍指向 parent workspace 的 P2 finding
+- v1.8.2 2026-05-23 12:13:11 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `write-provider-config` 跟随 `.spec-first/config` 目录 symlink 将 provider artifacts 写到 repo 外的 P2 finding
+- v1.8.2 2026-05-23 11:54:33 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `run-audit.js` 不转发 industry / expected-input 等语义选项、导致 runner 输出与直接子命令 contract 分叉的 P2 finding
+- v1.8.2 2026-05-23 11:54:33 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `extract-prd-contract.js` 忽略 `--prd-max-bytes`、导致 PRD bounded extraction 参数没有生效的 P3 finding
+- v1.8.2 2026-05-23 11:54:33 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `run-audit.js` 不转发 `--max-files`、导致 headless bounded scan 参数实际失效的 P2 finding
+- v1.8.2 2026-05-23 11:54:33 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 app-audit 完成后 metadata/latest-summary/envelope 指向不存在 markdown summary 的 P3 finding
+- v1.8.2 2026-05-23 11:54:33 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `run-audit.js` 在 raw issue status 早退失败时不 finalize metadata、留下 `status:"started"` 的 P2 finding
+- v1.8.2 2026-05-23 11:54:33 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 app-audit code extractors 只读每个文件前 128KB 却输出完整 current source hash 且无 degraded evidence 的 P2 finding
+- v1.8.2 2026-05-23 11:54:33 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 app-audit metadata 声称 untracked files excluded、但 extractors 实际扫描并使用 untracked source 的 P2 finding
+- v1.8.2 2026-05-23 11:54:33 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 app-audit source scanner 未排除 `.spec-first/**`、会把旧 audit artifacts 当成当前 App source 的 P2 finding
+- v1.8.2 2026-05-23 11:54:33 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-work-run-artifact` 接受 Windows reserved basename 作为 run/workspace artifact segment、导致 spec-work durable workflow artifact 跨平台不稳定的 P3 finding
+- v1.8.2 2026-05-23 11:35:16 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 workspace init summary writer 可跟随 `.spec-first/workspace` 目录 symlink 写到 repo 外、破坏 parent advisory artifact boundary 的 P2 finding
+- v1.8.2 2026-05-23 11:28:21 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-app-consistency-audit` runner 接受 Windows reserved device names 作为 `--run-id`、导致 app-audit run artifact directory contract 跨平台不稳定的 P3 finding
+- v1.8.2 2026-05-23 11:28:21 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `applyOperationPlan()` 对 managed writes 只做文本路径包含检查、目录 symlink 可把 runtime/source 写到 repo 外的 P2 finding
+- v1.8.2 2026-05-23 11:10:57 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `workspace-init-summary.v1` 声称父 workspace 不写 repo-local artifacts、但实际已写 `.gitignore` / `AGENTS.md` / runtime mirrors 的 P2 finding
+- v1.8.2 2026-05-23 11:05:52 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 runtime untrack / gitignore policy 漏掉 spec-first 自己生成的 `.claude/hooks/session-start`、导致 tracked Claude hook 无法被 runtime untrack 移除的 P2 finding
+- v1.8.2 2026-05-23 11:01:26 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-first session register --id` 接受 Windows reserved device names、导致显式 session id 可映射成不可创建文件名的 P3 finding
+- v1.8.2 2026-05-23 10:59:00 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `review-pre-facts` 将不可读 `--document` 误报为 `no_extraction_targets`、导致 pre-facts run-summary 隐藏入口文档读取失败的 P3 finding
+- v1.8.2 2026-05-23 10:53:38 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 npm install matrix path filter 漏掉多个已发布脚本与 AI benchmark fixture package surface、导致相关 tarball 内容变更绕过安装矩阵的 P2 finding
+- v1.8.2 2026-05-23 10:51:46 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 npm install matrix 未监听实际会被 `npm pack` 自动打包的 `README.zh-CN.md`、导致中文 README 发布内容变更绕过跨平台安装验证的 P3 finding
+- v1.8.2 2026-05-23 10:46:43 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `$spec-doc-review` 将工作流入口误当作 Codex `spawn_agent` 显式授权、与当前多代理工具权限契约冲突的 P2 finding
+- v1.8.2 2026-05-23 10:34:44 leokuang: docs(review): 补充 PowerShell provider writer optional `target.reason_code` finding 的最小复现条件，明确 repro facts 已包含 `baseline_ready:true` 以隔离 target metadata failure
+- v1.8.2 2026-05-23 10:31:23 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 PowerShell provider writer 在正常写入路径把 optional `target.reason_code` 当必填、精简 target facts 会直接失败的 P3 finding
+- v1.8.2 2026-05-23 10:24:08 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-plan` 的 `graph-evidence-posture.md` 首段触发条件漏掉 setup-owned GitNexus capability projection、与主 skill/template 执行契约分叉的 P3 finding
+- v1.8.2 2026-05-23 10:18:52 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 PowerShell provider writer no-write 分支把 optional `target.next_action` / `target.candidates` 当必填、缺字段时无法生成 advisory JSON 的 P3 finding
+- v1.8.2 2026-05-23 10:15:40 leokuang: fix(review): 修复 setup capability projection 审查发现，校准 `$spec-plan` fast path、跨宿主 hash/source_tags parity 与完成计划 Handoff (user-visible)
+- v1.8.2 2026-05-23 10:13:55 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 README/中文 README 仍把 `$spec-plan` no-graph fast path 写成“无 graph + 无 MCP”二元条件、漏掉 setup-owned capability projection 例外的 P3 finding
+- v1.8.2 2026-05-23 10:06:39 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 active Plan 002 把 review merge/dedup 内部 `dedup-key` 注释持久化进 source plan、污染计划 artifact 边界的 P3 finding
+- v1.8.2 2026-05-23 10:04:08 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 PowerShell provider writer no-write 输出丢失 `workspace_root`、导致 parent-workspace target metadata 与 Bash 输出不一致的 P3 finding
+- v1.8.2 2026-05-23 09:53:47 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增发布包测试只检查 `package.json.files` 而未捕获 npm 自动打包 `README.zh-CN.md`、导致 package evidence 假阴性的 P3 finding
+- v1.8.2 2026-05-23 09:51:18 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 Skill Entrypoint Gate 仍监听 retired governance/plugin 路径却漏掉实际 governance source truth、导致入口 lint 可被治理变更绕过的 P2 finding
+- v1.8.2 2026-05-23 09:49:42 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 AI Dev Quality Gate workflow path filter 漏掉两个自身会执行的 runtime contract tests、导致测试变更可绕过该 gate 的 P2 finding
+- v1.8.2 2026-05-23 09:47:08 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 npm install matrix 未监听多个已发布 `docs/contracts/**` 路径、导致 contract 包内容变更可绕过跨平台安装验证的 P2 finding
+- v1.8.2 2026-05-23 09:42:56 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `package-lock.json` 仍记录 1.6.1、与 `package.json` 1.8.2 不一致并削弱 install/release metadata 可信度的 P2 finding
+- v1.8.2 2026-05-23 09:37:57 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 Plan 001 已标记 completed 但自身 Handoff 仍要求下一步执行同一个 plan、会误导后续 workflow 路由的 P2 finding
+- v1.8.2 2026-05-23 08:52:08 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 Bash/PowerShell JSON artifact hash 口径不同、会让相同 setup artifacts 在跨宿主 bootstrap 中触发 `fingerprint-projection-changed` 的 P2 finding
+- v1.8.2 2026-05-23 08:46:41 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 Bash/PowerShell provider `command_hash` 序列化口径不同、会让跨宿主 setup rerun 误判 query-ready provider stale 的 P2 finding
+- v1.8.2 2026-05-23 08:35:42 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增首次工作流走查仍把 `mcp-setup` / `graph-bootstrap` 写进前置条件、和首次试用 no-graph fast path 冲突的 P2 finding
+- v1.8.2 2026-05-23 08:31:11 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 Gitignore 参考仍称 `init` 默认写入 `.serena/`、但当前 managed block generator 已不包含该规则的 P2 finding
+- v1.8.2 2026-05-23 08:30:04 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 FAQ 安装排障仍把 Serena 写成当前 provider/helper readiness 问题来源、和退役 provider 边界冲突的 P2 finding
+- v1.8.2 2026-05-23 08:24:22 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增内部培训讲稿仍把 setup/bootstrap 写成 init 后必跑步骤、和当前 no-graph fast path 冲突的 P2 finding
+- v1.8.2 2026-05-23 08:09:01 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增用户手册仍承诺 all-child maintenance 会写 `.serena/*`、和当前 setup/graph-bootstrap 产物边界冲突的 P2 finding
+- v1.8.2 2026-05-23 08:02:34 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增用户手册仍把退役 Serena 写成当前 graph fallback、会误导用户继续依赖不存在 required runtime provider 的 P2 finding
+- v1.8.2 2026-05-23 07:35:08 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-mcp-setup` 忽略 provider projection fingerprint 变化、仍把 stale canonical graph readiness 投影成 `primary` 的 P1 finding
+- v1.8.2 2026-05-23 07:12:12 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 workspace GitNexus classifier 将缺少 members 的 group_list 结果当作当前 workspace ready group、可能把无关 group 推荐为 group-query 的 P2 finding
+- v1.8.2 2026-05-23 07:09:05 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-work-run-artifact write` 接受非字符串 `retention.expires_at` 并写出不符合自身 schema 的 `run.json` 的 P2 finding
+- v1.8.2 2026-05-23 06:52:24 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 Bash/PowerShell `source_tags` 顺序不一致导致同一 GitNexus setup projection 跨宿主产生不同 bootstrap fingerprint 的 P2 finding
+- v1.8.2 2026-05-23 06:41:50 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `workspace_group` registry 把唯一只读 `group_list` surface 标成 whole-capability `policy-blocked`、会让 `$spec-plan` 封禁只读 workspace orientation 的 P2 finding
+- v1.8.2 2026-05-23 06:38:13 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 GitNexus setup/Plan skill prose 语义变更缺少 required fresh-source eval 或未执行原因记录的 P2 finding
+- v1.8.2 2026-05-23 06:21:22 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 ready setup projection 将所有 GitNexus native capabilities 标成 `observed-this-run`、丢失 live-probe 决策所需 provenance 区分的 P2 finding
+- v1.8.2 2026-05-23 06:15:17 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `plan-template.md` Graph/GitNexus Evidence 输出条件漏掉 setup projection、读到 `gitnexus_capability_discovery` 后仍可能不输出完整 evidence envelope 的 P2 finding
+- v1.8.2 2026-05-23 06:11:10 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `$spec-plan` no-graph/no-MCP fast path 在读取 `gitnexus_capability_discovery` 前短路、导致 setup projection 在 bootstrap 前不可用的 P2 finding
+- v1.8.2 2026-05-23 05:59:55 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 PowerShell `install-mcp.ps1` 最终 `results` payload 嵌入 `Generic.List[object]`、host detection 修复后仍会在 install 汇总阶段抛错的 P1 finding
+- v1.8.2 2026-05-23 05:57:50 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 PowerShell `detect-host.ps1` 将空 `Generic.List[object]` 嵌入 JSON payload 时抛错、setup 在 host detection 阶段即失败的 P1 finding
+- v1.8.2 2026-05-23 05:54:12 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 active capability catalog plan 保留已过期内嵌 P1/P2 blockers、仍把已完成 Plan 001 描述为 active/unimplemented 的 P2 finding
+- v1.8.2 2026-05-23 05:51:19 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 active capability catalog plan 对当前 diff 的 PowerShell writer 状态描述已过期、会误导后续实现和审查范围的 P2 finding
+- v1.8.2 2026-05-23 05:47:24 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 active plan source artifact 缺少对应 `CHANGELOG.md` 记录、违反本仓库 source-change gate 的 P2 finding
+- v1.8.2 2026-05-23 05:23:38 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 PowerShell `write-provider-config.ps1` 对 facts/config 路径使用 wildcard `-Path`、路径包含 `[` / `]` 时会误报 facts 不存在或写入失败的 P2 finding
+- v1.8.2 2026-05-23 05:21:09 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 PowerShell `write-provider-config.ps1` 在正常 tracked source repo 中构造 GitNexus query probe policy 时抛错、Windows setup 无法写 provider projection 的 P1 finding
+- v1.8.2 2026-05-23 05:15:40 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `session heartbeat` / `unregister` 未重新校验 session dir containment、目录被替换成 symlink 后会覆盖或删除 repo 外同名 JSON 的 P2 finding
+- v1.8.2 2026-05-23 05:11:00 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 PowerShell all-repos 汇总未把 `ready-dirty-advisory` 算作 ready、Windows parent summary 会误报 action-required 的 P2 finding
+- v1.8.2 2026-05-23 05:08:56 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 workspace GitNexus readiness 只按 repo name 匹配 registry/group、路径不一致的同名 repo 也会被提升为 group query evidence 的 P2 finding
+- v1.8.2 2026-05-23 05:06:45 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-work-run-artifact` 未应用 secret-deny path contract、`.env` / private key 等路径可进入 durable run evidence 的 P2 finding
+- v1.8.2 2026-05-23 05:01:34 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-work-run-artifact read` 只解析 JSON 不校验 schema、畸形 run artifact 也会返回 `status=read` 的 P2 finding
+- v1.8.2 2026-05-23 05:00:04 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-work-run-artifact` 中 `script_confirmed` / `provider_untrusted` 允许任意额外字段原样持久化、大段 raw transcript 可绕过摘要上限的 P2 finding
+- v1.8.2 2026-05-23 04:58:35 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-work-run-artifact` 将 `.spec-first/workflows/**` 放行到 `plan_path` / `source_refs` / `changed_files`、导致 runtime evidence 可伪装成 source scope facts 的 P2 finding
+- v1.8.2 2026-05-23 04:53:42 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-work-run-artifact` 只校验 `targetRepo` 是目录、非 Git 目录也会被写入 repo-local workflow artifact 的 P2 finding
+- v1.8.2 2026-05-23 04:52:14 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `spec-first session register` 未校验 `.spec-first/sessions` containment、目录 symlink 可把 advisory session JSON 写到 repo 外的 P2 finding
+- v1.8.2 2026-05-23 04:50:49 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `context-bundle` symlink ancestor containment 漏掉 repo 内 symlink 目录下 missing child 路径的 P2 finding
+- v1.8.2 2026-05-23 04:49:15 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 `context-bundle` 低 `max_files` 预算下优先保留 changed/related paths、反而挤出 `artifact_summaries` 与 `evidence_paths` 的 P2 finding
+- v1.8.2 2026-05-23 04:45:46 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 workspace GitNexus readiness 对 `refresh_eligibility` / `index_snapshot` 未做闭合枚举归一化、可能把未知 classifier 输入写入 readiness payload 的 P2 finding
+- v1.8.2 2026-05-23 04:40:39 leokuang: docs(review): 继续补充当前分支深度代码审查台账，新增 graph-bootstrap concurrent-write fingerprint 漏检 `.spec-first/config/*` 输入改写的 P1 finding，并给出 Bash/PowerShell parity 与回归测试修复建议
+- v1.8.2 2026-05-23 04:26:50 leokuang: fix(graph): 收口 GitNexus setup capability metadata 交付审查发现，将 active graph evidence/source-runtime contracts 中退役 Serena 当前 provider 表述改为 direct source reads、ast-grep 与 code-review-graph fallback；同时把 `workspace_group` capability 的 `native_surfaces` 收紧为 read-only `group_list`，保留 `mutation_boundary=policy-blocked` 和 limitation 文案，避免 setup/Plan 把 `group_sync` 当作候选 native surface (user-visible)
+- v1.8.2 2026-05-23 04:01:44 leokuang: feat(mcp-setup): 为 GitNexus required graph provider 增加 setup-owned native capability availability metadata 与 projection，`mcp-tools.json` 新增 `provider_config.native_capabilities`，Bash/PowerShell provider writer 输出 `providers.gitnexus.native_capabilities` 和 `runtime-capabilities.json.gitnexus_capability_discovery`，并同步 `$spec-plan` 仅将其作为 setup-inferred availability/discovery facts 消费；补齐 setup handoff、README/用户手册、contract tests 和 no-query/no-refresh guard，明确这些 facts 不是 query-ready graph evidence，setup/Plan 不执行 GitNexus analyze/status/query/group sync 或 provider repair (user-visible)
 - v1.8.2 2026-05-23 03:14:36 leokuang: docs(plan): 逐项修复 GitNexus setup capability metadata 计划复审的 3 条 P2——为 `mutation_boundary` 增加 `policy-blocked` 并锁定 group sync / rename-like surface 不进入 setup 或 Plan 自动审批路径；将 `source_tags` 收紧为闭合 vocabulary 并新增 `source_provenance` provenance enum，规定 Plan 何时必须 live probe；同时把 U6 runtime catalog 项从固定文件清单降级为触发式检查规则并移除已解决的 Deferred findings (user-visible)
 - v1.8.2 2026-05-23 03:11:53 leokuang: fix(doc-review): 收紧 `$spec-doc-review` Codex dispatch gate，明确直接调用 `$spec-doc-review` 即是对 bounded document-review persona reviewers 的显式 `spawn_agent` 授权，不再因用户未重复 “use subagents” 降级为 `safety_boundary_not_met`；同时补齐 Codex reviewer `spawn_agent` 参数卫生与防回归 contract 断言 (user-visible)
 - v1.8.2 2026-05-23 01:30:48 leokuang: docs(plan): 逐项收口 GitNexus setup capability metadata 计划进入开发前的两条 P2 open questions——新增 capability discovery 与 graph readiness reconciliation 决策，明确 `available + not-bootstrapped` 仅可用于 native surface selection、orientation/discovery 或 session-local live probe，durable graph-backed claims 仍需 canonical `query_ready=true`；同时明确 capability projection freshness 复用现有 provider projection / fingerprint freshness，`generated_at` 只作审计时间，不新增 TTL 或 `capability_metadata_freshness` 状态轴，并删除末尾未决 review 段 (user-visible)

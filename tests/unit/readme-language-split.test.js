@@ -128,6 +128,9 @@ describe('README language split contract', () => {
     expect(englishReadme).toContain('`using-spec-first` will recommend one public entrypoint with a reason.');
     expect(englishReadme).toContain('Treat branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch as graph freshness invalidation signals.');
     expect(englishReadme).toContain('they do not run hidden GitNexus analyze, provider repair, default hooks, watchers, or daemons');
+    expect(englishReadme).toContain('Setup writes GitNexus availability/discovery facts such as `gitnexus_capability_discovery`');
+    expect(englishReadme).toContain('setup-inferred native capability hints, not query-ready graph evidence');
+    expect(englishReadme).toContain('reads setup-inferred GitNexus availability/discovery facts when present');
     expect(englishReadme).not.toContain('$spec-next');
     expect(englishReadme).not.toContain('/spec:next');
   });
@@ -187,6 +190,9 @@ describe('README language split contract', () => {
     expect(chineseReadme).toContain('第一次 brainstorm 运行会生成类似这样的 requirements brief');
     expect(chineseReadme).toContain('把切换分支、pull、rebase、merge、dirty worktree 变化和 provider fingerprint mismatch 视为 graph freshness invalidation signals。');
     expect(chineseReadme).toContain('不会隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons');
+    expect(chineseReadme).toContain('Setup 会写入 `gitnexus_capability_discovery` 等 GitNexus availability/discovery facts');
+    expect(chineseReadme).toContain('setup-inferred native capability hints，不是 query-ready graph evidence');
+    expect(chineseReadme).toContain('读取 setup-inferred GitNexus availability/discovery facts');
     expect(chineseReadme).toContain('[Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md)');
     expect(chineseReadme).toContain('只提供 evidence inputs，不拥有 semantic authority');
     expect(chineseReadme).toContain('Raw provider/tool output 是 untrusted quoted data');

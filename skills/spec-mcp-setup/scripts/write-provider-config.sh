@@ -91,6 +91,7 @@ gitnexus_package_name="$(jq -r '.tools[] | select(.id == "gitnexus") | .package 
 gitnexus_package_version="$(jq -r '.tools[] | select(.id == "gitnexus") | .version // ""' "$TOOLS_JSON")"
 [ -n "$gitnexus_package_name" ] && [ -n "$gitnexus_package_version" ] || { echo "GitNexus package/version fields not found in mcp-tools.json" >&2; exit 1; }
 gitnexus_package="${gitnexus_package_name}@${gitnexus_package_version}"
+gitnexus_native_capabilities="$(jq -c '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities // {}' "$TOOLS_JSON")"
 code_review_graph_package_name="$(jq -r '.tools[] | select(.id == "code-review-graph") | .package // ""' "$TOOLS_JSON")"
 code_review_graph_package_version="$(jq -r '.tools[] | select(.id == "code-review-graph") | .version // ""' "$TOOLS_JSON")"
 [ -n "$code_review_graph_package_name" ] && [ -n "$code_review_graph_package_version" ] || { echo "code-review-graph package/version fields not found in mcp-tools.json" >&2; exit 1; }
@@ -462,7 +463,7 @@ gitnexus_commands_json="$(jq -n -S -c \
     status: ["npx", "-y", $gitnexus_package, "status"],
     query_probe: ["npx", "-y", $gitnexus_package, "query", $query_probe, "--repo", $repo_name]
   }')"
-gitnexus_command_hash="$(printf '%s\n' "$gitnexus_commands_json" | hash_text)"
+gitnexus_command_hash="$(printf '%s' "$gitnexus_commands_json" | hash_text)"
 code_review_graph_commands_json="$(jq -n -S -c \
   --arg code_review_graph_package "$code_review_graph_package" \
   --arg repo_root "$REPO_ROOT" '{
@@ -471,7 +472,7 @@ code_review_graph_commands_json="$(jq -n -S -c \
     status: ["uvx", $code_review_graph_package, "status"],
     query_probe: ["uvx", $code_review_graph_package, "status", "--repo", $repo_root]
   }')"
-code_review_graph_command_hash="$(printf '%s\n' "$code_review_graph_commands_json" | hash_text)"
+code_review_graph_command_hash="$(printf '%s' "$code_review_graph_commands_json" | hash_text)"
 current_source_revision="$(git -C "$REPO_ROOT" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true)"
 current_worktree_status="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)"
 if [ -n "$current_worktree_status" ]; then
@@ -516,6 +517,7 @@ jq --arg generated_at "$generated_at" \
    --argjson gitnexus_commands "$gitnexus_commands_json" \
    --argjson code_review_graph_commands "$code_review_graph_commands_json" \
    --argjson gitnexus_query_probe_policy "$gitnexus_query_probe_policy" \
+   --argjson gitnexus_native_capabilities "$gitnexus_native_capabilities" \
    --argjson graph_facts_exists "$graph_facts_exists" \
    --argjson provider_status_exists "$provider_status_exists" \
    --argjson impact_capabilities_exists "$impact_capabilities_exists" \
@@ -588,6 +590,70 @@ jq --arg generated_at "$generated_at" \
     elif $key == "code-review-graph" then $code_review_graph_commands
     else {} end;
 
+  def provider_host_ready($provider):
+    ($provider.host_config_status == "ready")
+    or ($provider.host_config_status == "fallback-active")
+    or (($provider.host_config_required == false) and ($provider.host_config_status == "not-required"));
+
+  def native_capability_status($provider; $metadata):
+    if (($provider | type) != "object") then "unknown"
+    elif (($provider.configured // false) != true) then "unavailable"
+    elif (($provider.enabled_for_bootstrap // false) != true) then "unavailable"
+    elif (($provider.dependency_status // "unknown") == "unknown" or ($provider.dependency_status // "") == "") then "unknown"
+    elif (($provider.dependency_status // "") != "ready") then "unavailable"
+    elif ((($provider.host_config_status // "unknown") == "unknown") or (($provider.host_config_status // "") == "")) then "unknown"
+    elif (provider_host_ready($provider) | not) then "unavailable"
+    elif (($metadata.mutation_boundary // "unknown") == "mutation-gated") then "mutation-gated"
+    else "available"
+    end;
+
+  def native_capability_source_tags($provider; $capability):
+    ["registry-baseline", "provider-pin", "setup-projection"]
+      + (if (($provider.host_config_status // "") != "") then ["host-config"] else [] end)
+      + (if (($provider.dependency_status // "") == "ready") then ["dependency-ready"] else [] end)
+      + (if $capability == "workspace_group" then ["workspace-advisory"] else [] end);
+
+  def native_capability_source_provenance($provider; $status):
+    if ($status == "available" or $status == "mutation-gated") then "observed-this-run"
+    elif (($provider.configured // false) == true and (($provider.dependency_status // "") == "ready") and provider_host_ready($provider)) then "configured-and-detected"
+    elif (($provider.configured // false) == true) then "configured-not-verified"
+    else "registry-only"
+    end;
+
+  def native_capability_limitations($provider; $metadata; $status):
+    [
+      if $status == "unknown" then
+        "setup-inferred unknown: deterministic setup facts are incomplete for this capability."
+      else empty end,
+      if $status == "unavailable" then
+        "setup-inferred unavailable: GitNexus host config or dependency prerequisites are not ready for this capability."
+      else empty end,
+      if (($metadata.mutation_boundary // "unknown") == "policy-blocked") then
+        "setup-inferred availability only; policy-blocked surfaces such as group_sync, group creation, or rename-like mutations must not run in setup or Plan."
+      else empty end
+    ];
+
+  def gitnexus_native_capability_projection($provider):
+    ($gitnexus_native_capabilities // {})
+    | to_entries
+    | map(
+        .key as $capability
+        | .value as $metadata
+        | native_capability_status($provider; $metadata) as $status
+        | {
+            key: $capability,
+            value: {
+              status: $status,
+              source_tags: native_capability_source_tags($provider; $capability),
+              source_provenance: native_capability_source_provenance($provider; $status),
+              native_surfaces: ($metadata.native_surfaces // []),
+              mutation_boundary: ($metadata.mutation_boundary // "unknown"),
+              limitations: native_capability_limitations($provider; $metadata; $status)
+            }
+          }
+      )
+    | from_entries;
+
   def provider_artifacts($key):
     {
       raw_dir: ".spec-first/providers/\($key)/raw",
@@ -621,7 +687,7 @@ jq --arg generated_at "$generated_at" \
 	        | ($ready and canonical_graph_artifacts_current and canonical_provider_fresh_for_current($key) and ($previous.query_ready == true) and ($previous.bootstrap_required == false)) as $preserve_query_ready
         | {
             key: $key,
-            value: {
+            value: ({
               configured: ($current.configured == true),
               enabled_for_bootstrap: ($current.enabled_for_bootstrap == true),
               required: ($current.required == true),
@@ -641,7 +707,7 @@ jq --arg generated_at "$generated_at" \
                 else "Fix provider setup and rerun spec-mcp-setup."
                 end
               )
-            },
+            } + (if $key == "gitnexus" then {native_capabilities: gitnexus_native_capability_projection($current)} else {} end)),
             readiness: {
               query_ready: $preserve_query_ready,
               bootstrap_required: (if $ready then ($preserve_query_ready | not) else true end),
@@ -823,7 +889,21 @@ jq --arg generated_at "$generated_at" \
             limitations: ["Run spec-graph-bootstrap to compile project graph readiness."]
           }
         end
-      )
+      ),
+      gitnexus_capability_discovery: {
+        schema_version: "gitnexus-capability-discovery.v1",
+        generated_by: "spec-mcp-setup",
+        provider_projection: ".spec-first/config/graph-providers.json.providers.gitnexus.native_capabilities",
+        capability_status_semantics: "setup-inferred availability only; not query-ready graph evidence.",
+        graph_readiness_reconciliation: "setup-inferred available or mutation-gated native capability plus project_graph_readiness.status=not-bootstrapped is not a contradiction; durable graph-backed claims still require canonical provider query_ready=true.",
+        freshness_policy: "Reuse existing setup-owned provider projection and fingerprint freshness checks; generated_at is audit metadata only.",
+        handoff: {
+          durable_readiness_refresh: "Run spec-graph-bootstrap when current durable graph readiness is needed.",
+          plan_live_evidence: "Use spec-plan lightweight GitNexus live MCP probing when the current session exposes a relevant read-only surface.",
+          stale_or_dirty_boundary: "Dirty worktree or stale durable readiness does not automatically make prior or session-local Plan evidence unusable."
+        },
+        capabilities: ($provider[0].providers.gitnexus.native_capabilities // {})
+      }
     }
   as $runtime
   | $runtime

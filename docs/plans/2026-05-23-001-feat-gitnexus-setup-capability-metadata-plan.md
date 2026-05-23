@@ -1,7 +1,7 @@
 ---
 title: feat: Add GitNexus setup capability metadata
 type: feat
-status: active
+status: completed
 date: 2026-05-23
 spec_id: 2026-05-22-001-gitnexus-first-class-capability-plugin
 origin: docs/brainstorms/2026-05-22-001-gitnexus-first-class-capability-plugin-requirements.md
@@ -450,6 +450,8 @@ Because U3 and U4 change skill prose semantics, fresh-source eval is a required 
 
 ## Handoff
 
-Recommended next workflow after this plan is `$spec-work docs/plans/2026-05-23-001-feat-gitnexus-setup-capability-metadata-plan.md`, starting with U1-U2 as the first setup-projection implementation slice, then U3 before claiming user-visible Plan improvement. Do not start R33-R35 until this setup projection plan is implemented, `$spec-plan` consumption is covered, and the result is reviewed.
+This plan has been implemented through the setup projection, `$spec-plan` consumption, docs, and contract-test slices. The recommended next action is review / commit preparation for the completed diff, including confirming whether generated runtime mirrors need a source-driven refresh through `spec-first init --codex|--claude`.
+
+Do not start R33-R35 as part of this completed slice. Treat them as a separate follow-up plan only after this implementation has been reviewed and accepted.
 
 This slice's freshness model — reuse existing provider projection / fingerprint freshness, no TTL — is binding for `$spec-plan` only. As a recommendation (not an enforced gate), before extending capability discovery to `$spec-work` / `$spec-code-review` / `$spec-debug`, re-validate that this freshness model still holds under the new consumer's signals; introduce a freshness axis only if a downstream consumer's evidence demonstrates fingerprint reuse is insufficient.

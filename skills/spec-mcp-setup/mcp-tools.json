@@ -263,7 +263,63 @@
           "execution_flow",
           "repo_wiki",
           "query_global_graph"
-        ]
+        ],
+        "native_capabilities": {
+          "query": {
+            "meaning": "Search GitNexus graph processes, symbols, and definitions for codebase orientation.",
+            "native_surfaces": ["query"],
+            "mutation_boundary": "read-only",
+            "fallback_posture": "bounded direct source reads, ast-grep, code-review-graph, or prior GitNexus evidence"
+          },
+          "context": {
+            "meaning": "Inspect a specific GitNexus symbol with incoming and outgoing relationships.",
+            "native_surfaces": ["context"],
+            "mutation_boundary": "read-only",
+            "fallback_posture": "bounded source reads plus local call/reference search"
+          },
+          "impact": {
+            "meaning": "Estimate upstream or downstream blast radius for a named symbol or file.",
+            "native_surfaces": ["impact", "detect_changes"],
+            "mutation_boundary": "read-only",
+            "fallback_posture": "code-review-graph impact facts, git diff, ast-grep, and bounded source reads"
+          },
+          "route_api_evidence": {
+            "meaning": "Map API routes, consumers, middleware, and route-level impact evidence.",
+            "native_surfaces": ["route_map", "api_impact"],
+            "mutation_boundary": "read-only",
+            "fallback_posture": "route handler reads, consumer source reads, and bounded API contract search"
+          },
+          "shape_check": {
+            "meaning": "Compare detected route response keys against consumer property access.",
+            "native_surfaces": ["shape_check"],
+            "mutation_boundary": "read-only",
+            "fallback_posture": "route response source reads plus consumer access search"
+          },
+          "cypher": {
+            "meaning": "Run read-oriented structural graph queries when schema-aware graph inspection is needed.",
+            "native_surfaces": ["cypher"],
+            "mutation_boundary": "read-only",
+            "fallback_posture": "direct contract/source reads and narrower GitNexus query/context calls"
+          },
+          "tool_map": {
+            "meaning": "Inspect MCP/RPC tool definitions and handler mappings.",
+            "native_surfaces": ["tool_map"],
+            "mutation_boundary": "read-only",
+            "fallback_posture": "tool definition source reads and bounded text search"
+          },
+          "repo_registry": {
+            "meaning": "List indexed repositories available to the GitNexus runtime.",
+            "native_surfaces": ["list_repos"],
+            "mutation_boundary": "read-only",
+            "fallback_posture": "workspace advisory artifacts or bounded per-repo source reads"
+          },
+          "workspace_group": {
+            "meaning": "Orient parent-workspace GitNexus group readiness and read-only group evidence without running group maintenance.",
+            "native_surfaces": ["group_list"],
+            "mutation_boundary": "policy-blocked",
+            "fallback_posture": "workspace advisory artifacts, bounded registry/per-repo fallback, and explicit preview-first maintenance plans"
+          }
+        }
       },
       "license_notice": {
         "required": true,

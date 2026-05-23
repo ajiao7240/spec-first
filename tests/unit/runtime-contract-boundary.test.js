@@ -90,6 +90,18 @@ describe('runtime contract boundary', () => {
     expect(chinese).toContain('provider credentials 应来自环境变量');
   });
 
+  test('setup capability discovery remains setup-owned and outside generated runtime catalog scope', () => {
+    const english = fs.readFileSync(README_EN_PATH, 'utf8');
+    const chinese = fs.readFileSync(README_ZH_PATH, 'utf8');
+    const catalog = fs.readFileSync(RUNTIME_CATALOG_PATH, 'utf8');
+
+    expect(english).toContain('`gitnexus_capability_discovery`');
+    expect(chinese).toContain('`gitnexus_capability_discovery`');
+    expect(english).toContain('not query-ready graph evidence');
+    expect(chinese).toContain('不是 query-ready graph evidence');
+    expect(catalog).not.toContain('gitnexus_capability_discovery');
+  });
+
   test('src/cli runtime code does not reference docs-side machine-readable governance path', () => {
     const offenders = collectJsFiles(CLI_ROOT)
       .filter((filePath) => {

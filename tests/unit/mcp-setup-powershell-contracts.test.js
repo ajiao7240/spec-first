@@ -293,6 +293,27 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(gitnexus.installation.windows.args).toEqual(['-y', '{{package}}@{{version}}', '--help']);
     expect(gitnexus.host_config.claude.args).toEqual(['-y', '{{package}}@{{version}}', 'mcp']);
     expect(gitnexus.host_config.codex.args).toEqual(['-y', '{{package}}@{{version}}', 'mcp']);
+    expect(Object.keys(gitnexus.provider_config.native_capabilities).sort()).toEqual([
+      'context',
+      'cypher',
+      'impact',
+      'query',
+      'repo_registry',
+      'route_api_evidence',
+      'shape_check',
+      'tool_map',
+      'workspace_group',
+    ]);
+    for (const capability of Object.values(gitnexus.provider_config.native_capabilities)) {
+      expect(Object.keys(capability).sort()).toEqual([
+        'fallback_posture',
+        'meaning',
+        'mutation_boundary',
+        'native_surfaces',
+      ]);
+    }
+    expect(gitnexus.provider_config.native_capabilities.workspace_group.mutation_boundary).toBe('policy-blocked');
+    expect(gitnexus.provider_config.native_capabilities.workspace_group.native_surfaces).toEqual(['group_list']);
     const codeReviewGraph = toolsJson.tools.find((t) => t.id === 'code-review-graph');
     expect(codeReviewGraph.package).toBe('code-review-graph');
     expect(codeReviewGraph.version).toBe('2.3.3');
@@ -442,6 +463,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
 
   test('provider projection writer is semantically idempotent', () => {
     const writeProviderSource = fs.readFileSync(writeProviderConfigPs1, 'utf8');
+    const verifySource = fs.readFileSync(verifyToolsPs1, 'utf8');
 
     expect(writeProviderSource).toContain('function ConvertTo-ComparableProjectionJson');
     expect(writeProviderSource).toContain("PSObject.Properties.Name -contains 'generated_at'");
@@ -451,6 +473,15 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('runtime-capabilities.v1');
     expect(writeProviderSource).toContain('provider-artifacts.v1');
     expect(writeProviderSource).toContain('derived_readiness');
+    expect(writeProviderSource).toContain('$gitNexusNativeCapabilities');
+    expect(writeProviderSource).toContain('Get-GitNexusNativeCapabilityProjection');
+    expect(writeProviderSource).toContain('native_capabilities');
+    expect(writeProviderSource).toContain('gitnexus_capability_discovery');
+    expect(writeProviderSource).toContain('setup-inferred availability only; not query-ready graph evidence.');
+    expect(writeProviderSource).toContain('policy-blocked surfaces such as group_sync');
+    expect(writeProviderSource).not.toContain('capability_metadata_freshness');
+    expect(writeProviderSource).toContain('generated_at is audit metadata only');
+    expect(writeProviderSource).toContain("[string]$Provider.dependency_status -eq 'ready') -and (Test-ProviderHostReady -Provider $Provider)");
     expect(writeProviderSource).toContain('host_ledger_pointer');
     expect(writeProviderSource).toContain("$toolsJsonPath = Join-Path $skillDir 'mcp-tools.json'");
     expect(writeProviderSource).toContain("$gitNexusPackage = if ($null -ne $gitNexusEntry.PSObject.Properties['package']) { [string]$gitNexusEntry.package } else { '' }");
@@ -471,6 +502,10 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain("Join-Path $RepoRoot '.gitnexus/meta.json'");
     expect(writeProviderSource).toContain("remoteUrl");
     expect(writeProviderSource).toContain("query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $GitNexusRepoName)");
+    expect(verifySource).not.toContain('gitnexus analyze');
+    expect(verifySource).not.toContain('gitnexus status');
+    expect(verifySource).not.toContain('gitnexus query');
+    expect(verifySource).not.toContain('group_sync');
     expect(writeProviderSource).toContain('function Get-GitNexusQueryProbePolicy');
     expect(writeProviderSource).toContain('function Test-GitNexusProbeLowSignalToken');
     expect(writeProviderSource).toContain('function Test-GitNexusProbeWorkflowSignalToken');
@@ -554,9 +589,14 @@ $ordered = [ordered]@{}
 foreach ($name in @($commands.Keys | Sort-Object)) {
   $ordered[[string]$name] = @($commands[$name])
 }
-$expected = Get-StatusHash -Text ($ordered | ConvertTo-Json -Depth 20 -Compress)
+$canonicalJson = $ordered | ConvertTo-Json -Depth 20 -Compress
+$expected = Get-StatusHash -Text $canonicalJson
+$expectedWithTrailingLf = Get-StatusHash -Text ($canonicalJson + [string][char]10)
 if ($actual -ne $expected) {
   Write-Error "hash mismatch: $actual != $expected"
+}
+if ($actual -eq $expectedWithTrailingLf) {
+  Write-Error "hash unexpectedly includes trailing LF"
 }
 if (($ordered.Keys -join ',') -ne 'bootstrap,incremental,query_probe,status') {
   Write-Error "unexpected command keys: $($ordered.Keys -join ',')"

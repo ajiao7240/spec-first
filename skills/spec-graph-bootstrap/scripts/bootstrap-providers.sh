@@ -69,8 +69,10 @@ hash_file() {
 
 json_file_hash() {
   local path="$1"
+  local canonical
   if [ -f "$path" ]; then
-    jq -S -c . "$path" | hash_text
+    canonical="$(jq -S -c . "$path")"
+    printf '%s' "$canonical" | hash_text
   else
     printf '%s\n' "missing"
   fi
@@ -1658,7 +1660,9 @@ provider_bundled_package_spec() {
 
 provider_command_hash() {
   local provider="$1"
-  jq -S -c --arg provider "$provider" '.providers[$provider].commands // {}' "$PROVIDER_CONFIG" | hash_text
+  local canonical
+  canonical="$(jq -S -c --arg provider "$provider" '.providers[$provider].commands // {}' "$PROVIDER_CONFIG")"
+  printf '%s' "$canonical" | hash_text
 }
 
 provider_version_policy() {

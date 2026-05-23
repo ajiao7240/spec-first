@@ -84,9 +84,10 @@ deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantiv
 ---
 
 <!-- Optional plan-local section — include the full block for code/architecture/API/cross-module
-     or review-risk plans when canonical graph artifacts, workspace advisory facts, or a
-     current-session GitNexus MCP surface exists. For the no-graph/no-MCP fast path, collapse
-     this to a minimal unavailable block; for docs-only/non-code plans, use not-applicable or omit. -->
+     or review-risk plans when canonical graph artifacts, workspace advisory facts,
+     setup-owned GitNexus capability projection, or a current-session GitNexus MCP surface
+     exists. For the no-graph/no-MCP/no-setup-projection fast path, collapse this to a
+     minimal unavailable block; for docs-only/non-code plans, use not-applicable or omit. -->
 ## Graph / GitNexus Evidence
 
 - provider: GitNexus | unavailable | not-applicable

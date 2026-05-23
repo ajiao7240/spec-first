@@ -655,8 +655,10 @@ if ($combined.baseline_ready) {
   } else {
     if ($combined.graph_bootstrap_required) {
       Write-Host "  1. 现在可以运行 $graphCommand 完成 deterministic graph readiness 编译；也可以在本会话直接回复“继续完成”，让 agent 调用 bootstrap 脚本。"
-      Write-Host '  2. graph readiness 完成后，按用户意图进入 plan/work/review/debug 等下游 workflow；项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts、源码、测试和 graph readiness facts。'
-      Write-Host "  3. 重启 $hostDisplay 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
+      Write-Host "  2. 如果只需要 Plan 阶段 live GitNexus evidence，可在当前已可见 MCP surface 下进入 plan；若 setup 刚写入 MCP 配置，先重启 $hostDisplay 或新开会话再 probe。"
+      Write-Host "  3. dirty worktree 或 stale durable readiness 不等于 Plan 不能使用 prior/session-local GitNexus evidence；需要 durable readiness 时再运行 $graphCommand。"
+      Write-Host '  4. graph readiness 完成后，按用户意图进入 plan/work/review/debug 等下游 workflow；项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts、源码、测试和 graph readiness facts。'
+      Write-Host "  5. 重启 $hostDisplay 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
     } else {
       Write-Host '  1. graph readiness 已就绪；如果已经有明确任务，可以在新会话直接描述目标，或选择匹配的 plan/work/review/debug workflow。'
       Write-Host '  2. 如果已经有明确任务，可以在新会话直接描述目标；using-spec-first 会按意图选择合适 workflow。'

@@ -58,6 +58,11 @@ assert_not_contains() {
   fi
 }
 
+bootstrap_script_source="$(cat "$BOOTSTRAP_SCRIPT")"
+assert_contains "graph-bootstrap hashes canonical JSON without newline" 'printf '\''%s'\'' "$canonical" | hash_text' "$bootstrap_script_source"
+assert_not_contains "graph-bootstrap json file hash does not pipe jq newline into hash" 'jq -S -c . "$path" | hash_text' "$bootstrap_script_source"
+assert_not_contains "graph-bootstrap provider command hash does not pipe jq newline into hash" "'.providers[\$provider].commands // {}' \"\$PROVIDER_CONFIG\" | hash_text" "$bootstrap_script_source"
+
 make_fake_bin() {
   local bin_dir="$1"
   local log_file="$2"

@@ -6,6 +6,12 @@ const path = require('node:path');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const CONSUMPTION_DOC_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'graph-provider-consumption.md');
 const EVIDENCE_POLICY_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'graph-evidence-policy.md');
+const SOURCE_RUNTIME_BOUNDARY_PATH = path.join(
+  REPO_ROOT,
+  'docs',
+  'contracts',
+  'source-runtime-customization-boundary.md',
+);
 
 function read(relativeOrAbsolutePath) {
   const filePath = path.isAbsolute(relativeOrAbsolutePath)
@@ -151,6 +157,9 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('四个独立 axis');
     expect(doc).toContain('`runtime-capabilities.json.project_graph_readiness`');
     expect(doc).toContain('`graph-providers.json.derived_readiness`');
+    expect(doc).toContain('`graph-providers.json.providers.gitnexus.native_capabilities`');
+    expect(doc).toContain('`runtime-capabilities.json.gitnexus_capability_discovery`');
+    expect(doc).toContain('setup-inferred availability / pointer inputs');
     expect(doc).toContain('setup-owned projection pointers');
     expect(doc).toContain('当前会话 live MCP / CLI evidence');
     expect(doc).toContain('不回写 compiled readiness');
@@ -158,6 +167,36 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('provider `query_ready`');
     expect(doc).toContain('workspace `query_usability`');
     expect(doc).toContain('`definitions-only` 仍是 limitation / query-usability condition');
+  });
+
+  test('documents setup-inferred GitNexus capability discovery contract', () => {
+    const doc = read(CONSUMPTION_DOC_PATH);
+
+    expect(doc).toContain('## Setup-Inferred GitNexus Capability Discovery');
+    expect(doc).toContain('.spec-first/config/graph-providers.json.providers.gitnexus.native_capabilities');
+    expect(doc).toContain('.spec-first/config/runtime-capabilities.json.gitnexus_capability_discovery');
+    expect(doc).toContain('只表达 setup-inferred availability');
+    expect(doc).toContain('不得让 consumer 推断 `query_ready=true`');
+    expect(doc).toContain('`runtime-capabilities.json.project_graph_readiness.status=not-bootstrapped` 可以同时成立');
+    expect(doc).toContain('setup `unknown` -> `partial`');
+    expect(doc).toContain('`setup-inferred unknown`');
+    expect(doc).toContain('Plan 不得从 setup `unknown` 发明 `available`');
+    expect(doc).toContain('`source_provenance=registry-only|configured-not-verified|inherited-prior-run`');
+    expect(doc).toContain('`configured-and-detected|observed-this-run`');
+    expect(doc).toContain('`mutation_boundary=policy-blocked` 是 setup/Plan 的硬边界');
+    expect(doc).toContain('不得在当前 workflow 中请求批准后执行该 surface');
+    expect(doc).toContain('不要新增 TTL、aging window 或 `capability_metadata_freshness` 字段');
+    expect(doc).toContain('provider projection / fingerprint freshness');
+  });
+
+  test('keeps retired Serena wording out of active provider evidence contracts', () => {
+    const evidencePolicy = read(EVIDENCE_POLICY_PATH);
+    const sourceRuntimeBoundary = read(SOURCE_RUNTIME_BOUNDARY_PATH);
+
+    expect(evidencePolicy).toContain('GitNexus、code-review-graph、ast-grep 和直接源码读取');
+    expect(evidencePolicy).not.toContain('Serena');
+    expect(sourceRuntimeBoundary).toContain('GitNexus, code-review-graph, ast-grep');
+    expect(sourceRuntimeBoundary).not.toContain('Serena');
   });
 
   test('documents incremental refresh fields, enums, and graph-facts non-surface', () => {

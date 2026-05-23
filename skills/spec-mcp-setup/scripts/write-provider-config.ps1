@@ -606,6 +606,112 @@ function Test-ProviderReady {
   )
 }
 
+function Test-ProviderHostReady {
+  param([object]$Provider)
+  if ($null -eq $Provider) { return $false }
+  return (
+    $Provider.host_config_status -eq 'ready' -or
+    $Provider.host_config_status -eq 'fallback-active' -or
+    (
+      $Provider.PSObject.Properties.Name -contains 'host_config_required' -and
+      -not [bool]$Provider.host_config_required -and
+      $Provider.host_config_status -eq 'not-required'
+    )
+  )
+}
+
+function Get-NativeCapabilityStatus {
+  param(
+    [object]$Provider,
+    [object]$Metadata
+  )
+  if ($null -eq $Provider) { return 'unknown' }
+  if (-not [bool]$Provider.configured) { return 'unavailable' }
+  if (-not [bool]$Provider.enabled_for_bootstrap) { return 'unavailable' }
+  if ([string]::IsNullOrWhiteSpace([string]$Provider.dependency_status) -or [string]$Provider.dependency_status -eq 'unknown') { return 'unknown' }
+  if ([string]$Provider.dependency_status -ne 'ready') { return 'unavailable' }
+  if ([string]::IsNullOrWhiteSpace([string]$Provider.host_config_status) -or [string]$Provider.host_config_status -eq 'unknown') { return 'unknown' }
+  if (-not (Test-ProviderHostReady -Provider $Provider)) { return 'unavailable' }
+  if ($null -ne $Metadata -and $Metadata.PSObject.Properties.Name -contains 'mutation_boundary' -and [string]$Metadata.mutation_boundary -eq 'mutation-gated') { return 'mutation-gated' }
+  return 'available'
+}
+
+function Get-NativeCapabilitySourceTags {
+  param(
+    [object]$Provider,
+    [string]$Capability
+  )
+  $tags = New-Object System.Collections.Generic.List[string]
+  foreach ($tag in @('registry-baseline', 'provider-pin', 'setup-projection')) {
+    if (-not $tags.Contains($tag)) { $tags.Add($tag) | Out-Null }
+  }
+  if ($null -ne $Provider -and -not [string]::IsNullOrWhiteSpace([string]$Provider.host_config_status) -and -not $tags.Contains('host-config')) {
+    $tags.Add('host-config') | Out-Null
+  }
+  if ($null -ne $Provider -and [string]$Provider.dependency_status -eq 'ready' -and -not $tags.Contains('dependency-ready')) {
+    $tags.Add('dependency-ready') | Out-Null
+  }
+  if ($Capability -eq 'workspace_group' -and -not $tags.Contains('workspace-advisory')) {
+    $tags.Add('workspace-advisory') | Out-Null
+  }
+  return @($tags)
+}
+
+function Get-NativeCapabilitySourceProvenance {
+  param(
+    [object]$Provider,
+    [string]$Status
+  )
+  if ($Status -eq 'available' -or $Status -eq 'mutation-gated') { return 'observed-this-run' }
+  if ($null -eq $Provider) { return 'registry-only' }
+  if ([bool]$Provider.configured -and ([string]$Provider.dependency_status -eq 'ready') -and (Test-ProviderHostReady -Provider $Provider)) { return 'configured-and-detected' }
+  if ([bool]$Provider.configured) { return 'configured-not-verified' }
+  return 'registry-only'
+}
+
+function Get-NativeCapabilityLimitations {
+  param(
+    [object]$Provider,
+    [object]$Metadata,
+    [string]$Status
+  )
+  $limitations = New-Object System.Collections.Generic.List[string]
+  if ($Status -eq 'unknown') {
+    $limitations.Add('setup-inferred unknown: deterministic setup facts are incomplete for this capability.') | Out-Null
+  }
+  if ($Status -eq 'unavailable') {
+    $limitations.Add('setup-inferred unavailable: GitNexus host config or dependency prerequisites are not ready for this capability.') | Out-Null
+  }
+  if ($null -ne $Metadata -and $Metadata.PSObject.Properties.Name -contains 'mutation_boundary' -and [string]$Metadata.mutation_boundary -eq 'policy-blocked') {
+    $limitations.Add('setup-inferred availability only; policy-blocked surfaces such as group_sync, group creation, or rename-like mutations must not run in setup or Plan.') | Out-Null
+  }
+  return @($limitations)
+}
+
+function Get-GitNexusNativeCapabilityProjection {
+  param(
+    [object]$Provider,
+    [object]$RegistryCapabilities
+  )
+  $projection = [ordered]@{}
+  if ($null -eq $RegistryCapabilities) { return $projection }
+  foreach ($property in @($RegistryCapabilities.PSObject.Properties)) {
+    $metadata = $property.Value
+    $status = Get-NativeCapabilityStatus -Provider $Provider -Metadata $metadata
+    $surfaces = if ($null -ne $metadata -and $metadata.PSObject.Properties.Name -contains 'native_surfaces') { @($metadata.native_surfaces) } else { @() }
+    $mutationBoundary = if ($null -ne $metadata -and $metadata.PSObject.Properties.Name -contains 'mutation_boundary') { [string]$metadata.mutation_boundary } else { 'unknown' }
+    $projection[$property.Name] = [ordered]@{
+      status = $status
+      source_tags = @(Get-NativeCapabilitySourceTags -Provider $Provider -Capability $property.Name)
+      source_provenance = Get-NativeCapabilitySourceProvenance -Provider $Provider -Status $status
+      native_surfaces = @($surfaces)
+      mutation_boundary = $mutationBoundary
+      limitations = @(Get-NativeCapabilityLimitations -Provider $Provider -Metadata $metadata -Status $status)
+    }
+  }
+  return $projection
+}
+
 function Test-ToolReady {
   param([object]$Tool)
   if ($null -eq $Tool) { return $false }
@@ -667,6 +773,14 @@ if ([string]::IsNullOrWhiteSpace($gitNexusPackage) -or [string]::IsNullOrWhiteSp
   throw 'GitNexus package/version fields not found in mcp-tools.json'
 }
 $gitNexusPackageSpec = "$gitNexusPackage@$gitNexusVersion"
+$gitNexusNativeCapabilities = if (
+  $null -ne $gitNexusEntry.provider_config -and
+  $gitNexusEntry.provider_config.PSObject.Properties.Name -contains 'native_capabilities'
+) {
+  $gitNexusEntry.provider_config.native_capabilities
+} else {
+  [pscustomobject]@{}
+}
 $codeReviewGraphTool = @($toolsJson.tools | Where-Object { $_.id -eq 'code-review-graph' } | Select-Object -First 1)
 if ($codeReviewGraphTool.Count -eq 0) {
   throw 'code-review-graph tool entry not found in mcp-tools.json'
@@ -776,6 +890,9 @@ foreach ($property in $facts.graph_providers.PSObject.Properties) {
     artifacts = Get-ProviderArtifacts -Provider $property.Name
     next_action = if ($ready -and $preserveQueryReady) { '' } elseif ($ready) { 'run spec-graph-bootstrap' } else { 'Fix provider setup and rerun spec-mcp-setup.' }
   }
+  if ($property.Name -eq 'gitnexus') {
+    $providers[$property.Name]['native_capabilities'] = Get-GitNexusNativeCapabilityProjection -Provider $provider -RegistryCapabilities $gitNexusNativeCapabilities
+  }
   $readiness[$property.Name] = [ordered]@{
     query_ready = [bool]$preserveQueryReady
     bootstrap_required = if ($ready) { -not [bool]$preserveQueryReady } else { $true }
@@ -854,6 +971,28 @@ if ($canonicalArtifactsCurrent) {
     limitations = @('Setup projection derived from canonical graph artifacts; canonical readiness truth is under .spec-first/graph/ and .spec-first/impact/.')
   }
 }
+$gitNexusProjectedCapabilities = if (
+  $providers.Contains('gitnexus') -and
+  $providers['gitnexus'].Contains('native_capabilities')
+) {
+  $providers['gitnexus']['native_capabilities']
+} else {
+  [ordered]@{}
+}
+$gitNexusCapabilityDiscovery = [ordered]@{
+  schema_version = 'gitnexus-capability-discovery.v1'
+  generated_by = 'spec-mcp-setup'
+  provider_projection = '.spec-first/config/graph-providers.json.providers.gitnexus.native_capabilities'
+  capability_status_semantics = 'setup-inferred availability only; not query-ready graph evidence.'
+  graph_readiness_reconciliation = 'setup-inferred available or mutation-gated native capability plus project_graph_readiness.status=not-bootstrapped is not a contradiction; durable graph-backed claims still require canonical provider query_ready=true.'
+  freshness_policy = 'Reuse existing setup-owned provider projection and fingerprint freshness checks; generated_at is audit metadata only.'
+  handoff = [ordered]@{
+    durable_readiness_refresh = 'Run spec-graph-bootstrap when current durable graph readiness is needed.'
+    plan_live_evidence = 'Use spec-plan lightweight GitNexus live MCP probing when the current session exposes a relevant read-only surface.'
+    stale_or_dirty_boundary = 'Dirty worktree or stale durable readiness does not automatically make prior or session-local Plan evidence unusable.'
+  }
+  capabilities = $gitNexusProjectedCapabilities
+}
 
 $runtimePayload = [ordered]@{
   schema_version = 'runtime-capabilities.v1'
@@ -899,6 +1038,7 @@ $runtimePayload = [ordered]@{
     }
   }
   project_graph_readiness = $projectGraphReadiness
+  gitnexus_capability_discovery = $gitNexusCapabilityDiscovery
 }
 
 $artifactProviders = [ordered]@{}

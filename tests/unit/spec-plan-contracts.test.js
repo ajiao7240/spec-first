@@ -224,24 +224,55 @@ describe('spec-plan context orientation contract', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
 
+    expect(text).toContain('Setup projection pre-check');
+    expect(text.indexOf('Setup projection pre-check')).toBeLessThan(text.indexOf('Fast unavailable path'));
     expect(text).toContain('Fast unavailable path');
-    expect(text).toContain('after repo scope / `target_repo` is resolved');
+    expect(text).toContain('after repo scope / `target_repo` is resolved and setup projection has been checked');
     expect(text).toContain('selected repo has no canonical graph readiness artifacts');
     expect(text).toContain('current-session GitNexus MCP tool/resource surface');
+    expect(text).toContain('no setup-owned GitNexus capability projection is present');
     expect(text).toContain('set `Graph Readiness.status: unavailable`');
     expect(text).toContain('fallback_capabilities: bounded direct repo reads');
     expect(text).toContain('continue to Phase 1.1b');
     expect(text).toContain('Do not run 1.1a.1 detailed Graph / GitNexus Evidence Posture');
+    expect(text).toContain('no-graph/no-MCP/no-setup-projection path');
     expect(text).toContain('do not run provider refresh, MCP setup, GitNexus analyze, group sync');
     expect(text).toContain('just to prove absence');
+    expect(text).toContain('If setup projection is present, do not take this fast unavailable shortcut');
     expect(text).toContain('If the user explicitly asked for graph or GitNexus evidence');
     expect(text).toContain('recommend `$spec-mcp-setup` or `$spec-graph-bootstrap`');
-    expect(text).toContain('Skip the detailed posture probe on the no-graph/no-MCP fast unavailable path');
+    expect(text).toContain('Skip the detailed posture probe on the no-graph/no-MCP/no-setup-projection fast unavailable path');
     expect(text).toContain('do not spend tokens enumerating GitNexus native capabilities that cannot affect the decision');
 
     expect(template).toContain('Optional plan-local section');
-    expect(template).toContain('For the no-graph/no-MCP fast path, collapse');
+    expect(template).toContain('setup-owned GitNexus capability projection');
+    expect(template).toContain('For the no-graph/no-MCP/no-setup-projection fast path, collapse');
     expect(template).toContain('docs-only/non-code plans');
+  });
+
+  test('consumes setup-inferred GitNexus capability availability without promoting readiness', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const reference = fs.readFileSync(GRAPH_EVIDENCE_POSTURE_PATH, 'utf8');
+
+    expect(text).toContain('.spec-first/config/graph-providers.json.providers.gitnexus.native_capabilities');
+    expect(text).toContain('.spec-first/config/runtime-capabilities.json.gitnexus_capability_discovery');
+    expect(text).toContain('setup-inferred availability inputs only');
+    expect(text).toContain('must not change `Graph Readiness.status`, provider `query_ready`, workspace `query_usability`, freshness state');
+    expect(text).toContain('status=available` or `status=mutation-gated` with `project_graph_readiness.status=not-bootstrapped` is not a contradiction');
+    expect(text).toContain('setup `available` -> Plan `capability_status: available`');
+    expect(text).toContain('setup `unknown` -> `partial` with a non-empty limitation containing the literal phrase `setup-inferred unknown`');
+    expect(text).toContain('Plan never invents `available` from setup `unknown`');
+    expect(text).toContain('`registry-only`, `configured-not-verified`, and `inherited-prior-run` require a current live MCP probe');
+    expect(text).toContain('`configured-and-detected` and `observed-this-run` can guide surface selection');
+    expect(text).toContain('Missing, invalid, stale-by-fingerprint, or capability-missing projection is advisory/unknown');
+    expect(text).toContain('Do not run setup, graph-bootstrap, provider refresh, GitNexus analyze/status/query CLI commands, group sync');
+    expect(text).toContain('`mutation_boundary: policy-blocked` is a hard setup/Plan workflow boundary');
+    expect(text).toContain('must not ask the user for approval to execute that surface in this workflow');
+    expect(reference).toContain('setup-inferred availability hints');
+    expect(reference).toContain('not live-surface proof and not graph-backed evidence');
+    expect(reference).toContain('`mutation_boundary: policy-blocked`');
+    expect(reference).toContain('Plan must not ask for approval to execute that surface in this workflow');
+    expect(text).not.toContain('capability_metadata_freshness');
   });
 
   test('emits GitNexus evidence posture after Graph Readiness with native capability guidance', () => {
@@ -277,6 +308,7 @@ describe('spec-plan context orientation contract', () => {
     expect(template).toContain('freshness_state: fresh | stale | dirty-advisory | query-unverified');
     expect(text).not.toContain('capability_status: available | partial | unavailable | mutation-gated');
     expect(text).toContain('not canonical readiness truth');
+    expect(text).toContain('setup-owned GitNexus capability projection');
     expect(text).toContain('must not replace `Graph Readiness.status`');
     expect(text).toContain('provider `query_ready`');
     expect(text).toContain('workspace `query_usability`');

@@ -8,7 +8,7 @@
 
 | 目录 | 写入阶段 | 触发方式 | 主要作用 | 主要产物 |
 | --- | --- | --- | --- | --- |
-| `.spec-first/config/` | `spec-mcp-setup` setup facts 阶段 | `/spec:mcp-setup` 或 `$spec-mcp-setup` | 记录 host baseline、graph provider 配置、fallback 能力和 artifact path contract | `runtime-capabilities.json`、`graph-providers.json`、`provider-artifacts.json` |
+| `.spec-first/config/` | `spec-mcp-setup` setup facts 阶段 | `/spec:mcp-setup` 或 `$spec-mcp-setup` | 记录 host baseline、graph provider 配置、setup-inferred GitNexus capability discovery、fallback 能力和 artifact path contract；不是 query-ready graph evidence | `runtime-capabilities.json`、`graph-providers.json`、`provider-artifacts.json` |
 | `.spec-first/providers/<provider>/` | `spec-graph-bootstrap` provider evidence 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 保存 provider 原始日志、provider 状态和规范化能力事实 | `raw/*.log`、`status.json`、`normalized/*.json` |
 | `.spec-first/graph/` | `spec-graph-bootstrap` canonical graph readiness 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 提供下游 workflow 读取的 graph readiness 真相源与用户报告 | `provider-status.json`、`graph-facts.json`、`bootstrap-report.md` |
 | `.spec-first/impact/` | `spec-graph-bootstrap` capability envelope 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 表达 context selection、impact radius、review support 的 primary/fallback 支持情况 | `bootstrap-impact-capabilities.json` |
@@ -42,7 +42,7 @@
 | `docs/brainstorms/` | 需求成型 brief | `spec-plan`、doc review、后续维护者复核 scope 和 acceptance examples |
 | `docs/plans/` / `docs/tasks/` | 计划与可执行任务交接 | `spec-work`、standalone `write-tasks`、code/doc review；计划中的 `Graph / GitNexus Evidence` block 说明 `native_tool_or_resource`、`capability_status`、`evidence_grade`、`evidence_posture`、`freshness_state` 和源码验证要求 |
 | `docs/solutions/` | 可复用工程知识 | 后续 brainstorm/plan/work/debug/review 复用经验 |
-| `config/` | setup-owned machine facts | graph-bootstrap 前置校验、host readiness 指针、fallback 能力判断 |
+| `config/` | setup-owned machine facts | graph-bootstrap 前置校验、host readiness 指针、setup-inferred GitNexus availability/discovery facts、fallback 能力判断 |
 | `providers/<provider>/` | provider-local evidence | 失败诊断、原始日志追踪、provider 规范化事实复核 |
 | `graph/` | canonical readiness facts | `spec-plan` 等下游 workflow 判断 graph facts 是否 primary、degraded、blocked 或 stale |
 | `impact/` | impact/review capability envelope | 下游 workflow 决定是否使用 provider 影响分析，或回退 bounded direct repo reads |
@@ -57,7 +57,7 @@
 
 | 产物目录 | 主要读取方 | 读取发生阶段 | 读取目的 |
 | --- | --- | --- | --- |
-| `config/` | `skills/spec-graph-bootstrap/scripts/bootstrap-providers.*` | graph-bootstrap preflight | 校验 baseline、provider command arrays、artifact path contract 和 fallback 能力 |
+| `config/` | `skills/spec-graph-bootstrap/scripts/bootstrap-providers.*`、`spec-plan` | graph-bootstrap preflight / Plan availability selection | 校验 baseline、provider command arrays、artifact path contract、setup-inferred GitNexus native capability discovery 和 fallback 能力；不把 discovery facts 当 query-ready evidence |
 | `providers/<provider>/` | graph-bootstrap 报告、维护者排障 | bootstrap 后诊断 | 查看 provider 原始输出和规范化结果 |
 | `graph/` | `spec-plan`，后续 graph-aware workflow | plan / work / review 前置判断 | 判断 graph readiness、provider 覆盖、confidence、limitations 与 staleness；`spec-plan` 可把这些 facts 派生为 Plan-local GitNexus evidence posture，但不写回 readiness artifacts |
 | `impact/` | `spec-plan`，后续 impact-aware workflow | plan / work / review 前置判断 | 判断 impact radius、review support 与 context selection 是否有可信 provider 支持 |
@@ -81,8 +81,8 @@
 
 | 文件 | 角色 |
 | --- | --- |
-| `runtime-capabilities.json` | host ledger 指针、baseline 摘要、fallback tool 能力和 `project_graph_readiness` 派生摘要 |
-| `graph-providers.json` | provider 配置、受限 command arrays、derived readiness 投影和下一步提示 |
+| `runtime-capabilities.json` | host ledger 指针、baseline 摘要、fallback tool 能力、`project_graph_readiness` 派生摘要和 `gitnexus_capability_discovery` setup-inferred availability summary |
+| `graph-providers.json` | provider 配置、受限 command arrays、GitNexus `native_capabilities` projection、derived readiness 投影和下一步提示 |
 | `provider-artifacts.json` | provider raw/normalized/status 路径与 canonical graph/impact artifact path contract |
 
 `spec-mcp-setup` 可以从 canonical artifacts 重建 setup-owned projection，但不运行 provider build，也不把自然语言 setup 输出当成 fallback readiness 真相源。
@@ -108,7 +108,7 @@
 | `graph-targets.json` | 只读 workspace graph target resolver 的候选 repo、status、artifact pointer 和 next action |
 | `gitnexus-readiness.json` | `workspace-gitnexus-readiness.v1`，记录 GitNexus group-ready / bounded registry fallback 的只读 advisory routing facts |
 
-`workspace/` 只帮助 LLM 或维护者看清候选、批量维护结果和 GitNexus group readiness fallback。它不能替代 child repo 内的 `.spec-first/config/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/providers/` 或 `.serena/`，也不允许普通 plan/work/debug/review 隐式运行 `group_sync`。
+`workspace/` 只帮助 LLM 或维护者看清候选、批量维护结果和 GitNexus group readiness fallback。它不能替代 child repo 内的 `.spec-first/config/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/providers/`、prior GitNexus evidence、code-review-graph facts、ast-grep 或 bounded direct source reads，也不允许普通 plan/work/debug/review 隐式运行 `group_sync`。
 
 ## Code review temporary handoff
 
