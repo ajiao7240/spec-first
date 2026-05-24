@@ -536,7 +536,66 @@ CRG 从默认 required provider、默认 bootstrap path、默认 review evidence
 - 真正必须平替的是 `detect-changes`、impact radius、minimal/review context、related tests、risk signal。
 - GitNexus 已有对应能力，但 spec-first 需要把这些能力编译成稳定 artifact，而不是让 workflow 临时解释 raw CLI 输出。
 
-### 4.4 当前为什么不能只删 CRG
+### 4.4 当前仓库的本地平替样本
+
+本次分析在当前 `spec-first` dirty worktree 上跑了三个只读样本，用于确认“能力层可平替”不是只来自 README 推断。
+
+GitNexus `detect-changes`：
+
+```bash
+npx -y gitnexus@1.6.5 detect-changes --scope all --repo spec-first
+```
+
+输出摘要：
+
+```text
+Changes: 54 files, 104 symbols
+Affected processes: 14
+Risk level: high
+```
+
+它还返回了 affected execution flows，例如 `RunInitForProject -> ValidateManifest`、`BuildInitMetadataPlan -> IsLooseManagedRuntimeToolsHeading`、`RunInitForWorkspace -> ExistsSync` 等。这说明 GitNexus 可以把当前 diff 映射到 indexed symbols 和 process-level impact。
+
+GitNexus `impact`：
+
+```bash
+npx -y gitnexus@1.6.5 impact validateClaudeSettingsFile --repo spec-first --include-tests --depth 2
+```
+
+输出摘要：
+
+```text
+target = Function:src/cli/claude-settings.js:validateClaudeSettingsFile
+impactedCount = 6
+risk = HIGH
+affected_processes = runInitForWorkspace, runCli, runClean, runInitForProject
+```
+
+它还能返回 depth 分组和受影响测试文件，例如 `tests/unit/claude-settings.test.js`。这说明 GitNexus 已具备 CRG blast-radius / related-test 默认用途的上游能力面。
+
+CRG `detect-changes` 对照：
+
+```bash
+uvx code-review-graph@2.3.3 detect-changes --brief --repo /Users/kuang/xiaobu/spec-first
+```
+
+输出摘要：
+
+```text
+Analyzed 74 changed file(s)
+64 changed function(s)/class(es)
+0 affected flow(s)
+7 test gap(s)
+Overall risk score: 0.65
+```
+
+这个样本的含义：
+
+- GitNexus 已经能覆盖 CRG 默认 review-impact 的关键面：changed symbols、affected processes、risk、test hints。
+- 两者输出 shape 不同，CRG 有 `test gap` 风格摘要，GitNexus 有 process/depth/impact 风格摘要。
+- 因此平替瓶颈不是“GitNexus 没有类似能力”，而是 spec-first 还缺 deterministic adapter，把 GitNexus raw output 编译成 canonical impact/review envelope。
+
+### 4.5 当前为什么不能只删 CRG
 
 当前 CRG 仍承担 canonical impact contract。
 
@@ -585,7 +644,7 @@ tool_name = code-review-graph.query
 
 这不是目标态平替，只是删除依赖造成能力断层。
 
-### 4.5 直接平替的验收门槛
+### 4.6 直接平替的验收门槛
 
 要宣称 GitNexus 已直接平替 CRG，至少需要满足：
 
@@ -623,7 +682,7 @@ tests/docs:
 - `$spec-code-review` 的 findings 仍必须由 diff/source/test/contract evidence 确认，不能只凭 graph output 出 finding。
 - live MCP 成功仍只能作为 session-local evidence，不能替代 compiled readiness。
 
-### 4.6 推荐迁移路径：Direct Replacement，不是 Fallback
+### 4.7 推荐迁移路径：Direct Replacement，不是 Fallback
 
 #### Phase 1：GitNexus compiled impact adapter
 
@@ -691,7 +750,7 @@ CRG 在这一阶段最多作为迁移验证开关存在，不进入默认 readin
 - 历史迁移说明。
 - 如果用户自带 CRG，可作为 external optional provider 文档化，但不作为默认 fallback。
 
-### 4.7 推荐决策
+### 4.8 推荐决策
 
 推荐决策是：
 
@@ -703,7 +762,7 @@ CRG 在这一阶段最多作为迁移验证开关存在，不进入默认 readin
 达到验收门槛后删除 CRG 默认 required/provider path。
 ```
 
-这比“CRG optional fallback”更符合当前目标，因为：
+这比“保留 CRG 作为长期备用路径”更符合当前目标，因为：
 
 - 用户心智最终只需要一个 graph provider。
 - setup/bootstrap 成本会下降。
@@ -763,7 +822,7 @@ CRG 在这一阶段最多作为迁移验证开关存在，不进入默认 readin
 
 - 通过。文档保留 `analyze` / `--force` / no-force incremental 的边界。
 - 通过。当前 `graph-facts` 与 `bootstrap-impact-capabilities` 的 CRG 绑定已明确列出。
-- 修正。旧稿“先 CRG optional fallback 再考虑删除”的目标被改为“GitNexus 直接平替，CRG 从默认路径删除”。
+- 修正。旧稿“先保留 CRG 作为长期备用路径再考虑删除”的目标被改为“GitNexus 直接平替，CRG 从默认路径删除”。
 
 ### Round 2：产品目标与架构边界审查
 
