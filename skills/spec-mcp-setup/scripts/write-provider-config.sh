@@ -69,7 +69,35 @@ OUT_DIR="$REPO_ROOT/.spec-first/config"
 PROVIDER_CONFIG="$OUT_DIR/graph-providers.json"
 RUNTIME_CAPABILITIES="$OUT_DIR/runtime-capabilities.json"
 PROVIDER_ARTIFACTS="$OUT_DIR/provider-artifacts.json"
+if [ -L "$REPO_ROOT/.spec-first" ] || [ -L "$OUT_DIR" ]; then
+  jq -n '{
+    repo_config_status:"project-config-symlink-escape",
+    repo_config_path:null,
+    runtime_capabilities_status:"project-config-symlink-escape",
+    runtime_capabilities_path:null,
+    provider_artifacts_status:"project-config-symlink-escape",
+    provider_artifacts_path:null,
+    graph_bootstrap_required:true,
+    reason_code:"project-config-symlink-escape",
+    next_action:"Replace symlinked .spec-first/config with a real repo-local directory and rerun spec-mcp-setup."
+  }'
+  exit 0
+fi
 mkdir -p "$OUT_DIR"
+if [ -L "$REPO_ROOT/.spec-first" ] || [ -L "$OUT_DIR" ]; then
+  jq -n '{
+    repo_config_status:"project-config-symlink-escape",
+    repo_config_path:null,
+    runtime_capabilities_status:"project-config-symlink-escape",
+    runtime_capabilities_path:null,
+    provider_artifacts_status:"project-config-symlink-escape",
+    provider_artifacts_path:null,
+    graph_bootstrap_required:true,
+    reason_code:"project-config-symlink-escape",
+    next_action:"Replace symlinked .spec-first/config with a real repo-local directory and rerun spec-mcp-setup."
+  }'
+  exit 0
+fi
 
 PROJECTION_TMP="$(mktemp "${PROVIDER_CONFIG}.XXXXXX")"
 RUNTIME_TMP="$(mktemp "${RUNTIME_CAPABILITIES}.XXXXXX")"

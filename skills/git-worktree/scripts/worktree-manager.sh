@@ -25,6 +25,22 @@ set -euo pipefail
 GIT_ROOT=$(git worktree list --porcelain | sed -n 's/^worktree //p' | head -n 1)
 WORKTREE_DIR="$GIT_ROOT/.worktrees"
 
+realpath_existing() {
+  local target_path="${1:?Error: path required}"
+  node -e 'const fs = require("fs"); console.log(fs.realpathSync(process.argv[1]));' "$target_path"
+}
+
+realpath_for_new_path() {
+  local target_path="${1:?Error: path required}"
+  node -e 'const fs = require("fs"); const path = require("path"); const target = process.argv[1]; const dir = fs.realpathSync(path.dirname(target)); console.log(path.join(dir, path.basename(target)));' "$target_path"
+}
+
+path_within() {
+  local child_path="${1:?Error: child path required}"
+  local root_path="${2:?Error: root path required}"
+  [[ "$child_path" == "$root_path" || "$child_path" == "$root_path"/* ]]
+}
+
 usage() {
   cat <<'EOF'
 Usage: worktree-manager.sh create [--copy-env] <branch-name> [from-branch]
@@ -44,13 +60,22 @@ EOF
 # inherited by linked worktrees). Falls back to a grep guard to avoid
 # duplicate entries when check-ignore misses an uncommitted gitignore rule.
 ensure_gitignore() {
+  local gitignore_path="$GIT_ROOT/.gitignore"
+  if [[ -L "$gitignore_path" ]]; then
+    echo "Error: refusing to modify symlinked .gitignore" >&2
+    return 1
+  fi
+  if [[ -e "$gitignore_path" && ! -f "$gitignore_path" ]]; then
+    echo "Error: refusing to modify non-file .gitignore" >&2
+    return 1
+  fi
   if (cd "$GIT_ROOT" && git check-ignore -q .worktrees) 2>/dev/null; then
     return
   fi
-  if grep -Fxq ".worktrees" "$GIT_ROOT/.gitignore" 2>/dev/null; then
+  if grep -Fxq ".worktrees" "$gitignore_path" 2>/dev/null; then
     return
   fi
-  echo ".worktrees" >> "$GIT_ROOT/.gitignore"
+  echo ".worktrees" >> "$gitignore_path"
   echo "Added .worktrees to .gitignore"
 }
 
@@ -94,6 +119,8 @@ is_env_example_file() {
 copy_env_files() {
   local worktree_path="$1"
   local copied=0
+  local worktree_real
+  worktree_real=$(realpath_existing "$worktree_path")
 
   ensure_env_copy_log_excluded "$worktree_path"
   shopt -s nullglob
@@ -124,6 +151,21 @@ copy_env_files() {
     local name
     name=$(basename "$source")
     local dest="$worktree_path/$name"
+    local dest_real backup_real
+    if [[ -L "$dest" ]]; then
+      echo "Error: refusing to copy env file through symlink destination: $name" >&2
+      return 1
+    fi
+    if [[ -L "${dest}.backup" ]]; then
+      echo "Error: refusing to overwrite symlinked env backup destination: ${name}.backup" >&2
+      return 1
+    fi
+    dest_real=$(realpath_for_new_path "$dest")
+    backup_real=$(realpath_for_new_path "${dest}.backup")
+    if ! path_within "$dest_real" "$worktree_real" || ! path_within "$backup_real" "$worktree_real"; then
+      echo "Error: env copy destination escapes the worktree: $name" >&2
+      return 1
+    fi
     if [[ -f "$dest" ]]; then
       cp "$dest" "${dest}.backup"
       echo "  Backed up existing $name to ${name}.backup"

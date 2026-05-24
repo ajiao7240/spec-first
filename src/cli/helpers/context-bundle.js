@@ -458,10 +458,12 @@ function isInsidePath(parent, candidate) {
 
 function realPathEscapesRepo(repoRoot, candidate) {
   const repoReal = safeRealpath(repoRoot);
-  const candidateReal = safeRealpath(candidate);
-  if (!repoReal || !candidateReal) {
-    return false;
-  }
+  if (!repoReal) return false;
+  const inspectPath = fs.existsSync(candidate)
+    ? candidate
+    : findExistingAncestor(path.dirname(candidate), repoRoot);
+  const candidateReal = safeRealpath(inspectPath);
+  if (!candidateReal) return false;
   return !isInsidePath(repoReal, candidateReal);
 }
 
@@ -471,6 +473,18 @@ function safeRealpath(value) {
   } catch (_error) {
     return '';
   }
+}
+
+function findExistingAncestor(candidate, stopAt) {
+  let current = path.resolve(candidate);
+  const stop = path.resolve(stopAt);
+  while (!fs.existsSync(current)) {
+    if (current === stop) return stop;
+    const parent = path.dirname(current);
+    if (parent === current) return stop;
+    current = parent;
+  }
+  return current;
 }
 
 function resolveRepoRoot(cwd) {

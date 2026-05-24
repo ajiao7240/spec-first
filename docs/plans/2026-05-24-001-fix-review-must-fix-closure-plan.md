@@ -1,7 +1,7 @@
 ---
 title: "fix: 49 条 must-fix review findings 收敛修复计划"
 type: fix
-status: active
+status: completed
 date: 2026-05-24
 spec_id: 2026-05-24-001-review-must-fix-closure
 origin: 2026-05-23-review.md
@@ -13,9 +13,55 @@ origin: 2026-05-23-review.md
 
 本计划针对 `2026-05-23-review.md` 中按 80/20 口径标为“必须修复”且仍未修复的 49 条 finding，聚合成 8 个实施单元。核心策略是先关闭 deterministic script facts 的 fail-open、repo/workspace artifact symlink escape、P1 PowerShell setup 入口失败和 release/package 硬阻断，再收紧 workflow evidence、task-pack、worktree destructive write 与 Codex dispatch contract。
 
-计划只定义优化方案，不直接实现代码；后续应由 `$spec-work` 分批执行，每批先补回归测试，再做最小源码修改。
+计划已由 `$spec-work` 批次 A-D 分批执行；每批先补回归测试，再做最小源码修改，并同步审查台账、方案进展和 Changelog。当前 `2026-05-23-review.md` 中 68 条必须修复 finding 已全部关闭。
 
 ---
+
+## Execution Progress
+
+> 2026-05-24 当前 `$spec-work` 执行进展。原计划覆盖 49 条 must-fix；经源码复核、批次 A-D 修复与 focused verification 后，当前 68 条必须修复 finding 已全部关闭。下表只记录本次继续执行中已经落地并通过 focused verification 的条目。
+
+| Finding | 状态 | 决策思路 | 代码审查结论 | 验证 |
+| --- | --- | --- | --- | --- |
+| 010 | 已修复 | `context-bundle` 虽不直接读文件，但输出会驱动下游 full-read；因此对不存在目标也必须检查最近已存在 ancestor 的 realpath，拒绝 repo 内 symlink 目录逃逸。 | 修改保持在 context path normalizer 内，没有扩大 context 收集范围；普通不存在 repo 内路径仍允许作为候选 context。 | `npx jest tests/unit/context-bundle-contracts.test.js --runInBand`（随批次 A 运行） |
+| 016 | 已修复 | `spec-work` durable run evidence 长期保存路径引用，路径本身也可能泄露 secret surface；复用既有 `secret-deny-patterns`，不新增独立词表。 | 校验落在 write-side payload validator，覆盖 `plan_path`、`source_refs`、`changed_files`、`read_artifacts` 等统一入口；`.env.example` 等 allowlist 继续由 contract 控制。 | `npx jest tests/unit/spec-work-run-artifact-producer.test.js --runInBand`（随批次 A 运行） |
+| 017 | 已修复 | GitNexus registry/group 是 session-local overlay；同名 repo 只有在 registry path 与 workspace child `git_root` 一致，或缺少可比 path 时才可匹配。 | 只收紧 registry candidate 过滤，不改变 script-mode 或 group classifier 的输出 schema；同名不同路径不再提升为 registry evidence。 | `npx jest tests/unit/workspace-gitnexus-readiness.test.js --runInBand`（随批次 A 运行） |
+| 102 | 已修复 | `.git/**` 不是 source scope，不应进入 closeout/resume evidence；与 secret-deny 同在 repo-relative field validator 中 fail closed。 | 规则只禁止 `.git` 与 `.git/` 前缀，不影响普通含 `git` 字样的源码路径。 | `npx jest tests/unit/spec-work-run-artifact-producer.test.js --runInBand`（随批次 A 运行） |
+| 119 | 已修复 | workflow artifact helper 是多个质量门/benchmark writer 的共同入口；在 root 存在时用真实 ancestor containment 拒绝 symlinked `.spec-first/workflows`。 | helper 仍返回确定性路径，不创建目录；不存在的示例 root 保持兼容，真实 repo 写入前获得边界保护。 | `npx jest tests/unit/workflow-artifact-paths.test.js --runInBand`（随批次 A 运行） |
+| 120 | 已修复 | lightweight schema validator 已被多个 deterministic contract consumer 使用，不能忽略 `$ref`；实现本地 JSON Pointer `$ref` 支持并对外部/非法 ref fail closed。 | 仅支持本仓库 schema 需要的本地 `$defs` / JSON Pointer，不引入完整 JSON Schema engine 或复杂状态机。 | `npx jest tests/unit/schema-validator-contracts.test.js --runInBand`（随批次 A 运行） |
+| 107 | 已修复 | task-pack `files[]` 是下游 work 的直接读写范围，不能持久化 secret surface；复用 `isSecretDeniedPath()` 而不是在 task-pack 单独维护词表。 | 校验集中在 task-pack contract validator，既覆盖 task cards，也覆盖 compact execution focus 的来源；没有改变合法 repo-relative source path 语义。 | `npx jest tests/unit/task-pack-command.test.js --runInBand`（随批次 B 运行） |
+| 108 | 已修复 | `expected_side_effects[]` 是允许副作用的声明面，也必须拒绝 `.env`、private key 等 secret-denied path；bounded glob 只保留给安全 source/runtime 外路径。 | 实现保留既有 bounded glob 能力，只在 glob base 命中 secret/runtime mirror 时 fail closed，避免把 optional side effect 扩成 secret 泄露通道。 | `npx jest tests/unit/task-pack-command.test.js --runInBand`（随批次 B 运行） |
+| 109 | 已修复 | parent workspace 下 `target_repo` 是写入 scope authority，不能是任意字符串；允许 `.` 和安全 repo-relative path，拒绝 absolute、drive、backslash、`..` 和 generated runtime mirror。 | `target_repo` validator 与 path validator 同层执行，并投影到 compact `execution_focus[]`，避免 plan-to-work handoff 丢失 repo scope。 | `npx jest tests/unit/task-pack-command.test.js --runInBand`（随批次 B 运行） |
+| 110 | 已修复 | `execution_focus[]` 是 `$spec-work` 的压缩执行入口，必须携带 task-pack 的 `target_repo`，否则多仓写入 scope 会在 compact handoff 中丢失。 | 只新增 repo scope 字段，不把 `execution_focus[]` 升级为进度状态或审批状态；保持 deterministic facts 与 LLM 判断边界。 | `npx jest tests/unit/task-pack-command.test.js --runInBand`（随批次 B 运行） |
+| 147 | 已修复 | generated runtime mirror root 本身和子路径同样不是 source scope；`.claude`、`.codex`、`.agents/skills` 三个 root 都应在 task-pack handoff 中 fail closed。 | deny helper 同时覆盖 root 与 descendants，没有阻断普通 source 目录，也没有手改 generated runtime mirrors。 | `npx jest tests/unit/task-pack-command.test.js --runInBand`（随批次 B 运行） |
+| 026 | 已修复 | PowerShell `install-mcp.ps1` 作为 deterministic facts producer，单项结果也必须稳定序列化为 JSON array，避免 downstream 把 object/array shape 当作语义分支。 | 只在 PowerShell list parsing 与 final payload 处强制 array shape，不改变 Bash 行为和 install contract 字段。 | `npx jest tests/unit/mcp-setup-powershell-contracts.test.js --runInBand`（随批次 C 运行） |
+| 075 | 已修复 | provider config 是 setup-owned artifact，`.spec-first/config` symlink escape 会把本应 repo-local 的 provider facts 写到 repo 外；写入前必须 realpath containment。 | fail-closed reason 收敛为 `project-config-symlink-escape`，未引入额外 provider 判断逻辑，保持 script-owned filesystem fact 边界。 | `bash tests/unit/mcp-setup.sh`（随批次 C 运行） |
+| 085 | 已修复 | `--all-repos` summary 只要存在 child 非 ready，就不能返回整体成功；否则 parent workspace caller 会误判所有 child 可继续。 | 将 `overall_status != ready` 统一映射为 exit 1，保留 JSON summary 供 LLM 解释哪个 child 需要 action。 | `bash tests/unit/mcp-setup.sh`（随批次 C 运行） |
+| 086 | 已修复 | verify-tools workspace summary 是 parent advisory artifact，必须拒绝 `.spec-first` / `.spec-first/workspace` / final file symlink escape。 | Bash 与 PowerShell summary writer 使用同一 containment 口径，reason code 为 `workspace-summary-symlink-escape`。 | `bash tests/unit/mcp-setup.sh`; `npx jest tests/unit/mcp-setup-powershell-contracts.test.js --runInBand`（随批次 C 运行） |
+| 089 | 已修复 | graph bootstrap workspace summary 与 mcp setup summary 属于同类 parent artifact，不能允许 provider bootstrap 写到 repo 外。 | Bash/PowerShell graph bootstrap helper 复用 summary containment 口径，避免建立第二套语义判断。 | `bash tests/unit/spec-graph-bootstrap.sh`; `npx jest tests/unit/bootstrap-providers-powershell-contracts.test.js --runInBand`（随批次 C 运行） |
+| 091 | 已修复 | install-mcp `--all-repos` summary 也会生成 parent workspace artifact，必须与 verify/bootstrap summary 保持同等 symlink containment。 | 拒绝 symlinked `.spec-first`、workspace dir 和最终 summary path；不改变普通 all-repos install flow。 | `bash tests/unit/mcp-setup.sh`; `npx jest tests/unit/mcp-setup-powershell-contracts.test.js --runInBand`（随批次 C 运行） |
+| 092 | 已修复 | project config all-repos 部分失败时若 exit 0，会让 setup workflow 误认为所有 child 已可用；必须 fail closed。 | `overall_status != ready` 一律 exit 1，同时保留 per-child result 供后续 LLM 判断。 | `bash tests/unit/mcp-setup.sh`（随批次 C 运行） |
+| 093 | 已修复 | project config workspace summary 与 provider/config artifacts 同属 `.spec-first` trust boundary，必须拒绝 symlink escape。 | containment 只覆盖 filesystem write boundary，不改变 project config schema 与 downstream consumption。 | `bash tests/unit/mcp-setup.sh`; `npx jest tests/unit/mcp-setup-powershell-contracts.test.js --runInBand`（随批次 C 运行） |
+| 096 | 已修复 | workspace graph targets summary 是 graph bootstrap 的 repo-scope advisory facts，symlinked workspace dir 会破坏 parent workspace 边界。 | Bash 与 PowerShell target resolver 均拒绝 symlink escape，保持 workspace target discovery 与写入防护分离。 | `bash tests/unit/spec-graph-bootstrap.sh`; `npx jest tests/unit/bootstrap-providers-powershell-contracts.test.js --runInBand`（随批次 C 运行） |
+| 099 | 已修复 | `bootstrap-project-config` 会写 `.spec-first/config`，必须拒绝 `.spec-first` 或 config dir symlink，而不是只依赖文本路径。 | 失败 reason 使用 `project-config-symlink-escape`，并覆盖 Bash/PowerShell parity。 | `bash tests/unit/mcp-setup.sh`; `npx jest tests/unit/mcp-setup-powershell-contracts.test.js --runInBand`（随批次 C 运行） |
+| 100 | 已修复 | `.gitignore` 是 repo-local mutation surface；如果它是 symlink，setup 不能跟随写入 repo 外文件。 | `bootstrap-project-config` 在 `.gitignore` symlink 时以 `gitignore-symlink-escape` fail closed，正常普通文件追加仍保持。 | `bash tests/unit/mcp-setup.sh`; `npx jest tests/unit/mcp-setup-powershell-contracts.test.js --runInBand`（随批次 C 运行） |
+| 008 | 已修复 | `refresh_eligibility` 与 `index_snapshot` 是 script-owned enum facts，不能共用一个宽松 helper；分别使用闭合词表并将未知值降级到安全 fallback。 | 只收紧 readiness payload 的 enum normalization，不改变 `query_usability` 现有 script/overlay 分层；新增未知三轴 fixture 证明 counts 仍闭合。 | `npx jest tests/unit/workspace-gitnexus-readiness.test.js --runInBand`（随批次 D 运行） |
+| 014 | 已修复 | durable run artifact 只能保存 compact evidence，不能允许 `script_confirmed` / `provider_untrusted` 通过 unknown field 存 raw transcript。 | producer validator 与 JSON schema 同步闭合字段集合，并给 provider summaries 加数量上限；保留显式 summary surface，不新增 extension 机制。 | `npx jest tests/unit/spec-work-run-artifact-producer.test.js tests/unit/spec-work-run-artifact-contract.test.js --runInBand`（随批次 D 运行） |
+| 056 | 已修复 | Codex `spawn_agent` 授权来自用户或上游对 subagents/parallel/delegation 的明确请求，不能由 `$spec-doc-review` 普通入口代替。 | skill prose 改为 capability + authorization 双 gate；未授权时 report-only fallback 并记录 `dispatch_authorization_missing`，不突破宿主工具契约。2026-05-24 经用户明确授权后已执行 fresh-source subagent eval，结果 `passed`，无 findings；runtime mirrors 未作为 source 证据。 | `npx jest tests/unit/spec-doc-review-contracts.test.js --runInBand`（随批次 D 运行）；fresh-source subagent eval `passed` |
+| 063 | 已修复 | `applyOperationPlan()` 是 managed runtime/source writes 的共同执行器，必须在所有操作前检查真实 ancestor containment。 | shared guard 位于 operation executor 层，覆盖 write/update/ensure/remove/prune/untrack 的 common path；测试证明 symlink ancestor 不写、不删 repo 外。 | `npx jest tests/unit/atomic-write.test.js --runInBand`（随批次 D 运行） |
+| 065 | 已修复 | workspace init summary 不经过 operation plan，必须在自身 writer 前做 repo-local containment。 | 在 summary writer 前 fail closed 为 `workspace-summary-symlink-escape`；保持 parent workspace summary schema 与普通写入路径不变。 | `npx jest tests/unit/init-dry-run.test.js --runInBand`（随批次 D 运行） |
+| 111 | 已修复 | cleanup 是 destructive operation，`spec_name` 必须是 safe slug，fallback `rm -rf` 前必须证明目标真实路径仍在 `.worktrees` 内。 | Bash helper 增加 spec slug validation 与 `.worktrees` / target realpath containment；测试覆盖 traversal 和 symlink target 两类删除逃逸。 | `npx jest tests/unit/high-risk-execution-contracts.test.js --runInBand`（随批次 D 运行） |
+| 112 | 已修复 | `.gitignore` 是主仓库写入面，不能跟随 symlink 追加 `.worktrees`。 | `worktree-manager.sh` 在写入前拒绝 symlink 和非普通 `.gitignore`；不改变普通缺失/普通文件追加行为。 | `npx jest tests/unit/git-worktree-contracts.test.js --runInBand`（随批次 D 运行） |
+| 113 | 已修复 | `--copy-env` 是 secret-bearing opt-in，只授权复制到新 worktree 内部普通文件，不授权覆盖 symlink target。 | env copy 前拒绝 symlinked destination / backup 并确认 realpath 在 worktree 内；测试覆盖 tracked symlink `.env` 分支。 | `npx jest tests/unit/git-worktree-contracts.test.js --runInBand`（随批次 D 运行） |
+| 114 | 已修复 | release guard 是 deterministic facts producer，缺失 catalog 也必须输出 schema-valid failure envelope。 | `checkRuntimeCatalogFresh()` 捕获 missing/unreadable catalog 并返回 blocking guard；`runChecks()` 隔离单 guard 异常，JSON mode 测试证明仍输出完整 envelope。 | `npx jest tests/unit/release-continuity-guard.test.js --runInBand`（随批次 D 运行） |
+
+批次 A 额外验证：`npx jest tests/unit/context-bundle-contracts.test.js tests/unit/spec-work-run-artifact-producer.test.js tests/unit/workspace-gitnexus-readiness.test.js tests/unit/workflow-artifact-paths.test.js tests/unit/schema-validator-contracts.test.js --runInBand` 5 suites / 66 tests passed；`npm run typecheck` passed。
+
+批次 B 额外验证：`npx jest tests/unit/task-pack-command.test.js --runInBand` 1 suite / 48 tests passed；`npm run typecheck` passed。
+
+批次 C 额外验证：`npx jest tests/unit/mcp-setup-powershell-contracts.test.js tests/unit/bootstrap-providers-powershell-contracts.test.js --runInBand` passed；`bash tests/unit/mcp-setup.sh` passed；`bash tests/unit/spec-graph-bootstrap.sh` passed；`npm run typecheck` passed。
+
+批次 D 额外验证：`npx jest tests/unit/atomic-write.test.js tests/unit/init-dry-run.test.js tests/unit/high-risk-execution-contracts.test.js tests/unit/git-worktree-contracts.test.js tests/unit/release-continuity-guard.test.js tests/unit/workspace-gitnexus-readiness.test.js tests/unit/spec-work-run-artifact-producer.test.js tests/unit/spec-work-run-artifact-contract.test.js tests/unit/spec-doc-review-contracts.test.js --runInBand` 9 suites / 121 tests passed。
 
 ## Problem Frame
 

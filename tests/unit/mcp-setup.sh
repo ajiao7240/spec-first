@@ -291,7 +291,7 @@ assert_eq "browser MCP is not registered" "false" "$(jq -r '[.tools[].id] | any(
 assert_eq "graph provider roles are configured" "global_knowledge,impact_context" "$(jq -r '[.tools[] | select(.category == "graph-provider") | .provider_role] | join(",")' "$TOOLS_JSON")"
 assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
 assert_eq "code-review-graph host MCP is optional" "false:cli_artifact:true" "$(jq -r '.tools[] | select(.id == "code-review-graph") | "\(.host_config_required):\(.provider_config.access_mode):\(.provider_config.optional_live_mcp)"' "$TOOLS_JSON")"
-assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.4" "$GITNEXUS_PACKAGE"
+assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.5" "$GITNEXUS_PACKAGE"
 assert_eq "code-review-graph package pin is explicit" "code-review-graph@2.3.3" "$CODE_REVIEW_GRAPH_PACKAGE"
 assert_eq "GitNexus native capability keys are locked" "context,cypher,impact,query,repo_registry,route_api_evidence,shape_check,tool_map,workspace_group" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | keys | sort | join(",")' "$TOOLS_JSON")"
 assert_eq "GitNexus native capability registry uses locked fields" "true" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | to_entries | all(.value | (keys | sort | join(",")) == "fallback_posture,meaning,mutation_boundary,native_resources,native_tools,source_tags")' "$TOOLS_JSON")"
@@ -751,6 +751,47 @@ assert "bootstrap-project-config parent default writes child a local config" tes
 assert "bootstrap-project-config parent default writes child b local config" test -f "$PROJECT_CONFIG_WORKSPACE/project-b/.spec-first/config.local.yaml"
 assert "bootstrap-project-config parent default does not write parent config" test ! -e "$PROJECT_CONFIG_WORKSPACE/.spec-first/config.local.yaml"
 
+PROJECT_CONFIG_SUMMARY_SYMLINK_WORKSPACE="$TMP_DIR/project-config-summary-symlink-workspace"
+PROJECT_CONFIG_SUMMARY_SYMLINK_OUTSIDE="$TMP_DIR/project-config-summary-outside"
+make_repo "$PROJECT_CONFIG_SUMMARY_SYMLINK_WORKSPACE/project-a"
+make_repo "$PROJECT_CONFIG_SUMMARY_SYMLINK_WORKSPACE/project-b"
+mkdir -p "$PROJECT_CONFIG_SUMMARY_SYMLINK_WORKSPACE/.spec-first" "$PROJECT_CONFIG_SUMMARY_SYMLINK_OUTSIDE"
+ln -s "$PROJECT_CONFIG_SUMMARY_SYMLINK_OUTSIDE" "$PROJECT_CONFIG_SUMMARY_SYMLINK_WORKSPACE/.spec-first/workspace"
+set +e
+project_config_symlink_output="$(cd "$PROJECT_CONFIG_SUMMARY_SYMLINK_WORKSPACE" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --all-repos --create-local --json 2>/dev/null)"
+project_config_symlink_status=$?
+set -e
+assert_eq "bootstrap-project-config refuses symlinked workspace summary" "1" "$project_config_symlink_status"
+assert_eq "bootstrap-project-config symlink summary reason" "workspace-summary-symlink-escape" "$(jq -r '.reason_code' <<<"$project_config_symlink_output")"
+assert "bootstrap-project-config does not write summary outside workspace" test ! -e "$PROJECT_CONFIG_SUMMARY_SYMLINK_OUTSIDE/project-config-bootstrap-summary.json"
+
+PROJECT_SPEC_SYMLINK_REPO="$TMP_DIR/project-spec-symlink-repo"
+PROJECT_SPEC_SYMLINK_OUTSIDE="$TMP_DIR/project-spec-symlink-outside"
+make_repo "$PROJECT_SPEC_SYMLINK_REPO"
+mkdir -p "$PROJECT_SPEC_SYMLINK_OUTSIDE"
+ln -s "$PROJECT_SPEC_SYMLINK_OUTSIDE" "$PROJECT_SPEC_SYMLINK_REPO/.spec-first"
+set +e
+project_spec_symlink_output="$(cd "$PROJECT_SPEC_SYMLINK_REPO" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --create-local --json 2>/dev/null)"
+project_spec_symlink_status=$?
+set -e
+assert_eq "bootstrap-project-config refuses symlinked .spec-first" "1" "$project_spec_symlink_status"
+assert_eq "bootstrap-project-config .spec-first symlink reason" "project-config-symlink-escape" "$(jq -r '.reason' <<<"$project_spec_symlink_output")"
+assert "bootstrap-project-config does not write local config outside repo" test ! -e "$PROJECT_SPEC_SYMLINK_OUTSIDE/config.local.yaml"
+
+PROJECT_GITIGNORE_SYMLINK_REPO="$TMP_DIR/project-gitignore-symlink-repo"
+PROJECT_GITIGNORE_OUTSIDE="$TMP_DIR/project-gitignore-outside"
+make_repo "$PROJECT_GITIGNORE_SYMLINK_REPO"
+printf 'outside\n' > "$PROJECT_GITIGNORE_OUTSIDE"
+rm -f "$PROJECT_GITIGNORE_SYMLINK_REPO/.gitignore"
+ln -s "$PROJECT_GITIGNORE_OUTSIDE" "$PROJECT_GITIGNORE_SYMLINK_REPO/.gitignore"
+set +e
+project_gitignore_symlink_output="$(cd "$PROJECT_GITIGNORE_SYMLINK_REPO" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --ensure-gitignore --json 2>/dev/null)"
+project_gitignore_symlink_status=$?
+set -e
+assert_eq "bootstrap-project-config refuses symlinked gitignore" "1" "$project_gitignore_symlink_status"
+assert_eq "bootstrap-project-config gitignore symlink reason" "gitignore-symlink-escape" "$(jq -r '.reason' <<<"$project_gitignore_symlink_output")"
+assert_eq "bootstrap-project-config leaves outside gitignore target unchanged" "outside" "$(cat "$PROJECT_GITIGNORE_OUTSIDE")"
+
 install_mcp_log="$TMP_DIR/install-mcp.log"
 install_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" 2>"$install_mcp_log")"
 assert "install-mcp emits JSON" jq -e . <<<"$install_output"
@@ -838,6 +879,20 @@ assert_eq "install-mcp --all-repos reports all child success" "ready:2:0" "$(jq 
 assert "install-mcp --all-repos writes advisory workspace summary" test -f "$MCP_ALL_REPOS_WORKSPACE/.spec-first/workspace/mcp-setup-summary.json"
 assert "install-mcp --all-repos does not write parent project config" test ! -e "$MCP_ALL_REPOS_WORKSPACE/.spec-first/config"
 
+MCP_SETUP_SUMMARY_SYMLINK_WORKSPACE="$TMP_DIR/mcp-setup-summary-symlink-workspace"
+MCP_SETUP_SUMMARY_SYMLINK_OUTSIDE="$TMP_DIR/mcp-setup-summary-outside"
+make_repo "$MCP_SETUP_SUMMARY_SYMLINK_WORKSPACE/project-a"
+make_repo "$MCP_SETUP_SUMMARY_SYMLINK_WORKSPACE/project-b"
+mkdir -p "$MCP_SETUP_SUMMARY_SYMLINK_WORKSPACE/.spec-first" "$MCP_SETUP_SUMMARY_SYMLINK_OUTSIDE"
+ln -s "$MCP_SETUP_SUMMARY_SYMLINK_OUTSIDE" "$MCP_SETUP_SUMMARY_SYMLINK_WORKSPACE/.spec-first/workspace"
+set +e
+mcp_setup_symlink_output="$(cd "$MCP_SETUP_SUMMARY_SYMLINK_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_ALL_REPOS_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --all-repos --only __no_such_tool__ 2>/dev/null)"
+mcp_setup_symlink_status=$?
+set -e
+assert_eq "install-mcp refuses symlinked workspace summary" "1" "$mcp_setup_symlink_status"
+assert_eq "install-mcp symlink summary reason" "workspace-summary-symlink-escape" "$(jq -r '.reason_code' <<<"$mcp_setup_symlink_output")"
+assert "install-mcp does not write summary outside workspace" test ! -e "$MCP_SETUP_SUMMARY_SYMLINK_OUTSIDE/mcp-setup-summary.json"
+
 set +e
 all_repos_conflict_output="$(cd "$MCP_ALL_REPOS_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_ALL_REPOS_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" --all-repos --repo project-a 2>/dev/null)"
 all_repos_conflict_status=$?
@@ -861,6 +916,38 @@ assert "verify-tools --all-repos writes advisory workspace summary" test -f "$MC
 assert "verify-tools --all-repos writes child provider projection" test -f "$MCP_ALL_REPOS_WORKSPACE/project-a/.spec-first/config/graph-providers.json"
 assert "verify-tools --all-repos does not write parent graph facts" test ! -e "$MCP_ALL_REPOS_WORKSPACE/.spec-first/graph"
 assert "verify-tools --all-repos does not write parent provider projection" test ! -e "$MCP_ALL_REPOS_WORKSPACE/.spec-first/config/graph-providers.json"
+
+MCP_VERIFY_PARTIAL_WORKSPACE="$TMP_DIR/mcp-verify-partial-workspace"
+MCP_VERIFY_PARTIAL_HOME="$TMP_DIR/mcp-verify-partial-home"
+MCP_VERIFY_PARTIAL_OUTSIDE="$TMP_DIR/mcp-verify-partial-outside"
+make_repo "$MCP_VERIFY_PARTIAL_WORKSPACE/project-a"
+make_repo "$MCP_VERIFY_PARTIAL_WORKSPACE/project-b"
+mkdir -p "$MCP_VERIFY_PARTIAL_HOME"
+cp -R "$MCP_ALL_REPOS_HOME"/. "$MCP_VERIFY_PARTIAL_HOME"/
+mkdir -p "$MCP_VERIFY_PARTIAL_WORKSPACE/project-b/.spec-first" "$MCP_VERIFY_PARTIAL_OUTSIDE"
+ln -s "$MCP_VERIFY_PARTIAL_OUTSIDE" "$MCP_VERIFY_PARTIAL_WORKSPACE/project-b/.spec-first/config"
+set +e
+verify_partial_output="$(cd "$MCP_VERIFY_PARTIAL_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_VERIFY_PARTIAL_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh" --all-repos 2>/dev/null)"
+verify_partial_status=$?
+set -e
+assert_eq "verify-tools --all-repos exits non-zero on partial" "1" "$verify_partial_status"
+assert_eq "verify-tools --all-repos partial status" "partial:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$verify_partial_output")"
+assert_eq "verify-tools records child provider config symlink escape" "project-config-symlink-escape" "$(jq -r '.results[] | select(.workspace_relative_path=="project-b") | .result.repo_config_status' <<<"$verify_partial_output")"
+assert "verify-tools does not write provider config through child symlink" test ! -e "$MCP_VERIFY_PARTIAL_OUTSIDE/graph-providers.json"
+
+MCP_VERIFY_SUMMARY_SYMLINK_WORKSPACE="$TMP_DIR/mcp-verify-summary-symlink-workspace"
+MCP_VERIFY_SUMMARY_SYMLINK_OUTSIDE="$TMP_DIR/mcp-verify-summary-outside"
+make_repo "$MCP_VERIFY_SUMMARY_SYMLINK_WORKSPACE/project-a"
+make_repo "$MCP_VERIFY_SUMMARY_SYMLINK_WORKSPACE/project-b"
+mkdir -p "$MCP_VERIFY_SUMMARY_SYMLINK_WORKSPACE/.spec-first" "$MCP_VERIFY_SUMMARY_SYMLINK_OUTSIDE"
+ln -s "$MCP_VERIFY_SUMMARY_SYMLINK_OUTSIDE" "$MCP_VERIFY_SUMMARY_SYMLINK_WORKSPACE/.spec-first/workspace"
+set +e
+verify_summary_symlink_output="$(cd "$MCP_VERIFY_SUMMARY_SYMLINK_WORKSPACE" && PATH="$TEST_PATH" HOME="$MCP_VERIFY_PARTIAL_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh" --all-repos 2>/dev/null)"
+verify_summary_symlink_status=$?
+set -e
+assert_eq "verify-tools refuses symlinked workspace summary" "1" "$verify_summary_symlink_status"
+assert_eq "verify-tools symlink summary reason" "workspace-summary-symlink-escape" "$(jq -r '.reason_code' <<<"$verify_summary_symlink_output")"
+assert "verify-tools does not write summary outside workspace" test ! -e "$MCP_VERIFY_SUMMARY_SYMLINK_OUTSIDE/mcp-verify-summary.json"
 
 detect_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh")"
 assert "detect-tools emits JSON" jq -e . <<<"$detect_output"

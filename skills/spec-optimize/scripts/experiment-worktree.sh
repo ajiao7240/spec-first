@@ -104,6 +104,32 @@ path_within() {
   [[ "$path" == "$root" || "$path" == "$root"/* ]]
 }
 
+validate_safe_spec_name() {
+  local spec_name="${1:?Error: spec_name required}"
+  if [[ ! "$spec_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ || "$spec_name" == *..* ]]; then
+    echo -e "${RED}Error: unsafe spec_name. Use only letters, numbers, dot, underscore, and dash; path traversal is not allowed.${NC}" >&2
+    return 1
+  fi
+}
+
+assert_cleanup_target_within_worktrees() {
+  local worktree_path="${1:?Error: worktree_path required}"
+  local git_root_real worktree_dir_real worktree_real
+
+  git_root_real=$(realpath_existing "$GIT_ROOT")
+  worktree_dir_real=$(realpath_existing "$WORKTREE_DIR")
+  if ! path_within "$worktree_dir_real" "$git_root_real"; then
+    echo -e "${RED}Error: .worktrees escapes the git root; refusing cleanup.${NC}" >&2
+    return 1
+  fi
+
+  worktree_real=$(realpath_existing "$worktree_path")
+  if ! path_within "$worktree_real" "$worktree_dir_real"; then
+    echo -e "${RED}Error: cleanup target escapes .worktrees; refusing cleanup: $worktree_path${NC}" >&2
+    return 1
+  fi
+}
+
 run_secret_deny_helper() {
   local mode="${1:?Error: mode required}"
   local target_path="${2:?Error: path required}"
@@ -305,6 +331,7 @@ create_worktree() {
   local exp_index="${2:?Error: exp_index required}"
   local base_branch="${3:?Error: base_branch required}"
   shift 3
+  validate_safe_spec_name "$spec_name"
 
   local padded_index
   padded_index=$(printf "%03d" "$exp_index")
@@ -365,6 +392,7 @@ create_worktree() {
 cleanup_worktree() {
   local spec_name="${1:?Error: spec_name required}"
   local exp_index="${2:?Error: exp_index required}"
+  validate_safe_spec_name "$spec_name"
 
   local padded_index
   padded_index=$(printf "%03d" "$exp_index")
@@ -374,6 +402,7 @@ cleanup_worktree() {
   local worktree_path="$WORKTREE_DIR/$worktree_name"
 
   if [[ -d "$worktree_path" ]]; then
+    assert_cleanup_target_within_worktrees "$worktree_path"
     git worktree remove "$worktree_path" --force 2>/dev/null || {
       # If worktree remove fails, try manual cleanup
       rm -rf "$worktree_path" 2>/dev/null || true
@@ -390,6 +419,7 @@ cleanup_worktree() {
 # Clean up all experiment worktrees for a spec
 cleanup_all() {
   local spec_name="${1:?Error: spec_name required}"
+  validate_safe_spec_name "$spec_name"
   local prefix="optimize-${spec_name}-exp-"
   local count=0
 
@@ -397,9 +427,17 @@ cleanup_all() {
     echo -e "${YELLOW}No worktrees directory found${NC}" >&2
     return 0
   fi
+  local git_root_real worktree_dir_real
+  git_root_real=$(realpath_existing "$GIT_ROOT")
+  worktree_dir_real=$(realpath_existing "$WORKTREE_DIR")
+  if ! path_within "$worktree_dir_real" "$git_root_real"; then
+    echo -e "${RED}Error: .worktrees escapes the git root; refusing cleanup.${NC}" >&2
+    return 1
+  fi
 
   for worktree_path in "$WORKTREE_DIR"/${prefix}*; do
     if [[ -d "$worktree_path" ]]; then
+      assert_cleanup_target_within_worktrees "$worktree_path"
       local worktree_name
       worktree_name=$(basename "$worktree_path")
       # Extract index from name

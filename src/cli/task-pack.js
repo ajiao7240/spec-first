@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { isSecretDeniedPath } = require('./helpers/secret-deny-patterns');
 
 const CANONICALIZATION_VERSION = 'source-plan-body-v1';
 const TASK_PACK_SCHEMA_VERSION = 'task-pack/v1';
@@ -44,6 +45,7 @@ const GENERATED_RUNTIME_MIRROR_PREFIXES = [
   '.codex/',
   '.agents/skills/',
 ];
+const GENERATED_RUNTIME_MIRROR_ROOTS = new Set(['.claude', '.codex', '.agents/skills']);
 
 function normalizeNewlines(text) {
   return String(text).replace(/\r\n?/g, '\n');
@@ -230,7 +232,13 @@ function isConcreteRepoRelativeFile(filePath) {
 function isGeneratedRuntimeMirrorPath(filePath) {
   if (typeof filePath !== 'string') return false;
   const normalized = filePath.replace(/\\/g, '/');
-  return GENERATED_RUNTIME_MIRROR_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+  return GENERATED_RUNTIME_MIRROR_ROOTS.has(normalized)
+    || GENERATED_RUNTIME_MIRROR_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+}
+
+function isSafeRepoRelativeScope(value) {
+  if (value === '.') return true;
+  return isConcreteRepoRelativeFile(value);
 }
 
 function isSafeExpectedSideEffectPattern(pattern) {
@@ -239,6 +247,7 @@ function isSafeExpectedSideEffectPattern(pattern) {
   if (pattern.includes('\\')) return false;
   if (path.isAbsolute(pattern)) return false;
   if (isGeneratedRuntimeMirrorPath(pattern)) return false;
+  if (isSecretDeniedPath(pattern)) return false;
   if (pattern.includes('**')) return false;
   if (pattern.includes('...')) return false;
   if (pattern.endsWith('/')) return false;
@@ -504,6 +513,7 @@ function validateTaskPack(taskPackPath, options = {}) {
       stop_if: task.stop_if || null,
       review_gate: task.review_gate || null,
       review_focus: task.review_focus || null,
+      target_repo: task.target_repo || null,
       expected_side_effects: Array.isArray(task.expected_side_effects) ? task.expected_side_effects : [],
     }));
   }
@@ -601,8 +611,22 @@ function validateTaskPackContract(contract, repoRoot, errors, limitations) {
       'risk_note',
       'notes',
       'handoff_owner',
-      'target_repo',
     ], errors);
+
+    if (task.target_repo !== undefined && task.target_repo !== null && task.target_repo !== '') {
+      if (!isNonEmptyString(task.target_repo)) {
+        addFinding(errors, 'task-pack-task-target-repo-invalid', `Task '${task.task_id || '<unknown>'}' 'target_repo' must be a non-empty string.`, {
+          task_id: task.task_id || null,
+          field: 'target_repo',
+        });
+      } else if (!isSafeRepoRelativeScope(task.target_repo) || isGeneratedRuntimeMirrorPath(task.target_repo) || isSecretDeniedPath(task.target_repo)) {
+        addFinding(errors, 'task-pack-task-target-repo-invalid', `Task '${task.task_id || '<unknown>'}' 'target_repo' must be a safe repo-relative scope.`, {
+          task_id: task.task_id || null,
+          field: 'target_repo',
+          value: task.target_repo,
+        });
+      }
+    }
 
     if (task.review_gate !== undefined && !ALLOWED_REVIEW_GATES.has(task.review_gate)) {
       addFinding(errors, 'task-pack-task-review-gate-invalid', `Task '${task.task_id || '<unknown>'}' 'review_gate' must be 'optional' or 'required' when provided.`, {
@@ -681,6 +705,12 @@ function validateTaskPackContract(contract, repoRoot, errors, limitations) {
         }
         if (isGeneratedRuntimeMirrorPath(filePath)) {
           addFinding(errors, 'task-pack-task-file-generated-runtime', `Task '${task.task_id || '<unknown>'}' file points at a generated runtime mirror path.`, {
+            task_id: task.task_id || null,
+            file: filePath,
+          });
+        }
+        if (isSecretDeniedPath(filePath)) {
+          addFinding(errors, 'task-pack-task-file-secret-denied', `Task '${task.task_id || '<unknown>'}' file points at a secret-denied path.`, {
             task_id: task.task_id || null,
             file: filePath,
           });

@@ -182,19 +182,18 @@ describe('spec-doc-review best-judgment wording contract', () => {
     const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
 
     expect(skill).toContain('Dispatch Capability Gate');
-    expect(skill).toContain('Dispatch capability is part of the runtime boundary, not a reviewer-selection preference.');
-    expect(skill).toContain('authorizes this documented persona-reviewer phase; do not ask for a second "use subagents" confirmation');
-    expect(skill).toContain('For Codex, a direct `$spec-doc-review` invocation is the explicit user request for sub-agents/parallel reviewer work required by `spawn_agent` for this bounded phase.');
-    expect(skill).toContain('It authorizes only the selected document-review persona agents, not unrelated exploration, implementation, or hidden helper agents.');
-    expect(skill).toContain('Default doc-review posture is multi-persona reviewer dispatch.');
-    expect(skill).toContain('Do not interpret the absence of extra "use subagents" wording as report-only fallback');
+    expect(skill).toContain('Dispatch capability and dispatch authorization are runtime boundaries, not reviewer-selection preferences.');
+    expect(skill).toContain('A direct invocation of the current host\'s document-review workflow entrypoint authorizes the doc-review workflow itself');
+    expect(skill).toContain('it does not automatically authorize host-level subagent tools whose contract requires explicit subagent, delegation, or parallel-agent wording.');
+    expect(skill).toContain('For Codex, a direct `$spec-doc-review` invocation alone is not an explicit `spawn_agent` authorization.');
+    expect(skill).toContain('Call `spawn_agent` only when the user explicitly requests subagents, parallel agents, delegated review, or persona reviewer dispatch');
+    expect(skill).toContain('Default doc-review posture is multi-persona analysis.');
+    expect(skill).toContain('Use bounded reviewer dispatch when both host capability and authorization are present');
     expect(skill).toContain('`mode:headless` is not a dispatch-disabling flag');
-    expect(skill).toContain('Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex.');
+    expect(skill).toContain('Codex supports reviewer dispatch through `spawn_agent` only when the current request satisfies the runtime tool authorization contract.');
     expect(skill).toContain('Do not call `spawn_agent` solely because a persona profile exists');
-    expect(skill).toContain('workflow\'s documented document-review phase and host capability select it');
-    expect(skill).toContain('Do not report `safety_boundary_not_met` merely because the user did not repeat "use subagents"');
-    expect(skill).toContain('attempted work outside this documented reviewer phase');
-    expect(skill).toContain('Never state or imply that fallback happened because the user did not additionally request subagents');
+    expect(skill).toContain('or because `$spec-doc-review` was invoked.');
+    expect(skill).toContain('If dispatch capability exists but explicit authorization is absent, record `dispatch_authorization_missing`');
     expect(skill).toContain('user explicitly requests report-only/no-agents mode');
     expect(skill).toContain('set `single_agent_report_only_fallback: true`');
     expect(skill).toContain('Treat the effective mode as report-only');
@@ -202,6 +201,7 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('include at least one concrete reason code');
     expect(skill).toContain('user_requested_report_only');
     expect(skill).toContain('user_requested_no_agents');
+    expect(skill).toContain('dispatch_authorization_missing');
     expect(skill).toContain('dispatch_unavailable');
     expect(skill).toContain('runtime_dispatch_failed');
     expect(skill).toContain('safety_boundary_not_met');
@@ -213,7 +213,7 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('do not bundle multiple document-review personas into one sub-agent prompt');
     expect(skill).toContain('omit `agent_type`');
     expect(skill).not.toContain('Dispatch all agents in **parallel**');
-    expect(skill).not.toContain('explicit user authorization');
+    expect(skill).not.toContain('direct `$spec-doc-review` invocation is the explicit user request for sub-agents/parallel reviewer work');
     expect(skill).not.toContain('because the user did not ask for subagents');
   });
 

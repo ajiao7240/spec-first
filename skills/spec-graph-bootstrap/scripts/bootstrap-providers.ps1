@@ -73,6 +73,43 @@ function Ensure-Directory {
   }
 }
 
+function Test-SymlinkPath {
+  param([string]$CandidatePath)
+  if ([string]::IsNullOrWhiteSpace($CandidatePath)) { return $false }
+  $item = Get-Item -LiteralPath $CandidatePath -Force -ErrorAction SilentlyContinue
+  return ($null -ne $item -and (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0))
+}
+
+function Write-WorkspaceSummaryJsonAtomic {
+  param(
+    [string]$WorkspaceRoot,
+    [string]$FileName,
+    [object]$Payload,
+    [int]$Depth = 30
+  )
+  $specDir = Join-Path $WorkspaceRoot '.spec-first'
+  $workspaceDir = Join-Path $specDir 'workspace'
+  if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $workspaceDir)) {
+    throw 'workspace-summary-symlink-escape'
+  }
+  [System.IO.Directory]::CreateDirectory($workspaceDir) | Out-Null
+  $summaryPath = Join-Path $workspaceDir $FileName
+  if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $workspaceDir) -or (Test-SymlinkPath $summaryPath)) {
+    throw 'workspace-summary-symlink-escape'
+  }
+  $tmpPath = "$summaryPath.$([guid]::NewGuid().ToString('N')).tmp"
+  try {
+    [pscustomobject]$Payload | ConvertTo-Json -Depth $Depth | Set-Content -LiteralPath $tmpPath -Encoding UTF8
+    if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $workspaceDir) -or (Test-SymlinkPath $summaryPath)) {
+      throw 'workspace-summary-symlink-escape'
+    }
+    Move-Item -Force -LiteralPath $tmpPath -Destination $summaryPath
+  } catch {
+    Remove-Item -Force -LiteralPath $tmpPath -ErrorAction SilentlyContinue
+    throw
+  }
+}
+
 function Write-ResultAndExit {
   param(
     [string]$WorkflowMode,
@@ -482,9 +519,21 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Inspect per-child provider reason_code/recommended_action. Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } elseif ($notApplicableCount -gt 0) { 'All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children.' } else { 'All child repos produced graph bootstrap artifacts.' }
   }
 
-  $workspaceDir = Join-Path $TargetFacts.workspace_root '.spec-first/workspace'
-  Ensure-Directory -Path @($workspaceDir)
-  Write-JsonFileAtomic -Path (Join-Path $workspaceDir 'graph-bootstrap-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
+  try {
+    Write-WorkspaceSummaryJsonAtomic -WorkspaceRoot ([string]$TargetFacts.workspace_root) -FileName 'graph-bootstrap-summary.json' -Payload ([pscustomobject]$summary) -Depth 30
+  } catch {
+    [pscustomobject]@{
+      schema_version = 'workspace-graph-bootstrap-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'workspace-summary-symlink-escape'
+      workspace_root = [string]$TargetFacts.workspace_root
+      advisory = $true
+      parent_writes_repo_local_artifacts = $false
+      next_action = 'Replace symlinked .spec-first/workspace with a real workspace-local directory and rerun graph bootstrap.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
   [pscustomobject]$summary | ConvertTo-Json -Depth 30 -Compress
   if ($overallStatus -ne 'ready') { exit 1 }
   exit 0
@@ -686,7 +735,14 @@ function New-WorkspaceGitNexusReadinessDefaultSummary {
 function Compile-WorkspaceGitNexusReadinessForAllRepos {
   param([object]$TargetFacts)
   $workspaceDir = Join-Path ([string]$TargetFacts.workspace_root) '.spec-first/workspace'
+  $workspaceSpecDir = Split-Path -Parent $workspaceDir
+  if ((Test-SymlinkPath $workspaceSpecDir) -or (Test-SymlinkPath $workspaceDir)) {
+    return New-WorkspaceGitNexusReadinessDefaultSummary -ReasonCode 'workspace-summary-symlink-escape'
+  }
   Ensure-Directory -Path @($workspaceDir)
+  if ((Test-SymlinkPath $workspaceSpecDir) -or (Test-SymlinkPath $workspaceDir)) {
+    return New-WorkspaceGitNexusReadinessDefaultSummary -ReasonCode 'workspace-summary-symlink-escape'
+  }
   $targetsPath = Join-Path $workspaceDir 'graph-targets.json'
   $readinessPath = Join-Path $workspaceDir 'gitnexus-readiness.json'
   $workspaceTargets = $null

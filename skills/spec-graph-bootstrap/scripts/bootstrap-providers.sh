@@ -154,13 +154,44 @@ if [ "$ALL_REPOS_SCOPE" = "true" ] && [ "$REQUEST_INCREMENTAL" = "true" ]; then
   exit 1
 fi
 
-write_file_atomic_path() {
-  local path="$1"
+write_workspace_summary_atomic() {
+  local workspace_root="$1"
+  local file_name="$2"
+  local spec_dir="$workspace_root/.spec-first"
+  local workspace_dir="$spec_dir/workspace"
+  local path="$workspace_dir/$file_name"
   local tmp
-  mkdir -p "$(dirname "$path")"
-  tmp="$(mktemp "${path}.XXXXXX")"
-  cat > "$tmp"
-  mv "$tmp" "$path"
+
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ]; then
+    echo "bootstrap-providers.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  mkdir -p "$workspace_dir" || return 1
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ] || [ -L "$path" ]; then
+    echo "bootstrap-providers.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  tmp="$(mktemp "${path}.XXXXXX")" || return 1
+  if ! cat > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ] || [ -L "$path" ]; then
+    rm -f "$tmp"
+    echo "bootstrap-providers.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  mv "$tmp" "$path" || { rm -f "$tmp"; return 1; }
+}
+
+ensure_workspace_summary_dir() {
+  local workspace_root="$1"
+  local spec_dir="$workspace_root/.spec-first"
+  local workspace_dir="$spec_dir/workspace"
+
+  [ ! -L "$spec_dir" ] && [ ! -L "$workspace_dir" ] || return 1
+  mkdir -p "$workspace_dir" || return 1
+  [ ! -L "$spec_dir" ] && [ ! -L "$workspace_dir" ]
 }
 
 run_command_with_timeout() {
@@ -345,7 +376,28 @@ compile_workspace_gitnexus_readiness_for_all_repos() {
   local topology
   local workspace_targets_json
 
-  mkdir -p "$workspace_dir"
+  if ! ensure_workspace_summary_dir "$workspace_root"; then
+    jq -n '{
+      query_usability_counts:{
+        "fresh-primary":0,
+        "stale-advisory":0,
+        "definitions-pointer":0,
+        unavailable:0
+      },
+      workspace_gitnexus_readiness_pointer:{
+        path:null,
+        reason_code:"workspace-summary-symlink-escape",
+        diagnostic:"symlinked .spec-first/workspace is not a valid workspace advisory artifact root"
+      },
+      group:{
+        name:null,
+        status:"not-evaluated-no-mcp-input",
+        query_selector:null
+      },
+      group_reason_code:"workspace-summary-symlink-escape"
+    }'
+    return 0
+  fi
   set +e
   workspace_targets_json="$(cd "$workspace_root" && bash "$SCRIPT_DIR/resolve-workspace-graph-targets.sh" --write-summary)"
   exit_code=$?
@@ -664,7 +716,19 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         )
       }')"
   rm -f "$SUMMARY_ITEMS"
-  printf '%s\n' "$SUMMARY_JSON" | write_file_atomic_path "$WORKSPACE_ROOT_FOR_ALL/.spec-first/workspace/graph-bootstrap-summary.json"
+  if ! printf '%s\n' "$SUMMARY_JSON" | write_workspace_summary_atomic "$WORKSPACE_ROOT_FOR_ALL" "graph-bootstrap-summary.json"; then
+    jq -n --arg workspace_root "$WORKSPACE_ROOT_FOR_ALL" '{
+      schema_version:"workspace-graph-bootstrap-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"workspace-summary-symlink-escape",
+      workspace_root:$workspace_root,
+      advisory:true,
+      parent_writes_repo_local_artifacts:false,
+      next_action:"Replace symlinked .spec-first/workspace with a real workspace-local directory and rerun graph bootstrap."
+    }'
+    exit 1
+  fi
   printf '%s\n' "$SUMMARY_JSON"
   if [ "$(jq -r '.overall_status' <<<"$SUMMARY_JSON")" != "ready" ]; then
     exit 1

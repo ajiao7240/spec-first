@@ -155,9 +155,13 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('function Invoke-ChildScriptCaptured');
     expect(verifySource).toContain('2> $stderrPath 6> $informationPath');
     expect(verifySource).not.toContain('$PSCommandPath -Repo ([string]$child.workspace_relative_path) 2>&1');
+    expect(verifySource).toContain('workspace-summary-symlink-escape');
+    expect(verifySource).toContain('$providerActionRequired = @($combined.repo_config_status, $combined.runtime_capabilities_status, $combined.provider_artifacts_status)');
     expect(verifySource).toContain('choose a child repo and rerun with --repo <child>');
     expect(writeProviderSource).toContain('$targetWriteAllowed');
     expect(writeProviderSource).toContain('graph_bootstrap_required = $true');
+    expect(writeProviderSource).toContain('project-config-symlink-escape');
+    expect(writeProviderSource).toContain('Test-SymlinkPath $outDir');
     expect(installMcpSource).toContain('[switch]$AllRepos');
     expect(installMcpSource).not.toContain('Se' + 'rena');
     expect(installMcpSource).not.toContain('se' + 'rena');
@@ -168,7 +172,11 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installMcpSource).toContain('workspace-default-all-repos');
     expect(installMcpSource).toContain('explicit-all-repos');
     expect(installMcpSource).toContain("if ($overallStatus -ne 'ready') { exit 1 }");
+    expect(installMcpSource).toContain('workspace-summary-symlink-escape');
+    expect(installMcpSource).toContain('$OnlyArray = @(Parse-List $Only)');
+    expect(installMcpSource).toContain('results = @($results.ToArray())');
     expect(graphBootstrapSource).toContain("if ($overallStatus -ne 'ready') { exit 1 }");
+    expect(graphBootstrapSource).toContain('workspace-summary-symlink-escape');
     expect(installMcpSource).not.toContain('$PSCommandPath @childParams 2>&1');
     expect(projectConfigSource).toContain('[string]$Repo');
     expect(projectConfigSource).toContain('[switch]$AllRepos');
@@ -181,6 +189,10 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(projectConfigSource).toContain('function Invoke-ChildJsonScript');
     expect(projectConfigSource).toContain('all-repos-requires-parent-workspace');
     expect(projectConfigSource).toContain('all-repos-conflicts-with-repo');
+    expect(projectConfigSource).toContain("if ($overallStatus -ne 'ready') { exit 1 }");
+    expect(projectConfigSource).toContain('workspace-summary-symlink-escape');
+    expect(projectConfigSource).toContain('project-config-symlink-escape');
+    expect(projectConfigSource).toContain('gitignore-symlink-escape');
     expect(graphBootstrapSource).toContain('resolve-project-target.ps1');
     expect(graphBootstrapSource).toContain("GetEnvironmentVariable('SPEC_FIRST_PROJECT_TARGET_RESOLVER')");
     expect(graphBootstrapSource).toContain('$resolverPath = $resolverOverride');
@@ -291,7 +303,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(toolsJson.schema_version).toBe('6');
     const gitnexus = toolsJson.tools.find((t) => t.id === 'gitnexus');
     expect(gitnexus.package).toBe('gitnexus');
-    expect(gitnexus.version).toBe('1.6.4');
+    expect(gitnexus.version).toBe('1.6.5');
     expect(gitnexus.installation.unix.args).toEqual(['-y', '{{package}}@{{version}}', '--help']);
     expect(gitnexus.installation.windows.args).toEqual(['-y', '{{package}}@{{version}}', '--help']);
     expect(gitnexus.host_config.claude.args).toEqual(['-y', '{{package}}@{{version}}', 'mcp']);
@@ -366,6 +378,33 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(installSource).toContain('Move-Item -Force -LiteralPath $tmp -Destination $cachePath');
     expect(installSource).toContain("$lastAction = 'warmup-cache-hit'");
     expect(installSource).toContain('Write-WarmupCache -Tool $tool -Command $warmupStep.command -Arguments $warmupArgs -CommandHash $warmupHash');
+  });
+
+  test('PowerShell install-mcp serializes empty filtered results as JSON array', () => {
+    const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'spec-ps-install-empty-'));
+    const fakeHome = path.join(tmpDir, 'home');
+    const repo = path.join(tmpDir, 'repo');
+    fs.mkdirSync(repo, { recursive: true });
+    spawnSync('git', ['init', '-q'], { cwd: repo });
+
+    try {
+      const result = spawnPwsh(
+        ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', installMcpPs1, '-Only', '__no_such_tool__'],
+        {
+          cwd: repo,
+          encoding: 'utf8',
+          env: { ...process.env, HOME: fakeHome, MCP_SETUP_HOST: 'codex' },
+        },
+      );
+      if (!result) return;
+
+      expect(result.status).toBe(0);
+      const payload = JSON.parse(result.stdout);
+      expect(Array.isArray(payload.results)).toBe(true);
+      expect(payload.results).toHaveLength(0);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   test('PowerShell external command runners keep Windows PowerShell 5.1 ProcessStartInfo fallback', () => {
@@ -512,7 +551,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain("PSObject.Properties.Name -contains 'generated_at'");
     expect(writeProviderSource).toContain('$Payload.generated_at = $existing.generated_at');
     expect(writeProviderSource).toContain("'.{0}.{1}.tmp'");
-    expect(writeProviderSource).toContain('Move-Item -Force $tmp $Path');
+    expect(writeProviderSource).toContain('Move-Item -Force -LiteralPath $tmp -Destination $Path');
     expect(writeProviderSource).toContain('runtime-capabilities.v1');
     expect(writeProviderSource).toContain('provider-artifacts.v1');
     expect(writeProviderSource).toContain('derived_readiness');
@@ -1172,7 +1211,12 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).toContain('Set-Content -Encoding utf8 -LiteralPath');
     expect(source).toContain('function Ensure-Directory');
     expect(source).toContain('[System.IO.Directory]::CreateDirectory($entry)');
-    expect(source).not.toContain('New-Item -ItemType Directory -Force -LiteralPath');
+    const atomicWriteStart = source.indexOf('function Write-TextFileAtomic');
+    const atomicWriteEnd = source.indexOf('function Invoke-SpecFirstCli');
+    expect(atomicWriteStart).toBeGreaterThanOrEqual(0);
+    expect(atomicWriteEnd).toBeGreaterThan(atomicWriteStart);
+    const atomicWriteSource = source.slice(atomicWriteStart, atomicWriteEnd);
+    expect(atomicWriteSource).not.toContain('New-Item -ItemType Directory -Force -LiteralPath');
     expect(source).not.toContain('Move-Item -Force -Path');
     expect(source).not.toContain('Set-Content -Encoding utf8 -Path');
     expect(source).toContain('Invoke-ExternalCommandWithTimeout -Exe $exe');
@@ -1255,9 +1299,10 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).toContain('parent_writes_repo_local_artifacts');
     expect(source).toContain('.spec-first/workspace');
     expect(source).toContain('graph-targets.json');
-    expect(source).toContain("New-Item -ItemType Directory -Force -LiteralPath $workspaceDir");
+    expect(source).toContain('[System.IO.Directory]::CreateDirectory($workspaceDir)');
     expect(source).toContain("$summaryPath.$([guid]::NewGuid().ToString('N')).tmp");
     expect(source).toContain('Move-Item -Force -LiteralPath $tmpPath -Destination $summaryPath');
+    expect(source).toContain('workspace-summary-symlink-escape');
     expect(source).toContain('workspace-graph-targets-no-source');
     expect(source).toContain('No code-bearing graph target is available');
     expect(source).toContain('GitNexus-first');

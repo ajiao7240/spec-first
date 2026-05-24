@@ -455,6 +455,36 @@ assert_not_contains "all-repos graph bootstrap does not point parent AGENTS to r
 assert_contains "all-repos graph bootstrap creates workspace-aware parent CLAUDE GitNexus block" "workspace readiness 显示 group-ready" "$(cat "$ALL_REPOS_WORKSPACE/CLAUDE.md")"
 assert_not_contains "all-repos graph bootstrap does not point parent CLAUDE to repo-local provider status" '`.spec-first/graph/provider-status.json`' "$(cat "$ALL_REPOS_WORKSPACE/CLAUDE.md")"
 
+WORKSPACE_TARGETS_SYMLINK_WORKSPACE="$TMP_DIR/workspace-targets-symlink-workspace"
+WORKSPACE_TARGETS_SYMLINK_OUTSIDE="$TMP_DIR/workspace-targets-symlink-outside"
+make_repo "$WORKSPACE_TARGETS_SYMLINK_WORKSPACE/project-a"
+make_repo "$WORKSPACE_TARGETS_SYMLINK_WORKSPACE/project-b"
+mkdir -p "$WORKSPACE_TARGETS_SYMLINK_WORKSPACE/.spec-first" "$WORKSPACE_TARGETS_SYMLINK_OUTSIDE"
+ln -s "$WORKSPACE_TARGETS_SYMLINK_OUTSIDE" "$WORKSPACE_TARGETS_SYMLINK_WORKSPACE/.spec-first/workspace"
+set +e
+workspace_targets_symlink_output="$(cd "$WORKSPACE_TARGETS_SYMLINK_WORKSPACE" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER" --write-summary 2>/dev/null)"
+workspace_targets_symlink_status=$?
+set -e
+assert_eq "workspace graph target resolver refuses symlinked workspace summary" "1" "$workspace_targets_symlink_status"
+assert_eq "workspace graph target resolver symlink reason" "workspace-summary-symlink-escape" "$(jq -r '.reason_code' <<<"$workspace_targets_symlink_output")"
+assert "workspace graph target resolver does not write summary outside workspace" test ! -e "$WORKSPACE_TARGETS_SYMLINK_OUTSIDE/graph-targets.json"
+
+GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_WORKSPACE="$TMP_DIR/graph-bootstrap-summary-symlink-workspace"
+GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_OUTSIDE="$TMP_DIR/graph-bootstrap-summary-symlink-outside"
+GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_LEDGER="$TMP_DIR/graph-bootstrap-summary-symlink-home/.codex/spec-first/host-setup.json"
+make_repo "$GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_WORKSPACE/project-a"
+make_repo "$GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_WORKSPACE/project-b"
+write_fixture_config "$GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_WORKSPACE/project-a" "$GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_LEDGER" true
+mkdir -p "$GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_WORKSPACE/.spec-first" "$GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_OUTSIDE"
+ln -s "$GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_OUTSIDE" "$GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_WORKSPACE/.spec-first/workspace"
+set +e
+graph_bootstrap_symlink_output="$(cd "$GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_WORKSPACE" && PATH="$TEST_PATH" HOME="$(dirname "$(dirname "$(dirname "$GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_LEDGER")")")" MCP_SETUP_HOST=codex bash "$BOOTSTRAP_SCRIPT" --all-repos 2>/dev/null)"
+graph_bootstrap_symlink_status=$?
+set -e
+assert_eq "graph bootstrap refuses symlinked workspace summary" "1" "$graph_bootstrap_symlink_status"
+assert_eq "graph bootstrap symlink summary reason" "workspace-summary-symlink-escape" "$(jq -r '.reason_code' <<<"$graph_bootstrap_symlink_output")"
+assert "graph bootstrap does not write summary outside workspace" test ! -e "$GRAPH_BOOTSTRAP_SUMMARY_SYMLINK_OUTSIDE/graph-bootstrap-summary.json"
+
 ALL_REPOS_INCREMENTAL_WORKSPACE="$TMP_DIR/all-repos-incremental-workspace"
 ALL_REPOS_INCREMENTAL_LEDGER="$TMP_DIR/all-repos-incremental-home/.codex/spec-first/host-setup.json"
 make_repo "$ALL_REPOS_INCREMENTAL_WORKSPACE/project-a"

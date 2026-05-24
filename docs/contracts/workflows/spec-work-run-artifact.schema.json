@@ -93,12 +93,12 @@
     },
     "script_confirmed": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": ["validation", "changed_files", "artifact_refs", "raw_log_ref", "resume_evidence"],
       "properties": {
         "validation": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": ["status", "commands"],
           "properties": {
             "status": { "type": "string", "enum": ["passed", "failed", "not-run", "degraded"] },
@@ -107,6 +107,7 @@
               "type": "array",
               "items": {
                 "type": "object",
+                "additionalProperties": false,
                 "required": ["command", "exit_code", "summary"],
                 "properties": {
                   "command": { "type": "string" },
@@ -155,7 +156,7 @@
         },
         "resume_evidence": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": ["status"],
           "properties": {
             "status": { "type": "string", "enum": ["read", "not-found", "not-readable", "not-run"] },
@@ -191,12 +192,13 @@
     },
     "provider_untrusted": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": ["readiness_status", "summaries"],
       "properties": {
         "readiness_status": { "type": "string", "enum": ["fresh", "stale", "degraded", "not-run", "unknown"] },
         "summaries": {
           "type": "array",
+          "maxItems": 20,
           "items": { "type": "string", "maxLength": 500 }
         }
       }

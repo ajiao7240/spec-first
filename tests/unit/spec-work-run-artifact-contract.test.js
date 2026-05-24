@@ -116,6 +116,12 @@ describe('spec-work run artifact contract', () => {
     expect(schema['x-spec-first-boundary']).toContain('workflow integration false');
     expect(schema.properties.retention.properties.owner.type).toBe('string');
     expect(schema.properties.retention.properties.expires_at.type).toBe('string');
+    expect(schema.properties.script_confirmed.additionalProperties).toBe(false);
+    expect(schema.properties.script_confirmed.properties.validation.additionalProperties).toBe(false);
+    expect(schema.properties.script_confirmed.properties.validation.properties.commands.items.additionalProperties).toBe(false);
+    expect(schema.properties.script_confirmed.properties.resume_evidence.additionalProperties).toBe(false);
+    expect(schema.properties.provider_untrusted.additionalProperties).toBe(false);
+    expect(schema.properties.provider_untrusted.properties.summaries.maxItems).toBe(20);
   });
 
   test('schema validates a Phase 1B producer-written run artifact sample', () => {

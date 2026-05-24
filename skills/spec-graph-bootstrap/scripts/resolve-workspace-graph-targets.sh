@@ -44,12 +44,34 @@ hash_stdin() {
   fi
 }
 
-write_file_atomic() {
-  local path="$1"
+write_workspace_summary_atomic() {
+  local workspace_root="$1"
+  local file_name="$2"
+  local spec_dir="$workspace_root/.spec-first"
+  local workspace_dir="$spec_dir/workspace"
+  local path="$workspace_dir/$file_name"
   local tmp
-  tmp="$(mktemp "${path}.XXXXXX")"
-  cat > "$tmp"
-  mv "$tmp" "$path"
+
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ]; then
+    echo "resolve-workspace-graph-targets.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  mkdir -p "$workspace_dir" || return 1
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ] || [ -L "$path" ]; then
+    echo "resolve-workspace-graph-targets.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  tmp="$(mktemp "${path}.XXXXXX")" || return 1
+  if ! cat > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ] || [ -L "$path" ]; then
+    rm -f "$tmp"
+    echo "resolve-workspace-graph-targets.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  mv "$tmp" "$path" || { rm -f "$tmp"; return 1; }
 }
 
 schema_matches() {
@@ -386,8 +408,22 @@ RESULT_JSON="$(jq -n \
     }')"
 
 if [ "$WRITE_SUMMARY" = "true" ]; then
-  mkdir -p "$WORKSPACE_ROOT/.spec-first/workspace"
-  printf '%s\n' "$RESULT_JSON" | write_file_atomic "$WORKSPACE_ROOT/.spec-first/workspace/graph-targets.json"
+  if ! printf '%s\n' "$RESULT_JSON" | write_workspace_summary_atomic "$WORKSPACE_ROOT" "graph-targets.json"; then
+    jq -n --arg workspace_root "$WORKSPACE_ROOT" '{
+      schema_version:"workspace-graph-targets.v1",
+      advisory:true,
+      mode:"blocked",
+      repo_status:"not-git-repo",
+      workspace_root:$workspace_root,
+      parent_writes_repo_local_artifacts:false,
+      repos:[],
+      counts:{total:0,primary:0,degraded:0,no_source:0,stale:0,dirty_uncertain:0,setup_ready_bootstrap_required:0,unavailable:0},
+      query_usability_counts:{"fresh-primary":0,"stale-advisory":0,"definitions-pointer":0,unavailable:0},
+      reason_code:"workspace-summary-symlink-escape",
+      next_action:"Replace symlinked .spec-first/workspace with a real workspace-local directory and rerun graph target resolution."
+    }'
+    exit 1
+  fi
 fi
 
 printf '%s\n' "$RESULT_JSON"

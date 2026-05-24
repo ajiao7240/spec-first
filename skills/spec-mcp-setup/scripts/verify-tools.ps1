@@ -61,11 +61,35 @@ function Write-JsonFileAtomic {
     [object]$Payload,
     [int]$Depth = 30
   )
+  function Test-SymlinkPath {
+    param([string]$CandidatePath)
+    if ([string]::IsNullOrWhiteSpace($CandidatePath)) { return $false }
+    $item = Get-Item -LiteralPath $CandidatePath -Force -ErrorAction SilentlyContinue
+    return ($null -ne $item -and (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0))
+  }
   $dir = Split-Path -Parent $Path
-  New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  $specDir = Split-Path -Parent $dir
+  if ((Split-Path -Leaf $dir) -ne 'workspace' -or (Split-Path -Leaf $specDir) -ne '.spec-first') {
+    throw 'workspace-summary-path-outside-contract'
+  }
+  if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $dir)) {
+    throw 'workspace-summary-symlink-escape'
+  }
+  [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+  if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $dir) -or (Test-SymlinkPath $Path)) {
+    throw 'workspace-summary-symlink-escape'
+  }
   $tmp = Join-Path $dir ('.{0}.{1}.tmp' -f (Split-Path -Leaf $Path), ([guid]::NewGuid().ToString('N')))
-  $Payload | ConvertTo-Json -Depth $Depth | Set-Content -Encoding utf8 $tmp
-  Move-Item -Force $tmp $Path
+  try {
+    $Payload | ConvertTo-Json -Depth $Depth | Set-Content -Encoding utf8 -LiteralPath $tmp
+    if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $dir) -or (Test-SymlinkPath $Path)) {
+      throw 'workspace-summary-symlink-escape'
+    }
+    Move-Item -Force -LiteralPath $tmp -Destination $Path
+  } catch {
+    Remove-Item -Force -LiteralPath $tmp -ErrorAction SilentlyContinue
+    throw
+  }
 }
 
 function Invoke-ChildScriptCaptured {
@@ -228,7 +252,20 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
     next_action = if ($actionRequiredCount -eq 0) { 'All child repos verified Required Harness Runtime readiness.' } else { 'Inspect per-child reason_code and rerun setup/verify for action-required repos.' }
   }
 
-  Write-JsonFileAtomic -Path (Join-Path $workspaceRoot '.spec-first/workspace/mcp-verify-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
+  try {
+    Write-JsonFileAtomic -Path (Join-Path $workspaceRoot '.spec-first/workspace/mcp-verify-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
+  } catch {
+    [pscustomobject]@{
+      schema_version = 'workspace-mcp-verify-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'workspace-summary-symlink-escape'
+      workspace_root = $workspaceRoot
+      advisory = $true
+      next_action = 'Replace symlinked .spec-first/workspace with a real workspace-local directory and rerun verify.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
   [pscustomobject]$summary | ConvertTo-Json -Depth 30 -Compress
   if ($overallStatus -ne 'ready') { exit 1 }
   exit 0
@@ -364,6 +401,12 @@ $combined.runtime_capabilities_path = if ($providerResult.PSObject.Properties.Na
 $combined.provider_artifacts_status = if ($providerResult.PSObject.Properties.Name -contains 'provider_artifacts_status') { $providerResult.provider_artifacts_status } else { 'unknown' }
 $combined.provider_artifacts_path = if ($providerResult.PSObject.Properties.Name -contains 'provider_artifacts_path') { $providerResult.provider_artifacts_path } else { $null }
 $combined.graph_bootstrap_required = if ($providerResult.PSObject.Properties.Name -contains 'graph_bootstrap_required') { [bool]$providerResult.graph_bootstrap_required } else { $true }
+$providerActionRequired = @($combined.repo_config_status, $combined.runtime_capabilities_status, $combined.provider_artifacts_status) | Where-Object { $_ -ne 'ready' -and $_ -ne 'written' }
+if ($providerActionRequired.Count -gt 0) {
+  $combined.baseline_ready = $false
+  $combined.host_runtime_ready = $false
+  $combined.overall_status = 'action-required'
+}
 
 if ($providerResult.PSObject.Properties.Name -contains 'providers' -and $null -ne $providerResult.providers) {
   foreach ($property in $providerResult.providers.PSObject.Properties) {

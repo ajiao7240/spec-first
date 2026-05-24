@@ -152,6 +152,25 @@ describe('git-worktree runtime delivery contracts', () => {
     }
   });
 
+  test('create refuses to append .worktrees through a symlinked .gitignore', () => {
+    const repo = initGitRepo();
+    const outsideFile = path.join(os.tmpdir(), `spec-first-gitignore-outside-${process.pid}.txt`);
+
+    try {
+      fs.writeFileSync(outsideFile, 'outside\n', 'utf8');
+      fs.symlinkSync(outsideFile, path.join(repo, '.gitignore'));
+
+      const result = runWorktreeManager(repo, ['gitignore-symlink', 'main']);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('refusing to modify symlinked .gitignore');
+      expect(fs.readFileSync(outsideFile, 'utf8')).toBe('outside\n');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+      fs.rmSync(outsideFile, { force: true });
+    }
+  });
+
   test('--copy-env copies only real env files and keeps audit log out of git', () => {
     const repo = initGitRepo();
     try {
@@ -193,6 +212,36 @@ describe('git-worktree runtime delivery contracts', () => {
       expect(status.stdout).toBe('');
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('--copy-env refuses to overwrite symlinked env destinations', () => {
+    const repo = initGitRepo();
+    const outsideFile = path.join(os.tmpdir(), `spec-first-env-outside-${process.pid}.txt`);
+
+    try {
+      fs.writeFileSync(outsideFile, 'outside-before\n', 'utf8');
+      fs.symlinkSync(outsideFile, path.join(repo, '.env'));
+      run('git', ['add', '.env'], repo);
+      run('git', [
+        '-c', 'core.hooksPath=/dev/null',
+        '-c', 'user.name=Spec Test',
+        '-c', 'user.email=spec@example.test',
+        'commit',
+        '-m', 'track env symlink',
+      ], repo);
+      run('git', ['branch', 'symlink-base'], repo);
+      fs.rmSync(path.join(repo, '.env'), { force: true });
+      fs.writeFileSync(path.join(repo, '.env'), 'main-secret=do-not-leak\n', 'utf8');
+
+      const result = runWorktreeManager(repo, ['--copy-env', 'env-symlink', 'symlink-base']);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('refusing to copy env file through symlink destination: .env');
+      expect(fs.readFileSync(outsideFile, 'utf8')).toBe('outside-before\n');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+      fs.rmSync(outsideFile, { force: true });
     }
   });
 

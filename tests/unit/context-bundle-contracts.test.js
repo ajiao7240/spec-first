@@ -293,6 +293,47 @@ describe('context bundle and summary contracts', () => {
     }
   });
 
+  test('internal context-bundle helper excludes missing files under symlinked directories', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'context-bundle-symlink-dir-'));
+    const repoRoot = path.join(tempRoot, 'repo');
+    const outsideRoot = path.join(tempRoot, 'outside');
+    fs.mkdirSync(repoRoot);
+    fs.mkdirSync(outsideRoot);
+    const linkPath = path.join(repoRoot, 'linked-dir');
+    try {
+      fs.symlinkSync(outsideRoot, linkPath, 'dir');
+    } catch (_error) {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+      return;
+    }
+
+    try {
+      const bundle = buildContextBundle({
+        stage: 'code-review',
+        intent: 'symlink_dir_escape',
+        changedFiles: [],
+        relatedPaths: ['linked-dir/future.txt'],
+        artifactSummaries: [],
+        evidencePaths: [],
+        fullReadTriggers: [],
+        maxFiles: 10,
+        maxTokens: 1000000,
+        allowRuntimeContext: false,
+      }, { cwd: repoRoot, repoRoot });
+
+      expect(bundle.related_paths).toEqual([]);
+      expect(bundle.excluded_context).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          path: 'linked-dir/future.txt',
+          reason_code: 'outside_repo_context_excluded',
+        }),
+      ]));
+      expect(fs.existsSync(path.join(outsideRoot, 'future.txt'))).toBe(false);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   test('internal context-bundle helper records budget pressure and bounded exclusions', () => {
     const maxFilesBundle = buildContextBundle({
       stage: 'work',

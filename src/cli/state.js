@@ -643,9 +643,11 @@ function applyOperationPlan(projectRoot, plan) {
     return {};
   }
 
+  const projectRootReal = fs.realpathSync.native(path.resolve(projectRoot));
   const untrackResults = [];
   for (const operation of plan.operations) {
     const targetPath = resolveOperationTarget(projectRoot, operation);
+    assertOperationTargetContained(projectRootReal, targetPath, operation);
 
     if (operation.kind === 'ensure_dir') {
       ensureDirectory(targetPath);
@@ -730,6 +732,28 @@ function resolveOperationTarget(projectRoot, operation) {
     throw new Error(`Unsafe operation path targets project root: ${operation.path}`);
   }
   return targetPath;
+}
+
+function assertOperationTargetContained(projectRootReal, targetPath, operation) {
+  const nearest = nearestExistingPath(targetPath);
+  const nearestReal = fs.realpathSync.native(nearest);
+  if (!isPathWithin(nearestReal, projectRootReal)) {
+    throw new Error(`Unsafe operation path escapes project root through symlink: ${operation.path}`);
+  }
+}
+
+function nearestExistingPath(targetPath) {
+  let current = path.resolve(targetPath);
+  while (true) {
+    if (fs.existsSync(current)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return current;
+    }
+    current = parent;
+  }
 }
 
 function isPathWithin(childPath, parentPath) {

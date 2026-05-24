@@ -103,9 +103,54 @@ describe('lightweight schema validator contracts', () => {
     }, 'not-a-date');
 
     expect(result.errors).toEqual([]);
+    expect(SUPPORTED_SCHEMA_KEYWORDS).toContain('$ref');
     expect(SUPPORTED_SCHEMA_KEYWORDS).toContain('additionalProperties');
     expect(SUPPORTED_SCHEMA_KEYWORDS).toContain('anyOf');
     expect(SUPPORTED_SCHEMA_KEYWORDS).toContain('pattern');
     expect(SUPPORTED_SCHEMA_KEYWORDS).not.toContain('format');
+  });
+
+  test('resolves local $defs references instead of ignoring nested constraints', () => {
+    const schema = {
+      type: 'object',
+      required: ['result'],
+      properties: {
+        result: { $ref: '#/$defs/result' },
+      },
+      $defs: {
+        result: {
+          type: 'object',
+          required: ['status'],
+          properties: {
+            status: { enum: ['ready'] },
+          },
+          additionalProperties: false,
+        },
+      },
+    };
+
+    const result = validateAgainstSchema(schema, {
+      result: {
+        status: 'unknown',
+        extra: true,
+      },
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual([
+      'root.result.status: value "unknown" not in enum',
+      'root.result.extra: unexpected additional key',
+    ]);
+  });
+
+  test('fails closed for unsupported schema references', () => {
+    const result = validateAgainstSchema({
+      $ref: 'https://example.invalid/schema.json',
+    }, 'value');
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual([
+      'root: unsupported schema ref https://example.invalid/schema.json',
+    ]);
   });
 });

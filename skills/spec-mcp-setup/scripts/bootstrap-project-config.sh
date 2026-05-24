@@ -85,13 +85,55 @@ emit_json() {
   printf '}\n'
 }
 
-write_file_atomic_path() {
-  local path="$1"
+write_workspace_summary_atomic() {
+  local workspace_root="$1"
+  local file_name="$2"
+  local spec_dir="$workspace_root/.spec-first"
+  local workspace_dir="$spec_dir/workspace"
+  local path="$workspace_dir/$file_name"
   local tmp
-  mkdir -p "$(dirname "$path")"
-  tmp="$(mktemp "${path}.XXXXXX")"
-  cat > "$tmp"
-  mv "$tmp" "$path"
+
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ]; then
+    echo "bootstrap-project-config.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  mkdir -p "$workspace_dir" || return 1
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ] || [ -L "$path" ]; then
+    echo "bootstrap-project-config.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  tmp="$(mktemp "${path}.XXXXXX")" || return 1
+  if ! cat > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ] || [ -L "$path" ]; then
+    rm -f "$tmp"
+    echo "bootstrap-project-config.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  mv "$tmp" "$path" || { rm -f "$tmp"; return 1; }
+}
+
+ensure_project_config_dir_safe() {
+  if [ -L "$SPEC_DIR" ]; then
+    return 1
+  fi
+  mkdir -p "$SPEC_DIR" || return 1
+  [ ! -L "$SPEC_DIR" ]
+}
+
+fail_project_config() {
+  local reason="$1"
+  local example_status="${2:-skipped}"
+  local local_status="${3:-skipped}"
+  local gitignore_status="${4:-skipped}"
+  if [ "$JSON_OUTPUT" = "yes" ]; then
+    emit_json "action-required" "$reason" "$REPO_ROOT" "$example_status" "$local_status" "$gitignore_status" "$legacy_markdown_status" "$legacy_config_status"
+  else
+    echo "Project config bootstrap blocked: $reason" >&2
+  fi
+  exit 1
 }
 
 write_all_repos_project_config_summary_and_exit() {
@@ -219,9 +261,20 @@ write_all_repos_project_config_summary_and_exit() {
         )
       }')"
   rm -f "$summary_items"
-  printf '%s\n' "$summary_json" | write_file_atomic_path "$workspace_root/.spec-first/workspace/project-config-bootstrap-summary.json"
+  if ! printf '%s\n' "$summary_json" | write_workspace_summary_atomic "$workspace_root" "project-config-bootstrap-summary.json"; then
+    jq -n --arg workspace_root "$workspace_root" '{
+      schema_version:"workspace-project-config-bootstrap-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"workspace-summary-symlink-escape",
+      workspace_root:$workspace_root,
+      advisory:true,
+      next_action:"Replace symlinked .spec-first/workspace with a real workspace-local directory and rerun project config bootstrap."
+    }'
+    exit 1
+  fi
   printf '%s\n' "$summary_json"
-  if [ "$(jq -r '.overall_status' <<<"$summary_json")" = "action-required" ]; then
+  if [ "$(jq -r '.overall_status' <<<"$summary_json")" != "ready" ]; then
     exit 1
   fi
   exit 0
@@ -297,13 +350,13 @@ if [ -f "$LEGACY_CONFIG" ]; then
 fi
 
 if [ "$REFRESH_EXAMPLE" = "yes" ]; then
-  mkdir -p "$SPEC_DIR"
+  ensure_project_config_dir_safe || fail_project_config "project-config-symlink-escape"
   cp "$TEMPLATE" "$EXAMPLE_CONFIG"
   example_status="refreshed"
 fi
 
 if [ "$CREATE_LOCAL" = "yes" ]; then
-  mkdir -p "$SPEC_DIR"
+  ensure_project_config_dir_safe || fail_project_config "project-config-symlink-escape" "$example_status"
   if [ -f "$LOCAL_CONFIG" ]; then
     local_status="already-exists"
   else
@@ -313,6 +366,9 @@ if [ "$CREATE_LOCAL" = "yes" ]; then
 fi
 
 if [ "$ENSURE_GITIGNORE" = "yes" ]; then
+  if [ -L "$GITIGNORE" ]; then
+    fail_project_config "gitignore-symlink-escape" "$example_status" "$local_status" "blocked"
+  fi
   if git check-ignore -q "$LOCAL_CONFIG" 2>/dev/null; then
     gitignore_status="already-ignored"
   else

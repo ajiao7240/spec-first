@@ -5,6 +5,18 @@ const path = require('node:path');
 
 const SCHEMA_VERSION = 'workspace-gitnexus-readiness.v1';
 const SCRIPT_QUERY_KEYS = ['fresh-primary', 'stale-advisory', 'definitions-pointer', 'unavailable'];
+const REFRESH_ELIGIBILITY_KEYS = [
+  'eligible',
+  'eligible-after-refresh',
+  'blocked-dirty-source',
+  'setup-required',
+];
+const INDEX_SNAPSHOT_KEYS = [
+  'current-clean',
+  'current-with-dirty-overlay',
+  'stale-commit',
+  'missing',
+];
 const OVERLAY_QUERY_KEYS = [
   'fresh-primary',
   'stale-advisory',
@@ -207,8 +219,8 @@ function classifyRepo(repo, registryState, mode) {
       confidence: 'none',
       name: null,
     },
-    refresh_eligibility: normalizeEnum(repo.refresh_eligibility, 'setup-required'),
-    index_snapshot: normalizeEnum(repo.index_snapshot, 'missing'),
+    refresh_eligibility: normalizeEnum(repo.refresh_eligibility, REFRESH_ELIGIBILITY_KEYS, 'setup-required'),
+    index_snapshot: normalizeEnum(repo.index_snapshot, INDEX_SNAPSHOT_KEYS, 'missing'),
     query_usability: queryUsability,
     working_tree_overlay: repo.working_tree_overlay || {
       dirty: Boolean(repo.git && repo.git.current_worktree_dirty),
@@ -437,6 +449,7 @@ function notEvaluatedGroupState() {
 function matchRegistryRepo(repo, registryState) {
   if (registryState.status !== 'available') return null;
   const explicit = repo.providers && repo.providers.gitnexus ? repo.providers.gitnexus.repo : null;
+  const registryRepos = registryState.repos.filter((item) => registryPathMatchesRepo(repo, item));
   const candidates = [
     explicit,
     repo.target_repo,
@@ -446,15 +459,26 @@ function matchRegistryRepo(repo, registryState) {
   ].filter(Boolean).map(String);
 
   for (const candidate of candidates) {
-    const exact = registryState.repos.find((item) => item.name === candidate);
+    const exact = registryRepos.find((item) => item.name === candidate);
     if (exact) return { ...exact, confidence: candidate === explicit ? 'high' : 'medium' };
   }
   for (const candidate of candidates) {
     const base = path.basename(candidate);
-    const basenameMatch = registryState.repos.find((item) => path.basename(item.name) === base || (item.path && path.basename(item.path) === base));
+    const basenameMatch = registryRepos.find((item) => path.basename(item.name) === base || (item.path && path.basename(item.path) === base));
     if (basenameMatch) return { ...basenameMatch, confidence: 'low' };
   }
   return null;
+}
+
+function registryPathMatchesRepo(repo, registryRepo) {
+  if (!registryRepo || !registryRepo.path || !repo.git_root) return true;
+  const repoRoot = normalizeComparablePath(repo.git_root);
+  const registryPath = normalizeComparablePath(registryRepo.path);
+  return repoRoot === registryPath;
+}
+
+function normalizeComparablePath(value) {
+  return path.resolve(String(value)).replace(/\\/g, '/');
 }
 
 function validateWorkspaceTargets(value) {
@@ -480,20 +504,9 @@ function normalizeQueryUsability(value, allowedKeys = OVERLAY_QUERY_KEYS) {
   return 'unavailable';
 }
 
-function normalizeEnum(value, fallback) {
-  const allowed = new Set([
-    'blocked-dirty-source',
-    'current-clean',
-    'current-with-dirty-overlay',
-    'eligible',
-    'eligible-after-refresh',
-    'missing',
-    'setup-required',
-    'stale',
-    'stale-commit',
-    'unknown',
-  ]);
-  return allowed.has(value) ? value : fallback;
+function normalizeEnum(value, allowedKeys, fallback) {
+  if (allowedKeys.includes(value)) return value;
+  return fallback;
 }
 
 function countQueryUsability(repos, keys) {

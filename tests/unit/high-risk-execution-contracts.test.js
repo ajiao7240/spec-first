@@ -177,6 +177,53 @@ describe('high-risk execution safety contracts', () => {
     }
   });
 
+  test('spec-optimize cleanup rejects path traversal spec names before destructive cleanup', () => {
+    const repo = initGitRepo();
+    const victim = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-optimize-victim-'));
+
+    try {
+      const result = run('bash', [
+        EXPERIMENT_WORKTREE_SCRIPT,
+        'cleanup',
+        `foo/../../../${path.basename(victim)}`,
+        '1',
+      ], repo);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('unsafe spec_name');
+      expect(fs.existsSync(victim)).toBe(true);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+      fs.rmSync(victim, { recursive: true, force: true });
+    }
+  });
+
+  test('spec-optimize cleanup rejects symlinked cleanup targets outside .worktrees', () => {
+    const repo = initGitRepo();
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-optimize-outside-'));
+    const outsideFile = path.join(outside, 'keep.txt');
+
+    try {
+      fs.writeFileSync(outsideFile, 'do not remove\n', 'utf8');
+      fs.mkdirSync(path.join(repo, '.worktrees'), { recursive: true });
+      fs.symlinkSync(outside, path.join(repo, '.worktrees', 'optimize-safe-exp-001'), 'dir');
+
+      const result = run('bash', [
+        EXPERIMENT_WORKTREE_SCRIPT,
+        'cleanup',
+        'safe',
+        '1',
+      ], repo);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('cleanup target escapes .worktrees');
+      expect(fs.readFileSync(outsideFile, 'utf8')).toBe('do not remove\n');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   test('spec-optimize copy-env opt-in writes non-secret audit log outside git status', () => {
     const repo = initGitRepo();
     try {

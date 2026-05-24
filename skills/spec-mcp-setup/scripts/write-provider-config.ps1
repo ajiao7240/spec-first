@@ -43,7 +43,39 @@ $outDir = Join-Path $repoRoot '.spec-first/config'
 $providerFile = Join-Path $outDir 'graph-providers.json'
 $runtimeFile = Join-Path $outDir 'runtime-capabilities.json'
 $artifactsFile = Join-Path $outDir 'provider-artifacts.json'
-New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+function Test-SymlinkPath {
+  param([string]$CandidatePath)
+  if ([string]::IsNullOrWhiteSpace($CandidatePath)) { return $false }
+  $item = Get-Item -LiteralPath $CandidatePath -Force -ErrorAction SilentlyContinue
+  return ($null -ne $item -and (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0))
+}
+
+function Write-ProviderConfigBlocked {
+  param([string]$ReasonCode)
+  [pscustomobject]@{
+    repo_config_status = $ReasonCode
+    repo_config_path = $null
+    runtime_capabilities_status = $ReasonCode
+    runtime_capabilities_path = $null
+    provider_artifacts_status = $ReasonCode
+    provider_artifacts_path = $null
+    graph_bootstrap_required = $true
+    reason_code = $ReasonCode
+    next_action = 'Replace symlinked .spec-first/config with a real repo-local directory and rerun spec-mcp-setup.'
+  } | ConvertTo-Json -Compress
+}
+
+$specRoot = Join-Path $repoRoot '.spec-first'
+if ((Test-SymlinkPath $specRoot) -or (Test-SymlinkPath $outDir)) {
+  Write-ProviderConfigBlocked -ReasonCode 'project-config-symlink-escape'
+  return
+}
+[System.IO.Directory]::CreateDirectory($outDir) | Out-Null
+if ((Test-SymlinkPath $specRoot) -or (Test-SymlinkPath $outDir)) {
+  Write-ProviderConfigBlocked -ReasonCode 'project-config-symlink-escape'
+  return
+}
 
 function Read-ExistingJson {
   param(
@@ -827,10 +859,24 @@ function Write-JsonIfChanged {
   }
   if ($repoConfigStatus -eq 'written') {
     $dir = Split-Path -Parent $Path
-    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    if ((Test-SymlinkPath (Split-Path -Parent $dir)) -or (Test-SymlinkPath $dir) -or (Test-SymlinkPath $Path)) {
+      throw 'project-config-symlink-escape'
+    }
+    [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+    if ((Test-SymlinkPath (Split-Path -Parent $dir)) -or (Test-SymlinkPath $dir) -or (Test-SymlinkPath $Path)) {
+      throw 'project-config-symlink-escape'
+    }
     $tmp = Join-Path $dir ('.{0}.{1}.tmp' -f (Split-Path -Leaf $Path), ([guid]::NewGuid().ToString('N')))
-    $Payload | ConvertTo-Json -Depth 30 | Set-Content -Encoding utf8 $tmp
-    Move-Item -Force $tmp $Path
+    try {
+      $Payload | ConvertTo-Json -Depth 30 | Set-Content -Encoding utf8 -LiteralPath $tmp
+      if ((Test-SymlinkPath (Split-Path -Parent $dir)) -or (Test-SymlinkPath $dir) -or (Test-SymlinkPath $Path)) {
+        throw 'project-config-symlink-escape'
+      }
+      Move-Item -Force -LiteralPath $tmp -Destination $Path
+    } catch {
+      Remove-Item -Force -LiteralPath $tmp -ErrorAction SilentlyContinue
+      throw
+    }
   }
   return $repoConfigStatus
 }
@@ -1169,9 +1215,14 @@ $artifactsPayload = [ordered]@{
   }
 }
 
-$providerStatus = Write-JsonIfChanged -Payload ([pscustomobject]$providerPayload) -Path $providerFile
-$runtimeStatus = Write-JsonIfChanged -Payload ([pscustomobject]$runtimePayload) -Path $runtimeFile
-$artifactsStatus = Write-JsonIfChanged -Payload ([pscustomobject]$artifactsPayload) -Path $artifactsFile
+try {
+  $providerStatus = Write-JsonIfChanged -Payload ([pscustomobject]$providerPayload) -Path $providerFile
+  $runtimeStatus = Write-JsonIfChanged -Payload ([pscustomobject]$runtimePayload) -Path $runtimeFile
+  $artifactsStatus = Write-JsonIfChanged -Payload ([pscustomobject]$artifactsPayload) -Path $artifactsFile
+} catch {
+  Write-ProviderConfigBlocked -ReasonCode 'project-config-symlink-escape'
+  return
+}
 
 [pscustomobject]@{
   repo_config_status = $providerStatus

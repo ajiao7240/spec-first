@@ -106,6 +106,53 @@ describe('atomic file write helper', () => {
     }
   });
 
+  test('operation plan refuses managed writes through a symlinked runtime ancestor', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-managed-symlink-write-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-managed-outside-'));
+
+    try {
+      fs.symlinkSync(outside, path.join(root, '.claude'), 'dir');
+
+      expect(() => applyOperationPlan(root, {
+        operations: [
+          {
+            kind: 'write_file',
+            path: '.claude/hooks/session-start',
+            contents: 'outside write\n',
+          },
+        ],
+      })).toThrow(/escapes project root through symlink/);
+      expect(fs.existsSync(path.join(outside, 'hooks', 'session-start'))).toBe(false);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test('operation plan refuses managed removals through a symlinked runtime root', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-managed-symlink-remove-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-managed-outside-'));
+    const outsideFile = path.join(outside, 'state.json');
+    fs.writeFileSync(outsideFile, 'do not remove\n', 'utf8');
+
+    try {
+      fs.symlinkSync(outside, path.join(root, '.codex'), 'dir');
+
+      expect(() => applyOperationPlan(root, {
+        operations: [
+          {
+            kind: 'remove_dir',
+            path: '.codex',
+          },
+        ],
+      })).toThrow(/escapes project root through symlink/);
+      expect(fs.readFileSync(outsideFile, 'utf8')).toBe('do not remove\n');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   test('operation plan refuses to remove the project root', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-managed-root-'));
 

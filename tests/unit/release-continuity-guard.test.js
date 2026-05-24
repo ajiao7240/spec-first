@@ -1,8 +1,14 @@
 'use strict';
 
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
 const {
   runChecks,
 } = require('../../scripts/check-release-continuity.cjs');
+
+const REPO_ROOT = path.join(__dirname, '..', '..');
 
 describe('release continuity guard', () => {
   test('reports deterministic release/source-runtime continuity guards with reason codes', () => {
@@ -45,5 +51,35 @@ describe('release continuity guard', () => {
       expect(guard.artifact_path).toEqual(expect.any(String));
       expect(guard.reason_code).toEqual(expect.any(String));
     }
+  });
+
+  test('json mode reports a structured blocking failure when runtime catalog is missing', () => {
+    const missingCatalogPath = path.join(os.tmpdir(), `spec-first-missing-runtime-catalog-${process.pid}.md`);
+    const result = spawnSync(process.execPath, ['scripts/check-release-continuity.cjs', '--json'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        SPEC_FIRST_RUNTIME_CATALOG_PATH: missingCatalogPath,
+      },
+    });
+    const payload = JSON.parse(result.stdout);
+    const runtimeGuard = payload.guards.find((entry) => entry.guard_id === 'runtime-capability-catalog-fresh');
+
+    expect(result.status).toBe(1);
+    expect(payload.schema_version).toBe('release-continuity-guard/v1');
+    expect(payload.status).toBe('failed');
+    expect(runtimeGuard).toMatchObject({
+      result: 'fail',
+      reason_code: 'runtime-catalog-missing',
+      classification: 'blocking',
+    });
+    expect(payload.blocking_failures).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        guard_id: 'runtime-capability-catalog-fresh',
+        reason_code: 'runtime-catalog-missing',
+      }),
+    ]));
+    expect(payload.guards.map((entry) => entry.guard_id)).toContain('package-delivery-surface');
   });
 });

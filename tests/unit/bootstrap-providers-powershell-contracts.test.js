@@ -36,6 +36,7 @@ describe('PowerShell graph bootstrap workspace GitNexus summary contract', () =>
     expect(powershell).toContain("'classifier-not-invoked'");
     expect(powershell).toContain("'classifier-failed'");
     expect(powershell).toContain("'script-mode-degraded'");
+    expect(powershell).toContain("'workspace-summary-symlink-escape'");
 
     expect(bash).toContain('compile_workspace_gitnexus_readiness_for_all_repos');
     expect(bash).toContain('compile-workspace-gitnexus-readiness.sh');
@@ -47,6 +48,7 @@ describe('PowerShell graph bootstrap workspace GitNexus summary contract', () =>
     expect(bash).toContain('"classifier-not-invoked"');
     expect(bash).toContain('"classifier-failed"');
     expect(bash).toContain('"script-mode-degraded"');
+    expect(bash).toContain('"workspace-summary-symlink-escape"');
   });
 
   test('keeps default summary null and key semantics aligned across shell hosts', () => {
@@ -129,6 +131,8 @@ describe('PowerShell graph bootstrap workspace GitNexus summary contract', () =>
     expect(powershell).toContain('workspace_gitnexus_readiness_pointer');
     expect(powershell).toContain('git_root_topology');
     expect(powershell).toContain('multi-repo-workspace');
+    expect(powershell).toContain('Write-WorkspaceSummaryJsonAtomic');
+    expect(powershell).toContain('workspace-summary-symlink-escape');
     expect(powershell).not.toContain('.spec-first/workspace/graph-facts.json');
     expect(powershell).not.toContain('.spec-first/workspace/provider-status.json');
   });

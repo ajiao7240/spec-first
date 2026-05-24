@@ -5,7 +5,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { writeFileAtomic } = require('../atomic-write');
 const { validateAgainstSchema } = require('../../contracts/schema-validator');
-const { isExactRepoRelativePath } = require('./secret-deny-patterns');
+const { isExactRepoRelativePath, isSecretDeniedPath } = require('./secret-deny-patterns');
 
 const PAYLOAD_SCHEMA_VERSION = 'spec-work-run-artifact-payload/v1';
 const ARTIFACT_SCHEMA_VERSION = 'spec-work-run-artifact/v1';
@@ -60,6 +60,16 @@ const ALLOWED_SCRIPT_CONFIRMED_FIELDS = new Set([
   'raw_log_ref',
   'resume_evidence',
 ]);
+const ALLOWED_VALIDATION_FIELDS = new Set([
+  'status',
+  'reason_code',
+  'commands',
+]);
+const ALLOWED_VALIDATION_COMMAND_FIELDS = new Set([
+  'command',
+  'exit_code',
+  'summary',
+]);
 const ALLOWED_RAW_LOG_REF_FIELDS = new Set([
   'kind',
   'display_ref',
@@ -68,6 +78,14 @@ const ALLOWED_RAW_LOG_REF_FIELDS = new Set([
   'retention_status',
   'access_boundary',
   'reason_code',
+]);
+const ALLOWED_RESUME_EVIDENCE_FIELDS = new Set([
+  'status',
+  'reason_code',
+]);
+const ALLOWED_PROVIDER_UNTRUSTED_FIELDS = new Set([
+  'readiness_status',
+  'summaries',
 ]);
 const ALLOWED_RETENTION_FIELDS = new Set([
   'retention_status',
@@ -884,10 +902,11 @@ function validatePayload(payload) {
   }
 
   if (payload.provider_untrusted && typeof payload.provider_untrusted === 'object') {
+    validateObjectFields(payload.provider_untrusted, 'provider_untrusted', ALLOWED_PROVIDER_UNTRUSTED_FIELDS, errors);
     if (!['fresh', 'stale', 'degraded', 'not-run', 'unknown'].includes(payload.provider_untrusted.readiness_status)) {
       errors.push('provider_untrusted.readiness_status is invalid');
     }
-    validateStringArray(payload.provider_untrusted.summaries, 'provider_untrusted.summaries', errors, { maxLength: 500 });
+    validateStringArray(payload.provider_untrusted.summaries, 'provider_untrusted.summaries', errors, { maxLength: 500, maxLines: 5, maxItems: 20 });
   }
 
   if (Object.prototype.hasOwnProperty.call(payload, 'graph_evidence_used')) {
@@ -951,6 +970,7 @@ function validateValidation(validation, errors) {
     errors.push('script_confirmed.validation must be an object');
     return;
   }
+  validateObjectFields(validation, 'script_confirmed.validation', ALLOWED_VALIDATION_FIELDS, errors);
   if (!['passed', 'failed', 'not-run', 'degraded'].includes(validation.status)) {
     errors.push('script_confirmed.validation.status is invalid');
   }
@@ -966,6 +986,7 @@ function validateValidation(validation, errors) {
       errors.push('script_confirmed.validation.commands entries must be objects');
       continue;
     }
+    validateObjectFields(command, 'script_confirmed.validation.commands[]', ALLOWED_VALIDATION_COMMAND_FIELDS, errors);
     if (typeof command.command !== 'string' || command.command.trim() === '') errors.push('validation command must be a non-empty string');
     if (!Number.isInteger(command.exit_code)) errors.push('validation exit_code must be an integer');
     if (typeof command.summary !== 'string' || command.summary.length > 500) errors.push('validation summary must be a string <= 500 chars');
@@ -995,6 +1016,7 @@ function validateResumeEvidence(resumeEvidence, errors) {
     errors.push('script_confirmed.resume_evidence must be an object');
     return;
   }
+  validateObjectFields(resumeEvidence, 'script_confirmed.resume_evidence', ALLOWED_RESUME_EVIDENCE_FIELDS, errors);
   if (!['read', 'not-found', 'not-readable', 'not-run'].includes(resumeEvidence.status)) {
     errors.push('resume_evidence.status is invalid');
   }
@@ -1073,6 +1095,12 @@ function validateRepoRelativeField(value, field, errors, options = {}) {
     return;
   }
   const normalized = String(value).replace(/\\/g, '/');
+  if (normalized === '.git' || normalized.startsWith('.git/')) {
+    errors.push(`${field} must not point at Git internals`);
+  }
+  if (isSecretDeniedPath(normalized)) {
+    errors.push(`${field} must not point at secret-denied paths`);
+  }
   if (GENERATED_RUNTIME_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
     errors.push(`${field} must not point at generated runtime mirrors`);
   }

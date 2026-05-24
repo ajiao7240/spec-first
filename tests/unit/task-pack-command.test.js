@@ -70,6 +70,7 @@ describe('task pack hash and validation', () => {
       wave: 1,
       review_gate: 'required',
       review_focus: 'Check validator compatibility and source-plan boundary.',
+      target_repo: null,
     }));
   });
 
@@ -447,6 +448,9 @@ describe('task pack hash and validation', () => {
       const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
       replaceTaskPackContract(taskPackPath, (contract) => {
         contract.tasks[0].files = [
+          '.claude',
+          '.codex',
+          '.agents/skills',
           '.claude/commands/spec/work.md',
           '.codex/skills/spec-work/SKILL.md',
           '.agents/skills/spec-work/SKILL.md',
@@ -456,7 +460,24 @@ describe('task pack hash and validation', () => {
       const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
 
       expect(result.deterministic_handoff).toBe(false);
-      expect(result.errors.filter((error) => error.code === 'task-pack-task-file-generated-runtime')).toHaveLength(3);
+      expect(result.errors.filter((error) => error.code === 'task-pack-task-file-generated-runtime')).toHaveLength(6);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('task files reject secret-denied ownership paths', () => {
+    const tmp = copyFixtureProject();
+    try {
+      const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+      replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.tasks[0].files = ['.env', 'secrets/serviceAccount.json'];
+      });
+
+      const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(result.deterministic_handoff).toBe(false);
+      expect(result.errors.filter((error) => error.code === 'task-pack-task-file-secret-denied')).toHaveLength(2);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -528,14 +549,39 @@ describe('task pack hash and validation', () => {
     try {
       const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
       replaceTaskPackContract(taskPackPath, (contract) => {
-        contract.tasks[0].expected_side_effects = ['**/*.json', '../outside.env', '/tmp/secret.env', '.agents/skills/spec-work/SKILL.md'];
+        contract.tasks[0].expected_side_effects = ['**/*.json', '../outside.env', '/tmp/secret.env', '.agents/skills/spec-work/SKILL.md', '.env', 'secrets/serviceAccount.json'];
       });
 
       const result = validateTaskPack(taskPackPath, { repoRoot: tmp });
 
       expect(result.deterministic_handoff).toBe(false);
-      expect(result.errors.filter((error) => error.code === 'task-pack-task-expected-side-effect-invalid')).toHaveLength(4);
+      expect(result.errors.filter((error) => error.code === 'task-pack-task-expected-side-effect-invalid')).toHaveLength(6);
       expect(result.limitations.map((limitation) => limitation.code)).not.toContain('task-pack-task-unknown-field');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('target_repo is projected into execution focus and rejects unsafe scopes', () => {
+    const tmp = copyFixtureProject();
+    try {
+      const taskPackPath = path.join(tmp, 'tests/fixtures/spec-write-tasks/valid/task-pack.md');
+      replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.tasks[0].target_repo = 'packages/spec-first';
+      });
+
+      const valid = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(valid.deterministic_handoff).toBe(true);
+      expect(valid.task_pack.execution_focus[0].target_repo).toBe('packages/spec-first');
+
+      replaceTaskPackContract(taskPackPath, (contract) => {
+        contract.tasks[0].target_repo = '../sibling';
+      });
+      const invalid = validateTaskPack(taskPackPath, { repoRoot: tmp });
+
+      expect(invalid.deterministic_handoff).toBe(false);
+      expect(invalid.errors.map((error) => error.code)).toContain('task-pack-task-target-repo-invalid');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }

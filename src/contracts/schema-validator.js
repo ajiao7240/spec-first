@@ -1,6 +1,7 @@
 'use strict';
 
 const SUPPORTED_SCHEMA_KEYWORDS = [
+  '$ref',
   'type',
   'enum',
   'const',
@@ -32,20 +33,33 @@ function schemaAllowsType(schema, typeName) {
   return getExpectedTypes(schema).includes(typeName);
 }
 
-function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
+function validateAgainstSchema(schema, value, pointer = 'root', errors = [], rootSchema = schema, refStack = []) {
   if (!schema || typeof schema !== 'object') {
     return { valid: false, errors: [`${pointer}: missing schema`] };
   }
 
+  if (typeof schema.$ref === 'string') {
+    const ref = resolveLocalRef(rootSchema, schema.$ref);
+    if (!ref.ok) {
+      errors.push(`${pointer}: unsupported schema ref ${schema.$ref}`);
+      return { valid: false, errors };
+    }
+    if (refStack.includes(schema.$ref)) {
+      errors.push(`${pointer}: circular schema ref ${schema.$ref}`);
+      return { valid: false, errors };
+    }
+    validateAgainstSchema(ref.schema, value, pointer, errors, rootSchema, [...refStack, schema.$ref]);
+  }
+
   if (Array.isArray(schema.allOf)) {
     for (const childSchema of schema.allOf) {
-      validateAgainstSchema(childSchema, value, pointer, errors);
+      validateAgainstSchema(childSchema, value, pointer, errors, rootSchema, refStack);
     }
   }
 
   if (Array.isArray(schema.anyOf)) {
     const matches = schema.anyOf
-      .map((childSchema) => validateAgainstSchema(childSchema, value, pointer, []))
+      .map((childSchema) => validateAgainstSchema(childSchema, value, pointer, [], rootSchema, refStack))
       .filter((result) => result.valid);
     if (matches.length === 0) {
       errors.push(`${pointer}: value did not match anyOf`);
@@ -54,7 +68,7 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
 
   if (Array.isArray(schema.oneOf)) {
     const matches = schema.oneOf
-      .map((childSchema) => validateAgainstSchema(childSchema, value, pointer, []))
+      .map((childSchema) => validateAgainstSchema(childSchema, value, pointer, [], rootSchema, refStack))
       .filter((result) => result.valid);
     if (matches.length !== 1) {
       errors.push(`${pointer}: value matched ${matches.length} oneOf schemas`);
@@ -62,12 +76,12 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
   }
 
   if (schema.if && typeof schema.if === 'object') {
-    const condition = validateAgainstSchema(schema.if, value, pointer, []);
+    const condition = validateAgainstSchema(schema.if, value, pointer, [], rootSchema, refStack);
     if (condition.valid && schema.then && typeof schema.then === 'object') {
-      validateAgainstSchema(schema.then, value, pointer, errors);
+      validateAgainstSchema(schema.then, value, pointer, errors, rootSchema, refStack);
     }
     if (!condition.valid && schema.else && typeof schema.else === 'object') {
-      validateAgainstSchema(schema.else, value, pointer, errors);
+      validateAgainstSchema(schema.else, value, pointer, errors, rootSchema, refStack);
     }
   }
 
@@ -107,7 +121,7 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
     const properties = schema.properties || {};
     for (const [key, propertySchema] of Object.entries(properties)) {
       if (Object.prototype.hasOwnProperty.call(value, key)) {
-        validateAgainstSchema(propertySchema, value[key], `${pointer}.${key}`, errors);
+        validateAgainstSchema(propertySchema, value[key], `${pointer}.${key}`, errors, rootSchema, refStack);
       }
     }
 
@@ -120,7 +134,7 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
     } else if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
       for (const [key, child] of Object.entries(value)) {
         if (!Object.prototype.hasOwnProperty.call(properties, key)) {
-          validateAgainstSchema(schema.additionalProperties, child, `${pointer}.${key}`, errors);
+          validateAgainstSchema(schema.additionalProperties, child, `${pointer}.${key}`, errors, rootSchema, refStack);
         }
       }
     }
@@ -128,7 +142,7 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
 
   if (schemaAllowsType(schema, 'array') && Array.isArray(value) && schema.items) {
     value.forEach((item, index) => {
-      validateAgainstSchema(schema.items, item, `${pointer}[${index}]`, errors);
+      validateAgainstSchema(schema.items, item, `${pointer}[${index}]`, errors, rootSchema, refStack);
     });
   }
 
@@ -163,6 +177,24 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = []) {
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+function resolveLocalRef(rootSchema, ref) {
+  if (!ref.startsWith('#/')) {
+    return { ok: false };
+  }
+  const segments = ref
+    .slice(2)
+    .split('/')
+    .map((segment) => segment.replace(/~1/g, '/').replace(/~0/g, '~'));
+  let current = rootSchema;
+  for (const segment of segments) {
+    if (!current || typeof current !== 'object' || !Object.prototype.hasOwnProperty.call(current, segment)) {
+      return { ok: false };
+    }
+    current = current[segment];
+  }
+  return current && typeof current === 'object' ? { ok: true, schema: current } : { ok: false };
 }
 
 module.exports = {

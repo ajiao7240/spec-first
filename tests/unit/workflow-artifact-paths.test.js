@@ -26,6 +26,28 @@ describe('workflow artifact paths', () => {
     })).toBe('/artifacts/.spec-first/workflows/verification/my-repo');
   });
 
+  test('rejects workflow artifact directories through symlinked .spec-first/workflows', () => {
+    const tempRoot = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'workflow-artifact-paths-'));
+    const repoRoot = path.join(tempRoot, 'repo');
+    const outsideRoot = path.join(tempRoot, 'outside');
+    fs.mkdirSync(path.join(repoRoot, '.spec-first'), { recursive: true });
+    fs.mkdirSync(outsideRoot, { recursive: true });
+    try {
+      fs.symlinkSync(outsideRoot, path.join(repoRoot, '.spec-first', 'workflows'), 'dir');
+    } catch (_error) {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+      return;
+    }
+
+    try {
+      expect(() => resolveWorkflowArtifactDir(repoRoot, 'quality-gates', 'ai-dev-quality-gate')).toThrow(
+        'resolveWorkflowArtifactDir: artifact path must stay inside artifact anchor root',
+      );
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   test('throws on empty workflow name', () => {
     expect(() => resolveWorkflowArtifactDir('/repo', '', 'my-app')).toThrow(
       'resolveWorkflowArtifactDir: workflow must be a non-empty string'

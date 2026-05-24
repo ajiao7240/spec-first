@@ -493,6 +493,11 @@ function runInitForWorkspace({
     console.log('Dry run: no parent advisory summary was written.');
   } else {
     const summaryPath = path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary.json');
+    const summaryPathGuard = validateContainedWorkspaceWritePath(workspaceRoot, summaryPath);
+    if (!summaryPathGuard.ok) {
+      console.error(`Error: workspace init summary path is unsafe (${summaryPathGuard.reason_code}).`);
+      return 1;
+    }
     writeJsonFileAtomic(summaryPath, summary);
     console.log(`🧭 Wrote parent advisory summary: ${path.relative(workspaceRoot, summaryPath)}`);
   }
@@ -768,6 +773,33 @@ function writeJsonFileAtomic(filePath, payload) {
   const tmpPath = path.join(dir, `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`);
   fs.writeFileSync(tmpPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   fs.renameSync(tmpPath, filePath);
+}
+
+function validateContainedWorkspaceWritePath(workspaceRoot, filePath) {
+  const rootReal = fs.realpathSync.native(path.resolve(workspaceRoot));
+  const nearest = nearestExistingPath(filePath);
+  const nearestReal = fs.realpathSync.native(nearest);
+  if (!isPathWithin(nearestReal, rootReal)) {
+    return {
+      ok: false,
+      reason_code: 'workspace-summary-symlink-escape',
+    };
+  }
+  return { ok: true, reason_code: null };
+}
+
+function nearestExistingPath(targetPath) {
+  let current = path.resolve(targetPath);
+  while (true) {
+    if (fs.existsSync(current)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return current;
+    }
+    current = parent;
+  }
 }
 
 function parseInitArgs(argv) {

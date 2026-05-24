@@ -73,13 +73,34 @@ compute_host_pointer_reconciliation() {
     }'
 }
 
-write_file_atomic_path() {
-  local path="$1"
+write_workspace_summary_atomic() {
+  local workspace_root="$1"
+  local file_name="$2"
+  local spec_dir="$workspace_root/.spec-first"
+  local workspace_dir="$spec_dir/workspace"
+  local path="$workspace_dir/$file_name"
   local tmp
-  mkdir -p "$(dirname "$path")"
-  tmp="$(mktemp "${path}.XXXXXX")"
-  cat > "$tmp"
-  mv "$tmp" "$path"
+
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ]; then
+    echo "verify-tools.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  mkdir -p "$workspace_dir" || return 1
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ] || [ -L "$path" ]; then
+    echo "verify-tools.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  tmp="$(mktemp "${path}.XXXXXX")" || return 1
+  if ! cat > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if [ -L "$spec_dir" ] || [ -L "$workspace_dir" ] || [ -L "$path" ]; then
+    rm -f "$tmp"
+    echo "verify-tools.sh: refusing to write workspace summary through symlinked .spec-first/workspace" >&2
+    return 1
+  fi
+  mv "$tmp" "$path" || { rm -f "$tmp"; return 1; }
 }
 
 write_all_repos_verify_summary_and_exit() {
@@ -223,9 +244,20 @@ write_all_repos_verify_summary_and_exit() {
         )
       }')"
   rm -f "$summary_items"
-  printf '%s\n' "$summary_json" | write_file_atomic_path "$workspace_root/.spec-first/workspace/mcp-verify-summary.json"
+  if ! printf '%s\n' "$summary_json" | write_workspace_summary_atomic "$workspace_root" "mcp-verify-summary.json"; then
+    jq -n --arg workspace_root "$workspace_root" '{
+      schema_version:"workspace-mcp-verify-summary.v1",
+      overall_status:"action-required",
+      workflow_mode:"blocked",
+      reason_code:"workspace-summary-symlink-escape",
+      workspace_root:$workspace_root,
+      advisory:true,
+      next_action:"Replace symlinked .spec-first/workspace with a real workspace-local directory and rerun verify."
+    }'
+    exit 1
+  fi
   printf '%s\n' "$summary_json"
-  if [ "$(jq -r '.overall_status' <<<"$summary_json")" = "action-required" ]; then
+  if [ "$(jq -r '.overall_status' <<<"$summary_json")" != "ready" ]; then
     exit 1
   fi
   exit 0
@@ -416,7 +448,12 @@ jq --argjson provider "$PROVIDER_RESULT" \
           end)
        | map(select(. != ""))
        | unique
-     )' "$combined_tmp" > "$final_tmp"
+     )
+   | ([.repo_config_status, .runtime_capabilities_status, .provider_artifacts_status]
+      | any(. != "ready" and . != "written")) as $provider_action_required
+   | .baseline_ready = ((.baseline_ready == true) and ($provider_action_required | not))
+   | .host_runtime_ready = (.baseline_ready == true)
+   | .overall_status = (if .baseline_ready == true then "ready" else "action-required" end)' "$combined_tmp" > "$final_tmp"
 
 mv "$final_tmp" "$MARKER_PATH"
 

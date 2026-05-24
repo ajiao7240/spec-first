@@ -298,6 +298,14 @@ describe('spec-work run artifact producer', () => {
     const badPayloads = [
       validPayload({ plan_source: 'bogus' }),
       validPayload({ source_refs: ['.agents/skills/spec-work/SKILL.md'] }),
+      validPayload({ source_refs: ['.env'] }),
+      validPayload({ source_refs: ['.git/config'] }),
+      validPayload({
+        script_confirmed: {
+          ...validPayload().script_confirmed,
+          changed_files: ['secrets/serviceAccount.json'],
+        },
+      }),
       validPayload({
         script_confirmed: {
           ...validPayload().script_confirmed,
@@ -306,6 +314,9 @@ describe('spec-work run artifact producer', () => {
       }),
       validPayload({ llm_asserted: { ...validPayload().llm_asserted, summary: '/var/folders/raw/path' } }),
       validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, raw_output: 'provider raw text' } }),
+      validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, details: oversizedLog } }),
+      validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, nested: { transcript: oversizedLog } } }),
+      validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, summaries: Array.from({ length: 21 }, (_, index) => `summary ${index}`) } }),
       validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), provider_raw_output: 'provider raw text' } }),
       validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), redaction_status: undefined } }),
       validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), evidence_grade: 'fallback' } }),
@@ -320,6 +331,44 @@ describe('spec-work run artifact producer', () => {
         script_confirmed: {
           ...validPayload().script_confirmed,
           unexpected_script_field: true,
+        },
+      }),
+      validPayload({
+        script_confirmed: {
+          ...validPayload().script_confirmed,
+          tool_output: oversizedLog,
+        },
+      }),
+      validPayload({
+        script_confirmed: {
+          ...validPayload().script_confirmed,
+          validation: {
+            ...validPayload().script_confirmed.validation,
+            transcript: oversizedLog,
+          },
+        },
+      }),
+      validPayload({
+        script_confirmed: {
+          ...validPayload().script_confirmed,
+          validation: {
+            ...validPayload().script_confirmed.validation,
+            commands: [
+              {
+                ...validPayload().script_confirmed.validation.commands[0],
+                messages: oversizedLog,
+              },
+            ],
+          },
+        },
+      }),
+      validPayload({
+        script_confirmed: {
+          ...validPayload().script_confirmed,
+          resume_evidence: {
+            ...validPayload().script_confirmed.resume_evidence,
+            raw_messages: oversizedLog,
+          },
         },
       }),
       validPayload({

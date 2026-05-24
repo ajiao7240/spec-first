@@ -59,11 +59,67 @@ function Write-JsonFileAtomic {
     [object]$Payload,
     [int]$Depth = 30
   )
+  function Test-SymlinkPath {
+    param([string]$CandidatePath)
+    if ([string]::IsNullOrWhiteSpace($CandidatePath)) { return $false }
+    $item = Get-Item -LiteralPath $CandidatePath -Force -ErrorAction SilentlyContinue
+    return ($null -ne $item -and (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0))
+  }
   $dir = Split-Path -Parent $Path
-  New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  $specDir = Split-Path -Parent $dir
+  if ((Split-Path -Leaf $dir) -ne 'workspace' -or (Split-Path -Leaf $specDir) -ne '.spec-first') {
+    throw 'workspace-summary-path-outside-contract'
+  }
+  if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $dir)) {
+    throw 'workspace-summary-symlink-escape'
+  }
+  [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+  if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $dir) -or (Test-SymlinkPath $Path)) {
+    throw 'workspace-summary-symlink-escape'
+  }
   $tmp = Join-Path $dir ('.{0}.{1}.tmp' -f (Split-Path -Leaf $Path), ([guid]::NewGuid().ToString('N')))
-  $Payload | ConvertTo-Json -Depth $Depth | Set-Content -Encoding utf8 $tmp
-  Move-Item -Force $tmp $Path
+  try {
+    $Payload | ConvertTo-Json -Depth $Depth | Set-Content -Encoding utf8 -LiteralPath $tmp
+    if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $dir) -or (Test-SymlinkPath $Path)) {
+      throw 'workspace-summary-symlink-escape'
+    }
+    Move-Item -Force -LiteralPath $tmp -Destination $Path
+  } catch {
+    Remove-Item -Force -LiteralPath $tmp -ErrorAction SilentlyContinue
+    throw
+  }
+}
+
+function Test-SymlinkPath {
+  param([string]$CandidatePath)
+  if ([string]::IsNullOrWhiteSpace($CandidatePath)) { return $false }
+  $item = Get-Item -LiteralPath $CandidatePath -Force -ErrorAction SilentlyContinue
+  return ($null -ne $item -and (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0))
+}
+
+function Stop-ProjectConfigBlocked {
+  param(
+    [string]$Reason,
+    [string]$ExampleStatus = 'skipped',
+    [string]$LocalStatus = 'skipped',
+    [string]$GitignoreStatus = 'skipped'
+  )
+  Write-Result `
+    -OverallStatus 'action-required' `
+    -Reason $Reason `
+    -RepoRoot $repoRoot `
+    -ExampleStatus $ExampleStatus `
+    -LocalStatus $LocalStatus `
+    -GitignoreStatus $GitignoreStatus `
+    -LegacyMarkdownStatus $legacyMarkdownStatus `
+    -LegacyConfigStatus $legacyConfigStatus
+  exit 1
+}
+
+function Ensure-SafeSpecFirstProjectDir {
+  if (Test-SymlinkPath $specDir) { return $false }
+[System.IO.Directory]::CreateDirectory($specDir) | Out-Null
+  return -not (Test-SymlinkPath $specDir)
 }
 
 function Invoke-ChildJsonScript {
@@ -196,9 +252,22 @@ function Write-WorkspaceProjectConfigSummaryAndExit {
     next_action = if ($actionRequiredCount -eq 0) { 'All child repos completed project config bootstrap.' } else { 'Inspect per-child reason_code and rerun project config bootstrap for action-required repos.' }
   }
 
-  Write-JsonFileAtomic -Path (Join-Path $workspaceRoot '.spec-first/workspace/project-config-bootstrap-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
+  try {
+    Write-JsonFileAtomic -Path (Join-Path $workspaceRoot '.spec-first/workspace/project-config-bootstrap-summary.json') -Payload ([pscustomobject]$summary) -Depth 30
+  } catch {
+    [pscustomobject]@{
+      schema_version = 'workspace-project-config-bootstrap-summary.v1'
+      overall_status = 'action-required'
+      workflow_mode = 'blocked'
+      reason_code = 'workspace-summary-symlink-escape'
+      workspace_root = $workspaceRoot
+      advisory = $true
+      next_action = 'Replace symlinked .spec-first/workspace with a real workspace-local directory and rerun project config bootstrap.'
+    } | ConvertTo-Json -Compress
+    exit 1
+  }
   [pscustomobject]$summary | ConvertTo-Json -Depth 30 -Compress
-  if ($overallStatus -eq 'action-required') { exit 1 }
+  if ($overallStatus -ne 'ready') { exit 1 }
   exit 0
 }
 
@@ -258,13 +327,15 @@ $legacyMarkdownStatus = if (Test-Path -LiteralPath $legacyMarkdown -PathType Lea
 $legacyConfigStatus = if (Test-Path -LiteralPath $legacyConfig -PathType Leaf) { 'present' } else { 'missing' }
 
 if ($RefreshExample) {
-  New-Item -ItemType Directory -Force -Path $specDir | Out-Null
+  if (-not (Ensure-SafeSpecFirstProjectDir)) { Stop-ProjectConfigBlocked -Reason 'project-config-symlink-escape' }
+  if (Test-SymlinkPath $exampleConfig) { Stop-ProjectConfigBlocked -Reason 'project-config-symlink-escape' }
   Copy-Item -LiteralPath $template -Destination $exampleConfig -Force
   $exampleStatus = 'refreshed'
 }
 
 if ($CreateLocal) {
-  New-Item -ItemType Directory -Force -Path $specDir | Out-Null
+  if (-not (Ensure-SafeSpecFirstProjectDir)) { Stop-ProjectConfigBlocked -Reason 'project-config-symlink-escape' -ExampleStatus $exampleStatus }
+  if (Test-SymlinkPath $localConfig) { Stop-ProjectConfigBlocked -Reason 'project-config-symlink-escape' -ExampleStatus $exampleStatus }
   if (Test-Path -LiteralPath $localConfig -PathType Leaf) {
     $localStatus = 'already-exists'
   } else {
@@ -275,8 +346,11 @@ if ($CreateLocal) {
 
 if ($EnsureGitignore) {
   $line = '.spec-first/*.local.yaml'
+  if (Test-SymlinkPath $gitignore) {
+    Stop-ProjectConfigBlocked -Reason 'gitignore-symlink-escape' -ExampleStatus $exampleStatus -LocalStatus $localStatus -GitignoreStatus 'blocked'
+  }
   if (-not (Test-Path -LiteralPath $gitignore -PathType Leaf)) {
-    New-Item -ItemType File -Path $gitignore | Out-Null
+    New-Item -ItemType File -LiteralPath $gitignore | Out-Null
   }
   $content = Get-Content -LiteralPath $gitignore -ErrorAction SilentlyContinue
   if ($content -contains $line) {

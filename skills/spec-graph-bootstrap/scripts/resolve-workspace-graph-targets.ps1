@@ -38,6 +38,43 @@ function Get-StatusHash {
   }
 }
 
+function Test-SymlinkPath {
+  param([string]$CandidatePath)
+  if ([string]::IsNullOrWhiteSpace($CandidatePath)) { return $false }
+  $item = Get-Item -LiteralPath $CandidatePath -Force -ErrorAction SilentlyContinue
+  return ($null -ne $item -and (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0))
+}
+
+function Write-WorkspaceSummaryJsonAtomic {
+  param(
+    [string]$WorkspaceRoot,
+    [string]$FileName,
+    [object]$Payload,
+    [int]$Depth = 30
+  )
+  $specDir = Join-Path $WorkspaceRoot '.spec-first'
+  $workspaceDir = Join-Path $specDir 'workspace'
+  if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $workspaceDir)) {
+    throw 'workspace-summary-symlink-escape'
+  }
+  [System.IO.Directory]::CreateDirectory($workspaceDir) | Out-Null
+  $summaryPath = Join-Path $workspaceDir $FileName
+  if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $workspaceDir) -or (Test-SymlinkPath $summaryPath)) {
+    throw 'workspace-summary-symlink-escape'
+  }
+  $tmpPath = "$summaryPath.$([guid]::NewGuid().ToString('N')).tmp"
+  try {
+    [pscustomobject]$Payload | ConvertTo-Json -Depth $Depth | Set-Content -LiteralPath $tmpPath -Encoding UTF8
+    if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $workspaceDir) -or (Test-SymlinkPath $summaryPath)) {
+      throw 'workspace-summary-symlink-escape'
+    }
+    Move-Item -Force -LiteralPath $tmpPath -Destination $summaryPath
+  } catch {
+    Remove-Item -Force -LiteralPath $tmpPath -ErrorAction SilentlyContinue
+    throw
+  }
+}
+
 function Get-ProviderStatus {
   param(
     [object]$ProviderStatus,
@@ -337,12 +374,38 @@ $result = [ordered]@{
 }
 
 if ($WriteSummary) {
-  $workspaceDir = Join-Path $targetFacts.workspace_root '.spec-first/workspace'
-  New-Item -ItemType Directory -Force -LiteralPath $workspaceDir | Out-Null
-  $summaryPath = Join-Path $workspaceDir 'graph-targets.json'
-  $tmpPath = "$summaryPath.$([guid]::NewGuid().ToString('N')).tmp"
-  [pscustomobject]$result | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $tmpPath -Encoding UTF8
-  Move-Item -Force -LiteralPath $tmpPath -Destination $summaryPath
+  try {
+    Write-WorkspaceSummaryJsonAtomic -WorkspaceRoot ([string]$targetFacts.workspace_root) -FileName 'graph-targets.json' -Payload ([pscustomobject]$result) -Depth 30
+  } catch {
+    [pscustomobject][ordered]@{
+      schema_version = 'workspace-graph-targets.v1'
+      advisory = $true
+      mode = 'blocked'
+      repo_status = 'not-git-repo'
+      workspace_root = [string]$targetFacts.workspace_root
+      parent_writes_repo_local_artifacts = $false
+      repos = @()
+      counts = [ordered]@{
+        total = 0
+        primary = 0
+        degraded = 0
+        no_source = 0
+        stale = 0
+        dirty_uncertain = 0
+        setup_ready_bootstrap_required = 0
+        unavailable = 0
+      }
+      query_usability_counts = [ordered]@{
+        'fresh-primary' = 0
+        'stale-advisory' = 0
+        'definitions-pointer' = 0
+        unavailable = 0
+      }
+      reason_code = 'workspace-summary-symlink-escape'
+      next_action = 'Replace symlinked .spec-first/workspace with a real workspace-local directory and rerun graph target resolution.'
+    } | ConvertTo-Json -Depth 30 -Compress
+    exit 1
+  }
 }
 
 [pscustomobject]$result | ConvertTo-Json -Depth 30 -Compress

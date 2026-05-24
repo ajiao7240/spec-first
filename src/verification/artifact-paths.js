@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('node:fs');
 const path = require('node:path');
 
 const SPEC_FIRST_DIR = '.spec-first';
@@ -45,7 +46,9 @@ function resolveWorkflowArtifactDir(repoRoot, workflow, slug, options = {}) {
   validateArtifactPathSegment('workflow', workflow);
   validateArtifactPathSegment('slug', slug);
   const artifactAnchorRoot = options.artifactAnchorRoot || repoRoot;
-  return path.join(artifactAnchorRoot, SPEC_FIRST_DIR, WORKFLOWS_SUBDIR, workflow, slug);
+  const artifactDir = path.join(artifactAnchorRoot, SPEC_FIRST_DIR, WORKFLOWS_SUBDIR, workflow, slug);
+  validateArtifactContainment(artifactAnchorRoot, artifactDir);
+  return artifactDir;
 }
 
 function validateArtifactPathSegment(name, value) {
@@ -71,6 +74,47 @@ function validateArtifactPathSegment(name, value) {
   ) {
     throw new Error(`resolveWorkflowArtifactDir: ${name} must be Windows-compatible`);
   }
+}
+
+function validateArtifactContainment(artifactAnchorRoot, artifactDir) {
+  const anchor = path.resolve(artifactAnchorRoot);
+  if (!fs.existsSync(anchor)) return;
+
+  const realAnchor = safeRealpath(anchor);
+  if (!realAnchor) {
+    throw new Error('resolveWorkflowArtifactDir: artifact anchor root cannot be inspected');
+  }
+
+  const existingAncestor = findExistingAncestor(path.dirname(artifactDir), anchor);
+  const realAncestor = safeRealpath(existingAncestor);
+  if (!realAncestor || !isInsidePath(realAnchor, realAncestor)) {
+    throw new Error('resolveWorkflowArtifactDir: artifact path must stay inside artifact anchor root');
+  }
+}
+
+function safeRealpath(value) {
+  try {
+    return fs.realpathSync.native(value);
+  } catch (_error) {
+    return '';
+  }
+}
+
+function findExistingAncestor(candidate, stopAt) {
+  let current = path.resolve(candidate);
+  const stop = path.resolve(stopAt);
+  while (!fs.existsSync(current)) {
+    if (current === stop) return stop;
+    const parent = path.dirname(current);
+    if (parent === current) return stop;
+    current = parent;
+  }
+  return current;
+}
+
+function isInsidePath(parentPath, childPath) {
+  const relative = path.relative(parentPath, childPath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 module.exports = {

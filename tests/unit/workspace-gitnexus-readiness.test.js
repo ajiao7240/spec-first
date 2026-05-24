@@ -170,7 +170,7 @@ describe('workspace GitNexus readiness classifier', () => {
       ],
     });
     const registryList = writeJson(tmp, 'registry-service-a.json', {
-      repos: [{ name: 'service-a', path: path.join(tmp, 'service-a') }],
+      repos: [{ name: 'service-a', path: '/workspace/simple/service-a' }],
     });
 
     const result = compileWorkspaceGitNexusReadiness({
@@ -202,7 +202,7 @@ describe('workspace GitNexus readiness classifier', () => {
       ],
     });
     const registryList = writeJson(tmp, 'registry-service-a.json', {
-      repos: [{ name: 'service-a', path: path.join(tmp, 'service-a') }],
+      repos: [{ name: 'service-a', path: '/workspace/simple/service-a' }],
     });
 
     const result = compileWorkspaceGitNexusReadiness({
@@ -219,6 +219,28 @@ describe('workspace GitNexus readiness classifier', () => {
       query_selector: null,
     });
     expect(result.payload.group_reason_code).toBe('group-status-unsupported:future-ready');
+  });
+
+  test('skill-prose mode does not match same-name registry repos with different paths', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-readiness-'));
+    const registryList = writeJson(tmp, 'registry-wrong-service-a.json', {
+      repos: [{ name: 'service-a', path: '/other/workspace/service-a' }],
+    });
+
+    const result = compileWorkspaceGitNexusReadiness({
+      mode: 'skill-prose',
+      workspaceTargets: fixture('topology-multi-repo-workspace.example.json'),
+      registryList,
+      groupList: fixture('group-list.ready.gitnexus-1.6.4.captured-2026-05-22.example.json'),
+    }, tmp);
+
+    expect(result.payload.repos[0].registry_match).toEqual({
+      status: 'missing',
+      confidence: 'none',
+      name: null,
+    });
+    expect(result.payload.recommended_query_path).toBe('direct-read-fallback');
+    expect(result.payload.group.status).toBe('group-missing');
   });
 
   test.each([
@@ -385,6 +407,27 @@ describe('workspace GitNexus readiness classifier', () => {
       'stale-advisory': 0,
       'definitions-pointer': 0,
       unavailable: 1,
+    });
+    expect(Object.values(result.payload.query_usability_counts).reduce((sum, value) => sum + value, 0)).toBe(result.payload.repos.length);
+  });
+
+  test('script mode normalizes unknown readiness enum axes to closed fallback values', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-readiness-'));
+    const targets = readFixture('topology-multi-repo-workspace.example.json');
+    targets.repos[0].refresh_eligibility = 'future-refresh-state';
+    targets.repos[0].index_snapshot = 'future-index-state';
+    targets.repos[0].query_usability = 'future-query-state';
+    const targetsPath = writeJson(tmp, 'script-unknown-enums-targets.json', targets);
+
+    const result = compileWorkspaceGitNexusReadiness({
+      mode: 'script',
+      workspaceTargets: targetsPath,
+    }, tmp);
+
+    expect(result.payload.repos[0]).toMatchObject({
+      refresh_eligibility: 'setup-required',
+      index_snapshot: 'missing',
+      query_usability: 'unavailable',
     });
     expect(Object.values(result.payload.query_usability_counts).reduce((sum, value) => sum + value, 0)).toBe(result.payload.repos.length);
   });

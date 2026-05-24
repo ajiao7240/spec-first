@@ -57,13 +57,34 @@ function guard({ guardId, classification, artifactPath, checkedSources, ok, pass
   };
 }
 
-function checkRuntimeCatalogFresh() {
-  const actual = read(DEFAULT_OUTPUT_PATH);
+function checkRuntimeCatalogFresh(options = {}) {
+  const outputPath = options.runtimeCatalogPath || DEFAULT_OUTPUT_PATH;
+  const artifactPath = path.relative(REPO_ROOT, outputPath);
+  let actual;
+  try {
+    actual = read(outputPath);
+  } catch (error) {
+    return guard({
+      guardId: 'runtime-capability-catalog-fresh',
+      classification: 'blocking',
+      artifactPath,
+      checkedSources: [
+        'scripts/generate-runtime-capability-catalog.js',
+        'src/cli/plugin.js',
+        'src/cli/contracts/dual-host-governance/skills-governance.json',
+        'docs/contracts/workflows/*.schema.json',
+        'docs/catalog/runtime-capabilities.md',
+      ],
+      ok: false,
+      passReason: 'runtime-catalog-current',
+      failReason: error && error.code === 'ENOENT' ? 'runtime-catalog-missing' : 'runtime-catalog-unreadable',
+    });
+  }
   const expected = buildRuntimeCapabilityCatalog();
   return guard({
     guardId: 'runtime-capability-catalog-fresh',
     classification: 'blocking',
-    artifactPath: path.relative(REPO_ROOT, DEFAULT_OUTPUT_PATH),
+    artifactPath,
     checkedSources: [
       'scripts/generate-runtime-capability-catalog.js',
       'src/cli/plugin.js',
@@ -215,14 +236,69 @@ function checkReadmeBoundaryLinks() {
   });
 }
 
-function runChecks() {
-  const guards = [
-    checkRuntimeCatalogFresh(),
-    checkPublicWorkflowSummaries(),
-    checkPackageDeliverySurface(),
-    checkWebsiteGatePreserved(),
-    checkReadmeBoundaryLinks(),
+function guardException(check, error) {
+  return {
+    guard_id: check.guardId,
+    result: 'fail',
+    reason_code: `${check.guardId}-exception`,
+    classification: check.classification,
+    artifact_path: check.artifactPath,
+    checked_sources: check.checkedSources,
+    diagnostic: error && error.message ? error.message : String(error),
+  };
+}
+
+function runChecks(options = {}) {
+  const checks = [
+    {
+      guardId: 'runtime-capability-catalog-fresh',
+      classification: 'blocking',
+      artifactPath: 'docs/catalog/runtime-capabilities.md',
+      checkedSources: [
+        'scripts/generate-runtime-capability-catalog.js',
+        'src/cli/plugin.js',
+        'src/cli/contracts/dual-host-governance/skills-governance.json',
+        'docs/contracts/workflows/*.schema.json',
+        'docs/catalog/runtime-capabilities.md',
+      ],
+      run: () => checkRuntimeCatalogFresh(options),
+    },
+    {
+      guardId: 'public-workflow-contract-summary-coverage',
+      classification: 'blocking',
+      artifactPath: 'src/cli/contracts/dual-host-governance/skills-governance.json',
+      checkedSources: ['src/cli/contracts/dual-host-governance/skills-governance.json'],
+      run: checkPublicWorkflowSummaries,
+    },
+    {
+      guardId: 'package-delivery-surface',
+      classification: 'blocking',
+      artifactPath: 'package.json',
+      checkedSources: ['package.json', 'npm pack --dry-run --json'],
+      run: checkPackageDeliverySurface,
+    },
+    {
+      guardId: 'website-sync-release-gate-preserved',
+      classification: 'blocking',
+      artifactPath: 'docs/contracts/website-sync-contract.md',
+      checkedSources: ['package.json', 'scripts/release-publish.cjs', 'scripts/check-website-sync.cjs'],
+      run: checkWebsiteGatePreserved,
+    },
+    {
+      guardId: 'readme-source-runtime-boundary-links',
+      classification: 'docs-only-no-impact',
+      artifactPath: 'docs/contracts/source-runtime-customization-boundary.md',
+      checkedSources: ['README.md', 'README.zh-CN.md'],
+      run: checkReadmeBoundaryLinks,
+    },
   ];
+  const guards = checks.map((check) => {
+    try {
+      return check.run();
+    } catch (error) {
+      return guardException(check, error);
+    }
+  });
   const blockingFailures = guards.filter((entry) => (
     entry.result === 'fail' && entry.classification === 'blocking'
   ));
@@ -252,7 +328,9 @@ function renderText(result) {
 
 function main(argv = process.argv.slice(2)) {
   const json = argv.includes('--json');
-  const result = runChecks();
+  const result = runChecks({
+    runtimeCatalogPath: process.env.SPEC_FIRST_RUNTIME_CATALOG_PATH || DEFAULT_OUTPUT_PATH,
+  });
   process.stdout.write(json ? `${JSON.stringify(result, null, 2)}\n` : renderText(result));
   return result.status === 'passed' ? 0 : 1;
 }

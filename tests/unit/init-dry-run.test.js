@@ -749,6 +749,27 @@ describe('init --dry-run', () => {
     }
   });
 
+  test('init --all-repos refuses workspace summary writes through symlinked .spec-first/workspace', () => {
+    const workspaceRoot = makeTempDir();
+    const outside = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, 'project-b', '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, '.spec-first'), { recursive: true });
+      fs.symlinkSync(outside, path.join(workspaceRoot, '.spec-first', 'workspace'), 'dir');
+
+      const result = captureInit(workspaceRoot, ['--codex', '--all-repos', '-u', 'reviewer', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('workspace-summary-symlink-escape');
+      expect(fs.existsSync(path.join(outside, 'init-summary.json'))).toBe(false);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   test('init rejects invalid workspace target flag combinations', () => {
     const projectRoot = makeTempDir();
     const workspaceRoot = makeTempDir();
