@@ -678,7 +678,7 @@ function Normalize-GitNexusInstructionBlockViaCli {
     [string]$RepoRoot,
     [string]$GitRootTopology = 'single-repo'
   )
-  $captured = Invoke-SpecFirstCliCaptured -CliArguments @('gitnexus-instruction', 'normalize', '--repo-root', $RepoRoot, '--git-root-topology', $GitRootTopology, '--write', '--json')
+  $captured = Invoke-SpecFirstCliCaptured -CliArguments @('gitnexus-instruction', 'normalize', '--repo-root', $RepoRoot, '--git-root-topology', $GitRootTopology, '--json')
   try {
     $payload = $captured.output | ConvertFrom-Json -ErrorAction Stop
     $results = if ($null -ne $payload -and ($payload.PSObject.Properties.Name -contains 'results')) { @($payload.results) } else { @() }
@@ -691,8 +691,10 @@ function Normalize-GitNexusInstructionBlockViaCli {
       $failureReason = if ($captured.timed_out) { 'gitnexus-instruction-normalizer-timeout' } else { 'gitnexus-instruction-normalizer-failed' }
       return New-GitNexusInstructionNormalizationResult -Status 'failed' -ReasonCode $failureReason -ExitCode $captured.exit_code -Diagnostic $captured.output -Results $results
     }
-    if ($overallStatus -eq 'normalized' -or @($results | Where-Object { $_.status -eq 'updated' -and [bool]$_.changed }).Count -gt 0) {
-      return New-GitNexusInstructionNormalizationResult -Status 'normalized' -ExitCode 0 -Results $results
+    if ($overallStatus -eq 'normalized' -or @($results | Where-Object { $_.status -eq 'updated' -and [bool]$_.changed }).Count -gt 0 -or @($results | Where-Object { $_.status -eq 'created' -and [bool]$_.changed }).Count -gt 0) {
+      $writeFlag = if ($null -ne $payload -and ($payload.PSObject.Properties.Name -contains 'write')) { [bool]$payload.write } else { $false }
+      $driftStatus = if ($writeFlag) { 'normalized' } else { 'drift-detected' }
+      return New-GitNexusInstructionNormalizationResult -Status $driftStatus -ExitCode 0 -Results $results
     }
     if ($overallStatus -eq 'unchanged' -or @($results | Where-Object { $_.status -eq 'already-current' }).Count -gt 0) {
       return New-GitNexusInstructionNormalizationResult -Status 'unchanged' -ExitCode 0 -Results $results

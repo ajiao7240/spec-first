@@ -89,6 +89,26 @@ ensure_env_copy_log_excluded() {
   fi
 }
 
+validate_env_copy_log_path() {
+  local worktree_path="$1"
+  local worktree_real="${2:-}"
+  local log_file="$worktree_path/.env-copy.log"
+  local log_real
+
+  if [[ -z "$worktree_real" ]]; then
+    worktree_real=$(realpath_existing "$worktree_path")
+  fi
+  if [[ -L "$log_file" ]]; then
+    echo "Error: refusing to write env copy log through symlink destination" >&2
+    return 1
+  fi
+  log_real=$(realpath_for_new_path "$log_file")
+  if ! path_within "$log_real" "$worktree_real"; then
+    echo "Error: env copy log destination escapes the worktree" >&2
+    return 1
+  fi
+}
+
 append_env_copy_log() {
   local worktree_path="$1" source="$2" dest="$3"
   local size sha8 timestamp log_file
@@ -103,6 +123,7 @@ append_env_copy_log() {
   fi
   timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   log_file="$worktree_path/.env-copy.log"
+  validate_env_copy_log_path "$worktree_path"
   printf 'timestamp=%s source_path=%s destination_path=%s size_bytes=%s sha256_8=%s\n' \
     "$timestamp" "$source" "$dest" "$size" "$sha8" >> "$log_file"
 }
@@ -123,6 +144,7 @@ copy_env_files() {
   worktree_real=$(realpath_existing "$worktree_path")
 
   ensure_env_copy_log_excluded "$worktree_path"
+  validate_env_copy_log_path "$worktree_path" "$worktree_real"
   shopt -s nullglob
 
   local sources=()
@@ -131,6 +153,7 @@ copy_env_files() {
     local name
     name=$(basename "$source")
     is_env_example_file "$name" && continue
+    [[ "$name" == ".env-copy.log" ]] && continue
     sources+=("$source")
   done
 

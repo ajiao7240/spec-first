@@ -269,7 +269,7 @@ normalize_gitnexus_instruction_block_for_root() {
       "$PROVIDER_COMMAND_TIMEOUT_SECONDS" \
       "$output_file" \
       "${SPEC_FIRST_CLI_COMMAND[@]}" \
-      gitnexus-instruction normalize --repo-root "$repo_root" --git-root-topology "$git_root_topology" --write --json
+      gitnexus-instruction normalize --repo-root "$repo_root" --git-root-topology "$git_root_topology" --json
     exit_code=$?
   else
     exit_code=127
@@ -295,8 +295,12 @@ normalize_gitnexus_instruction_block_for_root() {
     elif [ "$exit_code" -ne 0 ]; then
       status="failed"
       reason_code="gitnexus-instruction-normalizer-failed"
-    elif jq -e '(.overall_status // "") == "normalized" or any(.results[]?; .status == "updated" and .changed == true)' >/dev/null <<<"$output"; then
-      status="normalized"
+    elif jq -e '(.overall_status // "") == "normalized" or any(.results[]?; .status == "updated" and .changed == true) or any(.results[]?; .status == "created" and .changed == true)' >/dev/null <<<"$output"; then
+      if jq -e '.write == true' >/dev/null <<<"$output"; then
+        status="normalized"
+      else
+        status="drift-detected"
+      fi
       reason_code=""
     elif jq -e '(.overall_status // "") == "unchanged" or any(.results[]?; .status == "already-current")' >/dev/null <<<"$output"; then
       status="unchanged"
@@ -671,7 +675,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         selection_source:$selection_source,
         workspace_root:($target.workspace_root // null),
         parent_writes_repo_local_artifacts:false,
-        parent_writes_host_instruction_files:any($parent_host_instruction_normalization.results[]?; .written == true),
+        parent_writes_host_instruction_files:false,
         parent_host_instruction_normalization:$parent_host_instruction_normalization,
         workspace_gitnexus_readiness_pointer:$workspace_gitnexus_readiness.workspace_gitnexus_readiness_pointer,
         query_usability_counts:$workspace_gitnexus_readiness.query_usability_counts,
@@ -804,7 +808,7 @@ record_bootstrap_owned_host_instruction_hashes() {
   local file_path
   for file_path in AGENTS.md CLAUDE.md; do
     if jq -e --arg file_path "$file_path" \
-      'any(.results[]?; .file == $file_path and (.written == true or .changed == true or .status == "updated"))' \
+      'any(.results[]?; .file == $file_path and .written == true)' \
       >/dev/null 2>&1 <<<"$normalization_json"; then
       case "$file_path" in
         AGENTS.md)

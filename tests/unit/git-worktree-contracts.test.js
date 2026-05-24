@@ -245,6 +245,39 @@ describe('git-worktree runtime delivery contracts', () => {
     }
   });
 
+  test('--copy-env refuses symlinked env copy logs before writing outside the worktree', () => {
+    const repo = initGitRepo();
+    const outsideFile = path.join(os.tmpdir(), `spec-first-env-log-outside-${process.pid}.txt`);
+
+    try {
+      fs.writeFileSync(outsideFile, 'outside-before\n', 'utf8');
+      try {
+        fs.symlinkSync(outsideFile, path.join(repo, '.env-copy.log'));
+      } catch (error) {
+        if (error.code === 'EPERM' || error.code === 'EACCES' || error.code === 'ENOSYS') return;
+        throw error;
+      }
+      run('git', ['add', '.env-copy.log'], repo);
+      run('git', [
+        '-c', 'core.hooksPath=/dev/null',
+        '-c', 'user.name=Spec Test',
+        '-c', 'user.email=spec@example.test',
+        'commit',
+        '-m', 'track env copy log symlink',
+      ], repo);
+      fs.writeFileSync(path.join(repo, '.env'), 'secret=do-not-leak\n', 'utf8');
+
+      const result = runWorktreeManager(repo, ['--copy-env', 'env-log-symlink', 'main']);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('refusing to write env copy log through symlink destination');
+      expect(fs.readFileSync(outsideFile, 'utf8')).toBe('outside-before\n');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+      fs.rmSync(outsideFile, { force: true });
+    }
+  });
+
   test('destination env backups only happen on explicit opt-in path', () => {
     const repo = initGitRepo({ trackEnv: true });
     try {

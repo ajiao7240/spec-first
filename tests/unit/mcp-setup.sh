@@ -778,6 +778,20 @@ assert_eq "bootstrap-project-config refuses symlinked .spec-first" "1" "$project
 assert_eq "bootstrap-project-config .spec-first symlink reason" "project-config-symlink-escape" "$(jq -r '.reason' <<<"$project_spec_symlink_output")"
 assert "bootstrap-project-config does not write local config outside repo" test ! -e "$PROJECT_SPEC_SYMLINK_OUTSIDE/config.local.yaml"
 
+PROJECT_CONFIG_LEAF_SYMLINK_REPO="$TMP_DIR/project-config-leaf-symlink-repo"
+PROJECT_CONFIG_LEAF_OUTSIDE="$TMP_DIR/project-config-leaf-outside.yaml"
+make_repo "$PROJECT_CONFIG_LEAF_SYMLINK_REPO"
+mkdir -p "$PROJECT_CONFIG_LEAF_SYMLINK_REPO/.spec-first"
+printf 'outside-before\n' > "$PROJECT_CONFIG_LEAF_OUTSIDE"
+ln -s "$PROJECT_CONFIG_LEAF_OUTSIDE" "$PROJECT_CONFIG_LEAF_SYMLINK_REPO/.spec-first/config.local.example.yaml"
+set +e
+project_config_leaf_symlink_output="$(cd "$PROJECT_CONFIG_LEAF_SYMLINK_REPO" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --refresh-example --json 2>/dev/null)"
+project_config_leaf_symlink_status=$?
+set -e
+assert_eq "bootstrap-project-config refuses symlinked example config leaf" "1" "$project_config_leaf_symlink_status"
+assert_eq "bootstrap-project-config example config leaf symlink reason" "project-config-symlink-escape" "$(jq -r '.reason' <<<"$project_config_leaf_symlink_output")"
+assert_eq "bootstrap-project-config leaves outside example config target unchanged" "outside-before" "$(cat "$PROJECT_CONFIG_LEAF_OUTSIDE")"
+
 PROJECT_GITIGNORE_SYMLINK_REPO="$TMP_DIR/project-gitignore-symlink-repo"
 PROJECT_GITIGNORE_OUTSIDE="$TMP_DIR/project-gitignore-outside"
 make_repo "$PROJECT_GITIGNORE_SYMLINK_REPO"

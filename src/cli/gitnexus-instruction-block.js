@@ -238,31 +238,14 @@ function renderChineseGitNexusBody(repoName, gitRootTopology) {
 
 本工作区包含多个 child Git repo，GitNexus repo-local artifacts 由各 child repo 拥有。
 
-使用 GitNexus 前，先查看 \`.spec-first/workspace/graph-targets.json\` 和 \`.spec-first/workspace/gitnexus-readiness.json\`（如已生成）判断 workspace target、child refresh eligibility、index snapshot 与 query usability；具体 child repo 的 provider artifacts 仍在各自 repo 内。
-
-当 workspace readiness 显示 group-ready 或 registry fan-out 可用时，可优先用 GitNexus 辅助跨 repo 代码理解、影响分析和 review 取证；结果仍必须结合 child 源码阅读、测试结果和当前 workflow 判断。
-
-边界：
-
-- parent workspace 不拥有 child repo 的 \`.spec-first/graph/*\` canonical artifacts。
-- stale、degraded、definitions-only 或 unavailable 的结果只能作为有限证据。
-- GitNexus 不能替代源码、测试或 spec-first workflow 判断。
-- 若 GitNexus 与源码、测试或 readiness facts 冲突，明确说明冲突，并优先采用已验证事实。`;
+跨 repo 代码查询、影响分析、代码理解类任务，**必须先**读取 \`.spec-first/workspace/graph-targets.json\` 和 \`.spec-first/workspace/gitnexus-readiness.json\`（如已生成），确认 workspace readiness 显示 group-ready；可用时**使用 GitNexus 作为首选工具**，不可用时 fallback 到 grep/Read 并说明降级原因。Parent workspace 不拥有 child repo 的 \`.spec-first/graph/*\` canonical artifacts。GitNexus 结果与源码或测试冲突时，优先采用已验证事实。`;
   }
 
   return `# GitNexus — Code Intelligence
 
 本项目已配置 GitNexus 图谱支持，仓库标识：**${repoName}**。
 
-使用 GitNexus 前，先查看 \`.spec-first/graph/graph-facts.json\`、\`.spec-first/graph/provider-status.json\` 和 \`.spec-first/providers/gitnexus/status.json\` 判断 freshness、\`graph_ready\`、\`query_ready\` 与降级原因。
-
-当索引新鲜且 query-ready 时，可优先用 GitNexus 辅助代码理解、影响分析和 review 取证；结果仍必须结合源码阅读、测试结果和当前 workflow 判断。
-
-边界：
-
-- stale、degraded、definitions-only 或 unavailable 的结果只能作为有限证据。
-- GitNexus 不能替代源码、测试或 spec-first workflow 判断。
-- 若 GitNexus 与源码、测试或 readiness facts 冲突，明确说明冲突，并优先采用已验证事实。`;
+代码查询、影响分析、代码理解类任务，**必须先**读取 \`.spec-first/graph/graph-facts.json\`，确认 \`capabilities.query_global_graph\` 为 true 且 \`provider_summary.ready_primary_providers\` 包含 \`gitnexus\`；可用时**使用 GitNexus 作为首选工具**，不可用时 fallback 到 grep/Read 并说明降级原因。GitNexus 结果与源码或测试冲突时，优先采用已验证事实。`;
 }
 
 function renderEnglishGitNexusBody(repoName, gitRootTopology) {
@@ -271,31 +254,14 @@ function renderEnglishGitNexusBody(repoName, gitRootTopology) {
 
 This workspace contains multiple child Git repos. GitNexus repo-local artifacts are owned by each child repo.
 
-Before using GitNexus, read \`.spec-first/workspace/graph-targets.json\` and \`.spec-first/workspace/gitnexus-readiness.json\` when present for workspace targets, child refresh eligibility, index snapshots, and query usability. Provider artifacts for specific child repos remain inside those child repos.
-
-When workspace readiness shows group-ready or registry fan-out evidence, prefer GitNexus for cross-repo code understanding, impact analysis, and review evidence; still combine results with child source reads, tests, and current workflow judgment.
-
-Boundaries:
-
-- The parent workspace does not own child repo \`.spec-first/graph/*\` canonical artifacts.
-- Treat stale, degraded, definitions-only, or unavailable results as limited evidence.
-- GitNexus cannot replace source reads, tests, or spec-first workflow judgment.
-- If GitNexus conflicts with source, tests, or readiness facts, disclose the conflict and prefer verified facts.`;
+For cross-repo code queries, impact analysis, and code understanding, **first** read \`.spec-first/workspace/graph-targets.json\` and \`.spec-first/workspace/gitnexus-readiness.json\` when present to confirm workspace readiness shows group-ready; when available, **use GitNexus as the preferred tool**; otherwise fall back to grep/Read and state the degraded reason. The parent workspace does not own child repo \`.spec-first/graph/*\` canonical artifacts. If GitNexus conflicts with source or tests, prefer verified facts.`;
   }
 
   return `# GitNexus — Code Intelligence
 
 This project has GitNexus graph support for **${repoName}**.
 
-Before using GitNexus, read \`.spec-first/graph/graph-facts.json\`, \`.spec-first/graph/provider-status.json\`, and \`.spec-first/providers/gitnexus/status.json\` for freshness, \`graph_ready\`, \`query_ready\`, and degraded-mode reasons.
-
-When the index is fresh and query-ready, prefer GitNexus for code understanding, impact analysis, and review evidence; still combine results with source reads, tests, and current workflow judgment.
-
-Boundaries:
-
-- Treat stale, degraded, definitions-only, or unavailable results as limited evidence.
-- GitNexus cannot replace source reads, tests, or spec-first workflow judgment.
-- If GitNexus conflicts with source, tests, or readiness facts, disclose the conflict and prefer verified facts.`;
+For code queries, impact analysis, and code understanding, **first** read \`.spec-first/graph/graph-facts.json\` and confirm \`capabilities.query_global_graph\` is true and \`provider_summary.ready_primary_providers\` includes \`gitnexus\`; when available, **use GitNexus as the preferred tool**; otherwise fall back to grep/Read and state the degraded reason. If GitNexus conflicts with source or tests, prefer verified facts.`;
 }
 
 function sanitizeRepoName(value) {

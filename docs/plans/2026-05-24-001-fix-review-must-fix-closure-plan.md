@@ -63,6 +63,18 @@ origin: 2026-05-23-review.md
 
 批次 D 额外验证：`npx jest tests/unit/atomic-write.test.js tests/unit/init-dry-run.test.js tests/unit/high-risk-execution-contracts.test.js tests/unit/git-worktree-contracts.test.js tests/unit/release-continuity-guard.test.js tests/unit/workspace-gitnexus-readiness.test.js tests/unit/spec-work-run-artifact-producer.test.js tests/unit/spec-work-run-artifact-contract.test.js tests/unit/spec-doc-review-contracts.test.js --runInBand` 9 suites / 121 tests passed。
 
+### Post-Review Follow-Up
+
+2026-05-24 `$spec-code-review` 后，基于当前源码逐项复核并确认 3 个新增 follow-up 问题真实存在。它们不改变原 49/68 条 must-fix closure 统计，但都属于 secret-bearing env copy、audit artifact 和 project config write boundary，按同一 80/20 口径列为必须修复。
+
+| Follow-Up | 必须修复 | 状态 | 决策思路 | 代码审查结论 | 验证 |
+| --- | --- | --- | --- | --- | --- |
+| FU-001 `spec-optimize/scripts/experiment-worktree.sh --copy-env` 跟随 worktree 内 `.env` symlink 写到 repo 外 | 是 | 已修复 | `--copy-env` 只授权把主仓库 `.env*` 复制到 experiment worktree 内部普通文件；secret-bearing 写入面必须拒绝 symlinked destination，并用 worktree realpath containment 证明目标未逃逸。同时 `.env-copy.log` 是审计产物，不应被 `.env*` glob 当作 source。 | 修改局限在 env copy helper：复制前拒绝 symlinked env destination，确认目标 realpath 位于 worktree 内，审计 log 写入也先校验；正常 `.env` / `.env.local` happy path 不变。 | `npx jest tests/unit/high-risk-execution-contracts.test.js --runInBand`; combined focused Jest 55 tests passed |
+| FU-002 `git-worktree/scripts/worktree-manager.sh --copy-env` `.env-copy.log` 会跟随 symlink 追加到 repo 外，且会被 `.env*` glob 当 source | 是 | 已修复 | `.env-copy.log` 是 audit log write surface，不是 env input；在收集 source 和每次 append 前都必须 fail closed，避免 tracked symlink 或 pre-existing symlink 把审计追加写到 worktree 外。 | 新增 log path guard 并在 copy flow 开头和 append 前调用；`.env-copy.log` 从 source glob 中剔除；现有 `.env` destination / backup symlink 防护保留。 | `npx jest tests/unit/git-worktree-contracts.test.js --runInBand`; combined focused Jest 55 tests passed |
+| FU-003 Bash `spec-mcp-setup/scripts/bootstrap-project-config.sh --refresh-example/--create-local` 缺 leaf symlink check | 是 | 已修复 | PowerShell 已拒绝 `config.local.example.yaml` / `config.local.yaml` leaf symlink；Bash 同一 contract 不能只检查 `.spec-first` 目录，否则 `cp` 会跟随 leaf symlink 写到 repo 外。 | 新增 `ensure_project_config_file_safe()`，在 `--refresh-example` 和 `--create-local` 写入前同时检查 `.spec-first` 目录与目标 leaf；沿用现有 `project-config-symlink-escape` reason，避免新增语义分支。 | `bash tests/unit/mcp-setup.sh`; `npx jest tests/unit/mcp-setup-powershell-contracts.test.js tests/unit/git-worktree-contracts.test.js tests/unit/high-risk-execution-contracts.test.js --runInBand`; `bash -n` focused scripts |
+
+Follow-up 额外验证：`git diff --check` passed。未手改 `.claude/`、`.codex/`、`.agents/skills/` generated runtime mirrors。
+
 ## Problem Frame
 
 这些 finding 不是 49 个孤立问题，而是集中命中 spec-first 的几个 load-bearing boundary：

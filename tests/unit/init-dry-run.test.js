@@ -522,7 +522,7 @@ describe('init --dry-run', () => {
       expect(codexInstruction).toContain('<!-- gitnexus:start -->');
       expect(codexInstruction).toContain('# GitNexus — Code Intelligence');
       expect(codexInstruction).toContain('仓库标识：**legacy-repo**');
-      expect(codexInstruction).toContain('`.spec-first/graph/provider-status.json`');
+      expect(codexInstruction).toContain('`.spec-first/graph/graph-facts.json`');
       expect(codexInstruction).not.toContain('`.spec-first/workspace/graph-targets.json`');
       expect(codexInstruction).not.toContain('1 symbols');
     } finally {

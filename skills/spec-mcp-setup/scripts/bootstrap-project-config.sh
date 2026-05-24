@@ -123,6 +123,12 @@ ensure_project_config_dir_safe() {
   [ ! -L "$SPEC_DIR" ]
 }
 
+ensure_project_config_file_safe() {
+  local path="$1"
+  ensure_project_config_dir_safe || return 1
+  [ ! -L "$path" ]
+}
+
 fail_project_config() {
   local reason="$1"
   local example_status="${2:-skipped}"
@@ -350,13 +356,13 @@ if [ -f "$LEGACY_CONFIG" ]; then
 fi
 
 if [ "$REFRESH_EXAMPLE" = "yes" ]; then
-  ensure_project_config_dir_safe || fail_project_config "project-config-symlink-escape"
+  ensure_project_config_file_safe "$EXAMPLE_CONFIG" || fail_project_config "project-config-symlink-escape"
   cp "$TEMPLATE" "$EXAMPLE_CONFIG"
   example_status="refreshed"
 fi
 
 if [ "$CREATE_LOCAL" = "yes" ]; then
-  ensure_project_config_dir_safe || fail_project_config "project-config-symlink-escape" "$example_status"
+  ensure_project_config_file_safe "$LOCAL_CONFIG" || fail_project_config "project-config-symlink-escape" "$example_status"
   if [ -f "$LOCAL_CONFIG" ]; then
     local_status="already-exists"
   else

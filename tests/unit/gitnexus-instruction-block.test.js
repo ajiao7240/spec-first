@@ -43,12 +43,12 @@ describe('GitNexus instruction block governance', () => {
     expect(result.status).toBe('updated');
     expect(result.repoName).toBe('spec-first');
     expect(result.content).toContain('本项目已配置 GitNexus 图谱支持，仓库标识：**spec-first**');
-    expect(result.content).toContain('当索引新鲜且 query-ready 时');
-    expect(result.content).toContain('使用 GitNexus 前，先查看');
-    expect(result.content).toContain('`.spec-first/graph/provider-status.json`');
-    expect(result.content).toContain('`.spec-first/providers/gitnexus/status.json`');
+    expect(result.content).toContain('**必须先**读取 `.spec-first/graph/graph-facts.json`');
+    expect(result.content).toContain('`capabilities.query_global_graph`');
+    expect(result.content).toContain('**使用 GitNexus 作为首选工具**');
+    expect(result.content).toContain('fallback 到 grep/Read');
     expect(result.content).not.toContain('docs/contracts/graph-evidence-policy.md');
-    expect(result.content).toContain('边界：');
+    expect(result.content).not.toContain('边界：');
     expect(result.content).not.toContain('26859 symbols');
     expect(result.content).not.toContain('MUST run impact');
     expect(result.content).not.toContain('.claude/skills/gitnexus');
@@ -70,11 +70,12 @@ describe('GitNexus instruction block governance', () => {
     const result = normalizeGitNexusInstructionBlock(existing);
 
     expect(result.content).toContain('This project has GitNexus graph support for **docs-repo**');
-    expect(result.content).toContain('Before using GitNexus, read');
-    expect(result.content).toContain('`.spec-first/graph/provider-status.json`');
-    expect(result.content).toContain('`.spec-first/providers/gitnexus/status.json`');
+    expect(result.content).toContain('**first** read `.spec-first/graph/graph-facts.json`');
+    expect(result.content).toContain('`capabilities.query_global_graph`');
+    expect(result.content).toContain('**use GitNexus as the preferred tool**');
+    expect(result.content).toContain('fall back to grep/Read');
     expect(result.content).not.toContain('docs/contracts/graph-evidence-policy.md');
-    expect(result.content).toContain('Boundaries:');
+    expect(result.content).not.toContain('Boundaries:');
     expect(result.content).not.toContain('1 symbols');
   });
 
@@ -152,20 +153,20 @@ describe('GitNexus instruction block governance', () => {
     expect(result.repoName).toBe('sample-repo');
     expect(result.content).toContain('<!-- gitnexus:start -->');
     expect(result.content).toContain('This project has GitNexus graph support for **sample-repo**');
-    expect(result.content).toContain('Before using GitNexus, read');
+    expect(result.content).toContain('**first** read `.spec-first/graph/graph-facts.json`');
     expect(result.content).not.toContain('docs/contracts/graph-evidence-policy.md');
     expect(result.content).toContain('<!-- gitnexus:end -->');
   });
 
-  test('renders single-repo GitNexus block with repo-local provider status paths', () => {
+  test('renders single-repo GitNexus block with graph-facts readiness check', () => {
     const block = renderGitNexusInstructionBlock({
       repoName: 'sample-repo',
       lang: 'zh',
       gitRootTopology: 'single-repo',
     });
 
-    expect(block).toContain('`.spec-first/graph/provider-status.json`');
-    expect(block).toContain('`.spec-first/providers/gitnexus/status.json`');
+    expect(block).toContain('`.spec-first/graph/graph-facts.json`');
+    expect(block).toContain('`capabilities.query_global_graph`');
     expect(block).not.toContain('`.spec-first/workspace/graph-targets.json`');
     expect(block).not.toContain('`.spec-first/workspace/gitnexus-readiness.json`');
   });
@@ -179,7 +180,7 @@ describe('GitNexus instruction block governance', () => {
 
     expect(block).toContain('`.spec-first/workspace/graph-targets.json`');
     expect(block).toContain('`.spec-first/workspace/gitnexus-readiness.json`');
-    expect(block).not.toContain('`.spec-first/graph/provider-status.json`');
+    expect(block).not.toContain('`.spec-first/graph/graph-facts.json`');
   });
 
   test('CLI creates missing blocks in existing host instruction files', () => {
@@ -212,7 +213,7 @@ describe('GitNexus instruction block governance', () => {
       for (const fileName of ['AGENTS.md', 'CLAUDE.md']) {
         const content = fs.readFileSync(path.join(projectRoot, fileName), 'utf8');
         expect(content).toContain('仓库标识：**sample-repo**');
-        expect(content).toContain('使用 GitNexus 前，先查看');
+        expect(content).toContain('**必须先**读取 `.spec-first/graph/graph-facts.json`');
         expect(content).not.toContain('docs/contracts/graph-evidence-policy.md');
       }
       expect(stderrSpy).not.toHaveBeenCalled();
@@ -309,9 +310,8 @@ describe('GitNexus instruction block governance', () => {
     expect(block).toContain('本工作区包含多个 child Git repo');
     expect(block).toContain('`.spec-first/workspace/graph-targets.json`');
     expect(block).toContain('`.spec-first/workspace/gitnexus-readiness.json`');
-    expect(block).toContain('parent workspace 不拥有 child repo 的 `.spec-first/graph/*` canonical artifacts');
+    expect(block).toContain('Parent workspace 不拥有 child repo 的 `.spec-first/graph/*` canonical artifacts');
     expect(block).not.toContain('`.spec-first/graph/graph-facts.json`');
-    expect(block).not.toContain('`.spec-first/graph/provider-status.json`');
     expect(block).not.toContain('仓库标识：**workspace-parent**');
   });
 
@@ -343,7 +343,7 @@ describe('GitNexus instruction block governance', () => {
       ]);
       const content = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
       expect(content).toContain('`.spec-first/workspace/graph-targets.json`');
-      expect(content).not.toContain('`.spec-first/graph/provider-status.json`');
+      expect(content).not.toContain('`.spec-first/graph/graph-facts.json`');
     } finally {
       stdoutSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

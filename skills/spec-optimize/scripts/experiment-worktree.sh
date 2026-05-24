@@ -220,6 +220,26 @@ file_sha256_8() {
   fi
 }
 
+validate_env_copy_log_path() {
+  local worktree_path="${1:?Error: worktree_path required}"
+  local worktree_real="${2:-}"
+  local log_file="$worktree_path/.env-copy.log"
+  local log_real
+
+  if [[ -z "$worktree_real" ]]; then
+    worktree_real=$(realpath_existing "$worktree_path")
+  fi
+  if [[ -L "$log_file" ]]; then
+    echo -e "${RED}Error: refusing to write env copy log through symlink destination${NC}" >&2
+    return 1
+  fi
+  log_real=$(realpath_for_new_path "$log_file")
+  if ! path_within "$log_real" "$worktree_real"; then
+    echo -e "${RED}Error: env copy log destination escapes the worktree${NC}" >&2
+    return 1
+  fi
+}
+
 append_env_copy_log() {
   local worktree_path="${1:?Error: worktree_path required}"
   local source="${2:?Error: source required}"
@@ -229,6 +249,7 @@ append_env_copy_log() {
   sha8=$(file_sha256_8 "$source")
   timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   log_file="$worktree_path/.env-copy.log"
+  validate_env_copy_log_path "$worktree_path"
   printf 'timestamp=%s source_path=%s destination_path=%s size_bytes=%s sha256_8=%s\n' \
     "$timestamp" "$source" "$dest" "$size" "$sha8" >> "$log_file"
 }
@@ -236,8 +257,11 @@ append_env_copy_log() {
 copy_env_files() {
   local worktree_path="${1:?Error: worktree_path required}"
   local copied=0
+  local worktree_real
+  worktree_real=$(realpath_existing "$worktree_path")
 
   ensure_env_copy_log_excluded "$worktree_path"
+  validate_env_copy_log_path "$worktree_path" "$worktree_real"
   shopt -s nullglob
   local env_files=()
   for f in "$GIT_ROOT"/.env*; do
@@ -245,7 +269,7 @@ copy_env_files() {
     local basename
     basename=$(basename "$f")
     case "$basename" in
-      .env.example|.env.template|.env.sample) continue ;;
+      .env.example|.env.template|.env.sample|.env-copy.log) continue ;;
     esac
     env_files+=("$f")
   done
@@ -258,11 +282,21 @@ copy_env_files() {
 
   echo -e "${YELLOW}Copying env files by explicit --copy-env opt-in:${NC}" >&2
   for f in "${env_files[@]}"; do
-    local basename
+    local basename dest dest_real
     basename=$(basename "$f")
+    dest="$worktree_path/$basename"
+    if [[ -L "$dest" ]]; then
+      echo -e "${RED}Error: refusing to copy env file through symlink destination: $basename${NC}" >&2
+      return 1
+    fi
+    dest_real=$(realpath_for_new_path "$dest")
+    if ! path_within "$dest_real" "$worktree_real"; then
+      echo -e "${RED}Error: env copy destination escapes the worktree: $basename${NC}" >&2
+      return 1
+    fi
     echo -e "${YELLOW}  - $basename${NC}" >&2
-    cp "$f" "$worktree_path/$basename"
-    append_env_copy_log "$worktree_path" "$f" "$worktree_path/$basename"
+    cp "$f" "$dest"
+    append_env_copy_log "$worktree_path" "$f" "$dest"
     copied=$((copied + 1))
   done
   shopt -u nullglob
