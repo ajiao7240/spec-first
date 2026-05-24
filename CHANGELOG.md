@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-24 15:48:07 leokuang: docs(plan): 深度校准 spec-work Phase A 质量修复计划，标记 `deepened: 2026-05-24`，将 Decision #1 收敛为默认 A 删除路径、收紧 U2 自指否定文案与锚点、修正 U1/U2 验证边界、把 Graph Readiness 从 unavailable 校准为 stale，并同步 Codex/Claude downstream handoff 入口口径 (user-visible)
 - v1.8.2 2026-05-24 15:15:48 leokuang: docs(review): 在用户明确授权 subagent 后完成 Finding 056 fresh-source eval，确认 `skills/spec-doc-review/SKILL.md` 的 Codex dispatch gate 只在显式 subagents/parallel/delegation 授权时使用 `spawn_agent`，未授权时以 `dispatch_authorization_missing` 进入 report-only fallback；同步审查台账与 must-fix closure 方案记录 (user-visible)
 - v1.8.2 2026-05-24 13:27:54 leokuang: docs(code-review-graph): 收窄 code-review-graph 用户手册中的退役内部图运行时说明，移除对旧内部表面的具体名称引用，避免用户手册继续暴露已退役 runtime surface，并恢复 no-crg-runtime 文档契约通过 (user-visible)
 - v1.8.2 2026-05-24 13:19:50 leokuang: docs(gitnexus): 新增 GitNexus 增量刷新机制与 spec-first 刷新策略评估用户手册，基于 `gitnexus@1.6.5` 官方 `analyze` / `runFullAnalysis` 路径梳理全量 pipeline、selective DB writeback、dirty/staleness 与 meta 保存机制，对比当前 graph-bootstrap 默认 `--force` full refresh、显式 clean incremental preflight、dirty-advisory 和 `.gitnexus/meta.json` 与 `provider-status.v1.last_indexed_commit` 差异，并给出保持显式 refresh、验证后推广 clean single-repo incremental fast path、增加差异诊断与 provider refresh serialization 的优化建议 (user-visible)
