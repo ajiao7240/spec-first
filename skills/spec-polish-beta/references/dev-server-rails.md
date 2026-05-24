@@ -21,7 +21,8 @@ Default: `3000`. Overrides follow the cascade in `references/dev-server-detectio
 1. `Procfile.dev` `web:` line may contain `-p <n>`
 2. `config/puma.rb` may bind to a non-default port
 3. `.env` / `.env.development` `PORT=<n>`
-4. `AGENTS.md` / `CLAUDE.md` project instructions
+
+Do not scan `AGENTS.md` / `CLAUDE.md` for Rails ports by default. Use already-loaded project guidance only when it explicitly declares the dev-server port; otherwise framework config and env files are the source of truth.
 
 ## Stub generation for `.claude/launch.json`
 

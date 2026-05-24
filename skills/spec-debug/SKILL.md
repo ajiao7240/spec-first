@@ -67,6 +67,8 @@ For major debugging decisions, carry a lightweight decision note: `question`, `r
 
 Follow `docs/contracts/context-governance.md`: ordinary Debug context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Runtime logs are task evidence only when they directly reproduce the symptom or the user points to them; do not scan audit snapshots or generated mirrors as source context unless debugging setup/update/runtime drift/audit behavior.
 
+Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
+
 ## Graph Freshness / Refresh Trigger Boundary
 
 Before using compiled graph facts as primary debugging evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, and `.spec-first/impact/bootstrap-impact-capabilities.json` for provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Debug to rebuild providers.

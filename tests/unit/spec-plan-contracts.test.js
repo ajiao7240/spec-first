@@ -112,6 +112,9 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('not automatic re-read targets for every planning run');
     expect(text).toContain('Written project standards from loaded host instructions, directory-scoped equivalents, or precisely read source files');
     expect(text).toContain('Host Instruction Reuse Policy allows it');
+    expect(text).toContain('Maintain a run-local context ledger for this workflow');
+    expect(text).toContain('Reuse loaded summaries within the same workflow run');
+    expect(text).toContain('Re-read only when exact wording is needed');
     expect(text).not.toContain('`AGENTS.md` / `CLAUDE.md` / project role docs');
     expect(text).not.toContain('docs/examples/standards-' + 'glue-consumption-examples.md');
     expect(text).not.toContain('.spec-first/' + 'standards/');
@@ -134,6 +137,19 @@ describe('spec-plan context orientation contract', () => {
     expect(text).not.toContain('spec-first ' + 'crg hook');
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');
+  });
+
+  test('research and handoff tracker detection avoid full instruction-file reloads', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const handoff = fs.readFileSync(PLAN_HANDOFF_PATH, 'utf8');
+
+    expect(text).toContain('Already-loaded project guidance that materially affects the plan');
+    expect(text).toContain('pass only the relevant compact summary to research agents');
+    expect(text).not.toContain('AGENTS.md guidance that materially affects the plan');
+    expect(handoff).toContain('Check already-loaded project guidance for `project_tracker: github` or `project_tracker: linear`');
+    expect(handoff).toContain('perform a precise lookup for `project_tracker:`');
+    expect(handoff).toContain('do not read the full instruction file just to detect the tracker');
+    expect(handoff).not.toContain('Read `AGENTS.md` (or `CLAUDE.md` for compatibility)');
   });
 
   test('consumes domain context before planning questions without fixed ADR directory mandates', () => {

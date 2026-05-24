@@ -98,6 +98,13 @@ describe('context bundle and summary contracts', () => {
       expect(content).toContain('docs/contracts/context-bundle.md');
     }
 
+    for (const content of [codeReview, work, plan, docReview]) {
+      expect(content).toContain('Maintain a run-local context ledger for this workflow');
+      expect(content).toContain('paths read, reason, phase, and compact summary');
+      expect(content).toContain('Reuse loaded summaries within the same workflow run');
+      expect(content).toContain('Re-read only when exact wording is needed');
+    }
+
     expect(codeReview).toContain('docs/contracts/workflows/review-finding.md');
     expect(codeReview).toContain('skills/spec-code-review/references/findings-schema.json');
     expect(codeReview).toContain('P0-P3 severity');

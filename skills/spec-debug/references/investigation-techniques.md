@@ -288,7 +288,7 @@ agent-browser snapshot -i         # capture state after interaction
 agent-browser screenshot bug-evidence.png
 ```
 
-**Port detection:** Check project instruction files (`AGENTS.md`, `CLAUDE.md`) for port references, then `package.json` dev scripts, then `.env` files, falling back to `3000`.
+**Port detection:** Use explicit user input or already-loaded guidance when it names a dev-server port, then `package.json` dev scripts, then `.env` files, falling back to `3000`. Do not scan `AGENTS.md` / `CLAUDE.md` for ports by default; instruction files often mention ports in examples or troubleshooting text that are not the active dev server.
 
 **Console errors:** Check browser console output for JavaScript errors, failed network requests, and CORS issues. These often reveal the root cause of UI bugs before any code tracing is needed.
 

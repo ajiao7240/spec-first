@@ -274,7 +274,7 @@ Run grounding agents in parallel in the **foreground** (do not background — re
 
 1. **Quick context scan** — dispatch a general-purpose sub-agent using the platform's cheapest capable model (e.g., `model: "haiku"` in Claude Code) with this prompt:
 
-   > Read the project's AGENTS.md (or CLAUDE.md only as compatibility fallback, then README.md if neither exists), then discover the top-level directory layout using the native file-search/glob tool (e.g., `Glob` with pattern `*` or `*/*` in Claude Code). Return a concise summary (under 30 lines) covering:
+   > Use the orchestrator's already-loaded project-guidance summary first. Read `AGENTS.md` / `CLAUDE.md` source only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it, such as missing/stale loaded guidance or a user-named file; if no instruction guidance is available, read `README.md` as the top-level project overview. Then discover the top-level directory layout using the native file-search/glob tool (e.g., `Glob` with pattern `*` or `*/*` in Claude Code). Return a concise summary (under 30 lines) covering:
    > - project shape (language, framework, top-level directory layout)
    > - notable patterns or conventions
    > - obvious pain points or gaps

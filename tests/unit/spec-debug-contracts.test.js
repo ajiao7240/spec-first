@@ -30,6 +30,9 @@ describe('spec-debug branch-aware handoff contract', () => {
     expect(text).toContain('already-loaded host/project instructions');
     expect(text).toContain('not automatic re-read targets for every debug run');
     expect(text).toContain('Host Instruction Reuse Policy allows it');
+    expect(text).toContain('Maintain a run-local context ledger for this workflow');
+    expect(text).toContain('Reuse loaded summaries within the same workflow run');
+    expect(text).toContain('Re-read only when exact wording is needed');
     expect(text).toContain('workspace-graph-targets.v1');
     expect(text).toContain('workspace-gitnexus-readiness.v1');
     expect(text).toContain('group or bounded registry/per-repo evidence');

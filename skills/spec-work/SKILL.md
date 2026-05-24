@@ -78,6 +78,8 @@ Follow `docs/contracts/context-governance.md`: ordinary Work context excludes `.
 
 Keep workflow invariants, task-pack validation, source/runtime boundaries, and reference load conditions in the stable instruction prefix. Put current plan/task excerpts, changed files, diff summary, tool/test summaries, project-guidance facts, `artifact-summary.v1`, and `context-bundle.v1` from `docs/contracts/context-bundle.md` in the dynamic suffix. Work-to-review and work-to-compound handoffs should pass compact summaries plus paths first; open full artifacts only when `full_read_triggers` require exact evidence.
 
+Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
+
 ## Graph Freshness / Refresh Trigger Boundary
 
 Before treating compiled graph facts as primary evidence, check the shared freshness fields from `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, and `.spec-first/impact/bootstrap-impact-capabilities.json`: provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Work to rebuild providers.

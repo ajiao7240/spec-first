@@ -66,6 +66,8 @@ For docs-only and config-only changes, docs contract checks, schema/help/render 
 
 保持本 `SKILL.md` 作为 stable instruction prefix：workflow contract、hard boundaries、reviewer routing 和 reference index。把 volatile data 放入 dynamic suffix：当前 user request、diff summary、tool summary、temporary evidence、`artifact-summary.v1`，以及来自 `docs/contracts/context-bundle.md` 的 `context-bundle.v1`。Stage 5 synthesis 先消费 reviewer JSON；reviewer 返回 schema 以 `skills/spec-code-review/references/findings-schema.json` 为准，使用 P0-P3 severity 与 0/25/50/75/100 confidence anchors。`docs/contracts/workflows/review-finding.md` 的 `review-finding.v1` 仅用于 downstream / compact mapped summary，不替代 code-review reviewer JSON schema。
 
+Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
+
 ## Graph Freshness / Refresh Trigger Boundary
 
 Before treating compiled graph facts as primary review evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, and `.spec-first/impact/bootstrap-impact-capabilities.json` for provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Code Review to rebuild providers.

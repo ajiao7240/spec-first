@@ -20,7 +20,8 @@ spec-first 当前刷新：
   `spec-first init` 不刷新 graph。
   `$spec-mcp-setup` 只刷新 setup-owned provider projection。
   `$spec-graph-bootstrap` 是唯一默认 canonical refresh 入口。
-  当前默认 refresh mode 是 full；clean single-repo incremental 只是显式 opt-in fast path。
+  当前默认 refresh mode 是 full；clean single-repo incremental 仍是专家/验证路径。
+  后续可在补齐回归与 fixture 验证后提升为 supported opt-in fast path。
   下游 plan/work/debug/review 只消费 readiness，不自动运行 provider mutation。
 
 直接平替判断：
@@ -44,6 +45,7 @@ spec-first 当前刷新：
 | spec-first refresh implementation | `skills/spec-graph-bootstrap/SKILL.md`, `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh` |
 | downstream consumer | `skills/spec-plan/SKILL.md`, `skills/spec-work/SKILL.md`, `skills/spec-code-review/SKILL.md`, `skills/spec-debug/SKILL.md` |
 | graph evidence contracts | `docs/contracts/graph-evidence-policy.md`, `docs/contracts/graph-provider-consumption.md`, `docs/contracts/downstream-graph-evidence-consumption.md` |
+| 内部补充手册 | `docs/05-用户手册/14-GitNexus-全流程执行分析.md`, `docs/05-用户手册/15-code-review-graph-全流程执行分析.md`, `docs/05-用户手册/16-GitNexus-增量刷新机制与spec-first刷新策略评估.md` |
 | 当前 artifacts | `.spec-first/graph/graph-facts.json`, `.spec-first/graph/provider-status.json`, `.spec-first/impact/bootstrap-impact-capabilities.json` |
 
 外部参考：
@@ -56,6 +58,13 @@ spec-first 当前刷新：
 - code-review-graph homepage: <https://code-review-graph.com>
 
 本文不修改运行时行为，不删除 provider。它是刷新策略、平替可行性和迁移验收标准文档。
+
+与现有手册的关系：
+
+- 14 号文档说明 GitNexus 从 setup projection、graph bootstrap 到 downstream consumption 的完整生命周期。
+- 15 号文档说明 CRG 当前如何被治理成 `$spec-code-review` 的 `impact_context` provider。
+- 16 号文档说明 GitNexus 官方增量机制，以及为什么 spec-first 当前仍以 full refresh 作为默认 correctness-first baseline。
+- 本文在这些事实之上给出综合决策：GitNexus 目标态应直接平替 CRG，但需要先完成 adapter、contract、review preflight 和 tests/docs 迁移。
 
 ## 1. GitNexus 官方刷新方式
 
@@ -414,7 +423,7 @@ clean single-repo 且已有可信 clean base，需要加速：
 bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh --incremental
 ```
 
-但当前建议仍把它当 opt-in fast path，不作为普通 workflow 自动动作。
+但当前仍应把它当 clean single-repo 的专家/验证路径，不作为普通 workflow 自动动作。只有补齐 regression tests 和 fixture/smoke 后，才建议把它正式提升为 supported opt-in fast path。
 
 ### 3.3 何时必须 full refresh
 

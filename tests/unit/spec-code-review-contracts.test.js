@@ -300,8 +300,14 @@ describe('spec-code-review CE sync contracts', () => {
       const text = fs.readFileSync(filePath, 'utf8');
 
       expect(text).toContain('{ tracker_name, confidence, named_sink_available, any_sink_available }');
+      expect(text).toContain('Primary sources are already-loaded project guidance plus precise tracker lookups');
+      expect(text).toContain('Check already-loaded project guidance for tracker references');
+      expect(text).toContain('perform a precise lookup for tracker references');
+      expect(text).toContain('avoid full-file reads unless the exact lookup is inconclusive and Defer execution is imminent');
       expect(text).toContain('confidence = high');
       expect(text).toContain('confidence = low');
+      expect(text).not.toContain('Primary sources: `CLAUDE.md` and `AGENTS.md`');
+      expect(text).not.toContain('Read `CLAUDE.md` / `AGENTS.md` for tracker references');
       expect(text).not.toContain('confidence-first');
       expect(text).not.toContain('tracker_confidence');
     }

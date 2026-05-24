@@ -107,22 +107,18 @@ Build a list of URLs to test based on the mapping.
 Determine the preferred port using this priority:
 
 1. **Explicit argument** — if the user passed `--port 5000`, use that directly (skip free-port scan)
-2. **Project instructions** — check `AGENTS.md`, `CLAUDE.md`, or other instruction files for port references
+2. **Already-loaded project guidance** — use it only when it explicitly declares the dev-server port
 3. **package.json** — check dev/start scripts for `--port` flags
 4. **Environment files** — check `.env`, `.env.local`, `.env.development` for `PORT=`
 5. **Default** — fall back to `3000`
+
+Do not scan `AGENTS.md` / `CLAUDE.md` for ports by default. Instruction files often mention ports in documentation, examples, or troubleshooting text unrelated to the active dev server.
 
 **In pipeline mode**, verify the preferred port is free and scan upward if not. **In manual mode**, use the preferred port directly.
 
 ```bash
 # Step 1: Determine preferred port
 PORT="${EXPLICIT_PORT:-}"
-if [ -z "$PORT" ]; then
-  PORT=$(grep -Eio '(port\s*[:=]\s*|localhost:)([0-9]{4,5})' AGENTS.md 2>/dev/null | grep -Eo '[0-9]{4,5}' | head -1)
-fi
-if [ -z "$PORT" ]; then
-  PORT=$(grep -Eio '(port\s*[:=]\s*|localhost:)([0-9]{4,5})' CLAUDE.md 2>/dev/null | grep -Eo '[0-9]{4,5}' | head -1)
-fi
 if [ -z "$PORT" ]; then
   PORT=$(grep -Eo '\-\-port[= ]+[0-9]{4,5}' package.json 2>/dev/null | grep -Eo '[0-9]{4,5}' | head -1)
 fi

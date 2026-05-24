@@ -54,6 +54,8 @@ Follow `docs/contracts/context-governance.md`: ordinary Document Review context 
 
 Use `docs/contracts/context-bundle.md` and `docs/contracts/artifact-summary.md` as the handoff posture: reviewers should receive selected document sections, summaries, evidence paths, full-read triggers, and relevant pre-facts instead of an automatic full-document broadcast. Findings should map to the shared `review-finding.v1` minimum fields in `docs/contracts/workflows/review-finding.md`; workflow-specific fields may remain as extensions. Apply reviewer budgets and finding caps as context controls, never as permission to drop P0/P1 evidence silently.
 
+Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
+
 ## Domain Language And Decision Ledger
 
 When document findings depend on domain terminology, project-specific concepts, or ADR-like decisions, consume existing context before asking questions or raising gaps that repo/docs can answer: already-loaded project standards and host instructions, `docs/contracts/`, existing brainstorms/plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. Read `AGENTS.md` / `CLAUDE.md` source only under `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy, not as a default domain-context step. Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, record the limitation in Coverage as advisory context rather than blocking document review.
@@ -277,10 +279,10 @@ Each agent receives the prompt built from the subagent template included below w
 | `{origin}` | Frontmatter `origin:` value when present, otherwise `none` |
 | `{document_path}` | Path to the document |
 | `{codebase_facts}` | Phase 1b `<codebase-facts>` block; fallback is a legal empty block, never an unreplaced placeholder |
-| `{document_content}` | Full text of the document |
+| `{document_content}` | Selected document sections, compact summary, evidence snippets, and full-read trigger notes for this reviewer |
 | `{decision_primer}` | Cumulative prior-round decisions in the current session, or an empty `<prior-decisions>` block on round 1. See "Decision primer" below. |
 
-Pass each agent the **full document** — do not split into sections.
+Pass each agent a summary-first section bundle by default, not the full document. Include the full document only when a `full_read_triggers` reason requires exact evidence, the document is already trivially small, or the selected persona must check a cross-document invariant that cannot be represented by selected sections plus summaries.
 
 ### Decision Primer
 

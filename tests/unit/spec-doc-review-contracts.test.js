@@ -160,11 +160,26 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('repo-local glossary or ADR-like artifacts that actually exist');
     expect(skill).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
     expect(skill).toContain('record the limitation in Coverage as advisory context rather than blocking document review');
+    expect(skill).toContain('Maintain a run-local context ledger for this workflow');
+    expect(skill).toContain('Reuse loaded summaries within the same workflow run');
+    expect(skill).toContain('Re-read only when exact wording is needed');
     expect(skill).toContain('`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`');
     expect(skill).toContain('`confirmed`, `advisory`, `session-local`, `stale`, or `user`');
     expect(skill).toContain('hard to reverse, would be surprising without context, and reflects a real tradeoff');
     expect(skill).not.toContain('must use `CONTEXT.md`');
     expect(skill).not.toContain('must use `docs/adr/`');
+  });
+
+  test('doc review dispatch uses summary-first section bundles instead of broadcasting full documents', () => {
+    const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+
+    expect(skill).toContain('Summary-First Section Bundles');
+    expect(skill).toContain('instead of an automatic full-document broadcast');
+    expect(skill).toContain('Selected document sections, compact summary, evidence snippets, and full-read trigger notes');
+    expect(skill).toContain('Pass each agent a summary-first section bundle by default, not the full document');
+    expect(skill).toContain('Include the full document only when a `full_read_triggers` reason requires exact evidence');
+    expect(skill).not.toContain('| `{document_content}` | Full text of the document |');
+    expect(skill).not.toContain('Pass each agent the **full document**');
   });
 
   test('walkthrough keeps normal best-judgment route and confines Acknowledge to no-fix cases', () => {

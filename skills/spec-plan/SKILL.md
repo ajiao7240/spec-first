@@ -70,6 +70,8 @@ Follow `docs/contracts/context-governance.md`: ordinary Planning context exclude
 
 Keep role boundaries, plan quality bar, graph/readiness limits, and reference load conditions in the stable instruction prefix. Put the current request, requirement summary, repo evidence, tool summaries, project-guidance facts, `artifact-summary.v1`, and `context-bundle.v1` from `docs/contracts/context-bundle.md` in the dynamic suffix. Plan handoff should summarize goal, scope, non-goals, implementation units, verification, and open questions before asking downstream work to read the full plan.
 
+Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
+
 ## Interaction Method
 
 When asking the user a question, use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
@@ -267,7 +269,7 @@ Collect:
 - Technology stack and versions (used in section 1.2 to make sharper external research decisions)
 - Architectural patterns and conventions to follow
 - Implementation patterns, relevant files, modules, and tests
-- AGENTS.md guidance that materially affects the plan, with CLAUDE.md used only as compatibility fallback when present
+- Already-loaded project guidance that materially affects the plan; read `AGENTS.md` / `CLAUDE.md` source only when the Host Instruction Reuse Policy allows it, and pass only the relevant compact summary to research agents
 - Institutional learnings from `docs/solutions/`
 
 **Slack context** (opt-in) — never auto-dispatch. Route by condition:

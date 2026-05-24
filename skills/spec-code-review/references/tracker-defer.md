@@ -31,7 +31,7 @@ The caller decides how to surface the result to the user. The non-interactive mo
 
 ## Detection
 
-The agent determines the project's tracker from whatever documentation is obvious. Primary sources: `CLAUDE.md` and `AGENTS.md` at the repo root and in relevant subdirectories. Supplementary signals (when primary documentation is ambiguous): `CONTRIBUTING.md`, `README.md`, PR templates under `.github/`, visible tracker URLs in the repo.
+The agent determines the project's tracker from obvious project guidance. Primary sources are already-loaded project guidance plus precise tracker lookups in `CLAUDE.md` and `AGENTS.md` at the repo root and in relevant subdirectories. Supplementary signals (when primary documentation is ambiguous): `CONTRIBUTING.md`, `README.md`, PR templates under `.github/`, visible tracker URLs in the repo.
 
 A tracker can be surfaced via MCP tool (e.g., a Linear MCP server), CLI (e.g., `gh`), or direct API. All are acceptable. The detection output is a tuple with two availability flags — one for the named tracker specifically (drives label confidence in Interactive mode) and one for the full fallback chain (drives whether Defer is offered at all):
 
@@ -55,7 +55,7 @@ Availability probes run **at most once per session** and **only when Defer execu
 
 Typical probe sequence:
 
-1. Read `CLAUDE.md` / `AGENTS.md` for tracker references. If nothing found, set `tracker_name = null`, `confidence = low`.
+1. Check already-loaded project guidance for tracker references. If unresolved, perform a precise lookup for tracker references in root or governing `CLAUDE.md` / `AGENTS.md`; avoid full-file reads unless the exact lookup is inconclusive and Defer execution is imminent. If nothing is found, set `tracker_name = null`, `confidence = low`.
 2. **Probe the named tracker when one was found.** For GitHub Issues, run `gh auth status` and `gh repo view --json hasIssuesEnabled`. For Linear or other MCP-backed trackers, verify the relevant MCP tool is loaded and responsive. For API-backed trackers, verify credentials in environment. Set `named_sink_available` from the probe result.
 3. **Probe the GitHub Issues fallback to compute `any_sink_available`.** Even when the named tracker was found and probed, `gh` matters for the `no_sink` bucket decision so that a run with no documented tracker but working `gh` still offers Defer.
    - If `named_sink_available = true`: `any_sink_available = true` (no further probes needed).

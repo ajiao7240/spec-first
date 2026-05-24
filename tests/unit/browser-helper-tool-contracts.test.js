@@ -249,6 +249,10 @@ describe('browser helper tool contracts', () => {
     expect(testBrowser).toContain('agent-browser open');
     expect(testBrowser).toContain('agent-browser snapshot -i');
     expect(testBrowser).toContain('agent-browser skills get core');
+    expect(testBrowser).toContain('Already-loaded project guidance');
+    expect(testBrowser).toContain('Do not scan `AGENTS.md` / `CLAUDE.md` for ports by default');
+    expect(testBrowser).not.toContain('Project instructions`');
+    expect(testBrowser).not.toContain('PORT=$(grep -Eio');
   });
 
   test('Claude init removes obsolete local agent-browser runtime copies from old managed state', () => {

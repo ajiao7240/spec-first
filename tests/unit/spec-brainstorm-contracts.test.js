@@ -59,6 +59,16 @@ describe('spec-brainstorm host entrypoint contract', () => {
     expect(skill).not.toContain('must use `docs/adr/`');
   });
 
+  test('constraint check reuses loaded host instructions before reading instruction source', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(skill).toContain('*Constraint Check*');
+    expect(skill).toContain('Use already-loaded host/project instructions first');
+    expect(skill).toContain('Read `AGENTS.md` / `CLAUDE.md` source only when `docs/contracts/context-governance.md`\'s Host Instruction Reuse Policy allows it');
+    expect(skill).toContain('If a source read is needed, record the reason briefly');
+    expect(skill).not.toContain('Check project instruction files (`AGENTS.md`');
+  });
+
   test('planning handoffs use current-host entrypoint wording', () => {
     const combined = [
       fs.readFileSync(SKILL_PATH, 'utf8'),

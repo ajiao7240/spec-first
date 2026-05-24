@@ -14,6 +14,33 @@ const SCRIPT_PATH = path.join(
   'scripts',
   'detect-project-type.sh',
 );
+const DEV_SERVER_DETECTION_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-polish-beta',
+  'references',
+  'dev-server-detection.md',
+);
+const DEV_SERVER_RAILS_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-polish-beta',
+  'references',
+  'dev-server-rails.md',
+);
+const RESOLVE_PORT_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-polish-beta',
+  'scripts',
+  'resolve-port.sh',
+);
 
 describe('spec-polish-beta project detection contracts', () => {
   test('detect-project-type avoids Bash 4 associative arrays', () => {
@@ -71,5 +98,18 @@ describe('spec-polish-beta project detection contracts', () => {
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  test('dev-server port detection does not scan instruction files by default', () => {
+    const detection = fs.readFileSync(DEV_SERVER_DETECTION_PATH, 'utf8');
+    const rails = fs.readFileSync(DEV_SERVER_RAILS_PATH, 'utf8');
+    const resolvePort = fs.readFileSync(RESOLVE_PORT_PATH, 'utf8');
+
+    expect(detection).toContain('Neither `resolve-port.sh` nor the `test-browser` inline cascade scans `AGENTS.md` / `CLAUDE.md` for port references by default');
+    expect(detection).toContain('already-loaded project guidance only when it explicitly declares the active dev-server port');
+    expect(detection).not.toContain('The `test-browser` inline cascade does. Instruction files');
+    expect(detection).not.toContain('Removal of the `AGENTS.md`/`CLAUDE.md` grep');
+    expect(rails).toContain('Do not scan `AGENTS.md` / `CLAUDE.md` for Rails ports by default');
+    expect(resolvePort).toContain('Prose files (AGENTS.md, CLAUDE.md) are deliberately NOT');
   });
 });

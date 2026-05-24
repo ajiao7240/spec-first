@@ -75,7 +75,7 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
     expect(skill).toContain('src/cli/helpers/review-pre-facts.js');
     expect(skill).toContain('do not create a parallel reviewer facts pipeline');
-    expect(skill).toContain('targeted direct repo reads first');
+    expect(skill).toContain('Start with targeted direct repo reads');
     expect(skill).toContain('optionally use LSP when available');
     expect(skill).toContain('LSP provider rule');
     expect(skill).toContain('Do not let LSP references automatically expand task scope');
@@ -98,8 +98,12 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('Avoid horizontal "all tests first, then all implementation" waves when independent vertical tracer bullets can be verified');
     expect(skill).toContain('The deterministic validator checks `review_gate` structure only');
     expect(skill).toContain('does not decide which tasks semantically require review');
-    expect(skill).toContain('read `AGENTS.md`, `CLAUDE.md`, directory-scoped standards files, `docs/contracts/`');
+    expect(skill).toContain('start from the source plan, plan-indicated source files, and nearby tests');
+    expect(skill).toContain('reuse already-loaded host/project instructions');
+    expect(skill).toContain('read `AGENTS.md` / `CLAUDE.md` source only when `docs/contracts/context-governance.md`\'s Host Instruction Reuse Policy allows it');
+    expect(skill).toContain('read `docs/contracts/` only by precise path or section');
     expect(skill).toContain('Written project standards may become hard task constraints only when they apply to the changed files');
+    expect(skill).not.toContain('read `AGENTS.md`, `CLAUDE.md`, directory-scoped standards files, `docs/contracts/`');
     expect(skill).not.toContain('docs/examples/standards-' + 'glue-consumption-examples.md');
     expect(skill).not.toContain('.spec-first/' + 'standards/');
     expect(skill).not.toContain('glue-' + 'map.json');

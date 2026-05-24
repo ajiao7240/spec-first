@@ -73,7 +73,7 @@ Based on selection:
 
 When the user selects "Create Issue", detect their project tracker:
 
-1. Read `AGENTS.md` (or `CLAUDE.md` for compatibility) at the repo root and look for `project_tracker: github` or `project_tracker: linear`.
+1. Check already-loaded project guidance for `project_tracker: github` or `project_tracker: linear`. If unavailable, perform a precise lookup for `project_tracker:` in repo-root `AGENTS.md` / `CLAUDE.md`; do not read the full instruction file just to detect the tracker.
 2. If `project_tracker: github`:
 
    ```bash
