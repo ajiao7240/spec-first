@@ -14,6 +14,13 @@ const {
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const FIXTURES = path.join(REPO_ROOT, 'tests', 'fixtures', 'gitnexus-workspace');
 const HELPER = path.join(REPO_ROOT, 'src', 'cli', 'helpers', 'compile-workspace-gitnexus-readiness.js');
+const SOURCE_WRAPPER = path.join(
+  REPO_ROOT,
+  'skills',
+  'spec-graph-bootstrap',
+  'scripts',
+  'compile-workspace-gitnexus-readiness.sh',
+);
 
 function fixture(name) {
   return path.join(FIXTURES, name);
@@ -45,6 +52,63 @@ function expectExactKeys(value, keys) {
 }
 
 describe('workspace GitNexus readiness classifier', () => {
+  test('internal CLI command preserves classifier behavior for runtime wrappers', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-readiness-'));
+    const targets = readFixture('workspace-graph-targets.dirty-overlay.example.json');
+    targets.workspace_root = tmp;
+    const targetsPath = writeJson(tmp, 'workspace-targets.json', targets);
+    const output = path.join(tmp, '.spec-first', 'workspace', 'gitnexus-readiness.json');
+
+    const result = spawnSync(process.execPath, [
+      path.join(REPO_ROOT, 'bin', 'spec-first.js'),
+      'internal',
+      'workspace-gitnexus-readiness',
+      '--mode', 'script',
+      '--workspace-targets', targetsPath,
+      '--write-artifact',
+      '--output', output,
+    ], {
+      cwd: tmp,
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).schema_version).toBe('workspace-gitnexus-readiness.v1');
+    expect(fs.existsSync(output)).toBe(true);
+  });
+
+  test('runtime wrapper falls back to internal CLI when source helper is absent', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-runtime-wrapper-'));
+    const runtimeScriptDir = path.join(tmp, '.agents', 'skills', 'spec-graph-bootstrap', 'scripts');
+    fs.mkdirSync(runtimeScriptDir, { recursive: true });
+    const runtimeWrapper = path.join(runtimeScriptDir, 'compile-workspace-gitnexus-readiness.sh');
+    fs.copyFileSync(SOURCE_WRAPPER, runtimeWrapper);
+
+    const targets = readFixture('workspace-graph-targets.dirty-overlay.example.json');
+    targets.workspace_root = tmp;
+    const targetsPath = writeJson(tmp, 'workspace-targets.json', targets);
+    const output = path.join(tmp, '.spec-first', 'workspace', 'gitnexus-readiness.json');
+
+    const result = spawnSync('bash', [
+      runtimeWrapper,
+      '--mode', 'script',
+      '--workspace-targets', targetsPath,
+      '--write-artifact',
+      '--output', output,
+    ], {
+      cwd: tmp,
+      env: {
+        ...process.env,
+        SPEC_FIRST_CLI: path.join(REPO_ROOT, 'bin', 'spec-first.js'),
+      },
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).schema_version).toBe('workspace-gitnexus-readiness.v1');
+    expect(fs.existsSync(output)).toBe(true);
+  });
+
   test('script mode writes durable readiness with deterministic four-key query counts', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-gitnexus-readiness-'));
     const targets = readFixture('workspace-graph-targets.dirty-overlay.example.json');

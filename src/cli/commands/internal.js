@@ -1,6 +1,7 @@
 'use strict';
 
 const { runContextBundle } = require('../helpers/context-bundle');
+const { runWorkspaceGitNexusReadiness } = require('../helpers/compile-workspace-gitnexus-readiness');
 const { runReviewPreFacts } = require('../helpers/review-pre-facts');
 const { runCli: runSecretDenyPatternsCli } = require('../helpers/secret-deny-patterns');
 const { runCli: runSpecWorkRunArtifactCli } = require('../helpers/spec-work-run-artifact');
@@ -15,6 +16,10 @@ function runInternal(argv) {
 
   if (subcommand === 'review-pre-facts') {
     return runReviewPreFacts(args.slice(1));
+  }
+
+  if (subcommand === 'workspace-gitnexus-readiness') {
+    return runWorkspaceGitNexusReadiness(args.slice(1));
   }
 
   if (subcommand === 'secret-deny') {

@@ -768,23 +768,9 @@ function Compile-WorkspaceGitNexusReadinessForAllRepos {
     return New-WorkspaceGitNexusReadinessDefaultSummary -ReasonCode 'classifier-not-invoked'
   }
 
-  $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-  $helperPath = Join-Path $repoRoot 'src/cli/helpers/compile-workspace-gitnexus-readiness.js'
-  if (-not (Test-Path -LiteralPath $helperPath -PathType Leaf)) {
-    $summary = New-WorkspaceGitNexusReadinessDefaultSummary -ReasonCode 'classifier-failed'
-    $summary.workspace_gitnexus_readiness_pointer.diagnostic = 'missing compile-workspace-gitnexus-readiness.js helper'
-    return $summary
-  }
-
-  $output = ''
-  $exitCode = 0
-  try {
-    $output = (& node $helperPath --mode script --workspace-targets $targetsPath --write-artifact --output $readinessPath 2>&1 | Out-String).Trim()
-    $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
-  } catch {
-    $output = [string]$_
-    $exitCode = 1
-  }
+  $captured = Invoke-SpecFirstCliCaptured -CliArguments @('internal', 'workspace-gitnexus-readiness', '--mode', 'script', '--workspace-targets', $targetsPath, '--write-artifact', '--output', $readinessPath)
+  $output = [string]$captured.output
+  $exitCode = [int]$captured.exit_code
 
   if ($exitCode -eq 0) {
     try {

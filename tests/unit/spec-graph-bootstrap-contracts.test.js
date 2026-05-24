@@ -6,6 +6,13 @@ const path = require('node:path');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'SKILL.md');
 const BASH_SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.sh');
+const BASH_WORKSPACE_GITNEXUS_WRAPPER_PATH = path.join(
+  REPO_ROOT,
+  'skills',
+  'spec-graph-bootstrap',
+  'scripts',
+  'compile-workspace-gitnexus-readiness.sh',
+);
 const POWERSHELL_SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.ps1');
 const CONSUMPTION_DOC_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'graph-provider-consumption.md');
 const WORKSPACE_GITNEXUS_CONTRACT_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'workspace-gitnexus-consumption.md');
@@ -143,10 +150,12 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
 
   test('workspace GitNexus readiness summary is helper-owned across shell hosts', () => {
     const bashScript = fs.readFileSync(BASH_SCRIPT_PATH, 'utf8');
+    const bashWrapper = fs.readFileSync(BASH_WORKSPACE_GITNEXUS_WRAPPER_PATH, 'utf8');
     const powershellScript = fs.readFileSync(POWERSHELL_SCRIPT_PATH, 'utf8');
 
     expect(bashScript).toContain('compile_workspace_gitnexus_readiness_for_all_repos');
     expect(bashScript).toContain('compile-workspace-gitnexus-readiness.sh');
+    expect(bashWrapper).toContain('internal workspace-gitnexus-readiness');
     expect(bashScript).toContain('workspace_gitnexus_readiness_pointer:$workspace_gitnexus_readiness.workspace_gitnexus_readiness_pointer');
     expect(bashScript).toContain('query_usability_counts:$workspace_gitnexus_readiness.query_usability_counts');
     expect(bashScript).toContain('group:$workspace_gitnexus_readiness.group');
@@ -156,7 +165,7 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(bashScript).not.toContain('select(.query_usability == "stale-advisory")');
 
     expect(powershellScript).toContain('Compile-WorkspaceGitNexusReadinessForAllRepos');
-    expect(powershellScript).toContain('compile-workspace-gitnexus-readiness.js');
+    expect(powershellScript).toContain("'internal', 'workspace-gitnexus-readiness'");
     expect(powershellScript).toContain('workspace_gitnexus_readiness_pointer = $workspaceGitNexusReadiness.workspace_gitnexus_readiness_pointer');
     expect(powershellScript).toContain('query_usability_counts = $workspaceGitNexusReadiness.query_usability_counts');
     expect(powershellScript).toContain('group = $workspaceGitNexusReadiness.group');

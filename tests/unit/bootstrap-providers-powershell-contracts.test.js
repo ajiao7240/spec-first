@@ -20,14 +20,22 @@ const BASH_BOOTSTRAP_PATH = path.join(
   'scripts',
   'bootstrap-providers.sh',
 );
+const BASH_WORKSPACE_GITNEXUS_WRAPPER_PATH = path.join(
+  REPO_ROOT,
+  'skills',
+  'spec-graph-bootstrap',
+  'scripts',
+  'compile-workspace-gitnexus-readiness.sh',
+);
 
 describe('PowerShell graph bootstrap workspace GitNexus summary contract', () => {
   test('preserves helper-owned readiness fields and reason codes across shell hosts', () => {
     const powershell = fs.readFileSync(PS_BOOTSTRAP_PATH, 'utf8');
     const bash = fs.readFileSync(BASH_BOOTSTRAP_PATH, 'utf8');
+    const bashWrapper = fs.readFileSync(BASH_WORKSPACE_GITNEXUS_WRAPPER_PATH, 'utf8');
 
     expect(powershell).toContain('Compile-WorkspaceGitNexusReadinessForAllRepos');
-    expect(powershell).toContain('compile-workspace-gitnexus-readiness.js');
+    expect(powershell).toContain("'internal', 'workspace-gitnexus-readiness'");
     expect(powershell).toContain('workspace_gitnexus_readiness_pointer = $workspaceGitNexusReadiness.workspace_gitnexus_readiness_pointer');
     expect(powershell).toContain('query_usability_counts = $workspaceGitNexusReadiness.query_usability_counts');
     expect(powershell).toContain('group = $workspaceGitNexusReadiness.group');
@@ -40,6 +48,7 @@ describe('PowerShell graph bootstrap workspace GitNexus summary contract', () =>
 
     expect(bash).toContain('compile_workspace_gitnexus_readiness_for_all_repos');
     expect(bash).toContain('compile-workspace-gitnexus-readiness.sh');
+    expect(bashWrapper).toContain('internal workspace-gitnexus-readiness');
     expect(bash).toContain('workspace_gitnexus_readiness_pointer:$workspace_gitnexus_readiness.workspace_gitnexus_readiness_pointer');
     expect(bash).toContain('query_usability_counts:$workspace_gitnexus_readiness.query_usability_counts');
     expect(bash).toContain('group:$workspace_gitnexus_readiness.group');

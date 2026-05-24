@@ -1,583 +1,633 @@
 ---
 spec_id: 2026-05-20-001-fix-spec-work-skill-quality
 type: fix
-title: 按审查报告 §0/§8 当前执行依据落地 spec-work skill Phase A 质量修复
+title: 按代码逻辑深读后修订 spec-work skill 治理边界（fix-1 ship-now + fix-2 deferred）
 status: active
 created: 2026-05-20
 origin: docs/10-prompt/skill-reviews/2026-05-20-spec-work.md
 deepened: 2026-05-24
+deepening_round: 2
 ---
 
-# fix: 按审查报告 §0/§8 当前执行依据落地 spec-work skill Phase A 质量修复
+# fix: 按代码逻辑深读后修订 spec-work skill 治理边界（fix-1 ship-now + fix-2 deferred）
 
 ## Summary
 
-按 `/spec:doc-review` 综合 reviewer 反馈(spec-feasibility-reviewer / spec-adversarial-document-reviewer / spec-product-lens-reviewer)+ **审查报告 §0/§8 v1 校准吸收**,把 origin 9 项 finding **再次收敛为 Phase A / Phase B 两阶段执行**——避免 6 unit 单 plan 执行触发对抗反例 + 评分焦虑驱动 + 低 ROI 路径风险。
+经 2026-05-24 第二轮 deepening 深读当前分支 `leo-2026-05-21-gitnexus`（已修改 `skills/spec-work/SKILL.md` 152 行 + 新建 `evals/examples.json` + 修订 `references/`），重新评估 origin 审查报告 §0/§8 提出的 4 项问题在当前 source 上的真实状态，把 plan 从"Phase A 4 unit + Phase B defer"收敛为 **"fix-1 ship-now + fix-2 deferred"两段结构**。
 
-**Execution authority**:本 plan 的下游执行依据是 origin 报告 §0 Current Decision + §1 yaml `summary.minimum_viable_fix_set_ref` + §8 v1 校准吸收。origin 报告 §2-§7 / §6 minimum viable fix set 只作为 historical diagnostics 与对抗风险来源,不得覆盖本 plan 的 Phase A/B scope。
+**第二轮 deepening 关键发现**（与第一轮校准的修正点）：
 
-- **Phase A**(本周内,~30-45min work session,**本 plan ship-now scope**):**U4** (Phase 2 编号+Phase 0 边界) + **U1** (examples.json 删第 5 例) + **U2** (SKILL.md 加自指否定声明) + **U7** (SKILL.md 加 light-boundary Execution Boundary 段,§8 v1 校准吸收新增)。**机械修复 + 配套边界声明 + light-boundary 显式 scripts/LLM 分工,零评分目标依赖**
-- **Phase B**(defer 到后续 batch review,**不在本 plan ship-now scope**):U3(Key Principles 部分删 + **Cache-Friendly 改名 Context Handoff Layout 而非删除**,§8 校准修订)+ U5(description 改写)+ U6(拆 references)。U6 按 2026-05-21 Codex 0.132.0 调研校准:Codex 支持 skill-level progressive disclosure,但 `references/` 是 as-needed bundled resources,不保证 happy-path 自动加载。与其他 5 核心 skill batch 跑新版 `审查skill.md`(含 Step 1.5)结果一起进入统一治理 plan,杠杆 ≥5x 单 skill 深修
+1. **examples.json 文件本身是当前分支 commit `8f294258 fix(review): harden skill agent governance` 引入的**（master 上 `git cat-file -e main:skills/spec-work/evals/examples.json` 返回 `path exists on disk, but not in 'main'`），第 5 例由该 commit 同时加入。删除第 5 例 = 撤回当前分支自己刚加上去的工作。
+2. **Origin §8.1 已校准**：第 5 例 4 token (`secret-deny-patterns.json` / `batch-owned files` / `expected_side_effects` / `--copy-env`) 全仓 grep 可定位 owner 真实存在（`src/cli/contracts/security/secret-deny-patterns.json` + `skills/spec-write-tasks/references/task-pack-schema.md` + `skills/spec-work-beta/references/codex-delegation-workflow.md` line 341-353 + `skills/git-worktree/SKILL.md`），不是 stale governance。问题是"ownership 文档化在邻近 skill 而非 spec-work 私有"，不是"治理已废弃"。
+3. **U2 当前文案位置破坏 §Workflow Contract Summary 现有 H2+8H3 contract pattern**：当前分支新建的 §Workflow Contract Summary 段已含 8 个 H3 子段（When To Use / When Not To Use / Inputs / Outputs / Artifacts / Failure Modes / Workflow / Downstream Consumers），U2 加在 §Downstream Consumers 后、§Examples As Context 前会形成孤立 blockquote，既不属于任何 H3 子段也不构成新 H3。
+4. **U4 Phase 0 blockquote 与现有 §Oversized intake and handoff + User-Facing Handoff Contract（line 125-147）冗余**：现有内容已覆盖 "task list 不是 task pack" + "复杂度越过阈值升级到 spec-plan / spec-write-tasks" 语义。
 
-修复目标(Phase A):**消除 examples.json 第 5 例 ownership 文档化缺失 + 显式声明 spec-work 边界(自指否定 U2 + light-boundary U7 两段语义互补) + Phase 编号线性化 + Phase 0 large 路由 task list/task pack 边界划清**。评分变化(fresh review)作为修复方向是否正确的诊断信号,**不作为 merge 条件**(审查报告 §6.5 评分路径已降级为 advisory anecdote,详见 §0)。
+基于这 4 个发现，本 plan 第二轮 deepening 后的 scope 修订为：
 
-**2026-05-24 deepening calibration**:按最新 source 复核后,Phase A 仍可执行,但执行口径收紧为:Decision #1 默认采用 A 删除路径,work 阶段不再把 Q1 当阻塞确认;U2 文案避免 `adjacent skills` 成为新的 owner anchor;Graph readiness 改记为 stale 而非 unavailable,本 plan 继续以当前 source 直接读取作为 primary evidence。
+- **fix-1**（now，独立 commit 并入当前 GitNexus 分支）：U4-Phase2-only。Phase 2 子步骤重新编号 1-7。零风险、零认知漂移机械修复，单 commit ~5min。
+- **fix-2**（defer，等当前 GitNexus 演进合并到 master 后启动）：U8（U2+U7 合并的 `### Execution Boundary` H3 子段，3-6 行 prose）+ U1-revised（保留第 5 例 + 改 source_note 指向 owner refs，即 origin Decision #1 选项 C）。砍掉 U4-Phase0-blockquote（与现有内容冗余）。与 plan 自己推荐的 batch review 一起，作为 follow-up plan 启动条件。
+- **Phase B**（原 U3 / U5 / U6）保持 defer 不变。
+
+**Execution authority**：本 plan 的下游执行依据是 origin 报告 §0 Current Decision + §1 yaml `summary.minimum_viable_fix_set_ref` + §8 v1 校准吸收 + 2026-05-24 第二轮 deepening 修订。origin 报告 §2-§7 / §6 minimum viable fix set 只作为 historical diagnostics 与对抗风险来源，不得覆盖本 plan 的 fix-1 / fix-2 scope。
+
+修复目标的重新对齐：
+
+- **fix-1 目标**：消除 Phase 2 子步骤编号重复，不引入任何治理边界变更
+- **fix-2 目标**：保留 origin §8.1 owner mapping 真相（第 5 例 owner 真实存在）+ 提供 spec-work 自身边界声明（合并 U2+U7 避免孤立 blockquote）+ 避免与现有 §Oversized intake and handoff 冗余
+
+评分变化（fresh review）作为修复方向是否正确的诊断信号，**不作为 merge 条件**（origin §0.2 评分路径已降级为 advisory anecdote）。
 
 ---
 
 ## Problem Frame
 
-`skills/spec-work/SKILL.md`(512 行)+ `evals/examples.json` + `references/` 经多轮审查发现 3 类真实质量问题:
+`skills/spec-work/SKILL.md`（515 行）+ `evals/examples.json`（5 例）+ `references/`（2 文件）在第二轮 deepening 深读后，发现真实质量问题有以下几类：
 
-1. **examples.json 第 5 例 ownership 文档化缺失**(P1-002):4 处 token(`secret-deny-patterns.json` / `batch-owned files` / `expected_side_effects` / `--copy-env`)在 SKILL.md / references 本 skill 内 grep 0 命中,但**全仓 grep**(含 src/cli/contracts/ + 邻近 skill source)可定位 owner(详见审查报告 §8.1 + U1 Approach owner mapping)。fresh-source eval 加载该例时找不到 source owner anchor 会**误判 spec-work 缺失边界 governance**,或反向把已有 CLI/task-pack/delegation safety contracts 当成未实现 drift 删除;**不是 governance 不存在,是 ownership 在邻近 skill 而非 spec-work 私有**
-2. **Key Principles 冗余口号 + Cache-Friendly Context Layout 段名误导**(P2-008-dedupe-only):Key Principles 多段口号与 §Workflow Contract Summary + Phase 0/1/2 各步骤重复,可能稀释执行强度;但 Cache-Friendly 段内含 `artifact-summary.v1`、`context-bundle.v1`、work-to-review handoff posture 与 `full_read_triggers` 等 LLM 实际执行指令。§8 校准后当前处理是 Phase B 改名为 `Context Handoff Layout`,**不删除、不迁移到 docs/contracts/skill-design-principles.md**
-3. **Phase 2 编号笔误 + Phase 0 large 路由 task list 边界未划清**(P2-005-merged):line 451 与 line 459 同为 step 6;line 119-123 Phase 0 large 路由未限定"build a task list"是否等同于 spec-write-tasks 产出的 task pack
+1. **Phase 2 子步骤编号重复**：master 历史遗留问题（master `git show main:skills/spec-work/SKILL.md` Phase 2 段同样含两个 `6.`），当前分支 GitNexus 接入演进未触碰；当前 line 452 与 line 461 同为 `6.`；fresh-source eval 加载 Phase 2 段时读到两个 step 6 会误判 step ordering
+2. **§Workflow Contract Summary 缺自身执行边界声明**：当前分支新建的 §Workflow Contract Summary 已有 8 个 H3 子段刻画"我做什么 / 我消费什么 / 我产出什么 / 我何时失败"，但缺少"scripts/tools vs LLM 分工 + spec-work 不维护 staging/security engine 自指否定"的边界声明 H3 子段；fresh-source eval 可能误判 spec-work 缺失 high-risk boundary governance
+3. **examples.json 第 5 例 ownership 文档化在邻近 skill**：origin §8.1 已校准——第 5 例 4 token 全仓 grep 可定位 owner（`secret-deny-patterns.json` 在 `src/cli/contracts/security/`；`expected_side_effects` 在 `skills/spec-write-tasks/references/task-pack-schema.md`；`batch-owned files` + delegation staging 在 `spec-work-beta/references/codex-delegation-workflow.md`；`--copy-env` 在 `git-worktree/SKILL.md`），不是 stale governance；问题是 fresh-source eval 只看 spec-work 本 skill 时找不到 owner anchor，会产生误报
 
-不在本 plan 范围(经对抗审查降级 / 砍 / 重路由):
+不在本 plan 范围（基于第二轮 deepening 校准）：
 
-- P1-001 全量版 + P2-003(25 行 §Evidence And Execution Boundary / Evidence Rules 聚合)→ **降级**:不在 spec-work 私有建第二份 evidence policy source-of-truth;仅保留 §8 校准后的 U7 light-boundary 3-6 行版
-- P2-002(拆 references)→ **降级**:reject 矩阵 9 项 + host matrix 4 行表留主文件防 Codex 路径残缺;仅外置 review_gate 流程 line 175-181 与 worktree batch 7 步 line 315-326
-- P2-004(§Minimal Examples 内嵌)→ **砍**:Phase 0 复杂度路由表已覆盖,与 examples.json 双锚点维护成本 > onboarding 收益
-- P2-006(tracker-defer ownership)→ **重路由**:跨 4 skill 治理问题,交后续 spec-skill-audit batch
-- P2-001(description 改写)→ **可选**:本 plan 含 U5 但作为可选 unit,workflow 决定是否执行
+- **U4 Phase 0 blockquote**：与现有 §Oversized intake and handoff（line 125-147）+ User-Facing Handoff Contract 冗余，**砍掉**
+- **U1 删第 5 例**：撤回当前分支 commit 8f294258 自己工作 + 否定 origin §8.1 owner 真实性校准，**改为 U1-revised：保留 + 改 source_note 指向 owner refs**
+- **U2 自指否定 blockquote 单独成段**：会成为孤立 blockquote 破坏 H2+8H3 contract pattern，**合并入 U8**
+- **U3 / U5 / U6（Phase B）**：保持 defer
+- **跨 5 核心 skill batch review**：仍是 follow-up plan
+- **spec-work-beta / spec-write-tasks / git-worktree owner 文档化主动同步**：跨 skill 治理问题，重路由到 spec-skill-audit batch
 
 ---
 
 ## Scope Boundaries
 
-### In Scope(Phase A only)
+### In Scope - fix-1（ship-now）
 
-- `skills/spec-work/SKILL.md` 修改:U4(Phase 2 编号 + Phase 0 large 路由 1 行边界)+ U2(加 1 行自指否定声明)+ U7(加 light-boundary Execution Boundary H3 子段)
-- `skills/spec-work/evals/examples.json` 修改:U1(删第 5 例)
+- `skills/spec-work/SKILL.md`：Phase 2 子步骤重新编号（一处机械修改：第二个 `6.` → `7.`）
+- CHANGELOG 同步（`fix(spec-work): renumber Phase 2 Track Progress step`）
+- 双宿主 runtime regenerate（`spec-first init --claude` + `spec-first init --codex`）
+
+### In Scope - fix-2（deferred until GitNexus 演进合并）
+
+- `skills/spec-work/SKILL.md`：§Workflow Contract Summary 末尾追加 `### Execution Boundary` H3 子段（3-6 行 prose，合并 U2 自指否定 + U7 light-boundary）
+- `skills/spec-work/evals/examples.json`：第 5 例保留，改写 `source_note` 字段指向 owner refs（按 owner mapping 表）
 - CHANGELOG 同步
-- 双宿主 runtime regenerate(`spec-first init --claude` + `spec-first init --codex`;Claude runtime mirror 为 `.claude/spec-first/workflows/spec-work/`,Codex runtime mirror 为 `.agents/skills/spec-work/`)
-- (deferred follow-up,不阻塞 merge)跑新版 `审查skill.md` fresh review 作为修复方向诊断信号
+- 双宿主 runtime regenerate
+- （deferred follow-up，不阻塞 merge）fresh review 作为修复方向诊断信号
+- （deferred follow-up）batch review 启动 spec-plan / spec-debug / spec-code-review / spec-write-tasks / spec-compound
 
-### Deferred to Phase B(后续 batch review 后统一治理)
+### Deferred to Phase B（保持 defer，不在本 plan）
 
-- **U3** Key Principles 整体治理 + §Cache-Friendly Context Layout 改名为 `Context Handoff Layout`(保留 Start Fast 语义的结构处理需先解决 cohesion 反例;Cache-Friendly 段内容保留、不迁移)
-- **U5** description 改写(12 词简版仍有反例:仍不能完全区分 spec-debug settled scope,需 batch review 后统一 description 模板)
-- **U6** 拆 references/task-pack-validation.md + references/subagent-dispatch.md(行号会被 U2/U4 漂移 + shared-directory fallback 段处理边界模糊 + Codex/Claude 的 `references/` happy-path 加载可靠性未验证,defer until happy-path eval)
-- **batch review**:对 spec-plan / spec-debug / spec-code-review / spec-write-tasks / spec-compound 5 核心 skill 跑新版 `审查skill.md`(含 Step 1.5),发现跨 skill 系统性 ownership 文档化缺失 / 冗余口号 / 边界笔误,与本 plan Phase B units 一起进统一治理 plan(预期杠杆 ≥5x 单 skill 深修)
+- **U3** Key Principles 整体治理 + §Cache-Friendly Context Layout 改名为 `Context Handoff Layout`（保留 Cache-Friendly 段内 handoff 指令不删除、不迁移到 docs/contracts/skill-design-principles.md）
+- **U5** description 改写
+- **U6** 拆 references/
 
 ### Outside this Plan's Identity
 
-- spec-work-beta 等邻近 skill 修改(P1-002 选项 B 已确认**不推荐**:BETA-edge skill 不接管 stable production 边界 example,见 Decision #1)
-- `docs/contracts/skill-design-principles.md` 新建或迁移 Cache-Friendly 内容(§8 已否决:该段是 LLM handoff 指令,Phase B 只改名不迁移)
-- `审查agent.md` 同步 Step 1.5 改进(meta-review,独立 plan)
-- spec-skill-audit batch 跑 tracker-defer ownership 评估(P2-006 重路由 destination)
+- 修改 spec-work-beta / spec-write-tasks / git-worktree 主动加 owner anchor（重路由到 spec-skill-audit batch）
+- 新建 `docs/contracts/skill-design-principles.md` 或迁移 Cache-Friendly 内容（origin §8.4 已否决）
+- 撤回当前分支 commit 8f294258 的工作（第 5 例保留）
+- 加 Phase 0 blockquote（与现有内容冗余）
+- spec-work-beta 等邻近 skill 修改（origin Decision #1 选项 B 已确认不推荐：BETA-edge skill 不接管 stable production 边界 example）
+- `审查agent.md` 同步 Step 1.5 改进（meta-review，独立 plan）
+- spec-skill-audit batch 跑 tracker-defer ownership 评估（P2-006 重路由 destination）
 
 ---
 
 ## Key Technical Decisions
 
-### Decision #1:examples.json 第 5 例处理路径 — **删除并加 SKILL.md 声明**
+### Decision #1（第二轮 deepening 修订）：examples.json 第 5 例处理路径 — **保留 + 改 source_note 指向 owner refs**
 
-**Question**:对抗审查推荐"迁移到 owning skill 优先",但第 5 例 4 token 横跨 3 owner(`secret-deny-patterns.json` / `batch-owned files` 是 spec-work-beta;`expected_side_effects` 是 spec-write-tasks task-pack schema;`--copy-env` 是 git-worktree)。不可能只迁移到一个 owner。
+**Question**：origin §0.1 提出删除 / 迁移 / 保留+canonical refs 三选一；第一轮 deepening 默认选 A（删除）。第二轮 deepening 深读后，是否应改为 C（保留 + canonical refs）？
 
-**Recommended answer**:**A. 删除该例** + SKILL.md §Workflow Contract Summary 末尾加 1 句自指否定声明(见 U2 改写)。
+**Recommended answer**：**C. 保留 + 改写 source_note 为 owner refs**。
 
-**Options 与 verdict**:
+**修订理由**：
+- 第 5 例由当前分支 commit `8f294258 fix(review): harden skill agent governance` 引入，commit 标题就是"收紧 skill agent 治理"；删除等于撤回当前分支自己的工作
+- origin §8.1 已校准：4 token 在全仓 grep 真实可定位（`src/cli/contracts/security/secret-deny-patterns.json` + 邻近 skill source），**不是 stale governance**
+- 真实问题是"fresh-source eval 只看 spec-work 本 skill 时找不到 owner anchor"，解决方法应该是把 owner refs 直接写进 source_note 字段，而不是删除示例
+- 删除会让 examples.json 从 5 例缩为 4 例（命中 contract test `min length 4` 下沿，没有 buffer 应对未来再删一例）；保留 + 改 source_note 不触发下沿压力
 
-- **A. 删除该例(推荐)**:复合示例无单一 owner,删除最稳健;符合对抗审查"迁移到 owning skill 优先"原意但实际无单一 owner 可迁
-- **B. 迁移到 spec-work-beta**(**不推荐**):spec-work-beta 是 BETA skill(`[BETA]` + "during beta period remain pointed at stable spec-work")。把 production 边界示例迁到 beta 会让 (a) BETA 毕业/撤回时该 example 跟着消失 (b) 4 token 横跨 3 owner 强迫单一接管立刻违反 §6.4 反例 #2。若 user override 选 B,先要求另开 plan 处理 BETA promotion 路径
-- **C. 保留 + canonical refs**(对抗审查警告):命运绑死 4 owner 演化
+**Options 与 verdict**：
+- **A. 删除该例**（第一轮 deepening 推荐，第二轮否决）：撤回 commit 8f294258 自己工作 + 触发 contract test 下沿压力
+- **B. 迁移到 spec-work-beta**（origin Decision #1 已 rejected）：BETA-edge skill 不接管 stable production 边界 example；4 token 横跨 3 owner 强迫单一接管立刻违反 §6.4 反例 #2
+- **C. 保留 + 改 source_note**（**第二轮推荐**）：尊重 owner 真实性 + 不撤回当前分支工作 + 给 fresh-source eval 提供 owner anchor + contract test 下沿不触发
 
-**Source tag**:`advisory`(基于审查报告 §0.1 / §8.1 P1-002 owner mapping + historical §6 对抗反例 + doc-review adversarial AF-002)
+**Source tag**：`advisory`（基于 origin §8.1 owner mapping 校准 + 第二轮深读 commit 8f294258 引入语境）
 
-**Consequence**:examples.json 从 5 例缩为 4 例(仍满足 contract test 下沿约束:`min length 4` 合法值,测试通过,非危险状态,见 MF-1);U1 Test scenarios 必须含 focused Jest contract test;fresh-source eval 不再被 ownership-anchor 缺失干扰
+**Consequence**：examples.json 仍 5 例，第 5 例其他字段不变；`source_note` 从 `"known failure mode: high-risk execution boundary from skill-agent quality governance plan"` 改写为含 4 类 owner token 的 owner refs 路径描述（详见 U1-revised Approach）；fresh-source eval 加载时直接看到 owner anchor；contract test `min length 4` 下沿不触发；U1-revised 实现是改 source_note，不是删例
 
-**2026-05-24 deepening decision**:默认执行 A 删除路径,这已经是 planning-owned 决策,不再要求 work 阶段阻塞确认。若 user 在 U1 执行前显式 override 选 C(canonical refs),U1 实现路径需调整(改 source_note 而非删除),U2 改写文案不变。**选项 B 已显式 rejected,work 阶段若选 B 必须先开新 plan**。
+### Decision #2：Key Principles 保留哪段？（**Phase B，本 plan 不执行**）
 
-### Decision #2:Key Principles 保留哪段?(**Phase B,本 plan 不执行**)
+**Phase B 决策**：Decision #2 与 U3 整体 defer 到 Phase B。fix-1 / fix-2 都不修改 Key Principles。
 
-**Phase B 决策**:Decision #2 与 U3 整体 defer 到 Phase B。Phase A 不修改 Key Principles。
+理由：对抗审查 AF-005 发现保留 'Start Fast' 1 段后 Key Principles 节呈"H2 + 孤立 1 段 + Common Pitfalls"怪结构，LLM 反而忽略 Start Fast 语义权重。Phase B 与 batch review 一起处理 Key Principles 节整体设计。
 
-理由:对抗审查 AF-005 发现保留 'Start Fast' 1 段后 Key Principles 节呈"H2 + 孤立 1 段 + Common Pitfalls"怪结构,LLM 反而忽略 Start Fast 语义权重。Phase B 与 batch review 一起处理 Key Principles 节整体设计(如降级 Start Fast 为 Common Pitfalls 上方 prose / 整合 H2 为 Common Pitfalls 开篇 lead)。
+### Decision #3：references 拆分粒度？（**Phase B，本 plan 不执行**）
 
-### Decision #3:references 拆分粒度?(**Phase B,本 plan 不执行**)
+**Phase B 决策**：U6 整体 defer。fix-1 / fix-2 都不拆 references。
 
-**Phase B 决策**:U6 整体 defer。Phase A 不拆 references。
+理由：对抗审查 AF-001 发现 line 号会被 U2/U4 漂移；feasibility F-001 发现 U6 修改范围未覆盖 shared-directory fallback 区段；product F-004 发现 happy-path LLM 是否主动 read references 未验证。Codex 0.132.0 仅证明 skill-level progressive disclosure，不证明 `references/` happy-path 自动加载。
 
-理由:对抗审查 AF-001 发现 line 号会被 U2/U4 漂移;feasibility F-001 发现 U6 修改范围未覆盖 shared-directory fallback 区段(line 301-305 / 327-333);product F-004 发现 happy-path LLM 是否主动 read references 未验证。2026-05-21 Codex 0.132.0 调研进一步校准:官方 Codex skills docs 只保证 skill discovery 阶段加载 `name` / `description` / `path`,触发后读取完整 `SKILL.md`;`references/` 属于 bundled resources,由 Codex as-needed 读取,不是 host 强制 happy-path 自动加载层。Phase B 前必须:(a) 跑 happy-path fresh-source eval 验证 LLM 实际加载行为 (b) U6 Approach 改用 anchor-text 定位而非 line 号 (c) 显式声明 shared-directory 段处理。
+### Decision #4：description 是否改写？（**Phase B，本 plan 不执行**）
 
-### Decision #4:description 是否改写?(**Phase B,本 plan 不执行**)
+**Phase B 决策**：U5 整体 defer。fix-1 / fix-2 都不改 description。
 
-**Phase B 决策**:U5 整体 defer。Phase A 不改 description。
+理由：对抗审查 OS-003 发现 12 词版仍不能区分 spec-debug 的 settled scope；12 词版还与 SKILL.md line 19 当前文案不一致。Phase B 与 batch review 一起统一 description 模板，跨 5 核心 skill 对齐。
 
-理由:对抗审查 OS-003 发现 12 词版仍不能区分 spec-debug 的 settled scope("bug repro 是一种 settled scope");12 词版还与 SKILL.md line 19 "validated task pack, settled plan, spec path, or concrete implementation request" 不一致(漏掉后两项)。Phase B 与 batch review 一起统一 description 模板,跨 5 核心 skill 对齐。
+### Decision #5（第二轮 deepening 修订）：**fix-1 ship-now + fix-2 deferred** 拆分原则
 
-### Decision #5:**Phase A / Phase B 拆分原则**(re-scope 新决策)
+**Question**：第二轮 deepening 深读后，整个 Phase A 是否应继续按 4 unit 一次性 ship？
 
-**Question**:doc-review product reviewer 建议 re-scope。本 plan 接受还是拒绝?
+**Recommended answer**：**拆分为 fix-1（机械修复 ship-now）+ fix-2（边界声明 deferred until GitNexus 演进合并后）**。
 
-**Recommended answer**:**接受 re-scope + §8 校准吸收**——Phase A 必修零风险机械修复与轻量边界修复(U4+U1+U2+U7),Phase B defer U3/U5/U6 到 batch review 后统一治理。
+**修订理由**：
+- 当前分支 leo-2026-05-21-gitnexus 已修改 spec-work/SKILL.md 152 行（GitNexus 大规模演进 + skill-agent-governance commit 8f294258 同期落地）；`skills/spec-work/evals/examples.json` 也是当前分支新建的
+- fix-1（U4 Phase 2 编号修正）与 GitNexus 演进语义无关（Phase 2 子步骤段当前分支未改）；可作为独立机械修复 commit 顺手并入当前分支，零认知漂移
+- fix-2（U8 = U2+U7 合并的 H3 子段 + U1-revised）在当前分支自己刚建立的 §Workflow Contract Summary + 自己刚加的 examples.json 上叠加修订；如果在 GitNexus 演进未合并的窗口做，会让 reviewer 在审 GitNexus 接入的同时还要 disambiguate "哪部分是 GitNexus 演进、哪部分是 fix-2 polish"
+- 等 GitNexus 演进合并到 master 后启动 fix-2，时间机会成本 ~几天，但 reviewer 认知负担显著降低
 
-**Source tag**:`user`(用户在 doc-review routing question 显式选择 "Re-scope 为 Phase A/B (推荐)")
+**Source tag**：`user`（用户在 2026-05-24 第二轮 deepening 选择方案 A：fix-1 ship-now + fix-2 deferred）
 
-**Consequence**:
-- 本 plan ship-now scope 缩减为 4 unit(U4/U1/U2/U7),work session 估算从 1plan+1work 收敛到 ~30-45min work
-- U3/U5/U6 移到 Phase B Deferred,与后续 5 核心 skill batch review 一起规划
-- fresh review 不再作为本 plan 完成条件(Phase A 修复后预期评分变化是诊断信号)
-- opportunity cost 重新平衡:Phase A 解决最高优先级真实缺陷(ownership 文档化缺失 + 编号错位 + 边界声明 + light-boundary 显式分工),Phase B 留待 batch review 提供跨 skill 系统证据后统一动手
+**Consequence**：
+- fix-1 立即可做（独立 commit，~5min）
+- fix-2 等当前 GitNexus 分支合并后启动（不阻塞当前分支推进）
+- fresh review 仍不是 merge 条件
+- U4-Phase0-blockquote 砍掉，因与现有 §Oversized intake and handoff 冗余
+- opportunity cost 重新平衡：fix-1 解决无争议机械缺陷，fix-2 在 GitNexus 演进稳定后做边界声明叠加修订
 
-**理由**:product reviewer 指出 0 真实 user pain 证据,1 plan + 1 work 精力可改为 batch 跑新版 `审查skill.md`(含 Step 1.5)对 5 核心 skill 一次扫描,杠杆 ≥5x 单 skill 深修。Phase A 仅保留无可争议的机械修复 + 高优先 ownership-anchor 修复 + §8 新增 light-boundary。
+### Decision #6（第二轮 deepening 新增）：U2 与 U7 合并策略
+
+**Question**：U2 自指否定 blockquote + U7 light-boundary H3 段是分两个修改点还是合并？
+
+**Recommended answer**：**合并为单个 `### Execution Boundary` H3 子段**，3-6 行 prose 同时包含两类声明。
+
+**修订理由**：
+- 当前 §Workflow Contract Summary 已建立 H2 + 8 H3 子段的 contract pattern（When To Use / When Not To Use / Inputs / Outputs / Artifacts / Failure Modes / Workflow / Downstream Consumers）；U2 单独成 blockquote 加在 §Downstream Consumers 与 §Examples As Context 之间会形成孤立 blockquote，既不属于任何 H3 也不构成新 H3，破坏 pattern
+- U2 自指否定（不做什么）+ U7 分工声明（做什么 + 谁决策）语义互补，本就适合放在同一 H3 段内
+- 合并后只新增 1 个 H3 子段（第 9 个），保持 contract pattern 一致；段内严格控制不含邻居 skill 名，避免触发 §6.4 反例 #1
+
+**Source tag**：`advisory`（基于第二轮深读 §Workflow Contract Summary 当前结构）
+
+**Consequence**：原 U2 + U7 合并为新 unit U8；fix-2 实际只有 2 unit（U8 + U1-revised），比第一轮 Phase A 的 4 unit 更紧凑；HF-3 修订（U2 不含邻居 skill 名）+ light-boundary 严格约束（U7 3-6 行）在合并后的 U8 中同时满足
 
 ---
 
 ## Implementation Units
 
-### U1. examples.json 第 5 例处理(必修)
+### U4. Phase 2 子步骤编号修正（fix-1 ship-now，必修）
 
-**Goal**:消除 fresh-source eval 加载 examples.json 第 5 例时找不到 owner anchor 的误报路径(审查报告 §8.1 校准:owner 真实存在于邻近 skill / contract,不是 governance 已废弃,而是 ownership 文档化缺失)
+**Goal**：消除 Phase 2 子步骤编号重复（当前 line 452 与 line 461 同为 `6.`）
 
-**Requirements**:审查报告 §0.1 / §8.1 P1-002-revised;Decision #1
+**Requirements**：origin §0.1 `P2-005-merged`（仅 Phase 2 编号部分）
 
-**Dependencies**:无
+**Dependencies**：无
 
-**Files**(repo-relative):
+**Files**（repo-relative）：
+- `skills/spec-work/SKILL.md`（修改：Phase 2 子步骤 `Track Progress` 编号 `6.` → `7.`）
 
-- `skills/spec-work/evals/examples.json`(修改:删除 line 54-66 第 5 例 'secrets and staging require high-risk boundary'
+**Approach**：
+- 当前 Phase 2 子步骤顺序：`1. Task Execution Loop / 2. Incremental Commits / 3. Follow Existing Patterns / 4. Test Continuously / 5. Simplify as You Go / 6. Figma Design Sync / 6. Track Progress`
+- 用 anchor-text 定位 `**Track Progress**`（当前 line 461），把同行 `6. ` 改为 `7. `
+- Phase 2 最终顺序：1-7 连续无重复
+- **本 unit 不动 Phase 0 路由 + 不动 §Oversized intake and handoff**（第一轮 plan 提议的 Phase 0 blockquote 与现有内容冗余，按第二轮 deepening Decision #5 已砍掉）
 
-**Approach**:
-- 直接删除 examples 数组中第 5 个 object(下标 4)
-- 保留 1-4 例(都已通过审查 §5.5 一致性检查;第 1 例 context_snippets 含 `expected_side_effects` 由 U2 加的声明配合解决——参见报告 §0.1 / §8.1 P1-002 校准)
-- 不需修改 schema_version / skill / examples 数组 framing
+**Patterns to follow**：仿 Phase 2 现有子步骤命名结构（`N. **Title**` 形式）；anchor-text 定位避免硬编码 line 号
 
-**Owner mapping(v1 §5 校准 + 审查报告 §8.2)** — work 阶段 user 若 override 选 Decision #1 选项 C(保留 + canonical refs),按以下 owner refs 改 source_note:
+**Test scenarios**：
+- 正例：`grep -n "^7\. \*\*Track Progress\*\*" skills/spec-work/SKILL.md` 应命中 1 行
+- 反例：Phase 2 段内不应有 2 个 `^6\. \*\*` 起始行（`awk '/^### Phase 2: Execute$/,/^### Phase 3-4/' skills/spec-work/SKILL.md | grep -c "^6\. \*\*"` 应输出 1）
+- 反例：Phase 0 表格行数不变（`awk '/^### Phase 0/,/^### Phase 1/' skills/spec-work/SKILL.md | grep "^|" | wc -l` 应仍为 5）
+- 反例（确认 Phase 0 未动）：Phase 0 表格后**不**新增 blockquote（`awk '/^### Phase 0/,/^3\. \*\*Oversized/' skills/spec-work/SKILL.md | grep -c "^> "` 应输出 0）
+
+**Verification**：Phase 2 子步骤顺序读起来线性 1-7；Phase 0 routing 表格行数不变；§Oversized intake and handoff 子段未动
+
+---
+
+### U1-revised. examples.json 第 5 例改写 source_note 指向 owner refs（fix-2 deferred，必修）
+
+**Goal**：消除 fresh-source eval 加载第 5 例时找不到 owner anchor 的误报路径；不撤回当前分支 commit 8f294258 自己工作
+
+**Requirements**：origin §0.1 / §8.1 P1-002-revised（owner mapping 真相）；Decision #1 修订（选项 C）
+
+**Dependencies**：无（不依赖 U8）
+
+**Files**（repo-relative）：
+- `skills/spec-work/evals/examples.json`（修改：第 5 例 `source_note` 字段改写）
+
+**Approach**：
+- 保留 examples 数组中第 5 个 object（`name`: "secrets and staging require high-risk boundary"，下标 4）
+- 其余字段（`user_intent` / `expected_posture` / `boundary_note` / `negative_signal` / `context_snippets`）不变
+- `source_note` 从当前的 `"known failure mode: high-risk execution boundary from skill-agent quality governance plan"` 改写为指向具体 owner refs，参考措辞：
+
+  ```text
+  "source_note": "ownership in adjacent skills and project contracts: secret-deny-patterns at src/cli/contracts/security/secret-deny-patterns.json; expected_side_effects in skills/spec-write-tasks/references/task-pack-schema.md; batch-owned files and delegation staging in skills/spec-work-beta/references/codex-delegation-workflow.md; --copy-env in skills/git-worktree/SKILL.md. spec-work consumes these contracts but does not own them."
+  ```
+
+- **关键约束**：`source_note` 不写 "owned by spec-work-beta / spec-write-tasks / git-worktree" 这种 owner 名字单独列表（避免邻居 skill rename 导致 anchor drift）；只用相对路径 + 自指否定语句"spec-work consumes ... does not own ..."
+- 不修改 schema_version / skill / examples 数组其他元素
+
+**Owner mapping**（origin §8.2 全仓 grep 真实校准）：
 
 | Token | Owner 路径 | 用途 |
 |---|---|---|
-| `expected_side_effects` | `skills/spec-write-tasks/references/task-pack-schema.md:152/164/192` | task-pack quality/delegation field 定义 |
-| `batch-owned files` | `skills/spec-work-beta/references/codex-delegation-workflow.md:341/345/347` | batch-owned set + expected_side_effects staging check |
-| `secret-deny-patterns.json` | `src/cli/contracts/security/secret-deny-patterns.json`(配合 `spec-work-beta/references/codex-delegation-workflow.md:353` deny 应用规则) | staging 前 deny patterns 应用 |
-| `--copy-env` | `skills/git-worktree/SKILL.md:12/22/28` | worktree env copy opt-in 与 staging deny |
-| `thin high-risk contract` 总章 | `docs/contracts/workflows/skill-agent-quality-governance.md:32-45` | high-risk execution safety contract(声明不是 runtime state machine) |
+| `secret-deny-patterns.json` | `src/cli/contracts/security/secret-deny-patterns.json` | staging 前 deny patterns 应用 |
+| `batch-owned files` | `skills/spec-work-beta/references/codex-delegation-workflow.md`（line 341/345/347） | batch-owned set + expected_side_effects staging check |
+| `expected_side_effects` | `skills/spec-write-tasks/references/task-pack-schema.md` + `skills/spec-work-beta/references/codex-delegation-workflow.md` | task-pack quality/delegation field 定义 |
+| `--copy-env` | `skills/git-worktree/SKILL.md`（line 12/22/28） | worktree env copy opt-in 与 staging deny |
+| `thin high-risk contract` 总章 | `docs/contracts/workflows/skill-agent-quality-governance.md` | high-risk execution safety contract 总章 |
 
-**审查报告校准**(§8.1):v0 评估 "local bundle grep 0 命中" 是范围错误(只扫 `skills/spec-work/`)。全仓 grep(含 src/cli/contracts/ + 邻近 skill source)证明 owner 真实存在,**不是 governance 已废弃**——是 ownership 文档化在邻近 skill 而非 spec-work 私有。删除第 5 例是因 spec-work 不实现 staging/security engine,边界由 owner skill 维护;不是因 owner 不存在。
+**审查报告校准**（origin §8.1）：v0 评估 "local bundle grep 0 命中" 是范围错误（只扫 `skills/spec-work/`）。全仓 grep（含 src/cli/contracts/ + 邻近 skill source）证明 owner 真实存在，**不是 governance 已废弃**——是 ownership 文档化在邻近 skill 而非 spec-work 私有。第二轮 deepening 进一步确认：示例本身由当前分支 commit 8f294258 引入，删除等于撤回当前分支工作；改 source_note 是更尊重 owner 真实性的修订路径。
 
-**Test scenarios**:
-- 正例:`jq '.examples | length' skills/spec-work/evals/examples.json` 应输出 4
-- 边缘:`jq '.examples[].name' skills/spec-work/evals/examples.json` 不应含 "secrets and staging require high-risk boundary"
-- 反向 grep:`secret-deny-patterns` / `batch-owned files` / `--copy-env` 在 `skills/spec-work/` 应 0 命中;`expected_side_effects` 允许保留在第 1 例,其 owner 仍按上方 owner mapping 归属 `skills/spec-write-tasks/references/task-pack-schema.md`
-- JSON 合法性:`python3 -m json.tool skills/spec-work/evals/examples.json > /dev/null` 应 exit 0
-- **contract 测试**(MF-1):`npm run test:jest -- tests/unit/prompt-examples-contracts.test.js --runInBand` 应通过(验证 examples 数组 `min length 4` 下沿约束;删第 5 例后 4 例正好命中下沿)
+**Test scenarios**：
+- 正例：`jq '.examples | length' skills/spec-work/evals/examples.json` 应输出 5（不变）
+- 正例：`jq -r '.examples[4].name' skills/spec-work/evals/examples.json` 应输出 `secrets and staging require high-risk boundary`
+- 正例：`jq -r '.examples[4].source_note' skills/spec-work/evals/examples.json` 应包含 `src/cli/contracts/security/secret-deny-patterns.json` 字符串
+- 正例：`jq -r '.examples[4].source_note' skills/spec-work/evals/examples.json` 应包含 `skills/spec-write-tasks/references/task-pack-schema.md` 字符串
+- 正例：`jq -r '.examples[4].source_note' skills/spec-work/evals/examples.json` 应包含 `consumes` + `does not own` 自指否定语句
+- 反例：`source_note` 字段**不**应含 owner skill 名字单独列表（如 "owned by spec-work-beta"）；`jq -r '.examples[4].source_note' skills/spec-work/evals/examples.json | grep -cE "owned by"` 应输出 0
+- JSON 合法性：`python3 -m json.tool skills/spec-work/evals/examples.json > /dev/null` 应 exit 0
+- contract 测试：`npm run test:jest -- tests/unit/prompt-examples-contracts.test.js --runInBand` 应通过
 
-**Verification**:examples.json 4 例结构完整;fresh-source eval(若运行)不再读取第 5 例 ownership-anchor 缺失引用;contract test 通过
-
----
-
-### U2. SKILL.md 加自指否定声明 spec-work 不实现 staging/security engine(必修)
-
-**Goal**:配合 U1,在 SKILL.md 明确边界,避免下游 reviewer 误判 spec-work 缺失 high-risk boundary governance
-
-**Requirements**:审查报告 §0.1 / §8.1 P1-002-revised added 字段;Decision #1;doc-review HF-3(adversarial AF-003 + product F-003 共识)
-
-**Dependencies**:**U1**(语义上配套——先删示例再加声明,顺序可逆但逻辑上配对)
-
-**Files**(repo-relative):
-
-- `skills/spec-work/SKILL.md`(修改:§Workflow Contract Summary 的 `### Downstream Consumers` 内容之后、`## Examples As Context` 之前加 1 行;若同时执行 U7,则 U2 blockquote 在 U7 `### Execution Boundary` 之前)
-
-**Approach**:
-
-按 doc-review HF-3 修订——**改写为自指否定句,去掉具体邻居 skill 名列表 + 4 类边界枚举**,避免成为新的 cross-skill owner anchor drift(§6.4 反例 #1 轻量版触发风险):
-
-- 在 §Workflow Contract Summary 段最后追加 1 行:
-  ```
-  > Note: spec-work follows high-risk execution contracts supplied by the active plan, task pack, and project source; it does not maintain its own staging or security engine source.
-  ```
-- **不写** "(spec-work-beta, spec-write-tasks, git-worktree)" 邻居 skill 名列表
-- **不写** "secret handling / batch staging / env copy / side-effect declaration" 4 类边界枚举
-- 位置选 `### Downstream Consumers` 现有内容之后、`## Examples As Context` 之前,使其作为 §Workflow Contract Summary 的收尾边界声明;不要放到 `### Downstream Consumers` 标题之前
-- 不引入新章节标题(避免新增 anchor)
-
-**Patterns to follow**:仿 line 23 §When Not To Use 显式禁止表述的语气(`do not use for ... runtime mirror edits.`);采用自指否定(`does not maintain its own ...`)而非他指肯定(`is owned by X / Y / Z`)
-
-**HF-3 修复理由**:原方案的"owned by adjacent skills (spec-work-beta, spec-write-tasks, git-worktree)" 包含 3 个邻居 skill 名 + 4 类边界类型,本身就是 evidence/governance policy anchor。邻居 skill rename / split / merge 时,这句声明会变成新的 owner-anchor drift,重演 examples.json 第 5 例 ownership 文档化缺失模式(只是从 evals 换到 SKILL.md)。改写为"active plan / task pack / project source"供给边界 + `does not maintain its own ...` 自指否定后,语义清晰但不依赖外部 owner 命名稳定性。
-
-**Test scenarios**:
-- 正例:`grep -n "does not maintain its own" skills/spec-work/SKILL.md` 应命中 1 行
-- 反例(HF-3):U2 新增 blockquote 内不含 `spec-work-beta` / `spec-write-tasks` / `git-worktree`;全文件命中数只允许因既有正文保持不变,不允许因 U2 新增
-- 反例:不应新增 ## 章节(grep `^## ` 行数应保持不变)
-
-**Verification**:SKILL.md 加 1 行后行数变化 +1;新增声明出现在 `### Downstream Consumers` 内容之后、U7 `### Execution Boundary` 之前;Examples As Context 段不受影响;不引入新的 cross-skill owner anchor
+**Verification**：examples.json 仍 5 例；第 5 例其他字段不变；source_note 含可 grep 的 owner refs 路径 + 自指否定语句；fresh-source eval 加载第 5 例时可直接看到 owner anchor；contract test `min length 4` 下沿不触发
 
 ---
 
-### U3. 删除 Key Principles 4 段 + Cache-Friendly Context Layout 改名(**Phase B,defer**)
+### U8. §Workflow Contract Summary 加 `### Execution Boundary` H3 子段（fix-2 deferred，必修）
 
-**Phase B 状态**:本 plan 不执行。defer 到 batch review 后统一治理 plan(详见 §Scope Boundaries `Deferred to Phase B`)。
+**Goal**：补 §Workflow Contract Summary 末尾的 3-6 行 `### Execution Boundary` H3 子段，合并 U2 自指否定（不做什么）+ U7 light-boundary 分工声明（做什么 + 谁决策）；保持 H2+8H3 contract pattern 一致
 
-**Phase B Approach(按审查报告 §8 v1 校准修订)**:
+**Requirements**：origin §0.1 must_fix `P1-001-light-boundary`（U7）+ HF-3 修订（U2 自指否定）；Decision #6（合并策略）
 
-- **Key Principles**:删 4 段(`The Plan is Your Guide` / `Test As You Go` / `Quality is Built In` / `Ship Complete Features`)+ 保留 `Start Fast, Execute Faster` 1 段(latency posture hint,Common Pitfalls `Analysis paralysis` 一起对抗 over-cautious)
-- **Cache-Friendly Context Layout(v1 校准)**:**改名为 `Context Handoff Layout`,不删除整段**——v1 sanity check(`sed -n '77,80p'`)确认段内含 `artifact-summary.v1` + `context-bundle.v1` + work-to-review handoff posture + `full_read_triggers` 等 LLM 实际遵循的 handoff 契约引用,**非纯元描述**。改名让段名匹配段内 handoff 指令性质(`Cache-Friendly` 易被 LLM 误读为维护者设计原则,导致段内 handoff 契约被忽略;`Context Handoff Layout` 表达更精准)
-- **删除 docs/contracts/skill-design-principles.md 迁移**:原 plan 提议把 Cache-Friendly 迁移到该文件——v1 校准否决,因为段内是 LLM 执行指令而非维护者原则,不应迁离 SKILL.md
+**Dependencies**：无（不依赖 U1-revised；位置稳定在 §Workflow Contract Summary 末尾）
 
-**Defer 理由**(综合 doc-review AF-005 + MF-2 + §8 校准):
-- AF-005:保留 'Start Fast' 1 段后 Key Principles 节呈"H2 + 孤立 1 段 + Common Pitfalls"怪结构
-- MF-2:LLM 反而忽略 Start Fast 语义权重
-- §8 校准:Cache-Friendly 必须改名而非删除,处理路径较精细
+**Files**（repo-relative）：
+- `skills/spec-work/SKILL.md`（修改：在 `### Downstream Consumers` 子段之后、`## Examples As Context` 之前，新增 `### Execution Boundary` H3 子段）
 
-Phase B 需先评估替代设计:(a) Start Fast 降级为 Common Pitfalls 上方 prose 1 行 (b) H2 "Key Principles" 整合为 Common Pitfalls 开篇 lead (c) 直接全删 H2 标题保留 Common Pitfalls;**Cache-Friendly 改名 Context Handoff Layout 在所有 (a)/(b)/(c) 路径下都执行**。Decision #2 推迟到 batch review 后基于跨 skill 模式做决定。
+**Approach**：
 
----
-
-### U4. Phase 2 编号修正 + Phase 0 large 路由 1 行补丁(必修)
-
-**Goal**:消除 Phase 2 step 6 重复(line 451 与 line 459 同号);防止 Phase 0 large 路由在 user 拒绝 brainstorm/plan 时让 spec-work 二次发明 task pack
-
-**Requirements**:审查报告 §0.1 `P2-005-merged` + `P2-007-one-line`
-
-**Dependencies**:无。U3 已 defer 到 Phase B;U4 执行时用 anchor-text / 当前段落标题定位,不依赖 historical line 号。
-
-**Files**(repo-relative):
-
-- `skills/spec-work/SKILL.md`(修改:Phase 2 子步骤编号 + Phase 0 large 路由表后追加 1 行)
-
-**Approach**:
-
-1. **Phase 2 子步骤重新编号**(currently 1 Task Execution Loop / 2 Incremental Commits / 3 Follow Existing Patterns / 4 Test Continuously / 5 Simplify as You Go / **6 Figma Design Sync** / **6 Track Progress**):
-   - 把第二个 "6. Track Progress" 改为 "7. Track Progress"
-   - Phase 2 最终顺序:1-7 连续无重复
-
-2. **Phase 0 large 路由补丁**(Phase 0 路由表格之后，*不*在 cell 内追加):
-   - **[行为边界变更，非机械修复]** 在 Phase 0 routing 表格(line 119-123)之后，空一行，追加独立 blockquote：`> 若用户拒绝走 brainstorm/plan,Phase 1 step 3 task list 仅作为 in-session task list(not persisted as task pack);若复杂度 mid-execution 越过阈值,使用 User-Facing Handoff Contract 升级到 spec-plan / spec-write-tasks`
-   - **[Markdown 约束]** GFM/CommonMark 管道表格 cell 不支持 block 元素（blockquote `>`）；cell 内追加会产生字面字符而非结构。**仅使用"表格后追加独立 blockquote"路径**，不要追加到 cell 内。表格后追加的声明语义上适用于"任何复杂度下用户拒绝 brainstorm/plan 的场景"，这在当前语境中成立：Large 路由是唯一需要此声明的路径，Trivial/Small 路由不涉及 brainstorm/plan 推荐。
-   - **LF-3 修订**:术语用 `in-session task list (not persisted as task pack)` 而非新发明的 `in-session 执行索引`——前者复用 SKILL.md 已有 task list 与 task pack 两个既有概念的对比，通过 `(not persisted as task pack)` 子句划清边界；后者全仓 grep 0 命中
-
-**Patterns to follow**:仿 line 132 `Do not describe task compilation as a command-backed workflow entrypoint` 的边界声明风格
-
-**Test scenarios**:
-- 正例:`grep -n "^7. \*\*Track Progress\*\*" skills/spec-work/SKILL.md` 应命中 1 行
-- 反例:Phase 2 段内不应有 2 个 `^6. \*\*` 起始行(`awk '/^## Execution Workflow$/,/^## Key Principles$/' skills/spec-work/SKILL.md | grep -c "^6\. \*\*"` 应输出 1)
-- 正例:`grep -n "in-session task list (not persisted as task pack)" skills/spec-work/SKILL.md` 应命中 1 行
-- 表格结构完整性:`awk '/^### Phase 0/,/^### Phase 1/' skills/spec-work/SKILL.md | grep "^|" | wc -l` 应仍为 5（表头+分隔行+3 数据行；blockquote 在表格后，不干扰表格行数）
-
-**Verification**:Phase 2 子步骤顺序读起来线性 1-7;Phase 0 large 路由表后有显式 task list / task pack 边界声明;routing 表格行数不变
-
----
-
-### U5. description 12 词简版改写(**Phase B,defer**)
-
-**Phase B 状态**:本 plan 不执行。defer 到 batch review 后统一 description 模板。
-
-**Defer 理由**(doc-review OS-003):12 词版仍不能区分 spec-debug 的 settled scope("bug repro 是 settled");与 SKILL.md line 19 "validated task pack, settled plan, spec path, or concrete implementation request" 不一致(漏掉后两项)。Phase B 与其他 5 核心 skill description 一起,统一 spec-first description 模板(`<动词 + 输入类型 + scope guard + 排除边界>` 四段式),跨 skill 对齐 routing signal 后再改。Decision #4 推迟。
-
-### U6. 拆出 references/task-pack-validation.md + references/subagent-dispatch.md(**Phase B,defer**)
-
-**Phase B 状态**:本 plan 不执行。defer until happy-path fresh-source eval 验证。
-
-**Defer 理由**(doc-review HF-1 + AF-001 + F-001 + F-004):
-
-- **行号会被 U2/U4 漂移**:本 plan U2(+1)/ U4(编号改)修改后 line 175-181 + 286-326 实际位置变化。U6 Approach 必须改为 anchor-text 定位(grep `review_gate: required` / `worktree-isolated mode`)而非 line 号,但本 plan 无此修订
-- **shared-directory fallback 边界模糊**:line 301-305 + 327-333 同样属于 fallback 段,只外置 315-326 会让主文件 Phase 1 Step 4 出现"删了 worktree-isolated 段、保留 shared-directory 段"非对称结构。U6 Approach 未声明这两段处理
-- **happy-path LLM 行为未验证(2026-05-21 Codex 调研校准)**:Codex 0.132.0 支持 skill-level progressive disclosure(`name` / `description` / `path` 常驻,触发后加载 `SKILL.md`),但官方 docs 与本地 skill-creator 都把 `references/` 定义为 as-needed bundled resources,不保证 happy-path 自动加载。Claude/Codex 都不能把 `references/` 拆分当成 host 强制 gate;U6 若拆,主文件必须保留 mandatory load trigger,并用 fresh-source eval 证明执行前会读对应 reference。
-- **trajectory risk**:U6 后 spec-work 从"主文件单点"变"主文件指针 + references 双点",引入 path dependency。与 plan 主目标"消除两份口号稀释"自相矛盾(U3 删两份,U6 反向引入两份契约)
-
-Phase B 前必须:(a) 完成 1 次 happy-path fresh-source eval 验证 LLM 实际加载行为,覆盖 validated task pack 与 subagent dispatch 两条正向路径 (b) U6 Approach 改用 anchor-text 定位 (c) 显式声明 shared-directory 段处理 (d) 评估 lint:skill-entrypoints 兼容性(LF-2)。Decision #3 推迟。
-
----
-
-### U7. SKILL.md 加 light-boundary Execution Boundary 段(**Phase A 必修,§8 v1 校准吸收新增**)
-
-**Goal**:补 §Workflow Contract Summary 之后的 3-6 行 light-boundary Execution Boundary 段,显式声明 scripts/tools vs LLM 决策边界。**不引入 25 行大段私有 policy / 不含邻居 skill 名(避免触发对抗反例 AF-003 cross-skill anchor 残余风险)**
-
-**Requirements**:审查报告 §0.1 must_fix `P1-001-light-boundary`;§8.2 校准——v0 把 P1-001 全降级是过度反应,light-boundary 3-6 行版不触发对抗反例;Decision #5 Phase A re-scope 后,P1-001-light-boundary 应进 Phase A 而非 defer
-
-**Dependencies**:**U2**（语义配套）。**位置顺序（明确）**：U2 prose 先，U7 H3 段后。最终目标 diff 结构如下：
-```
-### Downstream Consumers
-...existing content...
-> Note: spec-work follows high-risk execution contracts ...   ← U2 新增（blockquote prose）
-### Execution Boundary                            ← U7 新增（H3 标题）
-                                                  ← U7 新增（空行）
-`spec-work` orchestrates execution ...            ← U7 新增（3 行 prose）
-...
-## Examples As Context
-```
-U2 是 §Workflow Contract Summary 末尾的"不做什么"声明；U7 是紧随的 H3 子段说明"做什么 + 谁决策"。两段语义互补，顺序不可逆（否则 H3 标题前跟 prose 结构更合理）。
-
-**Files**(repo-relative):
-- `skills/spec-work/SKILL.md`(修改:§Workflow Contract Summary 末尾后,§Examples As Context 之前,加 ~5 行 H3 子段)
-
-**Approach**:按审查报告 §0.1 / §8.2 的 P1-001-light-boundary 校准——加 3-6 行轻量 Execution Boundary 段:
+在 §Workflow Contract Summary 现有 8 个 H3 子段（When To Use / When Not To Use / Inputs / Outputs / Artifacts / Failure Modes / Workflow / Downstream Consumers）之后，作为第 9 个 H3 子段，新增 `### Execution Boundary`，参考措辞：
 
 ```markdown
 ### Execution Boundary
 
-`spec-work` orchestrates execution; it does not own deterministic validators or provider refresh.
-Tools/CLI/git provide task-pack validation, diff/branch facts, test results, and optional run artifact writes.
+`spec-work` orchestrates execution; it does not own deterministic validators, staging policy, or security engine source.
+Tools, CLI, and git provide task-pack validation, diff/branch facts, test results, secret deny patterns, and optional run artifact writes; high-risk execution contracts (staging, secret handling, side-effect declaration, env copy) come from the active plan, task pack, and project-source contracts.
 The LLM decides scope fit, task ordering, review depth, handoff, and whether advisory evidence is sufficient to proceed.
 ```
 
-**严格约束**:
-- **3 行 prose,~50 词**,严格控制在 light-boundary 区间
-- **不含具体邻居 skill 名**(spec-work-beta / spec-write-tasks / git-worktree)——避免 §6.4 对抗反例 #1 cross-skill anchor 触发(与 U2 修订风险声明 6 一致)
-- **不复制项目角色契约**(`docs/10-prompt/结构化项目角色契约.md`)——只声明 spec-work 自身边界
-- **位置 H3 子标题**(`###`),作为 §Workflow Contract Summary 的子段,而非新建 H2(避免新增 anchor 段)
-- 与 U2 语义互补,不重复——U2 是"不做什么"(does not implement),U7 是"做什么 + 谁决策"(orchestrates + LLM decides)
+**严格约束**：
+- **3 行 prose，~70 词**，控制在 light-boundary 区间（含 U2 自指否定语义 + U7 分工声明语义，合并后比单独两段紧凑）
+- **不含具体邻居 skill 名**（不写 spec-work-beta / spec-write-tasks / git-worktree）；只引 "active plan, task pack, and project-source contracts" 抽象层
+- **不复制项目角色契约**（`docs/10-prompt/结构化项目角色契约.md`）；只声明 spec-work 自身边界
+- **位置 H3 子标题**（`###`），作为 §Workflow Contract Summary 的第 9 个 H3 子段，与现有 8 段保持一致
+- 不引入新 H2 anchor
+- 自指否定（U2 语义）通过 `does not own ...` 表达；分工声明（U7 语义）通过 `Tools/CLI/git provide ... / The LLM decides ...` 表达；两类声明合并在同一段 prose 内
 
-**Patterns to follow**:仿 §When Not To Use 显式声明语气(line 23);仿 §Workflow Contract Summary 已有 H3 子段结构(line 17-47);保持 light contract 原则
+**Patterns to follow**：仿 §Workflow Contract Summary 现有 8 个 H3 子段的"标题 + 1-3 行 prose"结构；仿 `### When Not To Use` 的显式禁止语气 + 仿 `### Failure Modes` 的边界声明语气
 
-**Test scenarios**:
-- 正例:`grep -n "^### Execution Boundary" skills/spec-work/SKILL.md` 应命中 1 行
-- 正例:`grep -n "orchestrates execution\|LLM decides scope fit" skills/spec-work/SKILL.md` 应各命中 1 行
-- 反例(对抗反例 #1 防护):`grep -A 6 "### Execution Boundary" skills/spec-work/SKILL.md | grep -c "spec-work-beta\|spec-write-tasks\|git-worktree"` 应输出 0(段内不含邻居 skill 名)
-- 体积:Execution Boundary 段 prose 不超过 6 行(`awk '/^### Execution Boundary/,/^###|^##/' skills/spec-work/SKILL.md | head -7` 输出应 ≤ 7 行)
-- 不引入新 H2:`grep -c "^## " skills/spec-work/SKILL.md` 在 U7 前后应保持相同数(只新增 H3)
+**Test scenarios**：
+- 段内检查先构造同一个非重叠 extractor：`U8_BLOCK="$(awk 'found && (/^### / || /^## /) && $0 !~ /^### Execution Boundary$/ { exit } /^### Execution Boundary$/ { found=1 } found { print }' skills/spec-work/SKILL.md)"`
+- 正例：`printf '%s\n' "$U8_BLOCK" | grep -c "^### Execution Boundary$"` 应输出 1
+- 正例：`printf '%s\n' "$U8_BLOCK" | grep -c "orchestrates execution"` 应输出 1（U7 分工声明开句）
+- 正例：`printf '%s\n' "$U8_BLOCK" | grep -c "LLM decides"` 应输出 1（U7 LLM 职责）
+- 正例：`printf '%s\n' "$U8_BLOCK" | grep -c "does not own"` 应输出 1（U2 自指否定语义）
+- 正例：`printf '%s\n' "$U8_BLOCK" | grep -c "come from the active plan"` 应输出 1（高风险契约来源声明）
+- 反例（cross-skill anchor drift 防护）：`printf '%s\n' "$U8_BLOCK" | grep -cE "spec-work-beta|spec-write-tasks|git-worktree"` 应输出 0（段内不含邻居 skill 名）
+- 体积：H3 段 prose 不超过 6 行（`printf '%s\n' "$U8_BLOCK" | grep -cv "^$"` 输出应 ≤ 5，即标题 + 不超过 4 行非空内容）
+- 不引入新 H2：`grep -c "^## " skills/spec-work/SKILL.md` 在修改前后应保持相同数（只新增 H3）
+- §Examples As Context 仍紧随其后：`grep -n "^## Examples As Context" skills/spec-work/SKILL.md` 应命中 1 行
+- §Downstream Consumers 在 §Execution Boundary 之前：line 顺序 `grep -n "^### Downstream Consumers\|^### Execution Boundary" skills/spec-work/SKILL.md` 前者 line 号 < 后者
 
-**Verification**:
-- 段标题 `### Execution Boundary` 出现在 §Workflow Contract Summary 与 §Examples As Context 之间
-- 段内容含 scripts/tools 与 LLM 分工声明
+**Verification**：
+- 段标题 `### Execution Boundary` 出现在 `### Downstream Consumers` 子段之后、`## Examples As Context` 之前
+- 段内容含 scripts/tools 与 LLM 分工声明 + spec-work 自身边界声明（U2 自指否定）+ high-risk 契约来源声明
+- §Workflow Contract Summary 共 9 个 H3 子段
 - 不引入新 H2 anchor
 - 不含 25 行大段 / 不含邻居 skill 名 / 不复制角色契约
-- 与 U2 自指否定句语义不重复
+- §Examples As Context H2 段不受影响
 
 ---
 
 ## Sequencing
 
-### Phase A(本 plan ship-now scope)
+### fix-1（ship-now，并入当前 GitNexus 分支）
 
 ```
-U4 (Phase 2 编号 + Phase 0 边界) [无依赖,先做,避免后续 U1/U2/U7 改动后还要重新算 U4 行号]
-  ↓
-U1 (examples.json 删第 5 例) [无依赖,修改 examples.json 不影响 SKILL.md 行号]
-  ↓
-U2 (SKILL.md 加自指否定声明) [配套 U1,在 §Workflow Contract Summary 末尾加 1 行]
-  ↓
-U7 (SKILL.md 加 light-boundary Execution Boundary H3 段) [§8 v1 校准吸收新增,配套 U2 但语义互补]
+U4 (Phase 2 编号修正) [独立机械修复，无依赖，单 commit ~5min]
 ```
 
-**推荐执行顺序**:U4 → U1 → U2 → U7
+**推荐执行**：
+- 单个 commit：`fix(spec-work): renumber Phase 2 Track Progress step from 6 to 7`
+- CHANGELOG 同步追加
+- 双宿主 runtime regenerate（`spec-first init --claude` + `spec-first init --codex`）
+- 可与当前 GitNexus 分支其他工作并行 / 顺手处理
 
-- U4 先做(改 Phase 2 编号 + 加 Phase 0 1 行,SKILL.md 行号变化 +1)
-- U1 / U2 配套(顺序可逆但配对——U1 删 examples 第 5 例,U2 加自指否定声明)
-- U7 紧随 U2(在 §Workflow Contract Summary 末尾加 H3 子段;U2 是末尾 prose,U7 是 H3 子标题,位置不冲突)
-- U1 / U2 / U7 不依赖 U4 的行号稳定(它们改的是 frontmatter / Workflow Contract Summary / examples.json,不涉及 Phase 2 / Phase 0 段)。**U4 先做是建议而非硬依赖**:U1/U2/U7 均以段落标题定位(非行号),乱序执行技术上可行;先做 U4 只是降低施工者同时追踪多份行号漂移的心理负担。
-- 总工作量:~30-45min(U7 是 ~5min 增量,3-6 行 prose)
+### fix-2（deferred，等当前 GitNexus 演进合并到 master 后启动）
 
-**重要(LF-1)**:本 plan 所有 line N 均为参考;实际定位以 § 标题 / ### 子标题 grep 为准。U1-U7 行号偏差 ±1~2 是预期(SKILL.md 当前 512 行,任何修改都会让后续 unit 引用的 line 号漂移)。
+```
+U8 (§Workflow Contract Summary 加 ### Execution Boundary H3 子段) [无依赖]
+  ↓
+U1-revised (examples.json 第 5 例改写 source_note) [无依赖；不依赖 U8 位置]
+```
 
-### Phase B(defer,不在本 plan)
+**推荐执行顺序**：U8 → U1-revised（顺序可逆，但 U8 是 SKILL.md 内修改，U1-revised 是 examples.json 内修改，无 line 漂移依赖）
+
+**fix-2 启动条件**：
+- 当前 leo-2026-05-21-gitnexus 分支已合并到 master
+- batch review 是否启动可以是后续 plan 决策；fix-2 不必绑死 batch review
+
+**fix-2 工作量估算**：~15-25min
+- U8：~10min（H3 段 3 行 prose + grep 验证）
+- U1-revised：~5-10min（改 source_note + jq 验证 + contract test）
+- 双宿主 init + doctor：~5min
+
+### Phase B（保持 defer，不在本 plan）
 
 ```
 [batch review on spec-plan / spec-debug / spec-code-review / spec-write-tasks / spec-compound]
   ↓
-[统一治理 plan,含本 plan 的 U3 / U5 / U6 + batch review 发现的跨 skill 系统性 ownership 文档化缺失 / 冗余口号 / 引用漂移]
+[统一治理 plan，含本 plan 的 U3 / U5 / U6 + batch review 发现的跨 skill 系统性 ownership 文档化缺失]
 ```
 
-Phase B 前提:
-- happy-path fresh-source eval 验证 LLM 实际加载 references 行为(决定 U6 是否还做);Codex 0.132.0 仅证明 skill-level progressive disclosure,不能替代 `references/` 加载可靠性验证
-- 5 核心 skill batch review 完成,提供跨 skill 统一 description 模板(决定 U5 12 词版是否够)
-- Key Principles 节替代设计已评估(决定 U3 保留 / 删除 / 整合策略)
+Phase B 前提：
+- happy-path fresh-source eval 验证 LLM 实际加载 references 行为（决定 U6 是否还做）
+- 5 核心 skill batch review 完成，提供跨 skill 统一 description 模板（决定 U5 12 词版是否够）
+- Key Principles 节替代设计已评估（决定 U3 保留 / 删除 / 整合策略）
 
 ---
 
 ## Verification
 
-每个 unit 完成后:
+### fix-1 verification
 
-1. 跑该 unit Test scenarios 节列出的 grep / jq / awk / test 命令
-2. 跑项目级验证:
-   - `npm run typecheck`(语法检查)
-   - `npm run lint:skill-entrypoints`(skill 入口治理)
-   - `npm run test:smoke`(若涉及 init / doctor 命令——本 plan 涉及 runtime regenerate)
-   - **`npm run test:jest -- tests/unit/prompt-examples-contracts.test.js --runInBand`**(MF-1:验证 examples 数组 min length 4 下沿约束)
+每个 unit 完成后：
 
-所有 Phase A unit 完成后:
+1. 跑该 unit Test scenarios 节列出的 grep / awk 命令
+2. 跑项目级验证：
+   - `npm run typecheck`
+   - `npm run lint:skill-entrypoints`
+   - `npm run test:smoke`（涉及 init / doctor）
 
-3. 双宿主 runtime regenerate:
-   - `spec-first init --claude`(刷新 `.claude/spec-first/workflows/spec-work/`)
-   - `spec-first init --codex`(刷新 `.agents/skills/spec-work/`)
+fix-1 所有 unit 完成后：
+
+3. 双宿主 runtime regenerate：
+   - `spec-first init --claude`（刷新 `.claude/spec-first/workflows/spec-work/`）
+   - `spec-first init --codex`（刷新 `.agents/skills/spec-work/`）
    - `spec-first doctor --claude` + `spec-first doctor --codex` 验证 runtime 一致
-4. CHANGELOG 同步(每个 unit 完成后追加,或全部完成后一次性追加)
-5. **Fresh review(advisory follow-up,不阻塞 merge)**:跑新版 `审查skill.md`(含 Step 1.5 grep verification)对修复后 spec-work 做 fresh review。**这是修复方向是否正确的诊断信号,不作为 merge 条件**(MF-3:原 §6.5 起点 81 / 修复后预期变化区间作为 advisory 信息,不强制达标分数)
+4. CHANGELOG 同步追加（按 developer profile `leokuang` + zh）
+
+### fix-2 verification
+
+每个 unit 完成后：
+
+1. 跑该 unit Test scenarios 节列出的 grep / jq / awk 命令
+2. 跑项目级验证：
+   - `npm run typecheck`
+   - `npm run lint:skill-entrypoints`
+   - `npm run test:smoke`
+   - `npm run test:jest -- tests/unit/prompt-examples-contracts.test.js --runInBand`（验证 examples 数组结构）
+
+fix-2 所有 unit 完成后：
+
+3. 双宿主 runtime regenerate（同 fix-1）
+4. CHANGELOG 同步追加
+5. **Fresh review（advisory follow-up，不阻塞 merge）**：跑新版 `审查skill.md`（含 Step 1.5 grep verification）对修复后 spec-work 做 fresh review。**评分作为修复方向诊断信号，不作为 merge 条件**
 
 ---
 
-## Rollback Procedure(HF-4)
+## Rollback Procedure
 
-Phase A 落地后若 fresh review 落点低于预期(例如 < 80,advisory 信号),或 work 阶段发现实际 LLM 行为偏离:
+### fix-1 rollback
+
+- **U4 不回滚**：Phase 2 编号修正是零风险机械修复，不存在需要回滚的语义场景
+- 全 fix-1 回滚（极端情况）：`git revert <commit>` + 重跑 `spec-first init --claude` + `spec-first init --codex` + CHANGELOG 追加 revert 记录；~5min
+
+### fix-2 rollback
 
 | 触发条件 | 回滚动作 |
 |---|---|
-| **user 主动请求回滚** + fresh review 后有具体 cross-skill anchor grep 命中证据（`grep -A 6 "### Execution Boundary" ... \| grep -c "spec-work-beta\|..."` 输出 > 0）且诊断为 U7 light-boundary 段触发 | 回滚 U7 单元:删除 §Workflow Contract Summary 后的 §Execution Boundary H3 段;保留 U2 自指否定句;U1/U4 不回滚 |
-| **user 主动请求回滚** + 有具体证据诊断为 U2 声明触发 cross-skill owner anchor drift | 回滚 U2 单元:删除自指否定句;保留 U7(light-boundary 段语义独立);U1/U4 不回滚 |
-| **user 主动请求回滚** + 有具体证据诊断为多 unit 互相干扰 | 同时回滚 U2 + U7(保留 U1 + U4)。U1 回滚需重新添加 examples.json 第 5 例(从 git history `git show HEAD~N:skills/spec-work/evals/examples.json` 恢复) |
-| U1 / U4 任何情况 | **不回滚** — examples.json 第 5 例删除 + Phase 编号修正都是零风险机械改动 |
-| 全 plan 回滚 | `git revert <commit>` + 重跑 `spec-first init --claude` + `spec-first init --codex` + CHANGELOG 追加 revert 记录 |
+| **user 主动请求回滚** + fresh review 后有具体证据诊断为 U8 H3 段触发反例（如基于 `U8_BLOCK` extractor 的 `grep -cE "spec-work-beta\|..."` 输出 > 0） | 回滚 U8 单元：删除 `### Execution Boundary` H3 段；U1-revised 不回滚 |
+| **user 主动请求回滚** + 有具体证据诊断为 U1-revised source_note 改写仍触发 owner anchor drift | 回滚 U1-revised：source_note 恢复为原 `"known failure mode: high-risk execution boundary from skill-agent quality governance plan"`；U8 不回滚 |
+| **user 主动请求回滚** + 有具体证据诊断为 U8 + U1-revised 互相干扰 | 同时回滚 U8 + U1-revised |
+| 全 fix-2 回滚 | `git revert <commit>` + 重跑双宿主 init + CHANGELOG 追加 revert 记录 |
 
-**回滚成本预估**:
-- U7 单独回滚:~3min(单 commit revert + runtime regen)
-- U2 单独回滚:~5min(单 commit revert + runtime regen)
-- U2 + U7 回滚:~8min(2 commit revert + runtime regen)
-- U1 + U2 + U7 回滚:~12min(3 commit revert + examples.json 恢复 + runtime regen)
-- 全 plan 回滚:~15min(4 commit revert + 2 host runtime regen + CHANGELOG)
+**回滚成本预估**：
+- U8 单独回滚：~3min（单 commit revert + runtime regen）
+- U1-revised 单独回滚：~3min（单 commit revert + runtime regen）
+- U8 + U1-revised 回滚：~5min（2 commit revert + runtime regen）
+- 全 fix-2 回滚：~8min（2 commit revert + 双宿主 runtime regen + CHANGELOG）
 
-**Rollback 不需要 user 重新批准**:Phase A unit 都是 source-only 局部修改,无 contract / schema / runtime breaking。若 user 在 advisory 信号后选择回滚,plan owner 可直接执行。
+**Rollback 不需要 user 重新批准**：fix-1 / fix-2 修改都是 source-only 局部，无 contract / schema / runtime breaking。若 user 在 advisory 信号后选择回滚，plan owner 可直接执行。
 
 ---
 
 ## Risks
 
-### 风险 1:U6 拆分质量不达预期(**Phase B,不在本 plan 风险**)
+### 风险 1：U6 拆分质量不达预期（**Phase B，不在本 plan**）
 
-Phase B 预期 risk;Phase A 不执行 U6。
+Phase B 预期 risk；本 plan 不执行 U6。
 
-### 风险 2:U3 删除 Key Principles 后 LLM ship-bias 校准失效(**Phase B,不在本 plan 风险**)
+### 风险 2：U3 删除 Key Principles 后 LLM ship-bias 校准失效（**Phase B，不在本 plan**）
 
-Phase B 预期 risk;Phase A 不执行 U3。
+Phase B 预期 risk；本 plan 不执行 U3。
 
-### 风险 3:U1 删除第 5 例后,fresh-source eval 覆盖度下降
+### 风险 3：U1-revised source_note 改写仍可能被 fresh-source eval 误读
 
-**Source**:examples.json 从 5 例缩为 4 例(命中 contract test `min length 4` 下沿);若 high-risk boundary 是真实重要 capability,删除会让 fresh-source eval 缺少该维度覆盖
+**Source**：第 5 例 source_note 改写后含 4 类 owner token 的 owner refs 路径；fresh-source eval 可能把路径当作 spec-work 私有依赖（而不是"消费但不拥有"的 contract refs）
 
-**Mitigation**:Decision #1 已声明这些边界是邻近 skill 责任(spec-work-beta / spec-write-tasks / git-worktree);U2 加自指否定声明(本 plan 修订版,去掉邻居名)在该路径下成立;contract test 验证下沿不触发(MF-1 已加入 Test scenarios)
+**Mitigation**：
+- source_note 改写文案明确使用 `spec-work consumes these contracts but does not own them` 自指否定语句
+- 不写 owner skill 名字单独列表，只写相对路径
+- 配合 U8 H3 子段的 `high-risk execution contracts ... come from the active plan, task pack, and project-source contracts` 抽象层声明，让 fresh-source eval 看到一致的"消费者"姿态
+- 若 fresh review 后仍误判，Rollback Procedure 含 U1-revised 单独回滚路径
 
-### 风险 4:双宿主 runtime regenerate 出现 drift
+### 风险 4：双宿主 runtime regenerate 出现 drift
 
-**Source**:U1/U2/U4/U7 都修改 source,runtime mirror 必须同步;若 `spec-first init --codex` 与 `--claude` 之间 drift,fresh review 可能在某一侧失败
+**Source**：fix-1 / fix-2 修改 source，runtime mirror 必须同步；若 `spec-first init --codex` 与 `--claude` 之间 drift，fresh review 可能在某一侧失败
 
-**Mitigation**:Verification 步骤显式包含双宿主 init + doctor;若发现 drift,先 `spec-first doctor` 诊断再决定是否 `spec-first clean` 后重新 init;Rollback Procedure 含 runtime regen 步骤。**init 命令本身失败路径**：若 `spec-first init --claude` 或 `--codex` exit ≠ 0，不继续执行另一侧 init，先排查原因（developer profile 缺失、路径权限）；两个 init 必须都 exit 0 后才执行 doctor 验证，否则不 merge
+**Mitigation**：Verification 步骤显式包含双宿主 init + doctor；若发现 drift，先 `spec-first doctor` 诊断再决定是否 `spec-first clean` 后重新 init。**init 失败路径**：若 `spec-first init --claude` 或 `--codex` exit ≠ 0，不继续另一侧 init，先排查 developer profile / 路径权限；两个 init 必须都 exit 0 后才执行 doctor 验证，否则不 merge
 
-### 风险 5:Decision #1 user 在 work 阶段 override 选项 C(canonical refs)
+### 风险 5：fix-2 启动时机晚于预期（当前 GitNexus 分支合并被推迟）
 
-**Source**:Decision #1 / Q1;选项 B 已 rejected,但 C 仍可能被 user 在执行前显式 override
+**Source**：fix-2 启动条件是当前 leo-2026-05-21-gitnexus 合并到 master；若该分支合并被推迟，fix-2 启动时间漂移
 
-**Mitigation**:默认路径已在 Decision #1 / Q1 deepening 中收敛为 A 删除,work 阶段不阻塞确认;若 user 在 U1 执行前显式 override 选 C,U1 实现路径需调整(改 source_note 而非删除),U2 不变(自指否定句在所有路径下都成立),contract test 不再触发 min length 下沿。
+**Mitigation**：fix-1（U4）不受影响，可独立进行；fix-2 推迟不影响 user 可见行为（spec-work 仍可正常执行，只是 fresh-source eval 误报路径未消除）；若 GitNexus 分支合并被推迟超过 2 周，重新评估是否打破 fix-2 deferral 单独提早执行；评估触发条件可以是 user 主动请求或 fresh review 实测有具体 user pain 信号
 
-### 风险 6(MF-5/AF-003):U2 自指否定声明 + U7 light-boundary 仍可能反向触发 §6.4 反例 #1 轻量版
+### 风险 6（origin AF-003 共识）：U8 H3 段仍可能反向触发 §6.4 反例 #1 轻量版
 
-**Source**:doc-review adversarial AF-003 + product F-003 共识;原 U2 文案因含 3 邻居 skill 名 + 4 边界类型,触发 evidence policy anchor 风险。本 plan HF-3 修订改为自指否定句,理论上消除该风险;新增 U7 light-boundary 同样严格控制(不含邻居名)
+**Source**：origin §6.4 对抗反例 #1 警示 cross-skill anchor 风险；U8 合并 U2+U7 后段内 ~3 行 prose；HF-3 修订理论上消除该风险，但需运行时验证
 
-**Mitigation**:
-- **U2** 严格按修订文案执行:`spec-work follows high-risk execution contracts supplied by the active plan, task pack, and project source; it does not maintain its own staging or security engine source.`(不写邻居 skill 名,不写 `adjacent skills`)
-- **U7** 严格按 light-boundary 模板执行:`spec-work orchestrates execution; it does not own deterministic validators or provider refresh. Tools/CLI/git provide ... The LLM decides ...`(不含邻居 skill 名,3 行 prose)
-- Test scenarios 已加反向 grep(U2 不新增 `spec-work-beta` / `spec-write-tasks` / `git-worktree` 命中;U7 段内同样不含)
-- 若 fresh review 后发现两段仍触发反例,Rollback Procedure 含单独回滚 U2 / U7 路径
+**Mitigation**：
+- U8 严格按文案执行：不写邻居 skill 名（spec-work-beta / spec-write-tasks / git-worktree），只用 `active plan, task pack, and project-source contracts` 抽象层
+- Test scenarios 含基于 `U8_BLOCK` extractor 的反向 grep 验证（段内 0 邻居 skill 名命中）
+- U1-revised source_note 同样不含邻居名字单独列表，避免双重 anchor drift 风险
+- 若 fresh review 后仍触发反例，Rollback Procedure 提供单独回滚路径
 
-### 风险 7:本 plan 仅修复 spec-work 表面缺陷,未触发 product reviewer 建议的 batch review
+### 风险 7：方案 A re-scope 后未触发 batch review
 
-**Source**:doc-review product F-005(opportunity cost):本 plan 1 work session 精力 vs batch 跑新版 `审查skill.md` 对 5 核心 skill 杠杆 ≥5x
+**Source**：plan 自己推荐 batch review ≥5x 杠杆；方案 A 把 fix-1 / fix-2 拆分后，batch review 仍不在本 plan ship-now scope
 
-**Mitigation**:Decision #5 已接受 re-scope 为 Phase A/B,U3/U5/U6 推到 Phase B 与 batch review 一起处理。Phase A 完成后,立即启动 batch review 作为 follow-up plan(不在本 plan ship-now scope,但在 §Scope Boundaries Deferred to Phase B 已声明)
+**Mitigation**：fix-2 完成后，立即评估 batch review 启动（在 fix-2 完成 closeout 阶段记录"是否启动 batch review"决策）；不强制本 plan 范围内做 batch review；batch review 启动作为 follow-up plan 处理
+
+### 风险 8（第二轮 deepening 新增）：fix-1 单独并入当前 GitNexus 分支可能与已有 152 行修改产生 merge 摩擦
+
+**Source**：当前分支 `skills/spec-work/SKILL.md` 已被改 152 行；fix-1 在 Phase 2 段做 1 处编号修改
+
+**Mitigation**：
+- Phase 2 子步骤段在当前分支 GitNexus 接入 diff 中**未被触碰**（已验证：`git diff main..HEAD -- skills/spec-work/SKILL.md | grep -E '^[+-]6\. \*\*(Track Progress|Figma Design Sync)'` 未命中）
+- fix-1 修改面是 1 行（`6. **Track Progress**` → `7. **Track Progress**`），与现有修改不冲突
+- 若实际执行时遇到 merge 摩擦（极低概率），按 Rollback Procedure 全 fix-1 回滚处理
 
 ---
 
 ## Open Questions
 
-### Q1:Decision #1 选项最终确认(resolved during 2026-05-24 deepening)
+### Q1（resolved during 2026-05-24 第二轮 deepening）：Decision #1 选项最终确认
 
-**Question**:U1 实际执行时,是按 Decision #1 推荐的"A. 删除"做,还是 user override 选"C. canonical refs"?(**选项 B 已 rejected**——见 Decision #1 / HF-2)
+**Question**：U1 实际执行时，按删除（A）/ 迁移（B）/ 保留+canonical refs（C）？
 
-**Resolved answer**:**A. 删除**。这是本 plan 的默认且已校准执行路径;work 阶段不需要再次阻塞确认。若 user 在 U1 执行前主动明确要求 C(canonical refs),executor 才切换到 C;若 user 不可用或回答模糊,继续按 A 执行,不等待。
+**Resolved answer**：**C. 保留 + 改 source_note 指向 owner refs**。基于第二轮 deepening 深读后修订（详见 Decision #1）。work 阶段不再阻塞确认；若 user 在 U1-revised 执行前显式 override 选 A（删除），executor 才切换并触发 contract test 下沿压力评估；选项 B 仍 rejected（origin 已确认）
 
-**Affect scope if changed**:U1 修改范围（改 source_note 而非删除）;U2 不变;若选 C,contract test min length 4 下沿不触发（examples 仍为 5 例）
+**Affect scope if changed**：若回 A，删除而非改 source_note，contract test 下沿压力触发；U8 不变
 
-### Q2:Cache-Friendly Context Layout 改名落点(**Phase B,defer**)
+### Q2（保持 defer to Phase B）：Cache-Friendly Context Layout 改名落点
 
-**Question**:Phase B 执行 U3 时,`Cache-Friendly Context Layout` 改名为 `Context Handoff Layout` 后是否需要同步调整邻近引用、目录或 reviewer prompt 示例?
+**Question**：Phase B 执行 U3 时，`Cache-Friendly Context Layout` 改名为 `Context Handoff Layout` 后是否需要同步调整邻近引用、目录或 reviewer prompt 示例？
 
-**Resolve approach**:**defer to Phase B**(本 plan 不执行 U3);Cache-Friendly 段内容已确认为 LLM handoff 指令,不删除、不迁移到 `docs/contracts/skill-design-principles.md`
+**Resolve approach**：**defer to Phase B**（本 plan 不执行 U3）；Cache-Friendly 段内容已确认为 LLM handoff 指令，不删除、不迁移到 `docs/contracts/skill-design-principles.md`
 
-### Q3:Phase B 启动时机(defer to batch review 后)
+### Q3（resolved during 2026-05-24 第二轮 deepening）：fix-1 / fix-2 拆分时机
 
-**Question**:Phase B 何时启动?是否在 Phase A merge 后立即启动 batch review,还是等其他 follow-up?
+**Question**：fix-1 与 fix-2 是否同时执行？还是 fix-2 等 GitNexus 分支合并后？
 
-**Resolve approach**:**defer to Phase A 完成后**——基于 Phase A fresh review 实际落点 + product reviewer 推荐的 batch review 优先级,在新 plan 决策。本 plan 不预设 Phase B 启动时间
+**Resolved answer**：**fix-1 ship-now + fix-2 deferred until GitNexus 分支合并到 master**。基于 Decision #5 修订；fix-2 启动条件不必绑死 batch review；若 GitNexus 分支合并被推迟超过 2 周，重新评估是否打破 fix-2 deferral
 
-### Q4(MF-4):U6 happy-path fresh-source eval 验证设计(**Phase B 前置**)
+### Q4（保持 defer to Phase B 前置）：U6 happy-path fresh-source eval 验证设计
 
-**Question**:Phase B 启动前,如何设计 happy-path fresh-source eval 验证 LLM 实际是否主动 read references?
+**Question**：Phase B 启动前，如何设计 happy-path fresh-source eval 验证 LLM 实际是否主动 read references？
 
-**Resolve approach**:**defer to Phase B 前置任务**——按 2026-05-21 Codex 0.132.0 调研,验证目标应改为"主 `SKILL.md` 的 mandatory load trigger 是否足够驱动 LLM 读取 references",而不是验证 Codex 是否存在 progressive disclosure。可能路径:(a) 跑一个已验证 task pack 通过 fresh-source spec-work,观察编辑前是否读取 `references/task-pack-validation.md` (b) 跑一个需要 subagent dispatch 的 plan,观察派发前是否读取 `references/subagent-dispatch.md` (c) 在 evals/examples.json 加 1 个专门测 reference 加载的 example。本 plan 不解决
+**Resolve approach**：defer to Phase B 前置任务（本 plan 不解决）；可能路径见原 plan Q4 描述
+
+### Q5（第二轮 deepening 新增）：U8 H3 段最终措辞验证
+
+**Question**：U8 H3 段当前参考措辞（`orchestrates execution` / `does not own deterministic validators` / `come from the active plan, task pack, and project-source contracts` / `The LLM decides ...`）是否足够同时承载 U2 自指否定 + U7 light-boundary 两类语义？
+
+**Resolve approach**：fix-2 执行时按参考措辞写入，跑 Test scenarios 全部正反例 grep；若反例命中（cross-skill 名 / 体积超限），调整措辞重跑；fresh review 后若 advisory 信号显示语义未承载，按 Rollback Procedure 处理或在 fix-2 closeout 阶段决定下一步
 
 ---
 
 ## Deferred to Implementation
 
-- 具体 §Cache-Friendly Context Layout 段落的精确 line 边界(Phase B 时按 git blame 确认)
-- U2 新增的 1 行声明锚点已在 U2 收敛为 `### Downstream Consumers` 内容之后、`## Examples As Context` 之前;work 阶段只需按当前 source 微调空行和可读性
-- U4 'in-session task list (not persisted as task pack)' 短语与 SKILL.md line 132 'Do not describe task compilation as a command-backed workflow entrypoint' 在最终 prose 中的衔接方式(以可读性为准)
+- U8 H3 段最终 prose 措辞（在保留语义约束的前提下，可按可读性微调用词）
+- U1-revised source_note 最终文本格式（在保留 4 类 owner token 的 owner refs 路径 + 自指否定语句的前提下，可调整句式与标点）
+- fix-1 与 fix-2 的 CHANGELOG 条目最终格式（按当前 host developer profile `leokuang` + zh 与仓库格式生成）
+- U4 anchor-text 定位的精确字符（以 work 阶段实际 source 状态为准）
 
 ---
 
 ## Test Expectation
 
-- U1:5 个验证命令(jq/grep/python + contract test)
-- U2:3 个 grep 命令(正例 + 反例 HF-3 + 新章节不变)
-- U4:3 个 grep / awk
-- **U7:5 个验证命令**(正例 H3 标题 + 段内核心词 + 反例 cross-skill 名 + 体积上限 + 不引入新 H2)
+- **U4**：4 个验证命令（grep + awk + 反例 + Phase 0 表格行数不变）
+- **U1-revised**：8 个验证命令（jq length + 第 5 例 name + source_note 含 secret-deny owner refs + source_note 含 `spec-write-tasks` owner refs + 自指否定语句 + 反例 owner 名字单独列表 + JSON 合法 + contract test）
+- **U8**：9 个验证点（共用 `U8_BLOCK` 非重叠 extractor：H3 标题 + 分工声明开句 + LLM 职责 + 自指否定 + 高风险契约来源 + 反例 cross-skill 名 + 体积上限 + 不引入新 H2 + §Examples As Context 紧随）
 
-无新增 unit / integration / e2e test 文件——本 plan 修改的是 markdown skill source + JSON examples,验证主要靠 grep / jq / structural check + 双宿主 init + doctor + (advisory follow-up) fresh review
+无新增 unit / integration / e2e test 文件——本 plan 修改的是 markdown skill source + JSON examples，验证主要靠 grep / jq / structural check + 双宿主 init + doctor + (advisory follow-up) fresh review
 
 ---
 
 ## Context & Research
 
-**Origin**(see origin: `docs/10-prompt/skill-reviews/2026-05-20-spec-work.md`):
+**Origin**（见 origin: `docs/10-prompt/skill-reviews/2026-05-20-spec-work.md`）：
 
-- §1 dimension_scores:12 维(7 pass / 4 partial / 1 fail)
-- §0 Current Decision + §1 yaml `summary.minimum_viable_fix_set_ref` + §8 v1 校准吸收:下游执行唯一依据
-- §6 对抗审查综合 / §6.4 5 个对抗反例触发条件:historical diagnostics,仅作为风险来源
-- §6.5 复审路径预测表:已降级为 session-local advisory anecdote,不作为 merge gate
-- §7 Reviewer Prompt Self-Reflection
+- §0 Current Decision（2026-05-21 §8 校准后，下游单一依据）：第 5 例 owner mapping 校准（§8.1）+ Phase 2 编号 + 评分路径降级
+- §0.2 与 §2-§7 早期结论的冲突清单：明确 §8 校准覆盖范围
+- §1 yaml `minimum_viable_fix_set`：P1-002-revised + P1-001-light-boundary + P2-008-dedupe-only + P2-005-merged
+- §8 v1 校准吸收
 
-**2026-05-24 source calibration**:
+**2026-05-22 第一轮 deepening calibration**（已被第二轮覆盖部分）：
+- Phase A 4 unit（U4 / U1 / U2 / U7）拆分；Phase B 含 U3 / U5 / U6
+- Decision #1 默认采用 A 删除路径
+- U2 加在 §Workflow Contract Summary 末尾 blockquote
+- U7 加 `### Execution Boundary` H3 子段
+- U4 含 Phase 2 编号 + Phase 0 large 路由 blockquote
 
-- `skills/spec-work/SKILL.md` 当前仍缺 U2/U7 边界段,Phase 0 large 路由仍未划清 task list/task pack 边界,Phase 2 仍有两个 `6.`。
-- `skills/spec-work/evals/examples.json` 当前仍有第 5 例;删除后剩 4 例,仍满足 `tests/unit/prompt-examples-contracts.test.js` 的 `4..6` 数量约束。
-- `skills/spec-work/SKILL.md` 当前已有 `spec-write-tasks` / `git-worktree` 既有命中,所以 U2 验证必须限定为"新增 blockquote 不新增 cross-skill owner anchor",不能要求全文件 0 命中。
-- 由于当前多代理工具契约要求用户显式授权 subagents/parallel/delegation,本次 deepening 未启动 plan subagent dispatch;校准采用 `dispatch_fallback: inline-current-agent`。
+**2026-05-24 第二轮 deepening calibration**（本次重写覆盖第一轮）：
 
-**Doc-review iteration**(本 plan 经 `/spec:doc-review` 二次收敛):
+- **新发现 1**：`skills/spec-work/evals/examples.json` 是当前分支 commit `8f294258 fix(review): harden skill agent governance` 引入的，master 上不存在（`git cat-file -e main:skills/spec-work/evals/examples.json` 返回 `path exists on disk, but not in 'main'`）；第 5 例由该 commit 同时加入
+- **新发现 2**：当前 `skills/spec-work/SKILL.md` §Workflow Contract Summary 段是当前分支新建的（master 上为 `## CRG Work Anchors`），含 8 个 H3 子段构成 contract pattern
+- **新发现 3**：当前 SKILL.md Phase 0 line 125-147 已有 §Oversized intake and handoff + User-Facing Handoff Contract，覆盖了第一轮 plan 提议的 Phase 0 blockquote 语义
+- **新发现 4**：当前分支已修改 `skills/spec-work/SKILL.md` 152 行（GitNexus 接入演进），fix-2 在演进未合并窗口执行会增加 reviewer 认知负担
+- 校准结论：
+  - Decision #1 从 A（删除）改为 C（保留 + 改 source_note）
+  - Decision #5 从 Phase A 4 unit 改为 fix-1 / fix-2 拆分
+  - 新增 Decision #6（U2+U7 合并为 U8）
+  - U4 Phase 0 blockquote 砍掉（与现有内容冗余）
+  - U2 + U7 合并为 U8
+  - U1 → U1-revised（保留 + 改 source_note）
 
-- spec-feasibility-reviewer 4 findings(F-001 ~ F-004):U6 边界 / contract test 约束 / 行号偏差 / lint 兼容
-- spec-adversarial-document-reviewer 5 high-risk + 3 overrated + 3 unstated + conditional verdict:U6 line drift / Decision #1 B reject / U2 cross-skill anchor / rollback gap / Key Principles cohesion
-- spec-product-lens-reviewer 6 findings + judgment=re-scope:Goal vs Verification / user pain 证据缺失 / identity contraction / trajectory / opportunity cost / roadmap anchor
-- 2 reviewer dispatch 失败(coherence 429 rate limit / scope-guardian 1m context 配置错误)——记入 Coverage,不阻塞修复方向
+**Doc-review iteration**（本 plan 经 `/spec:doc-review` 一次收敛 + 两轮 deepening 修订）：
 
-**Roadmap anchor**(LF-4):no direct roadmap anchor; classified as ongoing skill governance cleanup with M-stage support for fresh-source eval automation pipeline(M5)。
+- 第一轮（2026-05-22 doc-review）：spec-feasibility / spec-adversarial-document / spec-product-lens 三 reviewer 收敛到 Phase A/B
+- 第二轮（2026-05-24 自我 deepening 深读最新 source）：基于 4 个新发现修订 scope，从 Phase A 4 unit 改为 fix-1 / fix-2 两段结构；本次重写吸收第二轮全部结论
+
+**Roadmap anchor**：no direct roadmap anchor；classified as ongoing skill governance cleanup with M-stage support for fresh-source eval automation pipeline（M5）
 
 ---
 
 ## Graph Readiness
 
-- target_repo: spec-first(单仓 plan)
+- target_repo: spec-first（单仓 plan）
 - status: stale
 - source_revision: 314115815864544f749030d23fa78a6f87a80c19
-- current_revision: fc3d43c1ac58b38ba5e339bf78a6bf290285db5b
+- current_revision: ccab16be（HEAD as of 2026-05-24 第二轮 deepening 重写时）
 - stale: true
-- primary_providers: code-review-graph, gitnexus(artifact shows query_ready=true for the recorded snapshot)
+- primary_providers: code-review-graph, gitnexus（artifact shows query_ready=true for the recorded snapshot）
 - degraded_providers: []
 - fallback_capabilities: bounded direct source reads, current grep/source inspection, focused prompt examples contract test
-- runtime_mcp_evidence: not used; this plan is docs/skill-source prose calibration and direct source reads are sufficient
-- confidence: high for plan feasibility via current source reads; low for graph-backed impact claims
-- limitations: compiled graph facts were generated for an older source revision and dirty worktree hash; do not use them as primary evidence for this plan
+- runtime_mcp_evidence: not used；this plan is docs/skill-source prose calibration and direct source reads are sufficient
+- confidence: high for plan feasibility via current source reads；low for graph-backed impact claims
+- limitations: compiled graph facts were generated for an older source revision and dirty worktree hash；do not use them as primary evidence for this plan；第二轮 deepening 主要依赖直接 source reads + git log + git show 对比
 
 ---
 
 ## Downstream Handoff
 
-本 plan 完成后:
+本 plan 完成后：
 
-1. **work**:使用当前 host 的 work entrypoint 执行 `docs/plans/2026-05-20-001-fix-spec-work-skill-quality-plan.md`——**仅执行 Phase A**(U4 → U1 → U2 → U7)。Codex 入口是 `$spec-work`;Claude 兼容入口是 `/spec:work`
-2. **review(advisory)**:Phase A 完成后用当前 host 的 code-review entrypoint 做修复 diff review(可选;Codex 为 `$spec-code-review`,Claude 为 `/spec:code-review`)
-3. **fresh review(advisory follow-up)**:跑新版 `审查skill.md`(含 Step 1.5)对修复后 spec-work 做 fresh review;**评分作为修复方向诊断信号,不作为 merge 条件**
-4. **Phase B 启动**:基于 Phase A fresh review 落点 + product reviewer 推荐的 batch review 优先级,新开 plan 涵盖:
-   - batch 跑 `审查skill.md` 对 spec-plan / spec-debug / spec-code-review / spec-write-tasks / spec-compound
-   - 综合 batch findings + 本 plan U3 / U5 / U6 进入统一治理 plan
+### fix-1 ship-now handoff
+
+1. **work**：使用当前 host 的 work entrypoint 执行 fix-1 单 unit（U4）；Codex 入口是 `$spec-work`；Claude 兼容入口是 `/spec:work`
+2. **commit**：独立 commit `fix(spec-work): renumber Phase 2 Track Progress step from 6 to 7` 并入当前 leo-2026-05-21-gitnexus 分支
+3. **CHANGELOG**：同步追加 fix-1 条目（按 developer profile `leokuang` + zh）
+4. **双宿主 runtime regenerate**：`spec-first init --claude` + `spec-first init --codex` + `spec-first doctor --claude` + `spec-first doctor --codex`
+
+### fix-2 deferred handoff（等 GitNexus 分支合并后）
+
+1. **trigger**：当前 leo-2026-05-21-gitnexus 分支合并到 master 后启动；若被推迟 > 2 周，重新评估是否打破 deferral
+2. **work**：使用当前 host 的 work entrypoint 执行 fix-2 两 unit（U8 + U1-revised）
+3. **review (advisory)**：fix-2 完成后用当前 host 的 code-review entrypoint 做修复 diff review（可选；Codex 为 `$spec-code-review`，Claude 为 `/spec:code-review`）
+4. **fresh review (advisory follow-up)**：跑新版 `审查skill.md`（含 Step 1.5）对修复后 spec-work 做 fresh review；**评分作为修复方向诊断信号，不作为 merge 条件**
+5. **batch review 启动决策**：fix-2 完成 closeout 阶段评估是否启动 batch review（spec-plan / spec-debug / spec-code-review / spec-write-tasks / spec-compound）
+
+### Phase B 启动（保持 defer，不在本 plan）
+
+基于 fix-2 fresh review 落点 + batch review 优先级，新开 plan 涵盖：
+- batch 跑 `审查skill.md` 对 5 核心 skill
+- 综合 batch findings + 本 plan U3 / U5 / U6 进入统一治理 plan
 
 ---
 
 ## Plan Sign-off
 
-- [x] Decision #1 推荐路径已在 2026-05-24 deepening 中收敛为默认 A 删除 examples.json 第 5 例(**选项 B 已 rejected**;C 仅在 user 执行前显式 override 时启用)
-- [x] User 确认 Decision #5 接受 Phase A/B re-scope(已通过 doc-review routing question 确认)
-- [x] User 确认 §8 校准吸收(U7-light-boundary 进 Phase A + U3 Cache-Friendly 改名而非删除 + U1 Approach owner mapping)(本 plan Summary 已声明 U7 进 Phase A，doc-review 二次审查确认通过)
-- [ ] Plan 进入当前 host work entrypoint 执行 Phase A(U4 → U1 → U2 → U7)
-- [ ] Phase A 完成后,advisory fresh review 验证修复方向(分数仅作诊断信号,不阻塞 merge)
-- [ ] Phase B 启动决策(新 plan,不在本 plan scope)
+- [x] 第二轮 deepening（2026-05-24）深读最新 source 完成
+- [x] Decision #1 修订：选项 C（保留 + 改 source_note）
+- [x] Decision #5 修订：fix-1 ship-now + fix-2 deferred 拆分
+- [x] Decision #6 新增：U2 + U7 合并为 U8
+- [x] U4 Phase 0 blockquote 砍掉（与现有 §Oversized intake and handoff 冗余）
+- [x] User 确认方案 A（2026-05-24 第二轮 deepening 选择）
+- [ ] fix-1 进入当前 host work entrypoint 执行（U4）
+- [ ] fix-1 commit 并入 leo-2026-05-21-gitnexus 分支
+- [ ] GitNexus 分支合并到 master
+- [ ] fix-2 启动（U8 + U1-revised）
+- [ ] fix-2 fresh review 验证修复方向（advisory，不阻塞 merge）
+- [ ] Phase B 启动决策（新 plan，不在本 plan scope）
