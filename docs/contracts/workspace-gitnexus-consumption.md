@@ -82,3 +82,5 @@ Read-only group resources are first-class evidence surfaces, not mutation approv
 Multi-repo workspace plan 输出中的 `## Graph / GitNexus Evidence` 必须说明 registry evidence、group evidence、per-repo `query_usability`、dirty/stale limitations，以及写入前 `target_repo` / per-child scope 要求。`group.status="group-missing"` 或 `group.status="not-evaluated-no-mcp-input"` 只能降级为 bounded registry/per-repo fallback 或 session-local probe limitation，不能变成 provider failure。
 
 GitNexus 发现的额外 repo、symbol、route 或 flow 只能作为 risk / follow-up / test-candidate evidence；implementation scope 仍由用户请求、origin requirements、plan/task pack、当前 git diff 和显式 `target_repo` / per-unit repo scope 决定。`workspace_group_sync`、`group_sync`、`symbol_rename`、GitNexus `rename` 或等价 mutation-capable capability 必须标记为 `mutation-gated` / `requires explicit user action`，不得在 plan/work/debug/review 中成为自动 implementation unit。
+
+用户手动调用上述 mutation-capable capability 时的最低安全闭环（preview / execute / verify / recover）见 `docs/contracts/gitnexus-capability-catalog.md` 的 `## Manual Execution Guidance`；该指引仅面向用户手动操作，不构成任何 spec-first workflow 的自动执行依据。
