@@ -11,7 +11,8 @@ describe('spec-debug branch-aware handoff contract', () => {
 
     expect(text).toContain('Domain Language And Decision Ledger');
     expect(text).toContain('consume existing context before asking questions that repo/docs can answer');
-    expect(text).toContain('project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing plans/solutions');
+    expect(text).toContain('already-loaded project standards and host instructions, `docs/contracts/`, existing plans/solutions');
+    expect(text).toContain('Read `AGENTS.md` / `CLAUDE.md` source only under the Host Instruction Reuse Policy');
     expect(text).toContain('repo-local glossary or ADR-like artifacts that actually exist');
     expect(text).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
     expect(text).toContain('If those artifacts are absent, treat the gap as advisory and continue');
@@ -26,6 +27,9 @@ describe('spec-debug branch-aware handoff contract', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
     expect(text).toContain('Context Orientation Anchor');
+    expect(text).toContain('already-loaded host/project instructions');
+    expect(text).toContain('not automatic re-read targets for every debug run');
+    expect(text).toContain('Host Instruction Reuse Policy allows it');
     expect(text).toContain('workspace-graph-targets.v1');
     expect(text).toContain('workspace-gitnexus-readiness.v1');
     expect(text).toContain('group or bounded registry/per-repo evidence');
@@ -60,8 +64,8 @@ describe('spec-debug branch-aware handoff contract', () => {
 
     expect(text).toContain('Skill-owned branch: default to commit-and-PR without prompting');
     expect(text).toContain('Check contextual overrides first');
-    expect(text).toContain('AGENTS.md');
-    expect(text).toContain('CLAUDE.md');
+    expect(text).toContain('already-loaded repo instructions');
+    expect(text).toContain('Read `AGENTS.md` / `CLAUDE.md` source only if the loaded instruction context is missing');
     expect(text).toContain('Run `git-commit-push-pr`');
     expect(text).toContain('Pre-existing branch: ask the user');
   });

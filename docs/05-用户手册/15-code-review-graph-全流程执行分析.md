@@ -8,10 +8,10 @@
 spec-first init        生成 host 入口与 .gitignore provider artifact 边界
 $spec-mcp-setup       安装/预热 code-review-graph CLI，写 setup-owned provider projection
 $spec-graph-bootstrap 运行 code-review-graph build/status/query proof，写 impact readiness
-downstream workflows  用它做 diff impact / review context evidence，LLM 决定是否形成结论
+$spec-code-review     用它做 diff impact / review context evidence，LLM/reviewers 决定是否形成 finding
 ```
 
-`code-review-graph` 在本项目中的角色不是全局架构知识库，而是 `impact_context` provider。它更靠近链路后半段：
+`code-review-graph` 在本项目中的角色不是全局架构知识库，而是聚焦 `$spec-code-review` 的 `impact_context` provider。它更靠近链路后半段：
 
 ```text
 Code -> Review -> Knowledge
@@ -27,7 +27,7 @@ Code -> Review -> Knowledge
 - setup 阶段如何生成 provider commands 与 readiness projection。
 - graph bootstrap 阶段如何运行 `build` / `update` / `status` / query proof。
 - `.spec-first/providers/code-review-graph/*`、`.spec-first/impact/*` 和 `.spec-first/graph/*` 如何生成与消费。
-- 下游 `spec-code-review`、`spec-work`、`spec-debug`、review pre-facts 如何使用它。
+- 下游 `spec-code-review` 与 review pre-facts 如何使用它，以及 `spec-plan` / `spec-work` / `spec-debug` 为什么默认不把 CRG 当图谱 fallback。
 - 更新、incremental、dirty/stale、fallback、repair 和 anti-pattern 边界。
 - 当前 `spec-first` 仓库中的实际 artifact 快照。
 
@@ -99,7 +99,7 @@ Generated runtime assets 不是 source-of-truth：
 4. downstream consumption
    - code review 读取 impact readiness 和 provider status
    - review pre-facts 可渲染 bounded query plan
-   - work/debug/review 用它做 evidence pointer，不把它当 final conclusion
+   - plan/work/debug 默认使用 GitNexus 或 bounded direct reads，不直接读取 CRG provider facts 扩大职责
 
 5. update / repair
    - package pin 或 commands 改动先改 source
@@ -265,7 +265,7 @@ Bootstrap 对 `code-review-graph` command shape 做严格校验：
 - 参数不能含 shell metacharacters。
 - `@latest`、任意 package、额外参数、混用版本或把 concrete SHA 写进 projection 都会 fail closed。
 
-普通 plan/work/debug/review 不得绕过这个 gate 自己执行 `code-review-graph build`、`update`、provider repair、watcher 或 daemon。
+普通 plan/work/debug/review 不得绕过这个 gate 自己执行 `code-review-graph build`、`update`、provider repair、watcher 或 daemon。CRG 的主要 downstream consumer 是 `$spec-code-review`；plan/work/debug 只读取 GitNexus evidence 或直接源码/测试/日志证据。
 
 ### full refresh
 
@@ -441,25 +441,17 @@ code-review-graph.query
 
 这仍是 query plan / pre-facts evidence，不是 final finding。consumer 需要继续 direct source reads 或 reviewer synthesis。
 
-### spec-work
+### spec-plan / spec-work / spec-debug
 
-`$spec-work` 可消费 plan 或 review handoff 中的 graph evidence，用 CRG 缩小 source reads、辅助 test selection、识别 follow-up 风险。
+这三个 workflow 默认使用 GitNexus 作为图谱能力：
 
-边界：
+- `$spec-plan` 用 GitNexus 做 architecture、API/route、symbol、execution flow、workspace/group orientation，并在 `## Graph / GitNexus Evidence` 中记录四轴 posture。
+- `$spec-work` 消费 plan/task-pack scope 与 GitNexus evidence，使用 bounded direct reads 和测试确认实现事实。
+- `$spec-debug` 用 GitNexus 辅助定位可能的执行链路或 blast radius，但 root cause 必须由 reproduction、source、log、test 或 contract check 关闭。
 
-- Work 不得运行 `code-review-graph build`。
-- Work 不得因为 CRG 发现额外 caller、flow、test candidate 就自动扩大 scope。
-- `detect_changes` / impact 结果是 review evidence，不是 refresh trigger。
-- stale graph + lightweight work 可以继续 bounded direct reads。
-- graph-heavy work 需要 primary graph evidence 时，应建议 `$spec-graph-bootstrap`。
+当 GitNexus stale、degraded、definitions-only 或 unavailable 时，这三个 workflow 的 fallback 是 bounded direct repo reads、ast-grep、git diff、测试或日志，不是 code-review-graph。CRG 保持在 `$spec-code-review` 的 review/diff-impact 节点，避免把为 review 设计的 provider 扩散成全局知识库。
 
-### spec-debug
-
-`$spec-debug` 可把 CRG impact 或 related-test evidence 写入 hypothesis ledger，但 root cause 必须由 reproduction、source、log、test 或 contract check 确认。CRG 只能帮助定位影响面，不能单独关闭因果链。
-
-### spec-plan
-
-`$spec-plan` 对 CRG 的使用比 GitNexus 更克制。它主要读取 graph readiness / impact capability envelope，判断是否能把 `impact_context` 作为 plan evidence。Plan 不应运行 CRG refresh，也不应把 CRG query result 变成 scope authority。
+`$spec-work` 可以消费 `$spec-code-review` 已经产出的 review handoff 摘要；这属于 review artifact consumption，不等于 Work 直接读取或刷新 CRG provider artifacts。
 
 ## 节点六：可选 live MCP 边界
 
@@ -485,7 +477,7 @@ Live MCP server is optional.
 - 可选 MCP startup failure 不应被当成项目代码 finding。
 - live MCP 成功只算 session-local evidence。
 - live MCP 不得回写 `.spec-first/graph/*` 或 `.spec-first/impact/*`。
-- live MCP 不得扩大 review/work/debug scope。
+- live MCP 不得扩大 review scope；plan/work/debug 默认不以 CRG live MCP 作为图谱 fallback。
 
 ## 节点七：更新与刷新
 
@@ -619,7 +611,7 @@ Repair 原则：
 | `.spec-first/providers/code-review-graph/raw/status.log` | `$spec-graph-bootstrap` | raw status log | diagnostics |
 | `.spec-first/providers/code-review-graph/raw/query.log` | `$spec-graph-bootstrap` | raw query proof log | diagnostics |
 | `.spec-first/providers/code-review-graph/status.json` | `$spec-graph-bootstrap` | provider status/readiness/diagnostics | downstream diagnostics |
-| `.spec-first/providers/code-review-graph/normalized/impact-capabilities.json` | `$spec-graph-bootstrap` | normalized impact capability envelope | review/work/debug pointers |
+| `.spec-first/providers/code-review-graph/normalized/impact-capabilities.json` | `$spec-graph-bootstrap` | normalized impact capability envelope | code-review impact readiness |
 | `.spec-first/graph/provider-status.json` | `$spec-graph-bootstrap` | aggregate provider readiness | plan/work/review/debug |
 | `.spec-first/graph/graph-facts.json` | `$spec-graph-bootstrap` | graph freshness/capabilities | plan/work/review/debug |
 | `.spec-first/impact/bootstrap-impact-capabilities.json` | `$spec-graph-bootstrap` | impact/context/review support envelope | plan/work/review/debug |
@@ -712,14 +704,14 @@ bash skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh --incremental
 
 ## 设计判断
 
-`code-review-graph` 的价值在于给 review 和实现收尾提供低噪音影响面事实，而不是替代 reviewer。
+`code-review-graph` 的价值在于给 code review / pre-merge 节点提供低噪音影响面事实，而不是替代 reviewer 或扩散成 plan/work/debug 的全局图谱。
 
 正确心智模型：
 
 ```text
-code-review-graph 看当前变更影响。
+code-review-graph 看当前变更影响，聚焦 $spec-code-review。
 spec-first 编译并治理 readiness。
-review/work/debug 消费 evidence，但不扩大 scope。
+plan/work/debug 使用 GitNexus 或直接证据；work 只消费 review handoff 摘要。
 LLM / reviewer synthesis 决定最终结论。
 ```
 

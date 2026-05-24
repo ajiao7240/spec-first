@@ -107,9 +107,12 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('External tools may prioritize inspection, but they do not define scope authority');
     expect(text).toContain('The LLM still chooses the candidate change surface');
     expect(text).toContain('explicit repo context and source-plan constraints');
-    expect(text).toContain('`AGENTS.md` / `CLAUDE.md` / project role docs');
+    expect(text).toContain('already-loaded host/project instructions');
     expect(text).toContain('`docs/contracts/`, existing brainstorms/plans/solutions');
-    expect(text).toContain('Written project standards in `AGENTS.md`, `CLAUDE.md`, or directory-scoped equivalents');
+    expect(text).toContain('not automatic re-read targets for every planning run');
+    expect(text).toContain('Written project standards from loaded host instructions, directory-scoped equivalents, or precisely read source files');
+    expect(text).toContain('Host Instruction Reuse Policy allows it');
+    expect(text).not.toContain('`AGENTS.md` / `CLAUDE.md` / project role docs');
     expect(text).not.toContain('docs/examples/standards-' + 'glue-consumption-examples.md');
     expect(text).not.toContain('.spec-first/' + 'standards/');
     expect(text).not.toContain('glue-' + 'map.json');
@@ -138,7 +141,8 @@ describe('spec-plan context orientation contract', () => {
 
     expect(text).toContain('Domain Language And Decision Ledger');
     expect(text).toContain('consume existing context before asking questions that repo/docs can answer');
-    expect(text).toContain('project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(text).toContain('already-loaded project standards and host instructions, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(text).toContain('Read `AGENTS.md` / `CLAUDE.md` source only under the Host Instruction Reuse Policy');
     expect(text).toContain('repo-local glossary or ADR-like artifacts that actually exist');
     expect(text).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
     expect(text).toContain('If those artifacts are absent, record the gap as advisory context and continue');
@@ -187,7 +191,7 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('provider fingerprint mismatch');
     expect(text).toContain('stale / bootstrap-required signals');
     expect(text).toContain('Do not rewrite, delete, or silently regenerate graph artifacts from `spec-plan`');
-    expect(text).toContain('try live MCP evidence');
+    expect(text).toContain('try live GitNexus MCP evidence');
     expect(text).toContain('successful response as session-local evidence');
     expect(text).toContain('runtime_mcp_evidence: partial-definitions-only');
     expect(text).toContain('definitions only as local file/symbol pointers');
@@ -215,7 +219,7 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
     expect(text).toContain('must not run GitNexus analyze, code-review-graph build');
     expect(text).toContain('default git hooks, watchers, or daemons');
-    expect(text).toContain('`detect_changes` / impact results are evidence');
+    expect(text).toContain('GitNexus impact results are planning evidence');
     expect(text).toContain('not refresh triggers');
     expect(text).toContain('Do not expand this into context selection, impact analysis, review evidence');
   });

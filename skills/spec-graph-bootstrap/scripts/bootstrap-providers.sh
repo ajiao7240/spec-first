@@ -334,7 +334,7 @@ normalize_gitnexus_instruction_block_for_root() {
   fi
 
   if [ "$exit_code" -ne 0 ]; then
-    printf 'spec-graph-bootstrap: warning: could not normalize GitNexus instruction block; run `spec-first gitnexus-instruction normalize --write` after bootstrap.\n' >&2
+    printf 'spec-graph-bootstrap: warning: could not dry-run GitNexus instruction block drift; run `spec-first init --claude` or `spec-first init --codex` to refresh host instructions.\n' >&2
     local failure_reason="gitnexus-instruction-normalizer-failed"
     if [ "$timed_out" = "true" ]; then
       failure_reason="gitnexus-instruction-normalizer-timeout"

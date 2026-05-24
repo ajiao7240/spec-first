@@ -43,7 +43,7 @@ describe('AI dev quality gate integration', () => {
     expect(workflow).toContain("skills/spec-plan/**");
     expect(workflow).toContain("skills/spec-write-tasks/**");
     expect(workflow).toContain("skills/spec-work/**");
-    expect(workflow).toContain("skills/spec-work-beta/**");
+    expect(workflow).not.toContain("skills/spec-work-beta/**");
     expect(workflow).toContain("skills/spec-code-review/**");
     expect(workflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
     expect(workflow).toContain("tests/unit/branch-protection-policy.test.js");

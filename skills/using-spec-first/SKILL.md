@@ -202,14 +202,13 @@ Do not chain multiple workflows automatically unless the active workflow explici
 | clear desired outcome but needs an execution plan | `/spec:plan` | `$spec-plan` |
 | split a settled plan into executable tasks or compile task docs before work | `spec-write-tasks` standalone skill | `spec-write-tasks` standalone skill |
 | existing plan, task pack, or implementation task clear enough to execute | `/spec:work` | `$spec-work` |
-| explicit beta execution with Codex delegation, `delegate:codex`, or delegation mode | `/spec:work-beta` | `$spec-work-beta` |
 | polish a browser-visible UI and iterate with a running app | `/spec:polish-beta` | `$spec-polish-beta` |
 | capture a recently solved problem or compound knowledge after work | `/spec:compound` | `$spec-compound` |
 | refresh, correct, merge, replace, or retire existing durable docs/learnings/pattern docs | `/spec:compound-refresh` | `$spec-compound-refresh` |
 | PR description writing or regeneration | `git-commit-push-pr` skill in description-only mode | `git-commit-push-pr` skill in description-only mode |
 | recent spec-first release notes | `/spec:release-notes` | `$spec-release-notes` |
 
-`spec-write-tasks` is not a `/spec:*` or `$spec-*` workflow entrypoint. Do not recommend `$spec-work-beta` in User Next-Step Guide Mode unless the current request explicitly asks for beta execution, Codex delegation, `delegate:codex`, or delegation mode. Ordinary execution-ready work routes to the stable work entrypoint.
+`spec-write-tasks` is not a `/spec:*` or `$spec-*` workflow entrypoint. Ordinary execution-ready work routes to the stable work entrypoint.
 
 If none of the above applies, do not force the request into `spec-first`.
 

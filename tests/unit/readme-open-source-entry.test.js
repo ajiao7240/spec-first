@@ -193,7 +193,7 @@ describe('README open-source entry contract', () => {
     expect(englishReadme).toContain('| "What should we improve?" or "give me ideas" | `ideate` |');
     expect(englishReadme).toContain('| "I have this rough product problem; shape it" | `brainstorm` |');
     expect(englishReadme).toContain('| "This requirements or plan document has gaps" | `doc-review` |');
-    expect(englishReadme).toContain('| Trial Codex delegation beta (explicit opt-in) | `/spec:work-beta` | `$spec-work-beta` |');
+    expect(englishReadme).not.toContain('| Trial Codex delegation beta (explicit opt-in) | `/spec:work-beta` | `$spec-work-beta` |');
 
     expect(chineseReadme).toContain('想要选项、批判或意外方向，还没确定问题框架时，用 `ideate`。');
     expect(chineseReadme).toContain('已经有粗略产品问题或功能想法，需要整理 actors、flows、边界和验收样例时，用 `brainstorm`。');
@@ -202,7 +202,7 @@ describe('README open-source entry contract', () => {
     expect(chineseReadme).toContain('| “我们该改进什么？”或“给我一些想法” | `ideate` |');
     expect(chineseReadme).toContain('| “我有一个粗略产品问题，帮我成型” | `brainstorm` |');
     expect(chineseReadme).toContain('| “这份 requirements 或 plan 文档可能有缺口” | `doc-review` |');
-    expect(chineseReadme).toContain('| 试用 Codex delegation beta（显式 opt-in） | `/spec:work-beta` | `$spec-work-beta` |');
+    expect(chineseReadme).not.toContain('| 试用 Codex delegation beta（显式 opt-in） | `/spec:work-beta` | `$spec-work-beta` |');
   });
 
   test('user manual adds first workflow walkthrough and artifact catalog', () => {

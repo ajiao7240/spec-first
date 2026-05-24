@@ -49,6 +49,7 @@ GitNexus / code-review-graph refresh 的默认策略是“自动 freshness check
 - 一份 GitNexus 全流程执行分析，说明安装、生成、使用、更新、repair 与 session-local evidence 边界
 - 一份 code-review-graph 全流程执行分析，说明 CLI artifact provider、impact readiness、review consumption、更新与 repair 边界
 - 一份 GitNexus 增量刷新机制与 spec-first 刷新策略评估，说明官方增量、当前 full 默认、dirty-advisory 与优化建议
+- 一份 GitNexus 刷新策略与 provider 收敛决策，说明官方刷新面、当前刷新节点、最佳实践，以及是否可以删除 code-review-graph
 - 可更新、可恢复、可清理的受管资产模型
 - 一条面向首次使用者的 workflow 走查，说明从一个需求句子到 requirements / plan / task pack 的真实产物链路
 - 一份 workflow 产物目录，说明每类文档和 generated runtime assets 的生成者、读取方与 Git 边界
@@ -121,11 +122,12 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 9. [GitNexus 全流程执行分析](./14-GitNexus-全流程执行分析.md)
 10. [code-review-graph 全流程执行分析](./15-code-review-graph-全流程执行分析.md)
 11. [GitNexus 增量刷新机制与 spec-first 刷新策略评估](./16-GitNexus-增量刷新机制与spec-first刷新策略评估.md)
-12. [常见问题](./04-常见问题.md)
-13. [最佳实践](./05-最佳实践.md)
-14. [三种开发模式](./08-三种开发模式.md)
-15. [本地源码安装](./06-本地源码安装.md)
-16. [内部培训使用讲稿](./07-内部培训使用讲稿.md)
+12. [GitNexus 刷新策略与 Provider 收敛决策](./17-GitNexus-刷新策略与Provider收敛决策.md)
+13. [常见问题](./04-常见问题.md)
+14. [最佳实践](./05-最佳实践.md)
+15. [三种开发模式](./08-三种开发模式.md)
+16. [本地源码安装](./06-本地源码安装.md)
+17. [内部培训使用讲稿](./07-内部培训使用讲稿.md)
 
 ## 建议阅读路径
 
@@ -139,6 +141,7 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 - 如果你要追踪 GitNexus 安装、projection、bootstrap、downstream consumption、更新和 repair 的真实执行节点，先看 [GitNexus 全流程执行分析](./14-GitNexus-全流程执行分析.md)
 - 如果你要追踪 code-review-graph 安装、projection、bootstrap、review impact、更新和 repair 的真实执行节点，先看 [code-review-graph 全流程执行分析](./15-code-review-graph-全流程执行分析.md)
 - 如果你要判断 GitNexus 官方增量刷新和 spec-first 当前 full 默认是否合理，先看 [GitNexus 增量刷新机制与 spec-first 刷新策略评估](./16-GitNexus-增量刷新机制与spec-first刷新策略评估.md)
+- 如果你要判断 GitNexus 刷新最佳实践，或评估是否只保留 GitNexus、删除 code-review-graph，先看 [GitNexus 刷新策略与 Provider 收敛决策](./17-GitNexus-刷新策略与Provider收敛决策.md)
 - 如果你要给业务项目配置 `.gitignore`，先看 [Gitignore 参考](./12-gitignore参考.md)
 - 如果你在排障，看 [常见问题](./04-常见问题.md)
 - 如果你关注 graph readiness、runtime/control-plane 与 Git 协作边界，重点看 [核心概念](./02-核心概念.md)、[Workflows 与产物地图](./04-workflows-artifacts-map.md)、[最佳实践](./05-最佳实践.md) 和 [常见问题](./04-常见问题.md)

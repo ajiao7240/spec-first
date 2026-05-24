@@ -70,14 +70,6 @@ const HIGH_VALUE_SKILL_ANCHORS = {
     'Phase 4',
     'final verification',
   ],
-  'spec-work-beta': [
-    "Derive tasks from the plan's implementation units",
-    'Context Orientation Anchor',
-    'direct repo reads',
-    'codex-delegation-workflow.md',
-    'Phase 4',
-    'final verification',
-  ],
   'spec-code-review': [
     'Plan discovery (requirements verification)',
     'Context Orientation Anchor',

@@ -134,14 +134,21 @@ get_minimal_context
 
 ```text
 GitNexus 看全局结构。
-code-review-graph 看当前变更。
+code-review-graph 看当前变更，并聚焦 `$spec-code-review` 的 review/diff-impact evidence。
 spec-first 管 evidence lifecycle。
 LLM / reviewers 做语义判断。
 ```
 
+默认 workflow 边界：
+
+- `$spec-plan`、`$spec-work`、`$spec-debug` 使用 GitNexus 做图谱/全局代码理解；GitNexus 不可用或 definitions-only 时降级到 bounded direct reads、ast-grep、git diff、测试或日志。
+- `$spec-code-review` 是 code-review-graph 的主要消费节点；CRG 用于 changed-symbol impact、review context、related tests 和 blast radius。
+- `$spec-work` 可以消费 `$spec-code-review` 产出的 review handoff 摘要，但不直接读取或刷新 CRG provider artifacts 作为 implementation scope authority。
+- 普通 workflow 都不得运行 CRG `build` / `update` / watcher / daemon；刷新只属于 `$spec-graph-bootstrap`。
+
 ## 在 spec-code-review 中的边界
 
-当前版本的 `spec-code-review` 已经把 `code-review-graph` 作为 review orientation / fallback evidence source，但还没有把它完整产品化为默认 evidence preflight。
+当前版本的 `spec-code-review` 已经把 `code-review-graph` 作为 primary diff impact / review evidence source，但还没有把它完整产品化为默认 evidence preflight。
 
 推荐演进方向是新增 `Graph / Impact Evidence Preflight`：
 

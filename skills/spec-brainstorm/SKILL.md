@@ -76,7 +76,7 @@ These rules apply to every brainstorm, including the universal (non-software) fl
 
 ## Domain Language And Decision Ledger
 
-When the idea involves domain terminology, team-specific concepts, or ADR-like choices, consume existing context before asking questions that repo/docs can answer: project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, record the gap as advisory context and continue with the best available evidence.
+When the idea involves domain terminology, team-specific concepts, or ADR-like choices, consume existing context before asking questions that repo/docs can answer: already-loaded project standards and host instructions, `docs/contracts/`, existing brainstorms/plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. Read `AGENTS.md` / `CLAUDE.md` source only under `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy, not as a default domain-context step. Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, record the gap as advisory context and continue with the best available evidence.
 
 For major open decisions, carry a lightweight decision note: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when unresolved. Use source tags such as `confirmed`, `advisory`, `session-local`, `stale`, or `user`. Suggest creating an ADR-like artifact only when the decision is hard to reverse, would be surprising without context, and reflects a real tradeoff.
 

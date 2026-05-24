@@ -18,13 +18,13 @@
 
 | 范围 | 当前值 |
 |---|---|
-| Bundled source skills | 39 |
+| Bundled source skills | 38 |
 | Bundled source agents | 51 |
 | Bundled agent support files | 0 |
-| Governance records by entry surface | internal_only: 17, standalone_skill: 2, workflow_command: 20 |
-| Claude runtime delivery | 20 commands, 20 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
-| Codex runtime delivery | 0 commands, 20 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
-| Beta workflow entries | spec-polish-beta, spec-work-beta |
+| Governance records by entry surface | internal_only: 17, standalone_skill: 2, workflow_command: 19 |
+| Claude runtime delivery | 19 commands, 19 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Codex runtime delivery | 0 commands, 19 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Beta workflow entries | spec-polish-beta |
 | Workflow runtime contracts | 1 |
 | Planned runtime contracts | 0 |
 
@@ -51,7 +51,6 @@
 | slack-research | spec-slack-research | /spec:slack-research | $spec-slack-research | claude=command; codex=skill | no | Search Slack for interpreted organizational context |
 | update | spec-update | /spec:update | $spec-update | claude=command; codex=skill | no | Run the Spec-First update and runtime repair workflow |
 | work | spec-work | /spec:work | $spec-work | claude=command; codex=skill | no | Run the Spec-First execution workflow |
-| work-beta | spec-work-beta | /spec:work-beta | $spec-work-beta | claude=command; codex=skill | yes | [BETA] Run Spec-First execution with external delegate support |
 
 ## Standalone Skills
 

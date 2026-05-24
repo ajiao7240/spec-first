@@ -26,7 +26,7 @@ Plan envelope 的输入可以来自：
 
 GitNexus source tags 必须区分 `checked-in-baseline`、`setup-projection`、`provider-pin`、`live-mcp-tool`、`live-mcp-resource`、`session-local-inference` 和 `user-decision`。不要把 setup projection 与 live MCP evidence 合并成一个 `available` fact；live tool/resource claim 需要当前 session surface 复核。
 
-该 envelope 不得替代 `Graph Readiness.status`、provider `query_ready`、workspace `query_usability` 或 impact capability support level。`definitions-only` 仍是 limitation / query-usability condition，不是新的 `freshness_state`。当 compiled graph facts stale、dirty-advisory、query-unverified 或 unavailable 时，Plan 必须披露 limitations，并用直接源码读取、测试、ast-grep、git diff 或 code-review-graph fallback 验证关键结论。
+该 envelope 不得替代 `Graph Readiness.status`、provider `query_ready`、workspace `query_usability` 或 impact capability support level。`definitions-only` 仍是 limitation / query-usability condition，不是新的 `freshness_state`。当 compiled graph facts stale、dirty-advisory、query-unverified 或 unavailable 时，Plan 必须披露 limitations，并用直接源码读取、测试、ast-grep 或 git diff 验证关键结论。code-review-graph readiness 可以记录为 impact provider 状态，但不属于 Plan 的 GitNexus fallback evidence source。
 
 ## Setup-Inferred GitNexus Capability Discovery
 
@@ -53,7 +53,7 @@ Plan consumer 的 status mapping 固定为：setup `available` -> Plan `capabili
 | --- | --- | --- |
 | consumer freshness-check | plan/work/debug/review 读取 canonical artifacts，比较 `source_revision`、`worktree_dirty`、`worktree_status_hash`、provider `query_ready` 和 provider projection/fingerprint freshness | no |
 | branch switch / pull / rebase / merge 后的下一次 consumer check | 将 `source_revision` mismatch 或 dirty hash mismatch 解释为 stale / dirty-uncertain | no |
-| stale + lightweight work | 披露 graph limitations，使用 bounded direct reads、ast-grep、code-review-graph、prior GitNexus evidence 或 session-local live MCP pointer | no |
+| stale + lightweight work | 披露 graph limitations，使用 bounded direct reads、ast-grep、prior GitNexus evidence 或 session-local live GitNexus pointer；Code Review 可使用 code-review-graph review-impact evidence | no |
 | stale + graph-heavy work | 明确建议 `$spec-graph-bootstrap`，在刷新前不声称 primary graph-backed impact evidence | no |
 | `$spec-graph-bootstrap` | reuse 或 rebuild provider readiness，并写入 graph/provider/impact canonical artifacts | yes |
 | fresh graph before review / commit | 可运行 impact / detect changes 作为 review evidence | no rebuild |

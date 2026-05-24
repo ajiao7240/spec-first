@@ -39,6 +39,9 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('Context Orientation Anchor');
     expect(text).toContain('diff scope');
     expect(text).toContain('plan/task/work artifacts when present');
+    expect(text).toContain('already-loaded host/project instructions');
+    expect(text).toContain('not automatic re-read targets for every review run');
+    expect(text).toContain('Stage 3b is the narrow project-standards persona exception');
     expect(text).toContain('nearby implementation files');
     expect(text).toContain('nearby tests');
     expect(text).toContain('prefer live MCP evidence for concrete review questions');
@@ -97,7 +100,8 @@ describe('spec-code-review context orientation contract', () => {
 
     expect(text).toContain('Domain Language And Decision Ledger');
     expect(text).toContain('consume existing context before asking questions or raising gaps that repo/docs can answer');
-    expect(text).toContain('project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(text).toContain('already-loaded project standards and host instructions, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(text).toContain('Read `AGENTS.md` / `CLAUDE.md` source only under the Host Instruction Reuse Policy or the Stage 3b project-standards persona exception');
     expect(text).toContain('repo-local glossary or ADR-like artifacts that actually exist');
     expect(text).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
     expect(text).toContain('record the limitation in Coverage as advisory context rather than blocking the review');
@@ -289,7 +293,6 @@ describe('spec-code-review CE sync contracts', () => {
     const files = [
       path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'tracker-defer.md'),
       path.join(__dirname, '..', '..', 'skills', 'spec-work', 'references', 'tracker-defer.md'),
-      path.join(__dirname, '..', '..', 'skills', 'spec-work-beta', 'references', 'tracker-defer.md'),
       path.join(__dirname, '..', '..', 'skills', 'lfg', 'references', 'tracker-defer.md'),
     ];
 
@@ -308,7 +311,6 @@ describe('spec-code-review CE sync contracts', () => {
     const files = [
       path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'tracker-defer.md'),
       path.join(__dirname, '..', '..', 'skills', 'spec-work', 'references', 'tracker-defer.md'),
-      path.join(__dirname, '..', '..', 'skills', 'spec-work-beta', 'references', 'tracker-defer.md'),
       path.join(__dirname, '..', '..', 'skills', 'lfg', 'references', 'tracker-defer.md'),
     ];
 

@@ -122,6 +122,61 @@ TARGETS_JSON="$(jq -c '
   end
 ' <<<"$TARGET_JSON")"
 
+parent_repo_local_artifact_advisory() {
+  local workspace_root="$1"
+  local target_json="$2"
+  local ignored_paths="[]"
+  local git_marker_status="absent"
+  local rel_path
+
+  if jq -e '(.selected_repo_root // null) != null' >/dev/null <<<"$target_json"; then
+    jq -n '{status:"not-applicable",advisory:true,reason_code:null,git_marker_status:"selected-git-repo",ignored_paths:[],next_action:null}'
+    return 0
+  fi
+
+  for rel_path in \
+    ".spec-first/config/graph-providers.json" \
+    ".spec-first/config/runtime-capabilities.json" \
+    ".spec-first/config/provider-artifacts.json" \
+    ".spec-first/graph/graph-facts.json" \
+    ".spec-first/graph/provider-status.json" \
+    ".spec-first/providers/gitnexus/status.json" \
+    ".spec-first/providers/code-review-graph/status.json" \
+    ".spec-first/impact/bootstrap-impact-capabilities.json"; do
+    if [ -e "$workspace_root/$rel_path" ]; then
+      ignored_paths="$(jq -c --arg path "$rel_path" '. + [$path]' <<<"$ignored_paths")"
+    fi
+  done
+
+  if [ -e "$workspace_root/.git" ]; then
+    if git -C "$workspace_root" rev-parse --show-toplevel >/dev/null 2>&1; then
+      git_marker_status="valid"
+    else
+      git_marker_status="invalid"
+    fi
+  fi
+
+  jq -n \
+    --arg git_marker_status "$git_marker_status" \
+    --argjson ignored_paths "$ignored_paths" '
+    {
+      status:(if (($ignored_paths | length) > 0 or $git_marker_status == "invalid") then "ignored" else "none" end),
+      advisory:true,
+      reason_code:(
+        if (($ignored_paths | length) > 0 or $git_marker_status == "invalid") then
+          "parent-workspace-repo-local-artifacts-ignored"
+        else null end
+      ),
+      git_marker_status:$git_marker_status,
+      ignored_paths:$ignored_paths,
+      next_action:(
+        if (($ignored_paths | length) > 0 or $git_marker_status == "invalid") then
+          "Ignore parent repo-local graph/config artifacts in this multi-repo workspace; use child repo artifacts from repos[] and .spec-first/workspace/* summaries."
+        else null end
+      )
+    }'
+}
+
 inspect_repo() {
   local item="$1"
   local repo_root repo_label workspace_relative_path
@@ -352,9 +407,12 @@ inspect_repo() {
   done
 } | jq -s '.' > "$RECORDS_JSON"
 
+PARENT_REPO_LOCAL_ARTIFACT_ADVISORY="$(parent_repo_local_artifact_advisory "$WORKSPACE_ROOT" "$TARGET_JSON")"
+
 RESULT_JSON="$(jq -n \
   --arg generated_at "$GENERATED_AT" \
   --argjson target "$TARGET_JSON" \
+  --argjson parent_repo_local_artifact_advisory "$PARENT_REPO_LOCAL_ARTIFACT_ADVISORY" \
   --slurpfile records "$RECORDS_JSON" \
   '($records[0] // []) as $repos
   | {
@@ -374,6 +432,7 @@ RESULT_JSON="$(jq -n \
       selection_source:($target.selection_source // ""),
       state_write_allowed:($target.state_write_allowed // false),
       parent_writes_repo_local_artifacts:false,
+      parent_repo_local_artifact_advisory:$parent_repo_local_artifact_advisory,
       repos:$repos,
       counts:{
         total:($repos | length),

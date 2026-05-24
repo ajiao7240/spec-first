@@ -36,7 +36,6 @@ describe('CE-lineage dispatch boundary contracts', () => {
       'spec-optimize',
       'resolve-pr-feedback',
       'spec-work',
-      'spec-work-beta',
       'agent-native-audit',
       'spec-compound',
       'spec-compound-refresh',
@@ -63,7 +62,6 @@ describe('CE-lineage dispatch boundary contracts', () => {
       'skills/spec-ideate/SKILL.md',
       'skills/resolve-pr-feedback/SKILL.md',
       'skills/spec-work/SKILL.md',
-      'skills/spec-work-beta/SKILL.md',
       'skills/spec-optimize/SKILL.md',
       'skills/agent-native-audit/SKILL.md',
     ].map(read).join('\n');
@@ -145,7 +143,6 @@ describe('CE-lineage dispatch boundary contracts', () => {
   test('mutating dispatch skills state isolation, serialization, and orchestrator ownership', () => {
     const resolveFeedback = read('skills/resolve-pr-feedback/SKILL.md');
     const work = read('skills/spec-work/SKILL.md');
-    const workBeta = read('skills/spec-work-beta/SKILL.md');
     const optimize = read('skills/spec-optimize/SKILL.md');
 
     expect(resolveFeedback).toContain('Mutating resolver dispatch boundary');
@@ -156,11 +153,6 @@ describe('CE-lineage dispatch boundary contracts', () => {
     expect(work).toContain('Codex `spawn_agent` / forked workspace');
     expect(work).toContain('The orchestrator owns final integration, staging, commits, and project-level verification.');
     expect(work).toContain('Shared-directory fallback constraints');
-
-    expect(workBeta).toContain('Codex delegation (`codex exec`)');
-    expect(workBeta).toContain('Codex `spawn_agent` / forked workspace');
-    expect(workBeta).toContain('The orchestrator owns final integration, staging, commits, and project-level verification.');
-    expect(workBeta).toContain('Shared-directory fallback constraints');
 
     expect(optimize).toContain('Dispatch And Backend Boundary');
     expect(optimize).toContain('Serial local/worktree execution remains the safe fallback');

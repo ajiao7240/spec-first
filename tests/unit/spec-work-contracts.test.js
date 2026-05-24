@@ -31,12 +31,15 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('nearby implementation files');
     expect(text).toContain('nearby tests');
     expect(text).toContain('git diff or changed files');
-    expect(text).toContain('AGENTS.md` / `CLAUDE.md` / project role docs');
+    expect(text).toContain('already-loaded host/project instructions');
+    expect(text).toContain('not automatic re-read targets for every work run');
+    expect(text).toContain('Host Instruction Reuse Policy allows it');
+    expect(text).not.toContain('AGENTS.md` / `CLAUDE.md` / project role docs');
     expect(text).toContain('project-guidance facts');
     expect(text).not.toContain('docs/examples/standards-' + 'glue-consumption-examples.md');
     expect(text).not.toContain('.spec-first/' + 'standards/');
     expect(text).not.toContain('glue-' + 'map.json');
-    expect(text).toContain('prefer live MCP evidence for concrete execution questions');
+    expect(text).toContain('prefer live GitNexus MCP evidence for concrete execution questions');
     expect(text).toContain('fall back to bounded direct repo reads');
     expect(text).toContain('they do not update compiled `query_ready`');
     expect(text).toContain('definitions-only evidence');
@@ -72,8 +75,8 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
     expect(text).toContain('must not run GitNexus analyze, code-review-graph build');
     expect(text).toContain('provider repair, index rebuild, default git hooks, watchers, or daemons');
-    expect(text).toContain('`detect_changes` / impact results are review evidence');
-    expect(text).toContain('not refresh triggers');
+    expect(text).toContain('Review-produced `detect_changes` / impact summaries');
+    expect(text).toContain('not Work refresh triggers');
     expect(text).toContain('Workspace Repo Scope');
     expect(text).toContain('workspace-graph-targets.v1');
     expect(text).toContain('workspace-gitnexus-readiness.v1');
@@ -94,7 +97,8 @@ describe('spec-work context orientation contract', () => {
 
     expect(text).toContain('Domain Language And Decision Ledger');
     expect(text).toContain('consume existing context before asking questions that repo/docs can answer');
-    expect(text).toContain('project standards, `AGENTS.md` / `CLAUDE.md` source, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(text).toContain('already-loaded project standards and host instructions, `docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(text).toContain('Read `AGENTS.md` / `CLAUDE.md` source only under the Host Instruction Reuse Policy');
     expect(text).toContain('repo-local glossary or ADR-like artifacts that actually exist');
     expect(text).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
     expect(text).toContain('If those artifacts are absent, treat the gap as advisory and continue');

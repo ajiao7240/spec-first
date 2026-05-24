@@ -15,7 +15,6 @@ const EVALS_DIR = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'evals');
 const EVALS_README_PATH = path.join(EVALS_DIR, 'README.md');
 const OPENAI_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'agents', 'openai.yaml');
 const SPEC_WORK_PATH = path.join(REPO_ROOT, 'skills', 'spec-work', 'SKILL.md');
-const SPEC_WORK_BETA_PATH = path.join(REPO_ROOT, 'skills', 'spec-work-beta', 'SKILL.md');
 const PLAN_HANDOFF_PATH = path.join(REPO_ROOT, 'skills', 'spec-plan', 'references', 'plan-handoff.md');
 
 function read(filePath) {
@@ -269,8 +268,8 @@ describe('spec-write-tasks contracts', () => {
     expect(failureCases).toContain('repo_scope_missing');
   });
 
-  test('spec-work variants validate task packs before creating execution tasks', () => {
-    for (const filePath of [SPEC_WORK_PATH, SPEC_WORK_BETA_PATH]) {
+  test('spec-work validates task packs before creating execution tasks', () => {
+    for (const filePath of [SPEC_WORK_PATH]) {
       const skill = read(filePath);
 
       expect(skill).toContain('If the work document is a task pack, validate it before creating execution tasks');

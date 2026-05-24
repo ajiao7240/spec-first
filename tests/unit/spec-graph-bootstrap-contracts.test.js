@@ -111,6 +111,11 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('Do not infer semantic architecture conclusions or write project-guidance baselines here.');
     expect(skill).toContain('downstream workflows should use the readiness facts as advisory evidence');
     expect(skill).toContain('route by user intent into planning, work, debugging, review, or documentation workflows');
+    expect(skill).toContain('records dry-run parent `AGENTS.md` / `CLAUDE.md` GitNexus instruction drift as advisory evidence');
+    expect(skill).toContain('Parent host instruction writes remain owned by `spec-first init`');
+    expect(skill).toContain('does not write parent host instruction files');
+    expect(skill).not.toContain('refreshes existing parent `AGENTS.md` / `CLAUDE.md` GitNexus instruction blocks');
+    expect(skill).not.toContain('Parent all-repos runs may also normalize existing parent `AGENTS.md` / `CLAUDE.md`');
     expect(skill).not.toContain('.spec-first/' + 'standards/');
     expect(skill).not.toContain('spec-' + 'standards');
     expect(skill).toContain('update the final user-facing result table');

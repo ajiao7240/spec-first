@@ -380,6 +380,17 @@ assert_eq "workspace graph target resolver does not emit development_mode" "fals
 assert_eq "workspace graph target resolver reads setup-owned config pointers" ".spec-first/config/graph-providers.json|.spec-first/config/runtime-capabilities.json|.spec-first/config/provider-artifacts.json" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | [.artifacts.graph_providers,.artifacts.runtime_capabilities,.artifacts.provider_artifacts] | join("|")' <<<"$workspace_targets_output")"
 assert "workspace graph target resolver does not create parent graph artifacts" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
 
+STALE_PARENT_WORKSPACE="$TMP_DIR/stale-parent-workspace"
+make_repo "$STALE_PARENT_WORKSPACE/project-a"
+make_repo "$STALE_PARENT_WORKSPACE/project-b"
+mkdir -p "$STALE_PARENT_WORKSPACE/.spec-first/config"
+printf 'gitdir: /missing/worktree/path\n' > "$STALE_PARENT_WORKSPACE/.git"
+printf '{"schema_version":"graph-providers.v1","repo_root":"/old/path"}\n' > "$STALE_PARENT_WORKSPACE/.spec-first/config/graph-providers.json"
+stale_parent_targets_output="$(cd "$STALE_PARENT_WORKSPACE" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
+assert_eq "workspace graph target resolver ignores parent repo-local stale artifacts" "ignored:parent-workspace-repo-local-artifacts-ignored:invalid" "$(jq -r '.parent_repo_local_artifact_advisory | "\(.status):\(.reason_code):\(.git_marker_status)"' <<<"$stale_parent_targets_output")"
+assert_eq "workspace graph target resolver names ignored parent config artifact" "true" "$(jq -r '.parent_repo_local_artifact_advisory.ignored_paths | index(".spec-first/config/graph-providers.json") != null' <<<"$stale_parent_targets_output")"
+assert_eq "workspace graph target resolver still lists child repos with stale parent artifacts" "2:false" "$(jq -r '(.repos | length | tostring) + ":" + (.parent_writes_repo_local_artifacts | tostring)' <<<"$stale_parent_targets_output")"
+
 set +e
 workspace_default_output="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 workspace_default_status=$?

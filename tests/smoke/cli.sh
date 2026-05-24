@@ -111,7 +111,7 @@ claude_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --cla
 grep -q "Generated ${expected_command_count} command file(s)" <<<"$claude_output"
 grep -q "Generated ${expected_claude_skill_count} skill directory(ies)" <<<"$claude_output"
 grep -q "Generated ${expected_agent_count} agent file(s)" <<<"$claude_output"
-for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md graph-bootstrap.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md slack-research.md update.md work.md work-beta.md; do
+for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md graph-bootstrap.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md slack-research.md update.md work.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
 done
 test ! -e "$TMP_DIR/.claude/commands/spec/"standards".md"
@@ -192,13 +192,13 @@ grep -q "Generated ${expected_agent_count} agent file(s) in .codex/agents" <<<"$
 grep -q "Generated ${expected_codex_total_skill_count} skill directory(ies) in .agents/skills" <<<"$codex_output"
 installed_codex_skill_count="$(find "$TMP_DIR/.agents/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$installed_codex_skill_count" = "$expected_codex_total_skill_count"
-for skill in spec-plan spec-work spec-code-review spec-doc-review spec-brainstorm spec-graph-bootstrap spec-mcp-setup spec-compound-refresh spec-work-beta; do
+for skill in spec-plan spec-work spec-code-review spec-doc-review spec-brainstorm spec-graph-bootstrap spec-mcp-setup spec-compound-refresh; do
   test -f "$TMP_DIR/.agents/skills/$skill/SKILL.md"
 done
 test ! -e "$TMP_DIR/.agents/skills/spec-"standards"/SKILL.md"
+test ! -e "$TMP_DIR/.agents/skills/spec-work-beta/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/using-spec-first/SKILL.md"
 grep -q '^name: using-spec-first$' "$TMP_DIR/.agents/skills/using-spec-first/SKILL.md"
-grep -q '^name: spec-work-beta$' "$TMP_DIR/.agents/skills/spec-work-beta/SKILL.md"
 grep -q '^name: spec-polish-beta$' "$TMP_DIR/.agents/skills/spec-polish-beta/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/git-worktree/SKILL.md"
 test -f "$TMP_DIR/.agents/skills/git-worktree/scripts/worktree-manager.sh"

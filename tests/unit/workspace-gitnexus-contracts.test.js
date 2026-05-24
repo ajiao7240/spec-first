@@ -10,13 +10,11 @@ const EVIDENCE_POLICY_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'graph-ev
 const WORKFLOW_CONSUMER_PATHS = [
   'skills/spec-plan/SKILL.md',
   'skills/spec-work/SKILL.md',
-  'skills/spec-work-beta/SKILL.md',
   'skills/spec-debug/SKILL.md',
   'skills/spec-code-review/SKILL.md',
 ];
 const NO_GROUP_SYNC_AUTOMATION_PATHS = [
   'skills/spec-work/SKILL.md',
-  'skills/spec-work-beta/SKILL.md',
   'skills/spec-debug/SKILL.md',
   'skills/spec-code-review/SKILL.md',
 ];

@@ -687,7 +687,7 @@ function Normalize-GitNexusInstructionBlockViaCli {
       return New-GitNexusInstructionNormalizationResult -Status 'failed' -ReasonCode 'gitnexus-instruction-block-partial' -ExitCode $captured.exit_code -Results $results
     }
     if ($captured.exit_code -ne 0) {
-      [Console]::Error.WriteLine('spec-graph-bootstrap: warning: could not normalize GitNexus instruction block; run `spec-first gitnexus-instruction normalize --write` after bootstrap.')
+      [Console]::Error.WriteLine('spec-graph-bootstrap: warning: could not dry-run GitNexus instruction block drift; run `spec-first init --claude` or `spec-first init --codex` to refresh host instructions.')
       $failureReason = if ($captured.timed_out) { 'gitnexus-instruction-normalizer-timeout' } else { 'gitnexus-instruction-normalizer-failed' }
       return New-GitNexusInstructionNormalizationResult -Status 'failed' -ReasonCode $failureReason -ExitCode $captured.exit_code -Diagnostic $captured.output -Results $results
     }
@@ -703,7 +703,7 @@ function Normalize-GitNexusInstructionBlockViaCli {
     return New-GitNexusInstructionNormalizationResult -Status 'not-applicable' -ReasonCode $reasonCode -ExitCode 0 -Results $results
   } catch {
     if ($captured.exit_code -ne 0) {
-      [Console]::Error.WriteLine('spec-graph-bootstrap: warning: could not normalize GitNexus instruction block; run `spec-first gitnexus-instruction normalize --write` after bootstrap.')
+      [Console]::Error.WriteLine('spec-graph-bootstrap: warning: could not dry-run GitNexus instruction block drift; run `spec-first init --claude` or `spec-first init --codex` to refresh host instructions.')
       $failureReason = if ($captured.timed_out) { 'gitnexus-instruction-normalizer-timeout' } else { 'gitnexus-instruction-normalizer-failed' }
       return New-GitNexusInstructionNormalizationResult -Status 'failed' -ReasonCode $failureReason -ExitCode $captured.exit_code -Diagnostic $captured.output -Results @()
     }

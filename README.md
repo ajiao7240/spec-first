@@ -537,7 +537,6 @@ Detailed manuals and implementation docs are currently Chinese-first.
 | Audit App consistency | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` |
 | Debug a failure or bug | `/spec:debug` | `$spec-debug` |
 | Execute work | `/spec:work` | `$spec-work` |
-| Trial Codex delegation beta (explicit opt-in) | `/spec:work-beta` | `$spec-work-beta` |
 | Optimize a measurable outcome | `/spec:optimize` | `$spec-optimize` |
 | Polish browser-visible UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
 | Review code | `/spec:code-review` | `$spec-code-review` |
@@ -589,7 +588,7 @@ Detailed runtime capability catalog: [Runtime Capability Catalog](https://github
 
 | Layer | Current Contract |
 |---|---|
-| **Capability layer** | Bundled source assets ship with `39` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `20` commands + `2` standalone skills + `1` agent-facing internal skills on Claude, and `20` workflow skills + `2` standalone skills + `1` agent-facing internal skills on Codex, with `51` agents on both hosts |
+| **Capability layer** | Bundled source assets ship with `38` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `19` commands + `2` standalone skills + `1` agent-facing internal skills on Claude, and `19` workflow skills + `2` standalone skills + `1` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Claude runtime** | Commands are generated under `.claude/commands/spec`, standalone and agent-facing internal skills under `.claude/skills`, command-backed workflow skill copies under `.claude/spec-first/workflows`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
 | **Codex runtime** | Workflow, standalone, and agent-facing internal skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
 | **Readiness** | The setup workflow writes readiness ledger v2 plus setup-owned `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json`; the graph bootstrap workflow consumes those facts and writes canonical graph facts, provider status, impact capabilities, and a report. |
@@ -597,7 +596,7 @@ Detailed runtime capability catalog: [Runtime Capability Catalog](https://github
 Expected Claude init output includes:
 
 ```text
-📦 Generated 20 command file(s) in .claude/commands/spec
+📦 Generated 19 command file(s) in .claude/commands/spec
 🧩 Generated 3 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 Next steps:
@@ -611,7 +610,7 @@ Next steps:
 Expected Codex init output includes:
 
 ```text
-🧩 Generated 23 skill directory(ies) in .agents/skills
+🧩 Generated 22 skill directory(ies) in .agents/skills
 🤖 Generated 51 agent file(s) in .codex/agents
 Next steps:
   1. Restart Codex or open a new session so the host loads the generated $spec-* skills.

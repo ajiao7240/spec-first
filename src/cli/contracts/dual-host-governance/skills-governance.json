@@ -388,17 +388,6 @@
       }
     },
     {
-      "skill_name": "spec-work-beta",
-      "entry_surface": "workflow_command",
-      "command_name": "work-beta",
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "command",
-        "codex": "skill"
-      }
-    },
-    {
       "skill_name": "test-browser",
       "entry_surface": "internal_only",
       "command_name": null,

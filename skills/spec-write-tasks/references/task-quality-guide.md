@@ -211,7 +211,6 @@ Bad stop signals:
   dependencies: [T001]
   files:
     - skills/spec-work/SKILL.md
-    - skills/spec-work-beta/SKILL.md
   requirement_refs:
     - R3
   context_refs:

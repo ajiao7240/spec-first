@@ -30,6 +30,20 @@
 
 普通 workflow 仍可读取 checked-in source truth，例如 `skills/`、`agents/`、`templates/`、`src/cli/`、`docs/contracts/`、`AGENTS.md`、`CLAUDE.md`、`README*` 和当前任务直接相关的源码、测试、计划或需求文档。
 
+## Host Instruction Reuse Policy
+
+`AGENTS.md`、`CLAUDE.md` 和项目角色文档是 host / project instruction layer。Claude 或 Codex 进入仓库时通常已经把适用的入口指令注入到当前会话；普通 workflow 的 context orientation 应优先使用这些已加载的 host/project instructions，而不是因为 prompt 提到 instruction files 就重新读取根 `AGENTS.md` / `CLAUDE.md`。
+
+允许精确读取 instruction source 的场景是：
+
+1. 用户明确点名某个 instruction 文件或具体路径。
+2. 当前任务正在修改、审查、生成或诊断 instruction / runtime / setup / update / audit / source-runtime drift 行为。
+3. 已加载指令缺失、明显 stale、与当前 source 冲突，或 workflow 需要核对 source-of-truth 以避免漂移。
+4. 需要检查目录级 `AGENTS.md` / `CLAUDE.md` 是否管辖当前 changed files，而该目录级指令未出现在已加载 host context 中。
+5. `spec-code-review` 的 project-standards persona 需要自包含 standards path list；父级 orchestrator 只发现并传递路径，leaf reviewer 只读取与 changed files 相关的 sections。
+
+禁止把根 `AGENTS.md` / `CLAUDE.md` 当作每次 plan/work/debug/review 的普通必读上下文。若只是为了执行方向校准，使用已加载 instruction summary；若因上述例外读取 source 文件，在输出、Coverage 或 closeout 中说明读取原因即可。
+
 ## Runtime Artifact Policy
 
 `.spec-first/graph/**`、`.spec-first/providers/**`、`.spec-first/impact/**`、`.spec-first/workspace/**`、`.spec-first/app-audit/**` 和 `.spec-first/workflows/**` 默认也不是普通 source context。下游 workflow 应优先读取该目录下的 canonical summary、readiness facts、validated contract 或明确路径，而不是扫描整棵 `.spec-first/**`。

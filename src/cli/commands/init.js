@@ -106,6 +106,7 @@ function runInitForProject({
   platform,
   adapter,
   projectRoot,
+  gitRootTopology = 'single-repo',
 }) {
   const bundledAgentPaths = listBundledAgents();
   const bundledAgentSupportFiles = listBundledAgentSupportFiles();
@@ -213,6 +214,7 @@ function runInitForProject({
         platform,
         assetPlan: assetSync.plan,
         runtimePlan: runtimeSyncPlan,
+        gitRootTopology,
       });
       printInitDryRun({
         platform,
@@ -247,6 +249,7 @@ function runInitForProject({
           platform,
           assetPlan: assetSync.plan,
           runtimePlan: runtimeSyncPlan,
+          gitRootTopology,
         });
         printInitDryRun({
           platform,
@@ -275,6 +278,7 @@ function runInitForProject({
     platform,
     assetPlan: assetSync.plan,
     runtimePlan: runtimeSyncPlan,
+    gitRootTopology,
   });
 
   if (parsed.dryRun) {
@@ -381,6 +385,7 @@ function runInitForWorkspace({
       platform,
       adapter,
       projectRoot: workspaceRoot,
+      gitRootTopology: 'multi-repo-workspace',
     }));
     parentRuntime = {
       exit_code: projectResult.exit_code,
@@ -1114,13 +1119,14 @@ function buildInitWritePlan({
   platform,
   assetPlan,
   runtimePlan,
+  gitRootTopology = 'single-repo',
 }) {
   const untrackPlan = buildInitUntrackPlan(projectRoot);
   const plan = mergeOperationPlans(
     assetPlan,
     runtimePlan || buildInitRuntimePreviewPlan(projectRoot, adapter),
     buildInitGitignorePlan(projectRoot),
-    buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }),
+    buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform, gitRootTopology }),
     untrackPlan.plan,
   );
   return {
@@ -1178,7 +1184,14 @@ function buildInitUntrackPlan(projectRoot) {
   };
 }
 
-function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, platform }) {
+function buildInitMetadataPlan({
+  projectRoot,
+  adapter,
+  developer,
+  nextState,
+  platform,
+  gitRootTopology = 'single-repo',
+}) {
   const operations = [];
   const instructionPath = path.join(projectRoot, adapter.instructionFile);
   const existingInstruction = fs.existsSync(instructionPath)
@@ -1195,9 +1208,10 @@ function buildInitMetadataPlan({ projectRoot, adapter, developer, nextState, pla
     buildCodingGuidelinesBlock(developer.lang),
   );
   const normalizedGitNexusInstruction = normalizeGitNexusInstructionBlock(finalInstruction, {
+    createMissing: true,
     defaultRepoName: path.basename(projectRoot),
     lang: developer.lang,
-    gitRootTopology: 'single-repo',
+    gitRootTopology,
   }).content;
   operations.push(buildPlanFileOperation(
     projectRoot,

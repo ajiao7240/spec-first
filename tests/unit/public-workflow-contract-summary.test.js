@@ -65,14 +65,12 @@ describe('public workflow contract summary', () => {
     const setup = fs.readFileSync(path.join(ROOT, 'skills', 'spec-mcp-setup', 'SKILL.md'), 'utf8');
     const graph = fs.readFileSync(path.join(ROOT, 'skills', 'spec-graph-bootstrap', 'SKILL.md'), 'utf8');
     const update = fs.readFileSync(path.join(ROOT, 'skills', 'spec-update', 'SKILL.md'), 'utf8');
-    const workBeta = fs.readFileSync(path.join(ROOT, 'skills', 'spec-work-beta', 'SKILL.md'), 'utf8');
 
     expect(brainstorm).toContain('planning would otherwise invent WHAT to build');
     expect(debug).toContain('root cause must be established before changing code');
     expect(setup).toContain('Do not use to compile graph readiness');
     expect(graph).toContain('only default local workflow that may refresh canonical project graph readiness artifacts');
     expect(update).toContain('hand-editing generated runtime mirrors as source fixes');
-    expect(workBeta).toContain('user explicitly wants beta delegation');
   });
 
   test('Phase 3 batch-2 summaries preserve workflow-specific boundaries', () => {

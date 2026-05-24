@@ -22,7 +22,7 @@ GitNexus capability provenance uses `source_tags[]` with the locked values `chec
 Interpret the envelope with `docs/contracts/graph-evidence-policy.md` as source of truth.
 
 - `evidence_grade=primary` is the Plan alias for confirmed evidence.
-- `evidence_posture=fallback` means the Plan chose direct source reads / ast-grep / git diff / code-review-graph instead of GitNexus for this question.
+- `evidence_posture=fallback` means the Plan chose direct source reads / ast-grep / git diff instead of GitNexus for this question.
 - `evidence_posture=fallback + evidence_grade=primary` is valid when the fallback facts are current source, test, schema, or command evidence; posture describes which provider was used, grade describes how trustworthy the fact is.
 - `source_reads_required mandatory` means source reads are required for stale/advisory/session-local paths and for any `evidence_posture=fallback`; they are still strongly expected when primary graph evidence changes implementation scope or tests.
 
@@ -36,7 +36,7 @@ Native capability selection is LLM-owned and task-matched, not a deterministic r
 | --- | --- | --- |
 | Route/API handler or consumer changes | `api_impact`, then `route_map`, then `shape_check` where applicable | `query` / `context` plus bounded source reads |
 | Response shape risk | `shape_check` | route handler reads plus consumer source reads |
-| Symbol/refactor/reuse question | `query`, `context`, `impact` | bounded `rg` / ast-grep / code-review-graph |
+| Symbol/refactor/reuse question | `query`, `context`, `impact` | bounded `rg` / ast-grep / direct source reads |
 | MCP/RPC/tool surface change | `tool_map` | tool definition source reads |
 | Complex graph structure question | `cypher` only after schema/resource orientation | direct contract/source reads |
 | Repo/workspace orientation | `list_repos`, `group_list`, and read-only MCP resources | workspace advisory artifacts or bounded per-repo reads |

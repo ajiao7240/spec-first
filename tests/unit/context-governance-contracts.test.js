@@ -17,6 +17,10 @@ describe('context governance runtime exclusion contract', () => {
     const contract = read('docs/contracts/context-governance.md');
 
     expect(contract).toContain('Default Exclusions');
+    expect(contract).toContain('Host Instruction Reuse Policy');
+    expect(contract).toContain('已加载的 host/project instructions');
+    expect(contract).toContain('禁止把根 `AGENTS.md` / `CLAUDE.md` 当作每次 plan/work/debug/review 的普通必读上下文');
+    expect(contract).toContain('project-standards persona');
     expect(contract).toContain('`.spec-first/audits/**`');
     expect(contract).toContain('`.claude/**`');
     expect(contract).toContain('`.codex/**`');
@@ -59,7 +63,6 @@ describe('context governance runtime exclusion contract', () => {
     const workflowPaths = [
       'skills/using-spec-first/SKILL.md',
       'skills/spec-work/SKILL.md',
-      'skills/spec-work-beta/SKILL.md',
       'skills/spec-plan/SKILL.md',
       'skills/spec-code-review/SKILL.md',
       'skills/spec-doc-review/SKILL.md',
@@ -72,6 +75,9 @@ describe('context governance runtime exclusion contract', () => {
     for (const relativePath of workflowPaths) {
       const content = read(relativePath);
       expect(content).toContain('docs/contracts/context-governance.md');
+      if (relativePath.includes('spec-plan') || relativePath.includes('spec-work') || relativePath.includes('spec-debug') || relativePath.includes('spec-code-review')) {
+        expect(content).toContain('already-loaded host/project instructions');
+      }
       expect(content).toContain('.spec-first/audits/**');
       expect(content).toContain('.claude/**');
       expect(content).toContain('.codex/**');

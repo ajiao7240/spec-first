@@ -60,6 +60,5 @@ The normative workflow contracts live in:
 - `skills/spec-write-tasks/SKILL.md`
 - `skills/spec-write-tasks/references/task-pack-schema.md`
 - `skills/spec-work/SKILL.md`
-- `skills/spec-work-beta/SKILL.md`
 
 This document is a map of the contract, not a second source of truth.

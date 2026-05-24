@@ -118,6 +118,53 @@ function Resolve-TargetFacts {
   return ($raw -join "`n") | ConvertFrom-Json
 }
 
+function Get-ParentRepoLocalArtifactAdvisory {
+  param([object]$TargetFacts)
+  if ($null -ne $TargetFacts.selected_repo_root) {
+    return [ordered]@{
+      status = 'not-applicable'
+      advisory = $true
+      reason_code = $null
+      git_marker_status = 'selected-git-repo'
+      ignored_paths = @()
+      next_action = $null
+    }
+  }
+
+  $workspaceRoot = [string]$TargetFacts.workspace_root
+  $ignoredPaths = New-Object System.Collections.Generic.List[string]
+  foreach ($relativePath in @(
+    '.spec-first/config/graph-providers.json',
+    '.spec-first/config/runtime-capabilities.json',
+    '.spec-first/config/provider-artifacts.json',
+    '.spec-first/graph/graph-facts.json',
+    '.spec-first/graph/provider-status.json',
+    '.spec-first/providers/gitnexus/status.json',
+    '.spec-first/providers/code-review-graph/status.json',
+    '.spec-first/impact/bootstrap-impact-capabilities.json'
+  )) {
+    if (Test-Path -LiteralPath (Join-Path $workspaceRoot $relativePath)) {
+      $ignoredPaths.Add($relativePath) | Out-Null
+    }
+  }
+
+  $gitMarkerStatus = 'absent'
+  if (Test-Path -LiteralPath (Join-Path $workspaceRoot '.git')) {
+    $gitRoot = (git -C $workspaceRoot rev-parse --show-toplevel 2>$null)
+    $gitMarkerStatus = if ([string]::IsNullOrWhiteSpace([string]$gitRoot)) { 'invalid' } else { 'valid' }
+  }
+  $hasIgnoredState = ($ignoredPaths.Count -gt 0 -or $gitMarkerStatus -eq 'invalid')
+
+  [ordered]@{
+    status = if ($hasIgnoredState) { 'ignored' } else { 'none' }
+    advisory = $true
+    reason_code = if ($hasIgnoredState) { 'parent-workspace-repo-local-artifacts-ignored' } else { $null }
+    git_marker_status = $gitMarkerStatus
+    ignored_paths = @($ignoredPaths)
+    next_action = if ($hasIgnoredState) { 'Ignore parent repo-local graph/config artifacts in this multi-repo workspace; use child repo artifacts from repos[] and .spec-first/workspace/* summaries.' } else { $null }
+  }
+}
+
 function Inspect-Repo {
   param([object]$TargetItem)
 
@@ -322,6 +369,7 @@ function Inspect-Repo {
 }
 
 $targetFacts = Resolve-TargetFacts
+$parentRepoLocalArtifactAdvisory = Get-ParentRepoLocalArtifactAdvisory -TargetFacts $targetFacts
 $targets = @()
 if ($null -ne $targetFacts.selected_repo_root) {
   $targets += New-TargetItemFromSelectedRepo -Target $targetFacts
@@ -352,6 +400,7 @@ $result = [ordered]@{
   selection_source = [string]($targetFacts.selection_source ?? '')
   state_write_allowed = [bool]($targetFacts.state_write_allowed ?? $false)
   parent_writes_repo_local_artifacts = $false
+  parent_repo_local_artifact_advisory = $parentRepoLocalArtifactAdvisory
   repos = @($repos)
   counts = [ordered]@{
     total = $repos.Count

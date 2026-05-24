@@ -510,15 +510,15 @@ describe('init --dry-run', () => {
     ].join('\n');
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
       const agentsPath = path.join(projectRoot, 'AGENTS.md');
-      fs.appendFileSync(agentsPath, `\n\n${legacyRuntimeToolsBlock}\n\n${gitnexusBlock}\n`, 'utf8');
+      fs.writeFileSync(agentsPath, `${legacyRuntimeToolsBlock}\n\n${gitnexusBlock}\n`, 'utf8');
 
       expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
 
       const codexInstruction = fs.readFileSync(agentsPath, 'utf8');
       expect(codexInstruction).not.toContain('spec-first:runtime-tools:start');
       expect(codexInstruction).not.toContain('代码智能与运行时工具');
+      expect(countLiteral(codexInstruction, '<!-- gitnexus:start -->')).toBe(1);
       expect(codexInstruction).toContain('<!-- gitnexus:start -->');
       expect(codexInstruction).toContain('# GitNexus — Code Intelligence');
       expect(codexInstruction).toContain('仓库标识：**legacy-repo**');
@@ -668,8 +668,20 @@ describe('init --dry-run', () => {
       expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'config'))).toBe(false);
       expect(fs.existsSync(path.join(workspaceRoot, 'project-a', '.gitignore'))).toBe(true);
       expect(fs.existsSync(path.join(workspaceRoot, 'project-b', '.gitignore'))).toBe(true);
-      expect(fs.readFileSync(path.join(workspaceRoot, 'AGENTS.md'), 'utf8')).toContain('workspace-graph-targets.v1');
-      expect(fs.readFileSync(path.join(workspaceRoot, 'AGENTS.md'), 'utf8')).toContain('target_repo');
+      const parentAgents = fs.readFileSync(path.join(workspaceRoot, 'AGENTS.md'), 'utf8');
+      const childAgents = fs.readFileSync(path.join(workspaceRoot, 'project-a', 'AGENTS.md'), 'utf8');
+      expect(parentAgents).toContain('workspace-graph-targets.v1');
+      expect(parentAgents).toContain('target_repo');
+      expect(parentAgents).toContain('本工作区包含多个 child Git repo');
+      expect(parentAgents).toContain('.spec-first/workspace/graph-targets.json');
+      expect(parentAgents).toContain('.spec-first/workspace/gitnexus-readiness.json');
+      expect(parentAgents).not.toContain('本项目已配置 GitNexus 图谱支持');
+      expect(parentAgents).not.toContain('.spec-first/graph/graph-facts.json');
+      expect(childAgents).toContain('本项目已配置 GitNexus 图谱支持');
+      expect(childAgents).toContain('仓库标识：**project-a**');
+      expect(childAgents).toContain('.spec-first/graph/graph-facts.json');
+      expect(childAgents).not.toContain('本工作区包含多个 child Git repo');
+      expect(childAgents).not.toContain('.spec-first/workspace/gitnexus-readiness.json');
       expect(fs.readFileSync(path.join(workspaceRoot, 'project-a', '.gitignore'), 'utf8')).toContain(buildSpecFirstGitignoreBlock());
       expect(fs.readFileSync(path.join(workspaceRoot, 'project-b', '.gitignore'), 'utf8')).toContain(buildSpecFirstGitignoreBlock());
 

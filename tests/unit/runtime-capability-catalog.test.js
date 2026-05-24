@@ -37,7 +37,8 @@ describe('runtime capability catalog', () => {
     const catalog = buildRuntimeCapabilityCatalog();
 
     expect(catalog).toContain('| work | spec-work | /spec:work | $spec-work | claude=command; codex=skill | no |');
-    expect(catalog).toContain('| work-beta | spec-work-beta | /spec:work-beta | $spec-work-beta | claude=command; codex=skill | yes |');
+    expect(catalog).not.toContain('spec-work-beta');
+    expect(catalog).not.toContain('/spec:work-beta');
     expect(catalog).toContain('| polish-beta | spec-polish-beta | /spec:polish-beta | $spec-polish-beta | claude=command; codex=skill | yes |');
     expect(catalog).not.toContain('spec-' + 'standards');
     expect(catalog).not.toContain('/spec:' + 'standards');

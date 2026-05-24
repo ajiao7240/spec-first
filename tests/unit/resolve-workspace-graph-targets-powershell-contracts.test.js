@@ -33,6 +33,8 @@ describe('PowerShell workspace graph target resolver contract', () => {
       expect(source).toContain('index_snapshot');
       expect(source).toContain('query_usability');
       expect(source).toContain('working_tree_overlay');
+      expect(source).toContain('parent_repo_local_artifact_advisory');
+      expect(source).toContain('parent-workspace-repo-local-artifacts-ignored');
       expect(source).toContain('query_usability_counts');
       expect(source).toContain('fresh-primary');
       expect(source).toContain('stale-advisory');

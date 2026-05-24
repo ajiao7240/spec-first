@@ -457,7 +457,7 @@ stale 或 degraded 的常见策略：
 - docs-only、窄 typo、小型本地 bug：披露限制，继续 bounded direct reads。
 - shared helper、API、route、provider contract、核心 workflow、跨模块变更、依赖 execution flow 或 blast radius 的 review：建议先运行 `$spec-graph-bootstrap`，刷新前不要声称 primary graph-backed impact evidence。
 - definitions-only GitNexus：只作为 file/symbol pointer。
-- query-unverified/unavailable：降级到源码读取、ast-grep、git diff、code-review-graph 或其他 confirmed evidence。
+- query-unverified/unavailable：Plan/Work/Debug 降级到源码读取、ast-grep、git diff、测试或日志；Code Review 可额外使用 code-review-graph 做 diff impact / review evidence。
 
 ## 节点七：下游 workflow 如何使用 GitNexus
 
