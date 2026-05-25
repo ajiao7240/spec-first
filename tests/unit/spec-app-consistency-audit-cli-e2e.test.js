@@ -614,6 +614,87 @@ describe('spec-app-consistency-audit CLI e2e', () => {
     }
   });
 
+  test('metadata and impact disclose scanned untracked source files', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-untracked-source-'));
+    try {
+      write(repoRoot, 'src/HomeScreen.kt', 'class HomeScreen');
+      runGit(['init'], repoRoot);
+      runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
+      runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
+      runGit(['add', '.'], repoRoot);
+      runGit(['commit', '--no-verify', '-m', 'test: initial'], repoRoot);
+      const base = runGit(['rev-parse', 'HEAD'], repoRoot).stdout.trim();
+      write(repoRoot, 'src/GhostScreen.kt', 'class GhostScreen');
+
+      const metadata = JSON.parse(runNode([
+        script('build-run-metadata.js'),
+        'mode:headless',
+        `base:${base}`,
+        '--repo-root',
+        repoRoot,
+        '--source',
+        repoRoot,
+      ]).stdout);
+      const impact = JSON.parse(runNode([
+        script('build-impact-facts.js'),
+        'mode:headless',
+        `base:${base}`,
+        '--repo-root',
+        repoRoot,
+        '--source',
+        repoRoot,
+      ]).stdout);
+      const code = JSON.parse(runNode([
+        script('extract-code-contract.js'),
+        '--repo-root',
+        repoRoot,
+        '--source',
+        repoRoot,
+      ]).stdout);
+
+      expect(metadata.untracked_policy).toBe('source_snapshot_includes_scanned_untracked');
+      expect(metadata.included_untracked_files).toEqual(['src/GhostScreen.kt']);
+      expect(impact.diff_scope.untracked_policy).toBe('source_snapshot_includes_scanned_untracked');
+      expect(impact.diff_scope.included_untracked_files).toEqual(['src/GhostScreen.kt']);
+      expect(code.screens.map((screen) => screen.name)).toContain('GhostScreen');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('impact facts report partial reads for changed source signal extraction', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-impact-partial-read-'));
+    try {
+      write(repoRoot, 'src/BigScreen.kt', 'class BigScreen\n');
+      runGit(['init'], repoRoot);
+      runGit(['config', 'user.email', 'spec-first@example.test'], repoRoot);
+      runGit(['config', 'user.name', 'Spec First Test'], repoRoot);
+      runGit(['add', '.'], repoRoot);
+      runGit(['commit', '--no-verify', '-m', 'test: initial'], repoRoot);
+      const base = runGit(['rev-parse', 'HEAD'], repoRoot).stdout.trim();
+      fs.appendFileSync(path.join(repoRoot, 'src/BigScreen.kt'), `${'// filler\n'.repeat(8000)}\nfun go() { navController.navigate("late") }\n`);
+
+      const impact = JSON.parse(runNode([
+        script('build-impact-facts.js'),
+        'mode:headless',
+        `base:${base}`,
+        '--repo-root',
+        repoRoot,
+        '--source',
+        repoRoot,
+      ]).stdout);
+
+      expect(impact.degraded_modes).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'semantic_extraction_partial',
+          path: 'src/BigScreen.kt',
+        }),
+      ]));
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('default run metadata ids are unique and do not target a fixed run directory', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-run-id-'));
     try {

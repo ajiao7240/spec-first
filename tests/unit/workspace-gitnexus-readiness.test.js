@@ -9,6 +9,8 @@ const {
   OVERLAY_QUERY_KEYS,
   SCRIPT_QUERY_KEYS,
   compileWorkspaceGitNexusReadiness,
+  normalizeComparablePath,
+  registryPathMatchesRepo,
 } = require('../../src/cli/helpers/compile-workspace-gitnexus-readiness');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
@@ -305,6 +307,20 @@ describe('workspace GitNexus readiness classifier', () => {
     });
     expect(result.payload.recommended_query_path).toBe('direct-read-fallback');
     expect(result.payload.group.status).toBe('group-missing');
+  });
+
+  test('registry path comparison is case-insensitive on Windows only', () => {
+    expect(registryPathMatchesRepo(
+      { git_root: 'C:\\Workspace\\ServiceA' },
+      { path: 'c:/workspace/servicea' },
+      'win32',
+    )).toBe(true);
+    expect(registryPathMatchesRepo(
+      { git_root: '/Workspace/ServiceA' },
+      { path: '/workspace/servicea' },
+      'linux',
+    )).toBe(false);
+    expect(normalizeComparablePath('C:\\Workspace\\ServiceA', 'win32')).toBe(path.resolve('C:\\Workspace\\ServiceA').replace(/\\/g, '/').toLowerCase());
   });
 
   test.each([

@@ -310,6 +310,10 @@ describe('GitNexus instruction block governance', () => {
     expect(block).toContain('本工作区包含多个 child Git repo');
     expect(block).toContain('`.spec-first/workspace/graph-targets.json`');
     expect(block).toContain('`.spec-first/workspace/gitnexus-readiness.json`');
+    expect(block).toContain('`group.status` / `recommended_query_path`');
+    expect(block).toContain('`group-ready`');
+    expect(block).toContain('`group-missing`');
+    expect(block).toContain('`bounded-registry-fanout`');
     expect(block).toContain('Parent workspace 不拥有 child repo 的 `.spec-first/graph/*` canonical artifacts');
     expect(block).not.toContain('`.spec-first/graph/graph-facts.json`');
     expect(block).not.toContain('仓库标识：**workspace-parent**');

@@ -1449,6 +1449,10 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(checkDepsSource).toContain("sudo apk update && sudo apk add --upgrade $ApkPackage");
     expect(checkDepsSource).not.toContain("python3 = New-DependencyFact 'python3' $true $os");
     expect(checkDepsSource).not.toContain("jq = New-DependencyFact 'jq' $true $os");
+    expect(checkDepsSource).toContain("uv = New-DependencyFact 'uv' $false $os");
+    expect(checkDepsSource).toContain("uvx = New-DependencyFact 'uvx' $false $os");
+    expect(checkDepsSource).not.toContain("uv = New-DependencyFact 'uv' $true $os");
+    expect(checkDepsSource).not.toContain("uvx = New-DependencyFact 'uvx' $true $os");
     expect(checkDepsSource).toContain('Invoke-WebRequest -Uri https://astral.sh/uv/install.ps1 -OutFile $script');
     expect(checkDepsSource).toContain('Invoke-WebRequest -Uri https://astral.sh/uv/install.sh -OutFile $script');
     expect(checkDepsSource).toContain('Join-Path ([System.IO.Path]::GetTempPath())');
@@ -1465,7 +1469,7 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
   test('setup skill documents host-specific pipeline dependencies', () => {
     const skillSource = fs.readFileSync(path.join(repoRoot, 'skills/spec-mcp-setup/SKILL.md'), 'utf8');
 
-    expect(skillSource).toContain('Unix shell path (`*.sh`) requires `node`, `npm`, `npx`, `uv`, `uvx`, `jq`, and `python3`.');
+    expect(skillSource).toContain('Unix shell path (`*.sh`) requires `node`, `npm`, `npx`, `jq`, and `python3`; `uv` / `uvx` are optional cleanup-era tools and must not block GitNexus-only setup readiness.');
     expect(skillSource).toContain('Windows PowerShell 7 path (`*.ps1`) requires `node`, `npm`, and `npx`; `git` remains optional.');
     expect(skillSource).toContain('It does not require `jq` or `python3` because JSON/TOML handling and bounded process execution are implemented with native PowerShell/.NET');
     expect(skillSource).toContain('`uv` / `uvx` are not required by the current GitNexus-only setup registry.');

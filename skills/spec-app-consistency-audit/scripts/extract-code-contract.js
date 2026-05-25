@@ -5,8 +5,9 @@ const {
   evidence,
   listSourceTextFiles,
   makeArtifact,
+  partialReadDegradedModes,
   parseCommonArgs,
-  readText,
+  readTextWithMetadata,
   relativeTo,
   slugify,
   sourceInputFromFiles,
@@ -27,6 +28,10 @@ function extractCodeContract(options = {}) {
   const useCases = extractNamedFacts(facts, 'use_cases');
   const repositories = extractNamedFacts(facts, 'repositories');
   const components = extractNamedFacts(facts, 'components');
+  const partialReadModes = partialReadDegradedModes(
+    facts.map((fact) => fact.read),
+    repoRoot,
+  );
 
   return makeArtifact({
     schemaVersion: 'codebase-contract.v1',
@@ -46,14 +51,18 @@ function extractCodeContract(options = {}) {
       extraction_notes: [
         'Code contract is static candidate evidence; relationships are name/path based and require expert confirmation.',
       ],
-      degraded_modes: scan.degraded_modes,
+      degraded_modes: [
+        ...scan.degraded_modes,
+        ...partialReadModes,
+      ],
     },
   });
 }
 
 function inspectSourceFile(filePath, repoRoot) {
   const rel = relativeTo(repoRoot, filePath);
-  const text = readText(filePath);
+  const read = readTextWithMetadata(filePath);
+  const text = read.text;
   const symbols = extractSymbols(text);
   const routeStrings = extractRouteStrings(text);
   const platformServices = [];
@@ -63,6 +72,7 @@ function inspectSourceFile(filePath, repoRoot) {
 
   return {
     file: rel,
+    read,
     text,
     symbols,
     route_strings: routeStrings,

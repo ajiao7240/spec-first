@@ -218,6 +218,26 @@ describe('spec-app-consistency-audit contract extraction', () => {
     }
   });
 
+  test('code contract reports partial semantic extraction when source reads are truncated', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-partial-read-'));
+    try {
+      write(repoRoot, 'src/LargeScreen.kt', `${'// filler\n'.repeat(15000)}\nclass LateScreen\n`);
+
+      const artifact = extractCodeContract({ repoRoot, source: repoRoot });
+
+      expect(artifact.source_inputs[0].freshness).toBe('current-worktree');
+      expect(artifact.screens.map((screen) => screen.name)).not.toContain('LateScreen');
+      expect(artifact.degraded_modes).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'semantic_extraction_partial',
+          path: 'src/LargeScreen.kt',
+        }),
+      ]));
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('source scan excludes spec-first runtime/control-plane directories', () => {
     const fixture = makeRepo();
     try {

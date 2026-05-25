@@ -470,15 +470,16 @@ function matchRegistryRepo(repo, registryState) {
   return null;
 }
 
-function registryPathMatchesRepo(repo, registryRepo) {
+function registryPathMatchesRepo(repo, registryRepo, platform = process.platform) {
   if (!registryRepo || !registryRepo.path || !repo.git_root) return true;
-  const repoRoot = normalizeComparablePath(repo.git_root);
-  const registryPath = normalizeComparablePath(registryRepo.path);
+  const repoRoot = normalizeComparablePath(repo.git_root, platform);
+  const registryPath = normalizeComparablePath(registryRepo.path, platform);
   return repoRoot === registryPath;
 }
 
-function normalizeComparablePath(value) {
-  return path.resolve(String(value)).replace(/\\/g, '/');
+function normalizeComparablePath(value, platform = process.platform) {
+  const normalized = path.resolve(String(value)).replace(/\\/g, '/');
+  return platform === 'win32' ? normalized.toLowerCase() : normalized;
 }
 
 function validateWorkspaceTargets(value) {
@@ -655,7 +656,9 @@ module.exports = {
   SCHEMA_VERSION,
   SCRIPT_QUERY_KEYS,
   compileWorkspaceGitNexusReadiness,
+  normalizeComparablePath,
   normalizeGroupSnapshot,
   normalizeRegistrySnapshot,
+  registryPathMatchesRepo,
   runWorkspaceGitNexusReadiness,
 };

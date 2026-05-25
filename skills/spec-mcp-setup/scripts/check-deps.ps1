@@ -111,8 +111,8 @@ $dependencies = [ordered]@{
   node = New-DependencyFact 'node' $true $os
   npm = New-DependencyFact 'npm' $true $os
   npx = New-DependencyFact 'npx' $true $os
-  uv = New-DependencyFact 'uv' $true $os
-  uvx = New-DependencyFact 'uvx' $true $os
+  uv = New-DependencyFact 'uv' $false $os
+  uvx = New-DependencyFact 'uvx' $false $os
   git = New-DependencyFact 'git' $false $os
 }
 

@@ -230,18 +230,62 @@ function normalizePositiveInteger(value, defaultValue, field) {
   return value;
 }
 
-function readText(filePath, maxBytes = 128 * 1024) {
+function readTextWithMetadata(filePath, maxBytes = 128 * 1024) {
   const stat = fs.statSync(filePath);
   const bytesToRead = Math.min(maxBytes, stat.size);
-  if (bytesToRead <= 0) return '';
+  if (bytesToRead <= 0) {
+    return {
+      filePath,
+      text: '',
+      truncated: stat.size > 0,
+      maxBytes,
+      sizeBytes: stat.size,
+      bytesRead: 0,
+    };
+  }
   const buffer = Buffer.alloc(bytesToRead);
   const fd = fs.openSync(filePath, 'r');
   try {
     const bytesRead = fs.readSync(fd, buffer, 0, bytesToRead, 0);
-    return buffer.slice(0, bytesRead).toString('utf8');
+    return {
+      filePath,
+      text: buffer.slice(0, bytesRead).toString('utf8'),
+      truncated: stat.size > bytesRead,
+      maxBytes,
+      sizeBytes: stat.size,
+      bytesRead,
+    };
   } finally {
     fs.closeSync(fd);
   }
+}
+
+function readText(filePath, maxBytes = 128 * 1024) {
+  return readTextWithMetadata(filePath, maxBytes).text;
+}
+
+function partialReadDegradedModes(reads, repoRoot, options = {}) {
+  const code = options.code || 'semantic_extraction_partial';
+  const summary = options.summary || 'Source file exceeded semantic extraction read limit; static contract facts may be incomplete.';
+  return (reads || [])
+    .filter((entry) => entry && entry.truncated)
+    .map((entry) => ({
+      code,
+      severity: 'warning',
+      summary: `${summary} Read ${entry.bytesRead} of ${entry.sizeBytes} bytes.`,
+      path: repoRoot ? publicPath(repoRoot, entry.filePath, 'outside-repo-file') : toPosix(entry.filePath),
+    }));
+}
+
+function includedUntrackedSourceFiles(repoRoot, sourceFiles, untrackedFiles) {
+  const root = path.resolve(repoRoot || '.');
+  const included = new Set((sourceFiles || [])
+    .map((filePath) => publicPath(root, filePath, 'outside-repo-file'))
+    .filter((filePath) => typeof filePath === 'string' && !filePath.startsWith('<')));
+  return unique((untrackedFiles || [])
+    .map(toPosix)
+    .filter((filePath) => included.has(filePath)))
+    .sort((left, right) => left.localeCompare(right));
 }
 
 function readJson(filePath) {
@@ -934,6 +978,7 @@ module.exports = {
   listTextFilesWithMetadata,
   makeArtifact,
   normalizeName,
+  partialReadDegradedModes,
   parseCommonArgs,
   parseCanonicalToken,
   publicPath,
@@ -941,6 +986,7 @@ module.exports = {
   readArtifact,
   readJson,
   readText,
+  readTextWithMetadata,
   relativeTo,
   resolveBoundedInputPath,
   resolveBoundedSourceRoot,
@@ -955,6 +1001,7 @@ module.exports = {
   toPosix,
   unavailableSourceInput,
   unique,
+  includedUntrackedSourceFiles,
   writeJsonOutput,
   writeTextOutput,
   resolveRunDir,

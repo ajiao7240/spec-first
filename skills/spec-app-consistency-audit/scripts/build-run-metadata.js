@@ -11,6 +11,7 @@ const {
   collectGitDiffFacts,
   createRunId,
   hashText,
+  includedUntrackedSourceFiles,
   listSourceTextFiles,
   parseCommonArgs,
   publicPath,
@@ -42,6 +43,7 @@ function buildRunMetadata(options = {}) {
     maxFiles: options.maxFiles || options.maxScanFiles || 2000,
   });
   const diffFacts = collectGitDiffFacts(repoRoot, options);
+  const includedUntrackedFiles = includedUntrackedSourceFiles(repoRoot, source.files, diffFacts.untrackedFiles);
   const headSha = gitText(repoRoot, ['rev-parse', 'HEAD']).trim();
   const diffHash = diffFacts.diffHash;
   const sourceInput = sourceInputFromFiles('code', source.files, repoRoot, {
@@ -78,8 +80,8 @@ function buildRunMetadata(options = {}) {
     worktree_state: gitText(repoRoot, ['status', '--porcelain']).trim() ? 'dirty' : 'clean',
     diff_hash: diffHash,
     worktree_fingerprint: worktreeFingerprint,
-    untracked_policy: 'excluded',
-    included_untracked_files: [],
+    untracked_policy: 'source_snapshot_includes_scanned_untracked',
+    included_untracked_files: includedUntrackedFiles,
     generated_against: {
       head_sha: headSha,
       diff_hash: diffHash,

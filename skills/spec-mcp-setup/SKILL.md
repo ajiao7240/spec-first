@@ -593,7 +593,7 @@ Project setup facts:
 
 The setup pipeline scripts themselves depend on a small set of host tools that are separate from per-tool `dependencies` declared in `mcp-tools.json`. `check-deps.sh` / `check-deps.ps1` run at the start of setup and fail visibly before tool-level work begins, but the required set is host-path specific:
 
-- Unix shell path (`*.sh`) requires `node`, `npm`, `npx`, `uv`, `uvx`, `jq`, and `python3`.
+- Unix shell path (`*.sh`) requires `node`, `npm`, `npx`, `jq`, and `python3`; `uv` / `uvx` are optional cleanup-era tools and must not block GitNexus-only setup readiness.
 - Windows PowerShell 7 path (`*.ps1`) requires `node`, `npm`, and `npx`; `git` remains optional. It does not require `jq` or `python3` because JSON/TOML handling and bounded process execution are implemented with native PowerShell/.NET in the `.ps1` scripts.
 
 Unix-only dependency details:

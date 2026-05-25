@@ -46,7 +46,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 [ -n "$REPO_ROOT" ] || { usage >&2; exit 1; }
-[ -d "$REPO_ROOT/.git" ] || { echo "extract-graph-anchors.sh: repo is not a git checkout: $REPO_ROOT" >&2; exit 1; }
+git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+  echo "extract-graph-anchors.sh: repo is not a git checkout: $REPO_ROOT" >&2
+  exit 1
+}
+REPO_ROOT="$(git -C "$REPO_ROOT" rev-parse --show-toplevel 2>/dev/null || true)"
+[ -n "$REPO_ROOT" ] || { echo "extract-graph-anchors.sh: cannot resolve git root" >&2; exit 1; }
 REPO_ROOT="$(cd "$REPO_ROOT" && pwd -P)"
 if [ -z "$GITNEXUS_REPO_SELECTOR" ]; then
   GITNEXUS_REPO_SELECTOR="$REPO_ROOT"

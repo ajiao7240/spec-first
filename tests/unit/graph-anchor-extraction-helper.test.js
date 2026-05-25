@@ -137,6 +137,37 @@ describe('graph anchor extraction helper', () => {
     expect(json.providers[0].metadata.repo_selector).toBe(fs.realpathSync(repo));
   });
 
+  test('accepts git worktrees whose .git entry is a file', () => {
+    const tmp = makeTempDir();
+    const repo = path.join(tmp, 'repo');
+    const worktree = path.join(tmp, 'repo-worktree');
+    const binDir = path.join(tmp, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    makeGitRepo(repo);
+    execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '-b', 'worktree-check', worktree]);
+    writeFakeNpx(binDir);
+
+    const output = execFileSync(
+      'bash',
+      [HELPER, '--repo', worktree, '--provider', 'gitnexus'],
+      {
+        cwd: REPO_ROOT,
+        env: {
+          ...process.env,
+          PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
+          GITNEXUS_PACKAGE: 'gitnexus@fake',
+          EXPECTED_GITNEXUS_REPO: fs.realpathSync(worktree),
+        },
+        encoding: 'utf8',
+      }
+    );
+    const json = JSON.parse(output);
+
+    expect(fs.statSync(path.join(worktree, '.git')).isFile()).toBe(true);
+    expect(json.providers[0].status).toBe('ok');
+    expect(json.providers[0].metadata.repo_selector).toBe(fs.realpathSync(worktree));
+  });
+
   test('rejects retired graph provider extraction', () => {
     const tmp = makeTempDir();
     const repo = path.join(tmp, 'repo');

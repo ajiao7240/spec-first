@@ -10,10 +10,12 @@ const {
   buildAppAuditVerdictScope,
   collectGitDiffFacts,
   evidence,
+  includedUntrackedSourceFiles,
   listSourceTextFiles,
   makeArtifact,
+  partialReadDegradedModes,
   parseCommonArgs,
-  readText,
+  readTextWithMetadata,
   resolveRepoRoot,
   sourceInputFromFiles,
   toPosix,
@@ -49,7 +51,8 @@ function buildImpactFacts(options = {}) {
   const changedFiles = diffScope.changedFiles.length > 0 ? diffScope.changedFiles : [];
   const sourceScopedChangedFiles = filterChangedFilesBySource(repoRoot, source.sourceRoot, changedFiles, true);
   const outOfSourceChangedFiles = filterChangedFilesBySource(repoRoot, source.sourceRoot, changedFiles, false);
-  const candidateSignals = buildCandidateSignals({
+  const includedUntrackedFiles = includedUntrackedSourceFiles(repoRoot, source.files, diffScope.untrackedFiles);
+  const signalFacts = buildCandidateSignals({
     repoRoot,
     sourceRoot: source.sourceRoot,
     changedFiles: sourceScopedChangedFiles,
@@ -57,6 +60,7 @@ function buildImpactFacts(options = {}) {
     industry: options.industry || options.confirmedIndustry || null,
     confirmedIndustry: options.confirmedIndustry || null,
   });
+  const candidateSignals = signalFacts.signals;
   const sourceInputs = [
     diffScope.sourceInput,
     sourceInputFromFiles('code', source.files, repoRoot, {
@@ -86,7 +90,8 @@ function buildImpactFacts(options = {}) {
         out_of_source_changed_files: outOfSourceChangedFiles,
         diff_hash: diffScope.diffHash,
         untracked_files: diffScope.untrackedFiles,
-        untracked_policy: 'excluded',
+        untracked_policy: 'source_snapshot_includes_scanned_untracked',
+        included_untracked_files: includedUntrackedFiles,
       },
       changed_files: changedFiles,
       candidate_signals: candidateSignals,
@@ -104,6 +109,7 @@ function buildImpactFacts(options = {}) {
       audit_verdict_scope: buildAppAuditVerdictScope(options),
       degraded_modes: [
         ...source.degraded_modes,
+        ...signalFacts.degraded_modes,
         ...buildInputDegradedModes(options),
       ],
     },
@@ -167,11 +173,14 @@ function collectDiffScope(repoRoot, options) {
 function buildCandidateSignals(options) {
   const changedFiles = options.changedFiles || [];
   const signals = [];
+  const reads = [];
   for (const filePath of changedFiles) {
     const absolutePath = path.join(options.repoRoot, filePath);
-    const text = fs.existsSync(absolutePath) && fs.statSync(absolutePath).isFile()
-      ? readText(absolutePath, 64 * 1024)
-      : '';
+    const read = fs.existsSync(absolutePath) && fs.statSync(absolutePath).isFile()
+      ? readTextWithMetadata(absolutePath, 64 * 1024)
+      : null;
+    if (read) reads.push(read);
+    const text = read ? read.text : '';
     const summaryFile = toPosix(filePath);
 
     addPathSignal(signals, filePath, text, /Screen|View|Fragment|Activity|ViewController|Composable/i, 'screen_changed', 'Screen or view file changed.');
@@ -212,7 +221,12 @@ function buildCandidateSignals(options) {
     const industrySignal = inferIndustrySignal(filePath, text, options.industry, options.confirmedIndustry);
     if (industrySignal) signals.push(industrySignal);
   }
-  return dedupeSignals(signals);
+  return {
+    signals: dedupeSignals(signals),
+    degraded_modes: partialReadDegradedModes(reads, options.repoRoot, {
+      summary: 'Changed file exceeded impact signal read limit; candidate signals may be incomplete.',
+    }),
+  };
 }
 
 function addPathSignal(signals, filePath, text, pattern, type, summary) {

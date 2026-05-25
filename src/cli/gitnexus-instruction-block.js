@@ -238,7 +238,7 @@ function renderChineseGitNexusBody(repoName, gitRootTopology) {
 
 本工作区包含多个 child Git repo，GitNexus repo-local artifacts 由各 child repo 拥有。
 
-跨 repo 代码查询、影响分析、代码理解类任务，**必须先**读取 \`.spec-first/workspace/graph-targets.json\` 和 \`.spec-first/workspace/gitnexus-readiness.json\`（如已生成），确认 workspace readiness 显示 group-ready；可用时**使用 GitNexus 作为首选工具**，不可用时 fallback 到 grep/Read 并说明降级原因。Parent workspace 不拥有 child repo 的 \`.spec-first/graph/*\` canonical artifacts。GitNexus 结果与源码或测试冲突时，优先采用已验证事实。`;
+跨 repo 代码查询、影响分析、代码理解类任务，**必须先**读取 \`.spec-first/workspace/graph-targets.json\` 和 \`.spec-first/workspace/gitnexus-readiness.json\`（如已生成），按 \`group.status\` / \`recommended_query_path\` 分流：\`group-ready\` 优先使用 group query，\`group-missing\` 或 \`not-evaluated-no-mcp-input\` 走 \`bounded-registry-fanout\` / per-repo fallback；可用时**使用 GitNexus 作为首选工具**，不可用时 fallback 到 grep/Read 并说明降级原因。Parent workspace 不拥有 child repo 的 \`.spec-first/graph/*\` canonical artifacts。GitNexus 结果与源码或测试冲突时，优先采用已验证事实。`;
   }
 
   return `# GitNexus — Code Intelligence
@@ -254,7 +254,7 @@ function renderEnglishGitNexusBody(repoName, gitRootTopology) {
 
 This workspace contains multiple child Git repos. GitNexus repo-local artifacts are owned by each child repo.
 
-For cross-repo code queries, impact analysis, and code understanding, **first** read \`.spec-first/workspace/graph-targets.json\` and \`.spec-first/workspace/gitnexus-readiness.json\` when present to confirm workspace readiness shows group-ready; when available, **use GitNexus as the preferred tool**; otherwise fall back to grep/Read and state the degraded reason. The parent workspace does not own child repo \`.spec-first/graph/*\` canonical artifacts. If GitNexus conflicts with source or tests, prefer verified facts.`;
+For cross-repo code queries, impact analysis, and code understanding, **first** read \`.spec-first/workspace/graph-targets.json\` and \`.spec-first/workspace/gitnexus-readiness.json\` when present, then branch on \`group.status\` / \`recommended_query_path\`: prefer group query for \`group-ready\`, and use \`bounded-registry-fanout\` / per-repo fallback for \`group-missing\` or \`not-evaluated-no-mcp-input\`; when available, **use GitNexus as the preferred tool**; otherwise fall back to grep/Read and state the degraded reason. The parent workspace does not own child repo \`.spec-first/graph/*\` canonical artifacts. If GitNexus conflicts with source or tests, prefer verified facts.`;
   }
 
   return `# GitNexus — Code Intelligence
