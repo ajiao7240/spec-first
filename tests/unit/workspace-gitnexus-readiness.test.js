@@ -205,6 +205,19 @@ describe('workspace GitNexus readiness classifier', () => {
     expect(fs.existsSync(output)).toBe(false);
   });
 
+  test('skill-prose mode accepts live top-level array list_repos snapshots', () => {
+    const result = compileWorkspaceGitNexusReadiness({
+      mode: 'skill-prose',
+      workspaceTargets: fixture('workspace-graph-targets.dirty-overlay.example.json'),
+      registryList: fixture('registry-list.live-array.example.json'),
+      groupList: fixture('group-list.empty.gitnexus-1.6.4.captured-2026-05-22.example.json'),
+    }, REPO_ROOT);
+
+    expect(result.payload.runtime_mcp_overlay).toEqual({ status: 'evaluated' });
+    expect(result.payload.recommended_query_path).toBe('bounded-registry-fanout');
+    expect(result.payload.repos.some((repo) => repo.registry_match.status === 'matched')).toBe(true);
+  });
+
   test('skill-prose mode with empty group recommends bounded registry fanout', () => {
     const result = compileWorkspaceGitNexusReadiness({
       mode: 'skill-prose',

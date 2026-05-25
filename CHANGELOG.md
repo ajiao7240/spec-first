@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-26 03:51:06 reviewer: fix(review): 关闭深度复审剩余 follow-up，修复 Gemini multi-turn JPG/RGBA 保存、app-audit raw issues 与 not_run 冲突、review-pre-facts temp base symlink escape、Bash helper mirror provenance、PowerShell provider projection inline-if 崩溃、workspace GitNexus live list_repos array overlay 兼容，以及 PowerShell non-git folder fingerprint fail-closed；同步审查台账和 focused regression tests (user-visible)
 - v1.8.2 2026-05-26 03:01:02 reviewer: fix(review): 继续收敛 Lovelace 复审问题，`uv`/`uvx` 降级为 GitNexus-only setup 的 optional/warn-only 依赖，GitNexus parent workspace host block 保留 `group-missing`/`bounded-registry-fanout` 路径，benchmark graph anchor helper 支持 Git worktree `.git` 文件，workspace GitNexus registry path 在 Windows 下大小写不敏感匹配；同步 focused contract tests (user-visible)
 - v1.8.2 2026-05-26 02:48:34 reviewer: fix(app-audit): 收尾 review finding 068/069，metadata 与 impact facts 统一披露 scanned untracked source，code contract 和 impact signal extraction 在截断读取时输出 `semantic_extraction_partial` degraded evidence；同步复审台账与 focused contract tests (user-visible)
 - v1.8.2 2026-05-26 01:54:47 reviewer: fix(review): 完成当前代码审查后续收敛，修复 parent workspace init 文档口径、Claude hook gitignore/untrack policy、session advisory path 边界、spec-work run artifact `.spec-first/workflows` 字段边界、app-audit runtime/control dir 排除与 `maxFiles`/source input path 校验、secret-deny 大小写与自身维护 allowlist、AI Dev Quality Gate 覆盖同步以及 `$spec-doc-review` Codex dispatch 授权口径；同步复审台账、CHANGELOG、contract tests，并删除误入仓库的本地 transcript 文件 (user-visible)

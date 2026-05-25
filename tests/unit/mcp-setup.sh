@@ -648,6 +648,11 @@ MIRROR_HOME="$TMP_DIR/mirror-home"
 touch "$MIRROR_LOG"
 make_fake_bin "$MIRROR_BIN" "$MIRROR_LOG"
 rm -f "$MIRROR_BIN/agent-browser"
+rm -f "$MIRROR_BIN/ast-grep"
+cat > "$MIRROR_BIN/uname" <<'SH'
+#!/bin/bash
+echo Linux
+SH
 cat > "$MIRROR_BIN/npm" <<SH
 #!/bin/bash
 echo "npm \$* registry=\${npm_config_registry:-}\${NPM_CONFIG_REGISTRY:-}" >> "$MIRROR_LOG"
@@ -656,11 +661,20 @@ case " \$* " in
   *" install -g "*)
     if [ -n "\${npm_config_registry:-}\${NPM_CONFIG_REGISTRY:-}" ]; then
       mkdir -p "\$HOME/.npm-global/bin"
-      cat > "\$HOME/.npm-global/bin/agent-browser" <<'INNER'
+      if [[ " \$* " == *" agent-browser@latest "* ]]; then
+        cat > "\$HOME/.npm-global/bin/agent-browser" <<'INNER'
 #!/bin/bash
 exit 0
 INNER
-      chmod +x "\$HOME/.npm-global/bin/agent-browser"
+        chmod +x "\$HOME/.npm-global/bin/agent-browser"
+      fi
+      if [[ " \$* " == *" @ast-grep/cli@latest "* ]]; then
+        cat > "\$HOME/.npm-global/bin/ast-grep" <<'INNER'
+#!/bin/bash
+exit 0
+INNER
+        chmod +x "\$HOME/.npm-global/bin/ast-grep"
+      fi
       exit 0
     fi
     exit 1
@@ -668,13 +682,15 @@ INNER
 esac
 exit 0
 SH
-chmod +x "$MIRROR_BIN/npm"
+chmod +x "$MIRROR_BIN/npm" "$MIRROR_BIN/uname"
 mkdir -p "$MIRROR_HOME/.agents/skills/ast-grep" "$MIRROR_HOME/.npm-global/bin"
 printf 'name: ast-grep\n' > "$MIRROR_HOME/.agents/skills/ast-grep/SKILL.md"
 mirror_install="$(PATH="$MIRROR_HOME/.npm-global/bin:$MIRROR_BIN:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$MIRROR_HOME" SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 SPEC_FIRST_STAGE_TIMEOUT_SECONDS=15 bash "$SCRIPTS_DIR/install-helpers.sh" --install 2>/dev/null)"
 assert "mirror fallback install emits JSON" jq -e . <<<"$mirror_install"
 assert_eq "mirror fallback marks agent-browser source mirror" "mirror" "$(jq -r '.helper_tools."agent-browser".install_source' <<<"$mirror_install")"
 assert_eq "mirror fallback flags mirror_used true" "true" "$(jq -r '.helper_tools."agent-browser".mirror_used' <<<"$mirror_install")"
+assert_eq "mirror fallback marks ast-grep source mirror" "mirror" "$(jq -r '.helper_tools."ast-grep".install_source' <<<"$mirror_install")"
+assert_eq "mirror fallback flags ast-grep mirror_used true" "true" "$(jq -r '.helper_tools."ast-grep".mirror_used' <<<"$mirror_install")"
 assert_eq "ledger advertises npm mirror endpoint" "https://registry.npmmirror.com" "$(jq -r '.mirror_endpoints.npm' <<<"$mirror_install")"
 assert_eq "ledger advertises uv mirror endpoint" "https://mirrors.tuna.tsinghua.edu.cn/pypi/simple" "$(jq -r '.mirror_endpoints.uv' <<<"$mirror_install")"
 assert_contains "mirror fallback retries with mirror registry" "registry=https://registry.npmmirror.com" "$(cat "$MIRROR_LOG")"

@@ -1212,6 +1212,59 @@ describe('spec-app-consistency-audit headless runner', () => {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }
   });
+
+  test('rejects explicit not_run when raw issues are staged', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-runner-not-run-input-'));
+    const runId = 'runner-not-run-input';
+    try {
+      const fixture = createAppAuditFixture(repoRoot, { runId });
+      const headSha = runGit(['rev-parse', 'HEAD'], repoRoot).stdout.trim();
+      const rawIssues = write(repoRoot, '.spec-first/staged-issues.json', JSON.stringify({
+        issues: [{
+          id: 'APP-AUDIT-NOT-RUN-001',
+          title: 'Issue synthesis cannot be marked not_run when issues are staged',
+          severity: 'medium',
+          category: 'contract',
+          claim_family: 'architecture_static',
+          claim_type: 'contract_drift',
+          confidence: 0.8,
+          static_confirmed: true,
+          contract_status: 'confirmed',
+          data_sensitivity: 'internal',
+          requires_runtime_verification: false,
+          requires_real_device: false,
+          affected_surface: { type: 'screen', id: 'TradeBuyScreen' },
+          provenance: [{ source: 'code', summary: 'staged issue' }],
+          evidence: { code: [{ source: 'code', summary: 'staged issue' }] },
+          impact: ['Staged issues exist.'],
+          recommendation: ['Mark synthesis as fixture_provided or llm_provided.'],
+          related_rule_packs: ['common-app'],
+          runtime_verification: { required: false, level: 'static', reason: 'Static issue.' },
+          validation_status: 'not_required',
+        }],
+        rejected_issues: [],
+      }, null, 2));
+
+      const result = runNodeRaw([
+        RUNNER,
+        'mode:headless',
+        `base:${headSha}`,
+        '--source', repoRoot,
+        '--prd', fixture.paths.prd,
+        '--figma-context', fixture.paths.figmaContext,
+        '--run-id', runId,
+        '--raw-issues', rawIssues,
+        '--issue-synthesis-status', 'not_run',
+      ]);
+      expect(result.status).not.toBe(0);
+      const envelopePath = path.join(repoRoot, '.spec-first/app-audit/runs', runId, 'headless-envelope.txt');
+      expect(fs.existsSync(envelopePath)).toBe(true);
+      const envelope = fs.readFileSync(envelopePath, 'utf8');
+      expect(envelope).toContain('Reason code: issue_synthesis_status_required_with_input');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('app-audit fixture dimensions registry', () => {

@@ -660,11 +660,87 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('$canonicalGraphWorktreeCurrent');
     expect(writeProviderSource).toContain('$canonicalArtifactsAvailable');
     expect(writeProviderSource).toContain('$canonicalArtifactsCurrent');
+    expect(writeProviderSource).toContain('$canonicalGraphCurrentForTarget = if');
+    expect(writeProviderSource).not.toMatch(/\$canonicalArtifactsCurrent[\s\S]{0,260}-and\s*\(\s*if\s*\(/);
     expect(writeProviderSource).toContain('graph_bootstrap_required = ($providerBootstrapRequired -or $canonicalWorkflowMode -ne');
     expect(writeProviderSource).toContain('support_level');
     expect(writeProviderSource).toContain('project_graph_readiness');
     expect(writeProviderSource).toContain("$repoConfigStatus = 'ready'");
     expect(writeProviderSource).toContain('repo_config_status = $providerStatus');
+  });
+
+  test('PowerShell non-git folder fingerprints fail closed on traversal or hashing errors', () => {
+    const writeProviderSource = fs.readFileSync(writeProviderConfigPs1, 'utf8');
+    const graphBootstrapSource = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
+    const resolverSource = fs.readFileSync(resolveWorkspaceGraphTargetsPs1, 'utf8');
+    const sections = [
+      writeProviderSource.match(/function Get-FolderContentFingerprint[\s\S]*?function Get-ProviderArtifacts/)[0],
+      graphBootstrapSource.match(/function Get-FolderContentFingerprint[\s\S]*?function ConvertTo-CanonicalJsonValue/)[0],
+      resolverSource.match(/function Get-FolderContentFingerprint[\s\S]*?function Test-SymlinkPath/)[0],
+    ];
+
+    for (const section of sections) {
+      expect(section).toContain('-ErrorAction Stop');
+      expect(section).not.toContain('-ErrorAction SilentlyContinue');
+      expect(section).not.toMatch(/catch\s*{\s*}/);
+    }
+  });
+
+  test('PowerShell provider projection executes non-git folder canonical current branch', () => {
+    const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'spec-ps-non-git-provider-'));
+    const folder = path.join(tmpDir, 'docs-folder');
+    const factsPath = path.join(tmpDir, 'facts.json');
+    try {
+      fs.mkdirSync(folder, { recursive: true });
+      fs.writeFileSync(path.join(folder, 'README.md'), '# docs\n');
+      fs.writeFileSync(factsPath, `${JSON.stringify({
+        schema_version: 'tool-facts.v2',
+        host: 'codex',
+        platform: 'macos',
+        repo_status: 'not-git-repo',
+        target_kind: 'non-git-folder',
+        repo_root: folder,
+        baseline_ready: true,
+        host_runtime_ready: true,
+        host_ledger_pointer: null,
+        target: {
+          target_kind: 'non-git-folder',
+          target_root: folder,
+          state_write_allowed: true,
+        },
+        graph_providers: {
+          gitnexus: {
+            configured: true,
+            enabled_for_bootstrap: true,
+            required: true,
+            role: 'global_knowledge',
+            access_mode: 'live_mcp',
+            host_config_required: true,
+            dependency_status: 'ready',
+            host_config_status: 'ready',
+            capabilities: [],
+          },
+        },
+        helper_tools: {
+          'ast-grep': { result: 'ready' },
+        },
+      }, null, 2)}\n`);
+
+      const result = spawnPwsh(
+        ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', writeProviderConfigPs1, '-FactsFile', factsPath],
+        { cwd: repoRoot, encoding: 'utf8' },
+      );
+      if (!result) return;
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      const output = JSON.parse(result.stdout);
+      expect(output.repo_config_status).toMatch(/^(written|ready)$/);
+      const providerConfig = JSON.parse(fs.readFileSync(path.join(folder, '.spec-first/config/graph-providers.json'), 'utf8'));
+      expect(providerConfig.target_kind).toBe('non-git-folder');
+      expect(providerConfig.folder_snapshot.content_fingerprint).toMatch(/^sha256:/);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   test('PowerShell provider projection enforces GitNexus capability array registry shapes at runtime', () => {

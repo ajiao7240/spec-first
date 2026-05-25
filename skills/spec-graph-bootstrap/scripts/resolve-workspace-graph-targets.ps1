@@ -63,25 +63,22 @@ function Get-FolderContentFingerprint {
   param([string]$Root)
   $rootPrefix = ([System.IO.Path]::GetFullPath($Root)).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
   $lines = New-Object System.Collections.Generic.List[string]
-  try {
-    $files = @(
-      Get-ChildItem -LiteralPath $Root -File -Recurse -Force -ErrorAction SilentlyContinue |
-        ForEach-Object {
-          $full = [System.IO.Path]::GetFullPath($_.FullName)
-          if ($full.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
-            $relative = $full.Substring($rootPrefix.Length).Replace('\', '/')
-            if ($relative -notmatch '^(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|node_modules|vendor)/') {
-              [pscustomobject]@{ Relative = $relative; Full = $full }
-            }
+  $files = @(
+    Get-ChildItem -LiteralPath $Root -File -Recurse -Force -ErrorAction Stop |
+      ForEach-Object {
+        $full = [System.IO.Path]::GetFullPath($_.FullName)
+        if ($full.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
+          $relative = $full.Substring($rootPrefix.Length).Replace('\', '/')
+          if ($relative -notmatch '^(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|node_modules|vendor)/') {
+            [pscustomobject]@{ Relative = $relative; Full = $full }
           }
-        } |
-        Sort-Object Relative
-    )
-    foreach ($file in $files) {
-      $lines.Add([string]$file.Relative) | Out-Null
-      $lines.Add((Get-FileContentHash -Path $file.Full)) | Out-Null
-    }
-  } catch {
+        }
+      } |
+      Sort-Object Relative
+  )
+  foreach ($file in $files) {
+    $lines.Add([string]$file.Relative) | Out-Null
+    $lines.Add((Get-FileContentHash -Path $file.Full)) | Out-Null
   }
   return (Get-StatusHash -Text ($lines -join "`n"))
 }

@@ -10,6 +10,7 @@
 | `topology-single-repo.example.json` | synthetic 2026-05-22 | Single-repo topology gate; no workspace readiness artifact should be written. |
 | `topology-monorepo.example.json` | synthetic 2026-05-22 | Monorepo topology gate; modules are not GitNexus group members. |
 | `registry-list.kaz.gitnexus-1.6.4.captured-2026-05-22.example.json` | captured 2026-05-22, GitNexus 1.6.4 shape | Sanitized `list_repos` overlay for KAZ-like workspace. |
+| `registry-list.live-array.example.json` | captured live shape 2026-05-26 | Sanitized top-level array `list_repos` overlay. |
 | `registry-list.invalid-shape.example.json` | synthetic 2026-05-22 | Fail-closed invalid registry root. |
 | `registry-list.missing-required-field.example.json` | synthetic 2026-05-22 | Degraded registry evidence without global classifier failure. |
 | `registry-list.unknown-extra-field.example.json` | synthetic 2026-05-22 | Forward-compatible unknown-field tolerance. |

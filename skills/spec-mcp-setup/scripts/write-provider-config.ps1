@@ -624,25 +624,22 @@ function Get-FolderContentFingerprint {
   if ($script:TargetKind -ne 'non-git-folder') { return '' }
   $rootPrefix = ([System.IO.Path]::GetFullPath($RepoRoot)).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
   $lines = New-Object System.Collections.Generic.List[string]
-  try {
-    $files = @(
-      Get-ChildItem -LiteralPath $RepoRoot -File -Recurse -Force -ErrorAction SilentlyContinue |
-        ForEach-Object {
-          $full = [System.IO.Path]::GetFullPath($_.FullName)
-          if ($full.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
-            $relative = $full.Substring($rootPrefix.Length).Replace('\', '/')
-            if ($relative -notmatch '^(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|node_modules|vendor)/') {
-              [pscustomobject]@{ Relative = $relative; Full = $full }
-            }
+  $files = @(
+    Get-ChildItem -LiteralPath $RepoRoot -File -Recurse -Force -ErrorAction Stop |
+      ForEach-Object {
+        $full = [System.IO.Path]::GetFullPath($_.FullName)
+        if ($full.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
+          $relative = $full.Substring($rootPrefix.Length).Replace('\', '/')
+          if ($relative -notmatch '^(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|node_modules|vendor)/') {
+            [pscustomobject]@{ Relative = $relative; Full = $full }
           }
-        } |
-        Sort-Object Relative
-    )
-    foreach ($file in $files) {
-      $lines.Add([string]$file.Relative) | Out-Null
-      $lines.Add((Get-FileContentHash -Path $file.Full)) | Out-Null
-    }
-  } catch {
+        }
+      } |
+      Sort-Object Relative
+  )
+  foreach ($file in $files) {
+    $lines.Add([string]$file.Relative) | Out-Null
+    $lines.Add((Get-FileContentHash -Path $file.Full)) | Out-Null
   }
   return (Get-StatusHash -Text ($lines -join "`n"))
 }
@@ -1089,9 +1086,8 @@ $canonicalGraphFolderCurrent = (
   -not [string]::IsNullOrWhiteSpace($canonicalGraphFolderFingerprint) -and
   $canonicalGraphFolderFingerprint -eq $currentContentFingerprint
 )
-$canonicalArtifactsCurrent = $canonicalArtifactsAvailable -and $null -ne $canonicalGraphFacts -and $null -ne $canonicalProviderStatus -and $null -ne $canonicalImpactCapabilities -and $canonicalGraphFactsRepoRoot -eq $repoRoot -and (
-  if ($script:TargetKind -eq 'non-git-folder') { $canonicalGraphFolderCurrent } else { $canonicalGraphSourceRevisionCurrent -and $canonicalGraphWorktreeCurrent }
-)
+$canonicalGraphCurrentForTarget = if ($script:TargetKind -eq 'non-git-folder') { $canonicalGraphFolderCurrent } else { $canonicalGraphSourceRevisionCurrent -and $canonicalGraphWorktreeCurrent }
+$canonicalArtifactsCurrent = $canonicalArtifactsAvailable -and $null -ne $canonicalGraphFacts -and $null -ne $canonicalProviderStatus -and $null -ne $canonicalImpactCapabilities -and $canonicalGraphFactsRepoRoot -eq $repoRoot -and $canonicalGraphCurrentForTarget
 $canonicalWorkflowMode = if ($canonicalArtifactsCurrent -and $canonicalProviderStatus.PSObject.Properties.Name -contains 'workflow_mode') {
   $canonicalProviderStatus.workflow_mode
 } elseif ($canonicalArtifactsCurrent -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'workflow_mode') {

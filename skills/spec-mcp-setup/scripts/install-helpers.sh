@@ -27,6 +27,18 @@ write_install_provenance() {
   fi
 }
 
+load_install_provenance() {
+  local provenance_file="$1"
+  local key value
+  [ -s "$provenance_file" ] || return 0
+  while IFS='=' read -r key value; do
+    case "$key" in
+      install_source) LAST_INSTALL_SOURCE="$value" ;;
+      mirror_used) LAST_INSTALL_MIRROR_USED="$value" ;;
+    esac
+  done <"$provenance_file"
+}
+
 # run_with_mirror_fallback <mirror_env_pairs...> -- <cmd...>
 # mirror_env_pairs: KEY=VALUE entries injected on the second attempt only.
 run_with_mirror_fallback() {
@@ -457,6 +469,7 @@ export -f run_npm_global_install_attempt
 export -f run_with_mirror_fallback
 export -f reset_install_provenance
 export -f write_install_provenance
+export -f load_install_provenance
 export -f npm_mirror_env_pairs
 export -f run_install_command
 
@@ -633,8 +646,17 @@ process_cli_helper() {
     install_status="action-required"
     install_command="$(install_command_for "$name" "$os")"
     if [ "$MODE" = "install" ]; then
+      local provenance_file
+      local install_succeeded="false"
+      provenance_file="$(mktemp 2>/dev/null || echo /tmp/spec-first-helper-prov.$$)"
+      : >"$provenance_file" 2>/dev/null || true
       reset_install_provenance
-      if run_install_command_with_timeout "$name" "$os" "install:$name" && command -v "$name" >/dev/null 2>&1; then
+      if LAST_INSTALL_PROVENANCE_FILE="$provenance_file" run_install_command_with_timeout "$name" "$os" "install:$name"; then
+        install_succeeded="true"
+        load_install_provenance "$provenance_file"
+      fi
+      rm -f "$provenance_file" 2>/dev/null || true
+      if [ "$install_succeeded" = "true" ] && command -v "$name" >/dev/null 2>&1; then
         dependency_status="ready"
         install_status="ready"
         status="ready"

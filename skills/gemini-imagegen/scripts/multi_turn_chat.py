@@ -104,7 +104,13 @@ class ImageChat:
             filename = f"image_{timestamp}_{self.image_count}.jpg"
         
         filepath = self.output_dir / filename
-        self.current_image.save(filepath)
+        image = self.current_image
+        save_kwargs = {}
+        if filepath.suffix.lower() in {".jpg", ".jpeg"}:
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+            save_kwargs["format"] = "JPEG"
+        image.save(filepath, **save_kwargs)
         return str(filepath)
     
     def load_image(self, path: str) -> Image.Image:

@@ -357,6 +357,9 @@ describe('gemini-imagegen deterministic prompt/script drift contracts', () => {
     expect(generate).toContain('Output file path (e.g., output.jpg)');
     expect(edit).toContain('python edit_image.py input.png "edit instruction" output.jpg');
     expect(multiTurn).toContain('filename = f"image_{timestamp}_{self.image_count}.jpg"');
+    expect(multiTurn).toContain('if filepath.suffix.lower() in {".jpg", ".jpeg"}:');
+    expect(multiTurn).toContain('image = image.convert("RGB")');
+    expect(multiTurn).toContain('save_kwargs["format"] = "JPEG"');
     expect(library).toContain('def __init__(self, api_key: str | None = None, model: Model = PRO):');
   });
 });

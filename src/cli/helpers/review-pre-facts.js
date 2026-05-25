@@ -470,8 +470,26 @@ function validateInvocationBoundary(options) {
 
   const runRoot = tempRunRoot(options.runId);
   const baseRoot = path.dirname(runRoot);
-  fs.mkdirSync(runRoot, { recursive: true });
+  const osTempReal = safeRealpath(os.tmpdir());
+  const baseAncestor = nearestExistingParent(baseRoot);
+  const baseAncestorReal = safeRealpath(baseAncestor);
+  if (!osTempReal || !baseAncestorReal || (!isInsidePath(osTempReal, baseAncestorReal) && osTempReal !== baseAncestorReal)) {
+    return {
+      ok: false,
+      reason_code: 'output_temp_symlink_escape',
+      message: `temp artifact base must stay under ${os.tmpdir()}`,
+    };
+  }
+  fs.mkdirSync(baseRoot, { recursive: true });
   const baseRootReal = safeRealpath(baseRoot);
+  if (!osTempReal || !baseRootReal || (!isInsidePath(osTempReal, baseRootReal) && osTempReal !== baseRootReal)) {
+    return {
+      ok: false,
+      reason_code: 'output_temp_symlink_escape',
+      message: `temp artifact base must stay under ${os.tmpdir()}`,
+    };
+  }
+  fs.mkdirSync(runRoot, { recursive: true });
   const runRootReal = safeRealpath(runRoot);
   if (!baseRootReal || !runRootReal || (!isInsidePath(baseRootReal, runRootReal) && baseRootReal !== runRootReal)) {
     return {

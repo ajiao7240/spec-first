@@ -60,7 +60,7 @@ function helpText() {
     '  --run-id <id>                 运行 ID (默认自动生成)',
     '  --run-dir <dir>               运行目录 (默认 <source>/.spec-first/app-audit/runs/<run-id>)',
     '  --raw-issues <path>           已经审过的 raw issues JSON;默认查找 <run-dir>/input/raw-issues.json',
-    '  --issue-synthesis-status <s>  not_run | llm_provided | fixture_provided (默认 not_run)',
+    '  --issue-synthesis-status <s>  not_run | llm_provided | fixture_provided (无 raw issues 默认 not_run;有 raw issues 时必须 llm_provided 或 fixture_provided)',
     '  --max-files <n>               传给 metadata/diff 扫描的最大文件数',
     '  --prd-max-bytes <n>           传给 PRD 抽取的最大字节数',
     '  --help                        打印用法并退出',
@@ -505,7 +505,7 @@ function main(argv) {
       fs.writeFileSync(stagedRawIssues, `${JSON.stringify({ issues: [], rejected_issues: [] }, null, 2)}\n`);
       autoStubbed = true;
     }
-    if (!autoStubbed && !options.issueSynthesisStatus) {
+    if (!autoStubbed && (!options.issueSynthesisStatus || options.issueSynthesisStatus === 'not_run')) {
       emitFailure(
         'issue_synthesis_status_required_with_input',
         'Staged raw-issues 文件存在时,必须显式提供 --issue-synthesis-status (llm_provided 或 fixture_provided);runner 不会替调用方判断 issue 来源。',

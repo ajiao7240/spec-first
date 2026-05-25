@@ -1322,6 +1322,47 @@ describe('review-pre-facts helper modes', () => {
     }
   });
 
+  test('output boundary rejects symlinked temp artifact base before writing artifacts', () => {
+    const repo = tempRepo();
+    const controlled = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-review-pre-facts-tmp-root-'));
+    const fakeTmp = path.join(controlled, 'fake-tmp');
+    const outside = path.join(controlled, 'outside');
+    const previousTmpdir = process.env.TMPDIR;
+    const runId = 'symlink-root-probe';
+    try {
+      fs.mkdirSync(outside, { recursive: true });
+      process.env.TMPDIR = fakeTmp;
+      const activeTmp = os.tmpdir();
+      fs.mkdirSync(path.join(activeTmp, 'spec-first'), { recursive: true });
+      try {
+        fs.symlinkSync(outside, path.join(activeTmp, 'spec-first', 'review-pre-facts'), 'dir');
+      } catch (_error) {
+        return;
+      }
+      const result = captureRun([
+        '--mode', 'one-shot',
+        '--workflow', 'doc-review',
+        '--document', 'docs/plans/plan.md',
+        '--repo', repo,
+        '--run-id', runId,
+        '--summary-dir', path.join(activeTmp, 'spec-first', 'review-pre-facts', runId),
+        '--output', path.join(activeTmp, 'spec-first', 'review-pre-facts', runId, 'codebase-facts.txt'),
+      ], repo);
+      expect(result.code).toBe(2);
+      expect(result.json.error.code).toBe('output_temp_symlink_escape');
+      expect(fs.existsSync(path.join(outside, runId, 'codebase-facts.txt'))).toBe(false);
+      expect(fs.existsSync(path.join(outside, runId, 'run-summary.json'))).toBe(false);
+    } finally {
+      if (previousTmpdir === undefined) {
+        delete process.env.TMPDIR;
+      } else {
+        process.env.TMPDIR = previousTmpdir;
+      }
+      fs.rmSync(repo, { recursive: true, force: true });
+      fs.rmSync(controlled, { recursive: true, force: true });
+    }
+  });
+
   test('resolveTargets rejects absolute paths, dot-dot escapes, symlink escapes, and missing files', () => {
     const repo = tempRepo();
     const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-review-pre-facts-outside-'));

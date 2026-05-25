@@ -341,10 +341,10 @@ function buildLimitations({ mode, registryState, groupState, repos }) {
 }
 
 function normalizeRegistrySnapshot(snapshot) {
-  if (snapshot === null || Array.isArray(snapshot) || typeof snapshot !== 'object') {
-    throw reasonError('invalid-registry-snapshot', 'list_repos snapshot root must be an object');
+  if (snapshot === null || (typeof snapshot !== 'object' && !Array.isArray(snapshot))) {
+    throw reasonError('invalid-registry-snapshot', 'list_repos snapshot root must be an object or array');
   }
-  const rawRepos = snapshot.repos || snapshot.repositories || snapshot.items;
+  const rawRepos = Array.isArray(snapshot) ? snapshot : (snapshot.repos || snapshot.repositories || snapshot.items);
   if (!Array.isArray(rawRepos)) {
     return {
       status: 'unavailable',
