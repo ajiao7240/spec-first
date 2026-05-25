@@ -27,10 +27,10 @@ spec_id: 2026-05-25-001-gitnexus-only-graph-provider
 - Provider consumption contract: `docs/contracts/graph-provider-consumption.md`
 - Evidence policy: `docs/contracts/graph-evidence-policy.md`
 - GitNexus capability catalog: `docs/contracts/gitnexus-capability-catalog.md`
-- Setup source: `skills/spec-mcp-setup/mcp-tools.json`, `skills/spec-mcp-setup/scripts/write-provider-config.sh`, `skills/spec-mcp-setup/scripts/write-provider-config.ps1`
-- Bootstrap source: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`, `skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1`
+- Setup source: `skills/spec-mcp-setup/mcp-tools.json`, `skills/spec-mcp-setup/scripts/write-provider-config.sh`, `skills/spec-mcp-setup/scripts/write-provider-config.ps1`, `skills/spec-mcp-setup/scripts/verify-tools.*`, `skills/spec-mcp-setup/references/supported-mcp-tools.md`
+- Bootstrap source: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`, `skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1`, `skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.*`
 - Review pre-facts helper: `src/cli/helpers/review-pre-facts.js`
-- Runtime/catalog source: `scripts/generate-runtime-capability-catalog.js`, `docs/catalog/runtime-capabilities.md`, `src/cli/runtime-tools-index.js`
+- Runtime/catalog source: `scripts/generate-runtime-capability-catalog.js`, `docs/catalog/runtime-capabilities.md`, `src/cli/runtime-tools-index.js`, checked-in host entry docs `AGENTS.md` and `CLAUDE.md`
 - Quality gate source: `scripts/run-ai-dev-quality-gate.js`, `src/cli/contracts/quality-gates/branch-protection-policy.json`, `.github/workflows/ai-dev-quality-gate.yml`
 - Public workflow prose: `skills/spec-code-review/SKILL.md`, `skills/spec-plan/SKILL.md`, `skills/spec-work/SKILL.md`, `skills/spec-debug/SKILL.md`, `skills/spec-doc-review/SKILL.md`, `skills/spec-graph-bootstrap/SKILL.md`, `skills/using-spec-first/SKILL.md`
 
@@ -38,7 +38,7 @@ Current compiled graph facts are `dirty-advisory`; they are useful for orientati
 
 ## Goals
 
-- G1. Remove CRG from active install/setup/bootstrap/readiness/review/docs/tests without leaving hidden provider fallback.
+- G1. Remove CRG from active install/setup/bootstrap/workspace-target/readiness/review/docs/tests without leaving hidden provider fallback.
 - G2. Preserve or improve CRG-era review-impact capability through GitNexus-backed canonical impact/review facts.
 - G3. Keep refresh ownership explicit: setup projects, graph-bootstrap refreshes, downstream consumes and handoffs.
 - G4. Support explicit non-git folder indexing via GitNexus `analyze --skip-git` with content/folder freshness instead of fake Git metadata.
@@ -60,14 +60,16 @@ Current compiled graph facts are `dirty-advisory`; they are useful for orientati
 | Registry/install | `skills/spec-mcp-setup/mcp-tools.json` defines `code-review-graph`, `uv`/`uvx`, package pin, warmup and optional live MCP | Remove CRG tool entry; GitNexus remains the only graph-provider registry entry |
 | Setup projection | `write-provider-config.*` reads CRG package/version, emits CRG commands, command hash, artifacts, derived readiness and `selection.impact_context` | Emit GitNexus-only projection and GitNexus impact/review capability mapping |
 | Setup detection | `detect-tools.*`, `verify-tools.*`, `configure-host.*`, `install-mcp.*`, `uninstall-mcp.*` can treat CRG as setup subject | Remove CRG from baseline and normal install flow; residual host config is explicit cleanup advisory |
+| Setup reference catalog | `skills/spec-mcp-setup/references/supported-mcp-tools.md` describes CRG as required graph provider and pinned setup path | Update to GitNexus-only graph provider catalog |
 | Bootstrap preflight | `bootstrap-providers.*` allows provider id `code-review-graph`, validates `uvx` command shapes, checks CRG pin/fingerprint | Remove CRG branch and reason codes; unsupported provider ids fail closed |
 | Bootstrap refresh | CRG `build`, `update --base`, `status`, `status --repo` can run and write provider status | GitNexus owns full/incremental/folder refresh |
+| Workspace target resolver | `resolve-workspace-graph-targets.*` can carry CRG configured/query-ready/status facts into parent workspace advisory output | Emit GitNexus-only provider readiness and ignore historical CRG artifacts for readiness |
 | Provider artifacts | `.spec-first/providers/code-review-graph/raw/*`, `status.json`, `normalized/impact-capabilities.json` | No active CRG artifacts; GitNexus normalized impact/review envelope replaces it |
 | Canonical artifacts | `graph-facts.capabilities.impact_context` and `bootstrap-impact-capabilities.impact_radius/review_support` key off CRG readiness | Compute from GitNexus query-ready impact surfaces plus explicit fallback capability |
 | Review pre-facts | `review-pre-facts.js` can emit `tool_name="code-review-graph.query"` | GitNexus-only query plan or bounded direct reads |
 | Workflow prose | `$spec-code-review` calls CRG primary diff-impact provider | GitNexus-only provider evidence, direct-read fallback |
 | Tests / CI | shell, Jest and quality gate tests assert CRG setup/bootstrap behavior | Rewrite tests to assert no active CRG provider path and GitNexus parity |
-| Runtime/catalog docs | Runtime capability catalog and generator describe CRG as current provider/tool fact source | Regenerate GitNexus-only catalog wording and update generator/tests |
+| Runtime/catalog/docs/evals | Runtime capability catalog, generator, checked-in host entry docs, active user manuals, setup reference docs and workflow eval fixtures describe CRG as current provider/tool fact source | Regenerate GitNexus-only catalog/guidance wording and update generator/tests/evals |
 | Upgrade projection | Existing `.spec-first/config/graph-providers.json` can still contain CRG commands after upgrade | setup rewrites to GitNexus-only; graph-bootstrap rejects stale CRG projection before command execution |
 
 ## Key Decisions
@@ -82,7 +84,7 @@ Downstream workflows already know how to read `.spec-first/impact/bootstrap-impa
 
 ### D3. Remove CRG from setup and bootstrap, not only from prose
 
-CRG is active through registry entries, command arrays, artifact paths, provider fingerprint logic, shell tests and workflow guidance. A successful migration must make CRG impossible to execute from default setup/bootstrap paths, not merely stop recommending it.
+CRG is active through registry entries, command arrays, artifact paths, provider fingerprint logic, workspace target readiness facts, shell tests and workflow guidance. A successful migration must make CRG impossible to execute from default setup/bootstrap paths and impossible to appear as active workspace readiness, not merely stop recommending it.
 
 ### D4. Treat non-git folders as folder targets, not degraded Git repos
 
@@ -100,17 +102,29 @@ After U2, source setup emits GitNexus-only `graph-providers.v1`. If a user runs 
 
 GitNexus parity for review support requires related-test evidence. The adapter should prefer GitNexus `impact --include-tests` or an equivalent native result with test provenance. If the current GitNexus surface cannot prove related tests in fixtures, the migration must not claim no-downgrade completion; it must block CRG removal or mark related-test support as candidate-only and keep U1/U5 incomplete.
 
+**R17a triggered: operational branching**
+
+如果 U1 在 fixtures 中无法证明 GitNexus related-test evidence（即 R17a gate 触发）：
+
+1. **U1 + U5 Phase 1 仍执行**：写入 GitNexus normalized facts，但 `related_tests="candidate-only"`，并在 `bootstrap-impact-capabilities.review_support.primary_providers` 标记为 `candidate-only` 而非 ready。
+2. **U2 / U3 / U6 / U7 暂停**：CRG 删除阻塞，因为它会让 review-support parity 从已有完整覆盖降级为 candidate-only。U4（non-git folder support）独立于 review-impact parity，可在 U1 完成后单独推进。
+3. **创建 follow-up brainstorm**（建议命名 `gitnexus-related-test-evidence`）追踪 GitNexus `impact --include-tests` 或等价能力补齐；该 follow-up 完成并通过 R17a 验证后，才恢复 U2-U9。
+4. **CHANGELOG.md 记录**：candidate-only 状态、阻断原因、follow-up 链接；release notes 不得宣称完整 review-impact parity。
+5. 此分支不重写 Sequencing；恢复执行时仍按 step 3 (U2) → step 4 (U3) → step 5 (U5 complete) 顺序进行。
+
 ### D8. Keep `graph-providers.v1` for this migration
 
 The schema name can remain `graph-providers.v1` even when only GitNexus is present. Renaming the schema would add avoidable migration work and distract from provider removal. The implementation should instead make the v1 content GitNexus-only and reject unknown provider keys.
 
 ### D9. Keep `.code-review-graph/` ignored as residual data for one migration window
 
-Managed `.gitignore` may keep `.code-review-graph/` temporarily so old provider storage does not pollute user diffs. Tests and docs must label it as residual local artifact ignore, not active provider support. A later cleanup can remove the ignore entry after users have had a deprecation window.
+Managed `.gitignore` may keep `.code-review-graph/` temporarily so old provider storage does not pollute user diffs. Tests and docs must label it as residual local artifact ignore, not active provider support.
 
-### D10. Keep legacy CRG uninstall only as explicit cleanup, if technically cheap
+Exit criterion: remove the `.code-review-graph/` ignore entry in the first minor release after this migration ships, once users have had one release cycle to run setup. Track the cleanup as a follow-up item in `CHANGELOG.md` Unreleased notes immediately when this migration version is released.
 
-`uninstall-mcp --tool code-review-graph` may remain as a legacy cleanup command only if it is detached from normal registry iteration and baseline readiness. If preserving it requires keeping CRG in `mcp-tools.json` or active setup detection, delete the command path and provide manual cleanup guidance instead.
+### D10. Legacy CRG uninstall: attempt static cleanup allowlist; fall back to manual guidance
+
+Attempt to preserve `uninstall-mcp --tool code-review-graph` as a legacy cleanup command by routing it through a static cleanup allowlist detached from `mcp-tools.json` registry iteration and baseline readiness. If implementation requires any change to `mcp-tools.json` tool entries or active setup detection scripts to support this path, remove the command path entirely and replace it with manual cleanup guidance in the user manual. The implementer for U2 makes this call and documents the outcome in CHANGELOG.md.
 
 ## Target Artifact Contract
 
@@ -171,29 +185,26 @@ CRG residual paths are non-canonical:
 
 They may be named only in cleanup docs or migration warnings, never in readiness truth.
 
+### Active-source cleanup scope
+
+The migration must treat these as active source, not generated runtime mirrors:
+
+- `AGENTS.md` and `CLAUDE.md`
+- `skills/spec-mcp-setup/references/supported-mcp-tools.md`
+- `skills/spec-graph-bootstrap/evals/expected-behavior-cases.json`
+- active user manual pages under `docs/05-用户手册/`
+
+Generated mirrors under `.claude/`, `.codex/` and `.agents/skills/` remain excluded from source edits and are regenerated only through `spec-first init --claude|--codex` when needed.
+
 ## Implementation Units
 
-## Requirement Traceability Matrix
-
-| Requirements | Covered by |
-| --- | --- |
-| R1-R5 Provider hard cut and no new provider | U1, U2, U3, U5, U6, U7 |
-| R6-R9 setup/bootstrap ownership and no downstream refresh | U2, U3, U5, U6 |
-| R10-R16 refresh modes, incremental baseline and commit metadata boundary | U3, U4, U8 |
-| R17-R20 GitNexus review-impact parity and scope authority | U1, U5 |
-| R21-R25 non-git folder target | U4 |
-| R26-R28 mutation boundary | U3, U4, U5, U6 |
-| R29-R32 docs, migration and release claim boundary | U6, U9 |
-| R33-R37 CRG lifecycle removal from setup/bootstrap | U2, U3, U8 |
-| R38-R41 canonical impact/readiness and review pre-facts migration | U1, U5 |
-| R42-R44 workflow prose, tests and no-CRG-provider guard | U6, U7 |
-| R45-R48 residual data, runtime catalog, stale projection and source/runtime boundary | U6, U7, U8, U9 |
+以下 U1-U9 为本次迁移的执行单元；需求覆盖矩阵（Requirement Traceability Matrix）见 U9 之后。
 
 ### U1. Add GitNexus canonical impact adapter
 
 **Goal:** Give GitNexus the canonical impact/review slot before CRG removal.
 
-**Requirements:** R1, R4, R5, R17, R18, R19, R20, R38, R39
+**Requirements:** R1, R4, R5, R17, R17a, R18, R19, R20, R38, R39
 
 **Files:**
 
@@ -208,9 +219,10 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 
 **Approach:**
 
+- **Pre-work (baseline scan):** 在开始任何删除操作前，运行 Verification Plan 中的 rg 扫描命令，记录当前 CRG 全量出现位置，与 [Current CRG Touchpoints 表](#current-crg-touchpoints) 对账。解决未覆盖的差异（包括 workspace 层、generated template、checked-in host entry docs 中的路径）后再进入实现；确保 Surface Inventory 不遗漏任何活跃 CRG 路径。
 - Extend `write_normalized_artifacts` for `gitnexus` to write `normalized/impact-capabilities.json`.
 - Fill GitNexus capabilities from setup catalog plus query proof: `detect_changes`, `impact`, `execution_flow`, `route_api_evidence`, `shape_check`, `related_tests` when supported by checked-in baseline and query-ready provider status.
-- Require related-test proof through GitNexus `impact --include-tests` or equivalent fixture-backed native output before marking review-support parity complete.
+- Require related-test proof through GitNexus `impact --include-tests` or equivalent fixture-backed native output before marking review-support parity complete (R17a gate: if proof is unavailable, mark `related_tests="candidate-only"` and block CRG deletion for review-support surfaces).
 - Change aggregate `graph-facts.capabilities.impact_context` to read GitNexus impact support, not CRG readiness.
 - Change `bootstrap-impact-capabilities.v1` producer so `impact_radius` and `review_support` primary providers come from GitNexus.
 - Preserve limitations: provider readiness is not semantic proof; review findings still require diff/source/test/log support.
@@ -235,18 +247,22 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 - Modify: `skills/spec-mcp-setup/scripts/write-provider-config.ps1`
 - Modify: `skills/spec-mcp-setup/scripts/detect-tools.sh`
 - Modify: `skills/spec-mcp-setup/scripts/detect-tools.ps1`
+- Modify: `skills/spec-mcp-setup/scripts/verify-tools.sh`
+- Modify: `skills/spec-mcp-setup/scripts/verify-tools.ps1`
 - Modify: `skills/spec-mcp-setup/scripts/configure-host.sh`
 - Modify: `skills/spec-mcp-setup/scripts/configure-host.ps1`
 - Modify: `skills/spec-mcp-setup/scripts/install-mcp.sh`
 - Modify: `skills/spec-mcp-setup/scripts/install-mcp.ps1`
 - Modify: `skills/spec-mcp-setup/scripts/uninstall-mcp.sh`
 - Modify: `skills/spec-mcp-setup/scripts/uninstall-mcp.ps1`
+- Modify: `skills/spec-mcp-setup/references/supported-mcp-tools.md`
 - Test: `tests/unit/mcp-setup.sh`
 - Test: `tests/unit/mcp-setup-powershell-contracts.test.js`
 
 **Approach:**
 
 - Remove the CRG entry from `mcp-tools.json`.
+- `supported-mcp-tools.md` 在 U2 中仅删除 CRG tool 描述行（与 mcp-tools.json 的 entry 一一对应）；GitNexus 行的完整 prose 改写在 U6 完成。两次编辑互不重叠，U6 不重新引入 CRG active provider 引用。
 - Remove CRG package/version extraction and command hash computation from setup writers.
 - Emit only `providers.gitnexus` in `graph-providers.v1`.
 - Change `selection` to GitNexus-only or explicit fallback capability: `global_knowledge="gitnexus"`, `impact_context="gitnexus"`, `context_selection="gitnexus"`.
@@ -262,6 +278,7 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 - `graph-providers.json.providers | keys == ["gitnexus"]`.
 - `provider-artifacts.json.providers` has no `code-review-graph`.
 - Setup baseline does not mention CRG as pending, ready, skipped or optional.
+- `verify-tools.*` output and supported tools reference do not describe CRG as required, optional, pending, ready, skipped or warmable.
 
 ### U3. Remove CRG from graph-bootstrap execution
 
@@ -273,10 +290,14 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 
 - Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`
 - Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1`
+- Modify: `skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh`
+- Modify: `skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.ps1`
 - Modify: `skills/spec-graph-bootstrap/SKILL.md`
 - Test: `tests/unit/spec-graph-bootstrap.sh`
 - Test: `tests/unit/bootstrap-providers-powershell-contracts.test.js`
 - Test: `tests/unit/spec-graph-bootstrap-contracts.test.js`
+- Test: `tests/unit/resolve-workspace-graph-targets-powershell-contracts.test.js`
+- Test: `tests/unit/workspace-nested-topology.test.js`
 
 **Approach:**
 
@@ -284,18 +305,22 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 - Remove CRG command shape validation, package identity functions, projection stale failures and version-unverifiable reason codes.
 - Remove CRG incremental sentinel replacement logic.
 - Remove CRG raw log and normalized artifact writing.
-- Update dirty ignore policy carefully: keep `.code-review-graph/` ignored only if treating residual provider data as setup-owned/noise is still desired. Do not let it imply active provider support.
+- Remove CRG from workspace target advisory provider summaries; parent workspace target facts must not expose CRG configured/query-ready/status fields as active readiness.
+- Update dirty ignore policy per D9: keep `.code-review-graph/` ignored for one migration window as residual artifact protection; tests and prose must explicitly label this as residual ignore, not active provider support. D9 的 exit criterion 在迁移版本发布后的下一个 minor release 移除该 ignore 条目。
 - Update bootstrap report and final response examples so they list GitNexus-only readiness.
+- **Pull stale projection gate from U8:** Add stale CRG projection rejection logic here so the gate is live immediately after U3 ships. If `.spec-first/config/graph-providers.json` contains any provider key other than `gitnexus`, emit `action-required` with message "provider projection is stale; run `$spec-mcp-setup` to update before running graph-bootstrap" before executing any provider commands.
 
 **Test scenarios:**
 
 - A projected `providers["code-review-graph"]` fixture fails with `unsupported-provider-command`.
+- Stale `.spec-first/config/graph-providers.json` containing CRG provider key causes bootstrap to emit `action-required` before any provider command is executed, with recommendation to rerun `$spec-mcp-setup`.
 - Full bootstrap runs only GitNexus analyze/status/query proof.
 - Incremental bootstrap runs only GitNexus no-force analyze after clean baseline checks.
 - Incremental requires prior query-ready GitNexus status, valid ancestor `last_indexed_commit`, unchanged projection/fingerprint and `requires_clean_full_refresh=false`.
 - Graph-affecting dirty incremental request downgrades to full dirty-advisory or action-required; it never reports clean incremental success.
 - Bootstrap report has no CRG row.
 - Existing `.spec-first/providers/code-review-graph/**` does not make bootstrap ready.
+- Workspace graph target output has no active `providers["code-review-graph"]` block and ignores old `.spec-first/providers/code-review-graph/status.json` as residual data.
 
 ### U4. Implement explicit non-git folder target support
 
@@ -311,11 +336,14 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 - Modify: `skills/spec-mcp-setup/scripts/write-provider-config.ps1`
 - Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`
 - Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1`
+- Modify: `skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh`
+- Modify: `skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.ps1`
 - Modify: `docs/contracts/graph-provider-consumption.md`
 - Modify: `docs/contracts/workspace-gitnexus-consumption.md`
 - Test: `tests/unit/mcp-setup.sh`
 - Test: `tests/unit/spec-graph-bootstrap.sh`
 - Test: `tests/unit/resolve-workspace-graph-targets-powershell-contracts.test.js`
+- Test: `tests/unit/workspace-nested-topology.test.js`
 
 **Approach:**
 
@@ -351,6 +379,11 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 
 **Approach:**
 
+> **分阶段执行（对应 Sequencing 中的 U5 partial / U5 complete）：**
+> - Phase 1（step 2，U2/U3 之前）：在 CRG 仍存在于 registry 的情况下，添加 GitNexus query plan 发射逻辑和 related-tests 映射，并加入测试门控。此阶段的测试必须在 CRG 还在时通过。
+> - Phase 2（step 5，U3 完成后）：移除 `code-review-graph.query` 路由和 `$spec-code-review` 中的 CRG prose。此阶段的测试要求 CRG 已不存在于 source。
+> 两个阶段不得合并为一次 PR；Phase 1 通过后才能进行 U2/U3 的 CRG 删除。
+
 - Remove `readiness.target_provider?.provider === "code-review-graph" ? "code-review-graph.query" : ...`.
 - Always emit GitNexus query plan when graph-fresh GitNexus has a query surface; otherwise emit bounded direct-read candidates.
 - For code review, map GitNexus `detect_changes` / `impact --include-tests` / route/API/shape surfaces into a bounded `<graph-review-evidence>` or equivalent evidence block.
@@ -375,14 +408,26 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 
 - Modify: `README.md`
 - Modify: `README.zh-CN.md`
+- Modify: `AGENTS.md`
+- Modify: `CLAUDE.md`
 - Modify: `docs/05-用户手册/README.md`
+- Modify: `docs/05-用户手册/01-快速开始.md`
+- Modify: `docs/05-用户手册/02-核心概念.md`
 - Modify: `docs/05-用户手册/04-workflows-artifacts-map.md`
+- Modify: `docs/05-用户手册/04-常见问题.md`
 - Modify: `docs/05-用户手册/05-最佳实践.md`
+- Modify: `docs/05-用户手册/08-三种开发模式.md`
+- Modify: `docs/05-用户手册/09-首次工作流走查.md`
+- Modify: `docs/05-用户手册/12-gitignore参考.md`
+- Modify: `docs/05-用户手册/13-代码图谱Provider作用域与差异化.md`
+- Modify: `docs/05-用户手册/14-GitNexus-全流程执行分析.md`
+- Modify: `docs/05-用户手册/16-GitNexus-增量刷新机制与spec-first刷新策略评估.md`
 - Modify: `docs/contracts/graph-evidence-policy.md`
 - Modify: `docs/contracts/graph-provider-consumption.md`
 - Modify: `docs/contracts/source-runtime-customization-boundary.md`
 - Modify: `docs/catalog/runtime-capabilities.md`
 - Modify: `scripts/generate-runtime-capability-catalog.js`
+- Modify: `skills/spec-mcp-setup/references/supported-mcp-tools.md`
 - Modify: `skills/spec-plan/SKILL.md`
 - Modify: `skills/spec-work/SKILL.md`
 - Modify: `skills/spec-debug/SKILL.md`
@@ -390,6 +435,7 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 - Modify: `skills/spec-graph-bootstrap/SKILL.md`
 - Modify: `skills/spec-mcp-setup/SKILL.md`
 - Modify: `skills/using-spec-first/SKILL.md`
+- Modify: `skills/spec-graph-bootstrap/evals/expected-behavior-cases.json`
 - Modify: `templates/claude/commands/spec/graph-bootstrap.md`
 - Modify: `templates/claude/commands/spec/mcp-setup.md`
 - Test: `tests/unit/graph-provider-consumption-contracts.test.js`
@@ -402,12 +448,16 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 - Test: `tests/unit/user-manual-contracts.test.js`
 - Test: `tests/unit/readme-language-split.test.js`
 - Test: `tests/unit/runtime-contract-boundary.test.js`
+- Test: `tests/unit/runtime-capability-catalog.test.js`
+- Test: `tests/unit/init-dry-run.test.js`
 
 **Approach:**
 
 - Replace “GitNexus/code-review-graph readiness” with “GitNexus readiness”.
 - Replace “code-review-graph build” in no-refresh boundaries with provider-neutral “provider index rebuild” or GitNexus-only wording where appropriate.
 - Keep historical user manuals, but add retired/historical labels where they discuss CRG as active behavior.
+- Sweep active user manual pages, checked-in host entry docs and workflow eval fixtures; do not rely only on README / 04 / 05 edits.
+- Codex runtime regeneration 完全从 skill source 派生，本仓库不存在 host-specific codex templates；本单元因此不列 `templates/codex/*`。如基线扫描（U1 Pre-work）发现 codex 侧确有 host-specific templates，需补回 Files 列表并重新跑 U6 测试，不得跳过。
 - Update graph evidence policy provider roles: GitNexus is graph/impact/review provider; ast-grep/direct reads/tests/logs are fallback; CRG is historical only.
 - Update `$spec-graph-bootstrap` prose to describe GitNexus full/incremental/folder modes and no CRG execution.
 - Regenerate or edit `docs/catalog/runtime-capabilities.md` through its source generator so runtime catalog facts no longer list CRG as current provider fact source.
@@ -415,6 +465,7 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 **Test scenarios:**
 
 - Public docs do not describe CRG as current required/default/fallback provider.
+- `AGENTS.md`, `CLAUDE.md`, setup reference docs and eval fixtures do not describe CRG as current provider or current test surface.
 - Workflow prose does not say “use code-review-graph”.
 - Historical analysis docs can still mention CRG with retired/historical labels.
 - README quickstart recommends GitNexus-only graph readiness.
@@ -424,24 +475,24 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 
 **Goal:** Prevent CRG provider paths from returning.
 
-**Requirements:** R29, R30, R43, R44, R45, R46
+**Requirements:** R29, R30, R43, R44a, R44b, R45, R46
 
 **Files:**
 
-- Modify: `tests/unit/no-crg-runtime-contracts.test.js`
 - Modify: `scripts/run-ai-dev-quality-gate.js`
 - Modify: `.github/workflows/ai-dev-quality-gate.yml`
 - Modify: `src/cli/contracts/quality-gates/branch-protection-policy.json`
-- Modify: `tests/unit/runtime-tools-index.test.js`
-- Modify: `tests/unit/no-graph-fast-path-contracts.test.js`
-- Modify: `tests/unit/gitignore-policy.test.js`
-- Modify: `tests/unit/npm-install-matrix-smoke.test.js`
-- Modify: `tests/unit/branch-protection-policy.test.js`
 - Modify: `src/cli/gitignore-policy.js`
-- Test: `tests/unit/no-crg-runtime-contracts.test.js`
-- Test: `tests/unit/runtime-tools-index.test.js`
-- Test: `tests/unit/no-graph-fast-path-contracts.test.js`
-- Test: `tests/unit/branch-protection-policy.test.js`
+- Test (assertions updated and run): `tests/unit/no-crg-runtime-contracts.test.js`
+- Test (assertions updated and run): `tests/unit/runtime-tools-index.test.js`
+- Test (assertions updated and run): `tests/unit/no-graph-fast-path-contracts.test.js`
+- Test (assertions updated and run): `tests/unit/runtime-capability-catalog.test.js`
+- Test (assertions updated and run): `tests/unit/resolve-workspace-graph-targets-powershell-contracts.test.js`
+- Test (assertions updated and run): `tests/unit/workspace-nested-topology.test.js`
+- Test (assertions updated and run): `tests/unit/branch-protection-policy.test.js`
+- Test (assertions updated and run): `tests/unit/init-dry-run.test.js`
+- Test (assertions updated and run): `tests/unit/gitignore-policy.test.js`
+- Test (assertions updated and run): `tests/unit/npm-install-matrix-smoke.test.js`
 
 **Approach:**
 
@@ -449,10 +500,14 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 - Add active-provider denylist checks for:
   - `skills/spec-mcp-setup/mcp-tools.json`
   - `skills/spec-mcp-setup/scripts/write-provider-config.*`
+  - `skills/spec-mcp-setup/scripts/verify-tools.*`
+  - `skills/spec-mcp-setup/references/supported-mcp-tools.md`
   - `skills/spec-graph-bootstrap/scripts/bootstrap-providers.*`
+  - `skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.*`
+  - `skills/spec-graph-bootstrap/evals/expected-behavior-cases.json`
   - `src/cli/helpers/review-pre-facts.js`
   - active workflow prose
-  - README / runtime tools catalog
+  - README / checked-in host entry docs / runtime tools catalog
 - Allow CRG mentions only in historical docs, migration docs, cleanup docs, changelog and test names that explicitly enforce no-CRG behavior.
 - Keep `.code-review-graph/` in managed `.gitignore` for one migration window as residual local artifact protection. Tests must explain it as residual ignore, not active provider support.
 - Keep no-CRG-provider coverage in branch-protection/quality-gate policy so changes to workflow, setup, review or provider contracts continue to run the guard.
@@ -460,6 +515,7 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 **Test scenarios:**
 
 - Active source scan finds no CRG install/refresh/use path.
+- Active source scan finds no CRG workspace readiness, setup reference or eval-fixture provider path.
 - Historical docs are excluded only with explicit allowlist.
 - CI quality gate runs no-CRG-provider tests.
 - Branch-protection policy still covers no-CRG-provider guard paths.
@@ -476,16 +532,19 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 - Modify: `skills/spec-mcp-setup/scripts/write-provider-config.ps1`
 - Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh`
 - Modify: `skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1`
+- Modify: `skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh`
+- Modify: `skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.ps1`
 - Modify: `skills/spec-mcp-setup/SKILL.md`
 - Modify: `skills/spec-graph-bootstrap/SKILL.md`
 - Test: `tests/unit/mcp-setup.sh`
 - Test: `tests/unit/spec-graph-bootstrap.sh`
 - Test: `tests/unit/bootstrap-providers-powershell-contracts.test.js`
+- Test: `tests/unit/resolve-workspace-graph-targets-powershell-contracts.test.js`
 
 **Approach:**
 
 - Setup rewrites older `graph-providers.v1` projections to contain only GitNexus when source registry no longer has CRG.
-- If graph-bootstrap sees a provider key other than `gitnexus`, it emits action-required / unsupported-provider-command before running commands.
+- The bootstrap action-required gate for stale CRG projection is implemented in U3; U8 validates that setup's projection rewrite eliminates the stale state for upgrade users, and documents the expected upgrade flow in SKILL.md.
 - The recommended action for stale CRG projection is rerun `$spec-mcp-setup`, not manually edit `.spec-first/config/graph-providers.json`.
 - Document residual cleanup separately: old `.code-review-graph/`, host MCP config and uv cache can be removed only through explicit maintenance guidance.
 
@@ -494,6 +553,7 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 - Existing projection fixture with CRG is overwritten by setup output.
 - Direct bootstrap with stale CRG projection fails before command execution.
 - Old `.spec-first/providers/code-review-graph/**` is ignored when compiling current readiness.
+- Parent workspace target resolution ignores old `.spec-first/providers/code-review-graph/**` when compiling current workspace advisory facts.
 - Cleanup guidance does not run by default.
 
 ### U9. Preserve source/runtime boundary and changelog
@@ -505,7 +565,7 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 **Files:**
 
 - Modify: `CHANGELOG.md`
-- Optional after validation: generated runtime via `spec-first init --claude|--codex` only if implementation changes skill/template source and runtime drift must be repaired.
+- Run: `spec-first init --claude --codex` (required after U6; see Approach for details)
 - Test: `npm run lint:skill-entrypoints`
 - Test: `npm run typecheck`
 - Test: `npm run test:mcp-setup`
@@ -517,8 +577,25 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 - Add changelog entries for each source-visible migration stage.
 - Do not claim “CRG removed” until U1-U7 pass.
 - Include U8 stale-projection behavior in release notes so upgrade users know to rerun setup before bootstrap if they hit an old projection.
-- If runtime regeneration is needed, run source generator after tests and review generated diffs separately.
-- Avoid hand editing `.claude/`, `.codex/` or `.agents/skills/`.
+- **Required after U6:** Since U6 modifies 7+ SKILL.md files and templates, run `spec-first init --claude --codex` after U6 completes to repair runtime drift. Review generated diffs before committing them separately. Do not skip this step — U6 without runtime regeneration leaves `.claude/`/`.codex/`/`.agents/skills/` carrying stale CRG content.
+- Avoid hand editing `.claude/`, `.codex/` or `.agents/skills/`; runtime regeneration must use the source generator only.
+
+## Requirement Traceability Matrix
+
+| Requirements | Covered by |
+| --- | --- |
+| R1-R5 Provider hard cut and no new provider | U1, U2, U3, U5, U6, U7 |
+| R6-R9 setup/bootstrap ownership and no downstream refresh | U2, U3, U5, U6 |
+| R10-R16 refresh modes, incremental baseline and commit metadata boundary | U3, U4, U8 |
+| R17, R17a GitNexus review-impact parity and related-test gate | U1, U5 |
+| R18-R20 canonical impact facts and scope authority | U1, U5 |
+| R21-R25 non-git folder target | U4 |
+| R26-R28 mutation boundary | U3, U4, U5, U6 |
+| R29-R32 docs, migration and release claim boundary | U6, U9 |
+| R33-R37 CRG lifecycle removal from setup/bootstrap/workspace target readiness | U2, U3, U8 |
+| R38-R41 canonical impact/readiness and review pre-facts migration | U1, U5 |
+| R42-R44b workflow prose, tests and no-CRG-provider guard | U6, U7 |
+| R45-R48 residual data, runtime catalog, stale projection and source/runtime boundary | U6, U7, U8, U9 |
 
 ## Sequencing
 
@@ -528,12 +605,14 @@ They may be named only in cleanup docs or migration warnings, never in readiness
 4. U3: Remove CRG execution from graph-bootstrap.
 5. U5 complete: Remove CRG from code-review workflow prose and query routing.
 6. U4: Add non-git folder target mode. This can run after U2/U3 because it touches target resolution and GitNexus command shape.
-7. U6: Update contracts, workflow prose, README and user manuals.
+7. U6: Update contracts, workflow prose, checked-in host entry docs, setup references, eval fixtures, README and user manuals.
 8. U7: Tighten no-CRG-provider tests and CI gate.
 9. U8: Handle stale projection upgrade and residual cleanup guidance.
-10. U9: Changelog, broad validation, optional runtime regeneration.
+10. U9: Changelog, broad validation, required runtime regeneration after U6.
 
 The key dependency is U1 before U2/U3 deletion. The rest can be split into smaller PRs only if each intermediate state keeps CRG from being removed before GitNexus impact parity is usable.
+
+U6 文件量较大（~30 个 source files），建议执行时拆为 U6a (contracts + workflow prose + checked-in host entry docs + skill SKILL.md) 与 U6b (user manuals + templates + runtime catalog + setup reference + eval fixtures) 两个 PR 提交。U6a / U6b 之间不强制顺序，但 U6b 合并前一致性测试和 Verification Plan 的扫描命令必须全过。如果 U7 的 active-source 扫描在 U6a 与 U6b 之间运行，应在测试中允许 U6b 待修改路径作为已知 known-pending 列表，避免误报阻塞。
 
 ## Verification Plan
 
@@ -544,6 +623,7 @@ Run the narrow tests as each unit lands:
 - `npx jest tests/unit/review-pre-facts-helper.test.js tests/unit/review-pre-facts-internal-command.test.js --runInBand`
 - `npx jest tests/unit/graph-provider-consumption-contracts.test.js tests/unit/spec-code-review-contracts.test.js --runInBand`
 - `npx jest tests/unit/no-crg-runtime-contracts.test.js tests/unit/runtime-tools-index.test.js tests/unit/user-manual-contracts.test.js --runInBand`
+- `npx jest tests/unit/runtime-capability-catalog.test.js tests/unit/resolve-workspace-graph-targets-powershell-contracts.test.js tests/unit/workspace-nested-topology.test.js --runInBand`
 - `npx jest tests/unit/branch-protection-policy.test.js tests/unit/runtime-contract-boundary.test.js --runInBand`
 
 Before claiming migration complete:
@@ -559,11 +639,14 @@ Add focused scan checks:
 
 ```bash
 rg -n "code-review-graph|CRG|crg|\\.code-review-graph" \
-  README.md README.zh-CN.md docs/contracts skills src/cli tests scripts .github \
-  --glob '!docs/plans/**' --glob '!docs/brainstorms/**'
+  AGENTS.md CLAUDE.md README.md README.zh-CN.md \
+  docs/contracts "docs/05-用户手册" docs/catalog \
+  skills src/cli templates tests scripts .github \
+  --glob '!docs/plans/**' --glob '!docs/brainstorms/**' \
+  --glob '!CHANGELOG.md'
 ```
 
-Allowed matches after implementation should be limited to historical docs, explicit residual cleanup guidance, changelog, and no-CRG tests.
+Allowed matches after implementation should be limited to: historical docs (with retired/historical labels), explicit residual cleanup guidance, no-CRG-provider test file names and assertions, and `.gitignore` residual artifact entry (per D9). CHANGELOG.md is excluded from the scan; its CRG mentions are expected and managed separately.
 
 ## Risks
 
@@ -573,3 +656,4 @@ Allowed matches after implementation should be limited to historical docs, expli
 - **Bootstrap schema drift:** Existing consumers may read `ready_primary_providers[]`. Mitigation: keep compatible aggregate fields temporarily while changing capability semantics and tests.
 - **Non-git evidence confusion:** Folder target could accidentally look like Git readiness. Mitigation: separate `target_kind`, content/folder snapshot fields and limitations; no fake Git fields.
 - **Residual artifact confusion:** Old `.spec-first/providers/code-review-graph/*` may remain on disk. Mitigation: active compilers ignore it and tests prove readiness does not derive from it.
+- **Source generator path coverage risk:** `spec-first init --claude --codex` 不会自动捕获 U6 新增 source path 在 generator 配置中缺失的情况，可能导致 source 已无 CRG 但 runtime mirror 仍含旧字符串。Mitigation：U9 验证步骤中补一次性 audit 扫描 `.claude/`、`.codex/`、`.agents/skills/` 是否仍含 `code-review-graph`；扫描结果属于 audit evidence，不纳入持续 context。若发现残留，先修 generator/source-path 映射，再重新运行 `spec-first init --claude --codex`，**禁止** 手改 runtime mirror。
