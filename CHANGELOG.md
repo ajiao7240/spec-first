@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-26 04:00:57 reviewer: docs(review): 将 `2026-05-23-review.md` 的完成信号从自引用当前 HEAD 改为代码修复覆盖提交，并说明后续 docs-only 台账刷新不改变代码行为结论，避免最终报告随提交号反复漂移 (user-visible)
 - v1.8.2 2026-05-26 03:57:02 reviewer: docs(review): 刷新 `2026-05-23-review.md` 的当前分支、HEAD、diff shortstat、工作树状态和 GitNexus definitions-only evidence limitation，确保最终审查台账范围事实与已推送分支一致 (user-visible)
 - v1.8.2 2026-05-26 03:51:06 reviewer: fix(review): 关闭深度复审剩余 follow-up，修复 Gemini multi-turn JPG/RGBA 保存、app-audit raw issues 与 not_run 冲突、review-pre-facts temp base symlink escape、Bash helper mirror provenance、PowerShell provider projection inline-if 崩溃、workspace GitNexus live list_repos array overlay 兼容，以及 PowerShell non-git folder fingerprint fail-closed；同步审查台账和 focused regression tests (user-visible)
 - v1.8.2 2026-05-26 03:01:02 reviewer: fix(review): 继续收敛 Lovelace 复审问题，`uv`/`uvx` 降级为 GitNexus-only setup 的 optional/warn-only 依赖，GitNexus parent workspace host block 保留 `group-missing`/`bounded-registry-fanout` 路径，benchmark graph anchor helper 支持 Git worktree `.git` 文件，workspace GitNexus registry path 在 Windows 下大小写不敏感匹配；同步 focused contract tests (user-visible)
