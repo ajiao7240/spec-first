@@ -26,7 +26,7 @@ Plan envelope 的输入可以来自：
 
 GitNexus source tags 必须区分 `checked-in-baseline`、`setup-projection`、`provider-pin`、`live-mcp-tool`、`live-mcp-resource`、`session-local-inference` 和 `user-decision`。不要把 setup projection 与 live MCP evidence 合并成一个 `available` fact；live tool/resource claim 需要当前 session surface 复核。
 
-该 envelope 不得替代 `Graph Readiness.status`、provider `query_ready`、workspace `query_usability` 或 impact capability support level。`definitions-only` 仍是 limitation / query-usability condition，不是新的 `freshness_state`。当 compiled graph facts stale、dirty-advisory、query-unverified 或 unavailable 时，Plan 必须披露 limitations，并用直接源码读取、测试、ast-grep 或 git diff 验证关键结论。code-review-graph readiness 可以记录为 impact provider 状态，但不属于 Plan 的 GitNexus fallback evidence source。
+该 envelope 不得替代 `Graph Readiness.status`、provider `query_ready`、workspace `query_usability` 或 impact capability support level。`definitions-only` 仍是 limitation / query-usability condition，不是新的 `freshness_state`；compiled bootstrap 可以把它记为 query/context orientation ready，但不能把它升级成 process graph、impact 或 review-impact evidence。下游 LLM workflow 决定它是否满足当前文档库、文件定位或代码理解任务。当 compiled graph facts stale、dirty-advisory、query-unverified 或 unavailable 时，Plan 必须披露 limitations，并用直接源码读取、测试、ast-grep 或 git diff 验证关键结论。GitNexus review-impact readiness 可以记录为 impact provider 状态，但不属于 Plan 的 fallback evidence source。
 
 ## Setup-Inferred GitNexus Capability Discovery
 
@@ -53,7 +53,7 @@ Plan consumer 的 status mapping 固定为：setup `available` -> Plan `capabili
 | --- | --- | --- |
 | consumer freshness-check | plan/work/debug/review 读取 canonical artifacts，比较 `source_revision`、`worktree_dirty`、`worktree_status_hash`、provider `query_ready` 和 provider projection/fingerprint freshness | no |
 | branch switch / pull / rebase / merge 后的下一次 consumer check | 将 `source_revision` mismatch 或 dirty hash mismatch 解释为 stale / dirty-uncertain | no |
-| stale + lightweight work | 披露 graph limitations，使用 bounded direct reads、ast-grep、prior GitNexus evidence 或 session-local live GitNexus pointer；Code Review 可使用 code-review-graph review-impact evidence | no |
+| stale + lightweight work | 披露 graph limitations，使用 bounded direct reads、ast-grep、prior GitNexus evidence 或 session-local live GitNexus pointer；Code Review 可使用 GitNexus session-local evidence 或 bounded direct diff/source reads | no |
 | stale + graph-heavy work | 明确建议 `$spec-graph-bootstrap`，在刷新前不声称 primary graph-backed impact evidence | no |
 | `$spec-graph-bootstrap` | reuse 或 rebuild provider readiness，并写入 graph/provider/impact canonical artifacts | yes |
 | fresh graph before review / commit | 可运行 impact / detect changes 作为 review evidence | no rebuild |
@@ -66,10 +66,72 @@ Graph-heavy 至少包括 shared helper/API/route/provider contract/core workflow
 | Artifact | Producer | 主要用途 | Canonical fields | 不要读取或推断 |
 | --- | --- | --- | --- | --- |
 | `.spec-first/graph/provider-status.json` | `spec-graph-bootstrap` | 判断 provider 聚合 readiness 与追溯 per-provider status | `schema_version=graph-provider-status.v1`, `workflow_mode`, `ready_primary_providers[]`, `failed_primary_providers[]`, `not_applicable_providers[]`, `skipped_primary_providers[]`, `partial_primary_available`, `providers[].status`, `providers[].graph_ready`, `providers[].query_ready`, `providers[].readiness_source`, `providers[].refresh_mode`, `providers[].fallback_from_incremental`, `providers[].last_indexed_commit`, `providers[].requires_clean_full_refresh`, `providers[].reason_code`, `providers[].failure_class`, `providers[].recommended_action`, `providers[].confidence`, `providers[].limitations`, `providers[].normalized_artifacts` | 不要用 artifact 是否存在替代 readiness；不要只看 provider 名是否出现；不要把 `status=ready` 与 `query_ready=true` 拆开后单独解释；不要把 `readiness_source=incremental-update` 当成 readiness success |
-| `.spec-first/graph/graph-facts.json` | `spec-graph-bootstrap` | 给 plan/work/review 等下游提供项目级 graph facts 与 freshness hint | `schema_version=graph-facts.v1`, `workflow_mode`, `provider_summary.ready_primary_providers[]`, `provider_summary.degraded_providers[]`, `provider_summary.not_applicable_providers[]`, `provider_summary.skipped_primary_providers[]`, `provider_summary.partial_primary_available`, `capabilities.query_global_graph`, `capabilities.impact_context`, `source_revision`, `worktree_dirty`, `worktree_status_hash`, `dirty_classification`, `dirty_paths_breakdown`, `staleness_hints.*`, `canonical_artifacts.provider_status`, `canonical_artifacts.impact_capabilities` | 不要读取顶层 `query_ready`；该字段不属于 `graph-facts.v1`。不要读取顶层 `refresh_mode`、`refresh_modes_by_provider` 或 `refresh_mode_summary`；refresh-mode truth 在 per-provider status。不要把 `provider_summary.ready_primary_providers[]` 等同于“当前任务一定需要 graph evidence”。不要从 preserved canonical artifact 推断本轮 blocked 分类；`graph-affecting-blocked` 只来自本轮 command result |
+| `.spec-first/graph/graph-facts.json` | `spec-graph-bootstrap` | 给 plan/work/review 等下游提供项目级 graph facts 与 freshness hint | `schema_version=graph-facts.v1`, `workflow_mode`, `target_kind`, `provider_summary.ready_primary_providers[]`, `provider_summary.degraded_providers[]`, `provider_summary.not_applicable_providers[]`, `provider_summary.skipped_primary_providers[]`, `provider_summary.partial_primary_available`, `capabilities.query_global_graph`, `capabilities.impact_context`, `capabilities.impact_context_status`, `capabilities.impact_context_limitations[]`, `source_revision`, `worktree_dirty`, `worktree_status_hash`, `dirty_classification`, `dirty_paths_breakdown`, `folder_snapshot.content_fingerprint`, `staleness_hints.*`, `canonical_artifacts.provider_status`, `canonical_artifacts.impact_capabilities` | 不要读取顶层 `query_ready`；该字段不属于 `graph-facts.v1`。不要读取顶层 `refresh_mode`、`refresh_modes_by_provider` 或 `refresh_mode_summary`；refresh-mode truth 在 per-provider status。不要把 `provider_summary.ready_primary_providers[]` 等同于“当前任务一定需要 graph evidence”。不要从 preserved canonical artifact 推断本轮 blocked 分类；`graph-affecting-blocked` 只来自本轮 command result。`target_kind=non-git-folder` 时不要要求 Git-only freshness 字段非空 |
 | `.spec-first/impact/bootstrap-impact-capabilities.json` | `spec-graph-bootstrap` | 判断 context selection、impact radius、review support 是否有 primary 或 fallback 支持 | `schema_version=bootstrap-impact-capabilities.v1`, `workflow_mode`, `capabilities.context_selection.support_level`, `capabilities.context_selection.primary_providers[]`, `capabilities.context_selection.fallback_support`, `capabilities.context_selection.confidence`, `capabilities.context_selection.limitations[]`, `capabilities.impact_radius.*`, `capabilities.review_support.*`, `downstream_guidance.canonical_graph_facts`, `downstream_guidance.provider_status`, `downstream_guidance.limitations_required` | 不要读取旧路径 `.spec-first/graph/bootstrap-impact-capabilities.json`；不要把 `review_support.support_level=partial` 写成完整 review 通过 |
 | `.spec-first/providers/<provider>/status.json` | `spec-graph-bootstrap` | provider 级诊断、raw log 追溯和 query probe 解释 | `schema_version=provider-status.v1`, `provider`, `status`, `graph_ready`, `query_ready`, `readiness_source`, `refresh_mode`, `fallback_from_incremental`, `last_indexed_commit`, `requires_clean_full_refresh`, `reason_code`, `command_results[]`, `command_results[].refresh_mode`, `command_results[].attempt_role`, `raw_logs`, `repo_snapshot`, `normalized_artifacts`, GitNexus 的 `query_probe_attempts[]` | 不要让下游 workflow 直接耦合 provider 内部 raw log shape；raw log 用于诊断，不是新的 canonical readiness contract；`last_indexed_commit` 来自 provider status，不来自 aggregate graph-facts |
-| `.spec-first/providers/*/normalized/*.json` | provider adapter | provider-specific normalized facts，例如 GitNexus architecture/reuse facts 或 code-review-graph impact capabilities | 通过 `provider-status.json` 中对应 `providers[].normalized_artifacts` 指针进入 | 不要读取旧路径 `.spec-first/graph/architecture-facts.json` 或 `.spec-first/graph/reuse-candidates.json` 作为当前 canonical artifacts |
+| `.spec-first/providers/*/normalized/*.json` | provider adapter | provider-specific normalized facts，例如 GitNexus architecture/reuse facts 或 impact capabilities | 通过 `provider-status.json` 中对应 `providers[].normalized_artifacts` 指针进入 | 不要读取旧路径 `.spec-first/graph/architecture-facts.json` 或 `.spec-first/graph/reuse-candidates.json` 作为当前 canonical artifacts |
+
+## Definitions-Only GitNexus Evidence
+
+GitNexus query probe 如果返回 `definitions` 但没有 `processes` / `process_symbols`，bootstrap 将其记录为 `query_probe_attempts[].result_class="definitions-only"`。这是一种确定性 query/context 可用事实，不是脚本对“文档库”的语义识别。
+
+Compiled 行为：
+
+- provider `query_ready=true`，`status=ready`，可进入 `ready_primary_providers[]`，用于 query、context 和 architecture/file orientation。
+- normalized architecture / reuse artifacts 不得声明 `execution_flow`。
+- normalized impact artifacts 只能暴露 `available_query_surfaces=["query","context"]`，`impact_evidence_surfaces=[]`。
+- aggregate `impact_radius.support_level` 和 `review_support.support_level` 必须保持 `none`，对应 `primary_providers[]` 为空。
+- limitations 必须披露 `definitions_only_no_process_graph`、`definitions_only_no_impact_evidence` 和 `definitions_only_no_related_tests`，或在 non-git folder target 下披露等价 Git-only limitation。
+
+Consumer 行为：
+
+- 可以把 definitions-only evidence 用作文档、配置、schema、文件或符号定位的 query/context orientation。
+- 不得声称有 process-level execution flow、blast radius、Git diff review-impact 或 related-test parity。
+- 不得在脚本中用扩展名、目录结构或 `target_kind` 判断“这是文档库所以可用”；是否满足当前使用场景由 LLM 基于 user intent 和 limitations 决定。
+
+## Explicit Non-Git Folder Targets
+
+显式 `--folder <path>` / `-Folder <path>` 可以把非 Git 目录作为 `target_kind="non-git-folder"` 交给 GitNexus 建索引。该模式只在用户显式命名 folder target 时成立；parent workspace、缺失 Git root 或单候选 child repo 不会被脚本静默提升为 non-git target。
+
+Non-git folder target 的 canonical 行为：
+
+- setup projection 可以写入，因为 `state_write_allowed=true` 来自显式 target；`repo_status` 可以是 `not-git-repo`，但 `target_kind` 必须是 `non-git-folder`。
+- GitNexus full bootstrap command 使用 `analyze --skip-git --force --skip-agents-md --no-stats`。
+- provider projection 和 canonical graph facts 写入 `folder_snapshot.content_fingerprint`；`staleness_hints.content_fingerprint` 是 downstream freshness 比对输入。
+- Git-only 字段必须为空或不参与比对：`source_revision=null`、`worktree_dirty=null`、`worktree_status_hash=null`、provider `last_indexed_commit=null`，`staleness_hints.compare_source_revision=false`。
+- incremental 不支持。显式 incremental 请求必须返回 `reason_code=incremental-non-git-folder-unsupported`，且保留既有 canonical artifacts。
+- host instruction normalization 不由 graph-bootstrap 写入；需要刷新 host entry docs 时仍走 source-owned `spec-first init --claude|--codex`。
+
+Downstream 消费限制：
+
+- 可把 GitNexus non-git folder evidence 用于 query、context、architecture orientation。
+- 不得把它用于 Git diff-based review-impact、commit-aware freshness、branch/dirty 推断或 related-test parity 声明。
+- Normalized artifacts 对 non-git folder 不得声明 `execution_flow`。
+- `target_kind=non-git-folder` 的 `query_ready=true` 不得把 `impact_radius` 升为 `full`，也不得让 review-impact `primary_providers[]` 暴露 GitNexus。
+- `bootstrap-impact-capabilities.capabilities.review_support.support_level` 对 non-git folder 为 `none`，limitations 至少要披露 `non_git_folder_no_git_diff`、`non_git_folder_no_commit_freshness` 和 `non_git_folder_no_incremental`。
+
+## GitNexus Review Support
+
+GitNexus impact adapter 可以在 query-ready 时写入 `.spec-first/providers/gitnexus/normalized/impact-capabilities.json`。Related-test parity 由 setup-projected `impact_probe` 命令证明：`gitnexus impact <probe_token> --repo <repo> --include-tests --depth 2`。Producer 必须从该 raw output 中看到 test provenance（例如 `filePath`/`path`/`file` 命中 `tests/`、`test/`、`__tests__/`、`androidTest/` 或 `*.test.*` / `*.spec.*`）后，才可把 related tests 标为 supported。
+
+Supported 写入条件：
+
+- `providers/gitnexus/status.json.review_support.related_tests_status == "supported"`，并记录 `impact_probe_raw_log`。
+- `providers/gitnexus/normalized/impact-capabilities.json.review_support.related_tests == "supported"`，`confidence="high"`，且不写 `related_tests_unverified` limitation。
+- `bootstrap-impact-capabilities.capabilities.review_support.related_tests_status == "supported"`，`support_level="full"`。
+- `graph-facts.capabilities.impact_context` 保持 boolean；supported 时为 `true`，并写 `impact_context_status="supported"`、`impact_context_limitations=[]`。
+
+Candidate-only fallback 写入条件：
+
+- 如果 GitNexus query-ready 但 `impact_probe` 未运行、失败，或 raw output 没有 test provenance，producer 必须把 `related_tests_status` / `review_support.related_tests` 标为 `candidate-only`。
+- candidate-only 时 `bootstrap-impact-capabilities.capabilities.review_support.limitations[]` 必须含 `related_tests_unverified`。
+- candidate-only 时 `graph-facts.capabilities.impact_context=false`，同时写 `impact_context_status="limited"` 与 `impact_context_limitations[]` 含 `related_tests_unverified`。不要把 `impact_context` 改成字符串。
+
+Consumer 必须正向披露 candidate-only：
+
+- `$spec-code-review` final Coverage 必须标注 `related_tests=candidate-only (provider-unverified)`，并要求 reviewer 结合 diff、源码和 tests 验证 related-test 范围。
+- `$spec-plan` / `$spec-work` / `$spec-debug` 看到 `impact_context=false` 且 `impact_context_status=limited`，或 limitations 含 `related_tests_unverified` 时，按 stale graph + bounded reads 等价处理，不得声称 graph-fresh review-impact parity。
+- candidate-only 不得自动扩大 implementation/autofix scope；GitNexus extra impact 只能作为 test-candidate 或 follow-up evidence。
 
 ## Readiness Truth Table
 
@@ -78,6 +140,7 @@ Graph-heavy 至少包括 shared helper/API/route/provider contract/core workflow
 | Primary graph 可用 | `provider-status.workflow_mode=primary`，目标 provider 的 `providers[].query_ready=true`，`graph-facts.capabilities.*=true` | 可以优先使用 graph provider evidence；仍要说明 evidence 与当前任务的语义相关性 |
 | 部分 provider 可用 | `provider-status.partial_primary_available=true` 且 `failed_primary_providers[]` 或 `provider_summary.degraded_providers[]` 非空 | 可使用 ready provider 的事实；必须披露 degraded provider、`reason_code`、fallback 与 limitations |
 | fallback-only | `workflow_mode=degraded-fallback` 或 impact capability `support_level=partial` | 只能作为 degraded/advisory 或 bounded fallback evidence；不能写成 full graph-backed |
+| definitions-only query-ready orientation | GitNexus provider `query_ready=true` 且 `query_probe_attempts[].result_class="definitions-only"` | 可消费为文档/文件 query/context orientation；不得声明 process graph、Git diff review-impact、impact radius 或 related-test evidence；LLM 决定它是否满足当前任务 |
 | no-source / not-applicable | `workflow_mode=no-source` 或 provider `status=query-not-applicable` | 这不是 provider 故障。跳过 GitNexus process routing，必要时使用 bounded direct repo reads |
 | blocked / action-required | `workflow_mode=blocked`、无 `query_ready=true` provider 且 fallback 不足，或 provider `recommended_action` 要求修复 | 不要消费 graph evidence。先执行 setup/bootstrap/repair 或走 direct repo fallback，并明确 action-required |
 | stale / dirty-uncertain | `graph-facts.source_revision` 与当前 `HEAD` 不一致，或 `worktree_status_hash` 与当前 dirty hash 不一致 | 降级为 stale/advisory pointer；可补一次 bounded live MCP probe，但不能更新 compiled readiness |
@@ -116,7 +179,7 @@ Tracked docs、README、用户手册、issue 或 PR 描述不得粘贴 provider 
 | --- | --- | --- |
 | `.spec-first/` | spec-first readiness/runtime artifacts | 整个前缀归 setup-owned |
 | `.gitnexus/` | GitNexus provider storage | 整个前缀归 setup-owned |
-| `.code-review-graph/` | code-review-graph provider storage | 整个前缀归 setup-owned |
+| `.code-review-graph/` | historical CRG provider storage residue | 迁移窗口内整个前缀归 setup-owned；仅用于 residual dirty-ignore，不表示当前 provider 支持 |
 | `AGENTS.md` | checked-in host entry source | 仅 spec-first managed blocks 内 diff 可豁免；managed block 外一律 graph-affecting |
 | `CLAUDE.md` | checked-in host entry source | 仅 spec-first managed blocks 内 diff 可豁免；managed block 外一律 graph-affecting |
 | `.gitignore` | spec-first init 管理忽略规则 | 仅 `# spec-first:start` / `# spec-first:end` managed block 内 diff 可豁免；managed block 外一律 graph-affecting |
@@ -169,7 +232,7 @@ Legacy compatibility：`dirty-refresh-non-canonical` 仅代表旧版本把所有
 4. 新写或本轮更新的 consumer 在比较 dirty freshness 前先读 `graph-facts.v1.freshness_state`（additive 字段，缺失时回退到 `worktree_dirty` + `dirty_classification`）：`fresh` 表示 clean；`dirty-advisory` 表示 index 基于未提交磁盘状态，必须标注 `evidence_grade=advisory`。缺失 `dirty_classification` 的旧 `graph-facts.v1` 必须回退到既有 `worktree_dirty` + `worktree_status_hash` dirty-aware 判断，并把 dirty 情况标为 legacy/dirty-uncertain，不得从字段缺失推断 clean。
 5. `runtime-capabilities.json.project_graph_readiness` 与 `graph-providers.json.derived_readiness` 是 setup-owned projection，只能作为指向 canonical artifacts 的提示；下游 readiness 判断以 canonical graph artifacts 为准。
 6. provider raw logs、diagnostics 和 live MCP 输出用于解释或补充本轮判断，不能替代 canonical fields。
-7. live MCP 成功是 session-local corroboration，不能把 `.spec-first/graph/graph-facts.json`、`.spec-first/graph/provider-status.json` 或 setup projection 中的 `query_ready` 改写为 true。
+7. live MCP 成功是 session-local corroboration，不能把 `.spec-first/graph/graph-facts.json`、`.spec-first/graph/provider-status.json` 或 setup projection 中的 `query_ready` 改写为 true；compiled bootstrap 的 definitions-only probe 可以置 `query_ready=true`，但只代表 query/context orientation ready，不代表 process graph、impact 或 review-impact ready。
 8. consumer 可以推荐 `$spec-graph-bootstrap`，但不得在 plan/work/debug/review 内部静默运行 GitNexus analyze、provider build、index rebuild、repair 或 default hook/watch/daemon 路径。
 9. 需要 refresh-mode 细节时读取 per-provider status 或 aggregate `provider-status.json.providers[]` 镜像；不要从 `graph-facts.v1` 推断 refresh mode。
 10. `readiness_source` 是命令来源事实，不是 readiness success；消费 readiness 仍必须检查 `status=ready && query_ready=true`。

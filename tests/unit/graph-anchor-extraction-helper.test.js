@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const HELPER = path.join(REPO_ROOT, 'tests', 'benchmark', 'extract-graph-anchors.sh');
@@ -135,5 +135,24 @@ describe('graph anchor extraction helper', () => {
     const json = JSON.parse(output);
 
     expect(json.providers[0].metadata.repo_selector).toBe(fs.realpathSync(repo));
+  });
+
+  test('rejects retired graph provider extraction', () => {
+    const tmp = makeTempDir();
+    const repo = path.join(tmp, 'repo');
+    makeGitRepo(repo);
+
+    const retiredProvider = ['code', 'review', 'graph'].join('-');
+    const result = spawnSync(
+      'bash',
+      [HELPER, '--repo', repo, '--provider', retiredProvider],
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+      }
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`unsupported provider: ${retiredProvider}`);
   });
 });

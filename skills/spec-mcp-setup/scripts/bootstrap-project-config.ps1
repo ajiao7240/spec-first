@@ -7,11 +7,18 @@ param(
   [switch]$EnsureGitignore,
   [switch]$DeleteLegacyMarkdown,
   [string]$Repo = '',
+  [string]$Folder = '',
   [switch]$AllRepos,
   [switch]$Json
 )
 
 $ErrorActionPreference = 'Stop'
+if (-not [string]::IsNullOrWhiteSpace($Repo) -and -not [string]::IsNullOrWhiteSpace($Folder)) {
+  throw 'bootstrap-project-config.ps1: use either -Repo or -Folder, not both'
+}
+if ($AllRepos -and -not [string]::IsNullOrWhiteSpace($Folder)) {
+  throw 'bootstrap-project-config.ps1: use either -AllRepos or -Folder, not both'
+}
 
 function Write-Result {
   param(
@@ -30,6 +37,7 @@ function Write-Result {
     overall_status = $OverallStatus
     reason = $Reason
     repo_root = $RepoRoot
+    target_kind = if ($script:targetKind) { $script:targetKind } else { '' }
     project = [ordered]@{
       example_config_status = $ExampleStatus
       local_config_status = $LocalStatus
@@ -274,14 +282,16 @@ function Write-WorkspaceProjectConfigSummaryAndExit {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $resolverParams = @{ Format = 'json' }
 if (-not $AllRepos -and -not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
+if (-not $AllRepos -and -not [string]::IsNullOrWhiteSpace($Folder)) { $resolverParams.Folder = $Folder }
 $targetFacts = (& (Join-Path $scriptDir 'resolve-project-target.ps1') @resolverParams) | ConvertFrom-Json
+$script:targetKind = if ($targetFacts.PSObject.Properties.Name -contains 'target_kind') { [string]$targetFacts.target_kind } else { '' }
 
 if ($AllRepos) {
   Write-WorkspaceProjectConfigSummaryAndExit -TargetFacts $targetFacts -SelectionSource 'explicit-all-repos'
 }
 
 $defaultChildren = @($targetFacts.candidates)
-if (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo) -and $targetFacts.mode -ne 'git-repo' -and $defaultChildren.Count -gt 0) {
+if (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo) -and [string]::IsNullOrWhiteSpace($Folder) -and $targetFacts.mode -ne 'git-repo' -and $defaultChildren.Count -gt 0) {
   Write-WorkspaceProjectConfigSummaryAndExit -TargetFacts $targetFacts -SelectionSource 'workspace-default-all-repos'
 }
 
@@ -298,7 +308,13 @@ if (-not [bool]$targetFacts.state_write_allowed) {
   exit 0
 }
 
-$repoRoot = [string]$targetFacts.selected_repo_root
+$repoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$targetFacts.target_root)) {
+  [string]$targetFacts.target_root
+} elseif (-not [string]::IsNullOrWhiteSpace([string]$targetFacts.selected_repo_root)) {
+  [string]$targetFacts.selected_repo_root
+} else {
+  [string]$targetFacts.selected_folder_root
+}
 $template = Join-Path (Split-Path -Parent $scriptDir) 'references/config-template.yaml'
 $specDir = Join-Path $repoRoot '.spec-first'
 $exampleConfig = Join-Path $specDir 'config.local.example.yaml'
@@ -346,18 +362,21 @@ if ($CreateLocal) {
 
 if ($EnsureGitignore) {
   $line = '.spec-first/*.local.yaml'
-  if (Test-SymlinkPath $gitignore) {
+  if ($script:targetKind -eq 'non-git-folder') {
+    $gitignoreStatus = 'not-applicable-non-git-folder'
+  } elseif (Test-SymlinkPath $gitignore) {
     Stop-ProjectConfigBlocked -Reason 'gitignore-symlink-escape' -ExampleStatus $exampleStatus -LocalStatus $localStatus -GitignoreStatus 'blocked'
-  }
-  if (-not (Test-Path -LiteralPath $gitignore -PathType Leaf)) {
-    New-Item -ItemType File -LiteralPath $gitignore | Out-Null
-  }
-  $content = Get-Content -LiteralPath $gitignore -ErrorAction SilentlyContinue
-  if ($content -contains $line) {
-    $gitignoreStatus = 'already-present'
   } else {
-    Add-Content -LiteralPath $gitignore -Value $line
-    $gitignoreStatus = 'added'
+    if (-not (Test-Path -LiteralPath $gitignore -PathType Leaf)) {
+      New-Item -ItemType File -LiteralPath $gitignore | Out-Null
+    }
+    $content = Get-Content -LiteralPath $gitignore -ErrorAction SilentlyContinue
+    if ($content -contains $line) {
+      $gitignoreStatus = 'already-present'
+    } else {
+      Add-Content -LiteralPath $gitignore -Value $line
+      $gitignoreStatus = 'added'
+    }
   }
 }
 

@@ -54,7 +54,7 @@ describe('runtime contract boundary', () => {
       expect(content).toContain('.agents/skills/');
       expect(content).toContain('source');
       expect(content).toContain('GitNexus');
-      expect(content).toContain('code-review-graph');
+      expect(content).not.toContain('code-review-graph');
       expect(content).toContain('evidence');
       expect(content).toContain('untrusted quoted data');
       expect(content).toContain('schema');

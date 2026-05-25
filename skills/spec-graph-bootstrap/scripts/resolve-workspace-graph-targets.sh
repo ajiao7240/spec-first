@@ -8,6 +8,7 @@ command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_RESOLVER="$SCRIPT_DIR/../../spec-mcp-setup/scripts/resolve-project-target.sh"
 REPO_ARG=""
+FOLDER_ARG=""
 SCAN_DEPTH=3
 WRITE_SUMMARY=false
 
@@ -16,6 +17,11 @@ while [[ $# -gt 0 ]]; do
     --repo)
       REPO_ARG="${2:-}"
       [ -n "$REPO_ARG" ] || { echo "resolve-workspace-graph-targets.sh: --repo requires a value" >&2; exit 1; }
+      shift 2
+      ;;
+    --folder)
+      FOLDER_ARG="${2:-}"
+      [ -n "$FOLDER_ARG" ] || { echo "resolve-workspace-graph-targets.sh: --folder requires a value" >&2; exit 1; }
       shift 2
       ;;
     --scan-depth)
@@ -34,6 +40,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [ -n "$REPO_ARG" ] && [ -n "$FOLDER_ARG" ]; then
+  echo "resolve-workspace-graph-targets.sh: use either --repo or --folder, not both" >&2
+  exit 1
+fi
+
 hash_stdin() {
   if command -v shasum >/dev/null 2>&1; then
     shasum -a 256 | awk '{print "sha256:" $1}'
@@ -42,6 +53,32 @@ hash_stdin() {
   else
     python3 -c 'import hashlib,sys; print("sha256:" + hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'
   fi
+}
+
+hash_file() {
+  local path="$1"
+  if [ -f "$path" ]; then
+    hash_stdin < "$path"
+  else
+    printf '%s\n' "missing"
+  fi
+}
+
+folder_content_fingerprint() {
+  local root="$1"
+  (
+    cd "$root"
+    find -P . -type f -print 2>/dev/null |
+      sed 's#^\./##' |
+      sort |
+      while IFS= read -r path; do
+        case "$path" in
+          .spec-first/*|.gitnexus/*|.code-review-graph/*|.agents/*|.codex/*|.claude/*|node_modules/*|vendor/*) continue ;;
+        esac
+        printf '%s\n' "$path"
+        hash_file "$path"
+      done
+  ) | hash_stdin
 }
 
 write_workspace_summary_atomic() {
@@ -95,6 +132,9 @@ TARGET_ARGS=(--scan-depth "$SCAN_DEPTH")
 if [ -n "$REPO_ARG" ]; then
   TARGET_ARGS+=(--repo "$REPO_ARG")
 fi
+if [ -n "$FOLDER_ARG" ]; then
+  TARGET_ARGS+=(--folder "$FOLDER_ARG")
+fi
 
 set +e
 TARGET_JSON="$(bash "$PROJECT_RESOLVER" --format json "${TARGET_ARGS[@]}")"
@@ -112,10 +152,20 @@ printf 'null\n' > "$NULL_JSON"
 TARGETS_JSON="$(jq -c '
   if (.selected_repo_root // null) != null then
     [{
+      target_kind:"git-repo",
       repo_label:(.repo_label // ""),
       git_root:.selected_repo_root,
       workspace_relative_path:(if (.repo_label // "") == "" then "." else .repo_label end),
       relationship:"selected_git_repo"
+    }]
+  elif (.selected_folder_root // null) != null then
+    [{
+      target_kind:"non-git-folder",
+      repo_label:(.folder_label // .repo_label // ""),
+      folder_root:.selected_folder_root,
+      git_root:null,
+      workspace_relative_path:(if (.folder_label // .repo_label // "") == "" then "." else (.folder_label // .repo_label) end),
+      relationship:"explicit_non_git_folder"
     }]
   else
     (.candidates // [])
@@ -179,14 +229,15 @@ parent_repo_local_artifact_advisory() {
 
 inspect_repo() {
   local item="$1"
-  local repo_root repo_label workspace_relative_path
+  local repo_root repo_label workspace_relative_path target_kind
   local spec_dir config_dir graph_dir impact_dir providers_dir
-  local graph_providers runtime_capabilities provider_artifacts graph_facts provider_status impact_capabilities gitnexus_status
-  local graph_providers_arg runtime_capabilities_arg provider_artifacts_arg graph_facts_arg provider_status_arg impact_capabilities_arg gitnexus_status_arg
+  local graph_providers runtime_capabilities provider_artifacts graph_facts provider_status impact_capabilities gitnexus_status crg_status
+  local graph_providers_arg runtime_capabilities_arg provider_artifacts_arg graph_facts_arg provider_status_arg impact_capabilities_arg gitnexus_status_arg crg_status_arg
   local current_revision current_status current_dirty current_status_hash
   local setup_ready=false
 
-  repo_root="$(jq -r '.git_root' <<<"$item")"
+  target_kind="$(jq -r '.target_kind // "git-repo"' <<<"$item")"
+  repo_root="$(jq -r '.git_root // .folder_root' <<<"$item")"
   repo_label="$(jq -r '.repo_label // ""' <<<"$item")"
   workspace_relative_path="$(jq -r '.workspace_relative_path // .repo_label // ""' <<<"$item")"
 
@@ -202,15 +253,23 @@ inspect_repo() {
   provider_status="$graph_dir/provider-status.json"
   impact_capabilities="$impact_dir/bootstrap-impact-capabilities.json"
   gitnexus_status="$providers_dir/gitnexus/status.json"
+  crg_status="$providers_dir/code-review-graph/status.json"
 
-  current_revision="$(git -C "$repo_root" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true)"
-  current_status="$(git -C "$repo_root" status --porcelain 2>/dev/null || true)"
-  if [ -n "$current_status" ]; then
-    current_dirty=true
-  else
+  if [ "$target_kind" = "non-git-folder" ]; then
+    current_revision=""
+    current_status=""
     current_dirty=false
+    current_status_hash="$(folder_content_fingerprint "$repo_root")"
+  else
+    current_revision="$(git -C "$repo_root" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true)"
+    current_status="$(git -C "$repo_root" status --porcelain 2>/dev/null || true)"
+    if [ -n "$current_status" ]; then
+      current_dirty=true
+    else
+      current_dirty=false
+    fi
+    current_status_hash="$(printf '%s' "$current_status" | hash_stdin)"
   fi
-  current_status_hash="$(printf '%s' "$current_status" | hash_stdin)"
 
   if schema_matches "$graph_providers" "graph-providers.v1" \
     && schema_matches "$runtime_capabilities" "runtime-capabilities.v1" \
@@ -225,10 +284,12 @@ inspect_repo() {
   provider_status_arg="$(json_file_or_null "$provider_status" "$NULL_JSON")"
   impact_capabilities_arg="$(json_file_or_null "$impact_capabilities" "$NULL_JSON")"
   gitnexus_status_arg="$(json_file_or_null "$gitnexus_status" "$NULL_JSON")"
+  crg_status_arg="$(json_file_or_null "$crg_status" "$NULL_JSON")"
 
   jq -n \
     --arg target_repo "$repo_label" \
     --arg repo_root "$repo_root" \
+    --arg target_kind "$target_kind" \
     --arg workspace_relative_path "$workspace_relative_path" \
     --arg current_revision "$current_revision" \
     --argjson current_worktree_dirty "$current_dirty" \
@@ -241,6 +302,7 @@ inspect_repo() {
     --slurpfile provider_status "$provider_status_arg" \
     --slurpfile impact_capabilities "$impact_capabilities_arg" \
     --slurpfile gitnexus_status "$gitnexus_status_arg" \
+    --slurpfile crg_status "$crg_status_arg" \
     '
     def obj($x): if ($x // null) == null then {} else $x end;
     def rel($p):
@@ -257,17 +319,34 @@ inspect_repo() {
     | (obj($provider_status[0])) as $status
     | (obj($impact_capabilities[0])) as $impact
     | (obj($gitnexus_status[0])) as $gitnexus
+    | (obj($crg_status[0])) as $crg
     | (provider_status_for("gitnexus")) as $gitnexus_provider_status
+    | (provider_status_for("code-review-graph")) as $crg_provider_status
+    | (($target_kind == "non-git-folder") or (($graph.target_kind // "") == "non-git-folder")) as $is_non_git_folder
     | ($graph.source_revision // null) as $source_revision
     | ($graph.worktree_status_hash // $graph.staleness_hints.worktree_status_hash // null) as $recorded_status_hash
-    | (($source_revision != null and $source_revision != "" and $current_revision != "" and $source_revision != $current_revision)) as $stale
-    | ((($graph | length) > 0) and (($graph.worktree_dirty // false) == true) and (($recorded_status_hash == null) or ($recorded_status_hash != $current_worktree_status_hash))) as $dirty_uncertain
+    | ($graph.folder_snapshot.content_fingerprint // $graph.staleness_hints.content_fingerprint // null) as $recorded_content_fingerprint
+    | (if $is_non_git_folder then (($recorded_content_fingerprint != null and $recorded_content_fingerprint != $current_worktree_status_hash)) else (($source_revision != null and $source_revision != "" and $current_revision != "" and $source_revision != $current_revision)) end) as $stale
+    | (if $is_non_git_folder then false else ((($graph | length) > 0) and (($graph.worktree_dirty // false) == true) and (($recorded_status_hash == null) or ($recorded_status_hash != $current_worktree_status_hash))) end) as $dirty_uncertain
     | (($gitnexus_provider_status.requires_clean_full_refresh // $gitnexus.requires_clean_full_refresh // false) == true) as $gitnexus_requires_clean_full_refresh
     | (((($gitnexus_provider_status.last_indexed_commit // $gitnexus.last_indexed_commit // "") != "") and ($gitnexus_requires_clean_full_refresh | not))) as $gitnexus_prior_query_ready
+    | (($gp.providers | type == "object") and ($gp.providers | has("code-review-graph"))) as $crg_projection_present
+    | (($crg | length) > 0) as $crg_status_present
+    | (($crg_provider_status | length) > 0) as $crg_aggregate_status_present
+    | (($crg.repo_snapshot.source_revision // $crg.bootstrap_fingerprint.repo_snapshot.source_revision // $crg.source_revision // $crg.last_indexed_commit // $crg_provider_status.last_indexed_commit // "") == $current_revision and $current_revision != "") as $crg_revision_fresh
+    | (((($crg.query_ready // $crg_provider_status.query_ready // false) == true) and (($crg.graph_ready // $crg_provider_status.graph_ready // false) == true) and ($current_worktree_dirty | not) and $crg_revision_fresh)) as $crg_status_fresh
     | ($gp.derived_readiness.workflow_mode // (if $setup_ready then "setup-ready-bootstrap-required" else null end)) as $setup_workflow_mode
     | ($graph.workflow_mode // null) as $graph_workflow_mode
     | (
-        if $current_revision == "" then "unavailable"
+        if ($is_non_git_folder and ($graph | length) > 0) then
+          if $stale then "stale"
+          elif $graph_workflow_mode == "primary" then "primary"
+          elif $graph_workflow_mode == "degraded-fallback" then "degraded-fallback"
+          elif $graph_workflow_mode == "no-source" then "no-source"
+          else ($graph_workflow_mode // "unavailable")
+          end
+        elif ($is_non_git_folder and $setup_ready) then ($setup_workflow_mode // "setup-ready-bootstrap-required")
+        elif $current_revision == "" then "unavailable"
         elif ($graph | length) > 0 then
           if $stale then "stale"
           elif $dirty_uncertain then "dirty-uncertain"
@@ -305,7 +384,9 @@ inspect_repo() {
     | {
         target_repo:$target_repo,
         repo_label:$target_repo,
-        git_root:$repo_root,
+        target_kind:$target_kind,
+        git_root:(if $is_non_git_folder then null else $repo_root end),
+        folder_root:(if $is_non_git_folder then $repo_root else null end),
         workspace_relative_path:$workspace_relative_path,
         status:$graph_status,
         graph_status:$graph_status,
@@ -322,16 +403,21 @@ inspect_repo() {
         setup_status:(if $setup_ready then "ready" else "missing-or-unsupported" end),
         setup_ready:$setup_ready,
         git:{
-          current_revision:(if $current_revision == "" then null else $current_revision end),
-          current_worktree_dirty:$current_worktree_dirty,
-          current_worktree_status_hash:$current_worktree_status_hash
+          current_revision:(if $is_non_git_folder or $current_revision == "" then null else $current_revision end),
+          current_worktree_dirty:(if $is_non_git_folder then null else $current_worktree_dirty end),
+          current_worktree_status_hash:(if $is_non_git_folder then null else $current_worktree_status_hash end)
         },
+        folder_snapshot:(if $is_non_git_folder then {content_fingerprint:$current_worktree_status_hash,indexed_content_fingerprint:$recorded_content_fingerprint} else null end),
+        non_git_support:(if $is_non_git_folder then {query_context_architecture:true, git_diff_review_impact:false, commit_freshness:false, incremental:false} else null end),
+        git_only_limitations:(if $is_non_git_folder then ["no source_revision","no branch","no dirty hash","no last_indexed_commit","no Git diff evidence","no incremental freshness"] else [] end),
         freshness:{
-          source_revision:$source_revision,
-          source_revision_matches:(if $source_revision == null or $current_revision == "" then null else ($source_revision == $current_revision) end),
+          source_revision:(if $is_non_git_folder then null else $source_revision end),
+          source_revision_matches:(if $is_non_git_folder or $source_revision == null or $current_revision == "" then null else ($source_revision == $current_revision) end),
+          content_fingerprint:(if $is_non_git_folder then $recorded_content_fingerprint else null end),
+          content_fingerprint_matches:(if $is_non_git_folder then ($recorded_content_fingerprint != null and $recorded_content_fingerprint == $current_worktree_status_hash) else null end),
           stale:$stale,
-          worktree_dirty_at_bootstrap:($graph.worktree_dirty // null),
-          worktree_status_hash:($recorded_status_hash // null),
+          worktree_dirty_at_bootstrap:(if $is_non_git_folder then null else ($graph.worktree_dirty // null) end),
+          worktree_status_hash:(if $is_non_git_folder then null else ($recorded_status_hash // null) end),
           dirty_uncertain:$dirty_uncertain
         },
         providers:{
@@ -345,15 +431,31 @@ inspect_repo() {
             repo:($gp.providers.gitnexus.commands.query_probe[6] // null),
             query_probe_policy:($gp.providers.gitnexus.query_probe_policy // null),
             status_artifact:".spec-first/providers/gitnexus/status.json"
-          },
-          "code-review-graph":{
-            configured:($gp.providers["code-review-graph"].configured // false),
-            graph_ready:(provider_status_for("code-review-graph").graph_ready // false),
-            query_ready:(provider_status_for("code-review-graph").query_ready // false),
-            status:(provider_status_for("code-review-graph").status // null),
-            status_artifact:".spec-first/providers/code-review-graph/status.json"
           }
         },
+        legacy_provider_advisories:(
+          if ($crg_projection_present and $crg_status_fresh) then
+            [{
+              provider:"code-review-graph",
+              status:"legacy-active",
+              advisory:true,
+              reason_code:"child-on-legacy-spec-first-version",
+              projection_path:".spec-first/config/graph-providers.json",
+              status_artifact:".spec-first/providers/code-review-graph/status.json",
+              next_action:"Upgrade spec-first in this child repo and rerun `$spec-mcp-setup`; then rerun `$spec-graph-bootstrap`."
+            }]
+          elif ($crg_projection_present or $crg_status_present or $crg_aggregate_status_present) then
+            [{
+              provider:"code-review-graph",
+              status:"ignored-residue",
+              advisory:true,
+              reason_code:"crg-residue-ignored",
+              projection_path:(if $crg_projection_present then ".spec-first/config/graph-providers.json" else null end),
+              status_artifact:(if ($crg_status_present or $crg_aggregate_status_present) then ".spec-first/providers/code-review-graph/status.json" else null end),
+              next_action:"Ignore historical CRG residue for workspace readiness; rerun `$spec-mcp-setup` in this child repo if graph-providers.json still projects code-review-graph."
+            }]
+          else [] end
+        ),
         capabilities:{
           query_global_graph:($graph.capabilities.query_global_graph // false),
           impact_context:($graph.capabilities.impact_context // false),
@@ -380,11 +482,12 @@ inspect_repo() {
         limitations:(
           []
           + (if $setup_ready then [] else ["setup-owned config is missing or unsupported"] end)
-          + (if $stale then ["compiled graph facts source revision differs from current HEAD"] else [] end)
+          + (if ($is_non_git_folder and $stale) then ["compiled graph facts content fingerprint differs from current folder contents"] elif $stale then ["compiled graph facts source revision differs from current HEAD"] else [] end)
           + (if $dirty_uncertain then ["compiled graph facts were generated from a dirty worktree without a matching status fingerprint"] else [] end)
           + (if (($graph | length) == 0 and $setup_ready) then ["graph bootstrap has not produced canonical graph facts"] else [] end)
-          + (if $current_worktree_dirty then ["current working tree overlay is not guaranteed to be indexed; verify dirty paths directly"] else [] end)
+          + (if $is_non_git_folder then ["non-git folder target has no commit, branch, dirty hash, Git diff, last_indexed_commit, or incremental evidence"] elif $current_worktree_dirty then ["current working tree overlay is not guaranteed to be indexed; verify dirty paths directly"] else [] end)
           + (if ((($gitnexus_provider_status.status // null) == "query-not-applicable")) then ["GitNexus process routing is not applicable because no source-derived query target exists"] elif ((($gitnexus_provider_status.graph_ready // false) == true) and (($gitnexus_provider_status.query_ready // false) != true)) then ["GitNexus graph exists but query readiness is unverified; use live MCP probe or bounded direct reads"] else [] end)
+          + (if ($crg_projection_present and $crg_status_fresh) then ["child repository is on a legacy spec-first projection that still contains code-review-graph"] elif ($crg_projection_present or $crg_status_present or $crg_aggregate_status_present) then ["historical code-review-graph residue is ignored for workspace readiness"] else [] end)
         ),
         next_action:(
           if $graph_status == "primary" then "Use GitNexus-first for bounded read-only evidence."
@@ -421,11 +524,13 @@ RESULT_JSON="$(jq -n \
       advisory:true,
       git_root_topology:(
         if ($target.selected_repo_root // null) != null then "single-repo"
+        elif ($target.selected_folder_root // null) != null then "non-git-folder"
         elif (($target.mode // "") == "workspace-multi-repo" and ($repos | length) > 1) then "multi-repo-workspace"
         else null
         end
       ),
       mode:($target.mode // "unknown"),
+      target_kind:($target.target_kind // ""),
       repo_status:($target.repo_status // "not-git-repo"),
       invocation_cwd:($target.invocation_cwd // null),
       workspace_root:($target.workspace_root // null),

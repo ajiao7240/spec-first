@@ -116,8 +116,8 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('review-pre-facts changes');
     expect(skill).toContain('execution flows, impact, `detect_changes`, or blast radius');
     expect(skill).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
-    expect(skill).toContain('Doc Review must not run GitNexus analyze, code-review-graph build');
-    expect(skill).toContain('provider repair, index rebuild, default git hooks, watchers, or daemons');
+    expect(skill).toContain('Doc Review must not run GitNexus analyze/build/index refresh');
+    expect(skill).toContain('provider repair, default git hooks, watchers, or daemons');
     expect(skill).toContain('A stale pre-facts tier degrades evidence');
   });
 

@@ -41,8 +41,19 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
   },
 ];
 
+const SPEC_FIRST_GITIGNORE_PATTERN_METADATA = {
+  '.code-review-graph/': {
+    reason: 'retired-crg-residual-ignore',
+    'residual-ignore-expiry': '1.9.0',
+  },
+};
+
 function getSpecFirstGitignorePatterns() {
   return SPEC_FIRST_GITIGNORE_SECTIONS.flatMap((section) => section.patterns);
+}
+
+function getSpecFirstGitignorePatternMetadata() {
+  return { ...SPEC_FIRST_GITIGNORE_PATTERN_METADATA };
 }
 
 function buildSpecFirstGitignoreBlock() {
@@ -103,5 +114,6 @@ module.exports = {
   SPEC_FIRST_GITIGNORE_START,
   applySpecFirstGitignoreBlock,
   buildSpecFirstGitignoreBlock,
+  getSpecFirstGitignorePatternMetadata,
   getSpecFirstGitignorePatterns,
 };

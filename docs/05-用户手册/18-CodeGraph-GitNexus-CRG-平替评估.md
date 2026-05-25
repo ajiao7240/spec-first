@@ -1,5 +1,7 @@
 # CodeGraph 对 GitNexus 与 CRG 的平替评估
 
+> Retired / historical archive: 本文记录 GitNexus-only 迁移前的 CodeGraph / GitNexus / CRG 对比评估。当前默认 provider path 以 GitNexus 为准，CRG 只作为历史背景。
+
 本文回答当前问题：
 
 1. `colbymchenry/codegraph` 是否可以直接平替 GitNexus。

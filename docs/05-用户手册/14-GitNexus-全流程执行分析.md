@@ -28,7 +28,7 @@ GitNexus 在本项目中不是独立的“搜索插件”，而是 `Codebase -> 
 
 - GitNexus provider 内部索引算法。
 - GitNexus npm 包自身的实现细节。
-- code-review-graph 的完整流程。本文只在对比边界处提到它。
+- retired CRG 的历史流程。本文只在迁移残留或历史对比边界处提到它。
 - 用户手动使用 GitNexus MCP tool 的完整操作教程。
 
 ## Source Of Truth
@@ -264,7 +264,7 @@ host readiness ledger v2
 
 1. 解析 repo scope。单仓直接处理当前 repo；父 workspace 默认 all-child maintenance，或通过 `--repo <child>` 收窄。
 2. 校验 setup-owned input schema 与 host ledger，`baseline_ready=false` 时 fail closed。
-3. 校验 provider id 只能是 `gitnexus` 或 `code-review-graph`。
+3. 校验 provider id 只能是 `gitnexus`；旧 CRG projection 会被视为 stale projection 或 residual cleanup 语境。
 4. 校验 command arrays 和 GitNexus query probe policy shape。
 5. 根据 refresh mode 决定 full 或 incremental。
 6. 运行 GitNexus bootstrap 命令。
@@ -457,7 +457,7 @@ stale 或 degraded 的常见策略：
 - docs-only、窄 typo、小型本地 bug：披露限制，继续 bounded direct reads。
 - shared helper、API、route、provider contract、核心 workflow、跨模块变更、依赖 execution flow 或 blast radius 的 review：建议先运行 `$spec-graph-bootstrap`，刷新前不要声称 primary graph-backed impact evidence。
 - definitions-only GitNexus：只作为 file/symbol pointer。
-- query-unverified/unavailable：Plan/Work/Debug 降级到源码读取、ast-grep、git diff、测试或日志；Code Review 可额外使用 code-review-graph 做 diff impact / review evidence。
+- query-unverified/unavailable：Plan/Work/Debug 降级到源码读取、ast-grep、git diff、测试或日志；Code Review 使用 GitNexus session-local evidence 或 bounded direct diff/source reads，并在 Coverage 披露限制。
 
 ## 节点七：下游 workflow 如何使用 GitNexus
 

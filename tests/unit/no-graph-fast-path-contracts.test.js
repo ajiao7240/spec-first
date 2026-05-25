@@ -30,7 +30,7 @@ describe('no-graph fast path contracts', () => {
     expect(readme).toContain('Use the setup/bootstrap path when the task depends on MCP/helper tools, graph evidence, written project guidance, or cross-module/cross-repo impact analysis.');
     expect(readme).toContain('Missing or stale graph facts are degraded evidence to disclose');
     expect(readme).toContain('Graph refresh trigger nodes:');
-    expect(readme).toContain('Need current GitNexus/code-review-graph readiness');
+    expect(readme).toContain('Need current GitNexus readiness');
     expect(readme).toContain('does not automatically rebuild indexes');
 
     expect(readmeZh).toContain('完成 `doctor`、`init` 和宿主重启后');

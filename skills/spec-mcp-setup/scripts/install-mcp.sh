@@ -21,6 +21,7 @@ CONFIG_DIR="$(dirname "$CONFIG_PATH")"
 
 ONLY_FILTER=""
 REPO_ARG=""
+FOLDER_ARG=""
 ALL_REPOS=false
 DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
 WARMUP_CACHE_ROOT="${SPEC_FIRST_WARMUP_CACHE_DIR:-$HOME/.spec-first/cache/mcp-warmup}"
@@ -228,6 +229,11 @@ while [[ $# -gt 0 ]]; do
       [ -n "$REPO_ARG" ] || { echo "install-mcp.sh: --repo requires a value" >&2; exit 1; }
       shift 2
       ;;
+    --folder)
+      FOLDER_ARG="${2:-}"
+      [ -n "$FOLDER_ARG" ] || { echo "install-mcp.sh: --folder requires a value" >&2; exit 1; }
+      shift 2
+      ;;
     --all-repos)
       ALL_REPOS=true
       shift
@@ -239,9 +245,21 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [ -n "$REPO_ARG" ] && [ -n "$FOLDER_ARG" ]; then
+  echo "install-mcp.sh: use either --repo or --folder, not both" >&2
+  exit 1
+fi
+if [ "$ALL_REPOS" = "true" ] && [ -n "$FOLDER_ARG" ]; then
+  echo "install-mcp.sh: use either --all-repos or --folder, not both" >&2
+  exit 1
+fi
+
 TARGET_ARGS=()
 if [ -n "$REPO_ARG" ] && [ "$ALL_REPOS" != "true" ]; then
   TARGET_ARGS+=(--repo "$REPO_ARG")
+fi
+if [ -n "$FOLDER_ARG" ] && [ "$ALL_REPOS" != "true" ]; then
+  TARGET_ARGS+=(--folder "$FOLDER_ARG")
 fi
 set +e
 TARGET_ENV="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format env ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
@@ -256,6 +274,8 @@ TARGET_STATE_WRITE_ALLOWED="$state_write_allowed"
 TARGET_REASON_CODE="$reason_code"
 TARGET_NEXT_ACTION="$next_action"
 TARGET_SELECTED_REPO_ROOT="$selected_repo_root"
+TARGET_SELECTED_FOLDER_ROOT="$selected_folder_root"
+TARGET_ROOT="$target_root"
 TARGET_WORKSPACE_ROOT="$workspace_root"
 TARGET_MODE="$(jq -r '.mode // empty' <<<"$TARGET_JSON")"
 TARGET_CANDIDATE_COUNT="$(jq -r '(.candidates // []) | length' <<<"$TARGET_JSON")"
@@ -263,8 +283,12 @@ DEFAULT_ALL_REPOS=false
 if [ "$ALL_REPOS" != "true" ] && [ -z "$REPO_ARG" ] && [ "$TARGET_MODE" != "git-repo" ] && [ "$TARGET_CANDIDATE_COUNT" -gt 0 ]; then
   DEFAULT_ALL_REPOS=true
 fi
-if [ -n "$TARGET_SELECTED_REPO_ROOT" ]; then
+if [ -n "$TARGET_ROOT" ]; then
+  REPO_ROOT="$TARGET_ROOT"
+elif [ -n "$TARGET_SELECTED_REPO_ROOT" ]; then
   REPO_ROOT="$TARGET_SELECTED_REPO_ROOT"
+elif [ -n "$TARGET_SELECTED_FOLDER_ROOT" ]; then
+  REPO_ROOT="$TARGET_SELECTED_FOLDER_ROOT"
 else
   REPO_ROOT="$TARGET_WORKSPACE_ROOT"
 fi

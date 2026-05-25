@@ -73,8 +73,8 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('review-pre-facts changes');
     expect(text).toContain('execution flows or blast radius');
     expect(text).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
-    expect(text).toContain('must not run GitNexus analyze, code-review-graph build');
-    expect(text).toContain('provider repair, index rebuild, default git hooks, watchers, or daemons');
+    expect(text).toContain('must not run GitNexus analyze/build/index refresh');
+    expect(text).toContain('provider repair, default git hooks, watchers, or daemons');
     expect(text).toContain('Review-produced `detect_changes` / impact summaries');
     expect(text).toContain('not Work refresh triggers');
     expect(text).toContain('Workspace Repo Scope');

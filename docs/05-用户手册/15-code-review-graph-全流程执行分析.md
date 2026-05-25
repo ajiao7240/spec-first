@@ -1,6 +1,8 @@
 # code-review-graph 全流程执行分析
 
-本文基于当前仓库源码，说明 `code-review-graph` 在 spec-first 中从安装、配置、生成、使用、更新到修复的完整执行链路。
+> Retired / historical archive: 本文记录 GitNexus-only 迁移前的 CRG 链路，仅用于理解历史设计和手动清理背景。当前 spec-first 不再安装、配置、刷新或消费 `code-review-graph`。
+
+本文基于迁移前仓库源码，说明 `code-review-graph` 在 spec-first 中曾经从安装、配置、生成、使用、更新到修复的完整执行链路。
 
 结论先行：
 

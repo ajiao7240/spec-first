@@ -143,16 +143,13 @@ describe('user manual contracts', () => {
 
     expect(manual).toContain('[代码图谱 Provider 作用域与差异化](./13-代码图谱Provider作用域与差异化.md)');
     expect(guide).toContain('GitNexus = 全局代码知识');
-    expect(guide).toContain('code-review-graph = 当前变更的 review evidence');
-    expect(guide).toContain('核心竞争力不是“接入了两个代码图谱工具”');
-    expect(guide).toContain('GitNexus 在 spec-first 中的角色是 `global_knowledge`');
-    expect(guide).toContain('`code-review-graph` 在 spec-first 中的角色是 `impact_context`');
-    expect(guide).toContain('这个设计故意不把 `code-review-graph` 包装成 agent');
-    expect(guide).toContain('`spec-graph-impact-reviewer` 是建议新增的条件触发 reviewer');
-    expect(guide).toContain('计划落地后的默认行为');
-    expect(guide).toContain('将默认评估是否需要 `spec-graph-impact-reviewer`');
-    expect(guide).toContain('不是 always-on reviewer');
-    expect(guide).toContain('默认评估、条件派发');
+    expect(guide).toContain('review-impact evidence');
+    expect(guide).toContain('核心竞争力不是“接入某个代码图谱工具”');
+    expect(guide).toContain('GitNexus 在 spec-first 中的角色是 `global_knowledge` 与 review-impact evidence source');
+    expect(guide).toContain('GitNexus 包装成默认 reviewer agent');
+    expect(guide).toContain('candidate-only related tests 只作为测试候选和 Coverage 限制');
+    expect(guide).not.toContain('code-review-graph = 当前变更的 review evidence');
+    expect(guide).not.toContain('`code-review-graph` 在 spec-first 中的角色是 `impact_context`');
     expect(guide).toContain('Scripts prepare, LLM decides');
     expect(guide).toContain('`.spec-first/impact/bootstrap-impact-capabilities.json`');
     expect(guide).toContain('workspace-gitnexus-readiness.v1');
@@ -186,7 +183,7 @@ describe('user manual contracts', () => {
     expect(manual).toContain('graph-heavy 任务再显式运行 `spec-graph-bootstrap`');
 
     expect(quickstart).toContain('Graph refresh 触发节点可以按这张表理解');
-    expect(quickstart).toContain('需要当前 GitNexus / code-review-graph readiness');
+    expect(quickstart).toContain('需要当前 GitNexus readiness');
     expect(quickstart).toContain('不会自动 rebuild index');
     expect(quickstart).toContain('shared API/route/provider contract、core workflow、跨模块变更或高风险 review');
 

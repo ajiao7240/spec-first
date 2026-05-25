@@ -15,6 +15,15 @@ hash_text() {
   fi
 }
 
+hash_file() {
+  local path="$1"
+  if [ -f "$path" ]; then
+    hash_text < "$path"
+  else
+    printf '%s\n' ""
+  fi
+}
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib-template.sh"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -38,12 +47,13 @@ done
 [ -f "$FACTS_FILE" ] || { echo "facts file not found: $FACTS_FILE" >&2; exit 1; }
 
 REPO_STATUS="$(jq -r '.repo_status // "not-git-repo"' "$FACTS_FILE")"
+TARGET_KIND="$(jq -r '.target_kind // .target.target_kind // empty' "$FACTS_FILE")"
 TARGET_STATE_WRITE_ALLOWED="$(jq -r 'if (.target | type == "object") then (.target.state_write_allowed | tostring) else (if .repo_status == "git-repo" then "true" else "false" end) end' "$FACTS_FILE")"
 TARGET_REASON_CODE="$(jq -r '.target.reason_code // .reason_code // empty' "$FACTS_FILE")"
 TARGET_NEXT_ACTION="$(jq -r '.target.next_action // empty' "$FACTS_FILE")"
-REPO_ROOT="$(jq -r '.selected_repo_root // .repo_root' "$FACTS_FILE")"
+REPO_ROOT="$(jq -r '.target.target_root // .selected_repo_root // .target.selected_folder_root // .repo_root' "$FACTS_FILE")"
 
-if [ "$TARGET_STATE_WRITE_ALLOWED" != "true" ] || [ "$REPO_STATUS" != "git-repo" ]; then
+if [ "$TARGET_STATE_WRITE_ALLOWED" != "true" ] || { [ "$REPO_STATUS" != "git-repo" ] && [ "$TARGET_KIND" != "non-git-folder" ]; }; then
   status="${TARGET_REASON_CODE:-skipped-no-git-repo}"
   next="${TARGET_NEXT_ACTION:-Choose a Git repo target and rerun spec-mcp-setup with --repo <child>.}"
   jq -n \
@@ -121,10 +131,6 @@ gitnexus_package_version="$(jq -r '.tools[] | select(.id == "gitnexus") | .versi
 [ -n "$gitnexus_package_name" ] && [ -n "$gitnexus_package_version" ] || { echo "GitNexus package/version fields not found in mcp-tools.json" >&2; exit 1; }
 gitnexus_package="${gitnexus_package_name}@${gitnexus_package_version}"
 gitnexus_native_capabilities="$(jq -c '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities // {}' "$TOOLS_JSON")"
-code_review_graph_package_name="$(jq -r '.tools[] | select(.id == "code-review-graph") | .package // ""' "$TOOLS_JSON")"
-code_review_graph_package_version="$(jq -r '.tools[] | select(.id == "code-review-graph") | .version // ""' "$TOOLS_JSON")"
-[ -n "$code_review_graph_package_name" ] && [ -n "$code_review_graph_package_version" ] || { echo "code-review-graph package/version fields not found in mcp-tools.json" >&2; exit 1; }
-code_review_graph_package="${code_review_graph_package_name}@${code_review_graph_package_version}"
 GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT=5
 GITNEXUS_QUERY_PROBE_SOURCE_FILE_LIMIT_BYTES=200000
 
@@ -253,6 +259,9 @@ gitnexus_repo_name_from_remote_url() {
 git_remote_url_for_repo() {
   local repo_root="$1"
   local remote_url current_branch branch_remote remote_names remote_count first_remote
+  if [ "$TARGET_KIND" = "non-git-folder" ]; then
+    return 0
+  fi
   command -v git >/dev/null 2>&1 || return 0
 
   remote_url="$(git -C "$repo_root" config --get remote.origin.url 2>/dev/null || true)"
@@ -339,9 +348,24 @@ select_gitnexus_query_probe_policy() {
   local candidate_limit_reached=false
   local -a files=("__spec_first_empty_file_list_sentinel__")
 
-  while IFS= read -r path; do
-    files+=("$path")
-  done < <(git -C "$repo_root" ls-files 2>/dev/null || true)
+  if [ "$TARGET_KIND" = "non-git-folder" ]; then
+    while IFS= read -r path; do
+      [ -n "$path" ] || continue
+      files+=("$path")
+    done < <(
+      cd "$repo_root" && find -P . -type f -print 2>/dev/null |
+        sed 's#^\./##' |
+        sort |
+        awk '
+          /^(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|node_modules|vendor)\// { next }
+          { print }
+        '
+    )
+  else
+    while IFS= read -r path; do
+      files+=("$path")
+    done < <(git -C "$repo_root" ls-files 2>/dev/null || true)
+  fi
 
   append_gitnexus_probe_candidate() {
     local candidate_token="$1"
@@ -480,36 +504,69 @@ select_gitnexus_query_probe_policy() {
   fi
 }
 
+folder_content_fingerprint() {
+  local repo_root="$1"
+  if [ "$TARGET_KIND" != "non-git-folder" ]; then
+    printf '%s\n' ""
+    return 0
+  fi
+  (
+    cd "$repo_root"
+    find -P . -type f -print 2>/dev/null |
+      sed 's#^\./##' |
+      sort |
+      while IFS= read -r path; do
+        case "$path" in
+          .spec-first/*|.gitnexus/*|.code-review-graph/*|.agents/*|.codex/*|.claude/*|node_modules/*|vendor/*) continue ;;
+        esac
+        printf '%s\n' "$path"
+        hash_file "$path"
+      done
+  ) | hash_text
+}
+
 gitnexus_query_probe_policy="$(select_gitnexus_query_probe_policy "$REPO_ROOT")"
 gitnexus_repo_name="$(resolve_gitnexus_repo_name "$REPO_ROOT" "$FACTS_FILE")"
 gitnexus_query_probe_token="$(jq -r '.token // ""' <<<"$gitnexus_query_probe_policy")"
-gitnexus_commands_json="$(jq -n -S -c \
-  --arg gitnexus_package "$gitnexus_package" \
-  --arg query_probe "$gitnexus_query_probe_token" \
-  --arg repo_name "$gitnexus_repo_name" '{
-    bootstrap: ["npx", "-y", $gitnexus_package, "analyze", "--force", "--skip-agents-md", "--no-stats"],
-    incremental: ["npx", "-y", $gitnexus_package, "analyze", "--skip-agents-md", "--no-stats"],
-    status: ["npx", "-y", $gitnexus_package, "status"],
-    query_probe: ["npx", "-y", $gitnexus_package, "query", $query_probe, "--repo", $repo_name]
-  }')"
-gitnexus_command_hash="$(printf '%s' "$gitnexus_commands_json" | hash_text)"
-code_review_graph_commands_json="$(jq -n -S -c \
-  --arg code_review_graph_package "$code_review_graph_package" \
-  --arg repo_root "$REPO_ROOT" '{
-    bootstrap: ["uvx", $code_review_graph_package, "build"],
-    incremental: ["uvx", $code_review_graph_package, "update", "--base", "__SPEC_FIRST_LAST_INDEXED_COMMIT__"],
-    status: ["uvx", $code_review_graph_package, "status"],
-    query_probe: ["uvx", $code_review_graph_package, "status", "--repo", $repo_root]
-  }')"
-code_review_graph_command_hash="$(printf '%s' "$code_review_graph_commands_json" | hash_text)"
-current_source_revision="$(git -C "$REPO_ROOT" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true)"
-current_worktree_status="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)"
-if [ -n "$current_worktree_status" ]; then
-  current_worktree_dirty=true
+if [ "$TARGET_KIND" = "non-git-folder" ]; then
+  gitnexus_commands_json="$(jq -n -S -c \
+    --arg gitnexus_package "$gitnexus_package" \
+    --arg query_probe "$gitnexus_query_probe_token" \
+    --arg repo_name "$gitnexus_repo_name" '{
+      bootstrap: ["npx", "-y", $gitnexus_package, "analyze", "--skip-git", "--force", "--skip-agents-md", "--no-stats"],
+      status: ["npx", "-y", $gitnexus_package, "status"],
+      query_probe: ["npx", "-y", $gitnexus_package, "query", $query_probe, "--repo", $repo_name]
+    }')"
 else
-  current_worktree_dirty=false
+  gitnexus_commands_json="$(jq -n -S -c \
+    --arg gitnexus_package "$gitnexus_package" \
+    --arg query_probe "$gitnexus_query_probe_token" \
+    --arg repo_name "$gitnexus_repo_name" '{
+      bootstrap: ["npx", "-y", $gitnexus_package, "analyze", "--force", "--skip-agents-md", "--no-stats"],
+      incremental: ["npx", "-y", $gitnexus_package, "analyze", "--skip-agents-md", "--no-stats"],
+      status: ["npx", "-y", $gitnexus_package, "status"],
+      query_probe: ["npx", "-y", $gitnexus_package, "query", $query_probe, "--repo", $repo_name],
+      impact_probe: ["npx", "-y", $gitnexus_package, "impact", $query_probe, "--repo", $repo_name, "--include-tests", "--depth", "2"]
+    }')"
 fi
-current_worktree_status_hash="$(printf '%s' "$current_worktree_status" | hash_text)"
+gitnexus_command_hash="$(printf '%s' "$gitnexus_commands_json" | hash_text)"
+if [ "$TARGET_KIND" = "non-git-folder" ]; then
+  current_source_revision=""
+  current_worktree_status=""
+  current_worktree_dirty=false
+  current_worktree_status_hash=""
+  current_content_fingerprint="$(folder_content_fingerprint "$REPO_ROOT")"
+else
+  current_source_revision="$(git -C "$REPO_ROOT" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true)"
+  current_worktree_status="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)"
+  if [ -n "$current_worktree_status" ]; then
+    current_worktree_dirty=true
+  else
+    current_worktree_dirty=false
+  fi
+  current_worktree_status_hash="$(printf '%s' "$current_worktree_status" | hash_text)"
+  current_content_fingerprint=""
+fi
 
 graph_facts_exists=false
 provider_status_exists=false
@@ -536,15 +593,14 @@ fi
 jq --arg generated_at "$generated_at" \
    --arg repo_name "$gitnexus_repo_name" \
    --arg repo_root "$REPO_ROOT" \
+   --arg target_kind "$TARGET_KIND" \
+   --arg content_fingerprint "$current_content_fingerprint" \
    --arg gitnexus_package "$gitnexus_package" \
-   --arg code_review_graph_package "$code_review_graph_package" \
    --arg gitnexus_command_hash "$gitnexus_command_hash" \
-   --arg code_review_graph_command_hash "$code_review_graph_command_hash" \
    --arg current_source_revision "$current_source_revision" \
    --argjson current_worktree_dirty "$current_worktree_dirty" \
    --arg current_worktree_status_hash "$current_worktree_status_hash" \
    --argjson gitnexus_commands "$gitnexus_commands_json" \
-   --argjson code_review_graph_commands "$code_review_graph_commands_json" \
    --argjson gitnexus_query_probe_policy "$gitnexus_query_probe_policy" \
    --argjson gitnexus_native_capabilities "$gitnexus_native_capabilities" \
    --argjson graph_facts_exists "$graph_facts_exists" \
@@ -556,6 +612,15 @@ jq --arg generated_at "$generated_at" \
    --argjson existing "$existing_provider" '
   def canonical_graph_artifacts_exist:
     $graph_facts_exists and $provider_status_exists and $impact_capabilities_exists;
+
+  def target_is_non_git_folder:
+    $target_kind == "non-git-folder";
+
+  def canonical_graph_folder_current:
+    target_is_non_git_folder
+    and (($canonical_graph_facts.target_kind // "") == "non-git-folder")
+    and (($canonical_graph_facts.folder_snapshot.content_fingerprint // $canonical_graph_facts.content_fingerprint // "") != "")
+    and (($canonical_graph_facts.folder_snapshot.content_fingerprint // $canonical_graph_facts.content_fingerprint // "") == $content_fingerprint);
 
   def canonical_graph_source_revision_current:
     ($canonical_graph_facts.source_revision // "") as $recorded_source_revision
@@ -576,20 +641,17 @@ jq --arg generated_at "$generated_at" \
     and ($canonical_provider_status.schema_version == "graph-provider-status.v1")
     and ($canonical_impact_capabilities.schema_version == "bootstrap-impact-capabilities.v1")
     and (($canonical_graph_facts.repo_root // $repo_root) == $repo_root)
-    and canonical_graph_source_revision_current
-    and canonical_graph_worktree_current;
+    and (if target_is_non_git_folder then canonical_graph_folder_current else (canonical_graph_source_revision_current and canonical_graph_worktree_current) end);
 
   def canonical_provider_status($key):
     [($canonical_provider_status.providers // [])[] | select(.provider == $key)][0] // null;
 
   def current_provider_package($key):
     if $key == "gitnexus" then $gitnexus_package
-    elif $key == "code-review-graph" then $code_review_graph_package
     else "" end;
 
   def current_provider_command_hash($key):
     if $key == "gitnexus" then $gitnexus_command_hash
-    elif $key == "code-review-graph" then $code_review_graph_command_hash
     else "" end;
 
   def canonical_provider_fresh_for_current($key):
@@ -616,7 +678,6 @@ jq --arg generated_at "$generated_at" \
 
   def provider_commands($key):
     if $key == "gitnexus" then $gitnexus_commands
-    elif $key == "code-review-graph" then $code_review_graph_commands
     else {} end;
 
   def provider_host_ready($provider):
@@ -794,6 +855,7 @@ jq --arg generated_at "$generated_at" \
   (
     (.graph_providers // {})
     | to_entries
+    | map(select(.key == "gitnexus"))
     | map(
 	        .key as $key
 	        | .value as $current
@@ -840,6 +902,8 @@ jq --arg generated_at "$generated_at" \
     generated_by: "spec-mcp-setup",
     generated_at: $generated_at,
     repo_root: .repo_root,
+    target_kind: $target_kind,
+    folder_snapshot: (if target_is_non_git_folder then {content_fingerprint:$content_fingerprint} else null end),
     providers: $providers,
     derived_readiness: (
       ([($readiness // {})[] | .bootstrap_required == true] | any) as $bootstrap_required
@@ -863,13 +927,13 @@ jq --arg generated_at "$generated_at" \
     ),
     selection: {
       global_knowledge: "gitnexus",
-      impact_context: "code-review-graph",
-      context_selection: "code-review-graph"
+      impact_context: (if target_is_non_git_folder then null else "gitnexus" end),
+      context_selection: "gitnexus"
     },
     boundaries: {
       setup_only: true,
       does_not_run_gitnexus_analyze: true,
-      does_not_run_code_review_graph_build: true,
+      does_not_run_provider_refresh: true,
       graph_bootstrap_required: ([($readiness // {})[] | .bootstrap_required == true] | any)
     }
   }
@@ -884,6 +948,8 @@ jq --arg generated_at "$generated_at" \
     )' "$FACTS_FILE" > "$PROJECTION_TMP"
 
 jq --arg generated_at "$generated_at" \
+   --arg target_kind "$TARGET_KIND" \
+   --arg content_fingerprint "$current_content_fingerprint" \
    --arg current_source_revision "$current_source_revision" \
    --argjson current_worktree_dirty "$current_worktree_dirty" \
    --arg current_worktree_status_hash "$current_worktree_status_hash" \
@@ -906,6 +972,15 @@ jq --arg generated_at "$generated_at" \
   def canonical_graph_artifacts_exist:
     $graph_facts_exists and $provider_status_exists and $impact_capabilities_exists;
 
+  def target_is_non_git_folder:
+    $target_kind == "non-git-folder";
+
+  def canonical_graph_folder_current:
+    target_is_non_git_folder
+    and (($canonical_graph_facts.target_kind // "") == "non-git-folder")
+    and (($canonical_graph_facts.folder_snapshot.content_fingerprint // $canonical_graph_facts.content_fingerprint // "") != "")
+    and (($canonical_graph_facts.folder_snapshot.content_fingerprint // $canonical_graph_facts.content_fingerprint // "") == $content_fingerprint);
+
   def canonical_graph_source_revision_current:
     ($canonical_graph_facts.source_revision // "") as $recorded_source_revision
     | ($current_source_revision != "")
@@ -925,8 +1000,7 @@ jq --arg generated_at "$generated_at" \
     and ($canonical_provider_status.schema_version == "graph-provider-status.v1")
     and ($canonical_impact_capabilities.schema_version == "bootstrap-impact-capabilities.v1")
     and (($canonical_graph_facts.repo_root // .repo_root) == .repo_root)
-    and canonical_graph_source_revision_current
-    and canonical_graph_worktree_current;
+    and (if target_is_non_git_folder then canonical_graph_folder_current else (canonical_graph_source_revision_current and canonical_graph_worktree_current) end);
 
   (.helper_tools."ast-grep" // {}) as $ast_grep
   | (helper_ready($ast_grep)) as $ast_grep_ready
@@ -938,6 +1012,8 @@ jq --arg generated_at "$generated_at" \
       host: .host,
       platform: .platform,
       repo_status: .repo_status,
+      target_kind: $target_kind,
+      folder_snapshot: (if target_is_non_git_folder then {content_fingerprint:$content_fingerprint} else null end),
       host_ledger_pointer: (.host_ledger_pointer // {
         host: .host,
         path: null,
@@ -1048,19 +1124,15 @@ jq --arg generated_at "$generated_at" --slurpfile provider "$PROJECTION_TMP" '
               if .key == "gitnexus" then {
                 bootstrap: ".spec-first/providers/gitnexus/raw/analyze.log",
                 status: ".spec-first/providers/gitnexus/raw/status.log",
-                query_probe: ".spec-first/providers/gitnexus/raw/query.log"
-              } else {
-                bootstrap: ".spec-first/providers/code-review-graph/raw/build.log",
-                status: ".spec-first/providers/code-review-graph/raw/status.log",
-                query_probe: ".spec-first/providers/code-review-graph/raw/query.log"
+                query_probe: ".spec-first/providers/gitnexus/raw/query.log",
+                impact_probe: ".spec-first/providers/gitnexus/raw/impact.log"
               } end
             ),
             normalized_artifacts: (
               if .key == "gitnexus" then {
                 architecture_facts: ".spec-first/providers/gitnexus/normalized/architecture-facts.json",
-                reuse_candidates: ".spec-first/providers/gitnexus/normalized/reuse-candidates.json"
-              } else {
-                impact_capabilities: ".spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
+                reuse_candidates: ".spec-first/providers/gitnexus/normalized/reuse-candidates.json",
+                impact_capabilities: ".spec-first/providers/gitnexus/normalized/impact-capabilities.json"
               } end
             )
           }

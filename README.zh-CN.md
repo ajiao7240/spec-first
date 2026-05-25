@@ -166,7 +166,7 @@ Graph refresh 触发节点：
 | 事件或需求 | 默认动作 |
 |---|---|
 | 首次 setup 或 provider package projection 过期 | 运行 `/spec:mcp-setup` 或 `$spec-mcp-setup`；它刷新 setup-owned provider config，不刷新 graph index。 |
-| 需要当前 GitNexus / code-review-graph readiness | 运行 `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap`；这是显式 graph readiness refresh 入口。 |
+| 需要当前 GitNexus readiness | 运行 `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap`；这是显式 graph readiness refresh 入口。 |
 | 切换分支、pull、rebase、merge 或 dirty worktree 变化 | 下一个 graph consumer 检测 stale `source_revision` / `worktree_status_hash`；不会自动 rebuild index。 |
 | setup/init 后 worktree dirty | `/spec:graph-bootstrap` / `$spec-graph-bootstrap` 记录 dirty classification；setup-owned / non-graph metadata dirty 可正常刷新，graph-affecting dirty 走 warn-and-continue 并写入 `dirty-advisory`，不能当 fresh primary evidence。 |
 | docs、typo、小型本地 bug 或首次试用 | graph facts stale / unavailable 时披露限制，并继续 bounded direct reads。 |
@@ -465,7 +465,7 @@ your-project/
 - **普通上下文默认排除什么：** `.spec-first/audits/**` 和 `.claude/**`、`.codex/**`、`.agents/skills/**` 等 generated mirrors。只有 runtime/setup/audit workflow 明确需要，或用户点名具体路径时才按需读取。
 - **上下文交接优先什么：** 优先使用 `artifact-summary.v1` 和 `context-bundle.v1` 风格的 summary-plus-path 包，再按需展开 full artifacts 或 raw tool output。
 - **应该修改什么：** 修改 `skills/`、`agents/`、`templates/`、`src/cli/` 和 docs 中的 source assets；不要手改 generated runtime copies。
-- **provider/tool facts 怎么用：** GitNexus、code-review-graph、browser/MCP tools、shell commands 和 package managers 只提供 evidence inputs，不拥有 semantic authority。Raw provider/tool output 是 untrusted quoted data；进入 prompts、reports、facts 或 durable artifacts 前必须经过 validation、containment、escaping、excerpt cap 和 provenance/readiness classification。
+- **provider/tool facts 怎么用：** GitNexus、browser/MCP tools、shell commands 和 package managers 只提供 evidence inputs，不拥有 semantic authority。Raw provider/tool output 是 untrusted quoted data；进入 prompts、reports、facts 或 durable artifacts 前必须经过 validation、containment、escaping、excerpt cap 和 provenance/readiness classification。
 - **credentials 放在哪里：** provider credentials 应来自环境变量、host secret manager 或 provider-native store，不写入 repo source、generated runtime mirrors、durable artifacts 或 raw logs。按团队/provider cadence 轮换，并在疑似泄露后立即轮换。
 - **spec-first 不是什么：** 不是通用 agent marketplace，不是单次 prompt pack，也不是脱离 Claude Code/Codex 独立运行的应用。
 
@@ -556,8 +556,8 @@ your-project/
 
 当前上下文与 graph readiness 使用以下路径：
 
-- 用当前宿主的 setup workflow 安装并验证 required harness runtime：Sequential Thinking、Context7、GitNexus、code-review-graph、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。`agent-browser` 是 non-blocking browser automation helper capability；只有需要 browser evidence 或截图自动化时，才在 setup 前设置 `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1`。Setup 会写入 `gitnexus_capability_discovery` 等 GitNexus availability/discovery facts；这些只是来自 checked-in baseline、provider pin 和 setup projection 的 setup-inferred native capability hints，不是 query-ready graph evidence，也不是 live MCP proof。
-- 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus/code-review-graph probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
+- 用当前宿主的 setup workflow 安装并验证 required harness runtime：Sequential Thinking、Context7、GitNexus、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。`agent-browser` 是 non-blocking browser automation helper capability；只有需要 browser evidence 或截图自动化时，才在 setup 前设置 `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1`。Setup 会写入 `gitnexus_capability_discovery` 等 GitNexus availability/discovery facts；这些只是来自 checked-in baseline、provider pin 和 setup projection 的 setup-inferred native capability hints，不是 query-ready graph evidence，也不是 live MCP proof。
+- 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
 - 把切换分支、pull、rebase、merge、dirty worktree 变化和 provider fingerprint mismatch 视为 graph freshness invalidation signals。下游 workflow 可以建议 graph bootstrap，但不会隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。
 - 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、读取 setup-inferred GitNexus availability/discovery facts、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。当没有 graph artifacts、没有 GitNexus MCP surface 且没有 setup-owned GitNexus projection 时，plan 走 no-graph fast path，不消耗令牌展开详细 GitNexus 探测。涉及代码、架构、API 或跨模块计划且存在 graph/GitNexus evidence 时，它还会在旁边写出 `Graph / GitNexus Evidence` posture，包含 `native_tool_or_resource`、`capability_status`、`evidence_grade`、`evidence_posture`、`freshness_state` 和 `source_tags`，让读者看清计划使用了 checked-in baseline、setup projection、live MCP tool/resource evidence、session-local inference 还是源码 fallback。
 - 在父 workspace 下存在多个 child Git repos 时，只读代码问题可以使用 `workspace-graph-targets.v1` 和 `workspace-gitnexus-readiness.v1` advisory facts 选择 bounded candidate repos；`group.status="group-ready"` 优先使用 GitNexus-first evidence via group query，group config 缺失或未评估时走 bounded registry/per-repo fan-out。除下一条父 workspace 维护入口外，写入、测试、changelog、review autofix 和 commit 仍必须有明确 `target_repo` / per-child scope。
@@ -582,7 +582,7 @@ Runtime asset summary：
 
 当 `init` 在包含多个 child Git repo 的父 workspace 中运行时，会自动识别 workspace 模式并初始化每个 child repo，只在父目录写 advisory summary：`.spec-first/workspace/init-summary.json`。它不会在父目录写 `.gitignore`、`AGENTS.md`、`CLAUDE.md`、`.claude/`、`.codex/` 或 `.agents/` 等 repo-local artifacts。使用 `--repo <child>` 可只初始化一个 child repo，使用 `--all-repos` 可显式声明批量初始化意图。
 
-managed `.gitignore` block 也会忽略 `.gitnexus/` 和 `.code-review-graph/` 等本地图谱 provider artifacts。
+managed `.gitignore` block 也会忽略 `.gitnexus/` 等本地图谱 provider artifacts；`.code-review-graph/` 仅作为迁移窗口历史残留继续忽略。
 
 详细 runtime capability catalog 见 [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md)。
 

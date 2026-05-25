@@ -18,7 +18,6 @@ RESOLVER_SCRIPT="$SCRIPTS_DIR/resolve-project-target.sh"
 GRAPH_BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
-CODE_REVIEW_GRAPH_PACKAGE="$(jq -r '.tools[] | select(.id == "code-review-graph") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
 GITNEXUS_QUERY_PROBE="TradeLoginActivity"
 GITNEXUS_REPO_LABEL="hr360"
 TMP_DIR="$(mktemp -d)"
@@ -184,6 +183,9 @@ assert_contains "mcp setup avoids branch-triggered refresh" 'branch/pull/rebase-
 assert_contains "mcp setup writes setup-inferred capability discovery only" 'setup-inferred availability/discovery facts' "$mcp_setup_skill_source"
 assert_contains "mcp setup distinguishes graph bootstrap from plan live evidence" 'Distinguish durable readiness refresh from Plan-stage live GitNexus evidence' "$mcp_setup_skill_source"
 assert_contains "mcp setup dirty durable readiness does not block plan evidence" 'Dirty worktree or stale durable readiness does not automatically make prior/session-local Plan evidence unusable' "$mcp_setup_skill_source"
+assert_contains "mcp setup documents GitNexus-only upgrade path" 'GitNexus-Only Upgrade Path' "$mcp_setup_skill_source"
+assert_contains "mcp setup tells upgrades to run setup before graph-bootstrap" 'run `$spec-mcp-setup` / `/spec:mcp-setup` first' "$mcp_setup_skill_source"
+assert_contains "mcp setup sends retired CRG cleanup to manual guidance" '19-旧CRG残留手动清理指引.md' "$mcp_setup_skill_source"
 assert_not_contains "mcp setup fallback does not mention retired Serena semantics" "Serena" "$mcp_setup_skill_source"
 
 assert "project target resolver is executable" test -x "$RESOLVER_SCRIPT"
@@ -208,6 +210,22 @@ assert_eq "single child repo is only advisory" "workspace-single-candidate:works
 target_env="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --format env)"
 assert_contains "env output exposes mode without jq" "mode='workspace-single-candidate'" "$target_env"
 assert_contains "env output exposes write gate without jq" "state_write_allowed='false'" "$target_env"
+mkdir -p "$TARGET_WORKSPACE/non-git-docs/src"
+printf 'export class FolderTargetService {}\n' > "$TARGET_WORKSPACE/non-git-docs/src/FolderTargetService.ts"
+target_folder="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --folder non-git-docs)"
+assert_eq "resolver accepts explicit non-git folder target" "non-git-folder:explicit-folder:true:non-git-docs" "$(jq -r '"\(.mode):\(.selection_source):\(.state_write_allowed):\(.folder_label)"' <<<"$target_folder")"
+assert_eq "resolver exposes folder target paths without fake repo root" "true" "$(jq -r '(.target_kind == "non-git-folder") and (.selected_repo_root == null) and (.selected_folder_root != null) and (.target_root == .selected_folder_root)' <<<"$target_folder")"
+set +e
+target_folder_git_repo="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --folder project-a 2>/dev/null)"
+target_folder_git_repo_status=$?
+set -e
+assert_eq "resolver rejects folder target inside Git repo" "1" "$target_folder_git_repo_status"
+assert_eq "folder target inside Git repo reason is stable" "folder-target-is-git-repo" "$(jq -r '.reason_code' <<<"$target_folder_git_repo")"
+set +e
+target_repo_folder_conflict="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --repo project-a --folder non-git-docs 2>/dev/null)"
+target_repo_folder_conflict_status=$?
+set -e
+assert_eq "resolver rejects repo and folder together" "1" "$target_repo_folder_conflict_status"
 
 # env_quote adversarial coverage: load the real implementation from resolve-project-target.sh
 # and confirm it neutralizes single quotes, command substitution, semicolon injection,
@@ -283,16 +301,13 @@ target_monorepo="$(cd "$MONOREPO_FIXTURE/packages/a" && bash "$RESOLVER_SCRIPT")
 assert_eq "monorepo packages stay inside one git repo target" "git-repo:cwd-git-root:0" "$(jq -r '"\(.mode):\(.selection_source):\(.candidates | length)"' <<<"$target_monorepo")"
 
 assert_eq "mcp-tools schema is v6" "6" "$(jq -r '.schema_version' "$TOOLS_JSON")"
-assert_eq "tool ids are fixed" "sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
+assert_eq "tool ids are fixed" "sequential-thinking,context7,gitnexus" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
 assert_eq "every registry tool is required" "true" "$(jq -r 'all(.tools[]; .required == true)' "$TOOLS_JSON")"
 assert_eq "categories are constrained" "true" "$(jq -r 'all(.tools[]; (.category == "mcp" or .category == "graph-provider"))' "$TOOLS_JSON")"
 assert_eq "agent-browser is outside MCP registry" "false" "$(jq -r '[.tools[].id] | index("agent-browser") != null' "$TOOLS_JSON")"
 assert_eq "browser MCP is not registered" "false" "$(jq -r '[.tools[].id] | any(. == "playwright")' "$TOOLS_JSON")"
-assert_eq "graph provider roles are configured" "global_knowledge,impact_context" "$(jq -r '[.tools[] | select(.category == "graph-provider") | .provider_role] | join(",")' "$TOOLS_JSON")"
-assert_eq "code-review-graph depends on uv and uvx" "uv,uvx" "$(jq -r '.tools[] | select(.id == "code-review-graph") | .dependencies | join(",")' "$TOOLS_JSON")"
-assert_eq "code-review-graph host MCP is optional" "false:cli_artifact:true" "$(jq -r '.tools[] | select(.id == "code-review-graph") | "\(.host_config_required):\(.provider_config.access_mode):\(.provider_config.optional_live_mcp)"' "$TOOLS_JSON")"
+assert_eq "graph provider roles are configured" "global_knowledge" "$(jq -r '[.tools[] | select(.category == "graph-provider") | .provider_role] | join(",")' "$TOOLS_JSON")"
 assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.5" "$GITNEXUS_PACKAGE"
-assert_eq "code-review-graph package pin is explicit" "code-review-graph@2.3.3" "$CODE_REVIEW_GRAPH_PACKAGE"
 assert_eq "GitNexus native capability keys are locked" "context,cypher,impact,query,repo_registry,route_api_evidence,shape_check,tool_map,workspace_group" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | keys | sort | join(",")' "$TOOLS_JSON")"
 assert_eq "GitNexus native capability registry uses locked fields" "true" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | to_entries | all(.value | (keys | sort | join(",")) == "fallback_posture,meaning,mutation_boundary,native_resources,native_tools,source_tags")' "$TOOLS_JSON")"
 assert_eq "GitNexus native capability registry uses catalog source tags" "true" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | to_entries | all(.value.source_tags == ["checked-in-baseline","provider-pin"])' "$TOOLS_JSON")"
@@ -301,20 +316,15 @@ assert_eq "GitNexus workspace group capability is read-only orientation" "read-o
 assert_eq "GitNexus workspace group registry exposes only read-only group tools and resources" "group_list:false:true" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities.workspace_group as $cap | "\($cap.native_tools | join(",")):\((($cap.native_tools + $cap.native_resources) | index("group_sync")) != null):\($cap.native_resources | index("gitnexus://group/{name}/status") != null)"' "$TOOLS_JSON")"
 assert_eq "GitNexus native capability contract avoids alternate top-level name" "false" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config | has("capability_metadata")' "$TOOLS_JSON")"
 assert_eq "gitnexus warmup command uses configured package" "npx -y $GITNEXUS_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "gitnexus") as $t | [$t.installation.unix.command] + ($t.installation.unix.args | map(gsub("\\{\\{package\\}\\}"; ($t.package // "")) | gsub("\\{\\{version\\}\\}"; ($t.version // "")))) | join(" ")' "$TOOLS_JSON")"
-assert_eq "code-review-graph warmup command uses configured package" "uvx $CODE_REVIEW_GRAPH_PACKAGE --help" "$(jq -r '.tools[] | select(.id == "code-review-graph") as $t | [$t.installation.unix.command] + ($t.installation.unix.args | map(gsub("\\{\\{package\\}\\}"; ($t.package // "")) | gsub("\\{\\{version\\}\\}"; ($t.version // "")))) | join(" ")' "$TOOLS_JSON")"
 assert_contains "write-provider-config.sh reads GitNexus package field separately" 'gitnexus_package_name="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
 assert_contains "write-provider-config.sh reads GitNexus version field separately" 'gitnexus_package_version="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
 assert_contains "write-provider-config.sh rejects missing GitNexus package or version" '[ -n "$gitnexus_package_name" ] && [ -n "$gitnexus_package_version" ]' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
-assert_contains "write-provider-config.sh reads code-review-graph package field separately" 'code_review_graph_package_name="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
-assert_contains "write-provider-config.sh reads code-review-graph version field separately" 'code_review_graph_package_version="$(jq -r' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
-assert_contains "write-provider-config.sh rejects missing code-review-graph package or version" '[ -n "$code_review_graph_package_name" ] && [ -n "$code_review_graph_package_version" ]' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
 assert_contains "write-provider-config.sh hashes canonical GitNexus command JSON without newline" 'gitnexus_command_hash="$(printf '\''%s'\'' "$gitnexus_commands_json" | hash_text)"' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
 assert_contains "write-provider-config.sh emits the same canonical GitNexus command JSON" 'if $key == "gitnexus" then $gitnexus_commands' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
-assert_contains "write-provider-config.sh hashes canonical code-review-graph command JSON without newline" 'code_review_graph_command_hash="$(printf '\''%s'\'' "$code_review_graph_commands_json" | hash_text)"' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
-assert_contains "write-provider-config.sh emits the same canonical code-review-graph command JSON" 'elif $key == "code-review-graph" then $code_review_graph_commands' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
+assert_not_contains "write-provider-config.sh no longer reads code-review-graph package" 'code_review_graph_package_name' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
+assert_not_contains "write-provider-config.sh no longer emits code-review-graph commands" 'code_review_graph_commands' "$(cat "$SCRIPTS_DIR/write-provider-config.sh")"
 assert_eq "sequential-thinking uses latest npm package" "npx -y @modelcontextprotocol/server-sequential-thinking@latest" "$(jq -r '.tools[] | select(.id == "sequential-thinking") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
 assert_eq "context7 uses latest npm package" "npx -y @upstash/context7-mcp@latest" "$(jq -r '.tools[] | select(.id == "context7") | [.host_config.codex.command] + .host_config.codex.args | join(" ")' "$TOOLS_JSON")"
-assert_eq "code-review-graph optional mcp command remains available" "uvx $CODE_REVIEW_GRAPH_PACKAGE serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool" "$(jq -r '.tools[] | select(.id == "code-review-graph") as $t | [$t.host_config.codex.command] + ($t.host_config.codex.args | map(gsub("\\{\\{package\\}\\}"; ($t.package // "")) | gsub("\\{\\{version\\}\\}"; ($t.version // "")))) | join(" ")' "$TOOLS_JSON")"
 
 FAKE_BIN="$TMP_DIR/bin"
 COMMAND_LOG="$TMP_DIR/commands.log"
@@ -722,6 +732,18 @@ assert_eq "bootstrap does not overwrite local config" "custom-local-config" "$(c
 assert_eq "bootstrap reports existing local config" "already-exists" "$(jq -r '.project.local_config_status' <<<"$project_bootstrap_again")"
 assert_eq "gitignore entry is not duplicated" "1" "$(grep -cFx '.spec-first/*.local.yaml' "$FAKE_REPO/.gitignore")"
 
+NON_GIT_CONFIG_WORKSPACE="$TMP_DIR/non-git-config-workspace"
+NON_GIT_CONFIG_FOLDER="$NON_GIT_CONFIG_WORKSPACE/plain-folder"
+mkdir -p "$NON_GIT_CONFIG_FOLDER/src"
+printf 'export class PlainFolderConfig {}\n' > "$NON_GIT_CONFIG_FOLDER/src/PlainFolderConfig.ts"
+non_git_project_bootstrap="$(cd "$NON_GIT_CONFIG_WORKSPACE" && bash "$SCRIPTS_DIR/bootstrap-project-config.sh" --folder plain-folder --refresh-example --create-local --ensure-gitignore --json)"
+assert "bootstrap-project-config --folder emits JSON" jq -e . <<<"$non_git_project_bootstrap"
+assert_eq "bootstrap-project-config --folder records non-git target" "non-git-folder:ready" "$(jq -r '"\(.target_kind):\(.overall_status)"' <<<"$non_git_project_bootstrap")"
+assert_eq "bootstrap-project-config --folder skips gitignore mutation" "not-applicable-non-git-folder" "$(jq -r '.project.local_config_gitignore_status' <<<"$non_git_project_bootstrap")"
+assert "bootstrap-project-config --folder writes local config under selected folder" test -f "$NON_GIT_CONFIG_FOLDER/.spec-first/config.local.yaml"
+assert "bootstrap-project-config --folder writes example config under selected folder" test -f "$NON_GIT_CONFIG_FOLDER/.spec-first/config.local.example.yaml"
+assert "bootstrap-project-config --folder does not write workspace parent config" test ! -e "$NON_GIT_CONFIG_WORKSPACE/.spec-first/config.local.yaml"
+
 INIT_GITIGNORE_REPO="$TMP_DIR/init-gitignore-repo"
 make_repo "$INIT_GITIGNORE_REPO"
 node - "$REPO_ROOT" > "$INIT_GITIGNORE_REPO/.gitignore" <<'NODE'
@@ -809,11 +831,10 @@ assert_eq "bootstrap-project-config leaves outside gitignore target unchanged" "
 install_mcp_log="$TMP_DIR/install-mcp.log"
 install_output="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/install-mcp.sh" 2>"$install_mcp_log")"
 assert "install-mcp emits JSON" jq -e . <<<"$install_output"
-assert_eq "installer configures all required tools" "sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$install_output")"
+assert_eq "installer configures all required tools" "sequential-thinking,context7,gitnexus" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$install_output")"
 assert_eq "installer has no skipped optional results" "true" "$(jq -r 'all(.results[]; .status == "ready")' <<<"$install_output")"
 assert_eq "installer writes GitNexus config" "npx" "$(jq -r '.mcpServers.gitnexus.command' "$FAKE_HOME/.claude.json")"
-assert_eq "installer skips optional code-review-graph host MCP config" "false" "$(jq -r '.mcpServers | has("code-review-graph")' "$FAKE_HOME/.claude.json")"
-assert_eq "installer records code-review-graph host config skipped" "host-config-skipped" "$(jq -r '.results[] | select(.tool_id == "code-review-graph") | .last_action' <<<"$install_output")"
+assert_eq "installer does not configure code-review-graph host MCP" "false" "$(jq -r '.mcpServers | has("code-review-graph")' "$FAKE_HOME/.claude.json")"
 
 gitnexus_warmup_count_before="$(grep -cF "npx -y $GITNEXUS_PACKAGE --help" "$COMMAND_LOG" || true)"
 WARMUP_CACHE_REUSE_REPO="$TMP_DIR/warmup-cache-reuse-repo"
@@ -845,12 +866,12 @@ STDIN_DRAIN_HOME="$TMP_DIR/stdin-drain-home"
 make_repo "$STDIN_DRAIN_REPO"
 stdin_drain_output="$(cd "$STDIN_DRAIN_REPO" && PATH="$TEST_PATH" HOME="$STDIN_DRAIN_HOME" MCP_SETUP_HOST=claude DRAIN_NPX_STDIN=1 bash "$SCRIPTS_DIR/install-mcp.sh")"
 assert "install-mcp with stdin-draining npx emits JSON" jq -e . <<<"$stdin_drain_output"
-assert_eq "installer protects tool iteration from child stdin drains" "sequential-thinking,context7,gitnexus,code-review-graph" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$stdin_drain_output")"
+assert_eq "installer protects tool iteration from child stdin drains" "sequential-thinking,context7,gitnexus" "$(jq -r '[.results[].tool_id] | join(",")' <<<"$stdin_drain_output")"
 assert_eq "stdin-drain installer writes latest sequential-thinking config" "@modelcontextprotocol/server-sequential-thinking@latest" "$(jq -r '.mcpServers["sequential-thinking"].args[1]' "$STDIN_DRAIN_HOME/.claude.json")"
 assert_eq "stdin-drain installer writes latest context7 config" "@upstash/context7-mcp@latest" "$(jq -r '.mcpServers.context7.args[1]' "$STDIN_DRAIN_HOME/.claude.json")"
 
 assert_contains "setup does not run GitNexus analyze" "$GITNEXUS_PACKAGE --help" "$(cat "$COMMAND_LOG")"
-assert_contains "setup warms pinned code-review-graph package" "$CODE_REVIEW_GRAPH_PACKAGE --help" "$(cat "$COMMAND_LOG")"
+assert_not_contains "setup does not warm code-review-graph package" "code-review-graph" "$(cat "$COMMAND_LOG")"
 if grep -q "$GITNEXUS_PACKAGE analyze" "$COMMAND_LOG"; then
   echo "FAIL: spec-mcp-setup must not run gitnexus analyze" >&2
   exit 1
@@ -968,15 +989,34 @@ assert "detect-tools emits JSON" jq -e . <<<"$detect_output"
 assert_eq "detect-tools schema v2 facts" "tool-facts.v2" "$(jq -r '.schema_version' <<<"$detect_output")"
 assert_eq "detect-tools has no baseline_ready" "false" "$(jq -r 'has("baseline_ready")' <<<"$detect_output")"
 assert_eq "detect-tools has no top-level crg" "false" "$(jq -r 'has("crg")' <<<"$detect_output")"
-assert_eq "graph providers are not query-ready after setup detection" "false,false" "$(jq -r '[.graph_providers[] | .query_ready] | join(",")' <<<"$detect_output")"
-assert_eq "code-review-graph provider does not require host MCP for bootstrap" "not-required:true:cli_artifact" "$(jq -r '.graph_providers["code-review-graph"] | "\(.host_config_status):\(.configured):\(.access_mode)"' <<<"$detect_output")"
+assert_eq "graph providers are not query-ready after setup detection" "false" "$(jq -r '[.graph_providers[] | .query_ready] | join(",")' <<<"$detect_output")"
+assert_eq "code-review-graph is absent from detect output" "null" "$(jq -r '.graph_providers["code-review-graph"] // "null"' <<<"$detect_output")"
+
+NON_GIT_VERIFY_WORKSPACE="$TMP_DIR/non-git-verify-workspace"
+NON_GIT_VERIFY_FOLDER="$NON_GIT_VERIFY_WORKSPACE/plain-folder"
+NON_GIT_VERIFY_HOME="$TMP_DIR/non-git-verify-home"
+mkdir -p "$NON_GIT_VERIFY_FOLDER/src" "$NON_GIT_VERIFY_HOME"
+NON_GIT_VERIFY_FOLDER_ROOT="$(cd "$NON_GIT_VERIFY_FOLDER" && pwd -P)"
+cp -R "$FAKE_HOME"/. "$NON_GIT_VERIFY_HOME"/
+printf 'export class PlainFolderWorkflow {}\n' > "$NON_GIT_VERIFY_FOLDER/src/PlainFolderWorkflow.ts"
+non_git_detect_output="$(cd "$NON_GIT_VERIFY_WORKSPACE" && PATH="$TEST_PATH" HOME="$NON_GIT_VERIFY_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh" --folder plain-folder)"
+assert "detect-tools --folder emits JSON" jq -e . <<<"$non_git_detect_output"
+assert_eq "detect-tools --folder records non-git target" "not-git-repo:non-git-folder:plain-folder" "$(jq -r '"\(.repo_status):\(.target_kind):\(.target.folder_label)"' <<<"$non_git_detect_output")"
+assert_eq "detect-tools --folder exposes selected folder root" "true" "$(jq -r '(.selected_folder_root != null) and (.target_root == .selected_folder_root)' <<<"$non_git_detect_output")"
+non_git_verify_text="$(cd "$NON_GIT_VERIFY_WORKSPACE" && PATH="$TEST_PATH" HOME="$NON_GIT_VERIFY_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh" --folder plain-folder)"
+assert_not_contains "verify-tools --folder does not ask user to choose child repo" "choose a child repo and rerun with --repo <child>" "$non_git_verify_text"
+NON_GIT_VERIFY_LEDGER="$NON_GIT_VERIFY_HOME/.claude/spec-first/host-setup.json"
+NON_GIT_VERIFY_PROVIDER_CONFIG="$NON_GIT_VERIFY_FOLDER/.spec-first/config/graph-providers.json"
+assert "verify-tools --folder writes provider projection" test -f "$NON_GIT_VERIFY_PROVIDER_CONFIG"
+assert_eq "verify-tools --folder ledger carries folder target" "non-git-folder:$NON_GIT_VERIFY_FOLDER_ROOT" "$(jq -r '"\(.target_kind):\(.selected_folder_root)"' "$NON_GIT_VERIFY_LEDGER")"
+assert_eq "verify-tools --folder provider projection is GitNexus-only" "gitnexus" "$(jq -r '.providers | keys | sort | join(",")' "$NON_GIT_VERIFY_PROVIDER_CONFIG")"
 
 verify_text="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "verify reports ledger v2" "readiness ledger v2" "$verify_text"
 assert_contains "verify prints grouped final status tables" "Required Harness Runtime status (grouped):" "$verify_text"
 assert_contains "verify prints execution result summary" "Execution result:" "$verify_text"
 assert_contains "verify summary includes harness runtime decision" "Harness runtime" "$verify_text"
-assert_contains "verify summary includes graph provider split" "ready: n/a; pending: gitnexus,code-review-graph" "$verify_text"
+assert_contains "verify summary includes graph provider split" "ready: n/a; pending: gitnexus" "$verify_text"
 assert_contains "verify table includes helper" "agent-browser" "$verify_text"
 assert_contains "verify table includes required ast-grep helper" "ast-grep" "$verify_text"
 assert_contains "verify table includes required ast-grep skill" "ast-grep-skill" "$verify_text"
@@ -1009,13 +1049,13 @@ assert "provider config exists" test -f "$PROVIDER_CONFIG"
 assert "runtime capabilities exists" test -f "$RUNTIME_CAPABILITIES"
 assert "provider artifacts exists" test -f "$PROVIDER_ARTIFACTS"
 assert_eq "ledger schema v2" "v2" "$(jq -r '.schema_version' "$LEDGER_PATH")"
-assert_eq "ledger baseline accepts non-blocking skipped browser helper and CLI graph provider" "true" "$(jq -r '.baseline_ready and (.helper_tools["agent-browser"].result == "skipped") and (.helper_tools["agent-browser"].baseline_blocking == false) and ([.helper_tools | to_entries[] | select(.key != "agent-browser") | .value.result == "ready"] | all) and (.tools.gitnexus.host_config_status == "fallback-active") and (.tools["code-review-graph"].host_config_status == "not-required") and (.tools["code-review-graph"].configured == true)' "$LEDGER_PATH")"
+assert_eq "ledger baseline accepts non-blocking skipped browser helper and GitNexus provider" "true" "$(jq -r '.baseline_ready and (.helper_tools["agent-browser"].result == "skipped") and (.helper_tools["agent-browser"].baseline_blocking == false) and ([.helper_tools | to_entries[] | select(.key != "agent-browser") | .value.result == "ready"] | all) and (.tools.gitnexus.host_config_status == "fallback-active") and (.tools | has("code-review-graph") | not)' "$LEDGER_PATH")"
 assert_eq "provider projection schema" "graph-providers.v1" "$(jq -r '.schema_version' "$PROVIDER_CONFIG")"
 assert_eq "runtime capabilities schema" "runtime-capabilities.v1" "$(jq -r '.schema_version' "$RUNTIME_CAPABILITIES")"
 assert_eq "provider artifacts schema" "provider-artifacts.v1" "$(jq -r '.schema_version' "$PROVIDER_ARTIFACTS")"
-assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_code_review_graph_build' "$PROVIDER_CONFIG")"
+assert_eq "provider projection is setup-only" "true" "$(jq -r '.boundaries.setup_only and .boundaries.does_not_run_gitnexus_analyze and .boundaries.does_not_run_provider_refresh and (.boundaries | has("does_not_run_code_review_graph_build") | not)' "$PROVIDER_CONFIG")"
 provider_config_repo_root="$(jq -r '.repo_root' "$PROVIDER_CONFIG")"
-assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_root "$provider_config_repo_root" --arg repo_name "$GITNEXUS_REPO_LABEL" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg code_review_graph_package "$CODE_REVIEW_GRAPH_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '.providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force","--skip-agents-md","--no-stats"]) and (.providers.gitnexus.commands.incremental == ["npx","-y",$gitnexus_package,"analyze","--skip-agents-md","--no-stats"]) and (.providers.gitnexus.commands.status == ["npx","-y",$gitnexus_package,"status"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers.gitnexus.query_probe_policy.candidates[0].token == $query_probe) and (.providers.gitnexus.query_probe_policy.candidates[0].reason_code == "workflow_named") and (.providers["code-review-graph"].commands.bootstrap == ["uvx",$code_review_graph_package,"build"]) and (.providers["code-review-graph"].commands.incremental == ["uvx",$code_review_graph_package,"update","--base","__SPEC_FIRST_LAST_INDEXED_COMMIT__"]) and (.providers["code-review-graph"].commands.status == ["uvx",$code_review_graph_package,"status"]) and (.providers["code-review-graph"].commands.query_probe == ["uvx",$code_review_graph_package,"status","--repo",$repo_root]) and (.providers["code-review-graph"].access_mode == "cli_artifact") and (.providers["code-review-graph"].host_config_required == false) and (.providers["code-review-graph"].mcp_server == null)' "$PROVIDER_CONFIG")"
+assert_eq "provider commands are config-defined arrays" "true" "$(jq -r --arg repo_name "$GITNEXUS_REPO_LABEL" --arg gitnexus_package "$GITNEXUS_PACKAGE" --arg query_probe "$GITNEXUS_QUERY_PROBE" '(.providers | keys == ["gitnexus"]) and .providers.gitnexus.configured and .providers.gitnexus.enabled_for_bootstrap and (.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--force","--skip-agents-md","--no-stats"]) and (.providers.gitnexus.commands.incremental == ["npx","-y",$gitnexus_package,"analyze","--skip-agents-md","--no-stats"]) and (.providers.gitnexus.commands.status == ["npx","-y",$gitnexus_package,"status"]) and (.providers.gitnexus.commands.query_probe == ["npx","-y",$gitnexus_package,"query",$query_probe,"--repo",$repo_name]) and (.providers.gitnexus.commands.impact_probe == ["npx","-y",$gitnexus_package,"impact",$query_probe,"--repo",$repo_name,"--include-tests","--depth","2"]) and (.providers.gitnexus.query_probe_policy.expected_hit == true) and (.providers.gitnexus.query_probe_policy.source == "git-ls-files-code-basename") and (.providers.gitnexus.query_probe_policy.token == $query_probe) and (.providers.gitnexus.query_probe_policy.selected_from == "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java") and (.providers.gitnexus.query_probe_policy.candidates[0].token == $query_probe) and (.providers.gitnexus.query_probe_policy.candidates[0].reason_code == "workflow_named")' "$PROVIDER_CONFIG")"
 
 LOW_SIGNAL_REPO="$TMP_DIR/low-signal-repo"
 make_repo "$LOW_SIGNAL_REPO"
@@ -1056,17 +1096,6 @@ jq -n \
         dependency_status:"ready",
         host_config_status:"ready",
         capabilities:[]
-      },
-      "code-review-graph":{
-        configured:true,
-        enabled_for_bootstrap:true,
-        required:true,
-        role:"impact_context",
-        access_mode:"cli_artifact",
-        host_config_required:false,
-        dependency_status:"ready",
-        host_config_status:"not-required",
-        capabilities:[]
       }
     }
   }' > "$LOW_SIGNAL_FACTS"
@@ -1074,6 +1103,52 @@ low_signal_projection="$(bash "$SCRIPTS_DIR/write-provider-config.sh" --facts-fi
 assert "low-signal provider projection emits JSON" jq -e . <<<"$low_signal_projection"
 LOW_SIGNAL_PROVIDER_CONFIG="$LOW_SIGNAL_REPO/.spec-first/config/graph-providers.json"
 assert_eq "GitNexus probe skips low-signal and display-only basenames" "DashboardConfigForm:frontend/admin/src/components/DashboardConfigForm.tsx:workflow_named" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.token):\(.selected_from):\(.candidates[0].reason_code)"' "$LOW_SIGNAL_PROVIDER_CONFIG")"
+
+NON_GIT_PROVIDER_WORKSPACE="$TMP_DIR/non-git-provider-workspace"
+NON_GIT_PROVIDER_FOLDER="$NON_GIT_PROVIDER_WORKSPACE/plain-folder"
+NON_GIT_PROVIDER_HOME="$TMP_DIR/non-git-provider-home"
+mkdir -p "$NON_GIT_PROVIDER_FOLDER/src" "$NON_GIT_PROVIDER_HOME"
+printf 'export class PlainFolderProvider {}\n' > "$NON_GIT_PROVIDER_FOLDER/src/PlainFolderProvider.ts"
+NON_GIT_PROVIDER_FACTS="$TMP_DIR/non-git-provider-facts.json"
+jq -n \
+  --arg folder_root "$NON_GIT_PROVIDER_FOLDER" \
+  --arg ledger_path "$NON_GIT_PROVIDER_HOME/.claude/spec-first/host-setup.json" \
+  '{
+    schema_version:"v2",
+    host:"claude",
+    platform:"macos",
+    repo_status:"not-git-repo",
+    repo_root:$folder_root,
+    selected_folder_root:$folder_root,
+    target_root:$folder_root,
+    target_kind:"non-git-folder",
+    target:{state_write_allowed:true,target_kind:"non-git-folder",selected_folder_root:$folder_root,target_root:$folder_root},
+    host_ledger_pointer:{host:"claude", path:$ledger_path, schema_version:"v2"},
+    baseline_ready:true,
+    host_runtime_ready:true,
+    tools:{},
+    helper_tools:{},
+    graph_providers:{
+      gitnexus:{
+        configured:true,
+        enabled_for_bootstrap:true,
+        required:true,
+        role:"global_knowledge",
+        access_mode:"live_mcp",
+        host_config_required:true,
+        dependency_status:"ready",
+        host_config_status:"ready",
+        capabilities:[]
+      }
+    }
+  }' > "$NON_GIT_PROVIDER_FACTS"
+non_git_provider_projection="$(bash "$SCRIPTS_DIR/write-provider-config.sh" --facts-file "$NON_GIT_PROVIDER_FACTS")"
+assert "non-git provider projection emits JSON" jq -e . <<<"$non_git_provider_projection"
+NON_GIT_PROVIDER_CONFIG="$NON_GIT_PROVIDER_FOLDER/.spec-first/config/graph-providers.json"
+assert_eq "non-git provider projection records target kind and folder fingerprint" "true" "$(jq -r '(.target_kind == "non-git-folder") and (.folder_snapshot.content_fingerprint | startswith("sha256:"))' "$NON_GIT_PROVIDER_CONFIG")"
+assert_eq "non-git provider projection emits only GitNexus provider" "gitnexus" "$(jq -r '.providers | keys | sort | join(",")' "$NON_GIT_PROVIDER_CONFIG")"
+assert_eq "non-git provider projection uses skip-git and omits incremental" "true" "$(jq -r --arg gitnexus_package "$GITNEXUS_PACKAGE" '(.providers.gitnexus.commands.bootstrap == ["npx","-y",$gitnexus_package,"analyze","--skip-git","--force","--skip-agents-md","--no-stats"]) and (.providers.gitnexus.commands | has("incremental") | not)' "$NON_GIT_PROVIDER_CONFIG")"
+assert_eq "non-git provider selection routes context to GitNexus without impact provider" "gitnexus:null" "$(jq -r '"\(.selection.context_selection):\(.selection.impact_context // "null")"' "$NON_GIT_PROVIDER_CONFIG")"
 
 DEGRADED_CAPABILITY_REPO="$TMP_DIR/degraded-capability-repo"
 make_repo "$DEGRADED_CAPABILITY_REPO"
@@ -1180,7 +1255,7 @@ WEB_METHOD_PROVIDER_CONFIG="$WEB_METHOD_REPO/.spec-first/config/graph-providers.
 assert_eq "GitNexus probe prefers flow-like methods over controller class names" "git-ls-files-source-symbol:stepSave:workflow_method:OpeningController.java" "$(jq -r '.providers.gitnexus.query_probe_policy | "\(.source):\(.token):\(.candidates[0].reason_code):\(.candidates[0].selected_from | split("/")[-1])"' "$WEB_METHOD_PROVIDER_CONFIG")"
 assert_eq "GitNexus method candidates stay bounded and source-derived" "stepSave,options,save,delete,add" "$(jq -r '.providers.gitnexus.query_probe_policy.candidates | map(.token) | join(",")' "$WEB_METHOD_PROVIDER_CONFIG")"
 
-assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
+assert_eq "providers are configured but not query-ready" "true" "$(jq -r '(.derived_readiness.providers | keys == ["gitnexus"]) and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true)' "$PROVIDER_CONFIG")"
 assert_eq "GitNexus native capability projection keys are locked" "context,cypher,impact,query,repo_registry,route_api_evidence,shape_check,tool_map,workspace_group" "$(jq -r '.providers.gitnexus.native_capabilities | keys | sort | join(",")' "$PROVIDER_CONFIG")"
 assert_eq "GitNexus native capability projection uses locked fields" "true" "$(jq -r '.providers.gitnexus.native_capabilities | to_entries | all(.value | (keys | sort | join(",")) == "limitations,mutation_boundary,native_resources,native_tools,source_provenance,source_tags,status")' "$PROVIDER_CONFIG")"
 assert_eq "GitNexus native capability projection uses locked enums" "true" "$(jq -r '.providers.gitnexus.native_capabilities | all(.[]; (.status as $status | ["available","unavailable","unknown","mutation-gated"] | index($status) != null) and (.source_provenance as $provenance | ["registry-only","configured-not-verified","configured-and-detected"] | index($provenance) != null) and (.mutation_boundary as $boundary | ["read-only","mutation-gated","policy-blocked","unknown"] | index($boundary) != null))' "$PROVIDER_CONFIG")"
@@ -1222,17 +1297,6 @@ jq -n \
         host_config_required:true,
         dependency_status:"ready",
         host_config_status:"ready",
-        capabilities:[]
-      },
-      "code-review-graph":{
-        configured:true,
-        enabled_for_bootstrap:true,
-        required:true,
-        role:"impact_context",
-        access_mode:"cli_artifact",
-        host_config_required:false,
-        dependency_status:"ready",
-        host_config_status:"not-required",
         capabilities:[]
       }
     }
@@ -1712,56 +1776,21 @@ args = []
 [profiles.default]
 model = "gpt-5"
 TOML
-(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/configure-host.sh" --tool code-review-graph >/dev/null)
-assert_contains "Codex config uses quoted table key" '[mcp_servers."code-review-graph"]' "$(cat "$codex_config")"
-assert_contains "Codex configure preserves following non-MCP table" '[profiles.default]' "$(cat "$codex_config")"
-assert_contains "Codex config does not write internal scope" 'startup_timeout_sec = 120' "$(cat "$codex_config")"
-if grep -q '^scope =' "$codex_config"; then
-  echo "FAIL: Codex config should not contain internal scope" >&2
-  exit 1
-fi
-codex_detect="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-tools.sh")"
-assert_eq "detect-tools treats optional code-review-graph MCP as not required" "not-required" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect")"
-cat > "$codex_system_config" <<'TOML'
-[profiles.default]
-model = "gpt-5"
-TOML
-codex_detect_system_profile="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE="$codex_system_config" bash "$SCRIPTS_DIR/detect-tools.sh")"
-assert_eq "Codex higher-precedence profile-only config does not affect optional MCP" "not-required" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_system_profile")"
-cat > "$codex_system_config" <<'TOML'
-[mcp_servers."code-review-graph"]
-command = "old"
-args = []
-TOML
-codex_detect_system_conflict="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex MCP_SETUP_CODEX_SYSTEM_PATH_OVERRIDE="$codex_system_config" bash "$SCRIPTS_DIR/detect-tools.sh")"
-assert_eq "Codex higher-precedence optional MCP mismatch does not block baseline" "not-required" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_system_conflict")"
-rm -f "$codex_system_config"
-cat > "$codex_config" <<'TOML'
-[mcp_servers."code-review-graph"]
-command = "uvx"
-args = []
-# code-review-graph serve --tools get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool
-TOML
-codex_detect_bad_args="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/detect-tools.sh")"
-assert_eq "detect-tools ignores bad optional code-review-graph MCP args for baseline" "not-required" "$(jq -r '.tools["code-review-graph"].host_config_status' <<<"$codex_detect_bad_args")"
-cat > "$codex_config" <<'TOML'
-[mcp_servers.code-review-graph]
-command = "old"
-args = []
-
-[mcp_servers."code-review-graph"]
-command = "uvx"
-args = ["code-review-graph","serve"]
-
-[profiles.default]
-model = "gpt-5"
-TOML
-(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/uninstall-mcp.sh" --tool code-review-graph >/dev/null)
-if grep -q 'mcp_servers.*code-review-graph' "$codex_config"; then
-  echo "FAIL: uninstall should remove quoted and unquoted code-review-graph sections" >&2
-  exit 1
-fi
-assert_contains "Codex uninstall preserves following non-MCP table" '[profiles.default]' "$(cat "$codex_config")"
+set +e
+codex_configure_crg_output="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/configure-host.sh" --tool code-review-graph 2>&1)"
+codex_configure_crg_status=$?
+set -e
+assert_eq "configure-host rejects retired code-review-graph tool" "1" "$codex_configure_crg_status"
+assert_contains "configure-host reports missing code-review-graph config" "未找到 code-review-graph 的 host_config" "$codex_configure_crg_output"
+set +e
+codex_uninstall_crg_output="$(cd "$FAKE_CODEX_REPO" && PATH="$TEST_PATH" HOME="$FAKE_CODEX_HOME" MCP_SETUP_HOST=codex bash "$SCRIPTS_DIR/uninstall-mcp.sh" --tool code-review-graph 2>&1)"
+codex_uninstall_crg_status=$?
+set -e
+assert_eq "uninstall-mcp rejects retired code-review-graph tool" "1" "$codex_uninstall_crg_status"
+assert_contains "uninstall-mcp reports missing code-review-graph definition" "未找到 code-review-graph 的工具定义" "$codex_uninstall_crg_output"
+assert_contains "unsupported code-review-graph uninstall leaves legacy Codex MCP for manual cleanup" '[mcp_servers."code-review-graph"]' "$(cat "$codex_config")"
+assert_contains "unsupported code-review-graph uninstall preserves following non-MCP table" '[profiles.default]' "$(cat "$codex_config")"
+assert "CRG manual cleanup guidance exists" test -f "$REPO_ROOT/docs/05-用户手册/19-旧CRG残留手动清理指引.md"
 
 printf '\n.spec-first/\n.gitnexus/\n.code-review-graph/\n' >> "$FAKE_REPO/.gitignore"
 git -C "$FAKE_REPO" add .gitignore
@@ -1774,17 +1803,17 @@ assert "graph-bootstrap emits JSON" jq -e . <<<"$bootstrap_output"
 assert_eq "graph-bootstrap result ready" "ready" "$(jq -r '.overall_status' <<<"$bootstrap_output")"
 assert_contains "graph-bootstrap runs GitNexus analyze" "npx -y $GITNEXUS_PACKAGE analyze --force" "$graph_log_after"
 assert_contains "graph-bootstrap uses GitNexus remote-derived repo label" "npx -y $GITNEXUS_PACKAGE query $GITNEXUS_QUERY_PROBE --repo $GITNEXUS_REPO_LABEL" "$graph_log_after"
-assert_contains "graph-bootstrap runs pinned code-review-graph build" "uvx $CODE_REVIEW_GRAPH_PACKAGE build" "$graph_log_after"
+assert_not_contains "graph-bootstrap does not run code-review-graph build" "code-review-graph build" "${graph_log_after#"$graph_log_before"}"
 if [ "$graph_log_before" = "$graph_log_after" ]; then
   echo "FAIL: graph-bootstrap should run provider build commands" >&2
   exit 1
 fi
-assert_eq "graph-bootstrap writes canonical provider readiness" "true" "$(jq -r '(.ready_primary_providers | index("gitnexus") != null) and (.ready_primary_providers | index("code-review-graph") != null) and ([.providers[] | select(.query_ready == true)] | length == 2)' "$FAKE_REPO/.spec-first/graph/provider-status.json")"
+assert_eq "graph-bootstrap writes GitNexus-only canonical provider readiness" "gitnexus:1" "$(jq -r '(.ready_primary_providers | join(",")) + ":" + (([.providers[] | select(.query_ready == true)] | length) | tostring)' "$FAKE_REPO/.spec-first/graph/provider-status.json")"
 verify_after_bootstrap="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "repeat verify shows gitnexus row" "gitnexus" "$verify_after_bootstrap"
 assert_contains "repeat verify shows graph provider query ready" "全局代码知识图谱与影响分析" "$verify_after_bootstrap"
 assert_contains "repeat verify shows ready query and done bootstrap cells" "| ready | done" "$verify_after_bootstrap"
-assert_contains "repeat verify summary lists ready providers" "ready: gitnexus,code-review-graph; pending: n/a" "$verify_after_bootstrap"
+assert_contains "repeat verify summary lists ready GitNexus provider" "ready: gitnexus; pending: n/a" "$verify_after_bootstrap"
 assert_contains "repeat verify reports graph provider query ready summary" "Graph providers are query-ready." "$verify_after_bootstrap"
 assert_contains "repeat verify recommends intent workflow handoff" "graph readiness 已就绪" "$verify_after_bootstrap"
 assert_contains "repeat verify allows direct task description after restart" "如果已经有明确任务，可以在新会话直接描述目标" "$verify_after_bootstrap"
@@ -1792,7 +1821,7 @@ if [[ "$verify_after_bootstrap" == *"Graph providers are configured but not quer
   echo "FAIL: repeat verify should not say query-ready providers are pending" >&2
   exit 1
 fi
-assert_eq "repeat verify projects provider query_ready from canonical artifacts" "true" "$(jq -r '.derived_readiness.providers.gitnexus.query_ready and .derived_readiness.providers["code-review-graph"].query_ready and (.derived_readiness.providers.gitnexus.bootstrap_required == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == false)' "$PROVIDER_CONFIG")"
+assert_eq "repeat verify projects GitNexus query_ready from canonical artifacts" "true" "$(jq -r '.derived_readiness.providers.gitnexus.query_ready and (.derived_readiness.providers.gitnexus.bootstrap_required == false) and (.derived_readiness.providers | has("code-review-graph") | not)' "$PROVIDER_CONFIG")"
 assert_eq "repeat verify projects runtime graph readiness summary" "primary:false:spec-mcp-setup" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required):\(.updated_by)"' "$RUNTIME_CAPABILITIES")"
 assert_eq "repeat verify clears graph bootstrap next action" "false" "$(jq -r '.next_actions | index("run spec-graph-bootstrap") != null' "$LEDGER_PATH")"
 assert_eq "repeat verify ledger graph bootstrap no longer required" "false" "$(jq -r '.graph_bootstrap_required' "$LEDGER_PATH")"
@@ -1805,7 +1834,7 @@ jq '.source_revision = "0000000000000000000000000000000000000000"' "$GRAPH_FACTS
 mv "$GRAPH_FACTS.tmp" "$GRAPH_FACTS"
 verify_after_stale_source_revision="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "stale graph source revision requires graph bootstrap" "Graph providers are configured but not query-ready yet." "$verify_after_stale_source_revision"
-assert_eq "stale graph source revision resets provider readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers["code-review-graph"].query_ready == false)' "$PROVIDER_CONFIG")"
+assert_eq "stale graph source revision resets GitNexus readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers | has("code-review-graph") | not)' "$PROVIDER_CONFIG")"
 assert_eq "stale graph source revision resets runtime summary" "not-bootstrapped:true" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required)"' "$RUNTIME_CAPABILITIES")"
 printf '%s\n' "$graph_facts_backup" > "$GRAPH_FACTS"
 
@@ -1813,7 +1842,7 @@ jq '.worktree_status_hash = "sha256:stale" | .staleness_hints.worktree_status_ha
 mv "$GRAPH_FACTS.tmp" "$GRAPH_FACTS"
 verify_after_stale_worktree_hash="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "stale graph worktree hash requires graph bootstrap" "Graph providers are configured but not query-ready yet." "$verify_after_stale_worktree_hash"
-assert_eq "stale graph worktree hash resets provider readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers["code-review-graph"].query_ready == false)' "$PROVIDER_CONFIG")"
+assert_eq "stale graph worktree hash resets GitNexus readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers | has("code-review-graph") | not)' "$PROVIDER_CONFIG")"
 assert_eq "stale graph worktree hash resets runtime summary" "not-bootstrapped:true" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required)"' "$RUNTIME_CAPABILITIES")"
 printf '%s\n' "$graph_facts_backup" > "$GRAPH_FACTS"
 verify_after_restored_freshness="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
@@ -1822,24 +1851,21 @@ assert_eq "restored graph freshness restores runtime summary" "primary:false:spe
 
 jq '
   .providers = (.providers | map(
-    if .provider == "code-review-graph" then
-      .bootstrap_fingerprint.provider.configured_package_spec = "code-review-graph"
-      | .bootstrap_fingerprint.provider.bundled_package_spec = "code-review-graph"
-      | .bootstrap_fingerprint.provider.version_policy = "floating-unverifiable"
-      | .bootstrap_fingerprint.provider.command_hash = "sha256:stale"
+    if .provider == "gitnexus" then
+      .bootstrap_fingerprint.provider.command_hash = "sha256:stale"
     else . end
   ))
 ' "$PROVIDER_STATUS" > "$PROVIDER_STATUS.tmp"
 mv "$PROVIDER_STATUS.tmp" "$PROVIDER_STATUS"
 verify_after_stale_provider_fingerprint="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "stale provider fingerprint requires graph bootstrap" "Graph providers are configured but not query-ready yet." "$verify_after_stale_provider_fingerprint"
-assert_eq "stale provider fingerprint invalidates only mismatched provider readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == true) and (.derived_readiness.providers.gitnexus.bootstrap_required == false) and (.derived_readiness.providers["code-review-graph"].query_ready == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == true)' "$PROVIDER_CONFIG")"
+assert_eq "stale provider fingerprint invalidates GitNexus readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers.gitnexus.bootstrap_required == true) and (.derived_readiness.providers | has("code-review-graph") | not)' "$PROVIDER_CONFIG")"
 assert_eq "stale provider fingerprint prevents runtime primary readiness" "setup-ready-bootstrap-required:true" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required)"' "$RUNTIME_CAPABILITIES")"
 printf '%s\n' "$provider_status_backup" > "$PROVIDER_STATUS"
 
 jq '.workflow_mode = "degraded-fallback" | .confidence = "medium" | .generated_at = "2099-01-01T00:00:00Z"' "$GRAPH_FACTS" > "$GRAPH_FACTS.tmp"
 mv "$GRAPH_FACTS.tmp" "$GRAPH_FACTS"
-jq '.workflow_mode = "degraded-fallback" | .generated_at = "2099-01-01T00:00:00Z" | .providers = (.providers | map(if .provider == "code-review-graph" then .query_ready = false | .status = "failed" else . end))' "$PROVIDER_STATUS" > "$PROVIDER_STATUS.tmp"
+jq '.workflow_mode = "degraded-fallback" | .generated_at = "2099-01-01T00:00:00Z" | .providers = (.providers | map(if .provider == "gitnexus" then .query_ready = false | .status = "failed" else . end))' "$PROVIDER_STATUS" > "$PROVIDER_STATUS.tmp"
 mv "$PROVIDER_STATUS.tmp" "$PROVIDER_STATUS"
 verify_after_degraded_canonical="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "degraded canonical artifacts require graph bootstrap" "Graph providers are configured but not query-ready yet." "$verify_after_degraded_canonical"
@@ -1856,17 +1882,17 @@ jq '.schema_version = "wrong-impact-schema.v1"' "$IMPACT_CAPABILITIES" > "$IMPAC
 mv "$IMPACT_CAPABILITIES.tmp" "$IMPACT_CAPABILITIES"
 verify_after_invalid_impact="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "invalid canonical impact artifact requires graph bootstrap" "Graph providers are configured but not query-ready yet." "$verify_after_invalid_impact"
-assert_eq "invalid canonical impact schema resets provider readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers["code-review-graph"].query_ready == false)' "$PROVIDER_CONFIG")"
+assert_eq "invalid canonical impact schema resets GitNexus readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers | has("code-review-graph") | not)' "$PROVIDER_CONFIG")"
 assert_eq "invalid canonical impact schema resets runtime summary" "not-bootstrapped:true" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required)"' "$RUNTIME_CAPABILITIES")"
 printf '%s\n' "$impact_capabilities_backup" > "$IMPACT_CAPABILITIES"
 verify_after_restored_impact="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "restored canonical impact artifact projects query ready" "Graph providers are query-ready." "$verify_after_restored_impact"
-assert_eq "restored canonical impact artifact restores provider readiness" "true" "$(jq -r '.derived_readiness.providers.gitnexus.query_ready and .derived_readiness.providers["code-review-graph"].query_ready and (.derived_readiness.providers.gitnexus.bootstrap_required == false) and (.derived_readiness.providers["code-review-graph"].bootstrap_required == false)' "$PROVIDER_CONFIG")"
+assert_eq "restored canonical impact artifact restores GitNexus readiness" "true" "$(jq -r '.derived_readiness.providers.gitnexus.query_ready and (.derived_readiness.providers.gitnexus.bootstrap_required == false) and (.derived_readiness.providers | has("code-review-graph") | not)' "$PROVIDER_CONFIG")"
 
 rm -f "$FAKE_REPO/.spec-first/graph/graph-facts.json"
 verify_after_missing_canonical="$(cd "$FAKE_REPO" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert_contains "missing canonical graph facts requires graph bootstrap" "Graph providers are configured but not query-ready yet." "$verify_after_missing_canonical"
-assert_eq "missing canonical artifact resets provider readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers["code-review-graph"].query_ready == false)' "$PROVIDER_CONFIG")"
+assert_eq "missing canonical artifact resets GitNexus readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers | has("code-review-graph") | not)' "$PROVIDER_CONFIG")"
 assert_eq "missing canonical artifact resets runtime summary" "not-bootstrapped:true" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required)"' "$RUNTIME_CAPABILITIES")"
 
 echo "=== spec-mcp-setup required runtime tests passed ==="

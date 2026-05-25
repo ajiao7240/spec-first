@@ -44,7 +44,7 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('Stage 3b is the narrow project-standards persona exception');
     expect(text).toContain('nearby implementation files');
     expect(text).toContain('nearby tests');
-    expect(text).toContain('prefer live MCP evidence for concrete review questions');
+    expect(text).toContain('prefer live GitNexus MCP evidence for concrete review questions');
     expect(text).toContain('fall back to bounded direct repo reads');
     expect(text).toContain('they do not update compiled `query_ready`');
     expect(text).toContain('definitions-only evidence');
@@ -70,8 +70,8 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('review-pre-facts changes');
     expect(text).toContain('execution flows, impact, `detect_changes`, or blast radius');
     expect(text).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
-    expect(text).toContain('Code Review must not run GitNexus analyze, code-review-graph build');
-    expect(text).toContain('provider repair, index rebuild, default git hooks, watchers, or daemons');
+    expect(text).toContain('Code Review must not run GitNexus analyze/build/index refresh');
+    expect(text).toContain('provider repair, default git hooks, watchers, or daemons');
     expect(text).toContain('does not by itself disable reviewer dispatch');
     expect(text).toContain('group changed files by Git repo');
     expect(text).toContain('Resolve graph readiness, diff context, impact evidence, and test suggestions per child repo');
@@ -79,9 +79,14 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('workspace-gitnexus-readiness.v1');
     expect(text).toContain('`group.status="group-ready"`');
     expect(text).toContain('bounded registry/per-repo fallback');
-    expect(text).toContain('Code-review-graph remains the primary diff impact provider when available.');
+    expect(text).toContain('GitNexus is the primary diff-impact evidence source when available');
+    expect(text).toContain('stale, unavailable, or definitions-only GitNexus evidence falls back to bounded registry/per-repo/direct diff reads');
+    expect(text).toContain('changed-symbol impact, related-test candidate, or blast-radius supporting evidence');
     expect(text).toContain('GitNexus-first evidence for bounded candidate repos');
     expect(text).toContain('degraded-fallback or definitions-only limitations');
+    expect(text).not.toContain('Code-review-graph is the review/diff-impact provider');
+    expect(text).not.toContain('Code-review-graph remains the primary diff impact provider');
+    expect(text).not.toContain('code-review-graph build');
     expect(text).toContain('autofix review must not edit a child repo unless that repo is explicit');
     expect(text).toContain('risk assessments must remain scoped to the repo that owns the file');
     expect(text).toContain('Discover project standards paths');

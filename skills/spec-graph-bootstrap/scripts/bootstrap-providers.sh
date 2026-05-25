@@ -14,6 +14,7 @@ RESOLVER="${SPEC_FIRST_PROJECT_TARGET_RESOLVER:-$SCRIPT_DIR/../../spec-mcp-setup
 MCP_TOOLS_JSON="${SPEC_FIRST_MCP_TOOLS_JSON:-$SCRIPT_DIR/../../spec-mcp-setup/mcp-tools.json}"
 PACKAGE_JSON="${SPEC_FIRST_PACKAGE_JSON:-$SCRIPT_DIR/../../../package.json}"
 REPO_ARG=""
+FOLDER_ARG=""
 ALL_REPOS=false
 REQUEST_INCREMENTAL=false
 REQUEST_FULL=false
@@ -78,6 +79,23 @@ json_file_hash() {
   fi
 }
 
+folder_content_fingerprint() {
+  local root="$1"
+  (
+    cd "$root"
+    find -P . -type f -print 2>/dev/null |
+      sed 's#^\./##' |
+      sort |
+      while IFS= read -r path; do
+        case "$path" in
+          .spec-first/*|.gitnexus/*|.code-review-graph/*|.agents/*|.codex/*|.claude/*|node_modules/*|vendor/*) continue ;;
+        esac
+        printf '%s\n' "$path"
+        hash_file "$path"
+      done
+  ) | hash_text
+}
+
 SCRIPT_STARTED_AT="$(utc_now)"
 SCRIPT_STARTED_EPOCH_MS="$(epoch_ms)"
 while [[ $# -gt 0 ]]; do
@@ -85,6 +103,11 @@ while [[ $# -gt 0 ]]; do
     --repo)
       REPO_ARG="${2:-}"
       [ -n "$REPO_ARG" ] || { echo "bootstrap-providers.sh: --repo requires a value" >&2; exit 1; }
+      shift 2
+      ;;
+    --folder)
+      FOLDER_ARG="${2:-}"
+      [ -n "$FOLDER_ARG" ] || { echo "bootstrap-providers.sh: --folder requires a value" >&2; exit 1; }
       shift 2
       ;;
     --all-repos)
@@ -106,9 +129,21 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [ -n "$REPO_ARG" ] && [ -n "$FOLDER_ARG" ]; then
+  echo "bootstrap-providers.sh: use either --repo or --folder, not both" >&2
+  exit 1
+fi
+if [ "$ALL_REPOS" = "true" ] && [ -n "$FOLDER_ARG" ]; then
+  echo "bootstrap-providers.sh: use either --all-repos or --folder, not both" >&2
+  exit 1
+fi
+
 TARGET_ARGS=()
 if [ -n "$REPO_ARG" ]; then
   TARGET_ARGS+=(--repo "$REPO_ARG")
+fi
+if [ -n "$FOLDER_ARG" ]; then
+  TARGET_ARGS+=(--folder "$FOLDER_ARG")
 fi
 set +e
 TARGET_JSON="$(bash "$RESOLVER" --format json ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
@@ -117,10 +152,11 @@ set -e
 [ -n "$TARGET_JSON" ] || { echo "bootstrap-providers.sh: target resolver returned no JSON output" >&2; exit 1; }
 
 TARGET_MODE="$(jq -r '.mode // empty' <<<"$TARGET_JSON")"
+TARGET_KIND="$(jq -r '.target_kind // empty' <<<"$TARGET_JSON")"
 WORKSPACE_ROOT_FOR_ALL="$(jq -r '.workspace_root // .invocation_cwd' <<<"$TARGET_JSON")"
 CANDIDATE_COUNT="$(jq -r '(.candidates // []) | length' <<<"$TARGET_JSON")"
 DEFAULT_ALL_REPOS=false
-if [ "$ALL_REPOS" != "true" ] && [ -z "$REPO_ARG" ] && [ "$TARGET_MODE" != "git-repo" ] && [ "$CANDIDATE_COUNT" -gt 0 ]; then
+if [ "$ALL_REPOS" != "true" ] && [ -z "$REPO_ARG" ] && [ -z "$FOLDER_ARG" ] && [ "$TARGET_MODE" != "git-repo" ] && [ "$CANDIDATE_COUNT" -gt 0 ]; then
   DEFAULT_ALL_REPOS=true
 fi
 ALL_REPOS_SCOPE=false
@@ -754,7 +790,7 @@ if [ "$TARGET_STATUS" -ne 0 ] || [ "$TARGET_STATE_WRITE_ALLOWED" != "true" ]; th
   exit 1
 fi
 
-REPO_ROOT="$(jq -r '.selected_repo_root' <<<"$TARGET_JSON")"
+REPO_ROOT="$(jq -r '.target_root // .selected_repo_root // .selected_folder_root // empty' <<<"$TARGET_JSON")"
 INVOCATION_WORKSPACE_ROOT="$(jq -r '.workspace_root // empty' <<<"$TARGET_JSON")"
 SELECTION_SOURCE="$(jq -r '.selection_source // empty' <<<"$TARGET_JSON")"
 SPEC_DIR="$REPO_ROOT/.spec-first"
@@ -770,18 +806,25 @@ GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT=5
 mkdir -p "$GRAPH_DIR" "$IMPACT_DIR" "$PROVIDERS_DIR"
 
 BOOTSTRAPPED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-SOURCE_REVISION="$(git -C "$REPO_ROOT" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true)"
-if [ -z "$SOURCE_REVISION" ]; then
+FOLDER_CONTENT_FINGERPRINT=""
+if [ "$TARGET_KIND" = "non-git-folder" ]; then
+  SOURCE_REVISION=""
+  WORKTREE_STATUS=""
+  WORKTREE_DIRTY=false
+  WORKTREE_STATUS_HASH=""
+  FOLDER_CONTENT_FINGERPRINT="$(folder_content_fingerprint "$REPO_ROOT")"
+elif SOURCE_REVISION="$(git -C "$REPO_ROOT" rev-parse --verify 'HEAD^{commit}' 2>/dev/null || true)" && [ -n "$SOURCE_REVISION" ]; then
+  WORKTREE_STATUS="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)"
+  if [ -n "$WORKTREE_STATUS" ]; then
+    WORKTREE_DIRTY=true
+  else
+    WORKTREE_DIRTY=false
+  fi
+  WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | hash_text)"
+else
   jq -n '{schema_version:"graph-bootstrap-result.v1",overall_status:"action-required",workflow_mode:"blocked",reason_code:"repo-snapshot-unavailable",next_action:"Resolve git repository state before graph bootstrap."}'
   exit 1
 fi
-WORKTREE_STATUS="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)"
-if [ -n "$WORKTREE_STATUS" ]; then
-  WORKTREE_DIRTY=true
-else
-  WORKTREE_DIRTY=false
-fi
-WORKTREE_STATUS_HASH="$(printf '%s' "$WORKTREE_STATUS" | hash_text)"
 DIRTY_CLASSIFICATION=""
 DIRTY_PATHS_BREAKDOWN_JSON='{"setup_owned_count":0,"non_graph_metadata_count":0,"graph_affecting_count":0,"sample_paths":[],"truncated":false}'
 HOST_INSTRUCTION_EXPECTED_AGENTS_HASH=""
@@ -1165,6 +1208,11 @@ classify_worktree_dirty() {
 # 这样 critical write window 内后续外部编辑仍会触发 concurrent-write-detected。
 # 仅用于 concurrent-write detection；raw WORKTREE_STATUS_HASH 保持不变。
 external_actor_fingerprint() {
+  local target_kind="${TARGET_KIND:-git-repo}"
+  if [ "$target_kind" = "non-git-folder" ]; then
+    folder_content_fingerprint "$REPO_ROOT"
+    return 0
+  fi
   git -C "$REPO_ROOT" status --porcelain 2>/dev/null | while IFS= read -r status_line; do
     local status_path="${status_line:3}"
     if [[ "$status_path" =~ $EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX ]]; then
@@ -1259,6 +1307,10 @@ if [ "$REQUEST_INCREMENTAL" = "true" ] && [ "$REQUEST_FULL" = "true" ]; then
   emit_blocked blocked conflicting-refresh-flags "Use either --incremental or --full/--force, not both."
 fi
 
+if [ "$TARGET_KIND" = "non-git-folder" ] && [ "$REQUEST_INCREMENTAL" = "true" ]; then
+  emit_blocked blocked incremental-non-git-folder-unsupported "Non-git folder targets do not support incremental graph bootstrap; rerun without --incremental." 1 true
+fi
+
 if [ "$REQUEST_INCREMENTAL" = "true" ]; then
   INVOCATION_REFRESH_MODE="incremental"
 elif [ "$REQUEST_FULL" = "true" ]; then
@@ -1267,7 +1319,12 @@ else
   INVOCATION_REFRESH_MODE="$DEFAULT_REFRESH_MODE_SINGLE_REPO"
 fi
 
-classify_worktree_dirty
+if [ "$TARGET_KIND" = "non-git-folder" ]; then
+  DIRTY_CLASSIFICATION="not-applicable"
+  DIRTY_PATHS_BREAKDOWN_JSON='{"setup_owned_count":0,"non_graph_metadata_count":0,"graph_affecting_count":0,"sample_paths":[],"truncated":false}'
+else
+  classify_worktree_dirty
+fi
 DIRTY_INCREMENTAL_DOWNGRADE=false
 if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then
   # warn-and-continue: GitNexus analyze indexes current disk files regardless of commit state.
@@ -1305,6 +1362,11 @@ GRAPH_PROVIDERS_HASH="$(json_file_hash "$PROVIDER_CONFIG")"
 RUNTIME_CAPABILITIES_HASH="$(json_file_hash "$RUNTIME_CAPABILITIES")"
 PROVIDER_ARTIFACTS_HASH="$(json_file_hash "$PROVIDER_ARTIFACTS")"
 
+stale_provider_keys="$(jq -r '(.providers // {}) | keys[] | select(. != "gitnexus")' "$PROVIDER_CONFIG")"
+if [ -n "$stale_provider_keys" ]; then
+  emit_blocked action-required stale-provider-projection 'provider projection is stale; run `$spec-mcp-setup` to update before running graph-bootstrap'
+fi
+
 provider_artifact_contract_supported() {
   jq -e --slurpfile provider_config "$PROVIDER_CONFIG" '
     (.canonical.provider_status == ".spec-first/graph/provider-status.json")
@@ -1326,20 +1388,10 @@ provider_artifact_contract_supported() {
         and .providers.gitnexus.raw_logs.bootstrap == ".spec-first/providers/gitnexus/raw/analyze.log"
         and .providers.gitnexus.raw_logs.status == ".spec-first/providers/gitnexus/raw/status.log"
         and .providers.gitnexus.raw_logs.query_probe == ".spec-first/providers/gitnexus/raw/query.log"
+        and .providers.gitnexus.raw_logs.impact_probe == ".spec-first/providers/gitnexus/raw/impact.log"
         and .providers.gitnexus.normalized_artifacts.architecture_facts == ".spec-first/providers/gitnexus/normalized/architecture-facts.json"
         and .providers.gitnexus.normalized_artifacts.reuse_candidates == ".spec-first/providers/gitnexus/normalized/reuse-candidates.json"
-      )
-    )
-    and (
-      (.providers["code-review-graph"] // null) == null
-      or (
-        .providers["code-review-graph"].raw_dir == ".spec-first/providers/code-review-graph/raw"
-        and .providers["code-review-graph"].normalized_dir == ".spec-first/providers/code-review-graph/normalized"
-        and .providers["code-review-graph"].status_path == ".spec-first/providers/code-review-graph/status.json"
-        and .providers["code-review-graph"].raw_logs.bootstrap == ".spec-first/providers/code-review-graph/raw/build.log"
-        and .providers["code-review-graph"].raw_logs.status == ".spec-first/providers/code-review-graph/raw/status.log"
-        and .providers["code-review-graph"].raw_logs.query_probe == ".spec-first/providers/code-review-graph/raw/query.log"
-        and .providers["code-review-graph"].normalized_artifacts.impact_capabilities == ".spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
+        and .providers.gitnexus.normalized_artifacts.impact_capabilities == ".spec-first/providers/gitnexus/normalized/impact-capabilities.json"
       )
     )
   ' "$PROVIDER_ARTIFACTS" >/dev/null
@@ -1378,23 +1430,8 @@ command_shape_supported() {
       elif $kind == "incremental" then "analyze"
       elif $kind == "status" then "status"
       elif $kind == "query_probe" then "query"
+      elif $kind == "impact_probe" then "impact"
       else null end;
-    def crg_exact_package:
-      type == "string" and test("^code-review-graph@[0-9][0-9A-Za-z._+!-]*$");
-    def crg_legacy_tail:
-      if length >= 3 and .[0] == "uvx" and ((.[1] == "--upgrade") or (.[1] == "--refresh")) and .[2] == "code-review-graph" then .[3:]
-      else [] end;
-    def crg_pinned_tail:
-      if length >= 2 and .[0] == "uvx" and (.[1] | crg_exact_package) then .[2:]
-      else [] end;
-    def crg_shape:
-      (if (crg_pinned_tail | length) > 0 then crg_pinned_tail else crg_legacy_tail end) as $tail
-      | if $kind == "bootstrap" then $tail == ["build"]
-      elif $kind == "incremental" then
-        ($tail | length == 3 and .[0] == "update" and .[1] == "--base" and .[2] == "__SPEC_FIRST_LAST_INDEXED_COMMIT__")
-      elif $kind == "status" then $tail == ["status"]
-      elif $kind == "query_probe" then $tail == ["status", "--repo", $repo_root]
-      else false end;
     (.providers[$provider].commands[$kind]) as $cmd
     | ($cmd | string_array)
     and ($cmd | safe_args)
@@ -1402,6 +1439,8 @@ command_shape_supported() {
       if $provider == "gitnexus" then
         if $kind == "query_probe" then
           ($cmd | length == 7 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "query" and (.[4] | length > 0) and .[5] == "--repo" and (.[6] | length > 0))
+        elif $kind == "impact_probe" then
+          ($cmd | length == 10 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "impact" and (.[4] | length > 0) and .[5] == "--repo" and (.[6] | length > 0) and .[7] == "--include-tests" and .[8] == "--depth" and .[9] == "2")
         elif $kind == "bootstrap" then
           (
             ($cmd | length == 4 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze")
@@ -1411,6 +1450,8 @@ command_shape_supported() {
             ($cmd | length == 6 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze" and .[4] == "--skip-agents-md" and .[5] == "--no-stats")
             or
             ($cmd | length == 7 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze" and .[4] == "--force" and .[5] == "--skip-agents-md" and .[6] == "--no-stats")
+            or
+            ($cmd | length == 8 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == "analyze" and .[4] == "--skip-git" and .[5] == "--force" and .[6] == "--skip-agents-md" and .[7] == "--no-stats")
           )
         elif $kind == "incremental" then
           (
@@ -1421,8 +1462,6 @@ command_shape_supported() {
         else
           ($cmd | length == 4 and .[0] == "npx" and .[1] == "-y" and (.[2] | test("^gitnexus(@[A-Za-z0-9._~+:-]+)?$")) and .[3] == gitnexus_subcommand)
         end
-      elif $provider == "code-review-graph" then
-        ($cmd | crg_shape)
       else false end
     )
   ' "$PROVIDER_CONFIG" >/dev/null
@@ -1471,7 +1510,7 @@ provider_enabled() {
 
 while IFS= read -r provider; do
   case "$provider" in
-    gitnexus|code-review-graph) ;;
+    gitnexus) ;;
     *) emit_blocked blocked unsupported-provider-command "Unsupported graph provider id: $provider" ;;
   esac
   for kind in bootstrap status query_probe; do
@@ -1479,6 +1518,10 @@ while IFS= read -r provider; do
       emit_blocked blocked unsupported-provider-command "Provider command shape is unsupported for $provider:$kind."
     fi
   done
+  if jq -e --arg provider "$provider" '(.providers[$provider].commands.impact_probe // null) != null' "$PROVIDER_CONFIG" >/dev/null \
+    && ! command_shape_supported "$provider" impact_probe; then
+    emit_blocked blocked unsupported-provider-command "Provider command shape is unsupported for $provider:impact_probe."
+  fi
   if jq -e --arg provider "$provider" '(.providers[$provider].commands.incremental // null) != null' "$PROVIDER_CONFIG" >/dev/null \
     && ! command_shape_supported "$provider" incremental; then
     emit_blocked blocked unsupported-provider-command "Provider command shape is unsupported for $provider:incremental."
@@ -1664,6 +1707,26 @@ gitnexus_query_probe_reason_for_class() {
   esac
 }
 
+gitnexus_impact_probe_has_related_tests() {
+  local log_path="$1"
+  local json_payload
+  json_payload="$(awk 'found || /^[[:space:]]*\{/ { found=1; print }' "$log_path" || true)"
+  [ -n "$json_payload" ] || return 1
+  jq -e '
+    def test_path:
+      type == "string"
+      and (
+        test("(^|/)(tests?|__tests__|androidTest)(/|$)")
+        or test("\\.(test|spec)\\.[A-Za-z0-9]+$")
+      );
+    [
+      .. | objects
+      | (.filePath? // .path? // .file? // empty)
+      | select(test_path)
+    ] | length > 0
+  ' >/dev/null 2>&1 <<<"$json_payload"
+}
+
 configured_gitnexus_package_spec() {
   provider_configured_package_spec gitnexus
 }
@@ -1678,16 +1741,6 @@ bundled_gitnexus_package_spec() {
   ' "$MCP_TOOLS_JSON" 2>/dev/null | head -n 1
 }
 
-bundled_code_review_graph_package_spec() {
-  [ -f "$MCP_TOOLS_JSON" ] || return 0
-  jq -r '
-    .tools[]?
-    | select(.id == "code-review-graph")
-    | select((.package // "") != "" and (.version // "") != "")
-    | (.package + "@" + .version)
-  ' "$MCP_TOOLS_JSON" 2>/dev/null | head -n 1
-}
-
 provider_configured_package_spec() {
   local provider="$1"
   jq -r --arg provider "$provider" '
@@ -1695,17 +1748,12 @@ provider_configured_package_spec() {
       ($config.providers[$provider].commands[$kind] // []) as $cmd
       | if $provider == "gitnexus" then
           if ($cmd[0] // "") == "npx" and ($cmd[1] // "") == "-y" then ($cmd[2] // "") else "" end
-        elif $provider == "code-review-graph" then
-          if ($cmd[0] // "") == "uvx" and (($cmd[1] // "") == "--upgrade" or ($cmd[1] // "") == "--refresh") then
-            ($cmd[2] // "")
-          elif ($cmd[0] // "") == "uvx" then
-            ($cmd[1] // "")
-          else ""
-          end
         else "" end;
     . as $config
     |
-    (["bootstrap", "status", "query_probe"] + (if (($config.providers[$provider].commands.incremental // null) != null) then ["incremental"] else [] end)) as $phases
+    (["bootstrap", "status", "query_probe"]
+      + (if (($config.providers[$provider].commands.incremental // null) != null) then ["incremental"] else [] end)
+      + (if (($config.providers[$provider].commands.impact_probe // null) != null) then ["impact_probe"] else [] end)) as $phases
     | ($phases | map(command_package($config; $provider; .))) as $packages
     | ($packages | map(select(. != "")) | unique) as $unique
     | if (($packages | all(. != "")) and ($unique | length == 1)) then
@@ -1721,8 +1769,6 @@ provider_bundled_package_spec() {
   local provider="$1"
   if [ "$provider" = "gitnexus" ]; then
     bundled_gitnexus_package_spec
-  elif [ "$provider" = "code-review-graph" ]; then
-    bundled_code_review_graph_package_spec
   fi
 }
 
@@ -1773,6 +1819,8 @@ provider_bootstrap_fingerprint() {
     --arg source_revision "$SOURCE_REVISION" \
     --arg worktree_status_hash "$WORKTREE_STATUS_HASH" \
     --argjson worktree_dirty "$WORKTREE_DIRTY" \
+    --arg target_kind "$TARGET_KIND" \
+    --arg content_fingerprint "$FOLDER_CONTENT_FINGERPRINT" \
     --arg package_version "$SPEC_FIRST_PACKAGE_VERSION" \
     --arg script_hash "$GRAPH_BOOTSTRAP_SCRIPT_HASH" \
     --arg mcp_tools_hash "$MCP_TOOLS_HASH" \
@@ -1785,9 +1833,11 @@ provider_bootstrap_fingerprint() {
     --arg version_policy "$version_policy" '{
       schema_version:"graph-bootstrap-fingerprint.v1",
       repo_snapshot:{
-        source_revision:$source_revision,
-        worktree_dirty:$worktree_dirty,
-        worktree_status_hash:$worktree_status_hash
+        target_kind:$target_kind,
+        source_revision:(if $target_kind == "non-git-folder" then null else $source_revision end),
+        worktree_dirty:(if $target_kind == "non-git-folder" then null else $worktree_dirty end),
+        worktree_status_hash:(if $target_kind == "non-git-folder" then null else $worktree_status_hash end),
+        folder_snapshot:(if $target_kind == "non-git-folder" then {content_fingerprint:$content_fingerprint} else null end)
       },
       spec_first:{
         package_version:$package_version,
@@ -1824,51 +1874,16 @@ gitnexus_provider_projection_stale_failure() {
     }'
 }
 
-code_review_graph_provider_projection_stale_failure() {
-  local configured="$1"
-  local bundled="$2"
-  jq -n \
-    --arg configured "$configured" \
-    --arg bundled "$bundled" '{
-      failed_phase:"preflight",
-      failure_class:"provider-projection-stale",
-      reason_code:"code-review-graph-provider-projection-stale",
-      exit_code:null,
-      recommended_action:("Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled code-review-graph package `" + $bundled + "`; it currently projects `" + $configured + "`. Then rerun spec-graph-bootstrap."),
-      diagnostic:("code-review-graph setup-projected package `" + $configured + "` differs from bundled package `" + $bundled + "` before provider commands ran.")
-	    }'
-}
-
-code_review_graph_provider_version_unverifiable_failure() {
-  local configured="$1"
-  local bundled="$2"
-  jq -n \
-    --arg configured "$configured" \
-    --arg bundled "$bundled" '{
-      failed_phase:"preflight",
-      failure_class:"provider-version-unverifiable",
-      reason_code:"code-review-graph-provider-version-unverifiable",
-      exit_code:null,
-      recommended_action:("Rerun spec-mcp-setup so .spec-first/config/graph-providers.json is refreshed from the bundled code-review-graph package pin before rerunning spec-graph-bootstrap."),
-      diagnostic:("code-review-graph provider package identity is not pinned/verifiable before provider commands ran. configured=`" + $configured + "`, bundled=`" + $bundled + "`.")
-    }'
-}
-
 provider_projection_stale_failure() {
   local provider="$1"
   local configured="$2"
   local bundled="$3"
-  if [ "$provider" = "gitnexus" ]; then
-    gitnexus_provider_projection_stale_failure "$configured" "$bundled"
-  else
-    code_review_graph_provider_projection_stale_failure "$configured" "$bundled"
-  fi
+  gitnexus_provider_projection_stale_failure "$configured" "$bundled"
 }
 
 provider_projection_stale_label() {
   case "$1" in
     gitnexus) printf '%s\n' "GitNexus" ;;
-    code-review-graph) printf '%s\n' "code-review-graph" ;;
     *) printf '%s\n' "$1" ;;
   esac
 }
@@ -1891,7 +1906,7 @@ gitnexus_query_surface_diagnostic_failure() {
         failure_class:"provider-projection-stale",
         reason_code:"gitnexus-query-provider-projection-stale",
         exit_code:$exit_code,
-        recommended_action:("Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled GitNexus package `" + $bundled + "`; it currently projects `" + $configured + "`. Then rerun spec-graph-bootstrap. Use code-review-graph degraded fallback until GitNexus query proof returns process results."),
+        recommended_action:("Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled GitNexus package `" + $bundled + "`; it currently projects `" + $configured + "`. Then rerun spec-graph-bootstrap. Use bounded source reads, git diff, ast-grep, tests, and logs until GitNexus query proof returns process results."),
         diagnostic:("GitNexus query probe emitted FTS/read-only/missing-index diagnostics while setup-projected package `" + $configured + "` differs from bundled package `" + $bundled + "`.")
       }'
     return 0
@@ -1902,7 +1917,7 @@ gitnexus_query_surface_diagnostic_failure() {
     failure_class:"provider-storage-readonly",
     reason_code:"gitnexus-query-fts-readonly",
     exit_code:$exit_code,
-    recommended_action:"GitNexus query emitted FTS/read-only/missing-index diagnostics after build/status succeeded. Repair GitNexus index storage or permissions, or clean/reanalyze GitNexus with a fixed provider version, then rerun spec-graph-bootstrap. Use code-review-graph degraded fallback meanwhile.",
+    recommended_action:"GitNexus query emitted FTS/read-only/missing-index diagnostics after build/status succeeded. Repair GitNexus index storage or permissions, or clean/reanalyze GitNexus with a fixed provider version, then rerun spec-graph-bootstrap. Use bounded source reads, git diff, ast-grep, tests, and logs meanwhile.",
     diagnostic:"GitNexus query probe emitted FTS/read-only/missing-index diagnostics after build/status succeeded."
   }'
 }
@@ -1918,6 +1933,10 @@ query_probe_verified() {
   QUERY_PROBE_RESULT_CLASS="$(gitnexus_query_probe_result_class "$log_path")"
   QUERY_PROBE_VERIFICATION_REASON="$(gitnexus_query_probe_reason_for_class "$QUERY_PROBE_RESULT_CLASS")"
   if [ "$QUERY_PROBE_RESULT_CLASS" = "process-results" ]; then
+    return 0
+  fi
+  if [ "$QUERY_PROBE_RESULT_CLASS" = "definitions-only" ]; then
+    QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe returned definitions-only evidence; accepted as query-ready for query/context orientation without process graph evidence."
     return 0
   fi
   return 1
@@ -1987,6 +2006,9 @@ gitnexus_repo_name_from_remote_url_for_diagnostic() {
 git_remote_url_for_repo_diagnostic() {
   local repo_root="$1"
   local remote_url current_branch branch_remote remote_names remote_count first_remote
+  if [ "$TARGET_KIND" = "non-git-folder" ]; then
+    return 0
+  fi
   command -v git >/dev/null 2>&1 || return 0
 
   remote_url="$(git -C "$repo_root" config --get remote.origin.url 2>/dev/null || true)"
@@ -2098,7 +2120,7 @@ classify_provider_failure() {
       failure_class:"provider-crash",
       reason_code:"gitnexus-analyze-sigsegv",
       exit_code:$exit_code,
-      recommended_action:"Do not trust GitNexus artifacts. Use code-review-graph and bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings."
+      recommended_action:"Do not trust GitNexus artifacts. Use bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings."
     }'
   elif [ "$provider" = "gitnexus" ] \
     && [ "$phase" = "bootstrap" ] \
@@ -2109,7 +2131,7 @@ classify_provider_failure() {
       failure_class:"provider-storage-write-failed",
       reason_code:"gitnexus-analyze-storage-write-failed",
       exit_code:$exit_code,
-      recommended_action:"GitNexus analyze could not open or write its .gitnexus index state such as .gitnexus/lbug. First verify spec-mcp-setup refreshed the provider projection to the bundled GitNexus package, then rerun spec-graph-bootstrap. If the current bundled package still fails, preserve analyze.log and inspect Windows locks, permissions, path state, or explicitly archive/remove stale .gitnexus as a recovery action. Use code-review-graph degraded fallback meanwhile."
+      recommended_action:"GitNexus analyze could not open or write its .gitnexus index state such as .gitnexus/lbug. First verify spec-mcp-setup refreshed the provider projection to the bundled GitNexus package, then rerun spec-graph-bootstrap. If the current bundled package still fails, preserve analyze.log and inspect Windows locks, permissions, path state, or explicitly archive/remove stale .gitnexus as a recovery action. Use bounded source reads, git diff, ast-grep, tests, and logs meanwhile."
     }'
   elif [ "$exit_code" -eq 124 ]; then
     jq -n --arg phase "$phase" --argjson exit_code "$exit_code" '{
@@ -2126,17 +2148,6 @@ classify_provider_failure() {
       reason_code:"provider-network-unavailable",
       exit_code:$exit_code,
       recommended_action:"Provider package registry or network resolution failed. Restore registry/network access or warm the package cache, then rerun graph bootstrap."
-    }'
-  elif [ "$provider" = "code-review-graph" ] \
-    && [ "$exit_code" -ne 0 ] \
-    && [[ "$diagnostic" == *"code-review-graph"* ]] \
-    && { [[ "$diagnostic" == *"package registry"* ]] || [[ "$diagnostic" == *"No solution found when resolving tool dependencies"* ]] || [[ "$diagnostic" == *"requirements are unsatisfiable"* ]]; }; then
-    jq -n --arg phase "$phase" --argjson exit_code "$exit_code" '{
-      failed_phase:$phase,
-      failure_class:"provider-package-resolution-failed",
-      reason_code:"provider-package-not-found",
-      exit_code:$exit_code,
-      recommended_action:"code-review-graph was not found in the active Python package index. Unset UV_INDEX_URL/PIP_INDEX_URL or use an index that contains code-review-graph, then rerun graph bootstrap."
     }'
   elif [ "$exit_code" -ne 0 ] \
     && grep -Eiq 'Operation not permitted|Permission denied|EACCES' <<<"$diagnostic" \
@@ -2246,10 +2257,21 @@ write_normalized_artifacts() {
         --arg provider "$provider" \
         --arg generated_at "$BOOTSTRAPPED_AT" \
         --arg source_status_path "$(relpath "$provider_status_path")" \
+        --arg target_kind "$TARGET_KIND" \
         --argjson query_ready "$query_ready" \
         --argjson query_probe_attempts "$QUERY_PROBE_ATTEMPTS" \
         --argjson command_results "$command_results" \
-        '{
+        'def non_git_folder:
+          $target_kind == "non-git-folder";
+        def definitions_only_evidence:
+          ([$query_probe_attempts[]? | select(.result_class == "definitions-only")] | length > 0);
+        def query_only_target:
+          non_git_folder or definitions_only_evidence;
+        def non_git_limitations:
+          ["non_git_folder_no_process_graph","non_git_folder_no_git_diff","non_git_folder_no_commit_freshness","non_git_folder_no_incremental"];
+        def definitions_only_limitations:
+          ["definitions_only_no_process_graph","definitions_only_no_impact_evidence","definitions_only_no_related_tests"];
+        {
           schema_version:"provider-normalized-envelope.v1",
           provider:$provider,
           generated_at:$generated_at,
@@ -2262,31 +2284,58 @@ write_normalized_artifacts() {
           query_probe_attempt_logs:[$query_probe_attempts[].raw_log],
           winning_query_probe_log:([$query_probe_attempts[] | select(.result_class == "process-results") | .raw_log][0] // null),
           available_query_surfaces:(if $query_ready then ["status","query"] else [] end),
-          capabilities:["architecture_map","dependency_map","execution_flow","repo_wiki","query_global_graph"],
-          confidence:(if $query_ready then "high" else "low" end),
-          limitations:(if $query_ready then [] else ["Provider query readiness is not verified."] end)
+          capabilities:(if query_only_target then ["architecture_map","dependency_map","repo_wiki","query_global_graph"] else ["architecture_map","dependency_map","execution_flow","repo_wiki","query_global_graph"] end),
+          confidence:(if ($query_ready and (query_only_target | not)) then "high" elif $query_ready then "medium" else "low" end),
+          limitations:(if non_git_folder then non_git_limitations elif definitions_only_evidence then definitions_only_limitations elif $query_ready then [] else ["Provider query readiness is not verified."] end)
         }' | write_file_atomic "$normalized_dir/$artifact.json"
-    done
-  else
-    jq -n \
+      done
+      jq -n \
       --arg provider "$provider" \
-      --arg generated_at "$BOOTSTRAPPED_AT" \
-      --arg source_status_path "$(relpath "$provider_status_path")" \
-      --argjson query_ready "$query_ready" \
-      --argjson command_results "$command_results" \
-      '{
+        --arg generated_at "$BOOTSTRAPPED_AT" \
+        --arg source_status_path "$(relpath "$provider_status_path")" \
+        --arg target_kind "$TARGET_KIND" \
+        --argjson query_ready "$query_ready" \
+        --argjson query_probe_attempts "$QUERY_PROBE_ATTEMPTS" \
+        --argjson command_results "$command_results" \
+      'def related_tests_supported:
+          [$command_results[]? | select(.kind == "impact_probe" and .exit_code == 0 and .result_class == "related-tests-supported")] | length > 0;
+        def non_git_folder:
+          $target_kind == "non-git-folder";
+        def definitions_only_evidence:
+          ([$query_probe_attempts[]? | select(.result_class == "definitions-only")] | length > 0);
+        def query_only_target:
+          non_git_folder or definitions_only_evidence;
+        def related_tests_status:
+          if query_only_target then "unavailable"
+          elif (related_tests_supported and $query_ready) then "supported"
+          elif $query_ready then "candidate-only"
+          else "unavailable" end;
+        def non_git_limitations:
+          ["non_git_folder_no_git_diff","non_git_folder_no_commit_freshness","non_git_folder_no_incremental"];
+        def definitions_only_limitations:
+          ["definitions_only_no_process_graph","definitions_only_no_impact_evidence","definitions_only_no_related_tests"];
+      {
         schema_version:"provider-normalized-envelope.v1",
         provider:$provider,
         generated_at:$generated_at,
         source_status_path:$source_status_path,
         source_raw_logs:(
-          ([$command_results[]? | select(.kind == "bootstrap") | .raw_log] | if length > 0 then . else [".spec-first/providers/code-review-graph/raw/build.log"] end)
-          + [".spec-first/providers/code-review-graph/raw/status.log",".spec-first/providers/code-review-graph/raw/query.log"]
+          (([$command_results[]? | select(.kind == "bootstrap") | .raw_log] | if length > 0 then . else [".spec-first/providers/gitnexus/raw/analyze.log"] end)
+          + [".spec-first/providers/gitnexus/raw/status.log"])
+          + (if ($query_probe_attempts | length) > 0 then [$query_probe_attempts[].raw_log] else [".spec-first/providers/gitnexus/raw/query.log"] end)
+          + ([$command_results[]? | select(.kind == "impact_probe") | .raw_log] | if length > 0 then . else [] end)
         ),
-        available_query_surfaces:(if $query_ready then ["status","query_graph_tool","get_impact_radius_tool"] else [] end),
-        capabilities:["detect_changes","blast_radius","minimal_context","review_context","related_tests","graph_stats"],
-        confidence:(if $query_ready then "medium" else "low" end),
-        limitations:(if $query_ready then ["code-review-graph query-surface proof is conservative and should be treated as provider readiness, not semantic evidence."] else ["Provider query readiness is not verified."] end)
+        available_query_surfaces:(if ($query_ready and query_only_target) then ["query","context"] elif $query_ready then ["query","context","impact","detect_changes","route_map","api_impact","shape_check"] else [] end),
+        capabilities:(if query_only_target then ["query_context_orientation"] else ["detect_changes","impact_radius","execution_flow","route_api_evidence","shape_check","review_context_candidate"] end),
+        impact_evidence_surfaces:(if ($query_ready and (query_only_target | not)) then ["detect_changes","impact","query","route_map","api_impact","shape_check"] else [] end),
+        review_support:{
+          support_level:(if related_tests_status == "supported" then "supported" elif ($query_ready and (query_only_target | not)) then "candidate-only" else "unavailable" end),
+          related_tests:related_tests_status,
+          limitations:(if non_git_folder then non_git_limitations elif definitions_only_evidence then definitions_only_limitations elif related_tests_status == "supported" then [] elif $query_ready then ["related_tests_unverified"] else ["Provider query readiness is not verified."] end)
+        },
+        related_tests:related_tests_status,
+        confidence:(if related_tests_status == "supported" then "high" elif ($query_ready and (query_only_target | not)) then "medium" else "low" end),
+        limitations:(if non_git_folder then non_git_limitations elif definitions_only_evidence then definitions_only_limitations elif related_tests_status == "supported" then [] elif $query_ready then ["related_tests_unverified","GitNexus related-test provenance is not verified; review support is candidate-only."] else ["Provider query readiness is not verified."] end)
       }' | write_file_atomic "$normalized_dir/impact-capabilities.json"
   fi
 }
@@ -2299,18 +2348,7 @@ provider_incremental_command_present() {
 provider_incremental_command_json() {
   local provider="$1"
   local last_indexed_commit="${2:-}"
-  if [ "$provider" = "code-review-graph" ]; then
-    jq -c --arg provider "$provider" --arg sha "$last_indexed_commit" '
-      .providers[$provider].commands.incremental
-      | if .[length - 1] != "__SPEC_FIRST_LAST_INDEXED_COMMIT__" then
-          error("code-review-graph incremental command sentinel missing")
-        else
-          .[length - 1] = $sha
-        end
-    ' "$PROVIDER_CONFIG"
-  else
-    jq -c --arg provider "$provider" '.providers[$provider].commands.incremental' "$PROVIDER_CONFIG"
-  fi
+  jq -c --arg provider "$provider" '.providers[$provider].commands.incremental' "$PROVIDER_CONFIG"
 }
 
 provider_full_command_json() {
@@ -2532,18 +2570,14 @@ write_provider_status() {
 
   if provider_enabled "$provider"; then
     readiness_source="cold-run"
-    if [ "$version_policy" = "projection-stale" ] || { [ "$provider" = "code-review-graph" ] && [ "$version_policy" != "pinned" ]; }; then
+    if [ "$version_policy" = "projection-stale" ]; then
       readiness_source="preflight-blocked"
       provider_refresh_mode="failed"
       status="failed"
       graph_ready=false
       query_ready=false
       confidence="low"
-      if [ "$version_policy" = "projection-stale" ]; then
-        failure_info="$(provider_projection_stale_failure "$provider" "$configured_package" "$bundled_package")"
-      else
-        failure_info="$(code_review_graph_provider_version_unverifiable_failure "$configured_package" "$bundled_package")"
-      fi
+      failure_info="$(provider_projection_stale_failure "$provider" "$configured_package" "$bundled_package")"
       stale_label="$(provider_projection_stale_label "$provider")"
       limitations="$(jq -n --arg label "$stale_label" --argjson failure "$failure_info" '[($label + " provider projection is not fresh/verifiable; provider commands were not run.")] + (if ($failure.recommended_action // "") != "" then [$failure.recommended_action] else [] end)')"
       QUERY_PROBE_VERIFICATION_REASON="$(jq -r '.diagnostic' <<<"$failure_info")"
@@ -2607,7 +2641,7 @@ write_provider_status() {
         refresh_process_failed=true
       fi
     fi
-    if [ "$provider" = "gitnexus" ] && [ "$RUN_EXIT_CODE" -eq 0 ]; then
+    if [ "$provider" = "gitnexus" ] && [ "$RUN_EXIT_CODE" -eq 0 ] && [ "$TARGET_KIND" != "non-git-folder" ]; then
       host_instruction_normalization="$(normalize_gitnexus_instruction_block_for_root "$REPO_ROOT" "single-repo")"
       record_bootstrap_owned_host_instruction_hashes "$host_instruction_normalization"
     fi
@@ -2641,7 +2675,13 @@ write_provider_status() {
             fi
             run_configured_gitnexus_query_probe "$provider" "$query_log" "$probe_token"
             if [ "$RUN_EXIT_CODE" -eq 0 ] && query_probe_verified "$provider" "$query_log"; then
-              query_ready=true
+              if [ "$QUERY_PROBE_RESULT_CLASS" = "process-results" ]; then
+                query_ready=true
+              elif [ "$QUERY_PROBE_RESULT_CLASS" = "definitions-only" ] \
+                && [ "${candidate_count:-0}" -le "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" ] \
+                && [ "$attempt_index" -ge "${candidate_count:-0}" ]; then
+                query_ready=true
+              fi
             elif [ "$RUN_EXIT_CODE" -ne 0 ]; then
               QUERY_PROBE_RESULT_CLASS="command-failed"
               QUERY_PROBE_VERIFICATION_REASON="GitNexus query probe command failed."
@@ -2667,7 +2707,7 @@ write_provider_status() {
               "$QUERY_PROBE_RESULT_CLASS" \
               "$QUERY_PROBE_VERIFICATION_REASON" \
               "$(relpath "$query_log")"
-            if [ "$query_ready" = "true" ]; then
+            if [ "$query_ready" = "true" ] && [ "$QUERY_PROBE_RESULT_CLASS" = "process-results" ]; then
               break
             fi
           done < <(gitnexus_query_probe_candidates "$provider")
@@ -2709,10 +2749,45 @@ write_provider_status() {
             query_ready=false
           fi
         fi
+        if [ "$provider" = "gitnexus" ] \
+          && [ "$query_ready" = "true" ] \
+          && [ "$TARGET_KIND" != "non-git-folder" ] \
+          && ! jq -e 'any(.[]; .result_class == "definitions-only")' <<<"$QUERY_PROBE_ATTEMPTS" >/dev/null \
+          && jq -e '.providers.gitnexus.commands.impact_probe? != null' "$PROVIDER_CONFIG" >/dev/null; then
+          impact_log="$raw_dir/impact.log"
+          run_configured_command "$provider" impact_probe "$impact_log"
+          if [ "$RUN_EXIT_CODE" -eq 0 ] && gitnexus_impact_probe_has_related_tests "$impact_log"; then
+            IMPACT_PROBE_RESULT_CLASS="related-tests-supported"
+            IMPACT_PROBE_VERIFICATION_REASON=""
+          elif [ "$RUN_EXIT_CODE" -eq 0 ]; then
+            IMPACT_PROBE_RESULT_CLASS="related-tests-unproven"
+            IMPACT_PROBE_VERIFICATION_REASON="GitNexus impact probe returned no test provenance."
+          else
+            IMPACT_PROBE_RESULT_CLASS="command-failed"
+            IMPACT_PROBE_VERIFICATION_REASON="GitNexus impact probe command failed."
+          fi
+          append_command_result \
+            "$command_results_file" \
+            impact_probe \
+            "$(command_display "$provider" impact_probe)" \
+            "$RUN_EXIT_CODE" \
+            "$RUN_DIAGNOSTIC" \
+            "$RUN_TRUNCATED" \
+            "$(relpath "$impact_log")" \
+            "" \
+            "" \
+            "" \
+            "$IMPACT_PROBE_RESULT_CLASS" \
+            "$IMPACT_PROBE_VERIFICATION_REASON"
+        fi
         if [ "$query_ready" = "true" ]; then
           status="ready"
           confidence="high"
-          limitations='[]'
+          if [ "$provider" = "gitnexus" ] && jq -e 'any(.[]; .result_class == "definitions-only")' <<<"$QUERY_PROBE_ATTEMPTS" >/dev/null; then
+            limitations='["Definitions-only GitNexus evidence accepted as query-ready for query/context orientation; no process graph or GitNexus impact/review evidence is available."]'
+          else
+            limitations='[]'
+          fi
         elif [ "$provider" = "gitnexus" ] && [ "$query_probe_expected_hit" != "true" ]; then
           status="query-not-applicable"
           confidence="medium"
@@ -2769,9 +2844,11 @@ write_provider_status() {
     --arg host_config_status "$host_config_status" \
     --arg skip_reason "$skip_reason" \
     --arg confidence "$confidence" \
+    --arg target_kind "$TARGET_KIND" \
     --arg source_revision "$SOURCE_REVISION" \
     --argjson worktree_dirty "$WORKTREE_DIRTY" \
     --arg worktree_status_hash "$WORKTREE_STATUS_HASH" \
+    --arg content_fingerprint "$FOLDER_CONTENT_FINGERPRINT" \
     --arg provider_started_at "$provider_started_at" \
     --arg provider_finished_at "$provider_finished_at" \
     --argjson provider_duration_ms "$provider_duration_ms" \
@@ -2815,12 +2892,14 @@ write_provider_status() {
       refresh_mode:$provider_refresh_mode,
       fallback_from_incremental:$fallback_from_incremental,
       last_indexed_commit:(
-        if ($graph_ready and $query_ready and ($worktree_dirty | not)) then $source_revision
+        if $target_kind == "non-git-folder" then null
+        elif ($graph_ready and $query_ready and ($worktree_dirty | not)) then $source_revision
         elif $prior_last_indexed_commit != "" then $prior_last_indexed_commit
         else null end
       ),
       requires_clean_full_refresh:(
-        if (($worktree_dirty | not) and $final_full_attempt_succeeded and $graph_ready and $query_ready) then false
+        if $target_kind == "non-git-folder" then false
+        elif (($worktree_dirty | not) and $final_full_attempt_succeeded and $graph_ready and $query_ready) then false
         elif $refresh_process_failed then true
         else $prior_requires_clean_full_refresh end
       ),
@@ -2836,12 +2915,25 @@ write_provider_status() {
       limitations:$limitations,
       query_verification_reason:(if ($status == "query-unverified" or $status == "query-not-applicable") then (if $query_verification_reason != "" then $query_verification_reason else ($limitations[-1] // null) end) else null end),
       query_probe_policy:($provider_config[0].providers[$provider].query_probe_policy // null),
+      review_support:(
+        if $provider == "gitnexus" then
+          ([$command_results[] | select(.kind == "impact_probe" and .exit_code == 0 and .result_class == "related-tests-supported")] | length > 0) as $supported
+          | ([$query_probe_attempts[]? | select(.result_class == "definitions-only")] | length > 0) as $definitions_only
+          | {
+            related_tests_status:(if ($target_kind == "non-git-folder" or $definitions_only) then "unavailable" elif $supported then "supported" elif $query_ready then "candidate-only" else "unavailable" end),
+            impact_probe_raw_log:([$command_results[] | select(.kind == "impact_probe") | .raw_log][0] // null),
+            limitations:(if $target_kind == "non-git-folder" then ["non_git_folder_no_git_diff"] elif $definitions_only then ["definitions_only_no_process_graph","definitions_only_no_impact_evidence","definitions_only_no_related_tests"] elif $supported then [] elif $query_ready then ["related_tests_unverified"] else ["gitnexus_query_unverified"] end)
+          }
+        else null end
+      ),
       query_probe_candidate_limit:(if $provider == "gitnexus" then $query_probe_candidate_limit else null end),
       query_probe_candidates_truncated:(if $provider == "gitnexus" then $query_probe_candidates_truncated else null end),
       repo_snapshot:{
-        source_revision:$source_revision,
-        worktree_dirty:$worktree_dirty,
-        worktree_status_hash:$worktree_status_hash
+        target_kind:$target_kind,
+        source_revision:(if $target_kind == "non-git-folder" then null else $source_revision end),
+        worktree_dirty:(if $target_kind == "non-git-folder" then null else $worktree_dirty end),
+        worktree_status_hash:(if $target_kind == "non-git-folder" then null else $worktree_status_hash end),
+        folder_snapshot:(if $target_kind == "non-git-folder" then {content_fingerprint:$content_fingerprint} else null end)
       },
       command_results:$command_results,
       query_probe_attempts:(if $provider == "gitnexus" then $query_probe_attempts else null end),
@@ -2857,10 +2949,9 @@ write_provider_status() {
       normalized_artifacts:(
         if $provider == "gitnexus" then {
           architecture_facts:".spec-first/providers/gitnexus/normalized/architecture-facts.json",
-          reuse_candidates:".spec-first/providers/gitnexus/normalized/reuse-candidates.json"
-        } else {
-          impact_capabilities:".spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
-        } end
+          reuse_candidates:".spec-first/providers/gitnexus/normalized/reuse-candidates.json",
+          impact_capabilities:".spec-first/providers/gitnexus/normalized/impact-capabilities.json"
+        } else null end
       )
     }' | write_file_atomic "$status_path"
   STATUS_FILES+=("$status_path")
@@ -2934,6 +3025,8 @@ if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$GRAPH_DIR/provider-
   --arg started_at "$SCRIPT_STARTED_AT" \
   --arg finished_at "$BOOTSTRAP_FINISHED_AT" \
   --arg workflow_mode "$WORKFLOW_MODE" \
+  --arg target_kind "$TARGET_KIND" \
+  --arg content_fingerprint "$FOLDER_CONTENT_FINGERPRINT" \
   --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ] || [ "$WORKFLOW_MODE" = "no-source" ]; then echo medium; else echo low; fi)" \
   --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
   --argjson providers "$statuses_json" \
@@ -2946,6 +3039,8 @@ if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$GRAPH_DIR/provider-
       duration_ms:$duration_ms
     },
     workflow_mode:$workflow_mode,
+    target_kind:$target_kind,
+    folder_snapshot:(if $target_kind == "non-git-folder" then {content_fingerprint:$content_fingerprint} else null end),
     ready_primary_providers:[$providers[] | select(.query_ready == true) | .provider],
     failed_primary_providers:[$providers[] | select(.query_ready != true and .status != "skipped" and .status != "query-not-applicable") | .provider],
     not_applicable_providers:[$providers[] | select(.status == "query-not-applicable") | .provider],
@@ -2975,12 +3070,22 @@ jq -n \
   --arg dirty_classification "$DIRTY_CLASSIFICATION" \
   --argjson dirty_paths_breakdown "$DIRTY_PATHS_BREAKDOWN_JSON" \
   --arg workflow_mode "$WORKFLOW_MODE" \
+  --arg target_kind "$TARGET_KIND" \
+  --arg content_fingerprint "$FOLDER_CONTENT_FINGERPRINT" \
   --arg freshness_state "$(if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then echo dirty-advisory; else echo fresh; fi)" \
   --argjson source_revision_dirty "$(if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then echo true; else echo false; fi)" \
   --arg confidence "$(if [ "$WORKFLOW_MODE" = "primary" ]; then echo high; elif [ "$WORKFLOW_MODE" = "degraded-fallback" ] || [ "$WORKFLOW_MODE" = "no-source" ]; then echo medium; else echo low; fi)" \
   --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
   --argjson providers "$statuses_json" \
-  '{
+  'def gitnexus_ready:
+     ([$providers[] | select(.provider == "gitnexus" and .query_ready == true)] | length > 0);
+   def gitnexus_related_tests_supported:
+     ([$providers[] | select(.provider == "gitnexus" and (.review_support.related_tests_status // "") == "supported")] | length > 0);
+   def gitnexus_definitions_only_ready:
+     ([$providers[] | select(.provider == "gitnexus" and .query_ready == true and any((.query_probe_attempts // [])[]?; .result_class == "definitions-only"))] | length > 0);
+   def query_only_target:
+     $target_kind == "non-git-folder" or gitnexus_definitions_only_ready;
+   {
     schema_version:"graph-facts.v1",
     generated_at:$generated_at,
     timing:{
@@ -2989,11 +3094,13 @@ jq -n \
       duration_ms:$duration_ms
     },
     repo_root:$repo_root,
-    source_revision:$source_revision,
-    source_revision_dirty:$source_revision_dirty,
+    target_kind:$target_kind,
+    folder_snapshot:(if $target_kind == "non-git-folder" then {content_fingerprint:$content_fingerprint} else null end),
+    source_revision:(if $target_kind == "non-git-folder" then null else $source_revision end),
+    source_revision_dirty:(if $target_kind == "non-git-folder" then false else $source_revision_dirty end),
     freshness_state:$freshness_state,
-    worktree_dirty:$worktree_dirty,
-    worktree_status_hash:$worktree_status_hash,
+    worktree_dirty:(if $target_kind == "non-git-folder" then null else $worktree_dirty end),
+    worktree_status_hash:(if $target_kind == "non-git-folder" then null else $worktree_status_hash end),
     dirty_classification:$dirty_classification,
     dirty_paths_breakdown:$dirty_paths_breakdown,
     workflow_mode:$workflow_mode,
@@ -3009,17 +3116,22 @@ jq -n \
       impact_capabilities:".spec-first/impact/bootstrap-impact-capabilities.json"
     },
     capabilities:{
-      query_global_graph:([$providers[] | select(.provider == "gitnexus" and .query_ready == true)] | length > 0),
-      impact_context:([$providers[] | select(.provider == "code-review-graph" and .query_ready == true)] | length > 0)
+      query_global_graph:gitnexus_ready,
+      impact_context:(gitnexus_ready and gitnexus_related_tests_supported and (query_only_target | not)),
+      impact_context_status:(if (gitnexus_ready and gitnexus_related_tests_supported and (query_only_target | not)) then "supported" elif query_only_target then "unavailable" elif gitnexus_ready then "limited" else "unavailable" end),
+      impact_context_limitations:(if (gitnexus_ready and gitnexus_related_tests_supported and (query_only_target | not)) then [] elif $target_kind == "non-git-folder" then ["non_git_folder_no_git_diff","non_git_folder_no_commit_freshness","non_git_folder_no_incremental"] elif gitnexus_definitions_only_ready then ["definitions_only_no_process_graph","definitions_only_no_impact_evidence","definitions_only_no_related_tests"] elif gitnexus_ready then ["related_tests_unverified"] else ["gitnexus_query_unverified"] end)
     },
     staleness_hints:{
-      compare_source_revision:true,
-      compare_worktree_dirty:true,
-      worktree_status_hash:$worktree_status_hash
+      compare_source_revision:($target_kind != "non-git-folder"),
+      compare_worktree_dirty:($target_kind != "non-git-folder"),
+      worktree_status_hash:(if $target_kind == "non-git-folder" then null else $worktree_status_hash end),
+      content_fingerprint:(if $target_kind == "non-git-folder" then $content_fingerprint else null end)
     },
     confidence:$confidence,
     limitations:(
-      if $freshness_state == "dirty-advisory" then ["Index reflects uncommitted disk state; source_revision does not precisely align with HEAD. Validate critical conclusions with current source reads."]
+      if $target_kind == "non-git-folder" then ["Non-git folder target: no source_revision, branch, dirty hash, last_indexed_commit, Git diff evidence, or no incremental refresh/freshness is available.","Supports query/context/architecture orientation only; downstream review-impact must use source reads and explicit diffs from other evidence."]
+      elif gitnexus_definitions_only_ready then ["Definitions-only GitNexus evidence: supports query/context/architecture orientation only; no process graph or GitNexus impact/review evidence is available. Downstream LLM workflows decide whether this matches the documentation-library task."]
+      elif $freshness_state == "dirty-advisory" then ["Index reflects uncommitted disk state; source_revision does not precisely align with HEAD. Validate critical conclusions with current source reads."]
       elif $workflow_mode == "primary" then []
       elif $workflow_mode == "degraded-fallback" then ["Graph facts are partial; downstream workflows must disclose limitations."]
       elif $workflow_mode == "no-source" then ["Graph facts are not applicable for GitNexus process routing because no source-derived query target exists."]
@@ -3033,12 +3145,26 @@ if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$IMPACT_DIR/bootstra
   jq -n \
   --arg generated_at "$BOOTSTRAPPED_AT" \
   --arg workflow_mode "$WORKFLOW_MODE" \
+  --arg target_kind "$TARGET_KIND" \
   --argjson providers "$statuses_json" \
   --slurpfile runtime "$RUNTIME_CAPABILITIES" \
-  '{
+  'def gitnexus_ready:
+     ([$providers[] | select(.provider == "gitnexus" and .query_ready == true)] | length > 0);
+   def gitnexus_related_tests_supported:
+     ([$providers[] | select(.provider == "gitnexus" and (.review_support.related_tests_status // "") == "supported")] | length > 0);
+   def gitnexus_primary:
+     [$providers[] | select(.provider == "gitnexus" and .query_ready == true) | .provider];
+   def gitnexus_definitions_only_ready:
+     ([$providers[] | select(.provider == "gitnexus" and .query_ready == true and any((.query_probe_attempts // [])[]?; .result_class == "definitions-only"))] | length > 0);
+   def query_only_target:
+     $target_kind == "non-git-folder" or gitnexus_definitions_only_ready;
+   def gitnexus_impact_primary:
+     if query_only_target then [] else gitnexus_primary end;
+   {
     schema_version:"bootstrap-impact-capabilities.v1",
     generated_at:$generated_at,
     workflow_mode:$workflow_mode,
+    target_kind:$target_kind,
     capabilities:{
       context_selection:{
         support_level:(if ([$providers[] | select(.query_ready == true)] | length > 0) then "full" elif ($runtime[0].fallback_capabilities.context_selection.support_level // "none") != "none" then "partial" else "none" end),
@@ -3048,18 +3174,22 @@ if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$IMPACT_DIR/bootstra
         limitations:(if ([$providers[] | select(.query_ready == true)] | length > 0) then [] else ["Using fallback context selection only."] end)
       },
       impact_radius:{
-        support_level:(if ([$providers[] | select(.provider == "code-review-graph" and .query_ready == true)] | length > 0) then "full" elif ($runtime[0].fallback_capabilities.impact_radius.support_level // "none") != "none" then "partial" else "none" end),
-        primary_providers:[$providers[] | select(.provider == "code-review-graph" and .query_ready == true) | .provider],
+        support_level:(if query_only_target then "none" elif gitnexus_ready then "full" elif ($runtime[0].fallback_capabilities.impact_radius.support_level // "none") != "none" then "partial" else "none" end),
+        primary_providers:gitnexus_impact_primary,
         fallback_support:($runtime[0].fallback_capabilities.impact_radius // {}),
-        confidence:(if ([$providers[] | select(.provider == "code-review-graph" and .query_ready == true)] | length > 0) then "high" else ($runtime[0].fallback_capabilities.impact_radius.confidence // "unknown") end),
-        limitations:(if ([$providers[] | select(.provider == "code-review-graph" and .query_ready == true)] | length > 0) then [] else ["Impact radius is not backed by a query-ready provider."] end)
+        confidence:(if query_only_target then "low" elif gitnexus_ready then "high" else ($runtime[0].fallback_capabilities.impact_radius.confidence // "unknown") end),
+        limitations:(if $target_kind == "non-git-folder" then ["non_git_folder_no_git_diff","non_git_folder_no_commit_freshness","non_git_folder_no_incremental"] elif gitnexus_definitions_only_ready then ["definitions_only_no_process_graph","definitions_only_no_impact_evidence","definitions_only_no_related_tests"] elif gitnexus_ready then [] else ["Impact radius is not backed by a query-ready provider."] end)
       },
       review_support:{
-        support_level:(if ([$providers[] | select(.provider == "code-review-graph" and .query_ready == true)] | length > 0) then "partial" elif ($runtime[0].fallback_capabilities.review_support.support_level // "none") != "none" then "partial" else "none" end),
-        primary_providers:[$providers[] | select(.provider == "code-review-graph" and .query_ready == true) | .provider],
+        support_level:(if query_only_target then "none" elif (gitnexus_ready and gitnexus_related_tests_supported) then "full" elif gitnexus_ready then "partial" elif ($runtime[0].fallback_capabilities.review_support.support_level // "none") != "none" then "partial" else "none" end),
+        primary_providers:gitnexus_impact_primary,
+        related_tests_status:(if query_only_target then "unavailable" elif gitnexus_related_tests_supported then "supported" elif gitnexus_ready then "candidate-only" else "unavailable" end),
         fallback_support:($runtime[0].fallback_capabilities.review_support // {}),
-        confidence:(if ([$providers[] | select(.provider == "code-review-graph" and .query_ready == true)] | length > 0) then "medium" else ($runtime[0].fallback_capabilities.review_support.confidence // "unknown") end),
-        limitations:["This artifact reports readiness only; downstream LLM workflows decide review evidence relevance."]
+        confidence:(if query_only_target then "low" elif gitnexus_related_tests_supported then "high" elif gitnexus_ready then "medium" else ($runtime[0].fallback_capabilities.review_support.confidence // "unknown") end),
+        limitations:(
+          ["This artifact reports readiness only; downstream LLM workflows decide review evidence relevance."]
+          + (if $target_kind == "non-git-folder" then ["non_git_folder_no_git_diff","non_git_folder_no_commit_freshness","non_git_folder_no_incremental"] elif gitnexus_definitions_only_ready then ["definitions_only_no_process_graph","definitions_only_no_impact_evidence","definitions_only_no_related_tests"] elif (gitnexus_ready and (gitnexus_related_tests_supported | not)) then ["related_tests_unverified"] else [] end)
+        )
       }
     },
     downstream_guidance:{
@@ -3083,8 +3213,10 @@ if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ]; then
 - workflow_mode: $WORKFLOW_MODE
 - overall_status: $OVERALL_STATUS
 - freshness_state: $(if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then echo dirty-advisory; else echo fresh; fi)
-- source_revision: $SOURCE_REVISION
-- worktree_dirty: $WORKTREE_DIRTY
+- target_kind: $TARGET_KIND
+- source_revision: $(if [ "$TARGET_KIND" = "non-git-folder" ]; then echo n/a; else echo "$SOURCE_REVISION"; fi)
+- content_fingerprint: $(if [ "$TARGET_KIND" = "non-git-folder" ]; then echo "$FOLDER_CONTENT_FINGERPRINT"; else echo n/a; fi)
+- worktree_dirty: $(if [ "$TARGET_KIND" = "non-git-folder" ]; then echo n/a; else echo "$WORKTREE_DIRTY"; fi)
 - dirty_classification: $DIRTY_CLASSIFICATION
 - duration_ms: $BOOTSTRAP_DURATION_MS
 - provider_status: .spec-first/graph/provider-status.json
@@ -3108,6 +3240,8 @@ jq -n \
   --arg workflow_mode "$WORKFLOW_MODE" \
   --arg overall_status "$OVERALL_STATUS" \
   --arg reason_code "$reason_code" \
+  --arg target_kind "$TARGET_KIND" \
+  --arg content_fingerprint "$FOLDER_CONTENT_FINGERPRINT" \
   --arg dirty_classification "$DIRTY_CLASSIFICATION" \
   --argjson dirty_paths_breakdown "$DIRTY_PATHS_BREAKDOWN_JSON" \
   --arg freshness_state "$(if [ "$DIRTY_CLASSIFICATION" = "graph-affecting-blocked" ]; then echo dirty-advisory; else echo fresh; fi)" \
@@ -3117,13 +3251,16 @@ jq -n \
   --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
   --argjson canonical_artifacts_preserved "$PRESERVE_CANONICAL_FRESHNESS" \
   --argjson results "$statuses_json" \
+  --slurpfile graph_facts "$GRAPH_DIR/graph-facts.json" \
   '{
     schema_version:"graph-bootstrap-result.v1",
     overall_status:$overall_status,
     workflow_mode:$workflow_mode,
     reason_code:(if $reason_code == "" then null else $reason_code end),
     freshness_state:$freshness_state,
-    source_revision_dirty:$source_revision_dirty,
+    target_kind:$target_kind,
+    folder_snapshot:(if $target_kind == "non-git-folder" then {content_fingerprint:$content_fingerprint} else null end),
+    source_revision_dirty:(if $target_kind == "non-git-folder" then false else $source_revision_dirty end),
     dirty_classification:$dirty_classification,
     dirty_paths_breakdown:$dirty_paths_breakdown,
     canonical_artifacts_preserved:$canonical_artifacts_preserved,
@@ -3134,6 +3271,9 @@ jq -n \
     provider_config_path:$provider_config_path,
     runtime_capabilities_path:$runtime_capabilities_path,
     provider_artifacts_path:$provider_artifacts_path,
+    provider_summary:($graph_facts[0].provider_summary // null),
+    canonical_artifacts:($graph_facts[0].canonical_artifacts // null),
+    capabilities:($graph_facts[0].capabilities // null),
     timing:{
       started_at:$started_at,
       finished_at:$finished_at,

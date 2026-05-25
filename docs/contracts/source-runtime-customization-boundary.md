@@ -53,7 +53,7 @@ Artifacts may be read by downstream workflows, reviews, and humans. They do not 
 
 ## Provider And Tool Facts
 
-GitNexus, code-review-graph, ast-grep, browser tools, MCP tools, package managers, and shell commands provide evidence, capabilities, logs, and readiness facts. They do not own semantic authority.
+GitNexus, ast-grep, browser tools, MCP tools, package managers, and shell commands provide evidence, capabilities, logs, and readiness facts. They do not own semantic authority.
 
 Scripts and tools may prepare:
 

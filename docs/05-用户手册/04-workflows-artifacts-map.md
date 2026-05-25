@@ -2,7 +2,7 @@
 
 本文说明当前 `spec-first` 会写入哪些 project-local runtime/control-plane 产物、它们由谁生成、后续如何被使用，以及哪些目录不应提交到 Git。
 
-当前版本的图相关产物是 **external graph-provider readiness facts**，不是内置代码图库。App consistency audit、skill audit 和 quality gate 等目录也是可重建的执行产物。脚本负责写入确定性事实，LLM 根据这些事实判断下一步是否使用 GitNexus、code-review-graph、bounded direct repo reads 或专项审查报告。
+当前版本的图相关产物是 **external graph-provider readiness facts**，不是内置代码图库。App consistency audit、skill audit 和 quality gate 等目录也是可重建的执行产物。脚本负责写入确定性事实，LLM 根据这些事实判断下一步是否使用 GitNexus、bounded direct repo reads 或专项审查报告。
 
 ## 总览
 
@@ -111,7 +111,7 @@
 | `graph-targets.json` | 只读 workspace graph target resolver 的候选 repo、status、artifact pointer 和 next action |
 | `gitnexus-readiness.json` | `workspace-gitnexus-readiness.v1`，记录 GitNexus group-ready / bounded registry fallback 的只读 advisory routing facts |
 
-`workspace/` 只帮助 LLM 或维护者看清候选、批量维护结果和 GitNexus group readiness fallback。它不能替代 child repo 内的 `.spec-first/config/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/providers/`、prior GitNexus evidence、code-review-graph review-impact facts、ast-grep 或 bounded direct source reads，也不允许普通 plan/work/debug/review 隐式运行 `group_sync`。
+`workspace/` 只帮助 LLM 或维护者看清候选、批量维护结果和 GitNexus group readiness fallback。它不能替代 child repo 内的 `.spec-first/config/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/providers/`、prior GitNexus evidence、ast-grep 或 bounded direct source reads，也不允许普通 plan/work/debug/review 隐式运行 `group_sync`。
 
 ## Spec-work run evidence
 

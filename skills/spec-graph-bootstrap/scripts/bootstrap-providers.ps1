@@ -1,5 +1,6 @@
 param(
   [string]$Repo = '',
+  [string]$Folder = '',
   [switch]$AllRepos,
   [switch]$Incremental,
   [switch]$Full,
@@ -8,6 +9,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+if (-not [string]::IsNullOrWhiteSpace($Repo) -and -not [string]::IsNullOrWhiteSpace($Folder)) {
+  throw 'bootstrap-providers.ps1: use either -Repo or -Folder, not both'
+}
+if ($AllRepos -and -not [string]::IsNullOrWhiteSpace($Folder)) {
+  throw 'bootstrap-providers.ps1: use either -AllRepos or -Folder, not both'
+}
 
 $script:GitNexusQueryProbeCandidateLimit = 5
 $script:BootstrapProvidersScript = $PSCommandPath
@@ -209,6 +217,33 @@ function Get-FileContentHash {
   } finally {
     $sha.Dispose()
   }
+}
+
+function Get-FolderContentFingerprint {
+  param([string]$Root)
+  $rootPrefix = ([System.IO.Path]::GetFullPath($Root)).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+  $lines = New-Object System.Collections.Generic.List[string]
+  try {
+    $files = @(
+      Get-ChildItem -LiteralPath $Root -File -Recurse -Force -ErrorAction SilentlyContinue |
+        ForEach-Object {
+          $full = [System.IO.Path]::GetFullPath($_.FullName)
+          if ($full.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
+            $relative = $full.Substring($rootPrefix.Length).Replace('\', '/')
+            if ($relative -notmatch '^(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|node_modules|vendor)/') {
+              [pscustomobject]@{ Relative = $relative; Full = $full }
+            }
+          }
+        } |
+        Sort-Object Relative
+    )
+    foreach ($file in $files) {
+      $lines.Add([string]$file.Relative) | Out-Null
+      $lines.Add((Get-FileContentHash -Path $file.Full)) | Out-Null
+    }
+  } catch {
+  }
+  return (Get-StatusHash -Text ($lines -join "`n"))
 }
 
 function ConvertTo-CanonicalJsonValue {
@@ -856,22 +891,11 @@ function Test-ProviderArtifactContractSupported {
     if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'bootstrap') -ne '.spec-first/providers/gitnexus/raw/analyze.log') { return $false }
     if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'status') -ne '.spec-first/providers/gitnexus/raw/status.log') { return $false }
     if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'query_probe') -ne '.spec-first/providers/gitnexus/raw/query.log') { return $false }
+    if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'impact_probe') -ne '.spec-first/providers/gitnexus/raw/impact.log') { return $false }
     $normalized = Get-ObjectPropertyValue -Object $gitNexusArtifacts -Name 'normalized_artifacts'
     if ((Get-ObjectPropertyValue -Object $normalized -Name 'architecture_facts') -ne '.spec-first/providers/gitnexus/normalized/architecture-facts.json') { return $false }
     if ((Get-ObjectPropertyValue -Object $normalized -Name 'reuse_candidates') -ne '.spec-first/providers/gitnexus/normalized/reuse-candidates.json') { return $false }
-  }
-
-  $crgArtifacts = Get-ObjectPropertyValue -Object $ProviderArtifacts.providers -Name 'code-review-graph'
-  if ($null -ne $crgArtifacts) {
-    if ((Get-ObjectPropertyValue -Object $crgArtifacts -Name 'raw_dir') -ne '.spec-first/providers/code-review-graph/raw') { return $false }
-    if ((Get-ObjectPropertyValue -Object $crgArtifacts -Name 'normalized_dir') -ne '.spec-first/providers/code-review-graph/normalized') { return $false }
-    if ((Get-ObjectPropertyValue -Object $crgArtifacts -Name 'status_path') -ne '.spec-first/providers/code-review-graph/status.json') { return $false }
-    $rawLogs = Get-ObjectPropertyValue -Object $crgArtifacts -Name 'raw_logs'
-    if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'bootstrap') -ne '.spec-first/providers/code-review-graph/raw/build.log') { return $false }
-    if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'status') -ne '.spec-first/providers/code-review-graph/raw/status.log') { return $false }
-    if ((Get-ObjectPropertyValue -Object $rawLogs -Name 'query_probe') -ne '.spec-first/providers/code-review-graph/raw/query.log') { return $false }
-    $normalized = Get-ObjectPropertyValue -Object $crgArtifacts -Name 'normalized_artifacts'
-    if ((Get-ObjectPropertyValue -Object $normalized -Name 'impact_capabilities') -ne '.spec-first/providers/code-review-graph/normalized/impact-capabilities.json') { return $false }
+    if ((Get-ObjectPropertyValue -Object $normalized -Name 'impact_capabilities') -ne '.spec-first/providers/gitnexus/normalized/impact-capabilities.json') { return $false }
   }
 
   return $true
@@ -913,6 +937,7 @@ function Test-CommandShapeSupported {
       'incremental' { 'analyze' }
       'status' { 'status' }
       'query_probe' { 'query' }
+      'impact_probe' { 'impact' }
       default { $null }
     }
     if ($Kind -eq 'query_probe') {
@@ -925,6 +950,21 @@ function Test-CommandShapeSupported {
         ([string]$actual[4]).Length -gt 0 -and
         [string]$actual[5] -eq '--repo' -and
         ([string]$actual[6]).Length -gt 0
+      )
+    }
+    if ($Kind -eq 'impact_probe') {
+      return (
+        $actual.Count -eq 10 -and
+        [string]$actual[0] -eq 'npx' -and
+        [string]$actual[1] -eq '-y' -and
+        [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
+        [string]$actual[3] -eq 'impact' -and
+        ([string]$actual[4]).Length -gt 0 -and
+        [string]$actual[5] -eq '--repo' -and
+        ([string]$actual[6]).Length -gt 0 -and
+        [string]$actual[7] -eq '--include-tests' -and
+        [string]$actual[8] -eq '--depth' -and
+        [string]$actual[9] -eq '2'
       )
     }
     if ($Kind -eq 'bootstrap') {
@@ -959,6 +999,16 @@ function Test-CommandShapeSupported {
           [string]$actual[4] -eq '--force' -and
           [string]$actual[5] -eq '--skip-agents-md' -and
           [string]$actual[6] -eq '--no-stats'
+        ) -or (
+          $actual.Count -eq 8 -and
+          [string]$actual[0] -eq 'npx' -and
+          [string]$actual[1] -eq '-y' -and
+          [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
+          [string]$actual[3] -eq 'analyze' -and
+          [string]$actual[4] -eq '--skip-git' -and
+          [string]$actual[5] -eq '--force' -and
+          [string]$actual[6] -eq '--skip-agents-md' -and
+          [string]$actual[7] -eq '--no-stats'
         )
       )
     }
@@ -989,33 +1039,6 @@ function Test-CommandShapeSupported {
       [string]$actual[2] -match '^gitnexus(@[A-Za-z0-9._~+:-]+)?$' -and
       [string]$actual[3] -eq $subcommand
     )
-  }
-
-  if ($Provider -eq 'code-review-graph') {
-    $tail = @()
-    $exactPackagePattern = '^code-review-graph@[0-9][0-9A-Za-z._+!-]*$'
-    if ($actual.Count -ge 3 -and [string]$actual[0] -eq 'uvx' -and ([string]$actual[1] -eq '--upgrade' -or [string]$actual[1] -eq '--refresh') -and [string]$actual[2] -eq 'code-review-graph') {
-      $tail = @($actual | Select-Object -Skip 3)
-    } elseif ($actual.Count -ge 2 -and [string]$actual[0] -eq 'uvx' -and [string]$actual[1] -match $exactPackagePattern) {
-      $tail = @($actual | Select-Object -Skip 2)
-    }
-    if ($Kind -eq 'bootstrap') {
-      return ($tail.Count -eq 1 -and [string]$tail[0] -eq 'build')
-    }
-    if ($Kind -eq 'incremental') {
-      return (
-        $tail.Count -eq 3 -and
-        [string]$tail[0] -eq 'update' -and
-        [string]$tail[1] -eq '--base' -and
-        [string]$tail[2] -eq '__SPEC_FIRST_LAST_INDEXED_COMMIT__'
-      )
-    }
-    if ($Kind -eq 'status') {
-      return ($tail.Count -eq 1 -and [string]$tail[0] -eq 'status')
-    }
-    if ($Kind -eq 'query_probe') {
-      return ($tail.Count -eq 3 -and [string]$tail[0] -eq 'status' -and [string]$tail[1] -eq '--repo' -and [string]$tail[2] -eq $RepoRoot)
-    }
   }
 
   return $false
@@ -1352,13 +1375,6 @@ function Get-ProviderIncrementalCommand {
     [string]$LastIndexedCommit
   )
   $command = @($ProviderConfig.providers.$Provider.commands.incremental)
-  if ($Provider -eq 'code-review-graph') {
-    $sentinelIndex = $command.Count - 1
-    if ($sentinelIndex -lt 0 -or [string]$command[$sentinelIndex] -ne '__SPEC_FIRST_LAST_INDEXED_COMMIT__') {
-      throw 'code-review-graph incremental command sentinel missing'
-    }
-    $command[$sentinelIndex] = $LastIndexedCommit
-  }
   return @($command)
 }
 
@@ -1438,7 +1454,8 @@ $script:QueryProbeResultClass = ''
 function Test-GitNexusQueryProbeVerified {
   param(
     [object]$CommandResult,
-    [string]$LogPath
+    [string]$LogPath,
+    [string]$TargetKind = ''
 )
   $script:QueryProbeVerificationReason = ''
   $script:QueryProbeResultClass = ''
@@ -1476,8 +1493,9 @@ function Test-GitNexusQueryProbeVerified {
   if ($resultCount -le 0) {
     $definitionCount = if ($payload.PSObject.Properties.Name -contains 'definitions' -and $null -ne $payload.definitions) { @($payload.definitions).Count } else { 0 }
     if ($definitionCount -gt 0) {
-      $script:QueryProbeVerificationReason = 'GitNexus query probe returned definitions-only evidence without BM25/process query results.'
       $script:QueryProbeResultClass = 'definitions-only'
+      $script:QueryProbeVerificationReason = 'GitNexus query probe returned definitions-only evidence; accepted as query-ready for query/context orientation without process graph evidence.'
+      return $true
     } else {
       $script:QueryProbeVerificationReason = 'GitNexus query probe did not return non-empty BM25/process query results.'
       $script:QueryProbeResultClass = 'empty-or-unparseable'
@@ -1487,6 +1505,44 @@ function Test-GitNexusQueryProbeVerified {
     $script:QueryProbeResultClass = 'process-results'
   }
   return ($resultCount -gt 0)
+}
+
+function Test-GitNexusImpactProbeHasRelatedTests {
+  param([string]$LogPath)
+  $logText = if (Test-Path -LiteralPath $LogPath -PathType Leaf) { Get-Content -Raw -LiteralPath $LogPath } else { '' }
+  $jsonMatch = [regex]::Match($logText, '(?ms)^[ \t]*\{.*\}\s*$')
+  if (-not $jsonMatch.Success) { return $false }
+  try {
+    $payload = $jsonMatch.Value | ConvertFrom-Json
+  } catch {
+    return $false
+  }
+
+  function Get-PathLikeJsonValues {
+    param([AllowNull()][object]$Value)
+    if ($null -eq $Value) { return }
+    if ($Value -is [string]) { return }
+    if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [System.Collections.IDictionary])) {
+      foreach ($item in $Value) {
+        Get-PathLikeJsonValues -Value $item
+      }
+      return
+    }
+    foreach ($property in @($Value.PSObject.Properties)) {
+      if (@('filePath', 'path', 'file') -contains [string]$property.Name -and $property.Value -is [string]) {
+        [string]$property.Value
+      }
+      Get-PathLikeJsonValues -Value $property.Value
+    }
+  }
+
+  foreach ($candidatePath in @(Get-PathLikeJsonValues -Value $payload)) {
+    $normalizedPath = ([string]$candidatePath).Replace('\', '/')
+    if ($normalizedPath -match '(^|/)(tests?|__tests__|androidTest)(/|$)' -or $normalizedPath -match '\.(test|spec)\.[A-Za-z0-9]+$') {
+      return $true
+    }
+  }
+  return $false
 }
 
 function Get-GitNexusQueryProbeCandidates {
@@ -1570,6 +1626,9 @@ function Invoke-GitConfigValueForDiagnostic {
 
 function Get-GitRemoteUrlForDiagnostic {
   param([string]$RepoRoot)
+  if ($targetKind -eq 'non-git-folder') {
+    return ''
+  }
   if ($null -eq (Get-Command git -ErrorAction SilentlyContinue)) {
     return ''
   }
@@ -1658,14 +1717,6 @@ function Get-ProviderCommandPackageSpec {
     }
     return ''
   }
-  if ($Provider -eq 'code-review-graph') {
-    if ($command.Count -ge 3 -and [string]$command[0] -eq 'uvx' -and ([string]$command[1] -eq '--upgrade' -or [string]$command[1] -eq '--refresh')) {
-      return [string]$command[2]
-    }
-    if ($command.Count -ge 2 -and [string]$command[0] -eq 'uvx') {
-      return [string]$command[1]
-    }
-  }
   return ''
 }
 
@@ -1684,21 +1735,6 @@ function Get-BundledGitNexusPackageSpec {
   return ''
 }
 
-function Get-BundledCodeReviewGraphPackageSpec {
-  if ([string]::IsNullOrWhiteSpace([string]$script:McpToolsJson) -or -not (Test-Path -LiteralPath $script:McpToolsJson -PathType Leaf)) {
-    return ''
-  }
-  try {
-    $toolsJson = Get-Content -Raw -LiteralPath $script:McpToolsJson | ConvertFrom-Json
-    $tool = @($toolsJson.tools | Where-Object { $_.id -eq 'code-review-graph' } | Select-Object -First 1)
-    if ($tool.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$tool[0].package) -and -not [string]::IsNullOrWhiteSpace([string]$tool[0].version)) {
-      return "$($tool[0].package)@$($tool[0].version)"
-    }
-  } catch {
-  }
-  return ''
-}
-
 function Get-ProviderConfiguredPackageSpec {
   param(
     [object]$ProviderConfig,
@@ -1708,6 +1744,9 @@ function Get-ProviderConfiguredPackageSpec {
   $commands = $ProviderConfig.providers.$Provider.commands
   if ($null -ne $commands -and $commands.PSObject.Properties.Name -contains 'incremental') {
     $phases += 'incremental'
+  }
+  if ($null -ne $commands -and $commands.PSObject.Properties.Name -contains 'impact_probe') {
+    $phases += 'impact_probe'
   }
   $packages = @($phases | ForEach-Object {
     Get-ProviderCommandPackageSpec -ProviderConfig $ProviderConfig -Provider $Provider -Kind $_
@@ -1727,9 +1766,6 @@ function Get-ProviderBundledPackageSpec {
   param([string]$Provider)
   if ($Provider -eq 'gitnexus') {
     return (Get-BundledGitNexusPackageSpec)
-  }
-  if ($Provider -eq 'code-review-graph') {
-    return (Get-BundledCodeReviewGraphPackageSpec)
   }
   return ''
 }
@@ -1784,14 +1820,18 @@ function Get-BootstrapFingerprint {
     [string]$VersionPolicy,
     [string]$SourceRevision,
     [bool]$WorktreeDirty,
-    [string]$WorktreeStatusHash
+    [string]$WorktreeStatusHash,
+    [string]$TargetKind = '',
+    [string]$ContentFingerprint = ''
   )
   return [ordered]@{
     schema_version = 'graph-bootstrap-fingerprint.v1'
     repo_snapshot = [ordered]@{
-      source_revision = $SourceRevision
-      worktree_dirty = $WorktreeDirty
-      worktree_status_hash = $WorktreeStatusHash
+      target_kind = $TargetKind
+      source_revision = if ($TargetKind -eq 'non-git-folder') { $null } else { $SourceRevision }
+      worktree_dirty = if ($TargetKind -eq 'non-git-folder') { $null } else { $WorktreeDirty }
+      worktree_status_hash = if ($TargetKind -eq 'non-git-folder') { $null } else { $WorktreeStatusHash }
+      folder_snapshot = if ($TargetKind -eq 'non-git-folder') { [ordered]@{ content_fingerprint = $ContentFingerprint } } else { $null }
     }
     spec_first = [ordered]@{
       package_version = $script:SpecFirstPackageVersion
@@ -1828,36 +1868,6 @@ function Get-GitNexusProviderProjectionStaleFailureInfo {
   }
 }
 
-function Get-CodeReviewGraphProviderProjectionStaleFailureInfo {
-  param(
-    [string]$ConfiguredPackage,
-    [string]$BundledPackage
-  )
-  return [ordered]@{
-    failed_phase = 'preflight'
-    failure_class = 'provider-projection-stale'
-    reason_code = 'code-review-graph-provider-projection-stale'
-    exit_code = $null
-    recommended_action = "Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled code-review-graph package '$BundledPackage'; it currently projects '$ConfiguredPackage'. Then rerun spec-graph-bootstrap."
-    diagnostic = "code-review-graph setup-projected package '$ConfiguredPackage' differs from bundled package '$BundledPackage' before provider commands ran."
-  }
-}
-
-function Get-CodeReviewGraphProviderVersionUnverifiableFailureInfo {
-  param(
-    [string]$ConfiguredPackage,
-    [string]$BundledPackage
-  )
-  return [ordered]@{
-    failed_phase = 'preflight'
-    failure_class = 'provider-version-unverifiable'
-    reason_code = 'code-review-graph-provider-version-unverifiable'
-    exit_code = $null
-    recommended_action = 'Rerun spec-mcp-setup so .spec-first/config/graph-providers.json is refreshed from the bundled code-review-graph package pin before rerunning spec-graph-bootstrap.'
-    diagnostic = "code-review-graph provider package identity is not pinned/verifiable before provider commands ran. configured='$ConfiguredPackage', bundled='$BundledPackage'."
-  }
-}
-
 function Get-ProviderProjectionStaleFailureInfo {
   param(
     [string]$Provider,
@@ -1867,13 +1877,12 @@ function Get-ProviderProjectionStaleFailureInfo {
   if ($Provider -eq 'gitnexus') {
     return (Get-GitNexusProviderProjectionStaleFailureInfo -ConfiguredPackage $ConfiguredPackage -BundledPackage $BundledPackage)
   }
-  return (Get-CodeReviewGraphProviderProjectionStaleFailureInfo -ConfiguredPackage $ConfiguredPackage -BundledPackage $BundledPackage)
+  return $null
 }
 
 function Get-ProviderDisplayName {
   param([string]$Provider)
   if ($Provider -eq 'gitnexus') { return 'GitNexus' }
-  if ($Provider -eq 'code-review-graph') { return 'code-review-graph' }
   return $Provider
 }
 
@@ -1899,7 +1908,7 @@ function Get-GitNexusQueryDiagnosticFailureInfo {
       failure_class = 'provider-projection-stale'
       reason_code = 'gitnexus-query-provider-projection-stale'
       exit_code = $ExitCode
-      recommended_action = "Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled GitNexus package '$bundledPackage'; it currently projects '$configuredPackage'. Then rerun spec-graph-bootstrap. Use code-review-graph degraded fallback until GitNexus query proof returns process results."
+      recommended_action = "Rerun spec-mcp-setup to refresh .spec-first/config/graph-providers.json from bundled GitNexus package '$bundledPackage'; it currently projects '$configuredPackage'. Then rerun spec-graph-bootstrap. Use bounded source reads, git diff, ast-grep, tests, and logs until GitNexus query proof returns process results."
       diagnostic = "GitNexus query probe emitted FTS/read-only/missing-index diagnostics while setup-projected package '$configuredPackage' differs from bundled package '$bundledPackage'."
     }
   }
@@ -1909,7 +1918,7 @@ function Get-GitNexusQueryDiagnosticFailureInfo {
     failure_class = 'provider-storage-readonly'
     reason_code = 'gitnexus-query-fts-readonly'
     exit_code = $ExitCode
-    recommended_action = 'GitNexus query emitted FTS/read-only/missing-index diagnostics after build/status succeeded. Repair GitNexus index storage or permissions, or clean/reanalyze GitNexus with a fixed provider version, then rerun spec-graph-bootstrap. Use code-review-graph degraded fallback meanwhile.'
+    recommended_action = 'GitNexus query emitted FTS/read-only/missing-index diagnostics after build/status succeeded. Repair GitNexus index storage or permissions, or clean/reanalyze GitNexus with a fixed provider version, then rerun spec-graph-bootstrap. Use bounded source reads, git diff, ast-grep, tests, and logs meanwhile.'
     diagnostic = 'GitNexus query probe emitted FTS/read-only/missing-index diagnostics after build/status succeeded.'
   }
 }
@@ -1927,7 +1936,7 @@ function Get-ProviderFailureInfo {
       failure_class = 'provider-crash'
       reason_code = 'gitnexus-analyze-sigsegv'
       exit_code = $ExitCode
-      recommended_action = 'Do not trust GitNexus artifacts. Use code-review-graph and bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings.'
+      recommended_action = 'Do not trust GitNexus artifacts. Use bounded local fallback; capture analyze.log and retry with a newer GitNexus rc or safer GitNexus runtime settings.'
     }
   }
   if (
@@ -1941,7 +1950,7 @@ function Get-ProviderFailureInfo {
       failure_class = 'provider-storage-write-failed'
       reason_code = 'gitnexus-analyze-storage-write-failed'
       exit_code = $ExitCode
-      recommended_action = 'GitNexus analyze could not open or write its .gitnexus index state such as .gitnexus/lbug. First verify spec-mcp-setup refreshed the provider projection to the bundled GitNexus package, then rerun spec-graph-bootstrap. If the current bundled package still fails, preserve analyze.log and inspect Windows locks, permissions, path state, or explicitly archive/remove stale .gitnexus as a recovery action. Use code-review-graph degraded fallback meanwhile.'
+      recommended_action = 'GitNexus analyze could not open or write its .gitnexus index state such as .gitnexus/lbug. First verify spec-mcp-setup refreshed the provider projection to the bundled GitNexus package, then rerun spec-graph-bootstrap. If the current bundled package still fails, preserve analyze.log and inspect Windows locks, permissions, path state, or explicitly archive/remove stale .gitnexus as a recovery action. Use bounded source reads, git diff, ast-grep, tests, and logs meanwhile.'
     }
   }
   if ($ExitCode -eq 124) {
@@ -1960,19 +1969,6 @@ function Get-ProviderFailureInfo {
       reason_code = 'provider-network-unavailable'
       exit_code = $ExitCode
       recommended_action = 'Provider package registry or network resolution failed. Restore registry/network access or warm the package cache, then rerun graph bootstrap.'
-    }
-  }
-  if (
-    $Provider -eq 'code-review-graph' -and
-    $ExitCode -ne 0 -and
-    [string]$Diagnostic -match '(?i)(code-review-graph was not found in the package registry|No solution found when resolving tool dependencies|requirements are unsatisfiable)'
-  ) {
-    return [ordered]@{
-      failed_phase = $Phase
-      failure_class = 'provider-package-resolution-failed'
-      reason_code = 'provider-package-not-found'
-      exit_code = $ExitCode
-      recommended_action = 'code-review-graph was not found in the active Python package index. Unset UV_INDEX_URL/PIP_INDEX_URL or use an index that contains code-review-graph, then rerun graph bootstrap.'
     }
   }
   if (
@@ -2010,12 +2006,13 @@ function Test-QueryProbeVerified {
   param(
     [string]$Provider,
     [object]$CommandResult,
-    [string]$LogPath
+    [string]$LogPath,
+    [string]$TargetKind = ''
   )
   if ($Provider -ne 'gitnexus') {
     return $true
   }
-  return (Test-GitNexusQueryProbeVerified -CommandResult $CommandResult -LogPath $LogPath)
+  return (Test-GitNexusQueryProbeVerified -CommandResult $CommandResult -LogPath $LogPath -TargetKind $TargetKind)
 }
 
 function Get-ProviderSkipReason {
@@ -2051,6 +2048,7 @@ function Write-NormalizedArtifacts {
     [bool]$QueryReady,
     [string]$BootstrappedAt,
     [string]$ProvidersDir,
+    [string]$TargetKind = '',
     [object[]]$CommandResults = @(),
     [object[]]$QueryProbeAttempts = @()
   )
@@ -2068,11 +2066,21 @@ function Write-NormalizedArtifacts {
     } else {
       $sourceRawLogs += '.spec-first/providers/gitnexus/raw/query.log'
     }
+    $impactProbeLogs = @($CommandResults | Where-Object { [string]$_.kind -eq 'impact_probe' } | ForEach-Object { [string]$_.raw_log })
+    if ($impactProbeLogs.Count -gt 0) {
+      $sourceRawLogs += $impactProbeLogs
+    }
     $winningLogs = @($QueryProbeAttempts | Where-Object { $_.result_class -eq 'process-results' } | Select-Object -First 1 | ForEach-Object { $_.raw_log })
     $winningQueryProbeLog = if ($winningLogs.Count -gt 0) { $winningLogs[0] } else { $null }
     $availableQuerySurfaces = if ($QueryReady) { @('status', 'query') } else { @() }
-    $confidence = if ($QueryReady) { 'high' } else { 'low' }
-    $limitations = if ($QueryReady) { @() } else { @('Provider query readiness is not verified.') }
+    $isNonGitFolder = ($TargetKind -eq 'non-git-folder')
+    $definitionsOnlyEvidence = @($QueryProbeAttempts | Where-Object { $_.result_class -eq 'definitions-only' }).Count -gt 0
+    $isQueryOnlyTarget = ($isNonGitFolder -or $definitionsOnlyEvidence)
+    $nonGitLimitations = @('non_git_folder_no_process_graph', 'non_git_folder_no_git_diff', 'non_git_folder_no_commit_freshness', 'non_git_folder_no_incremental')
+    $definitionsOnlyLimitations = @('definitions_only_no_process_graph', 'definitions_only_no_impact_evidence', 'definitions_only_no_related_tests')
+    $architectureCapabilities = if ($isQueryOnlyTarget) { @('architecture_map', 'dependency_map', 'repo_wiki', 'query_global_graph') } else { @('architecture_map', 'dependency_map', 'execution_flow', 'repo_wiki', 'query_global_graph') }
+    $confidence = if ($QueryReady -and -not $isQueryOnlyTarget) { 'high' } elseif ($QueryReady) { 'medium' } else { 'low' }
+    $limitations = if ($isNonGitFolder) { $nonGitLimitations } elseif ($definitionsOnlyEvidence) { $definitionsOnlyLimitations } elseif ($QueryReady) { @() } else { @('Provider query readiness is not verified.') }
     foreach ($artifact in @('architecture-facts', 'reuse-candidates')) {
       $payload = [ordered]@{
         schema_version = 'provider-normalized-envelope.v1'
@@ -2083,30 +2091,51 @@ function Write-NormalizedArtifacts {
         query_probe_attempt_logs = $attemptLogs
         winning_query_probe_log = $winningQueryProbeLog
         available_query_surfaces = $availableQuerySurfaces
-        capabilities = @('architecture_map', 'dependency_map', 'execution_flow', 'repo_wiki', 'query_global_graph')
+        capabilities = $architectureCapabilities
         confidence = $confidence
         limitations = $limitations
       }
       Write-JsonFileAtomic -Path (Join-Path $normalizedDir "$artifact.json") -Payload ([pscustomobject]$payload) -Depth 20
     }
-  } else {
-    $availableQuerySurfaces = if ($QueryReady) { @('status', 'query_graph_tool', 'get_impact_radius_tool') } else { @() }
-    $confidence = if ($QueryReady) { 'medium' } else { 'low' }
-    $limitations = if ($QueryReady) { @('code-review-graph query-surface proof is conservative and should be treated as provider readiness, not semantic evidence.') } else { @('Provider query readiness is not verified.') }
-    $sourceRawLogs = if ($bootstrapLogs.Count -gt 0) { @($bootstrapLogs) } else { @('.spec-first/providers/code-review-graph/raw/build.log') }
-    $sourceRawLogs += @('.spec-first/providers/code-review-graph/raw/status.log', '.spec-first/providers/code-review-graph/raw/query.log')
-    $payload = [ordered]@{
+    $impactSurfaces = if ($QueryReady -and $isQueryOnlyTarget) { @('query', 'context') } elseif ($QueryReady) { @('query', 'context', 'impact', 'detect_changes', 'route_map', 'api_impact', 'shape_check') } else { @() }
+    $impactCapabilities = if ($isQueryOnlyTarget) { @('query_context_orientation') } else { @('detect_changes', 'impact_radius', 'execution_flow', 'route_api_evidence', 'shape_check', 'review_context_candidate') }
+    $impactEvidenceSurfaces = if ($QueryReady -and -not $isQueryOnlyTarget) { @('detect_changes', 'impact', 'query', 'route_map', 'api_impact', 'shape_check') } else { @() }
+    $relatedTestsSupported = @($CommandResults | Where-Object { [string]$_.kind -eq 'impact_probe' -and [int]$_.exit_code -eq 0 -and [string]$_.result_class -eq 'related-tests-supported' }).Count -gt 0
+    $impactSupport = if ($isQueryOnlyTarget) { 'unavailable' } elseif ($QueryReady -and $relatedTestsSupported) { 'supported' } elseif ($QueryReady) { 'candidate-only' } else { 'unavailable' }
+    $nonGitImpactLimitations = @('non_git_folder_no_git_diff', 'non_git_folder_no_commit_freshness', 'non_git_folder_no_incremental')
+    $definitionsOnlyImpactLimitations = @('definitions_only_no_process_graph', 'definitions_only_no_impact_evidence', 'definitions_only_no_related_tests')
+    $impactLimitations = if ($isNonGitFolder) {
+      $nonGitImpactLimitations
+    } elseif ($definitionsOnlyEvidence) {
+      $definitionsOnlyImpactLimitations
+    } elseif ($impactSupport -eq 'supported') {
+      @()
+    } elseif ($QueryReady) {
+      @('related_tests_unverified', 'GitNexus related-test provenance is not verified; review support is candidate-only.')
+    } else {
+      @('Provider query readiness is not verified.')
+    }
+    $reviewSupportLimitations = if ($isNonGitFolder) { $nonGitImpactLimitations } elseif ($definitionsOnlyEvidence) { $definitionsOnlyImpactLimitations } elseif ($impactSupport -eq 'supported') { @() } elseif ($QueryReady) { @('related_tests_unverified') } else { @('Provider query readiness is not verified.') }
+    $impactConfidence = if ($impactSupport -eq 'supported') { 'high' } elseif ($QueryReady -and -not $isQueryOnlyTarget) { 'medium' } else { 'low' }
+    $impactPayload = [ordered]@{
       schema_version = 'provider-normalized-envelope.v1'
       provider = $Provider
       generated_at = $BootstrappedAt
       source_status_path = $sourceStatusPath
       source_raw_logs = $sourceRawLogs
-      available_query_surfaces = $availableQuerySurfaces
-      capabilities = @('detect_changes', 'blast_radius', 'minimal_context', 'review_context', 'related_tests', 'graph_stats')
-      confidence = $confidence
-      limitations = $limitations
+      available_query_surfaces = $impactSurfaces
+      capabilities = $impactCapabilities
+      impact_evidence_surfaces = $impactEvidenceSurfaces
+      review_support = [ordered]@{
+        support_level = $impactSupport
+        related_tests = $impactSupport
+        limitations = $reviewSupportLimitations
+      }
+      related_tests = $impactSupport
+      confidence = $impactConfidence
+      limitations = $impactLimitations
     }
-    Write-JsonFileAtomic -Path (Join-Path $normalizedDir 'impact-capabilities.json') -Payload ([pscustomobject]$payload) -Depth 20
+    Write-JsonFileAtomic -Path (Join-Path $normalizedDir 'impact-capabilities.json') -Payload ([pscustomobject]$impactPayload) -Depth 20
   }
 }
 
@@ -2301,9 +2330,11 @@ if ([string]::IsNullOrWhiteSpace($resolverOverride)) {
 }
 $resolverParams = @{ Format = 'json' }
 if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
+if (-not [string]::IsNullOrWhiteSpace($Folder)) { $resolverParams.Folder = $Folder }
 $targetFacts = (& $resolverPath @resolverParams) | ConvertFrom-Json
 $targetCandidates = @($targetFacts.candidates)
-$targetDefaultAllRepos = (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo) -and $targetFacts.mode -ne 'git-repo' -and $targetCandidates.Count -gt 0)
+$targetKind = if ($targetFacts.PSObject.Properties.Name -contains 'target_kind') { [string]$targetFacts.target_kind } else { '' }
+$targetDefaultAllRepos = (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo) -and [string]::IsNullOrWhiteSpace($Folder) -and $targetFacts.mode -ne 'git-repo' -and $targetCandidates.Count -gt 0)
 if ($Incremental -and ($Full -or $Force)) {
   Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'conflicting-refresh-flags' -NextAction 'Use either -Incremental or -Full/-Force, not both.'
 }
@@ -2339,7 +2370,13 @@ if (-not [bool]$targetFacts.state_write_allowed) {
   exit 1
 }
 
-$repoRoot = [string]$targetFacts.selected_repo_root
+$repoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$targetFacts.target_root)) {
+  [string]$targetFacts.target_root
+} elseif (-not [string]::IsNullOrWhiteSpace([string]$targetFacts.selected_repo_root)) {
+  [string]$targetFacts.selected_repo_root
+} else {
+  [string]$targetFacts.selected_folder_root
+}
 $invocationWorkspaceRoot = [string]$targetFacts.workspace_root
 $selectionSource = [string]$targetFacts.selection_source
 $specDir = Join-Path $repoRoot '.spec-first'
@@ -2352,15 +2389,28 @@ $impactDir = Join-Path $specDir 'impact'
 $providersDir = Join-Path $specDir 'providers'
 Ensure-Directory -Path @($graphDir, $impactDir, $providersDir)
 
-$bootstrappedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
-$sourceRevisionOutput = @(git -C $repoRoot rev-parse --verify 'HEAD^{commit}' 2>$null)
-if ($LASTEXITCODE -ne 0 -or $sourceRevisionOutput.Count -eq 0 -or [string]::IsNullOrWhiteSpace([string]$sourceRevisionOutput[0])) {
-  Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'repo-snapshot-unavailable' -NextAction 'Resolve git repository state before graph bootstrap.' -RepoRoot $repoRoot -InvocationWorkspaceRoot $invocationWorkspaceRoot -SelectionSource $selectionSource -GraphDir $graphDir
+if ($targetKind -eq 'non-git-folder' -and $Incremental) {
+  Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'incremental-non-git-folder-unsupported' -NextAction 'Non-git folder targets do not support incremental graph bootstrap; rerun without -Incremental.' -RepoRoot $repoRoot -InvocationWorkspaceRoot ([string]$targetFacts.workspace_root) -SelectionSource ([string]$targetFacts.selection_source) -CanonicalArtifactsPreserved $true -GraphDir $graphDir
 }
-$sourceRevision = [string]$sourceRevisionOutput[0]
-$worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
-$worktreeDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
-$worktreeStatusHash = Get-StatusHash -Text $worktreeStatus
+
+$bootstrappedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+$folderContentFingerprint = ''
+if ($targetKind -eq 'non-git-folder') {
+  $sourceRevision = ''
+  $worktreeStatus = ''
+  $worktreeDirty = $false
+  $worktreeStatusHash = ''
+  $folderContentFingerprint = Get-FolderContentFingerprint -Root $repoRoot
+} else {
+  $sourceRevisionOutput = @(git -C $repoRoot rev-parse --verify 'HEAD^{commit}' 2>$null)
+  if ($LASTEXITCODE -ne 0 -or $sourceRevisionOutput.Count -eq 0 -or [string]::IsNullOrWhiteSpace([string]$sourceRevisionOutput[0])) {
+    Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'repo-snapshot-unavailable' -NextAction 'Resolve git repository state before graph bootstrap.' -RepoRoot $repoRoot -InvocationWorkspaceRoot $invocationWorkspaceRoot -SelectionSource $selectionSource -GraphDir $graphDir
+  }
+  $sourceRevision = [string]$sourceRevisionOutput[0]
+  $worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
+  $worktreeDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
+  $worktreeStatusHash = Get-StatusHash -Text $worktreeStatus
+}
 $script:ExpectedHostInstructionHashes = @{}
 $script:BootstrapOwnedHostInstructionPaths = @{}
 $script:ExternalActorFingerprintBeforeText = ''
@@ -2718,6 +2768,9 @@ function Set-WorktreeDirtyClassification {
 # AGENTS.md / CLAUDE.md 只在当前内容等于本轮 normalizer 写入结果时排除，
 # 这样 critical write window 内后续外部编辑仍会触发 concurrent-write-detected。
 function Get-ExternalActorFingerprint {
+  if ($targetKind -eq 'non-git-folder') {
+    return (Get-FolderContentFingerprint -Root $repoRoot)
+  }
   $statusLines = @(git -C $repoRoot status --porcelain 2>$null)
   $filtered = foreach ($line in $statusLines) {
     $statusPath = if ($line.Length -gt 3) { $line.Substring(3) } else { '' }
@@ -2737,7 +2790,18 @@ $script:ExternalActorFingerprintBeforeText = Get-ExternalActorFingerprint
 $script:ExternalActorFingerprintBefore = Get-StatusHash -Text $script:ExternalActorFingerprintBeforeText
 $externalActorFingerprintBefore = $script:ExternalActorFingerprintBefore
 $invocationRefreshMode = if ($Incremental) { 'incremental' } elseif ($Full -or $Force) { 'full' } else { $script:DefaultRefreshModeSingleRepo }
-Set-WorktreeDirtyClassification
+if ($targetKind -eq 'non-git-folder') {
+  $script:DirtyClassification = 'not-applicable'
+  $script:DirtyPathsBreakdown = [ordered]@{
+    setup_owned_count = 0
+    non_graph_metadata_count = 0
+    graph_affecting_count = 0
+    sample_paths = @()
+    truncated = $false
+  }
+} else {
+  Set-WorktreeDirtyClassification
+}
 $script:DirtyIncrementalDowngrade = $false
 if ($script:DirtyClassification -eq 'graph-affecting-blocked') {
   $dirtyPaths = @()
@@ -2769,6 +2833,10 @@ $script:McpToolsHash = Get-JsonFileHash -Path $script:McpToolsJson
 $script:GraphProvidersHash = Get-JsonFileHash -Path $providerConfigPath
 $script:RuntimeCapabilitiesHash = Get-JsonFileHash -Path $runtimeCapabilitiesPath
 $script:ProviderArtifactsHash = Get-JsonFileHash -Path $providerArtifactsPath
+$staleProviderKeys = @($providerConfig.providers.PSObject.Properties | Where-Object { $_.Name -ne 'gitnexus' } | ForEach-Object { $_.Name })
+if ($staleProviderKeys.Count -gt 0) {
+  Write-ResultAndExit -WorkflowMode 'action-required' -ReasonCode 'stale-provider-projection' -NextAction 'provider projection is stale; run `$spec-mcp-setup` to update before running graph-bootstrap'
+}
 if (-not (Test-ProviderArtifactContractSupported -ProviderArtifacts $providerArtifacts -ProviderConfig $providerConfig)) {
   Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'readiness-conflict' -NextAction 'Rerun spec-mcp-setup; provider artifact path contract drifted.'
 }
@@ -2792,7 +2860,7 @@ if (-not [bool]$ledger.baseline_ready) {
 }
 
 foreach ($property in $providerConfig.providers.PSObject.Properties) {
-  if ($property.Name -ne 'gitnexus' -and $property.Name -ne 'code-review-graph') {
+  if ($property.Name -ne 'gitnexus') {
     Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Unsupported graph provider id: $($property.Name)"
   }
   foreach ($kind in @('bootstrap', 'status', 'query_probe')) {
@@ -2804,6 +2872,11 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   if ($null -ne $commands -and $commands.PSObject.Properties.Name -contains 'incremental') {
     if (-not (Test-CommandShapeSupported -ProviderConfig $providerConfig -Provider $property.Name -Kind 'incremental' -RepoRoot $repoRoot)) {
       Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Provider command shape is unsupported for $($property.Name):incremental."
+    }
+  }
+  if ($null -ne $commands -and $commands.PSObject.Properties.Name -contains 'impact_probe') {
+    if (-not (Test-CommandShapeSupported -ProviderConfig $providerConfig -Provider $property.Name -Kind 'impact_probe' -RepoRoot $repoRoot)) {
+      Write-ResultAndExit -WorkflowMode 'blocked' -ReasonCode 'unsupported-provider-command' -NextAction "Provider command shape is unsupported for $($property.Name):impact_probe."
     }
   }
   if (-not (Test-QueryProbePolicySupported -ProviderConfig $providerConfig -Provider $property.Name)) {
@@ -2872,21 +2945,19 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     -VersionPolicy $versionPolicy `
     -SourceRevision $sourceRevision `
     -WorktreeDirty $worktreeDirty `
-    -WorktreeStatusHash $worktreeStatusHash
+    -WorktreeStatusHash $worktreeStatusHash `
+    -TargetKind $targetKind `
+    -ContentFingerprint $folderContentFingerprint
 
   if (Test-ProviderEnabled -ProviderConfig $providerConfig -Provider $provider) {
     $readinessSource = 'cold-run'
-    if ($versionPolicy -eq 'projection-stale' -or ($provider -eq 'code-review-graph' -and $versionPolicy -ne 'pinned')) {
+    if ($versionPolicy -eq 'projection-stale') {
       $readinessSource = 'preflight-blocked'
       $status = 'failed'
       $graphReady = $false
       $queryReady = $false
       $confidence = 'low'
-      if ($versionPolicy -eq 'projection-stale') {
-        $failureInfo = Get-ProviderProjectionStaleFailureInfo -Provider $provider -ConfiguredPackage $configuredPackage -BundledPackage $bundledPackage
-      } else {
-        $failureInfo = Get-CodeReviewGraphProviderVersionUnverifiableFailureInfo -ConfiguredPackage $configuredPackage -BundledPackage $bundledPackage
-      }
+      $failureInfo = Get-ProviderProjectionStaleFailureInfo -Provider $provider -ConfiguredPackage $configuredPackage -BundledPackage $bundledPackage
       $providerDisplayName = Get-ProviderDisplayName -Provider $provider
       $limitations = @("$providerDisplayName provider projection is not fresh/verifiable; provider commands were not run.", [string]$failureInfo['recommended_action'])
       $script:QueryProbeVerificationReason = [string]$failureInfo['diagnostic']
@@ -2954,7 +3025,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
         $refreshProcessFailed = $true
       }
     }
-    if ($provider -eq 'gitnexus' -and $bootstrap.exit_code -eq 0) {
+    if ($provider -eq 'gitnexus' -and $bootstrap.exit_code -eq 0 -and $targetKind -ne 'non-git-folder') {
       $hostInstructionNormalization = Normalize-GitNexusInstructionBlockViaCli -RepoRoot $repoRoot -GitRootTopology 'single-repo'
       Register-BootstrapOwnedHostInstructionHashes -Normalization $hostInstructionNormalization -RepoRoot $repoRoot
     }
@@ -2978,7 +3049,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
             $queryProbe = Invoke-GitNexusQueryProbeCandidate -ProviderConfig $providerConfig -Provider $provider -Token $candidateToken -LogPath $candidateLog -RepoRoot $repoRoot
             $verified = $false
             if ($queryProbe.exit_code -eq 0) {
-              $verified = Test-QueryProbeVerified -Provider $provider -CommandResult $queryProbe -LogPath $candidateLog
+              $verified = Test-QueryProbeVerified -Provider $provider -CommandResult $queryProbe -LogPath $candidateLog -TargetKind $targetKind
             } else {
               $script:QueryProbeResultClass = 'command-failed'
               $script:QueryProbeVerificationReason = 'GitNexus query probe command failed.'
@@ -2998,9 +3069,16 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
               verification_reason = if ([string]::IsNullOrWhiteSpace($script:QueryProbeVerificationReason)) { $null } else { $script:QueryProbeVerificationReason }
               raw_log = $queryProbe.raw_log
             }) | Out-Null
-            if ($verified) {
+            if ($verified -and $script:QueryProbeResultClass -eq 'process-results') {
               $queryReady = $true
               break
+            } elseif (
+              $verified -and
+              $script:QueryProbeResultClass -eq 'definitions-only' -and
+              $candidateCount -le $script:GitNexusQueryProbeCandidateLimit -and
+              $attemptIndex -ge $candidateCount
+            ) {
+              $queryReady = $true
             }
           }
           if (-not $queryReady) {
@@ -3034,14 +3112,38 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
         } else {
           $queryProbe = Invoke-ConfiguredCommand -ProviderConfig $providerConfig -Provider $provider -Kind 'query_probe' -LogPath $queryLog -RepoRoot $repoRoot
           $commandResults.Add($queryProbe)
-          if ($queryProbe.exit_code -eq 0 -and (Test-QueryProbeVerified -Provider $provider -CommandResult $queryProbe -LogPath $queryLog)) {
+          if ($queryProbe.exit_code -eq 0 -and (Test-QueryProbeVerified -Provider $provider -CommandResult $queryProbe -LogPath $queryLog -TargetKind $targetKind)) {
             $queryReady = $true
           }
+        }
+        if (
+          $provider -eq 'gitnexus' -and
+          $queryReady -and
+          $targetKind -ne 'non-git-folder' -and
+          @($queryProbeAttempts | Where-Object { $_.result_class -eq 'definitions-only' }).Count -eq 0 -and
+          $entry.commands.PSObject.Properties.Name -contains 'impact_probe'
+        ) {
+          $impactLog = Join-Path $rawDir 'impact.log'
+          $impactProbe = Invoke-ConfiguredCommand -ProviderConfig $providerConfig -Provider $provider -Kind 'impact_probe' -LogPath $impactLog -RepoRoot $repoRoot
+          if ($impactProbe.exit_code -eq 0 -and (Test-GitNexusImpactProbeHasRelatedTests -LogPath $impactLog)) {
+            $impactProbe | Add-Member -NotePropertyName result_class -NotePropertyValue 'related-tests-supported'
+          } elseif ($impactProbe.exit_code -eq 0) {
+            $impactProbe | Add-Member -NotePropertyName result_class -NotePropertyValue 'related-tests-unproven'
+            $impactProbe | Add-Member -NotePropertyName verification_reason -NotePropertyValue 'GitNexus impact probe returned no test provenance.'
+          } else {
+            $impactProbe | Add-Member -NotePropertyName result_class -NotePropertyValue 'command-failed'
+            $impactProbe | Add-Member -NotePropertyName verification_reason -NotePropertyValue 'GitNexus impact probe command failed.'
+          }
+          $commandResults.Add($impactProbe)
         }
         if ($queryReady) {
           $status = 'ready'
           $confidence = 'high'
-          $limitations = @()
+          if ($provider -eq 'gitnexus' -and @($queryProbeAttempts | Where-Object { $_.result_class -eq 'definitions-only' }).Count -gt 0) {
+            $limitations = @('Definitions-only GitNexus evidence accepted as query-ready for query/context orientation; no process graph or GitNexus impact/review evidence is available.')
+          } else {
+            $limitations = @()
+          }
         } elseif ($provider -eq 'gitnexus' -and -not $queryProbeExpectedHit) {
           $status = 'query-not-applicable'
           $confidence = 'medium'
@@ -3088,18 +3190,22 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
 
   $statusPath = Join-Path $providerDir 'status.json'
   if (-not $skipNormalizedWrite) {
-    Write-NormalizedArtifacts -Provider $provider -StatusPath $statusPath -QueryReady $queryReady -BootstrappedAt $bootstrappedAt -ProvidersDir $providersDir -CommandResults @($commandResults) -QueryProbeAttempts @($queryProbeAttempts)
+    Write-NormalizedArtifacts -Provider $provider -StatusPath $statusPath -QueryReady $queryReady -BootstrappedAt $bootstrappedAt -ProvidersDir $providersDir -TargetKind $targetKind -CommandResults @($commandResults) -QueryProbeAttempts @($queryProbeAttempts)
   }
   $providerFinishedAt = Get-UtcTimestamp
   $providerDurationMs = (Get-EpochMilliseconds) - $providerStartedEpochMs
-  $lastIndexedCommit = if ($graphReady -and $queryReady -and -not $worktreeDirty) {
+  $lastIndexedCommit = if ($targetKind -eq 'non-git-folder') {
+    $null
+  } elseif ($graphReady -and $queryReady -and -not $worktreeDirty) {
     $sourceRevision
   } elseif (-not [string]::IsNullOrWhiteSpace($priorLastIndexedCommit)) {
     $priorLastIndexedCommit
   } else {
     $null
   }
-  $requiresCleanFullRefresh = if ((-not $worktreeDirty) -and $finalFullAttemptSucceeded -and $graphReady -and $queryReady) {
+  $requiresCleanFullRefresh = if ($targetKind -eq 'non-git-folder') {
+    $false
+  } elseif ((-not $worktreeDirty) -and $finalFullAttemptSucceeded -and $graphReady -and $queryReady) {
     $false
   } elseif ($refreshProcessFailed) {
     $true
@@ -3109,6 +3215,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
   $bootstrapRawLogsForStatus = @($commandResults | Where-Object { [string]$_.kind -eq 'bootstrap' } | ForEach-Object { [string]$_.raw_log })
   $statusRawLogsForStatus = @($commandResults | Where-Object { [string]$_.kind -eq 'status' } | ForEach-Object { [string]$_.raw_log })
   $queryRawLogsForStatus = @($commandResults | Where-Object { [string]$_.kind -eq 'query_probe' } | ForEach-Object { [string]$_.raw_log })
+  $impactRawLogsForStatus = @($commandResults | Where-Object { [string]$_.kind -eq 'impact_probe' } | ForEach-Object { [string]$_.raw_log })
   $providerRawLogs = [ordered]@{
     bootstrap = if ($bootstrapRawLogsForStatus.Count -gt 0) {
       $bootstrapRawLogsForStatus[$bootstrapRawLogsForStatus.Count - 1]
@@ -3118,6 +3225,10 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     status = if ($statusRawLogsForStatus.Count -gt 0) { $statusRawLogsForStatus[0] } else { ".spec-first/providers/$provider/raw/status.log" }
     query_probe = if ($queryRawLogsForStatus.Count -gt 0) { $queryRawLogsForStatus[0] } else { ".spec-first/providers/$provider/raw/query.log" }
   }
+  if ($impactRawLogsForStatus.Count -gt 0) {
+    $providerRawLogs['impact_probe'] = $impactRawLogsForStatus[0]
+  }
+  $relatedTestsSupportedForStatus = @($commandResults | Where-Object { [string]$_.kind -eq 'impact_probe' -and [int]$_.exit_code -eq 0 -and [string]$_.result_class -eq 'related-tests-supported' }).Count -gt 0
   $providerStatus = [ordered]@{
     schema_version = 'provider-status.v1'
     provider = $provider
@@ -3150,6 +3261,16 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     recommended_action = $failureInfo['recommended_action']
     confidence = $confidence
     limitations = $limitations
+    review_support = if ($provider -eq 'gitnexus') {
+      $definitionsOnlyForStatus = @($queryProbeAttempts | Where-Object { $_.result_class -eq 'definitions-only' }).Count -gt 0
+      [ordered]@{
+        related_tests_status = if ($targetKind -eq 'non-git-folder' -or $definitionsOnlyForStatus) { 'unavailable' } elseif ($relatedTestsSupportedForStatus) { 'supported' } elseif ($queryReady) { 'candidate-only' } else { 'unavailable' }
+        impact_probe_raw_log = if ($impactRawLogsForStatus.Count -gt 0) { $impactRawLogsForStatus[0] } else { $null }
+        limitations = if ($targetKind -eq 'non-git-folder') { @('non_git_folder_no_git_diff') } elseif ($definitionsOnlyForStatus) { @('definitions_only_no_process_graph', 'definitions_only_no_impact_evidence', 'definitions_only_no_related_tests') } elseif ($relatedTestsSupportedForStatus) { @() } elseif ($queryReady) { @('related_tests_unverified') } else { @('gitnexus_query_unverified') }
+      }
+    } else {
+      $null
+    }
     query_verification_reason = if ($status -eq 'query-unverified' -or $status -eq 'query-not-applicable') {
       if (-not [string]::IsNullOrWhiteSpace($script:QueryProbeVerificationReason)) { $script:QueryProbeVerificationReason } elseif ($limitations.Count -gt 0) { $limitations[$limitations.Count - 1] } else { $null }
     } else {
@@ -3159,9 +3280,11 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     query_probe_candidate_limit = if ($provider -eq 'gitnexus') { $script:GitNexusQueryProbeCandidateLimit } else { $null }
     query_probe_candidates_truncated = if ($provider -eq 'gitnexus') { $queryProbeCandidatesTruncated } else { $null }
     repo_snapshot = [ordered]@{
-      source_revision = $sourceRevision
-      worktree_dirty = $worktreeDirty
-      worktree_status_hash = $worktreeStatusHash
+      target_kind = $targetKind
+      source_revision = if ($targetKind -eq 'non-git-folder') { $null } else { $sourceRevision }
+      worktree_dirty = if ($targetKind -eq 'non-git-folder') { $null } else { $worktreeDirty }
+      worktree_status_hash = if ($targetKind -eq 'non-git-folder') { $null } else { $worktreeStatusHash }
+      folder_snapshot = if ($targetKind -eq 'non-git-folder') { [ordered]@{ content_fingerprint = $folderContentFingerprint } } else { $null }
     }
     command_results = @($commandResults)
     query_probe_attempts = if ($provider -eq 'gitnexus') { @($queryProbeAttempts) } else { $null }
@@ -3170,15 +3293,10 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     diagnostics = @($commandResults | Where-Object { -not [string]::IsNullOrWhiteSpace($_.diagnostic) } | ForEach-Object { $_.diagnostic })
     diagnostics_truncated = [bool](@($commandResults | Where-Object { $_.diagnostics_truncated }).Count)
     raw_logs = $providerRawLogs
-    normalized_artifacts = if ($provider -eq 'gitnexus') {
-      [ordered]@{
-        architecture_facts = '.spec-first/providers/gitnexus/normalized/architecture-facts.json'
-        reuse_candidates = '.spec-first/providers/gitnexus/normalized/reuse-candidates.json'
-      }
-    } else {
-      [ordered]@{
-        impact_capabilities = '.spec-first/providers/code-review-graph/normalized/impact-capabilities.json'
-      }
+    normalized_artifacts = [ordered]@{
+      architecture_facts = '.spec-first/providers/gitnexus/normalized/architecture-facts.json'
+      reuse_candidates = '.spec-first/providers/gitnexus/normalized/reuse-candidates.json'
+      impact_capabilities = '.spec-first/providers/gitnexus/normalized/impact-capabilities.json'
     }
   }
   Write-JsonFileAtomic -Path $statusPath -Payload ([pscustomobject]$providerStatus) -Depth 20
@@ -3239,6 +3357,8 @@ $providerAggregate = [ordered]@{
     duration_ms = $bootstrapDurationMs
   }
   workflow_mode = $workflowMode
+  target_kind = $targetKind
+  folder_snapshot = if ($targetKind -eq 'non-git-folder') { [ordered]@{ content_fingerprint = $folderContentFingerprint } } else { $null }
   ready_primary_providers = @($providerStatuses | Where-Object { $_.query_ready } | ForEach-Object { $_.provider })
   failed_primary_providers = @($providerStatuses | Where-Object { -not $_.query_ready -and $_.status -ne 'skipped' -and $_.status -ne 'query-not-applicable' } | ForEach-Object { $_.provider })
   not_applicable_providers = @($providerStatuses | Where-Object { $_.status -eq 'query-not-applicable' } | ForEach-Object { $_.provider })
@@ -3253,6 +3373,19 @@ if (-not $preserveCanonicalFreshness -or -not (Test-Path -LiteralPath $providerA
   Write-JsonFileAtomic -Path $providerAggregatePath -Payload ([pscustomobject]$providerAggregate) -Depth 30
 }
 
+$gitNexusReadyProviders = @($providerStatuses | Where-Object { $_.provider -eq 'gitnexus' -and $_.query_ready } | ForEach-Object { $_.provider })
+$gitNexusReady = ($gitNexusReadyProviders.Count -gt 0)
+$gitNexusRelatedTestsSupported = @($providerStatuses | Where-Object { $_.provider -eq 'gitnexus' -and $null -ne $_.review_support -and $_.review_support.related_tests_status -eq 'supported' }).Count -gt 0
+$gitNexusDefinitionsOnlyReady = $false
+foreach ($providerStatus in $providerStatuses) {
+  if ($providerStatus.provider -eq 'gitnexus' -and $providerStatus.query_ready -and @($providerStatus.query_probe_attempts | Where-Object { $_.result_class -eq 'definitions-only' }).Count -gt 0) {
+    $gitNexusDefinitionsOnlyReady = $true
+    break
+  }
+}
+$queryOnlyGitNexusReady = ($targetKind -eq 'non-git-folder' -or $gitNexusDefinitionsOnlyReady)
+$gitNexusImpactProviders = if ($queryOnlyGitNexusReady) { @() } else { @($gitNexusReadyProviders) }
+
 $graphFacts = [ordered]@{
   schema_version = 'graph-facts.v1'
   generated_at = $bootstrappedAt
@@ -3262,11 +3395,13 @@ $graphFacts = [ordered]@{
     duration_ms = $bootstrapDurationMs
   }
   repo_root = $repoRoot
-  source_revision = $sourceRevision
-  source_revision_dirty = ($script:DirtyClassification -eq 'graph-affecting-blocked')
+  target_kind = $targetKind
+  folder_snapshot = if ($targetKind -eq 'non-git-folder') { [ordered]@{ content_fingerprint = $folderContentFingerprint } } else { $null }
+  source_revision = if ($targetKind -eq 'non-git-folder') { $null } else { $sourceRevision }
+  source_revision_dirty = if ($targetKind -eq 'non-git-folder') { $false } else { ($script:DirtyClassification -eq 'graph-affecting-blocked') }
   freshness_state = if ($script:DirtyClassification -eq 'graph-affecting-blocked') { 'dirty-advisory' } else { 'fresh' }
-  worktree_dirty = $worktreeDirty
-  worktree_status_hash = $worktreeStatusHash
+  worktree_dirty = if ($targetKind -eq 'non-git-folder') { $null } else { $worktreeDirty }
+  worktree_status_hash = if ($targetKind -eq 'non-git-folder') { $null } else { $worktreeStatusHash }
   dirty_classification = $script:DirtyClassification
   dirty_paths_breakdown = $script:DirtyPathsBreakdown
   workflow_mode = $workflowMode
@@ -3282,16 +3417,28 @@ $graphFacts = [ordered]@{
     impact_capabilities = '.spec-first/impact/bootstrap-impact-capabilities.json'
   }
   capabilities = [ordered]@{
-    query_global_graph = (@($providerStatuses | Where-Object { $_.provider -eq 'gitnexus' -and $_.query_ready }).Count -gt 0)
-    impact_context = (@($providerStatuses | Where-Object { $_.provider -eq 'code-review-graph' -and $_.query_ready }).Count -gt 0)
+    query_global_graph = $gitNexusReady
+    impact_context = ($gitNexusReady -and $gitNexusRelatedTestsSupported -and -not $queryOnlyGitNexusReady)
+    impact_context_status = if ($gitNexusReady -and $gitNexusRelatedTestsSupported -and -not $queryOnlyGitNexusReady) { 'supported' } elseif ($queryOnlyGitNexusReady) { 'unavailable' } elseif ($gitNexusReady) { 'limited' } else { 'unavailable' }
+    impact_context_limitations = if ($gitNexusReady -and $gitNexusRelatedTestsSupported -and -not $queryOnlyGitNexusReady) { @() } elseif ($targetKind -eq 'non-git-folder') { @('non_git_folder_no_git_diff', 'non_git_folder_no_commit_freshness', 'non_git_folder_no_incremental') } elseif ($gitNexusDefinitionsOnlyReady) { @('definitions_only_no_process_graph', 'definitions_only_no_impact_evidence', 'definitions_only_no_related_tests') } elseif ($gitNexusReady) { @('related_tests_unverified') } else { @('gitnexus_query_unverified') }
   }
   staleness_hints = [ordered]@{
-    compare_source_revision = $true
-    compare_worktree_dirty = $true
-    worktree_status_hash = $worktreeStatusHash
+    compare_source_revision = ($targetKind -ne 'non-git-folder')
+    compare_worktree_dirty = ($targetKind -ne 'non-git-folder')
+    worktree_status_hash = if ($targetKind -eq 'non-git-folder') { $null } else { $worktreeStatusHash }
+    content_fingerprint = if ($targetKind -eq 'non-git-folder') { $folderContentFingerprint } else { $null }
   }
   confidence = $providerAggregate.confidence
-  limitations = @($providerAggregate.limitations)
+  limitations = if ($targetKind -eq 'non-git-folder') {
+    @(
+      'Non-git folder target: no source_revision, branch, dirty hash, last_indexed_commit, Git diff evidence, or no incremental refresh/freshness is available.',
+      'Supports query/context/architecture orientation only; downstream review-impact must use source reads and explicit diffs from other evidence.'
+    )
+  } elseif ($gitNexusDefinitionsOnlyReady) {
+    @('Definitions-only GitNexus evidence: supports query/context/architecture orientation only; no process graph or GitNexus impact/review evidence is available. Downstream LLM workflows decide whether this matches the user task.')
+  } else {
+    @($providerAggregate.limitations)
+  }
 }
 $graphFactsPath = Join-Path $graphDir 'graph-facts.json'
 if (-not $preserveCanonicalFreshness -or -not (Test-Path -LiteralPath $graphFactsPath -PathType Leaf)) {
@@ -3299,7 +3446,6 @@ if (-not $preserveCanonicalFreshness -or -not (Test-Path -LiteralPath $graphFact
 }
 
 $readyPrimaryProviders = @($providerStatuses | Where-Object { $_.query_ready } | ForEach-Object { $_.provider })
-$crgReadyProviders = @($providerStatuses | Where-Object { $_.provider -eq 'code-review-graph' -and $_.query_ready } | ForEach-Object { $_.provider })
 $contextFallback = Get-FallbackCapability -RuntimeCapabilities $runtimeCapabilities -Name 'context_selection'
 $impactFallback = Get-FallbackCapability -RuntimeCapabilities $runtimeCapabilities -Name 'impact_radius'
 $reviewFallback = Get-FallbackCapability -RuntimeCapabilities $runtimeCapabilities -Name 'review_support'
@@ -3307,6 +3453,7 @@ $impactCapabilities = [ordered]@{
   schema_version = 'bootstrap-impact-capabilities.v1'
   generated_at = $bootstrappedAt
   workflow_mode = $workflowMode
+  target_kind = $targetKind
   capabilities = [ordered]@{
     context_selection = [ordered]@{
       support_level = if ($readyPrimaryProviders.Count -gt 0) { 'full' } elseif (Test-FallbackSupported -Fallback $contextFallback) { 'partial' } else { 'none' }
@@ -3316,18 +3463,19 @@ $impactCapabilities = [ordered]@{
       limitations = if ($readyPrimaryProviders.Count -gt 0) { @() } else { @('Using fallback context selection only.') }
     }
     impact_radius = [ordered]@{
-      support_level = if ($crgReadyProviders.Count -gt 0) { 'full' } elseif (Test-FallbackSupported -Fallback $impactFallback) { 'partial' } else { 'none' }
-      primary_providers = @($crgReadyProviders)
+      support_level = if ($queryOnlyGitNexusReady) { 'none' } elseif ($gitNexusReady) { 'full' } elseif (Test-FallbackSupported -Fallback $impactFallback) { 'partial' } else { 'none' }
+      primary_providers = @($gitNexusImpactProviders)
       fallback_support = $impactFallback
-      confidence = if ($crgReadyProviders.Count -gt 0) { 'high' } else { $impactFallback.confidence }
-      limitations = if ($crgReadyProviders.Count -gt 0) { @() } else { @('Impact radius is not backed by a query-ready provider.') }
+      confidence = if ($queryOnlyGitNexusReady) { 'low' } elseif ($gitNexusReady) { 'high' } else { $impactFallback.confidence }
+      limitations = if ($targetKind -eq 'non-git-folder') { @('non_git_folder_no_git_diff', 'non_git_folder_no_commit_freshness', 'non_git_folder_no_incremental') } elseif ($gitNexusDefinitionsOnlyReady) { @('definitions_only_no_process_graph', 'definitions_only_no_impact_evidence', 'definitions_only_no_related_tests') } elseif ($gitNexusReady) { @() } else { @('Impact radius is not backed by a query-ready provider.') }
     }
     review_support = [ordered]@{
-      support_level = if ($crgReadyProviders.Count -gt 0) { 'partial' } elseif (Test-FallbackSupported -Fallback $reviewFallback) { 'partial' } else { 'none' }
-      primary_providers = @($crgReadyProviders)
+      support_level = if ($queryOnlyGitNexusReady) { 'none' } elseif ($gitNexusReady -and $gitNexusRelatedTestsSupported) { 'full' } elseif ($gitNexusReady) { 'partial' } elseif (Test-FallbackSupported -Fallback $reviewFallback) { 'partial' } else { 'none' }
+      primary_providers = @($gitNexusImpactProviders)
+      related_tests_status = if ($queryOnlyGitNexusReady) { 'unavailable' } elseif ($gitNexusRelatedTestsSupported) { 'supported' } elseif ($gitNexusReady) { 'candidate-only' } else { 'unavailable' }
       fallback_support = $reviewFallback
-      confidence = if ($crgReadyProviders.Count -gt 0) { 'medium' } else { $reviewFallback.confidence }
-      limitations = @('This artifact reports readiness only; downstream LLM workflows decide review evidence relevance.')
+      confidence = if ($queryOnlyGitNexusReady) { 'low' } elseif ($gitNexusRelatedTestsSupported) { 'high' } elseif ($gitNexusReady) { 'medium' } else { $reviewFallback.confidence }
+      limitations = @('This artifact reports readiness only; downstream LLM workflows decide review evidence relevance.') + $(if ($targetKind -eq 'non-git-folder') { @('non_git_folder_no_git_diff', 'non_git_folder_no_commit_freshness', 'non_git_folder_no_incremental') } elseif ($gitNexusDefinitionsOnlyReady) { @('definitions_only_no_process_graph', 'definitions_only_no_impact_evidence', 'definitions_only_no_related_tests') } elseif ($gitNexusReady -and -not $gitNexusRelatedTestsSupported) { @('related_tests_unverified') } else { @() })
     }
   }
   downstream_guidance = [ordered]@{
@@ -3362,8 +3510,10 @@ if (-not $preserveCanonicalFreshness) {
 - workflow_mode: $workflowMode
 - overall_status: $overallStatus
 - freshness_state: $freshnessStateVal
-- source_revision: $sourceRevision
-- worktree_dirty: $worktreeDirty
+- target_kind: $targetKind
+- source_revision: $(if ($targetKind -eq 'non-git-folder') { 'n/a' } else { $sourceRevision })
+- content_fingerprint: $(if ($targetKind -eq 'non-git-folder') { $folderContentFingerprint } else { 'n/a' })
+- worktree_dirty: $(if ($targetKind -eq 'non-git-folder') { 'n/a' } else { $worktreeDirty })
 - dirty_classification: $script:DirtyClassification
 - duration_ms: $bootstrapDurationMs
 - provider_status: .spec-first/graph/provider-status.json
@@ -3382,7 +3532,9 @@ $($providerReportRows -join [Environment]::NewLine)
   workflow_mode = $workflowMode
   reason_code = $topLevelReasonCode
   freshness_state = if ($script:DirtyClassification -eq 'graph-affecting-blocked') { 'dirty-advisory' } else { 'fresh' }
-  source_revision_dirty = ($script:DirtyClassification -eq 'graph-affecting-blocked')
+  target_kind = $targetKind
+  folder_snapshot = if ($targetKind -eq 'non-git-folder') { [ordered]@{ content_fingerprint = $folderContentFingerprint } } else { $null }
+  source_revision_dirty = if ($targetKind -eq 'non-git-folder') { $false } else { ($script:DirtyClassification -eq 'graph-affecting-blocked') }
   dirty_classification = $script:DirtyClassification
   dirty_paths_breakdown = $script:DirtyPathsBreakdown
   canonical_artifacts_preserved = $preserveCanonicalFreshness
@@ -3393,6 +3545,9 @@ $($providerReportRows -join [Environment]::NewLine)
   provider_config_path = $providerConfigPath
   runtime_capabilities_path = $runtimeCapabilitiesPath
   provider_artifacts_path = $providerArtifactsPath
+  provider_summary = $graphFacts.provider_summary
+  canonical_artifacts = $graphFacts.canonical_artifacts
+  capabilities = $graphFacts.capabilities
   timing = [ordered]@{
     started_at = $script:ScriptStartedAt
     finished_at = $bootstrapFinishedAt

@@ -133,18 +133,32 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
 
     expect(resolverSource).toContain("schema_version = 'project-target.v1'");
     expect(resolverSource).toContain("[ValidateSet('json', 'env')]");
+    expect(resolverSource).toContain("[string]$Folder = ''");
     expect(resolverSource).toContain('state_write_allowed');
     expect(resolverSource).toContain('workspace-multi-repo');
     expect(resolverSource).toContain('workspace-single-candidate');
     expect(resolverSource).toContain('workspace-target-required');
     expect(resolverSource).toContain('repo-target-outside-workspace');
     expect(resolverSource).toContain('repo-target-not-git');
+    expect(resolverSource).toContain('folder-target-not-found');
+    expect(resolverSource).toContain('folder-target-outside-workspace');
+    expect(resolverSource).toContain('folder-target-is-git-repo');
+    expect(resolverSource).toContain("'non-git-folder'");
+    expect(resolverSource).toContain('selected_folder_root');
+    expect(resolverSource).toContain('target_root');
     expect(resolverSource).toContain("'child_git_repo'");
     expect(resolverSource).toContain("'.git', 'node_modules', 'vendor', '.claude', '.codex', '.agents', '.spec-first'");
     expect(detectSource).toContain("Join-Path $ScriptDir 'resolve-project-target.ps1'");
+    expect(detectSource).toContain('[string]$Folder');
+    expect(detectSource).toContain('$resolverParams.Folder = $Folder');
+    expect(detectSource).toContain('selected_folder_root');
+    expect(detectSource).toContain('target_kind');
     expect(detectSource).toContain('target_candidate_count');
+    expect(verifySource).toContain('[string]$Folder');
     expect(verifySource).toContain('$detectParams.Repo = $Repo');
+    expect(verifySource).toContain('$detectParams.Folder = $Folder');
     expect(verifySource).toContain('[switch]$AllRepos');
+    expect(verifySource).toContain('use either -AllRepos or -Folder');
     expect(verifySource).toContain('workspace-mcp-verify-summary.v1');
     expect(verifySource).toContain('mcp-verify-summary.json');
     expect(verifySource).toContain('all-repos-requires-parent-workspace');
@@ -158,11 +172,19 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('workspace-summary-symlink-escape');
     expect(verifySource).toContain('$providerActionRequired = @($combined.repo_config_status, $combined.runtime_capabilities_status, $combined.provider_artifacts_status)');
     expect(verifySource).toContain('choose a child repo and rerun with --repo <child>');
+    expect(verifySource).toContain("[string]$combined.target_kind -ne 'non-git-folder'");
     expect(writeProviderSource).toContain('$targetWriteAllowed');
+    expect(writeProviderSource).toContain("$script:TargetKind -ne 'non-git-folder'");
+    expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--skip-git', '--force', '--skip-agents-md', '--no-stats')");
+    expect(writeProviderSource).toContain("if ($property.Name -ne 'gitnexus')");
+    expect(writeProviderSource).toContain('Get-FolderContentFingerprint');
     expect(writeProviderSource).toContain('graph_bootstrap_required = $true');
     expect(writeProviderSource).toContain('project-config-symlink-escape');
     expect(writeProviderSource).toContain('Test-SymlinkPath $outDir');
+    expect(installMcpSource).toContain('[string]$Folder');
     expect(installMcpSource).toContain('[switch]$AllRepos');
+    expect(installMcpSource).toContain('$resolverParams.Folder = $Folder');
+    expect(installMcpSource).toContain('use either -AllRepos or -Folder');
     expect(installMcpSource).not.toContain('Se' + 'rena');
     expect(installMcpSource).not.toContain('se' + 'rena');
     expect(installMcpSource).toContain('workspace-mcp-setup-summary.v1');
@@ -179,8 +201,12 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(graphBootstrapSource).toContain('workspace-summary-symlink-escape');
     expect(installMcpSource).not.toContain('$PSCommandPath @childParams 2>&1');
     expect(projectConfigSource).toContain('[string]$Repo');
+    expect(projectConfigSource).toContain('[string]$Folder');
     expect(projectConfigSource).toContain('[switch]$AllRepos');
+    expect(projectConfigSource).toContain('use either -AllRepos or -Folder');
     expect(projectConfigSource).toContain('resolve-project-target.ps1');
+    expect(projectConfigSource).toContain("if ($script:targetKind -eq 'non-git-folder')");
+    expect(projectConfigSource).toContain('not-applicable-non-git-folder');
     expect(projectConfigSource).toContain('workspace-project-config-bootstrap-summary.v1');
     expect(projectConfigSource).toContain('project-config-bootstrap-summary.json');
     expect(projectConfigSource).toContain('workspace-default-all-repos');
@@ -194,6 +220,11 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(projectConfigSource).toContain('project-config-symlink-escape');
     expect(projectConfigSource).toContain('gitignore-symlink-escape');
     expect(graphBootstrapSource).toContain('resolve-project-target.ps1');
+    expect(graphBootstrapSource).toContain('[string]$Folder');
+    expect(graphBootstrapSource).toContain('$resolverParams.Folder = $Folder');
+    expect(graphBootstrapSource).toContain('incremental-non-git-folder-unsupported');
+    expect(graphBootstrapSource).toContain('Get-FolderContentFingerprint');
+    expect(graphBootstrapSource).toContain("'non_git_folder_no_git_diff', 'non_git_folder_no_commit_freshness', 'non_git_folder_no_incremental'");
     expect(graphBootstrapSource).toContain("GetEnvironmentVariable('SPEC_FIRST_PROJECT_TARGET_RESOLVER')");
     expect(graphBootstrapSource).toContain('$resolverPath = $resolverOverride');
     expect(graphBootstrapSource).toContain('workspace-target-required');
@@ -334,22 +365,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(gitnexus.provider_config.native_capabilities.workspace_group.native_tools).toEqual(['group_list']);
     expect(gitnexus.provider_config.native_capabilities.workspace_group.native_resources).toContain('gitnexus://group/{name}/status');
     const codeReviewGraph = toolsJson.tools.find((t) => t.id === 'code-review-graph');
-    expect(codeReviewGraph.package).toBe('code-review-graph');
-    expect(codeReviewGraph.version).toBe('2.3.3');
-    expect(codeReviewGraph.installation.unix.args).toEqual(['{{package}}@{{version}}', '--help']);
-    expect(codeReviewGraph.installation.windows.args).toEqual(['{{package}}@{{version}}', '--help']);
-    expect(codeReviewGraph.host_config.claude.args).toEqual([
-      '{{package}}@{{version}}',
-      'serve',
-      '--tools',
-      'get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool',
-    ]);
-    expect(codeReviewGraph.host_config.codex.args).toEqual([
-      '{{package}}@{{version}}',
-      'serve',
-      '--tools',
-      'get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool',
-    ]);
+    expect(codeReviewGraph).toBeUndefined();
   });
 
   test('PowerShell install-mcp caches successful package warmups by resolved command hash', () => {
@@ -582,14 +598,14 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain("$gitNexusPackage = if ($null -ne $gitNexusEntry.PSObject.Properties['package']) { [string]$gitNexusEntry.package } else { '' }");
     expect(writeProviderSource).toContain("$gitNexusVersion = if ($null -ne $gitNexusEntry.PSObject.Properties['version']) { [string]$gitNexusEntry.version } else { '' }");
     expect(writeProviderSource).toContain('$gitNexusPackageSpec = "$gitNexusPackage@$gitNexusVersion"');
-    expect(writeProviderSource).toContain("$codeReviewGraphPackage = if ($null -ne $codeReviewGraphEntry.PSObject.Properties['package']) { [string]$codeReviewGraphEntry.package } else { '' }");
-    expect(writeProviderSource).toContain("$codeReviewGraphVersion = if ($null -ne $codeReviewGraphEntry.PSObject.Properties['version']) { [string]$codeReviewGraphEntry.version } else { '' }");
-    expect(writeProviderSource).toContain('$codeReviewGraphPackageSpec = "$codeReviewGraphPackage@$codeReviewGraphVersion"');
-    expect(writeProviderSource).toContain('[string]$CodeReviewGraphPackageSpec');
+    expect(writeProviderSource).not.toContain('$codeReviewGraphEntry');
+    expect(writeProviderSource).not.toContain('$codeReviewGraphPackageSpec');
+    expect(writeProviderSource).not.toContain('[string]$CodeReviewGraphPackageSpec');
     expect(writeProviderSource).toContain("bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force', '--skip-agents-md', '--no-stats')");
     expect(writeProviderSource).toContain("status = @('npx', '-y', $GitNexusPackageSpec, 'status')");
-    expect(writeProviderSource).toContain("bootstrap = @('uvx', $CodeReviewGraphPackageSpec, 'build')");
-    expect(writeProviderSource).toContain("status = @('uvx', $CodeReviewGraphPackageSpec, 'status')");
+    expect(writeProviderSource).toContain("impact_probe = @('npx', '-y', $GitNexusPackageSpec, 'impact', [string]$GitNexusQueryProbePolicy.token, '--repo', $GitNexusRepoName, '--include-tests', '--depth', '2')");
+    expect(writeProviderSource).not.toContain("bootstrap = @('uvx', $CodeReviewGraphPackageSpec, 'build')");
+    expect(writeProviderSource).not.toContain("status = @('uvx', $CodeReviewGraphPackageSpec, 'status')");
     expect(writeProviderSource).toContain('function Get-GitNexusRepoName');
     expect(writeProviderSource).toContain('function Get-GitNexusRepoNameFromRemoteUrl');
     expect(writeProviderSource).toContain('function Get-GitRemoteUrl');
@@ -597,6 +613,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain("Join-Path $RepoRoot '.gitnexus/meta.json'");
     expect(writeProviderSource).toContain("remoteUrl");
     expect(writeProviderSource).toContain("query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $GitNexusRepoName)");
+    expect(writeProviderSource).toContain("impact_probe = '.spec-first/providers/gitnexus/raw/impact.log'");
+    expect(writeProviderSource).toContain("impact_capabilities = '.spec-first/providers/gitnexus/normalized/impact-capabilities.json'");
     expect(verifySource).not.toContain('gitnexus analyze');
     expect(verifySource).not.toContain('gitnexus status');
     expect(verifySource).not.toContain('gitnexus query');
@@ -626,10 +644,10 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(writeProviderSource).toContain('git-ls-files-code-basename');
     expect(writeProviderSource).toContain('query_probe_policy = if ($property.Name -eq');
     expect(writeProviderSource).toContain('$gitNexusRepoName = Get-GitNexusRepoName -RepoRoot $repoRoot -Facts $facts');
-    expect(writeProviderSource).toContain('Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -CodeReviewGraphPackageSpec $codeReviewGraphPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy -GitNexusRepoName $gitNexusRepoName');
+    expect(writeProviderSource).toContain('Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy -GitNexusRepoName $gitNexusRepoName');
     expect(writeProviderSource).toContain("incremental = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--skip-agents-md', '--no-stats')");
-    expect(writeProviderSource).toContain("incremental = @('uvx', $CodeReviewGraphPackageSpec, 'update', '--base', '__SPEC_FIRST_LAST_INDEXED_COMMIT__')");
-    expect(writeProviderSource).toContain("query_probe = @('uvx', $CodeReviewGraphPackageSpec, 'status', '--repo', $RepoRoot)");
+    expect(writeProviderSource).not.toContain("incremental = @('uvx', $CodeReviewGraphPackageSpec, 'update', '--base', '__SPEC_FIRST_LAST_INDEXED_COMMIT__')");
+    expect(writeProviderSource).not.toContain("query_probe = @('uvx', $CodeReviewGraphPackageSpec, 'status', '--repo', $RepoRoot)");
     expect(writeProviderSource).toContain('function Test-CanonicalProviderFreshForCurrent');
     expect(writeProviderSource).toContain('function Get-GitPorcelainStatusText');
     expect(writeProviderSource).toContain('function Get-ProviderCommandHashForCommands');
@@ -708,17 +726,6 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
             host_config_required: true,
             dependency_status: 'ready',
             host_config_status: 'ready',
-            capabilities: [],
-          },
-          'code-review-graph': {
-            configured: true,
-            enabled_for_bootstrap: true,
-            required: true,
-            role: 'impact_context',
-            access_mode: 'cli_artifact',
-            host_config_required: false,
-            dependency_status: 'ready',
-            host_config_status: 'not-required',
             capabilities: [],
           },
         },
@@ -1007,10 +1014,10 @@ function Get-StatusHash {
 }
 ${functionSource}
 $commands = [ordered]@{
-  bootstrap = @('uvx', 'code-review-graph@2.3.3', 'build')
-  incremental = @('uvx', 'code-review-graph@2.3.3', 'update', '--base', '__SPEC_FIRST_LAST_INDEXED_COMMIT__')
-  status = @('uvx', 'code-review-graph@2.3.3', 'status')
-  query_probe = @('uvx', 'code-review-graph@2.3.3', 'status', '--repo', '/repo')
+  bootstrap = @('npx', '-y', 'gitnexus@1.6.5', 'analyze', '--force', '--skip-agents-md', '--no-stats')
+  incremental = @('npx', '-y', 'gitnexus@1.6.5', 'analyze', '--skip-agents-md', '--no-stats')
+  status = @('npx', '-y', 'gitnexus@1.6.5', 'status')
+  query_probe = @('npx', '-y', 'gitnexus@1.6.5', 'query', 'TradeLoginActivity', '--repo', '/repo')
 }
 $actual = Get-ProviderCommandHashForCommands -Commands $commands
 $ordered = [ordered]@{}
@@ -1090,9 +1097,8 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).not.toContain('$stdout = @(& $ScriptPath @Arguments 2> $stderrPath 6> $informationPath)');
     expect(source).not.toContain('$script:BootstrapProvidersScript -Repo ([string]$child.workspace_relative_path) 2>&1');
     expect(source).toContain("'^gitnexus(@[A-Za-z0-9._~+:-]+)?$'");
-    expect(source).toContain("'code-review-graph'");
-    expect(source).toContain("'^code-review-graph@[0-9][0-9A-Za-z._+!-]*$'");
-    expect(source).toContain("'--upgrade'");
+    expect(source).not.toContain("'^code-review-graph@[0-9][0-9A-Za-z._+!-]*$'");
+    expect(source).not.toContain("'--upgrade'");
     expect(source).toContain('function Write-NormalizedArtifacts');
     expect(source).toContain('provider-normalized-envelope.v1');
     expect(source).toContain("command_source = '.spec-first/config/graph-providers.json'");
@@ -1123,7 +1129,7 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).toContain('graph-bootstrap-fingerprint.v1');
     expect(source).toContain('bootstrap_fingerprint = $bootstrapFingerprint');
     expect(source).toContain('function Get-ProviderReuseDecision');
-    expect(source).toContain('function Get-BundledCodeReviewGraphPackageSpec');
+    expect(source).not.toContain('function Get-BundledCodeReviewGraphPackageSpec');
     expect(source).toContain('function Get-ProviderCommandPackageSpec');
     expect(source).toContain("mixed-provider-command-packages:$($packages -join ',')");
     expect(source).toContain("ConvertTo-CanonicalJsonValue -Value $ProviderConfig.providers.$Provider.commands");
@@ -1131,14 +1137,15 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).toContain('reuse_ineligible_reason');
     expect(source).toContain('readiness_source');
     expect(source).toContain('function Get-GitNexusProviderProjectionStaleFailureInfo');
-    expect(source).toContain('function Get-CodeReviewGraphProviderProjectionStaleFailureInfo');
-    expect(source).toContain('function Get-CodeReviewGraphProviderVersionUnverifiableFailureInfo');
+    expect(source).not.toContain('function Get-CodeReviewGraphProviderProjectionStaleFailureInfo');
+    expect(source).not.toContain('function Get-CodeReviewGraphProviderVersionUnverifiableFailureInfo');
     expect(source).toContain('function Get-ProviderProjectionStaleFailureInfo');
     expect(source).toContain('function Get-ProviderDisplayName');
     expect(source).toContain('gitnexus-provider-projection-stale');
-    expect(source).toContain('code-review-graph-provider-projection-stale');
-    expect(source).toContain('code-review-graph-provider-version-unverifiable');
+    expect(source).not.toContain('code-review-graph-provider-projection-stale');
+    expect(source).not.toContain('code-review-graph-provider-version-unverifiable');
     expect(source).toContain('provider-version-unverifiable');
+    expect(source).toContain('stale-provider-projection');
     expect(source).toContain('preflight-blocked');
     expect(source).toContain('version_policy = $VersionPolicy');
     expect(source).toContain('function Test-QueryProbePolicySupported');
@@ -1153,6 +1160,14 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).toContain('query_probe_attempts');
     expect(source).toContain('query_probe_candidate_limit');
     expect(source).toContain('query_probe_candidates_truncated');
+    expect(source).toContain('impact_probe');
+    expect(source).toContain('Test-GitNexusImpactProbeHasRelatedTests');
+    expect(source).toContain('related-tests-supported');
+    expect(source).toContain('related-tests-unproven');
+    expect(source).toContain('$gitNexusRelatedTestsSupported');
+    expect(source).toContain("impact_context_status = if ($gitNexusReady -and $gitNexusRelatedTestsSupported");
+    expect(source).toContain("$queryOnlyGitNexusReady = ($targetKind -eq 'non-git-folder' -or $gitNexusDefinitionsOnlyReady)");
+    expect(source).toContain("related_tests_status = if ($queryOnlyGitNexusReady) { 'unavailable' } elseif ($gitNexusRelatedTestsSupported) { 'supported' } elseif ($gitNexusReady) { 'candidate-only' } else { 'unavailable' }");
     expect(source).toContain('query-not-applicable');
     expect(source).toContain('not_applicable');
     expect(source).toContain('winning_query_probe_log');
@@ -1162,9 +1177,9 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).toContain('System.Collections.Generic.List[psobject]');
     expect(source).not.toContain('System.Collections.Generic.List[object]');
     expect(source).toContain('staleness_hints');
-    expect(source).toContain('compare_source_revision = $true');
+    expect(source).toContain("compare_source_revision = ($targetKind -ne 'non-git-folder')");
     expect(source).toContain('function Get-StatusHash');
-    expect(source).toContain('worktree_status_hash = $worktreeStatusHash');
+    expect(source).toContain("worktree_status_hash = if ($targetKind -eq 'non-git-folder') { $null } else { $worktreeStatusHash }");
     expect(source).toContain('Probe Token');
     expect(source).toContain('function Get-ProviderFailureInfo');
     expect(source).toContain('function Invoke-SpecFirstCli');
@@ -1180,7 +1195,7 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).toContain('Invoke-ExternalCommandWithTimeout -Exe $exe');
     expect(source).toContain('timed_out = [bool]$result.timed_out');
     expect(source).toContain("$overallStatus -eq 'partial'");
-    expect(source).toContain("if ($provider -eq 'gitnexus' -and $bootstrap.exit_code -eq 0)");
+    expect(source).toContain("if ($provider -eq 'gitnexus' -and $bootstrap.exit_code -eq 0 -and $targetKind -ne 'non-git-folder')");
     const resolveStart = source.indexOf('function Resolve-SpecFirstCliInvocation');
     const resolveEnd = source.indexOf('function Normalize-GitNexusInstructionBlockViaCli');
     const resolveSource = source.slice(resolveStart, resolveEnd);
@@ -1194,9 +1209,9 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     expect(source).toContain('.gitnexus/lbug');
     expect(source).toContain('provider-network-unavailable');
     expect(source).toContain('provider-cache-permission-denied');
-    expect(source).toContain('provider-package-not-found');
-    expect(source).toContain('provider-package-resolution-failed');
-    expect(source).toContain('Unset UV_INDEX_URL/PIP_INDEX_URL');
+    expect(source).not.toContain('provider-package-not-found');
+    expect(source).not.toContain('provider-package-resolution-failed');
+    expect(source).not.toContain('Unset UV_INDEX_URL/PIP_INDEX_URL');
     expect(source).toContain('ProviderCommandTimeoutSeconds');
     expect(source).toContain("Name 'SPEC_FIRST_PROVIDER_COMMAND_TIMEOUT_SECONDS'");
     expect(source).toContain("Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900");
@@ -1263,7 +1278,9 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
 
     expect(normalizedSource).toContain('$winningQueryProbeLog = if ($winningLogs.Count -gt 0)');
     expect(normalizedSource).toContain("$availableQuerySurfaces = if ($QueryReady) { @('status', 'query') } else { @() }");
-    expect(normalizedSource).toContain("$availableQuerySurfaces = if ($QueryReady) { @('status', 'query_graph_tool', 'get_impact_radius_tool') } else { @() }");
+    expect(normalizedSource).toContain('$isQueryOnlyTarget = ($isNonGitFolder -or $definitionsOnlyEvidence)');
+    expect(normalizedSource).toContain("$impactSurfaces = if ($QueryReady -and $isQueryOnlyTarget) { @('query', 'context') } elseif ($QueryReady) { @('query', 'context', 'impact', 'detect_changes', 'route_map', 'api_impact', 'shape_check') } else { @() }");
+    expect(normalizedSource).toContain("$impactEvidenceSurfaces = if ($QueryReady -and -not $isQueryOnlyTarget) { @('detect_changes', 'impact', 'query', 'route_map', 'api_impact', 'shape_check') } else { @() }");
     expect(normalizedSource).not.toMatch(/^\s+winning_query_probe_log = if \(/m);
     expect(normalizedSource).not.toMatch(/^\s+available_query_surfaces = if \(/m);
     expect(normalizedSource).not.toMatch(/^\s+confidence = if \(/m);
@@ -1449,8 +1466,9 @@ if (($commands.PSObject.Properties.Name | Sort-Object) -contains 'Count') {
     const skillSource = fs.readFileSync(path.join(repoRoot, 'skills/spec-mcp-setup/SKILL.md'), 'utf8');
 
     expect(skillSource).toContain('Unix shell path (`*.sh`) requires `node`, `npm`, `npx`, `uv`, `uvx`, `jq`, and `python3`.');
-    expect(skillSource).toContain('Windows PowerShell 7 path (`*.ps1`) requires `node`, `npm`, `npx`, `uv`, and `uvx`; `git` remains optional.');
+    expect(skillSource).toContain('Windows PowerShell 7 path (`*.ps1`) requires `node`, `npm`, and `npx`; `git` remains optional.');
     expect(skillSource).toContain('It does not require `jq` or `python3` because JSON/TOML handling and bounded process execution are implemented with native PowerShell/.NET');
+    expect(skillSource).toContain('`uv` / `uvx` are not required by the current GitNexus-only setup registry.');
   });
 
   test('setup scripts no longer carry project bootstrap cache facts for retired MCP tools', () => {

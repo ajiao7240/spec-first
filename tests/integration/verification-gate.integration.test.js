@@ -48,6 +48,8 @@ describe('AI dev quality gate integration', () => {
     expect(workflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
     expect(workflow).toContain("tests/unit/branch-protection-policy.test.js");
     expect(workflow).toContain("tests/unit/no-crg-runtime-contracts.test.js");
+    expect(workflow).toContain("tests/benchmark/extract-graph-anchors.sh");
+    expect(workflow).toContain("tests/unit/graph-anchor-extraction-helper.test.js");
     expect(workflow).toContain("tests/unit/package-install-contracts.test.js");
     expect(workflow).toContain("tests/unit/ai-dev-benchmark-fixtures.test.js");
     expect(workflow).toContain("tests/fixtures/ai-dev-benchmarks/**");

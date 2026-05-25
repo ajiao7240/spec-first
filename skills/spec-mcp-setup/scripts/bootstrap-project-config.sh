@@ -11,6 +11,7 @@ ENSURE_GITIGNORE="no"
 DELETE_LEGACY_MARKDOWN="no"
 JSON_OUTPUT="no"
 REPO_ARG=""
+FOLDER_ARG=""
 ALL_REPOS="no"
 
 while [[ $# -gt 0 ]]; do
@@ -40,6 +41,11 @@ while [[ $# -gt 0 ]]; do
       [ -n "$REPO_ARG" ] || { echo "bootstrap-project-config.sh: --repo requires a value" >&2; exit 1; }
       shift 2
       ;;
+    --folder)
+      FOLDER_ARG="${2:-}"
+      [ -n "$FOLDER_ARG" ] || { echo "bootstrap-project-config.sh: --folder requires a value" >&2; exit 1; }
+      shift 2
+      ;;
     --all-repos)
       ALL_REPOS="yes"
       shift
@@ -49,6 +55,15 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [ -n "$REPO_ARG" ] && [ -n "$FOLDER_ARG" ]; then
+  echo "bootstrap-project-config.sh: use either --repo or --folder, not both" >&2
+  exit 1
+fi
+if [ "$ALL_REPOS" = "yes" ] && [ -n "$FOLDER_ARG" ]; then
+  echo "bootstrap-project-config.sh: use either --all-repos or --folder, not both" >&2
+  exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -69,12 +84,14 @@ emit_json() {
   local gitignore_status="$6"
   local legacy_markdown_status="$7"
   local legacy_config_status="$8"
+  local target_kind_value="${target_kind:-}"
 
   printf '{'
   printf '"schema_version":"project-config-bootstrap.v1",'
   printf '"overall_status":"%s",' "$(json_escape "$overall_status")"
   printf '"reason":"%s",' "$(json_escape "$reason")"
   printf '"repo_root":"%s",' "$(json_escape "$repo_root")"
+  printf '"target_kind":"%s",' "$(json_escape "$target_kind_value")"
   printf '"project":{"example_config_status":"%s","local_config_status":"%s","local_config_gitignore_status":"%s"},' \
     "$(json_escape "$example_status")" \
     "$(json_escape "$local_status")" \
@@ -290,6 +307,9 @@ TARGET_ARGS=()
 if [ -n "$REPO_ARG" ] && [ "$ALL_REPOS" != "yes" ]; then
   TARGET_ARGS+=(--repo "$REPO_ARG")
 fi
+if [ -n "$FOLDER_ARG" ] && [ "$ALL_REPOS" != "yes" ]; then
+  TARGET_ARGS+=(--folder "$FOLDER_ARG")
+fi
 set +e
 TARGET_ENV="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format env ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
 TARGET_STATUS=$?
@@ -305,7 +325,7 @@ fi
 DEFAULT_ALL_REPOS="no"
 TARGET_MODE="$(jq -r '.mode // empty' <<<"$TARGET_JSON")"
 TARGET_CANDIDATE_COUNT="$(jq -r '(.candidates // []) | length' <<<"$TARGET_JSON")"
-if [ -z "$REPO_ARG" ] && [ "$TARGET_MODE" != "git-repo" ] && [ "$TARGET_CANDIDATE_COUNT" -gt 0 ]; then
+if [ -z "$REPO_ARG" ] && [ -z "$FOLDER_ARG" ] && [ "$TARGET_MODE" != "git-repo" ] && [ "$TARGET_CANDIDATE_COUNT" -gt 0 ]; then
   DEFAULT_ALL_REPOS="yes"
 fi
 if [ "$DEFAULT_ALL_REPOS" = "yes" ]; then
@@ -324,7 +344,13 @@ if [ "$TARGET_STATUS" -ne 0 ] || [ "$state_write_allowed" != "true" ]; then
   exit 0
 fi
 
-REPO_ROOT="$selected_repo_root"
+REPO_ROOT="${target_root:-}"
+if [ -z "$REPO_ROOT" ]; then
+  REPO_ROOT="$selected_repo_root"
+fi
+if [ -z "$REPO_ROOT" ]; then
+  REPO_ROOT="$selected_folder_root"
+fi
 TEMPLATE="$SCRIPT_DIR/../references/config-template.yaml"
 SPEC_DIR="$REPO_ROOT/.spec-first"
 EXAMPLE_CONFIG="$SPEC_DIR/config.local.example.yaml"
@@ -372,10 +398,11 @@ if [ "$CREATE_LOCAL" = "yes" ]; then
 fi
 
 if [ "$ENSURE_GITIGNORE" = "yes" ]; then
-  if [ -L "$GITIGNORE" ]; then
+  if [ "${target_kind:-}" = "non-git-folder" ]; then
+    gitignore_status="not-applicable-non-git-folder"
+  elif [ -L "$GITIGNORE" ]; then
     fail_project_config "gitignore-symlink-escape" "$example_status" "$local_status" "blocked"
-  fi
-  if git check-ignore -q "$LOCAL_CONFIG" 2>/dev/null; then
+  elif git check-ignore -q "$LOCAL_CONFIG" 2>/dev/null; then
     gitignore_status="already-ignored"
   else
     touch "$GITIGNORE"

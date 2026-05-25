@@ -88,7 +88,7 @@
     skills/                         # Codex skill runtime mirror，忽略
 
   .gitnexus/                         # GitNexus 本地图谱索引/metadata，忽略
-  .code-review-graph/                # code-review-graph 本地索引/cache，忽略
+  .code-review-graph/                # 迁移前 CRG 本地索引/cache 残留，迁移窗口内忽略
 
   .spec-first/
     config.local.example.yaml       # 本地配置模板，可提交
@@ -138,7 +138,7 @@
 | `.claude/tasks/`、`.claude/worktrees/` | Claude Code host-local scratch/worktree 产物 |
 | `.codex/commands/spec/`、`.codex/spec-first/`、`.codex/agents/`、`.agents/skills/` | `spec-first init --codex` 可重建的 runtime assets |
 | `.spec-first/config.local.yaml`、`.spec-first/*.local.yaml` | 本地配置，可能包含个人路径或私有设置 |
-| `.gitnexus/`、`.code-review-graph/` | 本地图谱 provider 索引、metadata 或 cache，可由对应 provider 重建 |
+| `.gitnexus/`、`.code-review-graph/` | GitNexus 本地图谱索引，以及迁移前 CRG 残留 cache；`.code-review-graph/` 仅迁移窗口内保留 |
 | `.spec-first/config/*.json` | `spec-mcp-setup` 生成的 setup-owned 本地投影，不是第二个版本源 |
 | `.spec-first/providers/` | provider 原始日志、状态和规范化输出，依赖本机环境和当前索引 |
 | `.spec-first/graph/` | graph readiness facts，可由 `spec-graph-bootstrap` 重建 |

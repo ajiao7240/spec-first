@@ -189,7 +189,7 @@ Do not chain multiple workflows automatically unless the active workflow explici
 | Intent | Claude | Codex |
 | --- | --- | --- |
 | environment setup, host setup, MCP setup, missing tools, host readiness, project-local setup | `/spec:mcp-setup` | `$spec-mcp-setup` |
-| compile or refresh graph readiness, GitNexus/code-review-graph provider indexes, or graph-provider query proof after setup | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
+| compile or refresh GitNexus graph readiness, provider index, or graph-provider query proof after setup | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
 | check/update spec-first, refresh generated runtime assets, or repair stale `/spec:*` / `$spec-*` entries | `/spec:update` | `$spec-update` |
 | retrieve past coding-agent sessions or ask what happened in prior work | `/spec:sessions` | `$spec-sessions` |
 | Slack or organizational discussion context | `/spec:slack-research` | `$spec-slack-research` |

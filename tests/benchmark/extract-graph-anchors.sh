@@ -10,9 +10,9 @@ GITNEXUS_REPO_SELECTOR="${GITNEXUS_REPO_SELECTOR:-}"
 
 usage() {
   cat <<'EOF'
-Usage: extract-graph-anchors.sh --repo <path> [--provider all|gitnexus|code-review-graph] [--gitnexus-repo <selector>]
+Usage: extract-graph-anchors.sh --repo <path> [--provider all|gitnexus] [--gitnexus-repo <selector>]
 
-Outputs JSON with nodes[] and edges[] anchors. This helper is benchmark-only and does not mutate canonical graph artifacts.
+Outputs JSON with nodes[] and edges[] anchors. This helper is benchmark-only, extracts active providers only, and does not mutate canonical graph artifacts.
 EOF
 }
 
@@ -165,67 +165,15 @@ extract_gitnexus() {
       }'
 }
 
-extract_code_review_graph() {
-  local db_path="$REPO_ROOT/.code-review-graph/graph.db"
-  if ! command -v sqlite3 >/dev/null 2>&1; then
-    empty_provider_json code-review-graph unavailable sqlite3-missing
-    return
-  fi
-  if [ ! -f "$db_path" ]; then
-    empty_provider_json code-review-graph unavailable crg-graph-db-missing
-    return
-  fi
-
-  local node_json="$TMP_DIR/crg-nodes.json"
-  local edge_json="$TMP_DIR/crg-edges.json"
-  sqlite3 -json "$db_path" 'select kind,name,file_path,line_start,line_end from nodes where kind in ("Function","Class","Method","Interface");' > "$node_json"
-  sqlite3 -json "$db_path" 'select kind,source_qualified,target_qualified,file_path,line from edges where kind in ("CALLS","IMPORTS_FROM","REFERENCES");' > "$edge_json"
-
-  jq -n \
-    --arg provider "code-review-graph" \
-    --arg repo_root "$REPO_ROOT" \
-    --arg source_revision "$SOURCE_REVISION" \
-    --arg db_path ".code-review-graph/graph.db" \
-    --slurpfile nodes "$node_json" \
-    --slurpfile edges "$edge_json" '{
-      provider:$provider,
-      status:"ok",
-      metadata:{
-        repo_root:$repo_root,
-        source_revision:$source_revision,
-        db_path:$db_path
-      },
-      nodes:($nodes[0] | map({
-        kind:.kind,
-        name:.name,
-        path:.file_path,
-        start_line:.line_start,
-        end_line:.line_end
-      })),
-      edges:($edges[0] | map({
-        type:.kind,
-        from_name:.source_qualified,
-        to_name:.target_qualified,
-        path:.file_path,
-        line:.line
-      })),
-      diagnostics:[]
-    }'
-}
-
 provider_results="$TMP_DIR/providers.jsonl"
 : > "$provider_results"
 
 case "$PROVIDER" in
   all)
     extract_gitnexus >> "$provider_results"
-    extract_code_review_graph >> "$provider_results"
     ;;
   gitnexus)
     extract_gitnexus >> "$provider_results"
-    ;;
-  code-review-graph)
-    extract_code_review_graph >> "$provider_results"
     ;;
   *)
     echo "extract-graph-anchors.sh: unsupported provider: $PROVIDER" >&2

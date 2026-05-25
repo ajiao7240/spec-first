@@ -55,6 +55,8 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('`provider_summary.ready_primary_providers[]`');
     expect(doc).toContain('`capabilities.query_global_graph`');
     expect(doc).toContain('`capabilities.impact_context`');
+    expect(doc).toContain('`capabilities.impact_context_status`');
+    expect(doc).toContain('`capabilities.impact_context_limitations[]`');
     expect(doc).toContain('`worktree_status_hash`');
     expect(doc).toContain('`dirty_classification`');
     expect(doc).toContain('`dirty_paths_breakdown`');
@@ -65,6 +67,10 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('`capabilities.context_selection.support_level`');
     expect(doc).toContain('`capabilities.impact_radius.*`');
     expect(doc).toContain('`capabilities.review_support.*`');
+    expect(doc).toContain('## GitNexus Review Support');
+    expect(doc).toContain('producer 必须把 `related_tests_status` / `review_support.related_tests` 标为 `candidate-only`');
+    expect(evidencePolicy).toContain('## GitNexus Review Evidence');
+    expect(evidencePolicy).toContain('related_tests=candidate-only (provider-unverified)');
     expect(doc).toContain('`downstream_guidance.limitations_required`');
 
     expect(doc).toContain('`.spec-first/providers/<provider>/status.json`');
@@ -138,6 +144,8 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('live MCP 成功是 session-local corroboration');
     expect(doc).toContain('不能把 `.spec-first/graph/graph-facts.json`');
     expect(doc).toContain('改写为 true');
+    expect(doc).toContain('compiled bootstrap 的 definitions-only probe 可以置 `query_ready=true`');
+    expect(doc).toContain('只代表 query/context orientation ready');
     expect(doc).toContain('不自动运行 GitNexus analyze、provider build 或 index rebuild');
     expect(doc).toContain('provider fingerprint mismatch');
     expect(doc).toContain('consumer 可以推荐 `$spec-graph-bootstrap`');
@@ -184,6 +192,12 @@ describe('graph provider consumption contract', () => {
     expect(doc).toContain('provider `query_ready`');
     expect(doc).toContain('workspace `query_usability`');
     expect(doc).toContain('`definitions-only` 仍是 limitation / query-usability condition');
+    expect(doc).toContain('## Definitions-Only GitNexus Evidence');
+    expect(doc).toContain('不是脚本对“文档库”的语义识别');
+    expect(doc).toContain('是否满足当前使用场景由 LLM 基于 user intent 和 limitations 决定');
+    expect(doc).toContain('Normalized artifacts 对 non-git folder 不得声明 `execution_flow`');
+    expect(doc).toContain('不得把 `impact_radius` 升为 `full`');
+    expect(doc).toContain('不得让 review-impact `primary_providers[]` 暴露 GitNexus');
   });
 
   test('documents downstream graph evidence consumption boundaries without new enums', () => {
@@ -272,9 +286,9 @@ describe('graph provider consumption contract', () => {
     const evidencePolicy = read(EVIDENCE_POLICY_PATH);
     const sourceRuntimeBoundary = read(SOURCE_RUNTIME_BOUNDARY_PATH);
 
-    expect(evidencePolicy).toContain('GitNexus、code-review-graph、ast-grep 和直接源码读取');
+    expect(evidencePolicy).toContain('GitNexus、ast-grep 和直接源码读取');
     expect(evidencePolicy).not.toContain('Serena');
-    expect(sourceRuntimeBoundary).toContain('GitNexus, code-review-graph, ast-grep');
+    expect(sourceRuntimeBoundary).toContain('GitNexus, ast-grep');
     expect(sourceRuntimeBoundary).not.toContain('Serena');
   });
 
@@ -362,7 +376,7 @@ describe('graph provider consumption contract', () => {
     const providerStatus = {
       schema_version: 'graph-provider-status.v1',
       workflow_mode: 'primary',
-      ready_primary_providers: ['gitnexus', 'code-review-graph'],
+      ready_primary_providers: ['gitnexus'],
       failed_primary_providers: [],
       not_applicable_providers: [],
       skipped_primary_providers: [],
@@ -381,6 +395,7 @@ describe('graph provider consumption contract', () => {
           normalized_artifacts: {
             architecture_facts: '.spec-first/providers/gitnexus/normalized/architecture-facts.json',
             reuse_candidates: '.spec-first/providers/gitnexus/normalized/reuse-candidates.json',
+            impact_capabilities: '.spec-first/providers/gitnexus/normalized/impact-capabilities.json',
           },
         },
       ],
@@ -400,7 +415,7 @@ describe('graph provider consumption contract', () => {
         truncated: false,
       },
       provider_summary: {
-        ready_primary_providers: ['gitnexus', 'code-review-graph'],
+        ready_primary_providers: ['gitnexus'],
         degraded_providers: [],
         not_applicable_providers: [],
         skipped_primary_providers: [],
@@ -412,7 +427,9 @@ describe('graph provider consumption contract', () => {
       },
       capabilities: {
         query_global_graph: true,
-        impact_context: true,
+        impact_context: false,
+        impact_context_status: 'limited',
+        impact_context_limitations: ['related_tests_unverified'],
       },
       staleness_hints: {
         compare_source_revision: true,
@@ -425,8 +442,14 @@ describe('graph provider consumption contract', () => {
       workflow_mode: 'primary',
       capabilities: {
         context_selection: { support_level: 'full', primary_providers: ['gitnexus'], confidence: 'high' },
-        impact_radius: { support_level: 'full', primary_providers: ['code-review-graph'], confidence: 'high' },
-        review_support: { support_level: 'partial', primary_providers: ['code-review-graph'], confidence: 'medium' },
+        impact_radius: { support_level: 'full', primary_providers: ['gitnexus'], confidence: 'high' },
+        review_support: {
+          support_level: 'partial',
+          primary_providers: ['gitnexus'],
+          related_tests_status: 'candidate-only',
+          confidence: 'medium',
+          limitations: ['related_tests_unverified'],
+        },
       },
       downstream_guidance: {
         canonical_graph_facts: '.spec-first/graph/graph-facts.json',
@@ -443,6 +466,8 @@ describe('graph provider consumption contract', () => {
     expect(graphFacts.refresh_mode_summary).toBeUndefined();
     expect(graphFacts.provider_summary.ready_primary_providers).toContain('gitnexus');
     expect(graphFacts.canonical_artifacts.impact_capabilities).toBe('.spec-first/impact/bootstrap-impact-capabilities.json');
+    expect(graphFacts.capabilities.impact_context_status).toBe('limited');
     expect(impactCapabilities.capabilities.review_support.support_level).toBe('partial');
+    expect(impactCapabilities.capabilities.review_support.related_tests_status).toBe('candidate-only');
   });
 });

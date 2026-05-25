@@ -62,9 +62,9 @@ The workflow should leave deterministic facts behind for downstream workflows: h
 
 `spec-mcp-setup` owns setup projection, not graph readiness refresh. It may refresh `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, `.spec-first/config/provider-artifacts.json`, and ledger facts; it must not write canonical `.spec-first/graph/*`, `.spec-first/providers/*`, or `.spec-first/impact/*` graph readiness artifacts as a provider refresh.
 
-When setup detects stale provider projection, stale package/version pins, provider fingerprint mismatch, or graph readiness still pending, it should mark graph bootstrap required and hand off to `$spec-graph-bootstrap` / `/spec:graph-bootstrap`. It does not run GitNexus analyze/status/query, code-review-graph build/status, provider repair, index rebuild, group sync, or branch/pull/rebase-triggered refresh on behalf of downstream workflows.
+When setup detects stale provider projection, stale package/version pins, provider fingerprint mismatch, or graph readiness still pending, it should mark graph bootstrap required and hand off to `$spec-graph-bootstrap` / `/spec:graph-bootstrap`. It does not run GitNexus analyze/status/query/build/index refresh, provider repair, group sync, or branch/pull/rebase-triggered refresh on behalf of downstream workflows.
 
-Setup may write GitNexus `native_capabilities` and `gitnexus_capability_discovery` as setup-inferred availability/discovery facts. These facts are not task-level query results, not semantic evidence, and not proof of `query_ready=true`; downstream LLM workflows still decide whether a capability fits the current question and verify critical claims with canonical readiness, live MCP tool/resource evidence, direct source reads, tests, ast-grep, code-review-graph, prior GitNexus evidence, or bounded per-repo fallback. Public `source_tags[]` use the GitNexus catalog vocabulary (`checked-in-baseline`, `provider-pin`, `setup-projection`, live MCP tags, session-local inference, and user decision); setup does not write live MCP tags because it does not call tools or resources.
+Setup may write GitNexus `native_capabilities` and `gitnexus_capability_discovery` as setup-inferred availability/discovery facts. These facts are not task-level query results, not semantic evidence, and not proof of `query_ready=true`; downstream LLM workflows still decide whether a capability fits the current question and verify critical claims with canonical readiness, live MCP tool/resource evidence, direct source reads, tests, ast-grep, prior GitNexus evidence, or bounded per-repo fallback. Public `source_tags[]` use the GitNexus catalog vocabulary (`checked-in-baseline`, `provider-pin`, `setup-projection`, live MCP tags, session-local inference, and user decision); setup does not write live MCP tags because it does not call tools or resources.
 
 ## When To Use
 
@@ -81,9 +81,9 @@ Use this workflow when the user asks to install, repair, verify, or diagnose spe
 Do not use this workflow to:
 
 - compile graph readiness itself; hand off to `spec-graph-bootstrap` after setup facts are ready;
-- run GitNexus analyze/status/query or `code-review-graph` build/status/query provider commands;
+- run GitNexus analyze/status/query/build/index refresh provider commands;
 - choose product requirements, implementation plans, review findings, or architecture tradeoffs;
-- install optional live `code-review-graph serve` MCP unless the user explicitly requests that enhancement;
+- install retired CRG host MCP snippets or provider commands;
 - delete legacy local files or user-authored host config sections outside explicit uninstall/delete commands;
 - patch generated runtime mirrors under `.claude/`, `.codex/`, or `.agents/skills/`.
 
@@ -139,10 +139,13 @@ Required MCP tools:
 
 Required graph providers:
 
-- `gitnexus` with role `global_knowledge`
-- `code-review-graph` with role `impact_context`
+- `gitnexus` with role `global_knowledge` and review-impact evidence support
 
-Graph provider does not always mean host MCP server. `gitnexus` remains a required host MCP server because downstream workflows can use live GitNexus tools for global code knowledge. `code-review-graph` is required as a CLI/provider backend for `spec-graph-bootstrap`, but its host MCP server is optional and must not be installed by default. The default `code-review-graph` access mode is `cli_artifact`: setup warms `uvx <configured-code-review-graph-package>`, writes provider command projections, and lets graph-bootstrap compile `.spec-first/graph/*` and `.spec-first/impact/*` facts without adding `[mcp_servers."code-review-graph"]` to Claude/Codex host config. Live `code-review-graph serve` may be configured only as an explicit optional enhancement when the user wants direct MCP tools.
+Graph provider does not always mean host MCP server. `gitnexus` remains a required host MCP server because downstream workflows can use live GitNexus tools for global code knowledge and review-impact evidence. Retired CRG projections or host MCP snippets are migration residue only; setup must not install, warm, or project CRG during normal install/verify.
+
+## GitNexus-Only Upgrade Path
+
+When upgrading a repo that still has `.spec-first/config/graph-providers.json` with a retired `code-review-graph` provider key, run `$spec-mcp-setup` / `/spec:mcp-setup` first. Setup rewrites setup-owned provider projection from the current `mcp-tools.json` registry, so the next `$spec-graph-bootstrap` / `/spec:graph-bootstrap` run sees a GitNexus-only projection. Do not hand-edit `.spec-first/config/graph-providers.json` to bypass `stale-provider-projection`; old host MCP snippets, `.code-review-graph/`, `.spec-first/providers/code-review-graph/**`, and uv cache cleanup are manual maintenance documented in `docs/05-用户手册/19-旧CRG残留手动清理指引.md`.
 
 Required helper tooling outside `mcp-tools.json`:
 
@@ -158,7 +161,7 @@ Browser automation helper capability outside `mcp-tools.json`:
 
 - `agent-browser` CLI + upstream/global skill, installed or repaired only when `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1` is set. Without that explicit demand, setup reports `agent-browser` as `result=skipped`, `baseline_blocking=false`, and records browser demand signals for downstream judgment.
 
-All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp` or `graph-provider`. MCP tools must have `host_config_required=true`. Graph providers must declare whether host MCP config is required. `code-review-graph` must keep `host_config_required=false`, `provider_config.access_mode="cli_artifact"`, and `provider_config.optional_live_mcp=true` so host startup is not blocked by its optional MCP server. Required helper tooling must not be added to `mcp-tools.json`; it is managed by `install-helpers.*` and appears under readiness ledger `helper_tools`.
+All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp` or `graph-provider`. MCP tools must have `host_config_required=true`. GitNexus is the only current graph provider entry. Required helper tooling must not be added to `mcp-tools.json`; it is managed by `install-helpers.*` and appears under readiness ledger `helper_tools`.
 
 ## What This Workflow Does
 
@@ -259,8 +262,6 @@ It must not run:
 - `npx -y <configured-gitnexus-package> analyze`
 - `npx -y <configured-gitnexus-package> status`
 - `npx -y <configured-gitnexus-package> query`
-- `uvx <configured-code-review-graph-package> build`
-- `uvx <configured-code-review-graph-package> status`
 - the retired internal graph CLI
 
 Graph readiness compilation is owned by `spec-graph-bootstrap`. Re-running setup must not reset an existing canonical project graph readiness summary to `not-bootstrapped` when the current provider setup remains ready.
@@ -410,7 +411,7 @@ npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill ag
 npx -y skills@latest add ast-grep/agent-skill -g -y
 ```
 
-Package-backed setup commands normally request the latest available safe version when they install or warm a tool: npm/npx packages use `@latest`, floating `uvx` tool invocations use `--upgrade`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. A package may be pinned for a documented upstream remediation or stability window; the pin must live in `mcp-tools.json` and all setup/bootstrap projections must read that value instead of hard-coding the package spec. `code-review-graph` currently uses this pinned path for daily graph-provider bootstrap, so setup, optional live MCP snippets, and `.spec-first/config/graph-providers.json` project `code-review-graph@<version>` from `mcp-tools.json`; explicit update/probe work may use `@latest` or `--refresh` only when changing or validating the source pin. Successful MCP warmups may be cached under `$HOME/.spec-first/cache/mcp-warmup/` by host, platform, tool id, and resolved command hash; `SPEC_FIRST_WARMUP_CACHE_DIR` may override the cache root. Pinned package specs stay valid until the command hash changes, while `@latest` / `--upgrade` warmups use a bounded TTL controlled by `SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS` and defaulting to 86400 seconds. `SPEC_FIRST_FORCE_WARMUP=1` or `SPEC_FIRST_DISABLE_WARMUP_CACHE=1` must force the script back to running the warmup command. `--verify-only` remains read-only and never upgrades tools.
+Package-backed setup commands normally request the latest available safe version when they install or warm a tool: npm/npx packages use `@latest`, Cargo installs use `--force` where supported, and package-manager handoff commands prefer upgrade-before-install semantics. A package may be pinned for a documented upstream remediation or stability window; the pin must live in `mcp-tools.json` and all setup/bootstrap projections must read that value instead of hard-coding the package spec. Successful MCP warmups may be cached under `$HOME/.spec-first/cache/mcp-warmup/` by host, platform, tool id, and resolved command hash; `SPEC_FIRST_WARMUP_CACHE_DIR` may override the cache root. Pinned package specs stay valid until the command hash changes, while `@latest` warmups use a bounded TTL controlled by `SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS` and defaulting to 86400 seconds. `SPEC_FIRST_FORCE_WARMUP=1` or `SPEC_FIRST_DISABLE_WARMUP_CACHE=1` must force the script back to running the warmup command. `--verify-only` remains read-only and never upgrades tools.
 
 ## Readiness Ledger v2
 
@@ -419,7 +420,7 @@ Package-backed setup commands normally request the latest available safe version
 - `schema_version="tool-facts.v2"`
 - `tools`
 - `graph_providers`
-- no top-level `crg`
+- no top-level legacy CRG fields
 - no `baseline_ready`
 
 `verify-tools.*` merges:
@@ -439,7 +440,7 @@ Then it computes one final readiness ledger:
 }
 ```
 
-`baseline_ready` includes required MCP tools, required graph providers, and every baseline-blocking required helper in `helper_tools`. For graph providers, host MCP readiness only gates baseline when `host_config_required=true`. `code-review-graph` can be baseline-ready with `host_config_status=not-required` as long as its dependencies are ready and its CLI provider projection is enabled. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph readiness compilation is still required.
+`baseline_ready` includes required MCP tools, required graph providers, and every baseline-blocking required helper in `helper_tools`. GitNexus is both the current graph provider and a required host MCP server. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph readiness compilation is still required.
 
 On a first setup, graph-provider facts show:
 
@@ -501,14 +502,6 @@ Expected projection boundaries:
           }
         ]
       }
-    },
-    "code-review-graph": {
-      "configured": true,
-      "commands": {
-        "bootstrap": ["uvx", "<configured-code-review-graph-package>", "build"],
-        "status": ["uvx", "<configured-code-review-graph-package>", "status"],
-        "query_probe": ["uvx", "<configured-code-review-graph-package>", "status", "--repo", "<repo-root>"]
-      }
     }
   },
   "derived_readiness": {
@@ -521,7 +514,7 @@ Expected projection boundaries:
   "boundaries": {
     "setup_only": true,
     "does_not_run_gitnexus_analyze": true,
-    "does_not_run_code_review_graph_build": true,
+    "does_not_run_provider_index_refresh": true,
     "graph_bootstrap_required": true
   }
 }
@@ -531,15 +524,7 @@ GitNexus `query_probe_policy` selection must stay deterministic and source-deriv
 
 ## Codex TOML Contract
 
-Codex MCP sections with hyphenated names must use quoted TOML table keys:
-
-```toml
-[mcp_servers."code-review-graph"]
-```
-
-The `code-review-graph` host MCP snippet is optional documentation for explicit live-MCP opt-in, not the default setup output. `spec-mcp-setup` must not write this snippet during normal install/verify. The default install result for `code-review-graph` should report the package warmup as ready, host config as `not-required`, and provider bootstrap as enabled.
-
-Before writing a Codex section, scripts must delete both legacy unquoted and current quoted sections for the same MCP server. `configure-host.*`, `detect-tools.*`, and `uninstall-mcp.*` must share the same TOML formatter/parser helpers.
+Codex MCP sections with hyphenated names must use quoted TOML table keys. Before writing a Codex section, scripts must delete both legacy unquoted and current quoted sections for the same MCP server. `configure-host.*`, `detect-tools.*`, and `uninstall-mcp.*` must share the same TOML formatter/parser helpers.
 
 Host MCP config files must contain only host-supported MCP server fields such as `command`, `args`, and host-specific startup timeout fields. Internal setup metadata such as selected scope belongs in script output and readiness ledgers, not in Claude/Codex MCP server entries.
 
@@ -547,7 +532,7 @@ Codex higher-precedence config handling is tool-specific. A higher-precedence co
 
 ## Uninstall Contract
 
-`uninstall-mcp.*` must remove registered MCP servers, including any optional `code-review-graph` MCP server if present. After uninstall it must refresh:
+`uninstall-mcp.*` must remove registered MCP servers. Retired CRG is not a registered tool id; manual cleanup guidance owns any historical host config residue. After uninstall it must refresh:
 
 - host readiness ledger v2
 - `.spec-first/config/graph-providers.json`
@@ -566,7 +551,7 @@ Execution result:
 | Area             | Status  | Evidence                                      | Next                     |
 | ---------------- | ------- | --------------------------------------------- | ------------------------ |
 | Harness runtime  | ready   | baseline_ready=true                           | n/a                      |
-| Graph readiness  | pending | ready: code-review-graph; pending: gitnexus   | run spec-graph-bootstrap |
+| Graph readiness  | pending | pending: gitnexus                             | run spec-graph-bootstrap |
 
 MCP servers:
 | Name                | Role                     | Dependency | Host  | Project | Next |
@@ -578,7 +563,6 @@ Graph providers:
 | Name              | Role                         | Dependency | Host         | Query   | Bootstrap | Next                     |
 | ----------------- | ---------------------------- | ---------- | ------------ | ------- | --------- | ------------------------ |
 | gitnexus          | 全局代码知识图谱与影响分析   | ready      | ready        | pending | required  | run spec-graph-bootstrap |
-| code-review-graph | 变更影响半径与 review 上下文 | ready      | not-required | ready   | done      | n/a                      |
 
 Helper tools:
 | Name           | Type         | Result | Dependency | Install | Skill | Next |
@@ -610,7 +594,7 @@ Project setup facts:
 The setup pipeline scripts themselves depend on a small set of host tools that are separate from per-tool `dependencies` declared in `mcp-tools.json`. `check-deps.sh` / `check-deps.ps1` run at the start of setup and fail visibly before tool-level work begins, but the required set is host-path specific:
 
 - Unix shell path (`*.sh`) requires `node`, `npm`, `npx`, `uv`, `uvx`, `jq`, and `python3`.
-- Windows PowerShell 7 path (`*.ps1`) requires `node`, `npm`, `npx`, `uv`, and `uvx`; `git` remains optional. It does not require `jq` or `python3` because JSON/TOML handling and bounded process execution are implemented with native PowerShell/.NET in the `.ps1` scripts.
+- Windows PowerShell 7 path (`*.ps1`) requires `node`, `npm`, and `npx`; `git` remains optional. It does not require `jq` or `python3` because JSON/TOML handling and bounded process execution are implemented with native PowerShell/.NET in the `.ps1` scripts.
 
 Unix-only dependency details:
 
@@ -618,7 +602,7 @@ Unix-only dependency details:
 - `python3` — required by shell scripts for: hashlib-backed warmup-cache hashing (`install-mcp.sh`), bounded subprocess timeout management with `start_new_session` + `os.killpg` (`install-mcp.sh`, `bootstrap-providers.sh`), and TOML section regex parsing (`lib-toml.sh`). Currently any reasonably modern `python3` (≥3.6) suffices; we do not depend on `tomllib` (3.11+).
 - `node` — required by `verify-tools.sh` to invoke `render-status-block.cjs` for CJK-width-aware status table rendering. Also implied by all `npx`-based MCP installs (gitnexus, sequential-thinking, context7).
 
-`uv` / `uvx` are still checked as required setup dependencies because required tools (code-review-graph) need them during the setup flow.
+`uv` / `uvx` are not required by the current GitNexus-only setup registry. Historical CRG cleanup, if needed, is manual guidance rather than setup-owned dependency readiness.
 
 ## Reference
 

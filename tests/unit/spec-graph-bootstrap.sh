@@ -8,9 +8,9 @@ GRAPH_BOOTSTRAP_SKILL="$REPO_ROOT/skills/spec-graph-bootstrap/SKILL.md"
 BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
 BOOTSTRAP_PS1="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1"
 WORKSPACE_TARGET_RESOLVER="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh"
+MCP_WRITE_PROVIDER_CONFIG="$REPO_ROOT/skills/spec-mcp-setup/scripts/write-provider-config.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
-CODE_REVIEW_GRAPH_PACKAGE="$(jq -r '.tools[] | select(.id == "code-review-graph") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
 GITNEXUS_QUERY_PROBE="TradeLoginActivity"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -101,6 +101,14 @@ if [[ "\${FAIL_GITNEXUS_QUERY:-}" = "1" && " \$* " == *" gitnexus@"*" query "* ]
   echo "query failed" >&2
   exit 42
 fi
+if [[ " \$* " == *" gitnexus@"*" impact "* ]]; then
+  if [[ "\${GITNEXUS_IMPACT_NO_TESTS:-}" = "1" ]]; then
+    printf '{"byDepth":{"1":[{"filePath":"src/review-pre-facts.js"}]},"affected_processes":[]}\n'
+    exit 0
+  fi
+  printf '{"byDepth":{"1":[{"filePath":"src/review-pre-facts.js"},{"filePath":"tests/unit/review-pre-facts-helper.test.js"}]},"affected_processes":[]}\n'
+  exit 0
+fi
 if [[ " \$* " == *" gitnexus@"*" query "* ]]; then
   query_token=""
   previous_arg=""
@@ -116,8 +124,16 @@ if [[ " \$* " == *" gitnexus@"*" query "* ]]; then
     printf '{"processes":[],"process_symbols":[],"definitions":[]}\n'
     exit 0
   fi
+	  if [[ "\${GITNEXUS_QUERY_EMPTY:-}" = "1" ]]; then
+	    printf '{"processes":[],"process_symbols":[],"definitions":[]}\n'
+	    exit 0
+	  fi
 	  if [[ "\${GITNEXUS_QUERY_SECOND_CANDIDATE_SUCCEEDS:-}" = "1" && "\$query_token" != "$GITNEXUS_QUERY_PROBE" ]]; then
-	    printf '{"processes":[],"process_symbols":[],"definitions":[{"name":"%s"}]}\n' "\$query_token"
+	    printf '{"processes":[],"process_symbols":[],"definitions":[]}\n'
+	    exit 0
+	  fi
+	  if [[ "\${GITNEXUS_QUERY_NO_SOURCE_TOKEN_EMPTY:-}" = "1" && "\$query_token" = "main src build README package" ]]; then
+	    printf '{"processes":[],"process_symbols":[],"definitions":[]}\n'
 	    exit 0
 	  fi
 	  if [[ "\${GITNEXUS_QUERY_NO_SOURCE_TOKEN_DEFINITIONS_ONLY:-}" = "1" && "\$query_token" = "main src build README package" ]]; then
@@ -132,33 +148,9 @@ if [[ " \$* " == *" gitnexus@"*" query "* ]]; then
 fi
 exit 0
 SH
-  cat > "$bin_dir/uvx" <<SH
+cat > "$bin_dir/uvx" <<SH
 #!/bin/bash
 echo "uvx \$*" >> "$log_file"
-if [[ "\${FAIL_CRG_CACHE_PERMISSION:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE build "* ]]; then
-  echo "error: failed to open file \"/Users/spec/.cache/uv/sdists-v9/.git\": Operation not permitted (os error 1)" >&2
-  exit 2
-fi
-if [[ "\${FAIL_CRG_PACKAGE_NOT_FOUND:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE build "* ]]; then
-  echo "warning: Tools cannot be upgraded via uvx; use uv tool upgrade --all to upgrade all installed tools, or uvx package@latest to run the latest version of a tool." >&2
-  echo "  × No solution found when resolving tool dependencies:" >&2
-  echo "  ╰─▶ Because code-review-graph was not found in the package registry and" >&2
-  echo "      you require code-review-graph, we can conclude that your requirements" >&2
-  echo "      are unsatisfiable." >&2
-  exit 1
-fi
-if [[ "\${FAIL_CRG_BUILD:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE build "* ]]; then
-  echo "build failed" >&2
-  exit 43
-fi
-if [[ "\${FAIL_CRG_UPDATE:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE update --base "* ]]; then
-  echo "update failed" >&2
-  exit 45
-fi
-if [[ "\${HANG_CRG_BUILD:-}" = "1" && " \$* " == *" $CODE_REVIEW_GRAPH_PACKAGE build "* ]]; then
-  sleep 5
-  exit 0
-fi
 exit 0
 SH
   cat > "$bin_dir/spec-first" <<SH
@@ -231,25 +223,14 @@ JSON
         "bootstrap": ["npx", "-y", "$GITNEXUS_PACKAGE", "analyze", "--force", "--skip-agents-md", "--no-stats"],
         "incremental": ["npx", "-y", "$GITNEXUS_PACKAGE", "analyze", "--skip-agents-md", "--no-stats"],
         "status": ["npx", "-y", "$GITNEXUS_PACKAGE", "status"],
-        "query_probe": ["npx", "-y", "$GITNEXUS_PACKAGE", "query", "$GITNEXUS_QUERY_PROBE", "--repo", "$(basename "$repo_root")"]
+        "query_probe": ["npx", "-y", "$GITNEXUS_PACKAGE", "query", "$GITNEXUS_QUERY_PROBE", "--repo", "$(basename "$repo_root")"],
+        "impact_probe": ["npx", "-y", "$GITNEXUS_PACKAGE", "impact", "$GITNEXUS_QUERY_PROBE", "--repo", "$(basename "$repo_root")", "--include-tests", "--depth", "2"]
       },
       "query_probe_policy": {
         "expected_hit": true,
         "source": "git-ls-files-code-basename",
         "token": "$GITNEXUS_QUERY_PROBE",
         "selected_from": "trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java"
-      }
-    },
-    "code-review-graph": {
-      "configured": true,
-      "enabled_for_bootstrap": true,
-      "dependency_status": "ready",
-      "host_config_status": "ready",
-      "commands": {
-        "bootstrap": ["uvx", "$CODE_REVIEW_GRAPH_PACKAGE", "build"],
-        "incremental": ["uvx", "$CODE_REVIEW_GRAPH_PACKAGE", "update", "--base", "__SPEC_FIRST_LAST_INDEXED_COMMIT__"],
-        "status": ["uvx", "$CODE_REVIEW_GRAPH_PACKAGE", "status"],
-        "query_probe": ["uvx", "$CODE_REVIEW_GRAPH_PACKAGE", "status", "--repo", "$repo_root"]
       }
     }
   },
@@ -315,24 +296,13 @@ JSON
       "raw_logs": {
         "bootstrap": ".spec-first/providers/gitnexus/raw/analyze.log",
         "status": ".spec-first/providers/gitnexus/raw/status.log",
-        "query_probe": ".spec-first/providers/gitnexus/raw/query.log"
+        "query_probe": ".spec-first/providers/gitnexus/raw/query.log",
+        "impact_probe": ".spec-first/providers/gitnexus/raw/impact.log"
       },
       "normalized_artifacts": {
         "architecture_facts": ".spec-first/providers/gitnexus/normalized/architecture-facts.json",
-        "reuse_candidates": ".spec-first/providers/gitnexus/normalized/reuse-candidates.json"
-      }
-    },
-    "code-review-graph": {
-      "raw_dir": ".spec-first/providers/code-review-graph/raw",
-      "normalized_dir": ".spec-first/providers/code-review-graph/normalized",
-      "status_path": ".spec-first/providers/code-review-graph/status.json",
-      "raw_logs": {
-        "bootstrap": ".spec-first/providers/code-review-graph/raw/build.log",
-        "status": ".spec-first/providers/code-review-graph/raw/status.log",
-        "query_probe": ".spec-first/providers/code-review-graph/raw/query.log"
-      },
-      "normalized_artifacts": {
-        "impact_capabilities": ".spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
+        "reuse_candidates": ".spec-first/providers/gitnexus/normalized/reuse-candidates.json",
+        "impact_capabilities": ".spec-first/providers/gitnexus/normalized/impact-capabilities.json"
       }
     }
   },
@@ -344,6 +314,56 @@ JSON
   }
 }
 JSON
+}
+
+write_folder_fixture_config() {
+  local folder_dir="$1"
+  local ledger_path="$2"
+  local folder_root
+  folder_root="$(cd "$folder_dir" && pwd -P)"
+  local facts_path="$TMP_DIR/$(basename "$folder_dir")-folder-facts.json"
+  mkdir -p "$(dirname "$ledger_path")"
+  cat > "$ledger_path" <<JSON
+{
+  "schema_version": "v2",
+  "host": "codex",
+  "baseline_ready": true,
+  "host_runtime_ready": true
+}
+JSON
+  jq -n \
+    --arg folder_root "$folder_root" \
+    --arg ledger_path "$ledger_path" \
+    '{
+      schema_version:"v2",
+      host:"codex",
+      platform:"macos",
+      repo_status:"not-git-repo",
+      repo_root:$folder_root,
+      selected_folder_root:$folder_root,
+      target_root:$folder_root,
+      target_kind:"non-git-folder",
+      target:{state_write_allowed:true,target_kind:"non-git-folder",selected_folder_root:$folder_root,target_root:$folder_root},
+      host_ledger_pointer:{host:"codex", path:$ledger_path, schema_version:"v2"},
+      baseline_ready:true,
+      host_runtime_ready:true,
+      tools:{},
+      helper_tools:{},
+      graph_providers:{
+        gitnexus:{
+          configured:true,
+          enabled_for_bootstrap:true,
+          required:true,
+          role:"global_knowledge",
+          access_mode:"live_mcp",
+          host_config_required:true,
+          dependency_status:"ready",
+          host_config_status:"ready",
+          capabilities:[]
+        }
+      }
+    }' > "$facts_path"
+  bash "$MCP_WRITE_PROVIDER_CONFIG" --facts-file "$facts_path" >/dev/null
 }
 
 echo "=== spec-graph-bootstrap compiler tests ==="
@@ -379,6 +399,45 @@ assert_eq "workspace graph target resolver emits query usability counts" "0|0|0|
 assert_eq "workspace graph target resolver does not emit development_mode" "false" "$(jq -r 'has("development_mode") or any(.repos[]; has("development_mode"))' <<<"$workspace_targets_output")"
 assert_eq "workspace graph target resolver reads setup-owned config pointers" ".spec-first/config/graph-providers.json|.spec-first/config/runtime-capabilities.json|.spec-first/config/provider-artifacts.json" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | [.artifacts.graph_providers,.artifacts.runtime_capabilities,.artifacts.provider_artifacts] | join("|")' <<<"$workspace_targets_output")"
 assert "workspace graph target resolver does not create parent graph artifacts" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
+
+MIXED_VERSION_WORKSPACE="$TMP_DIR/mixed-version-workspace"
+MIXED_UPGRADED_CHILD="$MIXED_VERSION_WORKSPACE/upgraded-child"
+MIXED_LEGACY_CHILD="$MIXED_VERSION_WORKSPACE/legacy-child"
+MIXED_RESIDUE_CHILD="$MIXED_VERSION_WORKSPACE/residue-child"
+MIXED_LEDGER_UPGRADED="$TMP_DIR/mixed-version-home-upgraded/.codex/spec-first/host-setup.json"
+MIXED_LEDGER_LEGACY="$TMP_DIR/mixed-version-home-legacy/.codex/spec-first/host-setup.json"
+make_repo "$MIXED_UPGRADED_CHILD"
+make_repo "$MIXED_LEGACY_CHILD"
+make_repo "$MIXED_RESIDUE_CHILD"
+write_fixture_config "$MIXED_UPGRADED_CHILD" "$MIXED_LEDGER_UPGRADED" true
+write_fixture_config "$MIXED_LEGACY_CHILD" "$MIXED_LEDGER_LEGACY" true
+legacy_child_head="$(git -C "$MIXED_LEGACY_CHILD" rev-parse HEAD)"
+mkdir -p "$MIXED_LEGACY_CHILD/.spec-first/providers/code-review-graph" "$MIXED_RESIDUE_CHILD/.spec-first/providers/code-review-graph"
+jq '.providers["code-review-graph"] = {configured:true,enabled_for_bootstrap:true,dependency_status:"ready",host_config_status:"ready",commands:{bootstrap:["uvx","code-review-graph@2.3.3","build"],status:["uvx","code-review-graph@2.3.3","status"],query_probe:["uvx","code-review-graph@2.3.3","status","--repo",.repo_root]}}' "$MIXED_LEGACY_CHILD/.spec-first/config/graph-providers.json" > "$MIXED_LEGACY_CHILD/.spec-first/config/graph-providers.json.tmp"
+mv "$MIXED_LEGACY_CHILD/.spec-first/config/graph-providers.json.tmp" "$MIXED_LEGACY_CHILD/.spec-first/config/graph-providers.json"
+jq -n --arg head "$legacy_child_head" '{
+  schema_version:"provider-status.v1",
+  provider:"code-review-graph",
+  status:"ready",
+  graph_ready:true,
+  query_ready:true,
+  last_indexed_commit:$head,
+  repo_snapshot:{source_revision:$head},
+  bootstrap_fingerprint:{repo_snapshot:{source_revision:$head}}
+}' > "$MIXED_LEGACY_CHILD/.spec-first/providers/code-review-graph/status.json"
+jq -n '{
+  schema_version:"provider-status.v1",
+  provider:"code-review-graph",
+  status:"ready",
+  graph_ready:true,
+  query_ready:true,
+  last_indexed_commit:"historical"
+}' > "$MIXED_RESIDUE_CHILD/.spec-first/providers/code-review-graph/status.json"
+mixed_version_targets_output="$(cd "$MIXED_VERSION_WORKSPACE" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
+assert_eq "mixed workspace resolver does not expose active CRG provider block" "false" "$(jq -r 'any(.repos[]; .providers | has("code-review-graph"))' <<<"$mixed_version_targets_output")"
+assert_eq "mixed workspace legacy child asks for upgrade" "child-on-legacy-spec-first-version" "$(jq -r '.repos[] | select(.workspace_relative_path=="legacy-child") | .legacy_provider_advisories[0].reason_code' <<<"$mixed_version_targets_output")"
+assert_eq "mixed workspace residue child ignores historical CRG state" "crg-residue-ignored" "$(jq -r '.repos[] | select(.workspace_relative_path=="residue-child") | .legacy_provider_advisories[0].reason_code' <<<"$mixed_version_targets_output")"
+assert_eq "mixed workspace upgraded child has no CRG advisory" "0" "$(jq -r '.repos[] | select(.workspace_relative_path=="upgraded-child") | (.legacy_provider_advisories | length)' <<<"$mixed_version_targets_output")"
 
 STALE_PARENT_WORKSPACE="$TMP_DIR/stale-parent-workspace"
 make_repo "$STALE_PARENT_WORKSPACE/project-a"
@@ -534,10 +593,9 @@ set +e
 all_repos_degraded_output="$(cd "$ALL_REPOS_DEGRADED_WORKSPACE" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT" --all-repos)"
 all_repos_degraded_status=$?
 set -e
-assert_eq "all-repos graph bootstrap exits non-zero on degraded partial" "1" "$all_repos_degraded_status"
-assert_eq "all-repos graph bootstrap keeps degraded children non-blocking" "partial:0:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.degraded):\(.counts.action_required)"' <<<"$all_repos_degraded_output")"
-assert_eq "all-repos graph bootstrap reports degraded reason separately" "all-repos-degraded-fallback" "$(jq -r '.reason_code' <<<"$all_repos_degraded_output")"
-assert_contains "all-repos degraded next action discloses limitations" "Use degraded child artifacts with disclosed limitations" "$(jq -r '.next_action' <<<"$all_repos_degraded_output")"
+assert_eq "all-repos definitions-only query exits ready" "0" "$all_repos_degraded_status"
+assert_eq "all-repos definitions-only children are ready" "ready:2:0:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.degraded):\(.counts.action_required)"' <<<"$all_repos_degraded_output")"
+assert_eq "all-repos definitions-only child exposes query-only limits" "true:false:unavailable:true" "$(jq -r '.results[0].result.capabilities.query_global_graph as $query | .results[0].result.capabilities.impact_context as $impact | .results[0].result.capabilities.impact_context_status as $status | .results[0].result.capabilities.impact_context_limitations as $limits | "\($query):\($impact):\($status):\(($limits | index("definitions_only_no_process_graph")) != null)"' <<<"$all_repos_degraded_output")"
 
 ALL_REPOS_NO_SOURCE_WORKSPACE="$TMP_DIR/all-repos-no-source-workspace"
 ALL_REPOS_NO_SOURCE_LEDGER="$TMP_DIR/all-repos-no-source-home/.codex/spec-first/host-setup.json"
@@ -556,7 +614,7 @@ jq '
     ]
 ' "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-b/.spec-first/config/graph-providers.json" > "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-b/.spec-first/config/graph-providers.json.tmp"
 mv "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-b/.spec-first/config/graph-providers.json.tmp" "$ALL_REPOS_NO_SOURCE_WORKSPACE/project-b/.spec-first/config/graph-providers.json"
-all_repos_no_source_output="$(cd "$ALL_REPOS_NO_SOURCE_WORKSPACE" && PATH="$TEST_PATH" GITNEXUS_QUERY_NO_SOURCE_TOKEN_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT" --all-repos)"
+all_repos_no_source_output="$(cd "$ALL_REPOS_NO_SOURCE_WORKSPACE" && PATH="$TEST_PATH" GITNEXUS_QUERY_NO_SOURCE_TOKEN_EMPTY=1 bash "$BOOTSTRAP_SCRIPT" --all-repos)"
 assert_eq "all-repos graph bootstrap separates no-source children from degraded" "ready:1:0:1:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.degraded):\(.counts.not_applicable):\(.counts.action_required)"' <<<"$all_repos_no_source_output")"
 assert_eq "all-repos no-source child workflow is explicit" "project-b:no-source:not-applicable" "$(jq -r '.results[] | select(.workspace_relative_path=="project-b") | "\(.repo_label):\(.workflow_mode):\(.overall_status)"' <<<"$all_repos_no_source_output")"
 
@@ -575,7 +633,7 @@ jq '
     ]
 ' "$ONLY_NO_SOURCE_WORKSPACE/project-only/.spec-first/config/graph-providers.json" > "$ONLY_NO_SOURCE_WORKSPACE/project-only/.spec-first/config/graph-providers.json.tmp"
 mv "$ONLY_NO_SOURCE_WORKSPACE/project-only/.spec-first/config/graph-providers.json.tmp" "$ONLY_NO_SOURCE_WORKSPACE/project-only/.spec-first/config/graph-providers.json"
-only_no_source_output="$(cd "$ONLY_NO_SOURCE_WORKSPACE" && PATH="$TEST_PATH" GITNEXUS_QUERY_NO_SOURCE_TOKEN_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT" --all-repos)"
+only_no_source_output="$(cd "$ONLY_NO_SOURCE_WORKSPACE" && PATH="$TEST_PATH" GITNEXUS_QUERY_NO_SOURCE_TOKEN_EMPTY=1 bash "$BOOTSTRAP_SCRIPT" --all-repos)"
 assert_eq "only no-source all-repos remains successful" "ready:0:0:1:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.degraded):\(.counts.not_applicable):\(.counts.action_required)"' <<<"$only_no_source_output")"
 only_no_source_targets="$(cd "$ONLY_NO_SOURCE_WORKSPACE" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
 assert_eq "resolver has explicit no-source reason when every child is no-source" "workspace-graph-targets-no-source:1" "$(jq -r '.reason_code + ":" + (.counts.no_source | tostring)' <<<"$only_no_source_targets")"
@@ -613,7 +671,7 @@ assert_eq "workspace explicit child runs primary bootstrap" "primary" "$(jq -r '
 assert_eq "workspace explicit child records explicit selection" "explicit-repo" "$(jq -r '.selection_source' <<<"$workspace_selected_output")"
 assert "workspace explicit child writes child graph facts" test -f "$WORKSPACE_REPO_A/.spec-first/graph/graph-facts.json"
 assert "workspace explicit child leaves parent graph clean" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
-assert_contains "workspace explicit child runs provider from child root" "uvx $CODE_REVIEW_GRAPH_PACKAGE status --repo $WORKSPACE_REPO_A_ROOT" "$(cat "$COMMAND_LOG")"
+assert_contains "workspace explicit child runs GitNexus provider" "npx -y $GITNEXUS_PACKAGE query $GITNEXUS_QUERY_PROBE --repo $(basename "$WORKSPACE_REPO_A_ROOT")" "$(cat "$COMMAND_LOG")"
 
 workspace_targets_after_bootstrap="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
 assert_eq "dirty graph facts with matching fingerprint stay usable" "primary:false" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | .status + ":" + (.freshness.dirty_uncertain | tostring)' <<<"$workspace_targets_after_bootstrap")"
@@ -660,17 +718,23 @@ assert "primary output is JSON" jq -e . <<<"$primary_output"
 assert_eq "primary workflow mode" "primary" "$(jq -r '.workflow_mode' <<<"$primary_output")"
 assert_contains "runs gitnexus analyze with force rebuild" "npx -y $GITNEXUS_PACKAGE analyze --force" "$(cat "$COMMAND_LOG")"
 assert_contains "runs gitnexus query proof" "npx -y $GITNEXUS_PACKAGE query $GITNEXUS_QUERY_PROBE --repo $(basename "$PRIMARY_REPO_ROOT")" "$(cat "$COMMAND_LOG")"
-assert_contains "runs pinned code-review-graph query proof" "uvx $CODE_REVIEW_GRAPH_PACKAGE status --repo $PRIMARY_REPO_ROOT" "$(cat "$COMMAND_LOG")"
+assert_contains "runs gitnexus impact related-tests proof" "npx -y $GITNEXUS_PACKAGE impact $GITNEXUS_QUERY_PROBE --repo $(basename "$PRIMARY_REPO_ROOT") --include-tests --depth 2" "$(cat "$COMMAND_LOG")"
+assert_not_contains "does not run code-review-graph query proof" "code-review-graph" "$(cat "$COMMAND_LOG")"
 assert "provider status aggregate exists" test -f "$PRIMARY_REPO/.spec-first/graph/provider-status.json"
 assert "graph facts exists" test -f "$PRIMARY_REPO/.spec-first/graph/graph-facts.json"
 assert "impact capabilities exists" test -f "$PRIMARY_REPO/.spec-first/impact/bootstrap-impact-capabilities.json"
 assert "provider raw log exists" test -f "$PRIMARY_REPO/.spec-first/providers/gitnexus/raw/analyze.log"
-assert "normalized artifact exists" test -f "$PRIMARY_REPO/.spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
+assert "code-review-graph normalized artifact is not written" test ! -e "$PRIMARY_REPO/.spec-first/providers/code-review-graph/normalized/impact-capabilities.json"
+assert "GitNexus impact normalized artifact exists" test -f "$PRIMARY_REPO/.spec-first/providers/gitnexus/normalized/impact-capabilities.json"
 assert "old graph raw path is not used" test ! -e "$PRIMARY_REPO/.spec-first/graph/raw/gitnexus"
 assert_eq "graph-bootstrap leaves AGENTS host block for init to refresh" "true" "$(grep -Eq 'MUST run impact|\\.claude/skills/gitnexus' "$PRIMARY_REPO/AGENTS.md" && printf true || printf false)"
 assert_eq "graph-bootstrap leaves CLAUDE host block for init to refresh" "true" "$(grep -Eq 'MUST run impact|\\.claude/skills/gitnexus' "$PRIMARY_REPO/CLAUDE.md" && printf true || printf false)"
 assert_eq "graph facts source revision is a commit SHA" "true" "$(jq -r '.source_revision | test("^[0-9a-f]{40}$")' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
-assert_eq "graph facts exposes capability booleans" "true:true" "$(jq -r '(.capabilities.query_global_graph | tostring) + ":" + (.capabilities.impact_context | tostring)' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "graph facts exposes GitNexus supported impact status" "true:true:supported:" "$(jq -r '(.capabilities.query_global_graph | tostring) + ":" + (.capabilities.impact_context | tostring) + ":" + .capabilities.impact_context_status + ":" + (.capabilities.impact_context_limitations | join(","))' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "GitNexus provider status points at impact normalized artifact" ".spec-first/providers/gitnexus/normalized/impact-capabilities.json" "$(jq -r '.normalized_artifacts.impact_capabilities' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "GitNexus provider status records supported related tests" "supported:.spec-first/providers/gitnexus/raw/impact.log:false" "$(jq -r '.review_support.related_tests_status + ":" + .review_support.impact_probe_raw_log + ":" + ((.review_support.limitations | index("related_tests_unverified")) != null | tostring)' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "GitNexus impact normalized artifact records supported related tests" "supported:high:false" "$(jq -r '.related_tests + ":" + .confidence + ":" + ((.limitations | index("related_tests_unverified")) != null | tostring)' "$PRIMARY_REPO/.spec-first/providers/gitnexus/normalized/impact-capabilities.json")"
+assert_eq "bootstrap impact capabilities use GitNexus supported review support" "full:gitnexus:full:gitnexus:supported:false" "$(jq -r '.capabilities.impact_radius.support_level + ":" + (.capabilities.impact_radius.primary_providers | join(",")) + ":" + .capabilities.review_support.support_level + ":" + (.capabilities.review_support.primary_providers | join(",")) + ":" + .capabilities.review_support.related_tests_status + ":" + ((.capabilities.review_support.limitations | index("related_tests_unverified")) != null | tostring)' "$PRIMARY_REPO/.spec-first/impact/bootstrap-impact-capabilities.json")"
 assert_eq "graph facts exposes staleness hints" "true:true" "$(jq -r '(.staleness_hints.compare_source_revision | tostring) + ":" + (.staleness_hints.compare_worktree_dirty | tostring)' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
 assert_eq "provider status records command source" ".spec-first/config/graph-providers.json" "$(jq -r '.command_source' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "provider status records GitNexus host instruction normalization" "drift-detected:true:0" "$(jq -r '.host_instruction_normalization.status + ":" + (.host_instruction_normalization.advisory | tostring) + ":" + (.host_instruction_normalization.exit_code | tostring)' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
@@ -681,13 +745,64 @@ assert_eq "provider status records command timing" "true" "$(jq -r 'all(.command
 assert_eq "provider status records provider timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "final output records single repo timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' <<<"$primary_output")"
 assert_eq "GitNexus provider records version-safe reuse facts" "graph-bootstrap-fingerprint.v1:true:pinned:cold-run:$GITNEXUS_PACKAGE:$GITNEXUS_PACKAGE" "$(jq -r '.bootstrap_fingerprint.schema_version + ":" + (.reuse_eligible | tostring) + ":" + .bootstrap_fingerprint.provider.version_policy + ":" + .readiness_source + ":" + (.bootstrap_fingerprint.provider.configured_package_spec // "") + ":" + (.bootstrap_fingerprint.provider.bundled_package_spec // "")' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
-assert_eq "code-review-graph provider records version-safe reuse facts" "graph-bootstrap-fingerprint.v1:true:pinned:cold-run:$CODE_REVIEW_GRAPH_PACKAGE:$CODE_REVIEW_GRAPH_PACKAGE" "$(jq -r '.bootstrap_fingerprint.schema_version + ":" + (.reuse_eligible | tostring) + ":" + .bootstrap_fingerprint.provider.version_policy + ":" + .readiness_source + ":" + (.bootstrap_fingerprint.provider.configured_package_spec // "") + ":" + (.bootstrap_fingerprint.provider.bundled_package_spec // "")' "$PRIMARY_REPO/.spec-first/providers/code-review-graph/status.json")"
+assert "code-review-graph provider status is not written" test ! -e "$PRIMARY_REPO/.spec-first/providers/code-review-graph/status.json"
 primary_head="$(git -C "$PRIMARY_REPO" rev-parse HEAD)"
 assert_eq "full bootstrap records refresh mode and clean marker" "full:false:$primary_head:false" "$(jq -r '"\(.refresh_mode):\(.fallback_from_incremental):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "graph facts does not add refresh-mode convenience fields" "false:false:false" "$(jq -r '[has("refresh_mode"), has("refresh_modes_by_provider"), has("refresh_mode_summary")] | map(tostring) | join(":")' "$PRIMARY_REPO/.spec-first/graph/graph-facts.json")"
 assert_eq "bootstrap fingerprint includes invalidation hashes" "true" "$(jq -r '(.bootstrap_fingerprint.repo_snapshot.worktree_status_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.graph_bootstrap_script_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.mcp_tools_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider_projection.graph_providers_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider.command_hash | startswith("sha256:"))' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 assert_eq "graph-bootstrap does not mutate runtime capabilities input" "$primary_runtime_capabilities_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
+
+CANDIDATE_ONLY_REPO="$TMP_DIR/candidate-only-repo"
+CANDIDATE_ONLY_LEDGER="$TMP_DIR/candidate-only-home/.codex/spec-first/host-setup.json"
+make_repo "$CANDIDATE_ONLY_REPO"
+write_fixture_config "$CANDIDATE_ONLY_REPO" "$CANDIDATE_ONLY_LEDGER" true
+candidate_only_output="$(cd "$CANDIDATE_ONLY_REPO" && PATH="$TEST_PATH" GITNEXUS_IMPACT_NO_TESTS=1 bash "$BOOTSTRAP_SCRIPT")"
+assert "candidate-only output is JSON" jq -e . <<<"$candidate_only_output"
+assert_eq "candidate-only graph facts keep impact context limited" "true:false:limited:related_tests_unverified" "$(jq -r '(.capabilities.query_global_graph | tostring) + ":" + (.capabilities.impact_context | tostring) + ":" + .capabilities.impact_context_status + ":" + (.capabilities.impact_context_limitations | join(","))' "$CANDIDATE_ONLY_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "candidate-only provider status records unproven related tests" "candidate-only:.spec-first/providers/gitnexus/raw/impact.log:true:related-tests-unproven" "$(jq -r '.review_support.related_tests_status + ":" + .review_support.impact_probe_raw_log + ":" + ((.review_support.limitations | index("related_tests_unverified")) != null | tostring) + ":" + ([.command_results[] | select(.kind=="impact_probe")][0].result_class // "")' "$CANDIDATE_ONLY_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "candidate-only normalized impact artifact records limitation" "candidate-only:medium:true" "$(jq -r '.related_tests + ":" + .confidence + ":" + ((.limitations | index("related_tests_unverified")) != null | tostring)' "$CANDIDATE_ONLY_REPO/.spec-first/providers/gitnexus/normalized/impact-capabilities.json")"
+assert_eq "candidate-only bootstrap impact capabilities remain partial" "partial:candidate-only:true" "$(jq -r '.capabilities.review_support.support_level + ":" + .capabilities.review_support.related_tests_status + ":" + ((.capabilities.review_support.limitations | index("related_tests_unverified")) != null | tostring)' "$CANDIDATE_ONLY_REPO/.spec-first/impact/bootstrap-impact-capabilities.json")"
+
+NON_GIT_BOOTSTRAP_WORKSPACE="$TMP_DIR/non-git-bootstrap-workspace"
+NON_GIT_BOOTSTRAP_FOLDER="$NON_GIT_BOOTSTRAP_WORKSPACE/plain-folder"
+NON_GIT_BOOTSTRAP_LEDGER="$TMP_DIR/non-git-bootstrap-home/.codex/spec-first/host-setup.json"
+mkdir -p "$NON_GIT_BOOTSTRAP_FOLDER/src"
+printf 'export class PlainFolderBootstrap {}\n' > "$NON_GIT_BOOTSTRAP_FOLDER/src/PlainFolderBootstrap.ts"
+write_folder_fixture_config "$NON_GIT_BOOTSTRAP_FOLDER" "$NON_GIT_BOOTSTRAP_LEDGER"
+before_non_git_uvx_count="$(grep -cF "uvx " "$COMMAND_LOG" || true)"
+non_git_bootstrap_output="$(cd "$NON_GIT_BOOTSTRAP_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --folder plain-folder)"
+assert "non-git folder bootstrap emits JSON" jq -e . <<<"$non_git_bootstrap_output"
+assert_eq "non-git folder bootstrap remains primary with explicit target" "primary:non-git-folder:explicit-folder" "$(jq -r '.workflow_mode + ":" + .target_kind + ":" + .selection_source' <<<"$non_git_bootstrap_output")"
+assert_eq "non-git folder bootstrap only runs GitNexus provider" "gitnexus" "$(jq -r '[.results[].provider] | sort | join(",")' <<<"$non_git_bootstrap_output")"
+assert_contains "non-git folder bootstrap invokes GitNexus with skip-git" "npx -y $GITNEXUS_PACKAGE analyze --skip-git --force --skip-agents-md --no-stats" "$(cat "$COMMAND_LOG")"
+assert_eq "non-git folder bootstrap does not run uvx providers" "$before_non_git_uvx_count" "$(grep -cF "uvx " "$COMMAND_LOG" || true)"
+assert_eq "non-git folder result omits fake Git metadata" "null|null|null|null|false" "$(jq -r '.source_revision as $sr | .worktree_dirty as $wd | .worktree_status_hash as $wh | (.results[] | select(.provider=="gitnexus") | .last_indexed_commit) as $lic | [$sr,$wd,$wh,$lic,.source_revision_dirty] | map(tostring) | join("|")' <<<"$non_git_bootstrap_output")"
+assert_eq "non-git folder status has fingerprint and Git-only limitations" "true:true" "$(jq -r '(.folder_snapshot.content_fingerprint | startswith("sha256:") | tostring) + ":" + ((.limitations | join(" ")) | contains("no source_revision") and contains("no incremental") | tostring)' "$NON_GIT_BOOTSTRAP_FOLDER/.spec-first/graph/graph-facts.json")"
+assert_eq "non-git folder impact support disables Git diff review impact" "none:unavailable:true" "$(jq -r '.capabilities.review_support.support_level + ":" + .capabilities.review_support.related_tests_status + ":" + ((.capabilities.review_support.limitations | index("non_git_folder_no_git_diff")) != null | tostring)' "$NON_GIT_BOOTSTRAP_FOLDER/.spec-first/impact/bootstrap-impact-capabilities.json")"
+NON_GIT_DEFINITIONS_FOLDER="$NON_GIT_BOOTSTRAP_WORKSPACE/docs-folder"
+NON_GIT_DEFINITIONS_LEDGER="$TMP_DIR/non-git-definitions-home/.codex/spec-first/host-setup.json"
+mkdir -p "$NON_GIT_DEFINITIONS_FOLDER"
+printf '# Docs only\n' > "$NON_GIT_DEFINITIONS_FOLDER/README.md"
+write_folder_fixture_config "$NON_GIT_DEFINITIONS_FOLDER" "$NON_GIT_DEFINITIONS_LEDGER"
+non_git_definitions_output="$(cd "$NON_GIT_BOOTSTRAP_WORKSPACE" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT" --folder docs-folder)"
+assert_eq "non-git folder definitions-only query is ready" "primary:ready:true:definitions-only" "$(jq -r '.workflow_mode as $mode | .results[] | select(.provider=="gitnexus") | "\($mode):\(.status):\(.query_ready):\(.query_probe_attempts[0].result_class)"' <<<"$non_git_definitions_output")"
+assert_contains "non-git folder definitions-only limitation is explicit" "Definitions-only GitNexus evidence accepted" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$non_git_definitions_output")"
+assert_eq "non-git folder definitions-only normalized architecture does not claim execution flow" "false:true" "$(jq -r '((.capabilities | index("execution_flow")) != null | tostring) + ":" + ((.limitations | index("non_git_folder_no_process_graph")) != null | tostring)' "$NON_GIT_DEFINITIONS_FOLDER/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+assert_eq "non-git folder definitions-only normalized impact stays query-only" "query,context|0|unavailable|unavailable|true" "$(jq -r '(.available_query_surfaces | join(",")) + "|" + (.impact_evidence_surfaces | length | tostring) + "|" + .review_support.support_level + "|" + .review_support.related_tests + "|" + ((.limitations | index("non_git_folder_no_git_diff")) != null | tostring)' "$NON_GIT_DEFINITIONS_FOLDER/.spec-first/providers/gitnexus/normalized/impact-capabilities.json")"
+assert_eq "non-git folder definitions-only graph facts do not expose impact context" "true|false|unavailable|true" "$(jq -r '(.capabilities.query_global_graph | tostring) + "|" + (.capabilities.impact_context | tostring) + "|" + .capabilities.impact_context_status + "|" + ((.capabilities.impact_context_limitations | index("non_git_folder_no_git_diff")) != null | tostring)' "$NON_GIT_DEFINITIONS_FOLDER/.spec-first/graph/graph-facts.json")"
+assert_eq "non-git folder definitions-only aggregate impact stays unavailable" "full:gitnexus|none:0:true|none:0:unavailable:true" "$(jq -r '.capabilities.context_selection.support_level + ":" + (.capabilities.context_selection.primary_providers | join(",")) + "|" + .capabilities.impact_radius.support_level + ":" + (.capabilities.impact_radius.primary_providers | length | tostring) + ":" + ((.capabilities.impact_radius.limitations | index("non_git_folder_no_git_diff")) != null | tostring) + "|" + .capabilities.review_support.support_level + ":" + (.capabilities.review_support.primary_providers | length | tostring) + ":" + .capabilities.review_support.related_tests_status + ":" + ((.capabilities.review_support.limitations | index("non_git_folder_no_git_diff")) != null | tostring)' "$NON_GIT_DEFINITIONS_FOLDER/.spec-first/impact/bootstrap-impact-capabilities.json")"
+non_git_targets_output="$(cd "$NON_GIT_BOOTSTRAP_WORKSPACE" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER" --folder plain-folder)"
+assert_eq "workspace target resolver exposes explicit non-git folder row" "non-git-folder|null|fresh-primary|true" "$(jq -r '.repos[0] | .target_kind + "|" + (.git.current_revision | tostring) + "|" + .query_usability + "|" + (.non_git_support.query_context_architecture | tostring)' <<<"$non_git_targets_output")"
+assert_contains "workspace target resolver records non-git limitation" "no Git diff evidence" "$(jq -r '.repos[0].git_only_limitations | join(" ")' <<<"$non_git_targets_output")"
+before_non_git_incremental_log="$(cat "$COMMAND_LOG")"
+set +e
+non_git_incremental_output="$(cd "$NON_GIT_BOOTSTRAP_WORKSPACE" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --folder plain-folder --incremental)"
+non_git_incremental_status=$?
+set -e
+assert_eq "non-git folder incremental is unsupported" "1" "$non_git_incremental_status"
+assert_eq "non-git folder incremental reason is explicit" "blocked:incremental-non-git-folder-unsupported:true" "$(jq -r '.workflow_mode + ":" + .reason_code + ":" + (.canonical_artifacts_preserved | tostring)' <<<"$non_git_incremental_output")"
+assert_eq "non-git folder incremental does not run provider commands" "$before_non_git_incremental_log" "$(cat "$COMMAND_LOG")"
 
 CONCURRENT_HOST_REPO="$TMP_DIR/concurrent-host-repo"
 CONCURRENT_HOST_LEDGER="$TMP_DIR/concurrent-host-home/.codex/spec-first/host-setup.json"
@@ -759,7 +874,7 @@ write_fixture_config "$CLEAN_GRAPH_REPO" "$CLEAN_GRAPH_LEDGER" true
 clean_graph_output="$(cd "$CLEAN_GRAPH_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "clean graph bootstrap is primary" "primary" "$(jq -r '.workflow_mode' <<<"$clean_graph_output")"
 clean_graph_targets="$(cd "$CLEAN_GRAPH_REPO" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
-assert_eq "single repo graph target resolver can report primary" "primary:true:true" "$(jq -r '.repos[0] | .status + ":" + (.capabilities.query_global_graph | tostring) + ":" + (.capabilities.impact_context | tostring)' <<<"$clean_graph_targets")"
+assert_eq "single repo graph target resolver reports supported impact context" "primary:true:true" "$(jq -r '.repos[0] | .status + ":" + (.capabilities.query_global_graph | tostring) + ":" + (.capabilities.impact_context | tostring)' <<<"$clean_graph_targets")"
 printf 'changed\n' >> "$CLEAN_GRAPH_REPO/README.md"
 git -C "$CLEAN_GRAPH_REPO" add README.md
 git -C "$CLEAN_GRAPH_REPO" commit -q -m "Change source revision"
@@ -1128,10 +1243,8 @@ incremental_head="$(git -C "$INCREMENTAL_REPO" rev-parse HEAD)"
 incremental_output="$(cd "$INCREMENTAL_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
 assert_eq "incremental bootstrap remains primary" "primary" "$(jq -r '.workflow_mode' <<<"$incremental_output")"
 assert_eq "GitNexus incremental status fields are recorded" "incremental:incremental-update:false:$incremental_head:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.fallback_from_incremental):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' <<<"$incremental_output")"
-assert_eq "code-review-graph incremental status fields are recorded" "incremental:incremental-update:false:$incremental_head:false" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.refresh_mode):\(.readiness_source):\(.fallback_from_incremental):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' <<<"$incremental_output")"
 assert_eq "GitNexus incremental uses analyze without force" "npx -y $GITNEXUS_PACKAGE analyze --skip-agents-md --no-stats:incremental:primary" "$(jq -r '.results[] | select(.provider=="gitnexus") | .command_results[] | select(.kind=="bootstrap") | "\(.command):\(.refresh_mode):\(.attempt_role)"' <<<"$incremental_output")"
-assert_eq "code-review-graph incremental uses update base" "uvx $CODE_REVIEW_GRAPH_PACKAGE update --base $incremental_base:incremental:primary" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .command_results[] | select(.kind=="bootstrap") | "\(.command):\(.refresh_mode):\(.attempt_role)"' <<<"$incremental_output")"
-assert_eq "code-review-graph normalized envelope tracks incremental update log" "true:true" "$(jq -r '((.source_raw_logs | index(".spec-first/providers/code-review-graph/raw/update.log")) != null | tostring) + ":" + ((.source_raw_logs | index(".spec-first/providers/code-review-graph/raw/build.log")) == null | tostring)' "$INCREMENTAL_REPO/.spec-first/providers/code-review-graph/normalized/impact-capabilities.json")"
+assert_eq "incremental output is GitNexus-only" "gitnexus" "$(jq -r '[.results[].provider] | join(",")' <<<"$incremental_output")"
 
 MISSING_INCREMENTAL_REPO="$TMP_DIR/missing-incremental-repo"
 MISSING_INCREMENTAL_LEDGER="$TMP_DIR/missing-incremental-home/.codex/spec-first/host-setup.json"
@@ -1144,35 +1257,21 @@ mv "$MISSING_INCREMENTAL_REPO/.spec-first/config/graph-providers.json.tmp" "$MIS
 missing_incremental_output="$(cd "$MISSING_INCREMENTAL_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
 assert_eq "missing incremental command degrades to full" "full:cold-run:incremental-command-unavailable" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.reason_code)"' <<<"$missing_incremental_output")"
 
-CRG_BAD_INCREMENTAL_DEFAULT_REPO="$TMP_DIR/crg-bad-incremental-default-repo"
-CRG_BAD_INCREMENTAL_DEFAULT_LEDGER="$TMP_DIR/crg-bad-incremental-default-home/.codex/spec-first/host-setup.json"
-make_repo "$CRG_BAD_INCREMENTAL_DEFAULT_REPO"
-write_fixture_config "$CRG_BAD_INCREMENTAL_DEFAULT_REPO" "$CRG_BAD_INCREMENTAL_DEFAULT_LEDGER" true
-jq '.providers["code-review-graph"].commands.incremental[4] = "0123456789012345678901234567890123456789"' "$CRG_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json" > "$CRG_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$CRG_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json"
-before_crg_bad_incremental_default_log="$(cat "$COMMAND_LOG")"
+STALE_CRG_PROJECTION_REPO="$TMP_DIR/stale-crg-projection-repo"
+STALE_CRG_PROJECTION_LEDGER="$TMP_DIR/stale-crg-projection-home/.codex/spec-first/host-setup.json"
+make_repo "$STALE_CRG_PROJECTION_REPO"
+write_fixture_config "$STALE_CRG_PROJECTION_REPO" "$STALE_CRG_PROJECTION_LEDGER" true
+jq '.providers["code-review-graph"] = {configured:true,enabled_for_bootstrap:true,dependency_status:"ready",host_config_status:"ready",commands:{bootstrap:["uvx","code-review-graph@2.3.3","build"],status:["uvx","code-review-graph@2.3.3","status"],query_probe:["uvx","code-review-graph@2.3.3","status","--repo",.repo_root]}}' "$STALE_CRG_PROJECTION_REPO/.spec-first/config/graph-providers.json" > "$STALE_CRG_PROJECTION_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$STALE_CRG_PROJECTION_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_CRG_PROJECTION_REPO/.spec-first/config/graph-providers.json"
+before_stale_crg_projection_log="$(cat "$COMMAND_LOG")"
 set +e
-crg_bad_incremental_default_output="$(cd "$CRG_BAD_INCREMENTAL_DEFAULT_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-crg_bad_incremental_default_status=$?
+stale_crg_projection_output="$(cd "$STALE_CRG_PROJECTION_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+stale_crg_projection_status=$?
 set -e
-assert_eq "code-review-graph malformed incremental projection fails closed on default full refresh" "1" "$crg_bad_incremental_default_status"
-assert_eq "code-review-graph malformed incremental projection default reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_bad_incremental_default_output")"
-assert_eq "code-review-graph malformed incremental projection default is not executed" "$before_crg_bad_incremental_default_log" "$(cat "$COMMAND_LOG")"
-
-CRG_BAD_INCREMENTAL_REPO="$TMP_DIR/crg-bad-incremental-repo"
-CRG_BAD_INCREMENTAL_LEDGER="$TMP_DIR/crg-bad-incremental-home/.codex/spec-first/host-setup.json"
-make_repo "$CRG_BAD_INCREMENTAL_REPO"
-write_fixture_config "$CRG_BAD_INCREMENTAL_REPO" "$CRG_BAD_INCREMENTAL_LEDGER" true
-jq '.providers["code-review-graph"].commands.incremental[4] = "0123456789012345678901234567890123456789"' "$CRG_BAD_INCREMENTAL_REPO/.spec-first/config/graph-providers.json" > "$CRG_BAD_INCREMENTAL_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$CRG_BAD_INCREMENTAL_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_BAD_INCREMENTAL_REPO/.spec-first/config/graph-providers.json"
-before_crg_bad_incremental_log="$(cat "$COMMAND_LOG")"
-set +e
-crg_bad_incremental_output="$(cd "$CRG_BAD_INCREMENTAL_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT" --incremental)"
-crg_bad_incremental_status=$?
-set -e
-assert_eq "code-review-graph concrete incremental base in projection fails closed" "1" "$crg_bad_incremental_status"
-assert_eq "code-review-graph concrete incremental base reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_bad_incremental_output")"
-assert_eq "code-review-graph concrete incremental base is not executed" "$before_crg_bad_incremental_log" "$(cat "$COMMAND_LOG")"
+assert_eq "stale code-review-graph projection fails before provider commands" "1" "$stale_crg_projection_status"
+assert_eq "stale code-review-graph projection reason" "stale-provider-projection" "$(jq -r '.reason_code' <<<"$stale_crg_projection_output")"
+assert_contains "stale code-review-graph projection recommends setup" 'provider projection is stale; run `$spec-mcp-setup`' "$(jq -r '.next_action' <<<"$stale_crg_projection_output")"
+assert_eq "stale code-review-graph projection is not executed" "$before_stale_crg_projection_log" "$(cat "$COMMAND_LOG")"
 
 INVALID_BASE_REPO="$TMP_DIR/invalid-base-repo"
 INVALID_BASE_LEDGER="$TMP_DIR/invalid-base-home/.codex/spec-first/host-setup.json"
@@ -1240,8 +1339,7 @@ if command -v pwsh >/dev/null 2>&1; then
   ps_incremental_output="$(cd "$PS_INCREMENTAL_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" -Incremental)"
   assert_eq "PowerShell incremental bootstrap remains primary" "primary" "$(jq -r '.workflow_mode' <<<"$ps_incremental_output")"
   assert_eq "PowerShell GitNexus incremental status fields are recorded" "incremental:incremental-update:false:$ps_incremental_head:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.refresh_mode):\(.readiness_source):\(.fallback_from_incremental):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' <<<"$ps_incremental_output")"
-  assert_eq "PowerShell code-review-graph incremental status fields are recorded" "incremental:incremental-update:false:$ps_incremental_head:false" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.refresh_mode):\(.readiness_source):\(.fallback_from_incremental):\(.last_indexed_commit):\(.requires_clean_full_refresh)"' <<<"$ps_incremental_output")"
-  assert_eq "PowerShell code-review-graph incremental uses update base" "uvx $CODE_REVIEW_GRAPH_PACKAGE update --base $ps_incremental_base:incremental:primary" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .command_results[] | select(.kind=="bootstrap") | "\(.command):\(.refresh_mode):\(.attempt_role)"' <<<"$ps_incremental_output")"
+  assert_eq "PowerShell incremental output is GitNexus-only" "gitnexus" "$(jq -r '[.results[].provider] | join(",")' <<<"$ps_incremental_output")"
 
   PS_MISSING_INCREMENTAL_REPO="$TMP_DIR/ps-missing-incremental-repo"
   PS_MISSING_INCREMENTAL_LEDGER="$TMP_DIR/ps-missing-incremental-home/.codex/spec-first/host-setup.json"
@@ -1258,7 +1356,7 @@ if command -v pwsh >/dev/null 2>&1; then
   PS_BAD_INCREMENTAL_DEFAULT_LEDGER="$TMP_DIR/ps-bad-incremental-default-home/.codex/spec-first/host-setup.json"
   make_repo "$PS_BAD_INCREMENTAL_DEFAULT_REPO"
   write_fixture_config "$PS_BAD_INCREMENTAL_DEFAULT_REPO" "$PS_BAD_INCREMENTAL_DEFAULT_LEDGER" true
-  jq '.providers["code-review-graph"].commands.incremental[4] = "0123456789012345678901234567890123456789"' "$PS_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json" > "$PS_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json.tmp"
+  jq '.providers.gitnexus.commands.incremental += ["--unexpected"]' "$PS_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json" > "$PS_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json.tmp"
   mv "$PS_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json.tmp" "$PS_BAD_INCREMENTAL_DEFAULT_REPO/.spec-first/config/graph-providers.json"
   before_ps_bad_incremental_default_log="$(cat "$COMMAND_LOG")"
   set +e
@@ -1357,7 +1455,7 @@ jq --arg probe "$GITNEXUS_QUERY_PROBE" '
 mv "$MULTI_PROBE_REPO/.spec-first/config/graph-providers.json.tmp" "$MULTI_PROBE_REPO/.spec-first/config/graph-providers.json"
 multi_probe_output="$(cd "$MULTI_PROBE_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_SECOND_CANDIDATE_SUCCEEDS=1 bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "multi-candidate probe verifies on later process result" "primary" "$(jq -r '.workflow_mode' <<<"$multi_probe_output")"
-assert_eq "multi-candidate attempts are recorded" "2:definitions-only:process-results:true" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_attempts | length):\(.query_probe_attempts[0].result_class):\(.query_probe_attempts[1].result_class):\(.query_ready)"' <<<"$multi_probe_output")"
+assert_eq "multi-candidate attempts are recorded" "2:empty-or-unparseable:process-results:true" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_attempts | length):\(.query_probe_attempts[0].result_class):\(.query_probe_attempts[1].result_class):\(.query_ready)"' <<<"$multi_probe_output")"
 assert_contains "multi-candidate probe runs first token" "npx -y $GITNEXUS_PACKAGE query AdvertiseActivity --repo $(basename "$MULTI_PROBE_REPO")" "$(cat "$COMMAND_LOG")"
 assert_contains "multi-candidate probe runs second token" "npx -y $GITNEXUS_PACKAGE query $GITNEXUS_QUERY_PROBE --repo $(basename "$MULTI_PROBE_REPO")" "$(cat "$COMMAND_LOG")"
 assert "multi-candidate secondary raw log exists" test -f "$MULTI_PROBE_REPO/.spec-first/providers/gitnexus/raw/query-2.log"
@@ -1381,7 +1479,7 @@ jq '
     ]
 ' "$TRUNCATED_PROBE_REPO/.spec-first/config/graph-providers.json" > "$TRUNCATED_PROBE_REPO/.spec-first/config/graph-providers.json.tmp"
 mv "$TRUNCATED_PROBE_REPO/.spec-first/config/graph-providers.json.tmp" "$TRUNCATED_PROBE_REPO/.spec-first/config/graph-providers.json"
-truncated_probe_output="$(cd "$TRUNCATED_PROBE_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT")"
+truncated_probe_output="$(cd "$TRUNCATED_PROBE_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_EMPTY=1 bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "multi-candidate probe enforces consumer-side limit" "5:true:5:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_attempts | length):\(.query_probe_candidates_truncated):\(.query_probe_candidate_limit):\(.query_ready)"' <<<"$truncated_probe_output")"
 assert_contains "truncated candidate limitation is explicit" "Only the first 5 bounded GitNexus query probe candidates were attempted" "$(jq -r '.results[] | select(.provider=="gitnexus") | .query_verification_reason' <<<"$truncated_probe_output")"
 assert "sixth truncated query log is not created" test ! -f "$TRUNCATED_PROBE_REPO/.spec-first/providers/gitnexus/raw/query-6.log"
@@ -1396,32 +1494,16 @@ versioned_output="$(cd "$VERSIONED_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_S
 assert_eq "safe command array variation remains accepted" "primary" "$(jq -r '.workflow_mode' <<<"$versioned_output")"
 assert_contains "bootstrap executes command from config array" "npx -y $GITNEXUS_PACKAGE analyze" "$(cat "$COMMAND_LOG")"
 
-DISABLED_REPO="$TMP_DIR/disabled-provider-repo"
-DISABLED_LEDGER="$TMP_DIR/disabled-home/.codex/spec-first/host-setup.json"
-make_repo "$DISABLED_REPO"
-write_fixture_config "$DISABLED_REPO" "$DISABLED_LEDGER" true
-jq '.providers["code-review-graph"].enabled_for_bootstrap = false' "$DISABLED_REPO/.spec-first/config/graph-providers.json" > "$DISABLED_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$DISABLED_REPO/.spec-first/config/graph-providers.json.tmp" "$DISABLED_REPO/.spec-first/config/graph-providers.json"
-disabled_output="$(cd "$DISABLED_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-assert_eq "disabled provider uses fallback workflow" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$disabled_output")"
-assert_eq "disabled provider status keeps real enabled flag" "false:disabled-for-bootstrap" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.enabled_for_bootstrap):\(.skip_reason)"' <<<"$disabled_output")"
-assert_eq "disabled provider is skipped not failed" "true" "$(jq -r '(.skipped_primary_providers | index("code-review-graph") != null) and (.failed_primary_providers | index("code-review-graph") == null)' "$DISABLED_REPO/.spec-first/graph/provider-status.json")"
-assert_eq "disabled provider is skipped not degraded in graph facts" "false:true" "$(jq -r '(.provider_summary.degraded_providers | index("code-review-graph") != null | tostring) + ":" + (.provider_summary.skipped_primary_providers | index("code-review-graph") != null | tostring)' "$DISABLED_REPO/.spec-first/graph/graph-facts.json")"
-
-DISABLED_UNSAFE_REPO="$TMP_DIR/disabled-unsafe-repo"
-DISABLED_UNSAFE_LEDGER="$TMP_DIR/disabled-unsafe-home/.codex/spec-first/host-setup.json"
-make_repo "$DISABLED_UNSAFE_REPO"
-write_fixture_config "$DISABLED_UNSAFE_REPO" "$DISABLED_UNSAFE_LEDGER" true
-jq '.providers["code-review-graph"].enabled_for_bootstrap = false | .providers["code-review-graph"].commands.bootstrap = ["bash","-c","echo unsafe"]' "$DISABLED_UNSAFE_REPO/.spec-first/config/graph-providers.json" > "$DISABLED_UNSAFE_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$DISABLED_UNSAFE_REPO/.spec-first/config/graph-providers.json.tmp" "$DISABLED_UNSAFE_REPO/.spec-first/config/graph-providers.json"
-before_disabled_unsafe_log="$(cat "$COMMAND_LOG")"
-set +e
-disabled_unsafe_output="$(cd "$DISABLED_UNSAFE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-disabled_unsafe_status=$?
-set -e
-assert_eq "disabled unsafe provider fails closed" "1" "$disabled_unsafe_status"
-assert_eq "disabled unsafe provider reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$disabled_unsafe_output")"
-assert_eq "disabled unsafe provider is not executed" "$before_disabled_unsafe_log" "$(cat "$COMMAND_LOG")"
+DISABLED_GITNEXUS_REPO="$TMP_DIR/disabled-gitnexus-provider-repo"
+DISABLED_GITNEXUS_LEDGER="$TMP_DIR/disabled-gitnexus-home/.codex/spec-first/host-setup.json"
+make_repo "$DISABLED_GITNEXUS_REPO"
+write_fixture_config "$DISABLED_GITNEXUS_REPO" "$DISABLED_GITNEXUS_LEDGER" true
+jq '.providers.gitnexus.enabled_for_bootstrap = false' "$DISABLED_GITNEXUS_REPO/.spec-first/config/graph-providers.json" > "$DISABLED_GITNEXUS_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$DISABLED_GITNEXUS_REPO/.spec-first/config/graph-providers.json.tmp" "$DISABLED_GITNEXUS_REPO/.spec-first/config/graph-providers.json"
+disabled_gitnexus_output="$(cd "$DISABLED_GITNEXUS_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "disabled GitNexus provider uses fallback workflow" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$disabled_gitnexus_output")"
+assert_eq "disabled GitNexus status keeps real enabled flag" "false:disabled-for-bootstrap" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.enabled_for_bootstrap):\(.skip_reason)"' <<<"$disabled_gitnexus_output")"
+assert_eq "disabled GitNexus provider is skipped not failed" "true" "$(jq -r '(.skipped_primary_providers | index("gitnexus") != null) and (.failed_primary_providers | index("gitnexus") == null)' "$DISABLED_GITNEXUS_REPO/.spec-first/graph/provider-status.json")"
 
 SAFETY_REPO="$TMP_DIR/safety-repo"
 SAFETY_LEDGER="$TMP_DIR/safety-home/.codex/spec-first/host-setup.json"
@@ -1487,66 +1569,6 @@ set -e
 assert_eq "control char query token fails closed" "1" "$control_token_status"
 assert_eq "control char query token reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$control_token_output")"
 assert_eq "control char query token is not executed" "$before_control_token_log" "$(cat "$COMMAND_LOG")"
-
-CRG_LATEST_REPO="$TMP_DIR/crg-latest-repo"
-CRG_LATEST_LEDGER="$TMP_DIR/crg-latest-home/.codex/spec-first/host-setup.json"
-make_repo "$CRG_LATEST_REPO"
-write_fixture_config "$CRG_LATEST_REPO" "$CRG_LATEST_LEDGER" true
-jq '.providers["code-review-graph"].commands.bootstrap = ["uvx","code-review-graph@latest","build"]' "$CRG_LATEST_REPO/.spec-first/config/graph-providers.json" > "$CRG_LATEST_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$CRG_LATEST_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_LATEST_REPO/.spec-first/config/graph-providers.json"
-before_crg_latest_log="$(cat "$COMMAND_LOG")"
-set +e
-crg_latest_output="$(cd "$CRG_LATEST_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-crg_latest_status=$?
-set -e
-assert_eq "code-review-graph @latest command fails closed" "1" "$crg_latest_status"
-assert_eq "code-review-graph @latest command reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_latest_output")"
-assert_eq "code-review-graph @latest command is not executed" "$before_crg_latest_log" "$(cat "$COMMAND_LOG")"
-
-CRG_OTHER_PACKAGE_REPO="$TMP_DIR/crg-other-package-repo"
-CRG_OTHER_PACKAGE_LEDGER="$TMP_DIR/crg-other-package-home/.codex/spec-first/host-setup.json"
-make_repo "$CRG_OTHER_PACKAGE_REPO"
-write_fixture_config "$CRG_OTHER_PACKAGE_REPO" "$CRG_OTHER_PACKAGE_LEDGER" true
-jq '.providers["code-review-graph"].commands.bootstrap = ["uvx","other-package@2.3.3","build"]' "$CRG_OTHER_PACKAGE_REPO/.spec-first/config/graph-providers.json" > "$CRG_OTHER_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$CRG_OTHER_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_OTHER_PACKAGE_REPO/.spec-first/config/graph-providers.json"
-before_crg_other_package_log="$(cat "$COMMAND_LOG")"
-set +e
-crg_other_package_output="$(cd "$CRG_OTHER_PACKAGE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-crg_other_package_status=$?
-set -e
-assert_eq "code-review-graph arbitrary package command fails closed" "1" "$crg_other_package_status"
-assert_eq "code-review-graph arbitrary package command reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_other_package_output")"
-assert_eq "code-review-graph arbitrary package command is not executed" "$before_crg_other_package_log" "$(cat "$COMMAND_LOG")"
-
-CRG_METACHAR_REPO="$TMP_DIR/crg-metachar-repo"
-CRG_METACHAR_LEDGER="$TMP_DIR/crg-metachar-home/.codex/spec-first/host-setup.json"
-make_repo "$CRG_METACHAR_REPO"
-write_fixture_config "$CRG_METACHAR_REPO" "$CRG_METACHAR_LEDGER" true
-jq '.providers["code-review-graph"].commands.bootstrap = ["uvx","code-review-graph@2.3.3;rm","build"]' "$CRG_METACHAR_REPO/.spec-first/config/graph-providers.json" > "$CRG_METACHAR_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$CRG_METACHAR_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_METACHAR_REPO/.spec-first/config/graph-providers.json"
-before_crg_metachar_log="$(cat "$COMMAND_LOG")"
-set +e
-crg_metachar_output="$(cd "$CRG_METACHAR_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-crg_metachar_status=$?
-set -e
-assert_eq "code-review-graph metachar package command fails closed" "1" "$crg_metachar_status"
-assert_eq "code-review-graph metachar package command reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_metachar_output")"
-assert_eq "code-review-graph metachar package command is not executed" "$before_crg_metachar_log" "$(cat "$COMMAND_LOG")"
-
-CRG_EXTRA_ARG_REPO="$TMP_DIR/crg-extra-arg-repo"
-CRG_EXTRA_ARG_LEDGER="$TMP_DIR/crg-extra-arg-home/.codex/spec-first/host-setup.json"
-make_repo "$CRG_EXTRA_ARG_REPO"
-write_fixture_config "$CRG_EXTRA_ARG_REPO" "$CRG_EXTRA_ARG_LEDGER" true
-jq '.providers["code-review-graph"].commands.status += ["--verbose"]' "$CRG_EXTRA_ARG_REPO/.spec-first/config/graph-providers.json" > "$CRG_EXTRA_ARG_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$CRG_EXTRA_ARG_REPO/.spec-first/config/graph-providers.json.tmp" "$CRG_EXTRA_ARG_REPO/.spec-first/config/graph-providers.json"
-before_crg_extra_arg_log="$(cat "$COMMAND_LOG")"
-set +e
-crg_extra_arg_output="$(cd "$CRG_EXTRA_ARG_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-crg_extra_arg_status=$?
-set -e
-assert_eq "code-review-graph unexpected extra arg fails closed" "1" "$crg_extra_arg_status"
-assert_eq "code-review-graph unexpected extra arg reason" "unsupported-provider-command" "$(jq -r '.reason_code' <<<"$crg_extra_arg_output")"
-assert_eq "code-review-graph unexpected extra arg is not executed" "$before_crg_extra_arg_log" "$(cat "$COMMAND_LOG")"
 
 LEGACY_TOKEN_REPO="$TMP_DIR/legacy-token-repo"
 LEGACY_TOKEN_LEDGER="$TMP_DIR/legacy-token-home/.codex/spec-first/host-setup.json"
@@ -1624,7 +1646,7 @@ assert_eq "FTS/read-only empty result is not query-ready" "query-unverified:true
 assert_eq "FTS/read-only diagnostic gets structured provider reason" "gitnexus-query-fts-readonly:provider-storage-readonly:query_probe:0" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$fts_empty_output")"
 assert_contains "FTS/read-only limitation is recorded" "FTS/read-only/missing-index" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$fts_empty_output")"
 assert_contains "FTS/read-only recommended action is recorded" "Repair GitNexus index storage or permissions" "$(jq -r '.results[] | select(.provider=="gitnexus") | .recommended_action' <<<"$fts_empty_output")"
-assert_contains "FTS/read-only limitation includes action" "Use code-review-graph degraded fallback meanwhile" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$fts_empty_output")"
+assert_contains "FTS/read-only recommended action names bounded fallback" "Use bounded source reads, git diff, ast-grep, tests, and logs meanwhile" "$(jq -r '.results[] | select(.provider=="gitnexus") | .recommended_action' <<<"$fts_empty_output")"
 
 STALE_PACKAGE_REPO="$TMP_DIR/stale-package-repo"
 STALE_PACKAGE_LEDGER="$TMP_DIR/stale-package-home/.codex/spec-first/host-setup.json"
@@ -1649,8 +1671,7 @@ STALE_GITNEXUS_STATUS_LEDGER="$TMP_DIR/stale-gitnexus-status-home/.codex/spec-fi
 make_repo "$STALE_GITNEXUS_STATUS_REPO"
 write_fixture_config "$STALE_GITNEXUS_STATUS_REPO" "$STALE_GITNEXUS_STATUS_LEDGER" true
 jq '
-  .providers["code-review-graph"].enabled_for_bootstrap = false
-  | .providers.gitnexus.commands.status[2] = "gitnexus@0.0.0-status"
+  .providers.gitnexus.commands.status[2] = "gitnexus@0.0.0-status"
 ' "$STALE_GITNEXUS_STATUS_REPO/.spec-first/config/graph-providers.json" > "$STALE_GITNEXUS_STATUS_REPO/.spec-first/config/graph-providers.json.tmp"
 mv "$STALE_GITNEXUS_STATUS_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_GITNEXUS_STATUS_REPO/.spec-first/config/graph-providers.json"
 before_stale_gitnexus_status_log="$(cat "$COMMAND_LOG")"
@@ -1659,99 +1680,41 @@ assert_eq "mixed GitNexus status projection is blocked before provider commands"
 assert_eq "mixed GitNexus status projection recommends setup refresh" "gitnexus-provider-projection-stale:provider-projection-stale:projection-stale" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.reason_code):\(.failure_class):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$stale_gitnexus_status_output")"
 assert_eq "mixed GitNexus status projection does not execute provider commands" "$before_stale_gitnexus_status_log" "$(cat "$COMMAND_LOG")"
 
-STALE_CRG_PACKAGE_REPO="$TMP_DIR/stale-crg-package-repo"
-STALE_CRG_PACKAGE_LEDGER="$TMP_DIR/stale-crg-package-home/.codex/spec-first/host-setup.json"
-make_repo "$STALE_CRG_PACKAGE_REPO"
-write_fixture_config "$STALE_CRG_PACKAGE_REPO" "$STALE_CRG_PACKAGE_LEDGER" true
-jq '
-  .providers["code-review-graph"].commands.bootstrap = ["uvx","--upgrade","code-review-graph","build"]
-  | .providers["code-review-graph"].commands.status = ["uvx","--upgrade","code-review-graph","status"]
-  | .providers["code-review-graph"].commands.query_probe = ["uvx","--upgrade","code-review-graph","status","--repo",.repo_root]
-' "$STALE_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json" > "$STALE_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$STALE_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json"
-stale_crg_package_output="$(cd "$STALE_CRG_PACKAGE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-assert_eq "stale code-review-graph projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$stale_crg_package_output")"
-assert_eq "stale code-review-graph projection recommends setup refresh" "code-review-graph-provider-projection-stale:provider-projection-stale:preflight" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reason_code):\(.failure_class):\(.failed_phase)"' <<<"$stale_crg_package_output")"
-assert_eq "stale code-review-graph projection is not reuse eligible" "false:provider-projection-stale:projection-stale" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reuse_eligible):\(.reuse_ineligible_reason):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$stale_crg_package_output")"
-assert_contains "stale code-review-graph package action names spec-mcp-setup" "Rerun spec-mcp-setup" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .recommended_action' <<<"$stale_crg_package_output")"
-assert_contains "stale code-review-graph package action names current projected package" "code-review-graph" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .recommended_action' <<<"$stale_crg_package_output")"
-assert_contains "stale code-review-graph package action names bundled package" "$CODE_REVIEW_GRAPH_PACKAGE" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .recommended_action' <<<"$stale_crg_package_output")"
-assert_not_contains "stale code-review-graph package command is not executed" "uvx --upgrade code-review-graph" "$(cat "$COMMAND_LOG")"
-
-FLOATING_CRG_PACKAGE_REPO="$TMP_DIR/floating-crg-package-repo"
-FLOATING_CRG_PACKAGE_LEDGER="$TMP_DIR/floating-crg-package-home/.codex/spec-first/host-setup.json"
-make_repo "$FLOATING_CRG_PACKAGE_REPO"
-write_fixture_config "$FLOATING_CRG_PACKAGE_REPO" "$FLOATING_CRG_PACKAGE_LEDGER" true
-jq '
-  .providers.gitnexus.enabled_for_bootstrap = false
-  | .providers["code-review-graph"].commands.bootstrap = ["uvx","--upgrade","code-review-graph","build"]
-  | .providers["code-review-graph"].commands.status = ["uvx","--upgrade","code-review-graph","status"]
-  | .providers["code-review-graph"].commands.query_probe = ["uvx","--upgrade","code-review-graph","status","--repo",.repo_root]
-' "$FLOATING_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json" > "$FLOATING_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$FLOATING_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json.tmp" "$FLOATING_CRG_PACKAGE_REPO/.spec-first/config/graph-providers.json"
-before_floating_crg_package_log="$(cat "$COMMAND_LOG")"
-floating_crg_package_output="$(cd "$FLOATING_CRG_PACKAGE_REPO" && PATH="$TEST_PATH" SPEC_FIRST_MCP_TOOLS_JSON="$TMP_DIR/missing-mcp-tools.json" bash "$BOOTSTRAP_SCRIPT")"
-assert_eq "floating code-review-graph projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$floating_crg_package_output")"
-assert_eq "floating code-review-graph projection uses version-unverifiable reason" "code-review-graph-provider-version-unverifiable:provider-version-unverifiable:preflight" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reason_code):\(.failure_class):\(.failed_phase)"' <<<"$floating_crg_package_output")"
-assert_eq "floating code-review-graph projection is not reuse eligible" "false:provider-version-unverifiable:floating-unverifiable" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reuse_eligible):\(.reuse_ineligible_reason):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$floating_crg_package_output")"
-assert_eq "floating code-review-graph package command is not executed" "$before_floating_crg_package_log" "$(cat "$COMMAND_LOG")"
-
-STALE_CRG_STATUS_REPO="$TMP_DIR/stale-crg-status-repo"
-STALE_CRG_STATUS_LEDGER="$TMP_DIR/stale-crg-status-home/.codex/spec-first/host-setup.json"
-make_repo "$STALE_CRG_STATUS_REPO"
-write_fixture_config "$STALE_CRG_STATUS_REPO" "$STALE_CRG_STATUS_LEDGER" true
-jq '
-  .providers.gitnexus.enabled_for_bootstrap = false
-  | .providers["code-review-graph"].commands.status = ["uvx","--upgrade","code-review-graph","status"]
-' "$STALE_CRG_STATUS_REPO/.spec-first/config/graph-providers.json" > "$STALE_CRG_STATUS_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$STALE_CRG_STATUS_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_CRG_STATUS_REPO/.spec-first/config/graph-providers.json"
-before_stale_crg_status_log="$(cat "$COMMAND_LOG")"
-stale_crg_status_output="$(cd "$STALE_CRG_STATUS_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-assert_eq "mixed code-review-graph status projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$stale_crg_status_output")"
-assert_eq "mixed code-review-graph status projection recommends setup refresh" "code-review-graph-provider-projection-stale:provider-projection-stale:projection-stale" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reason_code):\(.failure_class):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$stale_crg_status_output")"
-assert_eq "mixed code-review-graph status projection does not execute provider commands" "$before_stale_crg_status_log" "$(cat "$COMMAND_LOG")"
-
-STALE_CRG_QUERY_REPO="$TMP_DIR/stale-crg-query-repo"
-STALE_CRG_QUERY_LEDGER="$TMP_DIR/stale-crg-query-home/.codex/spec-first/host-setup.json"
-make_repo "$STALE_CRG_QUERY_REPO"
-write_fixture_config "$STALE_CRG_QUERY_REPO" "$STALE_CRG_QUERY_LEDGER" true
-jq '
-  .providers.gitnexus.enabled_for_bootstrap = false
-  | .providers["code-review-graph"].commands.query_probe = ["uvx","--refresh","code-review-graph","status","--repo",.repo_root]
-' "$STALE_CRG_QUERY_REPO/.spec-first/config/graph-providers.json" > "$STALE_CRG_QUERY_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$STALE_CRG_QUERY_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_CRG_QUERY_REPO/.spec-first/config/graph-providers.json"
-before_stale_crg_query_log="$(cat "$COMMAND_LOG")"
-stale_crg_query_output="$(cd "$STALE_CRG_QUERY_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-assert_eq "mixed code-review-graph query projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$stale_crg_query_output")"
-assert_eq "mixed code-review-graph query projection recommends setup refresh" "code-review-graph-provider-projection-stale:provider-projection-stale:projection-stale" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reason_code):\(.failure_class):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$stale_crg_query_output")"
-assert_eq "mixed code-review-graph query projection does not execute provider commands" "$before_stale_crg_query_log" "$(cat "$COMMAND_LOG")"
-
-STALE_CRG_VERSION_REPO="$TMP_DIR/stale-crg-version-repo"
-STALE_CRG_VERSION_LEDGER="$TMP_DIR/stale-crg-version-home/.codex/spec-first/host-setup.json"
-make_repo "$STALE_CRG_VERSION_REPO"
-write_fixture_config "$STALE_CRG_VERSION_REPO" "$STALE_CRG_VERSION_LEDGER" true
-jq '
-  .providers.gitnexus.enabled_for_bootstrap = false
-  | .providers["code-review-graph"].commands.status = ["uvx","code-review-graph@2.3.2","status"]
-' "$STALE_CRG_VERSION_REPO/.spec-first/config/graph-providers.json" > "$STALE_CRG_VERSION_REPO/.spec-first/config/graph-providers.json.tmp"
-mv "$STALE_CRG_VERSION_REPO/.spec-first/config/graph-providers.json.tmp" "$STALE_CRG_VERSION_REPO/.spec-first/config/graph-providers.json"
-before_stale_crg_version_log="$(cat "$COMMAND_LOG")"
-stale_crg_version_output="$(cd "$STALE_CRG_VERSION_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
-assert_eq "mixed code-review-graph version projection is blocked before provider commands" "failed:false:false:preflight-blocked" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.graph_ready):\(.query_ready):\(.readiness_source)"' <<<"$stale_crg_version_output")"
-assert_eq "mixed code-review-graph version projection recommends setup refresh" "code-review-graph-provider-projection-stale:provider-projection-stale:projection-stale" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.reason_code):\(.failure_class):\(.bootstrap_fingerprint.provider.version_policy)"' <<<"$stale_crg_version_output")"
-assert_eq "mixed code-review-graph version projection does not execute provider commands" "$before_stale_crg_version_log" "$(cat "$COMMAND_LOG")"
-
 DEFINITIONS_ONLY_REPO="$TMP_DIR/definitions-only-repo"
 DEFINITIONS_ONLY_LEDGER="$TMP_DIR/definitions-only-home/.codex/spec-first/host-setup.json"
 make_repo "$DEFINITIONS_ONLY_REPO"
 write_fixture_config "$DEFINITIONS_ONLY_REPO" "$DEFINITIONS_ONLY_LEDGER" true
 definitions_only_output="$(cd "$DEFINITIONS_ONLY_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT")"
-assert_eq "definitions-only query result degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$definitions_only_output")"
-assert_eq "definitions-only result is not query-ready" "query-unverified:true:false" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.graph_ready):\(.query_ready)"' <<<"$definitions_only_output")"
-assert_contains "definitions-only limitation is explicit" "definitions-only evidence" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$definitions_only_output")"
-assert_contains "definitions-only reason is structured" "definitions-only evidence" "$(jq -r '.results[] | select(.provider=="gitnexus") | .query_verification_reason' <<<"$definitions_only_output")"
+assert_eq "definitions-only query result is query-ready" "primary" "$(jq -r '.workflow_mode' <<<"$definitions_only_output")"
+assert_eq "definitions-only result is ready for query/context" "ready:true:true:definitions-only" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.graph_ready):\(.query_ready):\(.query_probe_attempts[0].result_class)"' <<<"$definitions_only_output")"
+assert_contains "definitions-only limitation is explicit" "Definitions-only GitNexus evidence" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$definitions_only_output")"
+assert_eq "definitions-only does not carry query-unverified reason" "null" "$(jq -r '.results[] | select(.provider=="gitnexus") | .query_verification_reason | tostring' <<<"$definitions_only_output")"
+assert_eq "definitions-only normalized architecture does not claim execution flow" "false:true" "$(jq -r '((.capabilities | index("execution_flow")) != null | tostring) + ":" + ((.limitations | index("definitions_only_no_process_graph")) != null | tostring)' "$DEFINITIONS_ONLY_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
+assert_eq "definitions-only normalized impact stays query-only" "query,context|0|unavailable|unavailable|true" "$(jq -r '(.available_query_surfaces | join(",")) + "|" + (.impact_evidence_surfaces | length | tostring) + "|" + .review_support.support_level + "|" + .review_support.related_tests + "|" + ((.limitations | index("definitions_only_no_impact_evidence")) != null | tostring)' "$DEFINITIONS_ONLY_REPO/.spec-first/providers/gitnexus/normalized/impact-capabilities.json")"
+assert_eq "definitions-only graph facts do not expose impact context" "true|false|unavailable|true" "$(jq -r '(.capabilities.query_global_graph | tostring) + "|" + (.capabilities.impact_context | tostring) + "|" + .capabilities.impact_context_status + "|" + ((.capabilities.impact_context_limitations | index("definitions_only_no_process_graph")) != null | tostring)' "$DEFINITIONS_ONLY_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "definitions-only aggregate impact stays unavailable" "full:gitnexus|none:0:true|none:0:unavailable:true" "$(jq -r '.capabilities.context_selection.support_level + ":" + (.capabilities.context_selection.primary_providers | join(",")) + "|" + .capabilities.impact_radius.support_level + ":" + (.capabilities.impact_radius.primary_providers | length | tostring) + ":" + ((.capabilities.impact_radius.limitations | index("definitions_only_no_impact_evidence")) != null | tostring) + "|" + .capabilities.review_support.support_level + ":" + (.capabilities.review_support.primary_providers | length | tostring) + ":" + .capabilities.review_support.related_tests_status + ":" + ((.capabilities.review_support.limitations | index("definitions_only_no_related_tests")) != null | tostring)' "$DEFINITIONS_ONLY_REPO/.spec-first/impact/bootstrap-impact-capabilities.json")"
+assert_eq "definitions-only skips GitNexus impact probe" "0" "$(jq '[.results[] | select(.provider=="gitnexus") | .command_results[] | select(.kind=="impact_probe")] | length' <<<"$definitions_only_output")"
 assert_contains "bootstrap report includes probe token column" "Probe Token" "$(cat "$DEFINITIONS_ONLY_REPO/.spec-first/graph/bootstrap-report.md")"
-assert_contains "bootstrap report includes definitions-only evidence" "definitions-only evidence" "$(cat "$DEFINITIONS_ONLY_REPO/.spec-first/graph/bootstrap-report.md")"
+assert_contains "bootstrap report includes definitions-only evidence" "Definitions-only GitNexus evidence" "$(cat "$DEFINITIONS_ONLY_REPO/.spec-first/graph/bootstrap-report.md")"
+
+NO_SOURCE_DEFINITIONS_REPO="$TMP_DIR/no-source-definitions-repo"
+NO_SOURCE_DEFINITIONS_LEDGER="$TMP_DIR/no-source-definitions-home/.codex/spec-first/host-setup.json"
+make_repo "$NO_SOURCE_DEFINITIONS_REPO"
+write_fixture_config "$NO_SOURCE_DEFINITIONS_REPO" "$NO_SOURCE_DEFINITIONS_LEDGER" true
+jq '
+  .providers.gitnexus.commands.query_probe[4] = "main src build README package"
+  | .providers.gitnexus.query_probe_policy.expected_hit = false
+  | .providers.gitnexus.query_probe_policy.source = "fallback-static"
+  | .providers.gitnexus.query_probe_policy.token = "main src build README package"
+  | .providers.gitnexus.query_probe_policy.selected_from = null
+  | .providers.gitnexus.query_probe_policy.candidates = [
+      {token:"main src build README package", selected_from:null, reason_code:"fallback-static"}
+    ]
+' "$NO_SOURCE_DEFINITIONS_REPO/.spec-first/config/graph-providers.json" > "$NO_SOURCE_DEFINITIONS_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$NO_SOURCE_DEFINITIONS_REPO/.spec-first/config/graph-providers.json.tmp" "$NO_SOURCE_DEFINITIONS_REPO/.spec-first/config/graph-providers.json"
+no_source_definitions_output="$(cd "$NO_SOURCE_DEFINITIONS_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_NO_SOURCE_TOKEN_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "no-source definitions-only fallback is query-ready" "primary:ready:true:definitions-only:false" "$(jq -r '.workflow_mode as $mode | .results[] | select(.provider=="gitnexus") | "\($mode):\(.status):\(.query_ready):\(.query_probe_attempts[0].result_class):\(.query_probe_policy.expected_hit)"' <<<"$no_source_definitions_output")"
+assert_eq "no-source definitions-only fallback remains query-only" "true|false|unavailable|true" "$(jq -r '(.capabilities.query_global_graph | tostring) + "|" + (.capabilities.impact_context | tostring) + "|" + .capabilities.impact_context_status + "|" + ((.capabilities.impact_context_limitations | index("definitions_only_no_process_graph")) != null | tostring)' "$NO_SOURCE_DEFINITIONS_REPO/.spec-first/graph/graph-facts.json")"
 
 NO_SOURCE_FALLBACK_REPO="$TMP_DIR/no-source-fallback-repo"
 NO_SOURCE_FALLBACK_LEDGER="$TMP_DIR/no-source-fallback-home/.codex/spec-first/host-setup.json"
@@ -1768,9 +1731,9 @@ jq '
     ]
 ' "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json" > "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json.tmp"
 mv "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json.tmp" "$NO_SOURCE_FALLBACK_REPO/.spec-first/config/graph-providers.json"
-no_source_fallback_output="$(cd "$NO_SOURCE_FALLBACK_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT")"
+no_source_fallback_output="$(cd "$NO_SOURCE_FALLBACK_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_NO_SOURCE_TOKEN_EMPTY=1 bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "no-source fallback policy is not applicable not degraded" "no-source:not-applicable" "$(jq -r '"\(.workflow_mode):\(.overall_status)"' <<<"$no_source_fallback_output")"
-assert_eq "no-source fallback keeps null selected_from" "null:fallback-static:definitions-only:false:query-not-applicable" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_attempts[0].selected_from | tostring):\(.query_probe_attempts[0].reason_code):\(.query_probe_attempts[0].result_class):\(.query_ready):\(.status)"' <<<"$no_source_fallback_output")"
+assert_eq "no-source fallback keeps null selected_from" "null:fallback-static:empty-or-unparseable:false:query-not-applicable" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_attempts[0].selected_from | tostring):\(.query_probe_attempts[0].reason_code):\(.query_probe_attempts[0].result_class):\(.query_ready):\(.status)"' <<<"$no_source_fallback_output")"
 assert_eq "no-source fallback policy preserves nullable source pointer" "false:null:fallback-static" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_policy.expected_hit):\(.query_probe_policy.selected_from | tostring):\(.query_probe_policy.source)"' <<<"$no_source_fallback_output")"
 assert_eq "no-source fallback records structured reason" "gitnexus-query-not-applicable" "$(jq -r '.results[] | select(.provider=="gitnexus") | .reason_code' <<<"$no_source_fallback_output")"
 
@@ -1784,7 +1747,7 @@ git -C "$SIGSEGV_REPO" commit -q -m "Add host file"
 sigsegv_output="$(cd "$SIGSEGV_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_ANALYZE_SIGSEGV=1 bash "$BOOTSTRAP_SCRIPT")"
 assert_eq "GitNexus sigsegv degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$sigsegv_output")"
 assert_eq "GitNexus sigsegv has structured reason" "failed:gitnexus-analyze-sigsegv:provider-crash:bootstrap:139" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$sigsegv_output")"
-assert_contains "GitNexus sigsegv limitation recommends fallback" "Do not trust GitNexus artifacts" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$sigsegv_output")"
+assert_contains "GitNexus sigsegv limitation recommends bounded fallback" "Use bounded local fallback" "$(jq -r '.results[] | select(.provider=="gitnexus") | .limitations | join(" ")' <<<"$sigsegv_output")"
 if grep -q '<!-- gitnexus:start -->' "$SIGSEGV_REPO/AGENTS.md"; then
   echo "FAIL: failed GitNexus bootstrap created host instruction block" >&2
   exit 1
@@ -1818,24 +1781,6 @@ assert_eq "GitNexus timeout degrades with fallback" "degraded-fallback" "$(jq -r
 assert_eq "GitNexus timeout has structured reason" "failed:provider-command-timeout:provider-timeout:bootstrap:124" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$timeout_output")"
 assert_contains "GitNexus timeout raw log records timeout" "command timed out after 1s" "$(cat "$TIMEOUT_REPO/.spec-first/providers/gitnexus/raw/analyze.log")"
 
-CRG_CACHE_REPO="$TMP_DIR/crg-cache-repo"
-CRG_CACHE_LEDGER="$TMP_DIR/crg-cache-home/.codex/spec-first/host-setup.json"
-make_repo "$CRG_CACHE_REPO"
-write_fixture_config "$CRG_CACHE_REPO" "$CRG_CACHE_LEDGER" true
-crg_cache_output="$(cd "$CRG_CACHE_REPO" && PATH="$TEST_PATH" FAIL_CRG_CACHE_PERMISSION=1 bash "$BOOTSTRAP_SCRIPT")"
-assert_eq "code-review-graph cache failure degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$crg_cache_output")"
-assert_eq "code-review-graph cache failure is environment classified" "failed:provider-cache-permission-denied:provider-environment:bootstrap:2" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$crg_cache_output")"
-assert_contains "code-review-graph cache failure recommends permission fix" "Provider cache access was denied" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .limitations | join(" ")' <<<"$crg_cache_output")"
-
-CRG_PACKAGE_REPO="$TMP_DIR/crg-package-repo"
-CRG_PACKAGE_LEDGER="$TMP_DIR/crg-package-home/.codex/spec-first/host-setup.json"
-make_repo "$CRG_PACKAGE_REPO"
-write_fixture_config "$CRG_PACKAGE_REPO" "$CRG_PACKAGE_LEDGER" true
-crg_package_output="$(cd "$CRG_PACKAGE_REPO" && PATH="$TEST_PATH" FAIL_CRG_PACKAGE_NOT_FOUND=1 bash "$BOOTSTRAP_SCRIPT")"
-assert_eq "code-review-graph missing package degrades with fallback" "degraded-fallback" "$(jq -r '.workflow_mode' <<<"$crg_package_output")"
-assert_eq "code-review-graph missing package is classified" "failed:provider-package-not-found:provider-package-resolution-failed:bootstrap:1" "$(jq -r '.results[] | select(.provider=="code-review-graph") | "\(.status):\(.reason_code):\(.failure_class):\(.failed_phase):\(.exit_code)"' <<<"$crg_package_output")"
-assert_contains "code-review-graph missing package recommends index fix" "Unset UV_INDEX_URL/PIP_INDEX_URL" "$(jq -r '.results[] | select(.provider=="code-review-graph") | .limitations | join(" ")' <<<"$crg_package_output")"
-
 NO_FALLBACK_REPO="$TMP_DIR/no-fallback-repo"
 NO_FALLBACK_LEDGER="$TMP_DIR/no-fallback-home/.codex/spec-first/host-setup.json"
 make_repo "$NO_FALLBACK_REPO"
@@ -1843,7 +1788,7 @@ write_fixture_config "$NO_FALLBACK_REPO" "$NO_FALLBACK_LEDGER" true
 jq '.fallback_capabilities |= with_entries(.value.support_level = "none")' "$NO_FALLBACK_REPO/.spec-first/config/runtime-capabilities.json" > "$NO_FALLBACK_REPO/.spec-first/config/runtime-capabilities.json.tmp"
 mv "$NO_FALLBACK_REPO/.spec-first/config/runtime-capabilities.json.tmp" "$NO_FALLBACK_REPO/.spec-first/config/runtime-capabilities.json"
 set +e
-no_fallback_output="$(cd "$NO_FALLBACK_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_QUERY=1 FAIL_CRG_BUILD=1 bash "$BOOTSTRAP_SCRIPT")"
+no_fallback_output="$(cd "$NO_FALLBACK_REPO" && PATH="$TEST_PATH" FAIL_GITNEXUS_QUERY=1 bash "$BOOTSTRAP_SCRIPT")"
 no_fallback_status=$?
 set -e
 assert_eq "no providers and no fallback blocks" "1" "$no_fallback_status"

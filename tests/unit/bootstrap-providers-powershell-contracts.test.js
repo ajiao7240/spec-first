@@ -74,10 +74,22 @@ describe('PowerShell graph bootstrap workspace GitNexus summary contract', () =>
       'definitions-pointer',
       'unavailable',
       'not-evaluated-no-mcp-input',
+      'non-git-folder',
+      'folder_snapshot',
+      'content_fingerprint',
+      'non_git_folder_no_git_diff',
+      'incremental-non-git-folder-unsupported',
     ]) {
       expect(powershell).toContain(key);
       expect(bash).toContain(key);
     }
+
+    expect(powershell).toContain("[string]$actual[4] -eq '--skip-git'");
+    expect(powershell).toContain('Get-FolderContentFingerprint');
+    expect(powershell).toContain("if ($targetKind -eq 'non-git-folder' -and $Incremental)");
+    expect(bash).toContain('TARGET_ARGS+=(--folder "$FOLDER_ARG")');
+    expect(bash).toContain('.[3] == "analyze" and .[4] == "--skip-git"');
+    expect(bash).toContain('folder_content_fingerprint');
 
     expect(powershell).toContain('path = $null');
     expect(powershell).toContain('name = $null');
@@ -154,5 +166,40 @@ describe('PowerShell graph bootstrap workspace GitNexus summary contract', () =>
     expect(bash).toContain("'^(.spec-first/(providers|graph|impact|workspace)/|.gitnexus/|.code-review-graph/)'".replaceAll('.', '\\.'));
     expect(powershell).not.toContain("ExternalActorFingerprintIgnorePattern = '^(\\.spec-first/|");
     expect(bash).not.toContain("EXTERNAL_ACTOR_FINGERPRINT_IGNORE_REGEX='^(\\.spec-first/|");
+  });
+
+  test('PowerShell impact probe detects top-level test paths from parsed JSON fields', () => {
+    const powershell = fs.readFileSync(PS_BOOTSTRAP_PATH, 'utf8');
+    const match = powershell.match(/function Test-GitNexusImpactProbeHasRelatedTests[\s\S]*?\n}\n\nfunction Get-GitNexusQueryProbeCandidates/);
+
+    expect(match).not.toBeNull();
+
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gitnexus-impact-ps-'));
+    const psScript = path.join(tmp, 'probe.ps1');
+    const logPath = path.join(tmp, 'impact.log');
+    fs.writeFileSync(
+      logPath,
+      JSON.stringify({
+        affected: [
+          { filePath: 'src/cli/index.js' },
+          { filePath: 'tests/unit/top-level-fixture.js' },
+        ],
+      }),
+      'utf8',
+    );
+    fs.writeFileSync(
+      psScript,
+      [
+        match[0].replace(/\nfunction Get-GitNexusQueryProbeCandidates$/, ''),
+        `$result = Test-GitNexusImpactProbeHasRelatedTests -LogPath '${logPath.replaceAll("'", "''")}'`,
+        'if ($result) { "true" } else { "false" }',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const result = spawnSync('pwsh', ['-NoProfile', '-File', psScript], { encoding: 'utf8' });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe('true');
   });
 });

@@ -1,7 +1,7 @@
 ---
 title: refactor: GitNexus-only graph provider hard cut and CRG removal
 type: refactor
-status: active
+status: completed
 date: 2026-05-25
 origin: docs/brainstorms/2026-05-25-001-gitnexus-only-graph-provider-requirements.md
 spec_id: 2026-05-25-001-gitnexus-only-graph-provider

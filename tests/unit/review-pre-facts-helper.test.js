@@ -78,6 +78,13 @@ function writeGraphArtifacts(repo) {
     available_query_surfaces: ['query'],
     capabilities: ['query_global_graph'],
   });
+  writeJson(repo, '.spec-first/providers/gitnexus/normalized/impact-capabilities.json', {
+    schema_version: 'provider-normalized-envelope.v1',
+    provider: 'gitnexus',
+    available_query_surfaces: ['query', 'impact', 'detect_changes'],
+    related_tests: 'candidate-only',
+    limitations: ['related_tests_unverified'],
+  });
   writeJson(repo, '.spec-first/graph/provider-status.json', {
     schema_version: 'graph-provider-status.v1',
     workflow_mode: 'primary',
@@ -90,6 +97,7 @@ function writeGraphArtifacts(repo) {
         query_ready: true,
         normalized_artifacts: {
           architecture_facts: '.spec-first/providers/gitnexus/normalized/architecture-facts.json',
+          impact_capabilities: '.spec-first/providers/gitnexus/normalized/impact-capabilities.json',
         },
       },
     ],
@@ -99,7 +107,9 @@ function writeGraphArtifacts(repo) {
     workflow_mode: 'primary',
     capabilities: {
       query_global_graph: true,
-      impact_context: true,
+      impact_context: false,
+      impact_context_status: 'limited',
+      impact_context_limitations: ['related_tests_unverified'],
     },
     source_revision: snapshot.source_revision,
     worktree_dirty: snapshot.worktree_dirty,
@@ -117,8 +127,10 @@ function writeGraphArtifacts(repo) {
     workflow_mode: 'primary',
     capabilities: {
       review_support: {
-        support_level: 'full',
+        support_level: 'partial',
         primary_providers: ['gitnexus'],
+        related_tests_status: 'candidate-only',
+        limitations: ['related_tests_unverified'],
       },
     },
   });
@@ -1194,6 +1206,55 @@ describe('review-pre-facts helper modes', () => {
       const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
       expect(plan.readiness).toBe('graph-fresh');
       expect(plan.target_provider).toBe('gitnexus');
+      expect(plan.queries).toEqual([]);
+      expect(plan.tier).toBe('bounded-reads');
+      expect(plan.reason_code).toBe('provider_query_unavailable');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('prepare treats CRG-only provider projection as unavailable', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      writeJson(repo, '.spec-first/providers/code-review-graph/normalized/architecture-facts.json', {
+        schema_version: 'provider-normalized-envelope.v1',
+        provider: 'code-review-graph',
+        available_query_surfaces: ['query'],
+        capabilities: ['query_global_graph'],
+      });
+      writeJson(repo, '.spec-first/graph/provider-status.json', {
+        schema_version: 'graph-provider-status.v1',
+        workflow_mode: 'primary',
+        ready_primary_providers: ['code-review-graph'],
+        providers: [
+          {
+            provider: 'code-review-graph',
+            status: 'ready',
+            graph_ready: true,
+            query_ready: true,
+            normalized_artifacts: {
+              architecture_facts: '.spec-first/providers/code-review-graph/normalized/architecture-facts.json',
+            },
+          },
+        ],
+      });
+      const output = path.join(dir, 'query-plan.json');
+      const result = captureRun([
+        '--mode', 'prepare',
+        '--workflow', 'doc-review',
+        '--document', 'docs/plans/plan.md',
+        '--repo', repo,
+        '--run-id', runId,
+        '--summary-dir', dir,
+        '--output', output,
+      ], repo);
+
+      expect(result.code).toBe(0);
+      const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+      expect(plan.readiness).toBe('provider-unavailable');
+      expect(plan.target_provider).toBe(null);
       expect(plan.queries).toEqual([]);
       expect(plan.tier).toBe('bounded-reads');
       expect(plan.reason_code).toBe('provider_query_unavailable');

@@ -188,6 +188,8 @@ describe('ai dev quality gate contract', () => {
     expect(WORKFLOW_RUNTIME_CONTRACT_TESTS).toEqual([
       'tests/unit/branch-protection-policy.test.js',
       'tests/unit/no-crg-runtime-contracts.test.js',
+      'tests/unit/graph-anchor-extraction-helper.test.js',
+      'tests/unit/init-source-path-coverage.test.js',
       'tests/unit/package-install-contracts.test.js',
       'tests/unit/ai-dev-quality-gate.test.js',
       'tests/unit/ai-dev-benchmark-fixtures.test.js',
@@ -212,9 +214,17 @@ describe('ai dev quality gate contract', () => {
     expect(aiWorkflow).toContain("docs/contracts/quality-gates/**");
     expect(aiWorkflow).toContain("scripts/run-ai-dev-benchmark-fixtures.js");
     expect(aiWorkflow).toContain("scripts/run-ai-dev-quality-gate.js");
+    expect(aiWorkflow).toContain("src/cli/gitignore-policy.js");
+    expect(aiWorkflow).toContain("src/cli/helpers/review-pre-facts.js");
+    expect(aiWorkflow).toContain("skills/spec-mcp-setup/**");
+    expect(aiWorkflow).toContain("skills/spec-graph-bootstrap/**");
+    expect(aiWorkflow).toContain("skills/spec-doc-review/**");
     expect(aiWorkflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
     expect(aiWorkflow).toContain("tests/unit/branch-protection-policy.test.js");
     expect(aiWorkflow).toContain("tests/unit/no-crg-runtime-contracts.test.js");
+    expect(aiWorkflow).toContain("tests/benchmark/extract-graph-anchors.sh");
+    expect(aiWorkflow).toContain("tests/unit/graph-anchor-extraction-helper.test.js");
+    expect(aiWorkflow).toContain("tests/unit/init-source-path-coverage.test.js");
     expect(aiWorkflow).toContain("tests/unit/package-install-contracts.test.js");
     expect(aiWorkflow).toContain("tests/unit/ai-dev-quality-gate.test.js");
     expect(aiWorkflow).toContain("tests/unit/ai-dev-benchmark-fixtures.test.js");

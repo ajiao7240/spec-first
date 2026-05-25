@@ -1,5 +1,6 @@
 param(
   [string]$Repo = '',
+  [string]$Folder = '',
   [switch]$AllRepos,
   [switch]$NoInstall
 )
@@ -12,6 +13,12 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 }
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (-not [string]::IsNullOrWhiteSpace($Repo) -and -not [string]::IsNullOrWhiteSpace($Folder)) {
+  throw 'verify-tools.ps1: use either -Repo or -Folder, not both'
+}
+if ($AllRepos -and -not [string]::IsNullOrWhiteSpace($Folder)) {
+  throw 'verify-tools.ps1: use either -AllRepos or -Folder, not both'
+}
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $MarkerPath = $HostInfo.marker_path
 $MarkerDir = Split-Path -Parent $MarkerPath
@@ -276,7 +283,7 @@ if ($AllRepos) {
   Write-WorkspaceMcpVerifySummaryAndExit -TargetFacts $targetFactsForAll -SelectionSource 'explicit-all-repos'
 }
 
-if (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo)) {
+if (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo) -and [string]::IsNullOrWhiteSpace($Folder)) {
   $targetFactsForDefaultAll = (& (Join-Path $ScriptDir 'resolve-project-target.ps1') -Format json) | ConvertFrom-Json
   $defaultChildren = @($targetFactsForDefaultAll.candidates)
   if ($targetFactsForDefaultAll.mode -ne 'git-repo' -and $defaultChildren.Count -gt 0) {
@@ -286,11 +293,20 @@ if (-not $AllRepos -and [string]::IsNullOrWhiteSpace($Repo)) {
 
 $detectParams = @{}
 if (-not [string]::IsNullOrWhiteSpace($Repo)) { $detectParams.Repo = $Repo }
+if (-not [string]::IsNullOrWhiteSpace($Folder)) { $detectParams.Folder = $Folder }
 $Facts = & (Join-Path $ScriptDir 'detect-tools.ps1') @detectParams | ConvertFrom-Json
 $HelperFacts = & (Join-Path $ScriptDir 'install-helpers.ps1') -VerifyOnly | ConvertFrom-Json
 
 $reconciliationHost = $Facts.host
-$reconciliationRepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$Facts.selected_repo_root)) { [string]$Facts.selected_repo_root } else { [string]$Facts.repo_root }
+$reconciliationRepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$Facts.selected_repo_root)) {
+  [string]$Facts.selected_repo_root
+} elseif ($null -ne $Facts.PSObject.Properties['target'] -and -not [string]::IsNullOrWhiteSpace([string]$Facts.target.selected_folder_root)) {
+  [string]$Facts.target.selected_folder_root
+} elseif ($null -ne $Facts.PSObject.Properties['target'] -and -not [string]::IsNullOrWhiteSpace([string]$Facts.target.target_root)) {
+  [string]$Facts.target.target_root
+} else {
+  [string]$Facts.repo_root
+}
 $HostPointerReconciliation = Get-HostPointerReconciliation -CurrentHost $reconciliationHost -RepoRoot $reconciliationRepoRoot -MarkerPathArg $MarkerPath
 
 function Test-ToolReady {
@@ -344,9 +360,10 @@ foreach ($property in $helperTools.PSObject.Properties) {
 if ($baselineReady -and -not $nextActions.Contains('run spec-graph-bootstrap')) {
   $nextActions.Add('run spec-graph-bootstrap')
 }
+$factsTargetKind = if ($Facts.PSObject.Properties.Name -contains 'target_kind') { [string]$Facts.target_kind } else { '' }
 if ($null -ne $Facts.PSObject.Properties['target'] -and -not [bool]$Facts.target.state_write_allowed -and -not [string]::IsNullOrWhiteSpace([string]$Facts.target.next_action) -and -not $nextActions.Contains([string]$Facts.target.next_action)) {
   $nextActions.Add([string]$Facts.target.next_action)
-} elseif ($Facts.repo_status -eq 'not-git-repo' -and -not $nextActions.Contains('choose a child repo and rerun with --repo <child>')) {
+} elseif ($Facts.repo_status -eq 'not-git-repo' -and $factsTargetKind -ne 'non-git-folder' -and -not $nextActions.Contains('choose a child repo and rerun with --repo <child>')) {
   $nextActions.Add('choose a child repo and rerun with --repo <child>')
 }
 
@@ -359,8 +376,11 @@ $combined = [ordered]@{
   repo_status = $Facts.repo_status
   target = $Facts.target
   target_mode = $Facts.target_mode
+  target_kind = $factsTargetKind
   workspace_root = $Facts.workspace_root
   selected_repo_root = $Facts.selected_repo_root
+  selected_folder_root = if ($null -ne $Facts.PSObject.Properties['target']) { $Facts.target.selected_folder_root } else { $null }
+  target_root = if ($null -ne $Facts.PSObject.Properties['target']) { $Facts.target.target_root } else { $Facts.repo_root }
   target_candidate_count = $Facts.target_candidate_count
   target_candidates = @($Facts.target_candidates)
   reason_code = $Facts.reason_code
@@ -447,7 +467,7 @@ foreach ($action in @($combined.next_actions)) {
 }
 if ($null -ne $combined.target -and -not [bool]$combined.target.state_write_allowed -and -not [string]::IsNullOrWhiteSpace([string]$combined.target.next_action) -and -not $filteredNextActions.Contains([string]$combined.target.next_action)) {
   $filteredNextActions.Add([string]$combined.target.next_action)
-} elseif ($combined.repo_status -eq 'not-git-repo' -and -not $filteredNextActions.Contains('choose a child repo and rerun with --repo <child>')) {
+} elseif ($combined.repo_status -eq 'not-git-repo' -and [string]$combined.target_kind -ne 'non-git-folder' -and -not $filteredNextActions.Contains('choose a child repo and rerun with --repo <child>')) {
   $filteredNextActions.Add('choose a child repo and rerun with --repo <child>')
 } elseif ($combined.baseline_ready -and $combined.graph_bootstrap_required -and -not $filteredNextActions.Contains('run spec-graph-bootstrap')) {
   $filteredNextActions.Add('run spec-graph-bootstrap')
@@ -516,7 +536,6 @@ function Format-Remark {
     'sequential-thinking' { return '反思式推理辅助' }
     'context7' { return '当前框架和库文档' }
     'gitnexus' { return '全局代码知识图谱与影响分析' }
-    'code-review-graph' { return '变更影响半径与 review 上下文' }
     'agent-browser' { return '浏览器自动化辅助' }
     'gh' { return 'GitHub issue 和 PR 操作' }
     'jq' { return 'JSON 解析与转换' }

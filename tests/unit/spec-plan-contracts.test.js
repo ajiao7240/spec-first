@@ -233,7 +233,7 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('review-pre-facts changes');
     expect(text).toContain('execution flows or blast radius');
     expect(text).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
-    expect(text).toContain('must not run GitNexus analyze, code-review-graph build');
+    expect(text).toContain('must not run GitNexus analyze/build/index refresh');
     expect(text).toContain('default git hooks, watchers, or daemons');
     expect(text).toContain('GitNexus impact results are planning evidence');
     expect(text).toContain('not refresh triggers');

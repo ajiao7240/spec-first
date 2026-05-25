@@ -13,11 +13,17 @@ source "$SCRIPT_DIR/lib-template.sh"
 require_mcp_tools_schema_version 6 "$TOOLS_JSON"
 
 REPO_ARG=""
+FOLDER_ARG=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo)
       REPO_ARG="${2:-}"
       [ -n "$REPO_ARG" ] || { echo "detect-tools.sh: --repo requires a value" >&2; exit 1; }
+      shift 2
+      ;;
+    --folder)
+      FOLDER_ARG="${2:-}"
+      [ -n "$FOLDER_ARG" ] || { echo "detect-tools.sh: --folder requires a value" >&2; exit 1; }
       shift 2
       ;;
     *)
@@ -26,6 +32,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [ -n "$REPO_ARG" ] && [ -n "$FOLDER_ARG" ]; then
+  echo "detect-tools.sh: use either --repo or --folder, not both" >&2
+  exit 1
+fi
 
 HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
@@ -36,6 +47,9 @@ SELECTED_SCOPE="$(jq -r '.selected_scope // empty' <<<"$HOST_INFO_JSON")"
 TARGET_ARGS=()
 if [ -n "$REPO_ARG" ]; then
   TARGET_ARGS+=(--repo "$REPO_ARG")
+fi
+if [ -n "$FOLDER_ARG" ]; then
+  TARGET_ARGS+=(--folder "$FOLDER_ARG")
 fi
 set +e
 TARGET_ENV="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format env ${TARGET_ARGS[@]+"${TARGET_ARGS[@]}"})"
@@ -48,18 +62,25 @@ set -e
 eval "$TARGET_ENV"
 TARGET_MODE="$mode"
 TARGET_REPO_STATUS="$repo_status"
+TARGET_KIND="$target_kind"
 TARGET_SELECTION_SOURCE="$selection_source"
 TARGET_STATE_WRITE_ALLOWED="$state_write_allowed"
 TARGET_WORKSPACE_ROOT="$workspace_root"
 TARGET_SELECTED_REPO_ROOT="$selected_repo_root"
+TARGET_SELECTED_FOLDER_ROOT="$selected_folder_root"
+TARGET_ROOT="$target_root"
 TARGET_REPO_LABEL="$repo_label"
 TARGET_REASON_CODE="$reason_code"
 TARGET_NEXT_ACTION="$next_action"
 if [ "$TARGET_ENV_STATUS" -ne 0 ] || [ "$TARGET_JSON_STATUS" -ne 0 ]; then
   TARGET_STATE_WRITE_ALLOWED="false"
 fi
-if [ -n "$TARGET_SELECTED_REPO_ROOT" ]; then
+if [ -n "$TARGET_ROOT" ]; then
+  REPO_ROOT="$TARGET_ROOT"
+elif [ -n "$TARGET_SELECTED_REPO_ROOT" ]; then
   REPO_ROOT="$TARGET_SELECTED_REPO_ROOT"
+elif [ -n "$TARGET_SELECTED_FOLDER_ROOT" ]; then
+  REPO_ROOT="$TARGET_SELECTED_FOLDER_ROOT"
 else
   REPO_ROOT="$TARGET_WORKSPACE_ROOT"
 fi
@@ -339,6 +360,7 @@ jq -n \
   --arg platform "$PLATFORM" \
   --arg repo_root "$REPO_ROOT" \
   --arg repo_status "$REPO_STATUS" \
+  --arg target_kind "$TARGET_KIND" \
   --argjson target "$TARGET_JSON" \
   --argjson tools "$tools_json" \
   --argjson graph_providers "$graph_providers_json" \
@@ -349,10 +371,13 @@ jq -n \
     platform: $platform,
     repo_root: $repo_root,
     repo_status: $repo_status,
+    target_kind: $target_kind,
     target: $target,
     target_mode: ($target.mode // ""),
     workspace_root: ($target.workspace_root // ""),
     selected_repo_root: ($target.selected_repo_root // null),
+    selected_folder_root: ($target.selected_folder_root // null),
+    target_root: ($target.target_root // null),
     target_candidate_count: (($target.candidates // []) | length),
     target_candidates: ($target.candidates // []),
     reason_code: ($target.reason_code // ""),

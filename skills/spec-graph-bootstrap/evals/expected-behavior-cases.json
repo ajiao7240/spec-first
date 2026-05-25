@@ -3,7 +3,7 @@
   "cases": [
     {
       "id": "primary-single-repo",
-      "input": "Both GitNexus and code-review-graph pass build/status/query proof in a selected Git repo.",
+      "input": "GitNexus passes analyze/status/query proof in a selected Git repo.",
       "expected_decision": "primary",
       "expected_output": "workflow_mode=primary, overall_status=ready, query_ready=true for ready providers, canonical graph and impact artifacts written under the selected repo."
     },

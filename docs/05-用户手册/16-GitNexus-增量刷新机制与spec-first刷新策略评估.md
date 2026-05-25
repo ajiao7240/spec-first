@@ -48,7 +48,7 @@ spec-first 当前默认路径：
 
 - GitNexus 每种语言 parser 的完整实现。
 - GitNexus query ranking、embedding、community/process 生成质量评估。
-- code-review-graph 的增量算法。它的流程见 [code-review-graph 全流程执行分析](./15-code-review-graph-全流程执行分析.md)。
+- retired CRG 的增量算法。迁移前流程见 [code-review-graph 全流程执行分析](./15-code-review-graph-全流程执行分析.md)。
 - 直接替换当前 spec-first graph-bootstrap contract 的实施方案。
 
 ## 官方 GitNexus 的刷新模型

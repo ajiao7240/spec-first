@@ -95,7 +95,7 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('query_probe_candidates_truncated=true');
     expect(skill).toContain('winning_query_probe_log');
     expect(skill).toContain('query-2.log');
-    expect(skill).toContain('stopping at the first process result');
+    expect(skill).toContain('stopping at the first query-ready result');
     expect(skill).toContain('first `query_probe_attempts[]` token whose `result_class` is `process-results`');
     expect(skill).toContain('It means the bootstrap CLI query probe failed.');
     expect(skill).toContain('gitnexus_query');
@@ -106,6 +106,11 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('session-local evidence only');
     expect(skill).toContain('partial-definitions-only');
     expect(skill).toContain('Definitions-only evidence can help locate files or symbols');
+    expect(skill).toContain('`definitions-only` proves query/context orientation only');
+    expect(skill).toContain('The script must not decide that a repo is a documentation library');
+    expect(skill).toContain('accept it as compiled `query_ready=true` for query/context orientation');
+    expect(skill).toContain('must not claim `execution_flow`, `impact_radius`, or review-impact support');
+    expect(skill).toContain('downstream LLM workflows decide whether it satisfies a documentation-library or file-location task');
     expect(skill).toContain('Do not rewrite `.spec-first/graph/*`');
     expect(skill).toContain('do not set compiled `query_ready=true`');
     expect(skill).toContain('Do not infer semantic architecture conclusions or write project-guidance baselines here.');
@@ -146,7 +151,8 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('Do not run `group_sync` automatically');
     expect(skill).toContain('every `results[]` child row carries the same `parent_run_id`');
     expect(skill).toContain('Always report the compiled artifacts first, then any session-local live MCP evidence');
-    expect(skill).toContain('code-review-graph and bounded direct repo reads');
+    expect(skill).toContain('bounded direct repo reads, git diff, ast-grep, tests, and logs');
+    expect(skill).toContain('reason_code=stale-provider-projection');
     expect(skill).toContain('needs a restart or a new session');
     expect(skill).toContain('reason_code=gitnexus-query-provider-projection-stale');
     expect(skill).toContain('reason_code=gitnexus-query-fts-readonly');
@@ -223,7 +229,7 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).not.toContain('reason_code=dirty-source-blocked');
     expect(skill).toContain('dirty-refresh-non-canonical');
     expect(skill).toContain('graph-facts.v1` does not expose refresh-mode convenience fields');
-    expect(skill).toContain('__SPEC_FIRST_LAST_INDEXED_COMMIT__');
+    expect(skill).not.toContain('__SPEC_FIRST_LAST_INDEXED_COMMIT__');
 
     for (const source of [bashScript, powershellScript]) {
       expect(source).toContain('incremental-all-repos-unsupported');
@@ -244,7 +250,7 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
       expect(source).toContain('requires_clean_full_refresh');
       expect(source).toContain('refresh_mode');
       expect(source).toContain('fallback_from_incremental');
-      expect(source).toContain('__SPEC_FIRST_LAST_INDEXED_COMMIT__');
+      expect(source).not.toContain('__SPEC_FIRST_LAST_INDEXED_COMMIT__');
     }
 
     expect(bashScript).toContain('DEFAULT_REFRESH_MODE_SINGLE_REPO=full');
@@ -254,7 +260,7 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(bashScript).toContain('--incremental');
     expect(bashScript).toContain('--full|--force');
     expect(bashScript).toContain('provider_incremental_command_json');
-    expect(bashScript).toContain('.[length - 1] = $sha');
+    expect(bashScript).not.toContain('.[length - 1] = $sha');
 
     expect(powershellScript).toContain("$script:DefaultRefreshModeSingleRepo = 'full'");
     expect(powershellScript).toContain("$script:DefaultRefreshModeAllRepos = 'full'");
@@ -266,7 +272,7 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(powershellScript).toContain('[switch]$Full');
     expect(powershellScript).toContain('[switch]$Force');
     expect(powershellScript).toContain('Get-ProviderIncrementalCommand');
-    expect(powershellScript).toContain('$command[$sentinelIndex] = $LastIndexedCommit');
+    expect(powershellScript).not.toContain('$command[$sentinelIndex] = $LastIndexedCommit');
     expect(powershellScript).toContain('Resolve-ProviderRefreshMode');
     expect(powershellScript).toContain('$bootstrapRawLogsForStatus');
     expect(powershellScript).toContain('raw_logs = $providerRawLogs');

@@ -68,7 +68,7 @@ LLM 和 agents 负责语义判断：
 
 `spec-first` 不应成为 prompt collection、agent collection、强状态机、中心化流程引擎、复杂规则引擎、无边界脚本堆，或替代 LLM 判断的硬编码专家系统。
 
-GitNexus、code-review-graph、ast-grep、browser tooling 和其他 MCP providers 是外部或辅助能力。Downstream workflows 应消费 canonical artifacts、readiness facts、degraded-mode status 和 reason_code，不应依赖 provider 内部实现细节。
+GitNexus、ast-grep、browser tooling 和其他 MCP providers 是外部或辅助能力。Downstream workflows 应消费 canonical artifacts、readiness facts、degraded-mode status 和 reason_code，不应依赖 provider 内部实现细节。
 
 ## Source 与 Runtime
 
@@ -122,7 +122,7 @@ Generated runtime assets 包括：
 - `npm run test:unit`：运行 shell 与 Jest 单测。
 - `npm run test:smoke`：验证 CLI help、`init`、`doctor` 和安装路径。
 - `npm run test:integration`：运行 workflow 级集成检查。
-- `npm test`：运行主测试链路，覆盖 unit、smoke、integration 和 CRG e2e。
+- `npm test`：运行主测试链路，覆盖 unit、smoke、integration 和 GitNexus graph-provider e2e。
 - `npm run build`：执行 `npm pack --dry-run`，验证发布包内容。
 - `npm run lint:skill-entrypoints`：校验 skill/workflow 入口治理。
 - `npm run test:mcp-setup`：验证 required harness runtime setup 脚本与 projection contract。

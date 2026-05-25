@@ -4,6 +4,7 @@
 set -euo pipefail
 
 REPO_ARG=""
+FOLDER_ARG=""
 OUTPUT_FORMAT="json"
 SCAN_DEPTH=3
 
@@ -12,6 +13,11 @@ while [[ $# -gt 0 ]]; do
     --repo)
       REPO_ARG="${2:-}"
       [ -n "$REPO_ARG" ] || { echo "resolve-project-target.sh: --repo requires a value" >&2; exit 1; }
+      shift 2
+      ;;
+    --folder)
+      FOLDER_ARG="${2:-}"
+      [ -n "$FOLDER_ARG" ] || { echo "resolve-project-target.sh: --folder requires a value" >&2; exit 1; }
       shift 2
       ;;
     --format)
@@ -33,6 +39,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [ -n "$REPO_ARG" ] && [ -n "$FOLDER_ARG" ]; then
+  echo "resolve-project-target.sh: use either --repo or --folder, not both" >&2
+  exit 1
+fi
 
 json_escape() {
   local value="$1"
@@ -107,11 +118,15 @@ fi
 
 mode=""
 repo_status="not-git-repo"
+target_kind=""
 selection_source=""
 state_write_allowed="false"
 workspace_root="$INVOCATION_CWD"
 selected_repo_root=""
+selected_folder_root=""
+target_root=""
 repo_label=""
+folder_label=""
 reason_code=""
 next_action=""
 exit_code=0
@@ -175,10 +190,60 @@ discover_candidates() {
   done <<<"$sorted"
 }
 
-if [ -n "$REPO_ARG" ]; then
+if [ -n "$FOLDER_ARG" ]; then
+  raw_target="$(absolutize_maybe_missing "$FOLDER_ARG")"
+  if [ ! -e "$raw_target" ]; then
+    mode="invalid-target"
+    target_kind="invalid"
+    reason_code="folder-target-not-found"
+    next_action="Choose an existing non-git folder and rerun with --folder <path>."
+    exit_code=1
+  elif [ ! -d "$raw_target" ]; then
+    mode="invalid-target"
+    target_kind="invalid"
+    reason_code="folder-target-not-directory"
+    next_action="Choose an existing non-git folder and rerun with --folder <path>."
+    exit_code=1
+  else
+    canonical_target="$(canonicalize_existing_path "$raw_target")"
+    if [ -n "$CWD_GIT_ROOT" ]; then
+      workspace_root="$CWD_GIT_ROOT"
+    else
+      workspace_root="$INVOCATION_CWD"
+    fi
+
+    if ! path_is_within "$canonical_target" "$workspace_root"; then
+      mode="invalid-target"
+      target_kind="invalid"
+      reason_code="folder-target-outside-workspace"
+      next_action="Choose a folder inside the current workspace."
+      exit_code=1
+    else
+      target_git_root="$(git -C "$canonical_target" rev-parse --show-toplevel 2>/dev/null || true)"
+      if [ -n "$target_git_root" ]; then
+        mode="invalid-target"
+        target_kind="invalid"
+        reason_code="folder-target-is-git-repo"
+        next_action="Use --repo for Git repositories, or choose a folder outside any Git repo."
+        exit_code=1
+      else
+        mode="non-git-folder"
+        repo_status="not-git-repo"
+        target_kind="non-git-folder"
+        selection_source="explicit-folder"
+        state_write_allowed="true"
+        selected_folder_root="$canonical_target"
+        target_root="$canonical_target"
+        folder_label="$(relative_to_workspace "$selected_folder_root" "$workspace_root")"
+        repo_label="$folder_label"
+      fi
+    fi
+  fi
+elif [ -n "$REPO_ARG" ]; then
   raw_target="$(absolutize_maybe_missing "$REPO_ARG")"
   if [ ! -e "$raw_target" ]; then
     mode="invalid-target"
+    target_kind="invalid"
     reason_code="repo-target-not-found"
     next_action="Choose an existing child Git repo and rerun with --repo <path>."
     exit_code=1
@@ -192,6 +257,7 @@ if [ -n "$REPO_ARG" ]; then
 
     if ! path_is_within "$canonical_target" "$workspace_root"; then
       mode="invalid-target"
+      target_kind="invalid"
       reason_code="repo-target-outside-workspace"
       next_action="Choose a child Git repo inside the current workspace."
       exit_code=1
@@ -199,6 +265,7 @@ if [ -n "$REPO_ARG" ]; then
       target_git_root="$(git -C "$canonical_target" rev-parse --show-toplevel 2>/dev/null || true)"
       if [ -z "$target_git_root" ]; then
         mode="invalid-target"
+        target_kind="invalid"
         reason_code="repo-target-not-git"
         next_action="Choose a path inside a child Git repo and rerun with --repo <path>."
         exit_code=1
@@ -206,19 +273,23 @@ if [ -n "$REPO_ARG" ]; then
         selected_repo_root="$(canonicalize_existing_path "$target_git_root")"
         if ! path_is_within "$selected_repo_root" "$workspace_root"; then
           mode="invalid-target"
+          target_kind="invalid"
           reason_code="repo-target-outside-workspace"
           next_action="Choose a child Git repo inside the current workspace."
           exit_code=1
         elif [ -n "$CWD_GIT_ROOT" ] && [ "$selected_repo_root" != "$CWD_GIT_ROOT" ]; then
           mode="invalid-target"
+          target_kind="invalid"
           reason_code="repo-target-outside-workspace"
           next_action="Run from the target repo or invoke from its parent workspace."
           exit_code=1
         else
           mode="git-repo"
           repo_status="git-repo"
+          target_kind="git-repo"
           selection_source="explicit-repo"
           state_write_allowed="true"
+          target_root="$selected_repo_root"
           repo_label="$(relative_to_workspace "$selected_repo_root" "$workspace_root")"
         fi
       fi
@@ -227,12 +298,15 @@ if [ -n "$REPO_ARG" ]; then
 elif [ -n "$CWD_GIT_ROOT" ]; then
   mode="git-repo"
   repo_status="git-repo"
+  target_kind="git-repo"
   selection_source="cwd-git-root"
   state_write_allowed="true"
   workspace_root="$CWD_GIT_ROOT"
   selected_repo_root="$CWD_GIT_ROOT"
+  target_root="$CWD_GIT_ROOT"
   repo_label="$(basename "$CWD_GIT_ROOT")"
 else
+  target_kind="workspace"
   discover_candidates "$workspace_root"
   if [ "${#candidate_roots[@]}" -eq 0 ]; then
     mode="workspace-no-git-candidates"
@@ -272,6 +346,7 @@ emit_json() {
   printf '"schema_version":"project-target.v1",'
   printf '"mode":"%s",' "$(json_escape "$mode")"
   printf '"repo_status":"%s",' "$(json_escape "$repo_status")"
+  printf '"target_kind":"%s",' "$(json_escape "$target_kind")"
   printf '"selection_source":"%s",' "$(json_escape "$selection_source")"
   printf '"state_write_allowed":%s,' "$state_write_allowed"
   printf '"invocation_cwd":"%s",' "$(json_escape "$INVOCATION_CWD")"
@@ -281,7 +356,18 @@ emit_json() {
   else
     printf '"selected_repo_root":null,'
   fi
+  if [ -n "$selected_folder_root" ]; then
+    printf '"selected_folder_root":"%s",' "$(json_escape "$selected_folder_root")"
+  else
+    printf '"selected_folder_root":null,'
+  fi
+  if [ -n "$target_root" ]; then
+    printf '"target_root":"%s",' "$(json_escape "$target_root")"
+  else
+    printf '"target_root":null,'
+  fi
   printf '"repo_label":"%s",' "$(json_escape "$repo_label")"
+  printf '"folder_label":"%s",' "$(json_escape "$folder_label")"
   printf '"candidates":%s,' "$candidates_json"
   printf '"reason_code":"%s",' "$(json_escape "$reason_code")"
   printf '"next_action":"%s"' "$(json_escape "$next_action")"
@@ -292,12 +378,16 @@ emit_env() {
   printf 'schema_version=%s\n' "$(env_quote "project-target.v1")"
   printf 'mode=%s\n' "$(env_quote "$mode")"
   printf 'repo_status=%s\n' "$(env_quote "$repo_status")"
+  printf 'target_kind=%s\n' "$(env_quote "$target_kind")"
   printf 'selection_source=%s\n' "$(env_quote "$selection_source")"
   printf 'state_write_allowed=%s\n' "$(env_quote "$state_write_allowed")"
   printf 'invocation_cwd=%s\n' "$(env_quote "$INVOCATION_CWD")"
   printf 'workspace_root=%s\n' "$(env_quote "$workspace_root")"
   printf 'selected_repo_root=%s\n' "$(env_quote "$selected_repo_root")"
+  printf 'selected_folder_root=%s\n' "$(env_quote "$selected_folder_root")"
+  printf 'target_root=%s\n' "$(env_quote "$target_root")"
   printf 'repo_label=%s\n' "$(env_quote "$repo_label")"
+  printf 'folder_label=%s\n' "$(env_quote "$folder_label")"
   printf 'reason_code=%s\n' "$(env_quote "$reason_code")"
   printf 'next_action=%s\n' "$(env_quote "$next_action")"
 }

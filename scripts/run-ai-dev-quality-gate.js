@@ -16,6 +16,8 @@ const QUALITY_FEEDBACK_FILE = 'quality-feedback-topics.json';
 const WORKFLOW_RUNTIME_CONTRACT_TESTS = [
   'tests/unit/branch-protection-policy.test.js',
   'tests/unit/no-crg-runtime-contracts.test.js',
+  'tests/unit/graph-anchor-extraction-helper.test.js',
+  'tests/unit/init-source-path-coverage.test.js',
   'tests/unit/package-install-contracts.test.js',
   'tests/unit/ai-dev-quality-gate.test.js',
   'tests/unit/ai-dev-benchmark-fixtures.test.js',

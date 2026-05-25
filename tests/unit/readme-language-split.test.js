@@ -113,7 +113,7 @@ describe('README language split contract', () => {
       '### Fast path vs enhanced readiness',
       'lightweight host-session workflows before graph readiness has been compiled',
       'Graph refresh trigger nodes:',
-      'Need current GitNexus/code-review-graph readiness',
+      'Need current GitNexus readiness',
       'Branch switch, pull, rebase, merge, or dirty worktree change',
       'does not automatically rebuild indexes',
       '### Readiness ladder',
@@ -180,7 +180,7 @@ describe('README language split contract', () => {
     expect(chineseReadme).toContain('### Fast path 与增强 readiness');
     expect(chineseReadme).toContain('即使还没有编译 graph readiness，也可以先进入轻量宿主 workflow。');
     expect(chineseReadme).toContain('Graph refresh 触发节点：');
-    expect(chineseReadme).toContain('需要当前 GitNexus / code-review-graph readiness');
+    expect(chineseReadme).toContain('需要当前 GitNexus readiness');
     expect(chineseReadme).toContain('切换分支、pull、rebase、merge 或 dirty worktree 变化');
     expect(chineseReadme).toContain('不会自动 rebuild index');
     expect(chineseReadme).toContain('### Readiness ladder / 就绪层级');

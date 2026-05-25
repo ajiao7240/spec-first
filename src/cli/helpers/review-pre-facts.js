@@ -632,11 +632,7 @@ function computeReadiness(repoRoot) {
   const providers = Array.isArray(providerStatus.value && providerStatus.value.providers)
     ? providerStatus.value.providers
     : [];
-  const targetProvider = providers.find((provider) => provider.provider === 'gitnexus' && provider.query_ready)
-    || providers.find((provider) => provider.query_ready)
-    || providers.find((provider) => provider.provider === 'gitnexus')
-    || providers[0]
-    || null;
+  const targetProvider = providers.find((provider) => provider.provider === 'gitnexus') || null;
   const artifactInventory = buildArtifactInventory(repoRoot, providers);
 
   if (!providerStatus.ok || !graphFacts.ok || !impactCapabilities.ok) {
@@ -742,7 +738,7 @@ function buildArtifactInventory(repoRoot, providers) {
 
 function buildQueryPlan({ options, readiness, targets }) {
   const queryPlanId = `qplan-${options.runId}`;
-  const targetProviderName = readiness.target_provider?.provider || null;
+  const targetProviderName = 'gitnexus';
   const hasQuerySurface = readiness.normalized_artifact_inventory
     .some((artifact) => artifact.provider === targetProviderName && artifact.available_query_surfaces.length > 0);
   const queries = readiness.readiness === 'graph-fresh' && hasQuerySurface
@@ -751,10 +747,8 @@ function buildQueryPlan({ options, readiness, targets }) {
       .slice(0, 6)
       .map((target, index) => ({
         query_id: `q${index + 1}`,
-        provider: readiness.target_provider?.provider || 'gitnexus',
-        tool_name: readiness.target_provider?.provider === 'code-review-graph'
-          ? 'code-review-graph.query'
-          : 'gitnexus.query',
+        provider: 'gitnexus',
+        tool_name: 'gitnexus.query',
         operation: 'query',
         arguments: {
           repo: path.basename(options.repoRoot),

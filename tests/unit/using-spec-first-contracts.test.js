@@ -144,7 +144,7 @@ describe('using-spec-first contracts', () => {
       'using-spec-first` itself is a standalone meta skill',
       '/spec:update',
       '$spec-update',
-      'compile or refresh graph readiness, GitNexus/code-review-graph provider indexes, or graph-provider query proof after setup',
+      'compile or refresh GitNexus graph readiness, provider index, or graph-provider query proof after setup',
       '/spec:doc-review',
       '$spec-doc-review',
       'git-commit-push-pr',

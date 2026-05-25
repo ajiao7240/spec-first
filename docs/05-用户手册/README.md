@@ -6,7 +6,7 @@
 
 完成 `doctor`、`init` 和宿主重启后，轻量任务可以先走 no-graph fast path：docs-only、小 bugfix、首次试用、轻量 plan/work/review 可以直接进入匹配的 `/spec:*` 或 `$spec-*` workflow。`spec-mcp-setup` 和 `spec-graph-bootstrap` 是增强 readiness 路径，适合需要 MCP provider、graph evidence 或跨模块/跨仓影响分析的任务。
 
-GitNexus / code-review-graph refresh 的默认策略是“自动 freshness check，显式 graph-bootstrap refresh”。`spec-mcp-setup` 只刷新 setup-owned provider projection；`spec-graph-bootstrap` 才写 canonical `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。切换分支、pull、rebase、merge、dirty worktree 变化或 provider fingerprint mismatch 只会让下游 consumer 判定 stale / bootstrap-required；普通 plan/work/debug/review 不会自动运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。轻量任务继续 bounded direct repo reads；graph-heavy 任务再显式运行 `spec-graph-bootstrap`。
+GitNexus refresh 的默认策略是“自动 freshness check，显式 graph-bootstrap refresh”。`spec-mcp-setup` 只刷新 setup-owned provider projection；`spec-graph-bootstrap` 才写 canonical `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。切换分支、pull、rebase、merge、dirty worktree 变化或 provider fingerprint mismatch 只会让下游 consumer 判定 stale / bootstrap-required；普通 plan/work/debug/review 不会自动运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。轻量任务继续 bounded direct repo reads；graph-heavy 任务再显式运行 `spec-graph-bootstrap`。
 
 当前推荐的事实准备、专项审查与知识沉淀入口：
 
@@ -45,12 +45,12 @@ GitNexus / code-review-graph refresh 的默认策略是“自动 freshness check
 - 项目级 `.claude/spec-first/.developer` / `.codex/spec-first/.developer`
 - 严格 schema 的 `.claude/spec-first/state.json` / `.codex/spec-first/state.json`
 - `init` 自动维护的 `.gitignore` spec-first managed block，用于忽略可重建 runtime 和本地 readiness facts
-- 一份代码图谱 provider 作用域说明，区分 GitNexus 的全局代码知识与 code-review-graph 的变更审查影响证据
+- 一份代码图谱 provider 作用域说明，解释 GitNexus 如何同时承担全局代码知识与 review-impact evidence
 - 一份 GitNexus 全流程执行分析，说明安装、生成、使用、更新、repair 与 session-local evidence 边界
-- 一份 code-review-graph 全流程执行分析，说明 CLI artifact provider、impact readiness、review consumption、更新与 repair 边界
+- 一份 retired code-review-graph 历史全流程执行分析，作为迁移前链路档案保留
 - 一份 GitNexus 增量刷新机制与 spec-first 刷新策略评估，说明官方增量、当前 full 默认、dirty-advisory 与优化建议
-- 一份 GitNexus 刷新策略与 provider 直接平替决策，说明官方刷新面、当前刷新节点、最佳实践，以及 GitNexus 如何直接平替 code-review-graph
-- 一份 CodeGraph 对 GitNexus 与 CRG 的平替评估，说明 CodeGraph 当前不能无降级直接替掉 GitNexus / CRG，但可作为实验性单仓代码探索 provider 候选
+- 一份 GitNexus 刷新策略与 provider 直接平替决策历史档案，说明官方刷新面、当前刷新节点、最佳实践，以及 GitNexus 如何完成 CRG 平替
+- 一份 CodeGraph 对 GitNexus 与 retired CRG 的平替评估历史档案，说明 CodeGraph 当前不能无降级直接替掉 GitNexus，但可作为实验性单仓代码探索 provider 候选
 - 可更新、可恢复、可清理的受管资产模型
 - 一条面向首次使用者的 workflow 走查，说明从一个需求句子到 requirements / plan / task pack 的真实产物链路
 - 一份 workflow 产物目录，说明每类文档和 generated runtime assets 的生成者、读取方与 Git 边界
@@ -121,10 +121,10 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 7. [Gitignore 参考](./12-gitignore参考.md)
 8. [代码图谱 Provider 作用域与差异化](./13-代码图谱Provider作用域与差异化.md)
 9. [GitNexus 全流程执行分析](./14-GitNexus-全流程执行分析.md)
-10. [code-review-graph 全流程执行分析](./15-code-review-graph-全流程执行分析.md)
+10. [retired code-review-graph 全流程执行分析](./15-code-review-graph-全流程执行分析.md)
 11. [GitNexus 增量刷新机制与 spec-first 刷新策略评估](./16-GitNexus-增量刷新机制与spec-first刷新策略评估.md)
 12. [GitNexus 刷新策略与 Provider 直接平替决策](./17-GitNexus-刷新策略与Provider收敛决策.md)
-13. [CodeGraph 对 GitNexus 与 CRG 的平替评估](./18-CodeGraph-GitNexus-CRG-平替评估.md)
+13. [CodeGraph 对 GitNexus 与 retired CRG 的平替评估](./18-CodeGraph-GitNexus-CRG-平替评估.md)
 14. [常见问题](./04-常见问题.md)
 15. [最佳实践](./05-最佳实践.md)
 16. [三种开发模式](./08-三种开发模式.md)
@@ -139,12 +139,12 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 - 如果你要判断单仓、多模块或多仓 workspace 怎么使用，先看 [三种开发模式](./08-三种开发模式.md)
 - 如果你要确认真实执行过程，看 [完整示例](./03-完整示例.md)
 - 如果你要判断某个文档或 runtime 目录该不该手改、该不该提交，先看 [产物目录](./10-产物目录.md)
-- 如果你要理解 GitNexus 与 code-review-graph 的分工、边界和差异化，先看 [代码图谱 Provider 作用域与差异化](./13-代码图谱Provider作用域与差异化.md)
+- 如果你要理解 GitNexus-only provider 边界和差异化，先看 [代码图谱 Provider 作用域与差异化](./13-代码图谱Provider作用域与差异化.md)
 - 如果你要追踪 GitNexus 安装、projection、bootstrap、downstream consumption、更新和 repair 的真实执行节点，先看 [GitNexus 全流程执行分析](./14-GitNexus-全流程执行分析.md)
-- 如果你要追踪 code-review-graph 安装、projection、bootstrap、review impact、更新和 repair 的真实执行节点，先看 [code-review-graph 全流程执行分析](./15-code-review-graph-全流程执行分析.md)
+- 如果你要追踪迁移前 code-review-graph 安装、projection、bootstrap、review impact、更新和 repair 的历史执行节点，先看 [code-review-graph 全流程执行分析](./15-code-review-graph-全流程执行分析.md)
 - 如果你要判断 GitNexus 官方增量刷新和 spec-first 当前 full 默认是否合理，先看 [GitNexus 增量刷新机制与 spec-first 刷新策略评估](./16-GitNexus-增量刷新机制与spec-first刷新策略评估.md)
-- 如果你要判断 GitNexus 刷新最佳实践，或评估 GitNexus 如何直接平替 code-review-graph，先看 [GitNexus 刷新策略与 Provider 直接平替决策](./17-GitNexus-刷新策略与Provider收敛决策.md)
-- 如果你要判断 CodeGraph 能否替掉 GitNexus 或 CRG，先看 [CodeGraph 对 GitNexus 与 CRG 的平替评估](./18-CodeGraph-GitNexus-CRG-平替评估.md)
+- 如果你要判断 GitNexus 刷新最佳实践，或回看 GitNexus 如何直接平替 CRG 的迁移决策，先看 [GitNexus 刷新策略与 Provider 直接平替决策](./17-GitNexus-刷新策略与Provider收敛决策.md)
+- 如果你要判断 CodeGraph 能否替掉 GitNexus，先看 [CodeGraph 对 GitNexus 与 CRG 的平替评估](./18-CodeGraph-GitNexus-CRG-平替评估.md)
 - 如果你要给业务项目配置 `.gitignore`，先看 [Gitignore 参考](./12-gitignore参考.md)
 - 如果你在排障，看 [常见问题](./04-常见问题.md)
 - 如果你关注 graph readiness、runtime/control-plane 与 Git 协作边界，重点看 [核心概念](./02-核心概念.md)、[Workflows 与产物地图](./04-workflows-artifacts-map.md)、[最佳实践](./05-最佳实践.md) 和 [常见问题](./04-常见问题.md)

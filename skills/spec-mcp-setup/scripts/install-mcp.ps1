@@ -1,6 +1,7 @@
 param(
   [string]$Only,
   [string]$Repo = '',
+  [string]$Folder = '',
   [switch]$AllRepos
 )
 
@@ -34,8 +35,23 @@ $script:WarmupCacheRoot = if (-not [string]::IsNullOrWhiteSpace($env:SPEC_FIRST_
 $script:WarmupLatestTtlSeconds = Get-NonNegativeIntEnv -Name 'SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS' -Default 86400
 $resolverParams = @{ Format = 'json' }
 if (-not $AllRepos -and -not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
+if (-not $AllRepos -and -not [string]::IsNullOrWhiteSpace($Folder)) { $resolverParams.Folder = $Folder }
+if (-not [string]::IsNullOrWhiteSpace($Repo) -and -not [string]::IsNullOrWhiteSpace($Folder)) {
+  throw 'install-mcp.ps1: use either -Repo or -Folder, not both'
+}
+if ($AllRepos -and -not [string]::IsNullOrWhiteSpace($Folder)) {
+  throw 'install-mcp.ps1: use either -AllRepos or -Folder, not both'
+}
 $TargetFacts = (& (Join-Path $ScriptDir 'resolve-project-target.ps1') @resolverParams) | ConvertFrom-Json
-$ResolvedRepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.selected_repo_root)) { [string]$TargetFacts.selected_repo_root } else { [string]$TargetFacts.workspace_root }
+$ResolvedRepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.target_root)) {
+  [string]$TargetFacts.target_root
+} elseif (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.selected_repo_root)) {
+  [string]$TargetFacts.selected_repo_root
+} elseif (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.selected_folder_root)) {
+  [string]$TargetFacts.selected_folder_root
+} else {
+  [string]$TargetFacts.workspace_root
+}
 
 function Parse-List {
   param([string]$Value)

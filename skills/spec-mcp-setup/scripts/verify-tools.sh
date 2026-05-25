@@ -8,12 +8,18 @@ command -v node >/dev/null 2>&1 || { echo '错误：node 是必需依赖，请�
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ARG=""
+FOLDER_ARG=""
 ALL_REPOS=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo)
       REPO_ARG="${2:-}"
       [ -n "$REPO_ARG" ] || { echo "verify-tools.sh: --repo requires a value" >&2; exit 1; }
+      shift 2
+      ;;
+    --folder)
+      FOLDER_ARG="${2:-}"
+      [ -n "$FOLDER_ARG" ] || { echo "verify-tools.sh: --folder requires a value" >&2; exit 1; }
       shift 2
       ;;
     --all-repos)
@@ -26,6 +32,15 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [ -n "$REPO_ARG" ] && [ -n "$FOLDER_ARG" ]; then
+  echo "verify-tools.sh: use either --repo or --folder, not both" >&2
+  exit 1
+fi
+if [ "$ALL_REPOS" = "true" ] && [ -n "$FOLDER_ARG" ]; then
+  echo "verify-tools.sh: use either --all-repos or --folder, not both" >&2
+  exit 1
+fi
 
 HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 MARKER_PATH="$(jq -r '.marker_path' <<<"$HOST_INFO_JSON")"
@@ -267,6 +282,9 @@ DETECT_ARGS=()
 if [ -n "$REPO_ARG" ] && [ "$ALL_REPOS" != "true" ]; then
   DETECT_ARGS+=(--repo "$REPO_ARG")
 fi
+if [ -n "$FOLDER_ARG" ] && [ "$ALL_REPOS" != "true" ]; then
+  DETECT_ARGS+=(--folder "$FOLDER_ARG")
+fi
 
 if [ "$ALL_REPOS" = "true" ]; then
   set +e
@@ -280,7 +298,7 @@ if [ "$ALL_REPOS" = "true" ]; then
   write_all_repos_verify_summary_and_exit "$TARGET_JSON" "explicit-all-repos"
 fi
 
-if [ -z "$REPO_ARG" ]; then
+if [ -z "$REPO_ARG" ] && [ -z "$FOLDER_ARG" ]; then
   set +e
   DEFAULT_TARGET_JSON="$(bash "$SCRIPT_DIR/resolve-project-target.sh" --format json)"
   DEFAULT_TARGET_STATUS=$?
@@ -302,7 +320,7 @@ HELPER_JSON="$(bash "$SCRIPT_DIR/install-helpers.sh" --verify-only)"
 # U2: facts 给出 child repo root 后再做 reconciliation,
 # 让 --repo <child> 在 parent workspace 下也能正确比对 runtime-capabilities.json。
 RECONCILIATION_HOST="$(jq -r '.host // empty' <<<"$FACTS_JSON")"
-RECONCILIATION_REPO_ROOT="$(jq -r '.selected_repo_root // .repo_root // empty' <<<"$FACTS_JSON")"
+RECONCILIATION_REPO_ROOT="$(jq -r '.selected_repo_root // .selected_folder_root // .target.target_root // .repo_root // empty' <<<"$FACTS_JSON")"
 HOST_POINTER_RECONCILIATION="$(compute_host_pointer_reconciliation "$RECONCILIATION_HOST" "$RECONCILIATION_REPO_ROOT" "$MARKER_PATH")"
 
 mkdir -p "$MARKER_DIR"
@@ -348,8 +366,11 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       repo_status: $facts.repo_status,
       target: ($facts.target // null),
       target_mode: ($facts.target_mode // ""),
+      target_kind: ($facts.target_kind // ""),
       workspace_root: ($facts.workspace_root // null),
       selected_repo_root: ($facts.selected_repo_root // null),
+      selected_folder_root: ($facts.selected_folder_root // null),
+      target_root: ($facts.target.target_root // $facts.repo_root // null),
       target_candidate_count: ($facts.target_candidate_count // 0),
       target_candidates: ($facts.target_candidates // []),
       reason_code: ($facts.reason_code // ""),
@@ -439,7 +460,7 @@ jq --argjson provider "$PROVIDER_RESULT" \
        )))
        + (if ((.target.state_write_allowed // false) != true and ((.target.next_action // "") != "")) then
             [.target.next_action]
-          elif .repo_status == "not-git-repo" then
+          elif .repo_status == "not-git-repo" and (.target_kind // "") != "non-git-folder" then
             ["choose a child repo and rerun with --repo <child>"]
           elif (.baseline_ready == true and .graph_bootstrap_required == true) then
             ["run spec-graph-bootstrap"]
@@ -488,7 +509,6 @@ jq -c '
     if $key == "sequential-thinking" then "反思式推理辅助"
     elif $key == "context7" then "当前框架和库文档"
     elif $key == "gitnexus" then "全局代码知识图谱与影响分析"
-    elif $key == "code-review-graph" then "变更影响半径与 review 上下文"
     elif $key == "agent-browser" then "浏览器自动化辅助"
     elif $key == "gh" then "GitHub issue 和 PR 操作"
     elif $key == "jq" then "JSON 解析与转换"

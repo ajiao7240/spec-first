@@ -360,7 +360,9 @@ describe('dual-host governance contracts', () => {
     expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain(
       '<configured-gitnexus-package>", "analyze", "--force", "--skip-agents-md", "--no-stats"',
     );
-    expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain('uvx <configured-code-review-graph-package> build');
+    expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).not.toContain('uvx <configured-code-review-graph-package> build');
+    expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain('Allowed provider ids are:');
+    expect(read(GRAPH_BOOTSTRAP_SKILL_PATH)).toContain('`gitnexus`');
   });
 
   test('README runtime counts stay aligned with current bundled assets', () => {

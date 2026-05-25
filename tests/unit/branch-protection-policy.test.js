@@ -31,6 +31,28 @@ function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
+function extractPullRequestPaths(workflowText) {
+  const paths = [];
+  let inPaths = false;
+
+  for (const line of workflowText.split('\n')) {
+    if (/^\s*paths:\s*$/.test(line)) {
+      inPaths = true;
+      continue;
+    }
+    if (!inPaths) continue;
+
+    const match = line.match(/^\s*-\s+'([^']+)'\s*$/);
+    if (match) {
+      paths.push(match[1]);
+      continue;
+    }
+    if (/^\s*(workflow_dispatch|jobs):/.test(line)) break;
+  }
+
+  return paths;
+}
+
 describe('branch protection policy contracts', () => {
   test('policy stays machine-readable and advisory-only', () => {
     const schema = readJson(POLICY_SCHEMA_PATH);
@@ -69,6 +91,8 @@ describe('branch protection policy contracts', () => {
           expect(workflow).toContain(coveredPath);
         }
       }
+
+      expect([...check.covers_paths].sort()).toEqual(extractPullRequestPaths(workflow).sort());
     }
   });
 

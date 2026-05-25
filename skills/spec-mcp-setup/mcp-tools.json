@@ -270,7 +270,7 @@
             "native_tools": ["query"],
             "native_resources": [],
             "mutation_boundary": "read-only",
-            "fallback_posture": "bounded direct source reads, ast-grep, code-review-graph, or prior GitNexus evidence",
+            "fallback_posture": "bounded direct source reads, ast-grep, git diff, tests/logs, or prior GitNexus evidence",
             "source_tags": ["checked-in-baseline", "provider-pin"]
           },
           "context": {
@@ -286,7 +286,7 @@
             "native_tools": ["impact", "detect_changes"],
             "native_resources": ["gitnexus://repo/{name}/processes", "gitnexus://repo/{name}/process/{processName}"],
             "mutation_boundary": "read-only",
-            "fallback_posture": "code-review-graph impact facts, git diff, ast-grep, and bounded source reads",
+            "fallback_posture": "git diff, ast-grep, tests/logs, and bounded source reads",
             "source_tags": ["checked-in-baseline", "provider-pin"]
           },
           "route_api_evidence": {
@@ -342,104 +342,6 @@
       "license_notice": {
         "required": true,
         "message": "Review GitNexus licensing terms before commercial use."
-      }
-    },
-    {
-      "id": "code-review-graph",
-      "name": "code-review-graph",
-      "summary_label": "code-review-graph",
-      "required": true,
-      "category": "graph-provider",
-      "host_config_required": false,
-      "provider_role": "impact_context",
-      "description": "上游 code-review-graph CLI graph provider，用于影响半径、最小上下文与 review context；live MCP server 仅作为显式可选增强",
-      "dependencies": ["uv", "uvx"],
-      "package": "code-review-graph",
-      "version": "2.3.3",
-      "installation": {
-        "kind": "warmup",
-        "unix": {
-          "command": "uvx",
-          "args": ["{{package}}@{{version}}", "--help"]
-        },
-        "windows": {
-          "command": "uvx",
-          "args": ["{{package}}@{{version}}", "--help"]
-        }
-      },
-      "host_config": {
-        "claude": {
-          "command": "uvx",
-          "args": ["{{package}}@{{version}}", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
-          "scope": "managed",
-          "targets": {
-            "managed": {
-              "config_path": {
-                "macos": "/Library/Application Support/ClaudeCode/managed-mcp.json",
-                "linux": "/etc/claude-code/managed-mcp.json",
-                "wsl": "/etc/claude-code/managed-mcp.json",
-                "windows": "C:\\Program Files\\ClaudeCode\\managed-mcp.json"
-              },
-              "config_format": "json",
-              "precedence": 100,
-              "writable_check": "parent-or-file"
-            },
-            "user": {
-              "config_path": "$HOME/.claude.json",
-              "config_format": "json",
-              "precedence": 10,
-              "writable_check": "parent-or-file"
-            }
-          },
-          "fallback_order": ["managed", "user"],
-          "uninstall_targets": ["managed", "user"]
-        },
-        "codex": {
-          "command": "uvx",
-          "args": ["{{package}}@{{version}}", "serve", "--tools", "get_minimal_context_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool,detect_changes_tool,list_graph_stats_tool"],
-          "startup_timeout_sec": 120,
-          "scope": "user",
-          "targets": {
-            "user": {
-              "config_path": "$HOME/.codex/config.toml",
-              "config_format": "toml",
-              "precedence": 50,
-              "writable_check": "parent-or-file"
-            },
-            "system": {
-              "config_path": "/etc/codex/config.toml",
-              "config_format": "toml",
-              "precedence": 100,
-              "writable_check": "file-only"
-            }
-          },
-          "fallback_order": ["user"],
-          "uninstall_targets": ["user", "system"]
-        }
-      },
-      "detection": {
-        "kind": "host_config_exact",
-        "key": "code-review-graph"
-      },
-      "project_bootstrap": {
-        "kind": "none",
-        "required": false
-      },
-      "provider_config": {
-        "access_mode": "cli_artifact",
-        "host_mcp_required": false,
-        "optional_live_mcp": true,
-        "enabled_for_bootstrap": true,
-        "query_ready_after_setup": false,
-        "role": "impact_context",
-        "capabilities": [
-          "detect_changes",
-          "blast_radius",
-          "minimal_context",
-          "review_context",
-          "related_tests",
-          "graph_stats"
-        ]
       }
     }
   ]

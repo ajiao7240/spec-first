@@ -459,20 +459,24 @@ compute_host_pointer_reconciliation "${currentHost}" "${repoRoot}" "${markerPath
     expect(r.stdout.trim()).toBe('null');
   });
 
-  test('verify-tools.sh resolves repo_root from facts (selected_repo_root or repo_root)', () => {
+  test('verify-tools.sh resolves repo_root from selected repo/folder target facts', () => {
     expect(bashVerify).toMatch(
-      /RECONCILIATION_REPO_ROOT="\$\(jq -r '\.selected_repo_root \/\/ \.repo_root \/\/ empty' <<<"\$FACTS_JSON"\)"/,
+      /RECONCILIATION_REPO_ROOT="\$\(jq -r '\.selected_repo_root \/\/ \.selected_folder_root \/\/ \.target\.target_root \/\/ \.repo_root \/\/ empty' <<<"\$FACTS_JSON"\)"/,
     );
     expect(bashVerify).toMatch(
       /HOST_POINTER_RECONCILIATION="\$\(compute_host_pointer_reconciliation "\$RECONCILIATION_HOST" "\$RECONCILIATION_REPO_ROOT" "\$MARKER_PATH"\)"/,
     );
   });
 
-  test('verify-tools.ps1 resolves repo_root from facts (selected_repo_root or repo_root)', () => {
+  test('verify-tools.ps1 resolves repo_root from selected repo/folder target facts', () => {
     const verifyPs1 = readFile(VERIFY_PS1);
-    expect(verifyPs1).toMatch(
-      /\$reconciliationRepoRoot = if \(-not \[string\]::IsNullOrWhiteSpace\(\[string\]\$Facts\.selected_repo_root\)\) \{ \[string\]\$Facts\.selected_repo_root \} else \{ \[string\]\$Facts\.repo_root \}/,
-    );
+    expect(verifyPs1).toContain('$reconciliationRepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$Facts.selected_repo_root))');
+    expect(verifyPs1).toContain("[string]$Facts.selected_repo_root");
+    expect(verifyPs1).toContain("$Facts.PSObject.Properties['target'] -and -not [string]::IsNullOrWhiteSpace([string]$Facts.target.selected_folder_root)");
+    expect(verifyPs1).toContain("[string]$Facts.target.selected_folder_root");
+    expect(verifyPs1).toContain("$Facts.PSObject.Properties['target'] -and -not [string]::IsNullOrWhiteSpace([string]$Facts.target.target_root)");
+    expect(verifyPs1).toContain("[string]$Facts.target.target_root");
+    expect(verifyPs1).toContain("[string]$Facts.repo_root");
     expect(verifyPs1).toContain(
       'Get-HostPointerReconciliation -CurrentHost $reconciliationHost -RepoRoot $reconciliationRepoRoot -MarkerPathArg $MarkerPath',
     );

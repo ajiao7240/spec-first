@@ -58,8 +58,8 @@ describe('spec-debug branch-aware handoff contract', () => {
     expect(text).toContain('review-pre-facts failures');
     expect(text).toContain('execution flows and blast radius');
     expect(text).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
-    expect(text).toContain('Debug must not run GitNexus analyze, code-review-graph build');
-    expect(text).toContain('provider repair, index rebuild, default git hooks, watchers, or daemons');
+    expect(text).toContain('Debug must not run GitNexus analyze/build/index refresh');
+    expect(text).toContain('provider repair, default git hooks, watchers, or daemons');
   });
 
   test('skill-owned branches default to commit-and-PR with explicit override checks', () => {

@@ -1,11 +1,15 @@
 param(
   [string]$Repo = '',
+  [string]$Folder = '',
   [int]$ScanDepth = 3,
   [switch]$WriteSummary
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+if (-not [string]::IsNullOrWhiteSpace($Repo) -and -not [string]::IsNullOrWhiteSpace($Folder)) {
+  throw 'resolve-workspace-graph-targets.ps1: use either -Repo or -Folder, not both'
+}
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectResolver = Join-Path $scriptDir '../../spec-mcp-setup/scripts/resolve-project-target.ps1'
@@ -36,6 +40,50 @@ function Get-StatusHash {
   } finally {
     $sha.Dispose()
   }
+}
+
+function Get-FileContentHash {
+  param([string]$Path)
+  if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return 'missing' }
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+      $hash = $sha.ComputeHash($stream)
+      return 'sha256:' + ([BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant())
+    } finally {
+      $stream.Dispose()
+    }
+  } finally {
+    $sha.Dispose()
+  }
+}
+
+function Get-FolderContentFingerprint {
+  param([string]$Root)
+  $rootPrefix = ([System.IO.Path]::GetFullPath($Root)).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+  $lines = New-Object System.Collections.Generic.List[string]
+  try {
+    $files = @(
+      Get-ChildItem -LiteralPath $Root -File -Recurse -Force -ErrorAction SilentlyContinue |
+        ForEach-Object {
+          $full = [System.IO.Path]::GetFullPath($_.FullName)
+          if ($full.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
+            $relative = $full.Substring($rootPrefix.Length).Replace('\', '/')
+            if ($relative -notmatch '^(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|node_modules|vendor)/') {
+              [pscustomobject]@{ Relative = $relative; Full = $full }
+            }
+          }
+        } |
+        Sort-Object Relative
+    )
+    foreach ($file in $files) {
+      $lines.Add([string]$file.Relative) | Out-Null
+      $lines.Add((Get-FileContentHash -Path $file.Full)) | Out-Null
+    }
+  } catch {
+  }
+  return (Get-StatusHash -Text ($lines -join "`n"))
 }
 
 function Test-SymlinkPath {
@@ -101,6 +149,7 @@ function Get-PropertyValue {
 function New-TargetItemFromSelectedRepo {
   param([object]$Target)
   [pscustomobject]@{
+    target_kind = 'git-repo'
     repo_label = [string](Get-PropertyValue -Object $Target -Name 'repo_label' -Default '')
     git_root = [string]$Target.selected_repo_root
     workspace_relative_path = if ([string]::IsNullOrWhiteSpace([string](Get-PropertyValue -Object $Target -Name 'repo_label' -Default ''))) { '.' } else { [string]$Target.repo_label }
@@ -108,9 +157,23 @@ function New-TargetItemFromSelectedRepo {
   }
 }
 
+function New-TargetItemFromSelectedFolder {
+  param([object]$Target)
+  $label = [string](Get-PropertyValue -Object $Target -Name 'folder_label' -Default (Get-PropertyValue -Object $Target -Name 'repo_label' -Default ''))
+  [pscustomobject]@{
+    target_kind = 'non-git-folder'
+    repo_label = $label
+    git_root = $null
+    folder_root = [string]$Target.selected_folder_root
+    workspace_relative_path = if ([string]::IsNullOrWhiteSpace($label)) { '.' } else { $label }
+    relationship = 'explicit_non_git_folder'
+  }
+}
+
 function Resolve-TargetFacts {
   $params = @{ Format = 'json'; ScanDepth = $ScanDepth }
   if (-not [string]::IsNullOrWhiteSpace($Repo)) { $params.Repo = $Repo }
+  if (-not [string]::IsNullOrWhiteSpace($Folder)) { $params.Folder = $Folder }
   $raw = & $projectResolver @params
   if ([string]::IsNullOrWhiteSpace(($raw -join "`n"))) {
     throw 'resolve-workspace-graph-targets.ps1: target resolver returned no JSON output'
@@ -168,7 +231,8 @@ function Get-ParentRepoLocalArtifactAdvisory {
 function Inspect-Repo {
   param([object]$TargetItem)
 
-  $repoRoot = [string]$TargetItem.git_root
+  $targetKind = [string](Get-PropertyValue -Object $TargetItem -Name 'target_kind' -Default 'git-repo')
+  $repoRoot = if ($targetKind -eq 'non-git-folder') { [string]$TargetItem.folder_root } else { [string]$TargetItem.git_root }
   $repoLabel = [string](Get-PropertyValue -Object $TargetItem -Name 'repo_label' -Default '')
   $workspaceRelativePath = [string](Get-PropertyValue -Object $TargetItem -Name 'workspace_relative_path' -Default $repoLabel)
   $specDir = Join-Path $repoRoot '.spec-first'
@@ -184,12 +248,20 @@ function Inspect-Repo {
   $providerStatusPath = Join-Path $graphDir 'provider-status.json'
   $impactCapabilitiesPath = Join-Path $impactDir 'bootstrap-impact-capabilities.json'
   $gitNexusStatusPath = Join-Path $providersDir 'gitnexus/status.json'
+  $crgStatusPath = Join-Path $providersDir 'code-review-graph/status.json'
 
-  $currentRevision = (git -C $repoRoot rev-parse --verify 'HEAD^{commit}' 2>$null)
-  if ($null -eq $currentRevision) { $currentRevision = '' }
-  $worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
-  $currentDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
-  $currentStatusHash = Get-StatusHash -Text $worktreeStatus
+  if ($targetKind -eq 'non-git-folder') {
+    $currentRevision = ''
+    $worktreeStatus = ''
+    $currentDirty = $false
+    $currentStatusHash = Get-FolderContentFingerprint -Root $repoRoot
+  } else {
+    $currentRevision = (git -C $repoRoot rev-parse --verify 'HEAD^{commit}' 2>$null)
+    if ($null -eq $currentRevision) { $currentRevision = '' }
+    $worktreeStatus = (git -C $repoRoot status --porcelain 2>$null) -join "`n"
+    $currentDirty = -not [string]::IsNullOrWhiteSpace($worktreeStatus)
+    $currentStatusHash = Get-StatusHash -Text $worktreeStatus
+  }
 
   $setupReady = (Test-Schema -Path $graphProvidersPath -Schema 'graph-providers.v1') -and
     (Test-Schema -Path $runtimeCapabilitiesPath -Schema 'runtime-capabilities.v1') -and
@@ -202,19 +274,41 @@ function Inspect-Repo {
   $providerStatus = Read-JsonFileOrNull -Path $providerStatusPath
   $impactCapabilities = Read-JsonFileOrNull -Path $impactCapabilitiesPath
   $gitNexusStatus = Read-JsonFileOrNull -Path $gitNexusStatusPath
+  $crgStatus = Read-JsonFileOrNull -Path $crgStatusPath
 
   $sourceRevision = Get-PropertyValue -Object $graphFacts -Name 'source_revision' -Default $null
   $recordedHash = Get-PropertyValue -Object $graphFacts -Name 'worktree_status_hash' -Default $null
   if ($null -eq $recordedHash -and $null -ne $graphFacts -and $null -ne (Get-PropertyValue -Object $graphFacts -Name 'staleness_hints' -Default $null)) {
     $recordedHash = Get-PropertyValue -Object $graphFacts.staleness_hints -Name 'worktree_status_hash' -Default $null
   }
-  $stale = ($null -ne $sourceRevision -and -not [string]::IsNullOrWhiteSpace([string]$sourceRevision) -and -not [string]::IsNullOrWhiteSpace([string]$currentRevision) -and [string]$sourceRevision -ne [string]$currentRevision)
-  $dirtyAtBootstrap = [bool](Get-PropertyValue -Object $graphFacts -Name 'worktree_dirty' -Default $false)
-  $dirtyUncertain = ($null -ne $graphFacts -and $dirtyAtBootstrap -and (($null -eq $recordedHash) -or ([string]$recordedHash -ne $currentStatusHash)))
+  $recordedContentFingerprint = $null
+  $graphFolderSnapshot = Get-PropertyValue -Object $graphFacts -Name 'folder_snapshot' -Default $null
+  if ($null -ne $graphFolderSnapshot) {
+    $recordedContentFingerprint = Get-PropertyValue -Object $graphFolderSnapshot -Name 'content_fingerprint' -Default $null
+  }
+  if ($null -eq $recordedContentFingerprint -and $null -ne $graphFacts -and $null -ne (Get-PropertyValue -Object $graphFacts -Name 'staleness_hints' -Default $null)) {
+    $recordedContentFingerprint = Get-PropertyValue -Object $graphFacts.staleness_hints -Name 'content_fingerprint' -Default $null
+  }
+  $isNonGitFolder = ($targetKind -eq 'non-git-folder' -or [string](Get-PropertyValue -Object $graphFacts -Name 'target_kind' -Default '') -eq 'non-git-folder')
+  $stale = if ($isNonGitFolder) {
+    ($null -ne $recordedContentFingerprint -and [string]$recordedContentFingerprint -ne [string]$currentStatusHash)
+  } else {
+    ($null -ne $sourceRevision -and -not [string]::IsNullOrWhiteSpace([string]$sourceRevision) -and -not [string]::IsNullOrWhiteSpace([string]$currentRevision) -and [string]$sourceRevision -ne [string]$currentRevision)
+  }
+  $dirtyAtBootstrap = if ($isNonGitFolder) { $false } else { [bool](Get-PropertyValue -Object $graphFacts -Name 'worktree_dirty' -Default $false) }
+  $dirtyUncertain = if ($isNonGitFolder) { $false } else { ($null -ne $graphFacts -and $dirtyAtBootstrap -and (($null -eq $recordedHash) -or ([string]$recordedHash -ne $currentStatusHash))) }
   $setupWorkflowMode = Get-PropertyValue -Object (Get-PropertyValue -Object $graphProviders -Name 'derived_readiness' -Default $null) -Name 'workflow_mode' -Default $(if ($setupReady) { 'setup-ready-bootstrap-required' } else { $null })
   $graphWorkflowMode = Get-PropertyValue -Object $graphFacts -Name 'workflow_mode' -Default $null
 
-  if ([string]::IsNullOrWhiteSpace([string]$currentRevision)) {
+  if ($isNonGitFolder -and $null -ne $graphFacts) {
+    if ($stale) { $graphStatus = 'stale' }
+    elseif ($graphWorkflowMode -eq 'primary') { $graphStatus = 'primary' }
+    elseif ($graphWorkflowMode -eq 'degraded-fallback') { $graphStatus = 'degraded-fallback' }
+    elseif ($graphWorkflowMode -eq 'no-source') { $graphStatus = 'no-source' }
+    else { $graphStatus = [string]($graphWorkflowMode ?? 'unavailable') }
+  } elseif ($isNonGitFolder -and $setupReady) {
+    $graphStatus = [string]($setupWorkflowMode ?? 'setup-ready-bootstrap-required')
+  } elseif ([string]::IsNullOrWhiteSpace([string]$currentRevision)) {
     $graphStatus = 'unavailable'
   } elseif ($null -ne $graphFacts) {
     if ($stale) { $graphStatus = 'stale' }
@@ -233,10 +327,31 @@ function Inspect-Repo {
   $crgProvider = Get-PropertyValue -Object (Get-PropertyValue -Object $graphProviders -Name 'providers' -Default $null) -Name 'code-review-graph' -Default $null
   $gitNexusProviderStatus = Get-ProviderStatus -ProviderStatus $providerStatus -Provider 'gitnexus'
   $crgProviderStatus = Get-ProviderStatus -ProviderStatus $providerStatus -Provider 'code-review-graph'
+  $crgProjectionPresent = $null -ne $crgProvider
+  $crgStatusPresent = $null -ne $crgStatus
+  $crgAggregateStatusPresent = $null -ne $crgProviderStatus
+  $crgStatusRevision = Get-PropertyValue -Object (Get-PropertyValue -Object $crgStatus -Name 'repo_snapshot' -Default $null) -Name 'source_revision' -Default $null
+  if ($null -eq $crgStatusRevision) {
+    $crgStatusRevision = Get-PropertyValue -Object (Get-PropertyValue -Object (Get-PropertyValue -Object $crgStatus -Name 'bootstrap_fingerprint' -Default $null) -Name 'repo_snapshot' -Default $null) -Name 'source_revision' -Default $null
+  }
+  if ($null -eq $crgStatusRevision) {
+    $crgStatusRevision = Get-PropertyValue -Object $crgStatus -Name 'source_revision' -Default $null
+  }
+  if ($null -eq $crgStatusRevision) {
+    $crgStatusRevision = Get-PropertyValue -Object $crgStatus -Name 'last_indexed_commit' -Default (Get-PropertyValue -Object $crgProviderStatus -Name 'last_indexed_commit' -Default '')
+  }
+  $crgStatusFresh = $crgProjectionPresent -and
+    $crgStatusPresent -and
+    [bool](Get-PropertyValue -Object $crgStatus -Name 'query_ready' -Default (Get-PropertyValue -Object $crgProviderStatus -Name 'query_ready' -Default $false)) -and
+    [bool](Get-PropertyValue -Object $crgStatus -Name 'graph_ready' -Default (Get-PropertyValue -Object $crgProviderStatus -Name 'graph_ready' -Default $false)) -and
+    -not $currentDirty -and
+    -not [string]::IsNullOrWhiteSpace([string]$currentRevision) -and
+    [string]$crgStatusRevision -eq [string]$currentRevision
 
   $limitations = New-Object System.Collections.Generic.List[string]
   if (-not $setupReady) { $limitations.Add('setup-owned config is missing or unsupported') }
-  if ($stale) { $limitations.Add('compiled graph facts source revision differs from current HEAD') }
+  if ($isNonGitFolder -and $stale) { $limitations.Add('compiled graph facts content fingerprint differs from current folder contents') }
+  elseif ($stale) { $limitations.Add('compiled graph facts source revision differs from current HEAD') }
   if ($dirtyUncertain) { $limitations.Add('compiled graph facts were generated from a dirty worktree without a matching status fingerprint') }
   if ($null -eq $graphFacts -and $setupReady) { $limitations.Add('graph bootstrap has not produced canonical graph facts') }
   if ([string](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'status' -Default '') -eq 'query-not-applicable') {
@@ -244,8 +359,15 @@ function Inspect-Repo {
   } elseif ([bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'graph_ready' -Default $false) -and -not [bool](Get-PropertyValue -Object $gitNexusProviderStatus -Name 'query_ready' -Default $false)) {
     $limitations.Add('GitNexus graph exists but query readiness is unverified; use live MCP probe or bounded direct reads')
   }
-  if ($currentDirty) {
+  if ($isNonGitFolder) {
+    $limitations.Add('non-git folder target has no commit, branch, dirty hash, Git diff, last_indexed_commit, or incremental evidence')
+  } elseif ($currentDirty) {
     $limitations.Add('current working tree overlay is not guaranteed to be indexed; verify dirty paths directly')
+  }
+  if ($crgStatusFresh) {
+    $limitations.Add('child repository is on a legacy spec-first projection that still contains code-review-graph')
+  } elseif ($crgProjectionPresent -or $crgStatusPresent -or $crgAggregateStatusPresent) {
+    $limitations.Add('historical code-review-graph residue is ignored for workspace readiness')
   }
 
   $queryProbePolicy = Get-PropertyValue -Object $gitNexusProvider -Name 'query_probe_policy' -Default $null
@@ -286,11 +408,35 @@ function Inspect-Repo {
   } else {
     'unavailable'
   }
+  $legacyProviderAdvisories = @()
+  if ($crgStatusFresh) {
+    $legacyProviderAdvisories += [ordered]@{
+      provider = 'code-review-graph'
+      status = 'legacy-active'
+      advisory = $true
+      reason_code = 'child-on-legacy-spec-first-version'
+      projection_path = '.spec-first/config/graph-providers.json'
+      status_artifact = '.spec-first/providers/code-review-graph/status.json'
+      next_action = 'Upgrade spec-first in this child repo and rerun `$spec-mcp-setup`; then rerun `$spec-graph-bootstrap`.'
+    }
+  } elseif ($crgProjectionPresent -or $crgStatusPresent -or $crgAggregateStatusPresent) {
+    $legacyProviderAdvisories += [ordered]@{
+      provider = 'code-review-graph'
+      status = 'ignored-residue'
+      advisory = $true
+      reason_code = 'crg-residue-ignored'
+      projection_path = if ($crgProjectionPresent) { '.spec-first/config/graph-providers.json' } else { $null }
+      status_artifact = if ($crgStatusPresent -or $crgAggregateStatusPresent) { '.spec-first/providers/code-review-graph/status.json' } else { $null }
+      next_action = 'Ignore historical CRG residue for workspace readiness; rerun `$spec-mcp-setup` in this child repo if graph-providers.json still projects code-review-graph.'
+    }
+  }
 
   [ordered]@{
     target_repo = $repoLabel
     repo_label = $repoLabel
-    git_root = $repoRoot
+    target_kind = $targetKind
+    git_root = if ($isNonGitFolder) { $null } else { $repoRoot }
+    folder_root = if ($isNonGitFolder) { $repoRoot } else { $null }
     workspace_relative_path = $workspaceRelativePath
     status = $graphStatus
     graph_status = $graphStatus
@@ -307,16 +453,35 @@ function Inspect-Repo {
     setup_status = if ($setupReady) { 'ready' } else { 'missing-or-unsupported' }
     setup_ready = $setupReady
     git = [ordered]@{
-      current_revision = if ([string]::IsNullOrWhiteSpace([string]$currentRevision)) { $null } else { [string]$currentRevision }
-      current_worktree_dirty = $currentDirty
-      current_worktree_status_hash = $currentStatusHash
+      current_revision = if ($isNonGitFolder -or [string]::IsNullOrWhiteSpace([string]$currentRevision)) { $null } else { [string]$currentRevision }
+      current_worktree_dirty = if ($isNonGitFolder) { $null } else { $currentDirty }
+      current_worktree_status_hash = if ($isNonGitFolder) { $null } else { $currentStatusHash }
     }
+    folder_snapshot = if ($isNonGitFolder) {
+      [ordered]@{
+        content_fingerprint = $currentStatusHash
+        indexed_content_fingerprint = $recordedContentFingerprint
+      }
+    } else {
+      $null
+    }
+    non_git_support = if ($isNonGitFolder) {
+      [ordered]@{
+        query_context_architecture = $true
+        git_diff_review_impact = $false
+        commit_freshness = $false
+        incremental = $false
+      }
+    } else { $null }
+    git_only_limitations = if ($isNonGitFolder) { @('no source_revision', 'no branch', 'no dirty hash', 'no last_indexed_commit', 'no Git diff evidence', 'no incremental freshness') } else { @() }
     freshness = [ordered]@{
-      source_revision = $sourceRevision
-      source_revision_matches = if ($null -eq $sourceRevision -or [string]::IsNullOrWhiteSpace([string]$currentRevision)) { $null } else { [string]$sourceRevision -eq [string]$currentRevision }
+      source_revision = if ($isNonGitFolder) { $null } else { $sourceRevision }
+      source_revision_matches = if ($isNonGitFolder -or $null -eq $sourceRevision -or [string]::IsNullOrWhiteSpace([string]$currentRevision)) { $null } else { [string]$sourceRevision -eq [string]$currentRevision }
+      content_fingerprint = if ($isNonGitFolder) { $recordedContentFingerprint } else { $null }
+      content_fingerprint_matches = if ($isNonGitFolder) { ($null -ne $recordedContentFingerprint -and [string]$recordedContentFingerprint -eq [string]$currentStatusHash) } else { $null }
       stale = $stale
-      worktree_dirty_at_bootstrap = Get-PropertyValue -Object $graphFacts -Name 'worktree_dirty' -Default $null
-      worktree_status_hash = $recordedHash
+      worktree_dirty_at_bootstrap = if ($isNonGitFolder) { $null } else { Get-PropertyValue -Object $graphFacts -Name 'worktree_dirty' -Default $null }
+      worktree_status_hash = if ($isNonGitFolder) { $null } else { $recordedHash }
       dirty_uncertain = $dirtyUncertain
     }
     providers = [ordered]@{
@@ -331,14 +496,8 @@ function Inspect-Repo {
         query_probe_policy = $queryProbePolicy
         status_artifact = '.spec-first/providers/gitnexus/status.json'
       }
-      'code-review-graph' = [ordered]@{
-        configured = [bool](Get-PropertyValue -Object $crgProvider -Name 'configured' -Default $false)
-        graph_ready = [bool](Get-PropertyValue -Object $crgProviderStatus -Name 'graph_ready' -Default $false)
-        query_ready = [bool](Get-PropertyValue -Object $crgProviderStatus -Name 'query_ready' -Default $false)
-        status = Get-PropertyValue -Object $crgProviderStatus -Name 'status' -Default $null
-        status_artifact = '.spec-first/providers/code-review-graph/status.json'
-      }
     }
+    legacy_provider_advisories = @($legacyProviderAdvisories)
     capabilities = [ordered]@{
       query_global_graph = [bool](Get-PropertyValue -Object (Get-PropertyValue -Object $graphFacts -Name 'capabilities' -Default $null) -Name 'query_global_graph' -Default $false)
       impact_context = [bool](Get-PropertyValue -Object (Get-PropertyValue -Object $graphFacts -Name 'capabilities' -Default $null) -Name 'impact_context' -Default $false)
@@ -373,6 +532,8 @@ $parentRepoLocalArtifactAdvisory = Get-ParentRepoLocalArtifactAdvisory -TargetFa
 $targets = @()
 if ($null -ne $targetFacts.selected_repo_root) {
   $targets += New-TargetItemFromSelectedRepo -Target $targetFacts
+} elseif ($null -ne $targetFacts.selected_folder_root) {
+  $targets += New-TargetItemFromSelectedFolder -Target $targetFacts
 } elseif ($null -ne $targetFacts.candidates) {
   $targets += @($targetFacts.candidates)
 }
@@ -382,6 +543,8 @@ $primaryCount = @($repos | Where-Object { $_.status -eq 'primary' }).Count
 $noSourceCount = @($repos | Where-Object { $_.status -eq 'no-source' }).Count
 $gitRootTopology = if ($null -ne $targetFacts.selected_repo_root) {
   'single-repo'
+} elseif ($null -ne $targetFacts.selected_folder_root) {
+  'non-git-folder'
 } elseif ([string]($targetFacts.mode ?? '') -eq 'workspace-multi-repo' -and $repos.Count -gt 1) {
   'multi-repo-workspace'
 } else {
@@ -394,6 +557,7 @@ $result = [ordered]@{
   advisory = $true
   git_root_topology = $gitRootTopology
   mode = [string]($targetFacts.mode ?? 'unknown')
+  target_kind = [string]($targetFacts.target_kind ?? '')
   repo_status = [string]($targetFacts.repo_status ?? 'not-git-repo')
   invocation_cwd = $targetFacts.invocation_cwd
   workspace_root = $targetFacts.workspace_root

@@ -19,10 +19,37 @@ $toolsJsonPath = Join-Path $skillDir 'mcp-tools.json'
 $toolsJson = Read-McpToolsJson -Path $toolsJsonPath
 Assert-McpToolsSchemaVersion -ToolsJson $toolsJson
 
+function Test-JsonProperty {
+  param(
+    [AllowNull()][object]$Object,
+    [string]$Name
+  )
+  return ($null -ne $Object -and $Object.PSObject.Properties.Name -contains $Name)
+}
+
+function Get-JsonPropertyValue {
+  param(
+    [AllowNull()][object]$Object,
+    [string]$Name
+  )
+  if (Test-JsonProperty -Object $Object -Name $Name) {
+    return $Object.PSObject.Properties[$Name].Value
+  }
+  return $null
+}
+
 $facts = Get-Content -Raw $FactsFile | ConvertFrom-Json
-$targetWriteAllowed = if ($null -ne $facts.PSObject.Properties['target']) { [bool]$facts.target.state_write_allowed } else { $facts.repo_status -eq 'git-repo' }
-$targetReasonCode = if ($null -ne $facts.PSObject.Properties['target'] -and -not [string]::IsNullOrWhiteSpace([string]$facts.target.reason_code)) { [string]$facts.target.reason_code } else { 'skipped-no-git-repo' }
-if (-not $targetWriteAllowed -or $facts.repo_status -ne 'git-repo') {
+$targetObject = Get-JsonPropertyValue -Object $facts -Name 'target'
+$script:TargetKind = if (Test-JsonProperty -Object $facts -Name 'target_kind' -and -not [string]::IsNullOrWhiteSpace([string](Get-JsonPropertyValue -Object $facts -Name 'target_kind'))) {
+  [string](Get-JsonPropertyValue -Object $facts -Name 'target_kind')
+} elseif (Test-JsonProperty -Object $targetObject -Name 'target_kind') {
+  [string](Get-JsonPropertyValue -Object $targetObject -Name 'target_kind')
+} else {
+  ''
+}
+$targetWriteAllowed = if (Test-JsonProperty -Object $targetObject -Name 'state_write_allowed') { [bool](Get-JsonPropertyValue -Object $targetObject -Name 'state_write_allowed') } else { $facts.repo_status -eq 'git-repo' }
+$targetReasonCode = if (Test-JsonProperty -Object $targetObject -Name 'reason_code' -and -not [string]::IsNullOrWhiteSpace([string](Get-JsonPropertyValue -Object $targetObject -Name 'reason_code'))) { [string](Get-JsonPropertyValue -Object $targetObject -Name 'reason_code') } else { 'skipped-no-git-repo' }
+if (-not $targetWriteAllowed -or ($facts.repo_status -ne 'git-repo' -and $script:TargetKind -ne 'non-git-folder')) {
   [pscustomobject]@{
     repo_config_status = $targetReasonCode
     repo_config_path = $null
@@ -32,13 +59,23 @@ if (-not $targetWriteAllowed -or $facts.repo_status -ne 'git-repo') {
     provider_artifacts_path = $null
     graph_bootstrap_required = $true
     reason_code = $targetReasonCode
-    next_action = if ($null -ne $facts.PSObject.Properties['target']) { [string]$facts.target.next_action } else { 'Choose a Git repo target and rerun spec-mcp-setup with --repo <child>.' }
-    candidates = if ($null -ne $facts.PSObject.Properties['target']) { @($facts.target.candidates) } else { @() }
+    next_action = if (Test-JsonProperty -Object $targetObject -Name 'next_action') { [string](Get-JsonPropertyValue -Object $targetObject -Name 'next_action') } else { 'Choose a Git repo target and rerun spec-mcp-setup with --repo <child>.' }
+    candidates = if (Test-JsonProperty -Object $targetObject -Name 'candidates') { @((Get-JsonPropertyValue -Object $targetObject -Name 'candidates')) } else { @() }
   } | ConvertTo-Json -Compress
   return
 }
 
-$repoRoot = if ($null -ne $facts.PSObject.Properties['selected_repo_root'] -and -not [string]::IsNullOrWhiteSpace([string]$facts.selected_repo_root)) { [string]$facts.selected_repo_root } else { [string]$facts.repo_root }
+$repoRoot = if (Test-JsonProperty -Object $targetObject -Name 'target_root' -and -not [string]::IsNullOrWhiteSpace([string](Get-JsonPropertyValue -Object $targetObject -Name 'target_root'))) {
+  [string](Get-JsonPropertyValue -Object $targetObject -Name 'target_root')
+} elseif (Test-JsonProperty -Object $facts -Name 'selected_repo_root' -and -not [string]::IsNullOrWhiteSpace([string](Get-JsonPropertyValue -Object $facts -Name 'selected_repo_root'))) {
+  [string](Get-JsonPropertyValue -Object $facts -Name 'selected_repo_root')
+} elseif (Test-JsonProperty -Object $targetObject -Name 'selected_folder_root' -and -not [string]::IsNullOrWhiteSpace([string](Get-JsonPropertyValue -Object $targetObject -Name 'selected_folder_root'))) {
+  [string](Get-JsonPropertyValue -Object $targetObject -Name 'selected_folder_root')
+} elseif (Test-JsonProperty -Object $facts -Name 'selected_folder_root' -and -not [string]::IsNullOrWhiteSpace([string](Get-JsonPropertyValue -Object $facts -Name 'selected_folder_root'))) {
+  [string](Get-JsonPropertyValue -Object $facts -Name 'selected_folder_root')
+} else {
+  [string]$facts.repo_root
+}
 $outDir = Join-Path $repoRoot '.spec-first/config'
 $providerFile = Join-Path $outDir 'graph-providers.json'
 $runtimeFile = Join-Path $outDir 'runtime-capabilities.json'
@@ -119,6 +156,25 @@ function Get-StatusHash {
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
     $hash = $sha.ComputeHash($bytes)
     return 'sha256:' + ([BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant())
+  } finally {
+    $sha.Dispose()
+  }
+}
+
+function Get-FileContentHash {
+  param([string]$Path)
+  if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    return 'missing'
+  }
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+      $hash = $sha.ComputeHash($stream)
+      return 'sha256:' + ([BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant())
+    } finally {
+      $stream.Dispose()
+    }
   } finally {
     $sha.Dispose()
   }
@@ -207,6 +263,9 @@ function Get-GitPorcelainStatusText {
 
 function Get-GitRemoteUrl {
   param([string]$RepoRoot)
+  if ($script:TargetKind -eq 'non-git-folder') {
+    return ''
+  }
   if ($null -eq (Get-Command git -ErrorAction SilentlyContinue)) {
     return ''
   }
@@ -304,24 +363,23 @@ function Get-ProviderCommands {
     [string]$Provider,
     [string]$RepoRoot,
     [string]$GitNexusPackageSpec,
-    [string]$CodeReviewGraphPackageSpec,
     [object]$GitNexusQueryProbePolicy,
     [string]$GitNexusRepoName
   )
   if ($Provider -eq 'gitnexus') {
+    if ($script:TargetKind -eq 'non-git-folder') {
+      return [ordered]@{
+        bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--skip-git', '--force', '--skip-agents-md', '--no-stats')
+        status = @('npx', '-y', $GitNexusPackageSpec, 'status')
+        query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $GitNexusRepoName)
+      }
+    }
     return [ordered]@{
       bootstrap = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--force', '--skip-agents-md', '--no-stats')
       incremental = @('npx', '-y', $GitNexusPackageSpec, 'analyze', '--skip-agents-md', '--no-stats')
       status = @('npx', '-y', $GitNexusPackageSpec, 'status')
       query_probe = @('npx', '-y', $GitNexusPackageSpec, 'query', [string]$GitNexusQueryProbePolicy.token, '--repo', $GitNexusRepoName)
-    }
-  }
-  if ($Provider -eq 'code-review-graph') {
-    return [ordered]@{
-      bootstrap = @('uvx', $CodeReviewGraphPackageSpec, 'build')
-      incremental = @('uvx', $CodeReviewGraphPackageSpec, 'update', '--base', '__SPEC_FIRST_LAST_INDEXED_COMMIT__')
-      status = @('uvx', $CodeReviewGraphPackageSpec, 'status')
-      query_probe = @('uvx', $CodeReviewGraphPackageSpec, 'status', '--repo', $RepoRoot)
+      impact_probe = @('npx', '-y', $GitNexusPackageSpec, 'impact', [string]$GitNexusQueryProbePolicy.token, '--repo', $GitNexusRepoName, '--include-tests', '--depth', '2')
     }
   }
   return [ordered]@{}
@@ -430,10 +488,31 @@ function Get-GitNexusQueryProbePolicy {
   $files = @()
   $candidateLimit = if (Get-Variable -Name gitNexusQueryProbeCandidateLimit -Scope Script -ErrorAction SilentlyContinue) { $script:gitNexusQueryProbeCandidateLimit } else { 5 }
   $candidates = New-Object System.Collections.Generic.List[object]
-  try {
-    $files = @(git -C $RepoRoot ls-files 2>$null)
-  } catch {
-    $files = @()
+  if ($script:TargetKind -eq 'non-git-folder') {
+    try {
+      $rootPrefix = ([System.IO.Path]::GetFullPath($RepoRoot)).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+      $files = @(
+        Get-ChildItem -LiteralPath $RepoRoot -File -Recurse -Force -ErrorAction SilentlyContinue |
+          ForEach-Object {
+            $full = [System.IO.Path]::GetFullPath($_.FullName)
+            if ($full.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
+              $relative = $full.Substring($rootPrefix.Length).Replace('\', '/')
+              if ($relative -notmatch '^(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|node_modules|vendor)/') {
+                $relative
+              }
+            }
+          } |
+          Sort-Object
+      )
+    } catch {
+      $files = @()
+    }
+  } else {
+    try {
+      $files = @(git -C $RepoRoot ls-files 2>$null)
+    } catch {
+      $files = @()
+    }
   }
 
   foreach ($priority in @('entrypoint_named', 'workflow_method', 'src_method', 'workflow_named', 'src_high_signal', 'high_signal', 'android_named', 'workflow_display_named', 'any_source')) {
@@ -538,6 +617,34 @@ function Get-GitNexusQueryProbePolicy {
       reason_code = 'fallback-static'
     })
   }
+}
+
+function Get-FolderContentFingerprint {
+  param([string]$RepoRoot)
+  if ($script:TargetKind -ne 'non-git-folder') { return '' }
+  $rootPrefix = ([System.IO.Path]::GetFullPath($RepoRoot)).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+  $lines = New-Object System.Collections.Generic.List[string]
+  try {
+    $files = @(
+      Get-ChildItem -LiteralPath $RepoRoot -File -Recurse -Force -ErrorAction SilentlyContinue |
+        ForEach-Object {
+          $full = [System.IO.Path]::GetFullPath($_.FullName)
+          if ($full.StartsWith($rootPrefix, [System.StringComparison]::Ordinal)) {
+            $relative = $full.Substring($rootPrefix.Length).Replace('\', '/')
+            if ($relative -notmatch '^(\.spec-first|\.gitnexus|\.code-review-graph|\.agents|\.codex|\.claude|node_modules|vendor)/') {
+              [pscustomobject]@{ Relative = $relative; Full = $full }
+            }
+          }
+        } |
+        Sort-Object Relative
+    )
+    foreach ($file in $files) {
+      $lines.Add([string]$file.Relative) | Out-Null
+      $lines.Add((Get-FileContentHash -Path $file.Full)) | Out-Null
+    }
+  } catch {
+  }
+  return (Get-StatusHash -Text ($lines -join "`n"))
 }
 
 function Get-ProviderArtifacts {
@@ -905,23 +1012,20 @@ $gitNexusNativeCapabilities = if (
 } else {
   [pscustomobject]@{}
 }
-$codeReviewGraphTool = @($toolsJson.tools | Where-Object { $_.id -eq 'code-review-graph' } | Select-Object -First 1)
-if ($codeReviewGraphTool.Count -eq 0) {
-  throw 'code-review-graph tool entry not found in mcp-tools.json'
-}
-$codeReviewGraphEntry = $codeReviewGraphTool[0]
-$codeReviewGraphPackage = if ($null -ne $codeReviewGraphEntry.PSObject.Properties['package']) { [string]$codeReviewGraphEntry.package } else { '' }
-$codeReviewGraphVersion = if ($null -ne $codeReviewGraphEntry.PSObject.Properties['version']) { [string]$codeReviewGraphEntry.version } else { '' }
-if ([string]::IsNullOrWhiteSpace($codeReviewGraphPackage) -or [string]::IsNullOrWhiteSpace($codeReviewGraphVersion)) {
-  throw 'code-review-graph package/version fields not found in mcp-tools.json'
-}
-$codeReviewGraphPackageSpec = "$codeReviewGraphPackage@$codeReviewGraphVersion"
 $gitNexusQueryProbePolicy = Get-GitNexusQueryProbePolicy -RepoRoot $repoRoot
 $gitNexusRepoName = Get-GitNexusRepoName -RepoRoot $repoRoot -Facts $facts
-$currentSourceRevision = Invoke-GitConfigValue -RepoRoot $repoRoot -GitArguments @('rev-parse', '--verify', 'HEAD^{commit}')
-$currentWorktreeStatus = Get-GitPorcelainStatusText -RepoRoot $repoRoot
-$currentWorktreeDirty = -not [string]::IsNullOrWhiteSpace($currentWorktreeStatus)
-$currentWorktreeStatusHash = Get-StatusHash -Text $currentWorktreeStatus
+$currentContentFingerprint = Get-FolderContentFingerprint -RepoRoot $repoRoot
+if ($script:TargetKind -eq 'non-git-folder') {
+  $currentSourceRevision = ''
+  $currentWorktreeStatus = ''
+  $currentWorktreeDirty = $false
+  $currentWorktreeStatusHash = ''
+} else {
+  $currentSourceRevision = Invoke-GitConfigValue -RepoRoot $repoRoot -GitArguments @('rev-parse', '--verify', 'HEAD^{commit}')
+  $currentWorktreeStatus = Get-GitPorcelainStatusText -RepoRoot $repoRoot
+  $currentWorktreeDirty = -not [string]::IsNullOrWhiteSpace($currentWorktreeStatus)
+  $currentWorktreeStatusHash = Get-StatusHash -Text $currentWorktreeStatus
+}
 $graphFactsPath = Join-Path $repoRoot '.spec-first/graph/graph-facts.json'
 $providerStatusPath = Join-Path $repoRoot '.spec-first/graph/provider-status.json'
 $impactCapabilitiesPath = Join-Path $repoRoot '.spec-first/impact/bootstrap-impact-capabilities.json'
@@ -965,7 +1069,29 @@ $canonicalGraphWorktreeCurrent = (
   $canonicalGraphFactsWorktreeDirty -eq $currentWorktreeDirty -and
   $canonicalGraphFactsWorktreeHash -eq $currentWorktreeStatusHash
 )
-$canonicalArtifactsCurrent = $canonicalArtifactsAvailable -and $null -ne $canonicalGraphFacts -and $null -ne $canonicalProviderStatus -and $null -ne $canonicalImpactCapabilities -and $canonicalGraphFactsRepoRoot -eq $repoRoot -and $canonicalGraphSourceRevisionCurrent -and $canonicalGraphWorktreeCurrent
+$canonicalGraphFolderFingerprint = if (
+  $null -ne $canonicalGraphFacts -and
+  $canonicalGraphFacts.PSObject.Properties.Name -contains 'folder_snapshot' -and
+  $null -ne $canonicalGraphFacts.folder_snapshot -and
+  $canonicalGraphFacts.folder_snapshot.PSObject.Properties.Name -contains 'content_fingerprint'
+) {
+  [string]$canonicalGraphFacts.folder_snapshot.content_fingerprint
+} elseif ($null -ne $canonicalGraphFacts -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'content_fingerprint') {
+  [string]$canonicalGraphFacts.content_fingerprint
+} else {
+  ''
+}
+$canonicalGraphFolderCurrent = (
+  $script:TargetKind -eq 'non-git-folder' -and
+  $null -ne $canonicalGraphFacts -and
+  $canonicalGraphFacts.PSObject.Properties.Name -contains 'target_kind' -and
+  [string]$canonicalGraphFacts.target_kind -eq 'non-git-folder' -and
+  -not [string]::IsNullOrWhiteSpace($canonicalGraphFolderFingerprint) -and
+  $canonicalGraphFolderFingerprint -eq $currentContentFingerprint
+)
+$canonicalArtifactsCurrent = $canonicalArtifactsAvailable -and $null -ne $canonicalGraphFacts -and $null -ne $canonicalProviderStatus -and $null -ne $canonicalImpactCapabilities -and $canonicalGraphFactsRepoRoot -eq $repoRoot -and (
+  if ($script:TargetKind -eq 'non-git-folder') { $canonicalGraphFolderCurrent } else { $canonicalGraphSourceRevisionCurrent -and $canonicalGraphWorktreeCurrent }
+)
 $canonicalWorkflowMode = if ($canonicalArtifactsCurrent -and $canonicalProviderStatus.PSObject.Properties.Name -contains 'workflow_mode') {
   $canonicalProviderStatus.workflow_mode
 } elseif ($canonicalArtifactsCurrent -and $canonicalGraphFacts.PSObject.Properties.Name -contains 'workflow_mode') {
@@ -984,11 +1110,14 @@ $canonicalUpdatedAt = if ($canonicalArtifactsCurrent -and $canonicalProviderStat
 $providers = [ordered]@{}
 $readiness = [ordered]@{}
 foreach ($property in $facts.graph_providers.PSObject.Properties) {
+  if ($property.Name -ne 'gitnexus') {
+    continue
+  }
   $provider = $property.Value
   $ready = Test-ProviderReady -Provider $provider
   $previous = Get-PreviousReadiness -Existing $existingProvider -Provider $property.Name -CanonicalArtifactsCurrent $canonicalArtifactsCurrent -CanonicalProviderStatus $canonicalProviderStatus
-  $commands = Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -CodeReviewGraphPackageSpec $codeReviewGraphPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy -GitNexusRepoName $gitNexusRepoName
-  $currentPackageSpec = if ($property.Name -eq 'gitnexus') { $gitNexusPackageSpec } elseif ($property.Name -eq 'code-review-graph') { $codeReviewGraphPackageSpec } else { '' }
+  $commands = Get-ProviderCommands -Provider $property.Name -RepoRoot $repoRoot -GitNexusPackageSpec $gitNexusPackageSpec -GitNexusQueryProbePolicy $gitNexusQueryProbePolicy -GitNexusRepoName $gitNexusRepoName
+  $currentPackageSpec = if ($property.Name -eq 'gitnexus') { $gitNexusPackageSpec } else { '' }
   $currentCommandHash = Get-ProviderCommandHashForCommands -Commands $commands
   $preserveQueryReady = (
     $ready -and
@@ -1041,6 +1170,8 @@ $providerPayload = [ordered]@{
   generated_by = 'spec-mcp-setup'
   generated_at = $generatedAt
   repo_root = $repoRoot
+  target_kind = $script:TargetKind
+  folder_snapshot = if ($script:TargetKind -eq 'non-git-folder') { [ordered]@{ content_fingerprint = $currentContentFingerprint } } else { $null }
   providers = $providers
   derived_readiness = [ordered]@{
     updated_by = 'spec-mcp-setup'
@@ -1054,13 +1185,13 @@ $providerPayload = [ordered]@{
   }
   selection = [ordered]@{
     global_knowledge = 'gitnexus'
-    impact_context = 'code-review-graph'
-    context_selection = 'code-review-graph'
+    impact_context = if ($script:TargetKind -eq 'non-git-folder') { $null } else { 'gitnexus' }
+    context_selection = 'gitnexus'
   }
   boundaries = [ordered]@{
     setup_only = $true
     does_not_run_gitnexus_analyze = $true
-    does_not_run_code_review_graph_build = $true
+    does_not_run_provider_refresh = $true
     graph_bootstrap_required = $graphBootstrapRequired
   }
 }
@@ -1128,6 +1259,8 @@ $runtimePayload = [ordered]@{
   host = $facts.host
   platform = $facts.platform
   repo_status = $facts.repo_status
+  target_kind = $script:TargetKind
+  folder_snapshot = if ($script:TargetKind -eq 'non-git-folder') { [ordered]@{ content_fingerprint = $currentContentFingerprint } } else { $null }
   host_ledger_pointer = $facts.host_ledger_pointer
   baseline_summary = [ordered]@{
     baseline_ready = [bool]$facts.baseline_ready
@@ -1174,22 +1307,14 @@ foreach ($name in $providers.Keys) {
       bootstrap = '.spec-first/providers/gitnexus/raw/analyze.log'
       status = '.spec-first/providers/gitnexus/raw/status.log'
       query_probe = '.spec-first/providers/gitnexus/raw/query.log'
-    }
-  } else {
-    [ordered]@{
-      bootstrap = '.spec-first/providers/code-review-graph/raw/build.log'
-      status = '.spec-first/providers/code-review-graph/raw/status.log'
-      query_probe = '.spec-first/providers/code-review-graph/raw/query.log'
+      impact_probe = '.spec-first/providers/gitnexus/raw/impact.log'
     }
   }
   $normalized = if ($name -eq 'gitnexus') {
     [ordered]@{
       architecture_facts = '.spec-first/providers/gitnexus/normalized/architecture-facts.json'
       reuse_candidates = '.spec-first/providers/gitnexus/normalized/reuse-candidates.json'
-    }
-  } else {
-    [ordered]@{
-      impact_capabilities = '.spec-first/providers/code-review-graph/normalized/impact-capabilities.json'
+      impact_capabilities = '.spec-first/providers/gitnexus/normalized/impact-capabilities.json'
     }
   }
   $artifactProviders[$name] = [ordered]@{

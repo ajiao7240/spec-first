@@ -4,6 +4,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
+const {
+  getSpecFirstGitignorePatternMetadata,
+  getSpecFirstGitignorePatterns,
+} = require('../../src/cli/gitignore-policy');
+const packageJson = require('../../package.json');
+const HISTORICAL_USER_MANUAL_DOCS = new Set([
+  'docs/05-用户手册/15-code-review-graph-全流程执行分析.md',
+  'docs/05-用户手册/17-GitNexus-刷新策略与Provider收敛决策.md',
+  'docs/05-用户手册/18-CodeGraph-GitNexus-CRG-平替评估.md',
+]);
 
 function listFiles(targets) {
   const files = [];
@@ -56,6 +66,16 @@ function read(relativePath) {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
 }
 
+function compareSemver(left, right) {
+  const leftParts = left.split('.').map((part) => Number.parseInt(part, 10) || 0);
+  const rightParts = right.split('.').map((part) => Number.parseInt(part, 10) || 0);
+  for (let index = 0; index < 3; index += 1) {
+    const delta = (leftParts[index] || 0) - (rightParts[index] || 0);
+    if (delta !== 0) return delta;
+  }
+  return 0;
+}
+
 describe('retired internal graph runtime removal contract', () => {
   test('runtime code does not reference retired internal graph entrypoints', () => {
     const targets = [
@@ -92,6 +112,16 @@ describe('retired internal graph runtime removal contract', () => {
     );
   });
 
+  test('benchmark anchor extraction helper uses active GitNexus providers only', () => {
+    const helper = read('tests/benchmark/extract-graph-anchors.sh');
+    const retiredProvider = ['code', 'review', 'graph'].join('-');
+
+    expect(helper).toContain('[--provider all|gitnexus]');
+    expect(helper).not.toContain(retiredProvider);
+    expect(helper).not.toContain(`.${retiredProvider}/graph.db`);
+    expect(helper).not.toContain(['extract', 'code', 'review', 'graph'].join('_'));
+  });
+
   test('package and install surfaces do not reference retired native graph dependencies', () => {
     const targets = [
       'package.json',
@@ -108,7 +138,13 @@ describe('retired internal graph runtime removal contract', () => {
     expect(fs.existsSync(path.join(REPO_ROOT, 'bin', 'prune-native.js'))).toBe(false);
     expect(fs.existsSync(path.join(REPO_ROOT, 'vendor', 'tree-sitter-objc'))).toBe(false);
     expect(fs.existsSync(path.join(REPO_ROOT, 'vendor', 'tree-sitter-swift'))).toBe(false);
-    expect(findMatches(targets, patterns)).toEqual([]);
+    const matches = findMatches(targets, patterns);
+    const activeMatches = matches.filter((relativePath) => !HISTORICAL_USER_MANUAL_DOCS.has(relativePath));
+
+    expect(activeMatches).toEqual([]);
+    for (const historicalPath of matches.filter((relativePath) => HISTORICAL_USER_MANUAL_DOCS.has(relativePath))) {
+      expect(read(historicalPath)).toContain('Retired / historical archive');
+    }
   });
 
   test('current user-facing docs do not advertise retired internal graph runtime surfaces', () => {
@@ -130,7 +166,25 @@ describe('retired internal graph runtime removal contract', () => {
       'CRG runtime',
     ];
 
-    expect(findMatches(targets, patterns)).toEqual([]);
+    const matches = findMatches(targets, patterns);
+    const activeMatches = matches.filter((relativePath) => !HISTORICAL_USER_MANUAL_DOCS.has(relativePath));
+
+    expect(activeMatches).toEqual([]);
+    for (const historicalPath of matches.filter((relativePath) => HISTORICAL_USER_MANUAL_DOCS.has(relativePath))) {
+      expect(read(historicalPath)).toContain('Retired / historical archive');
+    }
+  });
+
+  test('retired CRG residual gitignore expires at the next minor release', () => {
+    const residualPattern = '.code-review-graph/';
+    const metadata = getSpecFirstGitignorePatternMetadata()[residualPattern];
+
+    expect(getSpecFirstGitignorePatterns()).toContain(residualPattern);
+    expect(metadata).toMatchObject({
+      reason: 'retired-crg-residual-ignore',
+      'residual-ignore-expiry': '1.9.0',
+    });
+    expect(compareSemver(packageJson.version, metadata['residual-ignore-expiry'])).toBeLessThan(0);
   });
 
   test('FAQ may mention retired native dependencies only as troubleshooting context', () => {
@@ -147,7 +201,13 @@ describe('retired internal graph runtime removal contract', () => {
     ];
     const faq = read('docs/05-用户手册/04-常见问题.md');
 
-    expect(findMatches(targets, patterns)).toEqual(['docs/05-用户手册/04-常见问题.md']);
+    const matches = findMatches(targets, patterns);
+    const activeMatches = matches.filter((relativePath) => !HISTORICAL_USER_MANUAL_DOCS.has(relativePath));
+
+    expect(activeMatches).toEqual(['docs/05-用户手册/04-常见问题.md']);
+    for (const historicalPath of matches.filter((relativePath) => HISTORICAL_USER_MANUAL_DOCS.has(relativePath))) {
+      expect(read(historicalPath)).toContain('Retired / historical archive');
+    }
     expect(faq).toContain('退役旧内置图运行时');
     expect(faq).toContain('不应再编译这些 native modules');
     expect(faq).toContain('不代表 package CLI 安装失败');

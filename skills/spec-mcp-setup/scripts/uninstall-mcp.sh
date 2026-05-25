@@ -80,6 +80,10 @@ remove_codex_entry() {
 }
 
 if [ -n "$TOOL_ID" ]; then
+  if ! jq -e --arg id "$TOOL_ID" '.tools[] | select(.id == $id)' "$TOOLS_JSON" >/dev/null; then
+    echo "错误：未找到 $TOOL_ID 的工具定义" >&2
+    exit 1
+  fi
   TOOL_IDS=("$TOOL_ID")
 else
   mapfile -t TOOL_IDS < <(jq -r '.tools[].id' "$TOOLS_JSON")

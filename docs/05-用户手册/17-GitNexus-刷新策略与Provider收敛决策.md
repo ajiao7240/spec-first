@@ -1,5 +1,7 @@
 # GitNexus 刷新策略与 Provider 直接平替决策
 
+> Retired / historical archive: 本文记录 GitNexus-only 迁移前的 provider 收敛决策过程。当前实现已进入 GitNexus-only 目标态；CRG 相关内容仅作为历史背景。
+
 本文回答四个问题：
 
 1. GitNexus 官方支持哪些刷新方式，默认是哪种方式。

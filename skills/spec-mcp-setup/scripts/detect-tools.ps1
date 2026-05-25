@@ -1,5 +1,6 @@
 param(
-  [string]$Repo = ''
+  [string]$Repo = '',
+  [string]$Folder = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,9 +20,21 @@ $SelectedScope = $HostInfo.selected_scope
 
 $resolverParams = @{ Format = 'json' }
 if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
+if (-not [string]::IsNullOrWhiteSpace($Folder)) { $resolverParams.Folder = $Folder }
+if (-not [string]::IsNullOrWhiteSpace($Repo) -and -not [string]::IsNullOrWhiteSpace($Folder)) {
+  throw 'detect-tools.ps1: use either -Repo or -Folder, not both'
+}
 $targetJson = & (Join-Path $ScriptDir 'resolve-project-target.ps1') @resolverParams
 $TargetFacts = $targetJson | ConvertFrom-Json
-$RepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.selected_repo_root)) { [string]$TargetFacts.selected_repo_root } else { [string]$TargetFacts.workspace_root }
+$RepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.target_root)) {
+  [string]$TargetFacts.target_root
+} elseif (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.selected_repo_root)) {
+  [string]$TargetFacts.selected_repo_root
+} elseif (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.selected_folder_root)) {
+  [string]$TargetFacts.selected_folder_root
+} else {
+  [string]$TargetFacts.workspace_root
+}
 $RepoStatus = [string]$TargetFacts.repo_status
 
 function Get-DependencyStatus {
@@ -236,10 +249,13 @@ foreach ($tool in @($ToolsJson.tools)) {
   platform = $Platform
   repo_root = $RepoRoot
   repo_status = $RepoStatus
+  target_kind = $TargetFacts.target_kind
   target = $TargetFacts
   target_mode = $TargetFacts.mode
   workspace_root = $TargetFacts.workspace_root
   selected_repo_root = $TargetFacts.selected_repo_root
+  selected_folder_root = $TargetFacts.selected_folder_root
+  target_root = $TargetFacts.target_root
   target_candidate_count = @($TargetFacts.candidates).Count
   target_candidates = @($TargetFacts.candidates)
   reason_code = $TargetFacts.reason_code

@@ -75,6 +75,11 @@ function Remove-CodexEntry {
 $toolIds = if ([string]::IsNullOrWhiteSpace($Tool)) {
   @($ToolsJson.tools | ForEach-Object { $_.id })
 } else {
+  $requestedTool = @($ToolsJson.tools | Where-Object { $_.id -eq $Tool })[0]
+  if ($null -eq $requestedTool) {
+    Write-Error "错误：未找到 $Tool 的工具定义"
+    exit 1
+  }
   @($Tool)
 }
 
