@@ -85,7 +85,7 @@ mcp-setup / graph-bootstrap
 2. 单仓多模块
 3. 多仓工作区
 
-核心边界是：`.spec-first` 的权威事实属于 **selected Git repo root**。单仓多模块不在每个 module 下拆多套 `.spec-first`；多仓工作区的父目录只拥有 advisory workspace summaries，不拥有 child repo 的 `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*`、`.spec-first/providers/*` 或 `.serena/*` canonical artifacts。详见 [三种开发模式](./08-三种开发模式.md)。
+核心边界是：`.spec-first` 的权威事实属于 **selected Git repo root**。单仓多模块不在每个 module 下拆多套 `.spec-first`；多仓工作区的父目录只拥有 advisory workspace summaries，不拥有 child repo 的 `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*` 或 `.spec-first/providers/*` canonical artifacts。详见 [三种开发模式](./08-三种开发模式.md)。
 
 ## App 一致性审查
 

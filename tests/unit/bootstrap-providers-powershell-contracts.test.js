@@ -87,9 +87,15 @@ describe('PowerShell graph bootstrap workspace GitNexus summary contract', () =>
     expect(powershell).toContain("[string]$actual[4] -eq '--skip-git'");
     expect(powershell).toContain('Get-FolderContentFingerprint');
     expect(powershell).toContain("if ($targetKind -eq 'non-git-folder' -and $Incremental)");
+    expect(powershell).toContain("$script:QueryProbeResultClass -eq 'process-results' -or $script:QueryProbeResultClass -eq 'definitions-only'");
+    expect(powershell).toContain("$_.overall_status -eq 'ready' -or $_.overall_status -eq 'ready-dirty-advisory'");
+    expect(powershell).toContain("$_.overall_status -ne 'ready' -and $_.overall_status -ne 'ready-dirty-advisory'");
     expect(bash).toContain('TARGET_ARGS+=(--folder "$FOLDER_ARG")');
     expect(bash).toContain('.[3] == "analyze" and .[4] == "--skip-git"');
     expect(bash).toContain('folder_content_fingerprint');
+    expect(bash).toContain('[ "$QUERY_PROBE_RESULT_CLASS" = "process-results" ] || [ "$QUERY_PROBE_RESULT_CLASS" = "definitions-only" ]');
+    expect(bash).toContain('if [ "$query_ready" = "true" ]; then');
+    expect(bash).toContain('.overall_status != "ready" and .overall_status != "ready-dirty-advisory" and .workflow_mode != "degraded-fallback"');
 
     expect(powershell).toContain('path = $null');
     expect(powershell).toContain('name = $null');

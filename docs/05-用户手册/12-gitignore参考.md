@@ -46,9 +46,6 @@
 .spec-first/workflows/
 .spec-first/workspace/
 .spec-first/sessions/
-
-# local project tooling used by spec-first workflows
-.serena/
 # spec-first:end
 ```
 
@@ -110,7 +107,6 @@
     workspace/
       *.json                        # 父级多仓 advisory summaries，忽略
 
-  .serena/                          # 本地符号索引配置/缓存，忽略
 ```
 
 ## 需要提交的内容
@@ -146,7 +142,6 @@
 | `.spec-first/workspace/` | 父级多仓 advisory summaries，不是 child repo canonical truth |
 | `.spec-first/audits/`、`.spec-first/app-audit/`、`.spec-first/workflows/` | workflow execution evidence，默认本地留存 |
 | `.spec-first/sessions/` | multi-actor 治理协议的 opt-in advisory 记录目录，由 `spec-first session register` 写入；不启用时为空 |
-| `.serena/` | 本地符号索引配置/缓存 |
 
 `*.tgz` 是本地打包产物，可重新执行 `npm pack` 生成，但它不是 spec-first 专属产物，因此不进入 init 默认 managed block。团队如果希望统一忽略 npm pack 产物，可以在 block 外自行加入：
 

@@ -1142,6 +1142,7 @@ all_repos_dirty_classification_output="$(cd "$ALL_REPOS_DIRTY_CLASSIFICATION_WOR
 all_repos_dirty_classification_status=$?
 set -e
 assert_eq "all-repos dirty classification summary is ready" "0:ready:non-graph-only:graph-affecting-blocked" "$all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.results[] | select(.workspace_relative_path=="project-a") | .dirty_classification) + ":" + (.results[] | select(.workspace_relative_path=="project-b") | .dirty_classification)' <<<"$all_repos_dirty_classification_output")"
+assert_eq "all-repos dirty advisory does not request rerun" "All child repos produced graph bootstrap artifacts." "$(jq -r '.next_action' <<<"$all_repos_dirty_classification_output")"
 
 DIRTY_REFRESH_REPO="$TMP_DIR/dirty-refresh-repo"
 DIRTY_REFRESH_LEDGER="$TMP_DIR/dirty-refresh-home/.codex/spec-first/host-setup.json"
@@ -1230,6 +1231,20 @@ if command -v pwsh >/dev/null 2>&1; then
   printf 'metadata dirty\n' >> "$PS_NON_GRAPH_METADATA_REPO/docs/变更日志.md"
   ps_non_graph_metadata_output="$(cd "$PS_NON_GRAPH_METADATA_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
   assert_eq "PowerShell non-graph metadata dirty does not block" "primary:non-graph-only:2" "$(jq -r '.workflow_mode + ":" + .dirty_classification + ":" + (.dirty_paths_breakdown.non_graph_metadata_count | tostring)' <<<"$ps_non_graph_metadata_output")"
+
+  PS_ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE="$TMP_DIR/ps-all-repos-dirty-classification-workspace"
+  PS_ALL_REPOS_DIRTY_CLASSIFICATION_LEDGER="$TMP_DIR/ps-all-repos-dirty-classification-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-a"
+  make_repo "$PS_ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-b"
+  write_fixture_config "$PS_ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-a" "$PS_ALL_REPOS_DIRTY_CLASSIFICATION_LEDGER" true
+  write_fixture_config "$PS_ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-b" "$PS_ALL_REPOS_DIRTY_CLASSIFICATION_LEDGER" true
+  printf 'non-graph metadata dirty\n' >> "$PS_ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-a/CHANGELOG.md"
+  printf 'source dirty\n' >> "$PS_ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE/project-b/README.md"
+  set +e
+  ps_all_repos_dirty_classification_output="$(cd "$PS_ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" -AllRepos)"
+  ps_all_repos_dirty_classification_status=$?
+  set -e
+  assert_eq "PowerShell all-repos dirty advisory summary is ready" "0:ready:2:0:All child repos produced graph bootstrap artifacts." "$ps_all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.counts.ready | tostring) + ":" + (.counts.action_required | tostring) + ":" + .next_action' <<<"$ps_all_repos_dirty_classification_output")"
 fi
 
 INCREMENTAL_REPO="$TMP_DIR/incremental-repo"
@@ -1696,6 +1711,25 @@ assert_eq "definitions-only aggregate impact stays unavailable" "full:gitnexus|n
 assert_eq "definitions-only skips GitNexus impact probe" "0" "$(jq '[.results[] | select(.provider=="gitnexus") | .command_results[] | select(.kind=="impact_probe")] | length' <<<"$definitions_only_output")"
 assert_contains "bootstrap report includes probe token column" "Probe Token" "$(cat "$DEFINITIONS_ONLY_REPO/.spec-first/graph/bootstrap-report.md")"
 assert_contains "bootstrap report includes definitions-only evidence" "Definitions-only GitNexus evidence" "$(cat "$DEFINITIONS_ONLY_REPO/.spec-first/graph/bootstrap-report.md")"
+
+DEFINITIONS_ONLY_MULTI_REPO="$TMP_DIR/definitions-only-multi-repo"
+DEFINITIONS_ONLY_MULTI_LEDGER="$TMP_DIR/definitions-only-multi-home/.codex/spec-first/host-setup.json"
+make_repo "$DEFINITIONS_ONLY_MULTI_REPO"
+write_fixture_config "$DEFINITIONS_ONLY_MULTI_REPO" "$DEFINITIONS_ONLY_MULTI_LEDGER" true
+jq --arg probe "$GITNEXUS_QUERY_PROBE" '
+  .providers.gitnexus.commands.query_probe[4] = "DocsGuide"
+  | .providers.gitnexus.query_probe_policy.token = "DocsGuide"
+  | .providers.gitnexus.query_probe_policy.selected_from = "docs/guide.md"
+  | .providers.gitnexus.query_probe_policy.candidates = [
+      {token:"DocsGuide", selected_from:"docs/guide.md", reason_code:"doc_named"},
+      {token:$probe, selected_from:"trade/src/main/java/com/hstong/trade/tradelogin/login/ui/TradeLoginActivity.java", reason_code:"entrypoint_named"}
+    ]
+' "$DEFINITIONS_ONLY_MULTI_REPO/.spec-first/config/graph-providers.json" > "$DEFINITIONS_ONLY_MULTI_REPO/.spec-first/config/graph-providers.json.tmp"
+mv "$DEFINITIONS_ONLY_MULTI_REPO/.spec-first/config/graph-providers.json.tmp" "$DEFINITIONS_ONLY_MULTI_REPO/.spec-first/config/graph-providers.json"
+definitions_only_multi_output="$(cd "$DEFINITIONS_ONLY_MULTI_REPO" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "definitions-only stops at first query-ready candidate" "1:definitions-only:true" "$(jq -r '.results[] | select(.provider=="gitnexus") | "\(.query_probe_attempts | length):\(.query_probe_attempts[0].result_class):\(.query_ready)"' <<<"$definitions_only_multi_output")"
+assert "definitions-only does not run later candidate" test ! -f "$DEFINITIONS_ONLY_MULTI_REPO/.spec-first/providers/gitnexus/raw/query-2.log"
+assert_eq "definitions-only has no process-winning log" "null" "$(jq -r '.winning_query_probe_log | tostring' "$DEFINITIONS_ONLY_MULTI_REPO/.spec-first/providers/gitnexus/normalized/architecture-facts.json")"
 
 NO_SOURCE_DEFINITIONS_REPO="$TMP_DIR/no-source-definitions-repo"
 NO_SOURCE_DEFINITIONS_LEDGER="$TMP_DIR/no-source-definitions-home/.codex/spec-first/host-setup.json"

@@ -748,7 +748,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
           end
         ),
         next_action:(
-          if ([$results[] | select(.overall_status != "ready" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length) > 0 then "Inspect per-child reason_code and rerun setup/bootstrap for action-required repos."
+          if ([$results[] | select(.overall_status != "ready" and .overall_status != "ready-dirty-advisory" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length) > 0 then "Inspect per-child reason_code and rerun setup/bootstrap for action-required repos."
           elif ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "Inspect per-child provider reason_code/recommended_action. Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos."
           elif ([$results[] | select(.workflow_mode == "no-source" or .overall_status == "not-applicable")] | length) > 0 then "All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children."
           else "All child repos produced graph bootstrap artifacts."
@@ -2675,11 +2675,7 @@ write_provider_status() {
             fi
             run_configured_gitnexus_query_probe "$provider" "$query_log" "$probe_token"
             if [ "$RUN_EXIT_CODE" -eq 0 ] && query_probe_verified "$provider" "$query_log"; then
-              if [ "$QUERY_PROBE_RESULT_CLASS" = "process-results" ]; then
-                query_ready=true
-              elif [ "$QUERY_PROBE_RESULT_CLASS" = "definitions-only" ] \
-                && [ "${candidate_count:-0}" -le "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" ] \
-                && [ "$attempt_index" -ge "${candidate_count:-0}" ]; then
+              if [ "$QUERY_PROBE_RESULT_CLASS" = "process-results" ] || [ "$QUERY_PROBE_RESULT_CLASS" = "definitions-only" ]; then
                 query_ready=true
               fi
             elif [ "$RUN_EXIT_CODE" -ne 0 ]; then
@@ -2707,7 +2703,7 @@ write_provider_status() {
               "$QUERY_PROBE_RESULT_CLASS" \
               "$QUERY_PROBE_VERIFICATION_REASON" \
               "$(relpath "$query_log")"
-            if [ "$query_ready" = "true" ] && [ "$QUERY_PROBE_RESULT_CLASS" = "process-results" ]; then
+            if [ "$query_ready" = "true" ]; then
               break
             fi
           done < <(gitnexus_query_probe_candidates "$provider")

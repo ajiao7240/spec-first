@@ -140,6 +140,14 @@ describe('user manual contracts', () => {
     const manual = read(USER_MANUAL_README_PATH);
     const guide = read(GRAPH_PROVIDER_SCOPE_GUIDE_PATH);
     const modes = read(path.join(REPO_ROOT, 'docs/05-用户手册/08-三种开发模式.md'));
+    const activeManuals = [
+      manual,
+      read(QUICKSTART_PATH),
+      read(CORE_CONCEPTS_PATH),
+      read(FAQ_PATH),
+      read(ARTIFACT_CATALOG_PATH),
+      read(GITIGNORE_GUIDE_PATH),
+    ].join('\n');
 
     expect(manual).toContain('[代码图谱 Provider 作用域与差异化](./13-代码图谱Provider作用域与差异化.md)');
     expect(guide).toContain('GitNexus = 全局代码知识');
@@ -164,6 +172,8 @@ describe('user manual contracts', () => {
     expect(modes).toContain('不授权普通 workflow 自动运行 `group_sync`');
     expect(modes).not.toContain('--serena-language-for');
     expect(modes).not.toContain('child/.serena');
+    expect(activeManuals).not.toContain('Serena');
+    expect(activeManuals).not.toContain('.serena');
   });
 
   test('user manual documents explicit graph refresh trigger boundaries', () => {

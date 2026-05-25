@@ -510,12 +510,14 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     $parentHostInstructionNormalization = Normalize-GitNexusInstructionBlockViaCli -RepoRoot ([string]$TargetFacts.workspace_root) -GitRootTopology 'multi-repo-workspace'
   }
   $workspaceGitNexusReadiness = Compile-WorkspaceGitNexusReadinessForAllRepos -TargetFacts $TargetFacts
-  $parentWritesHostInstructionFiles = @($parentHostInstructionNormalization.results | Where-Object { [bool]$_.written }).Count -gt 0
+  $parentWritesHostInstructionFiles = @($parentHostInstructionNormalization.results | Where-Object {
+    $_.PSObject.Properties.Name -contains 'written' -and [bool]$_.written
+  }).Count -gt 0
 
-  $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
+  $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' -or $_.overall_status -eq 'ready-dirty-advisory' }).Count
   $degradedCount = @($results | Where-Object { $_.workflow_mode -eq 'degraded-fallback' -or $_.overall_status -eq 'degraded' }).Count
   $notApplicableCount = @($results | Where-Object { $_.workflow_mode -eq 'no-source' -or $_.overall_status -eq 'not-applicable' }).Count
-  $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' -and $_.workflow_mode -ne 'degraded-fallback' -and $_.overall_status -ne 'degraded' -and $_.workflow_mode -ne 'no-source' -and $_.overall_status -ne 'not-applicable' }).Count
+  $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' -and $_.overall_status -ne 'ready-dirty-advisory' -and $_.workflow_mode -ne 'degraded-fallback' -and $_.overall_status -ne 'degraded' -and $_.workflow_mode -ne 'no-source' -and $_.overall_status -ne 'not-applicable' }).Count
   $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0 -and $degradedCount -eq 0) { 'ready' } elseif (($readyCount + $degradedCount) -gt 0) { 'partial' } else { 'action-required' }
   $finishedAt = Get-UtcTimestamp
   $durationMs = (Get-EpochMilliseconds) - $script:ScriptStartedEpochMs
@@ -3069,16 +3071,9 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
               verification_reason = if ([string]::IsNullOrWhiteSpace($script:QueryProbeVerificationReason)) { $null } else { $script:QueryProbeVerificationReason }
               raw_log = $queryProbe.raw_log
             }) | Out-Null
-            if ($verified -and $script:QueryProbeResultClass -eq 'process-results') {
+            if ($verified -and ($script:QueryProbeResultClass -eq 'process-results' -or $script:QueryProbeResultClass -eq 'definitions-only')) {
               $queryReady = $true
               break
-            } elseif (
-              $verified -and
-              $script:QueryProbeResultClass -eq 'definitions-only' -and
-              $candidateCount -le $script:GitNexusQueryProbeCandidateLimit -and
-              $attemptIndex -ge $candidateCount
-            ) {
-              $queryReady = $true
             }
           }
           if (-not $queryReady) {
