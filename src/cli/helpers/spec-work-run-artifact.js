@@ -1107,7 +1107,7 @@ function validateRepoRelativeField(value, field, errors, options = {}) {
   if (FORBIDDEN_ARTIFACT_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
     errors.push(`${field} must not point at provider graph artifacts`);
   }
-  if (normalized.startsWith('.spec-first/') && !options.allowSpecFirstWorkflows && !normalized.startsWith('.spec-first/workflows/')) {
+  if (normalized.startsWith('.spec-first/') && !(options.allowSpecFirstWorkflows && normalized.startsWith('.spec-first/workflows/'))) {
     errors.push(`${field} uses unsupported .spec-first artifact path`);
   }
 }

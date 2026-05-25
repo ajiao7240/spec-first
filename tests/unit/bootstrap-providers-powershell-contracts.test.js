@@ -28,6 +28,14 @@ const BASH_WORKSPACE_GITNEXUS_WRAPPER_PATH = path.join(
   'compile-workspace-gitnexus-readiness.sh',
 );
 
+function spawnPwsh(args, options = {}) {
+  const result = spawnSync('pwsh', args, options);
+  if (result.error && result.error.code === 'ENOENT') {
+    return null;
+  }
+  return result;
+}
+
 describe('PowerShell graph bootstrap workspace GitNexus summary contract', () => {
   test('preserves helper-owned readiness fields and reason codes across shell hosts', () => {
     const powershell = fs.readFileSync(PS_BOOTSTRAP_PATH, 'utf8');
@@ -129,9 +137,10 @@ describe('PowerShell graph bootstrap workspace GitNexus summary contract', () =>
       'utf8',
     );
 
-    const psResult = spawnSync('pwsh', ['-NoProfile', '-File', psScript], { encoding: 'utf8' });
+    const psResult = spawnPwsh(['-NoProfile', '-File', psScript], { encoding: 'utf8' });
     const bashResult = spawnSync('jq', ['-n', bashDefault[1]], { encoding: 'utf8' });
 
+    if (!psResult) return;
     expect(psResult.status).toBe(0);
     expect(bashResult.status).toBe(0);
 
@@ -203,8 +212,9 @@ describe('PowerShell graph bootstrap workspace GitNexus summary contract', () =>
       'utf8',
     );
 
-    const result = spawnSync('pwsh', ['-NoProfile', '-File', psScript], { encoding: 'utf8' });
+    const result = spawnPwsh(['-NoProfile', '-File', psScript], { encoding: 'utf8' });
 
+    if (!result) return;
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe('true');
   });

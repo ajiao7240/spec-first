@@ -580,7 +580,7 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 
 Runtime asset summary:
 
-When `init` is run from a parent workspace that contains child Git repos, it auto-detects the workspace mode, initializes each child repo, and writes only an advisory parent summary at `.spec-first/workspace/init-summary.json`. It does not write parent repo-local artifacts such as `.gitignore`, `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.codex/`, or `.agents/`. Use `--repo <child>` to initialize one child repo, or `--all-repos` to make the batch intent explicit.
+When `init` is run from a parent workspace that contains child Git repos, it auto-detects the workspace mode, initializes each child repo, and writes parent advisory routing assets such as `.spec-first/workspace/init-summary.json`, host entry documents, host runtime assets, and the managed `.gitignore` block. The parent workspace still does not own child repo-local truth such as `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/providers/*`, or `.spec-first/impact/*`. Use `--repo <child>` to initialize one child repo, or `--all-repos` to make the batch intent explicit.
 
 The managed `.gitignore` block also ignores local graph provider artifacts such as `.gitnexus/`; `.code-review-graph/` remains ignored only as migration-window residue.
 

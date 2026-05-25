@@ -122,6 +122,32 @@ describe('runtime untrack helper', () => {
     }
   });
 
+  test('untracks tracked Claude session start hook while preserving worktree file', () => {
+    const repoRoot = makeTempDir();
+
+    try {
+      initRepo(repoRoot);
+      writeFile(repoRoot, '.claude/hooks/session-start', '#!/bin/bash\n');
+      commitAll(repoRoot);
+
+      const plan = planRuntimeUntrack({ projectRoot: repoRoot });
+      expect(plan.reason_code).toBe('untracked-runtime');
+      expect(plan.operations).toEqual([
+        expect.objectContaining({
+          kind: 'untrack_index',
+          path: '.claude/hooks/session-start',
+        }),
+      ]);
+
+      const result = applyRuntimeUntrack({ projectRoot: repoRoot, operations: plan.operations });
+      expect(result.applied_count).toBe(1);
+      expect(tracked(repoRoot, '.claude/hooks/session-start')).toBe('');
+      expect(fs.existsSync(path.join(repoRoot, '.claude/hooks/session-start'))).toBe(true);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('reports not-a-git-repo without side effects', () => {
     const projectRoot = makeTempDir();
 

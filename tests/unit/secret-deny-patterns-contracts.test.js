@@ -107,8 +107,30 @@ describe('secret deny patterns contract', () => {
     expect(isDenied(contract, '.env.sample')).toBe(false);
     expect(isDenied(contract, 'src/index.js')).toBe(false);
     expect(isSecretDeniedPath('.env', contract)).toBe(true);
+    expect(isSecretDeniedPath('.ENV', contract)).toBe(true);
+    expect(isSecretDeniedPath('certs/PROD.PEM', contract)).toBe(true);
+    expect(isSecretDeniedPath('.NPMRC', contract)).toBe(true);
+    expect(isSecretDeniedPath('ios/GOOGLESERVICE-INFO.PLIST', contract)).toBe(true);
+    expect(isSecretDeniedPath('config/ProdServiceAccount.JSON', contract)).toBe(true);
     expect(isSecretDeniedPath('fixtures/.env.example', contract)).toBe(false);
     expect(isSecretDeniedPath('config/api_token.txt', contract)).toBe(true);
+  });
+
+  test('allows the secret-deny maintenance surface while denying real secret paths', () => {
+    const contract = readJson(CONTRACT_PATH);
+
+    for (const allowedPath of [
+      'src/cli/helpers/secret-deny-patterns.js',
+      'src/cli/contracts/security/secret-deny-patterns.json',
+      'src/cli/contracts/security/secret-deny-patterns.schema.json',
+      'tests/unit/secret-deny-patterns-contracts.test.js',
+    ]) {
+      expect(isSecretDeniedPath(allowedPath, contract)).toBe(false);
+    }
+
+    expect(isSecretDeniedPath('.env', contract)).toBe(true);
+    expect(isSecretDeniedPath('certs/prod.key', contract)).toBe(true);
+    expect(isSecretDeniedPath('.aws/credentials', contract)).toBe(true);
   });
 
   test('allowlist entries are exact repo-relative paths', () => {

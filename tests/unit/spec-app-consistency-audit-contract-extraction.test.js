@@ -8,6 +8,7 @@ const { extractCodeContract } = require('../../skills/spec-app-consistency-audit
 const { extractFigmaContract } = require('../../skills/spec-app-consistency-audit/scripts/extract-figma-contract');
 const { extractPageRoutes } = require('../../skills/spec-app-consistency-audit/scripts/extract-page-routes');
 const { extractPrdContract } = require('../../skills/spec-app-consistency-audit/scripts/extract-prd-contract');
+const { listSourceTextFiles } = require('../../skills/spec-app-consistency-audit/scripts/lib/audit-utils');
 
 function write(root, relativePath, content) {
   const filePath = path.join(root, relativePath);
@@ -214,6 +215,45 @@ describe('spec-app-consistency-audit contract extraction', () => {
       ]));
     } finally {
       fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('source scan excludes spec-first runtime/control-plane directories', () => {
+    const fixture = makeRepo();
+    try {
+      write(fixture.repoRoot, '.spec-first/app-audit/runs/run/GhostScreen.kt', 'class GhostScreen');
+      write(fixture.repoRoot, '.claude/agents/GhostAgent.kt', 'class GhostAgent');
+      write(fixture.repoRoot, '.gitnexus/index/GhostIndex.kt', 'class GhostIndex');
+
+      const artifact = extractCodeContract({ repoRoot: fixture.repoRoot, source: fixture.repoRoot });
+      const serialized = JSON.stringify(artifact);
+
+      expect(serialized).not.toContain('GhostScreen');
+      expect(serialized).not.toContain('GhostAgent');
+      expect(serialized).not.toContain('GhostIndex');
+      expect(artifact.screens.map((screen) => screen.name)).toContain('TradeBuyScreen');
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('bounded source scan has stable ordering and rejects invalid maxFiles', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-app-audit-scan-order-'));
+    try {
+      write(repoRoot, 'z/ZScreen.kt', 'class ZScreen');
+      write(repoRoot, 'a/AScreen.kt', 'class AScreen');
+
+      const first = listSourceTextFiles({ repoRoot, source: repoRoot, maxFiles: 1 });
+      const second = listSourceTextFiles({ repoRoot, source: repoRoot, maxFiles: 1 });
+      const repoRealRoot = fs.realpathSync(repoRoot);
+
+      expect(first.files.map((filePath) => path.relative(repoRealRoot, filePath))).toEqual(['a/AScreen.kt']);
+      expect(second.files.map((filePath) => path.relative(repoRealRoot, filePath))).toEqual(['a/AScreen.kt']);
+      expect(() => listSourceTextFiles({ repoRoot, source: repoRoot, maxFiles: -1 })).toThrow('maxFiles must be a positive integer');
+      expect(() => listSourceTextFiles({ repoRoot, source: repoRoot, maxFiles: 0 })).toThrow('maxFiles must be a positive integer');
+      expect(() => listSourceTextFiles({ repoRoot, source: repoRoot, maxFiles: Number.NaN })).toThrow('maxFiles must be a positive integer');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
     }
   });
 

@@ -229,6 +229,13 @@ describe('spec-work run artifact contract', () => {
     const schema = readJson(SCHEMA_PATH);
     const generatedMirrorArtifact = validArtifact();
     generatedMirrorArtifact.source_refs = ['.agents/skills/spec-work/SKILL.md'];
+    const sourceWorkflowArtifact = validArtifact();
+    sourceWorkflowArtifact.source_refs = ['.spec-first/workflows/spec-work/spec-first/phase1b-smoke/run.json'];
+    const changedWorkflowArtifact = validArtifact();
+    changedWorkflowArtifact.script_confirmed.changed_files = ['.spec-first/workflows/spec-work/spec-first/phase1b-smoke/run.json'];
+    const allowedWorkflowArtifact = validArtifact();
+    allowedWorkflowArtifact.script_confirmed.artifact_refs = ['.spec-first/workflows/spec-work/spec-first/phase1b-smoke/run.json'];
+    allowedWorkflowArtifact.llm_asserted.read_artifacts = ['.spec-first/workflows/spec-work/spec-first/phase1b-smoke/run.json'];
     const providerArtifact = validArtifact();
     providerArtifact.script_confirmed.artifact_refs = ['.spec-first/graph/provider-status.json'];
 
@@ -238,5 +245,12 @@ describe('spec-work run artifact contract', () => {
     expect(validateAgainstSchema(schema, providerArtifact).errors.some((error) => (
       error.includes('root.script_confirmed.artifact_refs[0]') && error.includes('does not match pattern')
     ))).toBe(true);
+    expect(validateAgainstSchema(schema, sourceWorkflowArtifact).errors.some((error) => (
+      error.includes('root.source_refs[0]') && error.includes('does not match pattern')
+    ))).toBe(true);
+    expect(validateAgainstSchema(schema, changedWorkflowArtifact).errors.some((error) => (
+      error.includes('root.script_confirmed.changed_files[0]') && error.includes('does not match pattern')
+    ))).toBe(true);
+    expect(validateAgainstSchema(schema, allowedWorkflowArtifact).errors).toEqual([]);
   });
 });

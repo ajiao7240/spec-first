@@ -7,10 +7,16 @@ const path = require('node:path');
 
 const TEXT_FILE_PATTERN = /\.(kt|kts|java|swift|m|mm|xml|json|ya?ml|gradle|properties|txt|md|strings)$/i;
 const SKIPPED_DIRS = new Set([
+  '.agents',
+  '.claude',
+  '.code-review-graph',
+  '.codex',
   '.git',
+  '.gitnexus',
   '.gradle',
   '.idea',
   '.next',
+  '.spec-first',
   'DerivedData',
   'Pods',
   'build',
@@ -24,6 +30,7 @@ const ISSUE_SYNTHESIS_STATUSES = new Set(['not_run', 'llm_provided', 'fixture_pr
 const GIT_REF_PATTERN = /^[A-Za-z0-9._/@{}^~+-]+$/;
 const DEFAULT_MAX_SOURCE_HASH_BYTES = 1024 * 1024;
 const DEFAULT_MAX_SKIPPED_LARGE_FILES = 50;
+const CONTROL_SOURCE_INPUT_PATTERN = /^(?:\.git(?:\/|$)|\.spec-first\/|\.claude\/|\.codex\/|\.agents\/|\.gitnexus(?:\/|$)|\.code-review-graph(?:\/|$))/;
 
 function makeArtifact(options) {
   return {
@@ -44,7 +51,7 @@ function sourceInputFromFile(type, filePath, repoRoot) {
   const absolutePath = path.resolve(filePath);
   return {
     type,
-    path: repoRoot ? publicPath(repoRoot, absolutePath, `${type}-outside-repo`) : `<${type}:input-path-redacted>`,
+    path: repoRoot ? sourceInputPath(repoRoot, absolutePath, type) : `<${type}:input-path-redacted>`,
     source_hash: hashFile(absolutePath),
     freshness: 'current-worktree',
   };
@@ -58,7 +65,7 @@ function sourceInputFromFiles(type, files, repoRoot, options = {}) {
   if (options.truncated || skippedLargeFileCount > 0) {
     return {
       type,
-      path: options.sourceRoot && repoRoot ? publicPath(repoRoot, options.sourceRoot, 'source-outside-repo') : (repoRoot ? '.' : 'multiple-files'),
+      path: options.sourceRoot && repoRoot ? sourceInputPath(repoRoot, options.sourceRoot, 'source') : (repoRoot ? '.' : 'multiple-files'),
       source_hash_unavailable_reason: options.truncated ? 'file_scan_truncated' : 'large_file_skipped',
       freshness: 'partial-worktree',
       file_count: files.length,
@@ -75,10 +82,26 @@ function sourceInputFromFiles(type, files, repoRoot, options = {}) {
     .sort();
   return {
     type,
-    path: options.sourceRoot && repoRoot ? publicPath(repoRoot, options.sourceRoot, 'source-outside-repo') : (repoRoot ? '.' : 'multiple-files'),
+    path: options.sourceRoot && repoRoot ? sourceInputPath(repoRoot, options.sourceRoot, 'source') : (repoRoot ? '.' : 'multiple-files'),
     source_hash: hashText(fileInputs.join('\n')),
     freshness: 'current-worktree',
   };
+}
+
+function sourceInputPath(repoRoot, filePath, type = 'input') {
+  const visiblePath = publicPath(repoRoot, filePath, `${type}-outside-repo`);
+  if (typeof visiblePath === 'string' && CONTROL_SOURCE_INPUT_PATTERN.test(visiblePath)) {
+    return redactedSourceInputPath(type, visiblePath);
+  }
+  return visiblePath;
+}
+
+function redactedSourceInputPath(type, pathValue) {
+  const label = String(type || 'input')
+    .toLowerCase()
+    .replace(/[^a-z0-9._:-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'input';
+  return `<${label}:${hashText(pathValue).slice(7, 19)}>`;
 }
 
 function unavailableSourceInput(type, inputPath, reason) {
@@ -96,9 +119,9 @@ function listTextFiles(root, options = {}) {
 
 function listTextFilesWithMetadata(root, options = {}) {
   const absoluteRoot = path.resolve(root || '.');
-  const maxFiles = options.maxFiles || 2000;
-  const maxFileBytes = options.maxFileBytes || DEFAULT_MAX_SOURCE_HASH_BYTES;
-  const maxSkippedLargeFiles = options.maxSkippedLargeFiles || DEFAULT_MAX_SKIPPED_LARGE_FILES;
+  const maxFiles = normalizePositiveInteger(options.maxFiles, 2000, 'maxFiles');
+  const maxFileBytes = normalizePositiveInteger(options.maxFileBytes, DEFAULT_MAX_SOURCE_HASH_BYTES, 'maxFileBytes');
+  const maxSkippedLargeFiles = normalizePositiveInteger(options.maxSkippedLargeFiles, DEFAULT_MAX_SKIPPED_LARGE_FILES, 'maxSkippedLargeFiles');
   const files = [];
   const skippedLargeFiles = [];
   let skippedLargeFileCount = 0;
@@ -110,15 +133,17 @@ function listTextFilesWithMetadata(root, options = {}) {
     const current = stack.pop();
     let entries = [];
     try {
-      entries = fs.readdirSync(current, { withFileTypes: true });
+      entries = fs.readdirSync(current, { withFileTypes: true })
+        .sort((left, right) => left.name.localeCompare(right.name));
     } catch (_error) {
       continue;
     }
 
+    const childDirs = [];
     for (const entry of entries) {
       const fullPath = path.join(current, entry.name);
       if (entry.isDirectory()) {
-        if (!SKIPPED_DIRS.has(entry.name)) stack.push(fullPath);
+        if (!SKIPPED_DIRS.has(entry.name)) childDirs.push(fullPath);
         continue;
       }
       if (entry.isFile() && TEXT_FILE_PATTERN.test(entry.name)) {
@@ -151,6 +176,7 @@ function listTextFilesWithMetadata(root, options = {}) {
         }
       }
     }
+    stack.push(...childDirs.reverse());
   }
 
   return {
@@ -167,8 +193,10 @@ function listTextFilesWithMetadata(root, options = {}) {
 function listSourceTextFiles(options = {}) {
   const source = resolveBoundedSourceRoot(options);
   const scan = listTextFilesWithMetadata(source.sourceRoot, {
-    maxFiles: options.maxFiles || 2000,
-    maxFileBytes: options.maxFileBytes || options.maxSourceHashBytes || DEFAULT_MAX_SOURCE_HASH_BYTES,
+    maxFiles: options.maxFiles === undefined ? 2000 : options.maxFiles,
+    maxFileBytes: options.maxFileBytes === undefined
+      ? (options.maxSourceHashBytes === undefined ? DEFAULT_MAX_SOURCE_HASH_BYTES : options.maxSourceHashBytes)
+      : options.maxFileBytes,
   });
   const degradedModes = [];
   if (scan.truncated) {
@@ -192,6 +220,14 @@ function listSourceTextFiles(options = {}) {
     ...scan,
     degraded_modes: degradedModes,
   };
+}
+
+function normalizePositiveInteger(value, defaultValue, field) {
+  if (value === undefined || value === null) return defaultValue;
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${field} must be a positive integer`);
+  }
+  return value;
 }
 
 function readText(filePath, maxBytes = 128 * 1024) {
@@ -915,6 +951,7 @@ module.exports = {
   slugify,
   sourceInputFromFile,
   sourceInputFromFiles,
+  sourceInputPath,
   toPosix,
   unavailableSourceInput,
   unique,

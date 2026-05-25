@@ -11,6 +11,7 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
       '.claude/skills/',
       '.claude/spec-first/',
       '.claude/agents/',
+      '.claude/hooks/session-start',
       '.claude/tasks/',
       '.claude/worktrees/',
       '.codex/commands/spec/',

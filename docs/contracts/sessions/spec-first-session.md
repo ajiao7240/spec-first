@@ -30,8 +30,8 @@ runtime state，不入 git。
 | `agent_kind` | enum `claude-code` / `codex` / `other` | 是 | 调用方 agent 类型 |
 | `started_at` | ISO8601 UTC | 是 | session 注册时间 |
 | `last_heartbeat_at` | ISO8601 UTC | 是 | 最近一次心跳时间 |
-| `host_marker_path` | string \| null | 否 | 当前宿主 readiness ledger 路径（来自 `runtime-capabilities.json`） |
-| `scope_hint` | string \| null | 否 | 自由文本，建议放 task code 或工作主题，最长 512 |
+| `host_marker_path` | string \| null | 否 | 当前宿主 readiness ledger 路径（来自 `runtime-capabilities.json`）；必须是精确 repo-relative path |
+| `scope_hint` | string \| null | 否 | 自由文本，建议放 task code 或工作主题，最长 512；拒绝绝对路径、Windows drive、parent traversal、反斜杠和控制字符 |
 | `pid` | integer \| null | 否 | 调用方进程号；用于辅助 stale 判断 |
 
 ## CLI 入口
@@ -75,6 +75,7 @@ stale 文件——清理由 LLM advisory 提示用户进行，避免脚本越过
 | reason_code | 触发 | 处理 |
 |---|---|---|
 | `session-already-registered` | 同 `session_id` 重复 register | CLI exit 1，由调用方决定换 id 或 unregister 旧记录 |
+| `session-field-invalid` | advisory 字段不满足轻量边界，例如 `host_marker_path` 不是 repo-relative path，或 `scope_hint` 包含路径逃逸信号 | CLI exit 1，由调用方改用安全字段或省略该字段 |
 | `session-not-found` | unregister/heartbeat 找不到对应 id | CLI exit 1，提示先 register |
 | `session-schema-invalid` | 文件存在但内容不符 schema | CLI list 跳过损坏记录并标注；不自愈 |
 

@@ -66,7 +66,7 @@
       "anyOf": [
         {
           "type": "string",
-          "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
+          "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/).+[^/]$"
         },
         { "type": "null" }
       ]
@@ -79,7 +79,7 @@
       "anyOf": [
         {
           "type": "string",
-          "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
+          "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/).+[^/]$"
         },
         { "type": "null" }
       ]
@@ -88,7 +88,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
+        "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/).+[^/]$"
       }
     },
     "script_confirmed": {
@@ -122,7 +122,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
+            "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/).+[^/]$"
           }
         },
         "artifact_refs": {

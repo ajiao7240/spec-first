@@ -580,7 +580,7 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 
 Runtime asset summary：
 
-当 `init` 在包含多个 child Git repo 的父 workspace 中运行时，会自动识别 workspace 模式并初始化每个 child repo，只在父目录写 advisory summary：`.spec-first/workspace/init-summary.json`。它不会在父目录写 `.gitignore`、`AGENTS.md`、`CLAUDE.md`、`.claude/`、`.codex/` 或 `.agents/` 等 repo-local artifacts。使用 `--repo <child>` 可只初始化一个 child repo，使用 `--all-repos` 可显式声明批量初始化意图。
+当 `init` 在包含多个 child Git repo 的父 workspace 中运行时，会自动识别 workspace 模式并初始化每个 child repo，同时在父目录写 advisory routing assets，例如 `.spec-first/workspace/init-summary.json`、host 入口文档、host runtime assets 和 managed `.gitignore` block。父 workspace 仍不拥有 child repo-local truth，例如 `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/providers/*` 或 `.spec-first/impact/*`。使用 `--repo <child>` 可只初始化一个 child repo，使用 `--all-repos` 可显式声明批量初始化意图。
 
 managed `.gitignore` block 也会忽略 `.gitnexus/` 等本地图谱 provider artifacts；`.code-review-graph/` 仅作为迁移窗口历史残留继续忽略。
 

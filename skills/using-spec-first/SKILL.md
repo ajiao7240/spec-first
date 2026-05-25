@@ -226,21 +226,21 @@ If the request asks for planning, writing, fixing, testing, changelog updates, r
 
 ## Dispatch And Host Boundaries
 
-### Workflow-Owned Dispatch Admission
+### Workflow Dispatch Admission
 
-Some public workflows own documented read-only reviewer or researcher subagent phases. In Codex, an explicit invocation of the current host public workflow entrypoint counts as the user's explicit request for that bounded workflow-owned subagent work; do not require a second phrase such as "use subagents" or "parallel agents" before running the documented dispatch phase.
+Routing into a public workflow authorizes that workflow to run. It does not by itself override host-level subagent tool contracts. In Codex, call `spawn_agent` only when the current request explicitly asks for subagents, delegated work, parallel agents, persona reviewer dispatch, or when an upstream workflow delegates from an already authorized multi-agent context.
 
-This applies only to the workflow's documented read-only reviewer/researcher phase, for example `$spec-doc-review` multi-persona document reviewers, `$spec-code-review` reviewer personas, `$spec-plan` research agents, and `$spec-ideate` grounding or ideation agents. It does not authorize unrelated helper agents, hidden workflows, startup reminder agents, mutating worker dispatch, or beta delegation paths.
+Some public workflows prefer multi-persona or research phases when host capability and authorization are both present, for example `$spec-doc-review` multi-persona document reviewers, `$spec-code-review` reviewer personas, `$spec-plan` research agents, and `$spec-ideate` grounding or ideation agents. If authorization is absent, use that workflow's documented single-agent/report-only or inline-checklist fallback and record the concrete fallback reason instead of treating the workflow itself as failed.
 
-If the user names `spec-doc-review` in a document-review request without the `$` prefix, normalize it to the current host's public document-review entrypoint when the intent is clearly to run that workflow. Do not treat a missing extra "use subagents" phrase as a request for single-agent report-only; only explicit `report-only`, `no-agents`, or workflow fallback conditions disable the documented reviewer dispatch phase.
+If the user names `spec-doc-review` in a document-review request without the `$` prefix, normalize it to the current host's public document-review entrypoint when the intent is clearly to run that workflow. Do not invent extra dispatch authorization from normalization; the selected workflow owns reviewer selection, bounded parallelism when authorized, synthesis, artifacts, fallback, and final judgment.
 
-If the user explicitly asks for report-only/no-agents mode, the host lacks a dispatch primitive, the runtime cannot call it, or the workflow's own safety boundary is not satisfied, follow that workflow's documented fallback instead of dispatching. The selected workflow still owns reviewer selection, bounded parallelism, synthesis, artifacts, and final judgment.
+If the user explicitly asks for report-only/no-agents mode, the host lacks a dispatch primitive, the runtime cannot call it, explicit dispatch authorization is absent, or the workflow's own safety boundary is not satisfied, follow that workflow's documented fallback instead of dispatching.
 
 ### Host Surface
 
 - Claude workflow entrypoints use `/spec:*`.
 - Codex workflow entrypoints use `$spec-*`.
-- In Codex, `$spec-doc-review` means the default multi-persona document-review workflow, not a single-agent report-only review unless the workflow fallback conditions apply.
+- In Codex, `$spec-doc-review` means the document-review workflow. It uses bounded reviewer dispatch only when the current request also satisfies Codex `spawn_agent` authorization; otherwise it follows the documented fallback.
 - `using-spec-first` itself is a standalone meta skill, not a `/spec:*` or `$spec-*` workflow entrypoint.
 - `spec-write-tasks` is a standalone skill for optional plan-to-task-pack compilation, not a `/spec:*` or `$spec-*` workflow entrypoint.
 - Internal-only skills remain source/runtime support assets, not menu items. Legacy/internal `lfg` must not be recommended as a public workflow path.

@@ -12,6 +12,7 @@ const {
   parseCommonArgs,
   resolvePathAgainstRoot,
   resolveRepoRoot,
+  sourceInputPath,
   writeJsonOutput,
 } = require('./lib/audit-utils');
 
@@ -115,7 +116,7 @@ function runPreflight(options = {}) {
   if (sourceResolution.ok) {
     sourceInputs.push({
       type: 'code',
-      path: publicPath(repoRoot, scanRoot, 'source-outside-repo'),
+      path: sourceInputPath(repoRoot, scanRoot, 'source'),
       ...(scan.source_hash_unavailable_reason
         ? { source_hash_unavailable_reason: scan.source_hash_unavailable_reason, freshness: 'partial-worktree' }
         : { source_hash: scan.source_hash, freshness: 'current-worktree' }),
@@ -123,7 +124,7 @@ function runPreflight(options = {}) {
   } else {
     sourceInputs.push({
       type: 'code',
-      path: publicPath(repoRoot, sourceResolution.path || options.source || '.', 'source-outside-repo'),
+      path: sourceInputPath(repoRoot, sourceResolution.path || options.source || '.', 'source'),
       source_hash_unavailable_reason: sourceResolution.reason_code || 'source_unreadable',
       freshness: 'unavailable',
     });
@@ -132,14 +133,14 @@ function runPreflight(options = {}) {
   if (prdResolution.ok) {
     sourceInputs.push({
       type: 'prd',
-      path: publicPath(repoRoot, prdResolution.realpath, 'prd-outside-repo'),
+      path: sourceInputPath(repoRoot, prdResolution.realpath, 'prd'),
       source_hash: hashFile(prdResolution.realpath),
       freshness: 'current-worktree',
     });
   } else if (options.prd) {
     sourceInputs.push({
       type: 'prd',
-      path: publicPath(repoRoot, options.prd, 'prd-outside-repo'),
+      path: sourceInputPath(repoRoot, options.prd, 'prd'),
       source_hash_unavailable_reason: prdResolution.reason_code || 'unreadable',
       freshness: 'unavailable',
     });
@@ -148,14 +149,14 @@ function runPreflight(options = {}) {
   if (figmaResolution && figmaResolution.ok) {
     sourceInputs.push({
       type: 'figma',
-      path: publicPath(repoRoot, figmaResolution.realpath, 'figma-outside-repo'),
+      path: sourceInputPath(repoRoot, figmaResolution.realpath, 'figma'),
       source_hash: hashFile(figmaResolution.realpath),
       freshness: 'current-worktree',
     });
   } else if (options.figmaContext) {
     sourceInputs.push({
       type: 'figma',
-      path: publicPath(repoRoot, options.figmaContext, 'figma-outside-repo'),
+      path: sourceInputPath(repoRoot, options.figmaContext, 'figma'),
       source_hash_unavailable_reason: figmaResolution.reason_code || 'unreadable',
       freshness: 'unavailable',
     });

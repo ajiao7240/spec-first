@@ -191,6 +191,10 @@ describe('ai dev quality gate contract', () => {
       'tests/unit/graph-anchor-extraction-helper.test.js',
       'tests/unit/init-source-path-coverage.test.js',
       'tests/unit/package-install-contracts.test.js',
+      'tests/unit/mcp-setup-powershell-contracts.test.js',
+      'tests/unit/spec-graph-bootstrap-contracts.test.js',
+      'tests/unit/bootstrap-providers-powershell-contracts.test.js',
+      'tests/unit/graph-provider-consumption-contracts.test.js',
       'tests/unit/ai-dev-quality-gate.test.js',
       'tests/unit/ai-dev-benchmark-fixtures.test.js',
       'tests/unit/spec-plan-contracts.test.js',
@@ -226,6 +230,10 @@ describe('ai dev quality gate contract', () => {
     expect(aiWorkflow).toContain("tests/unit/graph-anchor-extraction-helper.test.js");
     expect(aiWorkflow).toContain("tests/unit/init-source-path-coverage.test.js");
     expect(aiWorkflow).toContain("tests/unit/package-install-contracts.test.js");
+    expect(aiWorkflow).toContain("tests/unit/mcp-setup-powershell-contracts.test.js");
+    expect(aiWorkflow).toContain("tests/unit/spec-graph-bootstrap-contracts.test.js");
+    expect(aiWorkflow).toContain("tests/unit/bootstrap-providers-powershell-contracts.test.js");
+    expect(aiWorkflow).toContain("tests/unit/graph-provider-consumption-contracts.test.js");
     expect(aiWorkflow).toContain("tests/unit/ai-dev-quality-gate.test.js");
     expect(aiWorkflow).toContain("tests/unit/ai-dev-benchmark-fixtures.test.js");
     expect(aiWorkflow).toContain("tests/fixtures/ai-dev-benchmarks/**");
@@ -234,5 +242,8 @@ describe('ai dev quality gate contract', () => {
     expect(aiWorkflow).not.toContain("docs/contracts/spec-" + "graph" + "-bootstrap/**");
     expect(aiWorkflow).not.toContain("src/context-routing/**");
     expect(aiWorkflow).not.toContain("src/cli/commands/stage0-context.js");
+    for (const testFile of WORKFLOW_RUNTIME_CONTRACT_TESTS) {
+      expect(aiWorkflow).toContain(testFile);
+    }
   });
 });

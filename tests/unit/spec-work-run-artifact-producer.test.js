@@ -297,9 +297,17 @@ describe('spec-work run artifact producer', () => {
     const oversizedLog = Array.from({ length: 1000 }, (_, index) => `line ${index}`).join('\n');
     const badPayloads = [
       validPayload({ plan_source: 'bogus' }),
+      validPayload({ plan_path: '.spec-first/workflows/spec-work/spec-first/run-1/run.json' }),
       validPayload({ source_refs: ['.agents/skills/spec-work/SKILL.md'] }),
+      validPayload({ source_refs: ['.spec-first/workflows/spec-work/spec-first/run-1/run.json'] }),
       validPayload({ source_refs: ['.env'] }),
       validPayload({ source_refs: ['.git/config'] }),
+      validPayload({
+        script_confirmed: {
+          ...validPayload().script_confirmed,
+          changed_files: ['.spec-first/workflows/spec-work/spec-first/run-1/run.json'],
+        },
+      }),
       validPayload({
         script_confirmed: {
           ...validPayload().script_confirmed,
@@ -398,6 +406,21 @@ describe('spec-work run artifact producer', () => {
       const validation = validatePayload(payload);
       expect(validation.errors.length).toBeGreaterThan(0);
     }
+  });
+
+  test('allows workflow artifact refs only in artifact-reference fields', () => {
+    const payload = validPayload({
+      script_confirmed: {
+        ...validPayload().script_confirmed,
+        artifact_refs: ['.spec-first/workflows/spec-work/spec-first/run-1/run.json'],
+      },
+      llm_asserted: {
+        ...validPayload().llm_asserted,
+        read_artifacts: ['.spec-first/workflows/spec-work/spec-first/run-1/run.json'],
+      },
+    });
+
+    expect(validatePayload(payload).errors).toEqual([]);
   });
 
   test('requires reason codes for not-run validation and resume evidence', () => {

@@ -38,6 +38,7 @@ logs/
 .claude/skills/
 .claude/spec-first/
 .claude/agents/
+.claude/hooks/session-start
 .codex/commands/spec/
 .codex/spec-first/
 .codex/agents/
@@ -74,6 +75,7 @@ __pycache__/
 .claude/skills/
 .claude/spec-first/
 .claude/agents/
+.claude/hooks/session-start
 .claude/tasks/
 .claude/worktrees/
 .codex/commands/spec/

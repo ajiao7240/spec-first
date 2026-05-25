@@ -22,6 +22,7 @@ const {
   registerSession,
   heartbeatSession,
   unregisterSession,
+  validateAdvisoryFields,
 } = require('../../src/cli/helpers/session-store');
 
 function makeRepoRoot() {
@@ -75,6 +76,14 @@ describe('spec-first-session.v1 schema and helper contract', () => {
       ...record,
       pid: 4294967296,
     }).errors).toContain('root.pid: expected number <= 4294967295, received 4294967296');
+    expect(validateAgainstSchema(getSchema(), {
+      ...record,
+      host_marker_path: '/tmp/host.json',
+      scope_hint: '../escape',
+    }).errors).toEqual(expect.arrayContaining([
+      expect.stringContaining('root.host_marker_path: value'),
+      expect.stringContaining('root.scope_hint: value'),
+    ]));
   });
 
   test('SESSION_DIR_REL points at .spec-first/sessions', () => {
@@ -135,6 +144,39 @@ describe('register / heartbeat / unregister roundtrip', () => {
       .toBe('session-id-invalid');
     expect(registerSession(repoRoot, { session_id: generateSessionId(), agent_kind: 'bogus' }).reason_code)
       .toBe('agent-kind-invalid');
+  });
+
+  test('register rejects unsafe advisory fields before writing a session file', () => {
+    for (const hostMarkerPath of ['/tmp/host.json', '../host.json', './host.json', 'C:/host.json', 'dir\\host.json']) {
+      const result = registerSession(repoRoot, {
+        session_id: generateSessionId(),
+        agent_kind: 'codex',
+        host_marker_path: hostMarkerPath,
+      });
+      expect(result.ok).toBe(false);
+      expect(result.reason_code).toBe('session-field-invalid');
+    }
+
+    for (const scopeHint of ['/tmp/work', 'C:/tmp/work', '../work', 'work\\item', 'work\u0000item']) {
+      const result = registerSession(repoRoot, {
+        session_id: generateSessionId(),
+        agent_kind: 'codex',
+        scope_hint: scopeHint,
+      });
+      expect(result.ok).toBe(false);
+      expect(result.reason_code).toBe('session-field-invalid');
+    }
+
+    expect(validateAdvisoryFields({
+      host_marker_path: '.codex/spec-first/host-setup.json',
+      scope_hint: 'TASK-123 current review',
+    })).toMatchObject({
+      ok: true,
+      fields: {
+        host_marker_path: '.codex/spec-first/host-setup.json',
+        scope_hint: 'TASK-123 current review',
+      },
+    });
   });
 
   test('register, list, heartbeat, and unregister reject session store symlink escapes', () => {

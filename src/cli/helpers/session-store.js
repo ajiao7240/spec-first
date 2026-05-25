@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { writeFileAtomic } = require('../atomic-write');
 const { validateAgainstSchema } = require('../../contracts/schema-validator');
+const { isExactRepoRelativePath } = require('./secret-deny-patterns');
 
 const SCHEMA_VERSION = 'spec-first-session.v1';
 const SESSION_DIR_REL = path.join('.spec-first', 'sessions');
@@ -12,6 +13,7 @@ const SCHEMA_PATH = path.join(__dirname, '..', 'contracts', 'session', 'spec-fir
 const STALE_MS = 24 * 60 * 60 * 1000;
 const ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 const ALLOWED_AGENT_KINDS = ['claude-code', 'codex', 'other'];
+const SCOPE_HINT_FORBIDDEN_PATTERN = /[\x00-\x1F\x7F]|\\|^\s*\/|^[A-Za-z]:|(^|\/)\.\.(\/|$)/;
 
 let cachedSchema = null;
 
@@ -50,6 +52,32 @@ function isValidSessionId(value) {
 
 function isValidAgentKind(value) {
   return ALLOWED_AGENT_KINDS.includes(value);
+}
+
+function normalizeOptionalString(value) {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function validateAdvisoryFields(options = {}) {
+  const errors = [];
+  const hostMarkerPath = normalizeOptionalString(options.host_marker_path);
+  const scopeHint = normalizeOptionalString(options.scope_hint);
+
+  if (hostMarkerPath !== null && !isExactRepoRelativePath(hostMarkerPath)) {
+    errors.push('host_marker_path must be an exact repo-relative path');
+  }
+  if (scopeHint !== null && SCOPE_HINT_FORBIDDEN_PATTERN.test(scopeHint)) {
+    errors.push('scope_hint must not contain absolute paths, drive paths, parent traversal, backslashes, or control characters');
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+    fields: {
+      host_marker_path: hostMarkerPath,
+      scope_hint: scopeHint,
+    },
+  };
 }
 
 function nowIso() {
@@ -156,14 +184,18 @@ function registerSession(repoRoot, options = {}) {
   if (fs.existsSync(filePath)) {
     return { ok: false, reason_code: 'session-already-registered', session_id: sessionId, path: filePath };
   }
+  const advisory = validateAdvisoryFields(options);
+  if (!advisory.ok) {
+    return { ok: false, reason_code: 'session-field-invalid', session_id: sessionId, errors: advisory.errors };
+  }
   const record = {
     schema_version: SCHEMA_VERSION,
     session_id: sessionId,
     agent_kind: agentKind,
-    host_marker_path: typeof options.host_marker_path === 'string' && options.host_marker_path.length > 0 ? options.host_marker_path : null,
+    host_marker_path: advisory.fields.host_marker_path,
     started_at: nowIso(),
     last_heartbeat_at: nowIso(),
-    scope_hint: typeof options.scope_hint === 'string' && options.scope_hint.length > 0 ? options.scope_hint : null,
+    scope_hint: advisory.fields.scope_hint,
     pid: typeof options.pid === 'number' && options.pid > 0 ? options.pid : null,
   };
   const validation = validateRecord(record);
@@ -282,6 +314,7 @@ module.exports = {
   isStale,
   isValidSessionId,
   isValidAgentKind,
+  validateAdvisoryFields,
   listSessions,
   registerSession,
   heartbeatSession,

@@ -17,6 +17,7 @@ describe('spec-first gitignore policy', () => {
     expect(block).toContain(SPEC_FIRST_GITIGNORE_START);
     expect(block).toContain(SPEC_FIRST_GITIGNORE_END);
     expect(patterns).toContain('.claude/commands/spec/');
+    expect(patterns).toContain('.claude/hooks/session-start');
     expect(patterns).toContain('.agents/skills/');
     expect(patterns).toContain('.gitnexus/');
     expect(patterns).toContain('.code-review-graph/');

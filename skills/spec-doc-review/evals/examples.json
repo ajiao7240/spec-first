@@ -3,25 +3,25 @@
   "skill": "spec-doc-review",
   "examples": [
     {
-      "name": "default document review uses bounded personas",
-      "user_intent": "用户要求审查 requirements、plan 或 task-pack 文档，没有禁用 reviewer dispatch。",
-      "expected_posture": "按文档类型和内容信号选择 personas；可用时进行 bounded parallel dispatch，然后 synthesis findings。",
-      "boundary_note": "spec-doc-review 是 workflow orchestrator，不是 agent type；不要把 workflow 自身丢给 subagent。",
-      "negative_signal": "只做单一视角草率审查，或通过 Agent primitive 调用 spec-doc-review。",
+      "name": "authorized document review uses bounded personas",
+      "user_intent": "用户要求审查 requirements、plan 或 task-pack 文档，并显式授权 subagents、parallel reviewers、delegated review 或 persona reviewer dispatch。",
+      "expected_posture": "按文档类型和内容信号选择 personas；在 host capability 和 explicit dispatch authorization 同时存在时进行 bounded parallel dispatch，然后 synthesis findings。",
+      "boundary_note": "spec-doc-review 是 workflow orchestrator，不是 agent type；不要把 workflow 自身丢给 subagent，也不要把直接调用 workflow 当作 Codex `spawn_agent` 授权。",
+      "negative_signal": "缺少显式 dispatch authorization 时仍启动 subagents，或通过 Agent primitive 调用 spec-doc-review。",
       "context_snippets": [
         "Select Conditional Personas",
-        "Invocation Boundary"
+        "Dispatch Capability Gate"
       ],
       "source_note": "existing prompt clause: Document Review workflow and Invocation Boundary"
     },
     {
-      "name": "dispatch unavailable falls back honestly",
-      "user_intent": "运行环境没有 reviewer dispatch primitive，或用户明确要求 no-agents/report-only。",
+      "name": "dispatch unavailable or unauthorized falls back honestly",
+      "user_intent": "运行环境没有 reviewer dispatch primitive、用户明确要求 no-agents/report-only，或 direct `$spec-doc-review` 调用没有显式授权 Codex subagents / parallel reviewer work。",
       "expected_posture": "执行 single-agent report-only fallback，并清楚说明多 persona dispatch 未运行。",
       "boundary_note": "缺少 dispatch 不是跳过审查的理由，但不能声称 helper agents 已完成。",
       "negative_signal": "编造 persona agent 输出或把 unavailable dispatch 当成 review pass。",
       "context_snippets": [
-        "dispatch unavailable",
+        "dispatch_authorization_missing",
         "single-agent report-only fallback"
       ],
       "source_note": "known failure mode: helper dispatch availability must be disclosed instead of simulated"

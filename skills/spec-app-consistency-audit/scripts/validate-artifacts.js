@@ -17,6 +17,10 @@ const METADATA_HOSTS = new Set(['unknown', 'claude', 'codex']);
 const DIFF_SCOPE_KINDS = new Set(['git_diff', 'working_tree', 'source_snapshot']);
 const METADATA_STATUSES = new Set(['started', 'complete', 'degraded', 'failed']);
 const TRACEABLE_EVIDENCE_FIELDS = ['file', 'path', 'artifact_id', 'node_id', 'route', 'event', 'key'];
+const PUBLIC_PLACEHOLDER_PATTERN = /^<[A-Za-z0-9._:-]+>$/;
+const FIGMA_REFERENCE_PATH_PATTERN = /^figma-(?:ref|node|file):[a-f0-9]{12}$/;
+const SECRET_PATH_PATTERN = /(?:^|\/)(?:\.env(?:\.|$)|\.npmrc$|\.pypirc$|\.netrc$|\.git-credentials$|.*(?:token|secret|credentials|password|apikey|api_key).*|.*\.(?:pem|key|p12|pfx|keystore|kdbx|mobileprovision|cer)$)/i;
+const GENERATED_OR_CONTROL_PATH_PATTERN = /^(?:\.git(?:\/|$)|\.spec-first\/|\.claude\/|\.codex\/|\.agents\/|\.gitnexus(?:\/|$)|\.code-review-graph(?:\/|$))/;
 
 function validateArtifact(artifact, options = {}) {
   const errors = [];
@@ -85,6 +89,8 @@ function validateSourceInput(source, index, errors) {
   requireString(source, 'type', errors, prefix);
   if (typeof source.path !== 'string' || source.path.length === 0) {
     errors.push(error(`${prefix}.path`, 'source_path_required', 'source input path is required.'));
+  } else if (!isSafeSourceInputPath(source.path)) {
+    errors.push(error(`${prefix}.path`, 'unsafe_source_path', 'source input path must be repo-relative safe provenance or a redacted placeholder.'));
   }
   const hasHash = typeof source.source_hash === 'string' && /^sha256:[a-f0-9]{64}$/.test(source.source_hash);
   const hasReason = typeof source.source_hash_unavailable_reason === 'string'
@@ -97,6 +103,28 @@ function validateSourceInput(source, index, errors) {
     ));
   }
   requireString(source, 'freshness', errors, prefix);
+}
+
+function isSafeSourceInputPath(value) {
+  const sourcePath = String(value);
+  if (sourcePath === '.') return true;
+  if (PUBLIC_PLACEHOLDER_PATTERN.test(sourcePath)) return true;
+  if (FIGMA_REFERENCE_PATH_PATTERN.test(sourcePath)) return true;
+  if (
+    sourcePath.startsWith('/')
+    || /^[A-Za-z]:/.test(sourcePath)
+    || sourcePath.startsWith('~')
+    || sourcePath.includes('\\')
+    || sourcePath.includes('//')
+    || /[\x00-\x1F\x7F*?[\]{}]/.test(sourcePath)
+    || sourcePath.split('/').includes('.')
+    || sourcePath.split('/').includes('..')
+  ) {
+    return false;
+  }
+  if (GENERATED_OR_CONTROL_PATH_PATTERN.test(sourcePath)) return false;
+  if (SECRET_PATH_PATTERN.test(sourcePath)) return false;
+  return true;
 }
 
 function validatePreflightArtifact(artifact, errors) {

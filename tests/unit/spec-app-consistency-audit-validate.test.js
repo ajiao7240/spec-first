@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { buildAuditContext } = require('../../skills/spec-app-consistency-audit/scripts/build-audit-context');
+const { sourceInputFromFile } = require('../../skills/spec-app-consistency-audit/scripts/lib/audit-utils');
 const { runPreflight } = require('../../skills/spec-app-consistency-audit/scripts/preflight');
 const {
   validateArtifact,
@@ -134,6 +135,57 @@ describe('spec-app-consistency-audit artifact validation', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors.map((entry) => entry.code)).toContain('source_hash_or_reason_required');
+  });
+
+  test('rejects unsafe source input provenance paths', () => {
+    for (const unsafePath of [
+      '../outside-secret.txt',
+      '/tmp/outside.txt',
+      'C:/tmp/outside.txt',
+      '.env',
+      'certs/prod.pem',
+      '.spec-first/app-audit/runs/run/code.json',
+      '.claude/agents/reviewer.md',
+      '.git/config',
+    ]) {
+      const result = validateArtifact(validBase({
+        source_inputs: [{
+          type: 'code',
+          path: unsafePath,
+          source_hash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          freshness: 'current-worktree',
+        }],
+      }));
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.map((entry) => entry.code)).toContain('unsafe_source_path');
+    }
+
+    expect(validateArtifact(validBase({
+      source_inputs: [{
+        type: 'code',
+        path: '<outside-repo-file:abcdef123456>',
+        source_hash_unavailable_reason: 'outside_repo',
+        freshness: 'unavailable',
+      }],
+    })).valid).toBe(true);
+  });
+
+  test('redacts generated control paths when scripts create source provenance', () => {
+    const repoRoot = makeRepo();
+    try {
+      const rawIssuesPath = path.join(repoRoot, '.spec-first/app-audit/runs/run/input/raw-issues.json');
+      fs.mkdirSync(path.dirname(rawIssuesPath), { recursive: true });
+      fs.writeFileSync(rawIssuesPath, '{"issues":[]}');
+
+      const sourceInput = sourceInputFromFile('issues', rawIssuesPath, repoRoot);
+      const result = validateArtifact(validBase({ source_inputs: [sourceInput] }));
+
+      expect(sourceInput.path).toMatch(/^<issues:[a-f0-9]{12}>$/);
+      expect(result.valid).toBe(true);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 
   test('rejects confirmed script artifact unless explicitly allowed', () => {

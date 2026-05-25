@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-26 01:54:47 leokuang: fix(review): 完成当前代码审查后续收敛，修复 parent workspace init 文档口径、Claude hook gitignore/untrack policy、session advisory path 边界、spec-work run artifact `.spec-first/workflows` 字段边界、app-audit runtime/control dir 排除与 `maxFiles`/source input path 校验、secret-deny 大小写与自身维护 allowlist、AI Dev Quality Gate 覆盖同步以及 `$spec-doc-review` Codex dispatch 授权口径；同步复审台账、CHANGELOG、contract tests，并删除误入仓库的本地 transcript 文件 (user-visible)
 - v1.8.2 2026-05-26 00:05:36 leokuang: docs(user-manual): 同步 required runtime 退役后的用户手册口径，删除 active setup、parent workspace 和 gitignore 说明中不再存在的符号索引器相关产物表述，并补充用户手册 contract test 防止旧词回流 (user-visible)
 - v1.8.2 2026-05-25 23:54:38 leokuang: fix(graph-bootstrap): 修复 GitNexus definitions-only 多候选探测仍等待后续候选的问题，首个 definitions-only query probe 现在直接作为 query/context orientation ready 并停止探测；同时统一 Bash/PowerShell all-repos 聚合对 `ready-dirty-advisory` 的 ready 计数、next_action 和退出语义，并修复 PowerShell parent host normalization row 缺少 `written` 字段时的严格模式失败，补充对应回归测试 (user-visible)
 - v1.8.2 2026-05-25 23:31:57 leokuang: docs(plan): 完成 GitNexus-only graph provider hard cut 计划收尾，将 `2026-05-25-001-gitnexus-only-graph-provider-plan.md` 标记为 completed；最终 P2+ 复查确认 active provider registry、bootstrap、benchmark extraction、review pre-facts、AI dev quality gate 与 branch-protection coverage 均已收口到 GitNexus-only，CRG 仅保留在历史说明、manual cleanup、residual ignore 和负向测试语境 (user-visible)

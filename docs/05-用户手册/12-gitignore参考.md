@@ -23,6 +23,7 @@
 .claude/skills/
 .claude/spec-first/
 .claude/agents/
+.claude/hooks/session-start
 .claude/tasks/
 .claude/worktrees/
 .codex/commands/spec/
@@ -49,7 +50,7 @@
 # spec-first:end
 ```
 
-普通单 repo / monorepo 中，`init` 保持当前行为，只维护当前执行目录对应的目标项目 `.gitignore`，通常应在项目根目录运行。在父 workspace 且检测到多个 child Git repos 时，`init` 默认进入 all-child maintenance：逐个初始化 child repo，并只在父目录写 `.spec-first/workspace/init-summary.json` advisory summary；父目录不写 `.gitignore`、`AGENTS.md`、`CLAUDE.md`、`.claude/`、`.codex/` 或 `.agents/` 等 repo-local artifacts。使用 `--repo <child>` 可只初始化一个 child repo，使用 `--all-repos` 可显式声明批量初始化意图。
+普通单 repo / monorepo 中，`init` 保持当前行为，只维护当前执行目录对应的目标项目 `.gitignore`，通常应在项目根目录运行。在父 workspace 且检测到多个 child Git repos 时，`init` 默认进入 all-child maintenance：逐个初始化 child repo，并在父目录写 advisory `.spec-first/workspace/init-summary.json`、父级 host 入口文档和 host runtime assets，用于父级只读路由；父目录不把 `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/providers/*` 或 `.spec-first/impact/*` 作为 parent-local truth。使用 `--repo <child>` 可只初始化一个 child repo，使用 `--all-repos` 可显式声明批量初始化意图。
 
 如果项目里已经有同类规则，`init` 仍会保留 spec-first managed block，保证后续版本可以幂等更新。它不会尝试判断所有语义等价的 glob，也不会删除 block 外的用户规则。
 
@@ -74,6 +75,7 @@
     skills/                         # generated runtime，忽略
     spec-first/                     # runtime state/profile，忽略
     agents/                         # generated runtime，忽略
+    hooks/session-start             # generated runtime hook，忽略
     tasks/ worktrees/               # host-local scratch，忽略
 
   .codex/
