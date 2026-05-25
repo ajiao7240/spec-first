@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-26 03:57:02 reviewer: docs(review): 刷新 `2026-05-23-review.md` 的当前分支、HEAD、diff shortstat、工作树状态和 GitNexus definitions-only evidence limitation，确保最终审查台账范围事实与已推送分支一致 (user-visible)
 - v1.8.2 2026-05-26 03:51:06 reviewer: fix(review): 关闭深度复审剩余 follow-up，修复 Gemini multi-turn JPG/RGBA 保存、app-audit raw issues 与 not_run 冲突、review-pre-facts temp base symlink escape、Bash helper mirror provenance、PowerShell provider projection inline-if 崩溃、workspace GitNexus live list_repos array overlay 兼容，以及 PowerShell non-git folder fingerprint fail-closed；同步审查台账和 focused regression tests (user-visible)
 - v1.8.2 2026-05-26 03:01:02 reviewer: fix(review): 继续收敛 Lovelace 复审问题，`uv`/`uvx` 降级为 GitNexus-only setup 的 optional/warn-only 依赖，GitNexus parent workspace host block 保留 `group-missing`/`bounded-registry-fanout` 路径，benchmark graph anchor helper 支持 Git worktree `.git` 文件，workspace GitNexus registry path 在 Windows 下大小写不敏感匹配；同步 focused contract tests (user-visible)
 - v1.8.2 2026-05-26 02:48:34 reviewer: fix(app-audit): 收尾 review finding 068/069，metadata 与 impact facts 统一披露 scanned untracked source，code contract 和 impact signal extraction 在截断读取时输出 `semantic_extraction_partial` degraded evidence；同步复审台账与 focused contract tests (user-visible)
