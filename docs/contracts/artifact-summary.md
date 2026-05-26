@@ -4,6 +4,8 @@
 
 本合同不要求每个 producer 立刻写入新文件。在某个 workflow 拥有确定性 producer 之前，可以在 handoff 中提供等价 summary 段落。边界保持一致：先 summary，只有命中明确 trigger 时才展开 full artifact。
 
+它是 AI Coding Harness 的 cross-workflow handoff 形态之一；目录级 Harness map 见 `docs/contracts/ai-coding-harness.md`。
+
 ## 目标
 
 - 避免把长计划、review report、audit JSON、raw log 或 session transcript 传给每个下游 agent。
@@ -32,6 +34,15 @@
   "changed_facts": ["此 artifact 改变的确定性事实"],
   "unresolved_risks": ["仍相关的风险或未知项"],
   "evidence_paths": ["tests/unit/example.test.js"],
+  "evidence_summaries": [
+    {
+      "kind": "graph-session",
+      "summary": "compact advisory graph evidence",
+      "source_reads_required": ["src/example.js"],
+      "limitations": ["session-local evidence requires source confirmation"],
+      "redaction_status": "none-required"
+    }
+  ],
   "recommended_next_action": "当前 host work entrypoint",
   "full_artifact_read_triggers": [
     "summary 缺少必需的 requirement、task、finding 或 evidence detail",
@@ -47,6 +58,7 @@
 - Work artifacts 汇总 changed files、verification commands、review tier 和 residual status。
 - Compound artifacts 汇总 reusable lesson delta 与 source evidence paths。
 - Tool-heavy artifacts 汇总 exit code、reason_code、关键字段和 raw log paths，而不是嵌入 raw output。
+- Graph/session evidence summary 可以记录 capabilities used、source reads required、limitations 和 redaction status，但不得嵌入 raw provider output，也不得成为 finding / root cause 的 source of truth。
 
 ## Consumer 规则
 
@@ -54,3 +66,4 @@
 2. 只有 `full_artifact_read_triggers` 适用时才展开 full artifact。
 3. agent handoff 传递 summary 和 paths，不复制 full artifact body。
 4. 如果缺少 summary，标记 `summary_missing`，并读取最小可用 status、manifest 或 explicit path。
+5. Graph/session evidence summary 是 advisory handoff；consumer 必须回到 `evidence_paths` 或 `source_reads_required` 做 source/test/contract confirmation。

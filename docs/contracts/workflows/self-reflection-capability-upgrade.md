@@ -4,6 +4,8 @@
 
 它不是新 workflow、command、skill、agent、runtime state machine 或自动 rewrite 系统。
 
+它服务 `docs/contracts/ai-coding-harness.md` 中的 Evaluation Harness 和 Knowledge Harness：评估能力是否真的改善，再把已验证经验沉淀给下一轮。
+
 ## Scope
 
 Use this contract when spec-first inspects itself, decides whether capability upgrades are needed, absorbs external/local best practices, hands accepted upgrades to planning, verifies through review, and feeds compound knowledge into the next cycle.

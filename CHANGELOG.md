@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-27 04:01:50 leo: docs(contracts): 新增 AI Coding Harness 总合同，并同步 GitNexus/pre-facts/downstream/workspace/context/artifact/finding 等合同对 Context/Evidence/Execution/Evaluation/Governance/Knowledge 分层、session evidence envelope、source confirmation、redaction 和 non-expansion 边界的描述 (user-visible)
 - v1.8.2 2026-05-27 03:29:10 leo: docs(review): 修复 GitNexus Harness 方案终审发现的计划 revision 锚点漂移、技术方案 helper-only 标题和 Knowledge lane later 措辞，保持完整 Harness integration 口径一致 (user-visible)
 - v1.8.2 2026-05-27 03:02:33 leo: feat(init): 参考 Trellis 初始化模式优化 `spec-first init` 宿主选择体验，支持交互式多选 Claude/Codex（初始不勾选，需用户主动选择）、显式 `--claude`/`--codex` 跳过宿主选择、`-y/--yes` 使用默认宿主集合无提示安装，并补充 checkbox prompt、smoke 与用户文档覆盖 (user-visible)
 - v1.8.2 2026-05-27 02:52:38 leo: docs(design): 将 GitNexus 需求、portfolio、技术方案和实施计划从分阶段 helper 扩展口径收束为完整 AI Coding Harness 集成，补齐 workflow-native/session/resource evidence envelope、spec-work 与 knowledge 消费、helper promotion 度量和 mutation-gated 边界 (user-visible)

@@ -2,7 +2,7 @@
 
 ## 目标
 
-本文定义 `$spec-work`、`$spec-code-review` 和 `$spec-debug` 如何消费 `$spec-plan` 产出的 `## Graph / GitNexus Evidence` envelope，以及 `$spec-work` run artifact 中的 `graph_evidence_used` session-local 摘要。
+本文定义 `$spec-work`、`$spec-code-review`、`$spec-debug`、`spec-write-tasks` 和 Knowledge workflows 如何消费 `$spec-plan` 产出的 `## Graph / GitNexus Evidence` envelope、workflow-native `gitnexus-session-evidence.v1` 摘要，以及 `$spec-work` run artifact 中的 `graph_evidence_used` session-local 摘要。
 
 这是 downstream consumer 专用 light contract。它不定义新的 readiness truth，不重写 `docs/contracts/graph-evidence-policy.md` 的四轴枚举和 Plan envelope validity matrix，也不替代 `docs/contracts/workspace-gitnexus-consumption.md` 的多仓 scope 规则。
 
@@ -12,6 +12,7 @@
 - GitNexus capability、`source_tags[]` 和 mutation boundary 继续来自 `docs/contracts/gitnexus-capability-catalog.md`。
 - 多仓 workspace 的 target repo / per-child scope 继续来自 `docs/contracts/workspace-gitnexus-consumption.md`。
 - Downstream workflow 只能把 plan/work graph evidence 当 implementation/review/debug focus pointer；scope authority 仍来自用户请求、origin requirements、plan/task pack、当前 git diff 和显式 repo scope。
+- AI Coding Harness 分层见 `docs/contracts/ai-coding-harness.md`；本文只定义 graph evidence 在 Execution / Evidence / Knowledge handoff 中的最小消费规则。
 
 ## Consumer Role Vocabulary
 
@@ -20,6 +21,8 @@
 | `plan-intake` | `$spec-work` | Phase 1 plan/task-pack intake | 用 `capabilities_used`、`key_findings`、`impact_on_plan` 和 `source_reads_required` 缩小 source reads 与 test selection。 |
 | `review-preflight` | `$spec-code-review` | runtime readiness preflight before reviewer dispatch | 汇总 plan/work evidence posture，选择是否使用 GitNexus native capability，统一写入 Coverage。 |
 | `debug-trace` | `$spec-debug` | hypothesis ledger and causal-chain validation | 记录 GitNexus 对 hypothesis 的贡献，并要求 root cause 由 reproduction/source/log/test 等 non-graph evidence 关闭因果链。 |
+| `task-focus` | `spec-write-tasks` | derived task-pack compilation | 用 plan graph evidence 调整 `context_refs`、`test_focus`、`risk_note` 和 task ordering，但不新增 plan scope。 |
+| `knowledge-filter` | `$spec-compound` / `$spec-compound-refresh` | reusable learning capture / refresh | 只沉淀 source-confirmed graph-informed lessons；raw provider output 和 unconfirmed session evidence 不进入 durable knowledge。 |
 
 ## Output Locations
 
@@ -28,6 +31,8 @@
 | `$spec-work` | `skills/spec-work/references/shipping-workflow.md` closeout 的 `Graph evidence used` / `graph_evidence_used` section；可选写入 `spec-work-run-artifact` 的 `graph_evidence_used` object | `capabilities_used`、`evidence_grade`、`evidence_posture`、`freshness_state`、`repo_scope`、`graph_findings_applied`、`graph_findings_as_risk_only`、`source_reads_validated`、`redaction_status` |
 | `$spec-code-review` | `skills/spec-code-review/references/review-output-template.md` 的 Coverage section | `Graph evidence: <posture/display> (from plan/work/native tools) \| limitations: <reason>` |
 | `$spec-debug` | hypothesis ledger 的 optional `graph_evidence` field；Debug Summary 的 `graph_claims_validated_by` / `graph_claims_remaining_advisory` when-applicable section | Graph claim 必须标明 capability、摘要、freshness/grade 和 causal-chain link；root cause 需要 non-graph confirmation |
+| `spec-write-tasks` | derived task pack fields，例如 `context_refs`、`test_focus`、`risk_note`、`stop_if` | Graph evidence 可以聚焦 source reads、test selection 和 risk note，但生成的 task card 必须忠于 source plan，不能只凭 graph evidence 新增 requirement 或文件范围 |
+| `$spec-compound` / `$spec-compound-refresh` | `docs/solutions/**` reusable learning docs | 只有 source-confirmed graph-informed learning 可以 durable；必须写明 source evidence paths，并省略 raw provider output |
 
 ## Repo Scope Vocabulary
 
@@ -35,6 +40,7 @@ Downstream workflow 只能使用以下 `repo_scope` 词表：
 
 - `<target-repo-name>`：单仓或写入前已明确 target repo。
 - `per-unit`：plan/task pack 为每个 implementation unit 指定 repo scope。
+- `per-task`：task pack 为每个 task 指定 repo scope。
 - `per-fix`：debug 为每个 fix 指定 repo scope。
 - `parent-workspace-orientation-only`：父 workspace / GitNexus group evidence 只能用于 read-only orientation；写入、测试、review autofix 或 commit 前仍必须 resolve 明确 `target_repo` 或 per-child scope。
 
@@ -60,6 +66,10 @@ Downstream consumer 共用 `docs/contracts/graph-evidence-policy.md` 的 Plan en
 `non-expansion rule`：GitNexus 发现的额外 repo、route、symbol、consumer、flow 或 blast radius 只能进入 risk / follow-up / test-candidate / review coverage，不得自动扩大 plan/task/debug target scope。
 
 Downstream workflow 可以用 graph findings 优先读文件、选择测试或提出风险，但实现边界仍由 plan/task pack 和明确 target repo 决定。
+
+`spec-write-tasks` 可以把 graph evidence 转成 task focus metadata：`context_refs`、`test_focus`、`risk_note`、`stop_if` 和 ordering hints。它不得把 graph-discovered symbol、route、repo、consumer 或 process 变成 source plan 没有的新 task scope。
+
+Knowledge workflows 只能在 source confirmation 后引用 graph evidence。Durable `docs/solutions/**` entries 必须写明确认经验的 source / test / contract evidence；未确认的 graph pointer 不进入长期知识。
 
 ## D4 Mutation-Gated Boundary Note
 

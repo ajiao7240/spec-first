@@ -2,6 +2,8 @@
 
 本 contract 固化 `spec-first` 的默认上下文消费边界。它不是 Context Router 实现，也不是 workflow 状态机；它只定义普通 workflow 在读取 repo context 时必须遵守的最小 runtime exclusion policy。
 
+它是 AI Coding Harness 的 Context Harness 边界之一；目录级 Harness map 见 `docs/contracts/ai-coding-harness.md`。
+
 ## Goals
 
 - 默认不把 runtime / generated / audit artifacts 当作普通上下文。
@@ -54,6 +56,8 @@
 2. 需要更深证据时，按具体 artifact path 精确读取。
 3. 不把 raw logs、大 JSON、旧 audit snapshots 或 generated mirrors 广播给 reviewer / worker。
 4. 如果因为预算或边界排除 context，应在输出或 coverage 中说明 excluded path 和 reason_code。
+
+GitNexus live MCP results、`review-pre-facts` raw results 和 `gitnexus-session-evidence.v1` summaries 遵循同一规则：只传 compact facts、source-read requirements、limitations 和 temp artifact paths；不得把 raw MCP dumps 或完整 provider output 广播进普通 prompt bundle。
 
 ## Cache-Friendly Prompt Layout
 

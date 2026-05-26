@@ -74,6 +74,10 @@ describe('workspace GitNexus consumption contract', () => {
     expect(contract).toContain('`gitnexus://group/{name}/contracts`');
     expect(contract).toContain('`gitnexus://group/{name}/status`');
     expect(contract).toContain('`live-mcp-resource` / `session-local-inference` provenance');
+    expect(contract).toContain('Workspace / Resource Session Evidence');
+    expect(contract).toContain('`gitnexus-session-evidence.v1`');
+    expect(contract).toContain('group-aware `query/context/impact`');
+    expect(contract).toContain('它们不能自行选择写入 repo');
   });
 
   test('links provider and evidence policy contracts to workspace GitNexus rules', () => {

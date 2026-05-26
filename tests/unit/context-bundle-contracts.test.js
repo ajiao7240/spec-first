@@ -64,10 +64,13 @@ describe('context bundle and summary contracts', () => {
     expect(bundle.related_paths[0].path).toBe('skills/spec-work/SKILL.md');
     expect(bundle.artifact_summaries[0].reason).toBe('summary-first handoff');
     expect(bundle.evidence_paths[0].path).toBe('tests/unit/spec-work-contracts.test.js');
+    expect(bundle.evidence_summaries[0].schema_version).toBe('gitnexus-session-evidence.v1');
     expect(bundle.full_read_triggers.length).toBeGreaterThan(0);
     expect(bundle.excluded_context[0].reason_code).toBe('runtime_audit_artifact_excluded');
 
     expect(summary.schema_version).toBe('spec-first.artifact-summary.v1');
+    expect(summary.evidence_summaries[0].kind).toBe('graph-session');
+    expect(summary.evidence_summaries[0].redaction_status).toBe('none-required');
     expect(summary.full_artifact_read_triggers.length).toBeGreaterThan(0);
     expect(finding.schema_version).toBe('spec-first.review-finding.v1');
     expect(finding.evidence[0].path).toBe('repo-relative/path');
@@ -77,8 +80,12 @@ describe('context bundle and summary contracts', () => {
     expect(reviewFinding).toContain('不是 `spec-code-review` reviewer JSON 返回 schema');
     expect(reviewFinding).toContain('skills/spec-code-review/references/findings-schema.json');
     expect(reviewFinding).toContain('不得静默丢弃 P0/P1 findings');
+    expect(reviewFinding).toContain('`type="graph"` evidence 只是 supporting evidence');
+    expect(reviewFinding).toContain('不得单独形成 high-confidence finding');
     expect(governance).toContain('stable instruction prefix');
     expect(governance).toContain('dynamic suffix');
+    expect(governance).toContain('GitNexus live MCP results');
+    expect(governance).toContain('不得把 raw MCP dumps');
     expect(governance).toContain('docs/contracts/context-bundle.md');
     expect(governance).toContain('docs/contracts/artifact-summary.md');
   });

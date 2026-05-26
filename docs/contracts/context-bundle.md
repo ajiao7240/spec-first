@@ -4,6 +4,8 @@
 
 这不是中心化 Context Router，也不是 workflow 状态机。脚本只准备确定性路径、预算和 reason；LLM 仍决定哪些上下文足以支持当前 plan、work、review 或 compound 判断。
 
+它是 AI Coding Harness 的 Context Harness 传递层；目录级 Harness map 见 `docs/contracts/ai-coding-harness.md`。
+
 ## 目标
 
 - 为高频 workflow 提供 cache-friendly dynamic suffix：当前请求、diff、tool summary、临时 evidence 和 context bundle 放在稳定指令之后。
@@ -68,6 +70,13 @@
       "reason": "focused verification target"
     }
   ],
+  "evidence_summaries": [
+    {
+      "schema_version": "gitnexus-session-evidence.v1",
+      "summary_ref": "temp-artifact-or-workflow-summary",
+      "reason": "bounded graph context; source reads still required"
+    }
+  ],
   "full_read_triggers": [
     "summary is missing required scope or non-goal details",
     "reviewer needs exact evidence for an actionable finding"
@@ -98,6 +107,7 @@
 5. 只有列出的 `full_read_triggers` 命中时，consumer 才展开完整文件。
 6. `docs/contracts/context-governance.md` 排除的 runtime/generated paths 仍保持排除，除非任务明确是 setup/update/runtime-drift/audit scope。
 7. Degraded bundle 仍是有用 evidence，但最终判断必须说明 limitation。
+8. `evidence_summaries` 可以携带 compact graph/session evidence refs，例如 `gitnexus-session-evidence.v1` 或 pre-facts run summary；consumer 必须按其中的 `source_reads_required` 精确读取源码，不得把 summary 当 confirmed source fact。
 
 ## 最小内部 Helper
 

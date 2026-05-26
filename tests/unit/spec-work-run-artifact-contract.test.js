@@ -89,12 +89,15 @@ function validArtifact() {
 function validGraphEvidenceUsed() {
   return {
     capabilities_used: ['api_impact', 'shape_check'],
+    lanes_used: ['workflow-native-session'],
     evidence_grade: 'primary',
     evidence_posture: 'fallback',
     freshness_state: 'fresh',
     repo_scope: 'spec-first',
     graph_findings_applied: ['shape_check pointed at existing response-shape test coverage'],
     graph_findings_as_risk_only: ['extra consumer outside plan scope kept as follow-up'],
+    graph_findings_rejected_after_source_read: ['route consumer outside source plan rejected after direct read'],
+    source_reads_required: ['skills/spec-work/SKILL.md'],
     source_reads_validated: ['skills/spec-work/SKILL.md direct read confirmed closeout wording'],
     redaction_status: 'none-required',
   };
@@ -155,6 +158,10 @@ describe('spec-work run artifact contract', () => {
     expect(schema.properties.graph_evidence_used.properties.evidence_grade.enum).not.toContain('fallback');
     expect(schema.properties.graph_evidence_used.properties.evidence_posture.enum).toContain('fallback');
     expect(schema.properties.graph_evidence_used.properties.capabilities_used.maxItems).toBe(20);
+    expect(schema.properties.graph_evidence_used.properties.lanes_used.items.enum).toContain('deterministic-helper');
+    expect(schema.properties.graph_evidence_used.properties.lanes_used.items.enum).toContain('workflow-native-session');
+    expect(schema.properties.graph_evidence_used.properties.source_reads_required.maxItems).toBe(20);
+    expect(schema.properties.graph_evidence_used.properties.graph_findings_rejected_after_source_read.maxItems).toBe(20);
     expect(schema.properties.graph_evidence_used.properties.graph_findings_applied.items.maxLength).toBe(300);
 
     expect(validateAgainstSchema(schema, validArtifact()).errors).toEqual([]);

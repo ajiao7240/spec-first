@@ -51,3 +51,5 @@
 2. 每个 actionable finding 必须至少包含一条带 path 或 command anchor 的 evidence entry。
 3. bounded fanout 可使用 finding caps，但不得静默丢弃 P0/P1 findings。
 4. 领域 workflows 可以增加 `extensions`，但共享字段必须保持 severity、evidence、verification 和 residual handling 可比较。
+5. `type="graph"` evidence 只是 supporting evidence；除非 paired with direct file / diff / test / standard / requirement / contract evidence，否则不得单独形成 high-confidence finding、root-cause claim 或 merge/block decision。
+6. Finding 引用 `gitnexus-session-evidence.v1` 或 pre-facts evidence 时，必须总结 freshness / limitations，并写明确认该 claim 的 source reads、tests 或 contracts。

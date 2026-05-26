@@ -2,6 +2,8 @@
 
 This contract explains where spec-first behavior should be customized, what is generated runtime, and how provider evidence can be consumed safely.
 
+It is part of the Governance Harness described in `docs/contracts/ai-coding-harness.md`: source owns behavior, generated runtime mirrors deliver behavior, and providers supply evidence rather than semantic authority.
+
 ## Source Of Truth
 
 Edit checked-in source assets when changing spec-first behavior:

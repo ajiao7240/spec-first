@@ -4,6 +4,8 @@
 
 它不是 runtime 状态机，也不是 generated mirror 的 source of truth。当前 source-of-truth 仍然是 `skills/`、`agents/`、`templates/`、`src/cli/`、`docs/contracts/`、`CLAUDE.md` 与 `AGENTS.md`。
 
+它服务 `docs/contracts/ai-coding-harness.md` 中的 Execution / Governance Harness：skill 和 agent 是可治理执行节点，不是 prompt collection 或隐藏状态机。
+
 ## 0. Non-goals
 
 - Not a state machine.

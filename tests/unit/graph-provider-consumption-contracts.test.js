@@ -18,6 +18,12 @@ const GITNEXUS_CAPABILITY_CATALOG_PATH = path.join(
   'contracts',
   'gitnexus-capability-catalog.md',
 );
+const AI_CODING_HARNESS_PATH = path.join(
+  REPO_ROOT,
+  'docs',
+  'contracts',
+  'ai-coding-harness.md',
+);
 const SOURCE_RUNTIME_BOUNDARY_PATH = path.join(
   REPO_ROOT,
   'docs',
@@ -203,13 +209,20 @@ describe('graph provider consumption contract', () => {
   test('documents downstream graph evidence consumption boundaries without new enums', () => {
     const downstream = read(DOWNSTREAM_GRAPH_EVIDENCE_CONSUMPTION_PATH);
     const evidencePolicy = read(EVIDENCE_POLICY_PATH);
+    const harness = read(AI_CODING_HARNESS_PATH);
 
+    expect(harness).toContain('Evidence Harness');
     expect(evidencePolicy).toContain('docs/contracts/downstream-graph-evidence-consumption.md');
     expect(evidencePolicy).toContain('不得引入第二套 downstream 合法性 enum');
+    expect(evidencePolicy).toContain('`gitnexus-session-evidence.v1`');
     expect(downstream).toContain('Consumer Role Vocabulary');
     expect(downstream).toContain('`plan-intake`');
     expect(downstream).toContain('`review-preflight`');
     expect(downstream).toContain('`debug-trace`');
+    expect(downstream).toContain('`task-focus`');
+    expect(downstream).toContain('`knowledge-filter`');
+    expect(downstream).toContain('spec-write-tasks');
+    expect(downstream).toContain('$spec-compound');
     expect(downstream).toContain('Repo Scope Vocabulary');
     expect(downstream).toContain('`<target-repo-name>`');
     expect(downstream).toContain('`per-unit`');

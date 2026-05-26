@@ -39,6 +39,7 @@
     "src/",
     "agents/",
     "docs/catalog/runtime-capabilities.md",
+    "docs/contracts/ai-coding-harness.md",
     "docs/contracts/artifact-summary.md",
     "docs/contracts/context-bundle.md",
     "docs/contracts/context-governance.md",

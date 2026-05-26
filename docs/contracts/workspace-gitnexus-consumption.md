@@ -2,7 +2,7 @@
 
 ## 目标
 
-本文定义 parent workspace 下 GitNexus registry / group evidence 的消费边界。它补充 `docs/contracts/graph-provider-consumption.md` 和 `docs/contracts/graph-evidence-policy.md`：child repo 继续拥有 canonical graph artifacts，parent workspace 只保存 `.spec-first/workspace/*` advisory facts；脚本准备确定性事实，LLM 决定语义 repo 相关性与证据是否足够。
+本文定义 parent workspace 下 GitNexus registry / group evidence 的消费边界。它补充 `docs/contracts/ai-coding-harness.md`、`docs/contracts/graph-provider-consumption.md` 和 `docs/contracts/graph-evidence-policy.md`：child repo 继续拥有 canonical graph artifacts，parent workspace 只保存 `.spec-first/workspace/*` advisory facts；脚本准备确定性事实，LLM 决定语义 repo 相关性与证据是否足够。
 
 ## Topology Gate
 
@@ -82,6 +82,27 @@ GitNexus registry/group 是多仓 query model，不是 refresh gate。
 `group_sync` 或等价 provider mutation 必须 explicit、preview-first，并由 setup/bootstrap-owned 路径执行。plan/work/debug/review 不得静默运行 `group_sync`、GitNexus analyze、provider repair、hooks、watchers 或 daemon。
 
 Read-only group resources are first-class evidence surfaces, not mutation approval. `gitnexus://group/{name}/contracts` and `gitnexus://group/{name}/status` may be reported with `live-mcp-resource` / `session-local-inference` provenance when current-session resource discovery or reads actually occurred. Checked-in baseline or setup projection can list those resources as candidates, but cannot claim current group readiness or replace `workspace-gitnexus-readiness.v1` / per-child source reads.
+
+## Workspace / Resource Session Evidence
+
+当 workflow 明确需要 multi-repo 或 group orientation 时，workspace/resource lane evidence 可以使用 `gitnexus-session-evidence.v1`。有效 surface 包括：
+
+- `gitnexus://repos`
+- `gitnexus://repo/{name}/context`
+- `gitnexus://repo/{name}/schema`
+- `gitnexus://repo/{name}/processes`
+- `gitnexus://repo/{name}/process/{processName}`
+- `gitnexus://group/{name}/contracts`
+- `gitnexus://group/{name}/status`
+- group-aware `query/context/impact` with `repo="@<groupName>"` or a scoped group member selector
+
+规则：
+
+1. Group-aware calls 需要 explicit `target_repo`、per-unit repo scope、per-task repo scope，或 read-only orientation question。它们不能自行选择写入 repo。
+2. Group/resource evidence 必须在 session evidence envelope 中携带 `repo_scope` 和 `task_domain`。
+3. Stale、dirty、registry-only、`group-missing` 或 `not-evaluated-no-mcp-input` evidence 仍是 advisory，必须列出 limitations。
+4. Cross-repo API / contract、route、consumer 或 process claim 变成 plan scope、finding、work closeout fact 或 knowledge entry 前，必须先完成 source confirmation。
+5. `group_sync`、provider refresh/repair/analyze、hooks、watchers、daemons 和 GitNexus mutation tools 仍在普通 plan/work/debug/review automation 之外。
 
 ## Consumer Rules
 

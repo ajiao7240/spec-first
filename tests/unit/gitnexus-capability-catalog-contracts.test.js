@@ -62,6 +62,12 @@ describe('GitNexus capability catalog contract', () => {
     expect(contract).toContain('`mutation_boundary` 只能是');
     expect(contract).toContain('不会伪造 `live-mcp-tool`、`live-mcp-resource`、`session-local-inference` 或 `user-decision`');
     expect(contract).toContain('`source_tag` singular 在 plan decision ledger');
+    expect(contract).toContain('Harness Lane Classification');
+    expect(contract).toContain('deterministic-helper');
+    expect(contract).toContain('workflow-native-session');
+    expect(contract).toContain('workspace-resource');
+    expect(contract).toContain('mutation-gated-maintenance');
+    expect(contract).toContain('Lane classification 不是 readiness truth');
   });
 
   test('keeps checked-in baseline semantic and candidate-only', () => {

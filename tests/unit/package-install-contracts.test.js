@@ -82,6 +82,7 @@ describe('package install contracts', () => {
 
     expect(pkg.files).not.toContain('vendor/');
     expect(pkg.files).toContain('docs/catalog/runtime-capabilities.md');
+    expect(pkg.files).toContain('docs/contracts/ai-coding-harness.md');
     expect(pkg.files).toContain('docs/contracts/artifact-summary.md');
     expect(pkg.files).toContain('docs/contracts/context-bundle.md');
     expect(pkg.files).toContain('docs/contracts/context-governance.md');
@@ -175,6 +176,7 @@ describe('package install contracts', () => {
         filePath.includes('/__pycache__/') || /\.py[co]$/.test(filePath)
       ));
 
+      expect(packedPaths).toContain('docs/contracts/ai-coding-harness.md');
       expect(packedPaths).toContain('docs/contracts/artifact-summary.md');
       expect(packedPaths).toContain('docs/contracts/context-bundle.md');
       expect(packedPaths).toContain('docs/contracts/gitnexus-capability-catalog.md');

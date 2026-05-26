@@ -4,6 +4,8 @@
 
 It improves LLM decision input by making related artifacts easy to join without asking the model to infer identity from filenames or prose. It is not a workflow state, approval marker, progress database, freshness check, or central registry key.
 
+It is part of the Execution Harness described in `docs/contracts/ai-coding-harness.md`: it carries identity across Spec -> Plan -> Tasks -> Code without becoming workflow state.
+
 ## Field Responsibilities
 
 | Field | Owner | Responsibility |

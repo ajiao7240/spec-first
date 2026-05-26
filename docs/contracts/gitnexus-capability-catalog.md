@@ -2,7 +2,7 @@
 
 ## 目标
 
-本文定义 GitNexus native capability catalog 的 source/provenance 边界。它补充 `docs/contracts/graph-evidence-policy.md`、`docs/contracts/graph-provider-consumption.md` 和 `docs/contracts/workspace-gitnexus-consumption.md`：catalog 是轻量 source input，不是 query readiness truth，也不是隐藏 provider 平台。
+本文定义 GitNexus native capability catalog 的 source/provenance 边界。它补充 `docs/contracts/ai-coding-harness.md`、`docs/contracts/graph-evidence-policy.md`、`docs/contracts/graph-provider-consumption.md` 和 `docs/contracts/workspace-gitnexus-consumption.md`：catalog 是轻量 source input，不是 query readiness truth，也不是隐藏 provider 平台。
 
 核心边界：
 
@@ -10,6 +10,19 @@
 - setup projection 只写 setup-inferred observed availability / discovery facts。
 - live MCP tool/resource surface 只产生当前会话 evidence。
 - `$spec-plan` 负责基于当前任务语义选择 capability，并在 live claim 前复核当前 session surface。
+
+## Harness Lane Classification
+
+GitNexus capability 最大化使用不等于全部进入 deterministic helper。Catalog 只描述 candidate surfaces；消费 lane 由 workflow 和 contract 边界决定：
+
+| Lane | Capabilities | 消费合同 |
+| --- | --- | --- |
+| deterministic-helper | `query`, `context`, `impact`, `detect_changes` | `docs/contracts/workflows/review-pre-facts-extraction.md` 负责 executable query-plan、arguments、normalization、redaction 和 rendering；具体 helper 只能发出已实现且已测试的 operation |
+| workflow-native-session | `route_map`, `api_impact`, `shape_check`, `tool_map`, `cypher` | `docs/contracts/graph-evidence-policy.md` 负责 `gitnexus-session-evidence.v1`；task-domain workflow prose 决定是否调用该 capability |
+| workspace-resource | `list_repos`, repo/group resources, group-aware `query/context/impact` | `docs/contracts/workspace-gitnexus-consumption.md` 负责 group readiness、target repo 和 write-scope 边界 |
+| mutation-gated-maintenance | `group_sync`, `rename`, provider refresh/repair/analyze/build/index | 只允许 explicit preview-first / manual / setup / bootstrap path；不得进入普通 workflow automation |
+
+Lane classification 不是 readiness truth。Capability 可以出现在 checked-in baseline 中，但在当前 workflow 里仍可能 unavailable、stale、mutation-gated 或仅是 session-local。
 
 ## Source Tag Vocabulary
 

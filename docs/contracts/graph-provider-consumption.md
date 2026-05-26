@@ -2,7 +2,7 @@
 
 ## 目标
 
-本文是下游 workflow 消费 graph/provider/impact readiness artifacts 的速查契约。它补充 `docs/contracts/graph-evidence-policy.md`：本文件回答“读哪个 artifact、读哪个字段、哪些旧字段或旧路径不能再读”，证据可信度与冲突处理仍按 graph evidence policy 执行。
+本文是下游 workflow 消费 graph/provider/impact readiness artifacts 的速查契约。它补充 `docs/contracts/ai-coding-harness.md` 和 `docs/contracts/graph-evidence-policy.md`：本文件回答“读哪个 artifact、读哪个字段、哪些旧字段或旧路径不能再读”，证据可信度与冲突处理仍按 graph evidence policy 执行。
 
 Parent workspace 下 GitNexus registry / group evidence 的消费边界见 `docs/contracts/workspace-gitnexus-consumption.md`。GitNexus checked-in capability baseline、公共 `source_tags[]` 词表和 read-only MCP resource provenance 边界见 `docs/contracts/gitnexus-capability-catalog.md`。该 contract 定义 `workspace-gitnexus-readiness.v1`、`git_root_topology` gate、`group.status` 嵌套形态，以及 `refresh_eligibility` / `index_snapshot` / `query_usability` 三层拆分。
 
@@ -12,6 +12,7 @@ Parent workspace 下 GitNexus registry / group evidence 的消费边界见 `docs
 - `spec-graph-bootstrap` 产出 canonical graph readiness facts 与 provider diagnostics。
 - 下游 workflow 读取 canonical artifacts 做输入判断，LLM 仍决定证据是否与当前任务语义相关。
 - live MCP 查询成功只算 `session-local` evidence，不能回写 compiled readiness，也不能把 `query_ready` 改成 true。
+- `review-pre-facts` provider results 和 `gitnexus-session-evidence.v1` summaries 是 Context / Evidence Harness 输入；它们不改变 canonical graph readiness。
 
 ## Plan Evidence Envelope Boundary
 
@@ -27,6 +28,8 @@ Plan envelope 的输入可以来自：
 GitNexus source tags 必须区分 `checked-in-baseline`、`setup-projection`、`provider-pin`、`live-mcp-tool`、`live-mcp-resource`、`session-local-inference` 和 `user-decision`。不要把 setup projection 与 live MCP evidence 合并成一个 `available` fact；live tool/resource claim 需要当前 session surface 复核。
 
 该 envelope 不得替代 `Graph Readiness.status`、provider `query_ready`、workspace `query_usability` 或 impact capability support level。`definitions-only` 仍是 limitation / query-usability condition，不是新的 `freshness_state`；compiled bootstrap 可以把它记为 query/context orientation ready，但不能把它升级成 process graph、impact 或 review-impact evidence。下游 LLM workflow 决定它是否满足当前文档库、文件定位或代码理解任务。当 compiled graph facts stale、dirty-advisory、query-unverified 或 unavailable 时，Plan 必须披露 limitations，并用直接源码读取、测试、ast-grep 或 git diff 验证关键结论。GitNexus review-impact readiness 可以记录为 impact provider 状态，但不属于 Plan 的 fallback evidence source。
+
+`review-pre-facts-provider-results.v1` 和 `gitnexus-session-evidence.v1` 可以引用 canonical readiness fields 与 current-session live MCP results，但它们不是 canonical artifacts。Helper normalization 成功或 session evidence envelope 合法，只证明 bounded query 返回了可用 facts；不证明 `.spec-first/graph/*` 新鲜，也不证明 provider impact / review parity 存在。
 
 ## Setup-Inferred GitNexus Capability Discovery
 

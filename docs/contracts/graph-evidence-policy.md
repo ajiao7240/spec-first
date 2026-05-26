@@ -2,13 +2,13 @@
 
 ## 目标
 
-本政策定义 spec-first 如何消费 GitNexus、ast-grep 和直接源码读取等代码证据。它是 workflow prose 与 host instruction block 的 source of truth；脚本负责产出确定性 readiness facts，LLM 负责基于事实做语义判断。
+本政策定义 spec-first 如何消费 GitNexus、ast-grep 和直接源码读取等代码证据。它是 workflow prose 与 host instruction block 的 source of truth；脚本负责产出确定性 readiness facts，LLM 负责基于事实做语义判断。AI Coding Harness 的目录级分层见 `docs/contracts/ai-coding-harness.md`；本文只定义 Evidence Harness 中的证据等级、冲突处理和 GitNexus evidence 边界。
 
 下游 workflow 读取 graph/provider/impact readiness artifacts 时，字段级速查契约见 `docs/contracts/graph-provider-consumption.md`。GitNexus native capability baseline、source tags 和 read-only MCP resource provenance 边界见 `docs/contracts/gitnexus-capability-catalog.md`。本政策定义证据等级与冲突处理；消费契约定义 canonical artifact、字段层级和禁止读取的旧路径/旧字段。
 
 ## Downstream Workflow Consumption
 
-`$spec-work`、`$spec-code-review` 和 `$spec-debug` 消费 Plan envelope 或 `$spec-work` run artifact 中 graph evidence 摘要时，遵循 `docs/contracts/downstream-graph-evidence-consumption.md`。下游消费沿用本文的四轴枚举和 Plan envelope validity matrix；不得引入第二套 downstream 合法性 enum，也不得把 GitNexus 发现的额外影响面自动变成 implementation scope。
+`$spec-work`、`$spec-code-review`、`$spec-debug`、`spec-write-tasks` 和 Knowledge workflows 消费 Plan envelope、workflow-native session evidence 或 `$spec-work` run artifact 中 graph evidence 摘要时，遵循 `docs/contracts/downstream-graph-evidence-consumption.md`。下游消费沿用本文的四轴枚举和 Plan envelope validity matrix；不得引入第二套 downstream 合法性 enum，也不得把 GitNexus 发现的额外影响面自动变成 implementation scope。
 
 ## 证据等级
 
@@ -39,6 +39,33 @@
 - `freshness_state=query-unverified` 必须配合 `evidence_grade=advisory` 或 `stale`，不得与 `primary` 共存。
 - `evidence_posture=primary` 与 `capability_status=unavailable` 互斥；不能既声明 GitNexus unavailable，又声明继续走 GitNexus primary posture。
 - `evidence_posture=fallback + evidence_grade=primary` 是合法组合，专门表达“GitNexus posture 已 fallback，但当前源码/测试事实本身是 confirmed/primary”。
+
+## Workflow-Native Session Evidence
+
+`gitnexus-session-evidence.v1` 是 workflow-native GitNexus tool/resource calls 的 compact evidence envelope。它用于把 `route_map`、`api_impact`、`shape_check`、`tool_map`、`cypher`、read-only resources 和 group-aware `query/context/impact` 的 session-local 结果转成可追溯摘要。它不是 readiness artifact，不写 `.spec-first/graph/*`，也不是 `review-pre-facts-query-plan.v1` 的 executable entry。
+
+最小字段：
+
+- `capability`
+- `lane`
+- `tool_or_resource`
+- `arguments_or_uri`
+- `repo_scope`
+- `task_domain`
+- `provenance`
+- `freshness/readiness`
+- `summary`
+- `source_reads_required`
+- `limitations[]`
+- `redaction_status`
+
+消费边界：
+
+- Session evidence 默认是 `session-local` 或 `advisory`，不能单独支撑 finding、root cause、scope expansion、task ordering 或 merge decision。
+- API/route/shape evidence 可以暴露 route、handler、consumer、response-shape 摘要，但 finding 仍必须由 source/API contract/diff/test 证据确认。
+- Tool-surface evidence 可以暴露 tool、handler 和 source-read candidates，但不能替代 setup/doctor 的 readiness truth。
+- `cypher` evidence 必须有 schema-first read-only proof、bounded query text、row/byte limits、redacted summary 和 source confirmation。
+- Group/resource evidence 必须遵守 `docs/contracts/workspace-gitnexus-consumption.md`，只做 orientation，不选择写入 repo 或扩大 scope。
 
 ## Refresh Trigger Policy
 
