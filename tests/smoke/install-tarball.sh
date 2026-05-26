@@ -144,7 +144,7 @@ DOCTOR_OUTPUT=$(cd "$DOCTOR_TMP" && "$SHIM" doctor 2>&1)
 rm -rf "$DOCTOR_TMP"
 grep -q "init" <<<"$DOCTOR_OUTPUT"
 grep -q "spec-first init" <<<"$DOCTOR_OUTPUT"
-grep -q "choose Claude Code or Codex" <<<"$DOCTOR_OUTPUT"
+grep -q "select Claude Code and/or Codex" <<<"$DOCTOR_OUTPUT"
 echo "   ✓ doctor 在空目录输出交互式 init 指引"
 
 # -------------------------------------------------------------------------

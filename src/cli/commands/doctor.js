@@ -57,7 +57,7 @@ function runDoctor(argv) {
     }
 
     console.log('No spec-first platform detected in this project.');
-    console.log('Run `spec-first init` and choose Claude Code or Codex when prompted to initialize.');
+    console.log('Run `spec-first init` and select Claude Code and/or Codex when prompted to initialize.');
     return 0;
   }
 

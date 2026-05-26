@@ -2,7 +2,7 @@
 
 这套手册对应当前 `spec-first` npm CLI 模型。
 
-`spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、agent support files、项目级 `.developer` 和受管状态安装到当前项目中。
+`spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init [--claude] [--codex] [-y] / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、agent support files、项目级 `.developer` 和受管状态安装到当前项目中。
 
 完成 `doctor`、`init` 和宿主重启后，轻量任务可以先走 no-graph fast path：docs-only、小 bugfix、首次试用、轻量 plan/work/review 可以直接进入匹配的 `/spec:*` 或 `$spec-*` workflow。`spec-mcp-setup` 和 `spec-graph-bootstrap` 是增强 readiness 路径，适合需要 MCP provider、graph evidence 或跨模块/跨仓影响分析的任务。
 
@@ -18,11 +18,11 @@ GitNexus refresh 的默认策略是“自动 freshness check，显式 graph-boot
 
 当前功能状态：
 
-- `spec-first init / --codex`：已支持
+- `spec-first init [--claude] [--codex] [-y]`：已支持；无平台 flag 时交互式多选，显式平台 flag 会覆盖默认宿主集合
 - `spec-first doctor`：支持自动检测，也支持 `--claude` / `--codex`
 - `spec-first clean --claude / --codex`：已支持
 
-`init` 支持在交互式引导中选择开发者姓名和语言。如果没有传用户名，它会优先回退到全局 `~/.spec-first/.developer`，再回退到 `git config user.name`。
+`init` 支持在交互式引导中选择开发者姓名和语言；`-y` 会使用默认宿主集合和默认身份/语言，显式 `--claude` / `--codex` 会覆盖默认宿主集合。如果没有传用户名，它会优先回退到已选宿主的项目级 `.developer`，再回退到全局 `~/.spec-first/.developer` 和 `git config user.name`。
 
 关于升级：
 

@@ -12,7 +12,7 @@ spec_id: 2026-05-26-002-gitnexus-integration-portfolio-80-20
 
 主线 brainstorm（review-pre-facts 4 op 扩展）见 `docs/brainstorms/2026-05-26-001-gitnexus-workflow-context-evidence-requirements.md`。本文档是它的"上下文 + 路线图"补充，回答"这一项主线之外，还应该做什么、不该做什么、按什么顺序"。
 
-2026-05-27 修订：本 portfolio 不再作为"第一波 / 第二波 / deferred" 的分阶段范围裁剪依据。用户目标已调整为完整实现：用 GitNexus 提升 AI coding 的上下文质量和证据质量，同时保持 spec-first Harness 边界。80/20 仍用于决定实现顺序、helper 固化边界和边际成本说明，但不再把 workflow-native session lane、workspace/group resource lane 或 Knowledge lane 推迟到未来需求。
+2026-05-27 修订：本 portfolio 不再作为分批范围裁剪依据。用户目标已调整为完整实现：用 GitNexus 提升 AI coding 的上下文质量和证据质量，同时保持 spec-first Harness 边界。80/20 仍用于决定实现顺序、helper 固化边界和边际成本说明，但不再把 workflow-native session lane、workspace/group resource lane 或 Knowledge lane 推迟到未来需求。
 
 ---
 
@@ -70,9 +70,9 @@ GitNexus 集成不应被理解成"接入更多 graph tools"，而应放进 spec-
 
 ---
 
-## I. 完整实现核心项（历史第一波成本估算）
+## I. 完整实现核心项（历史成本估算）
 
-以下 6 项仍是最高 ROI 的实现核心，但不再表示"只做第一波"。它们必须与 workflow-native/resource/Knowledge lane 一起构成完整 Harness 集成。按"价值 / 成本比"从高到低排，历史成本估算约 **3 周**：
+以下 6 项仍是最高 ROI 的实现核心，但不再表示"只做 helper 主线"。它们必须与 workflow-native/resource/Knowledge lane 一起构成完整 Harness 集成。按"价值 / 成本比"从高到低排，历史成本估算约 **3 周**：
 
 | # | 工作项 | 实际成本 | 边际价值 | 完成标志 |
 |---|---|---|---|---|

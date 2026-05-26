@@ -4,6 +4,7 @@ const { PassThrough } = require('node:stream');
 
 const {
   PromptCancelled,
+  checkbox,
   confirm,
   requireTty,
   select,
@@ -61,6 +62,37 @@ describe('prompt primitives', () => {
     input.write('\r');
 
     await expect(result).resolves.toBe('A');
+  });
+
+  test('checkbox supports toggling multiple values without full-screen redraw', async () => {
+    const { input, output, readOutput } = createPromptStreams();
+    const result = checkbox('Platforms?', [
+      { label: 'A', value: 'a', checked: true },
+      { label: 'B', value: 'b', checked: false },
+      { label: 'C', value: 'c', checked: false },
+    ], { input, output, minSelected: 1 });
+
+    input.write('\x1b[B');
+    input.write(' ');
+    input.write('\r');
+
+    await expect(result).resolves.toEqual(['a', 'b']);
+    expect(readOutput()).toContain('[x] A');
+    expect(readOutput()).toContain('[x] B');
+    expect(readOutput()).not.toContain('\x1b[2J\x1b[H');
+    expect(readOutput()).toContain('\x1b[4A\r\x1b[J');
+  });
+
+  test('prompt input handles coalesced key sequences in order', async () => {
+    const { input, output } = createPromptStreams();
+    const result = checkbox('Platforms?', [
+      { label: 'A', value: 'a', checked: true },
+      { label: 'B', value: 'b', checked: true },
+    ], { input, output, minSelected: 1 });
+
+    input.write(' \x1b[B\r');
+
+    await expect(result).resolves.toEqual(['b']);
   });
 
   test('textInput accepts default value on enter and typed value otherwise', async () => {

@@ -1,5 +1,5 @@
 ---
-title: "feat: GitNexus bounded pre-facts capability extension"
+title: "feat: GitNexus Harness context and evidence integration"
 type: feat
 status: active
 date: 2026-05-27
@@ -8,13 +8,13 @@ origin: docs/brainstorms/2026-05-26-001-gitnexus-workflow-context-evidence-requi
 portfolio_context: docs/brainstorms/2026-05-26-002-gitnexus-integration-portfolio-80-20.md
 ---
 
-# feat: GitNexus bounded pre-facts capability extension
+# feat: GitNexus Harness context and evidence integration
 
 ## Summary
 
-本计划把 GitNexus 第一阶段集成落在现有 `review-pre-facts` facts layer 上：从单一 `query` 扩展为 bounded、read-only、可归一化、可脱敏的 `query` / `context` / `impact` / `detect_changes` operation profile，并让 `spec-plan`、`spec-code-review`、`spec-debug` 能消费同一类 workflow-neutral graph facts。
+本计划完整实现两份 GitNexus 需求文档的共同目标：用 GitNexus 提升 AI coding 的上下文质量和证据质量，同时保持 spec-first 的 AI Coding Harness 边界。落地分为 deterministic helper lane、workflow-native session lane、workspace/group resource lane、Evaluation/Knowledge lane 和 mutation-gated maintenance boundary。
 
-实现顺序采用 80/20：F1 是主干代码改造；F2-F6 是让证据进入 AI Coding Harness 闭环的最小配套。route/API、`cypher`、workspace group 和 tool-surface 能力不进入 phase-one deterministic helper，但保留为 workflow-native session capability 或 resource lane；mutation tools 和大规模 hook parity 不进入本计划。
+实现顺序采用 80/20，但不做阶段性范围裁剪。`review-pre-facts` 从单一 `query` 扩展为 bounded、read-only、可归一化、可脱敏的 `query` / `context` / `impact` / `detect_changes` operation profile；`route_map`、`api_impact`、`shape_check`、`tool_map`、`cypher`、repo/group resources 和 group-aware `query/context/impact` 通过 shared evidence envelope 服务任务域明确的 workflow；`spec-work`、`spec-write-tasks`、`spec-compound/refresh` 消费 source-confirmed graph evidence；mutation-capable tools 只允许 preview-first/manual/setup governed 路径。
 
 ---
 
@@ -24,7 +24,7 @@ portfolio_context: docs/brainstorms/2026-05-26-002-gitnexus-integration-portfoli
 
 这导致 SKILL prose 与 facts layer 不对称：LLM 可以在会话中临时调用 GitNexus 深度能力，但没有统一的 query-plan provenance、operation bounds、size cap、redaction、degraded reason 和 durable rendering。要提升 AI coding 质量，正确的改造不是把更多 raw graph output 注入 prompt，而是把深度图谱结果压成有边界、可验证、可降级、可传递的 facts。
 
-Harness 的核心判断是：把不稳定的 AI 推理放进可重复、可观察、可约束、可验证的工程闭环。GitNexus 服务的是 spec-first Harness 的 Context 和 Evidence 两层，提供代码图谱、symbol、调用关系、影响面和 diff/process evidence；它不拥有 scope、finding、root cause、自动修复、mutation 或 workflow 状态机权限。本计划因此同时做两件事：把高频四类能力固化为 deterministic facts，把 API/tool/Cypher/group 等更深能力留给任务域明确时的 session-local SKILL 使用。
+Harness 的核心判断是：把不稳定的 AI 推理放进可重复、可观察、可约束、可验证的工程闭环。GitNexus 服务的是 spec-first Harness 的 Context 和 Evidence 两层，提供代码图谱、symbol、调用关系、影响面和 diff/process evidence；它不拥有 scope、finding、root cause、自动修复、mutation 或 workflow 状态机权限。本计划因此同时做两件事：把高频四类能力固化为 deterministic facts，把 API/tool/Cypher/group 等更深能力纳入任务域明确时的 governed session/resource evidence，而不是让它们停留在 ad hoc 工具调用。
 
 ---
 
@@ -36,15 +36,20 @@ Harness 的核心判断是：把不稳定的 AI 推理放进可重复、可观�
 - R4. `doc-review` / `code-review` 现有 reviewer rendering 必须向后兼容；新增 `plan` / `debug` workflow-neutral rendering，不使用 Coverage、finding 或 dispatch-gate wording。
 - R5. `detect_changes` 和 `impact` 的 durable output 必须 summary-first，不保留 raw diff、完整 byDepth dump、credentialed URL、token、internal hostname 或私有 process/route dump。
 - R6. Tool provenance、query-plan matching、snapshot freshness、temp artifact boundary、path containment、single-query 256 KiB cap、total raw 1 MiB cap 和 rendered block cap 必须继续 fail closed 或 degraded render。
-- R7. 第一阶段新增 utilization signals：记录 `capabilities_used[]`、operation counts、degraded reason distribution 和 graph-to-decision/finding/debug-hypothesis 的可观察摘要，为后续 capability 扩展门禁提供数据。
+- R7. 新增 utilization signals：记录 `capabilities_used[]`、operation counts、degraded reason distribution 和 graph-to-decision/finding/debug-hypothesis 的可观察摘要，为 helper promotion 和 workflow quality review 提供数据。
 - R8. 会话启动或 workflow entry 应暴露短小 GitNexus readiness snapshot，帮助模型避免把 stale graph 当 primary evidence；实现必须 helper-first，hook 只做注入面。
 - R9. `spec-write-tasks` 应消费 plan 里的 Graph / GitNexus Evidence，用于 task ordering、`test_focus` 和 `context_refs`，但不得扩大 plan scope。
-- R10. `docs/solutions/` discoverability 只做最小 source-first 指引修补，不新增知识库 pipeline。
-- R11. 全部 source 变更必须同步 contract/unit tests、`CHANGELOG.md`，并考虑 README / 双宿主 runtime generation；不手改 `.claude/`、`.codex/`、`.agents/skills/` generated mirrors。
+- R10. `spec-work` 应消费 plan/review/debug graph evidence，用于 source-read focus、test focus、shared-symbol impact check 和 closeout risk disclosure；不得让 GitNexus 扩大 task scope。
+- R11. `spec-compound` / `spec-compound-refresh` 只能沉淀 source-confirmed graph-informed learning；raw provider output 和 session-local unconfirmed graph evidence 不得进入 durable knowledge。
+- R12. Workflow-native GitNexus calls for `route_map`、`api_impact`、`shape_check`、`tool_map`、`cypher` must use a shared evidence envelope with capability、lane、tool/resource、arguments/URI、repo_scope、task_domain、provenance、freshness/readiness、summary、source_reads_required、limitations and redaction status.
+- R13. Workspace/group resources and group-aware `query/context/impact` may orient multi-repo work only after explicit `target_repo` or per-task repo scope is known; group evidence is advisory and cannot expand write scope.
+- R14. `cypher` use requires schema-first read-only proof, bounded query text, row/byte limits, redacted summaries and source confirmation before claims.
+- R15. `docs/solutions/` discoverability 只做最小 source-first 指引修补，不新增知识库 pipeline。
+- R16. 全部 source 变更必须同步 contract/unit tests、`CHANGELOG.md`，并考虑 README / 双宿主 runtime generation；不手改 `.claude/`、`.codex/`、`.agents/skills/` generated mirrors。
 
 **Origin acceptance examples:** AE1-AE6 from `docs/brainstorms/2026-05-26-001-gitnexus-workflow-context-evidence-requirements.md`.
 
-**Portfolio trace:** F1-F6 from `docs/brainstorms/2026-05-26-002-gitnexus-integration-portfolio-80-20.md`.
+**Portfolio trace:** deterministic helper lane、workflow-native session lane、workspace/group resource lane、Evaluation/Knowledge lane and mutation-gated boundary from `docs/brainstorms/2026-05-26-002-gitnexus-integration-portfolio-80-20.md`.
 
 ---
 
@@ -61,18 +66,18 @@ Harness 的核心判断是：把不稳定的 AI 推理放进可重复、可观�
 
 - 不把 GitNexus evidence 变成 scope authority、finding authority、root-cause authority、task scheduler 或 mutation gate owner。
 - 不在 ordinary workflow 内运行 GitNexus analyze/build/index refresh、provider repair、group sync、rename、clean 或 equivalent mutation-capable operation。
-- 不把 `route_map`、`api_impact`、`shape_check`、`tool_map`、`cypher` 放入 phase-one deterministic query-plan；这些能力在任务域匹配时仍可由 SKILL/LLM 作为 session-local native GitNexus evidence 使用。
-- 不把 full Codex hook parity、plugin distribution、PermissionRequest gating 或 PostCompact 注入塞进本计划；这些属于 portfolio G2 或独立 hook governance plan。
+- 不把 `route_map`、`api_impact`、`shape_check`、`tool_map`、`cypher` 放入 deterministic helper query-plan；这些能力在任务域匹配时由 SKILL/LLM 作为 governed session/resource GitNexus evidence 使用。
+- 不把 hook delivery 变成 graph governance source of truth；hook/startup 只注入 readiness/context snapshot，source/runtime parity 由现有双宿主治理和 focused tests 维护。
 - 不把 raw provider stdout/stderr、raw diff hunks、完整 process traces 或私有仓库路径写入 durable project docs。
 - 不手动编辑 generated runtime mirrors。
 
-### Deferred to Follow-Up Work
+### Non-Helper Lanes In Scope
 
-- `tool_map` helper operation：等 F2 utilization 证明 `spec-mcp-setup` / `spec-skill-audit` / `spec-app-consistency-audit` 高频受益后再做。
-- `cypher` helper operation：需要 schema-first read-only enforcement、query budget 和 redaction 设计，单独排计划；当前仅作为高级 session-local native call。
-- route/API/shape deterministic helper：当前对 spec-first CLI ROI 不足，继续由 SKILL session-local native calls 处理；API/web/backend 任务不应因为 helper 未固化而放弃这些 GitNexus 能力。
-- Codex hook parity matrix / plugin hook delivery：依赖双宿主 hook governance 设计，不作为 F3 readiness snapshot 的隐藏前置。
-- `spec-compound` / `spec-compound-refresh` GitNexus 接入：等 utilization 数据证明 stale knowledge 事件后再做。
+- `tool_map` session evidence：setup、skill-audit、app-consistency-audit 或 tool-surface 任务可显式调用；summary 进入 shared evidence envelope。
+- `route_map` / `api_impact` / `shape_check` session evidence：API/web/backend 任务可显式调用；route/handler/consumer/shape 摘要必须 redacted and source-confirmed。
+- `cypher` advanced session evidence：需要 schema-first read-only proof、bounded query/result 和 redacted summary。
+- repo/group resources 与 group-aware `query/context/impact`：多仓/monorepo/service orientation 使用；不能选择写入 repo 或扩大 plan/task scope。
+- `spec-work`、`spec-write-tasks`、`spec-compound/refresh`：消费 graph evidence 用于 source-read/test-focus/risk/knowledge，而不是让 GitNexus 调度任务或决定结论。
 
 ---
 
@@ -81,7 +86,7 @@ Harness 的核心判断是：把不稳定的 AI 推理放进可重复、可观�
 - target_repo: `spec-first`
 - status: stale
 - source_revision: `8dc7e77627d1f38286d91bf1f4af11831dd6a766`
-- current_revision: `b39a80ea6a3ecbbfb68056b6ea0a9efdaa6c3482`
+- current_revision: `3d822bd3800bad34524e8f5e9dae44c6bd6e37ad`
 - stale: true
 - primary_providers: `gitnexus`
 - degraded_providers: none in compiled artifacts
@@ -144,14 +149,15 @@ Harness 的核心判断是：把不稳定的 AI 推理放进可重复、可观�
 
 | Decision | Rationale | Consequence |
 | --- | --- | --- |
-| Keep `review-pre-facts` as the facts layer name for phase one | Existing review workflows, contracts and tests already depend on this helper; renaming to a neutral helper first would enlarge the diff and risk breaking hidden command consumers | Add `plan` / `debug` workflow profiles inside the current helper; consider a neutral alias later only if naming becomes a real consumer problem |
+| Keep `review-pre-facts` as the deterministic facts layer name | Existing review workflows, contracts and tests already depend on this helper; renaming to a neutral helper first would enlarge the diff and risk breaking hidden command consumers | Add `plan` / `debug` workflow profiles inside the current helper; consider a neutral alias later only if naming becomes a real consumer problem |
 | Use additive v1 schema evolution, not immediate v2 | Current provider-results v1 can accept additive operation metadata if validation is intentionally widened; v2 would force all existing fixtures and consumers to migrate at once | Preserve existing query-only review behavior; add `operation`, `fact_kind`, `summary`, `source_reads_required`, `limitations`, `redaction_status` fields as optional/required-by-kind |
 | Provider `impact.summaryOnly` as optional optimization, not hard dependency | GitNexus README documents `summaryOnly`, but current host MCP schema must remain the executable query-plan contract; emitting unsupported provider arguments would break deterministic orchestration | Implement summary-first normalization and budget truncation on the spec-first side; add `summaryOnly` only after tool-schema/profile proof |
 | Operation selection is deterministic but conservative | Scripts may classify targets and build bounded arguments, but they must not infer architecture scope or business priority | Emit `context` / `impact` only when a safe symbol/file target exists; otherwise degrade with a reason and require direct reads |
 | Resource evidence stays separate from executable query-plan entries | MCP resources can be read-only evidence, but query-plan entries are executable tool calls with exact arguments | Contract may record resource refs as evidence metadata, but `queries[]` remains tool operation only |
+| Workflow-native GitNexus evidence uses a shared envelope | Route/API/tool/Cypher/group capabilities are useful but task-domain dependent; leaving them as unstructured session notes would lose provenance and boundaries | Add `gitnexus-session-evidence.v1` vocabulary for summaries, source reads, limitations and redaction without adding them to helper query-plan |
 | Redaction is a hard precondition for durable output | `detect_changes` and `impact` can expose private diff, internal process names and hostnames | Raw result stays temp; durable facts retain symbol/path/process summaries only after redaction |
 | F3 readiness snapshot is helper-first, hook-light | SessionStart context is valuable, but hook parity can become a separate governance project | Add a shared readiness snapshot command and inject through existing startup surfaces; do not implement full Codex hook delivery unless a dedicated hook parity scope is approved |
-| F2 utilization gates durable helper expansion | Without measurement, adding `tool_map`, route/API or `cypher` to the deterministic helper is architecture theater, even though session-local native use remains valid | Record operation use/degrade/decision conversion first; second wave opens only when data shows real workflow value |
+| Utilization gates durable helper promotion | Without measurement, adding `tool_map`, route/API or `cypher` to the deterministic helper is architecture theater, even though session/resource native use remains valid | Record operation use/degrade/decision conversion first; promote only when data shows real workflow value |
 
 ---
 
@@ -160,17 +166,18 @@ Harness 的核心判断是：把不稳定的 AI 推理放进可重复、可观�
 ### Resolved During Planning
 
 - Should this plan redesign `spec-plan` / `spec-code-review` / `spec-debug` graph evidence prose? No. Those workflow boundaries already exist; this plan fills the deterministic facts layer gap.
-- Should `route_map` be included because GitNexus supports it? Not in the phase-one deterministic helper. `route_map` / `api_impact` / `shape_check` are useful for API/web/backend work and should remain session-local SKILL capabilities when relevant.
-- Should `cypher` be included? Not in the phase-one deterministic helper. It remains an advanced native tool that needs separate schema-first read-only enforcement and query budget design before durable helper use.
+- Should `route_map` be included because GitNexus supports it? Yes, through workflow-native session evidence for API/web/backend work; no, not as a deterministic helper operation.
+- Should `cypher` be included? Yes, through advanced session evidence with schema-first read-only proof, query/result budget, redaction and source confirmation; no, not as a deterministic helper operation.
 - Should hszq-app evidence be committed as proof? No. Use private repo observations only as session-local inspiration for fixture shape; commit only synthetic fixtures.
 - Should the first implementation assume GitNexus `impact` has `summaryOnly`? No as a query-plan default. Official README documents it, but implementation must verify the current MCP schema/profile before emitting it; local summary-first normalization remains mandatory.
-- Should Codex hook support make F3 a full hook-parity project? No. The correct first wave is shared readiness snapshot plus existing startup surfaces; full hook parity remains G2 / separate plan.
+- Should Codex hook support turn graph governance into hook logic? No. The complete implementation uses a shared readiness snapshot and source/runtime hook governance tests; hooks remain delivery surfaces.
 
-### Deferred to Implementation
+### Implementation-Time Unknowns
 
 - Exact target classifier shape: implementation should choose the smallest reliable structure for path, symbol, change-scope and workflow hints without building a semantic rules engine.
 - Exact raw result envelope field for tool annotations: implementation should choose a shape that lets orchestrators supply annotation proof when the host exposes it and fail closed when required proof is absent.
 - Exact utilization persistence location: prefer existing temp run summary / workflow outputs first; only add durable run artifact fields where a downstream consumer already exists.
+- Exact session evidence persistence shape: prefer compact workflow summary/run-artifact fields before adding a new durable artifact namespace; all session evidence remains advisory until source confirmed.
 
 ---
 
@@ -188,12 +195,16 @@ flowchart TB
   Normalize["normalize-provider-results\nvalidate provenance, size, annotations"]
   Results["provider-results v1\noperation-specific normalized facts"]
   Render["render\nreview or neutral workflow profile"]
-  Consumers["spec-plan / code-review / debug\nGraph evidence, Coverage, ledger"]
+  Session["workflow-native GitNexus session/resource calls\nroute/API/tool/cypher/group"]
+  Envelope["gitnexus-session-evidence v1\nsummary, source_reads, limitations"]
+  Consumers["plan / review / debug / work / tasks / knowledge\nGraph evidence, Coverage, ledger, closeout"]
   Metrics["utilization + degraded reason summary"]
 
   Prepare --> Profiles --> Plan --> LiveMcp --> Raw --> Normalize --> Results --> Render --> Consumers
+  Session --> Envelope --> Consumers
   Normalize --> Metrics
   Render --> Metrics
+  Envelope --> Metrics
 ```
 
 ---
@@ -204,7 +215,7 @@ flowchart TB
 
 **Goal:** Update the review-pre-facts contract and helper schema boundaries so four GitNexus operations can be represented safely before generation/normalization logic changes.
 
-**Requirements:** R1, R2, R3, R5, R6, R11
+**Requirements:** R1, R2, R3, R5, R6, R16
 
 **Dependencies:** None
 
@@ -340,7 +351,7 @@ flowchart TB
 
 **Goal:** Make multi-operation provider consumption fail closed when the tool surface, raw result, target paths or durable summaries violate safety boundaries.
 
-**Requirements:** R5, R6, R11
+**Requirements:** R5, R6, R16
 
 **Dependencies:** U1, U2, U3
 
@@ -382,9 +393,9 @@ flowchart TB
 
 ### U5. Workflow consumption profile updates for plan, review and debug
 
-**Goal:** Wire the expanded helper into the three phase-one workflows without rewriting their graph evidence judgment rules.
+**Goal:** Wire the expanded helper into `spec-plan`、`spec-code-review` and `spec-debug` without rewriting their graph evidence judgment rules.
 
-**Requirements:** R4, R7, R11
+**Requirements:** R4, R7, R16
 
 **Dependencies:** U1-U4
 
@@ -413,7 +424,7 @@ flowchart TB
 - Happy path: spec-plan prose mentions `--workflow plan` and neutral facts feed Graph / GitNexus Evidence without turning GitNexus into scope authority.
 - Happy path: spec-code-review prose mentions non-query pre-facts and Coverage capability disclosure, while findings still require diff/source/test/contract confirmation.
 - Happy path: spec-debug prose mentions `--workflow debug` and keeps causal-chain non-graph confirmation gate.
-- Error path: contract tests prevent route/API/`cypher` helper operations from appearing as phase-one deterministic helper scope.
+- Error path: contract tests prevent route/API/`cypher` helper operations from appearing as deterministic helper scope.
 - Error path: stale graph language remains degraded/fallback, not blocking ordinary workflow by itself.
 
 **Verification:**
@@ -422,13 +433,53 @@ flowchart TB
 
 ---
 
+### U5a. Workflow-native session and workspace/resource evidence lane
+
+**Goal:** Give GitNexus capabilities outside the deterministic helper a shared evidence envelope and workflow consumption rules, so `route_map` / `api_impact` / `shape_check` / `tool_map` / `cypher` / group resources improve context without bypassing Harness boundaries.
+
+**Requirements:** R12, R13, R14, R16
+
+**Dependencies:** U1 for shared vocabulary; can proceed alongside U5
+
+**Files:**
+- Modify: `docs/contracts/graph-evidence-policy.md`
+- Modify: `docs/contracts/downstream-graph-evidence-consumption.md`
+- Modify: `docs/contracts/workspace-gitnexus-consumption.md`
+- Modify: `skills/spec-plan/SKILL.md`
+- Modify: `skills/spec-code-review/SKILL.md`
+- Modify: `skills/spec-debug/SKILL.md`
+- Modify: `skills/spec-mcp-setup/SKILL.md` if `tool_map` guidance needs a setup consumer
+- Modify: `skills/spec-skill-audit/SKILL.md` if tool-surface evidence is consumed there
+- Modify: focused contract tests for changed skill/contract surfaces
+
+**Approach:**
+- Define `gitnexus-session-evidence.v1` as a compact envelope, not a new executable helper artifact.
+- Route/API/shape tasks may use `route_map` / `api_impact` / `shape_check`; summaries must name route/handler/consumer evidence, source reads required and limitations, but findings still require source/API contract proof.
+- Tool-surface tasks may use `tool_map`; summaries must identify tools/handlers/source candidates without becoming setup authority.
+- `cypher` requires prior schema read, bounded query text, row/byte limits, redaction and reason code when it is not used.
+- Workspace/group resources and group-aware calls may orient cross-repo work only after explicit `target_repo` / per-task scope; stale group evidence downgrades posture.
+- No workflow may auto-call mutation or maintenance tools from this lane.
+
+**Test scenarios:**
+- Happy path: plan/review/debug contract tests allow session evidence envelope entries for task-domain GitNexus calls and require source confirmation.
+- Happy path: API review guidance can cite `api_impact` / `shape_check` as evidence candidates without treating mismatches as findings by themselves.
+- Happy path: tool-surface guidance can cite `tool_map` for setup/audit tasks without adding helper operation support.
+- Error path: `cypher` guidance requires schema/budget/redaction fields before durable summary.
+- Error path: workspace/group evidence cannot select or expand write scope.
+
+**Verification:**
+- Focused contract tests for graph evidence policy, downstream consumption and changed skill prose.
+- Fresh-source eval when skill prose changes materially, or record why unavailable.
+
+---
+
 ### U6. Utilization metrics for graph capability value
 
-**Goal:** Record enough usage and conversion data to decide whether second-wave GitNexus capability expansion is worth doing.
+**Goal:** Record enough usage and conversion data to decide whether a GitNexus capability should be promoted into the deterministic helper or remain session/resource evidence.
 
-**Requirements:** R7, R11
+**Requirements:** R7, R12, R16
 
-**Dependencies:** U3, U5
+**Dependencies:** U3, U5, U5a
 
 **Files:**
 - Modify: `src/cli/helpers/review-pre-facts.js`
@@ -468,7 +519,7 @@ flowchart TB
 
 **Goal:** Add a short helper-owned readiness snapshot so fresh workflow sessions see GitNexus query readiness, stale/dirty state and capability limitations before choosing graph evidence posture.
 
-**Requirements:** R8, R11
+**Requirements:** R8, R16
 
 **Dependencies:** None, but should land after U1 vocabulary is stable if wording references operation names
 
@@ -493,7 +544,7 @@ flowchart TB
   - available/limited capabilities,
   - recommended posture (`primary` / `fallback`) and reason.
 - Append this snapshot through existing Claude SessionStart startup-reminder path.
-- For Codex, use the existing top-level `startup-reminder --codex` / managed instruction path for phase one. The local knowledge doc says Codex hooks are now possible, but full Codex hook template/init/doctor/clean parity is separate governance work.
+- For Codex, use the existing top-level `startup-reminder --codex` / managed instruction path and lifecycle hook templates when source/runtime governance opts in. The local knowledge doc says Codex hooks are possible; this unit keeps the snapshot shared and helper-owned rather than moving policy into hook code.
 - Snapshot failure must be silent/degraded and must not block workflow routing.
 
 **Patterns to follow:**
@@ -512,17 +563,23 @@ flowchart TB
 
 ---
 
-### U8. spec-write-tasks consumption and docs/solutions discoverability
+### U8. Task/work/knowledge consumption and docs/solutions discoverability
 
-**Goal:** Let task compilation benefit from plan graph evidence and make the knowledge store easier for future agents to find with minimal source-first changes.
+**Goal:** Let task compilation, work execution and durable knowledge benefit from source-confirmed graph evidence, while making the knowledge store easier for future agents to find with minimal source-first changes.
 
-**Requirements:** R9, R10, R11
+**Requirements:** R9, R10, R11, R15, R16
 
-**Dependencies:** U5 for final evidence vocabulary; can otherwise proceed independently
+**Dependencies:** U5 and U5a for final evidence vocabulary; can otherwise proceed independently
 
 **Files:**
 - Modify: `skills/spec-write-tasks/SKILL.md`
+- Modify: `skills/spec-work/SKILL.md`
+- Modify: `skills/spec-work/references/shipping-workflow.md` if closeout vocabulary needs alignment
+- Modify: `skills/spec-compound/SKILL.md`
+- Modify: `skills/spec-compound-refresh/SKILL.md`
 - Modify: `tests/unit/spec-write-tasks-contracts.test.js`
+- Modify: `tests/unit/spec-work-contracts.test.js`
+- Modify: focused compound/compound-refresh contract tests if present
 - Modify: `AGENTS.md`
 - Modify: `CLAUDE.md`
 - Modify: `src/cli/instruction-bootstrap.js` if managed bootstrap text must carry the discoverability line
@@ -534,6 +591,8 @@ flowchart TB
   - `source_reads_required` becomes `context_refs` / `stop_if` / `test_focus`,
   - `key_findings` can add risk notes,
   - no graph finding expands plan scope.
+- In `spec-work`, consume plan/review/debug graph evidence for source-read focus, test focus, risk checks and shared-symbol impact checks. Before editing a shared symbol, prefer session-local `impact` when available; before closeout/review, prefer `detect_changes` when scope is explicit.
+- In `spec-compound` / `spec-compound-refresh`, record only source-confirmed graph-informed learnings. Raw provider output and unconfirmed session evidence must not become durable knowledge.
 - Add a minimal `docs/solutions/` discoverability line only where checked-in host instructions or managed bootstrap would actually help future agents find reusable learnings.
 - Do not turn `docs/solutions/` into a mandatory pre-read for every task; it is relevant when documented areas or prior learnings match.
 
@@ -543,6 +602,8 @@ flowchart TB
 
 **Test scenarios:**
 - Happy path: `spec-write-tasks` contract test sees Graph / GitNexus Evidence fields used for task focus and test selection.
+- Happy path: `spec-work` guidance consumes graph evidence for source-read/test-focus and records accepted/rejected graph evidence in closeout without expanding scope.
+- Happy path: `spec-compound` / refresh guidance requires source confirmation before graph-informed learning becomes durable.
 - Error path: contract test prevents graph evidence from becoming new task scope or replacing source-plan authority.
 - Happy path: checked-in host instructions or managed bootstrap mention `docs/solutions/` as a reusable learning store without creating a mandatory workflow gate.
 
@@ -555,9 +616,9 @@ flowchart TB
 
 **Goal:** Keep docs, tests and release-visible behavior aligned after the helper capability extension lands.
 
-**Requirements:** R11
+**Requirements:** R15, R16
 
-**Dependencies:** U1-U8
+**Dependencies:** U1-U8 and U5a
 
 **Files:**
 - Modify: `README.md`
@@ -568,7 +629,7 @@ flowchart TB
 - Modify: package-surface tests if new source files must be packed
 
 **Approach:**
-- README changes should be short and user-visible: explain that graph facts are bounded advisory evidence and that phase one supports `query/context/impact/detect_changes` through pre-facts where workflows opt in.
+- README changes should be short and user-visible: explain that graph facts are bounded advisory evidence, deterministic helper supports `query/context/impact/detect_changes`, and deeper GitNexus capabilities use workflow-native/session/resource lanes.
 - Changelog entry must use the current developer profile author.
 - If new helper/source files are added, verify they are included in package publishing surface if needed.
 - Do not regenerate runtime mirrors unless implementation changes source assets that require `spec-first init` validation; generated mirrors are not committed as source.
@@ -576,7 +637,7 @@ flowchart TB
 **Test scenarios:**
 - Happy path: user docs mention the four operation families without claiming GitNexus decides scope, findings or root cause.
 - Edge case: release/package tests include any new source helper or contract file that must ship.
-- Error path: docs do not mention route/API/`cypher` as phase-one deterministic helper support.
+- Error path: docs do not mention route/API/`cypher` as deterministic helper support.
 
 **Verification:**
 - Focused docs/contract tests.
@@ -608,8 +669,8 @@ flowchart TB
 | Redaction misses private data in detect_changes | Reuse secret-deny path checks, strip raw diff and URLs/tokens, keep raw output temp-only |
 | Existing review workflows regress | Keep query-only fixtures valid; run backward compatibility tests before adding new workflow profiles |
 | Startup snapshot pollutes context | Hard cap to <=500 tokens; include only readiness/freshness/capability summary and one posture recommendation |
-| Codex hook support scope balloons | Use current startup-reminder path in this plan; leave full Codex hook delivery to hook parity follow-up |
-| Metrics become vanity adoption counts | Record decision linkage fields as summaries and use them only as retrospective evidence for second-wave gating |
+| Hook delivery scope balloons | Keep the snapshot helper-owned and shared; host-specific hook/template/init/doctor/clean changes must stay under source/runtime governance tests |
+| Metrics become vanity adoption counts | Record decision linkage fields as summaries and use them only as retrospective evidence for helper promotion and workflow quality review |
 
 ---
 

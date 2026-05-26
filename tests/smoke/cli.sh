@@ -133,7 +133,7 @@ echo "2. Check doctor output in a fresh project..."
 doctor_fresh_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor)"
 grep -q "No spec-first platform detected in this project." <<<"$doctor_fresh_output"
 grep -q 'spec-first init' <<<"$doctor_fresh_output"
-grep -q 'choose Claude Code or Codex' <<<"$doctor_fresh_output"
+grep -q 'select Claude Code and/or Codex' <<<"$doctor_fresh_output"
 doctor_fresh_json="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --json)"
 node - "$doctor_fresh_json" <<'NODE'
 const payload = JSON.parse(process.argv[2]);
@@ -142,7 +142,7 @@ if (payload.runtime_asset_health !== 'not_applicable') throw new Error('fresh do
 NODE
 echo "✓ doctor reports fresh-project state"
 
-echo "3. Check interactive init rejects non-TTY and old flags..."
+echo "3. Check interactive init rejects non-TTY unless -y and rejects unsupported flags..."
 init_stdout="$TMP_DIR/init-non-tty.stdout"
 init_stderr="$TMP_DIR/init-non-tty.stderr"
 init_status=0
@@ -154,14 +154,20 @@ fi
 test "$init_status" = "2"
 grep -q "requires an interactive terminal" "$init_stderr"
 init_status=0
-(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --claude >"$init_stdout" 2>"$init_stderr") || init_status=$?
+(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --dry-run >"$init_stdout" 2>"$init_stderr") || init_status=$?
 if [ "$init_status" -eq 0 ]; then
-  echo "init should reject legacy flags" >&2
+  echo "init should reject unsupported flags" >&2
   exit 1
 fi
 test "$init_status" = "2"
-grep -q "no longer accepts options" "$init_stderr"
-echo "✓ init rejects non-TTY and legacy flags"
+grep -q "unknown option --dry-run" "$init_stderr"
+yes_dir="$TMP_DIR/init-yes"
+mkdir -p "$yes_dir"
+(cd "$yes_dir" && node "$REPO_ROOT/bin/spec-first.js" init --codex -y -u smoke --lang zh >"$init_stdout" 2>"$init_stderr")
+test -f "$yes_dir/AGENTS.md"
+test -f "$yes_dir/.codex/spec-first/.developer"
+test ! -f "$yes_dir/CLAUDE.md"
+echo "✓ init rejects non-TTY without -y, rejects unsupported flags, and supports explicit -y"
 
 echo "4. Check programmatic init preview changes without writing files..."
 dry_dir="$TMP_DIR/dry-init"

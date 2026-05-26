@@ -124,13 +124,13 @@ spec-first doctor
 
 在 Win64 上，推荐使用 Windows Terminal + PowerShell 7+ 或原生 `cmd.exe` 做安装和 smoke check。Windows PowerShell 5.1 也支持，但 PowerShell 7+ 的 UTF-8 行为更稳定。Git Bash、MSYS2、WSL 可用于 POSIX 环境，但不能替代 Windows 原生验证，因为 npm `.cmd` shim、`%PATH%`、quoting 和 code page 行为不同。
 
-只初始化实际使用的宿主。`spec-first init` 是交互式流程：选择 Claude Code 或 Codex、确认开发者姓名与语言、预览写入内容，然后显式确认。
+初始化实际使用的宿主 runtime。`spec-first init` 是交互式流程：多选 Claude Code 和/或 Codex、确认开发者姓名与语言、预览写入内容，然后显式确认。
 
 ```bash
 spec-first init
 ```
 
-按引导选择 Claude Code 或 Codex。按实际使用的宿主运行 init：只用 Claude Code 就选择 Claude Code，只用 Codex 就选择 Codex；同一个 repo 需要同时支持两个宿主时运行两次。
+可用 `spec-first init --codex` 或 `spec-first init --claude --codex` 跳过宿主选择步骤。脚本中可用 `spec-first init -y` 初始化默认宿主集合，或把 `-y` 与显式宿主 flag、`-u <name>`、`--lang <zh|en>` 组合使用。
 
 重启宿主或新开会话，让宿主加载刚生成的 runtime assets。
 
@@ -202,7 +202,7 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
   | npm install -g spec-first
   | spec-first doctor
   | spec-first init
-  |   按引导选择 Claude Code 或 Codex
+  |   按引导多选 Claude Code 和/或 Codex
   v
 重启 Claude Code 或 Codex
   |
@@ -567,7 +567,7 @@ CLI reference：
 spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
-spec-first init
+spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first tasks hash <plan-path> [--json]
 spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]

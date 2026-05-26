@@ -49,7 +49,7 @@ describe('README language split contract', () => {
 
     expect(englishReadme).toContain('Official site: [spec-first.cn](http://spec-first.cn/)');
     expect(englishReadme).toContain('`spec-first init` is interactive');
-    expect(englishReadme).toContain('choose Claude Code or Codex');
+    expect(englishReadme).toContain('select Claude Code and/or Codex');
     expect(englishReadme).toContain('Next steps:');
     expect(englishReadme).toContain('Restart Claude Code or open a new session');
     expect(englishReadme).toContain('Restart Codex or open a new session');
@@ -105,9 +105,9 @@ describe('README language split contract', () => {
       'Windows PowerShell 7+ or Windows PowerShell 5.1:',
       'Windows cmd.exe:',
       'On Win64, prefer native Windows Terminal with PowerShell 7+ or `cmd.exe`',
-      'Initialize only the host you actually use.',
+      'Initialize the host runtimes you actually use.',
       'spec-first init',
-      'Choose Claude Code or Codex when prompted',
+      'Use `spec-first init --codex`',
       'Host-session workflow entries are not shell commands:',
       '$spec-brainstorm "Improve onboarding"',
       'If you are not sure which workflow to use',

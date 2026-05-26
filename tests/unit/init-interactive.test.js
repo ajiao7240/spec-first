@@ -41,7 +41,7 @@ async function captureInit(cwd, args, promptOverrides = {}) {
 }
 
 function interactivePrompts({
-  platform = 'codex',
+  platforms = ['codex'],
   name = 'reviewer',
   lang = 'zh',
   confirmed = true,
@@ -49,8 +49,11 @@ function interactivePrompts({
 } = {}) {
   return {
     requireTty: () => ({ ok: true, reason: null }),
+    checkbox: jest.fn((question) => {
+      if (question.includes('host runtimes')) return Promise.resolve(platforms);
+      return Promise.resolve([]);
+    }),
     select: jest.fn((question, options) => {
-      if (question.includes('host runtime')) return Promise.resolve(platform);
       if (question.includes('response language')) return Promise.resolve(lang);
       if (question.includes('workspace target')) {
         if (workspaceTarget === 'single') return Promise.resolve(options[1].value);
@@ -83,7 +86,7 @@ function snapshotTree(rootDir) {
 }
 
 describe('interactive init command', () => {
-  test('help describes interactive init without legacy flags', async () => {
+  test('help describes interactive init plus Trellis-style host shortcuts', async () => {
     const projectRoot = makeTempDir();
 
     try {
@@ -93,24 +96,27 @@ describe('interactive init command', () => {
       expect(result.stderr).toBe('');
       expect(result.stdout).toContain('spec-first init');
       expect(result.stdout).toContain('Interactive steps');
-      expect(result.stdout).toContain('requires an interactive terminal');
-      expect(result.stdout).not.toContain('(--claude|--codex)');
+      expect(result.stdout).toContain('Select one or more host runtimes');
+      expect(result.stdout).toContain('spec-first init --codex');
+      expect(result.stdout).toContain('spec-first init -y');
+      expect(result.stdout).toContain('Explicit --claude/--codex flags override the default host set.');
       expect(result.stdout).not.toContain('--dry-run');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 
-  test('legacy init flags are rejected before prompting', async () => {
+  test('unsupported init flags are rejected before prompting', async () => {
     const projectRoot = makeTempDir();
     const prompts = interactivePrompts();
 
     try {
-      const result = await captureInit(projectRoot, ['--claude'], prompts);
+      const result = await captureInit(projectRoot, ['--dry-run'], prompts);
 
       expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain('no longer accepts options');
-      expect(prompts.select).not.toHaveBeenCalled();
+      expect(result.stderr).toContain('unknown option --dry-run');
+      expect(result.stderr).toContain('Usage: spec-first init');
+      expect(prompts.checkbox).not.toHaveBeenCalled();
       expect(snapshotTree(projectRoot)).toEqual([]);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -140,7 +146,7 @@ describe('interactive init command', () => {
     const projectRoot = makeTempDir();
 
     try {
-      const result = await captureInit(projectRoot, [], interactivePrompts({ platform: 'codex' }));
+      const result = await captureInit(projectRoot, [], interactivePrompts({ platforms: ['codex'] }));
 
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe('');
@@ -149,6 +155,81 @@ describe('interactive init command', () => {
       expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-work', 'SKILL.md'))).toBe(true);
       expect(fs.readFileSync(path.join(projectRoot, '.codex', 'spec-first', '.developer'), 'utf8')).toContain('name=reviewer');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('interactive host checkbox starts with no checked hosts', async () => {
+    const projectRoot = makeTempDir();
+    let hostChoices = [];
+    const prompts = interactivePrompts({ platforms: ['codex'], confirmed: false });
+    prompts.checkbox = jest.fn((_question, options) => {
+      hostChoices = options;
+      return Promise.resolve(['codex']);
+    });
+
+    try {
+      const result = await captureInit(projectRoot, [], prompts);
+
+      expect(result.exitCode).toBe(0);
+      expect(hostChoices).toHaveLength(2);
+      expect(hostChoices.every((choice) => choice.checked === false)).toBe(true);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('explicit host flag skips only the host checkbox', async () => {
+    const projectRoot = makeTempDir();
+    const prompts = interactivePrompts({ platforms: ['claude'] });
+
+    try {
+      const result = await captureInit(projectRoot, ['--codex'], prompts);
+
+      expect(result.exitCode).toBe(0);
+      expect(prompts.checkbox).not.toHaveBeenCalled();
+      expect(prompts.textInput).toHaveBeenCalled();
+      expect(result.stdout).toContain('Dry run: spec-first init (codex)');
+      expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(false);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('-y initializes default host runtimes without prompts', async () => {
+    const projectRoot = makeTempDir();
+    const prompts = interactivePrompts();
+    prompts.requireTty = jest.fn(() => ({ ok: false, reason: 'no-stdin-tty' }));
+
+    try {
+      const result = await captureInit(projectRoot, ['-y', '-u', 'reviewer', '--lang', 'zh'], prompts);
+
+      expect(result.exitCode).toBe(0);
+      expect(prompts.requireTty).not.toHaveBeenCalled();
+      expect(prompts.checkbox).not.toHaveBeenCalled();
+      expect(prompts.textInput).not.toHaveBeenCalled();
+      expect(prompts.confirm).not.toHaveBeenCalled();
+      expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('explicit host flag with -y initializes only that runtime', async () => {
+    const projectRoot = makeTempDir();
+    const prompts = interactivePrompts();
+    prompts.requireTty = jest.fn(() => ({ ok: false, reason: 'no-stdin-tty' }));
+
+    try {
+      const result = await captureInit(projectRoot, ['--codex', '-y', '-u', 'reviewer', '--lang=zh'], prompts);
+
+      expect(result.exitCode).toBe(0);
+      expect(prompts.requireTty).not.toHaveBeenCalled();
+      expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(false);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -178,7 +259,7 @@ describe('interactive init command', () => {
       fs.mkdirSync(path.join(childA, '.git'), { recursive: true });
       fs.mkdirSync(path.join(childB, '.git'), { recursive: true });
 
-      const result = await captureInit(workspaceRoot, [], interactivePrompts({ platform: 'claude' }));
+      const result = await captureInit(workspaceRoot, [], interactivePrompts({ platforms: ['claude'] }));
 
       expect(result.exitCode).toBe(0);
       expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary.json'))).toBe(true);

@@ -47,6 +47,56 @@ function select(question, options, promptOptions = {}) {
   }, () => renderSelect(question, normalizedOptions, selectedIndex, promptOptions));
 }
 
+function checkbox(question, options, promptOptions = {}) {
+  const normalizedOptions = normalizeOptions(options);
+  if (normalizedOptions.length === 0) {
+    return Promise.reject(new Error('checkbox requires at least one option.'));
+  }
+
+  let selectedIndex = clampIndex(promptOptions.defaultIndex, normalizedOptions.length);
+  const checkedIndexes = new Set();
+  normalizedOptions.forEach((option, index) => {
+    if (option.checked) {
+      checkedIndexes.add(index);
+    }
+  });
+
+  return runPrompt(promptOptions, (text, resolve, reject, redraw) => {
+    if (containsCancel(text)) {
+      reject(new PromptCancelled());
+      return;
+    }
+    if (text.includes('\x1b[A')) {
+      selectedIndex = selectedIndex <= 0 ? normalizedOptions.length - 1 : selectedIndex - 1;
+      redraw();
+      return;
+    }
+    if (text.includes('\x1b[B')) {
+      selectedIndex = selectedIndex >= normalizedOptions.length - 1 ? 0 : selectedIndex + 1;
+      redraw();
+      return;
+    }
+    if (text.includes(' ')) {
+      if (checkedIndexes.has(selectedIndex)) {
+        checkedIndexes.delete(selectedIndex);
+      } else {
+        checkedIndexes.add(selectedIndex);
+      }
+      redraw();
+      return;
+    }
+    if (text.includes('\r') || text.includes('\n')) {
+      if (checkedIndexes.size < (promptOptions.minSelected || 0)) {
+        redraw();
+        return;
+      }
+      resolve(normalizedOptions
+        .filter((_option, index) => checkedIndexes.has(index))
+        .map((option) => option.value));
+    }
+  }, () => renderCheckbox(question, normalizedOptions, selectedIndex, checkedIndexes, promptOptions));
+}
+
 function textInput(question, promptOptions = {}) {
   let value = '';
   const defaultValue = typeof promptOptions.default === 'string' ? promptOptions.default : '';
@@ -147,12 +197,16 @@ function runPrompt(promptOptions, handleInput, render) {
     };
 
     function onData(chunk) {
-      handleInput(
-        Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk),
-        (value) => settle(resolve, value),
-        (error) => settle(reject, error),
-        redraw,
-      );
+      const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+      for (const token of tokenizeInput(text)) {
+        if (settled) return;
+        handleInput(
+          token,
+          (value) => settle(resolve, value),
+          (error) => settle(reject, error),
+          redraw,
+        );
+      }
     }
 
     function onEnd() {
@@ -203,6 +257,20 @@ function renderSelect(question, options, selectedIndex, promptOptions) {
   };
 }
 
+function renderCheckbox(question, options, selectedIndex, checkedIndexes, promptOptions) {
+  const output = promptOptions.output || process.stdout;
+  write(output, `${question}\n`);
+  options.forEach((option, index) => {
+    const cursor = index === selectedIndex ? '>' : ' ';
+    const checked = checkedIndexes.has(index) ? '[x]' : '[ ]';
+    write(output, `${cursor} ${checked} ${option.label}\n`);
+  });
+  return {
+    lineCount: options.length + 1,
+    endedWithNewline: true,
+  };
+}
+
 function renderTextInput(question, value, defaultValue, promptOptions) {
   const output = promptOptions.output || process.stdout;
   const suffix = value || (defaultValue ? `[${defaultValue}]` : '');
@@ -241,11 +309,13 @@ function normalizeOptions(options) {
       return {
         label: String(option.label || option.value || ''),
         value: Object.prototype.hasOwnProperty.call(option, 'value') ? option.value : option.label,
+        checked: option.checked === true,
       };
     }
     return {
       label: String(option),
       value: option,
+      checked: false,
     };
   }).filter((option) => option.label.length > 0);
 }
@@ -258,6 +328,19 @@ function containsCancel(text) {
   return text.includes('\x03') || text === '\x1b';
 }
 
+function tokenizeInput(text) {
+  const tokens = [];
+  for (let index = 0; index < text.length; index += 1) {
+    if (text.startsWith('\x1b[A', index) || text.startsWith('\x1b[B', index)) {
+      tokens.push(text.slice(index, index + 3));
+      index += 2;
+      continue;
+    }
+    tokens.push(text[index]);
+  }
+  return tokens;
+}
+
 function write(output, contents) {
   if (output && typeof output.write === 'function') {
     output.write(contents);
@@ -266,6 +349,7 @@ function write(output, contents) {
 
 module.exports = {
   PromptCancelled,
+  checkbox,
   confirm,
   requireTty,
   select,

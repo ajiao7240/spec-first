@@ -275,9 +275,9 @@ describe('dual-host governance contracts', () => {
 
     expect(readme).toContain('$spec-mcp-setup');
     expect(readme).toContain('$spec-graph-bootstrap');
-    expect(readme).toContain('Choose Claude Code or Codex when prompted.');
-    expect(readme).toContain('choose Claude Code for Claude Code-only projects');
-    expect(readme).toContain('choose Codex for Codex-only projects');
+    expect(readme).toContain('select Claude Code and/or Codex');
+    expect(readme).toContain('spec-first init --codex');
+    expect(readme).toContain('spec-first init --claude --codex');
     expect(readme).toContain("Required harness runtime setup through the current host's setup workflow");
     expect(readme).toContain("External graph readiness compilation through the current host's graph bootstrap workflow");
     expect(readme).toContain("Use the current host's setup workflow");
@@ -296,9 +296,9 @@ describe('dual-host governance contracts', () => {
     );
     expect(readme).not.toContain('$spec-write-tasks');
     expect(readmeZh).toContain('通过当前宿主的 setup workflow 管理');
-    expect(readmeZh).toContain('按实际使用的宿主运行 init');
-    expect(readmeZh).toContain('只用 Claude Code 就选择 Claude Code');
-    expect(readmeZh).toContain('只用 Codex 就选择 Codex');
+    expect(readmeZh).toContain('多选 Claude Code 和/或 Codex');
+    expect(readmeZh).toContain('spec-first init --codex');
+    expect(readmeZh).toContain('spec-first init --claude --codex');
     expect(readmeZh).toContain('通过当前宿主的 graph bootstrap workflow 编译');
     expect(readme).not.toContain('$spec-' + 'standards');
     expect(readme).not.toContain('/spec:' + 'standards');

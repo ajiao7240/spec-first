@@ -58,15 +58,34 @@ const {
 } = require('../claude-settings');
 const {
   PromptCancelled,
+  checkbox,
   confirm,
   requireTty,
   select,
   textInput,
 } = require('../prompts');
 
+const INIT_PLATFORM_CHOICES = [
+  {
+    id: 'claude',
+    flag: 'claude',
+    label: 'Claude Code',
+    defaultChecked: false,
+    defaultForYes: true,
+  },
+  {
+    id: 'codex',
+    flag: 'codex',
+    label: 'Codex',
+    defaultChecked: false,
+    defaultForYes: true,
+  },
+];
+
 async function runInit(argv, promptOverrides = {}) {
   const args = [...argv];
   const promptApi = {
+    checkbox,
     confirm,
     requireTty,
     select,
@@ -74,56 +93,84 @@ async function runInit(argv, promptOverrides = {}) {
     ...promptOverrides,
   };
 
-  if (args.length === 1 && (args[0] === '-h' || args[0] === '--help')) {
+  const parsed = parseInitArgs(args);
+  if (parsed.help) {
     printHelp();
     return 0;
   }
 
-  if (args.length > 0) {
-    console.error(`unknown option ${args[0]}: spec-first init no longer accepts options. Run \`spec-first init\` in an interactive terminal.`);
+  if (parsed.error) {
+    console.error(parsed.error);
+    console.error('Usage: spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]');
     return 2;
   }
 
-  const tty = promptApi.requireTty();
-  if (!tty.ok) {
-    console.error('spec-first init requires an interactive terminal. Please rerun `spec-first init` from a TTY and follow the prompts.');
-    console.error('spec-first init 需要交互式终端。请在可交互终端中运行 `spec-first init` 并按引导选择。');
+  if (!parsed.yes) {
+    const tty = promptApi.requireTty();
+    if (!tty.ok) {
+      console.error('spec-first init requires an interactive terminal unless `-y/--yes` is used with defaults or explicit host flags.');
+      console.error('spec-first init 需要交互式终端；如需跳过引导，请使用 `-y/--yes` 并按需指定 `--claude` / `--codex`。');
+      return 2;
+    }
+  }
+
+  if (parsed.yes && parsed.platforms.length === 0 && defaultInitPlatforms().length === 0) {
+    console.error('spec-first init -y requires at least one default host runtime.');
     return 2;
   }
 
   try {
-    const interactiveInput = await collectInteractiveInitInput({
+    const interactiveInput = await collectInitInput({
       workspaceRoot: process.cwd(),
       promptApi,
+      parsed,
     });
     if (!interactiveInput) {
       console.log('已取消。');
       return 0;
     }
 
-    const plan = buildInitPlan(interactiveInput);
-    printInitDiagnostics(plan);
-    if (Array.isArray(plan.errors) && plan.errors.length > 0) {
-      for (const error of plan.errors) {
+    const plans = buildInitPlans(interactiveInput);
+    for (const plan of plans) {
+      printInitDiagnostics(plan);
+    }
+    const errors = plans.flatMap((plan) => collectInitErrors(plan));
+    if (errors.length > 0) {
+      for (const error of errors) {
         console.error(error.message || String(error));
       }
       return 1;
     }
 
-    printInitPreview(plan);
-    const confirmed = await promptApi.confirm('Apply these changes?', { default: true });
-    if (!confirmed) {
-      console.log('已取消。');
-      return 0;
+    if (!parsed.yes) {
+      printInitPreviews(plans);
+      const confirmed = await promptApi.confirm('Apply these changes?', { default: true });
+      if (!confirmed) {
+        console.log('已取消。');
+        return 0;
+      }
     }
 
-    const result = applyInitPlan(interactiveInput.projectRoot || interactiveInput.workspaceRoot, plan);
-    if (plan.mode === 'all-repos') {
-      printWorkspaceInitApplySuccess(plan, result);
-      return result.exit_code;
+    const results = [];
+    for (const [index, plan] of plans.entries()) {
+      const result = applyInitPlan(plan.mode === 'all-repos' ? plan.workspaceRoot : plan.projectRoot, plan);
+      results.push(result);
+      if (plan.mode === 'all-repos') {
+        printWorkspaceInitApplySuccess(plan, result);
+      } else {
+        printInitApplySuccess(plan, result, {
+          showNextSteps: plans.length === 1,
+          suppressChangelogCreated: plans.length > 1 && index > 0,
+        });
+      }
     }
-    printInitApplySuccess(plan, result);
-    return result.exit_code;
+
+    if (plans.length > 1) {
+      console.log('');
+      printInitNextStepsForPlatforms(interactiveInput.platforms, interactiveInput.lang);
+    }
+
+    return results.some((result) => result.exit_code !== 0) ? 1 : 0;
   } catch (error) {
     if (error instanceof PromptCancelled || error.code === 'prompt_cancelled') {
       console.log('已取消。');
@@ -133,28 +180,118 @@ async function runInit(argv, promptOverrides = {}) {
   }
 }
 
-async function collectInteractiveInitInput({
+function parseInitArgs(args) {
+  const parsed = {
+    help: false,
+    yes: false,
+    platforms: [],
+    name: '',
+    lang: '',
+    error: '',
+  };
+  const platforms = new Set();
+
+  const readValue = (index, optionName) => {
+    const value = args[index + 1];
+    if (!value || value.startsWith('-')) {
+      parsed.error = `init: missing value for ${optionName}`;
+      return '';
+    }
+    return value;
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '-h' || arg === '--help') {
+      parsed.help = true;
+      continue;
+    }
+    if (arg === '-y' || arg === '--yes') {
+      parsed.yes = true;
+      continue;
+    }
+    if (arg === '-u' || arg === '--user') {
+      const value = readValue(index, arg);
+      if (parsed.error) break;
+      parsed.name = value;
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--user=')) {
+      parsed.name = arg.slice('--user='.length);
+      if (!parsed.name) parsed.error = 'init: missing value for --user';
+      if (parsed.error) break;
+      continue;
+    }
+    if (arg === '--lang') {
+      const value = readValue(index, arg);
+      if (parsed.error) break;
+      parsed.lang = value;
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--lang=')) {
+      parsed.lang = arg.slice('--lang='.length);
+      if (!parsed.lang) parsed.error = 'init: missing value for --lang';
+      if (parsed.error) break;
+      continue;
+    }
+    const platformChoice = INIT_PLATFORM_CHOICES.find((choice) => arg === `--${choice.flag}`);
+    if (platformChoice) {
+      platforms.add(platformChoice.id);
+      continue;
+    }
+    parsed.error = `init: unknown option ${arg}`;
+    break;
+  }
+
+  if (!parsed.error && parsed.lang && parsed.lang !== 'zh' && parsed.lang !== 'en') {
+    parsed.error = 'init: --lang must be zh or en';
+  }
+
+  parsed.platforms = [...platforms];
+  return parsed;
+}
+
+async function collectInitInput({
   workspaceRoot,
   promptApi,
+  parsed,
 }) {
   const root = canonicalizeExistingPath(workspaceRoot);
-  const platform = await promptApi.select('Select host runtime to initialize:', [
-    { label: 'Claude Code', value: 'claude' },
-    { label: 'Codex', value: 'codex' },
-  ], { requireExplicit: true });
-  const adapter = getAdapter(platform);
-  const defaults = resolveDeveloperDefaults(root, adapter);
-  const name = await promptApi.textInput('Developer name:', {
-    default: defaults.name,
-    validate: (value) => (String(value || '').trim().length > 0 ? true : 'Developer name is required.'),
-  });
-  const lang = await promptApi.select('Default response language:', [
-    { label: 'Chinese / 中文 (zh)', value: 'zh' },
-    { label: 'English (en)', value: 'en' },
-  ], {
-    defaultIndex: defaults.lang === 'en' ? 1 : 0,
-  });
-  const target = await collectInteractiveInitTarget(root, promptApi);
+  const platforms = parsed.platforms.length > 0
+    ? parsed.platforms
+    : parsed.yes
+      ? defaultInitPlatforms()
+      : await promptApi.checkbox('Select host runtimes to initialize:', INIT_PLATFORM_CHOICES.map((choice) => ({
+        label: choice.label,
+        value: choice.id,
+        checked: choice.defaultChecked,
+      })), { minSelected: 1 });
+
+  if (!Array.isArray(platforms) || platforms.length === 0) {
+    return null;
+  }
+
+  const adapters = platforms.map((platform) => getAdapter(platform));
+  const defaults = resolveDeveloperDefaults(root, adapters);
+  const name = parsed.name || (parsed.yes
+    ? defaults.name
+    : await promptApi.textInput('Developer name:', {
+      default: defaults.name,
+      validate: (value) => (String(value || '').trim().length > 0 ? true : 'Developer name is required.'),
+    }));
+  const lang = parsed.lang || (parsed.yes
+    ? defaults.lang
+    : await promptApi.select('Default response language:', [
+      { label: 'Chinese / 中文 (zh)', value: 'zh' },
+      { label: 'English (en)', value: 'en' },
+    ], {
+      defaultIndex: defaults.lang === 'en' ? 1 : 0,
+    }));
+  const target = parsed.yes
+    ? collectDefaultInitTarget(root)
+    : await collectInteractiveInitTarget(root, promptApi);
   if (!target) {
     return null;
   }
@@ -162,11 +299,41 @@ async function collectInteractiveInitInput({
   return {
     projectRoot: target.projectRoot || root,
     workspaceRoot: target.workspaceRoot || root,
-    platform,
-    adapter,
+    platforms,
     name,
     lang,
     target,
+  };
+}
+
+function defaultInitPlatforms() {
+  return INIT_PLATFORM_CHOICES
+    .filter((choice) => choice.defaultForYes)
+    .map((choice) => choice.id);
+}
+
+function buildInitPlans(input) {
+  return input.platforms.map((platform) => buildInitPlan({
+    ...input,
+    platform,
+    adapter: getAdapter(platform),
+  }));
+}
+
+function collectDefaultInitTarget(workspaceRoot) {
+  const cwdGitRoot = findGitRoot(workspaceRoot);
+  if (cwdGitRoot) {
+    return {
+      mode: 'single-repo',
+      projectRoot: cwdGitRoot,
+      selectionSource: 'cwd-git-or-monorepo',
+    };
+  }
+
+  return {
+    mode: 'single-repo',
+    projectRoot: workspaceRoot,
+    selectionSource: 'cwd-directory-non-interactive',
   };
 }
 
@@ -214,17 +381,20 @@ async function collectInteractiveInitTarget(workspaceRoot, promptApi) {
   ], { requireExplicit: true });
 }
 
-function resolveDeveloperDefaults(projectRoot, adapter) {
-  const projectDeveloper = readDeveloperFile(getProjectDeveloperPath(projectRoot, adapter));
+function resolveDeveloperDefaults(projectRoot, adapters) {
+  const adapterList = Array.isArray(adapters) ? adapters : [adapters];
+  const projectDevelopers = adapterList
+    .map((adapter) => readDeveloperFile(getProjectDeveloperPath(projectRoot, adapter)))
+    .filter(Boolean);
   const globalDeveloper = readDeveloperFile(getGlobalDeveloperPath());
   const gitUserName = readGitUserName(projectRoot);
   const name =
-    (projectDeveloper && projectDeveloper.name) ||
+    firstTruthy(projectDevelopers.map((developer) => developer.name)) ||
     (globalDeveloper && globalDeveloper.name) ||
     gitUserName ||
     '';
   const lang =
-    normalizeSupportedLang(projectDeveloper && projectDeveloper.lang) ||
+    firstTruthy(projectDevelopers.map((developer) => normalizeSupportedLang(developer.lang))) ||
     normalizeSupportedLang(globalDeveloper && globalDeveloper.lang) ||
     'zh';
 
@@ -232,6 +402,10 @@ function resolveDeveloperDefaults(projectRoot, adapter) {
     name,
     lang,
   };
+}
+
+function firstTruthy(values) {
+  return (Array.isArray(values) ? values : []).find(Boolean) || '';
 }
 
 function normalizeSupportedLang(value) {
@@ -276,6 +450,20 @@ function printInitPreview(plan) {
     legacyStateDetected: plan.legacyStateDetected,
     destructiveResetReason: plan.destructiveResetReason,
     showPathSamples: false,
+  });
+}
+
+function printInitPreviews(plans) {
+  if (plans.length === 1) {
+    printInitPreview(plans[0]);
+    return;
+  }
+
+  console.log(`Selected host runtimes: ${plans.map((plan) => initPlatformLabel(plan.platform)).join(', ')}`);
+  plans.forEach((plan, index) => {
+    console.log('');
+    console.log(`Host runtime ${index + 1}/${plans.length}: ${initPlatformLabel(plan.platform)}`);
+    printInitPreview(plan);
   });
 }
 
@@ -613,7 +801,7 @@ function applyProjectInitPlan(projectRoot, plan) {
   };
 }
 
-function printInitApplySuccess(plan, result) {
+function printInitApplySuccess(plan, result, options = {}) {
   const adapter = getAdapter(plan.platform);
   if (plan.platform === 'claude') {
     console.log('🪝 Installed Claude SessionStart matcher in .claude/settings.json');
@@ -654,12 +842,14 @@ function printInitApplySuccess(plan, result) {
   console.log(`  🈯 lang: ${plan.developer.lang}`);
   console.log(`  ⏱ initialized_at: ${plan.developer.initializedAt}`);
   console.log(`  🔖 version: ${plan.developer.version}`);
-  if (plan.changelogCreated) {
+  if (plan.changelogCreated && !options.suppressChangelogCreated) {
     console.log('📝 Bootstrapped CHANGELOG.md');
   }
 
-  console.log('');
-  printInitNextSteps(plan.platform, plan.developer.lang);
+  if (options.showNextSteps !== false) {
+    console.log('');
+    printInitNextSteps(plan.platform, plan.developer.lang);
+  }
 }
 
 function runInitForWorkspace({
@@ -1074,6 +1264,11 @@ function normalizeInitPlatform(platform) {
   throw new Error(`Unknown init platform: ${platform || ''}`);
 }
 
+function initPlatformLabel(platform) {
+  const choice = INIT_PLATFORM_CHOICES.find((entry) => entry.id === platform);
+  return choice ? choice.label : platform;
+}
+
 function printInitDiagnostics(plan) {
   const diagnostics = collectInitDiagnostics(plan);
   for (const diagnostic of diagnostics) {
@@ -1099,6 +1294,21 @@ function collectInitDiagnostics(plan) {
     ];
   }
   return Array.isArray(plan.diagnostics) ? plan.diagnostics : [];
+}
+
+function collectInitErrors(plan) {
+  if (!plan || typeof plan !== 'object') {
+    return [];
+  }
+  if (plan.mode === 'all-repos') {
+    return [
+      ...(plan.parentPlan ? collectInitErrors(plan.parentPlan) : []),
+      ...(Array.isArray(plan.childPlans)
+        ? plan.childPlans.flatMap((entry) => collectInitErrors(entry.plan))
+        : []),
+    ];
+  }
+  return Array.isArray(plan.errors) ? plan.errors : [];
 }
 
 function collectPlanErrorMessages(plan) {
@@ -1132,15 +1342,47 @@ function printInitNextSteps(platform, lang = 'zh') {
   console.log('  5. graph readiness 就绪后，按用户意图进入 brainstorm/plan/work/review/debug 等 workflow；项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts、直接源码证据、测试和 graph facts。');
 }
 
+function printInitNextStepsForPlatforms(platforms, lang = 'zh') {
+  const uniquePlatforms = [...new Set(platforms)];
+  if (uniquePlatforms.length === 1) {
+    printInitNextSteps(uniquePlatforms[0], lang);
+    return;
+  }
+
+  if (lang === 'en') {
+    console.log('Next steps:');
+    console.log('  1. Restart Claude Code and Codex or open new sessions so each host loads the generated entrypoints.');
+    console.log('  2. For lightweight docs, small fixes, first trials, or lightweight plan/work/review, start the matching /spec:* command or $spec-* skill in that host.');
+    console.log('  3. For enhanced readiness, run /spec:mcp-setup or $spec-mcp-setup in the host you plan to use.');
+    console.log('  4. If setup shows graph bootstrap is still pending, run /spec:graph-bootstrap or $spec-graph-bootstrap when prompted.');
+    console.log('  5. After graph readiness is ready, choose the next workflow by user intent: brainstorm/plan/work/review/debug.');
+    return;
+  }
+
+  console.log('下一步:');
+  console.log('  1. 重启 Claude Code 和 Codex 或分别新开会话，让宿主加载刚生成的入口。');
+  console.log('  2. 对 docs、小修复、首次试用或轻量 plan/work/review，可在对应宿主启动 /spec:* command 或 $spec-* skill。');
+  console.log('  3. 需要增强 readiness 时，在计划使用的宿主里运行 /spec:mcp-setup 或 $spec-mcp-setup。');
+  console.log('  4. 如果 setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap 或 $spec-graph-bootstrap。');
+  console.log('  5. graph readiness 就绪后，按用户意图进入 brainstorm/plan/work/review/debug 等 workflow。');
+}
+
 function printHelp() {
   console.log([
     '🚀 spec-first init',
     '',
     '📘 Usage:',
-    '  spec-first init',
+    '  spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]',
+    '',
+    'Host selection:',
+    '  spec-first init                         Select one or more host runtimes interactively',
+    '  spec-first init --codex                 Initialize only Codex after the remaining prompts',
+    '  spec-first init --claude --codex        Initialize both selected hosts',
+    '  spec-first init -y                      Skip prompts and initialize default hosts',
+    '  spec-first init --codex -y -u <name> --lang zh',
     '',
     'Interactive steps:',
-    '  1. Choose Claude Code or Codex',
+    '  1. Select Claude Code and/or Codex',
     '  2. Confirm developer name',
     '  3. Choose response language',
     '  4. Choose workspace target when child Git repos are detected',
@@ -1152,8 +1394,9 @@ function printHelp() {
     '  Parent workspace runs write only parent advisory summary assets; child repo truth stays in each child repo.',
     '',
     'Non-interactive usage:',
-    '  spec-first init requires an interactive terminal and exits 2 in CI/non-TTY environments.',
-    '  CI callers should use require("spec-first/src/cli/init-plan").',
+    '  Use -y/--yes to skip prompts. Without -y, init requires an interactive terminal and exits 2 in CI/non-TTY environments.',
+    '  Explicit --claude/--codex flags override the default host set.',
+    '  CI callers that need dry-run evidence or custom target selection should use require("spec-first/src/cli/init-plan").',
     '',
     '➡️ After successful init:',
     '  Claude: restart Claude Code. For lightweight work, start the matching /spec:* workflow; for enhanced readiness, run /spec:mcp-setup, then /spec:graph-bootstrap if prompted, then route by user intent.',

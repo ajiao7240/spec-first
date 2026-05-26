@@ -1,5 +1,5 @@
 ---
-title: GitNexus bounded pre-facts capability extension 技术方案
+title: GitNexus Harness context and evidence integration 技术方案
 date: 2026-05-27
 spec_id: 2026-05-26-001-gitnexus-workflow-context-evidence
 origin: docs/brainstorms/2026-05-26-001-gitnexus-workflow-context-evidence-requirements.md
@@ -8,7 +8,7 @@ plan: docs/plans/2026-05-27-001-feat-gitnexus-bounded-pre-facts-plan.md
 status: active
 ---
 
-# GitNexus bounded pre-facts capability extension 技术方案
+# GitNexus Harness context and evidence integration 技术方案
 
 ## 1. 文档定位
 
@@ -123,7 +123,7 @@ GitNexus 官方文档把 MCP 定位为 daily development 的 deep architectural 
 | `context` | symbol definition, categorized refs, process participation | deterministic helper + native session | yes | inspect key symbols before plan/work/debug | require unambiguous symbol or source confirmation |
 | `impact` | upstream/downstream blast radius, affected modules/processes, risk | deterministic helper + native session | yes | pre-change and review impact analysis | local summary-first budget; provider `summaryOnly` only after schema proof |
 | `detect_changes` | changed symbols and affected processes from git diff scopes | deterministic helper + native session | yes | review closeout, pre-commit, debug when diff-linked | no raw diff persistence; explicit scope required |
-| `route_map` | route -> handler -> middleware/consumers | workflow-native session lane | no | API/web/backend planning and review | task-domain gated; not generic Android/CLI requirement |
+| `route_map` | route -> handler -> middleware/consumers | workflow-native session lane | no | API/web/backend planning and review | task-domain gated; only relevant when route evidence exists |
 | `api_impact` | pre-change API route impact report | workflow-native session lane | no | API handler changes and response contract review | source/API contract confirmation required |
 | `shape_check` | route response keys vs consumer property access | workflow-native session lane | no | API response drift and frontend/backend mismatch review | mismatch is finding candidate, not finding proof |
 | `tool_map` | MCP/RPC tool definitions and handlers | workflow-native session lane | no | spec-mcp-setup, skill-audit, tool surface changes | useful for tool-facing tasks; utilization-gated helper candidate |
@@ -145,7 +145,7 @@ Maximizing GitNexus in spec-first means picking the deepest useful graph primiti
 | `spec-debug` | Start with `query` from symptom/stack trace, then `context` on suspect symbols, then upstream/downstream `impact` to test causal reach. Use `cypher` only when typed tools cannot answer a bounded graph question. | Hypothesis ledger `graph_evidence` plus non-graph causal-chain closure |
 | `spec-work` / task execution | Consume plan/review graph evidence to prioritize source reads, tests and risk checks; before editing shared symbols, prefer session-local `impact`; before commit/review, prefer `detect_changes`. | Work closeout summary or run artifact records graph evidence used/rejected |
 | `spec-write-tasks` | Use plan Graph / GitNexus Evidence for task ordering, `context_refs`, `test_focus`, and `stop_if`; never add new scope from graph alone. | Derived task-pack focus metadata |
-| Knowledge / compound later | Record only source-confirmed graph-informed lessons. Raw provider output is not durable knowledge. | concise docs/solutions entry with evidence provenance |
+| Knowledge / compound | Record only source-confirmed graph-informed lessons. Raw provider output is not durable knowledge. | concise docs/solutions entry with evidence provenance |
 
 ---
 
@@ -379,7 +379,7 @@ Example arguments:
 }
 ```
 
-Important correction: GitNexus README documents `summaryOnly` as an `impact` option, but the current host MCP tool schema available to spec-first must be treated as the executable contract. If that schema does not expose `summaryOnly`, phase one must not emit it. The stable boundary is local summary-first normalization and budget truncation; a later provider-profile probe may add `summaryOnly` as an optimization after tool-schema proof.
+Important correction: GitNexus README documents `summaryOnly` as an `impact` option, but the current host MCP tool schema available to spec-first must be treated as the executable contract. If that schema does not expose `summaryOnly`, the deterministic helper must not emit it. The stable boundary is local summary-first normalization and budget truncation; a provider-profile probe may add `summaryOnly` as an optimization after tool-schema proof.
 
 ### 6.5 `detect_changes`
 
@@ -823,12 +823,12 @@ Target size: <= 500 tokens.
 
 ### 13.2 Injection surfaces
 
-| Host | Phase-one surface | Notes |
+| Host | Surface | Notes |
 |---|---|---|
 | Claude | existing `templates/claude/hooks/session-start` appends startup snapshot | deterministic hook exists |
-| Codex | existing `startup-reminder --codex` / managed instruction route | no full hook parity in this plan |
+| Codex | `startup-reminder --codex` / managed instruction route, plus lifecycle hook templates when source/runtime hook governance opts in | same snapshot producer; host-specific delivery must stay source-first |
 
-Codex lifecycle hooks are now known to exist, but full Codex hook template/init/doctor/clean parity is deferred to a dedicated hook governance plan.
+Codex lifecycle hooks are known to exist. This design treats hook parity as a governance contract problem, not as a reason to move graph policy into hooks: both hosts should consume the same helper-owned readiness snapshot, while templates/init/doctor/clean delivery remains governed by source/runtime boundary tests when those surfaces are changed.
 
 ---
 
@@ -873,6 +873,8 @@ Add or update:
 - `tests/unit/spec-code-review-contracts.test.js`
 - `tests/unit/spec-debug-contracts.test.js`
 - `tests/unit/spec-write-tasks-contracts.test.js`
+- `tests/unit/spec-work-contracts.test.js`
+- focused graph evidence / workspace GitNexus contract tests when session/resource envelopes change
 - `tests/unit/instruction-bootstrap.test.js`
 - `tests/unit/claude-settings.test.js`
 
@@ -922,6 +924,13 @@ Run broader smoke/integration only if implementation changes CLI command discove
 | R14 review backward compatibility | Section 9.1 |
 | R15 plan/debug neutral rendering | Section 9.2 |
 | R16 existing downstream evidence shapes | Sections 5, 9 |
+| R16a shared session/resource evidence envelope | Sections 5.2, 7.3, 15.3 |
+| R16b route/API/shape workflow-native evidence | Sections 2.7, 5.2, 15.3 |
+| R16c tool_map workflow-native evidence | Sections 2.7, 5.2, 15.3 |
+| R16d cypher read-only/budget/redaction evidence | Sections 2.7, 5.2, 15.3 |
+| R16e repo/group resource and group-aware evidence | Sections 2.7, 5.2, 15.3 |
+| R16f spec-work graph evidence consumption | Sections 2.8, 12, 16 |
+| R16g knowledge workflow evidence boundary | Sections 2.8, 16, 17 |
 | R17 existing safety limits | Sections 7, 10, 11 |
 | R18 annotation verification | Sections 7.2, 10, 11 |
 | R19 raw result provenance matching | Sections 7.2, 11 |
@@ -939,17 +948,20 @@ Run broader smoke/integration only if implementation changes CLI command discove
 | F4 redaction | Section 10 | `detect_changes` raw diff and private identifiers do not persist into provider-results or rendered facts |
 | F5 task consumption | Sections 5, 12, 16 | `spec-write-tasks` prose/tests consume plan graph evidence for `context_refs`, ordering and `test_focus` without scope expansion |
 | F6 discoverability | Sections 16, 17 | Checked-in host instructions or managed bootstrap make `docs/solutions/` discoverable without mandatory pre-read |
+| Workflow-native session evidence | Sections 2.7, 5.2, 15.3 | API/tool/Cypher calls produce compact evidence envelopes with source reads, limitations and redaction |
+| Workspace/group resource evidence | Sections 2.7, 5.2, 15.3 | Repo/group resources orient multi-repo work without selecting write scope |
+| Work / Knowledge consumption | Sections 2.8, 12, 16, 17 | `spec-work` and compound/refresh consume only advisory, source-confirmed graph evidence |
 
-### 15.3 Deferred and out-of-scope coverage
+### 15.3 Non-helper and mutation-gated coverage
 
-| Deferred/out item | Design treatment |
+| Capability / item | Design treatment |
 |---|---|
-| `tool_map` | Second-wave candidate, gated by F2 utilization |
-| `route_map` / `api_impact` / `shape_check` | Workflow-native session capability for API/web/backend tasks; not phase-one deterministic helper scope |
-| `cypher` | Advanced workflow-native capability after schema-first read-only enforcement and query budget exist |
+| `tool_map` | Workflow-native session evidence for tool/MCP/RPC surface tasks; utilization decides only whether it is later promoted into deterministic helper |
+| `route_map` / `api_impact` / `shape_check` | Workflow-native session evidence for API/web/backend tasks; not deterministic helper scope |
+| `cypher` | Advanced workflow-native capability with schema-first read-only proof, bounded query/result budget and redacted summary |
 | `list_repos` / `group_list` | Resource/workspace orientation and readiness facts; not helper duplication |
 | `group_sync` / `rename` | Permanently out of ordinary workflow helper; mutation-gated maintenance only |
-| full Codex hook parity | Separate hook governance plan after F3 readiness snapshot |
+| Codex / Claude hook parity | Shared readiness snapshot plus source/runtime governance tests; hooks remain delivery surfaces, not policy owners |
 
 ---
 
@@ -961,10 +973,11 @@ Run broader smoke/integration only if implementation changes CLI command discove
 4. Rendering split: review vs neutral.
 5. Safety/redaction hardening.
 6. Workflow prose updates for plan/review/debug.
-7. Utilization metrics.
-8. Startup readiness snapshot.
-9. `spec-write-tasks` and `docs/solutions/` discoverability.
-10. README / changelog / package-surface validation.
+7. Workflow-native session and workspace/resource evidence envelope.
+8. Utilization metrics.
+9. Startup readiness snapshot.
+10. `spec-write-tasks` / `spec-work` / knowledge consumption and `docs/solutions/` discoverability.
+11. README / changelog / package-surface validation.
 
 This order keeps existing review behavior stable while adding deeper GitNexus evidence behind tests.
 
@@ -972,7 +985,7 @@ This order keeps existing review behavior stable while adding deeper GitNexus ev
 
 ## 17. Non-Goals Reconfirmed
 
-Not in the phase-one deterministic helper:
+Not in the deterministic helper query-plan:
 
 - `route_map`
 - `api_impact`
@@ -987,23 +1000,24 @@ Not in ordinary workflow automation:
 - `group_sync`
 - `rename`
 - provider refresh / repair / analyze
-- full Codex hook parity
 - raw hszq-app fixture or raw private provider output
 
-The distinction matters: API/tool/Cypher/group features are valid GitNexus capabilities and should be used by SKILL/LLM when the task domain warrants them. They are simply not safe or high-ROI enough to become phase-one durable pre-facts helper operations. Mutation-capable features remain manual or setup/bootstrap governed.
+The distinction matters: API/tool/Cypher/group features are valid GitNexus capabilities and are in scope through workflow-native/session/resource lanes when the task domain warrants them. They are simply not part of the deterministic pre-facts helper because their argument choice, budget and confirmation rules depend on task semantics. Mutation-capable features remain manual, preview-first or setup/bootstrap governed.
 
 ---
 
 ## 18. Final Judgment
 
-This design is the complete technical design for the current phase-one requirements. It is intentionally not a complete GitNexus capability platform or central workflow engine.
+This design is the complete technical design for the two GitNexus requirements documents. It intentionally maximizes useful GitNexus evidence through bounded Harness lanes instead of turning spec-first into a central graph platform or workflow engine.
 
 The expected capability lift is concrete:
 
 - `spec-plan` gets better implementation context and source-read focus.
 - `spec-code-review` gets better diff impact orientation without weakening finding evidence rules.
 - `spec-debug` gets better hypothesis formation while preserving non-graph root-cause confirmation.
-- `spec-work` / `spec-write-tasks` get better task ordering and test-focus inputs.
-- Future GitNexus expansion becomes data-gated instead of opinion-driven.
+- `spec-work` / `spec-write-tasks` get better task ordering, source-read and test-focus inputs.
+- Workflow-native API/tool/Cypher/group evidence becomes governed, redacted and source-confirmed instead of ad hoc session context.
+- Knowledge workflows can preserve only source-confirmed graph-informed learning.
+- Helper promotion decisions become data-gated instead of opinion-driven.
 
 The design stays aligned with spec-first's core rule and Harness positioning: scripts prepare bounded facts; LLMs decide what those facts mean; metrics decide whether the next capability expansion is worth carrying into the durable system.

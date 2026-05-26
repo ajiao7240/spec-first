@@ -124,13 +124,13 @@ spec-first doctor
 
 On Win64, prefer native Windows Terminal with PowerShell 7+ or `cmd.exe` for installation and smoke checks. Windows PowerShell 5.1 is supported, but PowerShell 7+ has better UTF-8 behavior. Git Bash, MSYS2, and WSL are useful POSIX environments, but they do not replace native Windows validation because npm `.cmd` shims, `%PATH%`, quoting, and code page behavior are different.
 
-Initialize only the host you actually use. `spec-first init` is interactive: choose Claude Code or Codex, confirm your developer name and language, preview the writes, then confirm.
+Initialize the host runtimes you actually use. `spec-first init` is interactive: select Claude Code and/or Codex, confirm your developer name and language, preview the writes, then confirm.
 
 ```bash
 spec-first init
 ```
 
-Choose Claude Code or Codex when prompted. Run the init command once for each host you actually use. For example, choose Claude Code for Claude Code-only projects, choose Codex for Codex-only projects, or run it twice when the same repo should support both hosts.
+Use `spec-first init --codex` or `spec-first init --claude --codex` to skip only the host selection step. Use `spec-first init -y` to initialize the default host set without prompts, or combine `-y` with explicit host flags, `-u <name>`, and `--lang <zh|en>` for scripts.
 
 Restart the host or open a new session so it loads the generated runtime assets.
 
@@ -202,7 +202,7 @@ Terminal in your target repo
   | npm install -g spec-first
   | spec-first doctor
   | spec-first init
-  |   choose Claude Code or Codex when prompted
+  |   select Claude Code and/or Codex when prompted
   v
 Restart Claude Code or Codex
   |
@@ -567,7 +567,7 @@ CLI reference:
 spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
-spec-first init
+spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first tasks hash <plan-path> [--json]
 spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]
