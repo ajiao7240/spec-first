@@ -367,7 +367,8 @@ describe('claude settings', () => {
       const payload = JSON.parse(result.stdout);
       expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
       expect(payload.hookSpecificOutput.additionalContext).toContain('Managed using-spec-first bootstrap is missing');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('spec-first init --claude');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('spec-first init');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('choose Claude Code');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

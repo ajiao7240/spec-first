@@ -112,7 +112,7 @@ Generated runtime assets 不是 source-of-truth：
 
 ## 节点一：init
 
-`spec-first init --claude|--codex` 不安装 `code-review-graph`，也不运行 `build` 或 `update`。它只准备 host/runtime 入口与本地 artifact 边界。
+`spec-first init` 不安装 `code-review-graph`，也不运行 `build` 或 `update`。它只准备 host/runtime 入口与本地 artifact 边界。
 
 与 `code-review-graph` 直接相关的 init 行为：
 

@@ -127,8 +127,9 @@ function plannedRuntimeOperation(platform, targetPath) {
 function expectRenderedRuntimeParity(content) {
   expect(content).toContain('.agents/skills/spec-update/SKILL.md');
   expect(content).toContain('.claude/commands/spec/update.md');
-  expect(content).toContain('spec-first init --claude');
-  expect(content).toContain('spec-first init --codex');
+  expect(content).toContain('spec-first init');
+  expect(content).toContain('choose Claude Code');
+  expect(content).toContain('choose Codex');
   expect(content).not.toContain('.agents/.agents');
   expect(content).not.toContain('.agents/.claude');
   expect(content).not.toContain('.claude/.claude');
@@ -162,8 +163,9 @@ describe('spec-update contracts', () => {
     expect(skill).toContain('If this workflow is reporting both host checks');
     expect(skill).toContain('spec-first doctor --claude --json');
     expect(skill).toContain('spec-first doctor --codex --json');
-    expect(skill).toContain('spec-first init --claude');
-    expect(skill).toContain('spec-first init --codex');
+    expect(skill).toContain('spec-first init');
+    expect(skill).toContain('choose Claude Code');
+    expect(skill).toContain('choose Codex');
     expect(skill).toContain('run the update workflow');
     expect(skill).not.toContain('ce_platforms: [claude]');
     expect(skill).not.toContain('Claude Code only.');

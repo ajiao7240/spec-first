@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PlatformAdapter = require('./base');
+const { formatInitGuidance } = require('../init-guidance');
 const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'claude', 'hooks', 'session-start');
 const SESSION_START_RELATIVE_PATH = '.claude/hooks/session-start';
 const SESSION_START_CLI_PLACEHOLDER = '__SPEC_FIRST_CLI_PATH__';
@@ -131,7 +132,7 @@ class ClaudeAdapter extends PlatformAdapter {
         level: 'ERROR',
         name: 'Claude runtime agent references',
         message: `found canonical spec-first agent names in ${canonicalMatches.slice(0, 3).join(', ')}${canonicalMatches.length > 3 ? ', ...' : ''}`,
-        fix: 'Run `spec-first init --claude` to regenerate runtime assets with Claude-compatible agent names.',
+        fix: formatInitGuidance('claude', 'to regenerate runtime assets with Claude-compatible agent names'),
       });
     }
 
@@ -147,7 +148,7 @@ class ClaudeAdapter extends PlatformAdapter {
         level: 'ERROR',
         name: 'Claude Task agent references',
         message: `unresolved Task agent names: ${samples.join(', ')}${unresolvedTaskRefs.length > 3 ? ', ...' : ''}`,
-        fix: 'Run `spec-first init --claude` after upgrading the CLI so runtime task references match installed agent names.',
+        fix: formatInitGuidance('claude', 'after upgrading the CLI so runtime task references match installed agent names'),
       });
     }
 
@@ -285,7 +286,7 @@ function inspectSessionStartHook(projectRoot) {
       level: 'WARNING',
       name: SESSION_START_RELATIVE_PATH,
       message: 'missing',
-      fix: 'Run `spec-first init --claude` in this project to install the managed SessionStart hook.',
+      fix: formatInitGuidance('claude', 'in this project to install the managed SessionStart hook'),
     };
   }
 
@@ -296,7 +297,7 @@ function inspectSessionStartHook(projectRoot) {
       level: 'WARNING',
       name: SESSION_START_RELATIVE_PATH,
       message: 'drifted from bundled template',
-      fix: 'Run `spec-first init --claude` in this project to restore the managed SessionStart hook.',
+      fix: formatInitGuidance('claude', 'in this project to restore the managed SessionStart hook'),
     };
   }
 

@@ -82,7 +82,7 @@
   <text x="488" y="246" class="eyebrowDark">Adapter</text>
   <text x="488" y="282" class="h2">Platform Adapter</text>
   <text x="488" y="314" class="body">
-    <tspan x="488" dy="0">`init --claude` 或 `init --codex` 会调用平台适配器，</tspan>
+    <tspan x="488" dy="0">`spec-first init` 会按引导调用平台适配器，</tspan>
     <tspan x="488" dy="22">把规范源转换为目标项目的本地运行时。</tspan>
   </text>
   <g transform="translate(488 350)">

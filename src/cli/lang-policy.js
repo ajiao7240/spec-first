@@ -84,7 +84,7 @@ function buildZhPolicy() {
 
 ### Changelog
 - 任何项目 source 新增、删除或修改，都必须同步更新根目录 \`CHANGELOG.md\`；记录格式以仓库现行格式为准。
-- \`作者\` 使用当前 host developer profile：Codex 读 \`.codex/spec-first/.developer\`，Claude 读 \`.claude/spec-first/.developer\`；缺失时先运行 \`spec-first init --codex|--claude -u <name> --lang <zh|en>\`。
+- \`作者\` 使用当前 host developer profile：Codex 读 \`.codex/spec-first/.developer\`，Claude 读 \`.claude/spec-first/.developer\`；缺失时先运行 \`spec-first init\` 并按引导选择当前宿主、开发者姓名与语言。
 - 用户可见变更追加 \`(user-visible)\`；缺少对应记录时，拒绝生成 source 变更。`;
 }
 
@@ -100,7 +100,7 @@ function buildEnPolicy() {
 
 ### Changelog
 - Any project source addition, deletion, or modification must update the repo-root \`CHANGELOG.md\`; follow the repository's existing format.
-- \`author\` uses the current host developer profile: Codex reads \`.codex/spec-first/.developer\`, Claude reads \`.claude/spec-first/.developer\`; if missing, run \`spec-first init --codex|--claude -u <name> --lang <zh|en>\` first.
+- \`author\` uses the current host developer profile: Codex reads \`.codex/spec-first/.developer\`, Claude reads \`.claude/spec-first/.developer\`; if missing, run \`spec-first init\` first and choose the current host, developer name, and language when prompted.
 - Append \`(user-visible)\` for user-visible changes; if the matching entry is missing, refuse to generate the source change.`;
 }
 

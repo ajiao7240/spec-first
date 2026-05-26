@@ -22,7 +22,8 @@ echo "=== install-local.sh smoke test ==="
 
 echo "1. 检查脚本输出是否指向 npm CLI 模型..."
 grep -q "npm install -g spec-first" "$OUTPUT_FILE"
-grep -q "spec-first init --claude" "$OUTPUT_FILE"
+grep -q "spec-first init" "$OUTPUT_FILE"
+grep -q "按引导选择目标宿主" "$OUTPUT_FILE"
 if grep -q "$retired_default_entry" "$OUTPUT_FILE"; then
   echo "✗ 输出仍宣传已删除的旧 bootstrap 入口"
   exit 1

@@ -207,7 +207,7 @@ It must not modify these paths without explicit user confirmation:
 - `.codex/`
 - `.agents/skills/`
 
-Generated runtime assets must be repaired by rerunning `spec-first init --claude` or `spec-first init --codex`, not by hand-editing generated copies.
+Generated runtime assets must be repaired by rerunning `spec-first init` with the target host selected, not by hand-editing generated copies.
 
 ## Failure Modes
 

@@ -199,7 +199,7 @@ Advisory facts are not confirmed truth.
 
 ### 2.2 `init` 不刷新 GitNexus
 
-`spec-first init --claude|--codex` 做的是 host/runtime 入口准备：
+`spec-first init` 做的是 host/runtime 入口准备：
 
 - 生成或更新 `AGENTS.md` / `CLAUDE.md` managed blocks。
 - 更新 host runtime mirrors。

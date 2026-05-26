@@ -13,6 +13,7 @@ const {
   summarizeOperationPlan,
 } = require('../state');
 const { getAdapter } = require('../adapters');
+const { formatInitGuidance } = require('../init-guidance');
 const { removeManagedCodingGuidelinesBlock } = require('../coding-guidelines');
 const { removeManagedBootstrapBlock } = require('../instruction-bootstrap');
 const { removeManagedRuntimeToolsBlock } = require('../runtime-tools-index');
@@ -52,7 +53,7 @@ function runClean(argv) {
     if (isLegacyManagedState(rawState)) {
       console.error('Detected legacy spec-first managed state. `clean` does not migrate legacy installs.');
       console.error(
-        `Run \`spec-first init --${adapter.id}\` first so spec-first can perform a managed hard reset and rebuild the current runtime.`,
+        formatInitGuidance(adapter, 'before rerunning clean so spec-first can perform a managed hard reset and rebuild the current runtime'),
       );
       console.error(
         `If you still want to remove current managed assets afterward, rerun \`spec-first clean --${adapter.id}\`.`,
@@ -64,7 +65,7 @@ function runClean(argv) {
       `Could not read spec-first managed asset state. ${error instanceof Error ? error.message : String(error)}`,
     );
     console.error(
-      `Run \`spec-first init --${adapter.id}\` to regenerate the state file, then retry \`spec-first clean --${adapter.id}\`.`,
+      `${formatInitGuidance(adapter, 'to regenerate the state file').replace(/\.$/, '')}, then retry \`spec-first clean --${adapter.id}\`.`,
     );
     return 1;
   }

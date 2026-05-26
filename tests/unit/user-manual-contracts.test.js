@@ -109,13 +109,13 @@ describe('user manual contracts', () => {
 
     expect(manual).toContain('[Gitignore 参考](./12-gitignore参考.md)');
     expect(manual).toContain('`init` 自动维护的 `.gitignore` spec-first managed block');
-    expect(gitignoreGuide).toContain('`spec-first init --claude|--codex` 会在当前目标项目的 `.gitignore` 中自动写入或更新');
-    expect(gitignoreGuide).toContain('`init --dry-run` 会预览这次写入');
+    expect(gitignoreGuide).toContain('`spec-first init` 会在当前目标项目的 `.gitignore` 中自动写入或更新');
+    expect(gitignoreGuide).toContain('交互式 init 会在确认前预览这次写入');
     expect(gitignoreGuide).toContain('# spec-first:start');
     expect(gitignoreGuide).toContain('.claude/commands/spec/');
     expect(gitignoreGuide).toContain('.agents/skills/');
     expect(gitignoreGuide).not.toContain('.spec-first/' + 'standards/');
-    expect(gitignoreGuide).toContain('在父 workspace 且检测到多个 child Git repos 时，`init` 默认进入 all-child maintenance');
+    expect(gitignoreGuide).toContain('在父 workspace 且检测到多个 child Git repos 时，`init` 会在引导中询问全部 child 或单个 child');
     expect(gitignoreGuide).toContain('父目录不把 `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/providers/*` 或 `.spec-first/impact/*` 作为 parent-local truth');
     expect(gitignoreGuide).toContain('不要默认加入');
     expect(gitignoreGuide).toContain('`*.tgz` 是本地打包产物');

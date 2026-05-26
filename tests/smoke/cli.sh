@@ -31,13 +31,65 @@ process.stdout.write(String(codex.skills.length + codex.workflowSkills.length + 
 NODE
 )"
 
+run_programmatic_init() {
+  local project_root="$1"
+  local platform="$2"
+  local name="$3"
+  local lang="$4"
+  local mode="${5:-apply}"
+  node - "$REPO_ROOT" "$project_root" "$platform" "$name" "$lang" "$mode" <<'NODE'
+const repoRoot = process.argv[2];
+const projectRoot = process.argv[3];
+const platform = process.argv[4];
+const name = process.argv[5];
+const lang = process.argv[6];
+const dryRun = process.argv[7] === 'dry-run';
+const { applyInitPlan, buildInitPlan } = require(`${repoRoot}/src/cli/init-plan`);
+const { printInitApplySuccess, printInitDryRun } = require(`${repoRoot}/src/cli/commands/init`);
+
+const plan = buildInitPlan({
+  projectRoot,
+  workspaceRoot: projectRoot,
+  platform,
+  name,
+  lang,
+  target: { mode: 'single-repo', projectRoot },
+  dryRun,
+  gitRootTopology: 'single-repo',
+});
+
+if (Array.isArray(plan.errors) && plan.errors.length > 0) {
+  for (const error of plan.errors) {
+    console.error(error.message || String(error));
+  }
+  process.exit(1);
+}
+
+if (dryRun) {
+  printInitDryRun({
+    platform: plan.platform,
+    plan: plan.operationPlan,
+    untrackDiagnostic: plan.untrackDiagnostic,
+    legacyStateDetected: plan.legacyStateDetected,
+    destructiveResetReason: plan.destructiveResetReason,
+  });
+  process.exit(0);
+}
+
+const result = applyInitPlan(projectRoot, plan);
+printInitApplySuccess(plan, result);
+process.exit(result.exit_code);
+NODE
+}
+
 echo "=== CLI smoke test ==="
 
 echo "1. Check help and version output..."
 help_output="$(node "$REPO_ROOT/bin/spec-first.js" --help)"
 version_output="$(node "$REPO_ROOT/bin/spec-first.js" --version)"
 grep -q "doctor" <<<"$help_output"
-grep -q "init (--claude|--codex)" <<<"$help_output"
+grep -q "init" <<<"$help_output"
+grep -q "Interactively install workflows" <<<"$help_output"
 grep -q "clean (--claude|--codex)" <<<"$help_output"
 grep -q "tasks <subcommand>" <<<"$help_output"
 grep -q "gitnexus-instruction" <<<"$help_output"
@@ -80,8 +132,8 @@ echo "✓ help/version output is present"
 echo "2. Check doctor output in a fresh project..."
 doctor_fresh_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor)"
 grep -q "No spec-first platform detected in this project." <<<"$doctor_fresh_output"
-grep -q 'spec-first init --claude' <<<"$doctor_fresh_output"
-grep -q 'spec-first init --codex' <<<"$doctor_fresh_output"
+grep -q 'spec-first init' <<<"$doctor_fresh_output"
+grep -q 'choose Claude Code or Codex' <<<"$doctor_fresh_output"
 doctor_fresh_json="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --json)"
 node - "$doctor_fresh_json" <<'NODE'
 const payload = JSON.parse(process.argv[2]);
@@ -90,12 +142,33 @@ if (payload.runtime_asset_health !== 'not_applicable') throw new Error('fresh do
 NODE
 echo "✓ doctor reports fresh-project state"
 
-echo "3. Check init --dry-run previews changes without writing files..."
+echo "3. Check interactive init rejects non-TTY and old flags..."
+init_stdout="$TMP_DIR/init-non-tty.stdout"
+init_stderr="$TMP_DIR/init-non-tty.stderr"
+init_status=0
+(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init >"$init_stdout" 2>"$init_stderr") || init_status=$?
+if [ "$init_status" -eq 0 ]; then
+  echo "init should fail in non-TTY smoke context" >&2
+  exit 1
+fi
+test "$init_status" = "2"
+grep -q "requires an interactive terminal" "$init_stderr"
+init_status=0
+(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --claude >"$init_stdout" 2>"$init_stderr") || init_status=$?
+if [ "$init_status" -eq 0 ]; then
+  echo "init should reject legacy flags" >&2
+  exit 1
+fi
+test "$init_status" = "2"
+grep -q "no longer accepts options" "$init_stderr"
+echo "✓ init rejects non-TTY and legacy flags"
+
+echo "4. Check programmatic init preview changes without writing files..."
 dry_dir="$TMP_DIR/dry-init"
 mkdir -p "$dry_dir/.claude/commands/spec"
 git -C "$dry_dir" init -q >/dev/null
 printf 'custom command\n' > "$dry_dir/.claude/commands/spec/custom.md"
-dry_output="$(cd "$dry_dir" && node "$REPO_ROOT/bin/spec-first.js" init --claude --dry-run -u kuang --lang en)"
+dry_output="$(run_programmatic_init "$dry_dir" claude kuang en dry-run)"
 grep -q "Dry run: spec-first init (claude)" <<<"$dry_output"
 grep -q "Would prune 1 unmanaged command file(s)" <<<"$dry_output"
 grep -q "No managed runtime paths require untracking." <<<"$dry_output"
@@ -104,10 +177,10 @@ grep -q "No files were changed." <<<"$dry_output"
 test -e "$dry_dir/.claude/commands/spec/custom.md"
 test ! -e "$dry_dir/.claude/spec-first/state.json"
 test ! -e "$dry_dir/.gitignore"
-echo "✓ init --dry-run previews changes without writing files"
+echo "✓ programmatic init preview changes without writing files"
 
-echo "4. Initialize Claude runtime in a fresh project..."
-claude_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --claude -u kuang --lang en)"
+echo "5. Initialize Claude runtime in a fresh project..."
+claude_output="$(run_programmatic_init "$TMP_DIR" claude kuang en)"
 grep -q "Generated ${expected_command_count} command file(s)" <<<"$claude_output"
 grep -q "Generated ${expected_claude_skill_count} skill directory(ies)" <<<"$claude_output"
 grep -q "Generated ${expected_agent_count} agent file(s)" <<<"$claude_output"
@@ -167,7 +240,7 @@ if grep -qxF '.spec-first/' "$TMP_DIR/.gitignore" || grep -qxF '.agents/' "$TMP_
 fi
 echo "✓ Claude init generated commands, skills, agents, hooks, and state"
 
-echo "5. Run doctor after Claude initialization..."
+echo "6. Run doctor after Claude initialization..."
 doctor_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" doctor --claude)"
 grep -q ".claude/spec-first/state.json" <<<"$doctor_output"
 grep -q ".claude/commands/spec" <<<"$doctor_output"
@@ -186,8 +259,8 @@ if (!payload.platform_checks?.claude?.length) throw new Error('missing claude ch
 NODE
 echo "✓ doctor reports Claude runtime facts"
 
-echo "6. Initialize Codex runtime and verify assets..."
-codex_output="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --codex -u kuang --lang en)"
+echo "7. Initialize Codex runtime and verify assets..."
+codex_output="$(run_programmatic_init "$TMP_DIR" codex kuang en)"
 grep -q "Generated ${expected_agent_count} agent file(s) in .codex/agents" <<<"$codex_output"
 grep -q "Generated ${expected_codex_total_skill_count} skill directory(ies) in .agents/skills" <<<"$codex_output"
 installed_codex_skill_count="$(find "$TMP_DIR/.agents/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
@@ -221,7 +294,7 @@ grep -q 'bounded subagents, leaf reviewers, and worker agents' "$TMP_DIR/AGENTS.
 grep -q '.agents/skills/' "$TMP_DIR/.gitignore"
 echo "✓ Codex init generated skills, agents, and AGENTS.md"
 
-echo "7. Verify clean dry-run and clean removal..."
+echo "8. Verify clean dry-run and clean removal..."
 clean_dry="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" clean --claude --dry-run)"
 grep -q "Dry run: spec-first clean (claude)" <<<"$clean_dry"
 grep -q "No files were changed." <<<"$clean_dry"

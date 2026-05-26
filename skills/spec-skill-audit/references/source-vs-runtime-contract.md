@@ -14,4 +14,4 @@ Generated runtime assets live in:
 - `.codex/`
 - `.agents/skills/`
 
-Audit may read generated runtime assets to detect drift. It must not patch them. The only repair recommendation for generated runtime drift is to rerun `spec-first init --claude` or `spec-first init --codex`.
+Audit may read generated runtime assets to detect drift. It must not patch them. The only repair recommendation for generated runtime drift is to rerun `spec-first init` with the target host selected.

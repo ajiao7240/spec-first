@@ -31,9 +31,10 @@ Do not hand-edit these paths as source fixes:
 These are host runtime mirrors. Change the source asset first, then run:
 
 ```bash
-spec-first init --claude
-spec-first init --codex
+spec-first init
 ```
+
+Choose the target host when prompted. Run it once per host when both Claude Code and Codex runtime mirrors need to be refreshed.
 
 Use `spec-first doctor --claude|--codex` to inspect runtime drift. A drift report is evidence that source and runtime may need reconciliation; it is not permission to patch the mirror directly.
 
@@ -116,7 +117,7 @@ If a workflow needs to preserve a log reference, store a redacted repo-relative 
 2. Add or update focused tests for the changed contract.
 3. Run the narrow validation command first.
 4. For skill/agent prose changes, run fresh-source eval or record a valid not-run reason.
-5. Regenerate runtime mirrors with `spec-first init --claude|--codex` only when runtime refresh is part of the task or release.
+5. Regenerate runtime mirrors with `spec-first init` only when runtime refresh is part of the task or release, choosing the target host when prompted.
 6. Record runtime impact and validation in `CHANGELOG.md` and any phase validation artifact.
 
 Keep the boundary lightweight: scripts prepare deterministic facts, and the LLM decides how to use them.

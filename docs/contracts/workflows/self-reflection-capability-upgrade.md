@@ -57,7 +57,7 @@ Generated/runtime inputs are evidence only:
 - `.codex/`
 - `.agents/skills/`
 
-If source and runtime disagree, source wins. Runtime drift repair uses `spec-first init --claude|--codex` only after source validation and only when runtime repair is in scope.
+If source and runtime disagree, source wins. Runtime drift repair uses `spec-first init` only after source validation and only when runtime repair is in scope; choose the target host when prompted.
 
 ## Script-Owned Facts And LLM-Owned Judgment
 

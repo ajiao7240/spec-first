@@ -100,7 +100,7 @@ Non-git folder target 的 canonical 行为：
 - provider projection 和 canonical graph facts 写入 `folder_snapshot.content_fingerprint`；`staleness_hints.content_fingerprint` 是 downstream freshness 比对输入。
 - Git-only 字段必须为空或不参与比对：`source_revision=null`、`worktree_dirty=null`、`worktree_status_hash=null`、provider `last_indexed_commit=null`，`staleness_hints.compare_source_revision=false`。
 - incremental 不支持。显式 incremental 请求必须返回 `reason_code=incremental-non-git-folder-unsupported`，且保留既有 canonical artifacts。
-- host instruction normalization 不由 graph-bootstrap 写入；需要刷新 host entry docs 时仍走 source-owned `spec-first init --claude|--codex`。
+- host instruction normalization 不由 graph-bootstrap 写入；需要刷新 host entry docs 时仍走 source-owned `spec-first init` 并选择目标宿主。
 
 Downstream 消费限制：
 

@@ -56,7 +56,7 @@ Human maintainers, startup reminder routing, setup/update troubleshooting, and `
   Claude plugin cache path and update via `claude plugin update`.
 - **Codex** uses the `spec-first` npm CLI to generate runtime assets into the
   current project. Version checks use the installed CLI and npm registry, then
-  refresh runtime assets with `spec-first init --codex`.
+  refresh runtime assets with `spec-first init` and Codex selected when prompted.
 
 Do not use Claude plugin cache paths to decide Codex state. Do not use npm CLI
 version facts to decide Claude marketplace cache state.
@@ -182,10 +182,10 @@ After any successful plugin update, tell the user to restart Claude Code, then
 run:
 
 ```bash
-spec-first init --claude
+spec-first init
 ```
 
-from the target project if generated runtime assets still look stale.
+from the target project and choose Claude Code if generated runtime assets still look stale.
 
 Also check Claude runtime asset health in the current project:
 
@@ -199,8 +199,10 @@ be verified and keep the plugin cache recommendation as the primary result. If
 Claude runtime assets, recommend:
 
 ```bash
-spec-first init --claude
+spec-first init
 ```
+
+Tell the user to choose Claude Code when prompted.
 
 If both the plugin cache and Claude runtime assets are current, tell the user:
 
@@ -243,8 +245,10 @@ If the command reports that no spec-first Codex runtime is initialized, recommen
 initializing it:
 
 ```bash
-spec-first init --codex
+spec-first init
 ```
+
+Tell the user to choose Codex when prompted.
 
 If the CLI is older than npm latest, tell the user:
 
@@ -256,9 +260,9 @@ If the CLI is older than npm latest, tell the user:
 > ```
 > Then refresh Codex runtime assets in this project:
 > ```bash
-> spec-first init --codex
+> spec-first init
 > ```
-> Restart Codex so `$spec-*` entries reload."
+> Choose Codex when prompted, then restart Codex so `$spec-*` entries reload."
 
 If the CLI is current but `doctor --codex --json` reports stale or missing
 runtime assets, tell the user:
@@ -267,9 +271,9 @@ runtime assets, tell the user:
 >
 > Refresh with:
 > ```bash
-> spec-first init --codex
+> spec-first init
 > ```
-> Then restart Codex so `$spec-*` entries reload."
+> Choose Codex when prompted, then restart Codex so `$spec-*` entries reload."
 
 If both the CLI and runtime assets are current, tell the user:
 

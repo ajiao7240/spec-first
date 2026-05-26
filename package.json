@@ -6,6 +6,12 @@
   "bin": {
     "spec-first": "bin/spec-first.js"
   },
+  "exports": {
+    ".": "./bin/spec-first.js",
+    "./src/cli/init-plan": "./src/cli/init-plan.js",
+    "./src/cli/init-plan.js": "./src/cli/init-plan.js",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "lint": "npm run lint:skill-entrypoints",
     "lint:skill-entrypoints": "node scripts/lint-skill-entrypoints.js",

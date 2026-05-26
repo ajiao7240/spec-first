@@ -79,7 +79,7 @@
 | changelog author resolution | 精确读取当前 host developer profile：`.codex/spec-first/.developer` 或 `.claude/spec-first/.developer`，只用于 `CHANGELOG.md` 作者字段，不纳入 broad context bundle |
 | user-explicit path request | 只读取用户明确点名的文件或目录，并说明它是 runtime/generated/audit context |
 
-例外不改变 source-of-truth：generated runtime mirrors 仍应通过 source 修改后运行 `spec-first init --claude|--codex` 修复，不能手改 mirror 作为 source fix。
+例外不改变 source-of-truth：generated runtime mirrors 仍应通过 source 修改后运行 `spec-first init` 并选择目标宿主来修复，不能手改 mirror 作为 source fix。
 
 ## Workflow Consumption Rule
 

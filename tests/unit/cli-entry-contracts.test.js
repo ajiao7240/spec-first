@@ -28,7 +28,8 @@ describe('CLI entry contract', () => {
     expect(result.stderr).toBe('');
     expect(result.stdout).toContain('Usage:');
     expect(result.stdout).toContain('doctor');
-    expect(result.stdout).toContain('init (--claude|--codex)');
+    expect(result.stdout).toContain('init');
+    expect(result.stdout).toContain('Interactively install workflows');
     expect(result.stdout).toContain('clean (--claude|--codex)');
     expect(result.stdout).toContain('tasks <subcommand>');
     expect(result.stdout).toContain('gitnexus-instruction');

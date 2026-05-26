@@ -76,7 +76,7 @@ function resolveDeveloperIdentity(projectRoot, options = {}, adapter = null) {
 
   if (!name) {
     throw new Error(
-      'Unable to determine developer name. Pass `-u/--user <name>` or initialize ~/.spec-first/.developer with `spec-first init --global -u <name> --lang <zh|en>`.',
+      'Unable to determine developer name. Run `spec-first init` in an interactive terminal and choose a developer name when prompted.',
     );
   }
 

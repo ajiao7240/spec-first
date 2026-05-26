@@ -218,7 +218,7 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 
 - `.spec-first/audits/` 已被 `.gitignore` 忽略，提交时不带这些产物
 - 需要审单个 skill 时使用 `--target skills/<skill-name>` 或宿主入口后跟 `skills/<skill-name>`
-- runtime drift finding 的修复方式是 `spec-first init --claude` 或 `spec-first init --codex`，不是手改 `.claude/`、`.codex/`、`.agents/skills/`
+- runtime drift finding 的修复方式是 `spec-first init` 并选择目标宿主，不是手改 `.claude/`、`.codex/`、`.agents/skills/`
 
 ## 6. app-audit/runs/
 

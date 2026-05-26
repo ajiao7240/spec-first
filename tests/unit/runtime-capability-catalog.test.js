@@ -61,8 +61,8 @@ describe('runtime capability catalog', () => {
     expect(catalog).toContain('does not run agents or workflows');
     expect(catalog).toContain('## Release Package Evidence');
     expect(catalog).toContain('package-content-manifest.json');
-    expect(catalog).toContain('init-claude-dry-run.log');
-    expect(catalog).toContain('init-codex-dry-run.log');
+    expect(catalog).toContain('init-claude-programmatic.log');
+    expect(catalog).toContain('init-codex-programmatic.log');
     expect(catalog).toContain('release-artifact-summary.json');
     expect(catalog).toContain('no dashboard, history store, GitHub Release automation, or release decision engine');
   });

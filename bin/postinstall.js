@@ -16,7 +16,7 @@ if (!ensureSupportedNodeVersion()) {
 └${LINE}┘
 
   下一步：spec-first doctor
-        spec-first init --claude 或 spec-first init --codex
+        spec-first init
   详情：  spec-first -v
   说明：  managed assets 由 init/clean 管理，按 Claude/Codex host 生成
 

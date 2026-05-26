@@ -32,7 +32,7 @@ Generated runtime mirrors：
 - `.codex/**`
 - `.agents/skills/**`
 
-修复策略必须 source-first。runtime drift 只能通过 `spec-first init --claude|--codex` 或明确 degraded parity report 处理；不要手改 runtime mirror。
+修复策略必须 source-first。runtime drift 只能通过 `spec-first init` 交互选择对应 host 或明确 degraded parity report 处理；不要手改 runtime mirror。
 
 ## 3. Goals
 
@@ -178,6 +178,6 @@ P1 的目标是补齐最小可维护合同，不是建立新的规则平台。
 - focused source read：确认修改的是 source-of-truth，不是 generated mirror。
 - focused contract test 或 audit scan：覆盖对应 boundary。
 - `CHANGELOG.md`：所有 source / docs 变更按仓库规则记录。
-- runtime impact note：说明是否需要 `spec-first init --claude|--codex`。
+- runtime impact note：说明是否需要运行 `spec-first init` 并按引导选择对应 host。
 
 Runtime parity 只能在 deterministic command 成功或 degraded report 明确时声明。scorecards 是 signals，不是 gates；最终风险排序仍由 reviewer synthesis 负责。

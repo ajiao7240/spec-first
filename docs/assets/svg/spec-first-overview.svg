@@ -256,7 +256,7 @@
   <text x="64" y="530" class="h2">项目级安装模型</text>
   <text x="64" y="560" class="mono">npm install -g spec-first</text>
   <text x="64" y="584" class="mono">spec-first doctor</text>
-  <text x="64" y="608" class="mono">spec-first init --claude | --codex</text>
+  <text x="64" y="608" class="mono">spec-first init</text>
   <text x="64" y="638" class="body">
     <tspan x="64" dy="0">在目标项目中安装平台运行时，</tspan>
     <tspan x="64" dy="22">让 `/spec:*` 成为稳定的工程入口。</tspan>

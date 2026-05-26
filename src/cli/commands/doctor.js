@@ -7,6 +7,7 @@ const { inspectCodingGuidelinesBlock } = require('../coding-guidelines');
 const { isLegacyManagedState, readState, readStateFileRaw } = require('../state');
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
 const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
+const { formatInitGuidance } = require('../init-guidance');
 const { inspectManagedSessionStartHook } = require('../claude-settings');
 const { resolveWorkflowArtifactDir } = require('../../verification/artifact-paths');
 const { validateAgainstSchema } = require('../../contracts/schema-validator');
@@ -56,7 +57,7 @@ function runDoctor(argv) {
     }
 
     console.log('No spec-first platform detected in this project.');
-    console.log('Run `spec-first init --claude` or `spec-first init --codex` to initialize.');
+    console.log('Run `spec-first init` and choose Claude Code or Codex when prompted to initialize.');
     return 0;
   }
 
@@ -197,7 +198,7 @@ function checkGeneratedCommands(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.commandRoot}`,
       message: 'missing',
-      fix: `Run \`spec-first init --${adapter.id}\` in this project.`,
+      fix: formatInitGuidance(adapter, 'in this project'),
     };
   }
 
@@ -215,7 +216,7 @@ function checkGeneratedCommands(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.commandRoot}`,
       message: `drifted ${driftMessage}`,
-      fix: `Run \`spec-first init --${adapter.id}\` to regenerate the drifted command files.`,
+      fix: formatInitGuidance(adapter, 'to regenerate the drifted command files'),
     };
   }
 
@@ -226,7 +227,7 @@ function checkGeneratedCommands(projectRoot, adapter) {
       `missing ${commandStatus.missing.map((entry) => entry.filename).join(', ')}`,
       driftMessage ? `drifted ${driftMessage}` : null,
     ].filter(Boolean).join('; '),
-    fix: `Run \`spec-first init --${adapter.id}\` to regenerate the missing or drifted command files.`,
+    fix: formatInitGuidance(adapter, 'to regenerate the missing or drifted command files'),
   };
 }
 
@@ -248,7 +249,7 @@ function checkInstalledSkills(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.skillsRoot}`,
       message: 'missing',
-      fix: `Run \`spec-first init --${adapter.id}\` in this project to install bundled skills.`,
+      fix: formatInitGuidance(adapter, 'in this project to install bundled skills'),
     };
   }
 
@@ -266,7 +267,7 @@ function checkInstalledSkills(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.skillsRoot}`,
       message: `drifted ${driftMessage}`,
-      fix: `Run \`spec-first init --${adapter.id}\` in this project to resync drifted bundled skills.`,
+      fix: formatInitGuidance(adapter, 'in this project to resync drifted bundled skills'),
     };
   }
 
@@ -277,7 +278,7 @@ function checkInstalledSkills(projectRoot, adapter) {
       `out of sync (${skillStatus.entries.length - skillStatus.missing.length}/${skillStatus.entries.length} installed)`,
       driftMessage ? `drifted ${driftMessage}` : null,
     ].filter(Boolean).join('; '),
-    fix: `Run \`spec-first init --${adapter.id}\` in this project to resync bundled skills.`,
+    fix: formatInitGuidance(adapter, 'in this project to resync bundled skills'),
   };
 }
 
@@ -299,7 +300,7 @@ function checkInstalledAgents(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.agentsRoot}`,
       message: 'missing',
-      fix: `Run \`spec-first init --${adapter.id}\` in this project to install bundled agents.`,
+      fix: formatInitGuidance(adapter, 'in this project to install bundled agents'),
     };
   }
 
@@ -317,7 +318,7 @@ function checkInstalledAgents(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.agentsRoot}`,
       message: `drifted ${driftMessage}`,
-      fix: `Run \`spec-first init --${adapter.id}\` in this project to resync drifted bundled agents.`,
+      fix: formatInitGuidance(adapter, 'in this project to resync drifted bundled agents'),
     };
   }
 
@@ -328,7 +329,7 @@ function checkInstalledAgents(projectRoot, adapter) {
       `out of sync (${agentStatus.entries.length - agentStatus.missing.length}/${agentStatus.entries.length} installed)`,
       driftMessage ? `drifted ${driftMessage}` : null,
     ].filter(Boolean).join('; '),
-    fix: `Run \`spec-first init --${adapter.id}\` in this project to resync bundled agents.`,
+    fix: formatInitGuidance(adapter, 'in this project to resync bundled agents'),
   };
 }
 
@@ -358,7 +359,7 @@ function checkInstalledAgentSupportFiles(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.agentsRoot} support assets`,
       message: 'missing',
-      fix: `Run \`spec-first init --${adapter.id}\` in this project to install bundled agent support assets.`,
+      fix: formatInitGuidance(adapter, 'in this project to install bundled agent support assets'),
     };
   }
 
@@ -376,7 +377,7 @@ function checkInstalledAgentSupportFiles(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.agentsRoot} support assets`,
       message: `drifted ${driftMessage}`,
-      fix: `Run \`spec-first init --${adapter.id}\` in this project to resync drifted agent support assets.`,
+      fix: formatInitGuidance(adapter, 'in this project to resync drifted agent support assets'),
     };
   }
 
@@ -387,7 +388,7 @@ function checkInstalledAgentSupportFiles(projectRoot, adapter) {
       `out of sync (${supportStatus.entries.length - supportStatus.missing.length}/${supportStatus.entries.length} installed)`,
       driftMessage ? `drifted ${driftMessage}` : null,
     ].filter(Boolean).join('; '),
-    fix: `Run \`spec-first init --${adapter.id}\` in this project to resync bundled agent support assets.`,
+    fix: formatInitGuidance(adapter, 'in this project to resync bundled agent support assets'),
   };
 }
 
@@ -801,7 +802,7 @@ function checkProjectDeveloper(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.developerFile}`,
       message: 'missing',
-      fix: `Run \`spec-first init --${adapter.id}\` in this project to write the project developer profile.`,
+      fix: formatInitGuidance(adapter, 'in this project to write the project developer profile'),
     };
   }
 
@@ -811,7 +812,7 @@ function checkProjectDeveloper(projectRoot, adapter) {
       level: 'ERROR',
       name: `${adapter.developerFile}`,
       message: 'invalid or empty',
-      fix: `Run \`spec-first init --${adapter.id} -u <name> --lang <zh|en>\` to regenerate the project developer profile.`,
+      fix: formatInitGuidance(adapter, 'to choose a developer name and regenerate the project developer profile'),
     };
   }
 
@@ -830,7 +831,7 @@ function checkProjectDeveloper(projectRoot, adapter) {
       level: 'ERROR',
       name: `${adapter.developerFile}`,
       message: 'invalid or incomplete',
-      fix: `Run \`spec-first init --${adapter.id} -u <name> --lang <zh|en>\` to regenerate the project developer profile.`,
+      fix: formatInitGuidance(adapter, 'to choose a developer name and regenerate the project developer profile'),
     };
   }
 
@@ -839,7 +840,7 @@ function checkProjectDeveloper(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.developerFile}`,
       message: `recorded ${developer.version}, bundled ${packageVersion}`,
-      fix: `Run \`spec-first init --${adapter.id}\` in this project to refresh the project developer profile after upgrading.`,
+      fix: formatInitGuidance(adapter, 'in this project to refresh the project developer profile after upgrading'),
     };
   }
 
@@ -885,7 +886,7 @@ function checkProjectDeveloperProfileConsistency(projectRoot) {
     level: 'WARNING',
     name: 'project developer identity',
     message: `mismatched project developer names detected (${summary}); runtime project profiles have drifted across hosts`,
-    fix: 'Run `spec-first init --claude ...` or `spec-first init --codex ...` to align the project developer profiles.',
+    fix: 'Run `spec-first init` and choose each affected host when prompted to align the project developer profiles.',
   };
 }
 
@@ -896,7 +897,7 @@ function checkManagedState(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.stateFile}`,
       message: 'missing',
-      fix: `Run \`spec-first init --${adapter.id}\` in this project to record managed assets.`,
+      fix: formatInitGuidance(adapter, 'in this project to record managed assets'),
     };
   }
 
@@ -908,7 +909,7 @@ function checkManagedState(projectRoot, adapter) {
         level: 'WARNING',
         name: `${adapter.stateFile}`,
         message: 'invalid or empty',
-        fix: `Run \`spec-first init --${adapter.id}\` in this project to regenerate the managed asset state.`,
+        fix: formatInitGuidance(adapter, 'in this project to regenerate the managed asset state'),
       };
     }
 
@@ -917,7 +918,7 @@ function checkManagedState(projectRoot, adapter) {
         level: 'WARNING',
         name: `${adapter.stateFile}`,
         message: `recorded ${state.manifestVersion}, bundled ${manifest.version}`,
-        fix: `Run \`spec-first init --${adapter.id}\` in this project to resync managed assets after upgrading.`,
+        fix: formatInitGuidance(adapter, 'in this project to resync managed assets after upgrading'),
       };
     }
 
@@ -933,7 +934,7 @@ function checkManagedState(projectRoot, adapter) {
         level: 'WARNING',
         name: `${adapter.stateFile}`,
         message: `legacy managed state detected (${error instanceof Error ? error.message : String(error)})`,
-        fix: `Run \`spec-first init --${adapter.id}\` in this project to perform a managed hard reset and rebuild the current runtime.`,
+        fix: formatInitGuidance(adapter, 'in this project to perform a managed hard reset and rebuild the current runtime'),
       };
     }
 
@@ -941,7 +942,7 @@ function checkManagedState(projectRoot, adapter) {
       level: 'WARNING',
       name: `${adapter.stateFile}`,
       message: error instanceof Error ? error.message : String(error),
-      fix: `Run \`spec-first init --${adapter.id}\` in this project to regenerate the managed asset state.`,
+      fix: formatInitGuidance(adapter, 'in this project to regenerate the managed asset state'),
     };
   }
 }
@@ -960,7 +961,7 @@ function checkInstructionBootstrap(projectRoot, adapter) {
     level: 'WARNING',
     name: `${adapter.instructionFile} using-spec-first bootstrap`,
     message: status.message,
-    fix: `Run \`spec-first init --${adapter.id}\` in this project to restore the managed bootstrap block.`,
+    fix: formatInitGuidance(adapter, 'in this project to restore the managed bootstrap block'),
   };
 }
 
@@ -978,7 +979,7 @@ function checkInstructionCodingGuidelines(projectRoot, adapter) {
     level: 'WARNING',
     name: `${adapter.instructionFile} coding guidelines`,
     message: status.message,
-    fix: `Run \`spec-first init --${adapter.id}\` in this project to restore the managed coding-guidelines block.`,
+    fix: formatInitGuidance(adapter, 'in this project to restore the managed coding-guidelines block'),
   };
 }
 
@@ -1000,7 +1001,7 @@ function buildHostSpecificChecks(projectRoot, adapter) {
     level: 'WARNING',
     name: '.claude/settings.json SessionStart',
     message: status.message,
-    fix: 'Run `spec-first init --claude` in this project to restore the managed SessionStart matcher.',
+    fix: formatInitGuidance('claude', 'in this project to restore the managed SessionStart matcher'),
   }];
 }
 

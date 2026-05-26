@@ -45,7 +45,7 @@ spec-first 的回答是：**把 AI 编码变成一套有明确产物、有质量
 用户安装 spec-first
   |
   v
-spec-first init --claude / --codex
+spec-first init
   (同步 skills + agents + commands 到项目运行时)
   |
   v

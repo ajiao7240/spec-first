@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { runDoctor } = require('../../src/cli/commands/doctor');
-const { runInit } = require('../../src/cli/commands/init');
+const { runProgrammaticInit } = require('./helpers/init-plan');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-doctor-runtime-tools-'));
@@ -99,7 +99,7 @@ describe('doctor runtime tools boundary', () => {
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
       const agents = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
       expect(agents).not.toContain('spec-first:runtime-tools:start');
 
@@ -130,7 +130,7 @@ describe('doctor runtime tools boundary', () => {
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
       const result = withEnv({
         PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
         SPEC_FIRST_EXTERNAL_COMMAND_TIMEOUT_MS: '50',
@@ -165,7 +165,7 @@ describe('doctor runtime tools boundary', () => {
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
       const result = withEnv({
         PATH: fakeBin,
       }, () => captureCommand(projectRoot, runDoctor, ['--codex', '--json']));
@@ -203,10 +203,10 @@ describe('doctor runtime tools boundary', () => {
         runtime_asset_health: 'not_applicable',
       });
 
-      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
-      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
 
       const finalDoctor = captureCommand(projectRoot, runDoctor, ['--json']);
       const payload = JSON.parse(finalDoctor.stdout);

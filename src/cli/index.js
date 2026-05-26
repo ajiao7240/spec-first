@@ -151,7 +151,7 @@ function printHelp(withErrorPrefix = false) {
     '',
     '🧩 Commands:',
     '  doctor                 Check environment, runtime asset manifest, and managed runtime assets',
-    '  init (--claude|--codex)  Install platform-specific workflows, skills, agents, and developer profile',
+    '  init                   Interactively install workflows, skills, agents, and developer profile',
     '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
     '  tasks <subcommand>      Hash and validate derived task packs',
     '  session <subcommand>    Opt-in multi-actor session advisory (register|list|heartbeat|unregister)',
@@ -193,7 +193,7 @@ function printVersion() {
        $ spec-first doctor
 
     2. 初始化项目
-       $ spec-first init --claude    # 或 --codex
+       $ spec-first init
 
     3. 如需查看 package CLI 命令面
        $ spec-first --help

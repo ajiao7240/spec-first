@@ -7,8 +7,8 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const PACKAGE_CONTENT_MANIFEST_FILE = 'package-content-manifest.json';
-const INIT_CLAUDE_DRY_RUN_LOG_FILE = 'init-claude-dry-run.log';
-const INIT_CODEX_DRY_RUN_LOG_FILE = 'init-codex-dry-run.log';
+const INIT_CLAUDE_PROGRAMMATIC_LOG_FILE = 'init-claude-programmatic.log';
+const INIT_CODEX_PROGRAMMATIC_LOG_FILE = 'init-codex-programmatic.log';
 const RELEASE_ARTIFACT_SUMMARY_FILE = 'release-artifact-summary.json';
 const SUMMARY_FILE = 'summary.json';
 const PACK_OUTPUT_FILE = 'pack-output.log';
@@ -89,6 +89,7 @@ function runChildResult(command, args, options = {}) {
     cwd: options.cwd,
     encoding: options.encoding || 'utf8',
     env: options.env || process.env,
+    input: options.input,
     shell: false,
     stdio: options.stdio || 'pipe',
     windowsHide: true,
@@ -304,41 +305,77 @@ function snapshotTree(rootDir) {
   return results;
 }
 
-function buildInitDryRunEvidence({ host, result, beforeSnapshot, afterSnapshot }) {
+function buildInitProgrammaticEvidence({ host, result, beforeSnapshot, afterSnapshot }) {
   const stdout = result.stdout || '';
   const stderr = result.stderr || '';
   const status = Number.isInteger(result.status) ? result.status : 1;
   const mutated = JSON.stringify(beforeSnapshot) !== JSON.stringify(afterSnapshot);
-  const expectedMarker = `Dry run: spec-first init (${host})`;
-  const hasDryRunMarker = stdout.includes(expectedMarker);
-  const passed = status === 0 && hasDryRunMarker && !mutated;
+  const expectedStatePath = host === 'claude'
+    ? '.claude/spec-first/state.json'
+    : '.codex/spec-first/state.json';
+  const expectedInstructionPath = host === 'claude' ? 'CLAUDE.md' : 'AGENTS.md';
+  const hasState = afterSnapshot.some((entry) => entry.startsWith(`${expectedStatePath}:`));
+  const hasInstruction = afterSnapshot.some((entry) => entry.startsWith(`${expectedInstructionPath}:`));
+  const passed = status === 0 && mutated && hasState && hasInstruction;
 
   return {
     host,
     status,
     passed,
-    reason_code: passed ? 'init-dry-run-passed' : 'init-dry-run-failed',
-    has_dry_run_marker: hasDryRunMarker,
+    reason_code: passed ? 'init-programmatic-passed' : 'init-programmatic-failed',
     mutated,
+    expected_state_path: expectedStatePath,
+    has_state: hasState,
+    expected_instruction_path: expectedInstructionPath,
+    has_instruction: hasInstruction,
     stdout,
     stderr,
   };
 }
 
-function runInitDryRunEvidence({ packageRoot, cwd, host, artifacts }) {
-  const logName = host === 'claude' ? INIT_CLAUDE_DRY_RUN_LOG_FILE : INIT_CODEX_DRY_RUN_LOG_FILE;
+function runInstalledProgrammaticInitResult({ packageRoot, cwd, host, name = 'matrix', lang = 'en' }) {
+  const source = `
+const packageRoot = process.argv[2];
+const projectRoot = process.argv[3];
+const platform = process.argv[4];
+const name = process.argv[5];
+const lang = process.argv[6];
+const { applyInitPlan, buildInitPlan } = require(packageRoot + '/src/cli/init-plan');
+const { printInitApplySuccess } = require(packageRoot + '/src/cli/commands/init');
+
+const plan = buildInitPlan({
+  projectRoot,
+  workspaceRoot: projectRoot,
+  platform,
+  name,
+  lang,
+  target: { mode: 'single-repo', projectRoot },
+  gitRootTopology: 'single-repo',
+});
+
+if (Array.isArray(plan.errors) && plan.errors.length > 0) {
+  for (const error of plan.errors) {
+    console.error(error.message || String(error));
+  }
+  process.exit(1);
+}
+
+const result = applyInitPlan(projectRoot, plan);
+printInitApplySuccess(plan, result);
+process.exit(result.exit_code);
+`;
+  return runChildResult(process.execPath, ['-', packageRoot, cwd, host, name, lang], {
+    cwd,
+    input: source,
+  });
+}
+
+function runInitProgrammaticEvidence({ packageRoot, cwd, host, artifacts }) {
+  const logName = host === 'claude' ? INIT_CLAUDE_PROGRAMMATIC_LOG_FILE : INIT_CODEX_PROGRAMMATIC_LOG_FILE;
   const beforeSnapshot = snapshotTree(cwd);
-  const result = runInstalledBinResult(packageRoot, [
-    'init',
-    `--${host}`,
-    '--dry-run',
-    '-u',
-    'matrix',
-    '--lang',
-    'en',
-  ], { cwd });
+  const result = runInstalledProgrammaticInitResult({ packageRoot, cwd, host });
   const afterSnapshot = snapshotTree(cwd);
-  const evidence = buildInitDryRunEvidence({
+  const evidence = buildInitProgrammaticEvidence({
     host,
     result,
     beforeSnapshot,
@@ -349,8 +386,11 @@ function runInitDryRunEvidence({ packageRoot, cwd, host, artifacts }) {
     `status=${evidence.status}`,
     `passed=${evidence.passed}`,
     `reason_code=${evidence.reason_code}`,
-    `has_dry_run_marker=${evidence.has_dry_run_marker}`,
     `mutated=${evidence.mutated}`,
+    `expected_state_path=${evidence.expected_state_path}`,
+    `has_state=${evidence.has_state}`,
+    `expected_instruction_path=${evidence.expected_instruction_path}`,
+    `has_instruction=${evidence.has_instruction}`,
     '',
     '--- stdout ---',
     evidence.stdout,
@@ -376,8 +416,8 @@ function defaultReleaseArtifacts() {
     summary: SUMMARY_FILE,
     pack_output: PACK_OUTPUT_FILE,
     package_content_manifest: PACKAGE_CONTENT_MANIFEST_FILE,
-    init_claude_dry_run_log: INIT_CLAUDE_DRY_RUN_LOG_FILE,
-    init_codex_dry_run_log: INIT_CODEX_DRY_RUN_LOG_FILE,
+    init_claude_programmatic_log: INIT_CLAUDE_PROGRAMMATIC_LOG_FILE,
+    init_codex_programmatic_log: INIT_CODEX_PROGRAMMATIC_LOG_FILE,
     release_artifact_summary: RELEASE_ARTIFACT_SUMMARY_FILE,
   };
 }
@@ -394,14 +434,14 @@ function checkFromPackageContentManifest(manifest) {
   };
 }
 
-function checkFromInitDryRunEvidence(evidence) {
+function checkFromInitProgrammaticEvidence(evidence) {
   return {
-    check_id: `init-${evidence.host}-dry-run`,
+    check_id: `init-${evidence.host}-programmatic`,
     status: evidence.passed ? 'passed' : 'failed',
     reason_code: evidence.reason_code,
     summary: evidence.passed
-      ? `spec-first init --${evidence.host} --dry-run passed without mutating the fixture project.`
-      : `spec-first init --${evidence.host} --dry-run failed evidence checks.`,
+      ? `Programmatic spec-first init plan/apply for ${evidence.host} passed and wrote expected runtime evidence.`
+      : `Programmatic spec-first init plan/apply for ${evidence.host} failed evidence checks.`,
     artifact_path: evidence.artifact_path,
   };
 }
@@ -548,28 +588,34 @@ function main() {
     runInstalledShim(shim, ['--help']);
     runInstalledShim(shim, ['-v']);
 
-    const dryRunProject = path.join(tmp, 'dry-run workspace [win64] 中文');
-    fs.mkdirSync(dryRunProject);
-    const initDryRunChecks = ['claude', 'codex'].map((host) => {
-      const evidence = runInitDryRunEvidence({
+    const initProgrammaticChecks = ['claude', 'codex'].map((host) => {
+      const programmaticProject = path.join(tmp, `programmatic-${host} workspace [win64] 中文`);
+      fs.mkdirSync(programmaticProject);
+      const evidence = runInitProgrammaticEvidence({
         packageRoot,
-        cwd: dryRunProject,
+        cwd: programmaticProject,
         host,
         artifacts,
       });
-      return checkFromInitDryRunEvidence(evidence);
+      return checkFromInitProgrammaticEvidence(evidence);
     });
-    releaseChecks.push(...initDryRunChecks);
-    const failedInitDryRuns = initDryRunChecks.filter((check) => check.status === 'failed');
-    if (failedInitDryRuns.length > 0) {
-      throw new Error(`${failedInitDryRuns.length} init dry-run evidence check(s) failed.`);
+    releaseChecks.push(...initProgrammaticChecks);
+    const failedProgrammaticInits = initProgrammaticChecks.filter((check) => check.status === 'failed');
+    if (failedProgrammaticInits.length > 0) {
+      throw new Error(`${failedProgrammaticInits.length} programmatic init evidence check(s) failed.`);
     }
 
     const fixtureProject = path.join(tmp, 'workspace [win64] 中文 (paren)');
     fs.mkdirSync(fixtureProject);
     runInstalledBin(packageRoot, ['doctor'], { cwd: fixtureProject });
-    runInstalledBin(packageRoot, ['init', '--claude', '-u', 'matrix', '--lang', 'en'], { cwd: fixtureProject });
-    runInstalledBin(packageRoot, ['init', '--codex', '-u', 'matrix', '--lang', 'en'], { cwd: fixtureProject });
+    const claudeInit = runInstalledProgrammaticInitResult({ packageRoot, cwd: fixtureProject, host: 'claude' });
+    if (claudeInit.status !== 0) {
+      throw new Error(`Programmatic Claude init failed with status ${claudeInit.status}`);
+    }
+    const codexInit = runInstalledProgrammaticInitResult({ packageRoot, cwd: fixtureProject, host: 'codex' });
+    if (codexInit.status !== 0) {
+      throw new Error(`Programmatic Codex init failed with status ${codexInit.status}`);
+    }
     runInstalledShim(shim, ['doctor', '--json'], { cwd: fixtureProject });
 
     for (const requiredPath of [
@@ -602,9 +648,9 @@ function main() {
       minimal_git_project: gitProject,
       release_artifact_summary: RELEASE_ARTIFACT_SUMMARY_FILE,
       package_content_manifest: PACKAGE_CONTENT_MANIFEST_FILE,
-      init_dry_run_artifacts: {
-        claude: INIT_CLAUDE_DRY_RUN_LOG_FILE,
-        codex: INIT_CODEX_DRY_RUN_LOG_FILE,
+      init_programmatic_artifacts: {
+        claude: INIT_CLAUDE_PROGRAMMATIC_LOG_FILE,
+        codex: INIT_CODEX_PROGRAMMATIC_LOG_FILE,
       },
       release_checks: releaseChecks,
       release_failures: releaseArtifactSummary.failures,
@@ -635,9 +681,9 @@ function main() {
       error: error && error.stack ? error.stack : String(error),
       release_artifact_summary: RELEASE_ARTIFACT_SUMMARY_FILE,
       package_content_manifest: PACKAGE_CONTENT_MANIFEST_FILE,
-      init_dry_run_artifacts: {
-        claude: INIT_CLAUDE_DRY_RUN_LOG_FILE,
-        codex: INIT_CODEX_DRY_RUN_LOG_FILE,
+      init_programmatic_artifacts: {
+        claude: INIT_CLAUDE_PROGRAMMATIC_LOG_FILE,
+        codex: INIT_CODEX_PROGRAMMATIC_LOG_FILE,
       },
       release_checks: releaseChecks,
       release_failures: releaseArtifactSummary.failures,
@@ -653,19 +699,19 @@ if (require.main === module) {
 }
 
 module.exports = {
-  buildInitDryRunEvidence,
+  buildInitProgrammaticEvidence,
   buildPackageContentManifest,
   buildCmdCommandLine,
   buildReleaseArtifactSummary,
-  checkFromInitDryRunEvidence,
+  checkFromInitProgrammaticEvidence,
   checkFromPackageContentManifest,
   createArtifactWriter,
   defaultReleaseArtifacts,
   failureFromCheck,
   FORBIDDEN_PACKAGE_PATTERNS,
   getEnvValue,
-  INIT_CLAUDE_DRY_RUN_LOG_FILE,
-  INIT_CODEX_DRY_RUN_LOG_FILE,
+  INIT_CLAUDE_PROGRAMMATIC_LOG_FILE,
+  INIT_CODEX_PROGRAMMATIC_LOG_FILE,
   matchesForbiddenPattern,
   normalizePackagePath,
   normalizeArtifactFileName,

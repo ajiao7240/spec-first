@@ -124,17 +124,13 @@ spec-first doctor
 
 On Win64, prefer native Windows Terminal with PowerShell 7+ or `cmd.exe` for installation and smoke checks. Windows PowerShell 5.1 is supported, but PowerShell 7+ has better UTF-8 behavior. Git Bash, MSYS2, and WSL are useful POSIX environments, but they do not replace native Windows validation because npm `.cmd` shims, `%PATH%`, quoting, and code page behavior are different.
 
-Initialize only the host you actually use:
+Initialize only the host you actually use. `spec-first init` is interactive: choose Claude Code or Codex, confirm your developer name and language, preview the writes, then confirm.
 
 ```bash
-# Claude Code project
-spec-first init --claude -u <name> --lang en
-
-# Codex project
-spec-first init --codex -u <name> --lang en
+spec-first init
 ```
 
-Run the init command for each host you actually use. For example, run only `--claude` for Claude Code-only projects, only `--codex` for Codex-only projects, or both when the same repo should support both hosts.
+Choose Claude Code or Codex when prompted. Run the init command once for each host you actually use. For example, choose Claude Code for Claude Code-only projects, choose Codex for Codex-only projects, or run it twice when the same repo should support both hosts.
 
 Restart the host or open a new session so it loads the generated runtime assets.
 
@@ -205,9 +201,8 @@ Terminal in your target repo
   |
   | npm install -g spec-first
   | spec-first doctor
-  | spec-first init --claude -u <name> --lang en
-  |   or
-  | spec-first init --codex -u <name> --lang en
+  | spec-first init
+  |   choose Claude Code or Codex when prompted
   v
 Restart Claude Code or Codex
   |
@@ -387,7 +382,7 @@ For who creates, reads, and should edit each artifact, see [Chinese Artifact Cat
 Source assets
   skills/  agents/  templates/  src/cli/
         |
-        | spec-first init --claude or --codex
+        | spec-first init
         v
 Host runtime assets
   Claude Code: /spec:* commands
@@ -562,7 +557,7 @@ Current context and graph readiness use this path:
 - Use the current host's plan workflow as the first graph-readiness consumer. It reports graph status, reads setup-inferred GitNexus availability/discovery facts when present, checks staleness, and falls back to bounded direct repo reads when facts are unavailable, blocked, stale, or degraded. When no graph artifacts, no GitNexus MCP surface, and no setup-owned GitNexus projection are present, plan takes a no-graph fast path instead of spending tokens on detailed GitNexus probing. For code/architecture/API/cross-module plans with graph or GitNexus evidence available, it writes a neighboring `Graph / GitNexus Evidence` posture with `native_tool_or_resource`, `capability_status`, `evidence_grade`, `evidence_posture`, `freshness_state`, and `source_tags` so readers can see whether checked-in baseline, setup projection, live MCP tool/resource evidence, session-local inference, or source fallback shaped the plan.
 - In a parent workspace with multiple child Git repos, read-only code questions can use `workspace-graph-targets.v1` and `workspace-gitnexus-readiness.v1` advisory facts to choose bounded candidate repos, prefer GitNexus-first evidence via group query when `group.status="group-ready"`, and fall back to bounded registry/per-repo fan-out when group config is missing or not evaluated. Outside the parent-workspace maintenance entries below, writes, tests, changelog updates, review autofix, and commits still require explicit `target_repo` / per-child scope.
 - Dirty-advisory or stale GitNexus evidence can still orient read-only planning, but it is not fresh primary evidence. Current-source or test-backed claims must be validated with direct source reads before final claims.
-- For parent-workspace maintenance, init, setup, and graph bootstrap default to all child repos when no `--repo <child>` is provided; `--repo <child>` narrows the run and `--all-repos` remains an explicit equivalent. The parent workspace may write advisory `.spec-first/workspace/*summary.json` files. The parent workspace never owns repo-local `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, or `.spec-first/providers/*` artifacts as parent-local truth.
+- For parent-workspace maintenance, `init` detects child repos and prompts for all children or one selected child. Setup and graph bootstrap still default to all child repos when no `--repo <child>` is provided; `--repo <child>` narrows those runs and `--all-repos` remains their explicit equivalent. The parent workspace may write advisory `.spec-first/workspace/*summary.json` files. The parent workspace never owns repo-local `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/impact/*`, or `.spec-first/providers/*` artifacts as parent-local truth.
 - Use the installed standalone `write-tasks` skill for deterministic task-pack handoff, then the current host's work, code-review, and doc-review workflows with the current request, plans/task packs, diffs, targeted file reads, and tests as scope authority.
 - Use the App consistency audit workflow for mobile App PRD/Figma/source alignment. It consumes local `prd:<path>` and `figma-context:<path>` inputs when available; `figma-ref:<id-or-url>` is only a reference until a host-provided Figma MCP capability materializes local JSON. Figma MCP is an optional App-audit capability, not part of the required setup baseline.
 
@@ -572,7 +567,7 @@ CLI reference:
 spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
-spec-first init (--claude|--codex) [-u <name>] [--lang zh|en] [--dry-run] [--repo <child>|--all-repos]
+spec-first init
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first tasks hash <plan-path> [--json]
 spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]
@@ -580,7 +575,7 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 
 Runtime asset summary:
 
-When `init` is run from a parent workspace that contains child Git repos, it auto-detects the workspace mode, initializes each child repo, and writes parent advisory routing assets such as `.spec-first/workspace/init-summary.json`, host entry documents, host runtime assets, and the managed `.gitignore` block. The parent workspace still does not own child repo-local truth such as `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/providers/*`, or `.spec-first/impact/*`. Use `--repo <child>` to initialize one child repo, or `--all-repos` to make the batch intent explicit.
+When `init` is run from a parent workspace that contains child Git repos, it auto-detects the workspace mode and prompts for all children or one selected child. It writes parent advisory routing assets such as `.spec-first/workspace/init-summary.json`, host entry documents, host runtime assets, and the managed `.gitignore` block. The parent workspace still does not own child repo-local truth such as `.spec-first/config/*`, `.spec-first/graph/*`, `.spec-first/providers/*`, or `.spec-first/impact/*`.
 
 The managed `.gitignore` block also ignores local graph provider artifacts such as `.gitnexus/`; `.code-review-graph/` remains ignored only as migration-window residue.
 
@@ -641,10 +636,10 @@ npm test
 
 `npm run test:ai-dev:benchmarks` validates the advisory benchmark fixture suite contract and evidence shape across five checked-in fixtures, including recorded semantic-review evidence; it does not score LLM semantic quality or run real agents.
 
-`npm run test:release:install` writes release package evidence under `.spec-first/ci/npm-install-matrix/` when `SPEC_FIRST_SMOKE_ARTIFACT_DIR` is set: package content manifest, tarball-installed Claude/Codex init dry-run logs, and a release artifact summary for reviewers.
+`npm run test:release:install` writes release package evidence under `.spec-first/ci/npm-install-matrix/` when `SPEC_FIRST_SMOKE_ARTIFACT_DIR` is set: package content manifest, tarball-installed programmatic init-plan/apply evidence for Claude/Codex, and a release artifact summary for reviewers.
 
 `npm run test:release:website` is the maintainer release gate for the external official site. It expects `../spec-first-official-website` or `SPEC_FIRST_WEBSITE_REPO` and runs the website `content:audit` against the current package repo facts.
 
-When changing source assets, edit `skills/`, `agents/`, `templates/`, or `src/cli/`, then regenerate runtime copies with `spec-first init --claude` or `spec-first init --codex` in a fresh host session.
+When changing source assets, edit `skills/`, `agents/`, `templates/`, or `src/cli/`, then regenerate runtime copies with `spec-first init` and choose the target host in a fresh host session.
 
 For contribution and support details, see [CONTRIBUTING.md](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md), [SECURITY.md](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md), [LICENSE](https://github.com/sunrain520/spec-first/blob/main/LICENSE), and [GitHub Issues](https://github.com/sunrain520/spec-first/issues).

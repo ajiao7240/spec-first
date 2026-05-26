@@ -4,10 +4,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { runInit } = require('../../src/cli/commands/init');
 const { runClean } = require('../../src/cli/commands/clean');
 const { getAdapter } = require('../../src/cli/adapters');
 const { readState } = require('../../src/cli/state');
+const { runProgrammaticInit } = require('./helpers/init-plan');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-clean-dry-run-'));
@@ -71,7 +71,7 @@ describe('clean --dry-run', () => {
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
 
       const customSkillPath = path.join(projectRoot, '.claude', 'skills', 'custom-skill', 'SKILL.md');
       const customHookPath = path.join(projectRoot, '.claude', 'hooks', 'custom-hook');
@@ -107,7 +107,7 @@ describe('clean --dry-run', () => {
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
 
       const dryRun = captureCommand(projectRoot, runClean, ['--claude', '--dry-run']);
       expect(dryRun.exitCode).toBe(0);
@@ -165,7 +165,7 @@ describe('clean --dry-run', () => {
     ];
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
       for (const relativePath of legacyPaths) {
         fs.mkdirSync(path.join(projectRoot, relativePath), { recursive: true });
       }
@@ -194,7 +194,7 @@ describe('clean --dry-run', () => {
     const retiredSkillName = ['spec', 'graph', 'bootstrap'].join('-');
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
       const statePath = path.join(projectRoot, '.claude', 'spec-first', 'state.json');
       const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
       state.commands.push(retiredCommandFile);
@@ -233,7 +233,7 @@ describe('clean --dry-run', () => {
     try {
       fs.mkdirSync(projectRoot, { recursive: true });
       fs.writeFileSync(victimPath, 'do not remove\n', 'utf8');
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
 
       const adapter = getAdapter('codex');
       const statePath = path.join(projectRoot, adapter.stateFile);
@@ -257,7 +257,7 @@ describe('clean --dry-run', () => {
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
 
       const adapter = getAdapter('codex');
       const statePath = path.join(projectRoot, adapter.stateFile);

@@ -65,8 +65,8 @@ describe('runtime contract boundary', () => {
       expect(content).toContain('credentials');
     }
 
-    expect(contract).toContain('spec-first init --claude');
-    expect(contract).toContain('spec-first init --codex');
+    expect(contract).toContain('spec-first init');
+    expect(contract).toContain('Choose the target host when prompted');
     expect(contract).toContain('spec-first doctor --claude|--codex');
     expect(contract).toContain('prompt-injection boundary');
     expect(contract).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');

@@ -27,7 +27,7 @@ Do not hand-edit generated runtime assets.
 
 - Edit source assets under `skills/`, `agents/`, `templates/`, or `src/cli/`.
 - Generated runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are disposable.
-- Regenerate runtime copies with `spec-first init --claude` or `spec-first init --codex` when you need host assets refreshed.
+- Regenerate runtime copies with `spec-first init` and choose the target host when prompted.
 
 ## Changelog
 

@@ -58,15 +58,52 @@ mkdir -p "$TMP_PREFIX" "$TMP_CACHE"
 
 npm install -g --omit=optional "$TARBALL_PATH" >"$TMP_ROOT/install.log" 2>&1
 SHIM="$TMP_PREFIX/bin/spec-first"
+GLOBAL_PKG="$TMP_PREFIX/lib/node_modules/spec-first"
 test -x "$SHIM"
-test -f "$TMP_PREFIX/lib/node_modules/spec-first/src/cli/contracts/dual-host-governance/skills-governance.json"
+test -f "$GLOBAL_PKG/src/cli/contracts/dual-host-governance/skills-governance.json"
 echo "   ✓ 安装后 runtime governance 真源存在"
+
+run_installed_programmatic_init() {
+  local project_root="$1"
+  local platform="$2"
+  local name="$3"
+  local lang="$4"
+  node - "$GLOBAL_PKG" "$project_root" "$platform" "$name" "$lang" <<'NODE'
+const packageRoot = process.argv[2];
+const projectRoot = process.argv[3];
+const platform = process.argv[4];
+const name = process.argv[5];
+const lang = process.argv[6];
+const { applyInitPlan, buildInitPlan } = require(`${packageRoot}/src/cli/init-plan`);
+const { printInitApplySuccess } = require(`${packageRoot}/src/cli/commands/init`);
+
+const plan = buildInitPlan({
+  projectRoot,
+  workspaceRoot: projectRoot,
+  platform,
+  name,
+  lang,
+  target: { mode: 'single-repo', projectRoot },
+  gitRootTopology: 'single-repo',
+});
+
+if (Array.isArray(plan.errors) && plan.errors.length > 0) {
+  for (const error of plan.errors) {
+    console.error(error.message || String(error));
+  }
+  process.exit(1);
+}
+
+const result = applyInitPlan(projectRoot, plan);
+printInitApplySuccess(plan, result);
+process.exit(result.exit_code);
+NODE
+}
 
 echo "4. 验证 Codex 安装态 init / doctor..."
 mkdir -p "$CODEX_PROJECT"
 codex_init_output="$(
-  cd "$CODEX_PROJECT"
-  SPEC_FIRST_VERSION_REMINDER_LATEST="$PACKAGE_VERSION" "$SHIM" init --codex -u test --lang en 2>&1
+  SPEC_FIRST_VERSION_REMINDER_LATEST="$PACKAGE_VERSION" run_installed_programmatic_init "$CODEX_PROJECT" codex test en 2>&1
 )"
 grep -q '\$spec-\* skills' <<<"$codex_init_output"
 test ! -e "$CODEX_PROJECT/.codex/commands/spec"
@@ -95,8 +132,7 @@ echo "   ✓ Codex 安装态闭环通过"
 echo "5. 验证 Claude 安装态 init / doctor..."
 mkdir -p "$CLAUDE_PROJECT"
 claude_init_output="$(
-  cd "$CLAUDE_PROJECT"
-  SPEC_FIRST_VERSION_REMINDER_LATEST="$PACKAGE_VERSION" "$SHIM" init --claude -u test --lang en 2>&1
+  SPEC_FIRST_VERSION_REMINDER_LATEST="$PACKAGE_VERSION" run_installed_programmatic_init "$CLAUDE_PROJECT" claude test en 2>&1
 )"
 grep -q '.claude/commands/spec' <<<"$claude_init_output"
 test -f "$CLAUDE_PROJECT/.claude/commands/spec/brainstorm.md"

@@ -4,9 +4,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { runInit } = require('../../src/cli/commands/init');
 const { spawnSync } = require('node:child_process');
 const { loadPluginManifest } = require('../../src/cli/plugin');
+const { captureProgrammaticInit } = require('./helpers/init-plan');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
@@ -68,29 +68,8 @@ function withCwd(cwd, fn) {
   }
 }
 
-function captureInit(cwd, args) {
-  const logs = [];
-  const errors = [];
-  const warns = [];
-  const originalLog = console.log;
-  const originalError = console.error;
-  const originalWarn = console.warn;
-  console.log = (message = '') => logs.push(String(message));
-  console.error = (message = '') => errors.push(String(message));
-  console.warn = (message = '') => warns.push(String(message));
-  try {
-    const exitCode = withCwd(cwd, () => runInit(args));
-    return {
-      exitCode,
-      stdout: logs.join('\n'),
-      stderr: errors.join('\n'),
-      warnings: warns.join('\n'),
-    };
-  } finally {
-    console.log = originalLog;
-    console.error = originalError;
-    console.warn = originalWarn;
-  }
+function captureInit(cwd, options) {
+  return withCwd(cwd, () => captureProgrammaticInit(cwd, options));
 }
 
 function writeOldClaudeStateWithAgentBrowser(projectRoot) {
@@ -260,13 +239,13 @@ describe('browser helper tool contracts', () => {
     try {
       writeOldClaudeStateWithAgentBrowser(projectRoot);
 
-      const dryRun = captureInit(projectRoot, ['--claude', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);
+      const dryRun = captureInit(projectRoot, { platform: 'claude', dryRun: true });
       expect(dryRun.exitCode).toBe(0);
       expect(dryRun.stderr).toBe('');
       expect(dryRun.stdout).toContain('Would perform a managed hard reset before regenerating runtime assets');
       expect(dryRun.stdout).toContain('Would remove');
 
-      const apply = captureInit(projectRoot, ['--claude', '-u', 'reviewer', '--lang', 'zh']);
+      const apply = captureInit(projectRoot, { platform: 'claude' });
       expect(apply.exitCode).toBe(0);
       expect(apply.stderr).toBe('');
       expect(fs.existsSync(path.join(projectRoot, '.claude', 'skills', 'agent-browser'))).toBe(false);

@@ -58,7 +58,7 @@ Generated runtime assets 不是 source-of-truth：
 .agents/skills/
 ```
 
-这些路径由 `spec-first init --claude|--codex` 从 source 重新生成。普通修复不能手改这些 runtime mirrors 来“刷新”GitNexus 行为。
+这些路径由 `spec-first init` 从 source 重新生成。普通修复不能手改这些 runtime mirrors 来“刷新”GitNexus 行为。
 
 ## 总体生命周期
 
@@ -97,7 +97,7 @@ Generated runtime assets 不是 source-of-truth：
 
 ## 节点一：init
 
-`spec-first init --claude|--codex` 不安装 GitNexus provider，也不运行 GitNexus 索引。它做的是 host/runtime 入口准备：
+`spec-first init` 不安装 GitNexus provider，也不运行 GitNexus 索引。它做的是 host/runtime 入口准备：
 
 - 同步当前 host 的 runtime assets。
 - 生成或更新 `AGENTS.md` / `CLAUDE.md` managed blocks。
@@ -394,8 +394,8 @@ GitNexus 更新有三类，不应混在一起。
 当 source skill、agent、template 或 host 入口发生变化时：
 
 ```bash
-spec-first init --codex
-spec-first init --claude
+spec-first init
+# 按引导选择目标宿主
 ```
 
 这会重新生成 host runtime mirrors。它不运行 GitNexus analyze，也不刷新 graph readiness。
@@ -631,9 +631,8 @@ GitNexus repair 必须 preview-first。删除 `.gitnexus/`、provider raw artifa
 ### 首次安装
 
 ```bash
-spec-first init --codex
-# 或
-spec-first init --claude
+spec-first init
+# 按引导选择目标宿主
 ```
 
 重启宿主后运行：

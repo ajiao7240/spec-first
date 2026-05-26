@@ -17,7 +17,7 @@ const BOOTSTRAP_END = '<!-- spec-first:bootstrap:end -->';
 const missingMessage = [
   '[spec-first] using-spec-first SessionStart injection',
   'Managed using-spec-first bootstrap is missing from `CLAUDE.md`.',
-  'Run `spec-first init --claude` in this project to restore the managed bootstrap block.',
+  'Run `spec-first init` in this project and choose Claude Code when prompted to restore the managed bootstrap block.',
 ].join('\n');
 
 let additionalContext = missingMessage;
@@ -42,7 +42,7 @@ if (additionalContext === missingMessage && fs.existsSync(instructionPath)) {
   additionalContext = [
     '[spec-first] using-spec-first SessionStart injection',
     'Managed using-spec-first bootstrap markers are missing or incomplete in `CLAUDE.md`.',
-    'Run `spec-first init --claude` in this project to restore the managed bootstrap block.',
+    'Run `spec-first init` in this project and choose Claude Code when prompted to restore the managed bootstrap block.',
   ].join('\n');
 }
 

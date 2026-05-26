@@ -12,6 +12,10 @@ const {
 } = require('../plugin');
 const {
   formatDeveloperContents,
+  getGlobalDeveloperPath,
+  getProjectDeveloperPath,
+  readDeveloperFile,
+  readGitUserName,
   resolveChangelogAuthor,
   resolveDeveloperIdentity,
 } = require('../developer');
@@ -52,53 +56,236 @@ const {
   renderManagedSessionStartHookUpsert,
   validateClaudeSettingsFile,
 } = require('../claude-settings');
+const {
+  PromptCancelled,
+  confirm,
+  requireTty,
+  select,
+  textInput,
+} = require('../prompts');
 
-function runInit(argv) {
+async function runInit(argv, promptOverrides = {}) {
   const args = [...argv];
-  const parsed = parseInitArgs(args);
+  const promptApi = {
+    confirm,
+    requireTty,
+    select,
+    textInput,
+    ...promptOverrides,
+  };
 
-  if (parsed.help) {
+  if (args.length === 1 && (args[0] === '-h' || args[0] === '--help')) {
     printHelp();
     return 0;
   }
 
-  const platformSelected = parsed.claude || parsed.codex;
-  if (!platformSelected || parsed.unknown.length > 0) {
-    console.error('Usage: spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run] [--repo <child>|--all-repos]');
+  if (args.length > 0) {
+    console.error(`unknown option ${args[0]}: spec-first init no longer accepts options. Run \`spec-first init\` in an interactive terminal.`);
     return 2;
   }
 
-  if (parsed.claude && parsed.codex) {
-    console.error('Error: Cannot specify both --claude and --codex');
+  const tty = promptApi.requireTty();
+  if (!tty.ok) {
+    console.error('spec-first init requires an interactive terminal. Please rerun `spec-first init` from a TTY and follow the prompts.');
+    console.error('spec-first init 需要交互式终端。请在可交互终端中运行 `spec-first init` 并按引导选择。');
     return 2;
   }
 
-  const platform = parsed.claude ? 'claude' : 'codex';
-  const adapter = getAdapter(platform);
-  const target = resolveInitTarget(parsed, process.cwd());
-  if (!target.ok) {
-    console.error(target.message);
-    return 2;
-  }
-
-  if (target.mode === 'all-repos') {
-    return runInitForWorkspace({
-      parsed,
-      platform,
-      adapter,
-      workspaceRoot: target.workspaceRoot,
-      candidates: target.candidates,
-      selectionSource: target.selectionSource,
+  try {
+    const interactiveInput = await collectInteractiveInitInput({
+      workspaceRoot: process.cwd(),
+      promptApi,
     });
+    if (!interactiveInput) {
+      console.log('已取消。');
+      return 0;
+    }
+
+    const plan = buildInitPlan(interactiveInput);
+    printInitDiagnostics(plan);
+    if (Array.isArray(plan.errors) && plan.errors.length > 0) {
+      for (const error of plan.errors) {
+        console.error(error.message || String(error));
+      }
+      return 1;
+    }
+
+    printInitPreview(plan);
+    const confirmed = await promptApi.confirm('Apply these changes?', { default: true });
+    if (!confirmed) {
+      console.log('已取消。');
+      return 0;
+    }
+
+    const result = applyInitPlan(interactiveInput.projectRoot || interactiveInput.workspaceRoot, plan);
+    if (plan.mode === 'all-repos') {
+      printWorkspaceInitApplySuccess(plan, result);
+      return result.exit_code;
+    }
+    printInitApplySuccess(plan, result);
+    return result.exit_code;
+  } catch (error) {
+    if (error instanceof PromptCancelled || error.code === 'prompt_cancelled') {
+      console.log('已取消。');
+      return 0;
+    }
+    throw error;
+  }
+}
+
+async function collectInteractiveInitInput({
+  workspaceRoot,
+  promptApi,
+}) {
+  const root = canonicalizeExistingPath(workspaceRoot);
+  const platform = await promptApi.select('Select host runtime to initialize:', [
+    { label: 'Claude Code', value: 'claude' },
+    { label: 'Codex', value: 'codex' },
+  ], { requireExplicit: true });
+  const adapter = getAdapter(platform);
+  const defaults = resolveDeveloperDefaults(root, adapter);
+  const name = await promptApi.textInput('Developer name:', {
+    default: defaults.name,
+    validate: (value) => (String(value || '').trim().length > 0 ? true : 'Developer name is required.'),
+  });
+  const lang = await promptApi.select('Default response language:', [
+    { label: 'Chinese / 中文 (zh)', value: 'zh' },
+    { label: 'English (en)', value: 'en' },
+  ], {
+    defaultIndex: defaults.lang === 'en' ? 1 : 0,
+  });
+  const target = await collectInteractiveInitTarget(root, promptApi);
+  if (!target) {
+    return null;
   }
 
-  const result = runInitForProject({
-    parsed,
+  return {
+    projectRoot: target.projectRoot || root,
+    workspaceRoot: target.workspaceRoot || root,
     platform,
     adapter,
-    projectRoot: target.projectRoot,
+    name,
+    lang,
+    target,
+  };
+}
+
+async function collectInteractiveInitTarget(workspaceRoot, promptApi) {
+  const cwdGitRoot = findGitRoot(workspaceRoot);
+  if (cwdGitRoot) {
+    return {
+      mode: 'single-repo',
+      projectRoot: cwdGitRoot,
+      selectionSource: 'cwd-git-or-monorepo',
+    };
+  }
+
+  const candidates = discoverChildGitRepos(workspaceRoot);
+  if (candidates.length === 0) {
+    return {
+      mode: 'single-repo',
+      projectRoot: workspaceRoot,
+      selectionSource: 'cwd-directory',
+    };
+  }
+
+  return promptApi.select('Select workspace target:', [
+    {
+      label: `All child repos (${candidates.length})`,
+      value: {
+        mode: 'all-repos',
+        workspaceRoot,
+        candidates,
+        selectionSource: 'workspace-interactive-all-repos',
+      },
+    },
+    ...candidates.map((candidate) => ({
+      label: candidate.workspace_relative_path,
+      value: {
+        mode: 'single-repo',
+        projectRoot: candidate.git_root,
+        selectionSource: 'workspace-interactive-single-repo',
+      },
+    })),
+    {
+      label: 'Cancel',
+      value: null,
+    },
+  ], { requireExplicit: true });
+}
+
+function resolveDeveloperDefaults(projectRoot, adapter) {
+  const projectDeveloper = readDeveloperFile(getProjectDeveloperPath(projectRoot, adapter));
+  const globalDeveloper = readDeveloperFile(getGlobalDeveloperPath());
+  const gitUserName = readGitUserName(projectRoot);
+  const name =
+    (projectDeveloper && projectDeveloper.name) ||
+    (globalDeveloper && globalDeveloper.name) ||
+    gitUserName ||
+    '';
+  const lang =
+    normalizeSupportedLang(projectDeveloper && projectDeveloper.lang) ||
+    normalizeSupportedLang(globalDeveloper && globalDeveloper.lang) ||
+    'zh';
+
+  return {
+    name,
+    lang,
+  };
+}
+
+function normalizeSupportedLang(value) {
+  return value === 'zh' || value === 'en' ? value : '';
+}
+
+function printInitPreview(plan) {
+  if (plan.mode === 'all-repos') {
+    console.log(`Workspace preview: spec-first init (${plan.platform})`);
+    console.log(`  workspace_root: ${plan.workspaceRoot}`);
+    console.log(`  selection_source: ${plan.selectionSource}`);
+    console.log(`  child_repos: ${plan.childPlans.length}`);
+    console.log('');
+    console.log('Parent runtime assets:');
+    printInitDryRun({
+      platform: plan.platform,
+      plan: plan.parentPlan.operationPlan,
+      untrackDiagnostic: plan.parentPlan.untrackDiagnostic,
+      legacyStateDetected: plan.parentPlan.legacyStateDetected,
+      destructiveResetReason: plan.parentPlan.destructiveResetReason,
+      showPathSamples: false,
+    });
+    plan.childPlans.forEach((entry, index) => {
+      console.log('');
+      console.log(`Child ${index + 1}/${plan.childPlans.length}: ${entry.candidate.workspace_relative_path}`);
+      printInitDryRun({
+        platform: plan.platform,
+        plan: entry.plan.operationPlan,
+        untrackDiagnostic: entry.plan.untrackDiagnostic,
+        legacyStateDetected: entry.plan.legacyStateDetected,
+        destructiveResetReason: entry.plan.destructiveResetReason,
+        showPathSamples: false,
+      });
+    });
+    return;
+  }
+
+  printInitDryRun({
+    platform: plan.platform,
+    plan: plan.operationPlan,
+    untrackDiagnostic: plan.untrackDiagnostic,
+    legacyStateDetected: plan.legacyStateDetected,
+    destructiveResetReason: plan.destructiveResetReason,
+    showPathSamples: false,
   });
-  return getInitExitCode(result);
+}
+
+function printWorkspaceInitApplySuccess(plan, result) {
+  const summary = result.workspace_summary || {};
+  const counts = summary.counts || {};
+  console.log(`Workspace init summary: ${summary.overall_status || 'unknown'} (${counts.ready || 0}/${counts.total || 0} ready)`);
+  if (result.exit_code === 0) {
+    console.log('🧭 Wrote parent advisory summary: .spec-first/workspace/init-summary.json');
+  }
 }
 
 function runInitForProject({
@@ -108,34 +295,139 @@ function runInitForProject({
   projectRoot,
   gitRootTopology = 'single-repo',
 }) {
+  const plan = buildInitPlan({
+    projectRoot,
+    platform,
+    adapter,
+    name: parsed.user,
+    lang: parsed.lang,
+    gitRootTopology,
+    dryRun: parsed.dryRun,
+  });
+
+  printInitDiagnostics(plan);
+  if (Array.isArray(plan.errors) && plan.errors.length > 0) {
+    for (const error of plan.errors) {
+      console.error(error.message || String(error));
+    }
+    return buildProjectInitResult(1, plan.untrackDiagnostic);
+  }
+
+  if (parsed.dryRun) {
+    printInitDryRun({
+      platform,
+      plan: plan.operationPlan,
+      untrackDiagnostic: plan.untrackDiagnostic,
+      legacyStateDetected: plan.legacyStateDetected,
+      destructiveResetReason: plan.destructiveResetReason,
+    });
+    return buildProjectInitResult(0, plan.untrackDiagnostic);
+  }
+
+  const result = applyInitPlan(projectRoot, plan);
+  printInitApplySuccess(plan, result);
+  return result;
+}
+
+function buildInitPlan(input = {}) {
+  const platform = normalizeInitPlatform(input.platform);
+  const adapter = input.adapter || getAdapter(platform);
+  const target = input.target && typeof input.target === 'object'
+    ? input.target
+    : {
+      mode: 'single-repo',
+      projectRoot: input.projectRoot || process.cwd(),
+    };
+
+  if (target.mode === 'all-repos') {
+    const workspaceRoot = canonicalizeExistingPath(target.workspaceRoot || input.projectRoot || process.cwd());
+    const candidates = Array.isArray(target.candidates) && target.candidates.length > 0
+      ? target.candidates
+      : discoverChildGitRepos(workspaceRoot);
+    return buildWorkspaceInitPlan({
+      ...input,
+      platform,
+      adapter,
+      workspaceRoot,
+      candidates,
+      selectionSource: target.selectionSource || input.selectionSource || 'programmatic-all-repos',
+    });
+  }
+
+  return buildProjectInitPlan({
+    ...input,
+    platform,
+    adapter,
+    projectRoot: target.projectRoot || input.projectRoot || process.cwd(),
+    gitRootTopology: input.gitRootTopology || target.gitRootTopology || 'single-repo',
+  });
+}
+
+function applyInitPlan(projectRoot, plan) {
+  if (!plan || typeof plan !== 'object') {
+    throw new Error('applyInitPlan requires an init plan object.');
+  }
+
+  if (plan.mode === 'all-repos') {
+    return applyWorkspaceInitPlan(projectRoot || plan.workspaceRoot, plan);
+  }
+
+  return applyProjectInitPlan(projectRoot || plan.projectRoot, plan);
+}
+
+function buildProjectInitPlan({
+  projectRoot,
+  platform,
+  adapter,
+  name = '',
+  user = '',
+  lang = '',
+  gitRootTopology = 'single-repo',
+  dryRun = false,
+}) {
+  const normalizedRoot = canonicalizeExistingPath(projectRoot);
+  const errors = [];
+  const diagnostics = [];
   const bundledAgentPaths = listBundledAgents();
   const bundledAgentSupportFiles = listBundledAgentSupportFiles();
 
   if (platform === 'claude') {
     const duplicateBareNames = findDuplicateClaudeAgentNames(bundledAgentPaths);
     if (duplicateBareNames.length > 0) {
-      console.error(
-        `Error: Claude runtime requires unique bare agent names, but found duplicates: ${duplicateBareNames.join(', ')}`,
-      );
-      return 1;
+      errors.push({
+        code: 'duplicate_claude_agent_names',
+        message: `Error: Claude runtime requires unique bare agent names, but found duplicates: ${duplicateBareNames.join(', ')}`,
+      });
+      return buildErroredProjectInitPlan({
+        projectRoot: normalizedRoot,
+        platform,
+        adapter,
+        dryRun,
+        gitRootTopology,
+        errors,
+        diagnostics,
+      });
     }
   }
 
-  const commandDir = adapter.hasCommands ? path.join(projectRoot, adapter.commandRoot) : '';
+  const commandDir = adapter.hasCommands ? path.join(normalizedRoot, adapter.commandRoot) : '';
   let previousState = null;
   let legacyStateDetected = false;
   let rawManagedState = null;
   let destructiveResetPlan = null;
+  let destructiveResetReason = '';
   try {
-    previousState = readState(projectRoot, adapter);
+    previousState = readState(normalizedRoot, adapter);
   } catch (error) {
-    rawManagedState = tryReadRawManagedState(projectRoot, adapter);
+    rawManagedState = tryReadRawManagedState(normalizedRoot, adapter);
     if (isLegacyManagedState(rawManagedState)) {
       legacyStateDetected = true;
     } else {
-      console.warn(
-        `Warning: could not read existing spec-first state; continuing with a fresh sync. (${error instanceof Error ? error.message : String(error)})`,
-      );
+      diagnostics.push({
+        level: 'warn',
+        code: 'managed_state_unreadable',
+        message: `Warning: could not read existing spec-first state; continuing with a fresh sync. (${error instanceof Error ? error.message : String(error)})`,
+      });
     }
   }
   const manifest = loadPluginManifest();
@@ -148,18 +440,29 @@ function runInitForProject({
     : [];
   let developer;
   try {
-    developer = resolveDeveloperIdentity(projectRoot, {
-      user: parsed.user,
-      lang: parsed.lang,
+    developer = resolveDeveloperIdentity(normalizedRoot, {
+      user: user || name,
+      lang,
     }, adapter);
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
-    return 1;
+    errors.push({
+      code: 'developer_identity_unresolved',
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return buildErroredProjectInitPlan({
+      projectRoot: normalizedRoot,
+      platform,
+      adapter,
+      dryRun,
+      gitRootTopology,
+      errors,
+      diagnostics,
+    });
   }
 
   const commandSkillNames = new Set(manifest.commands.map((cmd) => cmd.skill));
-  const assetSync = planBundledAssetSync(projectRoot, adapter, filteredAssetSet);
-  const runtimeSyncPlan = adapter.planRuntimeFilesSync(projectRoot, { manifest, filteredAssetSet });
+  const assetSync = planBundledAssetSync(normalizedRoot, adapter, filteredAssetSet);
+  const runtimeSyncPlan = adapter.planRuntimeFilesSync(normalizedRoot, { manifest, filteredAssetSet });
   const previewState = buildState(manifest.version, {
     ...assetSync.syncedAssets,
     platform,
@@ -174,20 +477,34 @@ function runInitForProject({
 
   if (platform === 'claude') {
     try {
-      validateClaudeSettingsFile(projectRoot);
+      validateClaudeSettingsFile(normalizedRoot);
     } catch (error) {
-      console.error(
-        `Could not read Claude settings before init. ${error instanceof Error ? error.message : String(error)}`,
-      );
-      console.error(
-        'Fix `.claude/settings.json` so it contains valid JSON, then rerun `spec-first init --claude`.',
-      );
-      return 1;
+      errors.push({
+        code: 'invalid_claude_settings_json',
+        message: `Could not read Claude settings before init. ${error instanceof Error ? error.message : String(error)}`,
+      });
+      errors.push({
+        code: 'invalid_claude_settings_fix',
+        message: 'Fix `.claude/settings.json` so it contains valid JSON, then rerun `spec-first init` and choose Claude Code when prompted.',
+      });
+      return buildErroredProjectInitPlan({
+        projectRoot: normalizedRoot,
+        platform,
+        adapter,
+        dryRun,
+        gitRootTopology,
+        errors,
+        diagnostics,
+      });
     }
   }
 
   if (legacyStateDetected) {
-    console.warn('Detected legacy spec-first state; performing managed hard reset before re-init.');
+    diagnostics.push({
+      level: 'warn',
+      code: 'legacy_state_detected',
+      message: 'Detected legacy spec-first state; performing managed hard reset before re-init.',
+    });
     const legacyResetState = buildLegacyHardResetState({
       adapter,
       rawManagedState,
@@ -198,80 +515,31 @@ function runInitForProject({
       bundledAgentSupportFiles,
       developer,
     });
-
-    if (parsed.dryRun) {
-      const hardResetPlan = planHardResetManagedAssets(projectRoot, legacyResetState, adapter);
-      const postResetPreSyncPlan = mergeOperationPlans(
-        planObsoleteManagedAssetRemoval(projectRoot, null, previewState, adapter),
-        planCommandNamespacePrune(projectRoot, previewState.commands, adapter),
-        planRetiredRuntimeAssetPrune(projectRoot, adapter),
-      );
-      const initWritePlan = buildInitWritePlan({
-        projectRoot,
-        adapter,
-        developer,
-        nextState: previewState,
-        platform,
-        assetPlan: assetSync.plan,
-        runtimePlan: runtimeSyncPlan,
-        gitRootTopology,
-      });
-      printInitDryRun({
-        platform,
-        plan: mergeOperationPlans(hardResetPlan, postResetPreSyncPlan, initWritePlan.plan),
-        untrackDiagnostic: initWritePlan.untrackDiagnostic,
-        legacyStateDetected,
-      });
-      return buildProjectInitResult(0, initWritePlan.untrackDiagnostic);
-    }
-
-    destructiveResetPlan = planHardResetManagedAssets(projectRoot, legacyResetState, adapter);
+    destructiveResetPlan = planHardResetManagedAssets(normalizedRoot, legacyResetState, adapter);
+    destructiveResetReason = 'legacy_state_detected';
     previousState = null;
   } else if (previousState) {
-    const currentRuntimeDrift = inspectCurrentRuntimeDrift(projectRoot, adapter);
+    const currentRuntimeDrift = inspectCurrentRuntimeDrift(normalizedRoot, adapter);
     if (currentRuntimeDrift.detected) {
-      console.warn(
-        `Detected current spec-first runtime drift; performing managed hard reset before re-init. (${currentRuntimeDrift.reasons.join(', ')})`,
-      );
-
-      if (parsed.dryRun) {
-        const hardResetPlan = planHardResetManagedAssets(projectRoot, previousState, adapter);
-        const postResetPreSyncPlan = mergeOperationPlans(
-          planObsoleteManagedAssetRemoval(projectRoot, null, previewState, adapter),
-          planCommandNamespacePrune(projectRoot, previewState.commands, adapter),
-          planRetiredRuntimeAssetPrune(projectRoot, adapter),
-        );
-        const initWritePlan = buildInitWritePlan({
-          projectRoot,
-          adapter,
-          developer,
-          nextState: previewState,
-          platform,
-          assetPlan: assetSync.plan,
-          runtimePlan: runtimeSyncPlan,
-          gitRootTopology,
-        });
-        printInitDryRun({
-          platform,
-          plan: mergeOperationPlans(hardResetPlan, postResetPreSyncPlan, initWritePlan.plan),
-          untrackDiagnostic: initWritePlan.untrackDiagnostic,
-          destructiveResetReason: 'current_runtime_drift',
-        });
-        return buildProjectInitResult(0, initWritePlan.untrackDiagnostic);
-      }
-
-      destructiveResetPlan = planHardResetManagedAssets(projectRoot, previousState, adapter);
+      diagnostics.push({
+        level: 'warn',
+        code: 'current_runtime_drift',
+        message: `Detected current spec-first runtime drift; performing managed hard reset before re-init. (${currentRuntimeDrift.reasons.join(', ')})`,
+        reasons: currentRuntimeDrift.reasons,
+      });
+      destructiveResetPlan = planHardResetManagedAssets(normalizedRoot, previousState, adapter);
+      destructiveResetReason = 'current_runtime_drift';
       previousState = null;
     }
   }
 
   const preSyncPlan = mergeOperationPlans(
-    planObsoleteManagedAssetRemoval(projectRoot, previousState, previewState, adapter),
-    planCommandNamespacePrune(projectRoot, previewState.commands, adapter),
-    planRetiredRuntimeAssetPrune(projectRoot, adapter),
+    planObsoleteManagedAssetRemoval(normalizedRoot, previousState, previewState, adapter),
+    planCommandNamespacePrune(normalizedRoot, previewState.commands, adapter),
+    planRetiredRuntimeAssetPrune(normalizedRoot, adapter),
   );
   const initWritePlan = buildInitWritePlan({
-    projectRoot,
+    projectRoot: normalizedRoot,
     adapter,
     developer,
     nextState: previewState,
@@ -281,41 +549,83 @@ function runInitForProject({
     gitRootTopology,
   });
 
-  if (parsed.dryRun) {
-    printInitDryRun({
-      platform,
-      plan: mergeOperationPlans(preSyncPlan, initWritePlan.plan),
-      untrackDiagnostic: initWritePlan.untrackDiagnostic,
-      legacyStateDetected,
-    });
-    return buildProjectInitResult(0, initWritePlan.untrackDiagnostic);
+  const operationPlan = mergeOperationPlans(destructiveResetPlan, preSyncPlan, initWritePlan.plan);
+  return {
+    schema_version: 'spec-first-init-plan.v1',
+    mode: 'single-repo',
+    projectRoot: normalizedRoot,
+    platform,
+    gitRootTopology,
+    dryRun: Boolean(dryRun),
+    adapterId: adapter.id,
+    commandDir,
+    developer,
+    previousState,
+    previewState,
+    destructiveResetPlan,
+    destructiveResetReason,
+    legacyStateDetected,
+    preSyncPlan,
+    writePlan: initWritePlan.plan,
+    operationPlan,
+    untrackDiagnostic: initWritePlan.untrackDiagnostic,
+    syncedAssets: assetSync.syncedAssets,
+    changelogCreated: !fs.existsSync(path.join(normalizedRoot, 'CHANGELOG.md')),
+    diagnostics,
+    errors,
+    summary: operationPlan.summary,
+  };
+}
+
+function applyProjectInitPlan(projectRoot, plan) {
+  const normalizedRoot = canonicalizeExistingPath(projectRoot || plan.projectRoot);
+  if (Array.isArray(plan.errors) && plan.errors.length > 0) {
+    return {
+      exit_code: 1,
+      runtime_untrack: buildRuntimeUntrackSummary(plan.untrackDiagnostic),
+    };
   }
 
-  const changelogCreated = !fs.existsSync(path.join(projectRoot, 'CHANGELOG.md'));
   let untrackApplyResult = null;
-  if (destructiveResetPlan) {
+  if (plan.destructiveResetPlan) {
     const destructiveBackup = createRuntimeRollbackBackup({
-      projectRoot,
-      plans: [destructiveResetPlan, preSyncPlan, initWritePlan.plan],
+      projectRoot: normalizedRoot,
+      plans: [plan.destructiveResetPlan, plan.preSyncPlan, plan.writePlan],
     });
     try {
-      applyOperationPlan(projectRoot, destructiveResetPlan);
-      applyOperationPlan(projectRoot, preSyncPlan);
-      untrackApplyResult = applyOperationPlan(projectRoot, initWritePlan.plan);
+      applyOperationPlan(normalizedRoot, plan.destructiveResetPlan);
+      applyOperationPlan(normalizedRoot, plan.preSyncPlan);
+      untrackApplyResult = applyOperationPlan(normalizedRoot, plan.writePlan);
       removeRuntimeRollbackBackup(destructiveBackup);
     } catch (error) {
-      restoreRuntimeRollbackBackup(projectRoot, destructiveBackup);
+      restoreRuntimeRollbackBackup(normalizedRoot, destructiveBackup);
       removeRuntimeRollbackBackup(destructiveBackup);
       throw error;
     }
   } else {
-    applyOperationPlan(projectRoot, preSyncPlan);
-    untrackApplyResult = applyOperationPlan(projectRoot, initWritePlan.plan);
+    applyOperationPlan(normalizedRoot, plan.preSyncPlan);
+    untrackApplyResult = applyOperationPlan(normalizedRoot, plan.writePlan);
   }
-  if (platform === 'claude') {
+
+  return {
+    exit_code: 0,
+    runtime_untrack: buildRuntimeUntrackSummary(plan.untrackDiagnostic, untrackApplyResult),
+  };
+}
+
+function printInitApplySuccess(plan, result) {
+  const adapter = getAdapter(plan.platform);
+  if (plan.platform === 'claude') {
     console.log('🪝 Installed Claude SessionStart matcher in .claude/settings.json');
   }
-  const synced = assetSync.syncedAssets;
+  const synced = plan.syncedAssets || {
+    commands: [],
+    skills: [],
+    workflowSkills: [],
+    internalSkills: [],
+    agents: [],
+    agentSupportFiles: [],
+  };
   const written = synced.commands.map((command) => command.filename);
   const skillNames = adapter.workflowsRoot === adapter.skillsRoot
     ? mergeStringArrays(synced.skills, synced.workflowSkills, synced.internalSkills)
@@ -324,36 +634,32 @@ function runInitForProject({
   const agentSupportFiles = synced.agentSupportFiles || [];
 
   if (adapter.hasCommands) {
-    console.log(`📦 Generated ${written.length} command file(s) in ${path.relative(projectRoot, commandDir)}`);
+    console.log(`📦 Generated ${written.length} command file(s) in ${path.relative(plan.projectRoot, plan.commandDir)}`);
   }
   console.log(`🧩 Generated ${skillNames.length} skill directory(ies) in ${adapter.skillsRoot}`);
   console.log(`🤖 Generated ${agentPaths.length} agent file(s) in ${adapter.agentsRoot}`);
   if (agentSupportFiles.length > 0) {
     console.log(`🧰 Generated ${agentSupportFiles.length} agent support file(s) in ${adapter.agentsRoot}`);
   }
-  const gitignoreOperation = initWritePlan.plan.operations.find((operation) => operation.reason === 'managed_gitignore_policy');
+  const gitignoreOperation = plan.writePlan.operations.find((operation) => operation.reason === 'managed_gitignore_policy');
   if (gitignoreOperation) {
     const action = gitignoreOperation.gitignoreStatus === 'added' ? 'Added' : 'Updated';
     console.log(`🧹 ${action} .gitignore spec-first managed block`);
   }
-  const runtimeUntrack = buildRuntimeUntrackSummary(initWritePlan.untrackDiagnostic, untrackApplyResult);
+  const runtimeUntrack = result.runtime_untrack;
   printRuntimeUntrackApplySummary(runtimeUntrack);
   console.log('🪪 Wrote project developer profile:');
   console.log(`  📍 path: ${adapter.developerFile}`);
-  console.log(`  👤 name: ${developer.name}`);
-  console.log(`  🈯 lang: ${developer.lang}`);
-  console.log(`  ⏱ initialized_at: ${developer.initializedAt}`);
-  console.log(`  🔖 version: ${developer.version}`);
-  if (changelogCreated) {
+  console.log(`  👤 name: ${plan.developer.name}`);
+  console.log(`  🈯 lang: ${plan.developer.lang}`);
+  console.log(`  ⏱ initialized_at: ${plan.developer.initializedAt}`);
+  console.log(`  🔖 version: ${plan.developer.version}`);
+  if (plan.changelogCreated) {
     console.log('📝 Bootstrapped CHANGELOG.md');
   }
 
   console.log('');
-  printInitNextSteps(platform, developer.lang);
-  return {
-    exit_code: 0,
-    runtime_untrack: runtimeUntrack,
-  };
+  printInitNextSteps(plan.platform, plan.developer.lang);
 }
 
 function runInitForWorkspace({
@@ -510,6 +816,298 @@ function runInitForWorkspace({
   return actionRequiredCount === 0 ? 0 : 1;
 }
 
+function buildWorkspaceInitPlan({
+  platform,
+  adapter,
+  workspaceRoot,
+  candidates,
+  selectionSource = 'programmatic-all-repos',
+  name = '',
+  user = '',
+  lang = '',
+  dryRun = false,
+}) {
+  const normalizedWorkspaceRoot = canonicalizeExistingPath(workspaceRoot);
+  const parentPlan = buildProjectInitPlan({
+    projectRoot: normalizedWorkspaceRoot,
+    platform,
+    adapter,
+    name,
+    user,
+    lang,
+    dryRun,
+    gitRootTopology: 'multi-repo-workspace',
+  });
+  const childPlans = candidates.map((candidate) => ({
+    candidate,
+    plan: buildProjectInitPlan({
+      projectRoot: candidate.git_root,
+      platform,
+      adapter,
+      name,
+      user,
+      lang,
+      dryRun,
+      gitRootTopology: 'single-repo',
+    }),
+  }));
+
+  return {
+    schema_version: 'spec-first-init-plan.v1',
+    mode: 'all-repos',
+    workspaceRoot: normalizedWorkspaceRoot,
+    platform,
+    adapterId: adapter.id,
+    dryRun: Boolean(dryRun),
+    selectionSource,
+    candidates,
+    parentPlan,
+    childPlans,
+    errors: [
+      ...(parentPlan.errors || []),
+      ...childPlans.flatMap((entry) => entry.plan.errors || []),
+    ],
+    diagnostics: [
+      ...(parentPlan.diagnostics || []),
+      ...childPlans.flatMap((entry) => entry.plan.diagnostics || []),
+    ],
+    summary: {
+      parent: parentPlan.summary || {},
+      children: childPlans.map((entry) => ({
+        repo_label: entry.candidate.repo_label,
+        summary: entry.plan.summary || {},
+      })),
+    },
+  };
+}
+
+function applyWorkspaceInitPlan(workspaceRoot, plan) {
+  const normalizedWorkspaceRoot = canonicalizeExistingPath(workspaceRoot || plan.workspaceRoot);
+  let parentRuntime = {
+    exit_code: 0,
+    overall_status: 'ready',
+    reason_code: null,
+    diagnostic: '',
+    runtime_untrack: buildRuntimeUntrackSummary(),
+  };
+
+  try {
+    const parentResult = normalizeProjectInitResult(applyProjectInitPlan(
+      plan.parentPlan.projectRoot,
+      plan.parentPlan,
+    ));
+    parentRuntime = {
+      exit_code: parentResult.exit_code,
+      overall_status: parentResult.exit_code === 0 ? 'ready' : 'action-required',
+      reason_code: parentResult.exit_code === 0 ? null : 'parent-runtime-init-failed',
+      diagnostic: collectPlanErrorMessages(plan.parentPlan),
+      runtime_untrack: parentResult.runtime_untrack,
+    };
+  } catch (error) {
+    parentRuntime = {
+      exit_code: 1,
+      overall_status: 'action-required',
+      reason_code: 'parent-runtime-init-exception',
+      diagnostic: error instanceof Error ? error.message : String(error),
+      runtime_untrack: buildRuntimeUntrackSummary(),
+    };
+  }
+
+  const results = [];
+  for (const entry of plan.childPlans) {
+    const { candidate } = entry;
+    try {
+      const projectResult = normalizeProjectInitResult(applyProjectInitPlan(
+        entry.plan.projectRoot,
+        entry.plan,
+      ));
+      results.push({
+        repo_label: candidate.repo_label,
+        workspace_relative_path: candidate.workspace_relative_path,
+        git_root: candidate.git_root,
+        exit_code: projectResult.exit_code,
+        overall_status: projectResult.exit_code === 0 ? 'ready' : 'action-required',
+        reason_code: projectResult.exit_code === 0 ? null : 'init-failed',
+        diagnostic: collectPlanErrorMessages(entry.plan),
+        runtime_untrack: projectResult.runtime_untrack,
+      });
+    } catch (error) {
+      results.push({
+        repo_label: candidate.repo_label,
+        workspace_relative_path: candidate.workspace_relative_path,
+        git_root: candidate.git_root,
+        exit_code: 1,
+        overall_status: 'action-required',
+        reason_code: 'init-exception',
+        diagnostic: error instanceof Error ? error.message : String(error),
+        runtime_untrack: buildRuntimeUntrackSummary(),
+      });
+    }
+  }
+
+  const summary = buildWorkspaceInitSummary({
+    workspaceRoot: normalizedWorkspaceRoot,
+    plan,
+    parentRuntime,
+    results,
+  });
+
+  if (!plan.dryRun) {
+    const summaryPath = path.join(normalizedWorkspaceRoot, '.spec-first', 'workspace', 'init-summary.json');
+    const summaryPathGuard = validateContainedWorkspaceWritePath(normalizedWorkspaceRoot, summaryPath);
+    if (!summaryPathGuard.ok) {
+      return {
+        exit_code: 1,
+        workspace_summary: summary,
+        runtime_untrack: buildRuntimeUntrackSummary(),
+        error: `workspace init summary path is unsafe (${summaryPathGuard.reason_code})`,
+      };
+    }
+    writeJsonFileAtomic(summaryPath, summary);
+  }
+
+  const actionRequiredCount = summary.counts.action_required + summary.counts.parent_runtime_action_required;
+  return {
+    exit_code: actionRequiredCount === 0 ? 0 : 1,
+    workspace_summary: summary,
+    runtime_untrack: parentRuntime.runtime_untrack,
+  };
+}
+
+function buildWorkspaceInitSummary({
+  workspaceRoot,
+  plan,
+  parentRuntime,
+  results,
+}) {
+  const readyCount = results.filter((result) => result.overall_status === 'ready').length;
+  const childActionRequiredCount = results.length - readyCount;
+  const parentActionRequiredCount = parentRuntime.overall_status === 'ready' ? 0 : 1;
+  const actionRequiredCount = childActionRequiredCount + parentActionRequiredCount;
+  const overallStatus = actionRequiredCount === 0
+    ? 'ready'
+    : readyCount > 0
+      ? 'partial'
+      : 'action-required';
+
+  return {
+    schema_version: 'workspace-init-summary.v1',
+    generated_at: new Date().toISOString(),
+    advisory: true,
+    workflow_mode: 'all-repos',
+    selection_source: plan.selectionSource,
+    workspace_root: workspaceRoot,
+    parent_writes_repo_local_artifacts: false,
+    parent_writes_host_runtime_assets: true,
+    parent_host_runtime: parentRuntime,
+    dry_run: Boolean(plan.dryRun),
+    platform: plan.platform,
+    results,
+    counts: {
+      total: results.length,
+      ready: readyCount,
+      action_required: childActionRequiredCount,
+      parent_runtime_ready: parentRuntime.overall_status === 'ready' ? 1 : 0,
+      parent_runtime_action_required: parentActionRequiredCount,
+      runtime_untrack_total: results.reduce((total, result) => (
+        total + (result.runtime_untrack && Number.isFinite(result.runtime_untrack.count)
+          ? result.runtime_untrack.count
+          : 0)
+      ), 0),
+    },
+    overall_status: overallStatus,
+    reason_code: actionRequiredCount === 0 ? null : 'all-repos-partial-or-action-required',
+    next_action: actionRequiredCount === 0
+      ? 'Parent host runtime and all child repos completed init.'
+      : 'Inspect per-child reason_code and rerun init for action-required repos.',
+  };
+}
+
+function buildErroredProjectInitPlan({
+  projectRoot,
+  platform,
+  adapter,
+  dryRun = false,
+  gitRootTopology = 'single-repo',
+  errors = [],
+  diagnostics = [],
+}) {
+  const emptyPlan = mergeOperationPlans();
+  return {
+    schema_version: 'spec-first-init-plan.v1',
+    mode: 'single-repo',
+    projectRoot,
+    platform,
+    gitRootTopology,
+    dryRun: Boolean(dryRun),
+    adapterId: adapter.id,
+    commandDir: adapter.hasCommands ? path.join(projectRoot, adapter.commandRoot) : '',
+    developer: null,
+    previousState: null,
+    previewState: null,
+    destructiveResetPlan: null,
+    destructiveResetReason: '',
+    legacyStateDetected: false,
+    preSyncPlan: emptyPlan,
+    writePlan: emptyPlan,
+    operationPlan: emptyPlan,
+    untrackDiagnostic: buildRuntimeUntrackSummary(),
+    syncedAssets: {
+      commands: [],
+      skills: [],
+      workflowSkills: [],
+      internalSkills: [],
+      agents: [],
+      agentSupportFiles: [],
+    },
+    changelogCreated: false,
+    diagnostics,
+    errors,
+    summary: emptyPlan.summary,
+  };
+}
+
+function normalizeInitPlatform(platform) {
+  if (platform === 'claude' || platform === 'codex') {
+    return platform;
+  }
+  throw new Error(`Unknown init platform: ${platform || ''}`);
+}
+
+function printInitDiagnostics(plan) {
+  const diagnostics = collectInitDiagnostics(plan);
+  for (const diagnostic of diagnostics) {
+    const message = diagnostic && diagnostic.message ? diagnostic.message : String(diagnostic);
+    if (diagnostic.level === 'warn') {
+      console.warn(message);
+    } else {
+      console.log(message);
+    }
+  }
+}
+
+function collectInitDiagnostics(plan) {
+  if (!plan || typeof plan !== 'object') {
+    return [];
+  }
+  if (plan.mode === 'all-repos') {
+    return [
+      ...(plan.parentPlan ? collectInitDiagnostics(plan.parentPlan) : []),
+      ...(Array.isArray(plan.childPlans)
+        ? plan.childPlans.flatMap((entry) => collectInitDiagnostics(entry.plan))
+        : []),
+    ];
+  }
+  return Array.isArray(plan.diagnostics) ? plan.diagnostics : [];
+}
+
+function collectPlanErrorMessages(plan) {
+  return (Array.isArray(plan.errors) ? plan.errors : [])
+    .map((error) => error.message || String(error))
+    .filter(Boolean)
+    .join('\n');
+}
+
 function printInitNextSteps(platform, lang = 'zh') {
   const hostDisplay = platform === 'claude' ? 'Claude Code' : 'Codex';
   const entryKind = platform === 'claude' ? '/spec:* commands' : '$spec-* skills';
@@ -539,11 +1137,23 @@ function printHelp() {
     '🚀 spec-first init',
     '',
     '📘 Usage:',
-    '  spec-first init (--claude|--codex) [-u <name>] [--lang <zh|en>] [--dry-run] [--repo <child>|--all-repos]',
+    '  spec-first init',
+    '',
+    'Interactive steps:',
+    '  1. Choose Claude Code or Codex',
+    '  2. Confirm developer name',
+    '  3. Choose response language',
+    '  4. Choose workspace target when child Git repos are detected',
+    '  5. Preview write/reset operations',
+    '  6. Confirm or cancel',
     '',
     'Workspace targeting:',
-    '  In a parent workspace with child Git repos, init refreshes parent host runtime assets, runs all child repos, and writes only a parent advisory summary.',
-    '  Use --repo <child> to initialize one child repo, or --all-repos to make the batch intent explicit.',
+    '  In a parent workspace with child Git repos, init asks whether to initialize all child repos or one selected child.',
+    '  Parent workspace runs write only parent advisory summary assets; child repo truth stays in each child repo.',
+    '',
+    'Non-interactive usage:',
+    '  spec-first init requires an interactive terminal and exits 2 in CI/non-TTY environments.',
+    '  CI callers should use require("spec-first/src/cli/init-plan").',
     '',
     '➡️ After successful init:',
     '  Claude: restart Claude Code. For lightweight work, start the matching /spec:* workflow; for enhanced readiness, run /spec:mcp-setup, then /spec:graph-bootstrap if prompted, then route by user intent.',
@@ -552,109 +1162,6 @@ function printHelp() {
     '🔗 Repository:',
     '  https://github.com/sunrain520/spec-first',
   ].join('\n'));
-}
-
-function resolveInitTarget(parsed, cwd) {
-  const workspaceRoot = canonicalizeExistingPath(cwd);
-  if (parsed.repo && parsed.allRepos) {
-    return {
-      ok: false,
-      message: 'Error: Cannot combine --repo and --all-repos.',
-    };
-  }
-
-  const cwdGitRoot = findGitRoot(workspaceRoot);
-  if (parsed.repo) {
-    return resolveExplicitRepoTarget({
-      repoArg: parsed.repo,
-      cwd: workspaceRoot,
-      cwdGitRoot,
-    });
-  }
-
-  const candidates = cwdGitRoot ? [] : discoverChildGitRepos(workspaceRoot);
-  if (parsed.allRepos) {
-    if (cwdGitRoot) {
-      return {
-        ok: false,
-        message: 'Error: --all-repos must be run from a parent workspace, not inside a Git repo.',
-      };
-    }
-    if (candidates.length === 0) {
-      return {
-        ok: false,
-        message: 'Error: --all-repos found no child Git repos in the current workspace.',
-      };
-    }
-    return {
-      ok: true,
-      mode: 'all-repos',
-      workspaceRoot,
-      selectionSource: 'explicit-all-repos',
-      candidates,
-    };
-  }
-
-  if (!cwdGitRoot && candidates.length > 0) {
-    return {
-      ok: true,
-      mode: 'all-repos',
-      workspaceRoot,
-      selectionSource: 'workspace-default-all-repos',
-      candidates,
-    };
-  }
-
-  return {
-    ok: true,
-    mode: 'single-repo',
-    projectRoot: workspaceRoot,
-    selectionSource: cwdGitRoot ? 'cwd-git-or-monorepo' : 'cwd-directory',
-  };
-}
-
-function resolveExplicitRepoTarget({
-  repoArg,
-  cwd,
-  cwdGitRoot,
-}) {
-  const targetPath = path.resolve(cwd, repoArg);
-  if (!fs.existsSync(targetPath)) {
-    return {
-      ok: false,
-      message: `Error: --repo target does not exist: ${repoArg}`,
-    };
-  }
-
-  const selectedRepoRoot = findGitRoot(targetPath);
-  if (!selectedRepoRoot) {
-    return {
-      ok: false,
-      message: `Error: --repo target is not inside a Git repo: ${repoArg}`,
-    };
-  }
-
-  const boundaryRoot = cwdGitRoot || canonicalizeExistingPath(cwd);
-  if (!isPathWithin(selectedRepoRoot, boundaryRoot)) {
-    return {
-      ok: false,
-      message: 'Error: --repo target must be inside the current workspace.',
-    };
-  }
-
-  if (cwdGitRoot && selectedRepoRoot !== cwdGitRoot) {
-    return {
-      ok: false,
-      message: 'Error: --repo cannot select a sibling repo when init is invoked inside a Git repo. Run from the parent workspace.',
-    };
-  }
-
-  return {
-    ok: true,
-    mode: 'single-repo',
-    projectRoot: selectedRepoRoot,
-    selectionSource: 'explicit-repo',
-  };
 }
 
 function discoverChildGitRepos(workspaceRoot, maxDepth = 3) {
@@ -805,106 +1312,6 @@ function nearestExistingPath(targetPath) {
     }
     current = parent;
   }
-}
-
-function parseInitArgs(argv) {
-  const parsed = {
-    help: false,
-    claude: false,
-    codex: false,
-    dryRun: false,
-    user: '',
-    lang: '',
-    repo: '',
-    allRepos: false,
-    unknown: [],
-  };
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-
-    if (arg === '-h' || arg === '--help') {
-      parsed.help = true;
-      continue;
-    }
-
-    if (arg === '--claude') {
-      parsed.claude = true;
-      continue;
-    }
-
-    if (arg === '--codex') {
-      parsed.codex = true;
-      continue;
-    }
-
-    if (arg === '--dry-run') {
-      parsed.dryRun = true;
-      continue;
-    }
-
-    if (arg === '--all-repos') {
-      parsed.allRepos = true;
-      continue;
-    }
-
-    if (arg === '--repo') {
-      const next = argv[index + 1];
-      if (!next || next.startsWith('-')) {
-        parsed.unknown.push(arg);
-        continue;
-      }
-      parsed.repo = next;
-      index += 1;
-      continue;
-    }
-
-    if (arg.startsWith('--repo=')) {
-      const repoValue = arg.slice('--repo='.length);
-      if (!repoValue) {
-        parsed.unknown.push(arg);
-        continue;
-      }
-      parsed.repo = repoValue;
-      continue;
-    }
-
-    if (arg === '-u' || arg === '--user') {
-      const next = argv[index + 1];
-      if (!next || next.startsWith('-')) {
-        parsed.unknown.push(arg);
-        continue;
-      }
-      parsed.user = next;
-      index += 1;
-      continue;
-    }
-
-    if (arg.startsWith('--user=')) {
-      parsed.user = arg.slice('--user='.length);
-      continue;
-    }
-
-    if (arg === '--lang') {
-      const next = argv[index + 1];
-      if (!next || next.startsWith('-')) {
-        parsed.unknown.push(arg);
-        continue;
-      }
-      parsed.lang = next;
-      index += 1;
-      continue;
-    }
-
-    if (arg.startsWith('--lang=')) {
-      parsed.lang = arg.slice('--lang='.length);
-      continue;
-    }
-
-    parsed.unknown.push(arg);
-  }
-
-  return parsed;
 }
 
 function tryReadRawManagedState(projectRoot, adapter) {
@@ -1268,12 +1675,22 @@ function buildPlanFileOperation(projectRoot, relativePath, contents, reason) {
   return buildFileWriteOperation(projectRoot, absolutePath, contents, reason);
 }
 
-function printInitDryRun({ platform, plan, untrackDiagnostic, legacyStateDetected, destructiveResetReason = '' }) {
+function printInitDryRun({
+  platform,
+  plan,
+  untrackDiagnostic,
+  legacyStateDetected,
+  destructiveResetReason = '',
+  maxEntries = Infinity,
+  showPathSamples = true,
+}) {
   console.log(`Dry run: spec-first init (${platform})`);
   if (legacyStateDetected) {
     console.log('Would perform a managed hard reset before regenerating runtime assets.');
+    console.log('Destructive preview: managed runtime reset/removal/prune operations are included.');
   } else if (destructiveResetReason === 'current_runtime_drift') {
     console.log('Would perform a managed hard reset before regenerating runtime assets (current runtime drift detected).');
+    console.log('Destructive preview: managed runtime reset/removal/prune operations are included.');
   }
 
   const pruneCount = plan.summary.prune_command || 0;
@@ -1283,29 +1700,41 @@ function printInitDryRun({ platform, plan, untrackDiagnostic, legacyStateDetecte
 
   console.log(`Would remove ${removeCount} managed obsolete path(s).`);
   if (pruneCount > 0) {
-    console.log(`Would prune ${pruneCount} unmanaged command file(s):`);
-    for (const operation of plan.operations.filter((entry) => entry.kind === 'prune_command')) {
-      console.log(`  - ${operation.path}`);
+    console.log(`Would prune ${pruneCount} unmanaged command file(s)${showPathSamples ? ':' : '.'}`);
+    if (showPathSamples) {
+      printOperationPathSample(plan.operations.filter((entry) => entry.kind === 'prune_command'), maxEntries);
     }
   }
 
   if (ensureCount > 0) {
-    console.log(`Would ensure ${ensureCount} managed directorie(s):`);
-    for (const operation of plan.operations.filter((entry) => entry.kind === 'ensure_dir')) {
-      console.log(`  - ${operation.path}`);
+    console.log(`Would ensure ${ensureCount} managed directorie(s)${showPathSamples ? ':' : '.'}`);
+    if (showPathSamples) {
+      printOperationPathSample(plan.operations.filter((entry) => entry.kind === 'ensure_dir'), maxEntries);
     }
   }
 
   if (writeCount > 0) {
-    console.log(`Would write/update ${writeCount} managed file(s):`);
-    for (const operation of plan.operations.filter((entry) =>
-      entry.kind === 'write_file' || entry.kind === 'update_file'
-    )) {
-      console.log(`  - ${operation.path}`);
+    console.log(`Would write/update ${writeCount} managed file(s)${showPathSamples ? ':' : '.'}`);
+    if (showPathSamples) {
+      printOperationPathSample(
+        plan.operations.filter((entry) => entry.kind === 'write_file' || entry.kind === 'update_file'),
+        maxEntries,
+      );
     }
   }
   printRuntimeUntrackDryRunSummary(untrackDiagnostic);
   console.log('No files were changed.');
+}
+
+function printOperationPathSample(operations, maxEntries = Infinity) {
+  const limit = Number.isFinite(maxEntries) && maxEntries >= 0 ? Math.floor(maxEntries) : operations.length;
+  for (const operation of operations.slice(0, limit)) {
+    console.log(`  - ${operation.path}`);
+  }
+  const omitted = operations.length - Math.min(limit, operations.length);
+  if (omitted > 0) {
+    console.log(`  ... ${omitted} more path(s) omitted from preview`);
+  }
 }
 
 function printRuntimeUntrackDryRunSummary(untrackDiagnostic = buildRuntimeUntrackSummary()) {
@@ -1386,6 +1815,12 @@ function getInitExitCode(result) {
 }
 
 module.exports = {
+  applyInitPlan,
+  buildInitPlan,
   buildInitWritePlan,
+  printInitApplySuccess,
+  printInitDryRun,
+  printInitPreview,
+  printWorkspaceInitApplySuccess,
   runInit,
 };

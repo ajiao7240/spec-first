@@ -143,8 +143,9 @@ DOCTOR_TMP="$(mktemp -d)"
 DOCTOR_OUTPUT=$(cd "$DOCTOR_TMP" && "$SHIM" doctor 2>&1)
 rm -rf "$DOCTOR_TMP"
 grep -q "init" <<<"$DOCTOR_OUTPUT"
-grep -q "spec-first init --claude" <<<"$DOCTOR_OUTPUT"
-echo "   ✓ doctor 在空目录输出 init --claude 指引"
+grep -q "spec-first init" <<<"$DOCTOR_OUTPUT"
+grep -q "choose Claude Code or Codex" <<<"$DOCTOR_OUTPUT"
+echo "   ✓ doctor 在空目录输出交互式 init 指引"
 
 # -------------------------------------------------------------------------
 # 5. 验证全局包内容
@@ -191,6 +192,14 @@ if (!fs.existsSync(path.join(root, 'templates/claude/commands/spec/' + 'skill' +
 }
 "
 echo "   ✓ 全局包未包含内置 CRG runtime，且包含 external graph bootstrap 与 skill audit"
+
+NODE_PATH="$TMP_PREFIX/lib/node_modules" node -e "
+const m = require('spec-first/src/cli/init-plan');
+if (typeof m.buildInitPlan !== 'function' || typeof m.applyInitPlan !== 'function') {
+  process.exit(1);
+}
+"
+echo "   ✓ published init-plan programmatic API 可通过 package exports require"
 
 # -------------------------------------------------------------------------
 # 完成

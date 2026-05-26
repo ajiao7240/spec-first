@@ -11,7 +11,7 @@ const WORKFLOW_PATH = path.join(REPO_ROOT, '.github', 'workflows', 'npm-install-
 const RELEASE_EVIDENCE_SCHEMA_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'release-package-evidence.schema.json');
 
 const {
-  buildInitDryRunEvidence,
+  buildInitProgrammaticEvidence,
   buildPackageContentManifest,
   buildCmdCommandLine,
   buildReleaseArtifactSummary,
@@ -111,8 +111,8 @@ describe('npm install matrix smoke script', () => {
     expect(normalizeArtifactFileName('pack-output.log')).toBe('pack-output.log');
     expect(normalizeArtifactFileName('package-content-manifest.json')).toBe('package-content-manifest.json');
     expect(normalizeArtifactFileName('release-artifact-summary.json')).toBe('release-artifact-summary.json');
-    expect(normalizeArtifactFileName('init-claude-dry-run.log')).toBe('init-claude-dry-run.log');
-    expect(normalizeArtifactFileName('init-codex-dry-run.log')).toBe('init-codex-dry-run.log');
+    expect(normalizeArtifactFileName('init-claude-programmatic.log')).toBe('init-claude-programmatic.log');
+    expect(normalizeArtifactFileName('init-codex-programmatic.log')).toBe('init-codex-programmatic.log');
 
     for (const unsafe of ['../summary.json', '..\\summary.json', '/tmp/summary.json', 'C:\\tmp\\summary.json', 'bad:name.log', '']) {
       expect(() => normalizeArtifactFileName(unsafe)).toThrow(/Unsafe smoke artifact file name/);
@@ -217,8 +217,8 @@ describe('npm install matrix smoke script', () => {
       summary: 'summary.json',
       pack_output: 'pack-output.log',
       package_content_manifest: 'package-content-manifest.json',
-      init_claude_dry_run_log: 'init-claude-dry-run.log',
-      init_codex_dry_run_log: 'init-codex-dry-run.log',
+      init_claude_programmatic_log: 'init-claude-programmatic.log',
+      init_codex_programmatic_log: 'init-codex-programmatic.log',
       release_artifact_summary: 'release-artifact-summary.json',
     });
 
@@ -245,32 +245,36 @@ describe('npm install matrix smoke script', () => {
     expect(validateAgainstSchema(schema, invalid).errors).toContain('root.failures: expected at least 1 item(s), received 0');
   });
 
-  test('init dry-run evidence detects marker and no-mutation behavior', () => {
-    const passed = buildInitDryRunEvidence({
+  test('programmatic init evidence detects expected writes', () => {
+    const passed = buildInitProgrammaticEvidence({
       host: 'claude',
       result: {
         status: 0,
-        stdout: 'Dry run: spec-first init (claude)\nNo files were changed.',
+        stdout: 'Generated 19 command file(s)',
         stderr: '',
       },
       beforeSnapshot: [],
-      afterSnapshot: [],
+      afterSnapshot: [
+        'CLAUDE.md:content',
+        '.claude/spec-first/state.json:content',
+      ],
     });
 
     expect(passed).toEqual(expect.objectContaining({
       host: 'claude',
       status: 0,
       passed: true,
-      reason_code: 'init-dry-run-passed',
-      has_dry_run_marker: true,
-      mutated: false,
+      reason_code: 'init-programmatic-passed',
+      has_state: true,
+      has_instruction: true,
+      mutated: true,
     }));
 
-    const failed = buildInitDryRunEvidence({
+    const failed = buildInitProgrammaticEvidence({
       host: 'codex',
       result: {
         status: 0,
-        stdout: 'Dry run: spec-first init (codex)\nNo files were changed.',
+        stdout: 'Generated 40 skill directory(ies)',
         stderr: '',
       },
       beforeSnapshot: [],
@@ -280,8 +284,9 @@ describe('npm install matrix smoke script', () => {
     expect(failed).toEqual(expect.objectContaining({
       host: 'codex',
       passed: false,
-      reason_code: 'init-dry-run-failed',
-      has_dry_run_marker: true,
+      reason_code: 'init-programmatic-failed',
+      has_instruction: true,
+      has_state: false,
       mutated: true,
     }));
   });
@@ -322,8 +327,8 @@ describe('npm install matrix smoke script', () => {
     expect(script).toContain('shell: false');
     expect(script).toContain('prefix with spaces');
     expect(script).toContain('workspace [win64] 中文 (paren)');
-    expect(script).toContain("['init', '--claude', '-u', 'matrix', '--lang', 'en']");
-    expect(script).toContain("['init', '--codex', '-u', 'matrix', '--lang', 'en']");
+    expect(script).toContain('runInstalledProgrammaticInitResult');
+    expect(script).toContain("target: { mode: 'single-repo', projectRoot }");
     expect(script).toContain("['doctor', '--json']");
     expect(script).toContain('minimal git repo [win64] 中文');
     expect(script).toContain("runGit(['init']");
@@ -331,11 +336,11 @@ describe('npm install matrix smoke script', () => {
     expect(script).toContain('pack-output.log');
     expect(script).toContain('package-content-manifest.json');
     expect(script).toContain('release-artifact-summary.json');
-    expect(script).toContain('init-claude-dry-run.log');
-    expect(script).toContain('init-codex-dry-run.log');
+    expect(script).toContain('init-claude-programmatic.log');
+    expect(script).toContain('init-codex-programmatic.log');
     expect(script).toContain("['claude', 'codex']");
-    expect(script).toContain('`--${host}`');
-    expect(script).toContain("'--dry-run'");
+    expect(script).not.toContain("['init', '--claude'");
+    expect(script).not.toContain("['init', '--codex'");
     expect(script).toContain('cmd.exe');
   });
 });

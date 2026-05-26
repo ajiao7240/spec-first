@@ -85,7 +85,7 @@
 | 9 | **Evidence Rules / 证据规则** | 文中出现 evidence / cite / unknown / assumption / reason_code 类约束语句 | 关键 claim 不要求 evidence,但又给确定性结论;degraded 路径无 reason_code |
 | 10 | **Handoff & 入口治理** | 显式列出 upstream/downstream skill/agent 或"不做最终 cross-workflow synthesis"边界;public skill 在 `using-spec-first` 路由表登记;internal-only skill 显式声明且不暴露为公开入口 | 越权做最终 cross-skill merge/release/deploy 判断(参见 §3 #5 豁免规则);internal helper skill 被定义为 public 入口;public skill 缺 using-spec-first 锚点 |
 | 11 | **Examples / Few-shot** | 至少 1 正例;有反例更好;示例与原则不冲突;示例不抢占 trigger 注意力;**示例引用的所有 token(source_note / context_snippets / file path / CLI flag / config key / section anchor)在 SKILL.md / references / 项目级 source-of-truth 中可 grep 命中**(§5 Step 1.5 强制验证) | 示例与 principles 矛盾;示例过长;无任何示例;**示例引用 token 全仓 grep 0 命中(stale governance)**;示例 source_note 锚定到已废弃的 plan / contract / 不存在的 source-of-truth |
-| 12 | **Versioning / Multi-host 兼容** | 标注版本、双宿主(Claude/Codex)兼容性边界、runtime regeneration 路径(`spec-first init --claude\|--codex`),或显式声明无版本要求 | 单宿主假设但未声明(只能 Claude / 只能 Codex);runtime mirror 修改方式与 source-of-truth 不一致;依赖外部 schema 演化但无版本声明 |
+| 12 | **Versioning / Multi-host 兼容** | 标注版本、双宿主(Claude/Codex)兼容性边界、runtime regeneration 路径(`spec-first init` 后按引导选择 host),或显式声明无版本要求 | 单宿主假设但未声明(只能 Claude / 只能 Codex);runtime mirror 修改方式与 source-of-truth 不一致;依赖外部 schema 演化但无版本声明 |
 
 复杂度阈值参考:workflow 步骤 ≥ 5 且包含 bundled scripts 或 cross-skill handoff 时,C 组缺失从 n/a 升至 P2;否则 n/a。
 **partial → findings 上升条件**:`partial` 默认仅记入 `dimension_scores`,不进 findings 列表;**仅当符合本节 C 组复杂度阈值时**,partial 才升级为 P2 进入 findings。

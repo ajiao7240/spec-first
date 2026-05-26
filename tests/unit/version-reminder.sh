@@ -799,7 +799,7 @@ const { runCli } = require(path.join(repoRoot, 'src/cli'));
     return true;
   };
 
-  const exitCode = await runCli(['init', '--claude', '-u', 'kuang', '--lang', 'en']);
+  const exitCode = await runCli(['init', '--claude']);
 
   console.log = originalLog;
   process.stderr.write = originalStderrWrite;
@@ -810,9 +810,10 @@ EOF
 init_exit=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.exitCode));" "$init_output")
 init_stdout=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stdout);" "$init_output")
 init_stderr=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stderr);" "$init_output")
-assert_output "init exits successfully" "0" "$init_exit"
+assert_output "init exits 2 for legacy flags" "2" "$init_exit"
 assert_contains "init prints reminder" "Update available for spec-first" "$init_stderr"
-assert_contains "init still reports generation" "Wrote project developer profile" "$init_stdout"
+assert_contains "init rejects legacy flags" "no longer accepts options" "$init_stderr"
+assert_output "init does not generate runtime assets from legacy flags" "" "$init_stdout"
 
 clean_output="$(
   cd "$project_dir"

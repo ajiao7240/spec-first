@@ -71,7 +71,7 @@ One A6 contract reviewer connection ended before completion; it was not counted.
 | Source agents | `agents/` contains 51 `*.agent.md` files | Medium | Many older profiles lack stable output and input contracts. |
 | Runtime mirrors | `.claude/`, `.codex/`, `.agents/skills/`, `.spec-first/` exist | Medium | Treat as generated/runtime delivery surface, not source. |
 | Runtime drift audit | `--runtime` failed trusted-checkout validation | High | Runtime parity is not confirmed clean in this audit. |
-| Runtime stale evidence | Cross-review observed `.agents/skills/spec-skill-audit/SKILL.md` still pointing at `.agents/skills/...` script paths while source points at `skills/...` | High | At least one runtime mirror may be stale. Regenerate with `spec-first init --codex|--claude` after source fixes, do not hand-edit mirrors. |
+| Runtime stale evidence | Cross-review observed `.agents/skills/spec-skill-audit/SKILL.md` still pointing at `.agents/skills/...` script paths while source points at `skills/...` | High | At least one runtime mirror may be stale. Regenerate with `spec-first init` and choose the target host after source fixes; do not hand-edit mirrors. |
 | Changelog governance | Project policy requires source/docs changes in `CHANGELOG.md` | Medium | This audit adds tracked docs and therefore updates the changelog. |
 
 ## Git Status At Audit Start

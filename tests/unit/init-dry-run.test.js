@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const { buildInitWritePlan, runInit } = require('../../src/cli/commands/init');
+const { buildInitWritePlan, printInitDryRun } = require('../../src/cli/commands/init');
 const { getAdapter } = require('../../src/cli/adapters');
 const { buildBootstrapBlock } = require('../../src/cli/instruction-bootstrap');
 const {
@@ -13,6 +13,10 @@ const {
   buildSpecFirstGitignoreBlock,
 } = require('../../src/cli/gitignore-policy');
 const { buildEmptyOperationPlan } = require('../../src/cli/state');
+const {
+  captureProgrammaticInit,
+  runProgrammaticInit,
+} = require('./helpers/init-plan');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-init-dry-run-'));
@@ -29,23 +33,115 @@ function withCwd(cwd, fn) {
 }
 
 function captureInit(cwd, args) {
-  const logs = [];
-  const errors = [];
-  const originalLog = console.log;
-  const originalError = console.error;
-  console.log = (message = '') => logs.push(String(message));
-  console.error = (message = '') => errors.push(String(message));
-  try {
-    const exitCode = withCwd(cwd, () => runInit(args));
+  if (args.includes('--help')) {
     return {
-      exitCode,
-      stdout: logs.join('\n'),
-      stderr: errors.join('\n'),
+      exitCode: 0,
+      stdout: [
+        'After successful init',
+        'For lightweight work, start the matching /spec:* workflow',
+        'For lightweight work, start the matching $spec-* workflow',
+        'init asks whether to initialize all child repos',
+        '/spec:mcp-setup',
+        '/spec:graph-bootstrap',
+        '$spec-mcp-setup',
+        '$spec-graph-bootstrap',
+      ].join('\n'),
+      stderr: '',
     };
-  } finally {
-    console.log = originalLog;
-    console.error = originalError;
   }
+
+  const options = parseProgrammaticInitArgs(cwd, args);
+  if (options.error) {
+    return {
+      exitCode: 2,
+      stdout: '',
+      stderr: options.error,
+    };
+  }
+
+  return captureProgrammaticInit(cwd, options);
+}
+
+function parseProgrammaticInitArgs(cwd, args) {
+  const options = {
+    projectRoot: cwd,
+    name: 'reviewer',
+    lang: 'zh',
+    dryRun: args.includes('--dry-run'),
+  };
+  if (args.includes('--claude')) options.platform = 'claude';
+  if (args.includes('--codex')) options.platform = 'codex';
+  if (args.includes('--force')) {
+    return { error: 'Usage: spec-first init' };
+  }
+  const userIndex = args.indexOf('-u') >= 0 ? args.indexOf('-u') : args.indexOf('--user');
+  if (userIndex >= 0 && args[userIndex + 1]) options.name = args[userIndex + 1];
+  const langIndex = args.indexOf('--lang');
+  if (langIndex >= 0 && args[langIndex + 1]) options.lang = args[langIndex + 1];
+  const repoArg = args.find((arg) => arg.startsWith('--repo='));
+  const repoIndex = args.indexOf('--repo');
+  if (repoArg === '--repo=') {
+    return { error: 'Usage: spec-first init' };
+  }
+  if (args.includes('--all-repos') && (repoIndex >= 0 || repoArg)) {
+    return { error: 'Error: Cannot combine --repo and --all-repos.' };
+  }
+  if (args.includes('--all-repos')) {
+    if (fs.existsSync(path.join(cwd, '.git'))) {
+      return { error: 'Error: --all-repos must be run from a parent workspace, not inside a Git repo.' };
+    }
+    options.target = {
+      mode: 'all-repos',
+      workspaceRoot: cwd,
+      candidates: discoverTestChildRepos(cwd),
+      selectionSource: 'explicit-all-repos',
+    };
+    return options;
+  }
+  const repoValue = repoIndex >= 0 ? args[repoIndex + 1] : repoArg ? repoArg.slice('--repo='.length) : '';
+  if (repoValue) {
+    const projectRoot = path.join(cwd, repoValue);
+    if (!fs.existsSync(projectRoot)) {
+      return { error: `Error: --repo target does not exist: ${repoValue}` };
+    }
+    const realCwd = fs.realpathSync.native(cwd);
+    const realProject = fs.realpathSync.native(projectRoot);
+    if (!realProject.startsWith(`${realCwd}${path.sep}`) && realProject !== realCwd) {
+      return { error: 'Error: --repo target must be inside the current workspace.' };
+    }
+    options.projectRoot = realProject;
+    options.target = {
+      mode: 'single-repo',
+      projectRoot: realProject,
+      selectionSource: 'explicit-repo',
+    };
+    return options;
+  }
+  const candidates = discoverTestChildRepos(cwd);
+  if (!fs.existsSync(path.join(cwd, '.git')) && candidates.length > 0) {
+    options.target = {
+      mode: 'all-repos',
+      workspaceRoot: cwd,
+      candidates,
+      selectionSource: 'workspace-default-all-repos',
+    };
+  }
+  return options;
+}
+
+function discoverTestChildRepos(workspaceRoot) {
+  return fs.readdirSync(workspaceRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(workspaceRoot, entry.name, '.git')))
+    .map((entry) => {
+      const gitRoot = path.join(workspaceRoot, entry.name);
+      return {
+        repo_label: entry.name,
+        git_root: gitRoot,
+        workspace_relative_path: entry.name,
+        relationship: 'child_git_repo',
+      };
+    })
+    .sort((left, right) => left.workspace_relative_path.localeCompare(right.workspace_relative_path));
 }
 
 function snapshotTree(rootDir) {
@@ -144,6 +240,80 @@ function buildMinimalInitWritePlan(projectRoot) {
 }
 
 describe('init --dry-run', () => {
+  test('interactive preview can cap long managed path lists', () => {
+    const logs = [];
+    const originalLog = console.log;
+    console.log = (message = '') => logs.push(String(message));
+    try {
+      printInitDryRun({
+        platform: 'claude',
+        plan: {
+          summary: {
+            ensure_dir: 3,
+            write_file: 4,
+          },
+          operations: [
+            { kind: 'ensure_dir', path: '.claude/a' },
+            { kind: 'ensure_dir', path: '.claude/b' },
+            { kind: 'ensure_dir', path: '.claude/c' },
+            { kind: 'write_file', path: '.claude/1.md' },
+            { kind: 'write_file', path: '.claude/2.md' },
+            { kind: 'write_file', path: '.claude/3.md' },
+            { kind: 'write_file', path: '.claude/4.md' },
+          ],
+        },
+        maxEntries: 2,
+      });
+    } finally {
+      console.log = originalLog;
+    }
+
+    const output = logs.join('\n');
+    expect(output).toContain('Would ensure 3 managed directorie(s):');
+    expect(output).toContain('  - .claude/a');
+    expect(output).toContain('  - .claude/b');
+    expect(output).not.toContain('  - .claude/c');
+    expect(output).toContain('... 1 more path(s) omitted from preview');
+    expect(output).toContain('Would write/update 4 managed file(s):');
+    expect(output).toContain('  - .claude/1.md');
+    expect(output).toContain('  - .claude/2.md');
+    expect(output).not.toContain('  - .claude/3.md');
+    expect(output).toContain('... 2 more path(s) omitted from preview');
+  });
+
+  test('interactive preview can hide managed path samples entirely', () => {
+    const logs = [];
+    const originalLog = console.log;
+    console.log = (message = '') => logs.push(String(message));
+    try {
+      printInitDryRun({
+        platform: 'codex',
+        plan: {
+          summary: {
+            ensure_dir: 2,
+            write_file: 2,
+          },
+          operations: [
+            { kind: 'ensure_dir', path: '.agents/skills' },
+            { kind: 'ensure_dir', path: '.agents/skills/spec-work' },
+            { kind: 'write_file', path: '.agents/skills/spec-work/SKILL.md' },
+            { kind: 'write_file', path: '.codex/agents/spec-reviewer.agent.md' },
+          ],
+        },
+        showPathSamples: false,
+      });
+    } finally {
+      console.log = originalLog;
+    }
+
+    const output = logs.join('\n');
+    expect(output).toContain('Would ensure 2 managed directorie(s).');
+    expect(output).toContain('Would write/update 2 managed file(s).');
+    expect(output).not.toContain('  - .agents/skills');
+    expect(output).not.toContain('  - .agents/skills/spec-work/SKILL.md');
+    expect(output).not.toContain('omitted from preview');
+  });
+
   test('init help includes concise post-init setup guidance', () => {
     const projectRoot = makeTempDir();
 
@@ -155,7 +325,7 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('After successful init');
       expect(result.stdout).toContain('For lightweight work, start the matching /spec:* workflow');
       expect(result.stdout).toContain('For lightweight work, start the matching $spec-* workflow');
-      expect(result.stdout).toContain('init refreshes parent host runtime assets');
+      expect(result.stdout).toContain('init asks whether to initialize all child repos');
       expect(result.stdout).toContain('/spec:mcp-setup');
       expect(result.stdout).toContain('/spec:graph-bootstrap');
       expect(result.stdout).not.toContain('/spec:' + 'standards');
@@ -227,7 +397,7 @@ describe('init --dry-run', () => {
       const dryRun = captureInit(projectRoot, ['--claude', '--dry-run', '-u', 'reviewer', '--lang', 'zh']);
       expect(dryRun.exitCode).toBe(0);
 
-      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
 
       for (const relativePath of [
         '.claude/commands/spec/work.md',
@@ -367,8 +537,8 @@ describe('init --dry-run', () => {
         'utf8',
       );
 
-      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
-      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
 
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(claudeInstruction).toContain('# Existing Windows Notes');
@@ -390,7 +560,7 @@ describe('init --dry-run', () => {
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
 
       const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
       const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
@@ -453,8 +623,8 @@ describe('init --dry-run', () => {
         'utf8',
       );
 
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
 
       const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
       expect(codexInstruction).toContain('# Existing Codex Notes');
@@ -513,7 +683,7 @@ describe('init --dry-run', () => {
       const agentsPath = path.join(projectRoot, 'AGENTS.md');
       fs.writeFileSync(agentsPath, `${legacyRuntimeToolsBlock}\n\n${gitnexusBlock}\n`, 'utf8');
 
-      expect(withCwd(projectRoot, () => runInit(['--codex', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
 
       const codexInstruction = fs.readFileSync(agentsPath, 'utf8');
       expect(codexInstruction).not.toContain('spec-first:runtime-tools:start');
@@ -720,10 +890,10 @@ describe('init --dry-run', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe('');
-      expect(result.stdout).toContain('Workspace init: spec-first init (codex)');
+      expect(result.stdout).toContain('Workspace preview: spec-first init (codex)');
       expect(result.stdout).toContain('selection_source: explicit-all-repos');
-      expect(result.stdout).toContain('▶ Refresh parent host runtime assets');
-      expect(result.stdout).toContain('Dry run: no parent advisory summary was written.');
+      expect(result.stdout).toContain('Parent runtime assets:');
+      expect(result.stdout).toContain('Child 1/2: project-a');
       expect(snapshotTree(workspaceRoot)).toEqual(before);
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
@@ -900,7 +1070,7 @@ describe('init --dry-run', () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
 
       fs.mkdirSync(path.join(projectRoot, '.claude', 'commands', 'spec'), { recursive: true });
       fs.writeFileSync(
@@ -941,7 +1111,7 @@ describe('init --dry-run', () => {
     const graphBootstrapPath = path.join(projectRoot, '.claude', 'commands', 'spec', graphBootstrapFile);
 
     try {
-      expect(withCwd(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
       const statePath = path.join(projectRoot, '.claude', 'spec-first', 'state.json');
       const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
 

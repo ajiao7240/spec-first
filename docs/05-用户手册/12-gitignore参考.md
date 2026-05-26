@@ -2,7 +2,7 @@
 
 本文面向把 `spec-first` 安装到业务项目里的用户，说明在执行 `spec-first init`、`spec-mcp-setup` 和 `spec-graph-bootstrap` 后，哪些产物应该加入 `.gitignore`，哪些产物可以按团队协作需要提交。
 
-从 `v1.7.0` 起，`spec-first init --claude|--codex` 会在当前目标项目的 `.gitignore` 中自动写入或更新一个 `# spec-first:start` / `# spec-first:end` managed block。`init --dry-run` 会预览这次写入，但不会改变文件系统。团队仍然应该 review 并提交 `.gitignore`，让后续成员获得相同忽略规则。
+从 `v1.7.0` 起，`spec-first init` 会在当前目标项目的 `.gitignore` 中自动写入或更新一个 `# spec-first:start` / `# spec-first:end` managed block。交互式 init 会在确认前预览这次写入；取消时不会改变文件系统。团队仍然应该 review 并提交 `.gitignore`，让后续成员获得相同忽略规则。
 
 核心原则：
 
@@ -50,7 +50,7 @@
 # spec-first:end
 ```
 
-普通单 repo / monorepo 中，`init` 保持当前行为，只维护当前执行目录对应的目标项目 `.gitignore`，通常应在项目根目录运行。在父 workspace 且检测到多个 child Git repos 时，`init` 默认进入 all-child maintenance：逐个初始化 child repo，并在父目录写 advisory `.spec-first/workspace/init-summary.json`、父级 host 入口文档和 host runtime assets，用于父级只读路由；父目录不把 `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/providers/*` 或 `.spec-first/impact/*` 作为 parent-local truth。使用 `--repo <child>` 可只初始化一个 child repo，使用 `--all-repos` 可显式声明批量初始化意图。
+普通单 repo / monorepo 中，`init` 保持当前行为，只维护当前执行目录对应的目标项目 `.gitignore`，通常应在项目根目录运行。在父 workspace 且检测到多个 child Git repos 时，`init` 会在引导中询问全部 child 或单个 child：选择全部时逐个初始化 child repo，并在父目录写 advisory `.spec-first/workspace/init-summary.json`、父级 host 入口文档和 host runtime assets，用于父级只读路由；父目录不把 `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/providers/*` 或 `.spec-first/impact/*` 作为 parent-local truth。
 
 如果项目里已经有同类规则，`init` 仍会保留 spec-first managed block，保证后续版本可以幂等更新。它不会尝试判断所有语义等价的 glob，也不会删除 block 外的用户规则。
 
@@ -132,9 +132,9 @@
 
 | 路径 | 原因 |
 | --- | --- |
-| `.claude/commands/spec/`、`.claude/skills/`、`.claude/spec-first/`、`.claude/agents/` | `spec-first init --claude` 可重建的 runtime assets |
+| `.claude/commands/spec/`、`.claude/skills/`、`.claude/spec-first/`、`.claude/agents/` | `spec-first init` 可重建的 runtime assets |
 | `.claude/tasks/`、`.claude/worktrees/` | Claude Code host-local scratch/worktree 产物 |
-| `.codex/commands/spec/`、`.codex/spec-first/`、`.codex/agents/`、`.agents/skills/` | `spec-first init --codex` 可重建的 runtime assets |
+| `.codex/commands/spec/`、`.codex/spec-first/`、`.codex/agents/`、`.agents/skills/` | `spec-first init` 可重建的 runtime assets |
 | `.spec-first/config.local.yaml`、`.spec-first/*.local.yaml` | 本地配置，可能包含个人路径或私有设置 |
 | `.gitnexus/`、`.code-review-graph/` | GitNexus 本地图谱索引，以及迁移前 CRG 残留 cache；`.code-review-graph/` 仅迁移窗口内保留 |
 | `.spec-first/config/*.json` | `spec-mcp-setup` 生成的 setup-owned 本地投影，不是第二个版本源 |

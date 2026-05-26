@@ -67,6 +67,7 @@ function inspectHostRuntime({ repoRoot, adapter, inspectInstalledAssets }) {
     const status = inspected[area] || { missing: [], drifted: [] };
     host.missing[area] = normalizeMissing(status.missing);
     host.drifted[area] = normalizeDrifted(status.drifted);
+    const hostName = adapter.id === 'claude' ? 'Claude Code' : 'Codex';
 
     for (const missing of host.missing[area]) {
       findings.push(createFinding({
@@ -75,7 +76,7 @@ function inspectHostRuntime({ repoRoot, adapter, inspectInstalledAssets }) {
         title: `Runtime ${area} asset is missing`,
         evidence: [{ file: missing.runtime_path || missing.name || missing }],
         reason: `${adapter.id} runtime does not contain a managed asset expected by plugin.js inspection.`,
-        recommendation: `Run spec-first init --${adapter.id}. Do not edit generated runtime assets directly.`,
+        recommendation: `Run spec-first init and choose ${hostName} when prompted. Do not edit generated runtime assets directly.`,
         confidence: 'high',
         fix_mode: 'runtime-init-only',
       }));
@@ -88,7 +89,7 @@ function inspectHostRuntime({ repoRoot, adapter, inspectInstalledAssets }) {
         title: `Runtime ${area} asset has drifted`,
         evidence: [{ file: drifted.runtime_path || drifted.path || drifted.name || area }],
         reason: `${adapter.id} runtime content differs from the source transform inspected by plugin.js.`,
-        recommendation: `Run spec-first init --${adapter.id}. Do not edit generated runtime assets directly.`,
+        recommendation: `Run spec-first init and choose ${hostName} when prompted. Do not edit generated runtime assets directly.`,
         confidence: 'high',
         fix_mode: 'runtime-init-only',
       }));

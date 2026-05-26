@@ -19,6 +19,7 @@ const VALID_CATEGORIES = new Set([
   'workflow-issues',
   'best-practices',
   'documentation-gaps',
+  'tooling-decisions',
   'patterns',
   'architecture-patterns',
 ]);
@@ -27,6 +28,7 @@ const KNOWLEDGE_TYPES = new Set([
   'documentation_gap',
   'workflow_issue',
   'developer_experience',
+  'tooling_decision',
   'architecture_pattern',
 ]);
 const BUG_TYPES = new Set([

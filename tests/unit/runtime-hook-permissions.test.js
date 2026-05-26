@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { runInit } = require('../../src/cli/commands/init');
 const { getAdapter } = require('../../src/cli/adapters');
+const { runProgrammaticInit } = require('./helpers/init-plan');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-hook-perms-'));
@@ -31,7 +31,7 @@ describe('Claude runtime hook permissions', () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     try {
-      expect(withProject(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withProject(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
 
       const hookPath = path.join(projectRoot, '.claude', 'hooks', 'session-start');
       const expected = getAdapter('claude').planRuntimeFilesSync(projectRoot).operations[0].contents;
@@ -52,7 +52,7 @@ describe('Claude runtime hook permissions', () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     try {
-      expect(withProject(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withProject(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
 
       const hookPath = path.join(projectRoot, '.claude', 'hooks', 'session-start');
       fs.chmodSync(hookPath, 0o644);
@@ -61,7 +61,7 @@ describe('Claude runtime hook permissions', () => {
       expect(driftedMode).toBe(0o644);
       expect(isExecutable(driftedMode)).toBe(false);
 
-      expect(withProject(projectRoot, () => runInit(['--claude', '-u', 'reviewer', '--lang', 'zh']))).toBe(0);
+      expect(withProject(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
 
       const restoredMode = fs.statSync(hookPath).mode & 0o777;
       expect(restoredMode).toBe(0o755);

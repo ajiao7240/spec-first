@@ -436,7 +436,7 @@ skills/spec-app-consistency-audit/
 .agents/skills/
 ```
 
-这些目录由 `spec-first init --claude|--codex` 从 source-of-truth 生成。若需要公开 workflow 入口，还需要同步添加：
+这些目录由 `spec-first init` 交互选择对应 host 后从 source-of-truth 生成。若需要公开 workflow 入口，还需要同步添加：
 
 ```text
 templates/claude/commands/spec/app-consistency-audit.md
