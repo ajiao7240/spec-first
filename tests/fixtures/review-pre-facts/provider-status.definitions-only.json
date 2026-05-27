@@ -1,0 +1,51 @@
+{
+  "schema_version": "provider-status.v1",
+  "generated_at": "2026-05-27T02:20:38Z",
+  "ready_primary_providers": ["gitnexus"],
+  "providers": [
+    {
+      "schema_version": "provider-status.v1",
+      "provider": "gitnexus",
+      "generated_at": "2026-05-27T02:20:38Z",
+      "graph_ready": true,
+      "query_ready": true,
+      "status": "ready",
+      "configured": true,
+      "enabled_for_bootstrap": true,
+      "host_config_status": "ok",
+      "dependency_status": "ok",
+      "exit_code": 0,
+      "limitations": [
+        "Definitions-only GitNexus evidence accepted as query-ready for query/context orientation; no process graph or GitNexus impact/review evidence is available."
+      ],
+      "normalized_artifacts": {
+        "architecture_facts": ".spec-first/providers/gitnexus/normalized/architecture-facts.json",
+        "impact_capabilities": ".spec-first/providers/gitnexus/normalized/impact-capabilities.json"
+      },
+      "query_probe_attempts": [
+        {
+          "token": "fixtureSymbolDefinitionsOnly",
+          "result_class": "definitions-only",
+          "verification_reason": "GitNexus query probe returned definitions-only evidence; accepted as query-ready for query/context orientation without process graph evidence."
+        }
+      ],
+      "query_probe_policy": {
+        "token": "fixtureSymbolDefinitionsOnly"
+      },
+      "query_verification_reason": "Definitions-only GitNexus evidence accepted as query-ready for query/context orientation; no process graph or GitNexus impact/review evidence is available.",
+      "review_support": {
+        "support_level": "unavailable",
+        "related_tests_status": "unavailable",
+        "limitations": [
+          "definitions_only_no_process_graph",
+          "definitions_only_no_impact_evidence",
+          "definitions_only_no_related_tests"
+        ]
+      },
+      "timing": {
+        "duration_ms": 100
+      }
+    }
+  ],
+  "limitations": []
+}

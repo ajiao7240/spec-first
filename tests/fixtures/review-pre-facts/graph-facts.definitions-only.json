@@ -1,0 +1,21 @@
+{
+  "schema_version": "graph-facts.v1",
+  "generated_at": "2026-05-27T02:20:38Z",
+  "workflow_mode": "primary",
+  "target_kind": "git-repo",
+  "source_revision": "0000000000000000000000000000000000000000",
+  "worktree_dirty": false,
+  "worktree_status_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "freshness_state": "fresh",
+  "dirty_classification": null,
+  "capabilities": {
+    "query_global_graph": true
+  },
+  "provider_summary": {
+    "ready_primary_providers": ["gitnexus"]
+  },
+  "staleness_hints": {
+    "source_revision": "0000000000000000000000000000000000000000",
+    "worktree_status_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

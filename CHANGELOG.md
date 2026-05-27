@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-27 10:24:00 leokuang: test(review-pre-facts): 新增 definitions-only 与 process-results 两组 normalized artifact fixture（provider-status、graph-facts、architecture-facts、impact-capabilities）锚定 helper `availableOperations` 派生 gating 不变量，未来 R11/R15d anti-regression 测试在此 fixture 上锁定 query_plan 不发出 impact/detect_changes 操作
 - v1.8.2 2026-05-27 10:18:00 leokuang: feat(graph-bootstrap): `bootstrap-report.md` 在 ready/dirty-advisory 主路径新增 `## Capability Matrix` 三维度并列 prose，从既有 `bootstrap-impact-capabilities.json` 派生 query/context、impact_radius、review_support 的 support_level/confidence/限制摘要；sh 端把 jq -n 输出 capture 到 shell 变量 + PRESERVE_CANONICAL_FRESHNESS 路径下 cat 回读，ps1 端兼容 OrderedDictionary 与 PSCustomObject 两种 capability 节点类型；blocked 与 impact_capabilities.json 缺失/null 时跳过 matrix 段落，不引入新机读 schema 字段 (user-visible)
 - v1.8.2 2026-05-27 10:14:00 leokuang: docs(plan): 新增 GitNexus readiness capability semantics 落地 plan，规划 vocabulary 集中固化、`bootstrap-report.md` 三维度 capability matrix surfacing、review-pre-facts definitions-only fixture 与 R15a-R15f anti-regression 测试 (user-visible)
 - v1.8.2 2026-05-27 10:14:00 leokuang: feat(review-pre-facts): 实施 GitNexus bounded pre-facts deterministic helper，覆盖 `query`/`context`/`impact`/`detect_changes` 四个操作的 prepare/normalize-provider-results/render/one-shot 流程，新增 normalized artifact `available_query_surfaces` 派生 gating，并把 helper 操作集与 non-expansion 规则同步进 review/doc-review/plan/work/debug/compound/compound-refresh 等 workflow SKILL prose (user-visible)
