@@ -70,6 +70,25 @@ describe('GitNexus capability catalog contract', () => {
     expect(contract).toContain('Lane classification 不是 readiness truth');
   });
 
+  test('README and README.zh-CN cross-reference Capability State Vocabulary (R14)', () => {
+    const readmeEn = read(path.join(REPO_ROOT, 'README.md'));
+    const readmeZh = read(path.join(REPO_ROOT, 'README.zh-CN.md'));
+
+    for (const readme of [readmeEn, readmeZh]) {
+      expect(readme).toContain('docs/contracts/gitnexus-capability-catalog.md');
+      expect(readme).toContain('Capability State Vocabulary');
+    }
+
+    // Each README must surface at least the load-bearing lifecycle terms so
+    // future README rewrites cannot silently drift away from the glossary.
+    const requiredTerms = ['query_ready', 'definitions-only', 'dirty-advisory', 'session-local', 'setup-inferred'];
+    for (const readme of [readmeEn, readmeZh]) {
+      for (const term of requiredTerms) {
+        expect(readme).toContain(term);
+      }
+    }
+  });
+
   test('locks Capability State Vocabulary lifecycle terms (R1/R14)', () => {
     const contract = read(CATALOG_CONTRACT_PATH);
 

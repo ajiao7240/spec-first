@@ -1,7 +1,7 @@
 ---
 title: "feat: GitNexus Harness context and evidence integration"
 type: feat
-status: active
+status: completed
 date: 2026-05-27
 spec_id: 2026-05-26-001-gitnexus-workflow-context-evidence
 origin: docs/brainstorms/2026-05-26-001-gitnexus-workflow-context-evidence-requirements.md

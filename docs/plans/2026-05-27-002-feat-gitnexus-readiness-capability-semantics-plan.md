@@ -1,7 +1,7 @@
 ---
 date: 2026-05-27
 spec_id: 2026-05-27-001-gitnexus-readiness-capability-semantics
-status: active
+status: completed
 type: feat
 origin: docs/brainstorms/2026-05-27-001-gitnexus-readiness-capability-semantics-requirements.md
 deepened: 2026-05-27

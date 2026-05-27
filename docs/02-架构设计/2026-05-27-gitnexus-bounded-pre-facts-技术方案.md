@@ -5,7 +5,7 @@ spec_id: 2026-05-26-001-gitnexus-workflow-context-evidence
 origin: docs/brainstorms/2026-05-26-001-gitnexus-workflow-context-evidence-requirements.md
 portfolio_context: docs/brainstorms/2026-05-26-002-gitnexus-integration-portfolio-80-20.md
 plan: docs/plans/2026-05-27-001-feat-gitnexus-bounded-pre-facts-plan.md
-status: active
+status: completed
 ---
 
 # GitNexus Harness context and evidence integration 技术方案

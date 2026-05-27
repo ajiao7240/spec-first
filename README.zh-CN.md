@@ -170,6 +170,8 @@ Graph refresh 触发节点：
 
 宿主 startup reminder 可能附带一条 compact GitNexus graph snapshot，包含 `query_ready`、freshness、dirty/stale 状态、能力摘要和 limitations。这只是启动 helper 产出的只读上下文，不会刷新 graph readiness，也不决定 workflow scope。
 
+`query_ready`、`definitions-only`、`dirty-advisory`、`graph-affecting-blocked`、`stale`、`session-local`、`setup-inferred` 等贯穿 setup、bootstrap、startup snapshot 与下游 workflow 的 GitNexus readiness/capability lifecycle 术语，集中固化于 `docs/contracts/gitnexus-capability-catalog.md` 的 **Capability State Vocabulary** 章节；其他文档、skill 与 runtime prose 必须使用该词典中的术语，不要引入同义词。
+
 当 `$spec-plan` 输出 `Graph / GitNexus Evidence` 后，下游 workflow 会把它作为有边界的 evidence 输入，而不是新的 scope authority。`$spec-work` 用它收窄 source reads 和 test selection，并在 closeout 中报告 `graph_evidence_used`；`$spec-code-review` 在 Coverage 中披露 `Graph evidence:`，且只在 evidence fresh 或 session-local 时优先使用 `api_impact`、`shape_check`、`tool_map` 等 GitNexus native capability；`$spec-debug` 可在 hypothesis ledger 中记录 `graph_evidence`，但 root cause 仍必须由 reproduction、source、log 或 test 证据确认。stale / degraded evidence 会降级到 direct source reads，本身不阻断 workflow。
 
 ### Readiness ladder / 就绪层级
