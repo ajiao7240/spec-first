@@ -3138,7 +3138,7 @@ jq -n \
 fi
 
 if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$IMPACT_DIR/bootstrap-impact-capabilities.json" ]; then
-  jq -n \
+  impact_capabilities_json="$(jq -n \
   --arg generated_at "$BOOTSTRAPPED_AT" \
   --arg workflow_mode "$WORKFLOW_MODE" \
   --arg target_kind "$TARGET_KIND" \
@@ -3193,7 +3193,12 @@ if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ] || [ ! -f "$IMPACT_DIR/bootstra
       provider_status:".spec-first/graph/provider-status.json",
       limitations_required:($workflow_mode != "primary")
     }
-  }' | write_file_atomic "$IMPACT_DIR/bootstrap-impact-capabilities.json"
+  }')"
+  printf '%s\n' "$impact_capabilities_json" | write_file_atomic "$IMPACT_DIR/bootstrap-impact-capabilities.json"
+elif [ -f "$IMPACT_DIR/bootstrap-impact-capabilities.json" ]; then
+  impact_capabilities_json="$(cat "$IMPACT_DIR/bootstrap-impact-capabilities.json" 2>/dev/null || printf '{}')"
+else
+  impact_capabilities_json=""
 fi
 
 provider_report_rows="$(jq -r '
@@ -3202,7 +3207,43 @@ provider_report_rows="$(jq -r '
   | "| \(.provider) | \(.graph_ready) | \(.query_ready) | \(if $attempts == "" then (.query_probe_policy.token // "n/a") else $attempts end) | \(.status) | \(.timing.duration_ms // 0) | \((.query_verification_reason // ((.limitations // []) | join("; ")) // "n/a") | gsub("\\|"; "/")) |"
 ' <<<"$statuses_json")"
 
+# Capability matrix derives from bootstrap-impact-capabilities.json so the
+# human-readable bootstrap-report.md mirrors the machine-readable matrix.
+# Empty/{}/missing impact_capabilities_json -> empty rows -> matrix section
+# is skipped from the heredoc below (R7).
+capability_matrix_rows=""
+if [ -n "$impact_capabilities_json" ] && [ "$impact_capabilities_json" != "{}" ]; then
+  capability_matrix_rows="$(jq -r '
+    if (.capabilities // null) == null then ""
+    else
+      .capabilities as $caps
+      | def fmt($name; $cap):
+          ($cap.support_level // "n/a") as $lv
+          | ($cap.confidence // "n/a") as $cf
+          | (($cap.limitations // []) | (first // "n/a")) as $note
+          | "| \($name) | \($lv) | \($cf) | \($note) |";
+        [
+          fmt("query/context"; $caps.context_selection // {}),
+          fmt("impact_radius"; $caps.impact_radius // {}),
+          fmt("review_support"; $caps.review_support // {})
+        ]
+        | join("\n")
+    end
+  ' <<<"$impact_capabilities_json")"
+fi
+
 if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ]; then
+  if [ -n "$capability_matrix_rows" ]; then
+    capability_matrix_section="
+
+## Capability Matrix
+
+| Capability | Support Level | Confidence | Note |
+| --- | --- | --- | --: |
+$capability_matrix_rows"
+  else
+    capability_matrix_section=""
+  fi
   write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
 # Graph Bootstrap Report
 
@@ -3221,7 +3262,7 @@ if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ]; then
 
 | Provider | Graph Ready | Query Ready | Probe Token | Evidence | Duration ms | Query Verification Reason |
 | --- | --- | --- | --- | --- | ---: | --- |
-$provider_report_rows
+$provider_report_rows$capability_matrix_section
 MD
 fi
 

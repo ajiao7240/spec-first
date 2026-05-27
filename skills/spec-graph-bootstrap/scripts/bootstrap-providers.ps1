@@ -3479,6 +3479,14 @@ $impactCapabilities = [ordered]@{
 $impactCapabilitiesPath = Join-Path $impactDir 'bootstrap-impact-capabilities.json'
 if (-not $preserveCanonicalFreshness -or -not (Test-Path -LiteralPath $impactCapabilitiesPath -PathType Leaf)) {
   Write-JsonFileAtomic -Path $impactCapabilitiesPath -Payload ([pscustomobject]$impactCapabilities) -Depth 20
+} elseif (Test-Path -LiteralPath $impactCapabilitiesPath -PathType Leaf) {
+  # PRESERVE_CANONICAL_FRESHNESS path: re-read the existing artifact so the
+  # capability matrix prose below can still derive from current data.
+  try {
+    $impactCapabilities = (Get-Content -LiteralPath $impactCapabilitiesPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop)
+  } catch {
+    $impactCapabilities = $null
+  }
 }
 
 $providerReportRows = @($providerStatuses | ForEach-Object {
@@ -3493,6 +3501,57 @@ $providerReportRows = @($providerStatuses | ForEach-Object {
   $reason = $reason.Replace('|', '/')
   "| $($_.provider) | $($_.graph_ready) | $($_.query_ready) | $token | $($_.status) | $($_.timing.duration_ms) | $reason |"
 })
+
+# Derive capability matrix prose from $impactCapabilities so the human-readable
+# bootstrap-report.md mirrors the machine-readable matrix (R7). Accept both
+# OrderedDictionary (in-memory build) and PSCustomObject (re-read from disk).
+function Get-CapField {
+  param($Cap, [string]$Name)
+  if ($null -eq $Cap) { return $null }
+  if ($Cap -is [System.Collections.IDictionary]) {
+    if ($Cap.Contains($Name)) { return $Cap[$Name] } else { return $null }
+  }
+  $prop = $Cap.PSObject.Properties[$Name]
+  if ($null -eq $prop) { return $null }
+  return $prop.Value
+}
+
+function Format-CapabilityMatrixRow {
+  param([string]$Name, $Cap)
+  if ($null -eq $Cap) { return $null }
+  $rawSupport = Get-CapField -Cap $Cap -Name 'support_level'
+  $supportLevel = if (-not [string]::IsNullOrWhiteSpace([string]$rawSupport)) { [string]$rawSupport } else { 'n/a' }
+  $rawConfidence = Get-CapField -Cap $Cap -Name 'confidence'
+  $confidence = if (-not [string]::IsNullOrWhiteSpace([string]$rawConfidence)) { [string]$rawConfidence } else { 'n/a' }
+  $note = 'n/a'
+  $rawLims = Get-CapField -Cap $Cap -Name 'limitations'
+  if ($null -ne $rawLims) {
+    $lims = @($rawLims)
+    if ($lims.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$lims[0])) {
+      $note = [string]$lims[0]
+    }
+  }
+  return "| $Name | $supportLevel | $confidence | $note |"
+}
+
+$capabilityMatrixRows = @()
+$capsRoot = $null
+if ($null -ne $impactCapabilities) {
+  $capsRoot = Get-CapField -Cap $impactCapabilities -Name 'capabilities'
+}
+if ($null -ne $capsRoot) {
+  $contextRow = Format-CapabilityMatrixRow -Name 'query/context' -Cap (Get-CapField -Cap $capsRoot -Name 'context_selection')
+  $impactRow = Format-CapabilityMatrixRow -Name 'impact_radius' -Cap (Get-CapField -Cap $capsRoot -Name 'impact_radius')
+  $reviewRow = Format-CapabilityMatrixRow -Name 'review_support' -Cap (Get-CapField -Cap $capsRoot -Name 'review_support')
+  if ($null -ne $contextRow) { $capabilityMatrixRows += $contextRow }
+  if ($null -ne $impactRow) { $capabilityMatrixRows += $impactRow }
+  if ($null -ne $reviewRow) { $capabilityMatrixRows += $reviewRow }
+}
+
+$capabilityMatrixSection = ''
+if ($capabilityMatrixRows.Count -gt 0) {
+  $capabilityMatrixSection = [Environment]::NewLine + [Environment]::NewLine + '## Capability Matrix' + [Environment]::NewLine + [Environment]::NewLine + '| Capability | Support Level | Confidence | Note |' + [Environment]::NewLine + '| --- | --- | --- | --: |' + [Environment]::NewLine + ($capabilityMatrixRows -join [Environment]::NewLine)
+}
 
 if (-not $preserveCanonicalFreshness) {
   $freshnessStateVal = if ($script:DirtyClassification -eq 'graph-affecting-blocked') { 'dirty-advisory' } else { 'fresh' }
@@ -3514,7 +3573,7 @@ if (-not $preserveCanonicalFreshness) {
 
 | Provider | Graph Ready | Query Ready | Probe Token | Evidence | Duration ms | Query Verification Reason |
 | --- | --- | --- | --- | --- | ---: | --- |
-$($providerReportRows -join [Environment]::NewLine)
+$($providerReportRows -join [Environment]::NewLine)$capabilityMatrixSection
 "@
 }
 
