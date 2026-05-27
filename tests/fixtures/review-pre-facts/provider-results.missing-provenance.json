@@ -11,15 +11,30 @@
     {
       "provider": "gitnexus",
       "query_id": "q1",
+      "operation": "query",
+      "fact_kind": "query_symbol",
+      "repo_scope": "spec-first",
+      "target_refs": [
+        "src/cli/index.js"
+      ],
       "source_path": "src/cli/index.js",
       "line_window": {
         "start": 15,
         "end": 63
       },
-      "excerpt": "runCli (Cli)",
       "readiness": "graph-fresh",
       "tier": "graph-fresh",
-      "reason_code": "provider_graph_symbol"
+      "reason_code": "provider_graph_symbol",
+      "limitations": [],
+      "redaction_status": "none-required",
+      "summary": [
+        "query pointer runCli",
+        "kind Cli",
+        "source src/cli/index.js:15-63"
+      ],
+      "source_reads_required": [
+        "src/cli/index.js"
+      ]
     }
   ]
 }

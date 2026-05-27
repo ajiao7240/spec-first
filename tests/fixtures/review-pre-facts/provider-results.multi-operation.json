@@ -142,7 +142,8 @@
         "src/cli/helpers/review-pre-facts.js"
       ],
       "scope": {
-        "type": "all"
+        "type": "all",
+        "worktree": "repo"
       },
       "changed_symbols": [
         {

@@ -22,7 +22,7 @@ Pre-facts are advisory evidence, not a dispatch gate and not a finding generator
 
 | Fact condition | Allowed use | Still requires |
 | --- | --- | --- |
-| `tier="graph-fresh"` with provider, operation, query or target, provenance, matching snapshot, and either bounded source excerpt or operation-specific summary fact | Low-risk background, navigation, P2/P3 supporting evidence, and workflow orientation for implemented profiles | P0/P1, implementation scope, root-cause, or high-confidence code judgment needs direct source, test/log/contract proof, or a degraded-evidence note |
+| `tier="graph-fresh"` with provider, operation, query or target, provenance, matching snapshot, and either pointer-first `source_reads_required[]` metadata or operation-specific summary fact | Low-risk background, navigation, P2/P3 supporting evidence, and workflow orientation for implemented profiles | P0/P1, implementation scope, root-cause, or high-confidence code judgment needs direct source, test/log/contract proof, or a degraded-evidence note |
 | `tier="bounded-reads"` from target-aware direct reads with source path, line/window or heading/symbol anchor, and excerpt | Navigation and local facts | Impact, caller/callee, or related-test claims need graph query or direct source verification |
 | `tier="unavailable"` / `no-targets` or provider narrative without provenance | Degraded status or pointer only | Cannot support a code finding |
 
@@ -58,6 +58,7 @@ When all direct reads fail, the helper keeps the actual readiness and sets only 
 
 - Consumes only orchestrator-written raw live MCP results.
 - Verifies every raw result against the query plan by `query_id`, `tool_name`, and `operation`.
+- When the raw envelope declares `require_tool_annotations=true` or `tool_annotation_policy="required"`, every raw result must carry annotation proof with `read_only=true` and `destructive=false`; missing or unsafe proof degrades with `tool_annotation_unverified`.
 - Converts usable query and operation-specific summary facts into `review-pre-facts-provider-results.v1`.
 - Carries the query plan snapshot into provider results so render can re-check freshness before emitting graph-fresh evidence.
 - Does not execute live MCP and does not render `<codebase-facts>`.
@@ -87,7 +88,7 @@ The hidden CLI v1 currently supports only:
 - `--workflow plan`
 - `--workflow debug`
 - query-plan entries for implemented GitNexus operations `query`, `context`, `impact`, and `detect_changes`
-- query-shaped provider facts with source path, anchor/line window, excerpt, and provenance
+- query-shaped provider facts with source path, anchor/line window, safe summary, `source_reads_required[]`, and provenance
 - operation-specific summary facts for `context_symbol`, `impact_summary`, and `detect_changes_summary`
 
 `route_map`, `api_impact`, `shape_check`, `tool_map`, `cypher`, read-only resources, and group-aware calls remain outside `review-pre-facts-query-plan.v1`. They use `gitnexus-session-evidence.v1` and `docs/contracts/downstream-graph-evidence-consumption.md` when a workflow explicitly needs task-domain session evidence.
@@ -121,42 +122,41 @@ Operation profiles are conservative:
 
 - `query` requires bounded query text, explicit repo scope when needed, `include_content=false` by default, and bounded `limit` / `max_symbols`.
 - `context` requires `uid` or `name + file_path`; ambiguous symbols degrade instead of asking the LLM to invent a target.
-- `impact` requires explicit `target` and `direction`; provider summary-only arguments may be emitted only after the current executable tool schema proves support, and local summary-first truncation still applies.
-- `detect_changes` requires explicit `scope`; `compare` also requires `base_ref`. Raw diff text is never durable output.
+- `impact` requires explicit `target` and `direction`; it may be emitted from explicit operation intent even when there are no direct-read file targets. Provider summary-only arguments may be emitted only after the current executable tool schema proves support, and local summary-first truncation still applies.
+- `detect_changes` requires explicit `scope`; `compare` also requires `base_ref`. It may be emitted from explicit operation intent even when there are no direct-read file targets. Normalized facts must preserve scope/base/worktree metadata, and raw diff text is never durable output.
 
 `doc-review` and `code-review` keep review-oriented rendering. `plan` and `debug` use workflow-neutral rendering and must not include Coverage, finding, dispatch, or persona wording.
 
 ## Fact Contract
 
-Current v1 query-shaped provider facts must include:
+Current v1 provider facts must include:
 
 - `provider`
 - `query_id` or `target`
-- `source_path`
-- line/window or symbol `anchor`
-- bounded `excerpt`
 - `readiness`
 - `tier`
 - `reason_code`
 - artifact/tool source through `provenance`
-
-Expanded operation facts must also include common metadata:
-
 - `operation`
 - `fact_kind`
+- `target_refs[]`
 - `limitations[]`
 - `redaction_status`
+
+Location and source-confirmation fields are fact-kind specific. Query facts use `source_path` and line/window or symbol `anchor`; operation summary facts use their own safe identity fields plus `source_reads_required[]`.
 
 Fact-kind specific fields:
 
 | `fact_kind` | Required evidence shape |
 | --- | --- |
-| `query_symbol` | `source_path`, line/window or symbol `anchor`, and bounded `excerpt` |
+| `query_symbol` | `source_path`, line/window or symbol `anchor`, helper-owned safe `summary[]`, and `source_reads_required[]` |
 | `context_symbol` | symbol identity, disambiguation status, relationship summary, and `source_reads_required[]` |
 | `impact_summary` | blast-radius/risk summary, affected module/process counts, by-depth counts when safe, and `source_reads_required[]` |
-| `detect_changes_summary` | explicit scope/base metadata, changed-symbol summary, affected-process summary, `source_reads_required[]`, and raw-diff omission status |
+| `detect_changes_summary` | explicit scope/base/worktree metadata, changed-symbol summary, affected-process summary, `source_reads_required[]`, and raw-diff omission status |
 
-Existing query-shaped provider facts may continue to normalize into `query_symbol`. Non-query facts must not be forced into fake source excerpts, and they must not be accepted until implementation validates their `fact_kind` shape explicitly.
+Existing query-shaped provider facts may continue to normalize into `query_symbol`, but provider-supplied excerpts must pass the same durable redaction gate before any fact is emitted, and raw excerpts are not persisted by default. The normalizer must not preserve raw provider provenance blobs when deterministic query-plan provenance is sufficient; any future provider provenance field copied into durable facts must pass the same redaction gate. Non-query facts must not be forced into fake source excerpts, and they must not be accepted until implementation validates their `fact_kind` shape explicitly.
+
+`impact` and `detect_changes` responses must contain explicit usable evidence before a summary fact is emitted. Empty objects or missing signal fields degrade with `provider_result_no_usable_facts`; explicit zero-impact / zero-change provider status or summary counts may be normalized. Rendered summary counts must not default missing fields to zero; `0 direct`, `0 changed symbols`, or equivalent wording requires an explicit count, explicit array field, or explicit clean/no-impact status.
 
 Provider narrative without provenance is a pointer, not graph-fresh evidence. It must degrade to bounded reads or unavailable.
 
@@ -172,9 +172,11 @@ Hard v1 limits:
 - direct-read file: <= 128 KiB
 - direct-read targets: max 15
 
-Future plan/debug profiles must define their own max normalized facts and rendered block limits before they are accepted by the CLI.
+Plan/debug profiles have their own max normalized fact and rendered block limits. New workflow profiles must define those limits before they are accepted by the CLI.
 
-Oversized raw result records `provider_raw_result_too_large`. Fact over-budget records `provider_fact_budget_truncated`. Oversized direct-read files record `target_too_large`. Rendered omitted-target over-budget records `omitted_targets_budget_truncated`. The helper must never inject unbounded provider output into a workflow prompt. Durable output must omit raw diff hunks, full `impact.byDepth` dumps, credentialed URLs, tokens, internal hostnames, absolute local paths, secret-denied paths, and full private process/route dumps.
+Oversized raw result records `provider_raw_result_too_large`. Fact over-budget records `provider_fact_budget_truncated`. Oversized direct-read files record `target_too_large`. Rendered omitted-target over-budget records `omitted_targets_budget_truncated`. The helper must never inject unbounded provider output into a workflow prompt. Durable output must omit raw diff hunks, full `impact.byDepth` dumps, credentialed URLs, tokens, internal hostnames, absolute local paths, secret-denied content paths, and full private process/route dumps. Repo-relative pointer fields such as `source_path`, `file_path`, `target`, `target_refs`, and `source_reads_required[]` are validated for repo containment/readability and absolute-path leakage; broad secret-name deny patterns are not applied to those pointer fields so legitimate code paths such as `tokenUtils.js` are not dropped.
+
+Tool annotation proof is fail-closed when requested: `require_tool_annotations=true` or `tool_annotation_policy="required"` without per-result `tool_annotations` proof degrades with `tool_annotation_unverified`. When `tool_annotations` are present, they must prove `read_only=true` and `destructive=false`; unsafe or incomplete proof uses the same degraded reason.
 
 ## Output Boundary
 
@@ -234,7 +236,7 @@ Final review output must include:
 
 Code-review multi-repo output must use per-repo tier lines or an explicit mixed-repo summary.
 
-Future plan/debug neutral output must disclose capabilities used, key pointers, `source_reads_required`, advisory/freshness limitations, and degraded reason without review-only Coverage or finding wording before those workflow profiles are enabled.
+Plan/debug neutral output must disclose capabilities used, key pointers, `source_reads_required`, advisory/freshness limitations, and degraded reason without review-only Coverage or finding wording.
 
 ## Measurement Protocol
 

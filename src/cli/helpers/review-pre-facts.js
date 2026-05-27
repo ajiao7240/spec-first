@@ -115,7 +115,8 @@ function runPrepare(options, io) {
   }
 
   const targets = extractTargets(options);
-  const readiness = targets.length === 0
+  const operationIntent = hasOperationIntent(options);
+  const readiness = targets.length === 0 && !operationIntent
     ? {
       readiness: 'no-targets',
       reason_code: 'no_extraction_targets',
@@ -1136,6 +1137,17 @@ function normalizeSymbolTarget(target) {
   };
 }
 
+function hasOperationIntent(options) {
+  return Boolean(
+    options.changeScope
+    || options.symbol
+    || options.symbolFile
+    || options.symbolKind
+    || options.impactTarget
+    || extractSymbolTargets(options).length > 0,
+  );
+}
+
 function normalizeMaybeRepoPath(value) {
   if (!value) return undefined;
   const normalized = normalizeTargetPath(value);
@@ -1263,6 +1275,7 @@ function validateRawResult(raw, queryPlan) {
     return { ok: false, reason_code: 'provider_raw_result_invalid', message: 'raw result lacks raw_results[]' };
   }
   const queryById = new Map(queryPlan.queries.map((query) => [query.query_id, query]));
+  const requireToolAnnotations = raw.require_tool_annotations === true || raw.tool_annotation_policy === 'required';
   for (const result of raw.raw_results) {
     const query = queryById.get(result.query_id);
     if (!query) {
@@ -1274,8 +1287,14 @@ function validateRawResult(raw, queryPlan) {
     if (result.arguments !== undefined && !deepEqualJson(result.arguments, query.arguments)) {
       return { ok: false, reason_code: 'provider_raw_result_query_mismatch', message: 'raw result arguments do not match query plan' };
     }
-    if (result.tool_annotations && typeof result.tool_annotations === 'object') {
-      if (result.tool_annotations.read_only === false || result.tool_annotations.destructive === true) {
+    const toolAnnotations = result.tool_annotations && typeof result.tool_annotations === 'object'
+      ? result.tool_annotations
+      : null;
+    if (requireToolAnnotations && !toolAnnotations) {
+      return { ok: false, reason_code: 'tool_annotation_unverified', message: 'required tool annotations are missing' };
+    }
+    if (toolAnnotations) {
+      if (toolAnnotations.read_only !== true || toolAnnotations.destructive !== false) {
         return { ok: false, reason_code: 'tool_annotation_unverified', message: 'raw result tool annotations do not prove a safe read-only call' };
       }
     }
@@ -1316,7 +1335,14 @@ function normalizeRawFacts(raw, queryPlan, workflow) {
       result,
       queryPlan,
     });
-    facts.push(...operationFacts.facts);
+    for (const fact of operationFacts.facts) {
+      const safe = validateDurableFactStrings(fact);
+      if (safe.ok) {
+        facts.push(fact);
+      } else {
+        omitted.push({ query_id: fact.query_id || result.query_id, reason_code: safe.reason_code });
+      }
+    }
     omitted.push(...operationFacts.omitted);
   }
 
@@ -1328,11 +1354,14 @@ function normalizeRawFacts(raw, queryPlan, workflow) {
     reasonCode = 'provider_fact_budget_truncated';
     omitted.push({ count: facts.length - limit, reason_code: 'provider_fact_budget_truncated' });
   }
+  const emptyReason = omitted.find((item) => item.reason_code === 'provider_fact_redaction_failed')
+    ? 'provider_fact_redaction_failed'
+    : 'provider_result_no_usable_facts';
 
   return {
     facts: finalFacts,
     omitted_facts: omitted,
-    reason_code: finalFacts.length > 0 ? reasonCode : 'provider_result_no_usable_facts',
+    reason_code: finalFacts.length > 0 ? reasonCode : emptyReason,
   };
 }
 
@@ -1357,11 +1386,16 @@ function normalizeOperationResult({ raw, query, result, queryPlan }) {
 
 function normalizeQueryResult({ raw, query, result, queryPlan }) {
   const facts = [];
+  const omitted = [];
   const response = result.response || {};
   if (Array.isArray(response.facts)) {
     for (const fact of response.facts) {
       const normalized = normalizeProviderFact(fact, query, result, queryPlan, raw.source);
-      if (normalized) facts.push(normalized);
+      if (normalized.fact) {
+        facts.push(normalized.fact);
+      } else {
+        omitted.push({ query_id: result.query_id, reason_code: normalized.reason_code });
+      }
     }
   }
   const graphItems = []
@@ -1375,25 +1409,24 @@ function normalizeQueryResult({ raw, query, result, queryPlan }) {
       end: item.endLine ?? item.end ?? item.startLine ?? item.start ?? 1,
     });
     if (!lineWindow) continue;
-    facts.push({
-      provider: query.provider,
-      query_id: query.query_id,
-      operation: 'query',
-      fact_kind: 'query_symbol',
-      repo_scope: path.basename(queryPlan.target_repo || ''),
-      target_refs: query.target_refs,
-      source_path: sourcePath,
+    facts.push(buildQuerySymbolFact({
+      query,
+      result,
+      raw,
+      queryPlan,
+      sourcePath,
       line_window: lineWindow,
-      excerpt: truncateExcerpt(`${item.name || path.basename(sourcePath)} ${item.module ? `(${item.module})` : ''}`.trim()),
-      readiness: queryPlan.readiness,
-      tier: 'graph-fresh',
       reason_code: 'provider_graph_symbol',
-      limitations: [],
-      redaction_status: 'none-required',
-      provenance: operationProvenance(raw, queryPlan, result),
-    });
+      summary: querySymbolSummary({
+        name: item.name,
+        kind: item.kind,
+        module: item.module,
+        sourcePath,
+        lineWindow,
+      }),
+    }));
   }
-  return { facts, omitted: [] };
+  return { facts, omitted };
 }
 
 function normalizeContextResult({ raw, query, result, queryPlan }) {
@@ -1452,6 +1485,10 @@ function normalizeContextResult({ raw, query, result, queryPlan }) {
 
 function normalizeImpactResult({ raw, query, result, queryPlan }) {
   const response = result.response || {};
+  if (!hasUsableImpactEvidence(response)) {
+    return { facts: [], omitted: [{ query_id: result.query_id, reason_code: 'provider_result_no_usable_facts' }] };
+  }
+  const impactSummary = response.summary && typeof response.summary === 'object' ? response.summary : {};
   const byDepth = response.byDepth && typeof response.byDepth === 'object' ? response.byDepth : {};
   const byDepthCounts = {};
   const sourceCandidates = [];
@@ -1466,6 +1503,9 @@ function normalizeImpactResult({ raw, query, result, queryPlan }) {
   const affectedProcesses = normalizeNamedFileList(response.affected_processes);
   const affectedModules = normalizeNamedList(response.affected_modules);
   const targetPath = response.target && (response.target.filePath || response.target.file_path);
+  const directCount = ownNumber(impactSummary, 'direct');
+  const processCount = ownNumber(impactSummary, 'processes_affected');
+  const noImpactStatus = isNoImpactStatus(response.status);
   const sourceReads = uniqueRepoPaths([
     query.arguments.file_path,
     targetPath,
@@ -1485,9 +1525,19 @@ function normalizeImpactResult({ raw, query, result, queryPlan }) {
       redaction_status: 'redacted',
       limitations: ['impact_detail_summary_only'],
       summary: compactSummary([
-        `impact risk ${response.risk || 'unknown'}`,
-        `${Number(response.summary && response.summary.direct) || 0} direct`,
-        `${Number(response.summary && response.summary.processes_affected) || affectedProcesses.length} processes`,
+        normalizeNonEmptyString(response.risk)
+          ? `impact risk ${response.risk}`
+          : normalizeNonEmptyString(response.status)
+            ? `impact status ${response.status}`
+            : 'impact risk unknown',
+        directCount !== undefined ? `${directCount} direct` : noImpactStatus ? '0 direct' : undefined,
+        processCount !== undefined
+          ? `${processCount} processes`
+          : affectedProcesses.length > 0
+            ? `${affectedProcesses.length} processes`
+            : noImpactStatus
+              ? '0 processes'
+              : undefined,
       ]),
       extra: {
         risk: normalizeNonEmptyString(response.risk) || 'unknown',
@@ -1503,9 +1553,25 @@ function normalizeImpactResult({ raw, query, result, queryPlan }) {
 
 function normalizeDetectChangesResult({ raw, query, result, queryPlan }) {
   const response = result.response || {};
-  const changedSymbols = normalizeNamedFileList(response.changed_symbols || response.changedSymbols);
-  const affectedProcesses = normalizeNamedFileList(response.affected_processes || response.affectedProcesses);
+  if (!hasUsableDetectChangesEvidence(response)) {
+    return { facts: [], omitted: [{ query_id: result.query_id, reason_code: 'provider_result_no_usable_facts' }] };
+  }
+  const changedSymbolsRaw = Array.isArray(response.changed_symbols)
+    ? response.changed_symbols
+    : Array.isArray(response.changedSymbols)
+      ? response.changedSymbols
+      : undefined;
+  const affectedProcessesRaw = Array.isArray(response.affected_processes)
+    ? response.affected_processes
+    : Array.isArray(response.affectedProcesses)
+      ? response.affectedProcesses
+      : undefined;
+  const changedSymbols = normalizeNamedFileList(changedSymbolsRaw);
+  const affectedProcesses = normalizeNamedFileList(affectedProcessesRaw);
   const summary = response.summary && typeof response.summary === 'object' ? response.summary : {};
+  const changedCount = ownNumber(summary, 'changed_count');
+  const affectedCount = ownNumber(summary, 'affected_count');
+  const noChangesStatus = isNoChangesStatus(response.status);
   const sourceReads = uniqueRepoPaths([
     ...changedSymbols.map((item) => item.file_path),
     ...affectedProcesses.map((item) => item.file_path),
@@ -1524,13 +1590,26 @@ function normalizeDetectChangesResult({ raw, query, result, queryPlan }) {
       limitations: ['raw_diff_omitted'],
       summary: compactSummary([
         `detect_changes ${query.arguments.scope}`,
-        `${changedSymbols.length || Number(summary.changed_count) || 0} changed symbols`,
-        `${affectedProcesses.length || Number(summary.affected_count) || 0} affected processes`,
+        changedCount !== undefined
+          ? `${changedCount} changed symbols`
+          : Array.isArray(changedSymbolsRaw)
+            ? `${changedSymbols.length} changed symbols`
+            : noChangesStatus
+              ? '0 changed symbols'
+              : undefined,
+        affectedCount !== undefined
+          ? `${affectedCount} affected processes`
+          : Array.isArray(affectedProcessesRaw)
+            ? `${affectedProcesses.length} affected processes`
+            : noChangesStatus
+              ? '0 affected processes'
+              : undefined,
       ]),
       extra: {
         scope: {
           type: query.arguments.scope,
           base_ref: query.arguments.base_ref || undefined,
+          worktree: path.basename(queryPlan.target_repo || query.arguments.repo || ''),
         },
         changed_symbols: changedSymbols,
         affected_processes: affectedProcesses,
@@ -1540,6 +1619,61 @@ function normalizeDetectChangesResult({ raw, query, result, queryPlan }) {
     })],
     omitted: [],
   };
+}
+
+function hasUsableImpactEvidence(response) {
+  if (!response || typeof response !== 'object' || Array.isArray(response)) return false;
+  if (normalizeNonEmptyString(response.risk)) return true;
+  if (hasAnyOwnNumber(response.summary, [
+    'direct',
+    'indirect',
+    'processes_affected',
+    'modules_affected',
+    'affected_count',
+    'changed_count',
+    'total',
+  ])) return true;
+  if (hasAnyItems(response.affected_processes) || hasAnyItems(response.affectedProcesses)) return true;
+  if (hasAnyItems(response.affected_modules) || hasAnyItems(response.affectedModules)) return true;
+  const byDepth = response.byDepth && typeof response.byDepth === 'object' ? response.byDepth : {};
+  if (Object.values(byDepth).some((items) => Array.isArray(items) && items.length > 0)) return true;
+  return isNoImpactStatus(response.status);
+}
+
+function hasUsableDetectChangesEvidence(response) {
+  if (!response || typeof response !== 'object' || Array.isArray(response)) return false;
+  if (Array.isArray(response.changed_symbols) || Array.isArray(response.changedSymbols)) return true;
+  if (Array.isArray(response.affected_processes) || Array.isArray(response.affectedProcesses)) return true;
+  if (hasAnyOwnNumber(response.summary, ['changed_count', 'affected_count', 'risk_count', 'total'])) return true;
+  return isNoChangesStatus(response.status);
+}
+
+function hasAnyOwnNumber(value, keys) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return keys.some((key) => ownNumber(value, key) !== undefined);
+}
+
+function ownNumber(value, key) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  if (!Object.prototype.hasOwnProperty.call(value, key)) return undefined;
+  const raw = value[key];
+  if (raw === null || typeof raw === 'boolean') return undefined;
+  if (typeof raw === 'string' && raw.trim() === '') return undefined;
+  if (typeof raw !== 'number' && typeof raw !== 'string') return undefined;
+  const numberValue = Number(raw);
+  return Number.isFinite(numberValue) ? numberValue : undefined;
+}
+
+function hasAnyItems(value) {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function isNoImpactStatus(value) {
+  return ['no_impact', 'no-impact', 'clean', 'none'].includes(String(value || '').toLowerCase());
+}
+
+function isNoChangesStatus(value) {
+  return ['no_changes', 'no-changes', 'unchanged', 'clean'].includes(String(value || '').toLowerCase());
 }
 
 function compactOperationFact({ query, result, raw, queryPlan, fact_kind, reason_code, target_refs, source_reads_required, redaction_status, limitations = [], summary, extra }) {
@@ -1626,44 +1760,100 @@ function uniqueRepoPaths(paths, targetRepo) {
 function normalizeProviderFact(fact, query, result, queryPlan, source) {
   const sourcePath = normalizeProviderSourcePath(fact.source_path || fact.path, queryPlan.target_repo);
   const targetPath = fact.target ? normalizeProviderSourcePath(fact.target, queryPlan.target_repo) : undefined;
-  const excerpt = typeof fact.excerpt === 'string' ? fact.excerpt : '';
   const provenance = fact.provenance;
   const anchor = normalizeNonEmptyString(fact.anchor);
   const lineWindow = fact.line_window ? coerceLineWindow(fact.line_window) : undefined;
-  if (!sourcePath || !excerpt || !provenance || typeof provenance !== 'object') {
-    return null;
+  if (!sourcePath || !provenance || typeof provenance !== 'object') {
+    return { fact: null, reason_code: 'provider_result_no_usable_facts' };
   }
   if (fact.target && !targetPath) {
-    return null;
+    return { fact: null, reason_code: 'provider_result_no_usable_facts' };
   }
   if (!anchor && !lineWindow) {
-    return null;
+    return { fact: null, reason_code: 'provider_result_no_usable_facts' };
   }
+  if (typeof fact.excerpt === 'string' && fact.excerpt.length > 0) {
+    const excerptSafe = validateDurableFactStrings({ excerpt: fact.excerpt });
+    if (!excerptSafe.ok) {
+      return { fact: null, reason_code: excerptSafe.reason_code };
+    }
+  }
+  const normalizedFact = buildQuerySymbolFact({
+    query,
+    result,
+    raw: { source: source || 'live-mcp', query_plan_id: queryPlan.query_plan_id },
+    queryPlan,
+    sourcePath,
+    targetPath,
+    anchor,
+    line_window: lineWindow || undefined,
+    readiness: normalizeReadiness(fact.readiness, 'graph-fresh'),
+    tier: normalizeTier(fact.tier, 'graph-fresh'),
+    reason_code: fact.reason_code || 'provider_fact',
+    summary: querySymbolSummary({
+      name: fact.name || fact.symbol,
+      kind: fact.kind || fact.type,
+      sourcePath,
+      anchor,
+      lineWindow,
+    }),
+  });
+  const safe = validateDurableFactStrings(normalizedFact);
+  if (!safe.ok) {
+    return { fact: null, reason_code: safe.reason_code };
+  }
+  return { fact: normalizedFact, reason_code: null };
+}
+
+function buildQuerySymbolFact({
+  query,
+  result,
+  raw,
+  queryPlan,
+  sourcePath,
+  targetPath,
+  anchor,
+  line_window: lineWindow,
+  readiness,
+  tier,
+  reason_code: reasonCode,
+  summary,
+}) {
   return {
     provider: query.provider,
     query_id: query.query_id,
     operation: 'query',
     fact_kind: 'query_symbol',
     repo_scope: path.basename(queryPlan.target_repo || ''),
-    target_refs: query.target_refs,
+    target_refs: Array.isArray(query.target_refs) ? query.target_refs.filter(Boolean) : [],
     target: targetPath,
     source_path: sourcePath,
     anchor,
-    line_window: lineWindow || undefined,
-    excerpt: truncateExcerpt(excerpt),
-    readiness: normalizeReadiness(fact.readiness, 'graph-fresh'),
-    tier: normalizeTier(fact.tier, 'graph-fresh'),
-    reason_code: fact.reason_code || 'provider_fact',
+    line_window: lineWindow,
+    readiness: normalizeReadiness(readiness, queryPlan.readiness),
+    tier: normalizeTier(tier, 'graph-fresh'),
+    reason_code: reasonCode,
     limitations: [],
     redaction_status: 'none-required',
-    provenance: {
-      provider_metadata: provenance,
-      source: source || 'live-mcp',
-      query_plan_id: queryPlan.query_plan_id,
-      tool_name: result.tool_name,
-      operation: result.operation,
-    },
+    summary: compactSummary(summary),
+    source_reads_required: uniqueRepoPaths([sourcePath], queryPlan.target_repo),
+    provenance: operationProvenance(raw, queryPlan, result),
   };
+}
+
+function querySymbolSummary({ name, kind, module, sourcePath, anchor, lineWindow }) {
+  const identity = normalizeNonEmptyString(name)
+    || normalizeNonEmptyString(anchor)
+    || path.basename(sourcePath || 'unknown');
+  const type = normalizeNonEmptyString(kind || module);
+  const location = lineWindow
+    ? `${sourcePath}:${lineWindow.start}-${lineWindow.end}`
+    : sourcePath;
+  return [
+    `query pointer ${identity}`,
+    type ? `kind ${type}` : undefined,
+    location ? `source ${location}` : undefined,
+  ];
 }
 
 function normalizeProviderSourcePath(value, targetRepo) {
@@ -1756,21 +1946,22 @@ function validateProviderFactCommon(fact, results) {
   if (!fact.provenance || typeof fact.provenance !== 'object') {
     return { ok: false, reason_code: 'provider_result_missing_provenance', message: 'provider fact lacks provenance' };
   }
+  if (typeof fact.excerpt === 'string' && fact.excerpt.length > LIMITS.perExcerptChars) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact excerpt exceeds limit' };
+  }
   if (!fact.provenance.source || !fact.provenance.query_plan_id || !fact.provenance.tool_name) {
     return { ok: false, reason_code: 'provider_result_missing_provenance', message: 'provider fact lacks provenance source/query_plan_id/tool_name' };
   }
   if (fact.provenance.source !== expectedSource || fact.provenance.query_plan_id !== results.query_plan_id) {
     return { ok: false, reason_code: 'provider_result_missing_provenance', message: 'provider fact provenance does not match provider-results envelope' };
   }
-  if (kind !== 'query_symbol') {
-    if (!OPERATIONS.has(fact.operation) || fact.provenance.operation !== fact.operation) {
-      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider operation metadata is invalid' };
-    }
-    if (!Array.isArray(fact.target_refs) || !Array.isArray(fact.limitations) || !REDACTION_STATUSES.has(fact.redaction_status)) {
-      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider operation fact lacks common operation fields' };
-    }
-    const safe = validateDurableFactStrings(fact);
-    if (!safe.ok) return safe;
+  const safe = validateDurableFactStrings(fact);
+  if (!safe.ok) return safe;
+  if (!OPERATIONS.has(fact.operation) || fact.provenance.operation !== fact.operation) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider operation metadata is invalid' };
+  }
+  if (!Array.isArray(fact.target_refs) || !Array.isArray(fact.limitations) || !REDACTION_STATUSES.has(fact.redaction_status)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact lacks common operation fields' };
   }
   return { ok: true };
 }
@@ -1785,13 +1976,13 @@ function validateQuerySymbolFact(fact, results) {
   if (lineWindowPresent && !lineWindowValid) {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact line_window is invalid' };
   }
-  if (typeof fact.excerpt !== 'string' || fact.excerpt.length === 0 || fact.excerpt.length > LIMITS.perExcerptChars) {
-    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact excerpt is invalid' };
-  }
   if (!sourcePath || (fact.target && !targetPath) || !hasAnchor) {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact lacks required query_symbol fields' };
   }
-  return { ok: true };
+  if (!Array.isArray(fact.summary) || fact.summary.length === 0 || !Array.isArray(fact.source_reads_required)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'query_symbol lacks summary or source reads' };
+  }
+  return validateSourceReadsRequired(fact.source_reads_required, results);
 }
 
 function validateContextSymbolFact(fact, results) {
@@ -1827,6 +2018,9 @@ function validateDetectChangesSummaryFact(fact, results) {
   if (fact.scope.type === 'compare' && !fact.scope.base_ref) {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'detect_changes_summary compare scope lacks base_ref' };
   }
+  if (!normalizeNonEmptyString(fact.scope.worktree)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'detect_changes_summary scope lacks worktree' };
+  }
   if (!Array.isArray(fact.changed_symbols) || !Array.isArray(fact.affected_processes) || fact.raw_diff_status !== 'omitted') {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'detect_changes_summary lacks safe summary fields' };
   }
@@ -1848,29 +2042,44 @@ function validateSourceReadsRequired(paths, results) {
 function validateDurableFactStrings(fact) {
   const strings = [];
   collectStrings(fact, strings);
-  for (const value of strings) {
+  for (const { value, field } of strings) {
     if (containsRawDiffHunk(value) || containsCredentialLikeText(value) || containsAbsoluteLocalPath(value)) {
       return { ok: false, reason_code: 'provider_fact_redaction_failed', message: 'provider fact contains unsafe durable text' };
     }
-    if (isExactRepoRelativePath(value) && isSecretDeniedPath(value)) {
+    if (!isPathPointerField(field) && looksLikeRepoPath(value) && isExactRepoRelativePath(value) && isSecretDeniedPath(value)) {
       return { ok: false, reason_code: 'provider_fact_redaction_failed', message: 'provider fact contains secret-denied path' };
     }
   }
   return { ok: true };
 }
 
-function collectStrings(value, output) {
+function collectStrings(value, output, field) {
   if (typeof value === 'string') {
-    output.push(value);
+    output.push({ value, field });
     return;
   }
   if (Array.isArray(value)) {
-    for (const item of value) collectStrings(item, output);
+    for (const item of value) collectStrings(item, output, field);
     return;
   }
   if (value && typeof value === 'object') {
-    for (const item of Object.values(value)) collectStrings(item, output);
+    for (const [key, item] of Object.entries(value)) collectStrings(item, output, key);
   }
+}
+
+function isPathPointerField(field) {
+  return [
+    'source_path',
+    'source_reads_required',
+    'target',
+    'target_refs',
+    'file_path',
+  ].includes(field);
+}
+
+function looksLikeRepoPath(value) {
+  const text = String(value || '').trim();
+  return Boolean(text && !/\s/.test(text) && (text.includes('/') || text.startsWith('.') || /\.[A-Za-z0-9]+$/.test(text)));
 }
 
 function containsRawDiffHunk(value) {
@@ -1879,7 +2088,8 @@ function containsRawDiffHunk(value) {
 
 function containsCredentialLikeText(value) {
   return /https?:\/\/[^/\s:@]+:[^@\s]+@/i.test(value)
-    || /\b(token|api[_-]?key|secret|password|cookie)\s*[:=]\s*[^,\s]+/i.test(value);
+    || /\b(token|api[_-]?key|secret|password|cookie)\s*[:=]\s*[^,\s]+/i.test(value)
+    || /-----BEGIN [A-Z ]*PRIVATE KEY-----/i.test(value);
 }
 
 function containsAbsoluteLocalPath(value) {
@@ -2227,9 +2437,23 @@ function buildFactsBlock(input) {
           ? `${fact.line_window.start}-${fact.line_window.end}`
           : fact.anchor || 'unknown';
         lines.push(`- provider=${xmlEscape(fact.provider || 'unknown')} operation=${xmlEscape(fact.operation || 'query')} fact_kind=${xmlEscape(kind)} source=${xmlEscape(fact.source_path || fact.target || 'unknown')} anchor=${xmlEscape(String(anchor))} reason=${xmlEscape(fact.reason_code || 'unknown')}`);
-        lines.push('  <excerpt>');
-        lines.push(indent(xmlEscape(truncateExcerpt(fact.excerpt || ''))));
-        lines.push('  </excerpt>');
+        if (Array.isArray(fact.summary) || Array.isArray(fact.source_reads_required)) {
+          lines.push('  <summary>');
+          lines.push(indent(xmlEscape(renderOperationSummary(fact))));
+          lines.push('  </summary>');
+          lines.push('  <source-reads-required>');
+          const sourceReads = Array.isArray(fact.source_reads_required) ? fact.source_reads_required : [];
+          if (sourceReads.length === 0) {
+            lines.push('  - none');
+          } else {
+            for (const sourcePath of sourceReads) lines.push(`  - ${xmlEscape(sourcePath)}`);
+          }
+          lines.push('  </source-reads-required>');
+        } else {
+          lines.push('  <excerpt>');
+          lines.push(indent(xmlEscape(truncateExcerpt(fact.excerpt || ''))));
+          lines.push('  </excerpt>');
+        }
       } else {
         lines.push(`- provider=${xmlEscape(fact.provider || 'unknown')} operation=${xmlEscape(fact.operation || 'unknown')} fact_kind=${xmlEscape(kind)} reason=${xmlEscape(fact.reason_code || 'unknown')} redaction=${xmlEscape(fact.redaction_status || 'unknown')}`);
         lines.push('  <summary>');
@@ -2299,7 +2523,10 @@ function buildNeutralFactsBlock(input) {
 function renderOperationSummary(fact) {
   const kind = fact.fact_kind || 'query_symbol';
   if (kind === 'query_symbol') {
-    return `${kind} ${fact.source_path || fact.target || 'unknown'} ${fact.reason_code || 'unknown'}`.trim();
+    const summary = Array.isArray(fact.summary) && fact.summary.length > 0
+      ? ` ${fact.summary.join('; ')}`
+      : '';
+    return `${kind} ${fact.source_path || fact.target || 'unknown'} ${fact.reason_code || 'unknown'}${summary}`.trim();
   }
   if (Array.isArray(fact.summary) && fact.summary.length > 0) {
     return `${kind} ${fact.summary.join('; ')}`;

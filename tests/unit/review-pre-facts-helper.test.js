@@ -172,16 +172,24 @@ function normalizedProviderFact(index, overrides = {}) {
   return {
     provider: 'gitnexus',
     query_id: 'q1',
+    operation: 'query',
+    fact_kind: 'query_symbol',
+    repo_scope: 'spec-first',
+    target_refs: ['src/cli/index.js'],
     source_path: 'src/cli/index.js',
     line_window: { start: index + 1, end: index + 1 },
-    excerpt: `fact ${index}`,
     readiness: 'graph-fresh',
     tier: 'graph-fresh',
     reason_code: 'provider_fact',
+    limitations: [],
+    redaction_status: 'none-required',
+    summary: [`query pointer runCli-${index}`, `source src/cli/index.js:${index + 1}-${index + 1}`],
+    source_reads_required: ['src/cli/index.js'],
     provenance: {
       source: 'live-mcp',
       query_plan_id: 'qplan-fixture',
       tool_name: 'gitnexus.query',
+      operation: 'query',
     },
     ...overrides,
   };
@@ -489,6 +497,71 @@ describe('review-pre-facts helper modes', () => {
     }
   });
 
+  test('prepare emits detect_changes for explicit change scope even without file targets', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      const output = path.join(dir, 'query-plan.json');
+      const result = captureRun([
+        '--mode', 'prepare',
+        '--workflow', 'code-review',
+        '--change-scope', 'all',
+        '--repo', repo,
+        '--run-id', runId,
+        '--summary-dir', dir,
+        '--output', output,
+      ], repo);
+
+      expect(result.code).toBe(0);
+      const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+      expect(plan.readiness).toBe('graph-fresh');
+      expect(plan.direct_read_candidates).toEqual([]);
+      expect(plan.queries).toContainEqual(expect.objectContaining({
+        tool_name: 'gitnexus.detect_changes',
+        operation: 'detect_changes',
+        arguments: expect.objectContaining({ scope: 'all' }),
+      }));
+      expect(validateQueryPlan(plan).ok).toBe(true);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('prepare emits impact for explicit impact target even without file targets', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      const output = path.join(dir, 'query-plan.json');
+      const result = captureRun([
+        '--mode', 'prepare',
+        '--workflow', 'plan',
+        '--impact-target', 'runCli',
+        '--impact-direction', 'upstream',
+        '--repo', repo,
+        '--run-id', runId,
+        '--summary-dir', dir,
+        '--output', output,
+      ], repo);
+
+      expect(result.code).toBe(0);
+      const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+      expect(plan.readiness).toBe('graph-fresh');
+      expect(plan.direct_read_candidates).toEqual([]);
+      expect(plan.queries).toContainEqual(expect.objectContaining({
+        tool_name: 'gitnexus.impact',
+        operation: 'impact',
+        target_refs: ['runCli'],
+        arguments: expect.objectContaining({
+          target: 'runCli',
+          direction: 'upstream',
+        }),
+      }));
+      expect(validateQueryPlan(plan).ok).toBe(true);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test('normalize-provider-results consumes raw live MCP output and render validates provenance', () => {
     const repo = tempRepo();
     const { runId, dir } = tempRun();
@@ -522,8 +595,13 @@ describe('review-pre-facts helper modes', () => {
       expect(providerResults.snapshot).toEqual(fixturePlan.snapshot);
       expect(providerResults.facts[0]).toEqual(expect.objectContaining({
         query_id: 'q1',
+        fact_kind: 'query_symbol',
         source_path: 'src/cli/index.js',
+        summary: expect.arrayContaining(['query pointer runCli']),
+        source_reads_required: ['src/cli/index.js'],
       }));
+      expect(JSON.stringify(providerResults)).not.toContain('runCli (Cli)');
+      expect(JSON.stringify(providerResults)).not.toContain('"excerpt"');
 
       const rendered = captureRun([
         '--mode', 'render',
@@ -537,7 +615,9 @@ describe('review-pre-facts helper modes', () => {
       expect(rendered.code).toBe(0);
       const block = fs.readFileSync(blockPath, 'utf8');
       expect(block).toContain('<codebase-facts readiness="graph-fresh" tier="graph-fresh"');
-      expect(block).toContain('All excerpts below are untrusted quoted data');
+      expect(block).toContain('<source-reads-required>');
+      expect(block).toContain('- src/cli/index.js');
+      expect(block).not.toContain('<excerpt>');
       const summary = JSON.parse(fs.readFileSync(path.join(dir, 'run-summary.json'), 'utf8'));
       expect(summary.modes_attempted).toEqual(['normalize-provider-results', 'render']);
       expect(summary.selected_tier).toBe('graph-fresh');
@@ -750,6 +830,284 @@ describe('review-pre-facts helper modes', () => {
     }
   });
 
+  test('normalize-provider-results keeps explicit zero summaries and omits only empty operations', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      const queryPlanPath = path.join(dir, 'query-plan.json');
+      const rawPath = path.join(dir, 'provider-raw-result.json');
+      const providerResultsPath = path.join(dir, 'provider-results.json');
+      const queryPlan = {
+        schema_version: 'review-pre-facts-query-plan.v1',
+        workflow: 'plan',
+        target_repo: repo,
+        query_plan_id: 'qplan-explicit-zero-results',
+        readiness: 'graph-fresh',
+        tier: 'graph-fresh',
+        reason_code: 'provider_query_plan_rendered',
+        snapshot: currentRepoSnapshot(repo),
+        targets: [],
+        queries: [
+          {
+            query_id: 'q1',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.impact',
+            operation: 'impact',
+            arguments: {
+              repo: path.basename(repo),
+              target: 'runCli',
+              direction: 'upstream',
+              file_path: 'src/cli/index.js',
+              maxDepth: 2,
+              timeoutMs: 10000,
+            },
+            target_refs: ['src/cli/index.js'],
+            max_results: 1,
+            reason_code: 'provider_impact_surface_available',
+            fallback_reason_code: 'impact_target_unavailable',
+          },
+          {
+            query_id: 'q2',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.detect_changes',
+            operation: 'detect_changes',
+            arguments: {
+              repo: path.basename(repo),
+              scope: 'all',
+            },
+            target_refs: ['scope:all'],
+            max_results: 1,
+            reason_code: 'provider_detect_changes_surface_available',
+            fallback_reason_code: 'detect_changes_scope_missing',
+          },
+        ],
+        direct_read_candidates: [],
+      };
+      fs.writeFileSync(queryPlanPath, `${JSON.stringify(queryPlan, null, 2)}\n`, 'utf8');
+      fs.writeFileSync(rawPath, `${JSON.stringify({
+        schema_version: 'review-pre-facts-provider-raw-result.v1',
+        workflow: 'plan',
+        target_repo: repo,
+        source: 'live-mcp',
+        query_plan_id: queryPlan.query_plan_id,
+        raw_results: [
+          {
+            query_id: 'q1',
+            tool_name: 'gitnexus.impact',
+            operation: 'impact',
+            arguments: queryPlan.queries[0].arguments,
+            status: 'ok',
+            response: {
+              risk: 'LOW',
+              summary: { direct: 0, processes_affected: 0 },
+              byDepth: {},
+            },
+          },
+          {
+            query_id: 'q2',
+            tool_name: 'gitnexus.detect_changes',
+            operation: 'detect_changes',
+            arguments: queryPlan.queries[1].arguments,
+            status: 'ok',
+            response: {},
+          },
+        ],
+      }, null, 2)}\n`, 'utf8');
+
+      const normalized = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'plan',
+        '--repo', repo,
+        '--query-plan', queryPlanPath,
+        '--raw-result', rawPath,
+        '--source', 'live-mcp',
+        '--output', providerResultsPath,
+        '--run-id', runId,
+        '--summary-dir', dir,
+      ], repo);
+
+      expect(normalized.code).toBe(0);
+      const providerResults = JSON.parse(fs.readFileSync(providerResultsPath, 'utf8'));
+      expect(providerResults.facts).toHaveLength(1);
+      expect(providerResults.facts[0]).toEqual(expect.objectContaining({
+        fact_kind: 'impact_summary',
+        summary: expect.arrayContaining(['0 direct', '0 processes']),
+      }));
+      expect(providerResults.omitted_facts).toEqual(expect.arrayContaining([
+        expect.objectContaining({ query_id: 'q2', reason_code: 'provider_result_no_usable_facts' }),
+      ]));
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('normalize-provider-results does not invent zero counts for risk-only impact evidence', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      const queryPlanPath = path.join(dir, 'query-plan.json');
+      const rawPath = path.join(dir, 'provider-raw-result.json');
+      const providerResultsPath = path.join(dir, 'provider-results.json');
+      const queryPlan = {
+        schema_version: 'review-pre-facts-query-plan.v1',
+        workflow: 'plan',
+        target_repo: repo,
+        query_plan_id: 'qplan-risk-only-impact',
+        readiness: 'graph-fresh',
+        tier: 'graph-fresh',
+        reason_code: 'provider_query_plan_rendered',
+        snapshot: currentRepoSnapshot(repo),
+        targets: [],
+        queries: [
+          {
+            query_id: 'q1',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.impact',
+            operation: 'impact',
+            arguments: {
+              repo: path.basename(repo),
+              target: 'runCli',
+              direction: 'upstream',
+              maxDepth: 2,
+              timeoutMs: 10000,
+            },
+            target_refs: ['runCli'],
+            max_results: 1,
+            reason_code: 'provider_impact_surface_available',
+            fallback_reason_code: 'impact_target_unavailable',
+          },
+        ],
+        direct_read_candidates: [],
+      };
+      fs.writeFileSync(queryPlanPath, `${JSON.stringify(queryPlan, null, 2)}\n`, 'utf8');
+      fs.writeFileSync(rawPath, `${JSON.stringify({
+        schema_version: 'review-pre-facts-provider-raw-result.v1',
+        source: 'live-mcp',
+        query_plan_id: queryPlan.query_plan_id,
+        raw_results: [
+          {
+            query_id: 'q1',
+            tool_name: 'gitnexus.impact',
+            operation: 'impact',
+            arguments: queryPlan.queries[0].arguments,
+            status: 'ok',
+            response: {
+              risk: 'LOW',
+            },
+          },
+        ],
+      }, null, 2)}\n`, 'utf8');
+
+      const normalized = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'plan',
+        '--repo', repo,
+        '--query-plan', queryPlanPath,
+        '--raw-result', rawPath,
+        '--source', 'live-mcp',
+        '--output', providerResultsPath,
+        '--run-id', runId,
+        '--summary-dir', dir,
+      ], repo);
+
+      expect(normalized.code).toBe(0);
+      const providerResults = JSON.parse(fs.readFileSync(providerResultsPath, 'utf8'));
+      expect(providerResults.facts[0]).toEqual(expect.objectContaining({
+        fact_kind: 'impact_summary',
+        summary: ['impact risk LOW'],
+      }));
+      expect(providerResults.facts[0].summary).not.toEqual(expect.arrayContaining(['0 direct', '0 processes']));
+      expect(validateProviderResults(providerResults).ok).toBe(true);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('normalize-provider-results accepts explicit zero detect_changes evidence and records worktree scope', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      const queryPlanPath = path.join(dir, 'query-plan.json');
+      const rawPath = path.join(dir, 'provider-raw-result.json');
+      const providerResultsPath = path.join(dir, 'provider-results.json');
+      const queryPlan = {
+        schema_version: 'review-pre-facts-query-plan.v1',
+        workflow: 'plan',
+        target_repo: repo,
+        query_plan_id: 'qplan-zero-detect-changes',
+        readiness: 'graph-fresh',
+        tier: 'graph-fresh',
+        reason_code: 'provider_query_plan_rendered',
+        snapshot: currentRepoSnapshot(repo),
+        targets: [],
+        queries: [
+          {
+            query_id: 'q1',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.detect_changes',
+            operation: 'detect_changes',
+            arguments: {
+              repo: path.basename(repo),
+              scope: 'all',
+            },
+            target_refs: ['scope:all'],
+            max_results: 1,
+            reason_code: 'provider_detect_changes_surface_available',
+            fallback_reason_code: 'detect_changes_scope_missing',
+          },
+        ],
+        direct_read_candidates: [],
+      };
+      fs.writeFileSync(queryPlanPath, `${JSON.stringify(queryPlan, null, 2)}\n`, 'utf8');
+      fs.writeFileSync(rawPath, `${JSON.stringify({
+        schema_version: 'review-pre-facts-provider-raw-result.v1',
+        source: 'live-mcp',
+        query_plan_id: queryPlan.query_plan_id,
+        raw_results: [
+          {
+            query_id: 'q1',
+            tool_name: 'gitnexus.detect_changes',
+            operation: 'detect_changes',
+            arguments: queryPlan.queries[0].arguments,
+            status: 'ok',
+            response: {
+              summary: { changed_count: 0, affected_count: 0 },
+              changed_symbols: [],
+              affected_processes: [],
+            },
+          },
+        ],
+      }, null, 2)}\n`, 'utf8');
+
+      const normalized = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'plan',
+        '--repo', repo,
+        '--query-plan', queryPlanPath,
+        '--raw-result', rawPath,
+        '--source', 'live-mcp',
+        '--output', providerResultsPath,
+        '--run-id', runId,
+        '--summary-dir', dir,
+      ], repo);
+
+      expect(normalized.code).toBe(0);
+      const providerResults = JSON.parse(fs.readFileSync(providerResultsPath, 'utf8'));
+      expect(providerResults.facts[0]).toEqual(expect.objectContaining({
+        fact_kind: 'detect_changes_summary',
+        scope: expect.objectContaining({
+          type: 'all',
+          worktree: path.basename(repo),
+        }),
+        changed_symbols: [],
+        affected_processes: [],
+      }));
+      expect(validateProviderResults(providerResults).ok).toBe(true);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test('normalize-provider-results repairs missing query_plan_id and omits unsafe provider source paths', () => {
     const repo = tempRepo();
     const { runId, dir } = tempRun();
@@ -833,6 +1191,330 @@ describe('review-pre-facts helper modes', () => {
     }
   });
 
+  test('normalize-provider-results redacts query_symbol durable facts and drops provider-supplied provenance', () => {
+    const repo = tempRepo();
+    try {
+      const { runId, dir } = tempRun();
+      const queryPlanPath = path.join(dir, 'query-plan.json');
+      const rawPath = path.join(dir, 'provider-raw-result.json');
+      const providerResultsPath = path.join(dir, 'provider-results.json');
+      const fixturePlan = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'query-plan.valid.json'), 'utf8'));
+      fixturePlan.target_repo = repo;
+      fixturePlan.snapshot = currentRepoSnapshot(repo);
+      fs.writeFileSync(queryPlanPath, `${JSON.stringify(fixturePlan, null, 2)}\n`, 'utf8');
+      fs.writeFileSync(rawPath, `${JSON.stringify({
+        schema_version: 'review-pre-facts-provider-raw-result.v1',
+        source: 'live-mcp',
+        query_plan_id: fixturePlan.query_plan_id,
+        raw_results: [
+          {
+            query_id: 'q1',
+            tool_name: 'gitnexus.query',
+            operation: 'query',
+            arguments: fixturePlan.queries[0].arguments,
+            status: 'ok',
+            response: {
+              facts: [
+                {
+                  source_path: 'src/cli/index.js',
+                  anchor: 'runCli',
+                  excerpt: 'safe symbol pointer',
+                  provenance: {
+                    source: 'live-mcp',
+                    query_plan_id: fixturePlan.query_plan_id,
+                    tool_name: 'gitnexus.query',
+                    note: 'api_key=should-not-persist',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }, null, 2)}\n`, 'utf8');
+
+      const safe = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'doc-review',
+        '--repo', repo,
+        '--query-plan', queryPlanPath,
+        '--raw-result', rawPath,
+        '--source', 'live-mcp',
+        '--output', providerResultsPath,
+        '--run-id', runId,
+        '--summary-dir', dir,
+      ], repo);
+
+      expect(safe.code).toBe(0);
+      const providerResultsText = fs.readFileSync(providerResultsPath, 'utf8');
+      expect(providerResultsText).not.toContain('safe symbol pointer');
+      expect(providerResultsText).not.toContain('should-not-persist');
+      expect(providerResultsText).not.toContain('provider_metadata');
+      const providerResults = JSON.parse(providerResultsText);
+      expect(providerResults.facts[0]).toEqual(expect.objectContaining({
+        summary: expect.arrayContaining(['query pointer runCli']),
+        source_reads_required: ['src/cli/index.js'],
+      }));
+      expect(validateProviderResults(providerResults).ok).toBe(true);
+
+      const { runId: noExcerptRunId, dir: noExcerptDir } = tempRun();
+      const noExcerptQueryPlanPath = path.join(noExcerptDir, 'query-plan.json');
+      const noExcerptRawPath = path.join(noExcerptDir, 'provider-raw-result.json');
+      const noExcerptOutputPath = path.join(noExcerptDir, 'provider-results.json');
+      fs.writeFileSync(noExcerptQueryPlanPath, `${JSON.stringify(fixturePlan, null, 2)}\n`, 'utf8');
+      fs.writeFileSync(noExcerptRawPath, `${JSON.stringify({
+        schema_version: 'review-pre-facts-provider-raw-result.v1',
+        source: 'live-mcp',
+        query_plan_id: fixturePlan.query_plan_id,
+        raw_results: [
+          {
+            query_id: 'q1',
+            tool_name: 'gitnexus.query',
+            operation: 'query',
+            arguments: fixturePlan.queries[0].arguments,
+            status: 'ok',
+            response: {
+              facts: [
+                {
+                  source_path: 'src/cli/index.js',
+                  anchor: 'runCli',
+                  provenance: {
+                    source: 'live-mcp',
+                    query_plan_id: fixturePlan.query_plan_id,
+                    tool_name: 'gitnexus.query',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }, null, 2)}\n`, 'utf8');
+      const noExcerpt = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'doc-review',
+        '--repo', repo,
+        '--query-plan', noExcerptQueryPlanPath,
+        '--raw-result', noExcerptRawPath,
+        '--source', 'live-mcp',
+        '--output', noExcerptOutputPath,
+        '--run-id', noExcerptRunId,
+        '--summary-dir', noExcerptDir,
+      ], repo);
+      expect(noExcerpt.code).toBe(0);
+      const noExcerptResults = JSON.parse(fs.readFileSync(noExcerptOutputPath, 'utf8'));
+      expect(noExcerptResults.facts[0]).toEqual(expect.objectContaining({
+        source_path: 'src/cli/index.js',
+        summary: expect.arrayContaining(['query pointer runCli']),
+      }));
+
+      const { runId: unsafeRunId, dir: unsafeDir } = tempRun();
+      const unsafeQueryPlanPath = path.join(unsafeDir, 'query-plan.json');
+      const unsafeRawPath = path.join(unsafeDir, 'provider-raw-result.json');
+      const unsafeOutputPath = path.join(unsafeDir, 'provider-results.json');
+      fs.writeFileSync(unsafeQueryPlanPath, `${JSON.stringify(fixturePlan, null, 2)}\n`, 'utf8');
+      fs.writeFileSync(unsafeRawPath, `${JSON.stringify({
+        schema_version: 'review-pre-facts-provider-raw-result.v1',
+        source: 'live-mcp',
+        query_plan_id: fixturePlan.query_plan_id,
+        raw_results: [
+          {
+            query_id: 'q1',
+            tool_name: 'gitnexus.query',
+            operation: 'query',
+            arguments: fixturePlan.queries[0].arguments,
+            status: 'ok',
+            response: {
+              facts: [
+                {
+                  source_path: 'src/cli/index.js',
+                  anchor: 'runCli',
+                  excerpt: 'api_key=secret-value',
+                  provenance: {
+                    source: 'live-mcp',
+                    query_plan_id: fixturePlan.query_plan_id,
+                    tool_name: 'gitnexus.query',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }, null, 2)}\n`, 'utf8');
+
+      const unsafe = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'doc-review',
+        '--repo', repo,
+        '--query-plan', unsafeQueryPlanPath,
+        '--raw-result', unsafeRawPath,
+        '--source', 'live-mcp',
+        '--output', unsafeOutputPath,
+        '--run-id', unsafeRunId,
+        '--summary-dir', unsafeDir,
+      ], repo);
+
+      expect(unsafe.code).toBe(1);
+      expect(unsafe.json.error.code).toBe('provider_fact_redaction_failed');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('normalize-provider-results validates generated graph and operation facts before writing durable output', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      write(repo, 'src/utils/tokenUtils.js', 'function tokenHelper() {\n  return true;\n}\n');
+      const queryPlanPath = path.join(dir, 'query-plan.json');
+      const rawPath = path.join(dir, 'provider-raw-result.json');
+      const providerResultsPath = path.join(dir, 'provider-results.json');
+      const queryPlan = {
+        schema_version: 'review-pre-facts-query-plan.v1',
+        workflow: 'plan',
+        target_repo: repo,
+        query_plan_id: 'qplan-normalize-stage-redaction',
+        readiness: 'graph-fresh',
+        tier: 'graph-fresh',
+        reason_code: 'provider_query_plan_rendered',
+        snapshot: currentRepoSnapshot(repo),
+        targets: [],
+        queries: [
+          {
+            query_id: 'q1',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.query',
+            operation: 'query',
+            arguments: {
+              repo: path.basename(repo),
+              query: 'token helper',
+              include_content: false,
+              limit: 3,
+              max_symbols: 5,
+            },
+            target_refs: ['src/utils/tokenUtils.js'],
+            max_results: 3,
+            reason_code: 'provider_query_surface_available',
+            fallback_reason_code: 'provider_query_unavailable',
+          },
+          {
+            query_id: 'q2',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.query',
+            operation: 'query',
+            arguments: {
+              repo: path.basename(repo),
+              query: 'unsafe symbol',
+              include_content: false,
+              limit: 3,
+              max_symbols: 5,
+            },
+            target_refs: ['src/cli/index.js'],
+            max_results: 3,
+            reason_code: 'provider_query_surface_available',
+            fallback_reason_code: 'provider_query_unavailable',
+          },
+          {
+            query_id: 'q3',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.context',
+            operation: 'context',
+            arguments: {
+              repo: path.basename(repo),
+              name: 'runCli',
+              file_path: 'src/cli/index.js',
+              include_content: false,
+            },
+            target_refs: ['src/cli/index.js'],
+            max_results: 1,
+            reason_code: 'provider_context_surface_available',
+            fallback_reason_code: 'context_target_ambiguous',
+          },
+        ],
+        direct_read_candidates: [],
+      };
+      fs.writeFileSync(queryPlanPath, `${JSON.stringify(queryPlan, null, 2)}\n`, 'utf8');
+      fs.writeFileSync(rawPath, `${JSON.stringify({
+        schema_version: 'review-pre-facts-provider-raw-result.v1',
+        source: 'live-mcp',
+        query_plan_id: queryPlan.query_plan_id,
+        raw_results: [
+          {
+            query_id: 'q1',
+            tool_name: 'gitnexus.query',
+            operation: 'query',
+            arguments: queryPlan.queries[0].arguments,
+            status: 'ok',
+            response: {
+              definitions: [
+                { name: 'tokenHelper', filePath: 'src/utils/tokenUtils.js', startLine: 1, endLine: 3 },
+              ],
+            },
+          },
+          {
+            query_id: 'q2',
+            tool_name: 'gitnexus.query',
+            operation: 'query',
+            arguments: queryPlan.queries[1].arguments,
+            status: 'ok',
+            response: {
+              definitions: [
+                { name: 'api_key=secret123', filePath: 'src/cli/index.js', startLine: 1, endLine: 1 },
+              ],
+            },
+          },
+          {
+            query_id: 'q3',
+            tool_name: 'gitnexus.context',
+            operation: 'context',
+            arguments: queryPlan.queries[2].arguments,
+            status: 'ok',
+            response: {
+              symbol: {
+                name: 'diff --git a/src/cli/index.js b/src/cli/index.js',
+                filePath: 'src/cli/index.js',
+                startLine: 1,
+                endLine: 1,
+              },
+              incoming: { calls: [] },
+              outgoing: { calls: [] },
+              processes: [],
+            },
+          },
+        ],
+      }, null, 2)}\n`, 'utf8');
+
+      const normalized = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'plan',
+        '--repo', repo,
+        '--query-plan', queryPlanPath,
+        '--raw-result', rawPath,
+        '--source', 'live-mcp',
+        '--output', providerResultsPath,
+        '--run-id', runId,
+        '--summary-dir', dir,
+      ], repo);
+
+      expect(normalized.code).toBe(0);
+      const providerResultsText = fs.readFileSync(providerResultsPath, 'utf8');
+      expect(providerResultsText).not.toContain('api_key=secret123');
+      expect(providerResultsText).not.toContain('diff --git');
+      const providerResults = JSON.parse(providerResultsText);
+      expect(providerResults.facts).toHaveLength(1);
+      expect(providerResults.facts[0]).toEqual(expect.objectContaining({
+        fact_kind: 'query_symbol',
+        source_path: 'src/utils/tokenUtils.js',
+        source_reads_required: ['src/utils/tokenUtils.js'],
+      }));
+      expect(providerResults.omitted_facts).toEqual(expect.arrayContaining([
+        expect.objectContaining({ query_id: 'q2', reason_code: 'provider_fact_redaction_failed' }),
+        expect.objectContaining({ query_id: 'q3', reason_code: 'provider_fact_redaction_failed' }),
+      ]));
+      expect(validateProviderResults(providerResults).ok).toBe(true);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test('render downgrades provider results that lack provenance', () => {
     const repo = tempRepo();
     const { runId, dir } = tempRun();
@@ -875,6 +1557,8 @@ describe('review-pre-facts helper modes', () => {
         { readiness: undefined },
         { tier: 'unknown-tier' },
         { excerpt: 'x'.repeat(LIMITS.perExcerptChars + 1) },
+        { summary: [] },
+        { source_reads_required: undefined },
         { source_path: 'src/cli/missing-provider-source.js' },
         { target: 'src/cli/missing-provider-target.js' },
       ];
@@ -883,6 +1567,9 @@ describe('review-pre-facts helper modes', () => {
         const fact = normalizedProviderFact(0, overrides);
         if (Object.prototype.hasOwnProperty.call(overrides, 'readiness') && overrides.readiness === undefined) {
           delete fact.readiness;
+        }
+        if (Object.prototype.hasOwnProperty.call(overrides, 'source_reads_required') && overrides.source_reads_required === undefined) {
+          delete fact.source_reads_required;
         }
         const result = validateProviderResults(providerResultsEnvelope(repo, [fact]));
         expect(result).toEqual(expect.objectContaining({
@@ -1112,9 +1799,20 @@ describe('review-pre-facts helper modes', () => {
       tier: 'graph-fresh',
       reason_code: 'provider_results_normalized',
       facts: [
-        normalizedProviderFact(0, {
+        {
+          provider: 'direct-read',
+          target: 'src/cli/index.js',
+          source_path: 'src/cli/index.js',
+          line_window: { start: 1, end: 1 },
           excerpt: 'x'.repeat(LIMITS.perExcerptChars + 100),
-        }),
+          readiness: 'graph-fresh',
+          tier: 'bounded-reads',
+          reason_code: 'target_aware_direct_read',
+          provenance: {
+            source: 'bounded-direct-read',
+            target_repo: REPO_ROOT,
+          },
+        },
       ],
       omitted_targets: [],
     });
@@ -1441,6 +2139,55 @@ describe('review-pre-facts helper modes', () => {
       ], repo);
       expect(malformed.code).toBe(1);
       expect(malformed.json.error.code).toBe('provider_raw_result_invalid');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('normalization fails closed when required tool annotation proof is missing or unsafe', () => {
+    const repo = tempRepo();
+    try {
+      for (const rawResultOverride of [
+        { require_tool_annotations: true },
+        {
+          raw_results: [{
+            tool_annotations: { read_only: true, destructive: true },
+          }],
+        },
+      ]) {
+        const { runId, dir } = tempRun();
+        const queryPlanPath = path.join(dir, 'query-plan.json');
+        const rawPath = path.join(dir, 'provider-raw-result.json');
+        const output = path.join(dir, 'provider-results.json');
+        fs.copyFileSync(path.join(FIXTURE_DIR, 'query-plan.valid.json'), queryPlanPath);
+        const raw = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-raw-result.valid.json'), 'utf8'));
+        const rawResultOverrides = rawResultOverride.raw_results;
+        Object.assign(raw, { ...rawResultOverride, raw_results: raw.raw_results });
+        if (rawResultOverrides) {
+          raw.raw_results = raw.raw_results.map((result, index) => ({
+            ...result,
+            ...(rawResultOverrides[index] || {}),
+          }));
+        }
+        fs.writeFileSync(rawPath, `${JSON.stringify(raw, null, 2)}\n`, 'utf8');
+
+        const result = captureRun([
+          '--mode', 'normalize-provider-results',
+          '--workflow', 'doc-review',
+          '--repo', repo,
+          '--query-plan', queryPlanPath,
+          '--raw-result', rawPath,
+          '--source', 'live-mcp',
+          '--output', output,
+          '--run-id', runId,
+          '--summary-dir', dir,
+        ], repo);
+
+        expect(result.code).toBe(1);
+        expect(result.json.error.code).toBe('tool_annotation_unverified');
+        const summary = JSON.parse(fs.readFileSync(path.join(dir, 'run-summary.json'), 'utf8'));
+        expect(summary.normalization_result.reason_code).toBe('tool_annotation_unverified');
+      }
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
