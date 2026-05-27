@@ -46,6 +46,30 @@ verification posture 是派生判断，不是独立闭合 enum。消费者应从
 
 常见描述可以使用 `baseline-only`、`setup-inferred`、`live-verified`、`resource-verified`、`conflict-degraded` 或 `user-confirmed` 这类 prose，但不要把它们写成第二个 machine enum。只有当现有 source tags 无法表达真实消费者需求，并且新增 contract test 证明必要性时，才能扩展 machine contract。
 
+## Capability State Vocabulary
+
+> 区别于上文 "Source Tag Vocabulary"（machine-readable 闭合 `source_tags[]` enum）：
+> 本节是 GitNexus readiness/capability lifecycle 状态词的 prose 词典，供
+> README、各 skill prose、`bootstrap-report.md`、startup snapshot、
+> plan/work/review/debug workflow 引用。其他 contract / skill prose / README /
+> startup snapshot 必须使用本节术语；新增同义词需先扩展本表，避免散落同义词漂移。
+
+| 术语 | 含义 | 出现位置（典型）| 与 source_tags 的关系 |
+| --- | --- | --- | --- |
+| host_config_written | `spec-mcp-setup` 已写入 host MCP 配置文件 | `spec-mcp-setup` 输出、`runtime-capabilities.json` | 与 `setup-projection` 同一 lifecycle 阶段，但本身是 prose 状态描述，不是 source tag |
+| current_session_loaded | 当前 host session 已加载 GitNexus MCP tool / resource | startup snapshot、runtime probe 输出 | 对应 `live-mcp-tool` / `live-mcp-resource` source tags 的 prose 描述 |
+| graph_compiled | `spec-graph-bootstrap` 已编译 canonical graph readiness 产物 | `.spec-first/graph/graph-facts.json`、`bootstrap-report.md` | 不是 source tag，是 canonical artifact 状态 |
+| query_ready | provider 可响应 GitNexus query/context 调用 | `provider-status.json`、startup snapshot | 不是 source tag |
+| definitions-only | provider query 只支持 file/symbol orientation，**不**证明 process graph、impact radius、related tests 或 review-impact evidence | `provider-status.result_class`、`bootstrap-report.md` 的 capability matrix | 不是 source tag |
+| dirty-advisory | bootstrap 在 dirty worktree 下完成，readiness 仅作 advisory | `graph-facts.freshness_state` | 不是 source tag |
+| graph-affecting-blocked | dirty 路径包含 graph-relevant 文件，bootstrap 不再视为 clean primary | `graph-facts.dirty_classification` | 不是 source tag |
+| stale | 当前 `source_revision` / `worktree_status_hash` 与 graph-facts 记录不符 | startup snapshot、plan/work readiness check | 不是 source tag |
+| session-local | 来源于当前会话的 live MCP 调用结果或派生证据，**不**写入 canonical readiness | review/plan evidence handling | `session-local` 是 raw 调用结果版本；上文 source tag `session-local-inference` 专指 LLM 基于这些 raw 结果做的本轮推断。两者层级不同：raw 在前、inference 在后，不可混用 |
+| setup-inferred | 来自 `spec-mcp-setup` 的 availability / discovery facts，**不**等于 query-ready 证据 | `runtime-capabilities.json.gitnexus_capability_discovery` | `setup-projection` 是机读 source tag；`setup-inferred` 是其 prose 等价描述。两者指向同一来源，但前者是 `source_tags[]` 的合法值，后者只是 prose 词汇 |
+| live-mcp-tool / live-mcp-resource | 当前会话实际可调用的 GitNexus MCP tool / resource surface | session-local evidence、startup snapshot 的 capability 行 | 与上文 source tags `live-mcp-tool` / `live-mcp-resource` 同名同义；本节复列以便 readiness lifecycle prose 完整 |
+
+> 词汇增删流程：(1) 在本节先扩展或修订术语并附说明；(2) 同步更新引用方（README、SKILL prose、`version-reminder.js` 的 startup snapshot、`bootstrap-report.md` 模板）；(3) 必要时增加 contract test 锁定。Source tags `source_tags[]` 的 machine enum 仍由上文 "Source Tag Vocabulary" 章节负责，不在本节扩展。
+
 ## Checked-In Baseline
 
 Machine-readable baseline 位于 `skills/spec-mcp-setup/mcp-tools.json` 的 GitNexus entry：

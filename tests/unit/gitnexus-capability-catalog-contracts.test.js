@@ -70,6 +70,41 @@ describe('GitNexus capability catalog contract', () => {
     expect(contract).toContain('Lane classification 不是 readiness truth');
   });
 
+  test('locks Capability State Vocabulary lifecycle terms (R1/R14)', () => {
+    const contract = read(CATALOG_CONTRACT_PATH);
+
+    expect(contract).toContain('## Capability State Vocabulary');
+    expect(contract).toContain('区别于上文 "Source Tag Vocabulary"');
+    expect(contract).toMatch(/其他 contract \/ skill prose \/ README \/[\s\n>]+startup snapshot 必须使用本节术语/);
+    expect(contract).toContain('新增同义词需先扩展本表');
+
+    const lifecycleTerms = [
+      'host_config_written',
+      'current_session_loaded',
+      'graph_compiled',
+      'query_ready',
+      'definitions-only',
+      'dirty-advisory',
+      'graph-affecting-blocked',
+      'stale',
+      'session-local',
+      'setup-inferred',
+      'live-mcp-tool',
+      'live-mcp-resource',
+    ];
+    for (const term of lifecycleTerms) {
+      expect(contract).toContain(term);
+    }
+
+    expect(contract).toContain('`session-local` 是 raw 调用结果版本');
+    expect(contract).toContain('LLM 基于这些 raw 结果做的本轮推断');
+    expect(contract).toContain('`setup-projection` 是机读 source tag');
+    expect(contract).toContain('`setup-inferred` 是其 prose 等价描述');
+
+    expect(contract).toContain('词汇增删流程');
+    expect(contract).toContain('Source tags `source_tags[]` 的 machine enum 仍由上文 "Source Tag Vocabulary" 章节负责');
+  });
+
   test('keeps checked-in baseline semantic and candidate-only', () => {
     const toolsJson = JSON.parse(read(TOOLS_JSON_PATH));
     const gitnexus = toolsJson.tools.find((tool) => tool.id === 'gitnexus');
