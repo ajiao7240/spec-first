@@ -128,12 +128,14 @@ describe('using-spec-first contracts', () => {
       'Claude workflow entrypoints use `/spec:*`',
       'Codex workflow entrypoints use `$spec-*`',
       '$spec-doc-review` means the document-review workflow. It uses bounded reviewer dispatch only when the current request also satisfies Codex `spawn_agent` authorization',
-      'Codex Startup Version Reminder Boundary',
+      'Codex Startup Reminder Boundary',
       'not a verified deterministic SessionStart hook',
       'top-level Codex orchestrator',
       'spec-first startup-reminder --codex',
-      'Missing CLI, command failure, network failure, empty output, or malformed local state must be ignored',
-      'The reminder points to `$spec-update`',
+      'Missing CLI, command failure, network failure, empty output, malformed local state, or missing graph artifacts must be ignored',
+      'Version reminders point to `$spec-update`',
+      'compact GitNexus graph snapshot',
+      'must not refresh graph readiness, write canonical graph facts, or become scope/finding/root-cause authority',
       'Bounded subagents, leaf reviewers, and worker agents must not run the startup reminder',
       'do not reload or invoke `using-spec-first` just to bootstrap yourself',
       '`using-spec-first` governs **entry routing only**',
@@ -217,6 +219,7 @@ describe('using-spec-first contracts', () => {
     expect(claudeRuntime).toContain('Claude workflow entrypoints use `/spec:*`');
     expect(codexRuntime).toContain('Codex workflow entrypoints use `$spec-*`');
     expect(codexRuntime).toContain('spec-first startup-reminder --codex');
+    expect(codexRuntime).toContain('compact GitNexus graph snapshot');
     expect(codexRuntime).toContain('Workflow Dispatch Admission');
     expect(codexRuntime).toContain('It does not by itself override host-level subagent tool contracts.');
     expect(codexRuntime).toContain('call `spawn_agent` only when the current request explicitly asks for subagents, delegated work, parallel agents, persona reviewer dispatch');

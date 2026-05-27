@@ -238,6 +238,10 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('GitNexus impact results are planning evidence');
     expect(text).toContain('not refresh triggers');
     expect(text).toContain('Do not expand this into context selection, impact analysis, review evidence');
+    expect(text).toContain('called with `--workflow plan`');
+    expect(text).toContain('workflow-neutral');
+    expect(text).toContain('`query`, `context`, `impact`, and `detect_changes` facts');
+    expect(text).toContain('do not choose scope, requirements, or implementation units');
   });
 
   test('uses no-graph no-MCP fast unavailable path before detailed GitNexus probing', () => {

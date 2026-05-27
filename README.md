@@ -168,6 +168,8 @@ Graph refresh trigger nodes:
 | Lightweight docs, typo, small local bug, or first trial | Continue with limitations and bounded direct reads when graph facts are stale or unavailable. |
 | Shared API/route/provider contract, core workflow, cross-module change, or high-risk review | Refresh graph readiness explicitly before claiming graph-backed impact or execution-flow evidence. |
 
+Host startup reminders may include a compact GitNexus graph snapshot with `query_ready`, freshness, dirty/stale status, capability summary, and limitations. This is read-only context from the startup helper; it does not refresh graph readiness or decide workflow scope.
+
 When `$spec-plan` emits `Graph / GitNexus Evidence`, downstream workflows consume it as bounded evidence rather than a new scope authority. `$spec-work` uses it to focus source reads and test selection, then reports `graph_evidence_used`; `$spec-code-review` discloses `Graph evidence:` in Coverage and prefers native GitNexus capabilities such as `api_impact`, `shape_check`, and `tool_map` only when evidence is fresh or session-local; `$spec-debug` may record `graph_evidence` in its hypothesis ledger, but root cause still requires reproduction, source, log, or test confirmation. Stale or degraded evidence falls back to direct source reads and does not block the workflow by itself.
 
 ### Readiness ladder

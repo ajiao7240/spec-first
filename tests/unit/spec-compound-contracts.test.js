@@ -72,6 +72,10 @@ describe('spec-compound host entrypoint contract', () => {
     }
 
     expect(compound).toContain('the reusable lesson delta and evidence paths');
+    expect(compound).toContain('GitNexus or graph evidence');
+    expect(compound).toContain('source-confirmed by changed source, tests, logs, contracts, or review findings');
+    expect(refresh).toContain('Graph/session evidence can focus which files or relationships to inspect');
+    expect(refresh).toContain('raw provider output, raw diff hunks, unconfirmed session-local graph claims');
     expect(refresh).toContain('the specific refresh implication');
   });
 

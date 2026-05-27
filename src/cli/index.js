@@ -87,6 +87,7 @@ async function runStartupReminder(args) {
 
   await maybeShowStartupVersionReminder({
     host: parsed.host,
+    includeGraphSnapshot: true,
     packageName: pkg.name,
     output: process.stdout,
   });

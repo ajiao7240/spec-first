@@ -245,7 +245,7 @@ If the user explicitly asks for report-only/no-agents mode, the host lacks a dis
 - `spec-write-tasks` is a standalone skill for optional plan-to-task-pack compilation, not a `/spec:*` or `$spec-*` workflow entrypoint.
 - Internal-only skills remain source/runtime support assets, not menu items. Legacy/internal `lfg` must not be recommended as a public workflow path.
 
-### Codex Startup Version Reminder Boundary
+### Codex Startup Reminder Boundary
 
 Codex currently uses managed instruction guidance for startup reminders, not a verified deterministic SessionStart hook.
 
@@ -255,9 +255,9 @@ When a top-level Codex orchestrator is about to route into a public `$spec-*` wo
 spec-first startup-reminder --codex
 ```
 
-This is a read-only best-effort check. Missing CLI, command failure, network failure, empty output, or malformed local state must be ignored and must not block workflow routing.
+This is a read-only best-effort check. Missing CLI, command failure, network failure, empty output, malformed local state, or missing graph artifacts must be ignored and must not block workflow routing.
 
-If the command prints a reminder, surface that reminder and continue routing. The reminder points to `$spec-update`, where the user decides whether to upgrade; it must not install packages, refresh runtime assets, or restart Codex.
+If the command prints a reminder, surface that reminder and continue routing. Version reminders point to `$spec-update`, where the user decides whether to upgrade; they must not install packages, refresh runtime assets, or restart Codex. The same helper may also print a compact GitNexus graph snapshot with `query_ready`, freshness, dirty/stale status, capability summary, and limitations. That snapshot is read-only startup context; it must not refresh graph readiness, write canonical graph facts, or become scope/finding/root-cause authority.
 
 Bounded subagents, leaf reviewers, and worker agents must not run the startup reminder or write reminder cooldown state. They inherit the parent task scope.
 

@@ -78,6 +78,8 @@ Follow `docs/contracts/context-governance.md`: ordinary Compound research exclud
 
 Consume upstream `artifact-summary.v1`-style summaries from `docs/contracts/artifact-summary.md` before opening full plans, reviews, work logs, session extracts, or raw artifacts. The durable compound output should capture the reusable lesson delta and evidence paths, not copy full upstream reports or raw tool output. If a summary is missing, record `summary_missing` and read the smallest explicit source path needed to verify the lesson.
 
+When upstream work/review/debug summaries include GitNexus or graph evidence, treat it as advisory focus only. Compound may record graph-informed lessons only after the claim is source-confirmed by changed source, tests, logs, contracts, or review findings; raw provider output, raw diff hunks, unconfirmed session-local graph evidence, and full process/route dumps must not enter durable `docs/solutions/` learning docs. If graph evidence helped locate the lesson, cite the compact summary and the confirming source paths, not the raw MCP response.
+
 ## Distilled Replay References
 
 When using session or prior-work evidence, prefer distilled replay refs over full history. A replay ref should name the source session/extract or upstream checkpoint, the accepted or rejected decision, the evidence path, and the relevance to the new learning. Rejected or out-of-scope rationale can be captured when it teaches a reusable boundary, but it must not become workflow status or a task completion claim.

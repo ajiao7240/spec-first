@@ -1,0 +1,65 @@
+{
+  "schema_version": "review-pre-facts-provider-raw-result.v1",
+  "workflow": "plan",
+  "target_repo": "/repo",
+  "source": "live-mcp",
+  "query_plan_id": "qplan-multi-operation",
+  "raw_results": [
+    {
+      "query_id": "q2",
+      "tool_name": "gitnexus.impact",
+      "operation": "impact",
+      "arguments": {
+        "repo": "spec-first",
+        "target": "buildQueryPlan",
+        "direction": "upstream",
+        "file_path": "src/cli/helpers/review-pre-facts.js",
+        "kind": "Function",
+        "maxDepth": 2,
+        "includeTests": true,
+        "relationTypes": [
+          "CALLS",
+          "IMPORTS"
+        ],
+        "timeoutMs": 10000
+      },
+      "status": "ok",
+      "response": {
+        "risk": "LOW",
+        "summary": {
+          "direct": 1,
+          "processes_affected": 1,
+          "modules_affected": 1
+        },
+        "affected_processes": [
+          {
+            "name": "runPrepare",
+            "filePath": "src/cli/helpers/review-pre-facts.js",
+            "earliest_broken_step": 1
+          }
+        ],
+        "affected_modules": [
+          {
+            "name": "Unit",
+            "hits": 2,
+            "impact": "direct"
+          }
+        ],
+        "byDepth": {
+          "1": [
+            {
+              "name": "runPrepare",
+              "filePath": "src/cli/helpers/review-pre-facts.js"
+            }
+          ],
+          "2": [
+            {
+              "name": "runReviewPreFacts",
+              "filePath": "src/cli/helpers/review-pre-facts.js"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

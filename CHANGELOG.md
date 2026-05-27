@@ -1,6 +1,13 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-27 10:14:00 leokuang: docs(plan): 新增 GitNexus readiness capability semantics 落地 plan，规划 vocabulary 集中固化、`bootstrap-report.md` 三维度 capability matrix surfacing、review-pre-facts definitions-only fixture 与 R15a-R15f anti-regression 测试 (user-visible)
+- v1.8.2 2026-05-27 10:14:00 leokuang: feat(review-pre-facts): 实施 GitNexus bounded pre-facts deterministic helper，覆盖 `query`/`context`/`impact`/`detect_changes` 四个操作的 prepare/normalize-provider-results/render/one-shot 流程，新增 normalized artifact `available_query_surfaces` 派生 gating，并把 helper 操作集与 non-expansion 规则同步进 review/doc-review/plan/work/debug/compound/compound-refresh 等 workflow SKILL prose (user-visible)
+- v1.8.2 2026-05-27 09:52:50 leokuang: test(changelog): 放宽 changelog 最新日期格式测试，删除对 Codex developer profile 作者的锁定，只校验时间戳、作者字段和摘要结构，避免历史 entry 作者差异导致单测失败 (user-visible)
+- v1.8.2 2026-05-27 09:33:40 leokuang: docs(brainstorm): 新增 GitNexus readiness capability semantics 需求文档，明确 setup、graph-bootstrap、startup snapshot 与 downstream pre-facts 消费者需区分 host config、session-loaded、query/context、definitions-only、impact/review、dirty/stale 和 live MCP availability 边界 (user-visible)
+- v1.8.2 2026-05-27 09:11:08 leo: docs(analysis): 将 Trellis 纵向钻探报告收紧为长期业界借鉴 artifact，移除本地绝对路径口径，补充 clean-room evidence、GitNexus freshness limitation 和既有 roadmap 对照，并把第 10/12 节从新实施队列改为 delta/reinforcement/design-question 消费方式 (user-visible)
+- v1.8.2 2026-05-27 05:16:41 leo: feat(startup): `spec-first startup-reminder --claude|--codex` 增加只读 GitNexus graph readiness snapshot，输出 `query_ready`、freshness、dirty/stale、能力摘要和 limitations；版本提醒 cooldown 只影响版本消息，不影响 graph snapshot，并同步 README 与 using-spec-first 边界说明 (user-visible)
+- v1.8.2 2026-05-27 05:04:26 leo: docs(analysis): 新增 Trellis 纵向钻探与 spec-first 质量提升分析报告，从 Trellis 文档和代码证据下钻到记忆分层、按时机注入、breadcrumb invariant、JSONL context curation、code-spec 与 journal 机制，并映射为 spec-first 可借鉴和不应照搬的质量提升路径 (user-visible)
 - v1.8.2 2026-05-27 04:01:50 leo: docs(contracts): 新增 AI Coding Harness 总合同，并同步 GitNexus/pre-facts/downstream/workspace/context/artifact/finding 等合同对 Context/Evidence/Execution/Evaluation/Governance/Knowledge 分层、session evidence envelope、source confirmation、redaction 和 non-expansion 边界的描述 (user-visible)
 - v1.8.2 2026-05-27 03:29:10 leo: docs(review): 修复 GitNexus Harness 方案终审发现的计划 revision 锚点漂移、技术方案 helper-only 标题和 Knowledge lane later 措辞，保持完整 Harness integration 口径一致 (user-visible)
 - v1.8.2 2026-05-27 03:02:33 leo: feat(init): 参考 Trellis 初始化模式优化 `spec-first init` 宿主选择体验，支持交互式多选 Claude/Codex（初始不勾选，需用户主动选择）、显式 `--claude`/`--codex` 跳过宿主选择、`-y/--yes` 使用默认宿主集合无提示安装，并补充 checkbox prompt、smoke 与用户文档覆盖 (user-visible)

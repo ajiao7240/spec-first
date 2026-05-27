@@ -137,6 +137,9 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('evidence_grade=primary');
     expect(text).toContain('evidence_posture=fallback');
     expect(text).toContain('candidate file/symbol pointers only');
+    expect(text).toContain('If a shared symbol is about to be edited');
+    expect(text).toContain('prefer `detect_changes` as advisory changed-symbol/process evidence');
+    expect(text).toContain('focus verification and risk disclosure only');
     expect(text).toContain('downstream `non-expansion rule`');
     expect(text).toContain('not silently added to the implementation unit');
     expect(text).toContain('repo_scope: parent-workspace-orientation-only');

@@ -51,14 +51,14 @@ When all direct reads fail, the helper keeps the actual readiness and sets only 
 
 - Reads canonical readiness artifacts and target lists.
 - Performs normalized artifact field inventory through `providers[].normalized_artifacts`.
-- Emits `review-pre-facts-query-plan.v1` entries when graph is fresh, GitNexus query surface exists, and the shipped workflow profile can produce deterministic operation arguments.
+- Emits `review-pre-facts-query-plan.v1` entries when graph is fresh, matching GitNexus operation surfaces exist, and the shipped workflow profile can produce deterministic operation arguments.
 - Does not execute live MCP and does not write provider results.
 
 `--mode normalize-provider-results --query-plan <path> --raw-result <path> --source live-mcp --output <path>`
 
 - Consumes only orchestrator-written raw live MCP results.
 - Verifies every raw result against the query plan by `query_id`, `tool_name`, and `operation`.
-- Converts usable facts into `review-pre-facts-provider-results.v1`.
+- Converts usable query and operation-specific summary facts into `review-pre-facts-provider-results.v1`.
 - Carries the query plan snapshot into provider results so render can re-check freshness before emitting graph-fresh evidence.
 - Does not execute live MCP and does not render `<codebase-facts>`.
 
@@ -73,7 +73,7 @@ When all direct reads fail, the helper keeps the actual readiness and sets only 
 `--mode one-shot`
 
 - Convenience fallback path.
-- Does not execute live MCP and does not claim graph-fresh provider-query behavior unless valid provider results or semantic artifacts already satisfy the fact contract.
+- Does not execute live MCP and does not claim graph-fresh provider behavior unless valid provider results or semantic artifacts already satisfy the fact contract.
 - Uses target-aware bounded direct reads, or renders `unavailable` / `no-targets`.
 
 There is no v1 `query-provider` mode. A future script-callable adapter framework must use an explicit provider registry, fixed argv shapes, `shell:false`, and fail closed with `unsupported_provider_adapter_command` for unsupported shapes. String commands, `bash -c`, `sh -c`, shell metacharacters, and arbitrary executables are prohibited.
@@ -84,19 +84,13 @@ The hidden CLI v1 currently supports only:
 
 - `--workflow doc-review`
 - `--workflow code-review`
-- query-plan entries whose implemented operation is `gitnexus.query`
+- `--workflow plan`
+- `--workflow debug`
+- query-plan entries for implemented GitNexus operations `query`, `context`, `impact`, and `detect_changes`
 - query-shaped provider facts with source path, anchor/line window, excerpt, and provenance
+- operation-specific summary facts for `context_symbol`, `impact_summary`, and `detect_changes_summary`
 
-The contract below reserves bounded shapes for `gitnexus.context`, `gitnexus.impact`, and `gitnexus.detect_changes`, but those operations must not appear in emitted `queries[]` until the implementation and tests cover all of these surfaces together:
-
-- argument construction in `buildQueryPlan`
-- raw-result validation
-- provider-results normalization
-- render-time validation and downgrade behavior
-- workflow-specific output wording
-- run-summary utilization fields
-
-Plan/debug consumers should use `gitnexus-session-evidence.v1` and `docs/contracts/downstream-graph-evidence-consumption.md` until this helper explicitly supports `--workflow plan` or `--workflow debug`.
+`route_map`, `api_impact`, `shape_check`, `tool_map`, `cypher`, read-only resources, and group-aware calls remain outside `review-pre-facts-query-plan.v1`. They use `gitnexus-session-evidence.v1` and `docs/contracts/downstream-graph-evidence-consumption.md` when a workflow explicitly needs task-domain session evidence.
 
 ## Query Plan Contract
 
@@ -121,16 +115,16 @@ The GitNexus executable operation candidate allowlist is intentionally small:
 - `impact`
 - `detect_changes`
 
-`tool_name` must match the operation (`gitnexus.query`, `gitnexus.context`, `gitnexus.impact`, or `gitnexus.detect_changes`) when the operation is implemented for the current workflow profile. `route_map`, `api_impact`, `shape_check`, `tool_map`, `cypher`, `list_repos`, group resources, `group_sync`, `rename`, provider refresh, repair, analyze, build, and index operations must not appear in `queries[]`.
+`tool_name` must match the operation (`gitnexus.query`, `gitnexus.context`, `gitnexus.impact`, or `gitnexus.detect_changes`). `route_map`, `api_impact`, `shape_check`, `tool_map`, `cypher`, `list_repos`, group resources, `group_sync`, `rename`, provider refresh, repair, analyze, build, and index operations must not appear in `queries[]`.
 
 Operation profiles are conservative:
 
 - `query` requires bounded query text, explicit repo scope when needed, `include_content=false` by default, and bounded `limit` / `max_symbols`.
-- `context` requires `uid` or `name + file_path/kind`; ambiguous symbols degrade instead of asking the LLM to invent a target.
+- `context` requires `uid` or `name + file_path`; ambiguous symbols degrade instead of asking the LLM to invent a target.
 - `impact` requires explicit `target` and `direction`; provider summary-only arguments may be emitted only after the current executable tool schema proves support, and local summary-first truncation still applies.
 - `detect_changes` requires explicit `scope`; `compare` also requires `base_ref`. Raw diff text is never durable output.
 
-`doc-review` and `code-review` keep review-oriented rendering. If future `plan` or `debug` profiles are added, they must use workflow-neutral rendering and must not include Coverage, finding, dispatch, or persona wording.
+`doc-review` and `code-review` keep review-oriented rendering. `plan` and `debug` use workflow-neutral rendering and must not include Coverage, finding, dispatch, or persona wording.
 
 ## Fact Contract
 
@@ -211,7 +205,7 @@ Required fields:
 - `placeholder_rendered`
 - `temp_artifacts`
 
-When expanded GitNexus provider operations are normalized, the run summary should also carry compact utilization signals:
+When expanded GitNexus provider operations are normalized, the run summary also carries compact utilization signals under `graph_capability_usage`:
 
 - `capabilities_used[]`
 - `operation_counts`

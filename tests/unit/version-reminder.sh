@@ -508,6 +508,129 @@ startup_equal_captured=$(node -e "const data = JSON.parse(process.argv[1]); proc
 assert_output "current runtime startup reminder does not print" "false" "$startup_equal_printed"
 assert_output "current runtime startup reminder produces no output" "" "$startup_equal_captured"
 
+graph_snapshot_output="$(
+  node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
+const {
+  buildStartupGraphReadinessSnapshot,
+} = require(path.join(repoRoot, 'src/cli/version-reminder'));
+
+function runGit(projectRoot, args) {
+  return execFileSync('git', ['-C', projectRoot, ...args], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+}
+
+function writeJson(projectRoot, relativePath, value) {
+  const filePath = path.join(projectRoot, relativePath);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
+function writeRuntime(projectRoot) {
+  writeJson(projectRoot, '.codex/spec-first/state.json', { manifestVersion: '1.6.1' });
+}
+
+function writeGraphArtifacts(projectRoot, revision) {
+  const cleanHash = `sha256:${crypto.createHash('sha256').update('').digest('hex')}`;
+  writeJson(projectRoot, '.spec-first/graph/provider-status.json', {
+    schema_version: 'graph-provider-status.v1',
+    ready_primary_providers: ['gitnexus'],
+    providers: [
+      {
+        provider: 'gitnexus',
+        query_ready: true,
+        limitations: ['definitions_only_no_process_graph'],
+      },
+    ],
+  });
+  writeJson(projectRoot, '.spec-first/graph/graph-facts.json', {
+    schema_version: 'graph-facts.v1',
+    source_revision: revision,
+    worktree_dirty: false,
+    worktree_status_hash: cleanHash,
+    provider_summary: {
+      ready_primary_providers: ['gitnexus'],
+    },
+    capabilities: {
+      query_global_graph: true,
+      impact_context_limitations: [
+        'definitions_only_no_impact_evidence',
+      ],
+    },
+  });
+  writeJson(projectRoot, '.spec-first/impact/bootstrap-impact-capabilities.json', {
+    schema_version: 'bootstrap-impact-capabilities.v1',
+    capabilities: {
+      context_selection: { support_level: 'full' },
+      impact_radius: {
+        support_level: 'none',
+        limitations: ['definitions_only_no_impact_evidence'],
+      },
+      review_support: {
+        support_level: 'none',
+        limitations: ['definitions_only_no_related_tests'],
+      },
+    },
+  });
+}
+
+const projectRoot = path.join(tmpDir, 'graph-snapshot');
+fs.mkdirSync(projectRoot, { recursive: true });
+runGit(projectRoot, ['init']);
+runGit(projectRoot, ['config', 'user.email', 'tests@example.invalid']);
+runGit(projectRoot, ['config', 'user.name', 'Tests']);
+runGit(projectRoot, ['config', 'commit.gpgsign', 'false']);
+fs.writeFileSync(path.join(projectRoot, '.gitignore'), [
+  '.codex/',
+  '.claude/',
+  '.agents/',
+  '.spec-first/',
+  '',
+].join('\n'), 'utf8');
+fs.writeFileSync(path.join(projectRoot, 'src.js'), 'module.exports = 1;\n', 'utf8');
+runGit(projectRoot, ['add', '.gitignore', 'src.js']);
+runGit(projectRoot, ['commit', '--no-verify', '-m', 'initial']);
+const revision = runGit(projectRoot, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
+writeRuntime(projectRoot);
+writeGraphArtifacts(projectRoot, revision);
+
+const fresh = buildStartupGraphReadinessSnapshot({ host: 'codex', projectRoot });
+fs.writeFileSync(path.join(projectRoot, 'src.js'), 'module.exports = 2;\n', 'utf8');
+const stale = buildStartupGraphReadinessSnapshot({ host: 'codex', projectRoot });
+
+const unavailableRoot = path.join(tmpDir, 'graph-snapshot-unavailable');
+writeRuntime(unavailableRoot);
+const unavailable = buildStartupGraphReadinessSnapshot({
+  host: 'codex',
+  projectRoot: unavailableRoot,
+});
+
+process.stdout.write(JSON.stringify({
+  fresh: fresh ? fresh.message : '',
+  stale: stale ? stale.message : '',
+  unavailable: unavailable ? unavailable.message : '',
+}));
+EOF
+)"
+graph_snapshot_fresh=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.fresh);" "$graph_snapshot_output")
+graph_snapshot_stale=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stale);" "$graph_snapshot_output")
+graph_snapshot_unavailable=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.unavailable);" "$graph_snapshot_output")
+assert_contains "graph snapshot reports query readiness" "query_ready=true" "$graph_snapshot_fresh"
+assert_contains "graph snapshot reports fresh readiness" "freshness=fresh" "$graph_snapshot_fresh"
+assert_contains "graph snapshot reports capabilities" "query/context=full, impact=none, review=none" "$graph_snapshot_fresh"
+assert_contains "graph snapshot reports stale readiness" "freshness=stale" "$graph_snapshot_stale"
+assert_contains "graph snapshot reports dirty worktree" "dirty=dirty" "$graph_snapshot_stale"
+assert_contains "graph snapshot reports snapshot mismatch limitation" "snapshot_mismatch" "$graph_snapshot_stale"
+assert_contains "graph snapshot reports missing artifacts" "freshness=unavailable" "$graph_snapshot_unavailable"
+assert_contains "graph snapshot reports unavailable query" "query_ready=false" "$graph_snapshot_unavailable"
+
 startup_cli_output="$(
   node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
 const fs = require('node:fs');
@@ -575,6 +698,101 @@ assert_contains "hidden startup reminder writes stdout" '$spec-update' "$startup
 assert_output "hidden startup reminder writes no stderr" "" "$startup_cli_stderr"
 assert_contains "hidden startup reminder writes cooldown under HOME" '"codex|1.6.1|1.6.2"' "$startup_cli_state"
 assert_not_contains "hidden startup reminder state does not persist project root" "startup-cli" "$startup_cli_state"
+
+startup_cli_graph_only_output="$(
+  node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
+
+function runGit(projectRoot, args) {
+  return execFileSync('git', ['-C', projectRoot, ...args], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+}
+
+function writeJson(projectRoot, relativePath, value) {
+  const filePath = path.join(projectRoot, relativePath);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
+(async () => {
+  const projectRoot = path.join(tmpDir, 'startup-cli-graph-only');
+  const homeRoot = path.join(tmpDir, 'home-cli-graph-only');
+  fs.mkdirSync(projectRoot, { recursive: true });
+  runGit(projectRoot, ['init']);
+  runGit(projectRoot, ['config', 'user.email', 'tests@example.invalid']);
+  runGit(projectRoot, ['config', 'user.name', 'Tests']);
+  runGit(projectRoot, ['config', 'commit.gpgsign', 'false']);
+  fs.writeFileSync(path.join(projectRoot, '.gitignore'), '.codex/\n.spec-first/\n', 'utf8');
+  fs.writeFileSync(path.join(projectRoot, 'src.js'), 'module.exports = 1;\n', 'utf8');
+  runGit(projectRoot, ['add', '.gitignore', 'src.js']);
+  runGit(projectRoot, ['commit', '--no-verify', '-m', 'initial']);
+  const revision = runGit(projectRoot, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
+  const cleanHash = `sha256:${crypto.createHash('sha256').update('').digest('hex')}`;
+  writeJson(projectRoot, '.codex/spec-first/state.json', { manifestVersion: '1.6.1' });
+  writeJson(projectRoot, '.spec-first/graph/provider-status.json', {
+    ready_primary_providers: ['gitnexus'],
+    providers: [{ provider: 'gitnexus', query_ready: true }],
+  });
+  writeJson(projectRoot, '.spec-first/graph/graph-facts.json', {
+    source_revision: revision,
+    worktree_dirty: false,
+    worktree_status_hash: cleanHash,
+    provider_summary: { ready_primary_providers: ['gitnexus'] },
+    capabilities: { query_global_graph: true },
+  });
+  writeJson(projectRoot, '.spec-first/impact/bootstrap-impact-capabilities.json', {
+    capabilities: {
+      context_selection: { support_level: 'full' },
+      impact_radius: { support_level: 'none' },
+      review_support: { support_level: 'none' },
+    },
+  });
+
+  let stdout = '';
+  let stderr = '';
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+  const originalStderrWrite = process.stderr.write.bind(process.stderr);
+  const originalCwd = process.cwd();
+  const originalLatest = process.env.SPEC_FIRST_VERSION_REMINDER_LATEST;
+  const originalUserInfo = os.userInfo;
+  const originalHomedir = os.homedir;
+  process.stdout.write = (chunk) => { stdout += chunk; return true; };
+  process.stderr.write = (chunk) => { stderr += chunk; return true; };
+  process.env.SPEC_FIRST_VERSION_REMINDER_LATEST = '1.6.1';
+  os.userInfo = () => ({ homedir: homeRoot });
+  os.homedir = () => homeRoot;
+  const { runCli } = require(path.join(repoRoot, 'src/cli'));
+  process.chdir(projectRoot);
+
+  const exitCode = await runCli(['startup-reminder', '--codex']);
+
+  process.chdir(originalCwd);
+  if (originalLatest === undefined) delete process.env.SPEC_FIRST_VERSION_REMINDER_LATEST;
+  else process.env.SPEC_FIRST_VERSION_REMINDER_LATEST = originalLatest;
+  os.userInfo = originalUserInfo;
+  os.homedir = originalHomedir;
+  process.stdout.write = originalStdoutWrite;
+  process.stderr.write = originalStderrWrite;
+  process.stdout.write(JSON.stringify({ exitCode, stdout, stderr }));
+})();
+EOF
+)"
+startup_cli_graph_only_exit=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.exitCode));" "$startup_cli_graph_only_output")
+startup_cli_graph_only_stdout=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stdout);" "$startup_cli_graph_only_output")
+startup_cli_graph_only_stderr=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stderr);" "$startup_cli_graph_only_output")
+assert_output "startup reminder graph-only exits successfully" "0" "$startup_cli_graph_only_exit"
+assert_contains "startup reminder graph-only prints graph snapshot" "GitNexus graph: query_ready=true" "$startup_cli_graph_only_stdout"
+assert_contains "startup reminder graph-only prints fresh status" "freshness=fresh" "$startup_cli_graph_only_stdout"
+assert_not_contains "startup reminder graph-only does not print update workflow" '$spec-update' "$startup_cli_graph_only_stdout"
+assert_output "startup reminder graph-only writes no stderr" "" "$startup_cli_graph_only_stderr"
 
 startup_cli_reset_output="$(
   node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'

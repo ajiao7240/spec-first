@@ -343,6 +343,8 @@ Skip the detailed posture probe on the no-graph/no-MCP/no-setup-projection fast 
 
 **STOP. Before filling the envelope, read `references/graph-evidence-posture.md`.** It carries the envelope shape pointer (the `## Graph / GitNexus Evidence` block in `references/plan-template.md` is the field/enum source of truth), the four-axis interpretation (including `evidence_posture=fallback + evidence_grade=primary` orthogonality and `source_reads_required mandatory`), the GitNexus `source_tags[]` provenance vocabulary, the LLM-owned native capability selection matrix (route/API/shape, symbol/refactor, tool/RPC, cypher, orientation), the session-local tool/resource boundary, the scope authority rule, the `mutation-gated` capability handling for `workspace_group_sync` / `group_sync` / `symbol_rename` / GitNexus `rename`, and the multi-repo `target_repo` requirement. Do not reconstruct these rules from memory and do not inline them in this skill.
 
+For graph-heavy planning where deterministic pre-facts would reduce repeated source reads, the hidden helper may be called with `--workflow plan`. Its output is workflow-neutral: `query`, `context`, `impact`, and `detect_changes` facts can populate `capabilities_used`, `key_findings`, `source_reads_required`, and limitations in the existing Graph / GitNexus Evidence block, but they do not choose scope, requirements, or implementation units. Do not route `route_map`, `api_impact`, `shape_check`, `tool_map`, `cypher`, group resources, refresh, repair, `group_sync`, or `rename` through the helper query plan.
+
 #### 1.1b Detect Execution Posture Signals
 
 Decide whether the plan should carry a lightweight execution posture signal.

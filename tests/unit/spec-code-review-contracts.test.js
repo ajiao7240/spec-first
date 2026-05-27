@@ -428,6 +428,8 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).toContain('Stale / unavailable / definitions-only GitNexus -> fall back to direct diff reads');
     expect(text).toContain('Do not raise a finding solely from graph output');
     expect(text).toContain('confirmed by diff/source/test/contract evidence');
+    expect(text).toContain('bounded `queries[]` may include `gitnexus.query`, `gitnexus.context`, `gitnexus.impact`, and `gitnexus.detect_changes`');
+    expect(text).toContain('Coverage may disclose `capabilities_used` and degraded reason counts once');
   });
 
   test('Codex reviewer dispatch avoids fork_context and agent_type parameter conflicts', () => {

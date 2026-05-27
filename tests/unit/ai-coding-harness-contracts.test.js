@@ -67,10 +67,15 @@ describe('AI Coding Harness contract', () => {
     expect(preFacts).toContain('The GitNexus executable operation candidate allowlist is intentionally small');
     expect(preFacts).toContain('Current Implementation Boundary');
     expect(preFacts).toContain('currently supports only');
-    expect(helper).toContain("!['doc-review', 'code-review'].includes(options.workflow)");
-    expect(helper).toContain("tool_name: 'gitnexus.query'");
+    expect(helper).toContain("const WORKFLOWS = new Set(['doc-review', 'code-review', 'plan', 'debug']);");
+    expect(helper).toContain("query: 'gitnexus.query'");
+    expect(helper).toContain("context: 'gitnexus.context'");
+    expect(helper).toContain("impact: 'gitnexus.impact'");
+    expect(helper).toContain("detect_changes: 'gitnexus.detect_changes'");
+    expect(helper).toContain('tool_name: OPERATION_TOOL_NAMES[operation]');
     expect(helper).toContain("operation: 'query'");
     expect(preFacts).toContain('must not appear in `queries[]`');
+    expect(preFacts).toContain('provider summary-only arguments may be emitted only after the current executable tool schema proves support');
     expect(policy).toContain('`gitnexus-session-evidence.v1`');
     expect(catalog).toContain('Harness Lane Classification');
   });

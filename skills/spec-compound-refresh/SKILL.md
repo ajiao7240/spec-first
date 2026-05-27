@@ -124,6 +124,8 @@ When refreshing learnings, prefer distilled replay refs over complete prior-sess
 
 Do not build a durable replay index from compound-refresh. The refresh report should summarize evidence and changed files; full transcripts, raw tool output, and complete review bundles stay out of durable docs unless a short safe excerpt is necessary.
 
+If a learning or refresh candidate cites GitNexus or graph evidence, refresh it only against source-confirmed facts: current source files, tests, logs, contracts, or validated review/work summaries. Graph/session evidence can focus which files or relationships to inspect, but raw provider output, raw diff hunks, unconfirmed session-local graph claims, and full private process/route dumps must not be copied into refreshed learning docs or reports.
+
 ## Scope Selection
 
 Start by discovering learnings and pattern docs under `docs/solutions/`.

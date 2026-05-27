@@ -66,6 +66,10 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('`Requirements` (or legacy `Requirements Trace`)');
     expect(skill).toContain('A mismatch is a wrong-chain handoff');
     expect(skill).toContain('bounded source orientation');
+    expect(skill).toContain('`## Graph / GitNexus Evidence` block');
+    expect(skill).toContain('`impact_on_plan` may influence task ordering');
+    expect(skill).toContain('`source_reads_required` may become granular `context_refs`, `stop_if`, or `test_focus`');
+    expect(skill).toContain('must not create new tasks, expand source-plan scope');
     expect(skill).toContain('Use this intake order for context economy');
     expect(skill).toContain('first read the plan/task summary and contract metadata');
     expect(skill).toContain('then deterministic inventory or validation facts');

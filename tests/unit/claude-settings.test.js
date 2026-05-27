@@ -246,6 +246,7 @@ describe('claude settings', () => {
         'if (process.argv[2] === "startup-reminder" && process.argv[3] === "--claude") {',
         '  console.log("[spec-first] Update available for Claude Code runtime: 1.6.1 -> 1.6.2");',
         '  console.log("Run /spec:update when you choose to upgrade.");',
+        '  console.log("[spec-first] GitNexus graph: query_ready=true; freshness=fresh; dirty=clean; capabilities=query/context=full, impact=none, review=none; limitations=none.");',
         '}',
       ].join('\n'), 'utf8');
       fs.writeFileSync(instructionPath, [
@@ -277,6 +278,7 @@ describe('claude settings', () => {
       expect(payload.hookSpecificOutput.additionalContext).toContain('using-spec-first SessionStart injection');
       expect(payload.hookSpecificOutput.additionalContext).toContain('1.6.1 -> 1.6.2');
       expect(payload.hookSpecificOutput.additionalContext).toContain('/spec:update');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('GitNexus graph: query_ready=true');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

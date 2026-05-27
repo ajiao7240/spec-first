@@ -75,6 +75,8 @@ Before using compiled graph facts as primary debugging evidence, check `.spec-fi
 
 For stale graph + lightweight debugging, such as a single-file typo, missing import, null dereference, off-by-one, or a small local bug with direct source evidence, disclose limitations and continue with bounded direct reads, tests, logs, or session-local live GitNexus pointers. For stale graph + graph-heavy debugging, such as shared helper/API/route/provider contract/core workflow/cross-module failures, review-pre-facts failures, high-risk regressions, or symptoms where execution flows and blast radius materially shape the root-cause search, recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap` before claiming graph-backed impact evidence. Debug must not run GitNexus analyze/build/index refresh, provider repair, default git hooks, watchers, or daemons.
 
+When a debugging run has an explicit stack-trace symbol, named file, or diff scope and graph evidence is fresh or explicitly session-local, the hidden pre-facts helper may be called with `--workflow debug`. Its neutral facts may include `query`, `context`, `impact`, and `detect_changes` summaries for hypothesis focus, but root cause still requires reproduction/source/log/runtime/test confirmation and raw diff or full provider output must stay out of durable summaries.
+
 ## Execution Flow
 
 | Phase | Name | Purpose |

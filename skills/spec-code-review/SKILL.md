@@ -528,6 +528,8 @@ When the diff is graph-heavy, Stage 3 records candidate GitNexus native capabili
 
 GitNexus output is supporting evidence only. Do not raise a finding solely from graph output; every finding must be confirmed by diff/source/test/contract evidence before it enters the merged finding set.
 
+When the shared pre-facts helper is used for review context, its bounded `queries[]` may include `gitnexus.query`, `gitnexus.context`, `gitnexus.impact`, and `gitnexus.detect_changes`. Treat non-query pre-facts as compact pointers for changed symbols, callers, impact summaries, and diff-scope candidates; Coverage may disclose `capabilities_used` and degraded reason counts once, but findings still require direct diff/source/test/contract confirmation.
+
 ### Stage 3b: Discover project standards paths
 
 Before spawning sub-agents, find the file paths (not contents) of all relevant standards files for the `project-standards` persona. This is the explicit leaf-reviewer exception to the Host Instruction Reuse Policy: the parent orchestrator discovers paths, and the `project-standards` reviewer reads only the relevant sections. Use the native file-search/glob tool to locate:

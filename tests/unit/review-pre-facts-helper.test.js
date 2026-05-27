@@ -75,7 +75,7 @@ function writeGraphArtifacts(repo) {
   writeJson(repo, '.spec-first/providers/gitnexus/normalized/architecture-facts.json', {
     schema_version: 'provider-normalized-envelope.v1',
     provider: 'gitnexus',
-    available_query_surfaces: ['query'],
+    available_query_surfaces: ['query', 'context'],
     capabilities: ['query_global_graph'],
   });
   writeJson(repo, '.spec-first/providers/gitnexus/normalized/impact-capabilities.json', {
@@ -206,18 +206,29 @@ function providerResultsEnvelope(repo, facts, overrides = {}) {
 describe('review-pre-facts fixtures', () => {
   test('JSON fixtures satisfy required schema fields', () => {
     const queryPlan = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'query-plan.valid.json'), 'utf8'));
+    const multiOperationPlan = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'query-plan.multi-operation.json'), 'utf8'));
     const raw = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-raw-result.valid.json'), 'utf8'));
+    const contextRaw = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-raw-result.context.json'), 'utf8'));
+    const impactRaw = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-raw-result.impact.json'), 'utf8'));
+    const detectChangesRaw = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-raw-result.detect-changes.json'), 'utf8'));
     const invalidRaw = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-raw-result.invalid.json'), 'utf8'));
     const providerResults = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-results.valid.json'), 'utf8'));
+    const multiOperationResults = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-results.multi-operation.json'), 'utf8'));
     const missingProvenance = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-results.missing-provenance.json'), 'utf8'));
     const runSummary = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'run-summary.valid.json'), 'utf8'));
     providerResults.target_repo = REPO_ROOT;
+    multiOperationResults.target_repo = REPO_ROOT;
     missingProvenance.target_repo = REPO_ROOT;
 
     expect(validateQueryPlan(queryPlan).ok).toBe(true);
+    expect(validateQueryPlan(multiOperationPlan).ok).toBe(true);
     expect(validateRawResult(raw, queryPlan).ok).toBe(true);
+    expect(validateRawResult(contextRaw, multiOperationPlan).ok).toBe(true);
+    expect(validateRawResult(impactRaw, multiOperationPlan).ok).toBe(true);
+    expect(validateRawResult(detectChangesRaw, multiOperationPlan).ok).toBe(true);
     expect(validateRawResult(invalidRaw, queryPlan).reason_code).toBe('provider_raw_result_query_mismatch');
     expect(validateProviderResults(providerResults).ok).toBe(true);
+    expect(validateProviderResults(multiOperationResults).ok).toBe(true);
     expect(validateProviderResults(missingProvenance).reason_code).toBe('provider_result_missing_provenance');
     expect(runSummary.schema_version).toBe('review-pre-facts-run-summary.v1');
     expect(runSummary.invocation_events.length).toBeGreaterThan(0);
@@ -358,6 +369,126 @@ describe('review-pre-facts helper modes', () => {
     }
   });
 
+  test('prepare emits bounded context and impact entries for explicit symbol targets', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      write(repo, 'docs/plans/symbol-plan.md', [
+        '# Symbol Plan',
+        '',
+        'Symbol target: name=runCli file_path=src/cli/index.js kind=Function direction=upstream',
+        '',
+      ].join('\n'));
+      writeGraphArtifacts(repo);
+      const output = path.join(dir, 'query-plan.json');
+      const result = captureRun([
+        '--mode', 'prepare',
+        '--workflow', 'plan',
+        '--document', 'docs/plans/symbol-plan.md',
+        '--repo', repo,
+        '--run-id', runId,
+        '--summary-dir', dir,
+        '--output', output,
+      ], repo);
+
+      expect(result.code).toBe(0);
+      const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+      expect(plan.workflow).toBe('plan');
+      expect(plan.operation_profiles).toEqual(['query', 'context', 'impact', 'detect_changes']);
+      expect(plan.queries.map((query) => query.operation)).toEqual(expect.arrayContaining(['query', 'context', 'impact']));
+      const contextQuery = plan.queries.find((query) => query.operation === 'context');
+      expect(contextQuery.tool_name).toBe('gitnexus.context');
+      expect(contextQuery.arguments).toEqual(expect.objectContaining({
+        name: 'runCli',
+        file_path: 'src/cli/index.js',
+        kind: 'Function',
+        include_content: false,
+      }));
+      const impactQuery = plan.queries.find((query) => query.operation === 'impact');
+      expect(impactQuery.arguments).toEqual(expect.objectContaining({
+        target: 'runCli',
+        direction: 'upstream',
+        maxDepth: 2,
+        timeoutMs: 10000,
+      }));
+      expect(validateQueryPlan(plan).ok).toBe(true);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('prepare records context ambiguity and compare scope degradation without inventing targets', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      write(repo, 'docs/plans/ambiguous-symbol.md', [
+        '# Ambiguous Symbol',
+        '',
+        'Symbol target: name=runCli',
+        'Files: `src/cli/index.js`',
+        '',
+      ].join('\n'));
+      writeGraphArtifacts(repo);
+      const output = path.join(dir, 'query-plan.json');
+      const result = captureRun([
+        '--mode', 'prepare',
+        '--workflow', 'plan',
+        '--document', 'docs/plans/ambiguous-symbol.md',
+        '--change-scope', 'compare',
+        '--repo', repo,
+        '--run-id', runId,
+        '--summary-dir', dir,
+        '--output', output,
+      ], repo);
+
+      expect(result.code).toBe(0);
+      const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+      expect(plan.queries.map((query) => query.operation)).not.toContain('context');
+      expect(plan.queries.map((query) => query.operation)).not.toContain('detect_changes');
+      expect(plan.limitations).toEqual(expect.arrayContaining([
+        expect.objectContaining({ operation: 'context', reason_code: 'context_target_ambiguous' }),
+        expect.objectContaining({ operation: 'detect_changes', reason_code: 'detect_changes_scope_missing' }),
+      ]));
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('prepare emits explicit detect_changes and bounded impact for code-review changed files', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      const output = path.join(dir, 'query-plan.json');
+      const result = captureRun([
+        '--mode', 'prepare',
+        '--workflow', 'code-review',
+        '--changed-files', 'src/cli/index.js',
+        '--change-scope', 'all',
+        '--impact-direction', 'upstream',
+        '--repo', repo,
+        '--run-id', runId,
+        '--summary-dir', dir,
+        '--output', output,
+      ], repo);
+
+      expect(result.code).toBe(0);
+      const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+      const detectChanges = plan.queries.find((query) => query.operation === 'detect_changes');
+      expect(detectChanges).toEqual(expect.objectContaining({
+        tool_name: 'gitnexus.detect_changes',
+        arguments: expect.objectContaining({ scope: 'all' }),
+      }));
+      const impact = plan.queries.find((query) => query.operation === 'impact');
+      expect(impact.arguments).toEqual(expect.objectContaining({
+        target: 'src/cli/index.js',
+        direction: 'upstream',
+      }));
+      expect(validateQueryPlan(plan).ok).toBe(true);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test('normalize-provider-results consumes raw live MCP output and render validates provenance', () => {
     const repo = tempRepo();
     const { runId, dir } = tempRun();
@@ -411,6 +542,209 @@ describe('review-pre-facts helper modes', () => {
       expect(summary.modes_attempted).toEqual(['normalize-provider-results', 'render']);
       expect(summary.selected_tier).toBe('graph-fresh');
       expect(summary.normalization_result.status).toBe('completed');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('normalize-provider-results supports context impact and detect_changes summary facts', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      const queryPlanPath = path.join(dir, 'query-plan.json');
+      const rawPath = path.join(dir, 'provider-raw-result.json');
+      const providerResultsPath = path.join(dir, 'provider-results.json');
+      const blockPath = path.join(dir, 'codebase-facts.txt');
+      const queryPlan = {
+        schema_version: 'review-pre-facts-query-plan.v1',
+        workflow: 'plan',
+        target_repo: repo,
+        query_plan_id: 'qplan-multi-operation',
+        readiness: 'graph-fresh',
+        tier: 'graph-fresh',
+        reason_code: 'provider_query_plan_rendered',
+        snapshot: currentRepoSnapshot(repo),
+        targets: [],
+        queries: [
+          {
+            query_id: 'q1',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.context',
+            operation: 'context',
+            arguments: {
+              repo: path.basename(repo),
+              name: 'runCli',
+              file_path: 'src/cli/index.js',
+              kind: 'Function',
+              include_content: false,
+            },
+            target_refs: ['src/cli/index.js'],
+            max_results: 1,
+            reason_code: 'provider_context_surface_available',
+            fallback_reason_code: 'context_target_ambiguous',
+          },
+          {
+            query_id: 'q2',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.impact',
+            operation: 'impact',
+            arguments: {
+              repo: path.basename(repo),
+              target: 'runCli',
+              direction: 'upstream',
+              file_path: 'src/cli/index.js',
+              kind: 'Function',
+              maxDepth: 2,
+              includeTests: true,
+              relationTypes: ['CALLS', 'IMPORTS'],
+              timeoutMs: 10000,
+            },
+            target_refs: ['src/cli/index.js'],
+            max_results: 1,
+            reason_code: 'provider_impact_surface_available',
+            fallback_reason_code: 'impact_target_unavailable',
+          },
+          {
+            query_id: 'q3',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.detect_changes',
+            operation: 'detect_changes',
+            arguments: {
+              repo: path.basename(repo),
+              scope: 'all',
+            },
+            target_refs: ['scope:all'],
+            max_results: 1,
+            reason_code: 'provider_detect_changes_surface_available',
+            fallback_reason_code: 'detect_changes_scope_missing',
+          },
+        ],
+        direct_read_candidates: [],
+      };
+      fs.writeFileSync(queryPlanPath, `${JSON.stringify(queryPlan, null, 2)}\n`, 'utf8');
+      fs.writeFileSync(rawPath, `${JSON.stringify({
+        schema_version: 'review-pre-facts-provider-raw-result.v1',
+        workflow: 'plan',
+        target_repo: repo,
+        source: 'live-mcp',
+        query_plan_id: queryPlan.query_plan_id,
+        raw_results: [
+          {
+            query_id: 'q1',
+            tool_name: 'gitnexus.context',
+            operation: 'context',
+            arguments: queryPlan.queries[0].arguments,
+            status: 'ok',
+            response: {
+              status: 'found',
+              symbol: {
+                uid: 'Function:src/cli/index.js:runCli',
+                name: 'runCli',
+                kind: 'Function',
+                filePath: 'src/cli/index.js',
+                startLine: 1,
+                endLine: 3,
+              },
+              incoming: { calls: [{ name: 'main', filePath: 'src/cli/index.js' }] },
+              outgoing: { calls: [] },
+              processes: [],
+            },
+          },
+          {
+            query_id: 'q2',
+            tool_name: 'gitnexus.impact',
+            operation: 'impact',
+            arguments: queryPlan.queries[1].arguments,
+            status: 'ok',
+            response: {
+              risk: 'LOW',
+              summary: { direct: 1, processes_affected: 1, modules_affected: 1 },
+              affected_processes: [
+                { name: 'runPrepare', filePath: 'src/cli/index.js', earliest_broken_step: 1 },
+              ],
+              affected_modules: [
+                { name: 'Cli', hits: 1, impact: 'direct' },
+              ],
+              byDepth: {
+                1: [{ name: 'runPrepare', filePath: 'src/cli/index.js' }],
+                2: [{ name: 'runReviewPreFacts', filePath: 'src/cli/index.js' }],
+              },
+            },
+          },
+          {
+            query_id: 'q3',
+            tool_name: 'gitnexus.detect_changes',
+            operation: 'detect_changes',
+            arguments: queryPlan.queries[2].arguments,
+            status: 'ok',
+            response: {
+              summary: { changed_count: 1, affected_count: 1, risk_level: 'medium' },
+              changed_symbols: [
+                { name: 'runCli', kind: 'Function', filePath: 'src/cli/index.js' },
+              ],
+              affected_processes: [
+                { name: 'runPrepare', filePath: 'src/cli/index.js' },
+              ],
+              raw_diff: '@@ -1 +1 @@\n-secret\n+secret',
+            },
+          },
+        ],
+      }, null, 2)}\n`, 'utf8');
+
+      const normalized = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'plan',
+        '--repo', repo,
+        '--query-plan', queryPlanPath,
+        '--raw-result', rawPath,
+        '--source', 'live-mcp',
+        '--output', providerResultsPath,
+        '--run-id', runId,
+        '--summary-dir', dir,
+      ], repo);
+
+      expect(normalized.code).toBe(0);
+      expect(normalized.json.capabilities_used).toEqual(['context', 'detect_changes', 'impact']);
+      const providerResults = JSON.parse(fs.readFileSync(providerResultsPath, 'utf8'));
+      expect(providerResults.facts.map((fact) => fact.fact_kind)).toEqual([
+        'context_symbol',
+        'impact_summary',
+        'detect_changes_summary',
+      ]);
+      expect(JSON.stringify(providerResults)).not.toContain('@@ -1 +1 @@');
+      expect(providerResults.facts[1]).toEqual(expect.objectContaining({
+        risk: 'LOW',
+        by_depth_counts: { 1: 1, 2: 1 },
+        omitted_detail_reason: 'impact_detail_summary_only',
+      }));
+      expect(providerResults.facts[2]).toEqual(expect.objectContaining({
+        raw_diff_status: 'omitted',
+        redaction_status: 'redacted',
+      }));
+      expect(validateProviderResults(providerResults).ok).toBe(true);
+
+      const rendered = captureRun([
+        '--mode', 'render',
+        '--workflow', 'plan',
+        '--repo', repo,
+        '--provider-results', providerResultsPath,
+        '--output', blockPath,
+        '--run-id', runId,
+        '--summary-dir', dir,
+      ], repo);
+      expect(rendered.code).toBe(0);
+      const block = fs.readFileSync(blockPath, 'utf8');
+      expect(block).toContain('workflow="plan"');
+      expect(block).toContain('<capabilities-used>');
+      expect(block).toContain('context_symbol');
+      expect(block).toContain('source-reads-required');
+      expect(block).not.toMatch(/Coverage|finding|reviewer|dispatch/i);
+      const summary = JSON.parse(fs.readFileSync(path.join(dir, 'run-summary.json'), 'utf8'));
+      expect(summary.graph_capability_usage).toEqual(expect.objectContaining({
+        capabilities_used: ['context', 'detect_changes', 'impact'],
+        redaction_status: 'redacted',
+        source_reads_required_count: 1,
+      }));
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
@@ -1014,6 +1348,28 @@ describe('review-pre-facts helper modes', () => {
       expect(mismatch.code).toBe(1);
       expect(mismatch.json.error.code).toBe('provider_raw_result_query_mismatch');
 
+      const { runId: argRunId, dir: argDir } = tempRun();
+      const argQuery = path.join(argDir, 'query-plan.json');
+      const argRaw = path.join(argDir, 'provider-raw-result.json');
+      const argOutput = path.join(argDir, 'provider-results.json');
+      fs.copyFileSync(path.join(FIXTURE_DIR, 'query-plan.valid.json'), argQuery);
+      const validRaw = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'provider-raw-result.valid.json'), 'utf8'));
+      validRaw.raw_results[0].arguments = { repo: 'wrong-repo' };
+      fs.writeFileSync(argRaw, `${JSON.stringify(validRaw, null, 2)}\n`, 'utf8');
+      const argMismatch = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'doc-review',
+        '--repo', repo,
+        '--query-plan', argQuery,
+        '--raw-result', argRaw,
+        '--source', 'live-mcp',
+        '--output', argOutput,
+        '--run-id', argRunId,
+        '--summary-dir', argDir,
+      ], repo);
+      expect(argMismatch.code).toBe(1);
+      expect(argMismatch.json.error.code).toBe('provider_raw_result_query_mismatch');
+
       const fallbackOutput = path.join(dir, 'codebase-facts.txt');
       const fallback = captureRun([
         '--mode', 'one-shot',
@@ -1088,6 +1444,40 @@ describe('review-pre-facts helper modes', () => {
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
+  });
+
+  test('query-plan validation rejects unsupported operations and unsafe impact arguments', () => {
+    const queryPlan = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'query-plan.valid.json'), 'utf8'));
+    queryPlan.queries[0].operation = 'rename';
+    queryPlan.queries[0].tool_name = 'gitnexus.rename';
+    expect(validateQueryPlan(queryPlan)).toEqual(expect.objectContaining({
+      ok: false,
+      reason_code: 'operation_not_allowed',
+    }));
+
+    const impactPlan = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'query-plan.valid.json'), 'utf8'));
+    impactPlan.queries[0] = {
+      query_id: 'q1',
+      provider: 'gitnexus',
+      tool_name: 'gitnexus.impact',
+      operation: 'impact',
+      arguments: {
+        repo: 'spec-first',
+        target: 'runCli',
+        direction: 'upstream',
+        maxDepth: 2,
+        timeoutMs: 10000,
+        summaryOnly: true,
+      },
+      target_refs: ['src/cli/index.js'],
+      max_results: 1,
+      reason_code: 'provider_impact_surface_available',
+      fallback_reason_code: 'impact_target_unavailable',
+    };
+    expect(validateQueryPlan(impactPlan)).toEqual(expect.objectContaining({
+      ok: false,
+      reason_code: 'operation_arguments_invalid',
+    }));
   });
 
   test('normalization enforces workflow fact-count budgets', () => {

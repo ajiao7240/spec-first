@@ -31,3 +31,5 @@ Resolve `<review-pre-facts-cmd>` from the shared contract:
 | Installed Claude runtime | `spec-first internal review-pre-facts` |
 
 Workflow prose must call the command boundary and must not call `src/cli/helpers/review-pre-facts.js` directly.
+
+The bounded query plan can include only implemented deterministic helper operations: `query`, `context`, `impact`, and `detect_changes`. Route/API/tool/Cypher/group evidence stays in workflow-native or resource evidence lanes and must not be added to `review-pre-facts-query-plan.v1`.

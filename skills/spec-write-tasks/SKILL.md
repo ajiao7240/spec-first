@@ -129,6 +129,8 @@ Provider order:
 
 Orientation evidence is advisory. It must not turn the current implementation state into new tasks, replace source-plan authority, or override the source plan. If source orientation reveals missing scope, contract, acceptance, or verification decisions, return `return-to-plan` or `draft-only` instead of inventing task scope.
 
+If the source plan contains a `## Graph / GitNexus Evidence` block, consume `capabilities_used`, `key_findings`, `impact_on_plan`, `source_reads_required`, and limitations as advisory task-focus inputs. `impact_on_plan` may influence task ordering, `source_reads_required` may become granular `context_refs`, `stop_if`, or `test_focus`, and `key_findings` may become risk notes. These graph facts must not create new tasks, expand source-plan scope, replace requirement refs, or choose a repo; every graph-informed task pointer still needs source-plan and direct-source confirmation.
+
 LSP provider rule:
 
 - Activate the target project and use LSP quick indexing only for bounded source orientation: symbol overview, symbol lookup, references, and local pattern search.

@@ -5,9 +5,25 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const {
+  isExactRepoRelativePath,
+  isSecretDeniedPath,
+} = require('./secret-deny-patterns');
 
 const READINESS = new Set(['graph-fresh', 'graph-stale', 'provider-unavailable', 'no-targets']);
 const TIERS = new Set(['graph-fresh', 'bounded-reads', 'unavailable', 'no-targets']);
+const WORKFLOWS = new Set(['doc-review', 'code-review', 'plan', 'debug']);
+const OPERATION_TOOL_NAMES = {
+  query: 'gitnexus.query',
+  context: 'gitnexus.context',
+  impact: 'gitnexus.impact',
+  detect_changes: 'gitnexus.detect_changes',
+};
+const OPERATIONS = new Set(Object.keys(OPERATION_TOOL_NAMES));
+const FACT_KINDS = new Set(['query_symbol', 'context_symbol', 'impact_summary', 'detect_changes_summary']);
+const REDACTION_STATUSES = new Set(['none-required', 'redacted', 'redaction-degraded']);
+const DETECT_CHANGE_SCOPES = new Set(['staged', 'unstaged', 'all', 'compare']);
+const IMPACT_DIRECTIONS = new Set(['upstream', 'downstream']);
 
 const LIMITS = {
   rawArtifactTotalBytes: 1024 * 1024,
@@ -15,11 +31,16 @@ const LIMITS = {
   maxFacts: {
     'doc-review': 24,
     'code-review': 40,
+    plan: 32,
+    debug: 32,
   },
   perExcerptChars: 1200,
+  maxSummaryItems: 8,
   renderedBlockChars: {
     'doc-review': 16000,
     'code-review': 24000,
+    plan: 18000,
+    debug: 18000,
   },
   maxDocumentBytes: 1024 * 1024,
   maxDirectReadBytes: 128 * 1024,
@@ -43,7 +64,7 @@ function runReviewPreFacts(argv, env = {}) {
   options.workflow = options.workflow || 'doc-review';
   options.mode = options.mode || 'one-shot';
 
-  if (!['doc-review', 'code-review'].includes(options.workflow)) {
+  if (!WORKFLOWS.has(options.workflow)) {
     writeJson(io.stdout, errorPayload('invalid_workflow', `unsupported workflow: ${options.workflow}`));
     return 2;
   }
@@ -210,6 +231,7 @@ function runNormalizeProviderResults(options, io) {
     reason_code: normalization.reason_code || 'provider_results_normalized',
     facts: normalization.facts,
     omitted_facts: normalization.omitted_facts,
+    graph_capability_usage: graphCapabilityUsage(normalization.facts, normalization.omitted_facts),
   };
 
   atomicWriteNoClobber(options.output, `${JSON.stringify(providerResults, null, 2)}\n`);
@@ -224,6 +246,7 @@ function runNormalizeProviderResults(options, io) {
       reason_code: providerResults.reason_code,
       facts: providerResults.facts.length,
     },
+    graph_capability_usage: providerResults.graph_capability_usage,
   });
 
   writeJson(io.stdout, {
@@ -232,6 +255,7 @@ function runNormalizeProviderResults(options, io) {
     output: options.output,
     fact_count: providerResults.facts.length,
     reason_code: providerResults.reason_code,
+    capabilities_used: providerResults.graph_capability_usage.capabilities_used,
   });
   return 0;
 }
@@ -293,6 +317,7 @@ function runRender(options, io) {
       : { source: providerResults.source || 'unknown', status: 'failed', reason_code: rendered.reason_code },
     placeholder_rendered: false,
     temp_artifacts: [options.output, options.providerResults],
+    graph_capability_usage: providerResults.graph_capability_usage || graphCapabilityUsage(providerResults.facts || [], providerResults.omitted_facts || []),
   });
 
   writeJson(io.stdout, {
@@ -416,6 +441,13 @@ function parseArgs(argv) {
     '--source',
     '--provider-results',
     '--changed-files',
+    '--change-scope',
+    '--base-ref',
+    '--symbol',
+    '--symbol-file',
+    '--symbol-kind',
+    '--impact-target',
+    '--impact-direction',
   ]);
   const aliases = {
     '--run-id': 'runId',
@@ -424,6 +456,12 @@ function parseArgs(argv) {
     '--raw-result': 'rawResult',
     '--provider-results': 'providerResults',
     '--changed-files': 'changedFiles',
+    '--change-scope': 'changeScope',
+    '--base-ref': 'baseRef',
+    '--symbol-file': 'symbolFile',
+    '--symbol-kind': 'symbolKind',
+    '--impact-target': 'impactTarget',
+    '--impact-direction': 'impactDirection',
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -757,30 +795,81 @@ function buildArtifactInventory(repoRoot, providers) {
 function buildQueryPlan({ options, readiness, targets }) {
   const queryPlanId = `qplan-${options.runId}`;
   const targetProviderName = 'gitnexus';
-  const hasQuerySurface = readiness.normalized_artifact_inventory
-    .some((artifact) => artifact.provider === targetProviderName && artifact.available_query_surfaces.length > 0);
-  const queries = readiness.readiness === 'graph-fresh' && hasQuerySurface
-    ? targets
-      .filter((target) => target.status === 'readable')
-      .slice(0, 6)
-      .map((target, index) => ({
-        query_id: `q${index + 1}`,
-        provider: 'gitnexus',
-        tool_name: 'gitnexus.query',
-        operation: 'query',
-        arguments: {
-          repo: path.basename(options.repoRoot),
-          query: `review pre-facts for ${target.path}`,
-          goal: 'collect bounded semantic facts for review prompt pre-injection',
-          limit: 3,
-          max_symbols: 8,
-        },
-        target_refs: [target.path],
-        max_results: 3,
-        reason_code: 'provider_query_surface_available',
-        fallback_reason_code: 'provider_query_unavailable',
-      }))
-    : [];
+  const availableOperations = gitNexusOperationsFromInventory(readiness.normalized_artifact_inventory, targetProviderName);
+  const hasQuerySurface = availableOperations.size > 0;
+  const limitations = [];
+  const queries = [];
+  const nextQueryId = () => `q${queries.length + 1}`;
+
+  if (readiness.readiness === 'graph-fresh' && hasQuerySurface) {
+    if (availableOperations.has('query')) {
+      for (const target of targets.filter((item) => item.status === 'readable').slice(0, 6)) {
+        queries.push(buildOperationQuery({
+          queryId: nextQueryId(),
+          operation: 'query',
+          args: {
+            repo: path.basename(options.repoRoot),
+            query: `review pre-facts for ${target.path}`,
+            goal: 'collect bounded semantic facts for review prompt pre-injection',
+            limit: 3,
+            max_symbols: 8,
+            include_content: false,
+          },
+          targetRefs: [target.path],
+          reasonCode: 'provider_query_surface_available',
+          fallbackReasonCode: 'provider_query_unavailable',
+        }));
+      }
+    }
+
+    const symbolTargets = extractSymbolTargets(options);
+    for (const symbolTarget of symbolTargets) {
+      if (availableOperations.has('context')) {
+        const contextEntry = buildContextQueryEntry(nextQueryId(), options, symbolTarget);
+        if (contextEntry.ok) {
+          queries.push(contextEntry.query);
+        } else {
+          limitations.push(contextEntry.limitation);
+        }
+      }
+      if (availableOperations.has('impact')) {
+        const impactEntry = buildImpactQueryEntry(nextQueryId(), options, {
+          target: symbolTarget.name,
+          file_path: symbolTarget.file_path,
+          kind: symbolTarget.kind,
+          direction: symbolTarget.impact_direction,
+          target_refs: [symbolTarget.file_path || symbolTarget.name],
+        });
+        if (impactEntry.ok) {
+          queries.push(impactEntry.query);
+        } else if (symbolTarget.impact_direction || options.impactDirection) {
+          limitations.push(impactEntry.limitation);
+        }
+      }
+    }
+
+    if (availableOperations.has('impact')) {
+      const explicitImpactEntries = impactTargetsFromOptions(options, targets);
+      for (const impactTarget of explicitImpactEntries) {
+        const impactEntry = buildImpactQueryEntry(nextQueryId(), options, impactTarget);
+        if (impactEntry.ok) {
+          queries.push(impactEntry.query);
+        } else {
+          limitations.push(impactEntry.limitation);
+        }
+      }
+    }
+
+    if (availableOperations.has('detect_changes')) {
+      const detectChangesEntry = buildDetectChangesQueryEntry(nextQueryId(), options);
+      if (detectChangesEntry.ok) {
+        queries.push(detectChangesEntry.query);
+      } else if (detectChangesEntry.limitation) {
+        limitations.push(detectChangesEntry.limitation);
+      }
+    }
+  }
+
   const tier = queries.length > 0 ? 'graph-fresh' : fallbackTierForReadiness(readiness);
   const reasonCode = queries.length > 0
     ? 'provider_query_plan_rendered'
@@ -800,6 +889,9 @@ function buildQueryPlan({ options, readiness, targets }) {
     recorded_snapshot: readiness.recorded_snapshot || null,
     target_provider: readiness.target_provider ? readiness.target_provider.provider : null,
     normalized_artifact_inventory: readiness.normalized_artifact_inventory,
+    workflow_profile: options.workflow,
+    operation_profiles: Object.keys(OPERATION_TOOL_NAMES),
+    limitations,
     targets: targets.map((target) => ({
       path: target.path || target.original,
       status: target.status,
@@ -812,6 +904,242 @@ function buildQueryPlan({ options, readiness, targets }) {
       reason_code: target.reason_code || null,
     })),
   };
+}
+
+function gitNexusOperationsFromInventory(inventory, providerName) {
+  const operations = new Set();
+  for (const artifact of Array.isArray(inventory) ? inventory : []) {
+    if (artifact.provider !== providerName) continue;
+    for (const surface of Array.isArray(artifact.available_query_surfaces) ? artifact.available_query_surfaces : []) {
+      if (OPERATIONS.has(surface)) operations.add(surface);
+    }
+  }
+  return operations;
+}
+
+function buildOperationQuery({ queryId, operation, args, targetRefs, reasonCode, fallbackReasonCode, maxResults = 3 }) {
+  return {
+    query_id: queryId,
+    provider: 'gitnexus',
+    tool_name: OPERATION_TOOL_NAMES[operation],
+    operation,
+    arguments: args,
+    target_refs: targetRefs,
+    max_results: maxResults,
+    reason_code: reasonCode,
+    fallback_reason_code: fallbackReasonCode,
+  };
+}
+
+function buildContextQueryEntry(queryId, options, symbolTarget) {
+  const args = {
+    repo: path.basename(options.repoRoot),
+    include_content: false,
+  };
+  if (symbolTarget.uid) {
+    args.uid = symbolTarget.uid;
+  } else if (symbolTarget.name && symbolTarget.file_path) {
+    args.name = symbolTarget.name;
+    args.file_path = symbolTarget.file_path;
+    if (symbolTarget.kind) args.kind = symbolTarget.kind;
+  } else {
+    return {
+      ok: false,
+      limitation: {
+        operation: 'context',
+        reason_code: 'context_target_ambiguous',
+        target: symbolTarget.name || '<unknown-symbol>',
+      },
+    };
+  }
+  return {
+    ok: true,
+    query: buildOperationQuery({
+      queryId,
+      operation: 'context',
+      args,
+      targetRefs: [symbolTarget.file_path || symbolTarget.uid || symbolTarget.name],
+      reasonCode: 'provider_context_surface_available',
+      fallbackReasonCode: 'context_target_ambiguous',
+      maxResults: 1,
+    }),
+  };
+}
+
+function buildImpactQueryEntry(queryId, options, impactTarget) {
+  const direction = impactTarget.direction || options.impactDirection;
+  if (!impactTarget.target || !IMPACT_DIRECTIONS.has(direction)) {
+    return {
+      ok: false,
+      limitation: {
+        operation: 'impact',
+        reason_code: !impactTarget.target ? 'impact_target_unavailable' : 'operation_arguments_invalid',
+        target: impactTarget.target || '<missing-target>',
+      },
+    };
+  }
+  const args = {
+    repo: path.basename(options.repoRoot),
+    target: impactTarget.target,
+    direction,
+    maxDepth: 2,
+    includeTests: true,
+    relationTypes: ['CALLS', 'IMPORTS'],
+    timeoutMs: 10000,
+  };
+  if (impactTarget.file_path) args.file_path = impactTarget.file_path;
+  if (impactTarget.kind) args.kind = impactTarget.kind;
+  return {
+    ok: true,
+    query: buildOperationQuery({
+      queryId,
+      operation: 'impact',
+      args,
+      targetRefs: impactTarget.target_refs || [impactTarget.file_path || impactTarget.target],
+      reasonCode: 'provider_impact_surface_available',
+      fallbackReasonCode: 'impact_target_unavailable',
+      maxResults: 1,
+    }),
+  };
+}
+
+function buildDetectChangesQueryEntry(queryId, options) {
+  const scope = options.changeScope;
+  if (!scope) return { ok: false, limitation: null };
+  if (!DETECT_CHANGE_SCOPES.has(scope)) {
+    return {
+      ok: false,
+      limitation: { operation: 'detect_changes', reason_code: 'detect_changes_scope_missing', scope },
+    };
+  }
+  if (scope === 'compare' && !options.baseRef) {
+    return {
+      ok: false,
+      limitation: { operation: 'detect_changes', reason_code: 'detect_changes_scope_missing', scope },
+    };
+  }
+  const args = {
+    repo: path.basename(options.repoRoot),
+    scope,
+  };
+  if (options.baseRef) args.base_ref = options.baseRef;
+  return {
+    ok: true,
+    query: buildOperationQuery({
+      queryId,
+      operation: 'detect_changes',
+      args,
+      targetRefs: options.baseRef ? [`compare:${options.baseRef}`] : [`scope:${scope}`],
+      reasonCode: 'provider_detect_changes_surface_available',
+      fallbackReasonCode: 'detect_changes_scope_missing',
+      maxResults: 1,
+    }),
+  };
+}
+
+function impactTargetsFromOptions(options, targets) {
+  if (options.impactTarget) {
+    return [{
+      target: options.impactTarget,
+      direction: options.impactDirection,
+      target_refs: [options.impactTarget],
+    }];
+  }
+  if (options.workflow !== 'code-review' || !options.impactDirection) return [];
+  return targets
+    .filter((target) => target.status === 'readable')
+    .slice(0, 3)
+    .map((target) => ({
+      target: target.path,
+      direction: options.impactDirection,
+      target_refs: [target.path],
+    }));
+}
+
+function extractSymbolTargets(options) {
+  const targets = [];
+  if (options.symbol || options.symbolFile || options.symbolKind) {
+    targets.push(normalizeSymbolTarget({
+      name: options.symbol,
+      file_path: options.symbolFile,
+      kind: options.symbolKind,
+      impact_direction: options.impactDirection,
+      source: 'argv',
+    }));
+  }
+  if (options.document) {
+    const documentFile = resolveReadableRepoFile(options.repoRoot, options.document, {
+      maxBytes: LIMITS.maxDocumentBytes,
+    });
+    if (documentFile.ok) {
+      const content = fs.readFileSync(documentFile.real, 'utf8');
+      for (const target of parseSymbolTargetsFromDocument(content)) {
+        targets.push(normalizeSymbolTarget(target));
+      }
+    }
+  }
+  const unique = [];
+  const seen = new Set();
+  for (const target of targets.filter(Boolean)) {
+    const key = [target.uid || '', target.name || '', target.file_path || '', target.kind || ''].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(target);
+  }
+  return unique;
+}
+
+function parseSymbolTargetsFromDocument(content) {
+  const targets = [];
+  for (const line of String(content || '').split(/\r?\n/)) {
+    if (!/\bsymbol(?:_target)?\b/i.test(line)) continue;
+    const uid = keyValueFromLine(line, 'uid');
+    const name = keyValueFromLine(line, 'name')
+      || (line.match(/\bsymbol(?:_target)?\s*[:：]\s*([A-Za-z_$][\w$.-]*)/i) || [])[1];
+    const filePath = keyValueFromLine(line, 'file_path')
+      || keyValueFromLine(line, 'file')
+      || keyValueFromLine(line, 'path')
+      || (line.match(/@\s*([A-Za-z0-9_./-]+\.[A-Za-z0-9]+)\b/) || [])[1];
+    const kind = keyValueFromLine(line, 'kind');
+    const direction = keyValueFromLine(line, 'direction') || keyValueFromLine(line, 'impact_direction');
+    if (uid || name || filePath || kind) {
+      targets.push({
+        uid,
+        name,
+        file_path: filePath,
+        kind,
+        impact_direction: direction,
+        source: 'document',
+      });
+    }
+  }
+  return targets;
+}
+
+function keyValueFromLine(line, key) {
+  const pattern = new RegExp(`\\b${key}\\s*=\\s*["'\`]?([^\\s,"\`]+)`, 'i');
+  const match = String(line || '').match(pattern);
+  return match ? match[1] : undefined;
+}
+
+function normalizeSymbolTarget(target) {
+  if (!target || typeof target !== 'object') return null;
+  const filePath = normalizeMaybeRepoPath(target.file_path);
+  const direction = IMPACT_DIRECTIONS.has(target.impact_direction) ? target.impact_direction : undefined;
+  return {
+    uid: normalizeNonEmptyString(target.uid),
+    name: normalizeNonEmptyString(target.name),
+    file_path: filePath,
+    kind: normalizeNonEmptyString(target.kind),
+    impact_direction: direction,
+    source: target.source || 'unknown',
+  };
+}
+
+function normalizeMaybeRepoPath(value) {
+  if (!value) return undefined;
+  const normalized = normalizeTargetPath(value);
+  return normalized.ok ? normalized.path : undefined;
 }
 
 function fallbackTierForReadiness(readiness) {
@@ -843,8 +1171,82 @@ function validateQueryPlan(plan) {
     if (!Array.isArray(query.target_refs)) {
       return { ok: false, reason_code: 'query_plan_schema_invalid', message: 'query target_refs must be an array' };
     }
+    if (!OPERATIONS.has(query.operation)) {
+      return { ok: false, reason_code: 'operation_not_allowed', message: `operation is not allowed: ${query.operation}` };
+    }
+    if (query.tool_name !== OPERATION_TOOL_NAMES[query.operation]) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'query tool_name does not match operation' };
+    }
+    const argsValidation = validateOperationArguments(query.operation, query.arguments);
+    if (!argsValidation.ok) return argsValidation;
   }
   return { ok: true };
+}
+
+function validateOperationArguments(operation, args) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return { ok: false, reason_code: 'operation_arguments_invalid', message: 'operation arguments must be an object' };
+  }
+  if (!normalizeNonEmptyString(args.repo)) {
+    return { ok: false, reason_code: 'operation_arguments_invalid', message: 'operation arguments require repo' };
+  }
+  if (operation === 'query') {
+    if (!normalizeNonEmptyString(args.query)) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'query operation requires query text' };
+    }
+    if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 5)) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'query limit is out of bounds' };
+    }
+    if (args.max_symbols !== undefined && (!Number.isInteger(args.max_symbols) || args.max_symbols < 1 || args.max_symbols > 12)) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'query max_symbols is out of bounds' };
+    }
+    if (args.include_content !== undefined && args.include_content !== false) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'query include_content must be false' };
+    }
+    return { ok: true };
+  }
+  if (operation === 'context') {
+    const hasUid = normalizeNonEmptyString(args.uid);
+    const hasNameFile = normalizeNonEmptyString(args.name) && normalizeNonEmptyString(args.file_path);
+    if (!hasUid && !hasNameFile) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'context requires uid or name plus file_path' };
+    }
+    if (args.include_content !== undefined && args.include_content !== false) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'context include_content must be false' };
+    }
+    if (args.file_path && !normalizeMaybeRepoPath(args.file_path)) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'context file_path must be repo-relative' };
+    }
+    return { ok: true };
+  }
+  if (operation === 'impact') {
+    if (!normalizeNonEmptyString(args.target) || !IMPACT_DIRECTIONS.has(args.direction)) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'impact requires target and valid direction' };
+    }
+    if (args.maxDepth !== undefined && (!Number.isInteger(args.maxDepth) || args.maxDepth < 1 || args.maxDepth > 3)) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'impact maxDepth is out of bounds' };
+    }
+    if (args.timeoutMs !== undefined && (!Number.isInteger(args.timeoutMs) || args.timeoutMs < 1 || args.timeoutMs > 30000)) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'impact timeoutMs is out of bounds' };
+    }
+    if (Object.prototype.hasOwnProperty.call(args, 'summaryOnly')) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'impact summaryOnly is not proven by the current executable schema' };
+    }
+    if (args.file_path && !normalizeMaybeRepoPath(args.file_path)) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'impact file_path must be repo-relative' };
+    }
+    return { ok: true };
+  }
+  if (operation === 'detect_changes') {
+    if (!DETECT_CHANGE_SCOPES.has(args.scope)) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'detect_changes requires explicit valid scope' };
+    }
+    if (args.scope === 'compare' && !normalizeNonEmptyString(args.base_ref)) {
+      return { ok: false, reason_code: 'operation_arguments_invalid', message: 'detect_changes compare requires base_ref' };
+    }
+    return { ok: true };
+  }
+  return { ok: false, reason_code: 'operation_not_allowed', message: `operation is not allowed: ${operation}` };
 }
 
 function validateRawResult(raw, queryPlan) {
@@ -869,11 +1271,33 @@ function validateRawResult(raw, queryPlan) {
     if (result.tool_name !== query.tool_name || result.operation !== query.operation) {
       return { ok: false, reason_code: 'provider_raw_result_query_mismatch', message: 'raw result tool/operation does not match query plan' };
     }
+    if (result.arguments !== undefined && !deepEqualJson(result.arguments, query.arguments)) {
+      return { ok: false, reason_code: 'provider_raw_result_query_mismatch', message: 'raw result arguments do not match query plan' };
+    }
+    if (result.tool_annotations && typeof result.tool_annotations === 'object') {
+      if (result.tool_annotations.read_only === false || result.tool_annotations.destructive === true) {
+        return { ok: false, reason_code: 'tool_annotation_unverified', message: 'raw result tool annotations do not prove a safe read-only call' };
+      }
+    }
     if (Buffer.byteLength(JSON.stringify(result.response || result.error || {}), 'utf8') > LIMITS.singleQueryRawBytes) {
       return { ok: false, reason_code: 'provider_raw_result_too_large', message: 'single query raw response exceeds v1 limit' };
     }
   }
   return { ok: true };
+}
+
+function deepEqualJson(left, right) {
+  return stableJson(left) === stableJson(right);
+}
+
+function stableJson(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJson(item)).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 function normalizeRawFacts(raw, queryPlan, workflow) {
@@ -886,40 +1310,14 @@ function normalizeRawFacts(raw, queryPlan, workflow) {
       continue;
     }
     const query = queryById.get(result.query_id);
-    const response = result.response || {};
-    if (Array.isArray(response.facts)) {
-      for (const fact of response.facts) {
-        const normalized = normalizeProviderFact(fact, query, result, queryPlan, raw.source);
-        if (normalized) facts.push(normalized);
-      }
-    }
-    const graphItems = []
-      .concat(Array.isArray(response.process_symbols) ? response.process_symbols : [])
-      .concat(Array.isArray(response.definitions) ? response.definitions : []);
-    for (const item of graphItems) {
-      const sourcePath = normalizeProviderSourcePath(item.filePath || item.source_path, queryPlan.target_repo);
-      if (!sourcePath) continue;
-      const lineWindow = coerceLineWindow({
-        start: item.startLine ?? item.start ?? 1,
-        end: item.endLine ?? item.end ?? item.startLine ?? item.start ?? 1,
-      });
-      if (!lineWindow) continue;
-      facts.push({
-        provider: query.provider,
-        query_id: query.query_id,
-        source_path: sourcePath,
-        line_window: lineWindow,
-        excerpt: truncateExcerpt(`${item.name || path.basename(sourcePath)} ${item.module ? `(${item.module})` : ''}`.trim()),
-        readiness: queryPlan.readiness,
-        tier: 'graph-fresh',
-        reason_code: 'provider_graph_symbol',
-        provenance: {
-          source: raw.source,
-          query_plan_id: raw.query_plan_id,
-          tool_name: result.tool_name,
-        },
-      });
-    }
+    const operationFacts = normalizeOperationResult({
+      raw,
+      query,
+      result,
+      queryPlan,
+    });
+    facts.push(...operationFacts.facts);
+    omitted.push(...operationFacts.omitted);
   }
 
   const limit = LIMITS.maxFacts[workflow] || LIMITS.maxFacts['doc-review'];
@@ -936,6 +1334,293 @@ function normalizeRawFacts(raw, queryPlan, workflow) {
     omitted_facts: omitted,
     reason_code: finalFacts.length > 0 ? reasonCode : 'provider_result_no_usable_facts',
   };
+}
+
+function normalizeOperationResult({ raw, query, result, queryPlan }) {
+  if (!query) {
+    return { facts: [], omitted: [{ query_id: result.query_id, reason_code: 'provider_raw_result_query_mismatch' }] };
+  }
+  if (query.operation === 'query') {
+    return normalizeQueryResult({ raw, query, result, queryPlan });
+  }
+  if (query.operation === 'context') {
+    return normalizeContextResult({ raw, query, result, queryPlan });
+  }
+  if (query.operation === 'impact') {
+    return normalizeImpactResult({ raw, query, result, queryPlan });
+  }
+  if (query.operation === 'detect_changes') {
+    return normalizeDetectChangesResult({ raw, query, result, queryPlan });
+  }
+  return { facts: [], omitted: [{ query_id: result.query_id, reason_code: 'operation_not_allowed' }] };
+}
+
+function normalizeQueryResult({ raw, query, result, queryPlan }) {
+  const facts = [];
+  const response = result.response || {};
+  if (Array.isArray(response.facts)) {
+    for (const fact of response.facts) {
+      const normalized = normalizeProviderFact(fact, query, result, queryPlan, raw.source);
+      if (normalized) facts.push(normalized);
+    }
+  }
+  const graphItems = []
+    .concat(Array.isArray(response.process_symbols) ? response.process_symbols : [])
+    .concat(Array.isArray(response.definitions) ? response.definitions : []);
+  for (const item of graphItems) {
+    const sourcePath = normalizeProviderSourcePath(item.filePath || item.source_path, queryPlan.target_repo);
+    if (!sourcePath) continue;
+    const lineWindow = coerceLineWindow({
+      start: item.startLine ?? item.start ?? 1,
+      end: item.endLine ?? item.end ?? item.startLine ?? item.start ?? 1,
+    });
+    if (!lineWindow) continue;
+    facts.push({
+      provider: query.provider,
+      query_id: query.query_id,
+      operation: 'query',
+      fact_kind: 'query_symbol',
+      repo_scope: path.basename(queryPlan.target_repo || ''),
+      target_refs: query.target_refs,
+      source_path: sourcePath,
+      line_window: lineWindow,
+      excerpt: truncateExcerpt(`${item.name || path.basename(sourcePath)} ${item.module ? `(${item.module})` : ''}`.trim()),
+      readiness: queryPlan.readiness,
+      tier: 'graph-fresh',
+      reason_code: 'provider_graph_symbol',
+      limitations: [],
+      redaction_status: 'none-required',
+      provenance: operationProvenance(raw, queryPlan, result),
+    });
+  }
+  return { facts, omitted: [] };
+}
+
+function normalizeContextResult({ raw, query, result, queryPlan }) {
+  const response = result.response || {};
+  const symbol = response.symbol || response.target || {};
+  const candidates = Array.isArray(response.candidates) ? response.candidates : [];
+  if (!symbol.name && candidates.length !== 1) {
+    return { facts: [], omitted: [{ query_id: result.query_id, reason_code: 'context_target_ambiguous' }] };
+  }
+  const selected = symbol.name ? symbol : candidates[0];
+  const sourcePath = normalizeProviderSourcePath(selected.filePath || selected.file_path || query.arguments.file_path, queryPlan.target_repo);
+  if (!sourcePath) {
+    return { facts: [], omitted: [{ query_id: result.query_id, reason_code: 'provider_result_no_usable_facts' }] };
+  }
+  const relationships = {
+    incoming_calls: countRelationshipItems(response.incoming && response.incoming.calls),
+    outgoing_calls: countRelationshipItems(response.outgoing && response.outgoing.calls),
+    incoming_imports: countRelationshipItems(response.incoming && response.incoming.imports),
+    outgoing_imports: countRelationshipItems(response.outgoing && response.outgoing.imports),
+    processes: Array.isArray(response.processes) ? response.processes.length : 0,
+  };
+  return {
+    facts: [compactOperationFact({
+      query,
+      result,
+      raw,
+      queryPlan,
+      fact_kind: 'context_symbol',
+      reason_code: 'provider_context_symbol',
+      target_refs: query.target_refs,
+      source_reads_required: uniqueRepoPaths([sourcePath]),
+      redaction_status: 'none-required',
+      summary: compactSummary([
+        `context ${selected.name || query.arguments.name}`,
+        `${relationships.incoming_calls} incoming calls`,
+        `${relationships.outgoing_calls} outgoing calls`,
+      ]),
+      extra: {
+        symbol: {
+          uid: normalizeNonEmptyString(selected.uid),
+          name: normalizeNonEmptyString(selected.name || query.arguments.name),
+          kind: normalizeNonEmptyString(selected.kind || query.arguments.kind),
+          file_path: sourcePath,
+          line_window: coerceLineWindow({
+            start: selected.startLine ?? selected.start ?? 1,
+            end: selected.endLine ?? selected.end ?? selected.startLine ?? selected.start ?? 1,
+          }) || undefined,
+        },
+        disambiguation_status: candidates.length > 1 ? 'ambiguous' : 'resolved',
+        relationships,
+      },
+    })],
+    omitted: [],
+  };
+}
+
+function normalizeImpactResult({ raw, query, result, queryPlan }) {
+  const response = result.response || {};
+  const byDepth = response.byDepth && typeof response.byDepth === 'object' ? response.byDepth : {};
+  const byDepthCounts = {};
+  const sourceCandidates = [];
+  for (const [depth, items] of Object.entries(byDepth)) {
+    if (Array.isArray(items)) {
+      byDepthCounts[depth] = items.length;
+      for (const item of items.slice(0, LIMITS.maxSummaryItems)) {
+        sourceCandidates.push(item.filePath || item.path || item.file);
+      }
+    }
+  }
+  const affectedProcesses = normalizeNamedFileList(response.affected_processes);
+  const affectedModules = normalizeNamedList(response.affected_modules);
+  const targetPath = response.target && (response.target.filePath || response.target.file_path);
+  const sourceReads = uniqueRepoPaths([
+    query.arguments.file_path,
+    targetPath,
+    ...affectedProcesses.map((item) => item.file_path),
+    ...sourceCandidates,
+  ], queryPlan.target_repo);
+  return {
+    facts: [compactOperationFact({
+      query,
+      result,
+      raw,
+      queryPlan,
+      fact_kind: 'impact_summary',
+      reason_code: 'provider_impact_summary',
+      target_refs: query.target_refs,
+      source_reads_required: sourceReads,
+      redaction_status: 'redacted',
+      limitations: ['impact_detail_summary_only'],
+      summary: compactSummary([
+        `impact risk ${response.risk || 'unknown'}`,
+        `${Number(response.summary && response.summary.direct) || 0} direct`,
+        `${Number(response.summary && response.summary.processes_affected) || affectedProcesses.length} processes`,
+      ]),
+      extra: {
+        risk: normalizeNonEmptyString(response.risk) || 'unknown',
+        affected_modules: affectedModules,
+        affected_processes: affectedProcesses,
+        by_depth_counts: byDepthCounts,
+        omitted_detail_reason: 'impact_detail_summary_only',
+      },
+    })],
+    omitted: [],
+  };
+}
+
+function normalizeDetectChangesResult({ raw, query, result, queryPlan }) {
+  const response = result.response || {};
+  const changedSymbols = normalizeNamedFileList(response.changed_symbols || response.changedSymbols);
+  const affectedProcesses = normalizeNamedFileList(response.affected_processes || response.affectedProcesses);
+  const summary = response.summary && typeof response.summary === 'object' ? response.summary : {};
+  const sourceReads = uniqueRepoPaths([
+    ...changedSymbols.map((item) => item.file_path),
+    ...affectedProcesses.map((item) => item.file_path),
+  ], queryPlan.target_repo);
+  return {
+    facts: [compactOperationFact({
+      query,
+      result,
+      raw,
+      queryPlan,
+      fact_kind: 'detect_changes_summary',
+      reason_code: 'provider_detect_changes_summary',
+      target_refs: query.target_refs,
+      source_reads_required: sourceReads,
+      redaction_status: 'redacted',
+      limitations: ['raw_diff_omitted'],
+      summary: compactSummary([
+        `detect_changes ${query.arguments.scope}`,
+        `${changedSymbols.length || Number(summary.changed_count) || 0} changed symbols`,
+        `${affectedProcesses.length || Number(summary.affected_count) || 0} affected processes`,
+      ]),
+      extra: {
+        scope: {
+          type: query.arguments.scope,
+          base_ref: query.arguments.base_ref || undefined,
+        },
+        changed_symbols: changedSymbols,
+        affected_processes: affectedProcesses,
+        risk: normalizeNonEmptyString(summary.risk_level || response.risk) || 'unknown',
+        raw_diff_status: 'omitted',
+      },
+    })],
+    omitted: [],
+  };
+}
+
+function compactOperationFact({ query, result, raw, queryPlan, fact_kind, reason_code, target_refs, source_reads_required, redaction_status, limitations = [], summary, extra }) {
+  return {
+    provider: query.provider,
+    query_id: query.query_id,
+    operation: query.operation,
+    fact_kind,
+    repo_scope: path.basename(queryPlan.target_repo || ''),
+    target_refs: Array.isArray(target_refs) ? target_refs.filter(Boolean) : [],
+    readiness: queryPlan.readiness,
+    tier: 'graph-fresh',
+    reason_code,
+    provenance: operationProvenance(raw, queryPlan, result),
+    limitations,
+    redaction_status,
+    summary,
+    source_reads_required,
+    ...extra,
+  };
+}
+
+function operationProvenance(raw, queryPlan, result) {
+  return {
+    source: raw.source,
+    query_plan_id: raw.query_plan_id || queryPlan.query_plan_id,
+    tool_name: result.tool_name,
+    operation: result.operation,
+  };
+}
+
+function countRelationshipItems(value) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function compactSummary(items) {
+  return items
+    .map((item) => normalizeNonEmptyString(item))
+    .filter(Boolean)
+    .slice(0, LIMITS.maxSummaryItems);
+}
+
+function normalizeNamedFileList(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, LIMITS.maxSummaryItems).map((item) => {
+    const filePath = normalizeMaybeRepoPath(item.filePath || item.file_path || item.path || item.file);
+    return {
+      name: normalizeNonEmptyString(item.name),
+      kind: normalizeNonEmptyString(item.kind || item.type),
+      file_path: filePath,
+      step: Number.isInteger(item.earliest_broken_step) ? item.earliest_broken_step : undefined,
+      count: Number.isInteger(item.affected_process_count)
+        ? item.affected_process_count
+        : Number.isInteger(item.total_hits)
+          ? item.total_hits
+          : undefined,
+    };
+  }).filter((item) => item.name || item.file_path);
+}
+
+function normalizeNamedList(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, LIMITS.maxSummaryItems).map((item) => ({
+    name: normalizeNonEmptyString(item.name),
+    hits: Number.isInteger(item.hits) ? item.hits : undefined,
+    impact: normalizeNonEmptyString(item.impact),
+  })).filter((item) => item.name);
+}
+
+function uniqueRepoPaths(paths, targetRepo) {
+  const unique = [];
+  const seen = new Set();
+  for (const candidate of paths) {
+    const normalized = targetRepo
+      ? normalizeProviderSourcePath(candidate, targetRepo)
+      : normalizeMaybeRepoPath(candidate);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    unique.push(normalized);
+  }
+  return unique.slice(0, LIMITS.maxSummaryItems);
 }
 
 function normalizeProviderFact(fact, query, result, queryPlan, source) {
@@ -957,6 +1642,10 @@ function normalizeProviderFact(fact, query, result, queryPlan, source) {
   return {
     provider: query.provider,
     query_id: query.query_id,
+    operation: 'query',
+    fact_kind: 'query_symbol',
+    repo_scope: path.basename(queryPlan.target_repo || ''),
+    target_refs: query.target_refs,
     target: targetPath,
     source_path: sourcePath,
     anchor,
@@ -965,6 +1654,8 @@ function normalizeProviderFact(fact, query, result, queryPlan, source) {
     readiness: normalizeReadiness(fact.readiness, 'graph-fresh'),
     tier: normalizeTier(fact.tier, 'graph-fresh'),
     reason_code: fact.reason_code || 'provider_fact',
+    limitations: [],
+    redaction_status: 'none-required',
     provenance: {
       provider_metadata: provenance,
       source: source || 'live-mcp',
@@ -1006,7 +1697,7 @@ function validateProviderResults(results) {
   if (!results || results.schema_version !== 'review-pre-facts-provider-results.v1') {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider results schema_version is invalid' };
   }
-  if (!['doc-review', 'code-review'].includes(results.workflow)) {
+  if (!WORKFLOWS.has(results.workflow)) {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider results workflow is invalid' };
   }
   if (results.source !== 'live-mcp' || !results.query_plan_id) {
@@ -1022,36 +1713,177 @@ function validateProviderResults(results) {
     return { ok: false, reason_code: 'provider_result_no_usable_facts', message: 'provider results contains no facts' };
   }
   for (const fact of results.facts) {
-    const anchor = normalizeNonEmptyString(fact.anchor);
-    const lineWindowPresent = Object.prototype.hasOwnProperty.call(fact, 'line_window');
-    const lineWindowValid = lineWindowPresent && isValidLineWindow(fact.line_window);
-    const hasAnchor = anchor || lineWindowValid;
-    const expectedSource = results.source || 'live-mcp';
-    const sourcePath = normalizeProviderSourcePath(fact.source_path, results.target_repo || process.cwd());
-    const targetPath = fact.target ? normalizeProviderSourcePath(fact.target, results.target_repo || process.cwd()) : undefined;
-    if (lineWindowPresent && !lineWindowValid) {
-      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact line_window is invalid' };
+    const common = validateProviderFactCommon(fact, results);
+    if (!common.ok) return common;
+    const kind = fact.fact_kind || 'query_symbol';
+    if (kind === 'query_symbol') {
+      const queryValidation = validateQuerySymbolFact(fact, results);
+      if (!queryValidation.ok) return queryValidation;
+      continue;
     }
-    if (!READINESS.has(fact.readiness) || !TIERS.has(fact.tier)) {
-      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact readiness/tier is invalid' };
+    if (kind === 'context_symbol') {
+      const contextValidation = validateContextSymbolFact(fact, results);
+      if (!contextValidation.ok) return contextValidation;
+      continue;
     }
-    if (typeof fact.excerpt !== 'string' || fact.excerpt.length === 0 || fact.excerpt.length > LIMITS.perExcerptChars) {
-      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact excerpt is invalid' };
+    if (kind === 'impact_summary') {
+      const impactValidation = validateImpactSummaryFact(fact, results);
+      if (!impactValidation.ok) return impactValidation;
+      continue;
     }
-    if (!fact.provider || !(fact.query_id || fact.target) || !sourcePath || (fact.target && !targetPath) || !hasAnchor || !fact.reason_code) {
-      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact lacks required contract fields' };
+    if (kind === 'detect_changes_summary') {
+      const changesValidation = validateDetectChangesSummaryFact(fact, results);
+      if (!changesValidation.ok) return changesValidation;
+      continue;
     }
-    if (!fact.provenance || typeof fact.provenance !== 'object') {
-      return { ok: false, reason_code: 'provider_result_missing_provenance', message: 'provider fact lacks provenance' };
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact_kind is invalid' };
+  }
+  return { ok: true };
+}
+
+function validateProviderFactCommon(fact, results) {
+  const expectedSource = results.source || 'live-mcp';
+  const kind = fact.fact_kind || 'query_symbol';
+  if (!fact || typeof fact !== 'object' || !fact.provider || !(fact.query_id || fact.target) || !fact.reason_code) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact lacks required contract fields' };
+  }
+  if (!FACT_KINDS.has(kind)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact_kind is invalid' };
+  }
+  if (!READINESS.has(fact.readiness) || !TIERS.has(fact.tier)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact readiness/tier is invalid' };
+  }
+  if (!fact.provenance || typeof fact.provenance !== 'object') {
+    return { ok: false, reason_code: 'provider_result_missing_provenance', message: 'provider fact lacks provenance' };
+  }
+  if (!fact.provenance.source || !fact.provenance.query_plan_id || !fact.provenance.tool_name) {
+    return { ok: false, reason_code: 'provider_result_missing_provenance', message: 'provider fact lacks provenance source/query_plan_id/tool_name' };
+  }
+  if (fact.provenance.source !== expectedSource || fact.provenance.query_plan_id !== results.query_plan_id) {
+    return { ok: false, reason_code: 'provider_result_missing_provenance', message: 'provider fact provenance does not match provider-results envelope' };
+  }
+  if (kind !== 'query_symbol') {
+    if (!OPERATIONS.has(fact.operation) || fact.provenance.operation !== fact.operation) {
+      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider operation metadata is invalid' };
     }
-    if (!fact.provenance.source || !fact.provenance.query_plan_id || !fact.provenance.tool_name) {
-      return { ok: false, reason_code: 'provider_result_missing_provenance', message: 'provider fact lacks provenance source/query_plan_id/tool_name' };
+    if (!Array.isArray(fact.target_refs) || !Array.isArray(fact.limitations) || !REDACTION_STATUSES.has(fact.redaction_status)) {
+      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider operation fact lacks common operation fields' };
     }
-    if (fact.provenance.source !== expectedSource || fact.provenance.query_plan_id !== results.query_plan_id) {
-      return { ok: false, reason_code: 'provider_result_missing_provenance', message: 'provider fact provenance does not match provider-results envelope' };
+    const safe = validateDurableFactStrings(fact);
+    if (!safe.ok) return safe;
+  }
+  return { ok: true };
+}
+
+function validateQuerySymbolFact(fact, results) {
+  const anchor = normalizeNonEmptyString(fact.anchor);
+  const lineWindowPresent = Object.prototype.hasOwnProperty.call(fact, 'line_window');
+  const lineWindowValid = lineWindowPresent && isValidLineWindow(fact.line_window);
+  const hasAnchor = anchor || lineWindowValid;
+  const sourcePath = normalizeProviderSourcePath(fact.source_path, results.target_repo || process.cwd());
+  const targetPath = fact.target ? normalizeProviderSourcePath(fact.target, results.target_repo || process.cwd()) : undefined;
+  if (lineWindowPresent && !lineWindowValid) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact line_window is invalid' };
+  }
+  if (typeof fact.excerpt !== 'string' || fact.excerpt.length === 0 || fact.excerpt.length > LIMITS.perExcerptChars) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact excerpt is invalid' };
+  }
+  if (!sourcePath || (fact.target && !targetPath) || !hasAnchor) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'provider fact lacks required query_symbol fields' };
+  }
+  return { ok: true };
+}
+
+function validateContextSymbolFact(fact, results) {
+  if (!fact.symbol || typeof fact.symbol !== 'object' || !fact.symbol.name || !fact.symbol.file_path) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'context_symbol lacks symbol identity' };
+  }
+  if (!normalizeProviderSourcePath(fact.symbol.file_path, results.target_repo || process.cwd())) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'context_symbol symbol path is invalid' };
+  }
+  if (!['resolved', 'ambiguous', 'degraded'].includes(fact.disambiguation_status)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'context_symbol disambiguation status is invalid' };
+  }
+  if (!fact.relationships || typeof fact.relationships !== 'object' || !Array.isArray(fact.source_reads_required)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'context_symbol lacks relationship summary or source reads' };
+  }
+  return validateSourceReadsRequired(fact.source_reads_required, results);
+}
+
+function validateImpactSummaryFact(fact, results) {
+  if (!fact.risk || !Array.isArray(fact.affected_modules) || !Array.isArray(fact.affected_processes) || !fact.by_depth_counts) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'impact_summary lacks summary fields' };
+  }
+  if (!Array.isArray(fact.source_reads_required)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'impact_summary lacks source reads' };
+  }
+  return validateSourceReadsRequired(fact.source_reads_required, results);
+}
+
+function validateDetectChangesSummaryFact(fact, results) {
+  if (!fact.scope || typeof fact.scope !== 'object' || !DETECT_CHANGE_SCOPES.has(fact.scope.type)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'detect_changes_summary scope is invalid' };
+  }
+  if (fact.scope.type === 'compare' && !fact.scope.base_ref) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'detect_changes_summary compare scope lacks base_ref' };
+  }
+  if (!Array.isArray(fact.changed_symbols) || !Array.isArray(fact.affected_processes) || fact.raw_diff_status !== 'omitted') {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'detect_changes_summary lacks safe summary fields' };
+  }
+  if (!Array.isArray(fact.source_reads_required)) {
+    return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'detect_changes_summary lacks source reads' };
+  }
+  return validateSourceReadsRequired(fact.source_reads_required, results);
+}
+
+function validateSourceReadsRequired(paths, results) {
+  for (const sourcePath of paths) {
+    if (!normalizeProviderSourcePath(sourcePath, results.target_repo || process.cwd())) {
+      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'source_reads_required path is invalid' };
     }
   }
   return { ok: true };
+}
+
+function validateDurableFactStrings(fact) {
+  const strings = [];
+  collectStrings(fact, strings);
+  for (const value of strings) {
+    if (containsRawDiffHunk(value) || containsCredentialLikeText(value) || containsAbsoluteLocalPath(value)) {
+      return { ok: false, reason_code: 'provider_fact_redaction_failed', message: 'provider fact contains unsafe durable text' };
+    }
+    if (isExactRepoRelativePath(value) && isSecretDeniedPath(value)) {
+      return { ok: false, reason_code: 'provider_fact_redaction_failed', message: 'provider fact contains secret-denied path' };
+    }
+  }
+  return { ok: true };
+}
+
+function collectStrings(value, output) {
+  if (typeof value === 'string') {
+    output.push(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectStrings(item, output);
+    return;
+  }
+  if (value && typeof value === 'object') {
+    for (const item of Object.values(value)) collectStrings(item, output);
+  }
+}
+
+function containsRawDiffHunk(value) {
+  return /(^|\n)(@@\s+-\d+|\+\+\+\s|---\s|diff --git\s|\+[^\n]*\n-[^\n]*)/.test(value);
+}
+
+function containsCredentialLikeText(value) {
+  return /https?:\/\/[^/\s:@]+:[^@\s]+@/i.test(value)
+    || /\b(token|api[_-]?key|secret|password|cookie)\s*[:=]\s*[^,\s]+/i.test(value);
+}
+
+function containsAbsoluteLocalPath(value) {
+  return /(^|\s)(\/Users\/|\/home\/|\/private\/|[A-Za-z]:[\\/])/.test(value);
 }
 
 function validateProviderResultsSnapshot(results) {
@@ -1074,16 +1906,19 @@ function validateProviderResultsSnapshot(results) {
 }
 
 function extractTargets(options) {
+  const explicitTargets = [];
+  if (options.symbolFile) explicitTargets.push(options.symbolFile);
+  if (options.impactTarget && looksLikePath(options.impactTarget)) explicitTargets.push(options.impactTarget);
   if (options.workflow === 'code-review') {
-    return parsePathList(options.changedFiles || '');
+    return [...explicitTargets, ...parsePathList(options.changedFiles || '')];
   }
-  if (!options.document) return [];
+  if (!options.document) return explicitTargets;
   const documentFile = resolveReadableRepoFile(options.repoRoot, options.document, {
     maxBytes: LIMITS.maxDocumentBytes,
   });
-  if (!documentFile.ok) return [];
+  if (!documentFile.ok) return explicitTargets;
   const content = fs.readFileSync(documentFile.real, 'utf8');
-  return extractTargetsFromDocument(content);
+  return [...explicitTargets, ...extractTargetsFromDocument(content)];
 }
 
 function extractTargetsFromDocument(content) {
@@ -1101,6 +1936,9 @@ function extractTargetsFromDocument(content) {
   const lineRegex = /(?:Sources? & References|Context & Research|Context & Evidence|Patterns to follow|Files?|文件|上下文与依据|上下文与研究|来源与参考|参考资料|Patterns to follow：|文件：)[^:\n：]*[:：]\s*(.+)$/gim;
   while ((match = lineRegex.exec(content)) !== null) {
     add(match[1]);
+  }
+  for (const symbolTarget of parseSymbolTargetsFromDocument(content)) {
+    if (symbolTarget.file_path) add(symbolTarget.file_path);
   }
   const unique = [];
   const seen = new Set();
@@ -1284,8 +2122,10 @@ function renderFactsBlock(input) {
     reasonCode = 'provider_fact_budget_truncated';
     omittedTargets = appendFactBudgetSummary(omittedTargets, factBudgetTruncated);
   }
-  let block = buildFactsBlock({
+  const buildBlock = ['plan', 'debug'].includes(workflow) ? buildNeutralFactsBlock : buildFactsBlock;
+  let block = buildBlock({
     ...input,
+    workflow,
     readiness,
     tier,
     reason_code: reasonCode,
@@ -1298,8 +2138,9 @@ function renderFactsBlock(input) {
     tier = tier === 'graph-fresh' ? 'graph-fresh' : tier;
     reasonCode = 'provider_fact_budget_truncated';
     omittedTargets = appendFactBudgetSummary(omittedTargets, factBudgetTruncated);
-    block = buildFactsBlock({
+    block = buildBlock({
       ...input,
+      workflow,
       readiness,
       tier,
       reason_code: reasonCode,
@@ -1313,8 +2154,9 @@ function renderFactsBlock(input) {
     omittedTargets = omittedTargets.slice(0, -1);
     omittedTargetBudgetTruncated += Number.isInteger(omitted.count) ? omitted.count : 1;
     reasonCode = 'omitted_targets_budget_truncated';
-    block = buildFactsBlock({
+    block = buildBlock({
       ...input,
+      workflow,
       readiness,
       tier,
       reason_code: reasonCode,
@@ -1330,9 +2172,16 @@ function renderFactsBlock(input) {
     readiness,
     tier,
     reason_code: reasonCode,
-    targets_read: facts.map((fact) => fact.source_path).filter(Boolean),
+    targets_read: sourceReadsFromFacts(facts),
     targets_omitted: omittedTargets,
   };
+}
+
+function sourceReadsFromFacts(facts) {
+  return uniqueRepoPaths(facts.flatMap((fact) => {
+    if (Array.isArray(fact.source_reads_required)) return fact.source_reads_required;
+    return [fact.source_path].filter(Boolean);
+  }));
 }
 
 function appendFactBudgetSummary(omittedTargets, count) {
@@ -1372,13 +2221,21 @@ function buildFactsBlock(input) {
   } else {
     lines.push('<facts>');
     for (const fact of input.facts) {
-      const anchor = fact.line_window
-        ? `${fact.line_window.start}-${fact.line_window.end}`
-        : fact.anchor || 'unknown';
-      lines.push(`- provider=${xmlEscape(fact.provider || 'unknown')} source=${xmlEscape(fact.source_path || fact.target || 'unknown')} anchor=${xmlEscape(String(anchor))} reason=${xmlEscape(fact.reason_code || 'unknown')}`);
-      lines.push('  <excerpt>');
-      lines.push(indent(xmlEscape(truncateExcerpt(fact.excerpt || ''))));
-      lines.push('  </excerpt>');
+      const kind = fact.fact_kind || 'query_symbol';
+      if (kind === 'query_symbol') {
+        const anchor = fact.line_window
+          ? `${fact.line_window.start}-${fact.line_window.end}`
+          : fact.anchor || 'unknown';
+        lines.push(`- provider=${xmlEscape(fact.provider || 'unknown')} operation=${xmlEscape(fact.operation || 'query')} fact_kind=${xmlEscape(kind)} source=${xmlEscape(fact.source_path || fact.target || 'unknown')} anchor=${xmlEscape(String(anchor))} reason=${xmlEscape(fact.reason_code || 'unknown')}`);
+        lines.push('  <excerpt>');
+        lines.push(indent(xmlEscape(truncateExcerpt(fact.excerpt || ''))));
+        lines.push('  </excerpt>');
+      } else {
+        lines.push(`- provider=${xmlEscape(fact.provider || 'unknown')} operation=${xmlEscape(fact.operation || 'unknown')} fact_kind=${xmlEscape(kind)} reason=${xmlEscape(fact.reason_code || 'unknown')} redaction=${xmlEscape(fact.redaction_status || 'unknown')}`);
+        lines.push('  <summary>');
+        lines.push(indent(xmlEscape(renderOperationSummary(fact))));
+        lines.push('  </summary>');
+      }
     }
     lines.push('</facts>');
   }
@@ -1394,6 +2251,117 @@ function buildFactsBlock(input) {
   }
   lines.push('</codebase-facts>');
   return `${lines.join('\n')}\n`;
+}
+
+function buildNeutralFactsBlock(input) {
+  const targetRepo = xmlEscape(input.target_repo || '');
+  const capabilities = capabilitiesUsedFromFacts(input.facts);
+  const sourceReads = sourceReadsFromFacts(input.facts);
+  const limitations = limitationsFromFacts(input.facts, input.reason_code);
+  const lines = [
+    `<codebase-facts readiness="${xmlEscape(input.readiness)}" tier="${xmlEscape(input.tier)}" reason="${xmlEscape(input.reason_code)}" workflow="${xmlEscape(input.workflow || 'plan')}" target_repo="${targetRepo}">`,
+    '<advisory-status>Graph evidence is advisory until direct source reads, tests, logs, or contracts confirm the claim.</advisory-status>',
+    '<capabilities-used>',
+  ];
+  if (capabilities.length === 0) {
+    lines.push('- none');
+  } else {
+    for (const capability of capabilities) lines.push(`- ${xmlEscape(capability)}`);
+  }
+  lines.push('</capabilities-used>');
+  lines.push('<key-pointers>');
+  if (!input.facts || input.facts.length === 0) {
+    lines.push('- none');
+  } else {
+    for (const fact of input.facts) {
+      lines.push(`- ${xmlEscape(renderOperationSummary(fact))}`);
+    }
+  }
+  lines.push('</key-pointers>');
+  lines.push('<source-reads-required>');
+  if (sourceReads.length === 0) {
+    lines.push('- none');
+  } else {
+    for (const sourcePath of sourceReads) lines.push(`- ${xmlEscape(sourcePath)}`);
+  }
+  lines.push('</source-reads-required>');
+  lines.push('<limitations>');
+  if (limitations.length === 0) {
+    lines.push('- none');
+  } else {
+    for (const limitation of limitations) lines.push(`- ${xmlEscape(limitation)}`);
+  }
+  lines.push('</limitations>');
+  lines.push('</codebase-facts>');
+  return `${lines.join('\n')}\n`;
+}
+
+function renderOperationSummary(fact) {
+  const kind = fact.fact_kind || 'query_symbol';
+  if (kind === 'query_symbol') {
+    return `${kind} ${fact.source_path || fact.target || 'unknown'} ${fact.reason_code || 'unknown'}`.trim();
+  }
+  if (Array.isArray(fact.summary) && fact.summary.length > 0) {
+    return `${kind} ${fact.summary.join('; ')}`;
+  }
+  if (kind === 'context_symbol' && fact.symbol) {
+    return `${kind} ${fact.symbol.name || 'unknown'} -> ${fact.symbol.file_path || 'unknown'}`;
+  }
+  if (kind === 'impact_summary') {
+    return `${kind} risk ${fact.risk || 'unknown'}`;
+  }
+  if (kind === 'detect_changes_summary') {
+    return `${kind} scope ${fact.scope && fact.scope.type ? fact.scope.type : 'unknown'}`;
+  }
+  return `${kind} ${fact.reason_code || 'unknown'}`;
+}
+
+function capabilitiesUsedFromFacts(facts) {
+  return [...new Set((Array.isArray(facts) ? facts : [])
+    .map((fact) => fact.operation || (fact.fact_kind === 'query_symbol' ? 'query' : undefined))
+    .filter(Boolean))]
+    .sort();
+}
+
+function limitationsFromFacts(facts, fallback) {
+  const values = [];
+  for (const fact of Array.isArray(facts) ? facts : []) {
+    if (Array.isArray(fact.limitations)) values.push(...fact.limitations);
+  }
+  if (values.length === 0 && fallback) values.push(fallback);
+  return [...new Set(values)].slice(0, LIMITS.maxSummaryItems);
+}
+
+function graphCapabilityUsage(facts, omittedFacts = []) {
+  const capabilities = capabilitiesUsedFromFacts(facts);
+  const operationCounts = {};
+  for (const operation of Object.keys(OPERATION_TOOL_NAMES)) operationCounts[operation] = 0;
+  for (const fact of Array.isArray(facts) ? facts : []) {
+    const operation = fact.operation || (fact.fact_kind === 'query_symbol' ? 'query' : undefined);
+    if (operation && Object.prototype.hasOwnProperty.call(operationCounts, operation)) {
+      operationCounts[operation] += 1;
+    }
+  }
+  const degradedReasonCounts = {};
+  for (const omitted of Array.isArray(omittedFacts) ? omittedFacts : []) {
+    const reason = omitted.reason_code || 'unknown';
+    degradedReasonCounts[reason] = (degradedReasonCounts[reason] || 0) + (Number.isInteger(omitted.count) ? omitted.count : 1);
+  }
+  const sourceReadsRequired = sourceReadsFromFacts(facts);
+  const redactionValues = new Set((Array.isArray(facts) ? facts : [])
+    .map((fact) => fact.redaction_status)
+    .filter(Boolean));
+  return {
+    capabilities_used: capabilities,
+    operation_counts: operationCounts,
+    degraded_reason_counts: degradedReasonCounts,
+    source_reads_required_count: sourceReadsRequired.length,
+    redaction_status: redactionValues.has('redaction-degraded')
+      ? 'redaction-degraded'
+      : redactionValues.has('redacted')
+        ? 'redacted'
+        : 'none-required',
+  };
 }
 
 function normalizeReadiness(value, fallback) {
@@ -1458,6 +2426,9 @@ function recordInvocationEvent(options, event) {
   if (event.normalization_result) {
     summary.normalization_result = event.normalization_result;
   }
+  if (event.graph_capability_usage) {
+    summary.graph_capability_usage = event.graph_capability_usage;
+  }
   if (Array.isArray(event.temp_artifacts)) {
     summary.temp_artifacts = [...new Set([...(summary.temp_artifacts || []), ...event.temp_artifacts])];
   }
@@ -1478,6 +2449,9 @@ function recordFinalSummary(options, finalFields) {
   summary.targets_omitted = finalFields.targets_omitted || [];
   if (finalFields.normalization_result !== undefined && finalFields.normalization_result !== null) {
     summary.normalization_result = finalFields.normalization_result;
+  }
+  if (finalFields.graph_capability_usage) {
+    summary.graph_capability_usage = finalFields.graph_capability_usage;
   }
   summary.placeholder_rendered = finalFields.placeholder_rendered === true;
   summary.temp_artifacts = [...new Set([...(summary.temp_artifacts || []), ...(finalFields.temp_artifacts || [])])];
@@ -1501,6 +2475,7 @@ function readRunSummary(options) {
     targets_read: [],
     targets_omitted: [],
     normalization_result: null,
+    graph_capability_usage: null,
     placeholder_rendered: false,
     temp_artifacts: [],
   };
