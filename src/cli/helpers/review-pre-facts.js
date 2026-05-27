@@ -1500,7 +1500,7 @@ function normalizeImpactResult({ raw, query, result, queryPlan }) {
       }
     }
   }
-  const affectedProcesses = normalizeNamedFileList(response.affected_processes);
+  const affectedProcesses = normalizeNamedFileList(response.affected_processes, queryPlan.target_repo);
   const affectedModules = normalizeNamedList(response.affected_modules);
   const targetPath = response.target && (response.target.filePath || response.target.file_path);
   const directCount = ownNumber(impactSummary, 'direct');
@@ -1566,8 +1566,8 @@ function normalizeDetectChangesResult({ raw, query, result, queryPlan }) {
     : Array.isArray(response.affectedProcesses)
       ? response.affectedProcesses
       : undefined;
-  const changedSymbols = normalizeNamedFileList(changedSymbolsRaw);
-  const affectedProcesses = normalizeNamedFileList(affectedProcessesRaw);
+  const changedSymbols = normalizeNamedFileList(changedSymbolsRaw, queryPlan.target_repo);
+  const affectedProcesses = normalizeNamedFileList(affectedProcessesRaw, queryPlan.target_repo);
   const summary = response.summary && typeof response.summary === 'object' ? response.summary : {};
   const changedCount = ownNumber(summary, 'changed_count');
   const affectedCount = ownNumber(summary, 'affected_count');
@@ -1642,8 +1642,8 @@ function hasUsableImpactEvidence(response) {
 
 function hasUsableDetectChangesEvidence(response) {
   if (!response || typeof response !== 'object' || Array.isArray(response)) return false;
-  if (Array.isArray(response.changed_symbols) || Array.isArray(response.changedSymbols)) return true;
-  if (Array.isArray(response.affected_processes) || Array.isArray(response.affectedProcesses)) return true;
+  if (hasAnyItems(response.changed_symbols) || hasAnyItems(response.changedSymbols)) return true;
+  if (hasAnyItems(response.affected_processes) || hasAnyItems(response.affectedProcesses)) return true;
   if (hasAnyOwnNumber(response.summary, ['changed_count', 'affected_count', 'risk_count', 'total'])) return true;
   return isNoChangesStatus(response.status);
 }
@@ -1716,14 +1716,17 @@ function compactSummary(items) {
     .slice(0, LIMITS.maxSummaryItems);
 }
 
-function normalizeNamedFileList(value) {
+function normalizeNamedFileList(value, targetRepo) {
   if (!Array.isArray(value)) return [];
   return value.slice(0, LIMITS.maxSummaryItems).map((item) => {
-    const filePath = normalizeMaybeRepoPath(item.filePath || item.file_path || item.path || item.file);
+    const rawPath = item.filePath || item.file_path || item.path || item.file;
+    const filePath = targetRepo
+      ? normalizeProviderSourcePath(rawPath, targetRepo)
+      : normalizeMaybeRepoPath(rawPath);
     return {
       name: normalizeNonEmptyString(item.name),
       kind: normalizeNonEmptyString(item.kind || item.type),
-      file_path: filePath,
+      file_path: filePath || undefined,
       step: Number.isInteger(item.earliest_broken_step) ? item.earliest_broken_step : undefined,
       count: Number.isInteger(item.affected_process_count)
         ? item.affected_process_count
@@ -2005,6 +2008,8 @@ function validateImpactSummaryFact(fact, results) {
   if (!fact.risk || !Array.isArray(fact.affected_modules) || !Array.isArray(fact.affected_processes) || !fact.by_depth_counts) {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'impact_summary lacks summary fields' };
   }
+  const listValidation = validateNamedFileListPaths(fact.affected_processes, results);
+  if (!listValidation.ok) return listValidation;
   if (!Array.isArray(fact.source_reads_required)) {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'impact_summary lacks source reads' };
   }
@@ -2024,6 +2029,10 @@ function validateDetectChangesSummaryFact(fact, results) {
   if (!Array.isArray(fact.changed_symbols) || !Array.isArray(fact.affected_processes) || fact.raw_diff_status !== 'omitted') {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'detect_changes_summary lacks safe summary fields' };
   }
+  const changedValidation = validateNamedFileListPaths(fact.changed_symbols, results);
+  if (!changedValidation.ok) return changedValidation;
+  const processValidation = validateNamedFileListPaths(fact.affected_processes, results);
+  if (!processValidation.ok) return processValidation;
   if (!Array.isArray(fact.source_reads_required)) {
     return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'detect_changes_summary lacks source reads' };
   }
@@ -2034,6 +2043,15 @@ function validateSourceReadsRequired(paths, results) {
   for (const sourcePath of paths) {
     if (!normalizeProviderSourcePath(sourcePath, results.target_repo || process.cwd())) {
       return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'source_reads_required path is invalid' };
+    }
+  }
+  return { ok: true };
+}
+
+function validateNamedFileListPaths(items, results) {
+  for (const item of Array.isArray(items) ? items : []) {
+    if (item && item.file_path && !normalizeProviderSourcePath(item.file_path, results.target_repo || process.cwd())) {
+      return { ok: false, reason_code: 'provider_results_schema_invalid', message: 'summary file_path is invalid' };
     }
   }
   return { ok: true };
@@ -2083,7 +2101,7 @@ function looksLikeRepoPath(value) {
 }
 
 function containsRawDiffHunk(value) {
-  return /(^|\n)(@@\s+-\d+|\+\+\+\s|---\s|diff --git\s|\+[^\n]*\n-[^\n]*)/.test(value);
+  return /(^|\n)(@@\s+-\d+|\+\+\+\s|---\s|diff --git\s|\+[^\n]*\n-[^\n]*|-[^\n]*\n\+[^\n]*)/.test(value);
 }
 
 function containsCredentialLikeText(value) {

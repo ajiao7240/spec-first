@@ -909,7 +909,10 @@ describe('review-pre-facts helper modes', () => {
             operation: 'detect_changes',
             arguments: queryPlan.queries[1].arguments,
             status: 'ok',
-            response: {},
+            response: {
+              changed_symbols: [],
+              affected_processes: [],
+            },
           },
         ],
       }, null, 2)}\n`, 'utf8');
@@ -1023,6 +1026,80 @@ describe('review-pre-facts helper modes', () => {
     }
   });
 
+  test('normalize-provider-results rejects empty detect_changes arrays without explicit zero evidence', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      const queryPlanPath = path.join(dir, 'query-plan.json');
+      const rawPath = path.join(dir, 'provider-raw-result.json');
+      const providerResultsPath = path.join(dir, 'provider-results.json');
+      const queryPlan = {
+        schema_version: 'review-pre-facts-query-plan.v1',
+        workflow: 'plan',
+        target_repo: repo,
+        query_plan_id: 'qplan-empty-detect-changes-arrays',
+        readiness: 'graph-fresh',
+        tier: 'graph-fresh',
+        reason_code: 'provider_query_plan_rendered',
+        snapshot: currentRepoSnapshot(repo),
+        targets: [],
+        queries: [
+          {
+            query_id: 'q1',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.detect_changes',
+            operation: 'detect_changes',
+            arguments: {
+              repo: path.basename(repo),
+              scope: 'all',
+            },
+            target_refs: ['scope:all'],
+            max_results: 1,
+            reason_code: 'provider_detect_changes_surface_available',
+            fallback_reason_code: 'detect_changes_scope_missing',
+          },
+        ],
+        direct_read_candidates: [],
+      };
+      fs.writeFileSync(queryPlanPath, `${JSON.stringify(queryPlan, null, 2)}\n`, 'utf8');
+      fs.writeFileSync(rawPath, `${JSON.stringify({
+        schema_version: 'review-pre-facts-provider-raw-result.v1',
+        source: 'live-mcp',
+        query_plan_id: queryPlan.query_plan_id,
+        raw_results: [
+          {
+            query_id: 'q1',
+            tool_name: 'gitnexus.detect_changes',
+            operation: 'detect_changes',
+            arguments: queryPlan.queries[0].arguments,
+            status: 'ok',
+            response: {
+              changed_symbols: [],
+              affected_processes: [],
+            },
+          },
+        ],
+      }, null, 2)}\n`, 'utf8');
+
+      const normalized = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'plan',
+        '--repo', repo,
+        '--query-plan', queryPlanPath,
+        '--raw-result', rawPath,
+        '--source', 'live-mcp',
+        '--output', providerResultsPath,
+        '--run-id', runId,
+        '--summary-dir', dir,
+      ], repo);
+
+      expect(normalized.code).toBe(1);
+      expect(normalized.json.error.code).toBe('provider_result_no_usable_facts');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test('normalize-provider-results accepts explicit zero detect_changes evidence and records worktree scope', () => {
     const repo = tempRepo();
     const { runId, dir } = tempRun();
@@ -1103,6 +1180,153 @@ describe('review-pre-facts helper modes', () => {
         affected_processes: [],
       }));
       expect(validateProviderResults(providerResults).ok).toBe(true);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('normalize-provider-results validates nested operation file pointers and reverse diff hunks', () => {
+    const repo = tempRepo();
+    try {
+      const { runId, dir } = tempRun();
+      const queryPlanPath = path.join(dir, 'query-plan.json');
+      const rawPath = path.join(dir, 'provider-raw-result.json');
+      const providerResultsPath = path.join(dir, 'provider-results.json');
+      const queryPlan = {
+        schema_version: 'review-pre-facts-query-plan.v1',
+        workflow: 'plan',
+        target_repo: repo,
+        query_plan_id: 'qplan-operation-pointer-safety',
+        readiness: 'graph-fresh',
+        tier: 'graph-fresh',
+        reason_code: 'provider_query_plan_rendered',
+        snapshot: currentRepoSnapshot(repo),
+        targets: [],
+        queries: [
+          {
+            query_id: 'q1',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.detect_changes',
+            operation: 'detect_changes',
+            arguments: {
+              repo: path.basename(repo),
+              scope: 'all',
+            },
+            target_refs: ['scope:all'],
+            max_results: 1,
+            reason_code: 'provider_detect_changes_surface_available',
+            fallback_reason_code: 'detect_changes_scope_missing',
+          },
+        ],
+        direct_read_candidates: [],
+      };
+      fs.writeFileSync(queryPlanPath, `${JSON.stringify(queryPlan, null, 2)}\n`, 'utf8');
+      fs.writeFileSync(rawPath, `${JSON.stringify({
+        schema_version: 'review-pre-facts-provider-raw-result.v1',
+        source: 'live-mcp',
+        query_plan_id: queryPlan.query_plan_id,
+        raw_results: [
+          {
+            query_id: 'q1',
+            tool_name: 'gitnexus.detect_changes',
+            operation: 'detect_changes',
+            arguments: queryPlan.queries[0].arguments,
+            status: 'ok',
+            response: {
+              summary: { changed_count: 1, affected_count: 0 },
+              changed_symbols: [
+                { name: 'ghostSymbol', filePath: 'src/cli/missing-provider-source.js' },
+              ],
+              affected_processes: [],
+            },
+          },
+        ],
+      }, null, 2)}\n`, 'utf8');
+
+      const normalized = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'plan',
+        '--repo', repo,
+        '--query-plan', queryPlanPath,
+        '--raw-result', rawPath,
+        '--source', 'live-mcp',
+        '--output', providerResultsPath,
+        '--run-id', runId,
+        '--summary-dir', dir,
+      ], repo);
+
+      expect(normalized.code).toBe(0);
+      const providerResults = JSON.parse(fs.readFileSync(providerResultsPath, 'utf8'));
+      expect(providerResults.facts[0].changed_symbols[0]).toEqual(expect.objectContaining({
+        name: 'ghostSymbol',
+      }));
+      expect(providerResults.facts[0].changed_symbols[0]).not.toHaveProperty('file_path');
+      expect(validateProviderResults(providerResults).ok).toBe(true);
+
+      providerResults.facts[0].changed_symbols[0].file_path = 'src/cli/missing-provider-source.js';
+      expect(validateProviderResults(providerResults)).toEqual(expect.objectContaining({
+        ok: false,
+        reason_code: 'provider_results_schema_invalid',
+      }));
+
+      const { runId: diffRunId, dir: diffDir } = tempRun();
+      const diffQueryPlanPath = path.join(diffDir, 'query-plan.json');
+      const diffRawPath = path.join(diffDir, 'provider-raw-result.json');
+      const diffOutputPath = path.join(diffDir, 'provider-results.json');
+      const diffPlan = {
+        ...queryPlan,
+        query_plan_id: 'qplan-reverse-diff-hunk',
+        queries: [
+          {
+            query_id: 'q1',
+            provider: 'gitnexus',
+            tool_name: 'gitnexus.impact',
+            operation: 'impact',
+            arguments: {
+              repo: path.basename(repo),
+              target: 'runCli',
+              direction: 'upstream',
+            },
+            target_refs: ['runCli'],
+            max_results: 1,
+            reason_code: 'provider_impact_surface_available',
+            fallback_reason_code: 'impact_target_unavailable',
+          },
+        ],
+      };
+      fs.writeFileSync(diffQueryPlanPath, `${JSON.stringify(diffPlan, null, 2)}\n`, 'utf8');
+      fs.writeFileSync(diffRawPath, `${JSON.stringify({
+        schema_version: 'review-pre-facts-provider-raw-result.v1',
+        source: 'live-mcp',
+        query_plan_id: diffPlan.query_plan_id,
+        raw_results: [
+          {
+            query_id: 'q1',
+            tool_name: 'gitnexus.impact',
+            operation: 'impact',
+            arguments: diffPlan.queries[0].arguments,
+            status: 'ok',
+            response: {
+              risk: 'LOW\n-old secret\n+new secret',
+            },
+          },
+        ],
+      }, null, 2)}\n`, 'utf8');
+
+      const unsafe = captureRun([
+        '--mode', 'normalize-provider-results',
+        '--workflow', 'plan',
+        '--repo', repo,
+        '--query-plan', diffQueryPlanPath,
+        '--raw-result', diffRawPath,
+        '--source', 'live-mcp',
+        '--output', diffOutputPath,
+        '--run-id', diffRunId,
+        '--summary-dir', diffDir,
+      ], repo);
+
+      expect(unsafe.code).toBe(1);
+      expect(unsafe.json.error.code).toBe('provider_fact_redaction_failed');
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }

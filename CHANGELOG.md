@@ -1,6 +1,7 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-27 14:04:54 leokuang: fix(review-pre-facts): 修复 code-review 发现的 provider fact 边界残留问题，空 detect_changes 数组不再被推导为 zero-change 事实，raw diff hunk 检测补齐 `-` 后 `+` 的常见顺序，并对 operation summary 中 nested `file_path` 做可读性校验或省略，防止不可 source-confirm 的路径进入 durable provider-results；同步合同和回归测试 (user-visible)
 - v1.8.2 2026-05-27 11:58:56 leokuang: fix(review-pre-facts): 补齐 provider facts normalize-stage durable string safety gate，确保 query graphItems 与 context/impact/detect_changes 合成 fact 写入 provider-results 前即过滤 raw diff、credential-like 和绝对路径文本，同时将 source_path/source_reads_required 等 repo-relative pointer 字段与 secret-name content deny 分离，避免合法 tokenUtils 类源码路径被误降级；同步合同、回归测试，校正 provider fact common/query-specific 字段边界，并将执行计划标记为 completed (user-visible)
 - v1.8.2 2026-05-27 11:27:23 leokuang: fix(review-pre-facts): 收尾 GitNexus bounded pre-facts 安全边界，补齐 raw live MCP required tool annotation proof fail-closed、query_symbol durable redaction 与 provider provenance 去原始化、空 impact/detect_changes 响应降级、缺失 count 不再默认渲染为 0、显式 change-scope/impact-target 无文件 target 仍生成对应 query plan，并在 detect_changes summary 中保留 redacted worktree scope；同步 helper contract、fixture 和回归测试 (user-visible)
 - v1.8.2 2026-05-27 11:04:57 leokuang: docs(plan): 新增 review-pre-facts provider facts boundary hardening deep plan，明确 query_symbol pointer-first、统一 durable redaction、空 impact/detect_changes 降级、operation-only prepare intent 和 GitNexus source-confirmation 边界，作为 bounded pre-facts 实现后的修复计划 (user-visible)
