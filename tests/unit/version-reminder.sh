@@ -612,16 +612,98 @@ const unavailable = buildStartupGraphReadinessSnapshot({
   projectRoot: unavailableRoot,
 });
 
+// R15c: query_ready=false fixture (canonical present but provider not ready)
+const queryUnavailableRoot = path.join(tmpDir, 'graph-snapshot-query-unavailable');
+fs.mkdirSync(queryUnavailableRoot, { recursive: true });
+runGit(queryUnavailableRoot, ['init']);
+runGit(queryUnavailableRoot, ['config', 'user.email', 'tests@example.invalid']);
+runGit(queryUnavailableRoot, ['config', 'user.name', 'Tests']);
+runGit(queryUnavailableRoot, ['config', 'commit.gpgsign', 'false']);
+fs.writeFileSync(path.join(queryUnavailableRoot, '.gitignore'), '.codex/\n.spec-first/\n', 'utf8');
+fs.writeFileSync(path.join(queryUnavailableRoot, 'src.js'), 'module.exports = 1;\n', 'utf8');
+runGit(queryUnavailableRoot, ['add', '.gitignore', 'src.js']);
+runGit(queryUnavailableRoot, ['commit', '--no-verify', '-m', 'initial']);
+const queryUnavailableRevision = runGit(queryUnavailableRoot, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
+writeRuntime(queryUnavailableRoot);
+writeJson(queryUnavailableRoot, '.spec-first/graph/provider-status.json', {
+  schema_version: 'graph-provider-status.v1',
+  ready_primary_providers: [],
+  providers: [{ provider: 'gitnexus', query_ready: false, limitations: ['provider_query_unavailable'] }],
+});
+writeJson(queryUnavailableRoot, '.spec-first/graph/graph-facts.json', {
+  schema_version: 'graph-facts.v1',
+  source_revision: queryUnavailableRevision,
+  worktree_dirty: false,
+  worktree_status_hash: `sha256:${crypto.createHash('sha256').update('').digest('hex')}`,
+  provider_summary: { ready_primary_providers: [] },
+  capabilities: { query_global_graph: false },
+});
+writeJson(queryUnavailableRoot, '.spec-first/impact/bootstrap-impact-capabilities.json', {
+  schema_version: 'bootstrap-impact-capabilities.v1',
+  capabilities: {
+    context_selection: { support_level: 'none' },
+    impact_radius: { support_level: 'none' },
+    review_support: { support_level: 'none' },
+  },
+});
+const queryUnavailable = buildStartupGraphReadinessSnapshot({
+  host: 'codex',
+  projectRoot: queryUnavailableRoot,
+});
+
+// R15c: partial impact fixture (process-results-ish capability matrix)
+const partialImpactRoot = path.join(tmpDir, 'graph-snapshot-partial-impact');
+fs.mkdirSync(partialImpactRoot, { recursive: true });
+runGit(partialImpactRoot, ['init']);
+runGit(partialImpactRoot, ['config', 'user.email', 'tests@example.invalid']);
+runGit(partialImpactRoot, ['config', 'user.name', 'Tests']);
+runGit(partialImpactRoot, ['config', 'commit.gpgsign', 'false']);
+fs.writeFileSync(path.join(partialImpactRoot, '.gitignore'), '.codex/\n.spec-first/\n', 'utf8');
+fs.writeFileSync(path.join(partialImpactRoot, 'src.js'), 'module.exports = 1;\n', 'utf8');
+runGit(partialImpactRoot, ['add', '.gitignore', 'src.js']);
+runGit(partialImpactRoot, ['commit', '--no-verify', '-m', 'initial']);
+const partialRevision = runGit(partialImpactRoot, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
+writeRuntime(partialImpactRoot);
+writeJson(partialImpactRoot, '.spec-first/graph/provider-status.json', {
+  schema_version: 'graph-provider-status.v1',
+  ready_primary_providers: ['gitnexus'],
+  providers: [{ provider: 'gitnexus', query_ready: true, limitations: [] }],
+});
+writeJson(partialImpactRoot, '.spec-first/graph/graph-facts.json', {
+  schema_version: 'graph-facts.v1',
+  source_revision: partialRevision,
+  worktree_dirty: false,
+  worktree_status_hash: `sha256:${crypto.createHash('sha256').update('').digest('hex')}`,
+  provider_summary: { ready_primary_providers: ['gitnexus'] },
+  capabilities: { query_global_graph: true },
+});
+writeJson(partialImpactRoot, '.spec-first/impact/bootstrap-impact-capabilities.json', {
+  schema_version: 'bootstrap-impact-capabilities.v1',
+  capabilities: {
+    context_selection: { support_level: 'full' },
+    impact_radius: { support_level: 'partial' },
+    review_support: { support_level: 'partial' },
+  },
+});
+const partialImpact = buildStartupGraphReadinessSnapshot({
+  host: 'codex',
+  projectRoot: partialImpactRoot,
+});
+
 process.stdout.write(JSON.stringify({
   fresh: fresh ? fresh.message : '',
   stale: stale ? stale.message : '',
   unavailable: unavailable ? unavailable.message : '',
+  queryUnavailable: queryUnavailable ? queryUnavailable.message : '',
+  partialImpact: partialImpact ? partialImpact.message : '',
 }));
 EOF
 )"
 graph_snapshot_fresh=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.fresh);" "$graph_snapshot_output")
 graph_snapshot_stale=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stale);" "$graph_snapshot_output")
 graph_snapshot_unavailable=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.unavailable);" "$graph_snapshot_output")
+graph_snapshot_query_unavailable=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.queryUnavailable);" "$graph_snapshot_output")
+graph_snapshot_partial_impact=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.partialImpact);" "$graph_snapshot_output")
 assert_contains "graph snapshot reports query readiness" "query_ready=true" "$graph_snapshot_fresh"
 assert_contains "graph snapshot reports fresh readiness" "freshness=fresh" "$graph_snapshot_fresh"
 assert_contains "graph snapshot reports capabilities" "query/context=full, impact=none, review=none" "$graph_snapshot_fresh"
@@ -630,6 +712,12 @@ assert_contains "graph snapshot reports dirty worktree" "dirty=dirty" "$graph_sn
 assert_contains "graph snapshot reports snapshot mismatch limitation" "snapshot_mismatch" "$graph_snapshot_stale"
 assert_contains "graph snapshot reports missing artifacts" "freshness=unavailable" "$graph_snapshot_unavailable"
 assert_contains "graph snapshot reports unavailable query" "query_ready=false" "$graph_snapshot_unavailable"
+# R15c: query unavailable (canonical present but query_ready=false) keeps capabilities collapsed.
+assert_contains "graph snapshot reports unavailable query when canonical present" "query_ready=false" "$graph_snapshot_query_unavailable"
+assert_contains "graph snapshot collapses capabilities when query unavailable" "query/context=none, impact=none, review=none" "$graph_snapshot_query_unavailable"
+# R15c: partial impact mirrors capabilities matrix.
+assert_contains "graph snapshot surfaces partial impact capability" "impact=partial" "$graph_snapshot_partial_impact"
+assert_contains "graph snapshot surfaces partial review capability" "review=partial" "$graph_snapshot_partial_impact"
 
 startup_cli_output="$(
   node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'

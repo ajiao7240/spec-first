@@ -341,4 +341,66 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(powershellScript).toContain('$script:SetupOwnedDirtyIgnorePrefixes');
     expect(powershellScript).toContain('$script:ExternalActorFingerprintIgnorePattern');
   });
+
+  test('locks Capability Matrix prose in bootstrap-report.md (R7/R15b)', () => {
+    const bashScript = fs.readFileSync(BASH_SCRIPT_PATH, 'utf8');
+    const powershellScript = fs.readFileSync(POWERSHELL_SCRIPT_PATH, 'utf8');
+
+    // sh: capture jq output to impact_capabilities_json + read-back path + matrix derivation
+    expect(bashScript).toContain('impact_capabilities_json="$(jq -n');
+    expect(bashScript).toContain('printf \'%s\\n\' "$impact_capabilities_json" | write_file_atomic "$IMPACT_DIR/bootstrap-impact-capabilities.json"');
+    expect(bashScript).toContain('impact_capabilities_json="$(cat "$IMPACT_DIR/bootstrap-impact-capabilities.json"');
+    expect(bashScript).toContain('capability_matrix_rows=""');
+    expect(bashScript).toContain('## Capability Matrix');
+    expect(bashScript).toContain('| Capability | Support Level | Confidence | Note |');
+    expect(bashScript).toMatch(/fmt\("query\/context"; \$caps\.context_selection \/\/ \{\}\)/);
+    expect(bashScript).toMatch(/fmt\("impact_radius"; \$caps\.impact_radius \/\/ \{\}\)/);
+    expect(bashScript).toMatch(/fmt\("review_support"; \$caps\.review_support \/\/ \{\}\)/);
+
+    // ps1: read-back + helper functions + matrix section assembly
+    expect(powershellScript).toContain('Get-Content -LiteralPath $impactCapabilitiesPath -Raw');
+    expect(powershellScript).toContain('function Get-CapField');
+    expect(powershellScript).toContain('function Format-CapabilityMatrixRow');
+    expect(powershellScript).toContain("Format-CapabilityMatrixRow -Name 'query/context'");
+    expect(powershellScript).toContain("Format-CapabilityMatrixRow -Name 'impact_radius'");
+    expect(powershellScript).toContain("Format-CapabilityMatrixRow -Name 'review_support'");
+    expect(powershellScript).toContain('## Capability Matrix');
+    expect(powershellScript).toContain('| Capability | Support Level | Confidence | Note |');
+
+    // blocked path (write_blocked_report) does not render matrix
+    const blockedReport = bashScript.match(/write_blocked_report\(\)\s*\{[^}]*\}/s);
+    expect(blockedReport).not.toBeNull();
+    expect(blockedReport[0]).not.toContain('## Capability Matrix');
+
+    // dirty-advisory wording survives next to matrix prose (AE3)
+    expect(bashScript).toContain('echo dirty-advisory');
+    expect(powershellScript).toContain("'dirty-advisory'");
+  });
+
+  test('locks definitions-only result_class enum and downstream gating contract (R15a)', () => {
+    const fixtureRoot = path.join(REPO_ROOT, 'tests', 'fixtures', 'review-pre-facts');
+    const definitionsOnly = JSON.parse(
+      fs.readFileSync(path.join(fixtureRoot, 'providers/gitnexus/normalized/impact-capabilities.definitions-only.json'), 'utf8'),
+    );
+    const processResults = JSON.parse(
+      fs.readFileSync(path.join(fixtureRoot, 'providers/gitnexus/normalized/impact-capabilities.process-results.json'), 'utf8'),
+    );
+
+    expect(definitionsOnly.available_query_surfaces).toEqual(['query', 'context']);
+    expect(definitionsOnly.available_query_surfaces).not.toContain('impact');
+    expect(definitionsOnly.available_query_surfaces).not.toContain('detect_changes');
+
+    expect(processResults.available_query_surfaces).toContain('query');
+    expect(processResults.available_query_surfaces).toContain('context');
+    expect(processResults.available_query_surfaces).toContain('impact');
+    expect(processResults.available_query_surfaces).toContain('detect_changes');
+
+    const providerStatusFixture = JSON.parse(
+      fs.readFileSync(path.join(fixtureRoot, 'provider-status.definitions-only.json'), 'utf8'),
+    );
+    const probe = providerStatusFixture.providers[0].query_probe_attempts[0];
+    expect(probe.result_class).toBe('definitions-only');
+    expect(typeof probe.verification_reason).toBe('string');
+    expect(probe.verification_reason.length).toBeGreaterThan(0);
+  });
 });

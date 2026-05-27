@@ -1787,3 +1787,108 @@ describe('review-pre-facts helper modes', () => {
     }
   });
 });
+
+describe('definitions-only gating (R11/R15d)', () => {
+  const NORMALIZED_DEFINITIONS_ONLY_FIXTURE = path.join(
+    __dirname,
+    '..',
+    'fixtures',
+    'review-pre-facts',
+    'providers',
+    'gitnexus',
+    'normalized',
+    'impact-capabilities.definitions-only.json',
+  );
+  const NORMALIZED_PROCESS_RESULTS_FIXTURE = path.join(
+    __dirname,
+    '..',
+    'fixtures',
+    'review-pre-facts',
+    'providers',
+    'gitnexus',
+    'normalized',
+    'impact-capabilities.process-results.json',
+  );
+
+  function overrideNormalizedImpactCapabilities(repo, fixturePath) {
+    const value = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+    writeJson(repo, '.spec-first/providers/gitnexus/normalized/impact-capabilities.json', value);
+  }
+
+  test('definitions-only normalized artifact gates impact / detect_changes out of query_plan', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      overrideNormalizedImpactCapabilities(repo, NORMALIZED_DEFINITIONS_ONLY_FIXTURE);
+
+      const output = path.join(dir, 'query-plan.json');
+      // Pass --change-scope staged so detect_changes would be emitted IF the
+      // normalized artifact allowed it. The gating must reject it anyway.
+      const result = captureRun([
+        '--mode', 'prepare',
+        '--workflow', 'doc-review',
+        '--document', 'docs/plans/plan.md',
+        '--repo', repo,
+        '--run-id', runId,
+        '--summary-dir', dir,
+        '--output', output,
+        '--change-scope', 'staged',
+      ], repo);
+
+      expect(result.code).toBe(0);
+      const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+      const operations = plan.queries.map((q) => q.operation);
+
+      // Core gating invariant: query_plan must not request impact / detect_changes
+      // when the normalized artifact only exposes query/context surfaces -- even
+      // when the user explicitly asks for a change scope.
+      expect(operations).toContain('query');
+      expect(operations).not.toContain('impact');
+      expect(operations).not.toContain('detect_changes');
+
+      const forbiddenOperations = ['route_map', 'api_impact', 'shape_check', 'tool_map', 'cypher', 'group_sync', 'rename'];
+      for (const forbidden of forbiddenOperations) {
+        expect(operations).not.toContain(forbidden);
+      }
+
+      const toolNames = plan.queries.map((q) => q.tool_name);
+      expect(toolNames).not.toContain('gitnexus.impact');
+      expect(toolNames).not.toContain('gitnexus.detect_changes');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('process-results normalized artifact lets query_plan emit detect_changes when scope is provided (reverse assertion)', () => {
+    const repo = tempRepo();
+    const { runId, dir } = tempRun();
+    try {
+      overrideNormalizedImpactCapabilities(repo, NORMALIZED_PROCESS_RESULTS_FIXTURE);
+
+      const output = path.join(dir, 'query-plan.json');
+      const result = captureRun([
+        '--mode', 'prepare',
+        '--workflow', 'doc-review',
+        '--document', 'docs/plans/plan.md',
+        '--repo', repo,
+        '--run-id', runId,
+        '--summary-dir', dir,
+        '--output', output,
+        '--change-scope', 'staged',
+      ], repo);
+
+      expect(result.code).toBe(0);
+      const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+      const operations = plan.queries.map((q) => q.operation);
+
+      // detect_changes is emitted when the normalized artifact exposes the
+      // surface AND the user supplied a change scope; this proves the gating
+      // mechanism is real (not a blanket "always strip impact / detect_changes"
+      // hack).
+      expect(operations).toContain('query');
+      expect(operations).toContain('detect_changes');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+});

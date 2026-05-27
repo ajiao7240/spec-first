@@ -1914,4 +1914,15 @@ assert_contains "missing canonical graph facts requires graph bootstrap" "Graph 
 assert_eq "missing canonical artifact resets GitNexus readiness" "true" "$(jq -r '.derived_readiness.graph_bootstrap_required and (.derived_readiness.providers.gitnexus.query_ready == false) and (.derived_readiness.providers | has("code-review-graph") | not)' "$PROVIDER_CONFIG")"
 assert_eq "missing canonical artifact resets runtime summary" "not-bootstrapped:true" "$(jq -r '.project_graph_readiness | "\(.status):\(.graph_bootstrap_required)"' "$RUNTIME_CAPABILITIES")"
 
+# R15e: spec-mcp-setup SKILL.md prose 在 graph_ready=pending 与 graph_ready=ready
+# 双路径下都必须含 restart/new session 提示与 deterministic compilation 措辞,
+# 防止未来 prose 改写吞掉 setup 的下一步引导。
+mcp_setup_prose="$(cat "$REPO_ROOT/skills/spec-mcp-setup/SKILL.md")"
+assert_contains "mcp-setup prose says graph bootstrap is deterministic CLI compilation (R15e)" "deterministic CLI compilation" "$mcp_setup_prose"
+assert_contains "mcp-setup prose carries restart/new session caveat (R15e)" "重启 Claude Code/Codex 或新开会话" "$mcp_setup_prose"
+assert_contains "mcp-setup prose mentions live MCP probe trigger (R15e)" "live MCP probe 前需要" "$mcp_setup_prose"
+assert_contains "mcp-setup prose covers ready path with new-session option (R15e)" "restarted/new session" "$mcp_setup_prose"
+assert_contains "mcp-setup prose covers pending path execution result table (R15e)" "Execution result" "$mcp_setup_prose"
+assert_contains "mcp-setup prose covers Required Harness Runtime grouping (R15e)" "Required Harness Runtime" "$mcp_setup_prose"
+
 echo "=== spec-mcp-setup required runtime tests passed ==="
