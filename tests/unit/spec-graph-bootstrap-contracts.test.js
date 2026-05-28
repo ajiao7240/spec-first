@@ -342,6 +342,34 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(powershellScript).toContain('$script:ExternalActorFingerprintIgnorePattern');
   });
 
+  test('exposes U2/U3 repo label and dirty path facts additively across shell hosts', () => {
+    const bashScript = fs.readFileSync(BASH_SCRIPT_PATH, 'utf8');
+    const powershellScript = fs.readFileSync(POWERSHELL_SCRIPT_PATH, 'utf8');
+
+    for (const source of [bashScript, powershellScript]) {
+      expect(source).toContain('repo_label_resolution');
+      expect(source).toContain('gitnexus_meta_remote_url_basename');
+      expect(source).toContain('git_remote_url_basename');
+      expect(source).toContain('directory_basename');
+      expect(source).toContain('dirty_paths_sample');
+      expect(source).toContain('dirty_paths_sample_truncated');
+      expect(source).not.toContain('dirty_paths_sample_truncated = $null');
+      expect(source).not.toContain('build_module');
+    }
+
+    expect(bashScript).toContain('build_repo_label_resolution_json');
+    expect(bashScript).toContain('build_dirty_paths_sample_json');
+    expect(bashScript).toContain('sort_by([(if .classification == "graph-affecting" then 0 else 1 end), .path])');
+    expect(bashScript).toContain('repo_label_conflict_lines');
+    expect(bashScript).toContain('Repo label conflict detected for ');
+
+    expect(powershellScript).toContain('New-RepoLabelResolution');
+    expect(powershellScript).toContain('Set-DirtyPathsSample');
+    expect(powershellScript).toContain('Sort-Object @{ Expression = { if ($_.classification -eq');
+    expect(powershellScript).toContain('if ($provider -eq');
+    expect(powershellScript).toContain('Repo label conflict detected for ');
+  });
+
   test('locks Capability Matrix prose in bootstrap-report.md (R7/R15b)', () => {
     const bashScript = fs.readFileSync(BASH_SCRIPT_PATH, 'utf8');
     const powershellScript = fs.readFileSync(POWERSHELL_SCRIPT_PATH, 'utf8');

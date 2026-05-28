@@ -741,6 +741,7 @@ assert_eq "provider status records GitNexus host instruction normalization" "dri
 assert_eq "provider status records AGENTS dry-run host normalization" "would-normalize:true:false:single-repo" "$(jq -r '.host_instruction_normalization.results[] | select(.file=="AGENTS.md") | "\(.action):\(.wouldChange):\(.written):\(.gitRootTopology)"' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "provider status records CLAUDE dry-run host normalization" "would-normalize:true:false:single-repo" "$(jq -r '.host_instruction_normalization.results[] | select(.file=="CLAUDE.md") | "\(.action):\(.wouldChange):\(.written):\(.gitRootTopology)"' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "provider status records expected-hit query policy" "true:git-ls-files-code-basename:$GITNEXUS_QUERY_PROBE" "$(jq -r '.query_probe_policy | "\(.expected_hit):\(.source):\(.token)"' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_eq "provider status records non-conflicting repo label without candidates" "$(basename "$PRIMARY_REPO_ROOT"):directory_basename:false:false" "$(jq -r '.repo_label_resolution | "\(.selected):\(.selected_source):\(.conflict):\(has("candidates"))"' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "provider status records command timing" "true" "$(jq -r 'all(.command_results[]; (.started_at | type == "string") and (.finished_at | type == "string") and (.duration_ms | type == "number") and (.duration_ms >= 0))' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "provider status records provider timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "final output records single repo timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' <<<"$primary_output")"
@@ -752,6 +753,21 @@ assert_eq "graph facts does not add refresh-mode convenience fields" "false:fals
 assert_eq "bootstrap fingerprint includes invalidation hashes" "true" "$(jq -r '(.bootstrap_fingerprint.repo_snapshot.worktree_status_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.graph_bootstrap_script_hash | startswith("sha256:")) and (.bootstrap_fingerprint.spec_first.mcp_tools_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider_projection.graph_providers_hash | startswith("sha256:")) and (.bootstrap_fingerprint.provider.command_hash | startswith("sha256:"))' "$PRIMARY_REPO/.spec-first/providers/gitnexus/status.json")"
 assert_eq "graph-bootstrap does not mutate provider config input" "$primary_provider_config_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/graph-providers.json")"
 assert_eq "graph-bootstrap does not mutate runtime capabilities input" "$primary_runtime_capabilities_before" "$(jq -S -c . "$PRIMARY_REPO/.spec-first/config/runtime-capabilities.json")"
+
+LABEL_CONFLICT_REPO="$TMP_DIR/kaz-mvp"
+LABEL_CONFLICT_LEDGER="$TMP_DIR/label-conflict-home/.codex/spec-first/host-setup.json"
+make_repo "$LABEL_CONFLICT_REPO"
+write_fixture_config "$LABEL_CONFLICT_REPO" "$LABEL_CONFLICT_LEDGER" true
+mkdir -p "$LABEL_CONFLICT_REPO/.gitnexus"
+cat > "$LABEL_CONFLICT_REPO/.gitnexus/meta.json" <<'JSON'
+{
+  "remoteUrl": "https://gitlab.example.com/mobile/kaz-app.git"
+}
+JSON
+label_conflict_output="$(cd "$LABEL_CONFLICT_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert "repo-label conflict output is JSON" jq -e . <<<"$label_conflict_output"
+assert_eq "provider status records conflicting repo labels with candidates" "kaz-app:gitnexus_meta_remote_url_basename:true:kaz-app,kaz-mvp" "$(jq -r '.repo_label_resolution | "\(.selected):\(.selected_source):\(.conflict):\([.candidates[].value | select(. != null)] | unique | sort | join(","))"' "$LABEL_CONFLICT_REPO/.spec-first/providers/gitnexus/status.json")"
+assert_contains "bootstrap report surfaces repo label conflict" "Repo label conflict detected for kaz-app" "$(cat "$LABEL_CONFLICT_REPO/.spec-first/graph/bootstrap-report.md")"
 
 CANDIDATE_ONLY_REPO="$TMP_DIR/candidate-only-repo"
 CANDIDATE_ONLY_LEDGER="$TMP_DIR/candidate-only-home/.codex/spec-first/host-setup.json"
@@ -960,6 +976,39 @@ non_graph_metadata_output="$(cd "$NON_GRAPH_METADATA_REPO" && PATH="$TEST_PATH" 
 assert_eq "non-graph metadata dirty exits successfully" "0" "$?"
 assert_eq "non-graph metadata dirty does not block bootstrap" "primary:non-graph-only:2:0" "$(jq -r '.workflow_mode + ":" + .dirty_classification + ":" + (.dirty_paths_breakdown.non_graph_metadata_count | tostring) + ":" + (.dirty_paths_breakdown.graph_affecting_count | tostring)' <<<"$non_graph_metadata_output")"
 assert_eq "non-graph metadata dirty graph facts are written" "non-graph-only:true:2" "$(jq -r '.dirty_classification + ":" + (.worktree_dirty | tostring) + ":" + (.dirty_paths_breakdown.non_graph_metadata_count | tostring)' "$NON_GRAPH_METADATA_REPO/.spec-first/graph/graph-facts.json")"
+
+DIRTY_SAMPLE_REPO="$TMP_DIR/dirty-sample-repo"
+DIRTY_SAMPLE_LEDGER="$TMP_DIR/dirty-sample-home/.codex/spec-first/host-setup.json"
+make_repo "$DIRTY_SAMPLE_REPO"
+write_fixture_config "$DIRTY_SAMPLE_REPO" "$DIRTY_SAMPLE_LEDGER" true
+mkdir -p "$DIRTY_SAMPLE_REPO/src"
+printf '# Changelog\n' > "$DIRTY_SAMPLE_REPO/CHANGELOG.md"
+printf 'console.log("clean");\n' > "$DIRTY_SAMPLE_REPO/src/app.js"
+git -C "$DIRTY_SAMPLE_REPO" add CHANGELOG.md src/app.js
+git -C "$DIRTY_SAMPLE_REPO" commit -q -m "Add dirty sample fixtures"
+printf 'metadata dirty\n' >> "$DIRTY_SAMPLE_REPO/CHANGELOG.md"
+printf 'readme dirty\n' >> "$DIRTY_SAMPLE_REPO/README.md"
+printf 'code dirty\n' >> "$DIRTY_SAMPLE_REPO/src/app.js"
+dirty_sample_output="$(cd "$DIRTY_SAMPLE_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "dirty sample exposes sorted graph-affecting paths first" "README.md:true|src/app.js:true|CHANGELOG.md:false:false" "$(jq -r '([.dirty_paths_sample[] | "\(.path):\(.graph_affecting)"] | join("|")) + ":" + (.dirty_paths_sample_truncated | tostring)' "$DIRTY_SAMPLE_REPO/.spec-first/graph/graph-facts.json")"
+assert_eq "dirty sample keeps graph facts additive fields in final output source" "graph-affecting-blocked:true" "$(jq -r '.dirty_classification + ":" + (.dirty_paths_breakdown.graph_affecting_count == 2 | tostring)' <<<"$dirty_sample_output")"
+
+DIRTY_TRUNCATED_REPO="$TMP_DIR/dirty-truncated-repo"
+DIRTY_TRUNCATED_LEDGER="$TMP_DIR/dirty-truncated-home/.codex/spec-first/host-setup.json"
+make_repo "$DIRTY_TRUNCATED_REPO"
+write_fixture_config "$DIRTY_TRUNCATED_REPO" "$DIRTY_TRUNCATED_LEDGER" true
+mkdir -p "$DIRTY_TRUNCATED_REPO/src"
+for i in $(seq -w 1 31); do
+  printf 'clean %s\n' "$i" > "$DIRTY_TRUNCATED_REPO/src/dirty-$i.txt"
+done
+git -C "$DIRTY_TRUNCATED_REPO" add src
+git -C "$DIRTY_TRUNCATED_REPO" commit -q -m "Add truncation fixtures"
+for i in $(seq -w 1 31); do
+  printf 'dirty %s\n' "$i" >> "$DIRTY_TRUNCATED_REPO/src/dirty-$i.txt"
+done
+dirty_truncated_output="$(cd "$DIRTY_TRUNCATED_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+assert_eq "dirty sample truncates at thirty paths" "30:true:graph-affecting-blocked" "$(jq -r '(.dirty_paths_sample | length | tostring) + ":" + (.dirty_paths_sample_truncated | tostring) + ":" + .dirty_classification' "$DIRTY_TRUNCATED_REPO/.spec-first/graph/graph-facts.json")"
+assert "dirty truncated output is JSON" jq -e . <<<"$dirty_truncated_output"
 
 UNTRACKED_HOST_SEPARATOR_REPO="$TMP_DIR/untracked-host-separator-repo"
 UNTRACKED_HOST_SEPARATOR_LEDGER="$TMP_DIR/untracked-host-separator-home/.codex/spec-first/host-setup.json"
@@ -1231,6 +1280,36 @@ if command -v pwsh >/dev/null 2>&1; then
   printf 'metadata dirty\n' >> "$PS_NON_GRAPH_METADATA_REPO/docs/变更日志.md"
   ps_non_graph_metadata_output="$(cd "$PS_NON_GRAPH_METADATA_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
   assert_eq "PowerShell non-graph metadata dirty does not block" "primary:non-graph-only:2" "$(jq -r '.workflow_mode + ":" + .dirty_classification + ":" + (.dirty_paths_breakdown.non_graph_metadata_count | tostring)' <<<"$ps_non_graph_metadata_output")"
+
+  PS_DIRTY_SAMPLE_REPO="$TMP_DIR/ps-dirty-sample-repo"
+  PS_DIRTY_SAMPLE_LEDGER="$TMP_DIR/ps-dirty-sample-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_DIRTY_SAMPLE_REPO"
+  write_fixture_config "$PS_DIRTY_SAMPLE_REPO" "$PS_DIRTY_SAMPLE_LEDGER" true
+  mkdir -p "$PS_DIRTY_SAMPLE_REPO/src"
+  printf '# Changelog\n' > "$PS_DIRTY_SAMPLE_REPO/CHANGELOG.md"
+  printf 'console.log("clean");\n' > "$PS_DIRTY_SAMPLE_REPO/src/app.js"
+  git -C "$PS_DIRTY_SAMPLE_REPO" add CHANGELOG.md src/app.js
+  git -C "$PS_DIRTY_SAMPLE_REPO" commit -q -m "Add PowerShell dirty sample fixtures"
+  printf 'metadata dirty\n' >> "$PS_DIRTY_SAMPLE_REPO/CHANGELOG.md"
+  printf 'readme dirty\n' >> "$PS_DIRTY_SAMPLE_REPO/README.md"
+  printf 'code dirty\n' >> "$PS_DIRTY_SAMPLE_REPO/src/app.js"
+  ps_dirty_sample_output="$(cd "$PS_DIRTY_SAMPLE_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
+  assert_eq "PowerShell dirty sample matches Bash ordering" "README.md:true|src/app.js:true|CHANGELOG.md:false:false" "$(jq -r '([.dirty_paths_sample[] | "\(.path):\(.graph_affecting)"] | join("|")) + ":" + (.dirty_paths_sample_truncated | tostring)' "$PS_DIRTY_SAMPLE_REPO/.spec-first/graph/graph-facts.json")"
+  assert_eq "PowerShell dirty sample output remains dirty advisory" "graph-affecting-blocked:true" "$(jq -r '.dirty_classification + ":" + (.dirty_paths_breakdown.graph_affecting_count == 2 | tostring)' <<<"$ps_dirty_sample_output")"
+
+  PS_LABEL_CONFLICT_REPO="$TMP_DIR/ps-kaz-mvp"
+  PS_LABEL_CONFLICT_LEDGER="$TMP_DIR/ps-label-conflict-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_LABEL_CONFLICT_REPO"
+  write_fixture_config "$PS_LABEL_CONFLICT_REPO" "$PS_LABEL_CONFLICT_LEDGER" true
+  mkdir -p "$PS_LABEL_CONFLICT_REPO/.gitnexus"
+  cat > "$PS_LABEL_CONFLICT_REPO/.gitnexus/meta.json" <<'JSON'
+{
+  "remoteUrl": "https://gitlab.example.com/mobile/kaz-app.git"
+}
+JSON
+  ps_label_conflict_output="$(cd "$PS_LABEL_CONFLICT_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
+  assert "PowerShell repo-label conflict output is JSON" jq -e . <<<"$ps_label_conflict_output"
+  assert_eq "PowerShell provider status records conflicting repo labels" "kaz-app:gitnexus_meta_remote_url_basename:true:kaz-app,ps-kaz-mvp" "$(jq -r '.repo_label_resolution | "\(.selected):\(.selected_source):\(.conflict):\([.candidates[].value | select(. != null)] | unique | sort | join(","))"' "$PS_LABEL_CONFLICT_REPO/.spec-first/providers/gitnexus/status.json")"
 
   PS_ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE="$TMP_DIR/ps-all-repos-dirty-classification-workspace"
   PS_ALL_REPOS_DIRTY_CLASSIFICATION_LEDGER="$TMP_DIR/ps-all-repos-dirty-classification-home/.codex/spec-first/host-setup.json"

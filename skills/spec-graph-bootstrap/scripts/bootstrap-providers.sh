@@ -827,6 +827,8 @@ else
 fi
 DIRTY_CLASSIFICATION=""
 DIRTY_PATHS_BREAKDOWN_JSON='{"setup_owned_count":0,"non_graph_metadata_count":0,"graph_affecting_count":0,"sample_paths":[],"truncated":false}'
+DIRTY_PATHS_SAMPLE_JSON='[]'
+DIRTY_PATHS_SAMPLE_TRUNCATED_JSON=false
 HOST_INSTRUCTION_EXPECTED_AGENTS_HASH=""
 HOST_INSTRUCTION_EXPECTED_CLAUDE_HASH=""
 HOST_INSTRUCTION_BOOTSTRAP_OWNED_AGENTS=false
@@ -1186,11 +1188,32 @@ build_dirty_paths_breakdown() {
   ' "$classifications_file"
 }
 
+build_dirty_paths_sample_json() {
+  local classifications_file="$1"
+  if [ ! -s "$classifications_file" ]; then
+    jq -n '{sample:[],truncated:false}'
+    return 0
+  fi
+  jq -R -s '
+    split("\n")
+    | map(select(length > 0) | split("\t") | {classification:.[0], path:.[1]})
+    | sort_by([(if .classification == "graph-affecting" then 0 else 1 end), .path]) as $items
+    | {
+        sample:($items[0:30] | map({path, graph_affecting:(.classification == "graph-affecting")})),
+        truncated:($items | length > 30)
+      }
+  ' "$classifications_file"
+}
+
 classify_worktree_dirty() {
   local classifications_file
+  local dirty_paths_sample_payload
   classifications_file="$(mktemp "${TMPDIR:-/tmp}/spec-first-dirty-classifications.XXXXXX")"
   parse_porcelain_v2_paths "$classifications_file"
   DIRTY_PATHS_BREAKDOWN_JSON="$(build_dirty_paths_breakdown "$classifications_file")"
+  dirty_paths_sample_payload="$(build_dirty_paths_sample_json "$classifications_file")"
+  DIRTY_PATHS_SAMPLE_JSON="$(jq -c '.sample' <<<"$dirty_paths_sample_payload")"
+  DIRTY_PATHS_SAMPLE_TRUNCATED_JSON="$(jq -r '.truncated' <<<"$dirty_paths_sample_payload")"
   if [ ! -s "$classifications_file" ]; then
     DIRTY_CLASSIFICATION="clean"
   elif awk -F '\t' '$1 == "graph-affecting" { found=1 } END { exit(found ? 0 : 1) }' "$classifications_file"; then
@@ -1322,6 +1345,8 @@ fi
 if [ "$TARGET_KIND" = "non-git-folder" ]; then
   DIRTY_CLASSIFICATION="not-applicable"
   DIRTY_PATHS_BREAKDOWN_JSON='{"setup_owned_count":0,"non_graph_metadata_count":0,"graph_affecting_count":0,"sample_paths":[],"truncated":false}'
+  DIRTY_PATHS_SAMPLE_JSON='[]'
+  DIRTY_PATHS_SAMPLE_TRUNCATED_JSON=false
 else
   classify_worktree_dirty
 fi
@@ -2057,6 +2082,41 @@ gitnexus_current_repo_label_for_diagnostic() {
   if [ -n "$derived" ]; then
     printf '%s\n' "$derived"
   fi
+}
+
+build_repo_label_resolution_json() {
+  local meta_path="$REPO_ROOT/.gitnexus/meta.json"
+  local meta_remote=""
+  local meta_label=""
+  local git_remote_label=""
+  local directory_label=""
+
+  if [ -f "$meta_path" ]; then
+    meta_remote="$(jq -r '.remoteUrl // empty' "$meta_path" 2>/dev/null || true)"
+    meta_label="$(gitnexus_repo_name_from_remote_url_for_diagnostic "$meta_remote")"
+  fi
+  git_remote_label="$(gitnexus_repo_name_from_remote_url_for_diagnostic "$(git_remote_url_for_repo_diagnostic "$REPO_ROOT")")"
+  directory_label="$(basename "$REPO_ROOT")"
+
+  jq -n \
+    --arg meta_label "$meta_label" \
+    --arg git_remote_label "$git_remote_label" \
+    --arg directory_label "$directory_label" '
+    def null_if_empty: if . == "" then null else . end;
+    [
+      {source:"gitnexus_meta_remote_url_basename", value:($meta_label | null_if_empty)},
+      {source:"git_remote_url_basename", value:($git_remote_label | null_if_empty)},
+      {source:"directory_basename", value:($directory_label | null_if_empty)}
+    ] as $candidates
+    | ([$candidates[] | select(.value != null) | .value] | unique) as $values
+    | ([$candidates[] | select(.value != null)][0]) as $selected
+    | {
+        selected:($selected.value // $directory_label),
+        selected_source:($selected.source // "directory_basename"),
+        conflict:($values | length > 1)
+      }
+      + (if ($values | length > 1) then {candidates:$candidates} else {} end)
+  '
 }
 
 gitnexus_query_repo_label_mismatch_failure() {
@@ -2827,6 +2887,10 @@ write_provider_status() {
   provider_finished_at="$(utc_now)"
   provider_finished_epoch_ms="$(epoch_ms)"
   provider_duration_ms=$((provider_finished_epoch_ms - provider_started_epoch_ms))
+  repo_label_resolution_json='null'
+  if [ "$provider" = "gitnexus" ]; then
+    repo_label_resolution_json="$(build_repo_label_resolution_json)"
+  fi
 
   jq -n \
     --arg provider "$provider" \
@@ -2852,6 +2916,7 @@ write_provider_status() {
     --argjson query_probe_attempts "$QUERY_PROBE_ATTEMPTS" \
     --argjson query_probe_candidate_limit "$GITNEXUS_QUERY_PROBE_CANDIDATE_LIMIT" \
     --argjson query_probe_candidates_truncated "$query_probe_candidates_truncated" \
+    --argjson repo_label_resolution "$repo_label_resolution_json" \
     --argjson host_instruction_normalization "$host_instruction_normalization" \
     --argjson limitations "$limitations" \
     --argjson failure_info "$failure_info" \
@@ -2924,6 +2989,7 @@ write_provider_status() {
       ),
       query_probe_candidate_limit:(if $provider == "gitnexus" then $query_probe_candidate_limit else null end),
       query_probe_candidates_truncated:(if $provider == "gitnexus" then $query_probe_candidates_truncated else null end),
+      repo_label_resolution:(if $provider == "gitnexus" then $repo_label_resolution else null end),
       repo_snapshot:{
         target_kind:$target_kind,
         source_revision:(if $target_kind == "non-git-folder" then null else $source_revision end),
@@ -3065,6 +3131,8 @@ jq -n \
   --argjson worktree_dirty "$WORKTREE_DIRTY" \
   --arg dirty_classification "$DIRTY_CLASSIFICATION" \
   --argjson dirty_paths_breakdown "$DIRTY_PATHS_BREAKDOWN_JSON" \
+  --argjson dirty_paths_sample "$DIRTY_PATHS_SAMPLE_JSON" \
+  --argjson dirty_paths_sample_truncated "$DIRTY_PATHS_SAMPLE_TRUNCATED_JSON" \
   --arg workflow_mode "$WORKFLOW_MODE" \
   --arg target_kind "$TARGET_KIND" \
   --arg content_fingerprint "$FOLDER_CONTENT_FINGERPRINT" \
@@ -3099,6 +3167,8 @@ jq -n \
     worktree_status_hash:(if $target_kind == "non-git-folder" then null else $worktree_status_hash end),
     dirty_classification:$dirty_classification,
     dirty_paths_breakdown:$dirty_paths_breakdown,
+    dirty_paths_sample:$dirty_paths_sample,
+    dirty_paths_sample_truncated:$dirty_paths_sample_truncated,
     workflow_mode:$workflow_mode,
     provider_summary:{
       ready_primary_providers:[$providers[] | select(.query_ready == true) | .provider],
@@ -3206,6 +3276,14 @@ provider_report_rows="$(jq -r '
   | (((.query_probe_attempts // []) | map("\(.token):\(.result_class)") | join(",")) // "") as $attempts
   | "| \(.provider) | \(.graph_ready) | \(.query_ready) | \(if $attempts == "" then (.query_probe_policy.token // "n/a") else $attempts end) | \(.status) | \(.timing.duration_ms // 0) | \((.query_verification_reason // ((.limitations // []) | join("; ")) // "n/a") | gsub("\\|"; "/")) |"
 ' <<<"$statuses_json")"
+repo_label_conflict_lines="$(jq -r '
+  [
+    .[]
+    | select(.provider == "gitnexus" and (.repo_label_resolution.conflict // false) == true)
+    | "- Repo label conflict detected for \(.repo_label_resolution.selected): see provider-status.json.gitnexus.repo_label_resolution.candidates"
+  ]
+  | join("\n")
+' <<<"$statuses_json")"
 
 # Capability matrix derives from bootstrap-impact-capabilities.json so the
 # human-readable bootstrap-report.md mirrors the machine-readable matrix.
@@ -3241,10 +3319,19 @@ if [ "$PRESERVE_CANONICAL_FRESHNESS" != "true" ]; then
 | Capability | Support Level | Confidence | Note |
 | --- | --- | --- | --: |
 $capability_matrix_rows"
-  else
-    capability_matrix_section=""
-  fi
-  write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
+    else
+      capability_matrix_section=""
+    fi
+    if [ -n "$repo_label_conflict_lines" ]; then
+      repo_label_conflict_section="
+
+## Repo Label Conflicts
+
+$repo_label_conflict_lines"
+    else
+      repo_label_conflict_section=""
+    fi
+    write_file_atomic "$GRAPH_DIR/bootstrap-report.md" <<MD
 # Graph Bootstrap Report
 
 - workflow_mode: $WORKFLOW_MODE
@@ -3262,9 +3349,9 @@ $capability_matrix_rows"
 
 | Provider | Graph Ready | Query Ready | Probe Token | Evidence | Duration ms | Query Verification Reason |
 | --- | --- | --- | --- | --- | ---: | --- |
-$provider_report_rows$capability_matrix_section
+$provider_report_rows$capability_matrix_section$repo_label_conflict_section
 MD
-fi
+  fi
 
 jq -n \
   --arg repo_root "$REPO_ROOT" \

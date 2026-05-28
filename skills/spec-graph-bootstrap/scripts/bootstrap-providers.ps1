@@ -45,6 +45,8 @@ $script:DirtyPathsBreakdown = [ordered]@{
   sample_paths = @()
   truncated = $false
 }
+$script:DirtyPathsSample = @()
+$script:DirtyPathsSampleTruncated = $false
 
 function Get-NonNegativeIntEnv {
   param(
@@ -1677,6 +1679,47 @@ function Get-GitNexusCurrentRepoLabelForDiagnostic {
   return (Get-GitNexusRepoNameFromRemoteUrlForDiagnostic -RemoteUrl (Get-GitRemoteUrlForDiagnostic -RepoRoot $RepoRoot))
 }
 
+function New-RepoLabelResolution {
+  param([string]$RepoRoot)
+
+  $metaLabel = ''
+  $metaPath = Join-Path $RepoRoot '.gitnexus/meta.json'
+  if (Test-Path -LiteralPath $metaPath -PathType Leaf) {
+    try {
+      $meta = Get-Content -Raw -LiteralPath $metaPath | ConvertFrom-Json
+      if ($meta.PSObject.Properties.Name -contains 'remoteUrl') {
+        $metaLabel = Get-GitNexusRepoNameFromRemoteUrlForDiagnostic -RemoteUrl ([string]$meta.remoteUrl)
+      }
+    } catch {
+    }
+  }
+
+  $gitRemoteLabel = Get-GitNexusRepoNameFromRemoteUrlForDiagnostic -RemoteUrl (Get-GitRemoteUrlForDiagnostic -RepoRoot $RepoRoot)
+  $directoryLabel = [System.IO.DirectoryInfo]::new($RepoRoot).Name
+  $candidates = @(
+    [pscustomobject]@{ source = 'gitnexus_meta_remote_url_basename'; value = if ([string]::IsNullOrWhiteSpace($metaLabel)) { $null } else { $metaLabel } },
+    [pscustomobject]@{ source = 'git_remote_url_basename'; value = if ([string]::IsNullOrWhiteSpace($gitRemoteLabel)) { $null } else { $gitRemoteLabel } },
+    [pscustomobject]@{ source = 'directory_basename'; value = if ([string]::IsNullOrWhiteSpace($directoryLabel)) { $null } else { $directoryLabel } }
+  )
+  $selected = @($candidates | Where-Object { $null -ne $_.value -and -not [string]::IsNullOrWhiteSpace([string]$_.value) } | Select-Object -First 1)
+  $selectedCandidate = if ($selected.Count -gt 0) { $selected[0] } else { $candidates[2] }
+  $values = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+  foreach ($candidate in $candidates) {
+    if ($null -ne $candidate.value -and -not [string]::IsNullOrWhiteSpace([string]$candidate.value)) {
+      [void]$values.Add([string]$candidate.value)
+    }
+  }
+  $payload = [ordered]@{
+    selected = [string]$selectedCandidate.value
+    selected_source = [string]$selectedCandidate.source
+    conflict = ($values.Count -gt 1)
+  }
+  if ($values.Count -gt 1) {
+    $payload['candidates'] = @($candidates)
+  }
+  return [pscustomobject]$payload
+}
+
 function Get-GitNexusRepoLabelMismatchFailureInfo {
   param(
     [object]$ProviderConfig,
@@ -2712,6 +2755,23 @@ function Get-GitStatusPorcelainV2ZRecords {
   }
 }
 
+function Set-DirtyPathsSample {
+  param([object[]]$Classifications)
+
+  $ordered = @($Classifications | Sort-Object @{ Expression = { if ($_.classification -eq 'graph-affecting') { 0 } else { 1 } } }, @{ Expression = { [string]$_.path } })
+  $script:DirtyPathsSample = @(
+    $ordered |
+      Select-Object -First 30 |
+      ForEach-Object {
+        [pscustomobject]@{
+          path = [string]$_.path
+          graph_affecting = ([string]$_.classification -eq 'graph-affecting')
+        }
+      }
+  )
+  $script:DirtyPathsSampleTruncated = ($Classifications.Count -gt 30)
+}
+
 function Set-WorktreeDirtyClassification {
   $classifications = @()
   $records = @(Get-GitStatusPorcelainV2ZRecords)
@@ -2752,6 +2812,7 @@ function Set-WorktreeDirtyClassification {
     sample_paths = @($classifications | Select-Object -First 20 | ForEach-Object { [string]$_.path })
     truncated = ($classifications.Count -gt 20)
   }
+  Set-DirtyPathsSample -Classifications $classifications
   if ($classifications.Count -eq 0) {
     $script:DirtyClassification = 'clean'
   } elseif ($graphAffectingCount -gt 0) {
@@ -2798,6 +2859,8 @@ if ($targetKind -eq 'non-git-folder') {
     sample_paths = @()
     truncated = $false
   }
+  $script:DirtyPathsSample = @()
+  $script:DirtyPathsSampleTruncated = $false
 } else {
   Set-WorktreeDirtyClassification
 }
@@ -3271,6 +3334,7 @@ foreach ($property in $providerConfig.providers.PSObject.Properties) {
     query_probe_policy = if ($entry.PSObject.Properties.Name -contains 'query_probe_policy') { $entry.query_probe_policy } else { $null }
     query_probe_candidate_limit = if ($provider -eq 'gitnexus') { $script:GitNexusQueryProbeCandidateLimit } else { $null }
     query_probe_candidates_truncated = if ($provider -eq 'gitnexus') { $queryProbeCandidatesTruncated } else { $null }
+    repo_label_resolution = if ($provider -eq 'gitnexus') { New-RepoLabelResolution -RepoRoot $repoRoot } else { $null }
     repo_snapshot = [ordered]@{
       target_kind = $targetKind
       source_revision = if ($targetKind -eq 'non-git-folder') { $null } else { $sourceRevision }
@@ -3396,6 +3460,8 @@ $graphFacts = [ordered]@{
   worktree_status_hash = if ($targetKind -eq 'non-git-folder') { $null } else { $worktreeStatusHash }
   dirty_classification = $script:DirtyClassification
   dirty_paths_breakdown = $script:DirtyPathsBreakdown
+  dirty_paths_sample = @($script:DirtyPathsSample)
+  dirty_paths_sample_truncated = [bool]$script:DirtyPathsSampleTruncated
   workflow_mode = $workflowMode
   provider_summary = [ordered]@{
     ready_primary_providers = @($providerAggregate.ready_primary_providers)
@@ -3553,6 +3619,16 @@ if ($capabilityMatrixRows.Count -gt 0) {
   $capabilityMatrixSection = [Environment]::NewLine + [Environment]::NewLine + '## Capability Matrix' + [Environment]::NewLine + [Environment]::NewLine + '| Capability | Support Level | Confidence | Note |' + [Environment]::NewLine + '| --- | --- | --- | --: |' + [Environment]::NewLine + ($capabilityMatrixRows -join [Environment]::NewLine)
 }
 
+$repoLabelConflictLines = @(
+  $providerStatuses |
+    Where-Object { $_.provider -eq 'gitnexus' -and $null -ne $_.repo_label_resolution -and $_.repo_label_resolution.conflict } |
+    ForEach-Object { "- Repo label conflict detected for $($_.repo_label_resolution.selected): see provider-status.json.gitnexus.repo_label_resolution.candidates" }
+)
+$repoLabelConflictSection = ''
+if ($repoLabelConflictLines.Count -gt 0) {
+  $repoLabelConflictSection = [Environment]::NewLine + [Environment]::NewLine + '## Repo Label Conflicts' + [Environment]::NewLine + [Environment]::NewLine + ($repoLabelConflictLines -join [Environment]::NewLine)
+}
+
 if (-not $preserveCanonicalFreshness) {
   $freshnessStateVal = if ($script:DirtyClassification -eq 'graph-affecting-blocked') { 'dirty-advisory' } else { 'fresh' }
   Write-TextFileAtomic -Path (Join-Path $graphDir 'bootstrap-report.md') -Value @"
@@ -3573,7 +3649,7 @@ if (-not $preserveCanonicalFreshness) {
 
 | Provider | Graph Ready | Query Ready | Probe Token | Evidence | Duration ms | Query Verification Reason |
 | --- | --- | --- | --- | --- | ---: | --- |
-$($providerReportRows -join [Environment]::NewLine)$capabilityMatrixSection
+$($providerReportRows -join [Environment]::NewLine)$capabilityMatrixSection$repoLabelConflictSection
 "@
 }
 
