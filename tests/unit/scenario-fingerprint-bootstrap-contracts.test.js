@@ -212,6 +212,83 @@ describe('bootstrap scenario fingerprint contract', () => {
     ]);
   });
 
+  test('recomputes state_class / complexity_dimensions / tags when bootstrap discovers dirty graph facts', () => {
+    // 回归场景：setup 层仍是 clean，但 graph-bootstrap 已经写入 dirty-graph facts。
+    const repo = initCommittedRepo();
+    const revision = git(repo, ['rev-parse', 'HEAD']);
+    const setupPath = writeSetupFingerprint(repo, revision);
+    const graphFactsPath = path.join(repo, '.spec-first', 'graph', 'graph-facts.json');
+    const providerStatusPath = path.join(repo, '.spec-first', 'graph', 'provider-status.json');
+    writeJson(graphFactsPath, {
+      schema_version: 'graph-facts.v1',
+      repo_root: repo,
+      source_revision: revision,
+      worktree_dirty: true,
+      worktree_status_hash: 'sha256:dirty',
+      source_revision_dirty: true,
+      freshness_state: 'dirty-advisory',
+      dirty_classification: 'graph-affecting-blocked',
+      dirty_paths_sample: [{ path: 'src/app.js', graph_affecting: true }],
+    });
+    writeJson(providerStatusPath, {
+      schema_version: 'graph-provider-status.v1',
+      providers: [{
+        provider: 'gitnexus',
+        configured: true,
+        graph_ready: true,
+        query_ready: true,
+        status: 'ready',
+      }],
+    });
+
+    const payload = computeBootstrapLayer({
+      cwd: repo,
+      workspaceRoot: repo,
+      setupFingerprintPath: setupPath,
+      graphFactsPath,
+      providerStatusPath,
+    });
+
+    expect(payload.state_class).toBe('dirty-single-repo');
+    expect(payload.worktree.dirty).toBe(true);
+    expect(payload.complexity_dimensions.worktree_dirty_graph_affecting).toBe(true);
+    expect(payload.complexity_dimensions.provider_query_degraded).toBe(false);
+    expect(payload.tags).toEqual(expect.arrayContaining([
+      'dirty-single-repo',
+      'worktree_dirty_graph_affecting',
+      'bootstrap-layer',
+    ]));
+    expect(payload.tags).not.toContain('clean-single-repo');
+  });
+
+  test('does not mark provider degraded when bootstrap provider status is absent', () => {
+    const repo = initCommittedRepo();
+    const revision = git(repo, ['rev-parse', 'HEAD']);
+    const setupPath = writeSetupFingerprint(repo, revision);
+    const graphFactsPath = path.join(repo, '.spec-first', 'graph', 'graph-facts.json');
+    writeJson(graphFactsPath, {
+      schema_version: 'graph-facts.v1',
+      repo_root: repo,
+      source_revision: revision,
+      worktree_dirty: false,
+      worktree_status_hash: 'sha256:clean',
+      freshness_state: 'fresh',
+      dirty_paths_sample: [],
+    });
+
+    const payload = computeBootstrapLayer({
+      cwd: repo,
+      workspaceRoot: repo,
+      setupFingerprintPath: setupPath,
+      graphFactsPath,
+      providerStatusPath: path.join(repo, '.spec-first', 'graph', 'missing-provider-status.json'),
+    });
+
+    expect(payload.state_class).toBe('clean-single-repo');
+    expect(payload.complexity_dimensions.provider_query_degraded).toBe(false);
+    expect(payload.tags).toEqual(expect.arrayContaining(['clean-single-repo', 'bootstrap-layer']));
+  });
+
   test('missing setup layer skips artifact generation without failing bootstrap helper', () => {
     const repo = initCommittedRepo();
     const output = path.join(repo, '.spec-first', 'workspace', 'scenario-fingerprint.json');

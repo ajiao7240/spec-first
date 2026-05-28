@@ -271,8 +271,64 @@ function computeBootstrapLayer(input = {}) {
     ? setup.providers_status_refs
     : {};
 
+  // 用 bootstrap 新证据重算分类面，避免 setup 层仍显示 clean 而 graph facts 已经 dirty。
+  const setupTopology = setup.topology && typeof setup.topology === 'object' ? setup.topology : {};
+  const setupDimensions = setup.complexity_dimensions && typeof setup.complexity_dimensions === 'object'
+    ? setup.complexity_dimensions
+    : {};
+  const targetKind = setupTopology.target_kind || (setupTopology.repo_topology === 'non-git-folder' ? 'non-git-folder' : 'git-repo');
+  const multiRepoWorkspace = setupTopology.repo_topology === 'multi-repo-workspace'
+    || Boolean(setupDimensions.multi_repo_workspace);
+  const nonGitBuildTargetsPresent = Boolean(setupTopology.non_git_build_targets_present
+    || setupDimensions.non_git_build_targets_present);
+  const firstTimeGitRepo = setup.state_class === 'first-time-git-repo';
+  const foreignResidualIndicators = Array.isArray(setup.foreign_residual_indicators)
+    ? setup.foreign_residual_indicators
+    : [];
+  const dirtyPathsSampleFromGraph = Array.isArray(graphFacts.dirty_paths_sample)
+    ? graphFacts.dirty_paths_sample
+    : [];
+  const hasGitNexusStatus = gitnexusStatus && Object.keys(gitnexusStatus).length > 0;
+  const worktreeDirtyGraphAffecting = Boolean(
+    graphFacts.dirty_classification === 'graph-affecting-blocked'
+    || dirtyPathsSampleFromGraph.some(item => item && item.graph_affecting === true)
+    || (multiRepoWorkspace && dirtyChildCount > 0)
+    || (graphFacts.worktree_dirty === true
+        && (setupDimensions.worktree_dirty_graph_affecting === true || dirtyPathsSampleFromGraph.length === 0
+            ? Boolean(setupDimensions.worktree_dirty_graph_affecting)
+            : false))
+  );
+  const gitnexusQueryReady = Boolean(
+    hasGitNexusStatus
+    && (gitnexusStatus.query_ready === true || gitnexusStatus.graph_ready === true)
+  );
+  const providerQueryDegraded = hasGitNexusStatus
+    ? !gitnexusQueryReady
+    : Boolean(setupDimensions.provider_query_degraded);
+  const mergedDimensions = {
+    ...setupDimensions,
+    worktree_dirty_graph_affecting: worktreeDirtyGraphAffecting,
+    provider_query_degraded: providerQueryDegraded,
+  };
+  const mergedStateClass = classifyState({
+    targetKind,
+    multiRepoWorkspace,
+    firstTimeGitRepo,
+    nonGitBuildTargetsPresent,
+    worktreeDirtyGraphAffecting,
+    providerQueryDegraded,
+    foreignResidualIndicators,
+  });
+  const mergedTags = Array.from(new Set([
+    ...buildTags(mergedStateClass, mergedDimensions),
+    'bootstrap-layer',
+    ...(staleSetup.stale ? ['stale-setup-layer'] : []),
+  ]));
+
   return {
     ...setup,
+    state_class: mergedStateClass,
+    complexity_dimensions: mergedDimensions,
     schema_version: BOOTSTRAP_SCHEMA_VERSION,
     advisory: true,
     layer: 'bootstrap',
@@ -329,11 +385,7 @@ function computeBootstrapLayer(input = {}) {
       provider_status: fs.existsSync(providerStatusPath) ? toWorkspaceRelative(workspaceRoot, providerStatusPath) : null,
       graph_bootstrap_summary: fs.existsSync(graphBootstrapSummaryPath) ? toWorkspaceRelative(workspaceRoot, graphBootstrapSummaryPath) : null,
     },
-    tags: Array.from(new Set([
-      ...((setup.tags && Array.isArray(setup.tags)) ? setup.tags : []),
-      'bootstrap-layer',
-      ...(staleSetup.stale ? ['stale-setup-layer'] : []),
-    ])),
+    tags: mergedTags,
     limitations: Array.from(new Set([
       ...((setup.limitations && Array.isArray(setup.limitations)) ? setup.limitations : []),
       'build-target coverage fields are null until P4 build-target scan fills them',
