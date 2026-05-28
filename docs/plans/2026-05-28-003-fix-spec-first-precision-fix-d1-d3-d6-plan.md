@@ -1,7 +1,7 @@
 ---
 title: "fix: spec-first 精准修补 D1/D3/D6(parent quarantine + repo label + dirty paths)"
 type: fix
-status: active
+status: completed
 date: 2026-05-28
 spec_id: 2026-05-28-003-fix-spec-first-precision-fix-d1-d3-d6
 origin: docs/03-实施方案/2026-05-28-mcp-setup-graph-bootstrap-深度优化建议.md
