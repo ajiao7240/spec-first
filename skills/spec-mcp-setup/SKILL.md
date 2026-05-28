@@ -34,11 +34,11 @@ Current host, working directory, `skills/spec-mcp-setup/mcp-tools.json`, host co
 
 ### Outputs
 
-Readiness ledger facts, setup-owned config/projection artifacts, helper/tool status, grouped user-facing next actions, and handoff guidance to graph bootstrap or the user-intent workflow.
+Readiness ledger facts, setup-owned config/projection artifacts, setup-time scenario fingerprint facts, helper/tool status, grouped user-facing next actions, and handoff guidance to graph bootstrap or the user-intent workflow.
 
 ### Artifacts
 
-Host readiness ledger v2, `.spec-first/config/*.json`, parent workspace advisory summaries, and managed `.gitignore` entries when explicitly bootstrapped.
+Host readiness ledger v2, `.spec-first/config/*.json`, `.spec-first/workspace/scenario-fingerprint-setup.json`, parent workspace advisory summaries, and managed `.gitignore` entries when explicitly bootstrapped.
 
 ### Failure Modes
 
@@ -46,7 +46,7 @@ Missing dependency, invalid workspace target, host config precedence block, warm
 
 ### Workflow
 
-Resolve target scope, check dependencies, configure required helpers/MCP projections, write setup-owned readiness facts, then report status and next action.
+Resolve target scope, check dependencies, configure required helpers/MCP projections, write setup-owned readiness facts, write the advisory setup scenario fingerprint, then report status and next action.
 
 ### Downstream Consumers
 
@@ -56,7 +56,7 @@ Resolve target scope, check dependencies, configure required helpers/MCP project
 
 Prepare a verified, repeatable spec-first harness runtime for Claude Code or Codex without turning setup into a semantic decision engine.
 
-The workflow should leave deterministic facts behind for downstream workflows: host MCP config status, helper tool status, project-local setup facts, graph-provider projections, readiness ledger v2, and explicit next actions. Scripts own detection, installation, config writing, and JSON facts; the LLM owns host routing, failure interpretation, and workflow handoff judgment.
+The workflow should leave deterministic facts behind for downstream workflows: host MCP config status, helper tool status, project-local setup facts, graph-provider projections, setup-time scenario fingerprint, readiness ledger v2, and explicit next actions. Scripts own detection, installation, config writing, and JSON facts; the LLM owns host routing, failure interpretation, and workflow handoff judgment.
 
 ## Graph Refresh Boundary
 
@@ -115,6 +115,7 @@ Setup may write these deterministic artifacts:
 - child-local `.spec-first/config/provider-artifacts.json`;
 - project-local `.spec-first/config.local.example.yaml`, `.spec-first/config.local.yaml`, and `.gitignore` entries when explicitly bootstrapped;
 - parent advisory summaries under `.spec-first/workspace/` when running all-repos modes.
+- setup-time scenario fingerprint at `.spec-first/workspace/scenario-fingerprint-setup.json` when target writes are allowed. The fingerprint is advisory, uses `developer-scenario-fingerprint-setup.v1`, and is written by `spec-first internal compute-scenario-fingerprint --layer setup`; setup records a failed fingerprint write in the readiness ledger but does not fail the main setup flow.
 - `host_pointer_reconciliation` advisory event in the readiness ledger v2 when host marker drift is detected. The event records `from_host` / `to_host` / `from_marker_path` / `to_marker_path` / `reconciled_at` so downstream workflows can audit cross-host setup runs without taking action; the original host's marker file is left intact.
 
 The assistant's final response must restate readiness from ledger v2 instead of relying only on command output.
@@ -173,7 +174,8 @@ All tools in `mcp-tools.json` must have `required=true` and a `category` of `mcp
 6. Warms every required MCP/provider package and configures only host-MCP-required tools in the host MCP config.
 7. Writes readiness ledger v2 to the host marker path.
 8. Writes setup-owned project facts inside a git repo: `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/config/provider-artifacts.json`.
-9. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now when durable readiness refresh is pending; hand off to plan for Plan-stage live GitNexus evidence when the current session already exposes GitNexus MCP surfaces or after a restarted/new session loads newly written MCP config; when graph readiness is already ready, route by user intent into plan/work/review/debug or let `using-spec-first` choose the matching workflow.
+9. Writes advisory setup scenario fingerprint facts under `.spec-first/workspace/scenario-fingerprint-setup.json` through the Node helper; wrapper failures are warn-and-continue.
+10. Prints a clear next-step prompt after the final status block: continue graph readiness compilation now when durable readiness refresh is pending; hand off to plan for Plan-stage live GitNexus evidence when the current session already exposes GitNexus MCP surfaces or after a restarted/new session loads newly written MCP config; when graph readiness is already ready, route by user intent into plan/work/review/debug or let `using-spec-first` choose the matching workflow.
 
 
 ## Autonomy And Permissions

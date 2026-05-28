@@ -236,11 +236,21 @@ mkdir -p "$BROKEN_WORKTREE_WORKSPACE/project-a" "$BROKEN_WORKTREE_WORKSPACE/brok
 git -C "$BROKEN_WORKTREE_WORKSPACE/project-a" init -q
 printf 'gitdir: /missing/parent/worktree\n' > "$BROKEN_WORKTREE_WORKSPACE/.git"
 printf 'gitdir: /missing/child/worktree\n' > "$BROKEN_WORKTREE_WORKSPACE/broken-child/.git"
+REPAIR_WORKTREE_SCRIPT="$SCRIPTS_DIR/repair-worktree.sh"
 broken_target="$(cd "$BROKEN_WORKTREE_WORKSPACE" && bash "$RESOLVER_SCRIPT")"
 assert_eq "resolver detects broken parent worktree" "broken-worktree:false" "$(jq -r '"\(.git_health.status):\(.git_health.worktree_pointer.exists)"' <<<"$broken_target")"
 assert_contains "broken worktree next action recommends dry-run repair" "spec-first repair-worktree --dry-run" "$(jq -r '.next_action' <<<"$broken_target")"
 assert_eq "resolver records broken child diagnostics" "broken-child:broken-worktree" "$(jq -r '.candidates_diagnostics[0] | "\(.workspace_relative_path):\(.git_health.status)"' <<<"$broken_target")"
 assert_eq "coverage gap counts non-git plain dir and ignores build" "1:plain:false" "$(jq -r '"\(.coverage_gap.uncovered_top_level_dirs):\(.coverage_gap.sample[0]):\(.coverage_gap.ignored_dir_patterns | index("build") == null)"' <<<"$broken_target")"
+
+INVALID_WORKTREE_POINTER_WORKSPACE="$TMP_DIR/invalid-worktree-pointer-workspace"
+mkdir -p "$INVALID_WORKTREE_POINTER_WORKSPACE/project-a" "$INVALID_WORKTREE_POINTER_WORKSPACE/existing-not-git"
+git -C "$INVALID_WORKTREE_POINTER_WORKSPACE/project-a" init -q
+printf 'gitdir: %s\n' "$INVALID_WORKTREE_POINTER_WORKSPACE/existing-not-git" > "$INVALID_WORKTREE_POINTER_WORKSPACE/.git"
+invalid_pointer_target="$(cd "$INVALID_WORKTREE_POINTER_WORKSPACE" && bash "$RESOLVER_SCRIPT")"
+assert_eq "resolver rejects existing but invalid gitdir pointer" "broken-worktree:broken-worktree-pointer-invalid:true" "$(jq -r '"\(.git_health.status):\(.git_health.reason_code):\(.git_health.worktree_pointer.exists)"' <<<"$invalid_pointer_target")"
+invalid_pointer_repair_output="$(cd "$INVALID_WORKTREE_POINTER_WORKSPACE" && bash "$REPAIR_WORKTREE_SCRIPT" --dry-run)"
+assert_contains "repair-worktree handles existing invalid gitdir pointer" "reason_code=broken-worktree-pointer-invalid" "$invalid_pointer_repair_output"
 
 CORRUPTED_WORKSPACE="$TMP_DIR/corrupted-workspace"
 mkdir -p "$CORRUPTED_WORKSPACE/.git" "$CORRUPTED_WORKSPACE/project-a"
@@ -249,7 +259,6 @@ corrupted_target="$(cd "$CORRUPTED_WORKSPACE" && bash "$RESOLVER_SCRIPT")"
 assert_eq "resolver detects corrupted gitdir" "corrupted-gitdir" "$(jq -r '.git_health.status' <<<"$corrupted_target")"
 assert_contains "corrupted gitdir next action recommends git fsck" "git fsck" "$(jq -r '.next_action' <<<"$corrupted_target")"
 
-REPAIR_WORKTREE_SCRIPT="$SCRIPTS_DIR/repair-worktree.sh"
 assert "repair-worktree script is executable" test -x "$REPAIR_WORKTREE_SCRIPT"
 repair_output="$(cd "$BROKEN_WORKTREE_WORKSPACE" && bash "$REPAIR_WORKTREE_SCRIPT" --dry-run)"
 assert_contains "repair-worktree dry-run prints preview marker" "repair_worktree_dry_run=true" "$repair_output"

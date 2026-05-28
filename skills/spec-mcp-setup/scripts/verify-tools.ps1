@@ -99,6 +99,80 @@ function Write-JsonFileAtomic {
   }
 }
 
+function Write-SetupScenarioFingerprint {
+  param(
+    [object]$Ledger,
+    [string]$LedgerPath
+  )
+
+  $stateWriteAllowed = if ($null -ne $Ledger.target) { [bool]$Ledger.target.state_write_allowed } else { $true }
+  if (-not $stateWriteAllowed) { return }
+
+  $targetRoot = if (-not [string]::IsNullOrWhiteSpace([string]$Ledger.target_root)) {
+    [string]$Ledger.target_root
+  } elseif (-not [string]::IsNullOrWhiteSpace([string]$Ledger.selected_repo_root)) {
+    [string]$Ledger.selected_repo_root
+  } elseif (-not [string]::IsNullOrWhiteSpace([string]$Ledger.workspace_root)) {
+    [string]$Ledger.workspace_root
+  } else {
+    ''
+  }
+  if ([string]::IsNullOrWhiteSpace($targetRoot) -or -not (Test-Path -LiteralPath $targetRoot -PathType Container)) {
+    return
+  }
+
+  $output = Join-Path $targetRoot '.spec-first/workspace/scenario-fingerprint-setup.json'
+  $repoRoot = Resolve-Path -LiteralPath (Join-Path $ScriptDir '../../..')
+  $helper = Join-Path $repoRoot 'src/cli/helpers/scenario-fingerprint.js'
+  $stdout = ''
+  $stderrPath = Join-Path ([System.IO.Path]::GetTempPath()) ('spec-first-scenario-fingerprint-{0}.log' -f ([guid]::NewGuid().ToString('N')))
+  $exitCode = 127
+  try {
+    $global:LASTEXITCODE = 0
+    if (Test-Path -LiteralPath $helper -PathType Leaf) {
+      $stdout = (& node $helper --layer setup --ledger $LedgerPath --out $output 2> $stderrPath) -join "`n"
+      $exitCode = if ($LASTEXITCODE -is [int]) { $LASTEXITCODE } else { 0 }
+    } elseif (-not [string]::IsNullOrWhiteSpace($env:SPEC_FIRST_CLI)) {
+      if ((Test-Path -LiteralPath $env:SPEC_FIRST_CLI -PathType Leaf) -and $env:SPEC_FIRST_CLI.EndsWith('.js')) {
+        $stdout = (& node $env:SPEC_FIRST_CLI internal compute-scenario-fingerprint --layer setup --ledger $LedgerPath --out $output 2> $stderrPath) -join "`n"
+      } else {
+        $stdout = (& $env:SPEC_FIRST_CLI internal compute-scenario-fingerprint --layer setup --ledger $LedgerPath --out $output 2> $stderrPath) -join "`n"
+      }
+      $exitCode = if ($LASTEXITCODE -is [int]) { $LASTEXITCODE } else { 0 }
+    } elseif (Get-Command spec-first -ErrorAction SilentlyContinue) {
+      $stdout = (& spec-first internal compute-scenario-fingerprint --layer setup --ledger $LedgerPath --out $output 2> $stderrPath) -join "`n"
+      $exitCode = if ($LASTEXITCODE -is [int]) { $LASTEXITCODE } else { 0 }
+    } else {
+      $stdout = 'spec-first CLI unavailable'
+    }
+  } catch {
+    $exitCode = if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { $LASTEXITCODE } else { 1 }
+    $stdout = [string]$_.Exception.Message
+  }
+
+  $stderr = if (Test-Path -LiteralPath $stderrPath -PathType Leaf) { Get-Content -Raw -LiteralPath $stderrPath } else { '' }
+  Remove-Item -Force -LiteralPath $stderrPath -ErrorAction SilentlyContinue
+  if ($exitCode -eq 0 -and (Test-Path -LiteralPath $output -PathType Leaf)) {
+    $Ledger['scenario_fingerprint_setup'] = [ordered]@{
+      status = 'written'
+      schema_version = 'developer-scenario-fingerprint-setup.v1'
+      path = $output
+      advisory = $true
+    }
+    Write-Host "🧭 setup scenario fingerprint: $output"
+  } else {
+    $diagnostic = (@($stdout, $stderr) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }) -join "`n"
+    $Ledger['scenario_fingerprint_setup'] = [ordered]@{
+      status = 'failed'
+      schema_version = 'developer-scenario-fingerprint-setup.v1'
+      advisory = $true
+      diagnostic = (($diagnostic -split "`n") | Select-Object -First 6) -join "`n"
+    }
+    [Console]::Error.WriteLine('verify-tools.ps1: setup scenario fingerprint failed; continuing')
+  }
+  $Ledger | ConvertTo-Json -Depth 12 | Set-Content -Encoding utf8 $LedgerPath
+}
+
 function Invoke-ChildScriptCaptured {
   param(
     [string]$ScriptPath,
@@ -511,6 +585,7 @@ $combined.next_actions = @($filteredNextActions)
 $combined | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8 $finalTmp
 Move-Item -Force $finalTmp $MarkerPath
 Remove-Item -Force $combinedTmp -ErrorAction SilentlyContinue
+Write-SetupScenarioFingerprint -Ledger $combined -LedgerPath $MarkerPath
 
 function Format-Cell {
   param([object]$Value)

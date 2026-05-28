@@ -87,8 +87,16 @@ function Get-GitHealth {
         $pointerPath = Join-Path (Resolve-Path -LiteralPath (Split-Path -Parent $pointerPath)).ProviderPath (Split-Path -Leaf $pointerPath)
       }
       $pointerExists = Test-Path -LiteralPath $pointerPath
-      $health.status = if ($pointerExists) { 'ok' } else { 'broken-worktree' }
-      $health.reason_code = if ($pointerExists) { 'git-ok' } else { 'broken-worktree' }
+      $gitRoot = git -C $Path rev-parse --show-toplevel 2>$null
+      $pointerValid = $pointerExists -and (-not [string]::IsNullOrWhiteSpace($gitRoot))
+      $health.status = if ($pointerValid) { 'ok' } else { 'broken-worktree' }
+      $health.reason_code = if ($pointerValid) {
+        'git-ok'
+      } elseif ($pointerExists) {
+        'broken-worktree-pointer-invalid'
+      } else {
+        'broken-worktree'
+      }
       $health.worktree_pointer = [ordered]@{
         raw = $rawPointer
         path = $pointerPath.Replace('\', '/')

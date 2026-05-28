@@ -3,6 +3,7 @@
 const { runContextBundle } = require('../helpers/context-bundle');
 const { runWorkspaceGitNexusReadiness } = require('../helpers/compile-workspace-gitnexus-readiness');
 const { runReviewPreFacts } = require('../helpers/review-pre-facts');
+const { runScenarioFingerprint } = require('../helpers/scenario-fingerprint');
 const { runCli: runSecretDenyPatternsCli } = require('../helpers/secret-deny-patterns');
 const { runCli: runSpecWorkRunArtifactCli } = require('../helpers/spec-work-run-artifact');
 
@@ -20,6 +21,10 @@ function runInternal(argv) {
 
   if (subcommand === 'workspace-gitnexus-readiness') {
     return runWorkspaceGitNexusReadiness(args.slice(1));
+  }
+
+  if (subcommand === 'compute-scenario-fingerprint') {
+    return runScenarioFingerprint(args.slice(1));
   }
 
   if (subcommand === 'secret-deny') {

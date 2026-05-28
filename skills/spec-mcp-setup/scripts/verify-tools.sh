@@ -118,6 +118,65 @@ write_workspace_summary_atomic() {
   mv "$tmp" "$path" || { rm -f "$tmp"; return 1; }
 }
 
+write_setup_scenario_fingerprint() {
+  local state_write_allowed target_root output helper repo_root result status tmp
+
+  state_write_allowed="$(jq -r 'if (.target | type == "object") then (.target.state_write_allowed // true | tostring) else "true" end' "$MARKER_PATH" 2>/dev/null || echo "false")"
+  [ "$state_write_allowed" = "true" ] || return 0
+
+  target_root="$(jq -r '.target_root // .selected_repo_root // .workspace_root // empty' "$MARKER_PATH" 2>/dev/null || true)"
+  [ -n "$target_root" ] && [ -d "$target_root" ] || return 0
+
+  output="$target_root/.spec-first/workspace/scenario-fingerprint-setup.json"
+  repo_root="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+  helper="$repo_root/src/cli/helpers/scenario-fingerprint.js"
+
+  set +e
+  if [ -f "$helper" ]; then
+    result="$(node "$helper" --layer setup --ledger "$MARKER_PATH" --out "$output" 2>&1)"
+    status=$?
+  elif [ -n "${SPEC_FIRST_CLI:-}" ]; then
+    if [ -f "$SPEC_FIRST_CLI" ] && [[ "$SPEC_FIRST_CLI" == *.js ]]; then
+      result="$(node "$SPEC_FIRST_CLI" internal compute-scenario-fingerprint --layer setup --ledger "$MARKER_PATH" --out "$output" 2>&1)"
+      status=$?
+    else
+      result="$("$SPEC_FIRST_CLI" internal compute-scenario-fingerprint --layer setup --ledger "$MARKER_PATH" --out "$output" 2>&1)"
+      status=$?
+    fi
+  elif command -v spec-first >/dev/null 2>&1; then
+    result="$(spec-first internal compute-scenario-fingerprint --layer setup --ledger "$MARKER_PATH" --out "$output" 2>&1)"
+    status=$?
+  else
+    result="spec-first CLI unavailable"
+    status=127
+  fi
+  set -e
+
+  tmp="$(mktemp "${MARKER_PATH}.scenario-fingerprint.XXXXXX")" || return 0
+  if [ "$status" -eq 0 ] && [ -f "$output" ]; then
+    jq --arg path "$output" '
+      .scenario_fingerprint_setup = {
+        status:"written",
+        schema_version:"developer-scenario-fingerprint-setup.v1",
+        path:$path,
+        advisory:true
+      }
+    ' "$MARKER_PATH" > "$tmp" && mv "$tmp" "$MARKER_PATH"
+    echo "🧭 setup scenario fingerprint: $output"
+  else
+    jq --arg diagnostic "$result" '
+      .scenario_fingerprint_setup = {
+        status:"failed",
+        schema_version:"developer-scenario-fingerprint-setup.v1",
+        advisory:true,
+        diagnostic:($diagnostic | split("\n") | .[0:6] | join("\n"))
+      }
+    ' "$MARKER_PATH" > "$tmp" && mv "$tmp" "$MARKER_PATH"
+    rm -f "$tmp"
+    echo "verify-tools.sh: setup scenario fingerprint failed; continuing" >&2
+  fi
+}
+
 write_all_repos_verify_summary_and_exit() {
   local target_json="$1"
   local selection_source="${2:-explicit-all-repos}"
@@ -508,6 +567,7 @@ jq --argjson provider "$PROVIDER_RESULT" \
    | .overall_status = (if .baseline_ready == true then "ready" else "action-required" end)' "$combined_tmp" > "$final_tmp"
 
 mv "$final_tmp" "$MARKER_PATH"
+write_setup_scenario_fingerprint
 
 echo "📝 宿主就绪标记已更新: $MARKER_PATH"
 echo "🔎 当前宿主基线状态: $(jq -r '.overall_status' "$MARKER_PATH")"

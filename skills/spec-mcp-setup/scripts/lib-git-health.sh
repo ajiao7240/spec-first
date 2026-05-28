@@ -39,14 +39,19 @@ detect_git_health() {
           pointer_path="$(cd "$(dirname "$pointer_path")" && pwd -P)/$(basename "$pointer_path")"
         fi
         GIT_HEALTH_WORKTREE_POINTER_PATH="$pointer_path"
-        if [ -e "$pointer_path" ]; then
+        if [ -e "$pointer_path" ] && git -C "$target_dir" rev-parse --show-toplevel >/dev/null 2>&1; then
           GIT_HEALTH_STATUS="ok"
           GIT_HEALTH_REASON_CODE="git-ok"
           GIT_HEALTH_WORKTREE_POINTER_EXISTS="true"
         else
           GIT_HEALTH_STATUS="broken-worktree"
-          GIT_HEALTH_REASON_CODE="broken-worktree"
-          GIT_HEALTH_WORKTREE_POINTER_EXISTS="false"
+          if [ -e "$pointer_path" ]; then
+            GIT_HEALTH_REASON_CODE="broken-worktree-pointer-invalid"
+            GIT_HEALTH_WORKTREE_POINTER_EXISTS="true"
+          else
+            GIT_HEALTH_REASON_CODE="broken-worktree"
+            GIT_HEALTH_WORKTREE_POINTER_EXISTS="false"
+          fi
         fi
         ;;
       *)

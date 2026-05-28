@@ -1,4 +1,5 @@
 const fs = require('fs');
+const os = require('node:os');
 const path = require('path');
 const { spawnSync } = require('node:child_process');
 
@@ -254,9 +255,65 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(source).toContain('[switch]$Unlink');
     expect(source).toContain('repair-worktree-apply-deferred');
     expect(source).toContain('repair_worktree_dry_run=true');
+    expect(source).toContain('reason_code=$($health.reason_code)');
     expect(source).toContain('Unlink preview:');
     expect(source).toContain('Manual repair guidance:');
     expect(source).toContain('Remove-Item -LiteralPath');
+  });
+
+  test('PowerShell resolver and repair-worktree reject existing invalid gitdir pointers', () => {
+    const pwshProbe = spawnPwsh(['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$PSVersionTable.PSVersion.ToString()'], {
+      encoding: 'utf8',
+    });
+    if (pwshProbe === null) {
+      return;
+    }
+
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-invalid-gitdir-'));
+    try {
+      const workspace = path.join(tmpRoot, 'workspace');
+      const childRepo = path.join(workspace, 'project-a');
+      const invalidGitdir = path.join(workspace, 'existing-not-git');
+      fs.mkdirSync(childRepo, { recursive: true });
+      fs.mkdirSync(invalidGitdir, { recursive: true });
+      const gitInit = spawnSync('git', ['-C', childRepo, 'init', '-q'], { encoding: 'utf8' });
+      expect(gitInit.status).toBe(0);
+      fs.writeFileSync(path.join(workspace, '.git'), `gitdir: ${invalidGitdir}\n`);
+
+      const resolver = spawnPwsh([
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-File',
+        resolveProjectTargetPs1,
+      ], {
+        cwd: workspace,
+        encoding: 'utf8',
+      });
+      expect(resolver.status).toBe(0);
+      const target = JSON.parse(resolver.stdout);
+      expect(target.git_health.status).toBe('broken-worktree');
+      expect(target.git_health.reason_code).toBe('broken-worktree-pointer-invalid');
+      expect(target.git_health.worktree_pointer.exists).toBe(true);
+
+      const repair = spawnPwsh([
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-File',
+        repairWorktreePs1,
+        '-DryRun',
+      ], {
+        cwd: workspace,
+        encoding: 'utf8',
+      });
+      expect(repair.status).toBe(0);
+      expect(repair.stdout).toContain('repair_worktree_dry_run=true');
+      expect(repair.stdout).toContain('reason_code=broken-worktree-pointer-invalid');
+      expect(fs.existsSync(path.join(workspace, '.git'))).toBe(true);
+    } finally {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
   });
 
   test('uses shared TOML helpers for quoted Codex MCP keys', () => {

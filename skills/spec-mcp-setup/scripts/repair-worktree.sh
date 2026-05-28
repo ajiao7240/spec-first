@@ -49,7 +49,7 @@ git_file="$target_dir/.git"
 cat <<EOF
 repair_worktree_dry_run=true
 generated_at=$timestamp
-reason_code=broken-worktree
+reason_code=$GIT_HEALTH_REASON_CODE
 
 Broken worktree pointer:
   git_file: $git_file

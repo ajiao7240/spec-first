@@ -1,7 +1,7 @@
 ---
 title: "PA-pre Calibration Notes for Scenario-Adaptive Milestone"
 type: calibration
-status: draft-calibration
+status: provisional-freeze-with-limitation
 date: 2026-05-28
 source_plan: docs/plans/2026-05-28-002-feat-spec-first-scenario-adaptive-milestone-plan.md
 author: leokuang
@@ -11,9 +11,9 @@ author: leokuang
 
 ## Conclusion
 
-本轮校准支持继续采用“两层 fingerprint + 维度向量 + 外置 capability matrix”的设计,但尚不足以宣称 U1 完成。原因是当前只完成了 2 个真实工作区的磁盘/既有 artifact 校验和 1 个合成 pnpm 样本,还缺少计划要求的 ≥3 个真实使用场景 best-effort 拓扑调查。
+本轮校准支持继续采用“两层 fingerprint + 维度向量 + 外置 capability matrix”的设计,并足以作为 PA-1 setup-time fingerprint 的 **provisional freeze** 输入。当前已完成 2 个真实工作区的磁盘/既有 artifact 校验和 1 个合成 pnpm 样本;计划中的 ≥3 个真实使用场景 best-effort 拓扑调查在本地执行环境无法直接访问开发者反馈,因此记录为 limitation,不阻断 PA-1 首版实现。
 
-因此本文件冻结的是 **draft v0.1 provisional** 候选集,供 PA-1 实现草案和审查使用;正式 schema freeze 仍需在补齐用户拓扑调查后完成。
+因此本文件冻结的是 **v0.1 provisional** 候选集,供 PA-1 实现和审查使用;M3 证据回放后再决定是否通过 RFC 调整枚举或维度字段。
 
 ## Evidence Snapshot
 
@@ -60,9 +60,9 @@ All fields are boolean and independent. Do not compute a single scenario score.
 - **pnpm/npm parser scope:** keep out of PA-1. The synthetic sample proves the field shape, but not enough to justify mixing npm parsing into the first Gradle-focused build-target release.
 - **Foreign residual rule:** use stat failure AND foreign path prefix mismatch. A normal new clone with missing artifacts is `first-time-git-repo`, not `foreign-residual-workspace`.
 
-## Remaining Before U1 Complete
+## Remaining Survey Limitation
 
 - Run a clean spec-first sample after current docs contract repair is committed or stashed.
-- Collect best-effort topology input from at least 3 real users/projects, or record why that survey could not be completed.
+- Collect best-effort topology input from at least 3 real users/projects when developer feedback is available; current local-only run cannot contact developers, so this remains an explicit limitation rather than a PA-1 blocker.
 - Re-run this note against a fresh graph-bootstrap artifact after the post-commit graph facts are current.
-- Promote `draft v0.1 provisional` to `provisional freeze` only after the above evidence is present.
+- Review whether `v0.1 provisional` needs RFC adjustment after U3 router and M3 matrix evidence.
