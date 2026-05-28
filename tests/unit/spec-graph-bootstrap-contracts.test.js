@@ -141,8 +141,8 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('Live MCP Probe');
     expect(skill).toContain('Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`');
     expect(skill).toContain('summarize `run_id`, total child count, ready/degraded/not-applicable/action-required counts');
-    expect(skill).toContain('P5-min `quality_signals`');
-    expect(skill).toContain('quality_signals.{child_count, process_results_rate, command_failed_rate, dirty_advisory_child_rate}');
+    expect(skill).toContain('P5-full `quality_signals`');
+    expect(skill).toContain('quality_signals.{child_count, process_results_rate, command_failed_rate, dirty_advisory_child_rate, build_target_coverage_ratio, impact_probe_with_test_provenance_rate, host_instruction_drift_rate}');
     expect(skill).toContain('These quality signals are deterministic evaluation inputs only');
     expect(skill).toContain('- Host instruction drift detected (advisory). Run: spec-first init to refresh AGENTS.md / CLAUDE.md GitNexus blocks.');
     expect(skill).toContain('workspace_gitnexus_readiness_pointer.reason_code=script-mode-no-mcp');
@@ -179,6 +179,9 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(bashScript).toContain('process_results_rate');
     expect(bashScript).toContain('command_failed_rate');
     expect(bashScript).toContain('dirty_advisory_child_rate');
+    expect(bashScript).toContain('build_target_coverage_ratio');
+    expect(bashScript).toContain('impact_probe_with_test_provenance_rate');
+    expect(bashScript).toContain('host_instruction_drift_rate');
     expect(bashScript).toContain('"script-mode-no-mcp"');
     expect(bashScript).toContain('"classifier-not-invoked"');
     expect(bashScript).toContain('"classifier-failed"');
@@ -194,6 +197,9 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(powershellScript).toContain('process_results_rate');
     expect(powershellScript).toContain('command_failed_rate');
     expect(powershellScript).toContain('dirty_advisory_child_rate');
+    expect(powershellScript).toContain('build_target_coverage_ratio');
+    expect(powershellScript).toContain('impact_probe_with_test_provenance_rate');
+    expect(powershellScript).toContain('host_instruction_drift_rate');
     expect(powershellScript).toContain("'script-mode-no-mcp'");
     expect(powershellScript).toContain("'classifier-not-invoked'");
     expect(powershellScript).toContain("'classifier-failed'");

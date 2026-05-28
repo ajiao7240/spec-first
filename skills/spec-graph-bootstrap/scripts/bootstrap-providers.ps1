@@ -438,18 +438,76 @@ function Test-ChildIsDirtyAdvisory {
   return $false
 }
 
+function Test-ChildHasImpactProbeWithTestProvenance {
+  param([object]$Child)
+
+  foreach ($providerResult in @($Child.result.results)) {
+    if ([string]$providerResult.provider -ne 'gitnexus') { continue }
+    if ($null -ne $providerResult.review_support -and [string]$providerResult.review_support.related_tests_status -eq 'supported') {
+      return $true
+    }
+    foreach ($commandResult in @($providerResult.command_results)) {
+      if (
+        [string]$commandResult.kind -eq 'impact_probe' -and
+        [int]$commandResult.exit_code -eq 0 -and
+        [string]$commandResult.result_class -eq 'related-tests-supported'
+      ) {
+        return $true
+      }
+    }
+  }
+  return $false
+}
+
+function Test-ChildHasHostInstructionDrift {
+  param([object]$Child)
+
+  foreach ($providerResult in @($Child.result.results)) {
+    if ([string]$providerResult.provider -ne 'gitnexus') { continue }
+    if (
+      $null -ne $providerResult.host_instruction_normalization -and
+      [string]$providerResult.host_instruction_normalization.status -eq 'drift-detected'
+    ) {
+      return $true
+    }
+  }
+  return $false
+}
+
+function Get-BuildTargetCoverageRatio {
+  param([object]$TargetFacts)
+
+  if (
+    $null -ne $TargetFacts -and
+    $TargetFacts.PSObject.Properties.Name -contains 'coverage_summary' -and
+    $null -ne $TargetFacts.coverage_summary -and
+    $TargetFacts.coverage_summary.PSObject.Properties.Name -contains 'coverage_ratio'
+  ) {
+    return $TargetFacts.coverage_summary.coverage_ratio
+  }
+  return $null
+}
+
 function New-WorkspaceQualitySignals {
-  param([object[]]$Results)
+  param(
+    [object[]]$Results,
+    [object]$TargetFacts
+  )
 
   $childCount = @($Results).Count
   $processResultsCount = @($Results | Where-Object { Test-ChildHasProcessResults -Child $_ }).Count
   $commandFailedCount = @($Results | Where-Object { Test-ChildHasFailedCommand -Child $_ }).Count
   $dirtyAdvisoryCount = @($Results | Where-Object { Test-ChildIsDirtyAdvisory -Child $_ }).Count
+  $impactProbeWithTestProvenanceCount = @($Results | Where-Object { Test-ChildHasImpactProbeWithTestProvenance -Child $_ }).Count
+  $hostInstructionDriftCount = @($Results | Where-Object { Test-ChildHasHostInstructionDrift -Child $_ }).Count
   return [ordered]@{
     child_count = $childCount
+    build_target_coverage_ratio = Get-BuildTargetCoverageRatio -TargetFacts $TargetFacts
     process_results_rate = ConvertTo-WorkspaceQualityRate -Count $processResultsCount -Total $childCount
     command_failed_rate = ConvertTo-WorkspaceQualityRate -Count $commandFailedCount -Total $childCount
     dirty_advisory_child_rate = ConvertTo-WorkspaceQualityRate -Count $dirtyAdvisoryCount -Total $childCount
+    impact_probe_with_test_provenance_rate = ConvertTo-WorkspaceQualityRate -Count $impactProbeWithTestProvenanceCount -Total $childCount
+    host_instruction_drift_rate = ConvertTo-WorkspaceQualityRate -Count $hostInstructionDriftCount -Total $childCount
   }
 }
 
@@ -600,7 +658,7 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
   $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0 -and $degradedCount -eq 0) { 'ready' } elseif (($readyCount + $degradedCount) -gt 0) { 'partial' } else { 'action-required' }
   $finishedAt = Get-UtcTimestamp
   $durationMs = (Get-EpochMilliseconds) - $script:ScriptStartedEpochMs
-  $qualitySignals = New-WorkspaceQualitySignals -Results @($results)
+  $qualitySignals = New-WorkspaceQualitySignals -Results @($results) -TargetFacts $TargetFacts
   $summary = [ordered]@{
     schema_version = 'workspace-graph-bootstrap-summary.v1'
     generated_at = $finishedAt

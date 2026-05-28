@@ -799,6 +799,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         fingerprint_setup_missing:$fingerprint_setup_missing,
         quality_signals:{
           child_count:($results | length),
+          build_target_coverage_ratio:($target.coverage_summary.coverage_ratio // null),
           process_results_rate:(
             if ($results | length) == 0 then null
             else (
@@ -819,6 +820,39 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
                 | select(
                     (.exit_code // 0) != 0
                     or any(.result.results[]?; any(.command_results[]?; (.exit_code // 0) != 0))
+                  )
+              ] | length) / ($results | length)
+            )
+            end
+          ),
+          impact_probe_with_test_provenance_rate:(
+            if ($results | length) == 0 then null
+            else (
+              ([
+                $results[]
+                | select(
+                    any(.result.results[]?;
+                      .provider == "gitnexus"
+                      and (
+                        (.review_support.related_tests_status // "") == "supported"
+                        or any(.command_results[]?; .kind == "impact_probe" and (.exit_code // 0) == 0 and .result_class == "related-tests-supported")
+                      )
+                    )
+                  )
+              ] | length) / ($results | length)
+            )
+            end
+          ),
+          host_instruction_drift_rate:(
+            if ($results | length) == 0 then null
+            else (
+              ([
+                $results[]
+                | select(
+                    any(.result.results[]?;
+                      .provider == "gitnexus"
+                      and (.host_instruction_normalization.status // "") == "drift-detected"
+                    )
                   )
               ] | length) / ($results | length)
             )
