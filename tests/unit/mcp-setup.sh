@@ -307,7 +307,7 @@ assert_eq "categories are constrained" "true" "$(jq -r 'all(.tools[]; (.category
 assert_eq "agent-browser is outside MCP registry" "false" "$(jq -r '[.tools[].id] | index("agent-browser") != null' "$TOOLS_JSON")"
 assert_eq "browser MCP is not registered" "false" "$(jq -r '[.tools[].id] | any(. == "playwright")' "$TOOLS_JSON")"
 assert_eq "graph provider roles are configured" "global_knowledge" "$(jq -r '[.tools[] | select(.category == "graph-provider") | .provider_role] | join(",")' "$TOOLS_JSON")"
-assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.5" "$GITNEXUS_PACKAGE"
+assert_eq "GitNexus package pin is explicit" "gitnexus@1.6.6-rc.76" "$GITNEXUS_PACKAGE"
 assert_eq "GitNexus native capability keys are locked" "context,cypher,impact,query,repo_registry,route_api_evidence,shape_check,tool_map,workspace_group" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | keys | sort | join(",")' "$TOOLS_JSON")"
 assert_eq "GitNexus native capability registry uses locked fields" "true" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | to_entries | all(.value | (keys | sort | join(",")) == "fallback_posture,meaning,mutation_boundary,native_resources,native_tools,source_tags")' "$TOOLS_JSON")"
 assert_eq "GitNexus native capability registry uses catalog source tags" "true" "$(jq -r '.tools[] | select(.id == "gitnexus") | .provider_config.native_capabilities | to_entries | all(.value.source_tags == ["checked-in-baseline","provider-pin"])' "$TOOLS_JSON")"

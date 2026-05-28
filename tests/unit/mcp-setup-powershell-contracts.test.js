@@ -334,7 +334,7 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(toolsJson.schema_version).toBe('6');
     const gitnexus = toolsJson.tools.find((t) => t.id === 'gitnexus');
     expect(gitnexus.package).toBe('gitnexus');
-    expect(gitnexus.version).toBe('1.6.5');
+    expect(gitnexus.version).toBe('1.6.6-rc.76');
     expect(gitnexus.installation.unix.args).toEqual(['-y', '{{package}}@{{version}}', '--help']);
     expect(gitnexus.installation.windows.args).toEqual(['-y', '{{package}}@{{version}}', '--help']);
     expect(gitnexus.host_config.claude.args).toEqual(['-y', '{{package}}@{{version}}', 'mcp']);
@@ -1090,10 +1090,10 @@ function Get-StatusHash {
 }
 ${functionSource}
 $commands = [ordered]@{
-  bootstrap = @('npx', '-y', 'gitnexus@1.6.5', 'analyze', '--force', '--skip-agents-md', '--no-stats')
-  incremental = @('npx', '-y', 'gitnexus@1.6.5', 'analyze', '--skip-agents-md', '--no-stats')
-  status = @('npx', '-y', 'gitnexus@1.6.5', 'status')
-  query_probe = @('npx', '-y', 'gitnexus@1.6.5', 'query', 'TradeLoginActivity', '--repo', '/repo')
+  bootstrap = @('npx', '-y', 'gitnexus@1.6.6-rc.76', 'analyze', '--force', '--skip-agents-md', '--no-stats')
+  incremental = @('npx', '-y', 'gitnexus@1.6.6-rc.76', 'analyze', '--skip-agents-md', '--no-stats')
+  status = @('npx', '-y', 'gitnexus@1.6.6-rc.76', 'status')
+  query_probe = @('npx', '-y', 'gitnexus@1.6.6-rc.76', 'query', 'TradeLoginActivity', '--repo', '/repo')
 }
 $actual = Get-ProviderCommandHashForCommands -Commands $commands
 $ordered = [ordered]@{}
