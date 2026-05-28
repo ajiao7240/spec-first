@@ -160,6 +160,15 @@ write_all_repos_verify_summary_and_exit() {
       workflow_mode:"blocked",
       reason_code:($target.reason_code // "workspace-no-git-candidates"),
       workspace_root:($target.workspace_root // null),
+      parent_workspace_advisory:{
+        git_health:($target.git_health // null),
+        coverage_gap:($target.coverage_gap // null),
+        candidates_diagnostics:($target.candidates_diagnostics // []),
+        repair_action_available:(($target.git_health.status // "") == "broken-worktree"),
+        repair_command:(if (($target.git_health.status // "") == "broken-worktree") then "spec-first repair-worktree --dry-run" else null end),
+        diagnostic_action_available:(($target.git_health.status // "") == "corrupted-gitdir"),
+        diagnostic_command:(if (($target.git_health.status // "") == "corrupted-gitdir") then "git fsck" else null end)
+      },
       candidates:($target.candidates // []),
       advisory:true,
       next_action:($target.next_action // "Run from a parent workspace containing child Git repos.")
@@ -230,6 +239,15 @@ write_all_repos_verify_summary_and_exit() {
         workflow_mode:"all-repos",
         selection_source:$selection_source,
         workspace_root:($target.workspace_root // null),
+        parent_workspace_advisory:{
+          git_health:($target.git_health // null),
+          coverage_gap:($target.coverage_gap // null),
+          candidates_diagnostics:($target.candidates_diagnostics // []),
+          repair_action_available:(($target.git_health.status // "") == "broken-worktree"),
+          repair_command:(if (($target.git_health.status // "") == "broken-worktree") then "spec-first repair-worktree --dry-run" else null end),
+          diagnostic_action_available:(($target.git_health.status // "") == "corrupted-gitdir"),
+          diagnostic_command:(if (($target.git_health.status // "") == "corrupted-gitdir") then "git fsck" else null end)
+        },
         parent_writes_repo_local_artifacts:false,
         results:$results,
         counts:{
@@ -352,6 +370,18 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
   def helper_action_required:
     (baseline_blocking == true)
     or (((.result // "") != "ready") and (((.result // "") != "degraded") and ((.result // "") != "skipped")));
+  def parent_workspace_advisory($facts):
+    ($facts.git_health // $facts.target.git_health // null) as $git_health
+    | ($git_health.status // "") as $git_status
+    | {
+        git_health: $git_health,
+        coverage_gap: ($facts.coverage_gap // $facts.target.coverage_gap // null),
+        candidates_diagnostics: ($facts.candidates_diagnostics // $facts.target.candidates_diagnostics // []),
+        repair_action_available: ($git_status == "broken-worktree"),
+        repair_command: (if $git_status == "broken-worktree" then "spec-first repair-worktree --dry-run" else null end),
+        diagnostic_action_available: ($git_status == "corrupted-gitdir"),
+        diagnostic_command: (if $git_status == "corrupted-gitdir" then "git fsck" else null end)
+      };
 
   . as $facts
   | ($helper.helper_tools // {}) as $helper_tools
@@ -371,6 +401,7 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       selected_repo_root: ($facts.selected_repo_root // null),
       selected_folder_root: ($facts.selected_folder_root // null),
       target_root: ($facts.target.target_root // $facts.repo_root // null),
+      parent_workspace_advisory: parent_workspace_advisory($facts),
       target_candidate_count: ($facts.target_candidate_count // 0),
       target_candidates: ($facts.target_candidates // []),
       reason_code: ($facts.reason_code // ""),

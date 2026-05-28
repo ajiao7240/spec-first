@@ -93,6 +93,7 @@ grep -q "doctor" <<<"$help_output"
 grep -q "init" <<<"$help_output"
 grep -q "Interactively install workflows" <<<"$help_output"
 grep -q "clean (--claude|--codex)" <<<"$help_output"
+grep -q "repair-worktree" <<<"$help_output"
 grep -q "tasks <subcommand>" <<<"$help_output"
 grep -q "gitnexus-instruction" <<<"$help_output"
 if grep -q "crg <subcommand>" <<<"$help_output"; then

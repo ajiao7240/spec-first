@@ -1,13 +1,46 @@
 ---
 title: GitNexus native crash resilience for spec-graph-bootstrap
 type: feat
-status: active
+status: superseded
 date: 2026-05-28
+superseded_at: 2026-05-28
+superseded_by: pin-upgrade-gitnexus-1.6.6-rc.76
 spec_id: 2026-05-28-001-gitnexus-native-crash-resilience
 origin: /tmp/spec-first-incident-2026-05-28-gitnexus-native-crash-resilience.md
 ---
 
 # GitNexus native crash resilience for spec-graph-bootstrap
+
+> **STATUS: SUPERSEDED (2026-05-28)** — 上游 GitNexus PR #1833 (worker-pool race fix) 已并入 `1.6.6-rc.76`，且本仓库 pin 已升级至 `gitnexus@1.6.6-rc.76`（CHANGELOG v1.8.2 2026-05-28 11:25:00），plan 设计针对的 SIGABRT/Napi::Error 触发条件在当前 pin 下不再复现。本 plan 不执行，保留作为 incident replay 与 4-Harness 空洞分析的历史档案；如未来 1.6.6+ stable 上 race 复发，可直接复活本文件或拆分为更小的 contingency plan。详见下方 ## Supersedes Rationale。
+
+## Supersedes Rationale
+
+### 不执行的核心理由
+
+1. **触发条件已消失**：plan 解决的是 GitNexus 1.6.5 worker-pool race；当前 pin `gitnexus@1.6.6-rc.76` 已含上游 PR #1833 修复。U1+U2+U3（约占 plan 63% 设计量）针对的失败模式在当前 pin 下不再发生；待 1.6.6 stable 切 pin 后这部分代码将完全是死代码。
+2. **抽象层放错**：U1/U2/U3 把 `gitnexus-analyze-sigabrt` 等 provider-specific reason code 写进 bootstrap 通用调度器；正确位置是 provider adapter 声明 retry policy、bootstrap 通用层只读声明。当前写法等于把 GitNexus 这一版 bug 永久编码进 spec-first 状态机，未来新 provider 复用不了。
+3. **U4 与 U1-U3 没有真正耦合**：U4 解决的是 workspace readiness 中间快照 stale（架构债），U1-U3 解决的是 provider crash 兜底（可靠性补丁），两者只是 incident 同时暴露，技术上不耦合。
+4. **U4 自身撞上更深的契约债**：doc-review 发现 U4 在 `--write-artifact` durable 路径上会让 `query_usability_counts` 出现 `registry-present-query-unverified`，违反 `docs/contracts/workspace-gitnexus-consumption.md:46` 的 4-key 闭集约束。这是 `query_usability` 单 enum 承载多维度状态导致的设计债，不是 U4 本地能干净修掉的，应单独立 `query_usability` 正交化 contract v2 plan。
+
+### 等待信号
+
+- 等 `npm view gitnexus dist-tags.latest` 跳到 `1.6.6` stable（截至 2026-05-28 仍为 `1.6.5`，rc 通道已迭代到 `1.6.6-rc.78`）后，按 governance plan `2026-05-07-002` 流程把 pin 从 rc 通道回切到 stable。
+- 切到 stable 后，本 plan 彻底不需要复活。
+
+### 复活触发条件
+
+仅当 **1.6.6+ stable 上 race 复发** 或 **新 GitNexus 版本引入等价 native crash 类失败** 时，复活本文件。复活时应同步重新评估：
+- U1-U3 是否抽象到 provider adapter retry policy（不再写死 gitnexus）
+- U4 是否拆分为独立的 `workspace-gitnexus-readiness` 实时聚合 plan，前置依赖 `query_usability` 正交化 contract v2
+
+### 已沉淀价值
+
+下列内容即使不执行 plan 也保留长期参考价值：
+- Problem Frame 里 4 个 Harness 空洞分析（Evidence ×2 + Governance ×2）— 可作为未来类似 incident 的诊断模板
+- Origin document 中 6/6 vs 4/6 race 对照实验 — 为 retry 设计提供经验值
+- Key Technical Decisions 中关于 `failure_class=provider-crash-recovered` 与 `incremental_fallback_success_failure_info` 对齐的论证 — 未来设计 recovery 字段时可复用
+
+---
 
 ## Summary
 

@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib-git-health.sh"
+
 REPO_ARG=""
 FOLDER_ARG=""
 OUTPUT_FORMAT="json"
@@ -98,6 +101,17 @@ path_is_within() {
   esac
 }
 
+IGNORE_DIR_NAMES=(.git node_modules vendor .claude .codex .agents .spec-first build .cache .direnv .venv)
+
+is_ignored_dir_name() {
+  local name="$1"
+  local ignored
+  for ignored in "${IGNORE_DIR_NAMES[@]}"; do
+    [ "$name" = "$ignored" ] && return 0
+  done
+  return 1
+}
+
 relative_to_workspace() {
   local path="$1"
   local root="$2"
@@ -111,7 +125,18 @@ relative_to_workspace() {
 }
 
 INVOCATION_CWD="$(pwd -P)"
-CWD_GIT_ROOT="$(git -C "$INVOCATION_CWD" rev-parse --show-toplevel 2>/dev/null || true)"
+detect_git_health "$INVOCATION_CWD"
+ROOT_GIT_HEALTH_STATUS="$GIT_HEALTH_STATUS"
+ROOT_GIT_HEALTH_REASON_CODE="$GIT_HEALTH_REASON_CODE"
+ROOT_GIT_HEALTH_GIT_ENTRY_TYPE="$GIT_HEALTH_GIT_ENTRY_TYPE"
+ROOT_GIT_HEALTH_WORKTREE_POINTER_RAW="$GIT_HEALTH_WORKTREE_POINTER_RAW"
+ROOT_GIT_HEALTH_WORKTREE_POINTER_PATH="$GIT_HEALTH_WORKTREE_POINTER_PATH"
+ROOT_GIT_HEALTH_WORKTREE_POINTER_EXISTS="$GIT_HEALTH_WORKTREE_POINTER_EXISTS"
+
+CWD_GIT_ROOT=""
+if [ "$ROOT_GIT_HEALTH_STATUS" = "ok" ]; then
+  CWD_GIT_ROOT="$(git -C "$INVOCATION_CWD" rev-parse --show-toplevel 2>/dev/null || true)"
+fi
 if [ -n "$CWD_GIT_ROOT" ]; then
   CWD_GIT_ROOT="$(canonicalize_existing_path "$CWD_GIT_ROOT")"
 fi
@@ -132,6 +157,14 @@ next_action=""
 exit_code=0
 candidate_roots=()
 candidate_labels=()
+diagnostic_paths=()
+diagnostic_statuses=()
+diagnostic_reason_codes=()
+diagnostic_git_entry_types=()
+diagnostic_pointer_raws=()
+diagnostic_pointer_paths=()
+diagnostic_pointer_exists=()
+coverage_gap_json=""
 
 add_candidate() {
   local root="$1"
@@ -148,7 +181,7 @@ add_candidate() {
 discover_candidates() {
   local root="$1"
   local queue=()
-  local current depth child name git_root canonical_root
+  local current depth child name git_root canonical_root diagnostic_path
 
   queue+=("0|$root")
   while [ "${#queue[@]}" -gt 0 ]; do
@@ -160,15 +193,24 @@ discover_candidates() {
     while IFS= read -r child; do
       [ -n "$child" ] || continue
       name="$(basename "$child")"
-      case "$name" in
-        .git|node_modules|vendor|.claude|.codex|.agents|.spec-first|.cache|.direnv|.venv)
-          continue
-          ;;
-      esac
+      is_ignored_dir_name "$name" && continue
 
       if [ -e "$child/.git" ]; then
         git_root="$(git -C "$child" rev-parse --show-toplevel 2>/dev/null || true)"
-        [ -n "$git_root" ] || continue
+        if [ -z "$git_root" ]; then
+          detect_git_health "$child"
+          if [ "$GIT_HEALTH_STATUS" != "not-git" ]; then
+            diagnostic_path="$(canonicalize_existing_path "$child")"
+            diagnostic_paths+=("$diagnostic_path")
+            diagnostic_statuses+=("$GIT_HEALTH_STATUS")
+            diagnostic_reason_codes+=("$GIT_HEALTH_REASON_CODE")
+            diagnostic_git_entry_types+=("$GIT_HEALTH_GIT_ENTRY_TYPE")
+            diagnostic_pointer_raws+=("$GIT_HEALTH_WORKTREE_POINTER_RAW")
+            diagnostic_pointer_paths+=("$GIT_HEALTH_WORKTREE_POINTER_PATH")
+            diagnostic_pointer_exists+=("$GIT_HEALTH_WORKTREE_POINTER_EXISTS")
+          fi
+          continue
+        fi
         canonical_root="$(canonicalize_existing_path "$git_root")"
         path_is_within "$canonical_root" "$root" || continue
         add_candidate "$canonical_root"
@@ -188,6 +230,84 @@ discover_candidates() {
     [ -n "$candidate" ] || continue
     candidate_roots+=("$candidate")
   done <<<"$sorted"
+}
+
+emit_git_health_json() {
+  local status="$1"
+  local reason_code="$2"
+  local git_entry_type="$3"
+  local pointer_raw="$4"
+  local pointer_path="$5"
+  local pointer_exists="$6"
+
+  printf '{"status":"%s","reason_code":"%s","git_entry_type":"%s"' \
+    "$(json_escape "$status")" \
+    "$(json_escape "$reason_code")" \
+    "$(json_escape "$git_entry_type")"
+  if [ -n "$pointer_raw" ] || [ -n "$pointer_path" ] || [ -n "$pointer_exists" ]; then
+    printf ',"worktree_pointer":{'
+    printf '"raw":"%s",' "$(json_escape "$pointer_raw")"
+    if [ -n "$pointer_path" ]; then
+      printf '"path":"%s",' "$(json_escape "$pointer_path")"
+    else
+      printf '"path":null,'
+    fi
+    if [ -n "$pointer_exists" ]; then
+      printf '"exists":%s' "$pointer_exists"
+    else
+      printf '"exists":null'
+    fi
+    printf '}'
+  fi
+  printf '}'
+}
+
+compute_coverage_gap() {
+  local root="$1"
+  local uncovered=()
+  local child name canonical_child candidate skip sample_json ignored_json first item i
+
+  while IFS= read -r child; do
+    [ -n "$child" ] || continue
+    name="$(basename "$child")"
+    is_ignored_dir_name "$name" && continue
+    [ -e "$child/.git" ] && continue
+    canonical_child="$(canonicalize_existing_path "$child")"
+    skip="false"
+    for candidate in ${candidate_roots[@]+"${candidate_roots[@]}"}; do
+      if [ "$canonical_child" = "$candidate" ] || path_is_within "$candidate" "$canonical_child"; then
+        skip="true"
+        break
+      fi
+    done
+    [ "$skip" = "true" ] && continue
+    uncovered+=("$(relative_to_workspace "$canonical_child" "$root")")
+  done < <(find -P "$root" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort)
+
+  sample_json="["
+  first="true"
+  for i in "${!uncovered[@]}"; do
+    [ "$i" -lt 7 ] || break
+    [ "$first" = "true" ] || sample_json+=","
+    first="false"
+    sample_json+="\"$(json_escape "${uncovered[$i]}")\""
+  done
+  sample_json+="]"
+
+  ignored_json="["
+  first="true"
+  for item in "${IGNORE_DIR_NAMES[@]}"; do
+    [ "$first" = "true" ] || ignored_json+=","
+    first="false"
+    ignored_json+="\"$(json_escape "$item")\""
+  done
+  ignored_json+="]"
+
+  coverage_gap_json="$(printf '{"uncovered_top_level_dirs":%s,"sample":%s,"ignored_dir_patterns":%s,"advisory":"%s"}' \
+    "${#uncovered[@]}" \
+    "$sample_json" \
+    "$ignored_json" \
+    "$(json_escape "Some top-level folders are not independent Git repos and are not covered by --all-repos. Use --folder <path> explicitly for non-git folder indexing.")")"
 }
 
 if [ -n "$FOLDER_ARG" ]; then
@@ -308,27 +428,60 @@ elif [ -n "$CWD_GIT_ROOT" ]; then
 else
   target_kind="workspace"
   discover_candidates "$workspace_root"
+  compute_coverage_gap "$workspace_root"
   if [ "${#candidate_roots[@]}" -eq 0 ]; then
     mode="workspace-no-git-candidates"
     reason_code="workspace-no-git-candidates"
-    next_action="Run from a Git repo or pass --repo <child> after creating one."
+    case "$ROOT_GIT_HEALTH_STATUS" in
+      broken-worktree)
+        next_action="Run spec-first repair-worktree --dry-run, or pass --folder . for explicit non-git folder indexing."
+        ;;
+      corrupted-gitdir)
+        next_action="Run git fsck or inspect the .git directory, then rerun setup."
+        ;;
+      *)
+        next_action="Run from a Git repo or pass --repo <child> after creating one."
+        ;;
+    esac
   elif [ "${#candidate_roots[@]}" -eq 1 ]; then
     mode="workspace-single-candidate"
     reason_code="workspace-target-required"
     candidate_labels+=("$(relative_to_workspace "${candidate_roots[0]}" "$workspace_root")")
-    next_action="Rerun with --repo ${candidate_labels[0]}."
+    case "$ROOT_GIT_HEALTH_STATUS" in
+      broken-worktree)
+        next_action="Run spec-first repair-worktree --dry-run, or rerun with --repo ${candidate_labels[0]}."
+        ;;
+      corrupted-gitdir)
+        next_action="Run git fsck or inspect the .git directory, then rerun with --repo ${candidate_labels[0]}."
+        ;;
+      *)
+        next_action="Rerun with --repo ${candidate_labels[0]}."
+        ;;
+    esac
   else
     mode="workspace-multi-repo"
     reason_code="workspace-target-required"
     for candidate in "${candidate_roots[@]}"; do
       candidate_labels+=("$(relative_to_workspace "$candidate" "$workspace_root")")
     done
-    next_action="Choose a child Git repo and rerun with --repo <child>."
+    case "$ROOT_GIT_HEALTH_STATUS" in
+      broken-worktree)
+        next_action="Run spec-first repair-worktree --dry-run, choose a child Git repo with --repo <child>, or pass --folder . for explicit non-git folder indexing."
+        ;;
+      corrupted-gitdir)
+        next_action="Run git fsck or inspect the .git directory, then choose a child Git repo with --repo <child>."
+        ;;
+      *)
+        next_action="Choose a child Git repo and rerun with --repo <child>."
+        ;;
+    esac
   fi
 fi
 
 emit_json() {
   local candidates_json="[]"
+  local diagnostics_json="[]"
+  local git_health_json
   local i item first="true"
   candidates_json="["
   for i in "${!candidate_roots[@]}"; do
@@ -342,8 +495,23 @@ emit_json() {
   done
   candidates_json+="]"
 
+  diagnostics_json="["
+  first="true"
+  for i in "${!diagnostic_paths[@]}"; do
+    [ "$first" = "true" ] || diagnostics_json+=","
+    first="false"
+    item="$(printf '{"workspace_relative_path":"%s","path":"%s","git_health":%s}' \
+      "$(json_escape "$(relative_to_workspace "${diagnostic_paths[$i]}" "$workspace_root")")" \
+      "$(json_escape "${diagnostic_paths[$i]}")" \
+      "$(emit_git_health_json "${diagnostic_statuses[$i]}" "${diagnostic_reason_codes[$i]}" "${diagnostic_git_entry_types[$i]}" "${diagnostic_pointer_raws[$i]}" "${diagnostic_pointer_paths[$i]}" "${diagnostic_pointer_exists[$i]}")")"
+    diagnostics_json+="$item"
+  done
+  diagnostics_json+="]"
+
+  git_health_json="$(emit_git_health_json "$ROOT_GIT_HEALTH_STATUS" "$ROOT_GIT_HEALTH_REASON_CODE" "$ROOT_GIT_HEALTH_GIT_ENTRY_TYPE" "$ROOT_GIT_HEALTH_WORKTREE_POINTER_RAW" "$ROOT_GIT_HEALTH_WORKTREE_POINTER_PATH" "$ROOT_GIT_HEALTH_WORKTREE_POINTER_EXISTS")"
+
   printf '{'
-  printf '"schema_version":"project-target.v1",'
+  printf '"schema_version":"project-target.v2",'
   printf '"mode":"%s",' "$(json_escape "$mode")"
   printf '"repo_status":"%s",' "$(json_escape "$repo_status")"
   printf '"target_kind":"%s",' "$(json_escape "$target_kind")"
@@ -369,13 +537,20 @@ emit_json() {
   printf '"repo_label":"%s",' "$(json_escape "$repo_label")"
   printf '"folder_label":"%s",' "$(json_escape "$folder_label")"
   printf '"candidates":%s,' "$candidates_json"
+  printf '"git_health":%s,' "$git_health_json"
+  if [ -n "$coverage_gap_json" ]; then
+    printf '"coverage_gap":%s,' "$coverage_gap_json"
+  fi
+  if [ "${#diagnostic_paths[@]}" -gt 0 ]; then
+    printf '"candidates_diagnostics":%s,' "$diagnostics_json"
+  fi
   printf '"reason_code":"%s",' "$(json_escape "$reason_code")"
   printf '"next_action":"%s"' "$(json_escape "$next_action")"
   printf '}\n'
 }
 
 emit_env() {
-  printf 'schema_version=%s\n' "$(env_quote "project-target.v1")"
+  printf 'schema_version=%s\n' "$(env_quote "project-target.v2")"
   printf 'mode=%s\n' "$(env_quote "$mode")"
   printf 'repo_status=%s\n' "$(env_quote "$repo_status")"
   printf 'target_kind=%s\n' "$(env_quote "$target_kind")"

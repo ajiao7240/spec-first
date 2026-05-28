@@ -53,6 +53,70 @@ function Get-GitRoot {
   return ConvertTo-CanonicalPath -Path $root
 }
 
+function Get-GitHealth {
+  param([string]$Path)
+  $gitEntry = Join-Path $Path '.git'
+  $health = [ordered]@{
+    status = 'not-git'
+    reason_code = 'not-git'
+    git_entry_type = 'missing'
+  }
+  if (-not (Test-Path -LiteralPath $gitEntry)) {
+    $root = git -C $Path rev-parse --show-toplevel 2>$null
+    if (-not [string]::IsNullOrWhiteSpace($root)) {
+      $health.status = 'ok'
+      $health.reason_code = 'git-ok'
+      $health.git_entry_type = 'ancestor'
+    }
+    return $health
+  }
+
+  if (Test-Path -LiteralPath $gitEntry -PathType Leaf) {
+    $health.status = 'corrupted-gitdir'
+    $health.reason_code = 'gitdir-file-unparseable'
+    $health.git_entry_type = 'file'
+    $firstLine = ([System.IO.File]::ReadAllText($gitEntry) -split "`n", 2)[0].TrimEnd("`r")
+    if ($firstLine -like 'gitdir:*') {
+      $rawPointer = $firstLine.Substring('gitdir:'.Length).Trim()
+      $pointerPath = if ([System.IO.Path]::IsPathRooted($rawPointer)) {
+        $rawPointer
+      } else {
+        [System.IO.Path]::GetFullPath((Join-Path $Path $rawPointer))
+      }
+      if (Test-Path -LiteralPath (Split-Path -Parent $pointerPath)) {
+        $pointerPath = Join-Path (Resolve-Path -LiteralPath (Split-Path -Parent $pointerPath)).ProviderPath (Split-Path -Leaf $pointerPath)
+      }
+      $pointerExists = Test-Path -LiteralPath $pointerPath
+      $health.status = if ($pointerExists) { 'ok' } else { 'broken-worktree' }
+      $health.reason_code = if ($pointerExists) { 'git-ok' } else { 'broken-worktree' }
+      $health.worktree_pointer = [ordered]@{
+        raw = $rawPointer
+        path = $pointerPath.Replace('\', '/')
+        exists = [bool]$pointerExists
+      }
+    }
+    return $health
+  }
+
+  if (Test-Path -LiteralPath $gitEntry -PathType Container) {
+    $health.git_entry_type = 'directory'
+    $root = git -C $Path rev-parse --show-toplevel 2>$null
+    if ([string]::IsNullOrWhiteSpace($root)) {
+      $health.status = 'corrupted-gitdir'
+      $health.reason_code = 'gitdir-directory-invalid'
+    } else {
+      $health.status = 'ok'
+      $health.reason_code = 'git-ok'
+    }
+    return $health
+  }
+
+  $health.status = 'corrupted-gitdir'
+  $health.reason_code = 'gitdir-entry-invalid'
+  $health.git_entry_type = 'other'
+  return $health
+}
+
 function Add-Candidate {
   param(
     [System.Collections.Generic.List[string]]$Candidates,
@@ -70,7 +134,7 @@ function Find-ChildGitRepos {
     [string]$Root,
     [int]$MaxDepth
   )
-  $excluded = @('.git', 'node_modules', 'vendor', '.claude', '.codex', '.agents', '.spec-first', '.cache', '.direnv', '.venv')
+  $excluded = @('.git', 'node_modules', 'vendor', '.claude', '.codex', '.agents', '.spec-first', 'build', '.cache', '.direnv', '.venv')
   $queue = New-Object System.Collections.Generic.Queue[object]
   $candidates = New-Object System.Collections.Generic.List[string]
   $queue.Enqueue([pscustomobject]@{ depth = 0; path = $Root })
@@ -82,6 +146,15 @@ function Find-ChildGitRepos {
         $gitRoot = Get-GitRoot -Path $child.FullName
         if (-not [string]::IsNullOrWhiteSpace($gitRoot) -and (Test-PathWithin -Child $gitRoot -Parent $Root)) {
           Add-Candidate -Candidates $candidates -Root $gitRoot
+        } else {
+          $health = Get-GitHealth -Path $child.FullName
+          if ($health.status -ne 'not-git') {
+            $script:CandidateDiagnostics.Add([ordered]@{
+              workspace_relative_path = Get-RelativeToWorkspace -Path (ConvertTo-CanonicalPath -Path $child.FullName) -Root $Root
+              path = (ConvertTo-CanonicalPath -Path $child.FullName)
+              git_health = $health
+            })
+          }
         }
         continue
       }
@@ -93,10 +166,42 @@ function Find-ChildGitRepos {
   @($candidates.ToArray() | Sort-Object)
 }
 
+function Get-CoverageGap {
+  param(
+    [string]$Root,
+    [object[]]$CandidateRoots
+  )
+  $ignored = @('.git', 'node_modules', 'vendor', '.claude', '.codex', '.agents', '.spec-first', 'build', '.cache', '.direnv', '.venv')
+  $uncovered = New-Object System.Collections.Generic.List[string]
+  foreach ($child in @(Get-ChildItem -LiteralPath $Root -Directory -Force -ErrorAction SilentlyContinue | Sort-Object Name)) {
+    if ($ignored -contains $child.Name) { continue }
+    if (Test-Path -LiteralPath (Join-Path $child.FullName '.git')) { continue }
+    $canonicalChild = ConvertTo-CanonicalPath -Path $child.FullName
+    $skip = $false
+    foreach ($candidate in @($CandidateRoots)) {
+      if ($canonicalChild -eq $candidate -or (Test-PathWithin -Child $candidate -Parent $canonicalChild)) {
+        $skip = $true
+        break
+      }
+    }
+    if (-not $skip) {
+      $uncovered.Add((Get-RelativeToWorkspace -Path $canonicalChild -Root $Root))
+    }
+  }
+  return [ordered]@{
+    uncovered_top_level_dirs = $uncovered.Count
+    sample = @($uncovered.ToArray() | Select-Object -First 7)
+    ignored_dir_patterns = $ignored
+    advisory = 'Some top-level folders are not independent Git repos and are not covered by -AllRepos. Use -Folder <path> explicitly for non-git folder indexing.'
+  }
+}
+
 $invocationCwd = ConvertTo-CanonicalPath -Path (Get-Location).Path
-$cwdGitRoot = Get-GitRoot -Path $invocationCwd
+$rootGitHealth = Get-GitHealth -Path $invocationCwd
+$cwdGitRoot = if ($rootGitHealth.status -eq 'ok') { Get-GitRoot -Path $invocationCwd } else { '' }
+$script:CandidateDiagnostics = New-Object System.Collections.Generic.List[object]
 $result = [ordered]@{
-  schema_version = 'project-target.v1'
+  schema_version = 'project-target.v2'
   mode = ''
   repo_status = 'not-git-repo'
   target_kind = ''
@@ -110,6 +215,7 @@ $result = [ordered]@{
   repo_label = ''
   folder_label = ''
   candidates = @()
+  git_health = $rootGitHealth
   reason_code = ''
   next_action = ''
 }
@@ -229,6 +335,10 @@ if (-not [string]::IsNullOrWhiteSpace($Folder)) {
 } else {
   $result.target_kind = 'workspace'
   $candidateRoots = @(Find-ChildGitRepos -Root $result.workspace_root -MaxDepth $ScanDepth)
+  $result.coverage_gap = Get-CoverageGap -Root $result.workspace_root -CandidateRoots $candidateRoots
+  if ($script:CandidateDiagnostics.Count -gt 0) {
+    $result.candidates_diagnostics = @($script:CandidateDiagnostics.ToArray())
+  }
   $result.candidates = @($candidateRoots | ForEach-Object {
     [ordered]@{
       repo_label = Get-RelativeToWorkspace -Path $_ -Root $result.workspace_root
@@ -240,15 +350,33 @@ if (-not [string]::IsNullOrWhiteSpace($Folder)) {
   if ($candidateRoots.Count -eq 0) {
     $result.mode = 'workspace-no-git-candidates'
     $result.reason_code = 'workspace-no-git-candidates'
-    $result.next_action = 'Run from a Git repo or pass --repo <child> after creating one.'
+    if ($rootGitHealth.status -eq 'broken-worktree') {
+      $result.next_action = 'Run spec-first repair-worktree --dry-run, or pass -Folder . for explicit non-git folder indexing.'
+    } elseif ($rootGitHealth.status -eq 'corrupted-gitdir') {
+      $result.next_action = 'Run git fsck or inspect the .git directory, then rerun setup.'
+    } else {
+      $result.next_action = 'Run from a Git repo or pass --repo <child> after creating one.'
+    }
   } elseif ($candidateRoots.Count -eq 1) {
     $result.mode = 'workspace-single-candidate'
     $result.reason_code = 'workspace-target-required'
-    $result.next_action = "Rerun with --repo $($result.candidates[0].workspace_relative_path)."
+    if ($rootGitHealth.status -eq 'broken-worktree') {
+      $result.next_action = "Run spec-first repair-worktree --dry-run, or rerun with --repo $($result.candidates[0].workspace_relative_path)."
+    } elseif ($rootGitHealth.status -eq 'corrupted-gitdir') {
+      $result.next_action = "Run git fsck or inspect the .git directory, then rerun with --repo $($result.candidates[0].workspace_relative_path)."
+    } else {
+      $result.next_action = "Rerun with --repo $($result.candidates[0].workspace_relative_path)."
+    }
   } else {
     $result.mode = 'workspace-multi-repo'
     $result.reason_code = 'workspace-target-required'
-    $result.next_action = 'Choose a child Git repo and rerun with --repo <child>.'
+    if ($rootGitHealth.status -eq 'broken-worktree') {
+      $result.next_action = 'Run spec-first repair-worktree --dry-run, choose a child Git repo with --repo <child>, or pass -Folder . for explicit non-git folder indexing.'
+    } elseif ($rootGitHealth.status -eq 'corrupted-gitdir') {
+      $result.next_action = 'Run git fsck or inspect the .git directory, then choose a child Git repo with --repo <child>.'
+    } else {
+      $result.next_action = 'Choose a child Git repo and rerun with --repo <child>.'
+    }
   }
 }
 

@@ -132,8 +132,18 @@
   "topology": "multi-repo-workspace",
   "advisory": true,
   "quarantined_paths": [
-    {".spec-first/graph/graph-facts.json": {"reason_code": "parent-workspace-must-not-have-repo-local-graph", "stale_indicator": "repo_root mismatches workspace_root", "last_generated_at": "2026-05-06T03:56:57Z", "fingerprint_origin": "/Users/lynwang/..."}},
-    {".gitnexus/": {"reason_code": "parent-workspace-must-not-have-graph-index", "label_mismatch": "kaz-app vs kaz-mvp"}}
+    {
+      "path": ".spec-first/graph/graph-facts.json",
+      "reason_code": "parent-workspace-must-not-have-repo-local-graph",
+      "stale_indicator": "repo_root mismatches workspace_root",
+      "last_generated_at": "2026-05-06T03:56:57Z",
+      "fingerprint_origin": "/Users/lynwang/..."
+    },
+    {
+      "path": ".gitnexus/",
+      "reason_code": "parent-workspace-must-not-have-graph-index",
+      "label_mismatch": "kaz-app vs kaz-mvp"
+    }
   ],
   "next_action": "Confirm before deletion; spec-first clean --workspace-orphans is the dedicated cleanup command."
 }
@@ -340,7 +350,14 @@ setup 在写 `runtime-capabilities.json` 时,把 `mcp-tools.json.native_capabili
 2. **P1 - T1.4 repo_label_resolution**:provider-status.json 增字段。脚本侧 ~50 行。修复 D3 的隐性误导。
 3. **P2 - T1.3 dirty_paths_sample**:graph-facts.json 增字段。修复 dirty 影响面盲区。
 4. **P3 - T1.5 drift handoff prose**:final response 模板加一行强制输出。改动最小。
-5. **P4 - T1.2 build-target awareness**:graph-targets.json 增字段。改动中等(需要 settings.gradle / package.json / pyproject 的多 ecosystem 解析器,先 Gradle 起步)。
+5. **P4 - T1.2 build-target awareness**:graph-targets.json 增字段。**改动量评估:中→大**。原因:
+   - **Gradle**:`settings.gradle`(Groovy)与 `settings.gradle.kts`(KTS)语法不同;`include` / `includeBuild` / `apply from:` / 动态 `rootProject.children` 递归引用;子项目可在 `include ':a:b:c'` 这种冒号路径里
+   - **Maven**:`pom.xml` 的 `<modules>` 节,需 XML 解析,继承结构复杂
+   - **Bazel**:`BUILD` / `BUILD.bazel` 文件 + `WORKSPACE`,语义最强但需要专门解析
+   - **npm/pnpm/yarn**:`package.json.workspaces`(string[] / object)+ `pnpm-workspace.yaml`,语义清晰但 3 套写法
+   - **pyproject**:Poetry / Hatch / setuptools 各家 multi-package 写法不同
+   - **Go**:`go.work` (Go 1.18+) 与传统单 go.mod,差异大
+   建议落地顺序:先 Gradle(kaz-mvp 真实需求驱动) + npm(社区面广),其他作为后续 PR 增量。每个 ecosystem 解析器作为独立 helper 模块,失败时退回 `coverage_inference: skipped + reason_code` 而非阻塞。
 6. **P5 - T2.1 quality_signals**:summary 增字段,值由其他 P0-P4 字段计算。
 7. **P6 - T2.2 clean CLI**:从 P0 read-only 升级为 preview-first 删除。
 8. **P7 - T2.3 capability drift**:setup 引入 GitNexus --version probe(轻量探测)。
@@ -366,6 +383,8 @@ setup 在写 `runtime-capabilities.json` 时,把 `mcp-tools.json.native_capabili
 
 ## 7. CHANGELOG 判断
 
-本报告**不直接修改任何 source**,只产出建议。**不需要**更新 `CHANGELOG.md`。
+本报告**不直接修改任何 source / skill / CLI / contract**——它是 `docs/03-实施方案/` 下的规划文档。
 
-如果按 P0-P8 落地实施,每个 PR 都属于 user-visible(改变了 artifact schema / CLI 行为),都应在 `CHANGELOG.md` 加 `(user-visible)` 标记,并对应更新 `README.md` 与 `docs/05-用户手册/` 相关章节。
+按本仓库 `CLAUDE.md` "## Changelog" 节要求("任何项目 source 新增、删除或修改,都必须同步更新根目录 `CHANGELOG.md`"),`docs/` 在 source-of-truth 列表内,**应**追加一条 docs 行(**非 user-visible**),格式按仓库现行 changelog 规则。
+
+如果按 P0-P8 落地实施,每个 PR 都属于 user-visible(改变了 artifact schema / CLI 行为),都应在 `CHANGELOG.md` 加 `(user-visible)` 标记,并对应更新 `README.md` / `README.zh-CN.md` 与 `docs/05-用户手册/` 相关章节。

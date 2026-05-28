@@ -5,6 +5,7 @@ const { runClean } = require('./commands/clean');
 const { runDoctor } = require('./commands/doctor');
 const { runInit } = require('./commands/init');
 const { runInternal } = require('./commands/internal');
+const { runRepairWorktree } = require('./commands/repair-worktree');
 const { runSession } = require('./commands/session');
 const { runTasks } = require('./commands/tasks');
 const { runGitNexusInstructionBlockCommand } = require('./gitnexus-instruction-block');
@@ -53,6 +54,10 @@ async function runCli(argv) {
 
   if (cmd === 'tasks') {
     return Promise.resolve(runTasks(args.slice(1)));
+  }
+
+  if (cmd === 'repair-worktree') {
+    return Promise.resolve(runRepairWorktree(args.slice(1)));
   }
 
   if (cmd === 'session') {
@@ -154,6 +159,7 @@ function printHelp(withErrorPrefix = false) {
     '  doctor                 Check environment, runtime asset manifest, and managed runtime assets',
     '  init [--claude] [--codex] [-y] Interactively install workflows, skills, agents, and developer profile',
     '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
+    '  repair-worktree        Preview broken worktree pointer repair guidance',
     '  tasks <subcommand>      Hash and validate derived task packs',
     '  session <subcommand>    Opt-in multi-actor session advisory (register|list|heartbeat|unregister)',
     '  gitnexus-instruction    Create or normalize GitNexus host instruction blocks',

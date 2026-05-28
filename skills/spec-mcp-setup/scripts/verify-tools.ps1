@@ -169,12 +169,23 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
 
   $children = @($TargetFacts.candidates)
   if ($children.Count -eq 0) {
+    $targetGitHealth = if ($TargetFacts.PSObject.Properties.Name -contains 'git_health') { $TargetFacts.git_health } else { $null }
+    $targetGitStatus = if ($targetGitHealth -and $targetGitHealth.PSObject.Properties.Name -contains 'status') { [string]$targetGitHealth.status } else { '' }
     [pscustomobject]@{
       schema_version = 'workspace-mcp-verify-summary.v1'
       overall_status = 'action-required'
       workflow_mode = 'blocked'
       reason_code = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.reason_code)) { 'workspace-no-git-candidates' } else { [string]$TargetFacts.reason_code }
       workspace_root = $workspaceRoot
+      parent_workspace_advisory = [ordered]@{
+        git_health = $targetGitHealth
+        coverage_gap = if ($TargetFacts.PSObject.Properties.Name -contains 'coverage_gap') { $TargetFacts.coverage_gap } else { $null }
+        candidates_diagnostics = if ($TargetFacts.PSObject.Properties.Name -contains 'candidates_diagnostics') { @($TargetFacts.candidates_diagnostics) } else { @() }
+        repair_action_available = ($targetGitStatus -eq 'broken-worktree')
+        repair_command = if ($targetGitStatus -eq 'broken-worktree') { 'spec-first repair-worktree --dry-run' } else { $null }
+        diagnostic_action_available = ($targetGitStatus -eq 'corrupted-gitdir')
+        diagnostic_command = if ($targetGitStatus -eq 'corrupted-gitdir') { 'git fsck' } else { $null }
+      }
       candidates = @($TargetFacts.candidates)
       advisory = $true
       next_action = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.next_action)) { 'Run from a parent workspace containing child Git repos.' } else { [string]$TargetFacts.next_action }
@@ -240,6 +251,8 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
   $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
   $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' }).Count
   $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0) { 'ready' } elseif ($readyCount -gt 0) { 'partial' } else { 'action-required' }
+  $targetGitHealth = if ($TargetFacts.PSObject.Properties.Name -contains 'git_health') { $TargetFacts.git_health } else { $null }
+  $targetGitStatus = if ($targetGitHealth -and $targetGitHealth.PSObject.Properties.Name -contains 'status') { [string]$targetGitHealth.status } else { '' }
   $summary = [ordered]@{
     schema_version = 'workspace-mcp-verify-summary.v1'
     generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -247,6 +260,15 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
     workflow_mode = 'all-repos'
     selection_source = $SelectionSource
     workspace_root = $workspaceRoot
+    parent_workspace_advisory = [ordered]@{
+      git_health = $targetGitHealth
+      coverage_gap = if ($TargetFacts.PSObject.Properties.Name -contains 'coverage_gap') { $TargetFacts.coverage_gap } else { $null }
+      candidates_diagnostics = if ($TargetFacts.PSObject.Properties.Name -contains 'candidates_diagnostics') { @($TargetFacts.candidates_diagnostics) } else { @() }
+      repair_action_available = ($targetGitStatus -eq 'broken-worktree')
+      repair_command = if ($targetGitStatus -eq 'broken-worktree') { 'spec-first repair-worktree --dry-run' } else { $null }
+      diagnostic_action_available = ($targetGitStatus -eq 'corrupted-gitdir')
+      diagnostic_command = if ($targetGitStatus -eq 'corrupted-gitdir') { 'git fsck' } else { $null }
+    }
     parent_writes_repo_local_artifacts = $false
     results = @($results)
     counts = [ordered]@{
@@ -342,6 +364,17 @@ foreach ($property in $helperTools.PSObject.Properties) {
   }
 }
 $baselineReady = ($toolsReady -and $helperReady)
+$gitHealth = if ($Facts.PSObject.Properties.Name -contains 'git_health') { $Facts.git_health } elseif ($Facts.target -and $Facts.target.PSObject.Properties.Name -contains 'git_health') { $Facts.target.git_health } else { $null }
+$gitStatus = if ($gitHealth -and $gitHealth.PSObject.Properties.Name -contains 'status') { [string]$gitHealth.status } else { '' }
+$parentWorkspaceAdvisory = [ordered]@{
+  git_health = $gitHealth
+  coverage_gap = if ($Facts.PSObject.Properties.Name -contains 'coverage_gap') { $Facts.coverage_gap } elseif ($Facts.target -and $Facts.target.PSObject.Properties.Name -contains 'coverage_gap') { $Facts.target.coverage_gap } else { $null }
+  candidates_diagnostics = if ($Facts.PSObject.Properties.Name -contains 'candidates_diagnostics') { @($Facts.candidates_diagnostics) } elseif ($Facts.target -and $Facts.target.PSObject.Properties.Name -contains 'candidates_diagnostics') { @($Facts.target.candidates_diagnostics) } else { @() }
+  repair_action_available = ($gitStatus -eq 'broken-worktree')
+  repair_command = if ($gitStatus -eq 'broken-worktree') { 'spec-first repair-worktree --dry-run' } else { $null }
+  diagnostic_action_available = ($gitStatus -eq 'corrupted-gitdir')
+  diagnostic_command = if ($gitStatus -eq 'corrupted-gitdir') { 'git fsck' } else { $null }
+}
 
 $nextActions = New-Object System.Collections.Generic.List[string]
 foreach ($action in @($Facts.next_actions)) {
@@ -381,6 +414,7 @@ $combined = [ordered]@{
   selected_repo_root = $Facts.selected_repo_root
   selected_folder_root = if ($null -ne $Facts.PSObject.Properties['target']) { $Facts.target.selected_folder_root } else { $null }
   target_root = if ($null -ne $Facts.PSObject.Properties['target']) { $Facts.target.target_root } else { $Facts.repo_root }
+  parent_workspace_advisory = $parentWorkspaceAdvisory
   target_candidate_count = $Facts.target_candidate_count
   target_candidates = @($Facts.target_candidates)
   reason_code = $Facts.reason_code

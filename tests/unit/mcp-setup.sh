@@ -195,7 +195,10 @@ make_repo "$TARGET_WORKSPACE/project-b"
 make_repo "$TMP_DIR/outside"
 target_multi="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT")"
 assert_eq "resolver detects multi-repo workspace" "workspace-multi-repo" "$(jq -r '.mode' <<<"$target_multi")"
+assert_eq "resolver emits project target v2" "project-target.v2" "$(jq -r '.schema_version' <<<"$target_multi")"
+assert_eq "resolver emits git health" "not-git" "$(jq -r '.git_health.status' <<<"$target_multi")"
 assert_eq "multi-repo workspace requires explicit target" "workspace-target-required:false:2" "$(jq -r '"\(.reason_code):\(.state_write_allowed):\(.candidates | length)"' <<<"$target_multi")"
+assert_eq "multi-repo workspace emits coverage gap" "0" "$(jq -r '.coverage_gap.uncovered_top_level_dirs' <<<"$target_multi")"
 target_selected="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --repo project-a)"
 assert_eq "resolver accepts explicit child repo" "git-repo:explicit-repo:true:project-a" "$(jq -r '"\(.mode):\(.selection_source):\(.state_write_allowed):\(.repo_label)"' <<<"$target_selected")"
 set +e
@@ -215,6 +218,7 @@ printf 'export class FolderTargetService {}\n' > "$TARGET_WORKSPACE/non-git-docs
 target_folder="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --folder non-git-docs)"
 assert_eq "resolver accepts explicit non-git folder target" "non-git-folder:explicit-folder:true:non-git-docs" "$(jq -r '"\(.mode):\(.selection_source):\(.state_write_allowed):\(.folder_label)"' <<<"$target_folder")"
 assert_eq "resolver exposes folder target paths without fake repo root" "true" "$(jq -r '(.target_kind == "non-git-folder") and (.selected_repo_root == null) and (.selected_folder_root != null) and (.target_root == .selected_folder_root)' <<<"$target_folder")"
+assert_eq "resolver does not emit coverage gap for explicit folder" "false" "$(jq -r 'has("coverage_gap")' <<<"$target_folder")"
 set +e
 target_folder_git_repo="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT" --folder project-a 2>/dev/null)"
 target_folder_git_repo_status=$?
@@ -226,6 +230,39 @@ target_repo_folder_conflict="$(cd "$TARGET_WORKSPACE" && bash "$RESOLVER_SCRIPT"
 target_repo_folder_conflict_status=$?
 set -e
 assert_eq "resolver rejects repo and folder together" "1" "$target_repo_folder_conflict_status"
+
+BROKEN_WORKTREE_WORKSPACE="$TMP_DIR/broken-worktree-workspace"
+mkdir -p "$BROKEN_WORKTREE_WORKSPACE/project-a" "$BROKEN_WORKTREE_WORKSPACE/broken-child" "$BROKEN_WORKTREE_WORKSPACE/plain" "$BROKEN_WORKTREE_WORKSPACE/build"
+git -C "$BROKEN_WORKTREE_WORKSPACE/project-a" init -q
+printf 'gitdir: /missing/parent/worktree\n' > "$BROKEN_WORKTREE_WORKSPACE/.git"
+printf 'gitdir: /missing/child/worktree\n' > "$BROKEN_WORKTREE_WORKSPACE/broken-child/.git"
+broken_target="$(cd "$BROKEN_WORKTREE_WORKSPACE" && bash "$RESOLVER_SCRIPT")"
+assert_eq "resolver detects broken parent worktree" "broken-worktree:false" "$(jq -r '"\(.git_health.status):\(.git_health.worktree_pointer.exists)"' <<<"$broken_target")"
+assert_contains "broken worktree next action recommends dry-run repair" "spec-first repair-worktree --dry-run" "$(jq -r '.next_action' <<<"$broken_target")"
+assert_eq "resolver records broken child diagnostics" "broken-child:broken-worktree" "$(jq -r '.candidates_diagnostics[0] | "\(.workspace_relative_path):\(.git_health.status)"' <<<"$broken_target")"
+assert_eq "coverage gap counts non-git plain dir and ignores build" "1:plain:false" "$(jq -r '"\(.coverage_gap.uncovered_top_level_dirs):\(.coverage_gap.sample[0]):\(.coverage_gap.ignored_dir_patterns | index("build") == null)"' <<<"$broken_target")"
+
+CORRUPTED_WORKSPACE="$TMP_DIR/corrupted-workspace"
+mkdir -p "$CORRUPTED_WORKSPACE/.git" "$CORRUPTED_WORKSPACE/project-a"
+git -C "$CORRUPTED_WORKSPACE/project-a" init -q
+corrupted_target="$(cd "$CORRUPTED_WORKSPACE" && bash "$RESOLVER_SCRIPT")"
+assert_eq "resolver detects corrupted gitdir" "corrupted-gitdir" "$(jq -r '.git_health.status' <<<"$corrupted_target")"
+assert_contains "corrupted gitdir next action recommends git fsck" "git fsck" "$(jq -r '.next_action' <<<"$corrupted_target")"
+
+REPAIR_WORKTREE_SCRIPT="$SCRIPTS_DIR/repair-worktree.sh"
+assert "repair-worktree script is executable" test -x "$REPAIR_WORKTREE_SCRIPT"
+repair_output="$(cd "$BROKEN_WORKTREE_WORKSPACE" && bash "$REPAIR_WORKTREE_SCRIPT" --dry-run)"
+assert_contains "repair-worktree dry-run prints preview marker" "repair_worktree_dry_run=true" "$repair_output"
+assert_contains "repair-worktree dry-run prints unlink preview" "Unlink preview:" "$repair_output"
+assert_contains "repair-worktree dry-run prints manual guidance" "Manual repair guidance:" "$repair_output"
+assert "repair-worktree dry-run does not delete .git" test -f "$BROKEN_WORKTREE_WORKSPACE/.git"
+set +e
+repair_apply_output="$(cd "$BROKEN_WORKTREE_WORKSPACE" && bash "$REPAIR_WORKTREE_SCRIPT" --apply 2>&1)"
+repair_apply_status=$?
+set -e
+assert_eq "repair-worktree apply is deferred" "1" "$repair_apply_status"
+assert_contains "repair-worktree apply emits deferred reason" "repair-worktree-apply-deferred" "$repair_apply_output"
+assert "repair-worktree apply does not delete .git" test -f "$BROKEN_WORKTREE_WORKSPACE/.git"
 
 # env_quote adversarial coverage: load the real implementation from resolve-project-target.sh
 # and confirm it neutralizes single quotes, command substitution, semicolon injection,
@@ -905,11 +942,13 @@ make_repo "$PARENT_WORKSPACE/project-a"
 make_repo "$PARENT_WORKSPACE/project-b"
 parent_detect_output="$(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/detect-tools.sh")"
 assert_eq "detect-tools exposes workspace target mode" "workspace-multi-repo" "$(jq -r '.target_mode' <<<"$parent_detect_output")"
+assert_eq "detect-tools exposes git health and coverage gap" "not-git:0" "$(jq -r '"\(.git_health.status):\(.coverage_gap.uncovered_top_level_dirs)"' <<<"$parent_detect_output")"
 parent_verify_output="$(cd "$PARENT_WORKSPACE" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
 assert "verify-tools parent default emits JSON" jq -e . <<<"$parent_verify_output"
 assert_eq "verify-tools parent default schema" "workspace-mcp-verify-summary.v1" "$(jq -r '.schema_version' <<<"$parent_verify_output")"
 assert_eq "verify-tools parent default selection source" "workspace-default-all-repos" "$(jq -r '.selection_source' <<<"$parent_verify_output")"
 assert_eq "verify-tools parent default verifies all children" "ready:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$parent_verify_output")"
+assert_eq "verify-tools parent summary carries advisory git health" "not-git:false" "$(jq -r '"\(.parent_workspace_advisory.git_health.status):\(.parent_workspace_advisory.repair_action_available)"' <<<"$parent_verify_output")"
 assert "verify-tools parent default writes advisory summary" test -f "$PARENT_WORKSPACE/.spec-first/workspace/mcp-verify-summary.json"
 assert "verify does not create parent project config dir" test ! -e "$PARENT_WORKSPACE/.spec-first/config"
 assert "verify does not create parent graph dir" test ! -e "$PARENT_WORKSPACE/.spec-first/graph"

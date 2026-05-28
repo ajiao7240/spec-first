@@ -11,6 +11,7 @@ const detectToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect
 const resolveProjectTargetPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/resolve-project-target.ps1');
 const verifyToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const writeProviderConfigPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/write-provider-config.ps1');
+const repairWorktreePs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/repair-worktree.ps1');
 const repairInstallPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/repair-install.ps1');
 const installMcpPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-mcp.ps1');
 const uninstallMcpPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/uninstall-mcp.ps1');
@@ -131,7 +132,14 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     const projectConfigSource = fs.readFileSync(bootstrapProjectConfigPs1, 'utf8');
     const graphBootstrapSource = fs.readFileSync(bootstrapProvidersPs1, 'utf8');
 
-    expect(resolverSource).toContain("schema_version = 'project-target.v1'");
+    expect(resolverSource).toContain("schema_version = 'project-target.v2'");
+    expect(resolverSource).toContain('function Get-GitHealth');
+    expect(resolverSource).toContain('git_health');
+    expect(resolverSource).toContain('coverage_gap');
+    expect(resolverSource).toContain('candidates_diagnostics');
+    expect(resolverSource).toContain('broken-worktree');
+    expect(resolverSource).toContain('corrupted-gitdir');
+    expect(resolverSource).toContain("'build'");
     expect(resolverSource).toContain("[ValidateSet('json', 'env')]");
     expect(resolverSource).toContain("[string]$Folder = ''");
     expect(resolverSource).toContain('state_write_allowed');
@@ -154,6 +162,9 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(detectSource).toContain('selected_folder_root');
     expect(detectSource).toContain('target_kind');
     expect(detectSource).toContain('target_candidate_count');
+    expect(detectSource).toContain('git_health');
+    expect(detectSource).toContain('coverage_gap');
+    expect(detectSource).toContain('candidates_diagnostics');
     expect(verifySource).toContain('[string]$Folder');
     expect(verifySource).toContain('$detectParams.Repo = $Repo');
     expect(verifySource).toContain('$detectParams.Folder = $Folder');
@@ -172,6 +183,11 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('workspace-summary-symlink-escape');
     expect(verifySource).toContain('$providerActionRequired = @($combined.repo_config_status, $combined.runtime_capabilities_status, $combined.provider_artifacts_status)');
     expect(verifySource).toContain('choose a child repo and rerun with --repo <child>');
+    expect(verifySource).toContain('parent_workspace_advisory');
+    expect(verifySource).toContain('repair_action_available');
+    expect(verifySource).toContain('spec-first repair-worktree --dry-run');
+    expect(verifySource).toContain('diagnostic_command');
+    expect(verifySource).toContain('git fsck');
     expect(verifySource).toContain("[string]$combined.target_kind -ne 'non-git-folder'");
     expect(writeProviderSource).toContain('$targetWriteAllowed');
     expect(writeProviderSource).toContain("$script:TargetKind -ne 'non-git-folder'");
@@ -229,6 +245,18 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(graphBootstrapSource).toContain('$resolverPath = $resolverOverride');
     expect(graphBootstrapSource).toContain('workspace-target-required');
     expect(graphBootstrapSource).toContain('candidates = @($targetFacts.candidates)');
+  });
+
+  test('PowerShell repair-worktree command is dry-run only', () => {
+    const source = fs.readFileSync(repairWorktreePs1, 'utf8');
+    expect(source).toContain('[switch]$DryRun');
+    expect(source).toContain('[switch]$Apply');
+    expect(source).toContain('[switch]$Unlink');
+    expect(source).toContain('repair-worktree-apply-deferred');
+    expect(source).toContain('repair_worktree_dry_run=true');
+    expect(source).toContain('Unlink preview:');
+    expect(source).toContain('Manual repair guidance:');
+    expect(source).toContain('Remove-Item -LiteralPath');
   });
 
   test('uses shared TOML helpers for quoted Codex MCP keys', () => {

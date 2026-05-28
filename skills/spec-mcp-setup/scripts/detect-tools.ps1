@@ -256,6 +256,9 @@ foreach ($tool in @($ToolsJson.tools)) {
   selected_repo_root = $TargetFacts.selected_repo_root
   selected_folder_root = $TargetFacts.selected_folder_root
   target_root = $TargetFacts.target_root
+  git_health = if ($TargetFacts.PSObject.Properties.Name -contains 'git_health') { $TargetFacts.git_health } else { $null }
+  coverage_gap = if ($TargetFacts.PSObject.Properties.Name -contains 'coverage_gap') { $TargetFacts.coverage_gap } else { $null }
+  candidates_diagnostics = if ($TargetFacts.PSObject.Properties.Name -contains 'candidates_diagnostics') { @($TargetFacts.candidates_diagnostics) } else { @() }
   target_candidate_count = @($TargetFacts.candidates).Count
   target_candidates = @($TargetFacts.candidates)
   reason_code = $TargetFacts.reason_code

@@ -257,6 +257,40 @@ Parent-workspace default all-repos and explicit `--all-repos` reject `--repo` an
 
 `--repo` is workspace-scoped in this MVP. From a non-Git parent workspace it must resolve to a child Git repo inside the current workspace; escaping the workspace returns `repo-target-outside-workspace`.
 
+### Project Target v2 Diagnostics
+
+`resolve-project-target.*` emits `schema_version="project-target.v2"`. Version 2 is a compatible extension of the previous target facts and adds deterministic git topology diagnostics for setup and downstream workflow routing.
+
+Every result includes `git_health`:
+
+- `status="ok"`: the current directory is inside a usable Git repo or a healthy worktree pointer. When no local `.git` entry exists but an ancestor repo owns the directory, `git_entry_type="ancestor"` preserves monorepo package behavior.
+- `status="not-git"`: no local `.git` entry or ancestor Git root applies.
+- `status="broken-worktree"`: local `.git` is a worktree pointer file whose target path is missing.
+- `status="corrupted-gitdir"`: local `.git` exists but is malformed or unusable.
+
+Workspace modes also include `coverage_gap` so a parent workspace can say when top-level directories were not covered by child Git repo discovery. `coverage_gap` is advisory only; it does not turn parent workspace folders into graph targets. The shared ignore list includes generated/runtime-heavy directories such as `.git`, `node_modules`, `vendor`, `.claude`, `.codex`, `.agents`, `.spec-first`, `build`, `.cache`, `.direnv`, and `.venv`.
+
+If a child directory contains a broken or corrupted `.git` entry, it is excluded from `candidate_roots` and recorded in `candidates_diagnostics[]`. Broken child repos are diagnostic entries, not uncovered business folders.
+
+For broken parent worktrees, setup should guide the user to:
+
+```bash
+spec-first repair-worktree --dry-run
+```
+
+For corrupted `.git` directories, setup should guide the user to `git fsck` or equivalent manual Git diagnostics. Do not label corrupted gitdirs as repairable by `repair-worktree`.
+
+`repair-worktree` is intentionally preview-first. The current command only diagnoses a broken worktree pointer and prints an unlink preview plus manual repair guidance:
+
+```bash
+spec-first repair-worktree
+spec-first repair-worktree --dry-run
+```
+
+`--apply` and `--unlink` are deferred and fail closed. The command must not delete `.git` or rewrite Git metadata in this version.
+
+For mixed topology workspaces, automatic folder coverage is not part of setup. Users can still run the existing explicit non-Git folder path through the graph bootstrap flow when appropriate, but `spec-mcp-setup` must not silently append parent-folder indexing to `--all-repos`.
+
 It must not run:
 
 - `npx -y <configured-gitnexus-package> analyze`
@@ -441,6 +475,10 @@ Then it computes one final readiness ledger:
 ```
 
 `baseline_ready` includes required MCP tools, required graph providers, and every baseline-blocking required helper in `helper_tools`. GitNexus is both the current graph provider and a required host MCP server. Graph providers can be baseline-ready while still having `query_ready=false`; that means the harness runtime is ready and graph readiness compilation is still required.
+
+When `detect-tools.*` receives project-target v2 diagnostics, `verify-tools.*` copies them into a top-level `parent_workspace_advisory` object. This object may include `git_health`, `coverage_gap`, `candidates_diagnostics`, `repair_action_available`, `repair_command`, `diagnostic_action_available`, and `diagnostic_command`.
+
+`parent_workspace_advisory` is not part of `baseline_ready`. It is an LLM/user routing input that explains why setup may have covered only child repos, why a parent worktree looks broken, and which manual next action is available.
 
 On a first setup, graph-provider facts show:
 
