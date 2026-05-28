@@ -88,7 +88,7 @@ function Write-JsonFileAtomic {
   }
   $tmp = Join-Path $dir ('.{0}.{1}.tmp' -f (Split-Path -Leaf $Path), ([guid]::NewGuid().ToString('N')))
   try {
-    $Payload | ConvertTo-Json -Depth $Depth | Set-Content -Encoding utf8 -LiteralPath $tmp
+    $Payload | ConvertTo-Json -Depth $Depth | Set-Content -Encoding utf8NoBOM -LiteralPath $tmp
     if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $dir) -or (Test-SymlinkPath $Path)) {
       throw 'workspace-summary-symlink-escape'
     }
@@ -96,6 +96,160 @@ function Write-JsonFileAtomic {
   } catch {
     Remove-Item -Force -LiteralPath $tmp -ErrorAction SilentlyContinue
     throw
+  }
+}
+
+function Get-NestedValue {
+  param(
+    [object]$InputObject,
+    [string[]]$PathParts
+  )
+  $current = $InputObject
+  foreach ($part in $PathParts) {
+    if ($null -eq $current -or $null -eq $current.PSObject.Properties[$part]) {
+      return ''
+    }
+    $current = $current.PSObject.Properties[$part].Value
+  }
+  if ($null -eq $current) { return '' }
+  return [string]$current
+}
+
+function Read-JsonObjectOrNull {
+  param([string]$Path)
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    return $null
+  }
+  try {
+    return Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json -ErrorAction Stop
+  } catch {
+    return $null
+  }
+}
+
+function Test-PathIsSymlink {
+  param([string]$Path)
+  if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+  $item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+  return ($null -ne $item -and (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0))
+}
+
+function Test-ForeignAbsoluteStatFailure {
+  param([string]$Candidate)
+  if ([string]::IsNullOrWhiteSpace($Candidate)) { return $false }
+  if (-not [System.IO.Path]::IsPathRooted($Candidate)) { return $false }
+  if (Test-Path -LiteralPath $Candidate) { return $false }
+  $homePath = [string]$HOME
+  if ([string]::IsNullOrWhiteSpace($homePath)) { return $true }
+  $normalizedCandidate = $Candidate.Replace('\', '/')
+  $normalizedHome = $homePath.Replace('\', '/').TrimEnd('/')
+  return -not ($normalizedCandidate -eq $normalizedHome -or $normalizedCandidate.StartsWith("$normalizedHome/"))
+}
+
+function New-ParentQuarantineItem {
+  param(
+    [string]$Path,
+    [string]$ReasonCode,
+    [string]$StaleIndicator = '',
+    [string]$LastGeneratedAt = '',
+    [string]$FingerprintOrigin = ''
+  )
+  [ordered]@{
+    path = $Path.Replace('\', '/')
+    reason_code = $ReasonCode
+    stale_indicator = if ([string]::IsNullOrWhiteSpace($StaleIndicator)) { $null } else { $StaleIndicator }
+    last_generated_at = if ([string]::IsNullOrWhiteSpace($LastGeneratedAt)) { $null } else { $LastGeneratedAt }
+    fingerprint_origin = if ([string]::IsNullOrWhiteSpace($FingerprintOrigin)) { $null } else { $FingerprintOrigin }
+  }
+}
+
+function Add-ParentJsonArtifactQuarantineItem {
+  param(
+    [System.Collections.Generic.List[object]]$Items,
+    [string]$WorkspaceRoot,
+    [string]$RelativePath,
+    [string]$DefaultReason
+  )
+  $artifactPath = Join-Path $WorkspaceRoot $RelativePath
+  if (-not (Test-Path -LiteralPath $artifactPath)) {
+    return
+  }
+  $json = Read-JsonObjectOrNull -Path $artifactPath
+  $repoRoot = Get-NestedValue -InputObject $json -PathParts @('repo_root')
+  $generatedAt = Get-NestedValue -InputObject $json -PathParts @('generated_at')
+  $pointerPath = Get-NestedValue -InputObject $json -PathParts @('host_ledger_pointer', 'path')
+  $reasonCode = $DefaultReason
+  $staleIndicator = 'parent-workspace-repo-local-artifact-present'
+  $fingerprintOrigin = $repoRoot
+
+  if (Test-ForeignAbsoluteStatFailure -Candidate $repoRoot) {
+    $reasonCode = 'foreign-absolute-path-stat-failed'
+    $staleIndicator = $repoRoot
+  } elseif (Test-ForeignAbsoluteStatFailure -Candidate $pointerPath) {
+    $reasonCode = 'foreign-absolute-path-stat-failed'
+    $staleIndicator = $pointerPath
+    $fingerprintOrigin = $pointerPath
+  } elseif (-not [string]::IsNullOrWhiteSpace($repoRoot) -and $repoRoot -ne $WorkspaceRoot) {
+    $reasonCode = 'repo_root-mismatches-workspace-root'
+    $staleIndicator = $repoRoot
+  }
+
+  $Items.Add((New-ParentQuarantineItem -Path $RelativePath -ReasonCode $reasonCode -StaleIndicator $staleIndicator -LastGeneratedAt $generatedAt -FingerprintOrigin $fingerprintOrigin)) | Out-Null
+}
+
+function New-ParentArtifactQuarantine {
+  param([string]$WorkspaceRoot)
+  $items = [System.Collections.Generic.List[object]]::new()
+
+  if (Test-PathIsSymlink -Path (Join-Path $WorkspaceRoot '.spec-first')) {
+    return [ordered]@{
+      schema_version = 'parent-artifact-quarantine.v1'
+      topology = 'multi-repo-workspace'
+      advisory = $true
+      authority_level = 'advisory'
+      freshness = 'generated'
+      generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+      generated_by = 'spec-mcp-setup'
+      consumers = @('spec-first clean --workspace-orphans', 'LLM workflow degraded-evidence judgment')
+      quarantined_paths = @()
+    }
+  }
+
+  Add-ParentJsonArtifactQuarantineItem -Items $items -WorkspaceRoot $WorkspaceRoot -RelativePath '.spec-first/graph/graph-facts.json' -DefaultReason 'parent-workspace-must-not-have-repo-local-graph'
+  Add-ParentJsonArtifactQuarantineItem -Items $items -WorkspaceRoot $WorkspaceRoot -RelativePath '.spec-first/config/graph-providers.json' -DefaultReason 'parent-workspace-must-not-have-repo-local-graph'
+  Add-ParentJsonArtifactQuarantineItem -Items $items -WorkspaceRoot $WorkspaceRoot -RelativePath '.spec-first/config/runtime-capabilities.json' -DefaultReason 'parent-workspace-must-not-have-repo-local-graph'
+
+  if (Test-Path -LiteralPath (Join-Path $WorkspaceRoot '.spec-first/providers/code-review-graph')) {
+    $items.Add((New-ParentQuarantineItem -Path '.spec-first/providers/code-review-graph/' -ReasonCode 'retired-provider-residue' -StaleIndicator 'retired-code-review-graph-provider-directory-present' -FingerprintOrigin 'code-review-graph')) | Out-Null
+  }
+
+  if (Test-Path -LiteralPath (Join-Path $WorkspaceRoot '.gitnexus')) {
+    $metaPath = Join-Path $WorkspaceRoot '.gitnexus/meta.json'
+    $meta = Read-JsonObjectOrNull -Path $metaPath
+    $repoPath = Get-NestedValue -InputObject $meta -PathParts @('repoPath')
+    $indexedAt = Get-NestedValue -InputObject $meta -PathParts @('indexedAt')
+    $reasonCode = 'parent-workspace-must-not-have-graph-index'
+    $staleIndicator = 'parent-workspace-graph-index-present'
+    if (Test-ForeignAbsoluteStatFailure -Candidate $repoPath) {
+      $reasonCode = 'foreign-absolute-path-stat-failed'
+      $staleIndicator = $repoPath
+    } elseif (-not [string]::IsNullOrWhiteSpace($repoPath) -and $repoPath -ne $WorkspaceRoot) {
+      $reasonCode = 'repo_root-mismatches-workspace-root'
+      $staleIndicator = $repoPath
+    }
+    $items.Add((New-ParentQuarantineItem -Path '.gitnexus/' -ReasonCode $reasonCode -StaleIndicator $staleIndicator -LastGeneratedAt $indexedAt -FingerprintOrigin $repoPath)) | Out-Null
+  }
+
+  [ordered]@{
+    schema_version = 'parent-artifact-quarantine.v1'
+    topology = 'multi-repo-workspace'
+    advisory = $true
+    authority_level = 'advisory'
+    freshness = 'generated'
+    generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    generated_by = 'spec-mcp-setup'
+    consumers = @('spec-first clean --workspace-orphans', 'LLM workflow degraded-evidence judgment')
+    quarantined_paths = @($items.ToArray())
   }
 }
 
@@ -327,6 +481,8 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
   $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0) { 'ready' } elseif ($readyCount -gt 0) { 'partial' } else { 'action-required' }
   $targetGitHealth = if ($TargetFacts.PSObject.Properties.Name -contains 'git_health') { $TargetFacts.git_health } else { $null }
   $targetGitStatus = if ($targetGitHealth -and $targetGitHealth.PSObject.Properties.Name -contains 'status') { [string]$targetGitHealth.status } else { '' }
+  $parentArtifactQuarantine = New-ParentArtifactQuarantine -WorkspaceRoot $workspaceRoot
+  $parentWorkspacePollutionCount = @($parentArtifactQuarantine.quarantined_paths).Count
   $summary = [ordered]@{
     schema_version = 'workspace-mcp-verify-summary.v1'
     generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -352,7 +508,14 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
     }
     overall_status = $overallStatus
     reason_code = if ($actionRequiredCount -eq 0) { $null } else { 'all-repos-partial-or-action-required' }
+    parent_workspace_pollution_count = $parentWorkspacePollutionCount
     next_action = if ($actionRequiredCount -eq 0) { 'All child repos verified Required Harness Runtime readiness.' } else { 'Inspect per-child reason_code and rerun setup/verify for action-required repos.' }
+  }
+
+  try {
+    Write-JsonFileAtomic -Path (Join-Path $workspaceRoot '.spec-first/workspace/parent-artifact-quarantine.json') -Payload ([pscustomobject]$parentArtifactQuarantine) -Depth 30
+  } catch {
+    [Console]::Error.WriteLine('verify-tools.ps1: parent artifact quarantine write failed; continuing')
   }
 
   try {

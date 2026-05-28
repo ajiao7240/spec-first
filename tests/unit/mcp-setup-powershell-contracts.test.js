@@ -173,6 +173,16 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('use either -AllRepos or -Folder');
     expect(verifySource).toContain('workspace-mcp-verify-summary.v1');
     expect(verifySource).toContain('mcp-verify-summary.json');
+    expect(verifySource).toContain('function New-ParentArtifactQuarantine');
+    expect(verifySource).toContain('parent-artifact-quarantine.v1');
+    expect(verifySource).toContain('parent-artifact-quarantine.json');
+    expect(verifySource).toContain('parent_workspace_pollution_count');
+    expect(verifySource).toContain('spec-first clean --workspace-orphans');
+    expect(verifySource).toContain('LLM workflow degraded-evidence judgment');
+    expect(verifySource).toContain('foreign-absolute-path-stat-failed');
+    expect(verifySource).toContain('retired-provider-residue');
+    expect(verifySource).toContain("path = $Path.Replace('\\', '/')");
+    expect(verifySource).toContain('Set-Content -Encoding utf8NoBOM -LiteralPath $tmp');
     expect(verifySource).toContain('all-repos-requires-parent-workspace');
     expect(verifySource).toContain('all-repos-conflicts-with-repo');
     expect(verifySource).toContain('parent_writes_repo_local_artifacts');

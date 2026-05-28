@@ -273,3 +273,91 @@ describe('clean --dry-run', () => {
     }
   });
 });
+
+describe('clean --workspace-orphans', () => {
+  test('lists parent quarantine entries without deleting files', () => {
+    const projectRoot = makeTempDir();
+    try {
+      const workspaceDir = path.join(projectRoot, '.spec-first', 'workspace');
+      const graphFactsPath = path.join(projectRoot, '.spec-first', 'graph', 'graph-facts.json');
+      fs.mkdirSync(path.dirname(graphFactsPath), { recursive: true });
+      fs.mkdirSync(workspaceDir, { recursive: true });
+      fs.writeFileSync(graphFactsPath, '{"schema_version":"graph-facts.v1"}\n', 'utf8');
+      fs.writeFileSync(
+        path.join(workspaceDir, 'parent-artifact-quarantine.json'),
+        `${JSON.stringify({
+          schema_version: 'parent-artifact-quarantine.v1',
+          topology: 'multi-repo-workspace',
+          advisory: true,
+          authority_level: 'advisory',
+          freshness: 'generated',
+          generated_at: '2026-05-28T00:00:00Z',
+          generated_by: 'spec-mcp-setup',
+          consumers: ['spec-first clean --workspace-orphans'],
+          quarantined_paths: [
+            {
+              path: '.spec-first/graph/graph-facts.json',
+              reason_code: 'parent-workspace-must-not-have-repo-local-graph',
+              stale_indicator: 'parent-workspace-repo-local-artifact-present',
+              last_generated_at: '2026-05-28T00:00:00Z',
+              fingerprint_origin: '/tmp/project-a',
+            },
+          ],
+        }, null, 2)}\n`,
+        'utf8',
+      );
+
+      const before = snapshotTree(projectRoot);
+      const result = captureCommand(projectRoot, runClean, ['--workspace-orphans']);
+      const after = snapshotTree(projectRoot);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(after).toEqual(before);
+      expect(result.stdout).toContain('Parent workspace orphan artifact preview:');
+      expect(result.stdout).toContain('.spec-first/graph/graph-facts.json (parent-workspace-must-not-have-repo-local-graph)');
+      expect(result.stdout).toContain('Deletion is not implemented in this release.');
+      expect(result.stdout).toContain('No files were changed.');
+      expect(fs.existsSync(graphFactsPath)).toBe(true);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('fails closed when mixed with runtime clean mode or deletion confirmation', () => {
+    const projectRoot = makeTempDir();
+    try {
+      const mixed = captureCommand(projectRoot, runClean, ['--workspace-orphans', '--claude']);
+      expect(mixed.exitCode).toBe(2);
+      expect(mixed.stderr).toContain('--workspace-orphans cannot be combined with --claude or --codex');
+
+      const confirm = captureCommand(projectRoot, runClean, ['--workspace-orphans', '--confirm']);
+      expect(confirm.exitCode).toBe(2);
+      expect(confirm.stderr).toContain('Deletion is not implemented in this release.');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('requires a valid parent quarantine artifact', () => {
+    const projectRoot = makeTempDir();
+    try {
+      const missing = captureCommand(projectRoot, runClean, ['--workspace-orphans']);
+      expect(missing.exitCode).toBe(1);
+      expect(missing.stderr).toContain('No parent artifact quarantine found.');
+
+      const workspaceDir = path.join(projectRoot, '.spec-first', 'workspace');
+      fs.mkdirSync(workspaceDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(workspaceDir, 'parent-artifact-quarantine.json'),
+        '{"schema_version":"wrong","quarantined_paths":[]}\n',
+        'utf8',
+      );
+      const invalid = captureCommand(projectRoot, runClean, ['--workspace-orphans']);
+      expect(invalid.exitCode).toBe(1);
+      expect(invalid.stderr).toContain('schema_version must be parent-artifact-quarantine.v1');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+});

@@ -958,9 +958,34 @@ assert_eq "verify-tools parent default schema" "workspace-mcp-verify-summary.v1"
 assert_eq "verify-tools parent default selection source" "workspace-default-all-repos" "$(jq -r '.selection_source' <<<"$parent_verify_output")"
 assert_eq "verify-tools parent default verifies all children" "ready:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$parent_verify_output")"
 assert_eq "verify-tools parent summary carries advisory git health" "not-git:false" "$(jq -r '"\(.parent_workspace_advisory.git_health.status):\(.parent_workspace_advisory.repair_action_available)"' <<<"$parent_verify_output")"
+assert_eq "verify-tools parent default has no pollution" "0" "$(jq -r '.parent_workspace_pollution_count' <<<"$parent_verify_output")"
 assert "verify-tools parent default writes advisory summary" test -f "$PARENT_WORKSPACE/.spec-first/workspace/mcp-verify-summary.json"
+assert "verify-tools parent default writes quarantine scan artifact" test -f "$PARENT_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json"
+assert_eq "verify-tools parent clean quarantine is empty" "0" "$(jq -r '.quarantined_paths | length' "$PARENT_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json")"
 assert "verify does not create parent project config dir" test ! -e "$PARENT_WORKSPACE/.spec-first/config"
 assert "verify does not create parent graph dir" test ! -e "$PARENT_WORKSPACE/.spec-first/graph"
+
+PARENT_POLLUTION_WORKSPACE="$TMP_DIR/parent-pollution-workspace"
+make_repo "$PARENT_POLLUTION_WORKSPACE/project-a"
+make_repo "$PARENT_POLLUTION_WORKSPACE/project-b"
+mkdir -p \
+  "$PARENT_POLLUTION_WORKSPACE/.spec-first/graph" \
+  "$PARENT_POLLUTION_WORKSPACE/.spec-first/providers/code-review-graph" \
+  "$PARENT_POLLUTION_WORKSPACE/.gitnexus"
+cat > "$PARENT_POLLUTION_WORKSPACE/.spec-first/graph/graph-facts.json" <<'JSON'
+{"schema_version":"graph-facts.v1","repo_root":"/Users/lynwang/old-child","generated_at":"2026-05-28T00:00:00Z"}
+JSON
+cat > "$PARENT_POLLUTION_WORKSPACE/.gitnexus/meta.json" <<'JSON'
+{"repoPath":"/Users/lynwang/old-child","indexedAt":"2026-05-28T00:00:01Z"}
+JSON
+parent_pollution_verify_output="$(cd "$PARENT_POLLUTION_WORKSPACE" && PATH="$TEST_PATH" HOME="$FAKE_HOME" MCP_SETUP_HOST=claude bash "$SCRIPTS_DIR/verify-tools.sh")"
+assert "verify-tools parent pollution emits JSON" jq -e . <<<"$parent_pollution_verify_output"
+assert_eq "verify-tools parent pollution count" "3" "$(jq -r '.parent_workspace_pollution_count' <<<"$parent_pollution_verify_output")"
+assert "verify-tools writes parent quarantine artifact" test -f "$PARENT_POLLUTION_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json"
+assert_eq "parent quarantine schema" "parent-artifact-quarantine.v1" "$(jq -r '.schema_version' "$PARENT_POLLUTION_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json")"
+assert_eq "parent quarantine paths are POSIX" "true" "$(jq -r 'all(.quarantined_paths[]; (.path | contains("\\") | not))' "$PARENT_POLLUTION_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json")"
+assert_eq "parent quarantine captures foreign graph facts" "foreign-absolute-path-stat-failed" "$(jq -r '.quarantined_paths[] | select(.path==".spec-first/graph/graph-facts.json") | .reason_code' "$PARENT_POLLUTION_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json")"
+assert_eq "parent quarantine captures retired provider residue" "retired-provider-residue" "$(jq -r '.quarantined_paths[] | select(.path==".spec-first/providers/code-review-graph/") | .reason_code' "$PARENT_POLLUTION_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json")"
 
 MCP_ALL_REPOS_WORKSPACE="$TMP_DIR/mcp-all-repos-workspace"
 MCP_ALL_REPOS_HOME="$FAKE_HOME"

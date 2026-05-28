@@ -530,11 +530,12 @@ Lens test 逻辑：
 
 ## Downstream Handoff
 
-- 后续 `spec-work` 实施者：按 Stage 1-6 顺序，先 U-B 后 U-A 后 U-C；不允许跳序；任意阶段卡住 > 1 周整体回滚。
+- 后续 `spec-work` 实施者：按 Stage 1-6 顺序，先 U-B 后 U-A 后 U-C；不允许跳序；回滚 trigger 见 D7。
 - `spec-code-review` 实施者：U-B 试点期对 `spec-code-review` 增 2 条 invariant，需对照当前 SKILL.md 实际文本敲定 phrase（不发明 phrase）。
 - `spec-compound`：本方案不直接接入；落地后如出现"哪些 lesson 该升格为 contract test"问题，单独评估 contract depth gate（已显式 deferred）。
 - 文档面：`README.md` / `README.zh-CN.md` 不需要更新（本方案是治理与 contract 收紧，无需用户面 onboarding 改写）。`CHANGELOG.md` 必更（多个 user-visible 条目）。
 - Generated runtime：Stage 6 必跑 `spec-first init --claude --codex` 让双宿主 SKILL.md 内容同步。
+- **路线图衔接**：本 plan 是 `docs/06-待办事项/2026-05-28-spec-first-用户体感提升路线图.md` 的必要前置。Stage 6 完成后才允许启动路线图 P-friction（用户摩擦实证审计）的 plan 起草；P-friction 完成后才能决定 P-task-pack-default / P-review-inline / P-graph-primary 是否启动以及优先级。本 plan 实施期不得扩大到路线图后续 candidate 范围。
 
 ---
 

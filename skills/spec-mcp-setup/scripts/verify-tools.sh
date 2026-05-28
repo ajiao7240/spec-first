@@ -118,6 +118,161 @@ write_workspace_summary_atomic() {
   mv "$tmp" "$path" || { rm -f "$tmp"; return 1; }
 }
 
+json_field_or_empty() {
+  local json_path="$1"
+  local jq_filter="$2"
+  [ -f "$json_path" ] || { printf ''; return 0; }
+  jq -r "$jq_filter // empty" "$json_path" 2>/dev/null || true
+}
+
+is_foreign_absolute_stat_failure() {
+  local candidate="$1"
+  [ -n "$candidate" ] || return 1
+  case "$candidate" in
+    /*) ;;
+    *) return 1 ;;
+  esac
+  [ ! -e "$candidate" ] || return 1
+  [ -n "${HOME:-}" ] || return 0
+  case "$candidate" in
+    "$HOME"|"$HOME"/*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+append_parent_quarantine_item() {
+  local items_file="$1"
+  local rel_path="$2"
+  local reason_code="$3"
+  local stale_indicator="$4"
+  local last_generated_at="$5"
+  local fingerprint_origin="$6"
+
+  jq \
+    --arg path "$rel_path" \
+    --arg reason_code "$reason_code" \
+    --arg stale_indicator "$stale_indicator" \
+    --arg last_generated_at "$last_generated_at" \
+    --arg fingerprint_origin "$fingerprint_origin" \
+    '. + [{
+      path:$path,
+      reason_code:$reason_code,
+      stale_indicator:(if $stale_indicator == "" then null else $stale_indicator end),
+      last_generated_at:(if $last_generated_at == "" then null else $last_generated_at end),
+      fingerprint_origin:(if $fingerprint_origin == "" then null else $fingerprint_origin end)
+    }]' "$items_file" > "$items_file.next"
+  mv "$items_file.next" "$items_file"
+}
+
+append_parent_json_artifact_quarantine_item() {
+  local workspace_root="$1"
+  local items_file="$2"
+  local rel_path="$3"
+  local default_reason="$4"
+  local artifact_path="$workspace_root/$rel_path"
+  local repo_root generated_at pointer_path reason_code stale_indicator fingerprint_origin
+
+  [ -e "$artifact_path" ] || return 0
+
+  repo_root="$(json_field_or_empty "$artifact_path" '.repo_root')"
+  generated_at="$(json_field_or_empty "$artifact_path" '.generated_at')"
+  pointer_path="$(json_field_or_empty "$artifact_path" '.host_ledger_pointer.path')"
+  reason_code="$default_reason"
+  stale_indicator="parent-workspace-repo-local-artifact-present"
+  fingerprint_origin="$repo_root"
+
+  if is_foreign_absolute_stat_failure "$repo_root"; then
+    reason_code="foreign-absolute-path-stat-failed"
+    stale_indicator="$repo_root"
+  elif is_foreign_absolute_stat_failure "$pointer_path"; then
+    reason_code="foreign-absolute-path-stat-failed"
+    stale_indicator="$pointer_path"
+    fingerprint_origin="$pointer_path"
+  elif [ -n "$repo_root" ] && [ "$repo_root" != "$workspace_root" ]; then
+    reason_code="repo_root-mismatches-workspace-root"
+    stale_indicator="$repo_root"
+  fi
+
+  append_parent_quarantine_item "$items_file" "$rel_path" "$reason_code" "$stale_indicator" "$generated_at" "$fingerprint_origin"
+}
+
+build_parent_artifact_quarantine_json() {
+  local workspace_root="$1"
+  local items_file gitnexus_meta gitnexus_origin gitnexus_generated reason_code stale_indicator
+  items_file="$(mktemp "${TMPDIR:-/tmp}/parent-artifact-quarantine.XXXXXX")" || return 1
+  jq -n '[]' > "$items_file"
+
+  if [ -L "$workspace_root/.spec-first" ]; then
+    jq -n \
+      --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+      '{
+        schema_version:"parent-artifact-quarantine.v1",
+        topology:"multi-repo-workspace",
+        advisory:true,
+        authority_level:"advisory",
+        freshness:"generated",
+        generated_at:$generated_at,
+        generated_by:"spec-mcp-setup",
+        consumers:["spec-first clean --workspace-orphans","LLM workflow degraded-evidence judgment"],
+        quarantined_paths:[]
+      }'
+    rm -f "$items_file"
+    return 0
+  fi
+
+  append_parent_json_artifact_quarantine_item "$workspace_root" "$items_file" ".spec-first/graph/graph-facts.json" "parent-workspace-must-not-have-repo-local-graph"
+  append_parent_json_artifact_quarantine_item "$workspace_root" "$items_file" ".spec-first/config/graph-providers.json" "parent-workspace-must-not-have-repo-local-graph"
+  append_parent_json_artifact_quarantine_item "$workspace_root" "$items_file" ".spec-first/config/runtime-capabilities.json" "parent-workspace-must-not-have-repo-local-graph"
+
+  if [ -e "$workspace_root/.spec-first/providers/code-review-graph" ]; then
+    append_parent_quarantine_item \
+      "$items_file" \
+      ".spec-first/providers/code-review-graph/" \
+      "retired-provider-residue" \
+      "retired-code-review-graph-provider-directory-present" \
+      "" \
+      "code-review-graph"
+  fi
+
+  if [ -e "$workspace_root/.gitnexus" ]; then
+    gitnexus_meta="$workspace_root/.gitnexus/meta.json"
+    gitnexus_origin="$(json_field_or_empty "$gitnexus_meta" '.repoPath')"
+    gitnexus_generated="$(json_field_or_empty "$gitnexus_meta" '.indexedAt')"
+    reason_code="parent-workspace-must-not-have-graph-index"
+    stale_indicator="parent-workspace-graph-index-present"
+    if is_foreign_absolute_stat_failure "$gitnexus_origin"; then
+      reason_code="foreign-absolute-path-stat-failed"
+      stale_indicator="$gitnexus_origin"
+    elif [ -n "$gitnexus_origin" ] && [ "$gitnexus_origin" != "$workspace_root" ]; then
+      reason_code="repo_root-mismatches-workspace-root"
+      stale_indicator="$gitnexus_origin"
+    fi
+    append_parent_quarantine_item \
+      "$items_file" \
+      ".gitnexus/" \
+      "$reason_code" \
+      "$stale_indicator" \
+      "$gitnexus_generated" \
+      "$gitnexus_origin"
+  fi
+
+  jq -n \
+    --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    --slurpfile paths "$items_file" \
+    '{
+      schema_version:"parent-artifact-quarantine.v1",
+      topology:"multi-repo-workspace",
+      advisory:true,
+      authority_level:"advisory",
+      freshness:"generated",
+      generated_at:$generated_at,
+      generated_by:"spec-mcp-setup",
+      consumers:["spec-first clean --workspace-orphans","LLM workflow degraded-evidence judgment"],
+      quarantined_paths:($paths[0] // [])
+    }'
+  rm -f "$items_file"
+}
+
 write_setup_scenario_fingerprint() {
   local state_write_allowed target_root output helper repo_root result status tmp
 
@@ -180,7 +335,7 @@ write_setup_scenario_fingerprint() {
 write_all_repos_verify_summary_and_exit() {
   local target_json="$1"
   local selection_source="${2:-explicit-all-repos}"
-  local target_mode workspace_root candidate_count summary_items summary_json
+  local target_mode workspace_root candidate_count summary_items summary_json quarantine_json parent_workspace_pollution_count
 
   target_mode="$(jq -r '.mode // empty' <<<"$target_json")"
   workspace_root="$(jq -r '.workspace_root // .invocation_cwd' <<<"$target_json")"
@@ -285,10 +440,18 @@ write_all_repos_verify_summary_and_exit() {
     mv "$summary_items.next" "$summary_items"
   done < <(jq -r '.candidates[] | [.repo_label, .workspace_relative_path] | @tsv' <<<"$target_json")
 
+  quarantine_json="$(build_parent_artifact_quarantine_json "$workspace_root" 2>/dev/null || true)"
+  if [ -n "$quarantine_json" ] && jq -e . >/dev/null 2>&1 <<<"$quarantine_json"; then
+    parent_workspace_pollution_count="$(jq -r '(.quarantined_paths // []) | length' <<<"$quarantine_json")"
+  else
+    parent_workspace_pollution_count=0
+  fi
+
   summary_json="$(jq -n \
     --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
     --arg selection_source "$selection_source" \
     --argjson target "$target_json" \
+    --argjson parent_workspace_pollution_count "$parent_workspace_pollution_count" \
     --slurpfile items "$summary_items" \
     '($items[0] // []) as $results
     | {
@@ -327,6 +490,7 @@ write_all_repos_verify_summary_and_exit() {
           else "all-repos-partial-or-action-required"
           end
         ),
+        parent_workspace_pollution_count:$parent_workspace_pollution_count,
         next_action:(
           if ([$results[] | select(.overall_status != "ready")] | length) == 0 then
             "All child repos verified Required Harness Runtime readiness."
@@ -336,6 +500,9 @@ write_all_repos_verify_summary_and_exit() {
         )
       }')"
   rm -f "$summary_items"
+  if [ -n "$quarantine_json" ] && ! printf '%s\n' "$quarantine_json" | write_workspace_summary_atomic "$workspace_root" "parent-artifact-quarantine.json"; then
+    echo "verify-tools.sh: parent artifact quarantine write failed; continuing" >&2
+  fi
   if ! printf '%s\n' "$summary_json" | write_workspace_summary_atomic "$workspace_root" "mcp-verify-summary.json"; then
     jq -n --arg workspace_root "$workspace_root" '{
       schema_version:"workspace-mcp-verify-summary.v1",

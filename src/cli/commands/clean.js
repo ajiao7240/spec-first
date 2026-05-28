@@ -31,6 +31,15 @@ function runClean(argv) {
     return 0;
   }
 
+  if (parsed.workspaceOrphans) {
+    return runWorkspaceOrphansClean(parsed);
+  }
+
+  if (parsed.confirm) {
+    console.error('Error: --confirm is only reserved for future workspace orphan cleanup and is not implemented in this release.');
+    return 2;
+  }
+
   const platformSelected = parsed.claude || parsed.codex;
   if (!platformSelected || parsed.unknown.length > 0) {
     console.error('Usage: spec-first clean (--claude|--codex) [--dry-run]');
@@ -117,6 +126,8 @@ function parseCleanArgs(argv) {
     claude: false,
     codex: false,
     dryRun: false,
+    workspaceOrphans: false,
+    confirm: false,
     unknown: [],
   };
 
@@ -129,6 +140,10 @@ function parseCleanArgs(argv) {
       parsed.codex = true;
     } else if (arg === '--dry-run') {
       parsed.dryRun = true;
+    } else if (arg === '--workspace-orphans') {
+      parsed.workspaceOrphans = true;
+    } else if (arg === '--confirm') {
+      parsed.confirm = true;
     } else {
       parsed.unknown.push(arg);
     }
@@ -137,12 +152,102 @@ function parseCleanArgs(argv) {
   return parsed;
 }
 
+function runWorkspaceOrphansClean(parsed) {
+  if (parsed.unknown.length > 0) {
+    console.error('Usage: spec-first clean --workspace-orphans');
+    return 2;
+  }
+
+  if (parsed.claude || parsed.codex) {
+    console.error('Error: --workspace-orphans cannot be combined with --claude or --codex.');
+    console.error('Workspace orphan listing is read-only and separate from runtime asset cleanup.');
+    return 2;
+  }
+
+  if (parsed.confirm) {
+    console.error('Deletion is not implemented in this release.');
+    console.error('Run `spec-first clean --workspace-orphans` to preview quarantined paths.');
+    return 2;
+  }
+
+  const projectRoot = process.cwd();
+  const quarantinePath = path.join(projectRoot, '.spec-first', 'workspace', 'parent-artifact-quarantine.json');
+  if (!fs.existsSync(quarantinePath)) {
+    console.error('No parent artifact quarantine found.');
+    console.error('Run `$spec-mcp-setup` from the parent workspace to generate workspace orphan evidence first.');
+    return 1;
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(fs.readFileSync(quarantinePath, 'utf8'));
+  } catch (error) {
+    console.error(
+      `Could not read parent artifact quarantine. ${error instanceof Error ? error.message : String(error)}`,
+    );
+    console.error('Rerun `$spec-mcp-setup` from the parent workspace to regenerate the artifact.');
+    return 1;
+  }
+
+  let entries;
+  try {
+    entries = validateWorkspaceOrphanQuarantine(payload);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    console.error('Rerun `$spec-mcp-setup` from the parent workspace to regenerate the artifact.');
+    return 1;
+  }
+
+  console.log('Parent workspace orphan artifact preview:');
+  console.log(`Source: ${path.posix.join('.spec-first', 'workspace', 'parent-artifact-quarantine.json')}`);
+  if (entries.length === 0) {
+    console.log('No quarantined workspace orphan artifacts were reported.');
+  } else {
+    for (const entry of entries) {
+      console.log(`  - ${entry.path} (${entry.reason_code})`);
+    }
+  }
+  console.log('Deletion is not implemented in this release.');
+  console.log('No files were changed.');
+  return 0;
+}
+
+function validateWorkspaceOrphanQuarantine(payload) {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid parent artifact quarantine: expected JSON object.');
+  }
+  if (payload.schema_version !== 'parent-artifact-quarantine.v1') {
+    throw new Error('Invalid parent artifact quarantine: schema_version must be parent-artifact-quarantine.v1.');
+  }
+  if (!Array.isArray(payload.quarantined_paths)) {
+    throw new Error('Invalid parent artifact quarantine: quarantined_paths must be an array.');
+  }
+  for (const entry of payload.quarantined_paths) {
+    if (!entry || typeof entry !== 'object') {
+      throw new Error('Invalid parent artifact quarantine: each quarantined path must be an object.');
+    }
+    if (typeof entry.path !== 'string' || entry.path.length === 0) {
+      throw new Error('Invalid parent artifact quarantine: each path must be a non-empty string.');
+    }
+    if (path.isAbsolute(entry.path) || entry.path.includes('\\') || entry.path.split('/').includes('..')) {
+      throw new Error('Invalid parent artifact quarantine: paths must be POSIX repo-relative paths.');
+    }
+    if (typeof entry.reason_code !== 'string' || entry.reason_code.length === 0) {
+      throw new Error('Invalid parent artifact quarantine: each reason_code must be a non-empty string.');
+    }
+  }
+  return payload.quarantined_paths;
+}
+
 function printHelp() {
   console.log([
     '🧹 spec-first clean',
     '',
     '📘 Usage:',
     '  spec-first clean (--claude|--codex) [--dry-run]',
+    '  spec-first clean --workspace-orphans',
+    '',
+    'Workspace orphan cleanup is read-only in this release; it lists parent workspace quarantine evidence without deleting files.',
     '',
     '🔗 Repository:',
     '  https://github.com/sunrain520/spec-first',
