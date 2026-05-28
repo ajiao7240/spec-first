@@ -1,6 +1,8 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-28 11:25:00 leokuang: feat(mcp-setup): GitNexus pin 由 `gitnexus@1.6.5` stable 升级为 `gitnexus@1.6.6-rc.76` rc 通道，吸收 PR #1833 worker-pool race 修复（1.6.5 在多仓 workspace bootstrap 上稳定复现 `libc++abi: terminating due to uncaught exception of type Napi::Error`），与 `2026-05-28-001-feat-gitnexus-native-crash-resilience-plan` 配套——本变更治理 pin 升级本身，该 plan 治理 pin 升级前/后的容错；RC 通道为 governance plan 风险登记的例外，待下一个含 PR #1833 的 stable 发布后回切 (user-visible)
+- v1.8.2 2026-05-28 11:15:00 leokuang: docs(plan): 新增 `docs/plans/2026-05-28-001-feat-gitnexus-native-crash-resilience-plan.md`，按 spec-first 角色契约 4 个 Harness 空洞拆分 5 个 implementation units——SIGABRT/Napi::Error 识别（U1）、crash 类失败有限次自动 retry（U2，复用 `attempt_role` 字段，env 可调）、raw log <200B 时附加 `diagnostics_capture`（U3，不重跑 provider command）、`compile-workspace-gitnexus-readiness` 新增 `--from-child-status` 实时聚合模式（U4）、下游契约文档同步（U5）；schema 全部向后兼容，覆盖双宿主 (user-visible)
 - v1.8.2 2026-05-28 10:29:35 leokuang: docs(article-series): 根据第 03 篇大纲和项目 Harness 合同/源码边界，新增微信公众号正文草稿《为什么你不敢把任务真正交给 AI》，围绕意图、上下文、计划、证据、review 与 knowledge 六类委派信任缺口展开，并沉淀 AI Coding Workflow 自测清单 (user-visible)
 - v1.8.2 2026-05-28 10:09:50 leokuang: feat(article-skill): 为项目本地 `spec-wechat-publish` 新增 `upload-wechat-cover.ts`，在微信公众号正文推送后自动走图片库链路上传并选择封面图，保存草稿并验证封面预览与左侧文章卡片缩略图非空；同步更新发布步骤、README 与 Troubleshooting，保留不自动发表边界 (user-visible)
 - v1.8.2 2026-05-28 09:16:08 leokuang: docs(article-series): 重排 `02-ai-coding-harness.md` 微信发布稿正文信息架构，将小节标题从可见 `▍` 锚点改为 `05.1`/`06.1` 从属编号，并优化 `tech-blog` H3 为轻量左线样式；同步增强 `spec-wechat-publish` 主题安装脚本，为 `tech-blog` 发布 HTML 写入 H2/H3 inline style，避免微信编辑器剥离 CSS class 后正文层级失效 (user-visible)
