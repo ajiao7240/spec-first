@@ -1,7 +1,7 @@
 ---
 title: "feat: spec-first 研发场景自适应 Milestone (M1–M4)"
 type: feat
-status: active
+status: completed
 date: 2026-05-28
 spec_id: 2026-05-28-002-feat-spec-first-scenario-adaptive-milestone
 origin: docs/03-实施方案/2026-05-28-spec-first-场景自适应实施方案.md

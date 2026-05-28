@@ -51,6 +51,7 @@ GitNexus refresh 的默认策略是“自动 freshness check，显式 graph-boot
 - 一份 GitNexus 增量刷新机制与 spec-first 刷新策略评估，说明官方增量、当前 full 默认、dirty-advisory 与优化建议
 - 一份 GitNexus 刷新策略与 provider 直接平替决策历史档案，说明官方刷新面、当前刷新节点、最佳实践，以及 GitNexus 如何完成 CRG 平替
 - 一份 CodeGraph 对 GitNexus 与 retired CRG 的平替评估历史档案，说明 CodeGraph 当前不能无降级直接替掉 GitNexus，但可作为实验性单仓代码探索 provider 候选
+- 一份研发场景与降级路径手册，说明 scenario fingerprint、capability matrix、parent orphan quarantine、build-target coverage 和 quality signals 如何帮助 workflow 在单仓、多仓、非 Git folder、dirty worktree 与 provider degraded 场景中选择证据路径
 - 可更新、可恢复、可清理的受管资产模型
 - 一条面向首次使用者的 workflow 走查，说明从一个需求句子到 requirements / plan / task pack 的真实产物链路
 - 一份 workflow 产物目录，说明每类文档和 generated runtime assets 的生成者、读取方与 Git 边界
@@ -125,11 +126,12 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 11. [GitNexus 增量刷新机制与 spec-first 刷新策略评估](./16-GitNexus-增量刷新机制与spec-first刷新策略评估.md)
 12. [GitNexus 刷新策略与 Provider 直接平替决策](./17-GitNexus-刷新策略与Provider收敛决策.md)
 13. [CodeGraph 对 GitNexus 与 retired CRG 的平替评估](./18-CodeGraph-GitNexus-CRG-平替评估.md)
-14. [常见问题](./04-常见问题.md)
-15. [最佳实践](./05-最佳实践.md)
-16. [三种开发模式](./08-三种开发模式.md)
-17. [本地源码安装](./06-本地源码安装.md)
-18. [内部培训使用讲稿](./07-内部培训使用讲稿.md)
+14. [研发场景与降级路径](./20-研发场景与降级路径.md)
+15. [常见问题](./04-常见问题.md)
+16. [最佳实践](./05-最佳实践.md)
+17. [三种开发模式](./08-三种开发模式.md)
+18. [本地源码安装](./06-本地源码安装.md)
+19. [内部培训使用讲稿](./07-内部培训使用讲稿.md)
 
 ## 建议阅读路径
 
@@ -145,6 +147,7 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 - 如果你要判断 GitNexus 官方增量刷新和 spec-first 当前 full 默认是否合理，先看 [GitNexus 增量刷新机制与 spec-first 刷新策略评估](./16-GitNexus-增量刷新机制与spec-first刷新策略评估.md)
 - 如果你要判断 GitNexus 刷新最佳实践，或回看 GitNexus 如何直接平替 CRG 的迁移决策，先看 [GitNexus 刷新策略与 Provider 直接平替决策](./17-GitNexus-刷新策略与Provider收敛决策.md)
 - 如果你要判断 CodeGraph 能否替掉 GitNexus，先看 [CodeGraph 对 GitNexus 与 CRG 的平替评估](./18-CodeGraph-GitNexus-CRG-平替评估.md)
+- 如果你要判断当前仓库属于哪类研发场景、graph evidence 是否可信、dirty / multi-repo / non-git build target 该如何降级，先看 [研发场景与降级路径](./20-研发场景与降级路径.md)
 - 如果你要给业务项目配置 `.gitignore`，先看 [Gitignore 参考](./12-gitignore参考.md)
 - 如果你在排障，看 [常见问题](./04-常见问题.md)
 - 如果你关注 graph readiness、runtime/control-plane 与 Git 协作边界，重点看 [核心概念](./02-核心概念.md)、[Workflows 与产物地图](./04-workflows-artifacts-map.md)、[最佳实践](./05-最佳实践.md) 和 [常见问题](./04-常见问题.md)

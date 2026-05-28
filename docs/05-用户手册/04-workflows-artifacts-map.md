@@ -12,7 +12,7 @@
 | `.spec-first/providers/<provider>/` | `spec-graph-bootstrap` provider evidence 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 保存 provider 原始日志、provider 状态和规范化能力事实 | `raw/*.log`、`status.json`、`normalized/*.json` |
 | `.spec-first/graph/` | `spec-graph-bootstrap` canonical graph readiness 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 提供下游 workflow 读取的 graph readiness 真相源与用户报告 | `provider-status.json`、`graph-facts.json`、`bootstrap-report.md` |
 | `.spec-first/impact/` | `spec-graph-bootstrap` capability envelope 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 表达 context selection、impact radius、review support 的 primary/fallback 支持情况 | `bootstrap-impact-capabilities.json` |
-| `.spec-first/workspace/` | parent workspace advisory 阶段 | 父 workspace 下的 `spec-mcp-setup`、`spec-graph-bootstrap`、read-only resolver 或 `spec-first clean --workspace-orphans` | 保存跨 child repo 候选、批量维护 summary、parent orphan quarantine 和只读 graph target 建议 | `project-config-bootstrap-summary.json`、`mcp-setup-summary.json`、`mcp-verify-summary.json`、`parent-artifact-quarantine.json`、`graph-bootstrap-summary.json`、`graph-targets.json` |
+| `.spec-first/workspace/` | parent workspace advisory 阶段 | 父 workspace 下的 `spec-mcp-setup`、`spec-graph-bootstrap`、read-only resolver 或 `spec-first clean --workspace-orphans` | 保存跨 child repo 候选、批量维护 summary、scenario fingerprint、parent orphan quarantine 和只读 graph target 建议 | `project-config-bootstrap-summary.json`、`mcp-setup-summary.json`、`mcp-verify-summary.json`、`scenario-fingerprint-setup.json`、`scenario-fingerprint.json`、`parent-artifact-quarantine.json`、`graph-bootstrap-summary.json`、`graph-targets.json` |
 | `.spec-first/audits/skill-audit/` | `spec-skill-audit` source skill audit 阶段 | `/spec:skill-audit`、`$spec-skill-audit` 或直接运行 `write-audit-artifacts.js` | 保存 source skill inventory、scorecard、安全/治理/runtime drift 信号和改进计划 | `latest/skill-audit-summary.md`、`latest/skill-improvement-plan.md`、`latest/*.json`、`latest/patch-preview/*` |
 | `.spec-first/app-audit/runs/<run-id>/` | `spec-app-consistency-audit` App 一致性审查阶段 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit`；headless 自动化下亦可直接调用 `node skills/spec-app-consistency-audit/scripts/run-audit.js mode:headless base:<ref>` | 保存移动 App PRD / Figma / source / route / architecture / analytics / i18n 静态一致性审查证据；`issue_synthesis_status` 三态(`not_run` / `llm_provided` / `fixture_provided`)区分确定性 runner 产物与上游 LLM/fixture 注入的语义 issue；markdown 摘要由下游 Report Writer 产出，不由 runner 直接生成 | 由 runner 产出: `metadata.json`、`preflight.json`、`impact-facts.json`、`issues.json`、`audit-report.json`、`app-audit-context.json`、`merged-context.json`、`artifact-manifest.json`、`headless-envelope.txt`；由下游 Report Writer 产出: `app-consistency-audit.md`、`app-consistency-audit.summary.md` |
 | `.spec-first/workflows/verification/<slug>/` | verification evidence 阶段 | 上游 verification 流程写入，`doctor` 读取 | 作为验证证据投递目录 | `verification-evidence.json` |
@@ -47,7 +47,7 @@
 | `providers/<provider>/` | provider-local evidence | 失败诊断、原始日志追踪、provider 规范化事实复核 |
 | `graph/` | canonical readiness facts | `spec-plan` 等下游 workflow 判断 graph facts 是否 primary、degraded、blocked 或 stale |
 | `impact/` | impact/review capability envelope | 下游 workflow 决定是否使用 provider 影响分析，或回退 bounded direct repo reads |
-| `workspace/` | parent workspace advisory summaries | 多仓父目录下展示 child repo readiness、批量维护结果、parent orphan quarantine 和只读候选；不作为 repo-local truth |
+| `workspace/` | parent workspace advisory summaries | 多仓父目录下展示 child repo readiness、scenario fingerprint、批量维护结果、parent orphan quarantine 和只读候选；不作为 repo-local truth |
 | `audits/skill-audit/` | skill audit execution artifacts | 维护者读取审计摘要、P0/P1 evidence、score signals 和改进计划 |
 | `app-audit/runs/` | App consistency audit execution artifacts | 评审者读取静态一致性报告、degraded modes、issues 和 runtime follow-up 建议 |
 | `verification/*` | 验证证据投递目录 | `doctor` 校验与汇总 |
@@ -107,6 +107,8 @@
 | `project-config-bootstrap-summary.json` | 父 workspace 下 project config bootstrap 的 per-child 汇总 |
 | `mcp-setup-summary.json` | 父 workspace 下 install-mcp 的 per-child 汇总 |
 | `mcp-verify-summary.json` | 父 workspace 下 verify-tools 的 per-child readiness 汇总；`parent_workspace_pollution_count` 记录本次 parent orphan quarantine 命中数 |
+| `scenario-fingerprint-setup.json` | `developer-scenario-fingerprint-setup.v1`，setup-time 场景事实；包含 topology、worktree、complexity dimensions、foreign residual indicators 和 advisory limitations |
+| `scenario-fingerprint.json` | `developer-scenario-fingerprint.v1`，bootstrap-time 合并场景事实；合并 setup layer、graph/provider refs、dirty child count、build-target coverage 和 freshness signals |
 | `parent-artifact-quarantine.json` | `parent-artifact-quarantine.v1`，父 workspace 下 repo-local graph/config/provider/index 污染的 advisory quarantine；`spec-first clean --workspace-orphans` 默认只预览，`--confirm` 才删除受支持的 quarantined parent orphan 路径 |
 | `graph-bootstrap-summary.json` | 父 workspace 下 graph bootstrap all-child maintenance 的 per-child 汇总 |
 | `graph-targets.json` | 只读 workspace graph target resolver 的候选 repo、status、artifact pointer、next action，以及 Gradle/npm build-target coverage facts（`non_git_build_modules[]` / `coverage_summary` / `graph_coverage_class`） |

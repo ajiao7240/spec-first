@@ -557,6 +557,7 @@ your-project/
 
 - 用当前宿主的 setup workflow 安装并验证 required harness runtime：Sequential Thinking、Context7、GitNexus、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。`agent-browser` 是 non-blocking browser automation helper capability；只有需要 browser evidence 或截图自动化时，才在 setup 前设置 `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1`。Setup 会写入 `gitnexus_capability_discovery` 等 GitNexus availability/discovery facts；这些只是来自 checked-in baseline、provider pin 和 setup projection 的 setup-inferred native capability hints，不是 query-ready graph evidence，也不是 live MCP proof。
 - 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
+- 场景自适应 facts 已进入 setup/bootstrap 证据链。Setup 可写入 `.spec-first/workspace/scenario-fingerprint-setup.json`；graph bootstrap 可合并为 `.spec-first/workspace/scenario-fingerprint.json`、`.spec-first/workspace/graph-targets.json` 和 `.spec-first/workspace/graph-bootstrap-summary.json.quality_signals`。这些产物都是 advisory deterministic context：脚本准备事实，当前 workflow 决定使用 graph evidence、bounded direct source reads、`spec-first clean --workspace-orphans`，还是 handoff 到 setup/bootstrap。
 - 把切换分支、pull、rebase、merge、dirty worktree 变化和 provider fingerprint mismatch 视为 graph freshness invalidation signals。下游 workflow 可以建议 graph bootstrap，但不会隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。
 - 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、读取 setup-inferred GitNexus availability/discovery facts、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。当没有 graph artifacts、没有 GitNexus MCP surface 且没有 setup-owned GitNexus projection 时，plan 走 no-graph fast path，不消耗令牌展开详细 GitNexus 探测。涉及代码、架构、API 或跨模块计划且存在 graph/GitNexus evidence 时，它还会在旁边写出 `Graph / GitNexus Evidence` posture，包含 `native_tool_or_resource`、`capability_status`、`evidence_grade`、`evidence_posture`、`freshness_state` 和 `source_tags`，让读者看清计划使用了 checked-in baseline、setup projection、live MCP tool/resource evidence、session-local inference 还是源码 fallback。
 - 在父 workspace 下存在多个 child Git repos 时，只读代码问题可以使用 `workspace-graph-targets.v1` 和 `workspace-gitnexus-readiness.v1` advisory facts 选择 bounded candidate repos；`group.status="group-ready"` 优先使用 GitNexus-first evidence via group query，group config 缺失或未评估时走 bounded registry/per-repo fan-out。除下一条父 workspace 维护入口外，写入、测试、changelog、review autofix 和 commit 仍必须有明确 `target_repo` / per-child scope。
@@ -573,6 +574,7 @@ spec-first --version
 spec-first doctor [--json] [--claude|--codex]
 spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]
 spec-first clean (--claude|--codex) [--dry-run]
+spec-first clean --workspace-orphans [--confirm]
 spec-first tasks hash <plan-path> [--json]
 spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]
 ```
