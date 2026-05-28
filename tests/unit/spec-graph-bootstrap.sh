@@ -995,6 +995,24 @@ dirty_sample_output="$(cd "$DIRTY_SAMPLE_REPO" && PATH="$TEST_PATH" bash "$BOOTS
 assert_eq "dirty sample exposes sorted graph-affecting paths first" "README.md:true|src/app.js:true|CHANGELOG.md:false:false" "$(jq -r '([.dirty_paths_sample[] | "\(.path):\(.graph_affecting)"] | join("|")) + ":" + (.dirty_paths_sample_truncated | tostring)' "$DIRTY_SAMPLE_REPO/.spec-first/graph/graph-facts.json")"
 assert_eq "dirty sample keeps graph facts additive fields in final output source" "graph-affecting-blocked:true" "$(jq -r '.dirty_classification + ":" + (.dirty_paths_breakdown.graph_affecting_count == 2 | tostring)' <<<"$dirty_sample_output")"
 
+DIRTY_NON_ASCII_REPO="$TMP_DIR/dirty-non-ascii-repo"
+DIRTY_NON_ASCII_LEDGER="$TMP_DIR/dirty-non-ascii-home/.codex/spec-first/host-setup.json"
+make_repo "$DIRTY_NON_ASCII_REPO"
+write_fixture_config "$DIRTY_NON_ASCII_REPO" "$DIRTY_NON_ASCII_LEDGER" true
+mkdir -p "$DIRTY_NON_ASCII_REPO/src"
+printf 'a clean\n' > "$DIRTY_NON_ASCII_REPO/src/a.md"
+printf 'ae clean\n' > "$DIRTY_NON_ASCII_REPO/src/ä.md"
+printf 'zh clean\n' > "$DIRTY_NON_ASCII_REPO/src/中.md"
+git -C "$DIRTY_NON_ASCII_REPO" add src
+git -C "$DIRTY_NON_ASCII_REPO" commit -q -m "Add non-ASCII path fixtures"
+printf 'a dirty\n' >> "$DIRTY_NON_ASCII_REPO/src/a.md"
+printf 'ae dirty\n' >> "$DIRTY_NON_ASCII_REPO/src/ä.md"
+printf 'zh dirty\n' >> "$DIRTY_NON_ASCII_REPO/src/中.md"
+dirty_non_ascii_output="$(cd "$DIRTY_NON_ASCII_REPO" && PATH="$TEST_PATH" bash "$BOOTSTRAP_SCRIPT")"
+# Expected ordinal/codepoint order: 'a' (U+0061) < 'ä' (U+00E4) < '中' (U+4E2D)
+assert_eq "dirty sample sorts non-ASCII paths by Unicode codepoint" "src/a.md|src/ä.md|src/中.md" "$(jq -r '[.dirty_paths_sample[].path] | join("|")' "$DIRTY_NON_ASCII_REPO/.spec-first/graph/graph-facts.json")"
+assert "dirty non-ASCII output is JSON" jq -e . <<<"$dirty_non_ascii_output"
+
 DIRTY_TRUNCATED_REPO="$TMP_DIR/dirty-truncated-repo"
 DIRTY_TRUNCATED_LEDGER="$TMP_DIR/dirty-truncated-home/.codex/spec-first/host-setup.json"
 make_repo "$DIRTY_TRUNCATED_REPO"
@@ -1299,6 +1317,24 @@ if command -v pwsh >/dev/null 2>&1; then
   ps_dirty_sample_output="$(cd "$PS_DIRTY_SAMPLE_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
   assert_eq "PowerShell dirty sample matches Bash ordering" "README.md:true|src/app.js:true|CHANGELOG.md:false:false" "$(jq -r '([.dirty_paths_sample[] | "\(.path):\(.graph_affecting)"] | join("|")) + ":" + (.dirty_paths_sample_truncated | tostring)' "$PS_DIRTY_SAMPLE_REPO/.spec-first/graph/graph-facts.json")"
   assert_eq "PowerShell dirty sample output remains dirty advisory" "graph-affecting-blocked:true" "$(jq -r '.dirty_classification + ":" + (.dirty_paths_breakdown.graph_affecting_count == 2 | tostring)' <<<"$ps_dirty_sample_output")"
+
+  PS_DIRTY_NON_ASCII_REPO="$TMP_DIR/ps-dirty-non-ascii-repo"
+  PS_DIRTY_NON_ASCII_LEDGER="$TMP_DIR/ps-dirty-non-ascii-home/.codex/spec-first/host-setup.json"
+  make_repo "$PS_DIRTY_NON_ASCII_REPO"
+  write_fixture_config "$PS_DIRTY_NON_ASCII_REPO" "$PS_DIRTY_NON_ASCII_LEDGER" true
+  mkdir -p "$PS_DIRTY_NON_ASCII_REPO/src"
+  printf 'a clean\n' > "$PS_DIRTY_NON_ASCII_REPO/src/a.md"
+  printf 'ae clean\n' > "$PS_DIRTY_NON_ASCII_REPO/src/ä.md"
+  printf 'zh clean\n' > "$PS_DIRTY_NON_ASCII_REPO/src/中.md"
+  git -C "$PS_DIRTY_NON_ASCII_REPO" add src
+  git -C "$PS_DIRTY_NON_ASCII_REPO" commit -q -m "Add non-ASCII path fixtures"
+  printf 'a dirty\n' >> "$PS_DIRTY_NON_ASCII_REPO/src/a.md"
+  printf 'ae dirty\n' >> "$PS_DIRTY_NON_ASCII_REPO/src/ä.md"
+  printf 'zh dirty\n' >> "$PS_DIRTY_NON_ASCII_REPO/src/中.md"
+  ps_dirty_non_ascii_output="$(cd "$PS_DIRTY_NON_ASCII_REPO" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1")"
+  # Must match Bash ordinal ordering: src/a.md < src/ä.md < src/中.md
+  assert_eq "PowerShell dirty sample uses ordinal sort for non-ASCII paths" "src/a.md|src/ä.md|src/中.md" "$(jq -r '[.dirty_paths_sample[].path] | join("|")' "$PS_DIRTY_NON_ASCII_REPO/.spec-first/graph/graph-facts.json")"
+  assert "PowerShell dirty non-ASCII output is JSON" jq -e . <<<"$ps_dirty_non_ascii_output"
 
   PS_LABEL_CONFLICT_REPO="$TMP_DIR/ps-kaz-mvp"
   PS_LABEL_CONFLICT_LEDGER="$TMP_DIR/ps-label-conflict-home/.codex/spec-first/host-setup.json"

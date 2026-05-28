@@ -382,6 +382,11 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(powershellScript).toContain('Sort-Object @{ Expression = { if ($_.classification -eq');
     expect(powershellScript).toContain('if ($provider -eq');
     expect(powershellScript).toContain('Repo label conflict detected for ');
+    // R6 cross-platform invariant: dirty_paths_sample[] must sort by Unicode codepoint
+    // (ordinal) so Bash jq sort_by(.path) and PowerShell parity stay aligned even on
+    // non-ASCII paths.
+    expect(powershellScript).toContain('function ConvertTo-OrdinalSortKey');
+    expect(powershellScript).toContain('ConvertTo-OrdinalSortKey ([string]$_.path)');
   });
 
   test('locks Capability Matrix prose in bootstrap-report.md (R7/R15b)', () => {

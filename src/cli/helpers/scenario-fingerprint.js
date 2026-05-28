@@ -6,6 +6,8 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const SETUP_SCHEMA_VERSION = 'developer-scenario-fingerprint-setup.v1';
+const BOOTSTRAP_SCHEMA_VERSION = 'developer-scenario-fingerprint.v1';
+const PENDING_BUILD_TARGET_SCAN_REASON = 'pending-build-target-scan-p4';
 const PROVISIONAL_SCENARIO_CLASSES = [
   'clean-single-repo',
   'dirty-single-repo',
@@ -55,20 +57,29 @@ function runScenarioFingerprint(argv, env = {}) {
     writeJson(io.stdout, errorPayload(parsed.error.code, parsed.error.message));
     return parsed.error.code === 'help' ? 0 : 2;
   }
-  if (parsed.options.layer !== 'setup') {
-    writeJson(io.stdout, errorPayload('unsupported-layer', 'only --layer setup is supported in PA-1'));
+  if (!['setup', 'bootstrap'].includes(parsed.options.layer)) {
+    writeJson(io.stdout, errorPayload('unsupported-layer', 'supported layers: setup, bootstrap'));
     return 2;
   }
 
   try {
-    const result = computeSetupLayer({
-      cwd: io.cwd,
-      workspaceRoot: parsed.options.workspaceRoot,
-      targetFactsPath: parsed.options.targetFacts,
-      ledgerPath: parsed.options.ledger,
-      maxBuildScanDepth: parsed.options.maxBuildScanDepth,
-    });
-    if (parsed.options.writeArtifact || parsed.options.output) {
+    const result = parsed.options.layer === 'setup'
+      ? computeSetupLayer({
+        cwd: io.cwd,
+        workspaceRoot: parsed.options.workspaceRoot,
+        targetFactsPath: parsed.options.targetFacts,
+        ledgerPath: parsed.options.ledger,
+        maxBuildScanDepth: parsed.options.maxBuildScanDepth,
+      })
+      : computeBootstrapLayer({
+        cwd: io.cwd,
+        workspaceRoot: parsed.options.workspaceRoot,
+        setupFingerprintPath: parsed.options.setupFingerprint,
+        graphFactsPath: parsed.options.graphFacts,
+        providerStatusPath: parsed.options.providerStatus,
+        graphBootstrapSummaryPath: parsed.options.graphBootstrapSummary,
+      });
+    if (!result.fingerprint_setup_missing && (parsed.options.writeArtifact || parsed.options.output)) {
       if (!parsed.options.output) {
         throw reasonError('missing-required-option', '--output is required when writing a scenario fingerprint artifact');
       }
@@ -208,6 +219,125 @@ function computeSetupLayer(input = {}) {
       readiness_ledger: input.ledgerPath ? toPosixPath(path.resolve(input.ledgerPath)) : null,
       target_facts: input.targetFactsPath ? toPosixPath(path.resolve(input.targetFactsPath)) : null,
     },
+  };
+}
+
+function computeBootstrapLayer(input = {}) {
+  const cwd = path.resolve(input.cwd || process.cwd());
+  const provisionalWorkspaceRoot = path.resolve(input.workspaceRoot || cwd);
+  const setupFingerprintPath = path.resolve(
+    input.setupFingerprintPath
+      || path.join(provisionalWorkspaceRoot, '.spec-first', 'workspace', 'scenario-fingerprint-setup.json'),
+  );
+  if (!fs.existsSync(setupFingerprintPath)) {
+    return {
+      ok: true,
+      advisory: true,
+      layer: 'bootstrap',
+      fingerprint_setup_missing: true,
+      reason_code: 'fingerprint-setup-missing',
+      setup_fingerprint_path: toPosixPath(setupFingerprintPath),
+      next_action: 'Run spec-first mcp setup before graph bootstrap to create .spec-first/workspace/scenario-fingerprint-setup.json.',
+    };
+  }
+
+  const setup = readOptionalJson(setupFingerprintPath, 'invalid-setup-scenario-fingerprint');
+  const workspaceRoot = path.resolve(input.workspaceRoot || setup.workspace_root || provisionalWorkspaceRoot);
+  const targetRoot = path.resolve(setup.target_root || workspaceRoot);
+  const graphFactsPath = path.resolve(input.graphFactsPath || path.join(workspaceRoot, '.spec-first', 'graph', 'graph-facts.json'));
+  const providerStatusPath = path.resolve(input.providerStatusPath || path.join(workspaceRoot, '.spec-first', 'graph', 'provider-status.json'));
+  const graphBootstrapSummaryPath = input.graphBootstrapSummaryPath
+    ? path.resolve(input.graphBootstrapSummaryPath)
+    : path.join(workspaceRoot, '.spec-first', 'workspace', 'graph-bootstrap-summary.json');
+  const graphFacts = readJsonIfExists(graphFactsPath, 'invalid-graph-facts') || {};
+  const providerStatus = readJsonIfExists(providerStatusPath, 'invalid-provider-status') || {};
+  const graphBootstrapSummary = readJsonIfExists(graphBootstrapSummaryPath, 'invalid-graph-bootstrap-summary') || {};
+  const gitnexusStatus = extractGitNexusStatus(providerStatus);
+  const currentRevision = graphFacts.source_revision
+    || (gitnexusStatus.repo_snapshot && gitnexusStatus.repo_snapshot.source_revision)
+    || (isGitRepo(targetRoot) ? getGitDirtyFacts(targetRoot).head : null);
+  const staleSetup = computeSetupLayerStaleness({
+    setup,
+    currentRevision,
+    graphBootstrapSummary,
+  });
+  const dirtyChildCount = deriveDirtyChildCount({
+    setup,
+    graphFacts,
+    graphBootstrapSummary,
+  });
+  const bootstrapGeneratedAt = new Date().toISOString();
+  const setupRefs = setup.providers_status_refs && typeof setup.providers_status_refs === 'object'
+    ? setup.providers_status_refs
+    : {};
+
+  return {
+    ...setup,
+    schema_version: BOOTSTRAP_SCHEMA_VERSION,
+    advisory: true,
+    layer: 'bootstrap',
+    generated_at: bootstrapGeneratedAt,
+    producer: 'spec-first internal compute-scenario-fingerprint --layer bootstrap',
+    workspace_root: toPosixPath(workspaceRoot),
+    target_root: toPosixPath(targetRoot),
+    topology: {
+      ...(setup.topology || {}),
+      git_misaligned_build_targets: null,
+      build_target_coverage_ratio: null,
+      build_target_coverage_reason_code: PENDING_BUILD_TARGET_SCAN_REASON,
+    },
+    worktree: {
+      ...(setup.worktree || {}),
+      dirty: graphFacts.worktree_dirty == null ? Boolean(setup.worktree && setup.worktree.dirty) : Boolean(graphFacts.worktree_dirty),
+      dirty_paths_sample: Array.isArray(graphFacts.dirty_paths_sample)
+        ? graphFacts.dirty_paths_sample.map(item => ({
+          ...item,
+          path: toPosixPath(item.path),
+        }))
+        : (setup.worktree && Array.isArray(setup.worktree.dirty_paths_sample) ? setup.worktree.dirty_paths_sample : []),
+      status_hash: graphFacts.worktree_status_hash || (setup.worktree && setup.worktree.status_hash) || null,
+      head: currentRevision || (setup.worktree && setup.worktree.head) || null,
+      dirty_child_count: dirtyChildCount,
+    },
+    providers_status_refs: {
+      ...setupRefs,
+      gitnexus: buildBootstrapGitNexusRef({
+        setupRef: setupRefs.gitnexus || null,
+        gitnexusStatus,
+        providerStatusPath,
+        graphFactsPath,
+      }),
+    },
+    freshness: {
+      ...(setup.freshness || {}),
+      setup_layer: {
+        path: toWorkspaceRelative(workspaceRoot, setupFingerprintPath),
+        schema_version: setup.schema_version || null,
+        generated_at: setup.generated_at || (setup.freshness && setup.freshness.setup_generated_at) || null,
+        source_revision: (setup.freshness && setup.freshness.source_revision) || (setup.worktree && setup.worktree.head) || null,
+      },
+      stale_setup_layer: staleSetup.stale,
+      stale_setup_layer_reasons: staleSetup.reasons,
+      bootstrap_generated_at: bootstrapGeneratedAt,
+      bootstrap_source_revision: currentRevision,
+      graph_facts_freshness_state: graphFacts.freshness_state || null,
+    },
+    generated_from: {
+      ...(setup.generated_from || {}),
+      setup_fingerprint: toWorkspaceRelative(workspaceRoot, setupFingerprintPath),
+      graph_facts: fs.existsSync(graphFactsPath) ? toWorkspaceRelative(workspaceRoot, graphFactsPath) : null,
+      provider_status: fs.existsSync(providerStatusPath) ? toWorkspaceRelative(workspaceRoot, providerStatusPath) : null,
+      graph_bootstrap_summary: fs.existsSync(graphBootstrapSummaryPath) ? toWorkspaceRelative(workspaceRoot, graphBootstrapSummaryPath) : null,
+    },
+    tags: Array.from(new Set([
+      ...((setup.tags && Array.isArray(setup.tags)) ? setup.tags : []),
+      'bootstrap-layer',
+      ...(staleSetup.stale ? ['stale-setup-layer'] : []),
+    ])),
+    limitations: Array.from(new Set([
+      ...((setup.limitations && Array.isArray(setup.limitations)) ? setup.limitations : []),
+      'build-target coverage fields are null until P4 build-target scan fills them',
+    ])),
   };
 }
 
@@ -492,6 +622,14 @@ function parseArgs(argv) {
       options.targetFacts = argv[++i];
     } else if (arg === '--ledger') {
       options.ledger = argv[++i];
+    } else if (arg === '--setup-fingerprint') {
+      options.setupFingerprint = argv[++i];
+    } else if (arg === '--graph-facts') {
+      options.graphFacts = argv[++i];
+    } else if (arg === '--provider-status') {
+      options.providerStatus = argv[++i];
+    } else if (arg === '--graph-bootstrap-summary') {
+      options.graphBootstrapSummary = argv[++i];
     } else if (arg === '--workspace-root') {
       options.workspaceRoot = argv[++i];
     } else if (arg === '--max-build-scan-depth') {
@@ -514,10 +652,14 @@ function parseArgs(argv) {
 
 function usage() {
   return [
-    'Usage: spec-first internal compute-scenario-fingerprint --layer setup [options]',
+    'Usage: spec-first internal compute-scenario-fingerprint --layer setup|bootstrap [options]',
     'Options:',
     '  --ledger <json>           Read setup readiness ledger facts',
     '  --target-facts <json>     Read project target facts',
+    '  --setup-fingerprint <json> Read setup scenario fingerprint for bootstrap layer',
+    '  --graph-facts <json>      Read graph facts for bootstrap layer',
+    '  --provider-status <json>  Read provider status for bootstrap layer',
+    '  --graph-bootstrap-summary <json> Read parent graph-bootstrap summary for bootstrap layer',
     '  --workspace-root <path>   Override workspace root',
     '  --out <path>              Write fingerprint artifact',
     '  --max-build-scan-depth N  Bounded build manifest scan depth (default: 4)',
@@ -568,6 +710,122 @@ function readOptionalJson(filePath, reasonCode) {
   } catch (error) {
     throw reasonError(reasonCode, `failed to read JSON ${filePath}: ${error.message}`);
   }
+}
+
+function readJsonIfExists(filePath, reasonCode) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  return readOptionalJson(filePath, reasonCode);
+}
+
+function extractGitNexusStatus(providerStatus) {
+  if (!providerStatus || typeof providerStatus !== 'object') return {};
+  if (providerStatus.provider === 'gitnexus') return providerStatus;
+  if (Array.isArray(providerStatus.providers)) {
+    return providerStatus.providers.find(provider => provider && provider.provider === 'gitnexus') || {};
+  }
+  if (Array.isArray(providerStatus.results)) {
+    return providerStatus.results.find(provider => provider && provider.provider === 'gitnexus') || {};
+  }
+  return {};
+}
+
+function buildBootstrapGitNexusRef({ setupRef, gitnexusStatus, providerStatusPath, graphFactsPath }) {
+  return {
+    ...(setupRef || {}),
+    configured: gitnexusStatus.configured == null ? (setupRef && setupRef.configured) || false : Boolean(gitnexusStatus.configured),
+    graph_ready: gitnexusStatus.graph_ready == null ? null : Boolean(gitnexusStatus.graph_ready),
+    query_ready: gitnexusStatus.query_ready == null ? (setupRef ? setupRef.query_ready : null) : Boolean(gitnexusStatus.query_ready),
+    status: gitnexusStatus.status || null,
+    status_path: toPosixPath(providerStatusPath),
+    graph_facts_path: toPosixPath(graphFactsPath),
+    repo_label_resolution_path: `${toPosixPath(providerStatusPath)}#repo_label_resolution`,
+    reason_code: gitnexusStatus.reason_code || (setupRef && setupRef.reason_code) || null,
+  };
+}
+
+function computeSetupLayerStaleness({ setup, currentRevision, graphBootstrapSummary }) {
+  const reasons = [];
+  const setupRevision = setup && setup.freshness
+    ? setup.freshness.source_revision
+    : null;
+  if (setupRevision && currentRevision && setupRevision !== currentRevision) {
+    reasons.push({
+      reason_code: 'setup-source-revision-mismatch',
+      setup_source_revision: setupRevision,
+      bootstrap_source_revision: currentRevision,
+    });
+  }
+
+  const currentChildRevisions = collectSummaryChildRevisions(graphBootstrapSummary);
+  const childRepos = setup && setup.topology && Array.isArray(setup.topology.child_repos)
+    ? setup.topology.child_repos
+    : [];
+  for (const child of childRepos) {
+    const key = child.workspace_relative_path || child.repo_label || child.git_root;
+    if (!key || !child.head || !currentChildRevisions.has(key)) continue;
+    const current = currentChildRevisions.get(key);
+    if (current && current !== child.head) {
+      reasons.push({
+        reason_code: 'setup-child-revision-mismatch',
+        workspace_relative_path: child.workspace_relative_path || null,
+        repo_label: child.repo_label || null,
+        setup_source_revision: child.head,
+        bootstrap_source_revision: current,
+      });
+    }
+  }
+  return {
+    stale: reasons.length > 0,
+    reasons,
+  };
+}
+
+function collectSummaryChildRevisions(summary) {
+  const revisions = new Map();
+  const rows = summary && Array.isArray(summary.results) ? summary.results : [];
+  for (const row of rows) {
+    const revision = childRevisionFromSummaryRow(row);
+    if (!revision) continue;
+    for (const key of [row.workspace_relative_path, row.repo_label]) {
+      if (key) revisions.set(key, revision);
+    }
+  }
+  return revisions;
+}
+
+function childRevisionFromSummaryRow(row) {
+  const providers = row && row.result && Array.isArray(row.result.results)
+    ? row.result.results
+    : [];
+  for (const provider of providers) {
+    if (provider && provider.repo_snapshot && provider.repo_snapshot.source_revision) {
+      return provider.repo_snapshot.source_revision;
+    }
+  }
+  return row && row.result ? row.result.source_revision || null : null;
+}
+
+function deriveDirtyChildCount({ setup, graphFacts, graphBootstrapSummary }) {
+  const qualitySignals = graphBootstrapSummary && graphBootstrapSummary.quality_signals
+    ? graphBootstrapSummary.quality_signals
+    : null;
+  if (qualitySignals && Number.isFinite(Number(qualitySignals.child_count)) && Number.isFinite(Number(qualitySignals.dirty_advisory_child_rate))) {
+    return Math.round(Number(qualitySignals.child_count) * Number(qualitySignals.dirty_advisory_child_rate));
+  }
+  if (setup && setup.worktree && Number.isFinite(Number(setup.worktree.dirty_child_count))) {
+    return Number(setup.worktree.dirty_child_count);
+  }
+  return graphFacts && graphFacts.source_revision_dirty ? 1 : 0;
+}
+
+function toWorkspaceRelative(workspaceRoot, filePath) {
+  const absoluteRoot = path.resolve(workspaceRoot);
+  const absolutePath = path.resolve(filePath);
+  if (!isSubpath(toPosixPath(absoluteRoot), toPosixPath(absolutePath))) {
+    return toPosixPath(absolutePath);
+  }
+  const relative = path.relative(absoluteRoot, absolutePath);
+  return toPosixPath(relative || '.');
 }
 
 function atomicWriteJson(filePath, payload) {
@@ -624,9 +882,12 @@ if (require.main === module) {
 }
 
 module.exports = {
+  BOOTSTRAP_SCHEMA_VERSION,
   PROVISIONAL_SCENARIO_CLASSES,
+  PENDING_BUILD_TARGET_SCAN_REASON,
   SETUP_SCHEMA_VERSION,
   classifyState,
+  computeBootstrapLayer,
   computeSetupLayer,
   runScenarioFingerprint,
   toPosixPath,

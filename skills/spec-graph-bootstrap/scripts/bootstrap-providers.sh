@@ -403,6 +403,80 @@ normalize_gitnexus_instruction_block_for_root() {
   fi
 }
 
+write_bootstrap_scenario_fingerprint() {
+  local workspace_root="$1"
+  local graph_facts_path="${2:-}"
+  local provider_status_path="${3:-}"
+  local graph_bootstrap_summary_path="${4:-}"
+  local setup_path="$workspace_root/.spec-first/workspace/scenario-fingerprint-setup.json"
+  local output_path="$workspace_root/.spec-first/workspace/scenario-fingerprint.json"
+  local output_relative=".spec-first/workspace/scenario-fingerprint.json"
+  local result
+  local exit_code
+  local args
+
+  if [ ! -f "$setup_path" ]; then
+    jq -n --arg setup_path "$setup_path" '{
+      status:"skipped",
+      fingerprint_setup_missing:true,
+      reason_code:"fingerprint-setup-missing",
+      setup_fingerprint_path:$setup_path
+    }'
+    return 0
+  fi
+
+  if ! resolve_spec_first_cli_command; then
+    jq -n '{
+      status:"failed",
+      fingerprint_setup_missing:false,
+      reason_code:"spec-first-cli-unavailable"
+    }'
+    return 0
+  fi
+
+  args=(
+    internal compute-scenario-fingerprint
+    --layer bootstrap
+    --workspace-root "$workspace_root"
+    --setup-fingerprint "$setup_path"
+    --out "$output_path"
+  )
+  if [ -n "$graph_facts_path" ]; then
+    args+=(--graph-facts "$graph_facts_path")
+  fi
+  if [ -n "$provider_status_path" ]; then
+    args+=(--provider-status "$provider_status_path")
+  fi
+  if [ -n "$graph_bootstrap_summary_path" ]; then
+    args+=(--graph-bootstrap-summary "$graph_bootstrap_summary_path")
+  fi
+
+  set +e
+  result="$("${SPEC_FIRST_CLI_COMMAND[@]}" "${args[@]}" 2>&1)"
+  exit_code=$?
+  set -e
+  if [ "$exit_code" -ne 0 ] || ! jq -e . >/dev/null 2>&1 <<<"$result"; then
+    printf 'spec-graph-bootstrap: warning: scenario fingerprint bootstrap layer failed; graph bootstrap continues.\n' >&2
+    jq -n --argjson exit_code "$exit_code" --arg diagnostic "$result" '{
+      status:"failed",
+      fingerprint_setup_missing:false,
+      reason_code:"scenario-fingerprint-bootstrap-failed",
+      exit_code:$exit_code,
+      diagnostic:$diagnostic
+    }'
+    return 0
+  fi
+
+  jq -c --arg artifact "$output_relative" '{
+    status:(if .fingerprint_setup_missing == true then "skipped" else "written" end),
+    fingerprint_setup_missing:(.fingerprint_setup_missing // false),
+    reason_code:(.reason_code // null),
+    artifact:(if .fingerprint_setup_missing == true then null else $artifact end),
+    schema_version:(.schema_version // null),
+    stale_setup_layer:(.freshness.stale_setup_layer // null)
+  }' <<<"$result"
+}
+
 compile_workspace_gitnexus_readiness_for_all_repos() {
   local workspace_root="$1"
   local workspace_dir="$workspace_root/.spec-first/workspace"
@@ -686,6 +760,10 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
     PARENT_HOST_INSTRUCTION_NORMALIZATION="$(normalize_gitnexus_instruction_block_for_root "$WORKSPACE_ROOT_FOR_ALL" "multi-repo-workspace")"
   fi
   WORKSPACE_GITNEXUS_READINESS_SUMMARY="$(compile_workspace_gitnexus_readiness_for_all_repos "$WORKSPACE_ROOT_FOR_ALL")"
+  WORKSPACE_FINGERPRINT_SETUP_MISSING=false
+  if [ ! -f "$WORKSPACE_ROOT_FOR_ALL/.spec-first/workspace/scenario-fingerprint-setup.json" ]; then
+    WORKSPACE_FINGERPRINT_SETUP_MISSING=true
+  fi
 
   WORKSPACE_FINISHED_AT="$(utc_now)"
   WORKSPACE_FINISHED_EPOCH_MS="$(epoch_ms)"
@@ -699,6 +777,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
     --argjson duration_ms "$WORKSPACE_DURATION_MS" \
     --argjson parent_host_instruction_normalization "$PARENT_HOST_INSTRUCTION_NORMALIZATION" \
     --argjson workspace_gitnexus_readiness "$WORKSPACE_GITNEXUS_READINESS_SUMMARY" \
+    --argjson fingerprint_setup_missing "$WORKSPACE_FINGERPRINT_SETUP_MISSING" \
     --argjson target "$TARGET_JSON" \
     --slurpfile items "$SUMMARY_ITEMS" \
     '($items[0] // []) as $results
@@ -717,6 +796,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         query_usability_counts:$workspace_gitnexus_readiness.query_usability_counts,
         group:$workspace_gitnexus_readiness.group,
         group_reason_code:($workspace_gitnexus_readiness.group_reason_code // null),
+        fingerprint_setup_missing:$fingerprint_setup_missing,
         quality_signals:{
           child_count:($results | length),
           process_results_rate:(
@@ -811,6 +891,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
     }'
     exit 1
   fi
+  write_bootstrap_scenario_fingerprint "$WORKSPACE_ROOT_FOR_ALL" "" "" "$WORKSPACE_ROOT_FOR_ALL/.spec-first/workspace/graph-bootstrap-summary.json" >/dev/null
   printf '%s\n' "$SUMMARY_JSON"
   if [ "$(jq -r '.overall_status' <<<"$SUMMARY_JSON")" != "ready" ]; then
     exit 1
@@ -3395,6 +3476,8 @@ $provider_report_rows$capability_matrix_section$repo_label_conflict_section
 MD
   fi
 
+SCENARIO_FINGERPRINT_STATUS_JSON="$(write_bootstrap_scenario_fingerprint "$REPO_ROOT" "$GRAPH_DIR/graph-facts.json" "$GRAPH_DIR/provider-status.json")"
+
 jq -n \
   --arg repo_root "$REPO_ROOT" \
   --arg ledger_path "$LEDGER_PATH" \
@@ -3416,6 +3499,7 @@ jq -n \
   --arg finished_at "$BOOTSTRAP_FINISHED_AT" \
   --argjson duration_ms "$BOOTSTRAP_DURATION_MS" \
   --argjson canonical_artifacts_preserved "$PRESERVE_CANONICAL_FRESHNESS" \
+  --argjson scenario_fingerprint "$SCENARIO_FINGERPRINT_STATUS_JSON" \
   --argjson results "$statuses_json" \
   --slurpfile graph_facts "$GRAPH_DIR/graph-facts.json" \
   '{
@@ -3437,6 +3521,8 @@ jq -n \
     provider_config_path:$provider_config_path,
     runtime_capabilities_path:$runtime_capabilities_path,
     provider_artifacts_path:$provider_artifacts_path,
+    scenario_fingerprint:$scenario_fingerprint,
+    fingerprint_setup_missing:($scenario_fingerprint.fingerprint_setup_missing // false),
     provider_summary:($graph_facts[0].provider_summary // null),
     canonical_artifacts:($graph_facts[0].canonical_artifacts // null),
     capabilities:($graph_facts[0].capabilities // null),

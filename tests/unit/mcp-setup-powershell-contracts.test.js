@@ -177,6 +177,8 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('parent-artifact-quarantine.v1');
     expect(verifySource).toContain('parent-artifact-quarantine.json');
     expect(verifySource).toContain('parent_workspace_pollution_count');
+    expect(verifySource).toContain('runtime_hints = if ($parentWorkspacePollutionCount -gt 0)');
+    expect(verifySource).toContain('Workspace pollution detected');
     expect(verifySource).toContain('spec-first clean --workspace-orphans');
     expect(verifySource).toContain('LLM workflow degraded-evidence judgment');
     expect(verifySource).toContain('foreign-absolute-path-stat-failed');

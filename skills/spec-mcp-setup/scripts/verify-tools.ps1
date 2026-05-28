@@ -509,6 +509,11 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
     overall_status = $overallStatus
     reason_code = if ($actionRequiredCount -eq 0) { $null } else { 'all-repos-partial-or-action-required' }
     parent_workspace_pollution_count = $parentWorkspacePollutionCount
+    runtime_hints = if ($parentWorkspacePollutionCount -gt 0) {
+      @(('- Workspace pollution detected: wrote .spec-first/workspace/parent-artifact-quarantine.json ({0} paths quarantined). Run `spec-first clean --workspace-orphans` for read-only inspection.' -f $parentWorkspacePollutionCount))
+    } else {
+      @()
+    }
     next_action = if ($actionRequiredCount -eq 0) { 'All child repos verified Required Harness Runtime readiness.' } else { 'Inspect per-child reason_code and rerun setup/verify for action-required repos.' }
   }
 

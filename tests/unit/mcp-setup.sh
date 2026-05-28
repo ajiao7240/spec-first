@@ -959,6 +959,7 @@ assert_eq "verify-tools parent default selection source" "workspace-default-all-
 assert_eq "verify-tools parent default verifies all children" "ready:2:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$parent_verify_output")"
 assert_eq "verify-tools parent summary carries advisory git health" "not-git:false" "$(jq -r '"\(.parent_workspace_advisory.git_health.status):\(.parent_workspace_advisory.repair_action_available)"' <<<"$parent_verify_output")"
 assert_eq "verify-tools parent default has no pollution" "0" "$(jq -r '.parent_workspace_pollution_count' <<<"$parent_verify_output")"
+assert_eq "verify-tools parent default emits empty runtime_hints" "0" "$(jq -r '.runtime_hints | length' <<<"$parent_verify_output")"
 assert "verify-tools parent default writes advisory summary" test -f "$PARENT_WORKSPACE/.spec-first/workspace/mcp-verify-summary.json"
 assert "verify-tools parent default writes quarantine scan artifact" test -f "$PARENT_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json"
 assert_eq "verify-tools parent clean quarantine is empty" "0" "$(jq -r '.quarantined_paths | length' "$PARENT_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json")"
@@ -986,6 +987,10 @@ assert_eq "parent quarantine schema" "parent-artifact-quarantine.v1" "$(jq -r '.
 assert_eq "parent quarantine paths are POSIX" "true" "$(jq -r 'all(.quarantined_paths[]; (.path | contains("\\") | not))' "$PARENT_POLLUTION_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json")"
 assert_eq "parent quarantine captures foreign graph facts" "foreign-absolute-path-stat-failed" "$(jq -r '.quarantined_paths[] | select(.path==".spec-first/graph/graph-facts.json") | .reason_code' "$PARENT_POLLUTION_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json")"
 assert_eq "parent quarantine captures retired provider residue" "retired-provider-residue" "$(jq -r '.quarantined_paths[] | select(.path==".spec-first/providers/code-review-graph/") | .reason_code' "$PARENT_POLLUTION_WORKSPACE/.spec-first/workspace/parent-artifact-quarantine.json")"
+assert_eq "verify-tools pollution emits runtime_hints with one entry" "1" "$(jq -r '.runtime_hints | length' <<<"$parent_pollution_verify_output")"
+assert_eq "verify-tools pollution hint contains Workspace pollution detected" "true" "$(jq -r '.runtime_hints[0] | contains("Workspace pollution detected")' <<<"$parent_pollution_verify_output")"
+assert_eq "verify-tools pollution hint includes pollution count" "true" "$(jq -r '.runtime_hints[0] | contains("3 paths quarantined")' <<<"$parent_pollution_verify_output")"
+assert_eq "verify-tools pollution hint references clean command" "true" "$(jq -r '.runtime_hints[0] | contains("spec-first clean --workspace-orphans")' <<<"$parent_pollution_verify_output")"
 
 MCP_ALL_REPOS_WORKSPACE="$TMP_DIR/mcp-all-repos-workspace"
 MCP_ALL_REPOS_HOME="$FAKE_HOME"

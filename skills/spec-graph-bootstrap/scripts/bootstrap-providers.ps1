@@ -587,6 +587,8 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     $parentHostInstructionNormalization = Normalize-GitNexusInstructionBlockViaCli -RepoRoot ([string]$TargetFacts.workspace_root) -GitRootTopology 'multi-repo-workspace'
   }
   $workspaceGitNexusReadiness = Compile-WorkspaceGitNexusReadinessForAllRepos -TargetFacts $TargetFacts
+  $fingerprintSetupPath = Join-Path ([string]$TargetFacts.workspace_root) '.spec-first/workspace/scenario-fingerprint-setup.json'
+  $fingerprintSetupMissing = -not (Test-Path -LiteralPath $fingerprintSetupPath -PathType Leaf)
   $parentWritesHostInstructionFiles = @($parentHostInstructionNormalization.results | Where-Object {
     $_.PSObject.Properties.Name -contains 'written' -and [bool]$_.written
   }).Count -gt 0
@@ -614,6 +616,7 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     query_usability_counts = $workspaceGitNexusReadiness.query_usability_counts
     group = $workspaceGitNexusReadiness.group
     group_reason_code = $workspaceGitNexusReadiness.group_reason_code
+    fingerprint_setup_missing = $fingerprintSetupMissing
     quality_signals = $qualitySignals
     timing = [ordered]@{
       started_at = $script:ScriptStartedAt
@@ -637,6 +640,8 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
 
   try {
     Write-WorkspaceSummaryJsonAtomic -WorkspaceRoot ([string]$TargetFacts.workspace_root) -FileName 'graph-bootstrap-summary.json' -Payload ([pscustomobject]$summary) -Depth 30
+    $summaryPath = Join-Path ([string]$TargetFacts.workspace_root) '.spec-first/workspace/graph-bootstrap-summary.json'
+    $null = Write-BootstrapScenarioFingerprint -WorkspaceRoot ([string]$TargetFacts.workspace_root) -GraphBootstrapSummaryPath $summaryPath
   } catch {
     [pscustomobject]@{
       schema_version = 'workspace-graph-bootstrap-summary.v1'
@@ -752,6 +757,79 @@ function Invoke-SpecFirstCliCaptured {
       finished_at = Get-UtcTimestamp
       duration_ms = 0
     }
+  }
+}
+
+function Write-BootstrapScenarioFingerprint {
+  param(
+    [string]$WorkspaceRoot,
+    [string]$GraphFactsPath = '',
+    [string]$ProviderStatusPath = '',
+    [string]$GraphBootstrapSummaryPath = ''
+  )
+
+  $setupPath = Join-Path $WorkspaceRoot '.spec-first/workspace/scenario-fingerprint-setup.json'
+  $outputPath = Join-Path $WorkspaceRoot '.spec-first/workspace/scenario-fingerprint.json'
+  if (-not (Test-Path -LiteralPath $setupPath -PathType Leaf)) {
+    return [ordered]@{
+      status = 'skipped'
+      fingerprint_setup_missing = $true
+      reason_code = 'fingerprint-setup-missing'
+      setup_fingerprint_path = $setupPath.Replace('\', '/')
+    }
+  }
+
+  $args = @(
+    'internal', 'compute-scenario-fingerprint',
+    '--layer', 'bootstrap',
+    '--workspace-root', $WorkspaceRoot,
+    '--setup-fingerprint', $setupPath,
+    '--out', $outputPath
+  )
+  if (-not [string]::IsNullOrWhiteSpace($GraphFactsPath)) {
+    $args += @('--graph-facts', $GraphFactsPath)
+  }
+  if (-not [string]::IsNullOrWhiteSpace($ProviderStatusPath)) {
+    $args += @('--provider-status', $ProviderStatusPath)
+  }
+  if (-not [string]::IsNullOrWhiteSpace($GraphBootstrapSummaryPath)) {
+    $args += @('--graph-bootstrap-summary', $GraphBootstrapSummaryPath)
+  }
+
+  $captured = Invoke-SpecFirstCliCaptured -CliArguments $args
+  if ([int]$captured.exit_code -ne 0) {
+    [Console]::Error.WriteLine('spec-graph-bootstrap: warning: scenario fingerprint bootstrap layer failed; graph bootstrap continues.')
+    return [ordered]@{
+      status = 'failed'
+      fingerprint_setup_missing = $false
+      reason_code = 'scenario-fingerprint-bootstrap-failed'
+      exit_code = [int]$captured.exit_code
+      diagnostic = [string]$captured.output
+    }
+  }
+
+  try {
+    $payload = [string]$captured.output | ConvertFrom-Json
+  } catch {
+    [Console]::Error.WriteLine('spec-graph-bootstrap: warning: scenario fingerprint bootstrap layer returned non-JSON output.')
+    return [ordered]@{
+      status = 'failed'
+      fingerprint_setup_missing = $false
+      reason_code = 'scenario-fingerprint-bootstrap-output-invalid'
+      exit_code = 0
+      diagnostic = [string]$captured.output
+    }
+  }
+
+  $setupMissing = ($payload.PSObject.Properties.Name -contains 'fingerprint_setup_missing' -and [bool]$payload.fingerprint_setup_missing)
+  $freshness = if ($payload.PSObject.Properties.Name -contains 'freshness') { $payload.freshness } else { $null }
+  return [ordered]@{
+    status = if ($setupMissing) { 'skipped' } else { 'written' }
+    fingerprint_setup_missing = $setupMissing
+    reason_code = if ($payload.PSObject.Properties.Name -contains 'reason_code') { $payload.reason_code } else { $null }
+    artifact = if ($setupMissing) { $null } else { '.spec-first/workspace/scenario-fingerprint.json' }
+    schema_version = if ($payload.PSObject.Properties.Name -contains 'schema_version') { $payload.schema_version } else { $null }
+    stale_setup_layer = if ($null -ne $freshness -and $freshness.PSObject.Properties.Name -contains 'stale_setup_layer') { $freshness.stale_setup_layer } else { $null }
   }
 }
 
@@ -2835,10 +2913,24 @@ function Get-GitStatusPorcelainV2ZRecords {
   }
 }
 
+function ConvertTo-OrdinalSortKey {
+  # Build a sort key whose lexicographic order matches the source string's
+  # Unicode codepoint order (ordinal). Mirrors jq's sort_by(.path) so the
+  # Bash and PowerShell dirty_paths_sample[] orderings stay aligned even on
+  # non-ASCII paths (R6 cross-platform invariant).
+  param([string]$Value)
+  if ([string]::IsNullOrEmpty($Value)) { return '' }
+  $sb = [System.Text.StringBuilder]::new($Value.Length * 4)
+  foreach ($ch in $Value.ToCharArray()) {
+    [void]$sb.AppendFormat('{0:X4}', [int][char]$ch)
+  }
+  return $sb.ToString()
+}
+
 function Set-DirtyPathsSample {
   param([object[]]$Classifications)
 
-  $ordered = @($Classifications | Sort-Object @{ Expression = { if ($_.classification -eq 'graph-affecting') { 0 } else { 1 } } }, @{ Expression = { [string]$_.path } })
+  $ordered = @($Classifications | Sort-Object @{ Expression = { if ($_.classification -eq 'graph-affecting') { 0 } else { 1 } } }, @{ Expression = { ConvertTo-OrdinalSortKey ([string]$_.path) } })
   $script:DirtyPathsSample = @(
     $ordered |
       Select-Object -First 30 |
@@ -3733,6 +3825,11 @@ $($providerReportRows -join [Environment]::NewLine)$capabilityMatrixSection$repo
 "@
 }
 
+$scenarioFingerprint = Write-BootstrapScenarioFingerprint `
+  -WorkspaceRoot $repoRoot `
+  -GraphFactsPath (Join-Path $graphDir 'graph-facts.json') `
+  -ProviderStatusPath (Join-Path $graphDir 'provider-status.json')
+
 [pscustomobject]@{
   schema_version = 'graph-bootstrap-result.v1'
   overall_status = $overallStatus
@@ -3752,6 +3849,8 @@ $($providerReportRows -join [Environment]::NewLine)$capabilityMatrixSection$repo
   provider_config_path = $providerConfigPath
   runtime_capabilities_path = $runtimeCapabilitiesPath
   provider_artifacts_path = $providerArtifactsPath
+  scenario_fingerprint = $scenarioFingerprint
+  fingerprint_setup_missing = if ($null -ne $scenarioFingerprint -and $scenarioFingerprint.Contains('fingerprint_setup_missing')) { [bool]$scenarioFingerprint['fingerprint_setup_missing'] } else { $false }
   provider_summary = $graphFacts.provider_summary
   canonical_artifacts = $graphFacts.canonical_artifacts
   capabilities = $graphFacts.capabilities

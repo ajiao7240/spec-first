@@ -491,6 +491,13 @@ write_all_repos_verify_summary_and_exit() {
           end
         ),
         parent_workspace_pollution_count:$parent_workspace_pollution_count,
+        runtime_hints:(
+          if $parent_workspace_pollution_count > 0 then
+            ["- Workspace pollution detected: wrote .spec-first/workspace/parent-artifact-quarantine.json (\($parent_workspace_pollution_count) paths quarantined). Run `spec-first clean --workspace-orphans` for read-only inspection."]
+          else
+            []
+          end
+        ),
         next_action:(
           if ([$results[] | select(.overall_status != "ready")] | length) == 0 then
             "All child repos verified Required Harness Runtime readiness."
