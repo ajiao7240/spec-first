@@ -159,6 +159,28 @@ When the user asks "what next?" after a workflow:
 - After init, prefer setup/readiness guidance only when the user asks about setup/readiness, missing runtime assets, MCP/provider setup, graph-heavy capabilities, or a workflow is blocked by unavailable tools.
 - After init, when runtime or MCP readiness is unresolved but the user has a clear lightweight docs, small-code, plan, work, or review goal, route by that goal and require the selected workflow to disclose degraded graph/MCP evidence when relevant.
 
+## Scenario Fingerprint Routing
+
+When `.spec-first/workspace/scenario-fingerprint.json` or `.spec-first/workspace/scenario-fingerprint-setup.json` is already present, treat it as advisory deterministic context for guide mode and entry routing. Prefer the bootstrap layer (`developer-scenario-fingerprint.v1`) over the setup layer (`developer-scenario-fingerprint-setup.v1`). If only the setup layer exists, use it with the limitation that bootstrap-only fields are unavailable. Do not run setup, graph-bootstrap, clean, provider commands, or runtime regeneration just to create a fingerprint from this entry governor.
+
+Scenario fingerprints are not gates, approvals, or source scope authority. Read their independent dimensions and scenario class as routing evidence for the current user intent; do not collapse them into a single risk score. The route output still remains one entrypoint, one reason, and one next action.
+
+Use this compatibility rule before the priority checks:
+
+- If the fingerprint is missing and old graph artifacts exist, such as `.spec-first/graph/graph-facts.json`, `.spec-first/providers/**`, or `.gitnexus/**`, add one advisory line that rerunning `$spec-mcp-setup` / `/spec:mcp-setup` will upgrade the workspace with a scenario fingerprint, then continue normal routing by user intent.
+- If the fingerprint is missing and no setup or graph artifacts exist, recommend `$spec-mcp-setup` / `/spec:mcp-setup` for setup/readiness, graph-heavy, review/impact/refactor, or "what next?" requests. For clearly lightweight work, route by intent and mention missing scenario evidence only when it affects trust in graph/MCP facts.
+
+Apply these scenario-aware checks in priority order, then fall back to the ordinary Routing Rules:
+
+1. `state_class=foreign-residual-workspace` or non-empty `foreign_residual_indicators[]`: route to the current repair owner before downstream work. Recommend `$spec-mcp-setup` / `/spec:mcp-setup` or `$spec-update` / `/spec:update` based on whether the issue is setup facts or generated runtime guidance. Do not name `spec-first clean --workspace-orphans` as an available action until the current source actually provides that clean surface.
+2. `state_class=first-time-git-repo`: recommend `$spec-mcp-setup` / `/spec:mcp-setup` so setup-owned facts exist before graph-heavy workflows.
+3. `complexity_dimensions.git_alignment_broken=true` and the user is asking for impact analysis, review, refactor, or cross-module reasoning: disclose the coverage blind spot and prefer bounded direct reads or the graph-bootstrap handoff that can refresh current graph-target facts. Do not claim full graph coverage.
+4. `providers_status_refs.gitnexus.query_ready=false`, `query_ready=null`, unavailable provider status, or query-unverified provider facts: recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap` when setup projection is present; otherwise use bounded direct reads and disclose fallback evidence.
+5. `complexity_dimensions.worktree_dirty_graph_affecting=true` and the user is asking for commit, PR, review, or graph-backed impact: mention the bounded dirty path sample when present, ask the selected downstream workflow to disclose dirty/stale evidence, and avoid claiming fresh graph-backed impact.
+6. None of the above: route normally by the user's immediate intent.
+
+If `freshness.stale_setup_layer=true`, add one advisory line recommending rerunning `$spec-mcp-setup` / `/spec:mcp-setup`; do not block ordinary routing solely for stale setup-layer evidence.
+
 ## Routing Rules
 
 Use a decision tree, not a blanket "brainstorm first" rule. Pick the first strongly matching route. If multiple routes apply, choose the workflow that best matches the user's immediate intent.
