@@ -111,7 +111,7 @@ Read-only group resources are first-class evidence surfaces, not mutation approv
 3. `group_missing` 不会让 per-repo registry evidence 失效；它只表示 group-mode selector 不可用。
 4. dirty/stale GitNexus evidence 必须标记为 stale/advisory，并直接读取 dirty/stale 文件验证结论。
 5. `workspace-graph-targets.v1.repos[].status` 保留为向后兼容字段；新 GitNexus-aware consumer 必须优先读取 `refresh_eligibility`、`index_snapshot` 和 `query_usability`。
-6. Gradle build-target coverage facts（`non_git_build_modules[]`、`coverage_summary`、`graph_coverage_class`）是 advisory 覆盖率输入，只暴露 Git root 与 build module 的错位供 LLM 判断；它们不授权索引非 Git module 目录，也不扩展 implementation scope。
+6. Gradle/npm build-target coverage facts（`non_git_build_modules[]`、`coverage_summary`、`graph_coverage_class`）是 advisory 覆盖率输入，只暴露 Git root 与 build module / workspace package 的错位供 LLM 判断；它们不授权索引非 Git module 目录，也不扩展 implementation scope。
 
 ## `$spec-plan` Evidence Posture Requirements
 

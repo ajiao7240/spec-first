@@ -14,6 +14,13 @@ const BASH_WORKSPACE_GITNEXUS_WRAPPER_PATH = path.join(
   'compile-workspace-gitnexus-readiness.sh',
 );
 const POWERSHELL_SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'scripts', 'bootstrap-providers.ps1');
+const BUILD_TARGET_COMPILER_PATH = path.join(
+  REPO_ROOT,
+  'skills',
+  'spec-graph-bootstrap',
+  'scripts',
+  'compile-gradle-build-targets.js',
+);
 const CONSUMPTION_DOC_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'graph-provider-consumption.md');
 const WORKSPACE_GITNEXUS_CONTRACT_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'workspace-gitnexus-consumption.md');
 const RETIRED_PROMPT_MIRROR_PATH = path.join(
@@ -203,6 +210,76 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(powershellScript).toContain("'script-mode-no-mcp'");
     expect(powershellScript).toContain("'classifier-not-invoked'");
     expect(powershellScript).toContain("'classifier-failed'");
+  });
+
+  test('build-target awareness covers Gradle and npm workspace manifests additively', () => {
+    const bashResolver = fs.readFileSync(
+      path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'scripts', 'resolve-workspace-graph-targets.sh'),
+      'utf8',
+    );
+    const powershellResolver = fs.readFileSync(
+      path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'scripts', 'resolve-workspace-graph-targets.ps1'),
+      'utf8',
+    );
+    const compiler = fs.readFileSync(BUILD_TARGET_COMPILER_PATH, 'utf8');
+
+    expect(bashResolver).toContain('compile-gradle-build-targets.js');
+    expect(powershellResolver).toContain('compile-gradle-build-targets.js');
+    expect(compiler).toContain('collectGradleBuildTargets');
+    expect(compiler).toContain('collectNpmWorkspaceTargets');
+    expect(compiler).toContain('package.json');
+    expect(compiler).toContain('pnpm-workspace.yaml');
+    expect(compiler).toContain('npm-workspace');
+    expect(compiler).toContain('parsePnpmWorkspacePackages');
+    expect(compiler).toContain('workspace_pattern');
+    expect(compiler).toContain('in_package_workspace');
+    expect(compiler).toContain('npm-parse-error');
+  });
+
+  test('npm workspace compiler accepts package.json array and object forms', () => {
+    const { compileGradleBuildTargets } = require(BUILD_TARGET_COMPILER_PATH);
+
+    for (const workspaceShape of ['array', 'object']) {
+      const tempRoot = fs.mkdtempSync(path.join('/tmp', `spec-first-npm-${workspaceShape}-`));
+      try {
+        const appDir = path.join(tempRoot, 'packages', 'app');
+        const uiDir = path.join(tempRoot, 'packages', 'ui');
+        fs.mkdirSync(appDir, { recursive: true });
+        fs.mkdirSync(uiDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(tempRoot, 'package.json'),
+          JSON.stringify({
+            private: true,
+            workspaces: workspaceShape === 'array' ? ['packages/*'] : { packages: ['packages/*'] },
+          }),
+        );
+        fs.writeFileSync(path.join(appDir, 'package.json'), '{"name":"app"}');
+        fs.writeFileSync(path.join(uiDir, 'package.json'), '{"name":"ui"}');
+        const targetsPath = path.join(tempRoot, 'targets.json');
+        fs.writeFileSync(targetsPath, JSON.stringify([{
+          target_kind: 'git-repo',
+          repo_label: 'app',
+          git_root: appDir,
+          workspace_relative_path: 'packages/app',
+        }]));
+
+        const result = compileGradleBuildTargets({ workspaceRoot: tempRoot, targetsPath, scanDepth: 3 });
+        expect(result.coverage_inference).toBe('computed');
+        expect(result.ecosystem).toBe('npm');
+        expect(result.coverage_summary).toEqual({
+          total_build_targets: 2,
+          covered_by_git_children: 1,
+          uncovered_build_modules: 1,
+          coverage_ratio: 0.5,
+        });
+        expect(result.non_git_build_modules.map(item => `${item.path}:${item.kind}:${item.covered_by_child_repo}`).sort()).toEqual([
+          'packages/app:npm-workspace:true',
+          'packages/ui:npm-workspace:false',
+        ]);
+      } finally {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+      }
+    }
   });
 
   test('ships review fixtures for trigger, boundary, failure, and expected behavior cases', () => {

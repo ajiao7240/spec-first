@@ -410,6 +410,27 @@ assert_eq "workspace graph target resolver computes Gradle coverage" "computed:p
 assert_eq "workspace graph target resolver lists Gradle modules" "app-core:false|app-kaz:false|project-a:true" "$(jq -r '[.non_git_build_modules[] | "\(.path):\(.covered_by_child_repo)"] | sort | join("|")' <<<"$workspace_targets_output")"
 assert "workspace graph target resolver does not create parent graph artifacts" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
 
+NPM_WORKSPACE="$TMP_DIR/npm-workspace"
+make_repo "$NPM_WORKSPACE/packages/app"
+make_repo "$NPM_WORKSPACE/tools"
+mkdir -p "$NPM_WORKSPACE/packages/ui"
+cat > "$NPM_WORKSPACE/pnpm-workspace.yaml" <<'YAML'
+packages:
+  - 'packages/*'
+YAML
+cat > "$NPM_WORKSPACE/package.json" <<'JSON'
+{"private":true}
+JSON
+cat > "$NPM_WORKSPACE/packages/app/package.json" <<'JSON'
+{"name":"app"}
+JSON
+cat > "$NPM_WORKSPACE/packages/ui/package.json" <<'JSON'
+{"name":"ui"}
+JSON
+npm_workspace_targets_output="$(cd "$NPM_WORKSPACE" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
+assert_eq "workspace graph target resolver computes npm workspace coverage" "computed:partial-build-targets:3:1:0.666667" "$(jq -r '.coverage_inference + ":" + .graph_coverage_class + ":" + (.coverage_summary.total_build_targets | tostring) + ":" + (.coverage_summary.uncovered_build_modules | tostring) + ":" + (.coverage_summary.coverage_ratio | tostring)' <<<"$npm_workspace_targets_output")"
+assert_eq "workspace graph target resolver lists npm workspace packages" "packages/app:npm-workspace:true|packages/ui:npm-workspace:false" "$(jq -r '[.non_git_build_modules[] | "\(.path):\(.kind):\(.covered_by_child_repo)"] | sort | join("|")' <<<"$npm_workspace_targets_output")"
+
 MIXED_VERSION_WORKSPACE="$TMP_DIR/mixed-version-workspace"
 MIXED_UPGRADED_CHILD="$MIXED_VERSION_WORKSPACE/upgraded-child"
 MIXED_LEGACY_CHILD="$MIXED_VERSION_WORKSPACE/legacy-child"
@@ -1269,6 +1290,27 @@ GRADLE
   ps_gradle_targets_output="$(cd "$PS_GRADLE_WORKSPACE" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$WORKSPACE_TARGET_RESOLVER_PS1")"
   assert_eq "PowerShell resolver computes Gradle coverage" "computed:partial-build-targets:4:2:0.5" "$(jq -r '.coverage_inference + ":" + .graph_coverage_class + ":" + (.coverage_summary.total_build_targets | tostring) + ":" + (.coverage_summary.uncovered_build_modules | tostring) + ":" + (.coverage_summary.coverage_ratio | tostring)' <<<"$ps_gradle_targets_output")"
   assert_eq "PowerShell resolver lists Gradle modules" "app-core:false|app-kaz:false|project-a:true" "$(jq -r '[.non_git_build_modules[] | "\(.path):\(.covered_by_child_repo)"] | sort | join("|")' <<<"$ps_gradle_targets_output")"
+
+  PS_NPM_WORKSPACE="$TMP_DIR/ps-npm-workspace"
+  make_repo "$PS_NPM_WORKSPACE/packages/app"
+  make_repo "$PS_NPM_WORKSPACE/tools"
+  mkdir -p "$PS_NPM_WORKSPACE/packages/ui"
+  cat > "$PS_NPM_WORKSPACE/pnpm-workspace.yaml" <<'YAML'
+packages:
+  - 'packages/*'
+YAML
+  cat > "$PS_NPM_WORKSPACE/package.json" <<'JSON'
+{"private":true}
+JSON
+  cat > "$PS_NPM_WORKSPACE/packages/app/package.json" <<'JSON'
+{"name":"app"}
+JSON
+  cat > "$PS_NPM_WORKSPACE/packages/ui/package.json" <<'JSON'
+{"name":"ui"}
+JSON
+  ps_npm_targets_output="$(cd "$PS_NPM_WORKSPACE" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$WORKSPACE_TARGET_RESOLVER_PS1")"
+  assert_eq "PowerShell resolver computes npm workspace coverage" "computed:partial-build-targets:3:1:0.666667" "$(jq -r '.coverage_inference + ":" + .graph_coverage_class + ":" + (.coverage_summary.total_build_targets | tostring) + ":" + (.coverage_summary.uncovered_build_modules | tostring) + ":" + (.coverage_summary.coverage_ratio | tostring)' <<<"$ps_npm_targets_output")"
+  assert_eq "PowerShell resolver lists npm workspace packages" "packages/app:npm-workspace:true|packages/ui:npm-workspace:false" "$(jq -r '[.non_git_build_modules[] | "\(.path):\(.kind):\(.covered_by_child_repo)"] | sort | join("|")' <<<"$ps_npm_targets_output")"
 
   DIRTY_REFRESH_PS_REPO="$TMP_DIR/dirty-refresh-ps-repo"
   DIRTY_REFRESH_PS_LEDGER="$TMP_DIR/dirty-refresh-ps-home/.codex/spec-first/host-setup.json"
