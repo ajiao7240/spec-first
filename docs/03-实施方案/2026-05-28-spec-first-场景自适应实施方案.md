@@ -534,10 +534,10 @@ Bash 和 PowerShell 两条脚本路径必须产出**完全等价**的 fingerprin
 
 ### 10.2 开放问题(待 plan/brainstorm 阶段细化)
 
-1. **Build manifest 扫描深度**:Gradle `settings.gradle` 可递归 `include`,扫多深?默认 3 层够吗?在 PA-pre calibration 阶段决定
-2. **PA-pre calibration 样本选择**:除 spec-first 本仓和 kaz-mvp,第 3 个样本如何选?建议选一个标准 npm monorepo(如 pnpm workspaces)
-3. **Scenario class 命名空间**:首版 9 个枚举值是否覆盖足够?在 PA-pre 阶段验证;新增走 RFC
-4. **维度向量字段集**:首版 7 个 boolean 维度是否足够?PA-pre 期间在 3 仓库实测,决定首版 freeze 集合
+1. **Build manifest 扫描深度**:PA-pre draft 校准建议默认 depth=4。kaz-mvp 的 Gradle manifest 在 `feature/*/*` 与 `submodules/*/*` 下出现,depth=3 会低估 build target 覆盖。
+2. **PA-pre calibration 样本选择**:第 3 个样本已先用本地临时 pnpm workspaces 最小样本验证字段形态;正式 U1 完成前仍需 ≥3 个真实使用场景 best-effort 拓扑调查。
+3. **Scenario class 命名空间**:PA-pre draft 建议 9 个 provisional class:`clean-single-repo`、`dirty-single-repo`、`first-time-git-repo`、`multi-repo-workspace`、`multi-repo-dirty-workspace`、`foreign-residual-workspace`、`non-git-folder`、`non-git-build-workspace`、`provider-degraded`;新增/修改走 RFC。
+4. **维度向量字段集**:PA-pre draft 建议首版 7 个 boolean:`multi_repo_workspace`、`non_git_folder_target`、`non_git_build_targets_present`、`git_alignment_broken`、`parent_repo_local_artifacts_present`、`worktree_dirty_graph_affecting`、`provider_query_degraded`;正式 freeze 依赖 U1 调研补齐。
 5. **High-risk workflow 选定**:`spec-work` / `spec-code-review` / `spec-debug` 是否覆盖全部 high-risk?`spec-doc-review` 是否也需要?在 PC 阶段决定
 6. **`tags[]` 命名空间**:首版枚举值如何统一?建议在 docs/contracts/developer-scenario-fingerprint.md 中维护
 7. **PB router 维度优先级配置化**:§3.4 6 个优先级是否固定写死,还是允许用户配置?默认固定;配置化作为后续 PR
