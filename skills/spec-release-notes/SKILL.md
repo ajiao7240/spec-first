@@ -43,6 +43,10 @@ Parse filters, fetch filtered spec-first releases through the helper, render a r
 
 Humans deciding whether to update, `spec-update`, release triage, and support/debug conversations needing version provenance.
 
+## GitNexus Boundary
+
+This workflow does not run GitNexus or create a release-specific graph evidence pipeline. Release-note answers are grounded in published release metadata and, when a caller already provides it, source-confirmed git / `detect_changes` / graph summary context. Any graph-informed release context remains advisory, must be summarized rather than copied from raw provider output, and cannot replace release tags, changelog entries, PR bodies, or source-confirmed evidence.
+
 Data comes from the GitHub Releases API for `sunrain520/spec-first`, filtered to the `spec-first-v*` tag prefix so sibling components (`cli-v*`, `coding-tutor-v*`, `marketplace-v*`, `cursor-marketplace-v*`) are excluded.
 
 ## Phase 1 — Parse Arguments

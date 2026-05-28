@@ -77,7 +77,7 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('then focused source-of-truth sections');
     expect(skill).toContain('only then deeper references');
     expect(skill).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
-    expect(skill).toContain('src/cli/helpers/review-pre-facts.js');
+    expect(skill).toContain('src/cli/helpers/review-pre-facts/');
     expect(skill).toContain('do not create a parallel reviewer facts pipeline');
     expect(skill).toContain('Start with targeted direct repo reads');
     expect(skill).toContain('optionally use LSP when available');

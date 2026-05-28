@@ -64,6 +64,16 @@ describe('spec-optimize host entrypoint contract', () => {
     expect(skill).toContain('After 3 consecutive failures, auto-disable Codex for remaining experiments and fall back to subagent dispatch.');
   });
 
+  test('GitNexus utilization can inform measurement but not own optimization decisions', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(skill).toContain('GitNexus Utilization Boundary');
+    expect(skill).toContain('prior `graph_capability_usage`, `graph_evidence_used`, degraded reason counts');
+    expect(skill).toContain('The optimization target, metric, winner selection, mutable scope, and final integration remain owned by the approved optimization spec and measured results');
+    expect(skill).toContain('not by a graph provider');
+    expect(skill).toContain('must not run provider refresh, `analyze`, `group_sync`, `rename`, hooks, watchers, or daemons');
+  });
+
   test('Codex security schema prefers explicit sandbox wording while preserving compatibility values', () => {
     const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
 

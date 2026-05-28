@@ -21,4 +21,13 @@ describe('spec-release-notes filtering contract', () => {
     expect(skill).toContain('Do not paste the whole release body or copy a long sequence of CHANGELOG entries.');
     expect(skill).toContain('If filters are present but no confident semantic match exists');
   });
+
+  test('does not create a release-specific GitNexus pipeline', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(skill).toContain('GitNexus Boundary');
+    expect(skill).toContain('does not run GitNexus or create a release-specific graph evidence pipeline');
+    expect(skill).toContain('source-confirmed git / `detect_changes` / graph summary context');
+    expect(skill).toContain('cannot replace release tags, changelog entries, PR bodies, or source-confirmed evidence');
+  });
 });

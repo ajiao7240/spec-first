@@ -99,6 +99,10 @@ First-run specs should default to `execution.mode: serial`, `execution.max_concu
 
 Follow `docs/contracts/context-governance.md`: ordinary Optimize context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Optimization run state under `.spec-first/workflows/spec-optimize/**` is local scratch for this workflow only; pass compact strategy/result summaries to agents and avoid broad runtime/audit scans unless the metric explicitly targets runtime/setup/audit behavior.
 
+## GitNexus Utilization Boundary
+
+GitNexus utilization data may be consumed only as optimization input or diagnostic context: prior `graph_capability_usage`, `graph_evidence_used`, degraded reason counts, repeated source-read summaries, or source-confirmed session evidence can suggest what to measure. The optimization target, metric, winner selection, mutable scope, and final integration remain owned by the approved optimization spec and measured results, not by a graph provider. Optimize must not run provider refresh, `analyze`, `group_sync`, `rename`, hooks, watchers, or daemons as part of ordinary graph evidence handling.
+
 ## Dispatch And Backend Boundary
 
 Optimization dispatch is an optional capability selected by the approved optimization spec and runtime readiness, not a correctness requirement. Serial local/worktree execution remains the safe fallback when Codex delegation, subagent dispatch, or parallel execution is unavailable or unsafe.

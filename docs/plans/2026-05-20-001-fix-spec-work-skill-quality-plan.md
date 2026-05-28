@@ -2,7 +2,7 @@
 spec_id: 2026-05-20-001-fix-spec-work-skill-quality
 type: fix
 title: 按代码逻辑深读后修订 spec-work skill 治理边界（fix-1 ship-now + fix-2 deferred）
-status: active
+status: superseded
 created: 2026-05-20
 origin: docs/10-prompt/skill-reviews/2026-05-20-spec-work.md
 deepened: 2026-05-24
@@ -10,6 +10,8 @@ deepening_round: 2
 ---
 
 # fix: 按代码逻辑深读后修订 spec-work skill 治理边界（fix-1 ship-now + fix-2 deferred）
+
+> Superseded: 本计划不再作为 active 开发入口。fix-1 已在 2026-05-24 落地；剩余 fix-2 / Phase B deferred scope 不再沿用本计划推进。如需继续修订 `spec-work` 治理边界，应基于当前 GitNexus-only / bounded evidence 现状另开新 plan。
 
 ## Summary
 

@@ -192,7 +192,7 @@ Resolve `<review-pre-facts-cmd>` from the shared command table:
 | Installed Codex runtime | `spec-first internal review-pre-facts` |
 | Installed Claude runtime | `spec-first internal review-pre-facts` |
 
-Do not call `src/cli/helpers/review-pre-facts.js` directly. Use the hidden package CLI boundary so source checkout, Codex runtime, and Claude runtime exercise the same helper.
+Do not call files under `src/cli/helpers/review-pre-facts/` directly. Use the hidden package CLI boundary so source checkout, Codex runtime, and Claude runtime exercise the same helper.
 
 Use an orchestrator-owned temp directory under `os.tmpdir()/spec-first/review-pre-facts/<run-id>/`. Raw live MCP results, provider results, rendered facts, and run summary are session-scoped temp artifacts, not durable project state.
 

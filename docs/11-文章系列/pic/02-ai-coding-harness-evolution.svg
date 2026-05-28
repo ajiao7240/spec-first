@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">从 Prompt 到 Workflow 再到 AI Coding Harness</title>
+  <desc id="desc">展示 AI coding 从临时 prompt 到 workflow，再升级为可治理 Harness 的三阶段演进。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08111f"/>
+      <stop offset="1" stop-color="#102a43"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M1,1 L13,7 L1,13 Z" fill="#7dd3fc"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="620" rx="28" fill="url(#bg)"/>
+  <g opacity="0.18" stroke="#60a5fa" stroke-width="1">
+    <path d="M80 120 H1120"/>
+    <path d="M80 220 H1120"/>
+    <path d="M80 320 H1120"/>
+    <path d="M80 420 H1120"/>
+    <path d="M80 520 H1120"/>
+    <path d="M180 80 V540"/>
+    <path d="M420 80 V540"/>
+    <path d="M660 80 V540"/>
+    <path d="M900 80 V540"/>
+  </g>
+  <text x="600" y="66" text-anchor="middle" fill="#e0f2fe" font-size="34" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">AI Coding 的三次升级</text>
+  <text x="600" y="104" text-anchor="middle" fill="#93c5fd" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">不是让 prompt 越写越长，而是让工程闭环越来越清晰</text>
+
+  <g filter="url(#shadow)">
+    <rect x="84" y="170" width="280" height="250" rx="22" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+    <text x="224" y="218" text-anchor="middle" fill="#f8fafc" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Prompt</text>
+    <text x="224" y="258" text-anchor="middle" fill="#bae6fd" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">一次性触发生成</text>
+    <text x="224" y="306" text-anchor="middle" fill="#cbd5e1" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">上下文在聊天里</text>
+    <text x="224" y="338" text-anchor="middle" fill="#cbd5e1" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">意图靠模型猜</text>
+    <text x="224" y="370" text-anchor="middle" fill="#cbd5e1" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">经验容易消失</text>
+  </g>
+
+  <path d="M386 295 H474" stroke="#7dd3fc" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="500" y="170" width="280" height="250" rx="22" fill="#0b2138" stroke="#22d3ee" stroke-width="2"/>
+    <text x="640" y="218" text-anchor="middle" fill="#f8fafc" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Workflow</text>
+    <text x="640" y="258" text-anchor="middle" fill="#bae6fd" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">把过程分阶段</text>
+    <text x="640" y="306" text-anchor="middle" fill="#cbd5e1" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">Spec / Plan / Work</text>
+    <text x="640" y="338" text-anchor="middle" fill="#cbd5e1" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">Review / Knowledge</text>
+    <text x="640" y="370" text-anchor="middle" fill="#cbd5e1" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">开始留下产物</text>
+  </g>
+
+  <path d="M802 295 H890" stroke="#7dd3fc" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="916" y="140" width="220" height="310" rx="22" fill="#082f49" stroke="#67e8f9" stroke-width="2"/>
+    <text x="1026" y="188" text-anchor="middle" fill="#f8fafc" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Harness</text>
+    <text x="1026" y="228" text-anchor="middle" fill="#bae6fd" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">把推理放进闭环</text>
+    <text x="1026" y="276" text-anchor="middle" fill="#e2e8f0" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">可重复</text>
+    <text x="1026" y="308" text-anchor="middle" fill="#e2e8f0" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">可观察</text>
+    <text x="1026" y="340" text-anchor="middle" fill="#e2e8f0" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">可约束</text>
+    <text x="1026" y="372" text-anchor="middle" fill="#e2e8f0" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">可验证</text>
+    <text x="1026" y="404" text-anchor="middle" fill="#e2e8f0" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">可沉淀</text>
+  </g>
+
+  <text x="600" y="542" text-anchor="middle" fill="#e0f2fe" font-size="21" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Spec-first 的定位：AI Coding Harness for spec-driven software engineering</text>
+  <text x="600" y="574" text-anchor="middle" fill="#93c5fd" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">Scripts prepare facts. LLM decides meaning.</text>
+</svg>

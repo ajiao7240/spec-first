@@ -70,7 +70,7 @@ describe('runtime contract boundary', () => {
     expect(contract).toContain('spec-first doctor --claude|--codex');
     expect(contract).toContain('prompt-injection boundary');
     expect(contract).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
-    expect(contract).toContain('src/cli/helpers/review-pre-facts.js');
+    expect(contract).toContain('src/cli/helpers/review-pre-facts/');
     expect(contract).toContain('Do not create a parallel reviewer facts pipeline');
     expect(contract).toContain('environment variables, host secret managers, or provider-native credential stores');
     expect(contract).toContain('Rotate immediately after suspected exposure');

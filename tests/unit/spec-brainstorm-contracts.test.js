@@ -69,6 +69,16 @@ describe('spec-brainstorm host entrypoint contract', () => {
     expect(skill).not.toContain('Check project instruction files (`AGENTS.md`');
   });
 
+  test('GitNexus context stays lightweight and cannot back-drive requirements', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(skill).toContain('GitNexus / graph context');
+    expect(skill).toContain('use only lightweight `query` / `context` / read-only resource evidence as session-local pointers');
+    expect(skill).toContain('confirm important claims with direct source reads before writing them into requirements');
+    expect(skill).toContain('Do not route `impact`, `detect_changes`, route/API/shape/tool/Cypher, provider refresh, `group_sync`, or `rename` through brainstorm by default');
+    expect(skill).toContain('Graph evidence must not expand product scope or let implementation details back-drive user-facing requirements.');
+  });
+
   test('planning handoffs use current-host entrypoint wording', () => {
     const combined = [
       fs.readFileSync(SKILL_PATH, 'utf8'),

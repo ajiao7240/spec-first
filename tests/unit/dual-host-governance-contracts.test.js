@@ -190,6 +190,8 @@ describe('dual-host governance contracts', () => {
 
     expect(mcpSetup).toContain("the assistant's final response must restate the complete readiness status sourced from readiness ledger v2");
     expect(mcpSetup).toContain('Do not rely on prior command output as the only place where the status appears.');
+    expect(mcpSetup).toContain('must include the `Role` column');
+    expect(mcpSetup).toContain('must not compress those tables into shorter summaries');
     expect(mcpSetup).toContain('Required Harness Runtime status (grouped):');
     expect(mcpSetup).toContain('grouped status blocks rendered inside fenced code blocks');
     expect(mcpSetup).toContain('MCP servers:');

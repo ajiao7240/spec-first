@@ -9,6 +9,15 @@ function read(relativePath) {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
 }
 
+function readDir(relativeDirPath) {
+  const dir = path.join(REPO_ROOT, relativeDirPath);
+  return fs.readdirSync(dir)
+    .filter((f) => f.endsWith('.js'))
+    .sort()
+    .map((f) => fs.readFileSync(path.join(dir, f), 'utf8'))
+    .join('\n');
+}
+
 describe('AI Coding Harness contract', () => {
   test('defines spec-first as a bounded AI Coding Harness, not a state machine', () => {
     const contract = read('docs/contracts/ai-coding-harness.md');
@@ -56,7 +65,7 @@ describe('AI Coding Harness contract', () => {
     const preFacts = read('docs/contracts/workflows/review-pre-facts-extraction.md');
     const policy = read('docs/contracts/graph-evidence-policy.md');
     const catalog = read('docs/contracts/gitnexus-capability-catalog.md');
-    const helper = read('src/cli/helpers/review-pre-facts.js');
+    const helper = readDir('src/cli/helpers/review-pre-facts');
 
     expect(contract).toContain('deterministic-helper');
     expect(contract).toContain('`query`, `context`, `impact`, `detect_changes`');
@@ -75,7 +84,7 @@ describe('AI Coding Harness contract', () => {
     expect(helper).toContain('tool_name: OPERATION_TOOL_NAMES[operation]');
     expect(helper).toContain("operation: 'query'");
     expect(preFacts).toContain('must not appear in `queries[]`');
-    expect(preFacts).toContain('provider summary-only arguments may be emitted only after the current executable tool schema proves support');
+    expect(preFacts).toMatch(/provider summary-only arguments may be emitted only after the current executable tool schema proves support/i);
     expect(policy).toContain('`gitnexus-session-evidence.v1`');
     expect(catalog).toContain('Harness Lane Classification');
   });

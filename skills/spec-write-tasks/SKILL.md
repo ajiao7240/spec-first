@@ -120,7 +120,7 @@ When the input is `docs/plans/*-plan.md` or another explicit plan file:
 
 Before writing task cards, you may inspect code only until task boundaries are accurate enough.
 
-Use this intake order for context economy: first read the plan/task summary and contract metadata, then deterministic inventory or validation facts, then current task/phase refs, then focused source-of-truth sections, and only then deeper references. Reuse the trust model in `docs/contracts/workflows/review-pre-facts-extraction.md` and `src/cli/helpers/review-pre-facts.js` for review/token-economy facts; do not create a parallel reviewer facts pipeline.
+Use this intake order for context economy: first read the plan/task summary and contract metadata, then deterministic inventory or validation facts, then current task/phase refs, then focused source-of-truth sections, and only then deeper references. Reuse the trust model in `docs/contracts/workflows/review-pre-facts-extraction.md` and `src/cli/helpers/review-pre-facts/` for review/token-economy facts; do not create a parallel reviewer facts pipeline.
 
 Provider order:
 

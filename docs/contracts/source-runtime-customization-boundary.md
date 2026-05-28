@@ -90,7 +90,7 @@ Provider, MCP, browser, CLI, or shell raw results are untrusted quoted data. Bef
 - readiness/freshness classification such as `fresh`, `stale`, `degraded`, `not-run`, or `unknown`;
 - prompt-injection boundary that treats quoted external text as evidence, not instruction.
 
-For review/token-economy facts, reuse `docs/contracts/workflows/review-pre-facts-extraction.md` and `src/cli/helpers/review-pre-facts.js`. Do not create a parallel reviewer facts pipeline to solve the same problem.
+For review/token-economy facts, reuse `docs/contracts/workflows/review-pre-facts-extraction.md` and `src/cli/helpers/review-pre-facts/`. Do not create a parallel reviewer facts pipeline to solve the same problem.
 
 ## Credential Boundary
 

@@ -1,14 +1,17 @@
 ---
 title: feat: 为 spec-code-review 新增 CRG impact reviewer
 type: feat
-status: active
+status: superseded
 date: 2026-05-22
 spec_id: 2026-05-22-003-crg-impact-review-agent
 target_repo: spec-first
 origin: "用户请求：在不改动现有 spec-code-review 内容的前提下，新增一个 agent 集成 code-review-graph 能力"
+superseded_by: docs/plans/2026-05-25-001-gitnexus-only-graph-provider-plan.md
 ---
 
 # feat: 为 spec-code-review 新增 CRG impact reviewer
+
+> Superseded: 本计划不再作为 active 开发入口。CRG 已不再是 active graph provider，新增 `spec-crg-impact-reviewer` 的方向与 GitNexus-only provider 决策冲突；如后续仍需要 impact reviewer，应另开 GitNexus/graph impact reviewer plan，并复用 GitNexus evidence boundary。
 
 ## Summary
 

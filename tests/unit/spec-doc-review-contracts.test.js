@@ -318,7 +318,7 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('<review-pre-facts-cmd>');
     expect(skill).toContain('node bin/spec-first.js internal review-pre-facts');
     expect(skill).toContain('spec-first internal review-pre-facts');
-    expect(skill).toContain('Do not call `src/cli/helpers/review-pre-facts.js` directly');
+    expect(skill).toContain('Do not call files under `src/cli/helpers/review-pre-facts/` directly');
     expect(skill).toContain('--mode prepare --workflow doc-review');
     expect(skill).toContain('--mode normalize-provider-results');
     expect(skill).toContain('--mode render');
@@ -339,7 +339,7 @@ describe('spec-doc-review best-judgment wording contract', () => {
     for (const text of [contract, reference]) {
       expect(text).toContain('node bin/spec-first.js internal review-pre-facts');
       expect(text).toContain('spec-first internal review-pre-facts');
-      expect(text).toContain('must not call `src/cli/helpers/review-pre-facts.js` directly');
+      expect(text).toContain('must not call files under `src/cli/helpers/review-pre-facts/` directly');
     }
     expect(contract).toContain('read_count_unavailable');
     expect(contract).toContain('wall_time_unavailable');

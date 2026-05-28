@@ -1,15 +1,18 @@
 ---
 title: "tracker: doc 2 source-code review deferred findings"
 type: tracker
-status: backlog
+status: closed
 date: 2026-05-08
 spec_id: 2026-05-08-001-source-code-deferred-tracker
 target_repo: spec-first
 origin: docs/项目审查/2026-05-07-source-code-comprehensive-review.md
 parent_plan: docs/plans/2026-05-07-001-feat-skill-agent-quality-governance-plan.md
+closed: 2026-05-27
 ---
 
 # tracker: doc 2 source-code review deferred findings
+
+> Closed: 用户明确要求直接关闭本 tracker。本文件不再作为 active backlog 或后续 plan 孵化入口；如其中某条历史 finding 未来再次触发，应基于当前源码与当时需求另开新 plan，而不是恢复本 tracker。
 
 ## Summary
 

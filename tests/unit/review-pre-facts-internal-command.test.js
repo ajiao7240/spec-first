@@ -112,7 +112,7 @@ describe('hidden review-pre-facts internal command', () => {
     for (const text of [contract, docReference]) {
       expect(text).toContain('node bin/spec-first.js internal review-pre-facts');
       expect(text).toContain('spec-first internal review-pre-facts');
-      expect(text).toContain('must not call `src/cli/helpers/review-pre-facts.js` directly');
+      expect(text).toContain('must not call files under `src/cli/helpers/review-pre-facts/` directly');
     }
     expect(contract).toContain('There is no v1 `query-provider` mode.');
     expect(contract).toContain('shell:false');

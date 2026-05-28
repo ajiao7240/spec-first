@@ -166,6 +166,8 @@ If nothing obvious appears after a short scan, say so and continue. Two rules go
 - **Tools available + user didn't ask**: Note in output: "Slack tools detected. Ask me to search Slack for organizational context at any point, or include it in your next prompt."
 - **No tools + user asked**: Note in output: "Slack context was requested but no Slack tools are available. Install and authenticate the Slack plugin to enable organizational context search."
 
+**GitNexus / graph context** (software brainstorms only) — requirements shaping is about WHAT, not implementation proof. When a technical or architecture brainstorm needs current repo orientation, use only lightweight `query` / `context` / read-only resource evidence as session-local pointers, then confirm important claims with direct source reads before writing them into requirements. Do not route `impact`, `detect_changes`, route/API/shape/tool/Cypher, provider refresh, `group_sync`, or `rename` through brainstorm by default; those belong to planning, review, debug, or explicit maintenance paths. Graph evidence must not expand product scope or let implementation details back-drive user-facing requirements.
+
 #### 1.2 Product Pressure Test
 
 Before generating approaches, scan the user's opening for rigor gaps. Match depth to scope.

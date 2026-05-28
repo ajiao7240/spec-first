@@ -11,7 +11,7 @@ on:
       - 'scripts/run-ai-dev-benchmark-fixtures.js'
       - 'scripts/run-ai-dev-quality-gate.js'
       - 'src/cli/gitignore-policy.js'
-      - 'src/cli/helpers/review-pre-facts.js'
+      - 'src/cli/helpers/review-pre-facts/**'
       - 'skills/spec-plan/**'
       - 'skills/spec-write-tasks/**'
       - 'skills/spec-work/**'

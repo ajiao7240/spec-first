@@ -1,13 +1,16 @@
 ---
 title: refactor: CRG 核心化与 GitNexus 可选增强全链路适配
 type: refactor
-status: active
+status: superseded
 date: 2026-05-18
 deepened: 2026-05-18
 spec_id: 2026-05-18-001-crg-primary-gitnexus-optional
+superseded_by: docs/plans/2026-05-25-001-gitnexus-only-graph-provider-plan.md
 ---
 
 # refactor: CRG 核心化与 GitNexus 可选增强全链路适配
+
+> Superseded: 本计划不再作为 active 开发入口。`2026-05-25-001-gitnexus-only-graph-provider-plan.md` 已完成并反向替代本计划的 CRG primary / GitNexus optional 方向；后续图谱 provider 演进以 GitNexus-only source-of-truth 与其后续 GitNexus plans 为准。
 
 ## Summary
 

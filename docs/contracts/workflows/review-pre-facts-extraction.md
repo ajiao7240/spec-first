@@ -14,7 +14,7 @@ The helper is exposed only through the hidden package CLI:
 | Installed Codex runtime | `spec-first internal review-pre-facts` |
 | Installed Claude runtime | `spec-first internal review-pre-facts` |
 
-The command is intentionally absent from public `spec-first --help`. Workflow prose must call `<review-pre-facts-cmd>` and must not call `src/cli/helpers/review-pre-facts.js` directly.
+The command is intentionally absent from public `spec-first --help`. Workflow prose must call `<review-pre-facts-cmd>` and must not call files under `src/cli/helpers/review-pre-facts/` directly.
 
 ## Trust Model
 

@@ -1,0 +1,190 @@
+/**
+ * 技术博客主题
+ * 面向微信公众号长篇技术文章，强调章节层级、阅读节奏和克制的信息密度。
+ */
+
+section,
+container,
+#output {
+  color: #1f2937;
+  line-height: 1.85;
+  letter-spacing: 0.02em;
+}
+
+p {
+  margin: 0 0 24px;
+  font-size: var(--md-font-size);
+  line-height: 1.85;
+  color: #1f2937;
+}
+
+h1 {
+  margin: 0 0 28px;
+  padding: 0 0 16px;
+  font-size: calc(var(--md-font-size) * 1.45);
+  line-height: 1.45;
+  color: #0f172a;
+  border-bottom: 1px solid #dbeafe;
+}
+
+h2 {
+  margin: 44px 0 22px;
+  padding: 14px 16px 14px 18px;
+  font-size: calc(var(--md-font-size) * 1.32);
+  line-height: 1.45;
+  font-weight: 700;
+  color: #0f172a;
+  background: #f4f8ff;
+  border-left: 5px solid #2563eb;
+  border-radius: 4px;
+}
+
+h3 {
+  margin: 32px 0 16px;
+  padding: 0 0 0 12px;
+  font-size: calc(var(--md-font-size) * 1.08);
+  line-height: 1.55;
+  font-weight: 700;
+  color: #0f172a;
+  background: transparent;
+  border-left: 3px solid #06b6d4;
+  border-radius: 0;
+}
+
+h4,
+h5,
+h6 {
+  margin: 28px 0 14px;
+  font-size: calc(var(--md-font-size) * 1.04);
+  line-height: 1.55;
+  color: #1e3a5f;
+}
+
+blockquote {
+  margin: 0 0 28px;
+  padding: 16px 18px;
+  font-style: normal;
+  color: #172033;
+  background: #f5f9ff;
+  border-left: 4px solid #2563eb;
+  border-top: 1px solid #dbeafe;
+  border-right: 1px solid #dbeafe;
+  border-bottom: 1px solid #dbeafe;
+  border-radius: 4px;
+}
+
+blockquote p {
+  margin: 0;
+  color: #172033;
+}
+
+blockquote p + p {
+  margin-top: 12px;
+}
+
+strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+em {
+  color: #374151;
+  font-style: normal;
+}
+
+a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  margin: 0 0 24px;
+  padding-left: 1.35em;
+  color: #1f2937;
+}
+
+ul {
+  list-style: disc outside;
+}
+
+ol {
+  list-style: decimal outside;
+}
+
+li {
+  margin: 0 0 8px;
+  padding-left: 0.1em;
+  line-height: 1.8;
+  color: #1f2937;
+}
+
+li p {
+  margin: 0 0 8px;
+}
+
+figure {
+  margin: 10px 0 32px;
+  padding: 0;
+}
+
+img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+}
+
+figcaption,
+.md-figcaption {
+  margin-top: 8px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.86em;
+  line-height: 1.6;
+}
+
+hr {
+  height: 1px;
+  margin: 34px 0;
+  border: none;
+  background: #e5e7eb;
+}
+
+code.codespan,
+code {
+  padding: 0.12em 0.34em;
+  color: #1e3a5f;
+  background: #eff6ff;
+  border-radius: 3px;
+  font-family: Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+pre.code__pre,
+.hljs.code__pre {
+  margin: 4px 0 28px;
+  padding: 18px 16px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+}
+
+pre.code__pre code,
+.hljs.code__pre code {
+  display: block;
+  max-width: 100%;
+  color: #e5e7eb;
+  background: transparent;
+  padding: 0;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

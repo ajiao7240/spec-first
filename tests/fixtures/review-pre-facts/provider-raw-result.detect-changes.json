@@ -25,13 +25,13 @@
           {
             "name": "buildQueryPlan",
             "kind": "Function",
-            "filePath": "src/cli/helpers/review-pre-facts.js"
+            "filePath": "src/cli/helpers/review-pre-facts/query-plan.js"
           }
         ],
         "affected_processes": [
           {
             "name": "runPrepare",
-            "filePath": "src/cli/helpers/review-pre-facts.js"
+            "filePath": "src/cli/helpers/review-pre-facts/query-plan.js"
           }
         ],
         "raw_diff": "@@ omitted in durable output"

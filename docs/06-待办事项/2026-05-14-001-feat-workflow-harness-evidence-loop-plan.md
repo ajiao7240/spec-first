@@ -4,6 +4,9 @@ type: feat
 status: active
 date: 2026-05-14
 spec_id: 2026-05-14-001-workflow-harness-evidence-loop
+origin: docs/00-版本路线/版本规划.md
+related_audit: docs/10-prompt/skill-agent-harness-audit/11-final-recommendations.md
+refreshed: 2026-05-27
 ---
 
 # feat: workflow harness evidence loop 三版本强化路线图
@@ -14,16 +17,37 @@ spec_id: 2026-05-14-001-workflow-harness-evidence-loop
 
 版本号是规划标签，不强制绑定最终 npm semver；实际 release 可按实现拆分。
 
+## 2026-05-27 当前分支校准
+
+本计划的上游路线图是 `docs/00-版本路线/版本规划.md`；H4 → H5 的成熟度判断来自 `docs/10-prompt/skill-agent-harness-audit/11-final-recommendations.md`。当前分支 `leo-2026-05-27-gitnexus-update` 已经落地一批原计划中的底座能力，因此本计划不再按 2026-05-14 原始 U1-U9 顺序直接执行。
+
+已落地或已改口径的关键事实：
+
+- `docs/contracts/ai-coding-harness.md` 已成为 Harness 分层总合同。
+- `context-bundle.v1`、`artifact-summary.v1`、`review-finding.v1` 与 `spec-work-run-artifact.schema.json` 已存在，部分 workflow 已开始消费。
+- GitNexus 已成为 active graph provider；CRG 仅作为迁移/历史残留清理对象，不再进入新能力主线。
+- `spec-work-beta` 已删除，stable `spec-work` 是唯一执行入口。
+- `spec-standards` 已从 active source surface 移除；后续只讨论 project guidance / host instructions / `docs/contracts/` / solutions 等可追溯上下文，不再规划 `.spec-first/standards/**` 或 standards glue map 主线。
+- `review-pre-facts` 已扩展为 GitNexus bounded pre-facts helper，覆盖 `query` / `context` / `impact` / `detect_changes`，并带 durable redaction、source-read requirement 和 degraded reason。
+- `spec-work` closeout 已有 `graph_evidence_used` 口径与 internal run artifact producer，但 workflow 全链路 closeout adoption 仍未闭合。
+
+因此本计划剩余工作应收敛为四组：
+
+1. **Contract gap**：决定是否还需要最小 `stage-contract`、`artifact-header`、`evidence-packet`；已有合同不能重复造第二套。
+2. **Adoption gap**：把已存在的 `artifact-summary`、`context-bundle`、`review-finding`、`spec-work-run-artifact` 真正接进 plan/work/review/compound/release handoff，而不是只停留在文档。
+3. **Review closure gap**：补 `fix-plan` / `re-review` / `compound-candidates` 的最小 artifact/producer/consumer 边界。
+4. **Evaluation/release gap**：将 runtime capability catalog、README/docs、package delivery、dual-host governance 和 release artifact summary 纳入 deterministic drift guard。
+
 ---
 
 ## 问题框架
 
-`spec-first` 已经具备 workflow skills、graph readiness、standards/glue baseline、task-pack、review pre-facts、task-level review gate、compound trigger checklist 和双宿主 runtime generation。当前主要缺口不再是“有没有能力”，而是这些能力之间的协议还不够统一：
+`spec-first` 已经具备 workflow skills、GitNexus graph readiness、task-pack、review pre-facts、task-level review gate、compound trigger checklist、spec-work run artifact producer、context/artifact/review contracts 和双宿主 runtime generation。当前主要缺口不再是“有没有能力”，而是这些能力之间的 adoption、artifact ownership 和 closeout 还不够统一：
 
 - `Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge` 链路中，不同 workflow 对 artifact、evidence、finding、context、degraded mode 的表达仍分散。
-- Graph facts、standards、review pre-facts、context bundle 和 artifact summary 已有雏形，但 adoption 还没有覆盖核心 workflow chain。
+- Graph facts、GitNexus bounded pre-facts、context bundle、artifact summary 和 review finding 已有雏形，但 adoption 还没有覆盖核心 workflow chain。
 - Review findings 已开始有共享 envelope，但 code/doc/app review 的 synthesis、residual handling、work follow-up 和 compound capture 还没有形成统一闭环。
-- Context/token 治理已经有 `context-governance` 与 `context-bundle` 合同，但仍需要最小 producer、workflow 读取顺序和 fanout 预算策略。
+- Context/token 治理已经有 `context-governance`、`context-bundle` 与 `artifact-summary` 合同，但仍需要 workflow 读取顺序、fanout 预算策略和 release/review adoption。
 - 外部主流方向正在收敛到 repo instructions、sandboxed/ephemeral agent environment、explicit skills/subagents、MCP capability boundaries、reviewable PR/session logs、eval/trace-driven optimization；`spec-first` 应吸收这些原则，但不能退化成中心化 agent platform 或强状态机。
 
 核心判断仍按角色契约执行：scripts prepare deterministic facts，LLM decides semantic judgment。
@@ -37,9 +61,9 @@ spec_id: 2026-05-14-001-workflow-harness-evidence-loop
 - R3. Evidence governance 必须区分 deterministic facts、LLM judgment、assumptions、session-local evidence、advisory evidence、stale evidence。
 - R4. Context routing 必须 summary-first、path-backed、budget-aware，不做中心化 semantic router，不扫描 generated runtime mirrors 作为普通上下文。
 - R5. Review closure 必须用 shared finding envelope 打通 code/doc/app review、work fix loop、residual risk、compound capture 和 release notes。
-- R6. `spec-work` / `spec-work-beta` 必须能产出最小 run closeout evidence，支持 compaction/resume、review handoff 和 not-run/degraded reason。
+- R6. `spec-work` 必须能产出最小 run closeout evidence，支持 compaction/resume、review handoff 和 not-run/degraded reason；`spec-work-beta` 已删除，不再作为 consumer。
 - R7. `spec-plan`、`spec-work`、`spec-code-review`、`spec-doc-review`、`spec-compound` 必须优先消费 artifact summary / context bundle，再按 trigger 展开 full artifact。
-- R8. Graph/standards/provider/MCP raw output 必须保持 untrusted input 处理，进入 prompt 或 durable artifact 前要有 path containment、excerpt cap、provenance、reason_code 和 degraded classification。
+- R8. Graph/provider/MCP raw output 与 project-guidance context 必须保持 untrusted/advisory input 处理，进入 prompt 或 durable artifact 前要有 path containment、excerpt cap、provenance、reason_code 和 degraded classification。
 - R9. Review fanout 必须 scale-aware：小 diff/docs-only 默认最小 reviewer set，高风险 contract/workflow/runtime/release 才扩大。
 - R10. Public/internal helper 边界必须收紧：internal helpers 不作为用户入口推荐，mutating helper 必须有 explicit authorization、write scope、verification 和 changelog posture。
 - R11. Skill/agent source 变更必须支持 fresh-source eval 或明确 not-run reason；runtime mirror 不作为 source truth。
@@ -51,7 +75,7 @@ spec_id: 2026-05-14-001-workflow-harness-evidence-loop
 
 ## 假设
 
-- A1. 当前工作区已有未提交的 context/evidence 相关 source 改动；本计划把它们视作当前分支事实，不改变或回滚。
+- A1. 当前分支已完成 GitNexus-only、interactive init、bounded pre-facts、Harness contract 与若干 workflow evidence adoption；本计划把这些视作当前 source truth，不再恢复 CRG、`spec-work-beta` 或 active `spec-standards` 方向。
 - A2. `v1.9`、`v2.0`、`v2.1` 是路线标签；维护者可按实际 release cadence 合并或拆分。
 - A3. 计划只规划 spec-first 当前项目，不实现代码，也不触碰 generated runtime mirrors。
 - A4. `docs/contracts/context-governance.md`、`docs/contracts/context-bundle.md`、`docs/contracts/artifact-summary.md`、`docs/contracts/workflows/review-finding.md` 若在实施前被重命名或改写，实施者应以当时 source truth 为准。
@@ -64,7 +88,7 @@ spec_id: 2026-05-14-001-workflow-harness-evidence-loop
 - 不让 scripts 判断架构优先级、业务 scope、review 结论或 workflow route。
 - 不把 graph/provider/MCP evidence 当作 confirmed truth；source、tests、compiled readiness facts 和 explicit user decisions 优先。
 - 不手改 `.claude/`、`.codex/`、`.agents/skills/` 实现行为。
-- 不默认把 `spec-work-beta` delegation、long-running autonomous runner 或 multi-agent fanout 推到普通用户路径。
+- 不恢复 `spec-work-beta` delegation、long-running autonomous runner 或 multi-agent fanout 到普通用户路径。
 - 不复制外部工具的 prompt/prose/schema；只吸收工程原则并用 spec-first 自己的 source contracts 表达。
 
 ### 后续单独处理
@@ -78,16 +102,16 @@ spec_id: 2026-05-14-001-workflow-harness-evidence-loop
 ## 图谱就绪状态
 
 - target_repo: `spec-first`
-- status: stale
-- source_revision: `2a16a9d7c80d86178f93cd928cc885d60b398ff9`
-- current_revision: `7e18a210ac9f0a0d086c5cb19d1d20e49f138664`
-- stale: true
-- primary_providers: `code-review-graph`, `gitnexus`
+- status: dirty-advisory
+- source_revision: `16b0cf203a10ac223a3a0112ffa6eea96f48896c`
+- current_revision: `69d38417`
+- stale: true（当前分支晚于 graph-facts.source_revision，且工作区 dirty）
+- primary_providers: `gitnexus`
 - degraded_providers: none reported in compiled artifact
 - fallback_capabilities: direct source reads, `rg`, existing contract tests, session-local GitNexus MCP pointer
-- runtime_mcp_evidence: session-local GitNexus query used only as planning pointer; compiled graph facts remain stale
-- confidence: medium
-- limitations: 工作区 dirty 且 HEAD 已不同于 compiled graph facts；本计划依赖直接 source/doc reads 与现有 contract artifacts，不声明 primary graph-backed impact evidence。
+- runtime_mcp_evidence: GitNexus MCP `query` used only as planning orientation; compiled graph facts report definitions-only / no impact evidence
+- confidence: high for direct source/contract reads; advisory for graph-derived process/impact claims
+- limitations: `.spec-first/graph/graph-facts.json` 当前为 `dirty-advisory`，`impact_context=false`，不能声明 graph-backed blast radius、related tests 或 process evidence。
 
 ---
 
@@ -102,6 +126,8 @@ spec_id: 2026-05-14-001-workflow-harness-evidence-loop
 - `docs/contracts/context-bundle.md`: `context-request.v1` / `context-bundle.v1` 的 lightweight envelope。
 - `docs/contracts/artifact-summary.md`: durable workflow artifact 的 summary-first handoff。
 - `docs/contracts/workflows/review-finding.md`: code/doc/app review 共享 finding envelope。
+- `docs/contracts/ai-coding-harness.md`: 当前 Harness 分层总合同，约束 Context / Execution / Evidence / Evaluation / Governance / Knowledge 六层边界。
+- `docs/contracts/gitnexus-capability-catalog.md`: GitNexus capability lane、source tags、readiness vocabulary 和 mutation boundary。
 - `docs/10-prompt/skill-agent-harness-audit/11-final-recommendations.md`: 当前判断为 H4，下一阶段目标是 H5 review-closed loop，P0/P1 指向 public/internal、mutating helper、runtime parity 和 review closure。
 - `docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrade-plan.md`: 已有长期优化路线，第一阶段 MVP 聚焦 task handoff、execution evidence 和 token economy。
 
@@ -125,9 +151,9 @@ spec_id: 2026-05-14-001-workflow-harness-evidence-loop
 
 | 版本 | 主题 | 结果 | 主要验收门槛 |
 | --- | --- | --- | --- |
-| `v1.9` | 证据封套与紧凑阶段合同 | 核心链路共享 artifact summary、evidence packet、review finding、run closeout 的最小词表和采纳路径。 | `spec-plan` / `spec-work` / `spec-code-review` / `spec-doc-review` / `spec-compound` 合同测试通过，review-finding 不只是“文档已存在”，而是被 workflow 消费。 |
-| `v2.0` | 上下文路由与证据选择 | `context-bundle` 成为 reviewer / worker / researcher 的 summary-first 动态后缀，graph / standards / sessions / solutions 进入有界证据选择。 | context helper、runtime exclusion、budget/degraded reason 和 scale-aware dispatch 有聚焦测试与 workflow 覆盖。 |
-| `v2.1` | Review 闭合的 repo-local 工程循环 | review findings 能进入 work fix loop、accepted residuals、compound knowledge、release/changelog guard 和 source/runtime parity report。 | 一个真实 source-changing workflow 可从 plan / work / review / compound / release 形成 path-backed closeout，不依赖模型记忆。 |
+| `v1.9` | 证据封套与紧凑阶段合同 | 已有 `artifact-summary`、`context-bundle`、`review-finding`、`spec-work-run-artifact` 底座；剩余是 adoption gap 与是否补 `stage-contract` / `artifact-header` / `evidence-packet` 的最小决策。 | 不新增重复 schema；`spec-plan` / `spec-work` / `spec-code-review` / `spec-doc-review` / `spec-compound` 的 handoff tests 能证明 existing contracts 被消费。 |
+| `v2.0` | 上下文路由与证据选择 | `context-bundle` helper 已存在；剩余是 workflow intake 顺序、tool-budget / provider-risk、GitNexus session evidence lane 与 project-guidance source selection。 | context helper、runtime exclusion、budget/degraded reason、GitNexus lane 和 scale-aware dispatch 有聚焦测试与 workflow 覆盖。 |
+| `v2.1` | Review 闭合的 repo-local 工程循环 | review findings 进入 work fix loop、accepted residuals、compound knowledge、release/changelog guard 和 source/runtime parity report。 | 一个真实 source-changing workflow 可从 plan / work / review / compound / release 形成 path-backed closeout，不依赖模型记忆。 |
 
 ---
 
@@ -152,9 +178,19 @@ spec_id: 2026-05-14-001-workflow-harness-evidence-loop
 
 ### 推迟到实施阶段
 
-- `spec-work` run closeout 是否先写 durable JSON，还是先在 final response 中输出 schema-aligned section：取决于当前 branch 上 `spec-work-run-artifact` producer 的实际状态。
-- `context-bundle` helper 是否只接受 explicit paths，还是允许 limited changed-file discovery：先以 explicit paths 为准，若需要 discovery 另开计划。
+- `spec-work` run closeout 的剩余问题不是 producer 是否存在，而是 stable workflow 何时调用 producer、如何处理 resume/not-run/degraded evidence、以及是否需要 retention/prune follow-up。
+- `context-bundle` helper 已存在且以 explicit paths 为主；是否允许 limited changed-file discovery 仍应另开计划，避免把 helper 变成 semantic router。
 - `review-finding.v1` 在 code/doc/app review 中的 exact embedding 位置：实现时按各 workflow 现有 reviewer JSON/template 最小改动确定。
+
+## 建议剩余执行顺序
+
+下列顺序是当前分支的执行 source of truth。后面的 U1-U9 保留为 implementation catalog,用于说明可能改哪些文件、测哪些边界;不再代表 2026-05-14 原始线性执行顺序。执行时应先按本节选择下一组工作,再从 U1-U9 抽取对应文件和测试,避免继续按旧 U1 -> U9 全量推进。
+
+1. **Schema budget refresh**：基于 `docs/contracts/ai-coding-harness.md` 复核现有 contract，决定 `stage-contract`、`artifact-header`、`evidence-packet` 哪些仍需要新增，哪些应由现有 `artifact-summary` / `review-pre-facts` / `spec-work-run-artifact` 覆盖。
+2. **Core workflow adoption**：补 plan/work/review/doc-review/compound 对现有 summary/context/finding/run-artifact 的读取顺序和 focused tests。
+3. **Review closure artifacts**：定义或收窄 `fix-plan` / `re-review` / `compound-candidates` 的 producer、canonical path、consumer 和 fallback。
+4. **Context budget and dispatch policy**：在已有 `context-bundle` helper 基础上补 tool budget、provider risk、researcher budget 与 scale-aware dispatch tests。
+5. **Release/evaluation guard**：把 runtime capability catalog、README/docs、package delivery、dual-host governance、release artifact summary 和 source/runtime parity 纳入 deterministic drift guard。
 
 ---
 
@@ -185,13 +221,15 @@ flowchart LR
 
 ## 实施单元
 
+> U1-U9 是按原三版本路线保留下来的实施素材目录。当前执行顺序以 `## 建议剩余执行顺序` 为准；每个实施 slice 应只抽取相关 U 的文件、测试和边界,不得把依赖字段理解为旧计划的强线性状态机。
+
 ### U1. `v1.9` 紧凑阶段合同采纳
 
 **目标：** 让核心 workflow 顶部在 30 秒内说明输入、输出、产物、证据要求、上下文策略、交接和降级模式。
 
 **需求：** R1, R2, R3, R7, R11
 
-**依赖：** 无
+**依赖：** Schema budget refresh 已决定 `stage-contract` / `artifact-header` / `evidence-packet` 的进入、合并或降级边界；不要求先新增 schema。
 
 **文件：**
 - 修改：`skills/spec-brainstorm/SKILL.md`
@@ -210,7 +248,7 @@ flowchart LR
 
 **方案：**
 - 复用已有 workflow contract summary 结构，不复制完整 workflow。
-- 每个核心 stage 增加或校准证据要求与上下文策略，明确 artifact summary、context bundle、graph readiness、standards 和 review finding 的消费姿态。
+- 每个核心 stage 增加或校准证据要求与上下文策略，明确 artifact summary、context bundle、GitNexus graph readiness、project guidance 和 review finding 的消费姿态。
 - 保持 progressive disclosure：长 examples、rubric、provider-specific details 下沉到 `references/`。
 
 **执行说明：** 这是 skill prose 行为变化；实现后需要 focused contract tests，并执行 fresh-source eval 或记录未执行原因。
@@ -234,17 +272,18 @@ flowchart LR
 
 **目标：** 让 plan/work/review/compound handoff 默认传递 `artifact-summary.v1` 等价摘要，并为高风险 claim 提供 `evidence-packet.v1` 最小合同。
 
+**当前状态：** `artifact-summary.v1` 与 `spec-work-run-artifact.schema.json` 已存在；`evidence-packet.v1` 仍需先做 schema budget 决策，避免和 `review-pre-facts` / `graph-evidence-policy` / `spec-work-run-artifact` 重叠。
+
 **需求：** R2, R3, R6, R7, R8
 
 **依赖：** U1
 
 **文件：**
 - 修改：`docs/contracts/artifact-summary.md`
-- 新增：`docs/contracts/evidence-packet.md`
+- 可选新增：`docs/contracts/evidence-packet.md`（先完成 schema budget refresh）
 - 修改：`docs/contracts/workflows/spec-work-run-artifact.schema.json`
 - 修改：`skills/spec-plan/SKILL.md`
 - 修改：`skills/spec-work/SKILL.md`
-- 修改：`skills/spec-work-beta/SKILL.md`
 - 修改：`skills/spec-code-review/SKILL.md`
 - 修改：`skills/spec-compound/SKILL.md`
 - 测试：`tests/unit/spec-work-run-artifact-contract.test.js`
@@ -253,8 +292,8 @@ flowchart LR
 
 **方案：**
 - 保持 `artifact-summary.v1` 是 summary-first handoff，不替代 full artifact。
-- 新增 `evidence-packet.v1` 只用于 high-risk claim：包含 fact、inference、assumption、limitation、source path、freshness、authority。
-- `spec-work` closeout 先支持 schema-aligned summary；durable JSON producer 可作为同版后段或独立 follow-up。
+- 若新增 `evidence-packet.v1`，只用于 high-risk claim：包含 fact、inference、assumption、limitation、source path、freshness、authority；若现有合同已覆盖，则记录 non-goal，不新增 schema。
+- `spec-work` closeout 已有 durable JSON producer；剩余工作是 stable workflow 何时调用 producer、如何处理 resume/not-run/degraded evidence、以及 closeout 到 review/compound 的消费路径。
 - Provider/raw outputs 只记录 summary、reason_code、artifact path，不嵌入大段 raw logs。
 
 **遵循模式：**
@@ -340,7 +379,7 @@ flowchart LR
 **遵循模式：**
 - `docs/contracts/context-governance.md`
 - `docs/contracts/context-bundle.md`
-- `src/cli/helpers/review-pre-facts.js` 的 temp/output/path containment 思路。
+- `src/cli/helpers/review-pre-facts/` 的 temp/output/path containment 思路。
 
 **测试场景：**
 - 正向路径：显式 source/test paths 能产出有效的 context bundle。
@@ -352,9 +391,11 @@ flowchart LR
 - Context bundle helper tests 通过。
 - Workflow contract tests 证明高频 workflows 提到 summary-first dynamic suffix。
 
-### U5. `v2.0` Graph、Standards、Sessions 与 Solutions 的证据源选择
+### U5. `v2.0` Graph、Project Guidance、Sessions 与 Solutions 的证据源选择
 
-**目标：** 把 graph readiness、standards/glue map、sessions、solutions、review pre-facts 纳入统一 evidence source selection 纪律。
+**目标：** 把 GitNexus graph readiness、project guidance、sessions、solutions、review pre-facts 纳入统一 evidence source selection 纪律。
+
+**当前状态：** `spec-standards` active surface 已移除；本单元不再新增 `.spec-first/standards/**`、standards glue map 或 standards examples，而是消费 already-loaded host/project instructions、directory-scoped instruction files、`docs/contracts/`、solutions 和 source-confirmed project guidance。
 
 **需求：** R3, R4, R7, R8, R13
 
@@ -362,35 +403,33 @@ flowchart LR
 
 **文件：**
 - 修改：`docs/contracts/graph-evidence-policy.md`
-- 修改：`docs/examples/standards-glue-consumption-examples.md`
 - 修改：`skills/spec-plan/SKILL.md`
 - 修改：`skills/spec-work/SKILL.md`
 - 修改：`skills/spec-debug/SKILL.md`
 - 修改：`skills/spec-sessions/SKILL.md`
 - 修改：`skills/spec-compound/SKILL.md`
 - 测试：`tests/unit/graph-provider-consumption-contracts.test.js`
-- 测试：`tests/unit/spec-standards-consumers.test.js`
 - 测试：`tests/unit/spec-sessions-contracts.test.js`
 
 **方案：**
-- 建立 workflow-facing source selection rule：compiled readiness and confirmed standards first；session-local MCP and observed standards advisory；solutions/sessions require provenance-backed refs。
+- 建立 workflow-facing source selection rule：compiled GitNexus readiness / source-confirmed project guidance first；session-local MCP advisory；solutions/sessions require provenance-backed refs。
 - `context-bundle` 只记录 candidate paths and reasons；LLM 判断是否展开和如何解释。
 - `review-pre-facts` 继续服务 review orchestrator；不要复制其 provider result normalization。
 - Rejected/out-of-scope rationale 以 artifact summary 或 compound reference 进入 context，不成为 active state。
 
 **遵循模式：**
-- `.spec-first/standards/glue-map.json`
-- `docs/examples/standards-glue-consumption-examples.md`
 - `docs/contracts/graph-provider-consumption.md`
+- `docs/contracts/gitnexus-capability-catalog.md`
+- `docs/contracts/context-governance.md`
 
 **测试场景：**
-- 正向路径：confirmed standards 可作为 hard context 引用。
-- 边界场景：observed/imported/suggested standards 保持 advisory。
+- 正向路径：source-confirmed project guidance 可作为 hard context 引用。
+- 边界场景：session-local GitNexus 或 stale guidance 保持 advisory。
 - 错误路径：stale graph facts 触发 limitation，不能成为 primary evidence。
 - 集成场景：spec-plan 可通过 context bundle 引用相关 solution doc，而不扫描全部 `docs/solutions/**`。
 
 **验证：**
-- Standards consumer 与 graph consumption contract tests 通过。
+- Graph consumption、context governance 与 session contract tests 通过。
 
 ### U6. `v2.0` 按规模调整的 Dispatch 与 Research Budget Policy
 
@@ -405,7 +444,6 @@ flowchart LR
 - 修改：`skills/spec-code-review/SKILL.md`
 - 修改：`skills/spec-doc-review/SKILL.md`
 - 修改：`skills/spec-plan/SKILL.md`
-- 修改：`skills/spec-work-beta/SKILL.md`
 - 按需修改：`agents/*.agent.md`，仅当具体 agent 缺少 evidence/output boundary。
 - 测试：`tests/unit/spec-dispatch-boundary-contracts.test.js`
 - 测试：`tests/unit/spec-code-review-contracts.test.js`
@@ -414,13 +452,13 @@ flowchart LR
 **方案：**
 - 为 docs-only、窄范围代码、contract/runtime/security/release changes 定义 small/medium/high-risk dispatch profiles。
 - Research agents 接收 context bundle 和 budget，不接收完整 plan/audit dumps。
-- Implementation workers 继续保持 explicit opt-in/beta；普通 review/research dispatch 不授权写入。
+- Implementation workers 不作为本单元主线；普通 review/research dispatch 不授权写入。
 - Agent/skill behavior changes 需要 fresh-source eval，或记录 not-run reason。
 
 **遵循模式：**
 - Claude Code subagent 原则：separate context 与 focused tool access。
 - 现有 `spec-doc-review` multi-persona dispatch 与 fallback contract。
-- 当前 `spec-work-beta` 中的 Codex delegation restrictions。
+- 当前 `spec-code-review` / `spec-doc-review` 的 bounded reviewer dispatch contract。
 
 **测试场景：**
 - 正向路径：docs-only review 使用最小 reviewer set。
@@ -443,7 +481,6 @@ flowchart LR
 **文件：**
 - 新增：`docs/contracts/workflows/review-closure.md`
 - 修改：`skills/spec-work/SKILL.md`
-- 修改：`skills/spec-work-beta/SKILL.md`
 - 修改：`skills/spec-code-review/SKILL.md`
 - 修改：`skills/spec-compound/SKILL.md`
 - 测试：`tests/unit/spec-work-contracts.test.js`
@@ -569,7 +606,7 @@ flowchart LR
 | 协议过多导致新复杂度 | 每个协议必须命名 producer、consumer、test；没有 consumer 的字段不进 v1。 |
 | Context bundle 演化成 semantic router | Helper 只做 explicit path normalization、budget、exclusion、reason_code；LLM 决定语义相关性。 |
 | Review closure 变成状态机 | 只记录 finding/residual/verification closeout，不记录 active progress、approval state 或 task lifecycle。 |
-| Stale graph 被误当 primary evidence | 所有 workflow 在声明 graph-backed evidence 前比较 `source_revision`、`worktree_dirty`、`worktree_status_hash`。 |
+| Stale graph 被误当 primary evidence | 所有 workflow 在声明 graph-backed evidence 前比较 `source_revision`、`worktree_dirty`、`worktree_status_hash`，并区分 GitNexus definitions-only / impact unavailable。 |
 | Release guard 误做语义判断 | Guard 只输出 deterministic drift classification；skill quality 仍由 review/audit 判断。 |
 | 当前未提交改动和本计划冲突 | 实施前先读最新 source truth；本计划路径是目标 surface，不覆盖已有用户改动。 |
 
@@ -580,7 +617,7 @@ flowchart LR
 - 每版实施都必须更新 `CHANGELOG.md`。
 - 用户可见行为变化需要同步 `README.md`、`README.zh-CN.md` 或用户手册。
 - Skill/agent prose 变化需要 focused contract tests；高影响变化需要 fresh-source eval 或 explicit not-run reason。
-- Runtime generation 变化必须说明是否需要 `spec-first init --claude|--codex`。
+- Runtime generation 变化必须说明是否需要运行交互式 `spec-first init` 并选择对应 host。
 - Review closure adoption 前，不要宣称 H5 已完成；只能说 H4 到 H5 的协议面已铺设。
 
 ---
@@ -598,8 +635,11 @@ flowchart LR
 ## 来源与参考
 
 - 角色基线：`docs/10-prompt/结构化项目角色契约.md`
+- 总路线图：`docs/00-版本路线/版本规划.md`
+- Harness 总合同：`docs/contracts/ai-coding-harness.md`
 - 图谱证据：`docs/contracts/graph-evidence-policy.md`
 - 图谱消费：`docs/contracts/graph-provider-consumption.md`
+- GitNexus capability catalog：`docs/contracts/gitnexus-capability-catalog.md`
 - Review pre-facts：`docs/contracts/workflows/review-pre-facts-extraction.md`
 - 上下文治理：`docs/contracts/context-governance.md`
 - Context bundle：`docs/contracts/context-bundle.md`

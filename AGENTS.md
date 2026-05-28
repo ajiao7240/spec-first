@@ -110,6 +110,7 @@ Generated runtime assets 包括：
 - `agents/`：agent profile 源码资产
 - `templates/`：host runtime templates
 - `docs/`：需求、计划、架构说明、验证报告、角色契约
+- `docs/solutions/`：解决问题后沉淀的可复用工程知识，供后续 plan/work/debug/review/compound 检索
 - `scripts/`：辅助脚本
 - `vendor/`：vendored parser dependencies
 - `tests/unit/`、`tests/smoke/`、`tests/integration/`、`tests/e2e/`：分层测试

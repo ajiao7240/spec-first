@@ -52,7 +52,7 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('then focused source-of-truth sections');
     expect(text).toContain('only then deeper references');
     expect(text).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
-    expect(text).toContain('src/cli/helpers/review-pre-facts.js');
+    expect(text).toContain('src/cli/helpers/review-pre-facts/');
     expect(text).toContain('do not create a parallel reviewer facts pipeline');
     expect(text).toContain('provenance-backed rejected/out-of-scope rationale');
     expect(text).toContain('advisory boundary evidence');

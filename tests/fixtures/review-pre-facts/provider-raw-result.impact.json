@@ -13,7 +13,7 @@
         "repo": "spec-first",
         "target": "buildQueryPlan",
         "direction": "upstream",
-        "file_path": "src/cli/helpers/review-pre-facts.js",
+        "file_path": "src/cli/helpers/review-pre-facts/cli.js",
         "kind": "Function",
         "maxDepth": 2,
         "includeTests": true,
@@ -34,7 +34,7 @@
         "affected_processes": [
           {
             "name": "runPrepare",
-            "filePath": "src/cli/helpers/review-pre-facts.js",
+            "filePath": "src/cli/helpers/review-pre-facts/cli.js",
             "earliest_broken_step": 1
           }
         ],
@@ -49,13 +49,13 @@
           "1": [
             {
               "name": "runPrepare",
-              "filePath": "src/cli/helpers/review-pre-facts.js"
+              "filePath": "src/cli/helpers/review-pre-facts/cli.js"
             }
           ],
           "2": [
             {
               "name": "runReviewPreFacts",
-              "filePath": "src/cli/helpers/review-pre-facts.js"
+              "filePath": "src/cli/helpers/review-pre-facts/cli.js"
             }
           ]
         }

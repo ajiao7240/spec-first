@@ -20,7 +20,7 @@
       "fact_kind": "context_symbol",
       "repo_scope": "spec-first",
       "target_refs": [
-        "src/cli/helpers/review-pre-facts.js"
+        "src/cli/helpers/review-pre-facts/query-plan.js"
       ],
       "readiness": "graph-fresh",
       "tier": "graph-fresh",
@@ -39,16 +39,16 @@
         "0 outgoing calls"
       ],
       "source_reads_required": [
-        "src/cli/helpers/review-pre-facts.js"
+        "src/cli/helpers/review-pre-facts/query-plan.js"
       ],
       "symbol": {
-        "uid": "Function:src/cli/helpers/review-pre-facts.js:buildQueryPlan",
+        "uid": "Function:src/cli/helpers/review-pre-facts/query-plan.js:buildQueryPlan",
         "name": "buildQueryPlan",
         "kind": "Function",
-        "file_path": "src/cli/helpers/review-pre-facts.js",
+        "file_path": "src/cli/helpers/review-pre-facts/query-plan.js",
         "line_window": {
-          "start": 738,
-          "end": 796
+          "start": 16,
+          "end": 128
         }
       },
       "disambiguation_status": "resolved",
@@ -67,7 +67,7 @@
       "fact_kind": "impact_summary",
       "repo_scope": "spec-first",
       "target_refs": [
-        "src/cli/helpers/review-pre-facts.js"
+        "src/cli/helpers/review-pre-facts/cli.js"
       ],
       "readiness": "graph-fresh",
       "tier": "graph-fresh",
@@ -88,7 +88,7 @@
         "1 processes"
       ],
       "source_reads_required": [
-        "src/cli/helpers/review-pre-facts.js"
+        "src/cli/helpers/review-pre-facts/cli.js"
       ],
       "risk": "LOW",
       "affected_modules": [
@@ -101,7 +101,7 @@
       "affected_processes": [
         {
           "name": "runPrepare",
-          "file_path": "src/cli/helpers/review-pre-facts.js",
+          "file_path": "src/cli/helpers/review-pre-facts/cli.js",
           "step": 1
         }
       ],
@@ -139,7 +139,7 @@
         "1 affected processes"
       ],
       "source_reads_required": [
-        "src/cli/helpers/review-pre-facts.js"
+        "src/cli/helpers/review-pre-facts/query-plan.js"
       ],
       "scope": {
         "type": "all",
@@ -149,13 +149,13 @@
         {
           "name": "buildQueryPlan",
           "kind": "Function",
-          "file_path": "src/cli/helpers/review-pre-facts.js"
+          "file_path": "src/cli/helpers/review-pre-facts/query-plan.js"
         }
       ],
       "affected_processes": [
         {
           "name": "runPrepare",
-          "file_path": "src/cli/helpers/review-pre-facts.js"
+          "file_path": "src/cli/helpers/review-pre-facts/cli.js"
         }
       ],
       "risk": "medium",

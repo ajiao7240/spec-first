@@ -1045,6 +1045,8 @@ assert_contains "verify table includes provider artifacts" "provider-artifacts.j
 assert_contains "verify prints fenced status blocks" '```text' "$verify_text"
 assert_contains "verify prints MCP server table" "MCP servers:" "$verify_text"
 assert_contains "verify prints graph provider table" "Graph providers:" "$verify_text"
+assert_contains "verify MCP server table preserves Role column" "| Name                | Role" "$verify_text"
+assert_contains "verify graph provider table preserves Role column" "| Name     | Role" "$verify_text"
 assert_contains "verify prints helper table" "Helper tools:" "$verify_text"
 assert_contains "verify prints project setup table" "Project setup facts:" "$verify_text"
 assert_contains "verify prints aligned MCP columns" "| Name" "$verify_text"

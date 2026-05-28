@@ -1,13 +1,16 @@
 ---
 title: refactor: 把 spec-first init 重构为交互式分步引导命令
 type: refactor
-status: active
+status: completed
 date: 2026-05-26
 spec_id: 2026-05-26-002-spec-first-init-interactive-rebuild
 origin: docs/brainstorms/2026-05-26-002-spec-first-init-interactive-rebuild-requirements.md
+completed: 2026-05-27
 ---
 
 # refactor: 把 spec-first init 重构为交互式分步引导命令
+
+> Completion note: 当前源码已完成交互式 `init` 重构、`buildInitPlan` / `applyInitPlan` 程序化入口、prompt 原语、README/测试/话术迁移。最终实现相对本计划 R1/R3 做过产品口径调整：没有删除所有 init flags，而是保留 `--claude` / `--codex` 跳过宿主选择、`-y` / `--yes` 用于 non-TTY/脚本默认初始化，以及 `-u` / `--lang` 作为程序化输入；后续应以当前源码和 README 的保留 flags 口径为准，不再按本计划早期"取消所有 flag"表述返工。
 
 ## Summary
 

@@ -21,7 +21,7 @@
   "limitations": [],
   "targets": [
     {
-      "path": "src/cli/helpers/review-pre-facts.js",
+      "path": "src/cli/helpers/review-pre-facts/query-plan.js",
       "status": "readable",
       "reason_code": null
     }
@@ -35,12 +35,12 @@
       "arguments": {
         "repo": "spec-first",
         "name": "buildQueryPlan",
-        "file_path": "src/cli/helpers/review-pre-facts.js",
+        "file_path": "src/cli/helpers/review-pre-facts/query-plan.js",
         "kind": "Function",
         "include_content": false
       },
       "target_refs": [
-        "src/cli/helpers/review-pre-facts.js"
+        "src/cli/helpers/review-pre-facts/query-plan.js"
       ],
       "max_results": 1,
       "reason_code": "provider_context_surface_available",
@@ -55,7 +55,7 @@
         "repo": "spec-first",
         "target": "buildQueryPlan",
         "direction": "upstream",
-        "file_path": "src/cli/helpers/review-pre-facts.js",
+        "file_path": "src/cli/helpers/review-pre-facts/cli.js",
         "kind": "Function",
         "maxDepth": 2,
         "includeTests": true,
@@ -66,7 +66,7 @@
         "timeoutMs": 10000
       },
       "target_refs": [
-        "src/cli/helpers/review-pre-facts.js"
+        "src/cli/helpers/review-pre-facts/cli.js"
       ],
       "max_results": 1,
       "reason_code": "provider_impact_surface_available",
@@ -91,7 +91,7 @@
   ],
   "direct_read_candidates": [
     {
-      "path": "src/cli/helpers/review-pre-facts.js",
+      "path": "src/cli/helpers/review-pre-facts/query-plan.js",
       "status": "readable",
       "reason_code": null
     }
