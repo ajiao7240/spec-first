@@ -4,7 +4,9 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TMP_DIR"' EXIT
+ISOLATED_HOME="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR" "$ISOLATED_HOME"' EXIT
+export HOME="$ISOLATED_HOME"
 
 export SPEC_FIRST_VERSION_REMINDER_LATEST="$(node -p "require('$REPO_ROOT/package.json').version")"
 expected_version="$SPEC_FIRST_VERSION_REMINDER_LATEST"
@@ -165,7 +167,9 @@ yes_dir="$TMP_DIR/init-yes"
 mkdir -p "$yes_dir"
 (cd "$yes_dir" && node "$REPO_ROOT/bin/spec-first.js" init --codex -y -u smoke --lang zh >"$init_stdout" 2>"$init_stderr")
 test -f "$yes_dir/AGENTS.md"
-test -f "$yes_dir/.codex/spec-first/.developer"
+test -f "$ISOLATED_HOME/.spec-first/.developer"
+test ! -f "$yes_dir/.codex/spec-first/.developer"
+test ! -f "$yes_dir/.claude/spec-first/.developer"
 test ! -f "$yes_dir/CLAUDE.md"
 echo "✓ init rejects non-TTY without -y, rejects unsupported flags, and supports explicit -y"
 
@@ -224,7 +228,7 @@ if (state.skills.length !== Number(skillCount)) throw new Error('skill count mis
 if (state.workflowSkills.length !== Number(workflowSkillCount)) throw new Error('workflow skill count mismatch');
 if (!state.workflowSkills.includes('spec-mcp-setup')) throw new Error('missing Claude mcp-setup workflow support asset');
 if (state.agents.length !== Number(agentCount)) throw new Error('agent count mismatch');
-if (state.developer.name !== 'kuang' || state.developer.lang !== 'en') throw new Error('developer profile mismatch');
+if (state.developer) throw new Error('state should no longer track developer profile');
 NODE
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md"
 grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/CLAUDE.md"

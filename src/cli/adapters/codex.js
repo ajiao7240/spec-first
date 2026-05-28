@@ -52,10 +52,6 @@ class CodexAdapter extends PlatformAdapter {
     return '.codex/spec-first/state.json';
   }
 
-  get developerFile() {
-    return '.codex/spec-first/.developer';
-  }
-
   get instructionFile() {
     return 'AGENTS.md';
   }
@@ -108,7 +104,6 @@ class CodexAdapter extends PlatformAdapter {
     const skillsDir = path.join(projectRoot, this.skillsRoot);
     const agentsDir = path.join(projectRoot, this.agentsRoot);
     const stateFilePath = path.join(projectRoot, this.stateFile);
-    const developerFilePath = path.join(projectRoot, this.developerFile);
 
     return {
       platform: this.id,
@@ -117,7 +112,6 @@ class CodexAdapter extends PlatformAdapter {
       skills: fs.existsSync(skillsDir),
       agents: fs.existsSync(agentsDir),
       state: fs.existsSync(stateFilePath),
-      developer: fs.existsSync(developerFilePath),
     };
   }
 

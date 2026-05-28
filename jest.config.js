@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = {
+  setupFiles: ['<rootDir>/tests/jest-setup.js'],
   modulePathIgnorePatterns: [
     '<rootDir>/.worktrees/',
     '<rootDir>/.agents/',

@@ -56,13 +56,6 @@ describe('agent support file contracts', () => {
   test('buildState preserves agentSupportFiles in managed state', () => {
     const state = buildState('1.5.1', {
       platform: 'claude',
-      developer: {
-        path: '.claude/spec-first/.developer',
-        name: 'kuang',
-        lang: 'zh',
-        initializedAt: '2026-04-15 00:23:08',
-        version: '1.5.1',
-      },
       commands: [{ filename: 'sessions.md' }, { filename: 'work.md' }, { filename: 'sessions.md' }],
       skills: ['spec-doc-review', 'spec-doc-review'],
       workflowSkills: ['spec-code-review', 'spec-plan', 'spec-code-review'],

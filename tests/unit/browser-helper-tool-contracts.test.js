@@ -84,13 +84,6 @@ function writeOldClaudeStateWithAgentBrowser(projectRoot) {
     `${JSON.stringify({
       manifestVersion: '0.0.0-old',
       platform: 'claude',
-      developer: {
-        path: '.claude/spec-first/.developer',
-        name: 'reviewer',
-        lang: 'zh',
-        initializedAt: '2026-04-01T00:00:00.000Z',
-        version: '1.5.9',
-      },
       commands: [],
       skills: ['agent-browser'],
       workflowSkills: [],

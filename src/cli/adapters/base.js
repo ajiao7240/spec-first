@@ -68,13 +68,6 @@ class PlatformAdapter {
   }
 
   /**
-   * Developer metadata file path
-   */
-  get developerFile() {
-    throw new Error('Not implemented: developerFile');
-  }
-
-  /**
    * Repo-root instruction file written by spec-first init (e.g., CLAUDE.md, AGENTS.md).
    * Used by lang-policy.js to locate the file that governs AI assistant behavior.
    */

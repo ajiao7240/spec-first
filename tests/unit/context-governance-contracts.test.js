@@ -35,7 +35,7 @@ describe('context governance runtime exclusion contract', () => {
     expect(contract).toContain('`spec-update` / `spec-mcp-setup`');
     expect(contract).toContain('`spec-skill-audit`');
     expect(contract).toContain('changelog author resolution');
-    expect(contract).toContain('`.codex/spec-first/.developer`');
+    expect(contract).toContain('`~/.spec-first/.developer`');
     expect(contract).toContain('user-explicit path request');
     expect(contract).toContain('不实现中心化 context router');
     expect(contract).toContain('不把 `.gitignore` 当作 LLM context policy 的唯一来源');

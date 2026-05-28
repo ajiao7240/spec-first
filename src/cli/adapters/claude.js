@@ -44,10 +44,6 @@ class ClaudeAdapter extends PlatformAdapter {
     return '.claude/spec-first/state.json';
   }
 
-  get developerFile() {
-    return '.claude/spec-first/.developer';
-  }
-
   get instructionFile() {
     return 'CLAUDE.md';
   }
@@ -89,7 +85,6 @@ class ClaudeAdapter extends PlatformAdapter {
     const skillsDir = path.join(projectRoot, this.skillsRoot);
     const agentsDir = path.join(projectRoot, this.agentsRoot);
     const stateFilePath = path.join(projectRoot, this.stateFile);
-    const developerFilePath = path.join(projectRoot, this.developerFile);
 
     return {
       platform: this.id,
@@ -98,7 +93,6 @@ class ClaudeAdapter extends PlatformAdapter {
       skills: fs.existsSync(skillsDir),
       agents: fs.existsSync(agentsDir),
       state: fs.existsSync(stateFilePath),
-      developer: fs.existsSync(developerFilePath),
     };
   }
 

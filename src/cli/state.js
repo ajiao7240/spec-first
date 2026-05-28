@@ -91,11 +91,9 @@ function clearState(projectRoot, adapter) {
 }
 
 function buildState(manifestVersion, syncedAssets) {
-  const developer = syncedAssets.developer ? normalizeDeveloper(syncedAssets.developer) : null;
   return normalizeState({
     manifestVersion,
     platform: syncedAssets.platform || '',
-    developer,
     commands: syncedAssets.commands.map((entry) => entry.filename),
     skills: normalizeStringArray([
       ...(Array.isArray(syncedAssets.skills) ? syncedAssets.skills : []),
@@ -112,7 +110,6 @@ function normalizeState(raw) {
   return {
     manifestVersion: typeof safe.manifestVersion === 'string' ? safe.manifestVersion : '',
     platform: typeof safe.platform === 'string' ? safe.platform : '',
-    developer: normalizeDeveloper(safe.developer),
     commands: normalizeStringArray(safe.commands),
     skills: normalizeStringArray(safe.skills),
     workflowSkills: normalizeStringArray(safe.workflowSkills),
@@ -121,7 +118,7 @@ function normalizeState(raw) {
   };
 }
 
-function validateManagedStateShape(raw, adapter) {
+function validateManagedStateShape(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error('Invalid managed state: expected a JSON object');
   }
@@ -149,16 +146,6 @@ function validateManagedStateShape(raw, adapter) {
     }));
     if (unsafeEntry !== undefined) {
       throw new Error(`Invalid managed state: field "${field}" contains unsafe path entry "${unsafeEntry}"`);
-    }
-  }
-
-  const developer = raw.developer && typeof raw.developer === 'object' ? raw.developer : null;
-  if (developer && typeof developer.path === 'string' && developer.path.length > 0) {
-    if (!isSafeManagedStatePath(developer.path, { allowNested: true })) {
-      throw new Error(`Invalid managed state: developer.path contains unsafe path entry "${developer.path}"`);
-    }
-    if (adapter && normalizeOperationPath(developer.path) !== normalizeOperationPath(adapter.developerFile)) {
-      throw new Error(`Invalid managed state: developer.path must be "${adapter.developerFile}"`);
     }
   }
 }
@@ -197,38 +184,6 @@ function isLegacyManagedState(raw) {
   return !!raw && typeof raw === 'object' && !Array.isArray(raw) && (
     REQUIRED_MANAGED_STATE_ARRAY_FIELDS.some((field) => !Array.isArray(raw[field]))
   );
-}
-
-function normalizeDeveloper(value) {
-  const safe = value && typeof value === 'object' ? value : null;
-  if (!safe) {
-    return null;
-  }
-
-  const developer = {
-    path: typeof safe.path === 'string' && safe.path.length > 0 ? safe.path : '',
-    name: typeof safe.name === 'string' && safe.name.length > 0 ? safe.name : '',
-    lang: typeof safe.lang === 'string' && safe.lang.length > 0 ? safe.lang : '',
-    initializedAt:
-      typeof safe.initializedAt === 'string' && safe.initializedAt.length > 0
-        ? safe.initializedAt
-        : typeof safe.initialized_at === 'string' && safe.initialized_at.length > 0
-          ? safe.initialized_at
-        : '',
-    version: typeof safe.version === 'string' && safe.version.length > 0 ? safe.version : '',
-  };
-
-  if (
-    !developer.path &&
-    !developer.name &&
-    !developer.lang &&
-    !developer.initializedAt &&
-    !developer.version
-  ) {
-    return null;
-  }
-
-  return developer;
 }
 
 function normalizeStringArray(value) {
@@ -386,26 +341,6 @@ function planManagedAssetRemoval(projectRoot, managedState, adapter) {
     );
   }
 
-  if (state.developer && state.developer.path) {
-    operations.push(
-      buildOperation(
-        'remove_file',
-        path.join(projectRoot, state.developer.path),
-        projectRoot,
-        'managed_developer_profile',
-      ),
-    );
-  } else {
-    operations.push(
-      buildOperation(
-        'remove_file',
-        path.join(projectRoot, adapter.developerFile),
-        projectRoot,
-        'managed_developer_profile',
-      ),
-    );
-  }
-
   return {
     operations,
     summary: summarizeOperations(operations),
@@ -517,20 +452,6 @@ function planObsoleteManagedAssetRemoval(projectRoot, previousState, nextState, 
         'obsolete_managed_agent_support_file',
       ),
     );
-  }
-
-  if (previous.developer && previous.developer.path) {
-    const nextDeveloperPath = next.developer && next.developer.path ? next.developer.path : '';
-    if (previous.developer.path !== nextDeveloperPath) {
-      operations.push(
-        buildOperation(
-          'remove_file',
-          path.join(projectRoot, previous.developer.path),
-          projectRoot,
-          'obsolete_developer_profile',
-        ),
-      );
-    }
   }
 
   return {

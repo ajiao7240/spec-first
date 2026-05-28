@@ -54,12 +54,12 @@ function tracked(repoRoot, relativePath) {
 }
 
 describe('runtime untrack helper', () => {
-  test('plans and applies untrack for tracked Codex developer profile while preserving worktree file', () => {
+  test('plans and applies untrack for tracked Codex managed state while preserving worktree file', () => {
     const repoRoot = makeTempDir();
 
     try {
       initRepo(repoRoot);
-      writeFile(repoRoot, '.codex/spec-first/.developer');
+      writeFile(repoRoot, '.codex/spec-first/state.json', '{}\n');
       commitAll(repoRoot);
 
       const plan = planRuntimeUntrack({ projectRoot: repoRoot });
@@ -67,14 +67,14 @@ describe('runtime untrack helper', () => {
       expect(plan.operations).toEqual([
         expect.objectContaining({
           kind: 'untrack_index',
-          path: '.codex/spec-first/.developer',
+          path: '.codex/spec-first/state.json',
         }),
       ]);
 
       const result = applyRuntimeUntrack({ projectRoot: repoRoot, operations: plan.operations });
       expect(result.applied_count).toBe(1);
-      expect(tracked(repoRoot, '.codex/spec-first/.developer')).toBe('');
-      expect(fs.existsSync(path.join(repoRoot, '.codex/spec-first/.developer'))).toBe(true);
+      expect(tracked(repoRoot, '.codex/spec-first/state.json')).toBe('');
+      expect(fs.existsSync(path.join(repoRoot, '.codex/spec-first/state.json'))).toBe(true);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }
@@ -86,7 +86,7 @@ describe('runtime untrack helper', () => {
     try {
       initRepo(repoRoot);
       fs.writeFileSync(path.join(repoRoot, '.gitignore'), `${buildSpecFirstGitignoreBlock()}\n`, 'utf8');
-      writeFile(repoRoot, '.claude/spec-first/.developer');
+      writeFile(repoRoot, '.claude/spec-first/state.json', '{}\n');
 
       const plan = planRuntimeUntrack({ projectRoot: repoRoot });
       expect(plan.reason_code).toBe('none-tracked');
@@ -152,12 +152,12 @@ describe('runtime untrack helper', () => {
     const projectRoot = makeTempDir();
 
     try {
-      writeFile(projectRoot, '.codex/spec-first/.developer');
+      writeFile(projectRoot, '.codex/spec-first/state.json', '{}\n');
       const plan = planRuntimeUntrack({ projectRoot });
 
       expect(plan.reason_code).toBe('not-a-git-repo');
       expect(plan.operations).toEqual([]);
-      expect(fs.existsSync(path.join(projectRoot, '.codex/spec-first/.developer'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.codex/spec-first/state.json'))).toBe(true);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -187,7 +187,7 @@ describe('runtime untrack helper', () => {
 
     try {
       initRepo(repoRoot);
-      writeFile(repoRoot, '.claude/spec-first/.developer');
+      writeFile(repoRoot, '.claude/spec-first/state.json', '{}\n');
       commitAll(repoRoot);
 
       const firstPlan = planRuntimeUntrack({ projectRoot: repoRoot });

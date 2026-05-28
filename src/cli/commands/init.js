@@ -11,13 +11,12 @@ const {
   planBundledAssetSync,
 } = require('../plugin');
 const {
-  formatDeveloperContents,
   getGlobalDeveloperPath,
-  getProjectDeveloperPath,
   readDeveloperFile,
   readGitUserName,
   resolveChangelogAuthor,
   resolveDeveloperIdentity,
+  writeGlobalDeveloperFile,
 } = require('../developer');
 const {
   applyOperationPlan,
@@ -274,7 +273,7 @@ async function collectInitInput({
   }
 
   const adapters = platforms.map((platform) => getAdapter(platform));
-  const defaults = resolveDeveloperDefaults(root, adapters);
+  const defaults = resolveDeveloperDefaults(root);
   const name = parsed.name || (parsed.yes
     ? defaults.name
     : await promptApi.textInput('Developer name:', {
@@ -296,6 +295,13 @@ async function collectInitInput({
     return null;
   }
 
+  const globalProfileConfirmed = await maybeConfirmGlobalProfileOverwrite({
+    parsed,
+    promptApi,
+    name,
+    lang,
+  });
+
   return {
     projectRoot: target.projectRoot || root,
     workspaceRoot: target.workspaceRoot || root,
@@ -303,7 +309,28 @@ async function collectInitInput({
     name,
     lang,
     target,
+    globalProfileConfirmed,
   };
+}
+
+async function maybeConfirmGlobalProfileOverwrite({ parsed, promptApi, name, lang }) {
+  const existing = readDeveloperFile(getGlobalDeveloperPath());
+  if (!existing || !existing.name) {
+    return false;
+  }
+  const sameName = !name || name === existing.name;
+  const sameLang = !lang || lang === existing.lang;
+  if (sameName && sameLang) {
+    return false;
+  }
+  if (parsed.yes) {
+    return Boolean(parsed.name) || Boolean(parsed.lang);
+  }
+  const display = `${existing.name} (${existing.lang})`;
+  return promptApi.confirm(
+    `全局 developer profile 已存在: ${display}。是否用 ${name} (${lang}) 覆盖?`,
+    { default: false },
+  );
 }
 
 function defaultInitPlatforms() {
@@ -381,20 +408,14 @@ async function collectInteractiveInitTarget(workspaceRoot, promptApi) {
   ], { requireExplicit: true });
 }
 
-function resolveDeveloperDefaults(projectRoot, adapters) {
-  const adapterList = Array.isArray(adapters) ? adapters : [adapters];
-  const projectDevelopers = adapterList
-    .map((adapter) => readDeveloperFile(getProjectDeveloperPath(projectRoot, adapter)))
-    .filter(Boolean);
+function resolveDeveloperDefaults(projectRoot) {
   const globalDeveloper = readDeveloperFile(getGlobalDeveloperPath());
   const gitUserName = readGitUserName(projectRoot);
   const name =
-    firstTruthy(projectDevelopers.map((developer) => developer.name)) ||
     (globalDeveloper && globalDeveloper.name) ||
     gitUserName ||
     '';
   const lang =
-    firstTruthy(projectDevelopers.map((developer) => normalizeSupportedLang(developer.lang))) ||
     normalizeSupportedLang(globalDeveloper && globalDeveloper.lang) ||
     'zh';
 
@@ -402,10 +423,6 @@ function resolveDeveloperDefaults(projectRoot, adapters) {
     name,
     lang,
   };
-}
-
-function firstTruthy(values) {
-  return (Array.isArray(values) ? values : []).find(Boolean) || '';
 }
 
 function normalizeSupportedLang(value) {
@@ -487,7 +504,7 @@ function runInitForProject({
     projectRoot,
     platform,
     adapter,
-    name: parsed.user,
+    name: parsed.name,
     lang: parsed.lang,
     gitRootTopology,
     dryRun: parsed.dryRun,
@@ -572,6 +589,7 @@ function buildProjectInitPlan({
   lang = '',
   gitRootTopology = 'single-repo',
   dryRun = false,
+  globalProfileConfirmed = false,
 }) {
   const normalizedRoot = canonicalizeExistingPath(projectRoot);
   const errors = [];
@@ -631,7 +649,7 @@ function buildProjectInitPlan({
     developer = resolveDeveloperIdentity(normalizedRoot, {
       user: user || name,
       lang,
-    }, adapter);
+    });
   } catch (error) {
     errors.push({
       code: 'developer_identity_unresolved',
@@ -654,13 +672,6 @@ function buildProjectInitPlan({
   const previewState = buildState(manifest.version, {
     ...assetSync.syncedAssets,
     platform,
-    developer: {
-      path: adapter.developerFile,
-      name: developer.name,
-      lang: developer.lang,
-      initializedAt: developer.initializedAt,
-      version: developer.version,
-    },
   });
 
   if (platform === 'claude') {
@@ -701,7 +712,6 @@ function buildProjectInitPlan({
       commandSkillNames: [...commandSkillNames],
       bundledAgentPaths,
       bundledAgentSupportFiles,
-      developer,
     });
     destructiveResetPlan = planHardResetManagedAssets(normalizedRoot, legacyResetState, adapter);
     destructiveResetReason = 'legacy_state_detected';
@@ -725,6 +735,7 @@ function buildProjectInitPlan({
     planObsoleteManagedAssetRemoval(normalizedRoot, previousState, previewState, adapter),
     planCommandNamespacePrune(normalizedRoot, previewState.commands, adapter),
     planRetiredRuntimeAssetPrune(normalizedRoot, adapter),
+    planLegacyDeveloperProfileCleanup(normalizedRoot),
   );
   const initWritePlan = buildInitWritePlan({
     projectRoot: normalizedRoot,
@@ -738,6 +749,11 @@ function buildProjectInitPlan({
   });
 
   const operationPlan = mergeOperationPlans(destructiveResetPlan, preSyncPlan, initWritePlan.plan);
+  const globalDeveloperWrite = resolveGlobalDeveloperWriteAction(developer, {
+    explicitName: !!user || !!name,
+    explicitLang: !!lang,
+    confirmedOverwrite: !!globalProfileConfirmed,
+  });
   return {
     schema_version: 'spec-first-init-plan.v1',
     mode: 'single-repo',
@@ -762,6 +778,7 @@ function buildProjectInitPlan({
     diagnostics,
     errors,
     summary: operationPlan.summary,
+    globalDeveloperWrite,
   };
 }
 
@@ -795,10 +812,21 @@ function applyProjectInitPlan(projectRoot, plan) {
     untrackApplyResult = applyOperationPlan(normalizedRoot, plan.writePlan);
   }
 
+  applyGlobalDeveloperProfileWrite(plan.globalDeveloperWrite);
+
   return {
     exit_code: 0,
     runtime_untrack: buildRuntimeUntrackSummary(plan.untrackDiagnostic, untrackApplyResult),
   };
+}
+
+function applyGlobalDeveloperProfileWrite(globalWrite) {
+  if (!globalWrite || !globalWrite.developer) {
+    return;
+  }
+  if (globalWrite.action === 'create' || globalWrite.action === 'overwrite') {
+    writeGlobalDeveloperFile(globalWrite.developer);
+  }
 }
 
 function printInitApplySuccess(plan, result, options = {}) {
@@ -836,12 +864,7 @@ function printInitApplySuccess(plan, result, options = {}) {
   }
   const runtimeUntrack = result.runtime_untrack;
   printRuntimeUntrackApplySummary(runtimeUntrack);
-  console.log('🪪 Wrote project developer profile:');
-  console.log(`  📍 path: ${adapter.developerFile}`);
-  console.log(`  👤 name: ${plan.developer.name}`);
-  console.log(`  🈯 lang: ${plan.developer.lang}`);
-  console.log(`  ⏱ initialized_at: ${plan.developer.initializedAt}`);
-  console.log(`  🔖 version: ${plan.developer.version}`);
+  printGlobalDeveloperWriteSummary(plan.globalDeveloperWrite);
   if (plan.changelogCreated && !options.suppressChangelogCreated) {
     console.log('📝 Bootstrapped CHANGELOG.md');
   }
@@ -849,6 +872,29 @@ function printInitApplySuccess(plan, result, options = {}) {
   if (options.showNextSteps !== false) {
     console.log('');
     printInitNextSteps(plan.platform, plan.developer.lang);
+  }
+}
+
+function printGlobalDeveloperWriteSummary(globalWrite) {
+  if (!globalWrite || !globalWrite.developer) {
+    return;
+  }
+  const action = globalWrite.action;
+  if (action === 'create') {
+    console.log('🪪 Wrote global developer profile:');
+  } else if (action === 'overwrite') {
+    console.log('🪪 Updated global developer profile:');
+  } else {
+    console.log('🪪 Preserved existing global developer profile:');
+  }
+  console.log(`  📍 path: ${globalWrite.globalPath}`);
+  console.log(`  👤 name: ${globalWrite.developer.name}`);
+  console.log(`  🈯 lang: ${globalWrite.developer.lang}`);
+  if (globalWrite.developer.initializedAt) {
+    console.log(`  ⏱ initialized_at: ${globalWrite.developer.initializedAt}`);
+  }
+  if (globalWrite.developer.version) {
+    console.log(`  🔖 version: ${globalWrite.developer.version}`);
   }
 }
 
@@ -1715,7 +1761,6 @@ function buildLegacyHardResetState({
   commandSkillNames,
   bundledAgentPaths,
   bundledAgentSupportFiles,
-  developer,
 }) {
   const rawState = rawManagedState && typeof rawManagedState === 'object' ? rawManagedState : {};
   const legacyTrackedSkills = mergeStringArrays(rawState.skills, rawState.workflowSkills);
@@ -1733,7 +1778,6 @@ function buildLegacyHardResetState({
       : mergeStringArrays(commandSkillNames, rawState.workflowSkills),
     agents: mergeStringArrays(rawState.agents, bundledAgentPaths),
     agentSupportFiles: mergeStringArrays(rawState.agentSupportFiles, bundledAgentSupportFiles),
-    developer: rawState.developer && typeof rawState.developer === 'object' ? rawState.developer : developer,
   };
 }
 
@@ -1744,6 +1788,71 @@ function mergeStringArrays(...values) {
       : []
   )))].sort((a, b) => a.localeCompare(b));
 }
+
+const LEGACY_PROJECT_DEVELOPER_PATHS = [
+  '.claude/spec-first/.developer',
+  '.codex/spec-first/.developer',
+];
+
+function planLegacyDeveloperProfileCleanup(projectRoot) {
+  const operations = [];
+  for (const relativePath of LEGACY_PROJECT_DEVELOPER_PATHS) {
+    const absolutePath = path.join(projectRoot, relativePath);
+    if (fs.existsSync(absolutePath)) {
+      operations.push({
+        kind: 'remove_file',
+        path: relativePath,
+        reason: 'legacy_project_developer_profile',
+      });
+    }
+  }
+  return {
+    operations,
+    summary: summarizeOperationPlan(operations),
+  };
+}
+
+function readLegacyProjectDeveloperFiles(projectRoot) {
+  const records = [];
+  for (const relativePath of LEGACY_PROJECT_DEVELOPER_PATHS) {
+    const absolutePath = path.join(projectRoot, relativePath);
+    const developer = readDeveloperFile(absolutePath);
+    if (developer && developer.name) {
+      records.push({ relativePath, developer });
+    }
+  }
+  return records;
+}
+
+function resolveGlobalDeveloperWriteAction(developer, options = {}) {
+  const globalPath = getGlobalDeveloperPath();
+  const existing = readDeveloperFile(globalPath);
+  if (!existing || !existing.name) {
+    return {
+      action: 'create',
+      developer,
+      globalPath: normalizeOperationPathLike(GLOBAL_DEVELOPER_RELATIVE_DISPLAY),
+    };
+  }
+  if (options.confirmedOverwrite || options.explicitName || options.explicitLang) {
+    return {
+      action: 'overwrite',
+      developer,
+      globalPath: normalizeOperationPathLike(GLOBAL_DEVELOPER_RELATIVE_DISPLAY),
+    };
+  }
+  return {
+    action: 'preserve',
+    developer: existing,
+    globalPath: normalizeOperationPathLike(GLOBAL_DEVELOPER_RELATIVE_DISPLAY),
+  };
+}
+
+function normalizeOperationPathLike(value) {
+  return String(value || '').replace(/\\/g, '/');
+}
+
+const GLOBAL_DEVELOPER_RELATIVE_DISPLAY = path.join('~', '.spec-first', '.developer');
 
 function findDuplicateClaudeAgentNames(agentPaths) {
   const seen = new Set();
@@ -1868,13 +1977,6 @@ function buildInitMetadataPlan({
     adapter.instructionFile,
     normalizedGitNexusInstruction,
     'managed_instruction_file',
-  ));
-
-  operations.push(buildPlanFileOperation(
-    projectRoot,
-    adapter.developerFile,
-    formatDeveloperContents(developer),
-    'managed_developer_profile',
   ));
 
   operations.push(buildPlanFileOperation(

@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { inspectInstalledAssets, listBundledCommands, loadPluginManifest } = require('../plugin');
-const { readDeveloperFile, getProjectDeveloperPath } = require('../developer');
+const { readDeveloperFile, getGlobalDeveloperPath } = require('../developer');
 const { isCommandTimeout, spawnSyncWithTimeout } = require('../external-command');
 const { inspectCodingGuidelinesBlock } = require('../coding-guidelines');
 const { isLegacyManagedState, readState, readStateFileRaw } = require('../state');
@@ -416,7 +416,7 @@ function buildDoctorCommonChecks(projectRoot) {
     checkNodeVersion(),
     checkGit(),
     checkPluginManifest(),
-    checkProjectDeveloperProfileConsistency(projectRoot),
+    checkGlobalDeveloper(projectRoot),
   ].filter(Boolean);
 }
 
@@ -433,7 +433,6 @@ function buildDoctorReport({ projectRoot, platforms }) {
     const commandChecks = adapter.hasCommands ? [checkGeneratedCommands(projectRoot, adapter)] : [];
     const hostSpecificChecks = buildHostSpecificChecks(projectRoot, adapter);
     const coreRuntimeChecks = [
-      checkProjectDeveloper(projectRoot, adapter),
       checkManagedState(projectRoot, adapter),
       checkInstructionCodingGuidelines(projectRoot, adapter),
       checkInstructionBootstrap(projectRoot, adapter),
@@ -565,7 +564,6 @@ function computeWorkflowRunnability({
     const adapter = getAdapter(platform);
     const requiredChecks = [
       adapter.stateFile,
-      adapter.developerFile,
       adapter.skillsRoot,
       adapter.agentsRoot,
     ];
@@ -795,14 +793,15 @@ function describeEvidenceFallback(fallbackReason) {
   return 'workflow verification evidence is incomplete';
 }
 
-function checkProjectDeveloper(projectRoot, adapter) {
-  const developerPath = getProjectDeveloperPath(projectRoot, adapter);
+function checkGlobalDeveloper(projectRoot) {
+  const developerPath = getGlobalDeveloperPath();
+  const displayName = '~/.spec-first/.developer';
   if (!fs.existsSync(developerPath)) {
     return {
       level: 'WARNING',
-      name: `${adapter.developerFile}`,
+      name: displayName,
       message: 'missing',
-      fix: formatInitGuidance(adapter, 'in this project to write the project developer profile'),
+      fix: 'Run `spec-first init` and choose a developer name and language to write the global developer profile.',
     };
   }
 
@@ -810,83 +809,30 @@ function checkProjectDeveloper(projectRoot, adapter) {
   if (!developer) {
     return {
       level: 'ERROR',
-      name: `${adapter.developerFile}`,
+      name: displayName,
       message: 'invalid or empty',
-      fix: formatInitGuidance(adapter, 'to choose a developer name and regenerate the project developer profile'),
+      fix: 'Run `spec-first init` and choose a developer name and language to regenerate the global developer profile.',
     };
   }
 
-  const packageVersion = require('../../../package.json').version;
   if (
     typeof developer.name !== 'string' ||
     developer.name.length === 0 ||
     typeof developer.lang !== 'string' ||
-    (developer.lang !== 'zh' && developer.lang !== 'en') ||
-    typeof developer.initializedAt !== 'string' ||
-    developer.initializedAt.length === 0 ||
-    typeof developer.version !== 'string' ||
-    developer.version.length === 0
+    (developer.lang !== 'zh' && developer.lang !== 'en')
   ) {
     return {
       level: 'ERROR',
-      name: `${adapter.developerFile}`,
+      name: displayName,
       message: 'invalid or incomplete',
-      fix: formatInitGuidance(adapter, 'to choose a developer name and regenerate the project developer profile'),
-    };
-  }
-
-  if (developer.version !== packageVersion) {
-    return {
-      level: 'WARNING',
-      name: `${adapter.developerFile}`,
-      message: `recorded ${developer.version}, bundled ${packageVersion}`,
-      fix: formatInitGuidance(adapter, 'in this project to refresh the project developer profile after upgrading'),
+      fix: 'Run `spec-first init` and choose a developer name and language to regenerate the global developer profile.',
     };
   }
 
   return {
     level: 'PASS',
-    name: `${adapter.developerFile}`,
-    message: `${developer.name} (${developer.lang}) ${developer.version}`,
-  };
-}
-
-function checkProjectDeveloperProfileConsistency(projectRoot) {
-  const profiles = getSupportedPlatforms()
-    .map((platform) => {
-      const adapter = getAdapter(platform);
-      const developerPath = getProjectDeveloperPath(projectRoot, adapter);
-      const developer = readDeveloperFile(developerPath);
-      if (!developer || !developer.name) {
-        return null;
-      }
-
-      return {
-        host: platform,
-        name: developer.name,
-        path: adapter.developerFile.replace(/\\/g, '/'),
-      };
-    })
-    .filter(Boolean);
-
-  if (profiles.length < 2) {
-    return null;
-  }
-
-  const uniqueNames = [...new Set(profiles.map((profile) => profile.name))];
-  if (uniqueNames.length <= 1) {
-    return null;
-  }
-
-  const summary = profiles
-    .map((profile) => `${profile.host}=${profile.name}`)
-    .join(', ');
-
-  return {
-    level: 'WARNING',
-    name: 'project developer identity',
-    message: `mismatched project developer names detected (${summary}); runtime project profiles have drifted across hosts`,
-    fix: 'Run `spec-first init` and choose each affected host when prompted to align the project developer profiles.',
+    name: displayName,
+    message: `${developer.name} (${developer.lang})${developer.version ? ` ${developer.version}` : ''}`,
   };
 }
 

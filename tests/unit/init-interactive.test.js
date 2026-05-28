@@ -154,7 +154,7 @@ describe('interactive init command', () => {
       expect(result.stdout).toContain('Generated');
       expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-work', 'SKILL.md'))).toBe(true);
-      expect(fs.readFileSync(path.join(projectRoot, '.codex', 'spec-first', '.developer'), 'utf8')).toContain('name=reviewer');
+      expect(fs.existsSync(path.join(projectRoot, '.codex', 'spec-first', '.developer'))).toBe(false);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

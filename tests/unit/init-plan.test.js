@@ -42,13 +42,6 @@ function writeLegacyClaudeState(projectRoot) {
     `${JSON.stringify({
       manifestVersion: '0.0.0-old',
       platform: 'claude',
-      developer: {
-        path: '.claude/spec-first/.developer',
-        name: 'reviewer',
-        lang: 'zh',
-        initializedAt: '2026-04-01T00:00:00.000Z',
-        version: '1.5.9',
-      },
       commands: {},
       skills: ['old-skill'],
     }, null, 2)}\n`,
@@ -103,7 +96,7 @@ describe('init plan API', () => {
       expect(fs.existsSync(path.join(projectRoot, '.claude', 'commands', 'spec', 'work.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.claude', 'hooks', 'session-start'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.claude', 'spec-first', 'state.json'))).toBe(true);
-      expect(fs.readFileSync(path.join(projectRoot, '.claude', 'spec-first', '.developer'), 'utf8')).toContain('name=reviewer');
+      expect(fs.existsSync(path.join(projectRoot, '.claude', 'spec-first', '.developer'))).toBe(false);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

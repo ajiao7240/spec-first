@@ -226,7 +226,6 @@ function buildMinimalInitWritePlan(projectRoot) {
     nextState: {
       manifestVersion: '1.8.2',
       platform: 'codex',
-      developer: null,
       commands: [],
       skills: [],
       workflowSkills: [],
@@ -633,7 +632,7 @@ describe('init --dry-run', () => {
       expect(countLiteral(codexInstruction, '<!-- spec-first:bootstrap:start -->')).toBe(1);
       expect(countLiteral(codexInstruction, '<!-- spec-first:coding-guidelines:start -->')).toBe(1);
       expect(fs.existsSync(path.join(projectRoot, '.codex', 'spec-first', 'state.json'))).toBe(true);
-      expect(fs.existsSync(path.join(projectRoot, '.codex', 'spec-first', '.developer'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.codex', 'spec-first', '.developer'))).toBe(false);
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'using-spec-first', 'SKILL.md'))).toBe(true);
     } finally {
       initLogSpy.mockRestore();
@@ -721,7 +720,7 @@ describe('init --dry-run', () => {
 
     try {
       initGitRepo(projectRoot);
-      writeFile(projectRoot, '.codex/spec-first/.developer');
+      writeFile(projectRoot, '.codex/spec-first/state.json', '{}\n');
       commitAll(projectRoot);
 
       const result = captureInit(projectRoot, ['--codex', '--dry-run', '-u', 't', '--lang', 'zh']);
@@ -729,8 +728,8 @@ describe('init --dry-run', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe('');
       expect(result.stdout).toContain('Would untrack 1 managed runtime path(s):');
-      expect(result.stdout).toContain('.codex/spec-first/.developer');
-      expect(tracked(projectRoot, '.codex/spec-first/.developer')).toBe('.codex/spec-first/.developer');
+      expect(result.stdout).toContain('.codex/spec-first/state.json');
+      expect(tracked(projectRoot, '.codex/spec-first/state.json')).toBe('.codex/spec-first/state.json');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -741,7 +740,7 @@ describe('init --dry-run', () => {
 
     try {
       initGitRepo(projectRoot);
-      writeFile(projectRoot, '.codex/spec-first/.developer');
+      writeFile(projectRoot, '.codex/spec-first/state.json', '{}\n');
       commitAll(projectRoot);
 
       const result = captureInit(projectRoot, ['--codex', '-u', 't', '--lang', 'zh']);
@@ -749,8 +748,8 @@ describe('init --dry-run', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe('');
       expect(result.stdout).toContain('🧯 Untracked 1 managed runtime path(s) from git index (work tree files preserved).');
-      expect(tracked(projectRoot, '.codex/spec-first/.developer')).toBe('');
-      expect(fs.existsSync(path.join(projectRoot, '.codex/spec-first/.developer'))).toBe(true);
+      expect(tracked(projectRoot, '.codex/spec-first/state.json')).toBe('');
+      expect(fs.existsSync(path.join(projectRoot, '.codex/spec-first/state.json'))).toBe(true);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -778,7 +777,7 @@ describe('init --dry-run', () => {
 
     try {
       initGitRepo(projectRoot);
-      writeFile(projectRoot, '.codex/spec-first/.developer');
+      writeFile(projectRoot, '.codex/spec-first/state.json', '{}\n');
       commitAll(projectRoot);
 
       const initWritePlan = buildMinimalInitWritePlan(projectRoot);
@@ -907,14 +906,14 @@ describe('init --dry-run', () => {
     try {
       fs.mkdirSync(childRoot, { recursive: true });
       initGitRepo(childRoot);
-      writeFile(childRoot, '.codex/spec-first/.developer');
+      writeFile(childRoot, '.codex/spec-first/state.json', '{}\n');
       commitAll(childRoot);
 
       const result = captureInit(workspaceRoot, ['--codex', '--all-repos', '-u', 'reviewer', '--lang', 'zh']);
 
       expect(result.exitCode).toBe(0);
-      expect(tracked(childRoot, '.codex/spec-first/.developer')).toBe('');
-      expect(fs.existsSync(path.join(childRoot, '.codex/spec-first/.developer'))).toBe(true);
+      expect(tracked(childRoot, '.codex/spec-first/state.json')).toBe('');
+      expect(fs.existsSync(path.join(childRoot, '.codex/spec-first/state.json'))).toBe(true);
 
       const summary = JSON.parse(fs.readFileSync(
         path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary.json'),

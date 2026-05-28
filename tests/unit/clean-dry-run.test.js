@@ -252,7 +252,7 @@ describe('clean --dry-run', () => {
     }
   });
 
-  test('managed state validation rejects unsafe developer profile paths', () => {
+  test('managed state ignores legacy developer fields when present', () => {
     const projectRoot = makeTempDir();
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
@@ -262,10 +262,11 @@ describe('clean --dry-run', () => {
       const adapter = getAdapter('codex');
       const statePath = path.join(projectRoot, adapter.stateFile);
       const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-      state.developer.path = '../outside-developer';
+      state.developer = { path: '.codex/spec-first/.developer', name: 'legacy', lang: 'zh' };
       fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 
-      expect(() => readState(projectRoot, adapter)).toThrow(/developer\.path contains unsafe path entry/);
+      const reread = readState(projectRoot, adapter);
+      expect(reread).not.toHaveProperty('developer');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
