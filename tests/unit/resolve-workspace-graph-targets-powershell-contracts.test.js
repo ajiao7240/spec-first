@@ -44,6 +44,10 @@ describe('PowerShell workspace graph target resolver contract', () => {
       expect(source).toContain('child-on-legacy-spec-first-version');
       expect(source).toContain('crg-residue-ignored');
       expect(source).toContain('query_usability_counts');
+      expect(source).toContain('compile-gradle-build-targets.js');
+      expect(source).toContain('non_git_build_modules');
+      expect(source).toContain('coverage_summary');
+      expect(source).toContain('graph_coverage_class');
       expect(source).toContain('fresh-primary');
       expect(source).toContain('stale-advisory');
       expect(source).toContain('definitions-pointer');

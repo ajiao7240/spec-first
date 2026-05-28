@@ -8,6 +8,7 @@ GRAPH_BOOTSTRAP_SKILL="$REPO_ROOT/skills/spec-graph-bootstrap/SKILL.md"
 BOOTSTRAP_SCRIPT="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.sh"
 BOOTSTRAP_PS1="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/bootstrap-providers.ps1"
 WORKSPACE_TARGET_RESOLVER="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.sh"
+WORKSPACE_TARGET_RESOLVER_PS1="$REPO_ROOT/skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.ps1"
 MCP_WRITE_PROVIDER_CONFIG="$REPO_ROOT/skills/spec-mcp-setup/scripts/write-provider-config.sh"
 TOOLS_JSON="$REPO_ROOT/skills/spec-mcp-setup/mcp-tools.json"
 GITNEXUS_PACKAGE="$(jq -r '.tools[] | select(.id == "gitnexus") | (.package // "") + "@" + (.version // "")' "$TOOLS_JSON")"
@@ -387,6 +388,13 @@ WORKSPACE_LEDGER_A="$TMP_DIR/workspace-home-a/.codex/spec-first/host-setup.json"
 make_repo "$WORKSPACE_REPO_A"
 make_repo "$WORKSPACE_REPO_B"
 write_fixture_config "$WORKSPACE_REPO_A" "$WORKSPACE_LEDGER_A" true
+cat > "$TMP_DIR/workspace/settings.gradle" <<'GRADLE'
+pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS) }
+rootProject.name = 'workspace-fixture'
+include ':project-a', ':app-kaz'
+include ':app-core'
+GRADLE
 workspace_targets_output="$(cd "$TMP_DIR/workspace" && PATH="$TEST_PATH" bash "$WORKSPACE_TARGET_RESOLVER")"
 assert_eq "workspace graph target resolver schema" "workspace-graph-targets.v1" "$(jq -r '.schema_version' <<<"$workspace_targets_output")"
 assert_eq "workspace graph target resolver marks multi repo topology" "multi-repo-workspace" "$(jq -r '.git_root_topology' <<<"$workspace_targets_output")"
@@ -398,6 +406,8 @@ assert_eq "workspace graph target resolver emits new query fields" "eligible|mis
 assert_eq "workspace graph target resolver emits query usability counts" "0|0|0|2" "$(jq -r '[.query_usability_counts["fresh-primary"],.query_usability_counts["stale-advisory"],.query_usability_counts["definitions-pointer"],.query_usability_counts.unavailable] | join("|")' <<<"$workspace_targets_output")"
 assert_eq "workspace graph target resolver does not emit development_mode" "false" "$(jq -r 'has("development_mode") or any(.repos[]; has("development_mode"))' <<<"$workspace_targets_output")"
 assert_eq "workspace graph target resolver reads setup-owned config pointers" ".spec-first/config/graph-providers.json|.spec-first/config/runtime-capabilities.json|.spec-first/config/provider-artifacts.json" "$(jq -r '.repos[] | select(.workspace_relative_path=="project-a") | [.artifacts.graph_providers,.artifacts.runtime_capabilities,.artifacts.provider_artifacts] | join("|")' <<<"$workspace_targets_output")"
+assert_eq "workspace graph target resolver computes Gradle coverage" "computed:partial-build-targets:4:2:0.5" "$(jq -r '.coverage_inference + ":" + .graph_coverage_class + ":" + (.coverage_summary.total_build_targets | tostring) + ":" + (.coverage_summary.uncovered_build_modules | tostring) + ":" + (.coverage_summary.coverage_ratio | tostring)' <<<"$workspace_targets_output")"
+assert_eq "workspace graph target resolver lists Gradle modules" "app-core:false|app-kaz:false|project-a:true" "$(jq -r '[.non_git_build_modules[] | "\(.path):\(.covered_by_child_repo)"] | sort | join("|")' <<<"$workspace_targets_output")"
 assert "workspace graph target resolver does not create parent graph artifacts" test ! -e "$TMP_DIR/workspace/.spec-first/graph"
 
 MIXED_VERSION_WORKSPACE="$TMP_DIR/mixed-version-workspace"
@@ -1248,6 +1258,18 @@ for dirty_refresh_case in "default|" "incremental|--incremental" "full|--full" "
 done
 
 if command -v pwsh >/dev/null 2>&1; then
+  PS_GRADLE_WORKSPACE="$TMP_DIR/ps-gradle-workspace"
+  make_repo "$PS_GRADLE_WORKSPACE/project-a"
+  make_repo "$PS_GRADLE_WORKSPACE/project-b"
+  cat > "$PS_GRADLE_WORKSPACE/settings.gradle" <<'GRADLE'
+rootProject.name = 'ps-workspace-fixture'
+include ':project-a', ':app-kaz'
+include ':app-core'
+GRADLE
+  ps_gradle_targets_output="$(cd "$PS_GRADLE_WORKSPACE" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$WORKSPACE_TARGET_RESOLVER_PS1")"
+  assert_eq "PowerShell resolver computes Gradle coverage" "computed:partial-build-targets:4:2:0.5" "$(jq -r '.coverage_inference + ":" + .graph_coverage_class + ":" + (.coverage_summary.total_build_targets | tostring) + ":" + (.coverage_summary.uncovered_build_modules | tostring) + ":" + (.coverage_summary.coverage_ratio | tostring)' <<<"$ps_gradle_targets_output")"
+  assert_eq "PowerShell resolver lists Gradle modules" "app-core:false|app-kaz:false|project-a:true" "$(jq -r '[.non_git_build_modules[] | "\(.path):\(.covered_by_child_repo)"] | sort | join("|")' <<<"$ps_gradle_targets_output")"
+
   DIRTY_REFRESH_PS_REPO="$TMP_DIR/dirty-refresh-ps-repo"
   DIRTY_REFRESH_PS_LEDGER="$TMP_DIR/dirty-refresh-ps-home/.codex/spec-first/host-setup.json"
   make_repo "$DIRTY_REFRESH_PS_REPO"

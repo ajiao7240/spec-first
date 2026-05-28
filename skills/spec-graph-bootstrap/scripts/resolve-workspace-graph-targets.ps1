@@ -13,6 +13,7 @@ if (-not [string]::IsNullOrWhiteSpace($Repo) -and -not [string]::IsNullOrWhiteSp
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectResolver = Join-Path $scriptDir '../../spec-mcp-setup/scripts/resolve-project-target.ps1'
+$buildTargetCompiler = Join-Path $scriptDir 'compile-gradle-build-targets.js'
 
 function Read-JsonFileOrNull {
   param([string]$Path)
@@ -141,6 +142,45 @@ function Get-PropertyValue {
   if ($null -eq $Object) { return $Default }
   if ($Object.PSObject.Properties.Name -contains $Name) { return $Object.$Name }
   return $Default
+}
+
+function New-DefaultBuildTargetAwareness {
+  param([string]$ReasonCode)
+  return [ordered]@{
+    coverage_inference = 'skipped'
+    reason_code = $ReasonCode
+    ecosystem = 'gradle'
+    manifest = $null
+    non_git_build_modules = @()
+    coverage_summary = [ordered]@{
+      total_build_targets = 0
+      covered_by_git_children = 0
+      uncovered_build_modules = 0
+      coverage_ratio = $null
+    }
+    graph_coverage_class = 'none'
+  }
+}
+
+function Get-BuildTargetAwareness {
+  param(
+    [string]$WorkspaceRoot,
+    [object[]]$Targets
+  )
+  $targetsPath = [System.IO.Path]::GetTempFileName()
+  try {
+    @($Targets) | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $targetsPath -Encoding UTF8
+    $raw = & node $buildTargetCompiler --workspace-root $WorkspaceRoot --targets $targetsPath --scan-depth $ScanDepth
+    $text = ($raw -join "`n").Trim()
+    if ([string]::IsNullOrWhiteSpace($text)) {
+      return New-DefaultBuildTargetAwareness -ReasonCode 'gradle-parse-error'
+    }
+    return ($text | ConvertFrom-Json -ErrorAction Stop)
+  } catch {
+    return [pscustomobject](New-DefaultBuildTargetAwareness -ReasonCode 'gradle-parse-error')
+  } finally {
+    Remove-Item -Force -LiteralPath $targetsPath -ErrorAction SilentlyContinue
+  }
 }
 
 function New-TargetItemFromSelectedRepo {
@@ -536,6 +576,7 @@ if ($null -ne $targetFacts.selected_repo_root) {
 }
 
 $repos = @($targets | ForEach-Object { Inspect-Repo -TargetItem $_ })
+$buildTargetAwareness = Get-BuildTargetAwareness -WorkspaceRoot ([string]$targetFacts.workspace_root) -Targets $targets
 $primaryCount = @($repos | Where-Object { $_.status -eq 'primary' }).Count
 $noSourceCount = @($repos | Where-Object { $_.status -eq 'no-source' }).Count
 $gitRootTopology = if ($null -ne $targetFacts.selected_repo_root) {
@@ -562,6 +603,11 @@ $result = [ordered]@{
   state_write_allowed = [bool]($targetFacts.state_write_allowed ?? $false)
   parent_writes_repo_local_artifacts = $false
   parent_repo_local_artifact_advisory = $parentRepoLocalArtifactAdvisory
+  coverage_inference = [string](Get-PropertyValue -Object $buildTargetAwareness -Name 'coverage_inference' -Default 'skipped')
+  coverage_reason_code = Get-PropertyValue -Object $buildTargetAwareness -Name 'reason_code' -Default $null
+  non_git_build_modules = @((Get-PropertyValue -Object $buildTargetAwareness -Name 'non_git_build_modules' -Default @()))
+  coverage_summary = Get-PropertyValue -Object $buildTargetAwareness -Name 'coverage_summary' -Default ([ordered]@{ total_build_targets = 0; covered_by_git_children = 0; uncovered_build_modules = 0; coverage_ratio = $null })
+  graph_coverage_class = [string](Get-PropertyValue -Object $buildTargetAwareness -Name 'graph_coverage_class' -Default 'none')
   repos = @($repos)
   counts = [ordered]@{
     total = $repos.Count

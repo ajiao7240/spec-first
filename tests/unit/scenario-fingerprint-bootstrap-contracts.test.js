@@ -261,6 +261,45 @@ describe('bootstrap scenario fingerprint contract', () => {
     expect(payload.tags).not.toContain('clean-single-repo');
   });
 
+  test('fills P4 build-target coverage fields from workspace graph targets', () => {
+    const repo = initCommittedRepo();
+    const revision = git(repo, ['rev-parse', 'HEAD']);
+    const setupPath = writeSetupFingerprint(repo, revision);
+    const { graphFactsPath, providerStatusPath } = writeBootstrapInputs(repo, revision);
+    const graphTargetsPath = path.join(repo, '.spec-first', 'workspace', 'graph-targets.json');
+    writeJson(graphTargetsPath, {
+      schema_version: 'workspace-graph-targets.v1',
+      coverage_inference: 'computed',
+      coverage_reason_code: null,
+      graph_coverage_class: 'partial-build-targets',
+      non_git_build_modules: [
+        { path: 'app-kaz', kind: 'gradle-module', covered_by_child_repo: false },
+        { path: 'app-core', kind: 'gradle-module', covered_by_child_repo: false },
+      ],
+      coverage_summary: {
+        total_build_targets: 6,
+        covered_by_git_children: 4,
+        uncovered_build_modules: 2,
+        coverage_ratio: 0.666667,
+      },
+    });
+
+    const payload = computeBootstrapLayer({
+      cwd: repo,
+      workspaceRoot: repo,
+      setupFingerprintPath: setupPath,
+      graphFactsPath,
+      providerStatusPath,
+      graphTargetsPath,
+    });
+
+    expect(payload.topology.git_misaligned_build_targets).toBe(2);
+    expect(payload.topology.build_target_coverage_ratio).toBe(0.666667);
+    expect(payload.topology.build_target_coverage_reason_code).toBeNull();
+    expect(payload.topology.graph_coverage_class).toBe('partial-build-targets');
+    expect(payload.generated_from.graph_targets).toBe('.spec-first/workspace/graph-targets.json');
+  });
+
   test('does not mark provider degraded when bootstrap provider status is absent', () => {
     const repo = initCommittedRepo();
     const revision = git(repo, ['rev-parse', 'HEAD']);

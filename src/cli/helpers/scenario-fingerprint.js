@@ -78,6 +78,7 @@ function runScenarioFingerprint(argv, env = {}) {
         graphFactsPath: parsed.options.graphFacts,
         providerStatusPath: parsed.options.providerStatus,
         graphBootstrapSummaryPath: parsed.options.graphBootstrapSummary,
+        graphTargetsPath: parsed.options.graphTargets,
       });
     if (!result.fingerprint_setup_missing && (parsed.options.writeArtifact || parsed.options.output)) {
       if (!parsed.options.output) {
@@ -249,10 +250,15 @@ function computeBootstrapLayer(input = {}) {
   const graphBootstrapSummaryPath = input.graphBootstrapSummaryPath
     ? path.resolve(input.graphBootstrapSummaryPath)
     : path.join(workspaceRoot, '.spec-first', 'workspace', 'graph-bootstrap-summary.json');
+  const graphTargetsPath = input.graphTargetsPath
+    ? path.resolve(input.graphTargetsPath)
+    : path.join(workspaceRoot, '.spec-first', 'workspace', 'graph-targets.json');
   const graphFacts = readJsonIfExists(graphFactsPath, 'invalid-graph-facts') || {};
   const providerStatus = readJsonIfExists(providerStatusPath, 'invalid-provider-status') || {};
   const graphBootstrapSummary = readJsonIfExists(graphBootstrapSummaryPath, 'invalid-graph-bootstrap-summary') || {};
+  const graphTargets = readJsonIfExists(graphTargetsPath, 'invalid-graph-targets') || {};
   const gitnexusStatus = extractGitNexusStatus(providerStatus);
+  const buildTargetCoverage = extractBuildTargetCoverage(graphTargets);
   const currentRevision = graphFacts.source_revision
     || (gitnexusStatus.repo_snapshot && gitnexusStatus.repo_snapshot.source_revision)
     || (isGitRepo(targetRoot) ? getGitDirtyFacts(targetRoot).head : null);
@@ -338,9 +344,10 @@ function computeBootstrapLayer(input = {}) {
     target_root: toPosixPath(targetRoot),
     topology: {
       ...(setup.topology || {}),
-      git_misaligned_build_targets: null,
-      build_target_coverage_ratio: null,
-      build_target_coverage_reason_code: PENDING_BUILD_TARGET_SCAN_REASON,
+      git_misaligned_build_targets: buildTargetCoverage.gitMisalignedBuildTargets,
+      build_target_coverage_ratio: buildTargetCoverage.coverageRatio,
+      build_target_coverage_reason_code: buildTargetCoverage.reasonCode,
+      graph_coverage_class: buildTargetCoverage.graphCoverageClass,
     },
     worktree: {
       ...(setup.worktree || {}),
@@ -384,6 +391,7 @@ function computeBootstrapLayer(input = {}) {
       graph_facts: fs.existsSync(graphFactsPath) ? toWorkspaceRelative(workspaceRoot, graphFactsPath) : null,
       provider_status: fs.existsSync(providerStatusPath) ? toWorkspaceRelative(workspaceRoot, providerStatusPath) : null,
       graph_bootstrap_summary: fs.existsSync(graphBootstrapSummaryPath) ? toWorkspaceRelative(workspaceRoot, graphBootstrapSummaryPath) : null,
+      graph_targets: fs.existsSync(graphTargetsPath) ? toWorkspaceRelative(workspaceRoot, graphTargetsPath) : null,
     },
     tags: mergedTags,
     limitations: Array.from(new Set([
@@ -682,6 +690,8 @@ function parseArgs(argv) {
       options.providerStatus = argv[++i];
     } else if (arg === '--graph-bootstrap-summary') {
       options.graphBootstrapSummary = argv[++i];
+    } else if (arg === '--graph-targets') {
+      options.graphTargets = argv[++i];
     } else if (arg === '--workspace-root') {
       options.workspaceRoot = argv[++i];
     } else if (arg === '--max-build-scan-depth') {
@@ -712,6 +722,7 @@ function usage() {
     '  --graph-facts <json>      Read graph facts for bootstrap layer',
     '  --provider-status <json>  Read provider status for bootstrap layer',
     '  --graph-bootstrap-summary <json> Read parent graph-bootstrap summary for bootstrap layer',
+    '  --graph-targets <json>    Read workspace graph targets for bootstrap build-target coverage',
     '  --workspace-root <path>   Override workspace root',
     '  --out <path>              Write fingerprint artifact',
     '  --max-build-scan-depth N  Bounded build manifest scan depth (default: 4)',
@@ -792,6 +803,31 @@ function buildBootstrapGitNexusRef({ setupRef, gitnexusStatus, providerStatusPat
     graph_facts_path: toPosixPath(graphFactsPath),
     repo_label_resolution_path: `${toPosixPath(providerStatusPath)}#repo_label_resolution`,
     reason_code: gitnexusStatus.reason_code || (setupRef && setupRef.reason_code) || null,
+  };
+}
+
+function extractBuildTargetCoverage(graphTargets) {
+  if (!graphTargets || typeof graphTargets !== 'object' || Object.keys(graphTargets).length === 0) {
+    return {
+      gitMisalignedBuildTargets: null,
+      coverageRatio: null,
+      reasonCode: PENDING_BUILD_TARGET_SCAN_REASON,
+      graphCoverageClass: null,
+    };
+  }
+  const summary = graphTargets.coverage_summary && typeof graphTargets.coverage_summary === 'object'
+    ? graphTargets.coverage_summary
+    : {};
+  const hasRatio = summary.coverage_ratio != null && Number.isFinite(Number(summary.coverage_ratio));
+  const coverageInference = graphTargets.coverage_inference || null;
+  const reasonCode = graphTargets.coverage_reason_code || graphTargets.reason_code || null;
+  return {
+    gitMisalignedBuildTargets: Number.isFinite(Number(summary.uncovered_build_modules))
+      ? Number(summary.uncovered_build_modules)
+      : null,
+    coverageRatio: hasRatio ? Number(summary.coverage_ratio) : null,
+    reasonCode: hasRatio ? null : (reasonCode || (coverageInference === 'computed' ? null : PENDING_BUILD_TARGET_SCAN_REASON)),
+    graphCoverageClass: graphTargets.graph_coverage_class || null,
   };
 }
 

@@ -109,7 +109,7 @@
 | `mcp-verify-summary.json` | 父 workspace 下 verify-tools 的 per-child readiness 汇总；`parent_workspace_pollution_count` 记录本次 parent orphan quarantine 命中数 |
 | `parent-artifact-quarantine.json` | `parent-artifact-quarantine.v1`，父 workspace 下 repo-local graph/config/provider/index 污染的 advisory quarantine；`spec-first clean --workspace-orphans` 只读列举该文件，不删除 |
 | `graph-bootstrap-summary.json` | 父 workspace 下 graph bootstrap all-child maintenance 的 per-child 汇总 |
-| `graph-targets.json` | 只读 workspace graph target resolver 的候选 repo、status、artifact pointer 和 next action |
+| `graph-targets.json` | 只读 workspace graph target resolver 的候选 repo、status、artifact pointer、next action，以及 Gradle build-target coverage facts（`non_git_build_modules[]` / `coverage_summary` / `graph_coverage_class`） |
 | `gitnexus-readiness.json` | `workspace-gitnexus-readiness.v1`，记录 GitNexus group-ready / bounded registry fallback 的只读 advisory routing facts |
 
 `workspace/` 只帮助 LLM 或维护者看清候选、批量维护结果和 GitNexus group readiness fallback。它不能替代 child repo 内的 `.spec-first/config/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/providers/`、prior GitNexus evidence、ast-grep 或 bounded direct source reads，也不允许普通 plan/work/debug/review 隐式运行 `group_sync`。

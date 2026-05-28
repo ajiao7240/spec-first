@@ -7,6 +7,7 @@ command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_RESOLVER="$SCRIPT_DIR/../../spec-mcp-setup/scripts/resolve-project-target.sh"
+BUILD_TARGET_COMPILER="$SCRIPT_DIR/compile-gradle-build-targets.js"
 REPO_ARG=""
 FOLDER_ARG=""
 SCAN_DEPTH=3
@@ -146,7 +147,8 @@ WORKSPACE_ROOT="$(jq -r '.workspace_root // .invocation_cwd' <<<"$TARGET_JSON")"
 GENERATED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 NULL_JSON="$(mktemp "${TMPDIR:-/tmp}/workspace-graph-null.XXXXXX")"
 RECORDS_JSON="$(mktemp "${TMPDIR:-/tmp}/workspace-graph-records.XXXXXX")"
-trap 'rm -f "$NULL_JSON" "$RECORDS_JSON"' EXIT
+TARGETS_FILE="$(mktemp "${TMPDIR:-/tmp}/workspace-graph-targets.XXXXXX")"
+trap 'rm -f "$NULL_JSON" "$RECORDS_JSON" "$TARGETS_FILE"' EXIT
 printf 'null\n' > "$NULL_JSON"
 
 TARGETS_JSON="$(jq -c '
@@ -171,6 +173,8 @@ TARGETS_JSON="$(jq -c '
     (.candidates // [])
   end
 ' <<<"$TARGET_JSON")"
+printf '%s\n' "$TARGETS_JSON" > "$TARGETS_FILE"
+BUILD_TARGET_AWARENESS="$(node "$BUILD_TARGET_COMPILER" --workspace-root "$WORKSPACE_ROOT" --targets "$TARGETS_FILE" --scan-depth "$SCAN_DEPTH")"
 
 parent_repo_local_artifact_advisory() {
   local workspace_root="$1"
@@ -516,6 +520,7 @@ RESULT_JSON="$(jq -n \
   --arg generated_at "$GENERATED_AT" \
   --argjson target "$TARGET_JSON" \
   --argjson parent_repo_local_artifact_advisory "$PARENT_REPO_LOCAL_ARTIFACT_ADVISORY" \
+  --argjson build_target_awareness "$BUILD_TARGET_AWARENESS" \
   --slurpfile records "$RECORDS_JSON" \
   '($records[0] // []) as $repos
   | {
@@ -538,6 +543,11 @@ RESULT_JSON="$(jq -n \
       state_write_allowed:($target.state_write_allowed // false),
       parent_writes_repo_local_artifacts:false,
       parent_repo_local_artifact_advisory:$parent_repo_local_artifact_advisory,
+      coverage_inference:($build_target_awareness.coverage_inference // "skipped"),
+      coverage_reason_code:($build_target_awareness.reason_code // null),
+      non_git_build_modules:($build_target_awareness.non_git_build_modules // []),
+      coverage_summary:($build_target_awareness.coverage_summary // {total_build_targets:0,covered_by_git_children:0,uncovered_build_modules:0,coverage_ratio:null}),
+      graph_coverage_class:($build_target_awareness.graph_coverage_class // "none"),
       repos:$repos,
       counts:{
         total:($repos | length),

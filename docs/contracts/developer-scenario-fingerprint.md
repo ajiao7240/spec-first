@@ -89,9 +89,10 @@ Schema:
 - `advisory`: fixed `true`
 - `layer`: fixed `bootstrap`
 - setup-layer fields are preserved unless bootstrap has fresher deterministic evidence
-- `topology.git_misaligned_build_targets`: `null` until P4 build-target scan
-- `topology.build_target_coverage_ratio`: `null` until P4 build-target scan
-- `topology.build_target_coverage_reason_code`: fixed `pending-build-target-scan-p4` while the two P4-owned fields are null
+- `topology.git_misaligned_build_targets`: `null` until P4 build-target scan; after Gradle P4 it is the uncovered build module count from workspace graph targets
+- `topology.build_target_coverage_ratio`: `null` until P4 build-target scan; after Gradle P4 it mirrors `.spec-first/workspace/graph-targets.json.coverage_summary.coverage_ratio`
+- `topology.build_target_coverage_reason_code`: fixed `pending-build-target-scan-p4` while the two P4-owned fields are pending; otherwise `null` or the graph-targets coverage reason code
+- `topology.graph_coverage_class`: optional P4 coverage class from workspace graph targets, such as `git-roots-only` or `partial-build-targets`
 - `worktree.dirty_child_count`: derived from all-repos `quality_signals` when available, otherwise from setup/graph facts
 - `providers_status_refs.gitnexus`: references graph/provider artifacts and selected provider readiness fields without copying provider internals wholesale
 - `freshness.setup_layer`: reference to the setup fingerprint used for the merge
@@ -100,3 +101,5 @@ Schema:
 - `freshness.graph_facts_freshness_state`: graph facts freshness signal for downstream LLM judgment
 
 When the setup artifact is missing, graph-bootstrap must not synthesize a bootstrap fingerprint. It records `fingerprint_setup_missing: true` in the graph-bootstrap result/summary and continues the main provider bootstrap path.
+
+Gradle P4 build-target facts are sourced from `.spec-first/workspace/graph-targets.json`, not inferred by downstream workflows. `coverage_inference="skipped"` keeps coverage ratio null and carries a reason code such as `no-gradle-settings`, `kts-or-composite-not-supported`, or `gradle-parse-error`.
