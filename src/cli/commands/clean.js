@@ -36,7 +36,7 @@ function runClean(argv) {
   }
 
   if (parsed.confirm) {
-    console.error('Error: --confirm is only reserved for future workspace orphan cleanup and is not implemented in this release.');
+    console.error('Error: --confirm is only valid with --workspace-orphans.');
     return 2;
   }
 
@@ -154,19 +154,13 @@ function parseCleanArgs(argv) {
 
 function runWorkspaceOrphansClean(parsed) {
   if (parsed.unknown.length > 0) {
-    console.error('Usage: spec-first clean --workspace-orphans');
+    console.error('Usage: spec-first clean --workspace-orphans [--confirm]');
     return 2;
   }
 
   if (parsed.claude || parsed.codex) {
     console.error('Error: --workspace-orphans cannot be combined with --claude or --codex.');
-    console.error('Workspace orphan listing is read-only and separate from runtime asset cleanup.');
-    return 2;
-  }
-
-  if (parsed.confirm) {
-    console.error('Deletion is not implemented in this release.');
-    console.error('Run `spec-first clean --workspace-orphans` to preview quarantined paths.');
+    console.error('Workspace orphan cleanup is separate from runtime asset cleanup.');
     return 2;
   }
 
@@ -198,17 +192,42 @@ function runWorkspaceOrphansClean(parsed) {
     return 1;
   }
 
-  console.log('Parent workspace orphan artifact preview:');
-  console.log(`Source: ${path.posix.join('.spec-first', 'workspace', 'parent-artifact-quarantine.json')}`);
-  if (entries.length === 0) {
-    console.log('No quarantined workspace orphan artifacts were reported.');
-  } else {
-    for (const entry of entries) {
-      console.log(`  - ${entry.path} (${entry.reason_code})`);
-    }
+  printWorkspaceOrphanPreview(entries);
+  if (!parsed.confirm) {
+    console.log('Run `spec-first clean --workspace-orphans --confirm` to delete listed paths.');
+    console.log('No files were changed.');
+    return 0;
   }
-  console.log('Deletion is not implemented in this release.');
-  console.log('No files were changed.');
+
+  let deletionPlan;
+  try {
+    deletionPlan = buildWorkspaceOrphanDeletionPlan(projectRoot, entries);
+    validateWorkspaceOrphanDeletionPlan(projectRoot, deletionPlan.operations);
+  } catch (error) {
+    console.error(`Workspace orphan cleanup aborted. ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
+
+  if (deletionPlan.operations.length === 0) {
+    console.log('No existing quarantined workspace orphan artifacts to delete.');
+    if (deletionPlan.skippedMissing.length > 0) {
+      console.log(`Skipped ${deletionPlan.skippedMissing.length} already missing path(s).`);
+    }
+    console.log('No files were changed.');
+    return 0;
+  }
+
+  try {
+    applyOperationPlan(projectRoot, deletionPlan);
+  } catch (error) {
+    console.error(`Workspace orphan cleanup failed. ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
+
+  console.log(`Deleted ${deletionPlan.operations.length} workspace orphan path(s).`);
+  if (deletionPlan.skippedMissing.length > 0) {
+    console.log(`Skipped ${deletionPlan.skippedMissing.length} already missing path(s).`);
+  }
   return 0;
 }
 
@@ -232,11 +251,116 @@ function validateWorkspaceOrphanQuarantine(payload) {
     if (path.isAbsolute(entry.path) || entry.path.includes('\\') || entry.path.split('/').includes('..')) {
       throw new Error('Invalid parent artifact quarantine: paths must be POSIX repo-relative paths.');
     }
+    if (!isAllowedWorkspaceOrphanPath(entry.path)) {
+      throw new Error('Invalid parent artifact quarantine: path is outside supported workspace orphan cleanup targets.');
+    }
     if (typeof entry.reason_code !== 'string' || entry.reason_code.length === 0) {
       throw new Error('Invalid parent artifact quarantine: each reason_code must be a non-empty string.');
     }
   }
   return payload.quarantined_paths;
+}
+
+function printWorkspaceOrphanPreview(entries) {
+  console.log('Parent workspace orphan artifact preview:');
+  console.log(`Source: ${path.posix.join('.spec-first', 'workspace', 'parent-artifact-quarantine.json')}`);
+  if (entries.length === 0) {
+    console.log('No quarantined workspace orphan artifacts were reported.');
+    return;
+  }
+
+  for (const entry of entries) {
+    console.log(`  - ${entry.path} (${entry.reason_code})`);
+  }
+}
+
+function buildWorkspaceOrphanDeletionPlan(projectRoot, entries) {
+  const operations = [];
+  const skippedMissing = [];
+  const seen = new Set();
+
+  for (const entry of entries) {
+    if (seen.has(entry.path)) {
+      continue;
+    }
+    seen.add(entry.path);
+
+    const targetPath = path.resolve(projectRoot, entry.path);
+    if (!fs.existsSync(targetPath)) {
+      skippedMissing.push(entry.path);
+      continue;
+    }
+
+    const stat = fs.lstatSync(targetPath);
+    operations.push(
+      buildRelativeOperation(
+        stat.isDirectory() && !stat.isSymbolicLink() ? 'remove_dir' : 'remove_file',
+        entry.path,
+        `workspace_orphan:${entry.reason_code}`,
+      ),
+    );
+  }
+
+  return {
+    operations,
+    skippedMissing,
+    summary: summarizeOperationPlan(operations),
+  };
+}
+
+function validateWorkspaceOrphanDeletionPlan(projectRoot, operations) {
+  const projectRootResolved = path.resolve(projectRoot);
+  const projectRootReal = fs.realpathSync.native(projectRootResolved);
+
+  for (const operation of operations) {
+    const targetPath = path.resolve(projectRoot, operation.path || '');
+    if (!isPathWithin(targetPath, projectRootResolved)) {
+      throw new Error(`Unsafe workspace orphan cleanup path outside project root: ${operation.path}`);
+    }
+    if (targetPath === projectRootResolved) {
+      throw new Error(`Unsafe workspace orphan cleanup path targets project root: ${operation.path}`);
+    }
+
+    const nearest = nearestExistingPath(targetPath);
+    const nearestReal = fs.realpathSync.native(nearest);
+    if (!isPathWithin(nearestReal, projectRootReal)) {
+      throw new Error(`Unsafe workspace orphan cleanup path escapes project root through symlink: ${operation.path}`);
+    }
+  }
+}
+
+function isAllowedWorkspaceOrphanPath(entryPath) {
+  const normalized = String(entryPath || '').replace(/\/+$/, '');
+  return normalized === '.gitnexus'
+    || normalized === '.spec-first/graph'
+    || normalized.startsWith('.spec-first/graph/')
+    || normalized === '.spec-first/impact'
+    || normalized.startsWith('.spec-first/impact/')
+    || normalized === '.spec-first/providers/code-review-graph'
+    || normalized.startsWith('.spec-first/providers/code-review-graph/')
+    || normalized === '.spec-first/providers/gitnexus'
+    || normalized.startsWith('.spec-first/providers/gitnexus/')
+    || normalized === '.spec-first/config/graph-providers.json'
+    || normalized === '.spec-first/config/runtime-capabilities.json';
+}
+
+function nearestExistingPath(targetPath) {
+  let current = path.resolve(targetPath);
+  while (true) {
+    if (fs.existsSync(current)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return current;
+    }
+    current = parent;
+  }
+}
+
+function isPathWithin(childPath, parentPath) {
+  const relative = path.relative(parentPath, childPath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function printHelp() {
@@ -245,9 +369,9 @@ function printHelp() {
     '',
     '📘 Usage:',
     '  spec-first clean (--claude|--codex) [--dry-run]',
-    '  spec-first clean --workspace-orphans',
+    '  spec-first clean --workspace-orphans [--confirm]',
     '',
-    'Workspace orphan cleanup is read-only in this release; it lists parent workspace quarantine evidence without deleting files.',
+    'Workspace orphan cleanup previews parent quarantine evidence by default; add --confirm to delete supported orphan paths.',
     '',
     '🔗 Repository:',
     '  https://github.com/sunrain520/spec-first',

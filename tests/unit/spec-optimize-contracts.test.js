@@ -70,8 +70,10 @@ describe('spec-optimize host entrypoint contract', () => {
     expect(skill).toContain('GitNexus Utilization Boundary');
     expect(skill).toContain('prior `graph_capability_usage`, `graph_evidence_used`, degraded reason counts');
     expect(skill).toContain('`.spec-first/workspace/graph-bootstrap-summary.json.quality_signals`');
-    expect(skill).toContain('P5-min quality signals are `child_count`, `process_results_rate`, `command_failed_rate`, and `dirty_advisory_child_rate`');
+    expect(skill).toContain('P5-full quality signals are `child_count`, `process_results_rate`, `command_failed_rate`, `dirty_advisory_child_rate`, `build_target_coverage_ratio`, `impact_probe_with_test_provenance_rate`, and `host_instruction_drift_rate`');
     expect(skill).toContain('When `process_results_rate < 0.5`, recommend first measuring graph evidence quality');
+    expect(skill).toContain('When `host_instruction_drift_rate=1.0`, recommend refreshing host GitNexus instruction blocks with `spec-first init`');
+    expect(skill).toContain('Low `build_target_coverage_ratio` should narrow graph-dependent experiment scope');
     expect(skill).toContain('The optimization target, metric, winner selection, mutable scope, and final integration remain owned by the approved optimization spec and measured results');
     expect(skill).toContain('not by a graph provider');
     expect(skill).toContain('must not run provider refresh, `analyze`, `group_sync`, `rename`, hooks, watchers, or daemons');

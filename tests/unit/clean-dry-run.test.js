@@ -316,7 +316,7 @@ describe('clean --workspace-orphans', () => {
       expect(after).toEqual(before);
       expect(result.stdout).toContain('Parent workspace orphan artifact preview:');
       expect(result.stdout).toContain('.spec-first/graph/graph-facts.json (parent-workspace-must-not-have-repo-local-graph)');
-      expect(result.stdout).toContain('Deletion is not implemented in this release.');
+      expect(result.stdout).toContain('Run `spec-first clean --workspace-orphans --confirm` to delete listed paths.');
       expect(result.stdout).toContain('No files were changed.');
       expect(fs.existsSync(graphFactsPath)).toBe(true);
     } finally {
@@ -324,16 +324,117 @@ describe('clean --workspace-orphans', () => {
     }
   });
 
-  test('fails closed when mixed with runtime clean mode or deletion confirmation', () => {
+  test('deletes supported quarantined paths only with explicit confirmation', () => {
+    const projectRoot = makeTempDir();
+    try {
+      const workspaceDir = path.join(projectRoot, '.spec-first', 'workspace');
+      const graphFactsPath = path.join(projectRoot, '.spec-first', 'graph', 'graph-facts.json');
+      const graphIndexPath = path.join(projectRoot, '.gitnexus');
+      const retiredProviderPath = path.join(projectRoot, '.spec-first', 'providers', 'code-review-graph');
+      fs.mkdirSync(path.dirname(graphFactsPath), { recursive: true });
+      fs.mkdirSync(graphIndexPath, { recursive: true });
+      fs.mkdirSync(retiredProviderPath, { recursive: true });
+      fs.mkdirSync(workspaceDir, { recursive: true });
+      fs.writeFileSync(graphFactsPath, '{"schema_version":"graph-facts.v1"}\n', 'utf8');
+      fs.writeFileSync(path.join(graphIndexPath, 'meta.json'), '{"repoPath":"/tmp/old"}\n', 'utf8');
+      fs.writeFileSync(path.join(retiredProviderPath, 'state.json'), '{}\n', 'utf8');
+      fs.writeFileSync(
+        path.join(workspaceDir, 'parent-artifact-quarantine.json'),
+        `${JSON.stringify({
+          schema_version: 'parent-artifact-quarantine.v1',
+          topology: 'multi-repo-workspace',
+          advisory: true,
+          authority_level: 'advisory',
+          freshness: 'generated',
+          generated_at: '2026-05-28T00:00:00Z',
+          generated_by: 'spec-mcp-setup',
+          consumers: ['spec-first clean --workspace-orphans'],
+          quarantined_paths: [
+            {
+              path: '.spec-first/graph/graph-facts.json',
+              reason_code: 'foreign-absolute-path-stat-failed',
+              stale_indicator: '/Users/old/project',
+              last_generated_at: '2026-05-28T00:00:00Z',
+              fingerprint_origin: '/Users/old/project',
+            },
+            {
+              path: '.gitnexus/',
+              reason_code: 'parent-workspace-must-not-have-graph-index',
+              stale_indicator: 'parent-workspace-graph-index-present',
+              last_generated_at: '2026-05-28T00:00:01Z',
+              fingerprint_origin: '/tmp/old',
+            },
+            {
+              path: '.spec-first/providers/code-review-graph/',
+              reason_code: 'retired-provider-residue',
+              stale_indicator: 'retired-code-review-graph-provider-directory-present',
+              last_generated_at: null,
+              fingerprint_origin: 'code-review-graph',
+            },
+          ],
+        }, null, 2)}\n`,
+        'utf8',
+      );
+
+      const result = captureCommand(projectRoot, runClean, ['--workspace-orphans', '--confirm']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('Parent workspace orphan artifact preview:');
+      expect(result.stdout).toContain('Deleted 3 workspace orphan path(s).');
+      expect(result.stdout).not.toContain('No files were changed.');
+      expect(fs.existsSync(graphFactsPath)).toBe(false);
+      expect(fs.existsSync(graphIndexPath)).toBe(false);
+      expect(fs.existsSync(retiredProviderPath)).toBe(false);
+      expect(fs.existsSync(path.join(workspaceDir, 'parent-artifact-quarantine.json'))).toBe(true);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('fails closed when mixed with runtime clean mode or unsafe deletion target', () => {
     const projectRoot = makeTempDir();
     try {
       const mixed = captureCommand(projectRoot, runClean, ['--workspace-orphans', '--claude']);
       expect(mixed.exitCode).toBe(2);
       expect(mixed.stderr).toContain('--workspace-orphans cannot be combined with --claude or --codex');
 
-      const confirm = captureCommand(projectRoot, runClean, ['--workspace-orphans', '--confirm']);
-      expect(confirm.exitCode).toBe(2);
-      expect(confirm.stderr).toContain('Deletion is not implemented in this release.');
+      const invalidConfirm = captureCommand(projectRoot, runClean, ['--confirm']);
+      expect(invalidConfirm.exitCode).toBe(2);
+      expect(invalidConfirm.stderr).toContain('--confirm is only valid with --workspace-orphans');
+
+      const sourcePath = path.join(projectRoot, 'src', 'index.js');
+      const workspaceDir = path.join(projectRoot, '.spec-first', 'workspace');
+      fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+      fs.mkdirSync(workspaceDir, { recursive: true });
+      fs.writeFileSync(sourcePath, 'module.exports = 1;\n', 'utf8');
+      fs.writeFileSync(
+        path.join(workspaceDir, 'parent-artifact-quarantine.json'),
+        `${JSON.stringify({
+          schema_version: 'parent-artifact-quarantine.v1',
+          topology: 'multi-repo-workspace',
+          advisory: true,
+          authority_level: 'advisory',
+          freshness: 'generated',
+          generated_at: '2026-05-28T00:00:00Z',
+          generated_by: 'spec-mcp-setup',
+          consumers: ['spec-first clean --workspace-orphans'],
+          quarantined_paths: [
+            {
+              path: 'src/index.js',
+              reason_code: 'parent-workspace-must-not-have-repo-local-graph',
+              stale_indicator: 'malformed-test-fixture',
+              last_generated_at: null,
+              fingerprint_origin: null,
+            },
+          ],
+        }, null, 2)}\n`,
+        'utf8',
+      );
+      const unsafe = captureCommand(projectRoot, runClean, ['--workspace-orphans', '--confirm']);
+      expect(unsafe.exitCode).toBe(1);
+      expect(unsafe.stderr).toContain('outside supported workspace orphan cleanup targets');
+      expect(fs.existsSync(sourcePath)).toBe(true);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

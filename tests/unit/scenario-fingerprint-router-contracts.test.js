@@ -63,13 +63,15 @@ describe('scenario fingerprint router contract', () => {
     ]);
   });
 
-  test('foreign residual repair guidance does not expose future clean command before U4 lands', () => {
+  test('foreign residual repair guidance uses preview-first workspace orphan cleanup', () => {
     const skill = read(USING_SPEC_FIRST);
 
     expectContainsAll(skill, [
       'route to the current repair owner before downstream work',
-      'Recommend `$spec-mcp-setup` / `/spec:mcp-setup` or `$spec-update` / `/spec:update`',
-      'Do not name `spec-first clean --workspace-orphans` as an available action until the current source actually provides that clean surface.',
+      'Recommend `spec-first clean --workspace-orphans` as the preview-first inspection step',
+      'spec-first clean --workspace-orphans --confirm',
+      'only when the user explicitly wants to delete the quarantined parent artifacts',
+      'pair cleanup with `spec-first init` or `$spec-mcp-setup` / `/spec:mcp-setup`',
     ]);
   });
 });

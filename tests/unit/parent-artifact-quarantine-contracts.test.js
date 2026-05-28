@@ -10,7 +10,7 @@ function read(relativePath) {
 }
 
 describe('parent artifact quarantine contract', () => {
-  test('documents advisory schema and read-only cleanup boundary', () => {
+  test('documents advisory schema and preview-first cleanup boundary', () => {
     const contract = read('docs/contracts/parent-artifact-quarantine.md');
     const artifactMap = read('docs/05-用户手册/04-workflows-artifacts-map.md');
 
@@ -18,7 +18,8 @@ describe('parent artifact quarantine contract', () => {
     expect(contract).toContain('authority_level');
     expect(contract).toContain('freshness');
     expect(contract).toContain('spec-first clean --workspace-orphans');
-    expect(contract).toContain('Deletion is not implemented in this release');
+    expect(contract).toContain('spec-first clean --workspace-orphans --confirm');
+    expect(contract).toContain('preview-first');
     expect(contract).toContain('foreign-absolute-path-stat-failed');
     expect(contract).toContain('retired-provider-residue');
     expect(contract).toContain('repo_root-mismatches-workspace-root');
@@ -57,7 +58,8 @@ describe('parent artifact quarantine contract', () => {
 
     expect(cleanSource).toContain('runWorkspaceOrphansClean');
     expect(cleanSource).toContain('--workspace-orphans cannot be combined with --claude or --codex');
-    expect(cleanSource).toContain('Deletion is not implemented in this release.');
+    expect(cleanSource).toContain('Run `spec-first clean --workspace-orphans --confirm` to delete listed paths.');
+    expect(cleanSource).toContain('isAllowedWorkspaceOrphanPath');
     expect(cleanSource).toContain('schema_version must be parent-artifact-quarantine.v1');
     expect(cleanSource).toContain('paths must be POSIX repo-relative paths');
   });

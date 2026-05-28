@@ -107,7 +107,7 @@
 | `project-config-bootstrap-summary.json` | 父 workspace 下 project config bootstrap 的 per-child 汇总 |
 | `mcp-setup-summary.json` | 父 workspace 下 install-mcp 的 per-child 汇总 |
 | `mcp-verify-summary.json` | 父 workspace 下 verify-tools 的 per-child readiness 汇总；`parent_workspace_pollution_count` 记录本次 parent orphan quarantine 命中数 |
-| `parent-artifact-quarantine.json` | `parent-artifact-quarantine.v1`，父 workspace 下 repo-local graph/config/provider/index 污染的 advisory quarantine；`spec-first clean --workspace-orphans` 只读列举该文件，不删除 |
+| `parent-artifact-quarantine.json` | `parent-artifact-quarantine.v1`，父 workspace 下 repo-local graph/config/provider/index 污染的 advisory quarantine；`spec-first clean --workspace-orphans` 默认只预览，`--confirm` 才删除受支持的 quarantined parent orphan 路径 |
 | `graph-bootstrap-summary.json` | 父 workspace 下 graph bootstrap all-child maintenance 的 per-child 汇总 |
 | `graph-targets.json` | 只读 workspace graph target resolver 的候选 repo、status、artifact pointer、next action，以及 Gradle build-target coverage facts（`non_git_build_modules[]` / `coverage_summary` / `graph_coverage_class`） |
 | `gitnexus-readiness.json` | `workspace-gitnexus-readiness.v1`，记录 GitNexus group-ready / bounded registry fallback 的只读 advisory routing facts |

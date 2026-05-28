@@ -51,7 +51,9 @@ The producer may write an empty `quarantined_paths[]` list when a parent workspa
 
 ## Consumers
 
-`spec-first clean --workspace-orphans` is read-only in this release. It lists `quarantined_paths[]` and prints `Deletion is not implemented in this release`; it must not delete files.
+`spec-first clean --workspace-orphans` is preview-first. Without `--confirm`, it lists `quarantined_paths[]` and must not delete files. `spec-first clean --workspace-orphans --confirm` is the explicit deletion mode for supported workspace orphan targets; it prints the same preview before deleting existing quarantined paths.
+
+Cleanup consumers must reject absolute paths, parent traversal, backslashes, symlink escapes, and paths outside the supported parent-orphan surface (`.spec-first/graph/**`, `.spec-first/impact/**`, selected `.spec-first/config/*.json`, selected `.spec-first/providers/**`, and `.gitnexus/**`). The quarantine artifact is advisory evidence; successful deletion is proven by the cleanup command result and filesystem state, not by the artifact itself.
 
 LLM workflows may use the artifact as degraded-evidence context when deciding whether parent workspace graph/config facts are trustworthy. They must not treat quarantine as confirmed deletion truth or as child repo readiness truth.
 
