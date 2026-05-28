@@ -52,6 +52,11 @@ Resolve target scope, check dependencies, configure required helpers/MCP project
 
 `spec-graph-bootstrap`, `using-spec-first`, downstream workflows reading readiness facts, and humans repairing host setup.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Purpose
 
 Prepare a verified, repeatable spec-first harness runtime for Claude Code or Codex without turning setup into a semantic decision engine.

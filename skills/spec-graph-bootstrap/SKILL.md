@@ -40,6 +40,11 @@ Resolve repo scope, validate setup facts, run provider commands without shell in
 
 `spec-plan`, `spec-work`, `spec-debug`, `spec-code-review`, `spec-doc-review`, and humans checking graph readiness.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Purpose
 
 This workflow owns project graph readiness compilation. `spec-mcp-setup` installs/configures the harness runtime and writes setup-owned facts; `spec-graph-bootstrap` consumes those facts, transiently runs configured external graph-provider command arrays, captures evidence, and writes canonical project readiness artifacts.

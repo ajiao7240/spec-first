@@ -41,6 +41,11 @@ Determine the scan window, discover and filter sessions, extract bounded snippet
 
 `spec-plan`, `spec-work`, `spec-compound`, `spec-compound-refresh`, user status questions, and future scope/replay decisions.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Usage
 
 ```

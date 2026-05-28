@@ -47,6 +47,11 @@ Choose full or lightweight mode, gather bounded evidence, check existing learnin
 
 `spec-plan`, `spec-work`, `spec-code-review`, `spec-sessions`, future compound-refresh runs, and humans searching `docs/solutions/`.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Usage
 
 ```bash

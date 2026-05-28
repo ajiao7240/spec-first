@@ -48,6 +48,11 @@ Collect deterministic facts, inspect source skills/references/tests, compare pub
 
 `spec-work`, `spec-code-review`, release governance, skill maintainers, runtime setup/update decisions, and humans deciding remediation priority.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Purpose
 
 Use this workflow to make skill debt visible before it turns into workflow debt.

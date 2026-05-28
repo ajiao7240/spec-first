@@ -43,6 +43,11 @@ Resolve the branch, start the dev server, open or print the browser URL, iterate
 
 Human UI reviewers, `spec-code-review`, PR preparation, and product/design stakeholders checking the polished experience.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Phase 0: Get on the right branch
 
 1. If a PR number or branch name was provided, check it out (probe for existing worktrees first).

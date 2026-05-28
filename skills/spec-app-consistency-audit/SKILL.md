@@ -42,6 +42,11 @@ Resolve mode and scope, collect static product/design/source facts, apply archit
 
 `spec-code-review`, mobile QA planning, App implementation owners, report-writer steps, and human reviewers preparing runtime validation.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Purpose
 
 Use this workflow to compare product intent, design states, page routes, KMP / Clean Architecture boundaries, App engineering quality, component and module reuse, analytics, i18n, and industry-specific rules from the available local inputs.

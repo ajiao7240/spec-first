@@ -43,6 +43,11 @@ Parse filters, fetch filtered spec-first releases through the helper, render a r
 
 Humans deciding whether to update, `spec-update`, release triage, and support/debug conversations needing version provenance.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## GitNexus Boundary
 
 This workflow does not run GitNexus or create a release-specific graph evidence pipeline. Release-note answers are grounded in published release metadata and, when a caller already provides it, source-confirmed git / `detect_changes` / graph summary context. Any graph-informed release context remains advisory, must be summarized rather than copied from raw provider output, and cannot replace release tags, changelog entries, PR bodies, or source-confirmed evidence.

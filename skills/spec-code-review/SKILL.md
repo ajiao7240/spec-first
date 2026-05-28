@@ -42,6 +42,16 @@ Resolve scope and mode, run runtime/readiness preflight, select scale-aware revi
 
 `spec-work` shipping review, PR preparation, tracker-defer handoff, human reviewers, and `spec-compound` when accepted findings become reusable knowledge.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` with high-risk overrides because this workflow can make user-visible findings and, in autofix modes, mutate source.
+
+Overrides: high-risk
+
+- `foreign-residual-workspace` -> `blocked-action-required`: stop before graph-backed findings, autofix, or PR-ready review claims until `spec-first clean --workspace-orphans` preview and `spec-first init` refresh local artifacts, or the user explicitly accepts degraded evidence.
+- `unavailable-provider` condition -> `fallback-only`: use bounded direct diff/source/test evidence and record graph limitations in Coverage; do not claim graph-backed blast radius, related tests, or changed-symbol coverage.
+- `non-git-build-workspace` coverage gaps -> `partial`: review covered git roots normally, but treat uncovered build modules as direct-read/test candidates before raising cross-module findings.
+
 ## Context Orientation Anchor
 
 Orient review from the diff scope, current user request, plan/task/work artifacts when present, already-loaded host/project instructions, package manifests and command registries, nearby implementation files, nearby tests, and test results. Treat `AGENTS.md`, `CLAUDE.md`, and project role docs as host instruction sources that are normally already loaded by the current session, not automatic re-read targets for every review run. Read those source instruction files only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it; Stage 3b is the narrow project-standards persona exception and discovers paths before leaf reviewers read relevant sections. When graph readiness artifacts are degraded, stale, or unavailable, prefer live GitNexus MCP evidence for concrete review questions when the relevant GitNexus tool is loaded and responsive, then fall back to bounded direct repo reads. Treat successful MCP calls as session-local evidence only; they do not update compiled `query_ready` or replace reviewer judgment. GitNexus is the review/diff-impact evidence source for this workflow: if available, use it for changed-symbol impact, review context, related-test candidates, and blast-radius pointers; if GitNexus returns definitions-only evidence, use those results only as local file/symbol pointers and continue with bounded direct repo reads before making findings. If a live MCP/provider startup or call fails, treat that provider as degraded evidence rather than a reviewer failure unless the reviewer itself cannot complete; do not repeatedly probe the same unavailable provider across personas in the same run. Record the provider degradation once in Coverage and continue with bounded direct repo reads. External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment.

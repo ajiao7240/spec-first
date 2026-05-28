@@ -44,6 +44,16 @@ Triage the symptom, reproduce or record a not-possible reason, trace the causal 
 
 `spec-work` for larger fixes, `spec-code-review`, PR preparation, issue trackers, and `spec-compound` when the lesson is reusable.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` with high-risk overrides because this workflow can establish root cause and apply fixes.
+
+Overrides: high-risk
+
+- `foreign-residual-workspace` -> `blocked-action-required`: stop before root-cause claims or fixes that rely on stale local artifacts until `spec-first clean --workspace-orphans` preview and `spec-first init` refresh local state, or the user explicitly accepts degraded evidence.
+- `unavailable-provider` condition -> `fallback-only`: use reproduction, logs, tests, and bounded source reads; do not claim graph-backed causal links or blast radius.
+- `non-git-build-workspace` coverage gaps -> `partial`: debug covered git roots normally, and inspect uncovered build modules directly before concluding they are unaffected.
+
 ## Core Principles
 
 These principles govern every phase. They are repeated at decision points because they matter most when the pressure to skip them is highest.

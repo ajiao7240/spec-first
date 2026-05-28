@@ -41,6 +41,11 @@ Select scope, inspect supporting learnings before derived patterns, classify eac
 
 `spec-compound`, future planning/work/review sessions, `spec-sessions`, and humans relying on `docs/solutions/` as reusable knowledge.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Mode Detection
 
 Check if `$ARGUMENTS` contains `mode:autofix`. If present, strip it from arguments (use the remainder as a scope hint) and run in **autofix mode**.

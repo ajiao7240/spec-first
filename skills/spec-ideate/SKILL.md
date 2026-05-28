@@ -50,6 +50,11 @@ Resolve subject and mode, gather grounded context, generate many candidate ideas
 
 `spec-brainstorm`, `spec-plan`, human product decisions, future ideation refreshes, and `spec-sessions` context lookups.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Interaction Method
 
 Use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.

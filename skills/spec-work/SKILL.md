@@ -46,6 +46,16 @@ Triage the input, verify repo/branch/task-pack boundaries, build the task list, 
 
 `spec-code-review`, git commit/push/PR workflows, `spec-compound`, release notes, and human reviewers consuming the final completion evidence.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` with high-risk overrides because this workflow can write source, run verification, and prepare commit/PR handoffs.
+
+Overrides: high-risk
+
+- `foreign-residual-workspace` -> `blocked-action-required`: stop before edits, tests that rely on stale local artifacts, commits, or PR handoffs until `spec-first clean --workspace-orphans` preview and `spec-first init` refresh the local harness, or the user explicitly accepts degraded evidence.
+- `unavailable-provider` condition -> `fallback-only`: use bounded direct source/test evidence and disclose graph limitations; do not claim graph-backed impact evidence or related-test coverage.
+- `non-git-build-workspace` coverage gaps -> `partial`: keep writes scoped to explicit `target_repo` / covered git roots, and directly inspect uncovered build modules before changing behavior that could affect them.
+
 ## Examples As Context
 
 When editing or reviewing this workflow prompt, or when running fresh-source eval for workflow posture drift, read `skills/spec-work/evals/examples.json` as examples-as-context. These examples are not an execution state machine, runtime readiness gate, or semantic quality proof for ordinary work runs.

@@ -50,6 +50,11 @@ Detect host, reset explicit-check cooldown, gather host-specific version/runtime
 
 Human maintainers, startup reminder routing, setup/update troubleshooting, and `using-spec-first` guidance when runtime assets are stale.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Host model
 
 - **Claude Code** installs spec-first as a Claude plugin. Version checks use the

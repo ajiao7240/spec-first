@@ -50,6 +50,11 @@ Assess scope and domain, ask focused questions, synthesize options and decisions
 
 `spec-plan`, human product owners, document reviewers, and future work/review flows that need stable WHAT/WHY context.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Core Principles
 
 1. **Assess scope first** - Match the amount of ceremony to the size and ambiguity of the work.

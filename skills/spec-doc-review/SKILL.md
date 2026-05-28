@@ -42,6 +42,11 @@ Detect mode and document type, select reviewer personas, dispatch with bounded p
 
 `spec-plan`, `spec-work`, task-pack validation/rebuild decisions, human document owners, and code-review handoffs when document findings imply implementation risk.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Examples As Context
 
 When editing or reviewing this workflow prompt, or when running fresh-source eval for review posture drift, read `skills/spec-doc-review/evals/examples.json` as examples-as-context. These examples are not a replacement for persona selection, reviewer findings, or semantic readiness judgment during ordinary document reviews.

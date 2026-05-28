@@ -48,6 +48,11 @@ Resolve source and scope, gather required repo/research context, structure the p
 
 `spec-write-tasks`, `spec-work`, `spec-doc-review`, issue creation, Proof/HITL review paths, and human implementation reviewers.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Context Orientation Anchor
 
 Orient from the current user request or requirement, existing plans or task packs, already-loaded host/project instructions, `docs/contracts/`, existing brainstorms/plans/solutions, package manifests and command registries, nearby implementation files, nearby tests, graph/provider readiness facts when relevant, and git diff or changed files when applicable. Treat `AGENTS.md`, `CLAUDE.md`, and project role docs as host instruction sources that are normally already loaded by the current session, not automatic re-read targets for every planning run. Written project standards from loaded host instructions, directory-scoped equivalents, or precisely read source files may define hard project context when they apply to the planned files; docs, prior plans, and provider facts remain advisory unless the current source plan or user request promotes them to scope authority. Read instruction source only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it. External tools may prioritize inspection, but they do not define scope authority. The LLM still chooses the candidate change surface from explicit repo context and source-plan constraints.

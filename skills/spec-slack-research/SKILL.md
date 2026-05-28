@@ -41,6 +41,11 @@ Clarify the topic if needed, dispatch the Slack researcher, let it search/read/s
 
 `spec-brainstorm`, `spec-plan`, `spec-work`, stakeholder alignment, and human decision makers needing organizational context.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Usage
 
 ```

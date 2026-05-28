@@ -42,6 +42,11 @@ Validate the spec and budget, establish the baseline, run bounded experiments, m
 
 `spec-work`, code review, benchmark maintainers, release reviewers when performance/relevance changes matter, and humans inspecting experiment logs.
 
+## Scenario Capability
+
+Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
+Overrides: none
+
 ## Interaction Method
 
 Use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
