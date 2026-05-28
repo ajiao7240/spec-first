@@ -141,6 +141,10 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(skill).toContain('Live MCP Probe');
     expect(skill).toContain('Do not collapse `Live MCP Probe=passed` into `CLI query_ready=true`');
     expect(skill).toContain('summarize `run_id`, total child count, ready/degraded/not-applicable/action-required counts');
+    expect(skill).toContain('P5-min `quality_signals`');
+    expect(skill).toContain('quality_signals.{child_count, process_results_rate, command_failed_rate, dirty_advisory_child_rate}');
+    expect(skill).toContain('These quality signals are deterministic evaluation inputs only');
+    expect(skill).toContain('- Host instruction drift detected (advisory). Run: spec-first init to refresh AGENTS.md / CLAUDE.md GitNexus blocks.');
     expect(skill).toContain('workspace_gitnexus_readiness_pointer.reason_code=script-mode-no-mcp');
     expect(skill).toContain('four-key `query_usability_counts`');
     expect(skill).toContain('`group.status="not-evaluated-no-mcp-input"`');
@@ -170,6 +174,11 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(bashScript).toContain('workspace_gitnexus_readiness_pointer:$workspace_gitnexus_readiness.workspace_gitnexus_readiness_pointer');
     expect(bashScript).toContain('query_usability_counts:$workspace_gitnexus_readiness.query_usability_counts');
     expect(bashScript).toContain('group:$workspace_gitnexus_readiness.group');
+    expect(bashScript).toContain('quality_signals:{');
+    expect(bashScript).toContain('child_count:($results | length)');
+    expect(bashScript).toContain('process_results_rate');
+    expect(bashScript).toContain('command_failed_rate');
+    expect(bashScript).toContain('dirty_advisory_child_rate');
     expect(bashScript).toContain('"script-mode-no-mcp"');
     expect(bashScript).toContain('"classifier-not-invoked"');
     expect(bashScript).toContain('"classifier-failed"');
@@ -180,6 +189,11 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     expect(powershellScript).toContain('workspace_gitnexus_readiness_pointer = $workspaceGitNexusReadiness.workspace_gitnexus_readiness_pointer');
     expect(powershellScript).toContain('query_usability_counts = $workspaceGitNexusReadiness.query_usability_counts');
     expect(powershellScript).toContain('group = $workspaceGitNexusReadiness.group');
+    expect(powershellScript).toContain('New-WorkspaceQualitySignals');
+    expect(powershellScript).toContain('quality_signals = $qualitySignals');
+    expect(powershellScript).toContain('process_results_rate');
+    expect(powershellScript).toContain('command_failed_rate');
+    expect(powershellScript).toContain('dirty_advisory_child_rate');
     expect(powershellScript).toContain("'script-mode-no-mcp'");
     expect(powershellScript).toContain("'classifier-not-invoked'");
     expect(powershellScript).toContain("'classifier-failed'");

@@ -502,6 +502,8 @@ assert_eq "all-repos child rows carry parent run id" "true" "$(jq -r '(.run_id a
 assert_eq "all-repos summary records total timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' <<<"$all_repos_output")"
 assert_eq "all-repos child rows record timing" "true" "$(jq -r 'all(.results[]; (.started_at | type == "string") and (.finished_at | type == "string") and (.duration_ms | type == "number") and (.duration_ms >= 0))' <<<"$all_repos_output")"
 assert_eq "all-repos graph bootstrap reports partial success" "partial:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$all_repos_output")"
+assert_eq "all-repos quality signals expose P5-min four-key baseline" "child_count,command_failed_rate,dirty_advisory_child_rate,process_results_rate" "$(jq -r '.quality_signals | keys | sort | join(",")' <<<"$all_repos_output")"
+assert_eq "all-repos quality signals count process and command failures" "2:0.5:0.5:0" "$(jq -r '.quality_signals | "\(.child_count):\(.process_results_rate):\(.command_failed_rate):\(.dirty_advisory_child_rate)"' <<<"$all_repos_output")"
 assert_eq "all-repos graph bootstrap records child reason" "project-b:missing_provider_config" "$(jq -r '.results[] | select(.workspace_relative_path=="project-b") | "\(.repo_label):\(.reason_code)"' <<<"$all_repos_output")"
 assert_eq "all-repos graph bootstrap records parent host normalization" "drift-detected:false:true:0" "$(jq -r '.parent_host_instruction_normalization as $norm | "\($norm.status):\(.parent_writes_host_instruction_files):\($norm.advisory):\($norm.exit_code)"' <<<"$all_repos_output")"
 assert_contains "all-repos graph bootstrap prints child start progress" "all-repos child 1/2 start repo=project-a" "$(cat "$all_repos_progress_err")"
@@ -1191,6 +1193,7 @@ all_repos_dirty_classification_output="$(cd "$ALL_REPOS_DIRTY_CLASSIFICATION_WOR
 all_repos_dirty_classification_status=$?
 set -e
 assert_eq "all-repos dirty classification summary is ready" "0:ready:non-graph-only:graph-affecting-blocked" "$all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.results[] | select(.workspace_relative_path=="project-a") | .dirty_classification) + ":" + (.results[] | select(.workspace_relative_path=="project-b") | .dirty_classification)' <<<"$all_repos_dirty_classification_output")"
+assert_eq "all-repos quality signals count dirty advisory children" "2:1:0:0.5" "$(jq -r '.quality_signals | "\(.child_count):\(.process_results_rate):\(.command_failed_rate):\(.dirty_advisory_child_rate)"' <<<"$all_repos_dirty_classification_output")"
 assert_eq "all-repos dirty advisory does not request rerun" "All child repos produced graph bootstrap artifacts." "$(jq -r '.next_action' <<<"$all_repos_dirty_classification_output")"
 
 DIRTY_REFRESH_REPO="$TMP_DIR/dirty-refresh-repo"
@@ -1324,6 +1327,7 @@ JSON
   ps_all_repos_dirty_classification_status=$?
   set -e
   assert_eq "PowerShell all-repos dirty advisory summary is ready" "0:ready:2:0:All child repos produced graph bootstrap artifacts." "$ps_all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.counts.ready | tostring) + ":" + (.counts.action_required | tostring) + ":" + .next_action' <<<"$ps_all_repos_dirty_classification_output")"
+  assert_eq "PowerShell all-repos quality signals count dirty advisory children" "2:1:0:0.5" "$(jq -r '.quality_signals | "\(.child_count):\(.process_results_rate):\(.command_failed_rate):\(.dirty_advisory_child_rate)"' <<<"$ps_all_repos_dirty_classification_output")"
 fi
 
 INCREMENTAL_REPO="$TMP_DIR/incremental-repo"

@@ -717,6 +717,48 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         query_usability_counts:$workspace_gitnexus_readiness.query_usability_counts,
         group:$workspace_gitnexus_readiness.group,
         group_reason_code:($workspace_gitnexus_readiness.group_reason_code // null),
+        quality_signals:{
+          child_count:($results | length),
+          process_results_rate:(
+            if ($results | length) == 0 then null
+            else (
+              ([
+                $results[]
+                | select(
+                    any(.result.results[]?; .provider == "gitnexus" and any(.query_probe_attempts[]?; .result_class == "process-results"))
+                  )
+              ] | length) / ($results | length)
+            )
+            end
+          ),
+          command_failed_rate:(
+            if ($results | length) == 0 then null
+            else (
+              ([
+                $results[]
+                | select(
+                    (.exit_code // 0) != 0
+                    or any(.result.results[]?; any(.command_results[]?; (.exit_code // 0) != 0))
+                  )
+              ] | length) / ($results | length)
+            )
+            end
+          ),
+          dirty_advisory_child_rate:(
+            if ($results | length) == 0 then null
+            else (
+              ([
+                $results[]
+                | select(
+                    .overall_status == "ready-dirty-advisory"
+                    or .dirty_classification == "graph-affecting-blocked"
+                    or (.result.freshness_state // "") == "dirty-advisory"
+                  )
+              ] | length) / ($results | length)
+            )
+            end
+          )
+        },
         timing:{
           started_at:$started_at,
           finished_at:$finished_at,

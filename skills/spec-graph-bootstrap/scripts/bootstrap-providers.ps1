@@ -375,6 +375,84 @@ function Invoke-ChildJsonScript {
   }
 }
 
+function ConvertTo-WorkspaceQualityRate {
+  param(
+    [int]$Count,
+    [int]$Total
+  )
+
+  if ($Total -le 0) {
+    return $null
+  }
+  if ($Count -le 0) {
+    return 0
+  }
+  if ($Count -ge $Total) {
+    return 1
+  }
+  return [double]($Count / $Total)
+}
+
+function Test-ChildHasProcessResults {
+  param([object]$Child)
+
+  foreach ($providerResult in @($Child.result.results)) {
+    if ([string]$providerResult.provider -ne 'gitnexus') { continue }
+    foreach ($attempt in @($providerResult.query_probe_attempts)) {
+      if ([string]$attempt.result_class -eq 'process-results') {
+        return $true
+      }
+    }
+  }
+  return $false
+}
+
+function Test-ChildHasFailedCommand {
+  param([object]$Child)
+
+  if ([int]$Child.exit_code -ne 0) {
+    return $true
+  }
+  foreach ($providerResult in @($Child.result.results)) {
+    foreach ($commandResult in @($providerResult.command_results)) {
+      if ([int]$commandResult.exit_code -ne 0) {
+        return $true
+      }
+    }
+  }
+  return $false
+}
+
+function Test-ChildIsDirtyAdvisory {
+  param([object]$Child)
+
+  if ([string]$Child.overall_status -eq 'ready-dirty-advisory') {
+    return $true
+  }
+  if ([string]$Child.dirty_classification -eq 'graph-affecting-blocked') {
+    return $true
+  }
+  if ($Child.result.PSObject.Properties.Name -contains 'freshness_state' -and [string]$Child.result.freshness_state -eq 'dirty-advisory') {
+    return $true
+  }
+  return $false
+}
+
+function New-WorkspaceQualitySignals {
+  param([object[]]$Results)
+
+  $childCount = @($Results).Count
+  $processResultsCount = @($Results | Where-Object { Test-ChildHasProcessResults -Child $_ }).Count
+  $commandFailedCount = @($Results | Where-Object { Test-ChildHasFailedCommand -Child $_ }).Count
+  $dirtyAdvisoryCount = @($Results | Where-Object { Test-ChildIsDirtyAdvisory -Child $_ }).Count
+  return [ordered]@{
+    child_count = $childCount
+    process_results_rate = ConvertTo-WorkspaceQualityRate -Count $processResultsCount -Total $childCount
+    command_failed_rate = ConvertTo-WorkspaceQualityRate -Count $commandFailedCount -Total $childCount
+    dirty_advisory_child_rate = ConvertTo-WorkspaceQualityRate -Count $dirtyAdvisoryCount -Total $childCount
+  }
+}
+
 function Write-WorkspaceGraphBootstrapSummaryAndExit {
   param(
     [object]$TargetFacts,
@@ -520,6 +598,7 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
   $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0 -and $degradedCount -eq 0) { 'ready' } elseif (($readyCount + $degradedCount) -gt 0) { 'partial' } else { 'action-required' }
   $finishedAt = Get-UtcTimestamp
   $durationMs = (Get-EpochMilliseconds) - $script:ScriptStartedEpochMs
+  $qualitySignals = New-WorkspaceQualitySignals -Results @($results)
   $summary = [ordered]@{
     schema_version = 'workspace-graph-bootstrap-summary.v1'
     generated_at = $finishedAt
@@ -535,6 +614,7 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     query_usability_counts = $workspaceGitNexusReadiness.query_usability_counts
     group = $workspaceGitNexusReadiness.group
     group_reason_code = $workspaceGitNexusReadiness.group_reason_code
+    quality_signals = $qualitySignals
     timing = [ordered]@{
       started_at = $script:ScriptStartedAt
       finished_at = $finishedAt
