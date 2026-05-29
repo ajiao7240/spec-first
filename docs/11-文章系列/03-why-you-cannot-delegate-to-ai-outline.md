@@ -8,9 +8,9 @@ metadata:
 
 # 为什么你不敢把任务真正交给 AI
 
-**状态：** 大纲  
-**内容类型：** 观点篇  
-**Harness 坐标：** Context / Evidence / Review / Knowledge  
+**状态：** 大纲
+**内容类型：** 观点篇
+**Harness 坐标：** Context / Evidence / Review / Knowledge
 **目标读者：** 已经在用 AI coding，但仍然把它当成临时助手而不是可委派执行者的开发者。
 
 ## 核心论点

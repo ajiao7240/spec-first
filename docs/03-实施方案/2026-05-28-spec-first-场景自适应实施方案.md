@@ -458,7 +458,7 @@ Bash 和 PowerShell 两条脚本路径必须产出**完全等价**的 fingerprin
 
 ### 7.1 关键依赖路径(已 unwind 循环依赖)
 
-- **PA-pre → PA-1**:calibration 决定 schema 取值,**必须先做** 
+- **PA-pre → PA-1**:calibration 决定 schema 取值,**必须先做**
 - **PA-1 → P0/P1/P2/P3**:setup 层 fingerprint 提供 foreign_residual_indicators 等字段
 - **PA-1 + P0-P3 → PA-2**:bootstrap 层 fingerprint merge setup 层 + bootstrap 阶段新增字段
 - **P4 解耦**:P4 build-target scan 是 **PA-2 字段 `build_target_coverage_ratio` 的依赖**;PA-2 在 P4 完成前可以发布,但该字段值为 `null` + `reason_code: pending-build-target-scan`,P4 完成后回填——**消除循环依赖**

@@ -29,6 +29,7 @@ yarn-error.log*
 .playwright-mcp/
 /*-loop.md
 /*-userskuang*.txt
+/*-local-command-*.txt
 
 # 外部 CLI 工具运行日志（如 nb / hst-mcp），不属于 spec-first 仓库源码
 logs/

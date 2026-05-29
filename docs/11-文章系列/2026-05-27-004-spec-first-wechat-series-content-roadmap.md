@@ -7,10 +7,10 @@ metadata:
 
 # spec-first 微信公众号第一季内容路线图
 
-**状态：** 建议稿  
-**日期：** 2026-05-27  
-**当前基线：** 第 1 篇已发布：`docs/11-文章系列/01-spec-first.md`  
-**关联规划：** `docs/11-文章系列/2026-05-27-003-spec-first-wechat-series-requirements.md`  
+**状态：** 建议稿
+**日期：** 2026-05-27
+**当前基线：** 第 1 篇已发布：`docs/11-文章系列/01-spec-first.md`
+**关联规划：** `docs/11-文章系列/2026-05-27-003-spec-first-wechat-series-requirements.md`
 **Ideation 记录：** `docs/ideation/2026-05-27-spec-first-wechat-series-content-ideation.md`
 
 ---

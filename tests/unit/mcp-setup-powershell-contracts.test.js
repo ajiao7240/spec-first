@@ -184,7 +184,9 @@ describe('spec-mcp-setup PowerShell host config contract', () => {
     expect(verifySource).toContain('foreign-absolute-path-stat-failed');
     expect(verifySource).toContain('retired-provider-residue');
     expect(verifySource).toContain("path = $Path.Replace('\\', '/')");
-    expect(verifySource).toContain('Set-Content -Encoding utf8NoBOM -LiteralPath $tmp');
+    expect(verifySource).toContain('New-Object System.Text.UTF8Encoding -ArgumentList $false');
+    expect(verifySource).toContain('[System.IO.File]::WriteAllText($tmp, $json, $encoding)');
+    expect(verifySource).not.toContain('utf8NoBOM');
     expect(verifySource).toContain('all-repos-requires-parent-workspace');
     expect(verifySource).toContain('all-repos-conflicts-with-repo');
     expect(verifySource).toContain('parent_writes_repo_local_artifacts');

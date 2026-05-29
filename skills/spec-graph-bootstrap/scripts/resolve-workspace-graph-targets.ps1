@@ -169,7 +169,7 @@ function Get-BuildTargetAwareness {
   )
   $targetsPath = [System.IO.Path]::GetTempFileName()
   try {
-    @($Targets) | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $targetsPath -Encoding UTF8
+    ConvertTo-Json -InputObject @($Targets) -Depth 30 | Set-Content -LiteralPath $targetsPath -Encoding UTF8
     $raw = & node $buildTargetCompiler --workspace-root $WorkspaceRoot --targets $targetsPath --scan-depth $ScanDepth
     $text = ($raw -join "`n").Trim()
     if ([string]::IsNullOrWhiteSpace($text)) {

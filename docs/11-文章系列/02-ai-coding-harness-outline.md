@@ -8,9 +8,9 @@ metadata:
 
 # 什么是 AI Coding Harness：spec-first 的定位升级
 
-**状态：** 大纲  
-**内容类型：** 枢纽篇  
-**Harness 坐标：** 总览 / Context / Execution / Evidence / Evaluation / Governance / Knowledge  
+**状态：** 大纲
+**内容类型：** 枢纽篇
+**Harness 坐标：** 总览 / Context / Execution / Evidence / Evaluation / Governance / Knowledge
 **目标读者：** 已经认同“AI coding 不是 prompt 问题，而是 workflow 问题”，但还不知道下一层系统结构是什么的开发者。
 
 ## 核心论点

@@ -10,8 +10,8 @@ metadata:
 
 **把不稳定的 AI 推理，放进可重复、可观察、可约束、可验证的工程闭环。**
 
-> **导读**  
-> 这一篇只回答一个问题：`spec-first` 到底是什么。  
+> **导读**
+> 这一篇只回答一个问题：`spec-first` 到底是什么。
 > 我的最新答案是：它不是 prompt pack，也不是 agent collection，而是一层面向真实软件工程的 **AI Coding Harness**。
 
 上一篇我写的是：

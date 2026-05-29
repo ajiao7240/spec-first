@@ -8,9 +8,9 @@ metadata:
 
 # 不要修生成物，要修 Source-of-Truth
 
-**状态：** 大纲  
-**内容类型：** 取舍 / Building in Public  
-**Harness 坐标：** Governance Harness / Knowledge Harness  
+**状态：** 大纲
+**内容类型：** 取舍 / Building in Public
+**Harness 坐标：** Governance Harness / Knowledge Harness
 **目标读者：** 经常为了让 AI 任务“眼前通过”，直接 patch 运行时副本、生成文件或临时产物的开发者。
 
 ## 核心论点

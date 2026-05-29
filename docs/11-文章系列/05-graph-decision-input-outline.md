@@ -8,9 +8,9 @@ metadata:
 
 # 别再让 AI 猜你的代码：Graph 如何改变决策输入
 
-**状态：** 大纲  
-**内容类型：** 机制篇  
-**Harness 坐标：** Context Harness / Evidence Harness  
+**状态：** 大纲
+**内容类型：** 机制篇
+**Harness 坐标：** Context Harness / Evidence Harness
 **目标读者：** 已经遇到过 AI 改错文件、漏掉调用方、误判影响面的开发者。
 
 ## 核心论点

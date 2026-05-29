@@ -491,8 +491,10 @@ function collectChildRepoPaths(workspaceRoot, targets) {
 
 function readTargets(targetsPath) {
   if (!targetsPath) return [];
-  const parsed = JSON.parse(fs.readFileSync(targetsPath, 'utf8'));
-  return Array.isArray(parsed) ? parsed : [];
+  const raw = fs.readFileSync(targetsPath, 'utf8').replace(/^\uFEFF/, '');
+  const parsed = JSON.parse(raw);
+  if (Array.isArray(parsed)) return parsed;
+  return parsed && typeof parsed === 'object' ? [parsed] : [];
 }
 
 function parseArgs(argv) {

@@ -136,4 +136,67 @@ describe('spec-brainstorm host entrypoint contract', () => {
     expect(text).toContain('<absolute path to requirements doc>');
     expect(text).toContain('Generated requirements documents themselves must still use repo-relative file references');
   });
+
+  test('requirements readiness gate replaces the flat finalization checklist with six dimensions', () => {
+    const text = fs.readFileSync(REQUIREMENTS_PATH, 'utf8');
+
+    expect(text).toContain('## Requirements Readiness Gate');
+    expect(text).toContain('**Clarity & Non-ambiguity**');
+    expect(text).toContain('**Evidence & Inference provenance**');
+    expect(text).toContain('**Traceability & Coverage**');
+    expect(text).toContain('**Testability**');
+    expect(text).toContain('**Boundary integrity**');
+    expect(text).toContain('**Planning-invention & Handoff readiness**');
+    // Lightweight pre-scan absorbed from the predecessor preflight self-check.
+    expect(text).toContain('Placeholder scan');
+    expect(text).toContain('Contradiction scan');
+    // The old flat name must be gone, not duplicated alongside the gate.
+    expect(text).not.toContain('## Finalization checklist');
+  });
+
+  test('gate preserves load-bearing checks so the refactor loses nothing', () => {
+    const text = fs.readFileSync(REQUIREMENTS_PATH, 'utf8');
+
+    // Imperative clauses, not just headers — these are the behavior, locked against silent drift.
+    expect(text).toContain('Do Success Criteria cover both human outcome');
+    expect(text).toContain('infrastructure is absent');
+    expect(text).toContain('invent product behavior');
+    // Improvement prompts demoted to a named non-blocking subsection, not dropped.
+    expect(text).toContain('Beyond pass/fail');
+  });
+
+  test('gate carries provenance and handoff checks', () => {
+    const text = fs.readFileSync(REQUIREMENTS_PATH, 'utf8');
+
+    expect(text).toContain('references/synthesis-summary.md');
+    expect(text).toContain('must not be presented as a user-confirmed requirement');
+    expect(text).toContain('Is `Resolve Before Planning` empty?');
+  });
+
+  test('acceptance examples carry triggered EARS-style guidance', () => {
+    const text = fs.readFileSync(REQUIREMENTS_PATH, 'utf8');
+
+    expect(text).toContain('EARS-style phrasing');
+    expect(text).toContain('When <trigger>, then <observable result>');
+    expect(text).toContain('Always-on behavior');
+    expect(text).toContain('Structural / governance rule');
+    // Triggered, not mandatory — the gate must not force fixed syntax onto every requirement.
+    expect(text).toContain('triggered, not mandatory');
+  });
+
+  test('gate excludes decomposition and points at the existing size heuristic', () => {
+    const text = fs.readFileSync(REQUIREMENTS_PATH, 'utf8');
+
+    expect(text).toContain('decomposed');
+    expect(text).toContain('## Size heuristics');
+    expect(text).toContain('the gate flags, it does not decide the split');
+  });
+
+  test('constraint check scans docs/solutions without back-driving implementation', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(skill).toContain('docs/solutions/');
+    expect(skill).toContain('prior problem framing and decision rationale');
+    expect(skill).toContain('must not let implementation details back-drive user-facing requirements');
+  });
 });

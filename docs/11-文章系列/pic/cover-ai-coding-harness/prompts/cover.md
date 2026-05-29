@@ -7,7 +7,7 @@ TYPE: conceptual — abstract concept visualization showing a structured enginee
 
 PALETTE: cool (blueprint style)
 - Primary: Engineering Blue #2563EB
-- Secondary: Navy Blue #1E3A5F  
+- Secondary: Navy Blue #1E3A5F
 - Accent: Cyan #06B6D4
 - Background: Blueprint Off-White #FAF8F5
 - Grid lines and technical schematic decorative hints

@@ -57,6 +57,9 @@ describe('PowerShell workspace graph target resolver contract', () => {
       expect(source).not.toContain("'code-review-graph' = [ordered]@{");
       expect(source).not.toContain('development_mode');
     }
+
+    expect(powershell).toContain('ConvertTo-Json -InputObject @($Targets) -Depth 30');
+    expect(powershell).not.toContain('@($Targets) | ConvertTo-Json -Depth 30');
   });
 
   test('keeps blocked parent-workspace target resolution explicit', () => {

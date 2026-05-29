@@ -88,7 +88,9 @@ function Write-JsonFileAtomic {
   }
   $tmp = Join-Path $dir ('.{0}.{1}.tmp' -f (Split-Path -Leaf $Path), ([guid]::NewGuid().ToString('N')))
   try {
-    $Payload | ConvertTo-Json -Depth $Depth | Set-Content -Encoding utf8NoBOM -LiteralPath $tmp
+    $json = $Payload | ConvertTo-Json -Depth $Depth
+    $encoding = New-Object System.Text.UTF8Encoding -ArgumentList $false
+    [System.IO.File]::WriteAllText($tmp, $json, $encoding)
     if ((Test-SymlinkPath $specDir) -or (Test-SymlinkPath $dir) -or (Test-SymlinkPath $Path)) {
       throw 'workspace-summary-symlink-escape'
     }

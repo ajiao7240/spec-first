@@ -8,9 +8,9 @@ metadata:
 
 # Context Harness：正确上下文不是无限上下文
 
-**状态：** 大纲  
-**内容类型：** 机制篇  
-**Harness 坐标：** Context Harness  
+**状态：** 大纲
+**内容类型：** 机制篇
+**Harness 坐标：** Context Harness
 **目标读者：** 习惯把更多文档、更多代码、更多历史记录直接塞给 AI 的开发者。
 
 ## 核心论点

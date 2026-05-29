@@ -48,6 +48,12 @@ For truly trivial Lightweight cases where Summary is skipped, Problem Frame may 
 
 **Acceptance Examples** — include when a requirement's behavior is hard to pin down without a concrete scenario. Always include Acceptance Examples covering behavioral-conditional requirements — any requirement framed as "When X, Y" or "If X, Y" — because conditional behavior is where prose often leaves implicit ambiguity. Each example disambiguates one or more requirements via a `Covers: R-IDs` back-reference. Examples are definitive for what they describe but the section is not exhaustive.
 
+*EARS-style phrasing (triggered, not mandatory).* When an example or requirement is hard to pin down, lean on these forms to remove ambiguity — but do not rewrite every requirement into fixed syntax; the goal is clarity, not a grammar drill:
+
+- **Conditional behavior** → `When <trigger>, then <observable result>` or `If <state>, then <observable result>` (Given/When/Then is equivalent). Fix both the condition and the result.
+- **Always-on behavior** → a concise observable statement of what must always hold (no trigger needed).
+- **Structural / governance rule** → a non-behavioral statement is allowed, but say *why* it is structural rather than behavioral.
+
 ## Template
 
 Use this template and omit sections per the matrix above. At Deep-product tier, keep the Scope Boundaries split. At other tiers, use the single Scope Boundaries list.
@@ -206,23 +212,54 @@ Include a visual aid when the requirements would be significantly easier to unde
 - **Lightweight** — keep the document compact. Skip document creation when the user only needs brief alignment and no durable decisions need to be preserved.
 - **Standard and Deep (feature or product)** — a requirements document is usually warranted. When the work is simple, combine sections rather than padding them. A short requirements document is better than a bloated one.
 
-## Finalization checklist
+## Requirements Readiness Gate
 
-Before finalizing:
+This gate replaces the older flat finalization checklist. Before finalizing, run a lightweight pre-scan, then walk the six readiness dimensions. The gate assesses whether requirements are **ready to hand to planning** — it is LLM-owned judgment, not a script.
 
-- What would `spec-plan` still have to invent if this brainstorm ended now?
-- Does every Standard/Deep requirement have either an observable behavior or a stated reason it is structural?
-- Do Success Criteria cover both human outcome and downstream-agent handoff quality?
+**Pre-scan (cheap, do first):**
+
+- **Placeholder scan** — no `TODO`, `TBD`, leftover placeholders, or unfinished sections remain.
+- **Contradiction scan** — no *literal* in-document conflict (e.g., a requirement that directly contradicts a Scope Boundary, Success Criterion, or Key Decision in the same doc). This is a same-document consistency check, not a judgment about whether the requirements *should* exist.
+
+**Clarity & Non-ambiguity**
+
+- Could any core requirement be read by a downstream planner as two contradictory implementations? If a requirement is ambiguous enough to support opposite builds, sharpen it or record the open question.
+
+**Evidence & Inference provenance**
+
+- Does the doc keep the synthesis `Stated` / `Inferred` / `Out of scope` distinction honest (see `references/synthesis-summary.md`)? Any unconfirmed agent inference must not be presented as a user-confirmed requirement — label it as an assumption or open question.
+- Do any requirements claim that infrastructure is absent without that claim having been verified against the codebase? If so, verify now or label as an unverified assumption.
+
+**Traceability & Coverage**
+
 - If Actors are named, is each actor mentioned in the problem represented in at least one requirement, flow, or scope boundary?
 - If Key Flows are present, does each flow identify actor, trigger, outcome, and a failure or escape path when relevant?
+
+**Testability**
+
+- Does every Standard/Deep requirement have either an observable behavior or a stated reason it is structural?
+- Do Success Criteria cover both human outcome and downstream-agent handoff quality?
+- For behavioral-conditional requirements, is there an Acceptance Example that fixes the condition and the result? (See the EARS-style guidance under Acceptance Examples.)
+
+**Boundary integrity**
+
+- Did implementation details leak in when they shouldn't have?
+- Do any requirements depend on something claimed to be out of scope?
 - At Deep-product tier: if Key Flows are omitted, is the reason stated in the doc, and do Actors, Requirements, Scope Boundaries, and Acceptance Examples together prevent downstream invention of user/agent paths?
 - At Deep-product tier: does Scope Boundaries distinguish "Deferred for later" from "Outside this product's identity"?
-- Do any requirements depend on something claimed to be out of scope?
+
+**Planning-invention & Handoff readiness**
+
+- What would `spec-plan` still have to invent if this brainstorm ended now?
 - Are any unresolved items actually product decisions rather than planning questions?
-- Did implementation details leak in when they shouldn't have?
-- Do any requirements claim that infrastructure is absent without that claim having been verified against the codebase? If so, verify now or label as an unverified assumption.
+- Is `Resolve Before Planning` empty? If not, keep working those questions, convert each into an explicit decision/assumption/`Deferred to Planning` question, or record that the user chose to proceed at risk.
+
+**Scope note (out of this gate's range):** Whether requirements should be **decomposed** into sub-epics or split across multiple plans is *not* this gate's job. Lightweight size-sanity already lives in `## Size heuristics` above ("exceed ~15-20, stop and ask whether this is one brainstorm or several"); heavyweight decomposition decision-making awaits the separate process-safety line. If a doc trips the size heuristic, route it there — the gate flags, it does not decide the split.
+
+**Beyond pass/fail (improvement prompts, not readiness blockers):**
+
 - Is there a low-cost change that would make this materially more useful?
-- Would a visual aid (flow diagram, comparison table, relationship diagram) help a reader grasp the requirements faster than prose alone?
+- Would a visual aid (flow diagram, comparison table, relationship diagram) help a reader grasp the requirements faster than prose alone? (See `## Visual communication` above.)
 
 If planning would need to invent product behavior, scope boundaries, or success criteria, the brainstorm is not complete yet.
 

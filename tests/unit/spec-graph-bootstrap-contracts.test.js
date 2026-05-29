@@ -282,6 +282,39 @@ describe('spec-graph-bootstrap live MCP probe contract', () => {
     }
   });
 
+  test('build-target compiler accepts BOM-prefixed singleton target JSON from PowerShell', () => {
+    const { compileGradleBuildTargets } = require(BUILD_TARGET_COMPILER_PATH);
+    const tempRoot = fs.mkdtempSync(path.join('/tmp', 'spec-first-targets-json-'));
+    try {
+      const appDir = path.join(tempRoot, 'packages', 'app');
+      fs.mkdirSync(appDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(tempRoot, 'package.json'),
+        JSON.stringify({ private: true, workspaces: ['packages/*'] }),
+      );
+      fs.writeFileSync(path.join(appDir, 'package.json'), '{"name":"app"}');
+      const targetsPath = path.join(tempRoot, 'targets.json');
+      fs.writeFileSync(targetsPath, `\uFEFF${JSON.stringify({
+        target_kind: 'git-repo',
+        repo_label: 'app',
+        git_root: appDir,
+        workspace_relative_path: 'packages/app',
+      })}`);
+
+      const result = compileGradleBuildTargets({ workspaceRoot: tempRoot, targetsPath, scanDepth: 3 });
+      expect(result.coverage_inference).toBe('computed');
+      expect(result.coverage_summary.covered_by_git_children).toBe(1);
+      expect(result.non_git_build_modules).toEqual([
+        expect.objectContaining({
+          path: 'packages/app',
+          covered_by_child_repo: true,
+        }),
+      ]);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   test('ships review fixtures for trigger, boundary, failure, and expected behavior cases', () => {
     const evalDir = path.join(REPO_ROOT, 'skills', 'spec-graph-bootstrap', 'evals');
     const expectedFiles = [
