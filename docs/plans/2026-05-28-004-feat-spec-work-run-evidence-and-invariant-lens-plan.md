@@ -473,6 +473,8 @@ Lens test 逻辑：
 3. **C3**：`partially-shipped` 新值是否影响 `spec-plan` SKILL 中关于 status 的判断逻辑？Stage 5 落地前必须 grep `skills/spec-plan/` 中所有 `status` 字段判断，如有"假设 status 只有 active/completed/superseded"的硬编码逻辑，同步修正。本 plan 不预测影响面。
 4. **C4**：producer 调用延迟若 > 500ms 是否需要 async 路径？暂不优化，按现有 atomic write + schema validate 实测延迟决定；如真成 closeout 体感问题，下个周期单独评估。
 5. **C-lens-noise**：Invariant lens 首版只匹配 canonical phrase（无 alias）。如果实际运行中 prose 正常改写频繁触发误报，下个周期评估是否加 `aliases[]`，或改为 markdown 锚点 + 标签注释式守护。试点期 4 条 invariant 容量小，问题暴露后再决定。
+6. **C-compaction**（业界对标盲区）：run.json `resume_evidence` 未对接 host compaction 信号，而 Anthropic 把 compaction 列为 long-horizon 第一杠杆。本周期不解决（依赖 U-A 落地 + host 暴露信号）。详见路线图 `O-compaction`。
+7. **C-workflow-metric**（业界对标盲区）：成功信号停在"机制通了"，未度量"evidence 是否被下游有效消费"（调用 ≠ 价值），而 workflow-level 质量度量是业界空白。本周期不解决（依赖 U-A 落地 + 真实样本）。详见路线图 `O-workflow-metric`。
 
 ---
 
@@ -518,6 +520,15 @@ Lens test 逻辑：
 - 对标文档 §8：journal 的本质是"恢复因果链"，是 U-A 的设计依据。
 - 对标文档 §11：明确不复制 Trellis 的 active task / per-turn hook / `task.json.status`，是 R6 的反向 guard 依据。
 - AGPL clean-room：本方案不复制 Trellis 任何 prose / schema / prompt。
+
+### 业界一手对标（2026-05-29 检索）
+
+> 检索方式：本会话 WebSearch / exa / WebFetch 均被网络策略阻断，改用本机 `curl` 直接抓取以下公开来源（真实一手内容）。
+
+- [Anthropic *Effective context engineering for AI agents*](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)：long-horizon 三机制 compaction / structured note-taking / sub-agent。U-A run.json 命中 **structured note-taking**；compaction 未对接是盲区（C-compaction）。
+- [github/spec-kit](https://github.com/github/spec-kit)：主张 spec 生成 code、持续一致性校验。spec-first 走不同哲学（code 是一等资产、人保留控制），不学其"spec 生成 code"。
+- 两份一手文档均无"用 deterministic test 守护 agent 自身 workflow"机制——印证 **U-B 是 spec-first 领先业界的差异化点**。
+- workflow-level 质量度量在一手文档与主流 benchmark 中均空白（C-workflow-metric）。
 
 ---
 

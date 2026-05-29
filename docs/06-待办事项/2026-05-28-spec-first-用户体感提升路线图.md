@@ -195,6 +195,17 @@
 
 ---
 
+## 业界对标衍生观察项（2026-05-29，未升格为候选）
+
+以下两项来自对 `2026-05-28-004` plan 的业界一手对标（[Anthropic context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) + [github/spec-kit](https://github.com/github/spec-kit)）。它们是**观察项，不是候选**——尚未达到候选成熟度（都依赖 `2026-05-28-004` 的 U-A 先落地、产生真实 run.json 后才能评估），现在升格为正式候选会过度承诺。记录于此防止丢失，待 P-friction 后与 evidence 一起判断是否升格。
+
+- **O-compaction：run.json 对接 host compaction 信号**。Anthropic 把 compaction 列为 long-horizon 第一杠杆，Claude Code 实际会触发 compaction，但 spec-first 的 run.json `resume_evidence` 不感知。观察方向：长会话被 host compaction 后，spec-work 是否应主动写 run.json 作为 resume anchor。依赖：U-A 落地 + host 暴露 compaction 信号。对应 `2026-05-28-004` Open Question C-compaction。
+- **O-workflow-metric：workflow-level 结果级质量度量**。业界（SWE-bench / Terminal-bench）停在任务级 pass/fail，workflow 级质量度量是公认空白；spec-first 已在生产 run.json 这个天然度量原料，本可像 invariant lens（self-governance as tests）那样在空白处领先。观察方向：run.json 的 evidence 价值如何度量（"调用 ≠ 价值"缺口）。依赖：U-A 落地 + P-friction 积累真实样本。对应 `2026-05-28-004` Open Question C-workflow-metric。
+
+这两项与现有 4 个候选的关系：都更靠近 `P-friction` 之后的评估期；O-workflow-metric 若升格，可能与 `P-review-inline`（inline review 消费 run.json）共享 evidence 消费验证。
+
+---
+
 ## 依赖关系图
 
 ```text
