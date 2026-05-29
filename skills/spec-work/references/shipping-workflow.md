@@ -80,12 +80,23 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
 
    Note whether the completed work has observable behavior (UI rendering, CLI output, API/library behavior with a runnable example, generated artifacts, or workflow output). The `git-commit-push-pr` skill will ask whether to capture evidence only when evidence is possible.
 
-2. **Update Plan Status**
+2. **Resolve Completion Status Target**
 
-   If the input document has YAML frontmatter with a `status` field, update it to `completed`:
-   ```
+   If the work input is a plan/spec document with YAML frontmatter, update that document's `status` only after all scoped work, verification, and required review are complete:
+   ```yaml
    status: active  ->  status: completed
    ```
+
+   If the work input is a validated task pack, do **not** change the task pack's `status: derived`; that value records derivation/validation posture rather than execution progress. Instead, read the task pack frontmatter `source_plan` and update that source plan's frontmatter `status: active -> completed`, because the source plan is the scope and completion authority for task-pack execution.
+
+   Leave the completion target unchanged and record `completion_status.reason_code` in closeout when it cannot be safely updated. Use the narrowest applicable reason code:
+   - `not-a-plan-or-task-pack`
+   - `task-pack-source-plan-missing`
+   - `source-plan-unreadable`
+   - `source-plan-status-not-active`
+   - `scope-not-fully-completed`
+
+   If local repo convention calls for completion evidence in completed plans, append only a brief `Completion Evidence` note with implementation scope, verification, review status, and generated-runtime status. Do not add per-unit progress state.
 
 2.5. **Evaluate Durable Evidence Triggers**
 

@@ -307,6 +307,31 @@ describe('spec-work task-pack identity contract', () => {
     expect(text).toContain('If the work document is a task pack, use `Task Cards`, `Execution Waves`, `dependencies`, and `task_id`');
   });
 
+  test('task-pack shipping completes the source plan, not the derived task pack', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');
+
+    expect(text).toContain('for validated task-pack input, do not change the task pack\'s `status: derived`');
+    expect(text).toContain('because it records derivation/validation posture rather than execution progress');
+    expect(text).toContain('update its `source_plan` frontmatter `status: active → completed`');
+    expect(text).toContain('because the source plan is the completion authority');
+    expect(text).toContain('record the concrete `completion_status.reason_code` in closeout');
+
+    expect(shipping).toContain('Resolve Completion Status Target');
+    expect(shipping).toContain('If the work input is a validated task pack');
+    expect(shipping).toContain('do **not** change the task pack\'s `status: derived`');
+    expect(shipping).toContain('records derivation/validation posture rather than execution progress');
+    expect(shipping).toContain('read the task pack frontmatter `source_plan`');
+    expect(shipping).toContain('update that source plan\'s frontmatter `status: active -> completed`');
+    expect(shipping).toContain('source plan is the scope and completion authority for task-pack execution');
+    expect(shipping).toContain('completion_status.reason_code');
+    expect(shipping).toContain('task-pack-source-plan-missing');
+    expect(shipping).toContain('source-plan-unreadable');
+    expect(shipping).toContain('source-plan-status-not-active');
+    expect(shipping).toContain('scope-not-fully-completed');
+    expect(shipping).toContain('Do not add per-unit progress state');
+  });
+
   test('preserves task-pack review gates as bounded review intent', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');

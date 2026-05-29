@@ -1,6 +1,9 @@
 # Changelog
 
 - 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
+- v1.8.2 2026-05-29 23:59:12 leokuang: docs(plan): 将 `2026-05-28-002-PA-pre-calibration-notes.md` 标记为 completed；确认该 PA-pre 校准笔记已完成 scenario-adaptive milestone 的输入职责，剩余 survey limitation 保留为历史证据边界和未来复核输入，不再代表待开发项 (user-visible)
+- v1.8.2 2026-05-29 23:58:15 leokuang: fix(work): 明确 task-pack 模式 shipping closeout 的 completion status target——validated task pack 自身保持 `status: derived` 作为派生/校验姿态，完成执行时更新其 `source_plan` 的 `status: active -> completed`；新增无法安全更新时的 `completion_status.reason_code` 记录要求与 contract test，防止任务包执行完成后 source plan 仍停在 active (user-visible)
+- v1.8.2 2026-05-29 23:46:37 leokuang: docs(plan): 将 `2026-05-29-002-feat-spec-first-init-ux-brand-plan.md` 标记为 completed，并补充实现范围、code-review 后修复项、聚焦验证命令与 generated runtime unchanged 完成证据 (user-visible)
 - v1.8.2 2026-05-29 21:08:44 leokuang: feat(brainstorm): 将 `spec-brainstorm` Product Pressure Test 的 evidence/counterfactual 两个 gap lens 绑定到 brainstorm 性质——对"已有产品/系统内部的工程演化"(actors 与 positioning 已定)默认判为 N/A,因产品存在性已回答"是否有人要",仅当工程改动自身价值可疑时才升格;`1.3` rigor-probe 段同步把"Standard scan four gap lenses"校准为"up to four",工程演化档的强制 probe 收敛到 specificity + attachment,产品探索档维持四 lens 全扫;不动 Lightweight 三问与 Deep-product durability lens;新增 contract test 断言锁定该 N/A 分流措辞防 silent drift,经 fresh-source eval 双场景(工程演化/产品探索)验证 probe 行为正确分流 (user-visible)
 - v1.8.2 2026-05-29 20:56:30 leokuang: fix(work): 收紧 `spec-work-run-artifact` producer 组合语义校验，`workflow_integrated=true` 只能搭配 durable trigger reason，非集成 artifact 不能携带 trigger reason；同步 schema conditional contract 与 producer/schema 回归测试，避免 run evidence 伪报 workflow-integrated (user-visible)
 - v1.8.2 2026-05-29 17:15:59 leokuang: fix(init): 修复 `spec-first init` 品牌与语言一致性回归——交互语言选择提前到 host/name/target prompt 之前，后续 prompt、取消提示与全局 profile 覆盖确认统一使用 active language；init banner 检测改为先解析当前 git root，避免在已初始化仓库子目录运行时误显示首次完整 art；补充对应 init 交互回归测试 (user-visible)

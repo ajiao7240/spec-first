@@ -1,7 +1,7 @@
 ---
 title: "feat: spec-first init UX & brand polish"
 type: feat
-status: active
+status: completed
 date: 2026-05-29
 spec_id: 2026-05-29-002-spec-first-init-ux-brand
 origin: docs/brainstorms/2026-05-29-002-spec-first-init-ux-brand-requirements.md
@@ -12,6 +12,35 @@ origin: docs/brainstorms/2026-05-29-002-spec-first-init-ux-brand-requirements.md
 ## Summary
 
 本计划为 `spec-first init`、`spec-first -v` 与 postinstall 三处入口实现统一品牌体验：提取单一来源的品牌模块（ASCII art + 颜色主题），完成 init 全部 prompt 的本地化，增加按键提示与多选反馈，本地化并着色 preview，修复版本 banner 对齐，统一 postinstall 品牌展示。所有展示层改动不触碰 init 的落盘逻辑与产物结构。
+
+## Completion Evidence
+
+Completed on 2026-05-29.
+
+Implemented:
+
+- 新增 `src/cli/brand.js`，统一 `spec-first init`、`spec-first -v` 与 `bin/postinstall.js` 的品牌 art / wordmark / ANSI 颜色降级。
+- 新增 `src/cli/init-i18n.js`，将 init prompt、hint、确认/取消与 preview 文案集中到 zh/en 消息表。
+- 扩展 `src/cli/prompts/index.js`，为 select/checkbox 增加 hint，为 checkbox 增加 minSelected 可见错误反馈。
+- 更新 `src/cli/commands/init.js`，支持首次/重复 init banner、active language 一致性、preview 本地化与语义色、next-step 文案 polish。
+- `$spec-code-review` 发现的两个问题已修复：交互中选择语言后的后续 prompt 统一使用 active language；从已初始化 repo 子目录运行时按 git root 检测 managed state。
+
+Verification run:
+
+- `node --check src/cli/brand.js`
+- `node --check src/cli/init-i18n.js`
+- `node --check src/cli/prompts/index.js`
+- `node --check src/cli/commands/init.js`
+- `node --check src/cli/index.js`
+- `node --check bin/postinstall.js`
+- `npx jest tests/unit/brand.test.js tests/unit/init-i18n.test.js tests/unit/prompts.test.js --runInBand`
+- `npx jest tests/unit/init-interactive.test.js --runInBand`
+- `npx jest tests/unit/init-dry-run.test.js --runInBand`
+- `npx jest tests/unit/cli-entry-contracts.test.js tests/unit/package-install-contracts.test.js --runInBand`
+- `npm run typecheck`
+- `npm run test:smoke`
+
+Runtime generated directories: unchanged.
 
 ---
 

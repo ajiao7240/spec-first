@@ -1,7 +1,7 @@
 ---
 title: "PA-pre Calibration Notes for Scenario-Adaptive Milestone"
 type: calibration
-status: provisional-freeze-with-limitation
+status: completed
 date: 2026-05-28
 source_plan: docs/plans/2026-05-28-002-feat-spec-first-scenario-adaptive-milestone-plan.md
 author: leokuang
@@ -14,6 +14,10 @@ author: leokuang
 本轮校准支持继续采用“两层 fingerprint + 维度向量 + 外置 capability matrix”的设计,并足以作为 PA-1 setup-time fingerprint 的 **provisional freeze** 输入。当前已完成 2 个真实工作区的磁盘/既有 artifact 校验和 1 个合成 pnpm 样本;计划中的 ≥3 个真实使用场景 best-effort 拓扑调查在本地执行环境无法直接访问开发者反馈,因此记录为 limitation,不阻断 PA-1 首版实现。
 
 因此本文件冻结的是 **v0.1 provisional** 候选集,供 PA-1 实现和审查使用;M3 证据回放后再决定是否通过 RFC 调整枚举或维度字段。
+
+## 完成状态
+
+已于 2026-05-29 标记为完成。本文档已经完成 scenario-adaptive milestone 的 PA-pre 校准输入职责；下方剩余 survey limitation 保留为历史证据边界和未来复核输入，不再代表本文档的待开发工作。
 
 ## Evidence Snapshot
 
