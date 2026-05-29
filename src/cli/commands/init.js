@@ -1,6 +1,7 @@
 const os = require('node:os');
 const fs = require('node:fs');
 const path = require('node:path');
+const pkg = require('../../../package.json');
 const {
   buildFilteredAssetSet,
   inspectInstalledAssets,
@@ -63,6 +64,14 @@ const {
   select,
   textInput,
 } = require('../prompts');
+const {
+  BrandColors,
+  colorize,
+  detectColorSupport,
+  renderFullArt,
+  renderWordmark,
+} = require('../brand');
+const { getInitMessages } = require('../init-i18n');
 
 const INIT_PLATFORM_CHOICES = [
   {
@@ -118,14 +127,35 @@ async function runInit(argv, promptOverrides = {}) {
     return 2;
   }
 
+  const workspaceRoot = process.cwd();
+  const defaults = resolveDeveloperDefaults(workspaceRoot);
+  const defaultLang = parsed.lang || defaults.lang;
+  const messages = getInitMessages(defaultLang);
+  let activeLang = defaultLang;
+  const useColor = detectColorSupport();
+
+  if (!parsed.yes) {
+    printInitBrandBanner({
+      root: resolveInitBannerRoot(workspaceRoot),
+      version: pkg.version,
+      useColor,
+    });
+  }
+
   try {
     const interactiveInput = await collectInitInput({
-      workspaceRoot: process.cwd(),
+      workspaceRoot,
       promptApi,
       parsed,
+      defaults,
+      defaultLang,
+      messages,
+      onLangSelected: (lang) => {
+        activeLang = lang;
+      },
     });
-    if (!interactiveInput) {
-      console.log('已取消。');
+    if (!interactiveInput || interactiveInput.cancelled) {
+      console.log(getInitMessages(activeLang).cancelled);
       return 0;
     }
 
@@ -142,10 +172,11 @@ async function runInit(argv, promptOverrides = {}) {
     }
 
     if (!parsed.yes) {
-      printInitPreviews(plans);
-      const confirmed = await promptApi.confirm('Apply these changes?', { default: true });
+      const activeMessages = getInitMessages(interactiveInput.lang);
+      printInitPreviews(plans, { lang: interactiveInput.lang, useColor });
+      const confirmed = await promptApi.confirm(activeMessages.confirmApply, { default: true });
       if (!confirmed) {
-        console.log('已取消。');
+        console.log(activeMessages.cancelled);
         return 0;
       }
     }
@@ -172,7 +203,7 @@ async function runInit(argv, promptOverrides = {}) {
     return results.some((result) => result.exit_code !== 0) ? 1 : 0;
   } catch (error) {
     if (error instanceof PromptCancelled || error.code === 'prompt_cancelled') {
-      console.log('已取消。');
+      console.log(getInitMessages(activeLang).cancelled);
       return 0;
     }
     throw error;
@@ -256,43 +287,57 @@ async function collectInitInput({
   workspaceRoot,
   promptApi,
   parsed,
+  defaults = null,
+  defaultLang = '',
+  messages = null,
+  onLangSelected = null,
 }) {
   const root = canonicalizeExistingPath(workspaceRoot);
+  const resolvedDefaults = defaults || resolveDeveloperDefaults(root);
+  const initMessages = messages || getInitMessages(defaultLang || parsed.lang || resolvedDefaults.lang);
+  const lang = parsed.lang || (parsed.yes
+    ? resolvedDefaults.lang
+    : await promptApi.select(initMessages.languageSelect, [
+      { label: 'Chinese / 中文 (zh)', value: 'zh' },
+      { label: 'English (en)', value: 'en' },
+    ], {
+      defaultIndex: resolvedDefaults.lang === 'en' ? 1 : 0,
+      hint: initMessages.selectHint,
+    }));
+  if (typeof onLangSelected === 'function') {
+    onLangSelected(lang);
+  }
+  const activeMessages = getInitMessages(lang);
   const platforms = parsed.platforms.length > 0
     ? parsed.platforms
     : parsed.yes
       ? defaultInitPlatforms()
-      : await promptApi.checkbox('Select host runtimes to initialize:', INIT_PLATFORM_CHOICES.map((choice) => ({
+      : await promptApi.checkbox(activeMessages.selectHosts, INIT_PLATFORM_CHOICES.map((choice) => ({
         label: choice.label,
         value: choice.id,
         checked: choice.defaultChecked,
-      })), { minSelected: 1 });
+      })), {
+        minSelected: 1,
+        hint: activeMessages.checkboxHint,
+        onMinError: activeMessages.minSelectedError,
+      });
 
   if (!Array.isArray(platforms) || platforms.length === 0) {
     return null;
   }
 
   const adapters = platforms.map((platform) => getAdapter(platform));
-  const defaults = resolveDeveloperDefaults(root);
   const name = parsed.name || (parsed.yes
-    ? defaults.name
-    : await promptApi.textInput('Developer name:', {
-      default: defaults.name,
-      validate: (value) => (String(value || '').trim().length > 0 ? true : 'Developer name is required.'),
-    }));
-  const lang = parsed.lang || (parsed.yes
-    ? defaults.lang
-    : await promptApi.select('Default response language:', [
-      { label: 'Chinese / 中文 (zh)', value: 'zh' },
-      { label: 'English (en)', value: 'en' },
-    ], {
-      defaultIndex: defaults.lang === 'en' ? 1 : 0,
+    ? resolvedDefaults.name
+    : await promptApi.textInput(activeMessages.developerName, {
+      default: resolvedDefaults.name,
+      validate: (value) => (String(value || '').trim().length > 0 ? true : activeMessages.nameRequired),
     }));
   const target = parsed.yes
     ? collectDefaultInitTarget(root)
-    : await collectInteractiveInitTarget(root, promptApi);
+    : await collectInteractiveInitTarget(root, promptApi, activeMessages);
   if (!target) {
-    return null;
+    return { cancelled: true, lang };
   }
 
   const globalProfileConfirmed = await maybeConfirmGlobalProfileOverwrite({
@@ -300,6 +345,7 @@ async function collectInitInput({
     promptApi,
     name,
     lang,
+    messages: activeMessages,
   });
 
   return {
@@ -313,7 +359,7 @@ async function collectInitInput({
   };
 }
 
-async function maybeConfirmGlobalProfileOverwrite({ parsed, promptApi, name, lang }) {
+async function maybeConfirmGlobalProfileOverwrite({ parsed, promptApi, name, lang, messages = getInitMessages(lang) }) {
   const existing = readDeveloperFile(getGlobalDeveloperPath());
   if (!existing || !existing.name) {
     return false;
@@ -328,7 +374,7 @@ async function maybeConfirmGlobalProfileOverwrite({ parsed, promptApi, name, lan
   }
   const display = `${existing.name} (${existing.lang})`;
   return promptApi.confirm(
-    `全局 developer profile 已存在: ${display}。是否用 ${name} (${lang}) 覆盖?`,
+    messages.globalProfileOverwrite(display, name, lang),
     { default: false },
   );
 }
@@ -364,7 +410,7 @@ function collectDefaultInitTarget(workspaceRoot) {
   };
 }
 
-async function collectInteractiveInitTarget(workspaceRoot, promptApi) {
+async function collectInteractiveInitTarget(workspaceRoot, promptApi, messages = getInitMessages('zh')) {
   const cwdGitRoot = findGitRoot(workspaceRoot);
   if (cwdGitRoot) {
     return {
@@ -383,9 +429,9 @@ async function collectInteractiveInitTarget(workspaceRoot, promptApi) {
     };
   }
 
-  return promptApi.select('Select workspace target:', [
+  return promptApi.select(messages.workspaceTarget, [
     {
-      label: `All child repos (${candidates.length})`,
+      label: messages.workspaceAllRepos(candidates.length),
       value: {
         mode: 'all-repos',
         workspaceRoot,
@@ -402,10 +448,10 @@ async function collectInteractiveInitTarget(workspaceRoot, promptApi) {
       },
     })),
     {
-      label: 'Cancel',
+      label: messages.workspaceCancel,
       value: null,
     },
-  ], { requireExplicit: true });
+  ], { requireExplicit: true, hint: messages.selectHint });
 }
 
 function resolveDeveloperDefaults(projectRoot) {
@@ -429,7 +475,26 @@ function normalizeSupportedLang(value) {
   return value === 'zh' || value === 'en' ? value : '';
 }
 
-function printInitPreview(plan) {
+function resolveInitBannerRoot(root) {
+  return findGitRoot(root) || root;
+}
+
+function printInitBrandBanner({ root, version, useColor }) {
+  const banner = hasAnyManagedState(root)
+    ? renderWordmark(version, { useColor })
+    : renderFullArt(version, { useColor }).trimEnd();
+  console.log(banner);
+}
+
+function hasAnyManagedState(root) {
+  return [
+    path.join(root, '.claude', 'spec-first', 'state.json'),
+    path.join(root, '.codex', 'spec-first', 'state.json'),
+  ].some((statePath) => fs.existsSync(statePath));
+}
+
+function printInitPreview(plan, options = {}) {
+  const { lang = 'en', useColor = false } = options;
   if (plan.mode === 'all-repos') {
     console.log(`Workspace preview: spec-first init (${plan.platform})`);
     console.log(`  workspace_root: ${plan.workspaceRoot}`);
@@ -444,6 +509,8 @@ function printInitPreview(plan) {
       legacyStateDetected: plan.parentPlan.legacyStateDetected,
       destructiveResetReason: plan.parentPlan.destructiveResetReason,
       showPathSamples: false,
+      lang,
+      useColor,
     });
     plan.childPlans.forEach((entry, index) => {
       console.log('');
@@ -455,6 +522,8 @@ function printInitPreview(plan) {
         legacyStateDetected: entry.plan.legacyStateDetected,
         destructiveResetReason: entry.plan.destructiveResetReason,
         showPathSamples: false,
+        lang,
+        useColor,
       });
     });
     return;
@@ -467,20 +536,24 @@ function printInitPreview(plan) {
     legacyStateDetected: plan.legacyStateDetected,
     destructiveResetReason: plan.destructiveResetReason,
     showPathSamples: false,
+    lang,
+    useColor,
   });
 }
 
-function printInitPreviews(plans) {
+function printInitPreviews(plans, options = {}) {
+  const { lang = 'en', useColor = false } = options;
+  const messages = getInitMessages(lang);
   if (plans.length === 1) {
-    printInitPreview(plans[0]);
+    printInitPreview(plans[0], { lang, useColor });
     return;
   }
 
-  console.log(`Selected host runtimes: ${plans.map((plan) => initPlatformLabel(plan.platform)).join(', ')}`);
+  console.log(messages.previewSelectedHosts(plans.map((plan) => initPlatformLabel(plan.platform)).join(', ')));
   plans.forEach((plan, index) => {
     console.log('');
-    console.log(`Host runtime ${index + 1}/${plans.length}: ${initPlatformLabel(plan.platform)}`);
-    printInitPreview(plan);
+    console.log(messages.previewHostRuntime(index + 1, plans.length, initPlatformLabel(plan.platform)));
+    printInitPreview(plan, { lang, useColor });
   });
 }
 
@@ -1371,21 +1444,21 @@ function printInitNextSteps(platform, lang = 'zh') {
   const graphBootstrapCommand = platform === 'claude' ? '/spec:graph-bootstrap' : '$spec-graph-bootstrap';
 
   if (lang === 'en') {
-    console.log('Next steps:');
-    console.log(`  1. Restart ${hostDisplay} or open a new session so the host loads the generated ${entryKind}.`);
-    console.log(`  2. For lightweight docs, small fixes, first trials, or lightweight plan/work/review, start the matching ${entryKind} in the new session.`);
-    console.log(`  3. For enhanced readiness, run ${mcpSetupCommand} to install and verify the required MCP/helper runtime.`);
-    console.log(`  4. If ${mcpSetupCommand} shows graph bootstrap is still pending, run ${graphBootstrapCommand} when prompted.`);
-    console.log('  5. After graph readiness is ready, choose the next workflow by user intent: brainstorm/plan/work/review/debug. Project guidance comes from AGENTS.md, CLAUDE.md, docs/contracts, direct source evidence, tests, and graph facts.');
+    console.log('Setup complete. Next steps:');
+    console.log(`  1. Restart ${hostDisplay} or open a new session so it loads the generated ${entryKind}.`);
+    console.log(`  2. Start with the matching ${entryKind} for lightweight docs, small fixes, first trials, plan, work, review, or debug.`);
+    console.log(`  3. For stronger readiness, run ${mcpSetupCommand} to install and verify the required MCP/helper runtime.`);
+    console.log(`  4. If setup reports graph bootstrap is pending, run ${graphBootstrapCommand} when prompted.`);
+    console.log('  5. Then choose the workflow by user intent. Project guidance comes from AGENTS.md, CLAUDE.md, docs/contracts, direct source evidence, tests, and graph facts.');
     return;
   }
 
-  console.log('下一步:');
+  console.log('初始化完成。下一步:');
   console.log(`  1. 重启 ${hostDisplay} 或新开会话，让宿主加载刚生成的 ${entryKind}。`);
-  console.log(`  2. 对 docs、小修复、首次试用或轻量 plan/work/review，可直接在新会话启动匹配的 ${entryKind}。`);
-  console.log(`  3. 需要增强 readiness 时，运行 ${mcpSetupCommand} 安装并验证必装 MCP/helper runtime。`);
-  console.log(`  4. 如果 ${mcpSetupCommand} 显示 graph bootstrap 仍 pending，再按提示运行 ${graphBootstrapCommand}。`);
-  console.log('  5. graph readiness 就绪后，按用户意图进入 brainstorm/plan/work/review/debug 等 workflow；项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts、直接源码证据、测试和 graph facts。');
+  console.log(`  2. docs、小修复、首次试用、plan、work、review 或 debug，可直接启动匹配的 ${entryKind}。`);
+  console.log(`  3. 需要更完整的 readiness 时，运行 ${mcpSetupCommand} 安装并验证必装 MCP/helper runtime。`);
+  console.log(`  4. 如果 setup 提示 graph bootstrap 仍 pending，再按提示运行 ${graphBootstrapCommand}。`);
+  console.log('  5. 然后按用户意图选择 workflow；项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts、直接源码证据、测试和 graph facts。');
 }
 
 function printInitNextStepsForPlatforms(platforms, lang = 'zh') {
@@ -1396,21 +1469,21 @@ function printInitNextStepsForPlatforms(platforms, lang = 'zh') {
   }
 
   if (lang === 'en') {
-    console.log('Next steps:');
+    console.log('Setup complete. Next steps:');
     console.log('  1. Restart Claude Code and Codex or open new sessions so each host loads the generated entrypoints.');
-    console.log('  2. For lightweight docs, small fixes, first trials, or lightweight plan/work/review, start the matching /spec:* command or $spec-* skill in that host.');
-    console.log('  3. For enhanced readiness, run /spec:mcp-setup or $spec-mcp-setup in the host you plan to use.');
-    console.log('  4. If setup shows graph bootstrap is still pending, run /spec:graph-bootstrap or $spec-graph-bootstrap when prompted.');
-    console.log('  5. After graph readiness is ready, choose the next workflow by user intent: brainstorm/plan/work/review/debug.');
+    console.log('  2. Use /spec:* in Claude Code or $spec-* in Codex for lightweight docs, small fixes, first trials, plan, work, review, or debug.');
+    console.log('  3. For stronger readiness, run /spec:mcp-setup or $spec-mcp-setup in the host you plan to use.');
+    console.log('  4. If setup reports graph bootstrap is pending, run /spec:graph-bootstrap or $spec-graph-bootstrap when prompted.');
+    console.log('  5. Then choose the workflow by user intent: brainstorm/plan/work/review/debug.');
     return;
   }
 
-  console.log('下一步:');
+  console.log('初始化完成。下一步:');
   console.log('  1. 重启 Claude Code 和 Codex 或分别新开会话，让宿主加载刚生成的入口。');
-  console.log('  2. 对 docs、小修复、首次试用或轻量 plan/work/review，可在对应宿主启动 /spec:* command 或 $spec-* skill。');
-  console.log('  3. 需要增强 readiness 时，在计划使用的宿主里运行 /spec:mcp-setup 或 $spec-mcp-setup。');
-  console.log('  4. 如果 setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap 或 $spec-graph-bootstrap。');
-  console.log('  5. graph readiness 就绪后，按用户意图进入 brainstorm/plan/work/review/debug 等 workflow。');
+  console.log('  2. docs、小修复、首次试用、plan、work、review 或 debug，可在对应宿主启动 /spec:* command 或 $spec-* skill。');
+  console.log('  3. 需要更完整的 readiness 时，在计划使用的宿主里运行 /spec:mcp-setup 或 $spec-mcp-setup。');
+  console.log('  4. 如果 setup 提示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap 或 $spec-graph-bootstrap。');
+  console.log('  5. 然后按用户意图进入 brainstorm/plan/work/review/debug 等 workflow。');
 }
 
 function printHelp() {
@@ -2028,14 +2101,17 @@ function printInitDryRun({
   destructiveResetReason = '',
   maxEntries = Infinity,
   showPathSamples = true,
+  lang = 'en',
+  useColor = false,
 }) {
-  console.log(`Dry run: spec-first init (${platform})`);
+  const messages = getInitMessages(lang);
+  console.log(messages.previewDryRunHeader(platform));
   if (legacyStateDetected) {
-    console.log('Would perform a managed hard reset before regenerating runtime assets.');
-    console.log('Destructive preview: managed runtime reset/removal/prune operations are included.');
+    console.log(messages.previewHardResetLegacy);
+    console.log(messages.previewDestructiveReset);
   } else if (destructiveResetReason === 'current_runtime_drift') {
-    console.log('Would perform a managed hard reset before regenerating runtime assets (current runtime drift detected).');
-    console.log('Destructive preview: managed runtime reset/removal/prune operations are included.');
+    console.log(messages.previewHardResetDrift);
+    console.log(messages.previewDestructiveReset);
   }
 
   const pruneCount = plan.summary.prune_command || 0;
@@ -2043,49 +2119,83 @@ function printInitDryRun({
   const ensureCount = plan.summary.ensure_dir || 0;
   const writeCount = (plan.summary.write_file || 0) + (plan.summary.update_file || 0);
 
-  console.log(`Would remove ${removeCount} managed obsolete path(s).`);
+  console.log(messages.previewWouldRemove(formatPreviewCount(removeCount, BrandColors.remove, useColor)));
   if (pruneCount > 0) {
-    console.log(`Would prune ${pruneCount} unmanaged command file(s)${showPathSamples ? ':' : '.'}`);
+    console.log(messages.previewWouldPrune(
+      formatPreviewCount(pruneCount, BrandColors.remove, useColor),
+      previewListSuffix(showPathSamples, lang),
+    ));
     if (showPathSamples) {
-      printOperationPathSample(plan.operations.filter((entry) => entry.kind === 'prune_command'), maxEntries);
+      printOperationPathSample(
+        plan.operations.filter((entry) => entry.kind === 'prune_command'),
+        maxEntries,
+        { lang },
+      );
     }
   }
 
   if (ensureCount > 0) {
-    console.log(`Would ensure ${ensureCount} managed directorie(s)${showPathSamples ? ':' : '.'}`);
+    console.log(messages.previewWouldEnsureDir(
+      formatPreviewCount(ensureCount, BrandColors.write, useColor),
+      previewListSuffix(showPathSamples, lang),
+    ));
     if (showPathSamples) {
-      printOperationPathSample(plan.operations.filter((entry) => entry.kind === 'ensure_dir'), maxEntries);
+      printOperationPathSample(
+        plan.operations.filter((entry) => entry.kind === 'ensure_dir'),
+        maxEntries,
+        { lang },
+      );
     }
   }
 
   if (writeCount > 0) {
-    console.log(`Would write/update ${writeCount} managed file(s)${showPathSamples ? ':' : '.'}`);
+    console.log(messages.previewWouldWrite(
+      formatPreviewCount(writeCount, BrandColors.write, useColor),
+      previewListSuffix(showPathSamples, lang),
+    ));
     if (showPathSamples) {
       printOperationPathSample(
         plan.operations.filter((entry) => entry.kind === 'write_file' || entry.kind === 'update_file'),
         maxEntries,
+        { lang },
       );
     }
   }
-  printRuntimeUntrackDryRunSummary(untrackDiagnostic);
-  console.log('No files were changed.');
+  printRuntimeUntrackDryRunSummary(untrackDiagnostic, { lang, useColor });
+  console.log(messages.previewNoFilesChanged);
 }
 
-function printOperationPathSample(operations, maxEntries = Infinity) {
+function formatPreviewCount(count, colorCode, useColor) {
+  const text = String(count);
+  return count > 0 ? colorize(text, colorCode, useColor) : text;
+}
+
+function previewListSuffix(showPathSamples, lang) {
+  if (showPathSamples) {
+    return ':';
+  }
+  return lang === 'zh' ? '。' : '.';
+}
+
+function printOperationPathSample(operations, maxEntries = Infinity, options = {}) {
+  const messages = getInitMessages(options.lang || 'en');
   const limit = Number.isFinite(maxEntries) && maxEntries >= 0 ? Math.floor(maxEntries) : operations.length;
   for (const operation of operations.slice(0, limit)) {
     console.log(`  - ${operation.path}`);
   }
   const omitted = operations.length - Math.min(limit, operations.length);
   if (omitted > 0) {
-    console.log(`  ... ${omitted} more path(s) omitted from preview`);
+    console.log(messages.previewOmittedPaths(omitted));
   }
 }
 
-function printRuntimeUntrackDryRunSummary(untrackDiagnostic = buildRuntimeUntrackSummary()) {
+function printRuntimeUntrackDryRunSummary(untrackDiagnostic = buildRuntimeUntrackSummary(), options = {}) {
+  const lang = options.lang || 'en';
+  const useColor = options.useColor === true;
+  const messages = getInitMessages(lang);
   const summary = buildRuntimeUntrackSummary(untrackDiagnostic);
   if (summary.count > 0) {
-    console.log(`Would untrack ${summary.count} managed runtime path(s):`);
+    console.log(messages.previewWouldUntrack(formatPreviewCount(summary.count, BrandColors.untrack, useColor)));
     for (const samplePath of summary.sample_paths) {
       console.log(`  - ${samplePath}`);
     }
@@ -2093,13 +2203,13 @@ function printRuntimeUntrackDryRunSummary(untrackDiagnostic = buildRuntimeUntrac
   }
 
   if (summary.reason_code === 'none-tracked') {
-    console.log('No managed runtime paths require untracking.');
+    console.log(messages.previewNoRuntimeUntrack);
     return;
   }
 
-  console.log(`Runtime untrack check: ${summary.reason_code}`);
+  console.log(messages.previewRuntimeUntrackCheck(summary.reason_code));
   if (summary.diagnostic) {
-    console.log(`  ${summary.diagnostic}`);
+    console.log(messages.previewRuntimeUntrackDiagnostic(summary.diagnostic));
   }
 }
 

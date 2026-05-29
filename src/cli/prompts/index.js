@@ -61,22 +61,30 @@ function checkbox(question, options, promptOptions = {}) {
     }
   });
 
+  let errorMessage = '';
+  const clearError = () => {
+    errorMessage = '';
+  };
+
   return runPrompt(promptOptions, (text, resolve, reject, redraw) => {
     if (containsCancel(text)) {
       reject(new PromptCancelled());
       return;
     }
     if (text.includes('\x1b[A')) {
+      clearError();
       selectedIndex = selectedIndex <= 0 ? normalizedOptions.length - 1 : selectedIndex - 1;
       redraw();
       return;
     }
     if (text.includes('\x1b[B')) {
+      clearError();
       selectedIndex = selectedIndex >= normalizedOptions.length - 1 ? 0 : selectedIndex + 1;
       redraw();
       return;
     }
     if (text.includes(' ')) {
+      clearError();
       if (checkedIndexes.has(selectedIndex)) {
         checkedIndexes.delete(selectedIndex);
       } else {
@@ -87,6 +95,9 @@ function checkbox(question, options, promptOptions = {}) {
     }
     if (text.includes('\r') || text.includes('\n')) {
       if (checkedIndexes.size < (promptOptions.minSelected || 0)) {
+        errorMessage = typeof promptOptions.onMinError === 'function'
+          ? promptOptions.onMinError(promptOptions.minSelected)
+          : `Select at least ${promptOptions.minSelected}.`;
         redraw();
         return;
       }
@@ -94,7 +105,7 @@ function checkbox(question, options, promptOptions = {}) {
         .filter((_option, index) => checkedIndexes.has(index))
         .map((option) => option.value));
     }
-  }, () => renderCheckbox(question, normalizedOptions, selectedIndex, checkedIndexes, promptOptions));
+  }, () => renderCheckbox(question, normalizedOptions, selectedIndex, checkedIndexes, promptOptions, errorMessage));
 }
 
 function textInput(question, promptOptions = {}) {
@@ -251,13 +262,16 @@ function renderSelect(question, options, selectedIndex, promptOptions) {
   options.forEach((option, index) => {
     write(output, `${index === selectedIndex ? '>' : ' '} ${option.label}\n`);
   });
+  if (promptOptions.hint) {
+    write(output, `  ${promptOptions.hint}\n`);
+  }
   return {
-    lineCount: options.length + 1,
+    lineCount: options.length + 1 + (promptOptions.hint ? 1 : 0),
     endedWithNewline: true,
   };
 }
 
-function renderCheckbox(question, options, selectedIndex, checkedIndexes, promptOptions) {
+function renderCheckbox(question, options, selectedIndex, checkedIndexes, promptOptions, errorMessage = '') {
   const output = promptOptions.output || process.stdout;
   write(output, `${question}\n`);
   options.forEach((option, index) => {
@@ -265,8 +279,14 @@ function renderCheckbox(question, options, selectedIndex, checkedIndexes, prompt
     const checked = checkedIndexes.has(index) ? '[x]' : '[ ]';
     write(output, `${cursor} ${checked} ${option.label}\n`);
   });
+  if (promptOptions.hint) {
+    write(output, `  ${promptOptions.hint}\n`);
+  }
+  if (errorMessage) {
+    write(output, `  ! ${errorMessage}\n`);
+  }
   return {
-    lineCount: options.length + 1,
+    lineCount: options.length + 1 + (promptOptions.hint ? 1 : 0) + (errorMessage ? 1 : 0),
     endedWithNewline: true,
   };
 }

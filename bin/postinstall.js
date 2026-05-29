@@ -6,14 +6,10 @@ const pkg = require('../package.json');
 if (!ensureSupportedNodeVersion()) {
   process.exitCode = 1;
 } else {
-  const ver = `spec-first v${pkg.version}`;
-  const LINE = '─'.repeat(50);
+  const { detectColorSupport, renderFullArt } = require('../src/cli/brand');
 
-  process.stdout.write(`
-┌${LINE}┐
-│  ${ver.padEnd(48)}│
-│  安装完成                                      │
-└${LINE}┘
+  process.stdout.write(`${renderFullArt(pkg.version, { useColor: detectColorSupport() })}
+  安装完成
 
   下一步：spec-first doctor
         spec-first init

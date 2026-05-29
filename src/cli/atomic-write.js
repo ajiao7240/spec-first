@@ -21,7 +21,29 @@ function writeFileAtomic(filePath, contents, encoding = 'utf8') {
   }
 }
 
+function writeFileAtomicIfAbsent(filePath, contents, encoding = 'utf8') {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmpPath = createAtomicTempPath(filePath);
+  let linked = false;
+  try {
+    fs.writeFileSync(tmpPath, contents, encoding);
+    fs.linkSync(tmpPath, filePath);
+    linked = true;
+  } catch (error) {
+    fs.rmSync(tmpPath, { force: true });
+    throw error;
+  }
+  if (linked) {
+    try {
+      fs.rmSync(tmpPath, { force: true });
+    } catch (_error) {
+      // The final artifact is already linked; leftover temp cleanup is best-effort.
+    }
+  }
+}
+
 module.exports = {
   createAtomicTempPath,
   writeFileAtomic,
+  writeFileAtomicIfAbsent,
 };

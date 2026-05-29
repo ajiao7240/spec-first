@@ -93,7 +93,7 @@ These contracts are docs-side visibility records for workflow artifacts. `produc
 
 | Contract | Status | Producer | Producer available | Workflow integrated | Runtime path | Boundary |
 |---|---|---|---|---|---|---|
-| spec-first spec-work run artifact producer-available contract<br>docs/contracts/workflows/spec-work-run-artifact.schema.json | producer_available | internal spec-work-run-artifact write | true | false | .spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json | source-owned write-side producer; workflow integration false until spec-work closeout calls it with fixture/fresh-source evidence |
+| spec-first spec-work run artifact producer-available contract<br>docs/contracts/workflows/spec-work-run-artifact.schema.json | producer_available | internal spec-work-run-artifact write | true | true | .spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json | source-owned write-side producer; same workspace/run-id artifacts are immutable and return artifact-already-exists instead of overwriting; workflow_integrated true only when spec-work closeout calls the producer with durable evidence trigger reason_code |
 
 ## Quality Gate Evidence
 

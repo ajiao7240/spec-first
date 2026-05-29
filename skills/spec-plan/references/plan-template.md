@@ -8,11 +8,12 @@ Use `## Summary` for new plans. When reading, editing, or deepening older plans,
 ---
 title: [Plan Title]
 type: [feat|fix|refactor]
-status: active
+status: active  # active | partially-shipped | completed | superseded
 date: YYYY-MM-DD
 spec_id: YYYY-MM-DD-NNN-<slug>
 origin: docs/brainstorms/YYYY-MM-DD-NNN-<slug>-requirements.md  # include when planning from a requirements doc
 deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantively strengthens the plan
+implements_schemas: []  # optional; include only repo-relative contract schema paths this plan actually implements
 ---
 
 # [Plan Title]
@@ -64,6 +65,19 @@ deepened: YYYY-MM-DD  # optional, set when the confidence-first check substantiv
 ### Deferred to Follow-Up Work
 
 - [Work that will be done separately]: [Where or when — e.g., "separate PR in repo-x", "future iteration"]
+
+---
+
+## Completion Criteria
+
+<!-- Optional. Include when the plan implements contract schemas, runtime generation, or other
+     source-owned artifacts where "completed" could be confused with "producer exists but
+     workflow is not integrated". List the concrete schema flags, contract statuses, runtime
+     source assets, or follow-up gates that must be true before frontmatter can move to
+     `status: completed`. If the plan intentionally ships only part of the behavior, use
+     `status: partially-shipped` and explain the remaining gate here or in the status note. -->
+
+- [Concrete condition that must be true before this plan is `completed`]
 
 ---
 

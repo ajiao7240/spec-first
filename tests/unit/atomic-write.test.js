@@ -7,6 +7,7 @@ const path = require('node:path');
 const {
   createAtomicTempPath,
   writeFileAtomic,
+  writeFileAtomicIfAbsent,
 } = require('../../src/cli/atomic-write');
 const {
   applyOperationPlan,
@@ -36,6 +37,21 @@ describe('atomic file write helper', () => {
       writeFileAtomic(filePath, 'second\n');
 
       expect(fs.readFileSync(filePath, 'utf8')).toBe('second\n');
+      expect(fs.readdirSync(path.dirname(filePath)).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('writes once without replacing an existing file', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-atomic-write-'));
+    const filePath = path.join(root, 'nested', 'run.json');
+
+    try {
+      writeFileAtomicIfAbsent(filePath, 'first\n');
+      expect(() => writeFileAtomicIfAbsent(filePath, 'second\n')).toThrow(/EEXIST/);
+
+      expect(fs.readFileSync(filePath, 'utf8')).toBe('first\n');
       expect(fs.readdirSync(path.dirname(filePath)).filter((name) => name.endsWith('.tmp'))).toEqual([]);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });

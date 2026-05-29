@@ -1,10 +1,11 @@
 ---
 title: spec-work run evidence 闭环 + workflow invariant 守护试点 + plan completion taxonomy 收紧
 type: feat
-status: active
+status: completed
 date: 2026-05-28
 spec_id: 2026-05-28-004-spec-work-run-evidence-and-invariant-lens
 origin: docs/09-业界借鉴/2026-05-27-Trellis-纵向钻探与spec-first质量提升分析.md
+implements_schemas: ['docs/contracts/workflows/spec-work-run-artifact.schema.json']
 ---
 
 # spec-work run evidence 闭环 + workflow invariant 守护试点 + plan completion taxonomy 收紧

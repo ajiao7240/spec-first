@@ -1016,13 +1016,12 @@ describe('init --dry-run', () => {
       expect(claude.stderr).toBe('');
       expect(claude.stdout).toContain('下一步:');
       expect(claude.stdout).toContain('重启 Claude Code 或新开会话');
-      expect(claude.stdout).toContain('对 docs、小修复、首次试用或轻量 plan/work/review');
-      expect(claude.stdout).toContain('需要增强 readiness 时');
+      expect(claude.stdout).toContain('docs、小修复、首次试用、plan、work、review 或 debug');
+      expect(claude.stdout).toContain('需要更完整的 readiness 时');
       expect(claude.stdout).toContain('/spec:mcp-setup');
       expect(claude.stdout).toContain('/spec:graph-bootstrap');
       expect(claude.stdout).not.toContain('/spec:' + 'standards');
-      expect(claude.stdout).toContain('graph readiness 就绪后');
-      expect(claude.stdout).toContain('按用户意图进入 brainstorm/plan/work/review/debug 等 workflow');
+      expect(claude.stdout).toContain('然后按用户意图选择 workflow');
       expect(claude.stdout).toContain('项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts');
       expect(claude.stdout).not.toContain('child-local baselines');
 
@@ -1031,13 +1030,12 @@ describe('init --dry-run', () => {
       expect(codex.stderr).toBe('');
       expect(codex.stdout).toContain('下一步:');
       expect(codex.stdout).toContain('重启 Codex 或新开会话');
-      expect(codex.stdout).toContain('对 docs、小修复、首次试用或轻量 plan/work/review');
-      expect(codex.stdout).toContain('需要增强 readiness 时');
+      expect(codex.stdout).toContain('docs、小修复、首次试用、plan、work、review 或 debug');
+      expect(codex.stdout).toContain('需要更完整的 readiness 时');
       expect(codex.stdout).toContain('$spec-mcp-setup');
       expect(codex.stdout).toContain('$spec-graph-bootstrap');
       expect(codex.stdout).not.toContain('$spec-' + 'standards');
-      expect(codex.stdout).toContain('graph readiness 就绪后');
-      expect(codex.stdout).toContain('按用户意图进入 brainstorm/plan/work/review/debug 等 workflow');
+      expect(codex.stdout).toContain('然后按用户意图选择 workflow');
       expect(codex.stdout).toContain('项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts');
       expect(codex.stdout).not.toContain('child-local baselines');
 
@@ -1046,13 +1044,12 @@ describe('init --dry-run', () => {
       expect(english.stderr).toBe('');
       expect(english.stdout).toContain('Next steps:');
       expect(english.stdout).toContain('Restart Codex or open a new session');
-      expect(english.stdout).toContain('For lightweight docs, small fixes, first trials, or lightweight plan/work/review');
-      expect(english.stdout).toContain('For enhanced readiness');
+      expect(english.stdout).toContain('lightweight docs, small fixes, first trials, plan, work, review, or debug');
+      expect(english.stdout).toContain('For stronger readiness');
       expect(english.stdout).toContain('$spec-mcp-setup');
       expect(english.stdout).toContain('$spec-graph-bootstrap');
       expect(english.stdout).not.toContain('$spec-' + 'standards');
-      expect(english.stdout).toContain('After graph readiness is ready');
-      expect(english.stdout).toContain('choose the next workflow by user intent');
+      expect(english.stdout).toContain('Then choose the workflow by user intent');
       expect(english.stdout).toContain('Project guidance comes from AGENTS.md, CLAUDE.md, docs/contracts');
       expect(english.stdout).not.toContain('child-local baselines');
       expect(english.stdout).not.toContain('下一步:');

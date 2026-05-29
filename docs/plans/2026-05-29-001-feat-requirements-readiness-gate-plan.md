@@ -1,7 +1,7 @@
 ---
 title: "feat: spec-brainstorm Requirements Readiness Gate（合并去重落地）"
 type: feat
-status: active
+status: completed
 date: 2026-05-29
 spec_id: 2026-05-29-001-requirements-readiness-gate
 ---

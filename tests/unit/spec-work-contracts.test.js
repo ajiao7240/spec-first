@@ -165,16 +165,27 @@ describe('spec-work context orientation contract', () => {
 });
 
 describe('spec-work run artifact boundary contract', () => {
-  test('does not claim planned run artifact schema as current runtime truth', () => {
+  test('keeps run artifact integration bounded to durable closeout evidence', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');
 
     expect(text).toContain('Run Artifact Boundary');
-    expect(text).toContain('Phase 1B write-side contract');
+    expect(text).toContain('write-side contract');
     expect(text).toContain('producer_available=true');
     expect(text).toContain('workflow_integrated');
-    expect(text).toContain('does not mean this workflow is fully integrated');
     expect(text).toContain('.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json');
+    expect(text).toContain('The writer treats each workspace/run-id pair as immutable');
+    expect(text).toContain('returns `artifact-already-exists` and does not overwrite it');
+    expect(text).toContain('durable evidence triggers');
+    expect(text).toContain('producer.reason_code');
+    expect(text).toContain('prefer the explicitly named workspace-slug/run-id artifact');
+    expect(text).toContain('latest-artifact lookup is a fallback only');
     expect(text).toContain('Do not treat run evidence as source scope authority');
+    expect(shipping).toContain('Evaluate Durable Evidence Triggers');
+    expect(shipping).toContain('spec-first internal spec-work-run-artifact write');
+    expect(shipping).toContain('producer.workflow_integrated=true');
+    expect(shipping).toContain('trigger-task-pack');
+    expect(shipping).toContain('no-trigger-matched');
   });
 });
 

@@ -87,6 +87,30 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
    status: active  ->  status: completed
    ```
 
+2.5. **Evaluate Durable Evidence Triggers**
+
+   Evaluate the durable evidence trigger chain before committing or creating a PR. This is an LLM-owned closeout judgment; scripts validate and write the supplied payload, but they do not decide whether the work is semantically important.
+
+   Check the triggers in order and stop at the first match:
+
+   - `trigger-task-pack` - the input is a validated task-pack path.
+   - `trigger-not-run-validation` - any Phase 2 or Phase 3 verification status is `not-run`.
+   - `trigger-deferred-follow-up` - the closeout has non-empty `deferred_follow_up[]`.
+   - `trigger-substantive-work` - the work is important enough to leave durable evidence because it consumed degraded/stale provider evidence, hands off to review/compound/release, resumed through compaction, or was long or cross-cutting enough for context loss to matter.
+
+   When any trigger matches, call the internal producer with a fresh run id:
+
+   ```bash
+   spec-first internal spec-work-run-artifact write \
+     --input <closeout-payload.json> \
+     --run-id <fresh-run-id> \
+     --target-repo <repo-root>
+   ```
+
+   The payload must set `producer.workflow_integrated=true` and `producer.reason_code` to the matching trigger reason. If the producer writes the artifact, carry the repo-relative `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json` path into the final `Artifacts:` line.
+
+   If no trigger matches, do not call the producer; record `producer.reason_code=no-trigger-matched` in closeout evidence. If the producer fails or returns `not-written`, keep the final response honest with the returned `reason_code` such as `producer-error` or `artifact-already-exists`. Do not treat run evidence as source scope authority, progress state, approval state, or a full replay index.
+
 3. **Commit and Create Pull Request**
 
    Load the `git-commit-push-pr` skill to handle committing, pushing, and PR creation. The skill handles convention detection, branch safety, logical commit splitting, adaptive PR descriptions, and attribution badges.

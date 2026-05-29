@@ -120,7 +120,7 @@ assert_output "project profile is ignored, falls through to git" "git-user" "$na
 assert_output "project lang is ignored, defaults to zh" "zh" "$lang"
 rm -rf "$PROJECT_DIR/.codex" "$PROJECT_DIR/.claude"
 
-echo "6. changelog author keeps explicit fallback when provided"
+echo "6. changelog author reads global developer before explicit fallback"
 cat > "$HOME_DIR/.spec-first/.developer" <<'EOF'
 name=global-user
 lang=en
@@ -130,10 +130,10 @@ name=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(d
 source=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.source);" "$author")
 host=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.host);" "$author")
 path_value=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.path);" "$author")
-assert_output "explicit fallback wins" "fallback-user" "$name"
-assert_output "fallback source is reported" "fallback_name" "$source"
-assert_output "fallback host is empty" "" "$host"
-assert_output "fallback path is empty" "" "$path_value"
+assert_output "global developer wins over fallback" "global-user" "$name"
+assert_output "global source is reported" "global_developer" "$source"
+assert_output "global host marker is reported" "global" "$host"
+assert_output "global path is reported" ".spec-first/.developer" "$path_value"
 
 echo "7. changelog author reads global developer when no explicit fallback"
 author=$(run_changelog_author "$HOME_DIR" "$PROJECT_DIR" "")
@@ -163,8 +163,19 @@ assert_output "project files are ignored, global wins" "global-user" "$name"
 assert_output "global source still reported" "global_developer" "$source"
 rm -rf "$PROJECT_DIR/.codex" "$PROJECT_DIR/.claude"
 
-echo "9. changelog author falls back to git config when fallback and global are absent"
+echo "9. changelog author keeps explicit fallback when global is absent"
 rm -f "$HOME_DIR/.spec-first/.developer"
+author=$(run_changelog_author "$HOME_DIR" "$PROJECT_DIR" "fallback-user")
+name=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.name);" "$author")
+source=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.source);" "$author")
+host=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.host);" "$author")
+path_value=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.path);" "$author")
+assert_output "fallback fills author when global is absent" "fallback-user" "$name"
+assert_output "fallback source is reported" "fallback_name" "$source"
+assert_output "fallback host is empty" "" "$host"
+assert_output "fallback path is empty" "" "$path_value"
+
+echo "10. changelog author falls back to git config when fallback and global are absent"
 author=$(run_changelog_author "$HOME_DIR" "$PROJECT_DIR" "")
 name=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.name);" "$author")
 source=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.source);" "$author")
@@ -175,7 +186,7 @@ assert_output "git source is reported" "git_config" "$source"
 assert_output "git host marker is reported" "git" "$host"
 assert_output "git path marker is reported" "user.name" "$path_value"
 
-echo "10. changelog author does not hang when git config times out"
+echo "11. changelog author does not hang when git config times out"
 FAKE_BIN="$TMP_DIR/fake-bin"
 mkdir -p "$FAKE_BIN"
 cat > "$FAKE_BIN/git" <<'EOF'

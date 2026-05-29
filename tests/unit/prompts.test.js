@@ -64,6 +64,18 @@ describe('prompt primitives', () => {
     await expect(result).resolves.toBe('A');
   });
 
+  test('select renders optional hint and clears the extra line', async () => {
+    const { input, output, readOutput } = createPromptStreams();
+    const result = select('Platform?', ['A', 'B'], { input, output, hint: '↑↓ move · Enter confirm' });
+
+    input.write('\x1b[B');
+    input.write('\r');
+
+    await expect(result).resolves.toBe('B');
+    expect(readOutput()).toContain('↑↓ move · Enter confirm');
+    expect(readOutput()).toContain('\x1b[4A\r\x1b[J');
+  });
+
   test('checkbox supports toggling multiple values without full-screen redraw', async () => {
     const { input, output, readOutput } = createPromptStreams();
     const result = checkbox('Platforms?', [
@@ -81,6 +93,79 @@ describe('prompt primitives', () => {
     expect(readOutput()).toContain('[x] B');
     expect(readOutput()).not.toContain('\x1b[2J\x1b[H');
     expect(readOutput()).toContain('\x1b[4A\r\x1b[J');
+  });
+
+  test('checkbox shows minSelected error and resolves after the user fixes it', async () => {
+    const { input, output, readOutput } = createPromptStreams();
+    const result = checkbox('Platforms?', [
+      { label: 'A', value: 'a', checked: false },
+      { label: 'B', value: 'b', checked: false },
+    ], {
+      input,
+      output,
+      minSelected: 1,
+      onMinError: (count) => `Pick ${count} option.`,
+    });
+
+    input.write('\r');
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(readOutput()).toContain('! Pick 1 option.');
+
+    input.write(' ');
+    input.write('\r');
+
+    await expect(result).resolves.toEqual(['a']);
+  });
+
+  test('checkbox clears minSelected error after navigation', async () => {
+    const { input, output, readOutput } = createPromptStreams();
+    const result = checkbox('Platforms?', ['A', 'B'], {
+      input,
+      output,
+      minSelected: 1,
+      onMinError: () => 'Pick one.',
+    });
+
+    input.write('\r');
+    await new Promise((resolve) => setImmediate(resolve));
+    input.write('\x1b[B');
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const afterErrorClear = readOutput().split('\x1b[4A\r\x1b[J').pop();
+    expect(afterErrorClear).not.toContain('Pick one.');
+
+    input.write(' ');
+    input.write('\r');
+    await expect(result).resolves.toEqual(['B']);
+  });
+
+  test('checkbox allows zero selections when minSelected is zero', async () => {
+    const { input, output } = createPromptStreams();
+    const result = checkbox('Platforms?', ['A', 'B'], { input, output, minSelected: 0 });
+
+    input.write('\r');
+
+    await expect(result).resolves.toEqual([]);
+  });
+
+  test('checkbox renders hint and accounts for hint plus error lines', async () => {
+    const { input, output, readOutput } = createPromptStreams();
+    const result = checkbox('Platforms?', ['A', 'B'], {
+      input,
+      output,
+      hint: 'Space toggle · Enter confirm',
+      minSelected: 1,
+      onMinError: () => 'Pick one.',
+    });
+
+    input.write('\r');
+    await new Promise((resolve) => setImmediate(resolve));
+    input.write(' ');
+    input.write('\r');
+
+    await expect(result).resolves.toEqual(['A']);
+    expect(readOutput()).toContain('Space toggle · Enter confirm');
+    expect(readOutput()).toContain('\x1b[5A\r\x1b[J');
   });
 
   test('prompt input handles coalesced key sequences in order', async () => {

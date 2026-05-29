@@ -1,0 +1,30 @@
+[
+  {
+    "id": "provider-evidence-advisory",
+    "gate_phrase": "provider evidence is advisory",
+    "must_appear_in": [
+      {
+        "file": "skills/spec-code-review/SKILL.md",
+        "anchor": "## Context Orientation Anchor"
+      },
+      {
+        "file": "skills/spec-code-review/SKILL.md",
+        "anchor": "### Stage 6: Synthesize and present"
+      }
+    ]
+  },
+  {
+    "id": "source-validation-required",
+    "gate_phrase": "diff/source/test/contract evidence",
+    "must_appear_in": [
+      {
+        "file": "skills/spec-code-review/SKILL.md",
+        "anchor": "#### GitNexus native capability routing candidates"
+      },
+      {
+        "file": "skills/spec-code-review/SKILL.md",
+        "anchor": "## Quality Gates"
+      }
+    ]
+  }
+]

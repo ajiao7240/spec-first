@@ -105,7 +105,11 @@ function runSmoke() {
 }
 
 function runIntegration() {
-  runJest(['tests/integration/verification-gate.integration.test.js', '--runInBand']);
+  runJest([
+    'tests/integration/verification-gate.integration.test.js',
+    'tests/integration/spec-work-closeout-producer.test.js',
+    '--runInBand',
+  ]);
   runBash('tests/integration/e2e.sh');
 }
 

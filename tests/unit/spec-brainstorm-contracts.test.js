@@ -199,4 +199,15 @@ describe('spec-brainstorm host entrypoint contract', () => {
     expect(skill).toContain('prior problem framing and decision rationale');
     expect(skill).toContain('must not let implementation details back-drive user-facing requirements');
   });
+
+  test('pressure test scopes evidence/counterfactual gaps to product-discovery, not engineering evolution', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    // Engineering-evolution brainstorms must not be forced through product-validation probes.
+    expect(skill).toContain('For engineering evolution of an existing product or system');
+    expect(skill).toContain('this gap is N/A by default');
+    expect(skill).toContain('Same N/A-by-default rule for engineering-evolution brainstorms');
+    // The 1.3 mandatory-probe clause must stay consistent with the 1.2 N/A carve-out.
+    expect(skill).toContain('for engineering-evolution work, evidence and counterfactual are N/A by default');
+  });
 });

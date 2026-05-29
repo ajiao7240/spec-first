@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { runInit } = require('../../src/cli/commands/init');
+const { printInitDryRun, runInit } = require('../../src/cli/commands/init');
+const { BrandColors } = require('../../src/cli/brand');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-init-interactive-'));
@@ -49,13 +50,10 @@ function interactivePrompts({
 } = {}) {
   return {
     requireTty: () => ({ ok: true, reason: null }),
-    checkbox: jest.fn((question) => {
-      if (question.includes('host runtimes')) return Promise.resolve(platforms);
-      return Promise.resolve([]);
-    }),
+    checkbox: jest.fn(() => Promise.resolve(platforms)),
     select: jest.fn((question, options) => {
-      if (question.includes('response language')) return Promise.resolve(lang);
-      if (question.includes('workspace target')) {
+      if (options.some((option) => option.value === 'zh' || option.value === 'en')) return Promise.resolve(lang);
+      if (options.some((option) => option.value === null || (option.value && option.value.mode))) {
         if (workspaceTarget === 'single') return Promise.resolve(options[1].value);
         if (workspaceTarget === 'cancel') return Promise.resolve(null);
         return Promise.resolve(options[0].value);
@@ -131,7 +129,7 @@ describe('interactive init command', () => {
     };
 
     try {
-      const result = await captureInit(projectRoot, [], prompts);
+      const result = await captureInit(projectRoot, ['--lang', 'zh'], prompts);
 
       expect(result.exitCode).toBe(2);
       expect(result.stderr).toContain('requires an interactive terminal');
@@ -146,12 +144,14 @@ describe('interactive init command', () => {
     const projectRoot = makeTempDir();
 
     try {
-      const result = await captureInit(projectRoot, [], interactivePrompts({ platforms: ['codex'] }));
+      const result = await captureInit(projectRoot, ['--lang', 'zh'], interactivePrompts({ platforms: ['codex'] }));
 
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe('');
-      expect(result.stdout).toContain('Dry run: spec-first init (codex)');
+      expect(result.stdout).toContain('Spec-First v');
+      expect(result.stdout).toContain('spec-first init (codex)');
       expect(result.stdout).toContain('Generated');
+      expect(result.stdout).toContain('重启');
       expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-work', 'SKILL.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.codex', 'spec-first', '.developer'))).toBe(false);
@@ -170,7 +170,7 @@ describe('interactive init command', () => {
     });
 
     try {
-      const result = await captureInit(projectRoot, [], prompts);
+      const result = await captureInit(projectRoot, ['--lang', 'zh'], prompts);
 
       expect(result.exitCode).toBe(0);
       expect(hostChoices).toHaveLength(2);
@@ -190,7 +190,7 @@ describe('interactive init command', () => {
       expect(result.exitCode).toBe(0);
       expect(prompts.checkbox).not.toHaveBeenCalled();
       expect(prompts.textInput).toHaveBeenCalled();
-      expect(result.stdout).toContain('Dry run: spec-first init (codex)');
+      expect(result.stdout).toContain('spec-first init (codex)');
       expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(false);
     } finally {
@@ -211,6 +211,8 @@ describe('interactive init command', () => {
       expect(prompts.checkbox).not.toHaveBeenCalled();
       expect(prompts.textInput).not.toHaveBeenCalled();
       expect(prompts.confirm).not.toHaveBeenCalled();
+      expect(result.stdout).not.toContain('Spec-First v');
+      expect(result.stdout).not.toContain('spec-first v');
       expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
     } finally {
@@ -240,7 +242,7 @@ describe('interactive init command', () => {
     const before = snapshotTree(projectRoot);
 
     try {
-      const result = await captureInit(projectRoot, [], interactivePrompts({ confirmed: false }));
+      const result = await captureInit(projectRoot, ['--lang', 'zh'], interactivePrompts({ confirmed: false }));
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('已取消');
@@ -248,6 +250,199 @@ describe('interactive init command', () => {
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
+  });
+
+  test('first interactive run prints full art before prompts', async () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      const result = await captureInit(projectRoot, [], interactivePrompts({ confirmed: false }));
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Spec-First v');
+      expect(result.stdout).toContain('____  ____');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('existing managed state prints only the lightweight wordmark', async () => {
+    const projectRoot = makeTempDir();
+    fs.mkdirSync(path.join(projectRoot, '.claude', 'spec-first'), { recursive: true });
+    fs.writeFileSync(path.join(projectRoot, '.claude', 'spec-first', 'state.json'), '{}\n', 'utf8');
+
+    try {
+      const result = await captureInit(projectRoot, [], interactivePrompts({ confirmed: false }));
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('spec-first v');
+      expect(result.stdout).not.toContain('____  ____');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('existing managed state is detected from a repo subdirectory', async () => {
+    const projectRoot = makeTempDir();
+    const subdir = path.join(projectRoot, 'packages', 'tooling');
+    fs.mkdirSync(path.join(projectRoot, '.git'), { recursive: true });
+    fs.mkdirSync(path.join(projectRoot, '.codex', 'spec-first'), { recursive: true });
+    fs.writeFileSync(path.join(projectRoot, '.codex', 'spec-first', 'state.json'), '{}\n', 'utf8');
+    fs.mkdirSync(subdir, { recursive: true });
+
+    try {
+      const result = await captureInit(subdir, [], interactivePrompts({ confirmed: false }));
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('spec-first v');
+      expect(result.stdout).not.toContain('____  ____');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('non-TTY rejection does not print a banner', async () => {
+    const projectRoot = makeTempDir();
+    const prompts = {
+      ...interactivePrompts(),
+      requireTty: () => ({ ok: false, reason: 'no-stdin-tty' }),
+    };
+
+    try {
+      const result = await captureInit(projectRoot, ['--lang', 'zh'], prompts);
+
+      expect(result.exitCode).toBe(2);
+      expect(result.stdout).not.toContain('Spec-First v');
+      expect(result.stdout).not.toContain('spec-first v');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('explicit --lang en localizes interactive prompts and next steps', async () => {
+    const projectRoot = makeTempDir();
+    const prompts = interactivePrompts({ platforms: ['codex'], confirmed: true });
+
+    try {
+      const result = await captureInit(projectRoot, ['--codex', '--lang', 'en'], prompts);
+
+      expect(result.exitCode).toBe(0);
+      expect(prompts.textInput.mock.calls[0][0]).toContain('Developer name');
+      expect(prompts.confirm.mock.calls.some((call) => call[0].includes('Apply these changes'))).toBe(true);
+      expect(result.stdout).toContain('Dry run: spec-first init (codex)');
+      expect(result.stdout).toContain('Restart Codex');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('interactive language choice localizes later workspace prompts and cancellation', async () => {
+    const workspaceRoot = makeTempDir();
+    const childA = path.join(workspaceRoot, 'child-a');
+    const prompts = interactivePrompts({
+      lang: 'en',
+      workspaceTarget: 'cancel',
+    });
+
+    try {
+      fs.mkdirSync(path.join(childA, '.git'), { recursive: true });
+
+      const result = await captureInit(workspaceRoot, [], prompts);
+      const workspaceCall = prompts.select.mock.calls.find((call) => (
+        call[1].some((option) => option.value === null || (option.value && option.value.mode))
+      ));
+
+      expect(result.exitCode).toBe(0);
+      expect(prompts.checkbox.mock.calls[0][0]).toContain('Select host runtimes');
+      expect(prompts.checkbox.mock.calls[0][2].hint).toContain('Space toggle');
+      expect(prompts.textInput.mock.calls[0][0]).toContain('Developer name');
+      expect(workspaceCall[0]).toContain('Select workspace target');
+      expect(workspaceCall[2].hint).toContain('Enter confirm');
+      expect(result.stdout).toContain('Cancelled.');
+      expect(result.stdout).not.toContain('已取消');
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('host checkbox receives hint and min-selection feedback options', async () => {
+    const projectRoot = makeTempDir();
+    const prompts = interactivePrompts({ platforms: ['codex'], confirmed: false });
+
+    try {
+      const result = await captureInit(projectRoot, ['--lang', 'zh'], prompts);
+      const checkboxOptions = prompts.checkbox.mock.calls[0][2];
+
+      expect(result.exitCode).toBe(0);
+      expect(checkboxOptions.hint).toContain('空格');
+      expect(checkboxOptions.onMinError(1)).toContain('1');
+      expect(checkboxOptions.onMinError(1)).toContain('至少');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('preview dry-run messages localize and color semantic counts', () => {
+    const logs = [];
+    const originalLog = console.log;
+    console.log = (message = '') => logs.push(String(message));
+    try {
+      printInitDryRun({
+        platform: 'codex',
+        lang: 'zh',
+        useColor: true,
+        plan: {
+          summary: {
+            remove_file: 1,
+            write_file: 2,
+          },
+          operations: [],
+        },
+        untrackDiagnostic: {
+          reason_code: 'untracked-runtime',
+          count: 1,
+          sample_paths: ['.codex/spec-first/.developer'],
+        },
+        showPathSamples: false,
+      });
+    } finally {
+      console.log = originalLog;
+    }
+
+    const output = logs.join('\n');
+    expect(output).toContain('预览: spec-first init (codex)');
+    expect(output).toContain('移除');
+    expect(output).toContain(`${BrandColors.remove}1${BrandColors.reset}`);
+    expect(output).toContain(`${BrandColors.write}2${BrandColors.reset}`);
+    expect(output).toContain(`${BrandColors.untrack}1${BrandColors.reset}`);
+  });
+
+  test('preview dry-run can render English without ANSI codes', () => {
+    const logs = [];
+    const originalLog = console.log;
+    console.log = (message = '') => logs.push(String(message));
+    try {
+      printInitDryRun({
+        platform: 'claude',
+        lang: 'en',
+        useColor: false,
+        plan: {
+          summary: {
+            remove_file: 1,
+            write_file: 1,
+          },
+          operations: [],
+        },
+        showPathSamples: false,
+      });
+    } finally {
+      console.log = originalLog;
+    }
+
+    const output = logs.join('\n');
+    expect(output).toContain('Would remove 1 managed obsolete path(s).');
+    expect(output).toContain('Would write/update 1 managed file(s).');
+    expect(output).not.toMatch(/\x1B\[[0-?]*[ -/]*[@-~]/);
   });
 
   test('parent workspace can initialize all discovered child repos', async () => {

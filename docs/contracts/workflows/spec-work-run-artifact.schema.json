@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "spec-first spec-work run artifact producer-available contract",
-  "description": "Phase 1B source-owned write-side contract. The internal producer can write schema-aligned run.json artifacts, but workflow integration and replay/retention lifecycle remain separate follow-up gates.",
+  "description": "Source-owned write-side contract. The internal producer can write schema-aligned run.json artifacts for fresh workspace/run-id pairs, and spec-work closeout can mark artifacts workflow_integrated when a durable evidence trigger calls the producer.",
   "x-spec-first-contract-status": "producer_available",
   "x-spec-first-producer": "internal spec-work-run-artifact write",
   "x-spec-first-producer-available": true,
-  "x-spec-first-workflow-integrated": false,
+  "x-spec-first-workflow-integrated": true,
   "x-spec-first-runtime-path": ".spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json",
-  "x-spec-first-boundary": "source-owned write-side producer; workflow integration false until spec-work closeout calls it with fixture/fresh-source evidence",
+  "x-spec-first-boundary": "source-owned write-side producer; same workspace/run-id artifacts are immutable and return artifact-already-exists instead of overwriting; workflow_integrated true only when spec-work closeout calls the producer with durable evidence trigger reason_code",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -58,9 +58,65 @@
       "required": ["producer_available", "workflow_integrated", "reason_code"],
       "properties": {
         "producer_available": { "type": "boolean", "const": true },
-        "workflow_integrated": { "type": "boolean", "const": false },
-        "reason_code": { "type": "string" }
-      }
+        "workflow_integrated": { "type": "boolean", "enum": [true, false] },
+        "reason_code": {
+          "type": "string",
+          "enum": [
+            "trigger-task-pack",
+            "trigger-not-run-validation",
+            "trigger-deferred-follow-up",
+            "trigger-substantive-work",
+            "no-trigger-matched",
+            "producer-error",
+            "producer-write-side-only"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": ["workflow_integrated"],
+            "properties": {
+              "workflow_integrated": { "const": true }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "reason_code": {
+                "enum": [
+                  "trigger-task-pack",
+                  "trigger-not-run-validation",
+                  "trigger-deferred-follow-up",
+                  "trigger-substantive-work"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": ["workflow_integrated"],
+            "properties": {
+              "workflow_integrated": { "const": false }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "reason_code": {
+                "enum": [
+                  "no-trigger-matched",
+                  "producer-error",
+                  "producer-write-side-only"
+                ]
+              }
+            }
+          }
+        }
+      ]
     },
     "plan_path": {
       "anyOf": [

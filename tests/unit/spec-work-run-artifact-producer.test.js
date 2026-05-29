@@ -156,6 +156,133 @@ describe('spec-work run artifact producer', () => {
     }
   });
 
+  test('writes workflow-integrated producer metadata when closeout supplies a durable trigger', () => {
+    const repo = makeRepo();
+    try {
+      const inputPath = writePayload(repo, validPayload({
+        producer: {
+          workflow_integrated: true,
+          reason_code: 'trigger-task-pack',
+        },
+      }));
+
+      const { code, stdout } = captureStdout(() => runInternal([
+        'spec-work-run-artifact',
+        'write',
+        '--input',
+        inputPath,
+        '--run-id',
+        'run-integrated',
+        '--target-repo',
+        repo,
+      ]));
+      const output = JSON.parse(stdout);
+
+      expect(code).toBe(0);
+      expect(output).toEqual(expect.objectContaining({
+        status: 'written',
+        producer_available: true,
+        workflow_integrated: true,
+      }));
+      const artifact = JSON.parse(fs.readFileSync(path.join(repo, output.artifact_path), 'utf8'));
+      expect(artifact.producer).toEqual({
+        producer_available: true,
+        workflow_integrated: true,
+        reason_code: 'trigger-task-pack',
+      });
+      const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, 'utf8'));
+      expect(validateAgainstSchema(schema, artifact).errors).toEqual([]);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects producer metadata that crosses workflow integration boundaries', () => {
+    const integratedWithoutTrigger = validatePayload(validPayload({
+      producer: {
+        workflow_integrated: true,
+        reason_code: 'producer-write-side-only',
+      },
+    }));
+    const skippedButIntegrated = validatePayload(validPayload({
+      producer: {
+        workflow_integrated: true,
+        reason_code: 'no-trigger-matched',
+      },
+    }));
+    const triggerWithoutIntegration = validatePayload(validPayload({
+      producer: {
+        workflow_integrated: false,
+        reason_code: 'trigger-task-pack',
+      },
+    }));
+
+    expect(integratedWithoutTrigger.errors).toContain(
+      'producer.reason_code must be a durable trigger when producer.workflow_integrated is true'
+    );
+    expect(skippedButIntegrated.errors).toContain(
+      'producer.reason_code must be a durable trigger when producer.workflow_integrated is true'
+    );
+    expect(triggerWithoutIntegration.errors).toContain(
+      'producer.reason_code must be non-integrated when producer.workflow_integrated is false'
+    );
+  });
+
+  test('does not overwrite an existing run artifact for the same run id', () => {
+    const repo = makeRepo();
+    try {
+      const firstPayload = validPayload();
+      const secondPayload = validPayload({
+        llm_asserted: {
+          ...validPayload().llm_asserted,
+          summary: 'Second write should not replace the first artifact.',
+        },
+      });
+      const firstPath = writePayload(repo, firstPayload, 'first.json');
+      const secondPath = writePayload(repo, secondPayload, 'second.json');
+
+      const first = captureStdout(() => runInternal([
+        'spec-work-run-artifact',
+        'write',
+        '--input',
+        firstPath,
+        '--run-id',
+        'same-run',
+        '--target-repo',
+        repo,
+      ]));
+      const firstOutput = JSON.parse(first.stdout);
+      const artifactFile = path.join(repo, firstOutput.artifact_path);
+      const artifactBefore = fs.readFileSync(artifactFile, 'utf8');
+
+      const second = captureStdout(() => runInternal([
+        'spec-work-run-artifact',
+        'write',
+        '--input',
+        secondPath,
+        '--run-id',
+        'same-run',
+        '--target-repo',
+        repo,
+      ]));
+      const secondOutput = JSON.parse(second.stdout);
+
+      expect(first.code).toBe(0);
+      expect(second.code).toBe(0);
+      expect(secondOutput).toEqual(expect.objectContaining({
+        status: 'not-written',
+        reason_code: 'artifact-already-exists',
+        artifact_path: firstOutput.artifact_path,
+        schema_version: 'spec-work-run-artifact/v1',
+      }));
+      expect(fs.readFileSync(artifactFile, 'utf8')).toBe(artifactBefore);
+      const artifact = JSON.parse(artifactBefore);
+      expect(artifact.llm_asserted.summary).toBe(firstPayload.llm_asserted.summary);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test('writes compact graph_evidence_used when provided and remains backward compatible when omitted', () => {
     const repo = makeRepo();
     try {
@@ -328,6 +455,8 @@ describe('spec-work run artifact producer', () => {
       validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), provider_raw_output: 'provider raw text' } }),
       validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), redaction_status: undefined } }),
       validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), evidence_grade: 'fallback' } }),
+      validPayload({ producer: { workflow_integrated: true, reason_code: 'unknown-trigger' } }),
+      validPayload({ producer: { workflow_integrated: 'true', reason_code: 'trigger-task-pack' } }),
       validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), capabilities_used: Array.from({ length: 21 }, (_, index) => `cap-${index}`) } }),
       validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, summaries: ['Authorization: Bearer secret-token'] } }),
       validPayload({ llm_asserted: { ...validPayload().llm_asserted, summary: 'https://example.com/log?token=abc123' } }),

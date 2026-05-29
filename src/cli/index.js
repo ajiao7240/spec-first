@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const pkg = require('../../package.json');
+const { detectColorSupport, renderFullArt } = require('./brand');
 const { runClean } = require('./commands/clean');
 const { runDoctor } = require('./commands/doctor');
 const { runInit } = require('./commands/init');
@@ -186,14 +187,7 @@ function printVersion() {
   const pkgPath = path.join(__dirname, '..', '..', 'package.json');
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 
-  console.log(`
-╔════════════════════════════════════════════════════════════╗
-║                                                            ║
-║   Spec-First v${pkg.version}                                    ║
-║   AI 辅助工程框架 — Claude Code & Codex                    ║
-║                                                            ║
-╚════════════════════════════════════════════════════════════╝
-
+  console.log(`${renderFullArt(pkg.version, { useColor: detectColorSupport() })}
   快速上手:
 
     1. 健康检查
@@ -218,5 +212,6 @@ function printVersion() {
 }
 
 module.exports = {
+  printVersion,
   runCli,
 };

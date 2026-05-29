@@ -78,14 +78,14 @@ describe('runtime capability catalog', () => {
         status: 'producer_available',
         producer: 'internal spec-work-run-artifact write',
         producerAvailable: true,
-        workflowIntegrated: false,
+        workflowIntegrated: true,
         runtimePath: '.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json',
-        boundary: 'source-owned write-side producer; workflow integration false until spec-work closeout calls it with fixture/fresh-source evidence',
+        boundary: 'source-owned write-side producer; same workspace/run-id artifacts are immutable and return artifact-already-exists instead of overwriting; workflow_integrated true only when spec-work closeout calls the producer with durable evidence trigger reason_code',
       },
     ]));
     expect(catalog).toContain('## Workflow Runtime Contracts');
     expect(catalog).toContain('`producer_available=true` only means a source-owned writer exists');
-    expect(catalog).toContain('| spec-first spec-work run artifact producer-available contract<br>docs/contracts/workflows/spec-work-run-artifact.schema.json | producer_available | internal spec-work-run-artifact write | true | false | .spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json | source-owned write-side producer; workflow integration false until spec-work closeout calls it with fixture/fresh-source evidence |');
+    expect(catalog).toContain('| spec-first spec-work run artifact producer-available contract<br>docs/contracts/workflows/spec-work-run-artifact.schema.json | producer_available | internal spec-work-run-artifact write | true | true | .spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json | source-owned write-side producer; same workspace/run-id artifacts are immutable and return artifact-already-exists instead of overwriting; workflow_integrated true only when spec-work closeout calls the producer with durable evidence trigger reason_code |');
     expect(catalog).toContain('Workflow runtime contracts 必须由 `docs/contracts/workflows/*.schema.json` 的 `x-spec-first-*` metadata 派生');
   });
 });

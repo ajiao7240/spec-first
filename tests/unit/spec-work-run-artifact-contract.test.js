@@ -104,19 +104,32 @@ function validGraphEvidenceUsed() {
 }
 
 describe('spec-work run artifact contract', () => {
-  test('schema is producer-available while workflow integration remains explicit', () => {
+  test('schema is producer-available and marks closeout integration explicit', () => {
     const schema = readJson(SCHEMA_PATH);
 
     expect(schema.title).toBe('spec-first spec-work run artifact producer-available contract');
     expect(schema.description).toContain('write-side contract');
+    expect(schema.description).toContain('durable evidence trigger');
     expect(schema['x-spec-first-contract-status']).toBe('producer_available');
     expect(schema['x-spec-first-producer']).toBe('internal spec-work-run-artifact write');
     expect(schema['x-spec-first-producer-available']).toBe(true);
-    expect(schema['x-spec-first-workflow-integrated']).toBe(false);
+    expect(schema['x-spec-first-workflow-integrated']).toBe(true);
     expect(schema['x-spec-first-runtime-path']).toBe(
       '.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json'
     );
-    expect(schema['x-spec-first-boundary']).toContain('workflow integration false');
+    expect(schema.description).toContain('fresh workspace/run-id pairs');
+    expect(schema['x-spec-first-boundary']).toContain('artifact-already-exists instead of overwriting');
+    expect(schema['x-spec-first-boundary']).toContain('workflow_integrated true only when spec-work closeout calls the producer');
+    expect(schema.properties.producer.properties.workflow_integrated.enum).toEqual([true, false]);
+    expect(schema.properties.producer.properties.reason_code.enum).toEqual([
+      'trigger-task-pack',
+      'trigger-not-run-validation',
+      'trigger-deferred-follow-up',
+      'trigger-substantive-work',
+      'no-trigger-matched',
+      'producer-error',
+      'producer-write-side-only',
+    ]);
     expect(schema.properties.retention.properties.owner.type).toBe('string');
     expect(schema.properties.retention.properties.expires_at.type).toBe('string');
     expect(schema.properties.script_confirmed.additionalProperties).toBe(false);
@@ -202,13 +215,25 @@ describe('spec-work run artifact contract', () => {
     );
   });
 
-  test('schema rejects artifacts that claim workflow integration before the workflow gate', () => {
+  test('schema accepts workflow-integrated closeout artifacts and legacy write-side artifacts', () => {
     const schema = readJson(SCHEMA_PATH);
-    const artifact = validArtifact();
-    artifact.producer.workflow_integrated = true;
+    const integratedArtifact = validArtifact();
+    integratedArtifact.producer.workflow_integrated = true;
+    integratedArtifact.producer.reason_code = 'trigger-task-pack';
+    const invalidIntegratedArtifact = validArtifact();
+    invalidIntegratedArtifact.producer.workflow_integrated = true;
+    invalidIntegratedArtifact.producer.reason_code = 'producer-write-side-only';
+    const invalidLegacyArtifact = validArtifact();
+    invalidLegacyArtifact.producer.workflow_integrated = false;
+    invalidLegacyArtifact.producer.reason_code = 'trigger-task-pack';
 
-    expect(validateAgainstSchema(schema, artifact).errors).toContain(
-      'root.producer.workflow_integrated: value true does not equal const false'
+    expect(validateAgainstSchema(schema, integratedArtifact).errors).toEqual([]);
+    expect(validateAgainstSchema(schema, validArtifact()).errors).toEqual([]);
+    expect(validateAgainstSchema(schema, invalidIntegratedArtifact).errors).toContain(
+      'root.producer.reason_code: value "producer-write-side-only" not in enum'
+    );
+    expect(validateAgainstSchema(schema, invalidLegacyArtifact).errors).toContain(
+      'root.producer.reason_code: value "trigger-task-pack" not in enum'
     );
   });
 

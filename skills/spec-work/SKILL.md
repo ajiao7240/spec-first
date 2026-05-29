@@ -102,9 +102,9 @@ When invoked from a parent workspace containing multiple independent Git repos, 
 
 ## Run Artifact Boundary
 
-`docs/contracts/workflows/spec-work-run-artifact.schema.json` is the Phase 1B write-side contract for the internal producer `spec-first internal spec-work-run-artifact write --input <payload.json> --run-id <run-id> --target-repo <repo>`. `producer_available=true` only means the CLI can validate a supplied closeout payload and write `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json`; it does not mean this workflow is fully integrated. `workflow_integrated` remains false until this workflow actually calls the producer during closeout and fresh-source/fixture evidence proves that path.
+`docs/contracts/workflows/spec-work-run-artifact.schema.json` is the source-owned write-side contract for the internal producer `spec-first internal spec-work-run-artifact write --input <payload.json> --run-id <run-id> --target-repo <repo>`. `producer_available=true` means the CLI can validate a supplied closeout payload and write `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json`; `workflow_integrated=true` means Phase 4 closeout now calls that writer when a durable evidence trigger applies. The writer treats each workspace/run-id pair as immutable: if the target `run.json` already exists, it returns `artifact-already-exists` and does not overwrite it.
 
-When durable evidence triggers apply (validated task-pack, long task, compaction/resume, degraded provider evidence, deferred follow-up, not-run validation, or review/compound/release handoff), closeout should call the producer or record why it could not. Final responses remain human summaries and must include the repo-relative run artifact path when a run artifact was written. On resume, first try to read the latest explicitly named run artifact; if no readable artifact is available, record `resume_evidence.status=not-found|not-readable|not-run` with a reason code. Do not treat run evidence as source scope authority, progress state, approval state, or a full replay index. Retention/prune now has a minimal deterministic consumer, but the artifact still is not the retention policy source of truth.
+When durable evidence triggers apply (validated task-pack, not-run validation, deferred follow-up, or substantive work such as degraded provider evidence, compaction/resume, long task, or review/compound/release handoff), closeout must call the producer with a fresh run-id or record why it could not. The producer payload must carry `producer.workflow_integrated=true` and `producer.reason_code=<matching-trigger>` for integrated closeout writes; legacy direct writer payloads that omit `producer` remain `workflow_integrated=false` with `producer.reason_code=producer-write-side-only`. Final responses remain human summaries and must include the repo-relative run artifact path when a run artifact was written, or the concrete producer reason code when it was skipped or failed. On resume or handoff, prefer the explicitly named workspace-slug/run-id artifact; latest-artifact lookup is a fallback only and should be disclosed as weaker evidence in parallel work. If no readable artifact is available, record `resume_evidence.status=not-found|not-readable|not-run` with a reason code. Do not treat run evidence as source scope authority, progress state, approval state, or a full replay index. Retention/prune now has a minimal deterministic consumer, but the artifact still is not the retention policy source of truth.
 
 ## Input Document
 
@@ -498,6 +498,7 @@ When all Phase 2 tasks are complete and execution transitions to quality check, 
 
 ### Test As You Go
 
+- Establish a feedback loop before changing behavior, then rerun it after the slice lands.
 - Run tests after each change, not at the end
 - Fix failures immediately
 - Continuous testing prevents big surprises

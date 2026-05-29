@@ -1,14 +1,55 @@
 ---
 title: Claude Workflow Entry Native Skill Migration Plan
 created: 2026-04-21
-updated: 2026-04-21
-status: ready
+updated: 2026-05-29
+status: done
+resolution: superseded-by-render-merge
 owner: engineering
 origin: 用户观察到 /spec:graph-bootstrap 在文件存在的情况下仍报"SKILL.md 不存在"，根因定位为 command shim 两跳架构的 path resolution 不稳定
 scope: 把 Claude 侧 12 个 workflow 入口从 .claude/commands/spec/*.md + .claude/spec-first/workflows/ 二跳架构，迁移为 .claude/skills/spec-*/SKILL.md native project skill 直调
 ---
 
 # Claude Workflow Entry Native Skill Migration Plan
+
+> **状态：已完成（P0 已解决，但由另一套方案解决，本计划步骤未执行）。**
+> 复核日期 2026-05-29，证据见下方「实际解决方式」。归档保留，作为根因与决策记录，不再执行 Step 3-14。
+
+## 0. 实际解决方式（2026-05-29 复核）
+
+**结论：本计划要解决的 P0「入口执行不可靠」已不存在，但不是通过本计划的 native skill 迁移解决的，而是通过 `1.5.8` 引入的 init-time render-merge 方案解决。**
+
+### 0.1 根因如何被消除
+
+计划 §1.2 描述的「两跳 prose 架构」（command 文件作为 shim，发出 prose instruction 让 Claude 再去 Read `.claude/spec-first/workflows/.../SKILL.md`，依赖相对路径解析）已被替换。
+
+现行机制（`src/cli/adapters/claude.js` 的 `renderCommandContent`，引入于 commit `b634c4d7` / `1.5.8`）：
+
+- 命令模板（`templates/claude/commands/spec/*.md`）现在只承载 frontmatter + 一句生成说明。
+- `spec-first init` 时，把模板 frontmatter 与 `skills/spec-*/SKILL.md` 的 body **合并渲染**，生成**自包含**的 runtime 命令文件。
+- runtime 加载的就是这个完整文件（实测 `.claude/commands/spec/plan.md` 为 766 行完整 workflow 内容），Claude 不再需要去 Read 第二个文件，伪根因报错消失。
+
+### 0.2 复核证据
+
+| 检查 | 结果 |
+|---|---|
+| `grep "SKILL.md 文件不存在" .claude/` | 空 —— 伪根因报错文案在 runtime 中已不存在 |
+| `grep "spec-first/workflows.*SKILL.md\|read.*SKILL.md" .claude/commands/spec/` | 空 —— runtime 命令无二跳 prose 引用 |
+| `.claude/commands/spec/plan.md` 行数 | 766 行（自包含完整内容） |
+| Step 1（SKILL.md `name` 改 `spec-*`） | 已由其它演化完成（实测全部为 `spec-brainstorm` 等规范名） |
+
+### 0.3 未采纳的部分
+
+计划 §2.2 的「调用名从 `/spec:*`（colon namespace）统一为 `/spec-*`（hyphen）」**未执行**，且不再作为本计划的一部分推进：
+
+- 当前 runtime 命令名仍为 `/spec:plan` 等 colon namespace 形式，自洽可用，不是 bug。
+- 这是命名偏好 + breaking change（见 §7），与已解决的 P0 入口可靠性无关。
+- 如需推进命名统一，应作为独立小计划重新立项，不复用本文档基于「两跳架构」错误前提的 Step 3-14。
+
+因此 Step 3-14（删 command 层、删模板、迁移 governance、改调用名）**均不执行**——它们会破坏现行 render-merge 架构（command 层现在承载合并后的完整入口内容，删除入口即破坏可用性）。
+
+---
+
+> 以下为 2026-04-21 原始计划，保留作为历史根因分析与决策记录。其架构前提（两跳 prose shim）已不成立。
 
 ## 1. 问题框定
 

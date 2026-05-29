@@ -84,15 +84,6 @@ function resolveDeveloperIdentity(projectRoot, options = {}) {
 function resolveChangelogAuthor(projectRoot, options = {}) {
   const fallbackName = normalizeName(options.fallbackName);
 
-  if (fallbackName) {
-    return {
-      name: fallbackName,
-      source: 'fallback_name',
-      host: '',
-      path: '',
-    };
-  }
-
   const globalDeveloper = readDeveloperFile(getGlobalDeveloperPath());
   if (globalDeveloper && globalDeveloper.name) {
     return {
@@ -100,6 +91,15 @@ function resolveChangelogAuthor(projectRoot, options = {}) {
       source: 'global_developer',
       host: 'global',
       path: normalizePathForContract(GLOBAL_DEVELOPER_RELATIVE_PATH),
+    };
+  }
+
+  if (fallbackName) {
+    return {
+      name: fallbackName,
+      source: 'fallback_name',
+      host: '',
+      path: '',
     };
   }
 

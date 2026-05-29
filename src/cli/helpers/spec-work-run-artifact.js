@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { writeFileAtomic } = require('../atomic-write');
+const { writeFileAtomicIfAbsent } = require('../atomic-write');
 const { validateAgainstSchema } = require('../../contracts/schema-validator');
 const { isExactRepoRelativePath, isSecretDeniedPath } = require('./secret-deny-patterns');
 
@@ -13,6 +13,25 @@ const WORKFLOW = 'spec-work';
 const DEFAULT_RETENTION_DAYS = 30;
 const ALLOWED_RAW_LOG_KINDS = new Set(['none', 'repo_relative_artifact']);
 const ALLOWED_PLAN_SOURCES = new Set(['explicit', 'inferred', 'missing']);
+const ALLOWED_PRODUCER_REASON_CODES = new Set([
+  'trigger-task-pack',
+  'trigger-not-run-validation',
+  'trigger-deferred-follow-up',
+  'trigger-substantive-work',
+  'no-trigger-matched',
+  'producer-error',
+  'producer-write-side-only',
+]);
+const INTEGRATED_PRODUCER_REASON_CODES = new Set([
+  'trigger-task-pack',
+  'trigger-not-run-validation',
+  'trigger-deferred-follow-up',
+  'trigger-substantive-work',
+]);
+const ALLOWED_PAYLOAD_PRODUCER_FIELDS = new Set([
+  'workflow_integrated',
+  'reason_code',
+]);
 const ALLOWED_LLM_ASSERTED_FIELDS = new Set(['summary', 'read_artifacts', 'key_decisions', 'deferred_follow_up', 'next_action']);
 const ALLOWED_GRAPH_EVIDENCE_FIELDS = new Set([
   'capabilities_used',
@@ -43,6 +62,7 @@ const ALLOWED_PAYLOAD_FIELDS = new Set([
   'schema_version',
   'workflow',
   'mode',
+  'producer',
   'plan_path',
   'plan_source',
   'task_pack_path',
@@ -221,8 +241,15 @@ function writeSpecWorkRunArtifact({ inputPath, runId, targetRepo }) {
     if (postMkdirContainment.errors.length > 0) {
       return rejected('artifact-path-escape', postMkdirContainment.errors);
     }
-    writeFileAtomic(absoluteArtifactPath, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
+    writeFileAtomicIfAbsent(absoluteArtifactPath, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
   } catch (error) {
+    if (error && error.code === 'EEXIST') {
+      return notWritten('artifact-already-exists', [`run artifact already exists: ${artifactPath}`], {
+        artifactPath,
+        schemaVersion: ARTIFACT_SCHEMA_VERSION,
+        warnings,
+      });
+    }
     return notWritten('artifact-write-failed', [error.message], {
       artifactPath,
       schemaVersion: ARTIFACT_SCHEMA_VERSION,
@@ -238,7 +265,7 @@ function writeSpecWorkRunArtifact({ inputPath, runId, targetRepo }) {
       artifact_path: artifactPath,
       schema_version: ARTIFACT_SCHEMA_VERSION,
       producer_available: true,
-      workflow_integrated: false,
+      workflow_integrated: artifact.producer.workflow_integrated,
       warnings,
     },
   };
@@ -487,7 +514,7 @@ function readSpecWorkRunArtifact({ targetRepo, workspaceSlug = '', runId = '' })
       artifact_path: artifactInfo.relativePath,
       schema_version: ARTIFACT_SCHEMA_VERSION,
       producer_available: true,
-      workflow_integrated: false,
+      workflow_integrated: artifact.producer.workflow_integrated,
       warnings: [],
       artifact,
     },
@@ -870,6 +897,7 @@ function validatePayload(payload) {
   if (payload.workflow !== WORKFLOW) errors.push(`workflow must be ${WORKFLOW}`);
   if (!['interactive', 'non-interactive'].includes(payload.mode)) errors.push('mode must be interactive or non-interactive');
   if (!ALLOWED_PLAN_SOURCES.has(payload.plan_source)) errors.push('plan_source must be explicit, inferred, or missing');
+  validatePayloadProducer(payload.producer, errors);
   for (const field of ['script_confirmed', 'llm_asserted', 'provider_untrusted']) {
     if (!payload[field] || typeof payload[field] !== 'object' || Array.isArray(payload[field])) {
       errors.push(`${field} must be an object`);
@@ -920,6 +948,29 @@ function validatePayload(payload) {
     errors,
     reasonCode: errors.length > 0 ? classifyErrors(errors) : null,
   };
+}
+
+function validatePayloadProducer(producer, errors) {
+  if (producer === undefined) return;
+  if (!producer || typeof producer !== 'object' || Array.isArray(producer)) {
+    errors.push('producer must be an object when provided');
+    return;
+  }
+  validateObjectFields(producer, 'producer', ALLOWED_PAYLOAD_PRODUCER_FIELDS, errors);
+  if (typeof producer.workflow_integrated !== 'boolean') {
+    errors.push('producer.workflow_integrated must be a boolean');
+  }
+  if (!ALLOWED_PRODUCER_REASON_CODES.has(producer.reason_code)) {
+    errors.push('producer.reason_code is invalid');
+  } else if (typeof producer.workflow_integrated === 'boolean') {
+    const isTriggerReason = INTEGRATED_PRODUCER_REASON_CODES.has(producer.reason_code);
+    if (producer.workflow_integrated && !isTriggerReason) {
+      errors.push('producer.reason_code must be a durable trigger when producer.workflow_integrated is true');
+    }
+    if (!producer.workflow_integrated && isTriggerReason) {
+      errors.push('producer.reason_code must be non-integrated when producer.workflow_integrated is false');
+    }
+  }
 }
 
 function validateGraphEvidenceUsed(graphEvidenceUsed, errors) {
@@ -1136,6 +1187,7 @@ function scanUnsafeStrings(value, errors, pointer = 'payload') {
 
 function buildArtifact(payload, { runId, workspaceSlug, artifactPath, warnings }) {
   const retention = buildRetention(payload.retention);
+  const producer = buildProducer(payload.producer);
   return {
     schema_version: ARTIFACT_SCHEMA_VERSION,
     generated_at: new Date().toISOString(),
@@ -1145,8 +1197,8 @@ function buildArtifact(payload, { runId, workspaceSlug, artifactPath, warnings }
     workspace_slug: workspaceSlug,
     producer: {
       producer_available: true,
-      workflow_integrated: false,
-      reason_code: 'producer-write-side-only',
+      workflow_integrated: producer.workflowIntegrated,
+      reason_code: producer.reasonCode,
     },
     plan_path: payload.plan_path || null,
     plan_source: payload.plan_source || 'missing',
@@ -1159,6 +1211,19 @@ function buildArtifact(payload, { runId, workspaceSlug, artifactPath, warnings }
     retention,
     artifact_path: artifactPath,
     warnings,
+  };
+}
+
+function buildProducer(producer) {
+  if (!producer || typeof producer !== 'object' || Array.isArray(producer)) {
+    return {
+      workflowIntegrated: false,
+      reasonCode: 'producer-write-side-only',
+    };
+  }
+  return {
+    workflowIntegrated: producer.workflow_integrated,
+    reasonCode: producer.reason_code,
   };
 }
 
