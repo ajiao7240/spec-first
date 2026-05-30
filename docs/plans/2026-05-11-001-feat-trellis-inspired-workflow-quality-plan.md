@@ -1,7 +1,7 @@
 ---
 title: "feat: 吸收 Trellis、pro-workflow 与 Matt Pocock skills 启发的 workflow 质量提升"
 type: feat
-status: partially-shipped
+status: completed
 date: 2026-05-11
 spec_id: 2026-05-11-001-external-workflow-quality
 implements_schemas: ['docs/contracts/workflows/spec-work-run-artifact.schema.json']
@@ -11,7 +11,7 @@ implements_schemas: ['docs/contracts/workflows/spec-work-run-artifact.schema.jso
 
 ## 状态说明
 
-本文件已完成上游研究、对标分析、反向审查、业界最佳实践复审和 clean-room 证据整理，但状态修正为 `partially-shipped`：其中 `spec-work` run evidence summary 对应的 `docs/contracts/workflows/spec-work-run-artifact.schema.json` 曾长期停留在 `producer_available=true / workflow_integrated=false`，不能把本 plan 视为完整交付。该缺口由 `docs/plans/2026-05-28-004-feat-spec-work-run-evidence-and-invariant-lens-plan.md` 收口；后续开发仍以 `docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrade-plan.md` 为执行基准，本文件保留为 provenance、设计依据和外部对标证据来源。
+本文件已完成上游研究、对标分析、反向审查、业界最佳实践复审和 clean-room 证据整理，状态为 `completed`：本 plan 自身不直接发货 source，执行全程委托给 `docs/plans/2026-05-11-002-feat-spec-first-project-optimization-upgrade-plan.md`（已 `completed`），其 U1-U12 逐条吸收并落地了本文件的 U1-U11。曾长期停留在 `producer_available=true / workflow_integrated=false` 的 `docs/contracts/workflows/spec-work-run-artifact.schema.json`（对应 U3 的 `spec-work` run evidence summary）缺口，已由 `docs/plans/2026-05-28-004-feat-spec-work-run-evidence-and-invariant-lens-plan.md` 收口：该 schema 现为 `x-spec-first-workflow-integrated=true`，producer 已真实集成。本文件保留为 provenance、设计依据和外部对标证据来源。
 
 ## 摘要
 

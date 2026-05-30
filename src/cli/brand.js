@@ -7,15 +7,20 @@ const BrandColors = {
   reset: '\x1b[0m',
 };
 
-const INNER_WIDTH = 70;
+// 厚重 block 字形(figlet ansi_shadow,"spec" / "-" / "first" 分段拼接),6 行矩形等宽。
+// 连字符前后各留两列空格,使 spec、-、first 三段之间有清晰视觉空隙。
+// 字符集仅 █(U+2588) 与 box-drawing(U+2550–U+255D),主流等宽终端稳定渲染。
 const LOGO_LINES = [
-  '  ____  ____  _____  ____        _____ ___ ____  ____ _____',
-  ' / ___||  _ \\| ____|/ ___|      |  ___|_ _|  _ \\/ ___|_   _|',
-  ' \\___ \\| |_) |  _| | |   _____ | |_   | || |_) \\___ \\ | |',
-  '  ___) |  __/| |___| |__|_____|  _|  | ||  _ < ___) || |',
-  ' |____/|_|   |_____|\\____|     |_|   |___|_| \\_\\____/ |_|',
+  '███████╗██████╗ ███████╗ ██████╗          ███████╗██╗██████╗ ███████╗████████╗',
+  '██╔════╝██╔══██╗██╔════╝██╔════╝          ██╔════╝██║██╔══██╗██╔════╝╚══██╔══╝',
+  '███████╗██████╔╝█████╗  ██║       █████╗  █████╗  ██║██████╔╝███████╗   ██║   ',
+  '╚════██║██╔═══╝ ██╔══╝  ██║       ╚════╝  ██╔══╝  ██║██╔══██╗╚════██║   ██║   ',
+  '███████║██║     ███████╗╚██████╗          ██║     ██║██║  ██║███████║   ██║   ',
+  '╚══════╝╚═╝     ╚══════╝ ╚═════╝          ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝   ',
 ];
 const TAGLINE = 'AI coding harness for Claude Code & Codex';
+// art 与品牌行左侧缩进,保持与分隔线对齐的呼吸感。
+const INDENT = ' ';
 
 function detectColorSupport() {
   if (Object.prototype.hasOwnProperty.call(process.env, 'NO_COLOR')) {
@@ -40,18 +45,31 @@ function colorize(text, colorCode, useColor) {
   return `${colorCode}${text}${BrandColors.reset}`;
 }
 
+function versionText(version) {
+  return `Spec-First v${version || 'unknown'}`;
+}
+
+// 分隔线宽度跟随实际内容宽度(art 最大行宽 / 版本行 / tagline 取 max),
+// 版本号变长只会增大 contentWidth,上下两线同步等长,不会错位。
+function computeContentWidth(version) {
+  const artWidth = LOGO_LINES.reduce((max, line) => Math.max(max, [...line].length), 0);
+  const candidates = [
+    INDENT.length + artWidth,
+    INDENT.length + versionText(version).length,
+    INDENT.length + TAGLINE.length,
+  ];
+  return candidates.reduce((max, width) => Math.max(max, width), 0);
+}
+
 function renderFullArt(version, opts = {}) {
   const useColor = resolveUseColor(opts);
-  const versionText = `Spec-First v${version || 'unknown'}`;
+  const divider = colorize('─'.repeat(computeContentWidth(version)), BrandColors.brand, useColor);
   const lines = [
-    topBorder(),
-    frameLine('', { useColor }),
-    ...LOGO_LINES.map((line) => frameLine(line, { useColor })),
-    frameLine('', { useColor }),
-    frameLine(`  ${versionText}`, { useColor }),
-    frameLine(`  ${TAGLINE}`, { useColor }),
-    frameLine('', { useColor }),
-    bottomBorder(),
+    divider,
+    ...LOGO_LINES.map((line) => `${INDENT}${colorize(line, BrandColors.brand, useColor)}`),
+    `${INDENT}${colorize(versionText(version), BrandColors.secondary, useColor)}`,
+    `${INDENT}${colorize(TAGLINE, BrandColors.secondary, useColor)}`,
+    divider,
   ];
 
   return `${lines.join('\n')}\n`;
@@ -59,7 +77,8 @@ function renderFullArt(version, opts = {}) {
 
 function renderWordmark(version, opts = {}) {
   const useColor = resolveUseColor(opts);
-  return `${colorize('spec-first', BrandColors.brand, useColor)} v${version || 'unknown'}`;
+  const prefix = colorize('─', BrandColors.brand, useColor);
+  return `${prefix} ${colorize('spec-first', BrandColors.brand, useColor)} v${version || 'unknown'}`;
 }
 
 function resolveUseColor(opts) {
@@ -67,27 +86,6 @@ function resolveUseColor(opts) {
     return opts.useColor === true;
   }
   return detectColorSupport();
-}
-
-function topBorder() {
-  return `╔${'═'.repeat(INNER_WIDTH)}╗`;
-}
-
-function bottomBorder() {
-  return `╚${'═'.repeat(INNER_WIDTH)}╝`;
-}
-
-function frameLine(text, { useColor }) {
-  const padded = padRight(text, INNER_WIDTH);
-  return `║${colorize(padded, BrandColors.brand, useColor)}║`;
-}
-
-function padRight(text, width) {
-  const value = String(text);
-  if (value.length >= width) {
-    return value;
-  }
-  return `${value}${' '.repeat(width - value.length)}`;
 }
 
 module.exports = {

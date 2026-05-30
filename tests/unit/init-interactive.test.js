@@ -260,7 +260,7 @@ describe('interactive init command', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Spec-First v');
-      expect(result.stdout).toContain('____  ____');
+      expect(result.stdout).toContain('███████╗');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -276,7 +276,7 @@ describe('interactive init command', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('spec-first v');
-      expect(result.stdout).not.toContain('____  ____');
+      expect(result.stdout).not.toContain('███████╗');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -295,7 +295,7 @@ describe('interactive init command', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('spec-first v');
-      expect(result.stdout).not.toContain('____  ____');
+      expect(result.stdout).not.toContain('███████╗');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

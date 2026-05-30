@@ -70,21 +70,45 @@ describe('brand rendering', () => {
     expect(colorize('hello', BrandColors.brand, true)).toBe(`${BrandColors.brand}hello${BrandColors.reset}`);
   });
 
-  test('renderFullArt keeps plain output ANSI-free and aligned across version lengths', () => {
+  test('renderFullArt keeps plain output ANSI-free with stable dividers', () => {
     const shortVersion = renderFullArt('0.1.0', { useColor: false });
     const longVersion = renderFullArt('0.99.0-beta.10', { useColor: false });
     const shortLines = visibleLines(shortVersion);
     const longLines = visibleLines(longVersion);
 
+    // Plain output must never leak ANSI escape sequences.
     expect(shortVersion).not.toMatch(ANSI_PATTERN);
-    expect(new Set(shortLines.map((line) => line.length)).size).toBe(1);
-    expect(new Set(longLines.map((line) => line.length)).size).toBe(1);
-    expect(shortLines[0].length).toBe(longLines[0].length);
+    expect(longVersion).not.toMatch(ANSI_PATTERN);
+
+    // New layout uses top/bottom divider lines (no ╔═╗ box). For each render,
+    // first and last lines are pure `─` dividers of equal length. The block art
+    // glyph itself contains box-drawing shadow chars (║ etc.), so we assert the
+    // divider lines specifically, not "no box chars anywhere".
+    for (const lines of [shortLines, longLines]) {
+      const top = lines[0];
+      const bottom = lines[lines.length - 1];
+      expect(top).toMatch(/^─+$/);
+      expect(bottom).toMatch(/^─+$/);
+      expect(top.length).toBe(bottom.length);
+      // No full-box corner characters on the divider rows.
+      expect(top).not.toMatch(/[╔╗╚╝]/);
+      expect(bottom).not.toMatch(/[╔╗╚╝]/);
+    }
+
+    // Divider width follows content, so a longer version never produces a
+    // shorter divider than a shorter version.
+    expect(longLines[0].length).toBeGreaterThanOrEqual(shortLines[0].length);
+
+    // The six art glyph rows are rectangular (equal visible width).
+    const artRows = shortLines.slice(1, 7);
+    expect(new Set(artRows.map((line) => [...line].length)).size).toBe(1);
   });
 
-  test('renderWordmark returns one visible line', () => {
-    expect(renderWordmark('1.0.0', { useColor: false })).toBe('spec-first v1.0.0');
-    expect(renderWordmark('1.0.0', { useColor: false })).not.toContain('\n');
+  test('renderWordmark returns one visible line with brand prefix', () => {
+    const plain = renderWordmark('1.0.0', { useColor: false });
+    expect(plain).toBe('─ spec-first v1.0.0');
+    expect(plain).not.toContain('\n');
+    expect(plain).not.toMatch(ANSI_PATTERN);
   });
 
   test('explicit useColor avoids consulting terminal color detection', () => {
