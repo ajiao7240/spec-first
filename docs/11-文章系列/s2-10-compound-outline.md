@@ -7,7 +7,7 @@ metadata:
   series_index: "s2-11"
 ---
 
-# Spec-First：每次修复都应该变成下次优势——compound 的完整工作流
+# Spec-First：你解决过的问题，为什么下次还要重新解决一遍
 
 **状态：** 大纲
 **内容类型：** 机制篇

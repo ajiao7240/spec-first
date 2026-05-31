@@ -7,7 +7,7 @@ metadata:
   series_index: "s2-12"
 ---
 
-# Spec-First：有指标才能优化——optimize 的 metric-driven 循环
+# Spec-First：把它优化好一点——这句话为什么会让 AI 失控
 
 **状态：** 大纲
 **内容类型：** 取舍篇

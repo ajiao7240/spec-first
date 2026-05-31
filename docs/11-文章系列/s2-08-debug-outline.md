@@ -7,7 +7,7 @@ metadata:
   series_index: "s2-08"
 ---
 
-# Spec-First：AI 犯错了怎么办——debug 的 hypothesis ledger
+# Spec-First：反复问 AI 你再看看，只会让 bug 越来越多
 
 **状态：** 大纲
 **内容类型：** 取舍篇

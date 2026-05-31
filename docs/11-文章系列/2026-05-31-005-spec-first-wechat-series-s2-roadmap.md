@@ -73,44 +73,44 @@ S2-00 总览：一个真实需求从想法到上线的完整旅程
 
 | # | 内容类型 | 建议标题 | 核心论点 | 核心 skill | 回流资产 |
 |---|---|---|---|---|---|
-| S2-00 | 总览 | Spec-First：一个真实需求从想法到上线的完整旅程 | 用一个小需求走完完整链路，让读者看到 spec-first 的全貌和每个节点的输入/输出 | 全链路 | 完整工作流链路图 |
+| S2-00 | 总览 | Spec-First：从一句话到上线，我用 spec-first 跑完了整个流程 | 用一个小需求走完完整链路，让读者看到 spec-first 的全貌和每个节点的输入/输出 | 全链路 | 完整工作流链路图 |
 
 ### 第一组：环境准备
 
 | # | 内容类型 | 建议标题 | 核心论点 | 核心 skill | 回流资产 |
 |---|---|---|---|---|---|
-| S2-01 | 机制 | Spec-First：安装之后，第一件事是什么——doctor、init 和 mcp-setup | 工具安装完不等于可以用；runtime 就绪才是真正的起点 | `doctor` / `init` / `mcp-setup` | 环境就绪检查清单 |
-| S2-02 | 机制 | Spec-First：让 AI 知道你的代码库——graph-bootstrap 的设计逻辑 | 代码图谱不是一次性操作，而是持续的 readiness 管理；dirty-advisory / definitions-only 时如何降级 | `graph-bootstrap` | Graph readiness 状态卡 |
+| S2-01 | 机制 | Spec-First：装完就能用？大多数人跳过了最关键的一步 | 工具安装完不等于可以用；runtime 就绪才是真正的起点 | `doctor` / `init` / `mcp-setup` | 环境就绪检查清单 |
+| S2-02 | 机制 | Spec-First：AI 一直在猜你的代码，直到你运行了这个命令 | 代码图谱不是一次性操作，而是持续的 readiness 管理；dirty-advisory / definitions-only 时如何降级 | `graph-bootstrap` | Graph readiness 状态卡 |
 
 ### 第二组：需求与规划
 
 | # | 内容类型 | 建议标题 | 核心论点 | 核心 skill | 回流资产 |
 |---|---|---|---|---|---|
-| S2-03 | 机制 | Spec-First：从一句话到可执行需求——brainstorm 是怎么工作的 | brainstorm 不是头脑风暴，而是把模糊意图收敛成可审查的 requirements brief；ideate 是更早的方向探索 | `brainstorm` / `ideate` | Requirements brief 最小字段卡 |
-| S2-04 | 取舍 | Spec-First：存量系统怎么写需求——spec-prd 的 brownfield 逻辑 | 0-1 产品用 brainstorm，存量系统增量需求用 spec-prd；PRD 级需求让 plan 不用猜 WHAT | `spec-prd` | Brownfield PRD 检查清单 |
-| S2-05 | 机制 | Spec-First：计划不是微观指令——plan 如何约束 AI 的执行边界 | plan 的价值是 scope、验证、风险和 handoff，不是逐步指令；plan 和 task pack 的分工 | `plan` | Plan anti-drift checklist |
-| S2-06 | 机制 | Spec-First：把计划拆成可执行切片——write-tasks 的设计逻辑 | task pack 是 plan 的派生产物，不是独立 source of truth；spec_id / source_plan_hash 防止过期链路 | `write-tasks` | Task pack 最小字段卡 |
+| S2-03 | 机制 | Spec-First：为什么你的需求说清楚了，AI 还是做错了 | brainstorm 不是头脑风暴，而是把模糊意图收敛成可审查的 requirements brief；ideate 是更早的方向探索 | `brainstorm` / `ideate` | Requirements brief 最小字段卡 |
+| S2-04 | 取舍 | Spec-First：改老系统时，AI 最容易在哪里翻车 | 0-1 产品用 brainstorm，存量系统增量需求用 spec-prd；PRD 级需求让 plan 不用猜 WHAT | `spec-prd` | Brownfield PRD 检查清单 |
+| S2-05 | 机制 | Spec-First：你给 AI 的计划，其实是在帮它跑偏 | plan 的价值是 scope、验证、风险和 handoff，不是逐步指令；plan 和 task pack 的分工 | `plan` | Plan anti-drift checklist |
+| S2-06 | 机制 | Spec-First：为什么大任务交给 AI 总是一团糟 | task pack 是 plan 的派生产物，不是独立 source of truth；spec_id / source_plan_hash 防止过期链路 | `write-tasks` | Task pack 最小字段卡 |
 
 ### 第三组：执行与调试
 
 | # | 内容类型 | 建议标题 | 核心论点 | 核心 skill | 回流资产 |
 |---|---|---|---|---|---|
-| S2-07 | 机制 | Spec-First：让 AI 真正执行任务——work 的五个关键控制点 | work 不是"让 AI 自由发挥"，而是在 plan 边界内的受控执行；scope 扩张时如何停止 | `work` | Work 执行控制点卡 |
-| S2-08 | 取舍 | Spec-First：AI 犯错了怎么办——debug 的 hypothesis ledger | debug 不是反复问 AI，而是用 hypothesis ledger 把失败变成可追踪的证据；一次只改一件事 | `debug` | Debug hypothesis 模板 |
+| S2-07 | 机制 | Spec-First：AI 做着做着就偏了？五个控制点让它回到正轨 | work 不是"让 AI 自由发挥"，而是在 plan 边界内的受控执行；scope 扩张时如何停止 | `work` | Work 执行控制点卡 |
+| S2-08 | 取舍 | Spec-First：反复问 AI 你再看看，只会让 bug 越来越多 | debug 不是反复问 AI，而是用 hypothesis ledger 把失败变成可追踪的证据；一次只改一件事 | `debug` | Debug hypothesis 模板 |
 
 ### 第四组：审查与质量
 
 | # | 内容类型 | 建议标题 | 核心论点 | 核心 skill | 回流资产 |
 |---|---|---|---|---|---|
-| S2-09 | 机制 | Spec-First：为什么"你再检查一下"没用——code-review 的六个维度 | review 需要角色、证据、影响面、降级和 residual risk；review-pre-facts 是什么 | `code-review` | Review checklist |
-| S2-10 | 取舍 | Spec-First：需求和计划也需要 review——doc-review 的设计逻辑 | 代码 review 只是最后一道关；需求和计划的 review 更重要，因为它们决定了 WHAT | `doc-review` | Doc review 维度卡 |
+| S2-09 | 机制 | Spec-First：AI review 了半天，上线还是出了问题——为什么 | review 需要角色、证据、影响面、降级和 residual risk；review-pre-facts 是什么 | `code-review` | Review checklist |
+| S2-10 | 取舍 | Spec-First：代码写完才发现需求理解错了，这个错误可以提前避免 | 代码 review 只是最后一道关；需求和计划的 review 更重要，因为它们决定了 WHAT | `doc-review` | Doc review 维度卡 |
 
 ### 第五组：沉淀与优化
 
 | # | 内容类型 | 建议标题 | 核心论点 | 核心 skill | 回流资产 |
 |---|---|---|---|---|---|
-| S2-11 | 机制 | Spec-First：每次修复都应该变成下次优势——compound 的完整工作流 | compound 不是写文档，而是在上下文最新鲜时把可复用经验固化；compound-refresh 如何维护知识质量 | `compound` / `compound-refresh` | Knowledge capture 模板 |
-| S2-12 | 取舍 | Spec-First：有指标才能优化——optimize 的 metric-driven 循环 | 没有可度量指标的优化是猜测；optimize 要求先定义 metric 和 measurement scaffold，再跑实验 | `optimize` | Optimization spec 模板 |
+| S2-11 | 机制 | Spec-First：你解决过的问题，为什么下次还要重新解决一遍 | compound 不是写文档，而是在上下文最新鲜时把可复用经验固化；compound-refresh 如何维护知识质量 | `compound` / `compound-refresh` | Knowledge capture 模板 |
+| S2-12 | 取舍 | Spec-First：把它优化好一点——这句话为什么会让 AI 失控 | 没有可度量指标的优化是猜测；optimize 要求先定义 metric 和 measurement scaffold，再跑实验 | `optimize` | Optimization spec 模板 |
 
 ---
 

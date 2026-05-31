@@ -7,7 +7,7 @@ metadata:
   series_index: "s2-09"
 ---
 
-# Spec-First：为什么"你再检查一下"没用——code-review 的六个维度
+# Spec-First：AI review 了半天，上线还是出了问题——为什么
 
 **状态：** 大纲
 **内容类型：** 机制篇

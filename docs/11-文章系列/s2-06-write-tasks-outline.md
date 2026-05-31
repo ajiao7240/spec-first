@@ -7,7 +7,7 @@ metadata:
   series_index: "s2-06"
 ---
 
-# Spec-First：把计划拆成可执行切片——write-tasks 的设计逻辑
+# Spec-First：为什么大任务交给 AI 总是一团糟
 
 **状态：** 大纲
 **内容类型：** 机制篇

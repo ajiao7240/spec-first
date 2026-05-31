@@ -7,7 +7,7 @@ metadata:
   series_index: "s2-00"
 ---
 
-# Spec-First：一个真实需求从想法到上线的完整旅程
+# Spec-First：从一句话到上线，我用 spec-first 跑完了整个流程
 
 **状态：** 大纲
 **内容类型：** 总览篇

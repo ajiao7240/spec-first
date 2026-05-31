@@ -7,7 +7,7 @@ metadata:
   series_index: "s2-03"
 ---
 
-# Spec-First：从一句话到可执行需求——brainstorm 是怎么工作的
+# Spec-First：为什么你的需求说清楚了，AI 还是做错了
 
 **状态：** 大纲
 **内容类型：** 机制篇

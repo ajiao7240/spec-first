@@ -7,7 +7,7 @@ metadata:
   series_index: "s2-05"
 ---
 
-# Spec-First：计划不是微观指令——plan 如何约束 AI 的执行边界
+# Spec-First：你给 AI 的计划，其实是在帮它跑偏
 
 **状态：** 大纲
 **内容类型：** 机制篇

@@ -7,7 +7,7 @@ metadata:
   series_index: "s2-04"
 ---
 
-# Spec-First：存量系统怎么写需求——spec-prd 的 brownfield 逻辑
+# Spec-First：改老系统时，AI 最容易在哪里翻车
 
 **状态：** 大纲
 **内容类型：** 取舍篇

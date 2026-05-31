@@ -7,7 +7,7 @@ metadata:
   series_index: "s2-10"
 ---
 
-# Spec-First：需求和计划也需要 review——doc-review 的设计逻辑
+# Spec-First：代码写完才发现需求理解错了，这个错误可以提前避免
 
 **状态：** 大纲
 **内容类型：** 取舍篇

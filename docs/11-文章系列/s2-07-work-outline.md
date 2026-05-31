@@ -7,7 +7,7 @@ metadata:
   series_index: "s2-07"
 ---
 
-# Spec-First：让 AI 真正执行任务——work 的五个关键控制点
+# Spec-First：AI 做着做着就偏了？五个控制点让它回到正轨
 
 **状态：** 大纲
 **内容类型：** 机制篇
