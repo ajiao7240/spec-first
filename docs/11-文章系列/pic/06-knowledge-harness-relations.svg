@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">Knowledge Harness 与其他 Harness 层的关系</title>
+  <desc id="desc">Knowledge Harness 是 Context/Evidence/Execution 三层的输入来源，同时也是 Evaluation Harness 的度量对象</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#34d399"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="620" rx="30" fill="url(#bg)"/>
+  <text x="600" y="56" text-anchor="middle" fill="#e0f2fe" font-size="32" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Knowledge Harness 与其他层的关系</text>
+  <text x="600" y="90" text-anchor="middle" fill="#93c5fd" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">经验沉淀是输入侧所有层的共同基础</text>
+
+  <!-- Knowledge Harness 中心 -->
+  <g filter="url(#shadow)">
+    <rect x="430" y="230" width="340" height="100" rx="18" fill="#04221a" stroke="#34d399" stroke-width="3"/>
+    <text x="600" y="272" text-anchor="middle" fill="#6ee7b7" font-size="22" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Knowledge Harness</text>
+    <text x="600" y="302" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'SF Mono', Menlo, Consolas, monospace">docs/solutions/ · spec-compound</text>
+  </g>
+
+  <!-- Context Harness -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="130" width="260" height="80" rx="14" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="210" y="166" text-anchor="middle" fill="#7dd3fc" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Context Harness</text>
+    <text x="210" y="192" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">条件读取相关 learning</text>
+  </g>
+  <path d="M340 170 L430 265" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="370" y="210" fill="#38bdf8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">advisory context</text>
+
+  <!-- Evidence Harness -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="390" width="260" height="80" rx="14" fill="#082f49" stroke="#67e8f9" stroke-width="2"/>
+    <text x="210" y="426" text-anchor="middle" fill="#a5f3fc" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Evidence Harness</text>
+    <text x="210" y="452" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">learning 是 advisory 证据</text>
+  </g>
+  <path d="M340 430 L430 310" stroke="#67e8f9" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="360" y="390" fill="#67e8f9" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">advisory pointer</text>
+
+  <!-- Execution Harness -->
+  <g filter="url(#shadow)">
+    <rect x="860" y="130" width="260" height="80" rx="14" fill="#082f49" stroke="#22d3ee" stroke-width="2"/>
+    <text x="990" y="166" text-anchor="middle" fill="#67e8f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Execution Harness</text>
+    <text x="990" y="192" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">避免已知坑，减少漂移</text>
+  </g>
+  <path d="M770 265 L860 170" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="800" y="210" fill="#22d3ee" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">快速参考</text>
+
+  <!-- Evaluation Harness -->
+  <g filter="url(#shadow)">
+    <rect x="860" y="390" width="260" height="80" rx="14" fill="#082f49" stroke="#a78bfa" stroke-width="2"/>
+    <text x="990" y="426" text-anchor="middle" fill="#c4b5fd" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Evaluation Harness</text>
+    <text x="990" y="452" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">度量知识复利效果</text>
+  </g>
+  <path d="M770 310 L860 430" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="800" y="390" fill="#a78bfa" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">引用次数/覆盖率</text>
+
+  <!-- 底部说明 -->
+  <text x="600" y="560" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">Knowledge Harness 是输入侧的基础：它让历史经验成为当前任务的精确输入</text>
+  <text x="600" y="586" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">同时也是 Evaluation Harness 的度量对象：learning 被引用的次数反映知识复利效果</text>
+</svg>

@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">docs/solutions/ 结构：五个分类 + 结构化 frontmatter</title>
+  <desc id="desc">docs/solutions/ 的五个分类目录和 frontmatter 关键字段，让经验可搜索、可引用、可刷新。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102a43"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="700" rx="30" fill="url(#bg)"/>
+  <text x="600" y="60" text-anchor="middle" fill="#e0f2fe" font-size="34" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">docs/solutions/：可搜索的工程记忆</text>
+  <text x="600" y="96" text-anchor="middle" fill="#93c5fd" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">结构化分类 + frontmatter，让经验可被下一次任务发现</text>
+
+  <!-- 五个分类 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="130" width="190" height="100" rx="14" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <text x="175" y="172" text-anchor="middle" fill="#7dd3fc" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">workflow-issues/</text>
+    <text x="175" y="200" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">流程、dispatch、边界</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="290" y="130" width="190" height="100" rx="14" fill="url(#card)" stroke="#22d3ee" stroke-width="2"/>
+    <text x="385" y="172" text-anchor="middle" fill="#67e8f9" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">architecture-</text>
+    <text x="385" y="192" text-anchor="middle" fill="#67e8f9" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">patterns/</text>
+    <text x="385" y="214" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">架构决策、结构模式</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="500" y="130" width="190" height="100" rx="14" fill="url(#card)" stroke="#a78bfa" stroke-width="2"/>
+    <text x="595" y="172" text-anchor="middle" fill="#c4b5fd" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">tooling-</text>
+    <text x="595" y="192" text-anchor="middle" fill="#c4b5fd" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">decisions/</text>
+    <text x="595" y="214" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">工具选型、依赖决策</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="710" y="130" width="190" height="100" rx="14" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
+    <text x="805" y="172" text-anchor="middle" fill="#fde68a" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">developer-</text>
+    <text x="805" y="192" text-anchor="middle" fill="#fde68a" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">experience/</text>
+    <text x="805" y="214" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">开发体验、效率</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="920" y="130" width="200" height="100" rx="14" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <text x="1020" y="172" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">documentation-</text>
+    <text x="1020" y="192" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">gaps/</text>
+    <text x="1020" y="214" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">文档缺失、说明不清</text>
+  </g>
+
+  <!-- frontmatter 示例 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="260" width="520" height="340" rx="18" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="340" y="296" text-anchor="middle" fill="#7dd3fc" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">结构化 frontmatter</text>
+    <text x="110" y="330" fill="#94a3b8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">title: "reviewer dispatch failure"</text>
+    <text x="110" y="358" fill="#94a3b8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">date: 2026-05-07</text>
+    <text x="110" y="386" fill="#7dd3fc" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">problem_type: workflow_issue</text>
+    <text x="110" y="414" fill="#7dd3fc" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">component: spec-doc-review</text>
+    <text x="110" y="442" fill="#a5f3fc" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">applies_when:</text>
+    <text x="130" y="466" fill="#a5f3fc" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">- "dispatch fails on large context"</text>
+    <text x="130" y="488" fill="#a5f3fc" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">- "need fallback to single-agent"</text>
+    <text x="110" y="516" fill="#6ee7b7" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">tags: [dispatch, fallback, context]</text>
+    <text x="110" y="544" fill="#94a3b8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">severity: medium</text>
+  </g>
+
+  <!-- 右侧：三个字段的作用说明 -->
+  <g filter="url(#shadow)">
+    <rect x="630" y="260" width="490" height="340" rx="18" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <text x="875" y="296" text-anchor="middle" fill="#f8fafc" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">字段的作用</text>
+
+    <rect x="660" y="316" width="430" height="60" rx="10" fill="#0b2138" stroke="#7dd3fc" stroke-width="1.5"/>
+    <text x="875" y="342" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">problem_type + component</text>
+    <text x="875" y="364" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">按模块过滤，找到某组件的所有已知问题</text>
+
+    <rect x="660" y="392" width="430" height="60" rx="10" fill="#0b2138" stroke="#a5f3fc" stroke-width="1.5"/>
+    <text x="875" y="418" text-anchor="middle" fill="#a5f3fc" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">applies_when</text>
+    <text x="875" y="440" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">语义匹配，下次遇到类似场景自动发现</text>
+
+    <rect x="660" y="468" width="430" height="60" rx="10" fill="#0b2138" stroke="#6ee7b7" stroke-width="1.5"/>
+    <text x="875" y="494" text-anchor="middle" fill="#6ee7b7" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">tags</text>
+    <text x="875" y="516" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">跨模块搜索，找到相关经验</text>
+
+    <text x="875" y="570" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">spec-plan / spec-work 按需引用，不全量读取</text>
+  </g>
+</svg>

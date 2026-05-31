@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="660" viewBox="0 0 1200 660" role="img" aria-labelledby="title desc">
+  <title id="title">经验复利循环：从一次性对话到可积累的工程记忆</title>
+  <desc id="desc">解决问题 → spec-compound 沉淀 learning → 下次任务按需引用 → 少踩同样的坑 → 知识复利</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M1,1 L13,7 L1,13 Z" fill="#34d399"/>
+    </marker>
+    <marker id="arrow-gray" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M1,1 L13,7 L1,13 Z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="660" rx="30" fill="url(#bg)"/>
+  <text x="600" y="60" text-anchor="middle" fill="#e0f2fe" font-size="34" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">从一次性对话，到可积累的工程记忆</text>
+  <text x="600" y="96" text-anchor="middle" fill="#93c5fd" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">每次任务都让下一次任务更容易一点</text>
+
+  <!-- 左：没有 Knowledge Harness -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="140" width="460" height="380" rx="22" fill="#0f172a" stroke="#64748b" stroke-width="2" stroke-dasharray="8 5"/>
+    <text x="310" y="186" text-anchor="middle" fill="#94a3b8" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">没有 Knowledge Harness</text>
+    <rect x="116" y="214" width="388" height="50" rx="10" fill="#111c2e" stroke="#334155" stroke-width="1.5"/>
+    <text x="310" y="245" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">解决问题</text>
+    <path d="M310 264 L310 294" stroke="#475569" stroke-width="3" marker-end="url(#arrow-gray)"/>
+    <rect x="116" y="302" width="388" height="50" rx="10" fill="#111c2e" stroke="#334155" stroke-width="1.5"/>
+    <text x="310" y="333" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">经验留在聊天记录里</text>
+    <path d="M310 352 L310 382" stroke="#475569" stroke-width="3" marker-end="url(#arrow-gray)"/>
+    <rect x="116" y="390" width="388" height="50" rx="10" fill="#111c2e" stroke="#334155" stroke-width="1.5"/>
+    <text x="310" y="421" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">下次换会话，从零开始</text>
+    <text x="310" y="480" text-anchor="middle" fill="#f87171" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">同一个坑，反复踩</text>
+  </g>
+
+  <!-- 中间箭头 -->
+  <path d="M552 340 H636" stroke="#34d399" stroke-width="5" marker-end="url(#arrow)"/>
+  <text x="594" y="320" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">加 Knowledge</text>
+  <text x="594" y="338" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">Harness</text>
+
+  <!-- 右：有 Knowledge Harness -->
+  <g filter="url(#shadow)">
+    <rect x="648" y="140" width="472" height="380" rx="22" fill="#082f49" stroke="#34d399" stroke-width="2"/>
+    <text x="884" y="186" text-anchor="middle" fill="#f8fafc" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">有 Knowledge Harness</text>
+    <rect x="684" y="214" width="388" height="50" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="878" y="245" text-anchor="middle" fill="#e0f2fe" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">解决问题</text>
+    <path d="M878 264 L878 294" stroke="#34d399" stroke-width="3" marker-end="url(#arrow)"/>
+    <rect x="684" y="302" width="388" height="50" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="878" y="333" text-anchor="middle" fill="#e0f2fe" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">spec-compound 沉淀 → docs/solutions/</text>
+    <path d="M878 352 L878 382" stroke="#34d399" stroke-width="3" marker-end="url(#arrow)"/>
+    <rect x="684" y="390" width="388" height="50" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="878" y="421" text-anchor="middle" fill="#e0f2fe" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">下次任务按需引用</text>
+    <text x="878" y="480" text-anchor="middle" fill="#34d399" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">知识复利，越用越快</text>
+  </g>
+
+  <text x="600" y="600" text-anchor="middle" fill="#475569" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">不是要求写更多文档，而是让每次解决过的问题，都能降低下一次的成本</text>
+</svg>

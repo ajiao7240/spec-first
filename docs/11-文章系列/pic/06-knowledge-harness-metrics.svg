@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">从感觉有效到可度量的知识复利</title>
+  <desc id="desc">可度量的知识复利信号：learning 数量、引用次数、避免重复踩坑次数、过期 learning 数量</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102a43"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="620" rx="30" fill="url(#bg)"/>
+  <text x="600" y="56" text-anchor="middle" fill="#e0f2fe" font-size="32" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">从"感觉有效"到可度量的知识复利</text>
+  <text x="600" y="90" text-anchor="middle" fill="#93c5fd" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">这些信号比"感觉"更可追踪</text>
+
+  <!-- 信号 1 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="130" width="250" height="200" rx="16" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <text x="205" y="170" text-anchor="middle" fill="#6ee7b7" font-size="40" font-family="Arial, sans-serif" font-weight="700">↑</text>
+    <text x="205" y="218" text-anchor="middle" fill="#f8fafc" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">learning 数量</text>
+    <text x="205" y="252" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">docs/solutions/ 里</text>
+    <text x="205" y="276" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">有多少份文档</text>
+    <text x="205" y="308" text-anchor="middle" fill="#64748b" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">知识积累速度</text>
+  </g>
+
+  <!-- 信号 2 -->
+  <g filter="url(#shadow)">
+    <rect x="350" y="130" width="250" height="200" rx="16" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <text x="475" y="170" text-anchor="middle" fill="#7dd3fc" font-size="40" font-family="Arial, sans-serif" font-weight="700">↑</text>
+    <text x="475" y="218" text-anchor="middle" fill="#f8fafc" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">引用次数</text>
+    <text x="475" y="252" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">learning 被后续</text>
+    <text x="475" y="276" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">任务引用了多少次</text>
+    <text x="475" y="308" text-anchor="middle" fill="#64748b" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">知识复用效果</text>
+  </g>
+
+  <!-- 信号 3 -->
+  <g filter="url(#shadow)">
+    <rect x="620" y="130" width="250" height="200" rx="16" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
+    <text x="745" y="170" text-anchor="middle" fill="#fde68a" font-size="40" font-family="Arial, sans-serif" font-weight="700">↓</text>
+    <text x="745" y="218" text-anchor="middle" fill="#f8fafc" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">重复踩坑次数</text>
+    <text x="745" y="252" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">同类问题被</text>
+    <text x="745" y="276" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">重新定位的频率</text>
+    <text x="745" y="308" text-anchor="middle" fill="#64748b" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">知识防坑效果</text>
+  </g>
+
+  <!-- 信号 4 -->
+  <g filter="url(#shadow)">
+    <rect x="890" y="130" width="230" height="200" rx="16" fill="url(#card)" stroke="#f87171" stroke-width="2"/>
+    <text x="1005" y="170" text-anchor="middle" fill="#fca5a5" font-size="40" font-family="Arial, sans-serif" font-weight="700">!</text>
+    <text x="1005" y="218" text-anchor="middle" fill="#f8fafc" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">过期 learning</text>
+    <text x="1005" y="252" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">标记为 stale</text>
+    <text x="1005" y="276" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">需要刷新的数量</text>
+    <text x="1005" y="308" text-anchor="middle" fill="#64748b" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">知识健康度</text>
+  </g>
+
+  <!-- 底部对比 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="370" width="490" height="120" rx="16" fill="#0f172a" stroke="#64748b" stroke-width="2" stroke-dasharray="6 4"/>
+    <text x="325" y="408" text-anchor="middle" fill="#94a3b8" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">感觉有效</text>
+    <text x="325" y="440" text-anchor="middle" fill="#64748b" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">"感觉比以前快了一点"</text>
+    <text x="325" y="466" text-anchor="middle" fill="#64748b" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">"感觉 AI 越来越懂我们的项目了"</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="630" y="370" width="490" height="120" rx="16" fill="#082f49" stroke="#34d399" stroke-width="2"/>
+    <text x="875" y="408" text-anchor="middle" fill="#6ee7b7" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">可度量</text>
+    <text x="875" y="440" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">"本月新增 5 份 learning，3 份被引用"</text>
+    <text x="875" y="466" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">"这份 learning 3 个月未引用，可刷新"</text>
+  </g>
+
+  <text x="600" y="570" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">记录有没有真的变好，而不只是感觉有效——这是 Evaluation Harness 和 Knowledge Harness 的交叉点</text>
+</svg>

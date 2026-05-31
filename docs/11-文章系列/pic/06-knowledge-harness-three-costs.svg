@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="660" viewBox="0 0 1200 660" role="img" aria-labelledby="title desc">
+  <title id="title">经验不沉淀的三种代价</title>
+  <desc id="desc">重复踩坑、上下文从零开始、团队知识无法传递——三种代价让 AI coding 效率无法提升</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102a43"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="660" rx="30" fill="url(#bg)"/>
+  <text x="600" y="60" text-anchor="middle" fill="#e0f2fe" font-size="34" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">经验不沉淀的三种代价</text>
+  <text x="600" y="96" text-anchor="middle" fill="#93c5fd" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">不是 AI 不够好，是知识没有进入系统</text>
+
+  <!-- 代价 1 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="140" width="330" height="380" rx="20" fill="url(#card)" stroke="#f87171" stroke-width="2"/>
+    <circle cx="245" cy="200" r="36" fill="#1c0606" stroke="#f87171" stroke-width="2"/>
+    <text x="245" y="208" text-anchor="middle" fill="#fca5a5" font-size="28" font-family="Arial, sans-serif" font-weight="700">01</text>
+    <text x="245" y="268" text-anchor="middle" fill="#f8fafc" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">重复踩坑</text>
+    <text x="245" y="310" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">今天踩一次</text>
+    <text x="245" y="338" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">下周换会话再踩</text>
+    <text x="245" y="366" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">下月换模型又踩</text>
+    <text x="245" y="420" text-anchor="middle" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">每次重新定位</text>
+    <text x="245" y="446" text-anchor="middle" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">重新解释，重新验证</text>
+    <text x="245" y="490" text-anchor="middle" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">时间成本 + 认知成本</text>
+  </g>
+
+  <!-- 代价 2 -->
+  <g filter="url(#shadow)">
+    <rect x="435" y="140" width="330" height="380" rx="20" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
+    <circle cx="600" cy="200" r="36" fill="#1c1606" stroke="#fbbf24" stroke-width="2"/>
+    <text x="600" y="208" text-anchor="middle" fill="#fde68a" font-size="28" font-family="Arial, sans-serif" font-weight="700">02</text>
+    <text x="600" y="268" text-anchor="middle" fill="#f8fafc" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">上下文从零开始</text>
+    <text x="600" y="310" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">AI 不知道踩过哪些坑</text>
+    <text x="600" y="338" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">不知道哪里容易出错</text>
+    <text x="600" y="366" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">不知道哪些方案无效</text>
+    <text x="600" y="420" text-anchor="middle" fill="#fbbf24" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">建议已被证明无效的方案</text>
+    <text x="600" y="446" text-anchor="middle" fill="#fbbf24" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">忽略已知的边界条件</text>
+    <text x="600" y="490" text-anchor="middle" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">决策质量无法提升</text>
+  </g>
+
+  <!-- 代价 3 -->
+  <g filter="url(#shadow)">
+    <rect x="790" y="140" width="330" height="380" rx="20" fill="url(#card)" stroke="#a78bfa" stroke-width="2"/>
+    <circle cx="955" cy="200" r="36" fill="#0b0618" stroke="#a78bfa" stroke-width="2"/>
+    <text x="955" y="208" text-anchor="middle" fill="#c4b5fd" font-size="28" font-family="Arial, sans-serif" font-weight="700">03</text>
+    <text x="955" y="268" text-anchor="middle" fill="#f8fafc" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">团队知识无法传递</text>
+    <text x="955" y="310" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">经验只在聊天记录里</text>
+    <text x="955" y="338" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">新人加入从零开始</text>
+    <text x="955" y="366" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">换工具经验消失</text>
+    <text x="955" y="420" text-anchor="middle" fill="#a78bfa" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">不同人重复探索</text>
+    <text x="955" y="446" text-anchor="middle" fill="#a78bfa" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">同样的问题各自解决</text>
+    <text x="955" y="490" text-anchor="middle" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">团队能力无法积累</text>
+  </g>
+
+  <text x="600" y="600" text-anchor="middle" fill="#475569" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">三种代价的共同根因：经验没有进入系统，只留在了聊天记录里</text>
+</svg>

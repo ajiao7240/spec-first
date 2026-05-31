@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="511" viewBox="0 0 1200 511" role="img" aria-labelledby="title desc">
+  <title id="title">每次 AI coding 的经验，都不应该消失</title>
+  <desc id="desc">spec-first 系列第 6 篇封面：Knowledge Harness 让每次任务的经验进入工程系统，而不是消失在聊天记录里</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#102a43"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1200" height="511" fill="url(#bg)"/>
+  <g opacity="0.07" stroke="#60a5fa" stroke-width="1">
+    <path d="M0 100 H1200"/><path d="M0 200 H1200"/><path d="M0 300 H1200"/><path d="M0 400 H1200"/>
+    <path d="M200 0 V511"/><path d="M400 0 V511"/><path d="M600 0 V511"/><path d="M800 0 V511"/><path d="M1000 0 V511"/>
+  </g>
+  <rect x="80" y="120" width="5" height="270" rx="3" fill="url(#accent)" opacity="0.9"/>
+  <rect x="100" y="120" width="180" height="32" rx="6" fill="#0b2138" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="190" y="141" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">Spec-First 系列 · 第 6 篇</text>
+  <text x="100" y="218" fill="#f8fafc" font-size="46" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">每次 AI coding 的经验</text>
+  <text x="100" y="278" fill="#f8fafc" font-size="38" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">都不应该消失</text>
+  <text x="100" y="330" fill="#93c5fd" font-size="22" font-family="Arial, 'PingFang SC', sans-serif">Knowledge Harness · 经验复利 · 工程记忆</text>
+  <rect x="100" y="362" width="680" height="2" rx="1" fill="url(#accent)" opacity="0.6"/>
+  <text x="100" y="394" fill="#64748b" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">同一个坑，今天踩，下周再踩——不是 AI 不够聪明，是经验没进系统。</text>
+  <!-- 右侧：知识复利循环装饰 -->
+  <g filter="url(#glow)" opacity="0.3">
+    <circle cx="980" cy="255" r="120" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <circle cx="980" cy="135" r="14" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <circle cx="1086" cy="318" r="14" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <circle cx="874" cy="318" r="14" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="980" y="110" text-anchor="middle" fill="#6ee7b7" font-size="11" font-family="Arial, 'PingFang SC', sans-serif">解决问题</text>
+    <text x="1100" y="340" text-anchor="middle" fill="#6ee7b7" font-size="11" font-family="Arial, 'PingFang SC', sans-serif">沉淀</text>
+    <text x="860" y="340" text-anchor="middle" fill="#6ee7b7" font-size="11" font-family="Arial, 'PingFang SC', sans-serif">复用</text>
+  </g>
+  <text x="100" y="470" fill="#475569" font-size="15" font-family="'SF Mono', Menlo, Consolas, monospace">spec-first.cn</text>
+</svg>
