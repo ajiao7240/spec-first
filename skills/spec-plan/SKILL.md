@@ -174,6 +174,8 @@ If a relevant requirements document exists:
    - Key decisions and rationale
    - Dependencies or assumptions
    - Outstanding questions, preserving whether they are blocking or deferred
+   - If the origin uses `artifact_kind: prd-requirements`, treat it as a PRD-grade requirements origin, not as a separate planning artifact class; inherit the existing `spec_id`, R/F/AE references, Scope Boundaries, Evidence And Assumptions, trace self-check summary, and any project-local `US-*` / `FEAT-*` / `NFR-*` auxiliary trace mappings instead of rebuilding identity or silently dropping trace gaps.
+   - If the origin uses `document_role: split-summary`, treat it as a navigation and boundary artifact; do not default to implementation planning from it. Prefer a concrete `document_role: child-prd` source, and preserve `child_id`, `parent_spec_id`, `source_prd`, and `split_summary` trace in the plan Context / Sources.
 4. Use the source document as the primary input to planning and research
 5. Reference important carried-forward decisions in the plan with `(see origin: <source-path>)`
 6. Do not silently omit source content — if the origin document discussed it, the plan must address it even if briefly. Before finalizing, scan each section of the origin document to verify nothing was dropped.

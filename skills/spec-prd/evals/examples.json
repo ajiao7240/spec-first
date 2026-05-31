@@ -1,0 +1,120 @@
+{
+  "schema_version": "spec-prd-evals.v1",
+  "description": "Examples-as-context for fresh-source evaluation of the spec-prd workflow. They are not a runtime state machine.",
+  "cases": [
+    {
+      "id": "brownfield-admin-import-create",
+      "intent": "create",
+      "input_shape": "one-line Admin increment",
+      "expected": ["current-state analysis", "Change Delta", "PRD requirements artifact"]
+    },
+    {
+      "id": "existing-prd-draft-resume",
+      "intent": "refine",
+      "input_shape": "artifact_kind: prd-requirements",
+      "expected": ["preserve spec_id", "continue stable R/AE IDs", "trace closeout summary"]
+    },
+    {
+      "id": "low-quality-refine-input",
+      "intent": "refine",
+      "input_shape": "vague PRD fragment",
+      "expected": ["claim/gap extraction", "minimal blocking question", "no fake completeness"]
+    },
+    {
+      "id": "other-markdown-reference-material",
+      "intent": "create",
+      "input_shape": "ordinary Markdown notes without artifact_kind: prd-requirements",
+      "expected": ["treat as reference material", "do not preserve spec_id", "do not pretend it is a valid PRD"]
+    },
+    {
+      "id": "plan-design-task-wrong-stage",
+      "intent": "validate",
+      "input_shape": "implementation plan or task pack",
+      "expected": ["handoff instead of treating it as PRD"]
+    },
+    {
+      "id": "lightweight-bugfix-bypass",
+      "intent": "create",
+      "input_shape": "clear small bugfix",
+      "expected": ["compact PRD/plan/work bypass choice", "no forced full PRD"]
+    },
+    {
+      "id": "zero-to-one-route-out",
+      "intent": "create",
+      "input_shape": "new product idea with unclear actor and outcome",
+      "expected": ["route to brainstorm or ideate"]
+    },
+    {
+      "id": "app-prd-figma-source-audit",
+      "intent": "validate",
+      "input_shape": "PRD plus Figma plus source consistency request",
+      "expected": ["route to app consistency audit"]
+    },
+    {
+      "id": "backend-java-contract-change",
+      "intent": "create",
+      "input_shape": "Backend/Java brownfield increment",
+      "expected": ["state semantics", "idempotency expectation", "error semantics", "WHAT not HOW"]
+    },
+    {
+      "id": "securities-app-order",
+      "intent": "create",
+      "input_shape": "securities App order change with local overlay docs",
+      "expected": ["surface lens plus project-local overlay", "compliance/trading/audit questions explicit"]
+    },
+    {
+      "id": "success-metrics-without-evidence",
+      "intent": "refine",
+      "input_shape": "PRD with invented metric target",
+      "expected": ["downgrade to observable metric or assumption"]
+    },
+    {
+      "id": "terminology-conflict",
+      "intent": "refine",
+      "input_shape": "same concept named account/customer/user",
+      "expected": ["canonical term recommendation", "Glossary or Outstanding Questions"]
+    },
+    {
+      "id": "code-claim-contradiction",
+      "intent": "validate",
+      "input_shape": "user claim contradicts confirmed source",
+      "expected": ["contradiction record", "owner confirmation question"]
+    },
+    {
+      "id": "hard-decision-unresolved",
+      "intent": "validate",
+      "input_shape": "PRD leaves release-blocking product decision open",
+      "expected": ["readiness fail or ask-owner outcome"]
+    },
+    {
+      "id": "stale-gitnexus-pointer",
+      "intent": "validate",
+      "input_shape": "graph evidence is stale or definitions-only",
+      "expected": ["gitnexus-pointer only", "direct source confirmation required"]
+    },
+    {
+      "id": "oversized-initial-prd",
+      "intent": "refine",
+      "input_shape": "multi-module initial PRD",
+      "expected": ["split-decision recommendation", "owner confirmation before split summary and child PRDs"]
+    },
+    {
+      "id": "readiness-fail-trace-gap",
+      "intent": "validate",
+      "input_shape": "requirements without acceptance examples or priority",
+      "expected": ["readiness fail", "trace gap self-check"]
+    },
+    {
+      "id": "template-drift",
+      "intent": "validate",
+      "input_shape": "human template and runtime skeleton diverge",
+      "expected": ["generic core/lens drift exposed", "industry overlay not locked as universal truth"]
+    },
+    {
+      "id": "public-agent-boundary",
+      "intent": "validate",
+      "input_shape": "request to call readiness reviewer directly",
+      "expected": ["no public helper reviewer entrypoint"]
+    }
+  ]
+}

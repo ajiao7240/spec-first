@@ -12,9 +12,9 @@ industry: securities
 
 # 标准需求文档模板 — 证券行业使用指南
 
-本目录是从 `docs/需求文档模版/原始模版/` 的 7 份真实团队模板提炼出的**证券行业增量需求模板集**。它服务于 `spec-prd`（增量需求迭代 PRD）的产物形态，遵循 spec-first 的 **WHAT not HOW** 边界。
+本目录是从 `docs/需求文档模版/原始模版/` 的 7 份真实团队模板提炼出的**证券行业增量需求模板集**。它服务于 `spec-prd`（增量需求迭代 PRD）的产物形态，遵循 spec-first 的 **WHAT not HOW** 边界。打包后 runtime 必须加载的通用模板副本位于 `skills/spec-prd/templates/standard/`；本目录是 human-facing mirror、设计说明和本仓库项目本地行业 overlay 示例，不作为 packaged runtime 的必需读取路径。
 
-> **`spec-prd` 的目标(skill 定位)**：让产品 owner 在**已有系统**上，把一句话增量需求、低质量碎片或已有 PRD，低成本转成**研发可直接规划的 PRD-grade requirements**——核心区别于"写更长的文档"在于:先结合代码现状与证据对齐系统现实，再确认增量(keep/extend/replace/remove/unknown)，最后产出带优先级、验收、证据标注、行业合规边界的 Markdown PRD，使下游 `spec-plan` 无需发明 WHAT。它**不是** 0-1 产品探索(那是 `spec-brainstorm`)，**不替代** `spec-plan` 决定 HOW，也**不替代**合规/法务确认。本模板库就是这个目标的 human-facing 产物形态。
+> **`spec-prd` 的目标(workflow 定位)**：让产品 owner 在**已有系统**上，把一句话增量需求、低质量碎片或已有 PRD，低成本转成**研发可直接规划的 PRD-grade requirements**——核心区别于"写更长的文档"在于:先结合代码现状与证据对齐系统现实，再确认增量(keep/extend/replace/remove/unknown)，最后产出带优先级、验收、证据标注、行业合规边界的 Markdown PRD，使下游 `spec-plan` 无需发明 WHAT。它**不是** 0-1 产品探索(那是 `spec-brainstorm`)，**不替代** `spec-plan` 决定 HOW，也**不替代**合规/法务确认。本模板库就是这个目标的 human-facing 产物形态。
 
 ## 一、行业定位与使用前提
 
@@ -23,9 +23,9 @@ industry: securities
 与 `docs/brainstorms/2026-05-30-003-spec-prd-owner-final-requirements.md` 的关系：
 
 - 本目录是 **human-facing 标准模板库**，给产品 owner、研发、测试、评审者直接使用。
-- `spec-prd` 未来的 `prd-output-template.md` / `domain-lenses.md` 是 **runtime authoring contract**，应从本目录提炼或引用，不应静默分叉。
-- **分层 drift 范围**：通用骨架（core section + surface lens + overlay 叠加机制）由 runtime reference derive 内置、随 skill 分发，drift test 锁定与本目录通用部分一致；**证券行业 overlay 内容**（C1-C12 具体 lens）是**项目本地模板**，用 fixture / reviewer checklist 暴露 drift，**不**硬编进通用 runtime reference、不在 drift test 锁定范围。注:`00` 的「行业横切关注点自检」section 是 core（PRD 作者必做的"适用/不涉及"自检**动作**）；它指向的 overlay **内容**才是项目本地——两者区分见 `90-证券行业需求关注点与参考附录.md`。
-- 本目录新增或调整 core section、surface lens 后，`spec-prd` 通用 runtime reference 应同步评估 drift；调整证券 overlay 内容只需更新本地模板与 fixture，不触发通用 skill drift。
+- `skills/spec-prd/templates/standard/` 是 **packaged runtime template set**，随 workflow assets 分发；`spec-prd` 的 `prd-output-template.md` / `domain-lenses.md` 是 **runtime authoring contract**，应优先引用这份 packaged 通用模板，不依赖本 `docs/` 路径。
+- **分层 drift 范围**：通用骨架（core section + surface lens + overlay 叠加机制）由 runtime reference derive 内置、随 workflow assets 分发，drift test 只锁定 packaged 模板与本目录通用部分一致；证券行业 C1-C12 checklist 是本仓库项目本地 overlay 示例，不随通用 packaged runtime 默认分发，也不是合规/法务事实源。下游项目可提供自己的本地 overlay。
+- 本目录新增或调整通用 core section、surface lens 后，应同步评估并更新 `skills/spec-prd/templates/standard/`；新增或调整证券 checklist 时，只需评估项目本地 overlay 与 docs mirror，不要求 packaged runtime 内置。
 
 使用前必须先确定四个边界：
 

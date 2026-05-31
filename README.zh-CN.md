@@ -12,7 +12,7 @@
 
 **面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。**
 
-`spec-first` 帮助团队把 AI coding 会话变成可复用的工程闭环：环境与代码图谱准备、想法整理、需求澄清、文档审查、计划编写、任务包编译、执行/调试/优化/打磨、代码与 App 一致性审查、知识沉淀与系统进化。
+`spec-first` 帮助团队把 AI coding 会话变成可复用的工程闭环：环境与代码图谱准备、想法整理、需求澄清、增量 PRD、文档审查、计划编写、任务包编译、执行/调试/优化/打磨、代码与 App 一致性审查、知识沉淀与系统进化。
 
 它让脚本负责确定性的安装、生成、校验和事实采集；让 LLM 负责需求理解、方案取舍、实现判断和评审决策。
 
@@ -33,6 +33,7 @@
   -> 选定一个粗略想法
   -> $spec-brainstorm 或 /spec:brainstorm
   -> docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
+  -> 或用 $spec-prd / /spec:prd 生成已有系统增量 PRD-grade requirements
   -> $spec-plan 或 /spec:plan
   -> docs/plans/YYYY-MM-DD-NNN-topic-plan.md
   -> $spec-work 或 /spec:work
@@ -151,8 +152,8 @@ $spec-brainstorm "改进 onboarding"
 完成 `doctor`、`init` 和宿主重启后，即使还没有编译 graph readiness，也可以先进入轻量宿主 workflow。这适合 docs-only、小 bugfix、轻量 plan/work/review 和首次项目试用：
 
 ```text
-$spec-ideate / $spec-brainstorm / $spec-plan / $spec-work / $spec-code-review
-/spec:ideate / /spec:brainstorm / /spec:plan / /spec:work / /spec:code-review
+$spec-ideate / $spec-brainstorm / $spec-prd / $spec-plan / $spec-work / $spec-code-review
+/spec:ideate / /spec:brainstorm / /spec:prd / /spec:plan / /spec:work / /spec:code-review
 ```
 
 当任务依赖 MCP/helper tools、graph evidence、书面项目指导、跨模块或跨仓影响分析时，再走 setup/bootstrap 增强路径。缺失或过期的 graph facts 是需要披露的 degraded evidence，不是伪造的成功状态，也不是所有 workflow 的硬前置。
@@ -213,6 +214,7 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
   +-- 轻量 fast path：docs、小修复、首次试用
   |     -> /spec:ideate / $spec-ideate
   |     -> /spec:brainstorm / $spec-brainstorm
+  |     -> /spec:prd / $spec-prd
   |     -> /spec:plan / $spec-plan
   |     -> /spec:work / $spec-work
   |     -> /spec:code-review / $spec-code-review
@@ -229,6 +231,10 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
   |
   +-- 已有粗略产品问题或功能想法
   |     -> /spec:brainstorm 或 $spec-brainstorm
+  |     -> docs/brainstorms/*-requirements.md
+  |
+  +-- 已有系统增量需要 PRD-grade requirements
+  |     -> /spec:prd 或 $spec-prd
   |     -> docs/brainstorms/*-requirements.md
   |
   +-- 目标已定，但实现路径还不清楚
@@ -273,6 +279,7 @@ docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
 mcp-setup / graph-bootstrap
   -> ideate
   -> brainstorm
+  -> prd
   -> doc-review
   -> plan
   -> write-tasks
@@ -284,18 +291,19 @@ mcp-setup / graph-bootstrap
 
 这是一条工程闭环，不是一串必须逐项执行的命令。根据当前状态进入最匹配的节点；当下一步不清楚时，宿主会话里的入口治理会推荐一个公开 workflow 并说明理由。`write-tasks` 是 standalone skill；可浏览 UI 的 polish 当前通过 `polish-beta` 暴露。
 
-想要选项、批判或意外方向，还没确定问题框架时，用 `ideate`。已经有粗略产品问题或功能想法，需要整理 actors、flows、边界和验收样例时，用 `brainstorm`。已有 requirements、plan 或 task 文档，需要找缺口时，用 `doc-review`。不要把 `brainstorm` 当作所有不清楚请求的默认入口。
+想要选项、批判或意外方向，还没确定问题框架时，用 `ideate`。已经有粗略产品问题或功能想法，需要整理 actors、flows、边界和验收样例时，用 `brainstorm`。已有系统增量、粗糙 PRD 或低质量产品笔记需要结合现状证据和 Change Delta 写成 PRD-grade requirements 时，用 `prd`。已有 requirements、plan 或 task 文档，需要找缺口时，用 `doc-review`。不要把 `brainstorm` 当作所有不清楚请求的默认入口。
 
 | 需求 | 更合适的入口 |
 |---|---|
 | “我们该改进什么？”或“给我一些想法” | `ideate` |
 | “我有一个粗略产品问题，帮我成型” | `brainstorm` |
+| “现有后台/用户/交易流程这次增量需要 PRD” | `prd` |
 | “这份 requirements 或 plan 文档可能有缺口” | `doc-review` |
 
 | 层级 | 节点 | 回答的问题 | 持久输出 |
 |---|---|---|---|
 | 能力底座 | `mcp-setup`、`graph-bootstrap` | AI 是否有正确工具？是否拿到了当前代码库事实？ | setup 报告、provider 配置、graph readiness facts、impact capability facts。 |
-| 需求成型 | `ideate`、`brainstorm`、`doc-review` | 问题是否值得做、是否清楚、文档是否有明显缺口？ | 想法、requirements briefs、审查 findings、风险和开放问题。 |
+| 需求成型 | `ideate`、`brainstorm`、`prd`、`doc-review` | 问题是否值得做、是否清楚、文档是否有明显缺口？ | 想法、requirements briefs、PRD-grade requirements、审查 findings、风险和开放问题。 |
 | 设计与交接 | `plan`、standalone `write-tasks` skill | 该怎么实现？大计划如何变成可执行任务？ | implementation plans 和 validated task packs。 |
 | 工程执行 | `work`、`debug`、`optimize`、`polish` | 如何实现、修复、优化或完成交付细节？ | 代码改动、测试、修复、度量结果和验证记录。 |
 | 质量关口 | `code-review`、`app-consistency-audit` | 结果是否符合计划、代码质量和 App/产品一致性要求？ | review findings、residual risks 和 run-scoped audit evidence。 |
@@ -421,6 +429,7 @@ your-project/
 |---|---|---|
 | 想法生成 | `/spec:ideate` 或 `$spec-ideate` | 候选方向、批判、排序，以及进入单个想法的 handoff。 |
 | 问题澄清 | `/spec:brainstorm` 或 `$spec-brainstorm` | 一个已选想法的原始需求、用户目标、边界和验收样例。 |
+| 增量 PRD | `/spec:prd` 或 `$spec-prd` | 现状证据、Change Delta、优先级、验收样例和 `artifact_kind: prd-requirements`。 |
 | 实施规划 | `/spec:plan` 或 `$spec-plan` | 架构选择、实现单元、验证范围和已知未知。 |
 | 执行开发 | `/spec:work` 或 `$spec-work` | 代码改动、聚焦测试、验证记录和 scope 控制。 |
 | App 一致性审查 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | 运行时验证前审查 PRD、Figma、源码、路由、KMP/Clean Architecture、埋点、i18n 和行业规则一致性。 |
@@ -433,6 +442,7 @@ your-project/
 |---|---|---|
 | 需要开放式改进方向或多个候选想法 | `/spec:ideate` 或 `$spec-ideate` | `docs/ideation/` 下的 ranked ideation artifact |
 | 已有粗略产品问题或功能想法 | `/spec:brainstorm` 或 `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
+| 已有系统增量或粗糙 PRD 需要产品 owner 级需求 | `/spec:prd` 或 `$spec-prd` | `docs/brainstorms/` 下的 PRD-grade requirements |
 | 目标已定，但还没有实施策略 | `/spec:plan` 或 `$spec-plan` | `docs/plans/` 下的 plan |
 | 已有 plan 或 task pack，准备执行 | `/spec:work` 或 `$spec-work` | 代码改动、测试和验证记录 |
 | 移动 App 改动在 QA 前需要 PRD/Figma/source 一致性审查 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | `.spec-first/app-audit/runs/` 下的静态审查报告和范围化证据 |
@@ -445,6 +455,7 @@ your-project/
 |---|---|---|---|
 | 生成并排序想法 | `/spec:ideate` | `$spec-ideate` | `docs/ideation/` 下的 ideation artifact |
 | 把一个想法澄清成需求 | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
+| 编写/完善已有系统增量 PRD | `/spec:prd` | `$spec-prd` | `docs/brainstorms/` 下的 PRD-grade requirements |
 | 规划实现 | `/spec:plan` | `$spec-plan` | `docs/plans/` 下的 plan |
 | 执行开发 | `/spec:work` | `$spec-work` | 代码、测试和验证记录 |
 | 审查 App 一致性 | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` | 静态一致性报告和范围化审查产物 |
@@ -530,6 +541,7 @@ your-project/
 | 审查 source skills | `/spec:skill-audit` | `$spec-skill-audit` |
 | 生成并评估想法 | `/spec:ideate` | `$spec-ideate` |
 | 需求澄清 | `/spec:brainstorm` | `$spec-brainstorm` |
+| 编写/完善已有系统增量 PRD | `/spec:prd` | `$spec-prd` |
 | 文档/计划评审 | `/spec:doc-review` | `$spec-doc-review` |
 | 写计划或深化计划 | `/spec:plan` | `$spec-plan` |
 | 编译 task pack | 使用已安装的 standalone `write-tasks` skill | 使用已安装的 standalone `write-tasks` skill |
@@ -547,7 +559,7 @@ your-project/
 
 ## Runtime Reference
 
-`spec-first` 提供 CLI helpers（`doctor`、`init`、`clean`、`tasks`、版本/help 输出）、workflow source assets、host-filtered runtime 生成，以及 ideation、brainstorm、plan、task-pack handoff、work、App consistency audit、debug、review、setup、update、sessions、Slack research、release notes、skill audit、compound、optimize 和 browser-visible polish 等公开 workflow 入口。
+`spec-first` 提供 CLI helpers（`doctor`、`init`、`clean`、`tasks`、版本/help 输出）、workflow source assets、host-filtered runtime 生成，以及 ideation、brainstorm、PRD requirements、plan、task-pack handoff、work、App consistency audit、debug、review、setup、update、sessions、Slack research、release notes、skill audit、compound、optimize 和 browser-visible polish 等公开 workflow 入口。
 
 通过当前宿主的 setup workflow 管理 required harness runtime setup，覆盖 MCP servers、graph-provider MCP servers、helper CLIs 和项目 setup facts。
 
@@ -589,7 +601,7 @@ managed `.gitignore` block 也会忽略 `.gitnexus/` 等本地图谱 provider ar
 
 | 层级 | 当前 contract |
 |---|---|
-| **能力层资产** | 仓库内置源码资产共 `38` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `19` 个 commands + `2` 个 standalone skills + `1` 个 agent-facing internal skills，在 Codex 侧安装 `19` 个 workflow skills + `2` 个 standalone skills + `1` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
+| **能力层资产** | 仓库内置源码资产共 `39` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `20` 个 commands + `2` 个 standalone skills + `1` 个 agent-facing internal skills，在 Codex 侧安装 `20` 个 workflow skills + `2` 个 standalone skills + `1` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
 | **Claude runtime** | commands 生成到 `.claude/commands/spec`，standalone 与 agent-facing internal skills 生成到 `.claude/skills`，command-backed workflow skill 副本生成到 `.claude/spec-first/workflows`，agents 生成到 `.claude/agents`，managed state 位于 `.claude/spec-first/state.json`。 |
 | **Codex runtime** | workflow、standalone 与 agent-facing internal skills 生成到 `.agents/skills`，agents 生成到 `.codex/agents`，managed state 位于 `.codex/spec-first/state.json`。 |
 | **Readiness** | setup workflow 写 readiness ledger v2 以及 setup-owned `graph-providers.json`、`runtime-capabilities.json` 和 `provider-artifacts.json`；graph bootstrap workflow 消费这些事实并写 canonical graph facts、provider status、impact capabilities 和 report。 |
@@ -597,7 +609,7 @@ managed `.gitignore` block 也会忽略 `.gitnexus/` 等本地图谱 provider ar
 Claude init 的预期输出包含：
 
 ```text
-📦 Generated 19 command file(s) in .claude/commands/spec
+📦 Generated 20 command file(s) in .claude/commands/spec
 🧩 Generated 3 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 下一步:
@@ -611,7 +623,7 @@ Claude init 的预期输出包含：
 Codex init 的预期输出包含：
 
 ```text
-🧩 Generated 22 skill directory(ies) in .agents/skills
+🧩 Generated 23 skill directory(ies) in .agents/skills
 🤖 Generated 51 agent file(s) in .codex/agents
 下一步:
   1. 重启 Codex 或新开会话，让宿主加载刚生成的 $spec-* skills。

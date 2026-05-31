@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="660" viewBox="0 0 1200 660" role="img" aria-labelledby="title desc">
+  <title id="title">从 vibe coding 到 governed loop</title>
+  <desc id="desc">探索阶段的 vibe coding 与交付阶段的 governed loop 对比：artifact 让关键判断变成可检查对象。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#102a43"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M1,1 L13,7 L1,13 Z" fill="#7dd3fc"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="660" rx="30" fill="url(#bg)"/>
+  <text x="600" y="60" text-anchor="middle" fill="#e0f2fe" font-size="34" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">从 vibe coding 到 governed loop</text>
+  <text x="600" y="96" text-anchor="middle" fill="#93c5fd" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">探索阶段靠感觉推进，交付阶段需要可检查的 artifact</text>
+
+  <!-- 左：vibe coding -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="140" width="460" height="400" rx="22" fill="#0f172a" stroke="#64748b" stroke-width="2" stroke-dasharray="8 5"/>
+    <text x="310" y="188" text-anchor="middle" fill="#94a3b8" font-size="22" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Vibe Coding</text>
+    <text x="310" y="218" text-anchor="middle" fill="#64748b" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">适合探索 · 原型 · 快速试错</text>
+    <rect x="116" y="248" width="388" height="50" rx="10" fill="#111c2e" stroke="#334155" stroke-width="1.5"/>
+    <text x="310" y="279" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">意图停留在聊天里</text>
+    <rect x="116" y="310" width="388" height="50" rx="10" fill="#111c2e" stroke="#334155" stroke-width="1.5"/>
+    <text x="310" y="341" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">上下文随会话变化</text>
+    <rect x="116" y="372" width="388" height="50" rx="10" fill="#111c2e" stroke="#334155" stroke-width="1.5"/>
+    <text x="310" y="403" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">执行路径不可审查</text>
+    <rect x="116" y="434" width="388" height="50" rx="10" fill="#111c2e" stroke="#334155" stroke-width="1.5"/>
+    <text x="310" y="465" text-anchor="middle" fill="#94a3b8" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">经验留在聊天记录里</text>
+    <text x="310" y="520" text-anchor="middle" fill="#f87171" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">委派 = 让 AI 自由发挥</text>
+  </g>
+
+  <!-- 箭头 -->
+  <path d="M552 340 H636" stroke="#7dd3fc" stroke-width="5" marker-end="url(#arrow)"/>
+  <text x="594" y="320" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">交付阶段</text>
+
+  <!-- 右：governed loop -->
+  <g filter="url(#shadow)">
+    <rect x="660" y="140" width="460" height="400" rx="22" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="890" y="188" text-anchor="middle" fill="#f8fafc" font-size="22" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Governed Loop</text>
+    <text x="890" y="218" text-anchor="middle" fill="#7dd3fc" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">关键判断变成可检查对象</text>
+    <rect x="696" y="248" width="388" height="50" rx="10" fill="#0b2138" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="890" y="279" text-anchor="middle" fill="#e0f2fe" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">Spec 让意图离开聊天窗口</text>
+    <rect x="696" y="310" width="388" height="50" rx="10" fill="#0b2138" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="890" y="341" text-anchor="middle" fill="#e0f2fe" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">Plan 让执行路径可审查</text>
+    <rect x="696" y="372" width="388" height="50" rx="10" fill="#0b2138" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="890" y="403" text-anchor="middle" fill="#e0f2fe" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">Review 让质量判断结构化</text>
+    <rect x="696" y="434" width="388" height="50" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="890" y="465" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">Knowledge 让经验进入下次任务</text>
+    <text x="890" y="520" text-anchor="middle" fill="#34d399" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">委派 = 任务进入可治理工程回路</text>
+  </g>
+
+  <text x="600" y="610" text-anchor="middle" fill="#475569" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">Artifact 给边界，LLM 做判断，人负责最终确认</text>
+</svg>

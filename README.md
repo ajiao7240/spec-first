@@ -12,7 +12,7 @@
 
 **Spec-driven AI engineering workflows for Claude Code and Codex.**
 
-`spec-first` turns AI coding sessions into a repeatable engineering loop: prepare the environment and code graph, shape ideas into requirements, review docs, plan implementation, compile task packs, execute/debug/optimize/polish work, audit quality, and compound learnings.
+`spec-first` turns AI coding sessions into a repeatable engineering loop: prepare the environment and code graph, shape ideas into requirements or brownfield PRDs, review docs, plan implementation, compile task packs, execute/debug/optimize/polish work, audit quality, and compound learnings.
 
 It keeps deterministic setup in scripts while leaving product judgment, implementation tradeoffs, and review decisions to the LLM.
 
@@ -33,6 +33,7 @@ Open-ended improvement question
   -> choose one rough idea
   -> $spec-brainstorm or /spec:brainstorm
   -> docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
+  -> or $spec-prd / /spec:prd for brownfield PRD-grade requirements
   -> $spec-plan or /spec:plan
   -> docs/plans/YYYY-MM-DD-NNN-topic-plan.md
   -> $spec-work or /spec:work
@@ -151,8 +152,8 @@ If you are not sure which workflow to use, describe the task or ask what to run 
 After `doctor`, `init`, and a host restart, you can start lightweight host-session workflows before graph readiness has been compiled. This is the right fast path for docs-only changes, small bug fixes, lightweight planning or review, and first project trials:
 
 ```text
-$spec-ideate / $spec-brainstorm / $spec-plan / $spec-work / $spec-code-review
-/spec:ideate / /spec:brainstorm / /spec:plan / /spec:work / /spec:code-review
+$spec-ideate / $spec-brainstorm / $spec-prd / $spec-plan / $spec-work / $spec-code-review
+/spec:ideate / /spec:brainstorm / /spec:prd / /spec:plan / /spec:work / /spec:code-review
 ```
 
 Use the setup/bootstrap path when the task depends on MCP/helper tools, graph evidence, written project guidance, or cross-module/cross-repo impact analysis. Missing or stale graph facts are degraded evidence to disclose, not a fake success state and not a hard gate for every workflow.
@@ -231,6 +232,10 @@ Choose the next workflow in the host session
   |     -> /spec:brainstorm or $spec-brainstorm
   |     -> docs/brainstorms/*-requirements.md
   |
+  +-- Existing-system increment needs PRD-grade requirements
+  |     -> /spec:prd or $spec-prd
+  |     -> docs/brainstorms/*-requirements.md
+  |
   +-- Settled goal, unclear implementation path
   |     -> /spec:plan or $spec-plan
   |     -> docs/plans/*-plan.md
@@ -273,6 +278,7 @@ The flow above is the common first-run path. The full loop is broader:
 mcp-setup / graph-bootstrap
   -> ideate
   -> brainstorm
+  -> prd
   -> doc-review
   -> plan
   -> write-tasks
@@ -284,18 +290,19 @@ mcp-setup / graph-bootstrap
 
 Read this as an engineering loop, not a mandatory command chain. Enter at the node that matches the current state; the host guidance can recommend one public entrypoint when the next step is unclear. `write-tasks` is a standalone skill, and browser-visible polishing is currently exposed as `polish-beta`.
 
-Use `ideate` when you want options, critiques, or surprising directions before committing to a problem frame. Use `brainstorm` when you already have a rough problem or feature and need a requirements brief with actors, flows, boundaries, and acceptance examples. Use `doc-review` when a requirements, plan, or task document already exists and needs gap-finding. Do not make `brainstorm` the default entrypoint for every unclear request.
+Use `ideate` when you want options, critiques, or surprising directions before committing to a problem frame. Use `brainstorm` when you already have a rough problem or feature and need a requirements brief with actors, flows, boundaries, and acceptance examples. Use `prd` when an existing-system increment, rough PRD, or low-quality product note needs PRD-grade requirements with current-state evidence and change delta. Use `doc-review` when a requirements, plan, or task document already exists and needs gap-finding. Do not make `brainstorm` the default entrypoint for every unclear request.
 
 | Need | Better entrypoint |
 |---|---|
 | "What should we improve?" or "give me ideas" | `ideate` |
 | "I have this rough product problem; shape it" | `brainstorm` |
+| "Existing admin/user/trading flow needs a PRD for this increment" | `prd` |
 | "This requirements or plan document has gaps" | `doc-review` |
 
 | Layer | Nodes | What it answers | Durable output |
 |---|---|---|---|
 | Capability foundation | `mcp-setup`, `graph-bootstrap` | Can the AI use the right tools, and does it have current codebase facts? | Setup reports, provider config, graph readiness facts, impact capability facts. |
-| Requirement shaping | `ideate`, `brainstorm`, `doc-review` | Is the problem worth pursuing, clear enough, and free of obvious document gaps? | Ideas, requirements briefs, review findings, risks, and open questions. |
+| Requirement shaping | `ideate`, `brainstorm`, `prd`, `doc-review` | Is the problem worth pursuing, clear enough, and free of obvious document gaps? | Ideas, requirements briefs, PRD-grade requirements, review findings, risks, and open questions. |
 | Design and handoff | `plan`, standalone `write-tasks` skill | How should the change be built, and how can a large plan become executable work? | Implementation plans and validated task packs. |
 | Engineering execution | `work`, `debug`, `optimize`, `polish` | How do we implement, fix, improve, or finish the change? | Code changes, tests, fixes, measurements, and verification notes. |
 | Quality gates | `code-review`, `app-consistency-audit` | Is the result aligned with the plan, code quality expectations, and App/product consistency? | Review findings, residual risks, and run-scoped audit evidence. |
@@ -421,6 +428,7 @@ your-project/
 |---|---|---|
 | Idea generation | `/spec:ideate` or `$spec-ideate` | Candidate directions, critique, ranking, and the handoff into one selected idea. |
 | Problem framing | `/spec:brainstorm` or `$spec-brainstorm` | The original need, user-facing goal, boundaries, and acceptance examples for one chosen idea. |
+| Brownfield PRD authoring | `/spec:prd` or `$spec-prd` | Current-state evidence, change delta, priorities, acceptance examples, and `artifact_kind: prd-requirements`. |
 | Implementation planning | `/spec:plan` or `$spec-plan` | Architecture choices, implementation units, verification scope, and known unknowns. |
 | Work execution | `/spec:work` or `$spec-work` | Code changes, focused tests, verification notes, and scope control. |
 | App consistency audit | `/spec:app-consistency-audit` or `$spec-app-consistency-audit` | PRD, Figma, source, route, KMP/Clean Architecture, analytics, i18n, and rule-pack consistency before runtime validation. |
@@ -433,6 +441,7 @@ your-project/
 |---|---|---|
 | An open-ended improvement question or you want options | `/spec:ideate` or `$spec-ideate` | Ranked ideation artifact under `docs/ideation/` |
 | A rough product problem or feature idea | `/spec:brainstorm` or `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
+| An existing-system increment or rough PRD needs product-owner-grade requirements | `/spec:prd` or `$spec-prd` | PRD-grade requirements under `docs/brainstorms/` |
 | A settled goal but no implementation strategy | `/spec:plan` or `$spec-plan` | Plan under `docs/plans/` |
 | A plan or task pack ready to execute | `/spec:work` or `$spec-work` | Code changes, tests, and verification notes |
 | A mobile App change needs PRD/Figma/source consistency before QA | `/spec:app-consistency-audit` or `$spec-app-consistency-audit` | Static audit report and run-scoped evidence under `.spec-first/app-audit/runs/` |
@@ -445,6 +454,7 @@ your-project/
 |---|---|---|---|
 | Generate and rank ideas | `/spec:ideate` | `$spec-ideate` | Ideation artifact under `docs/ideation/` |
 | Shape one idea into requirements | `/spec:brainstorm` | `$spec-brainstorm` | Requirements brief under `docs/brainstorms/` |
+| Write/refine brownfield PRD requirements | `/spec:prd` | `$spec-prd` | PRD-grade requirements under `docs/brainstorms/` |
 | Plan implementation | `/spec:plan` | `$spec-plan` | Plan under `docs/plans/` |
 | Execute work | `/spec:work` | `$spec-work` | Code, tests, and verification notes |
 | Audit App consistency | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` | Static consistency report and scoped audit artifacts |
@@ -530,6 +540,7 @@ Detailed manuals and implementation docs are currently Chinese-first.
 | Audit source skills | `/spec:skill-audit` | `$spec-skill-audit` |
 | Generate and evaluate ideas | `/spec:ideate` | `$spec-ideate` |
 | Brainstorm requirements | `/spec:brainstorm` | `$spec-brainstorm` |
+| Write/refine brownfield PRD requirements | `/spec:prd` | `$spec-prd` |
 | Review docs/plans | `/spec:doc-review` | `$spec-doc-review` |
 | Write or deepen a plan | `/spec:plan` | `$spec-plan` |
 | Compile task pack | use installed standalone `write-tasks` skill | use installed standalone `write-tasks` skill |
@@ -547,7 +558,7 @@ Startup version reminders, when surfaced by the managed Claude hook or Codex top
 
 ## Runtime Reference
 
-`spec-first` provides CLI helpers (`doctor`, `init`, `clean`, `tasks`, version/help output), workflow source assets, host-filtered runtime generation, and public workflow entrypoints for ideation, brainstorming, planning, task-pack handoff, work execution, App consistency audit, debugging, review, setup, update, session research, Slack research, release notes, skill audit, compounding, optimization, and browser-visible polish.
+`spec-first` provides CLI helpers (`doctor`, `init`, `clean`, `tasks`, version/help output), workflow source assets, host-filtered runtime generation, and public workflow entrypoints for ideation, brainstorming, PRD requirements, planning, task-pack handoff, work execution, App consistency audit, debugging, review, setup, update, session research, Slack research, release notes, skill audit, compounding, optimization, and browser-visible polish.
 
 Required harness runtime setup through the current host's setup workflow covers MCP servers, graph-provider MCP servers, helper CLIs, and project setup facts.
 
@@ -589,7 +600,7 @@ Detailed runtime capability catalog: [Runtime Capability Catalog](https://github
 
 | Layer | Current Contract |
 |---|---|
-| **Capability layer** | Bundled source assets ship with `38` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `19` commands + `2` standalone skills + `1` agent-facing internal skills on Claude, and `19` workflow skills + `2` standalone skills + `1` agent-facing internal skills on Codex, with `51` agents on both hosts |
+| **Capability layer** | Bundled source assets ship with `39` skills, `51` agents and no agent support files. Runtime delivery is host-filtered by governance: the current bundle installs `20` commands + `2` standalone skills + `1` agent-facing internal skills on Claude, and `20` workflow skills + `2` standalone skills + `1` agent-facing internal skills on Codex, with `51` agents on both hosts |
 | **Claude runtime** | Commands are generated under `.claude/commands/spec`, standalone and agent-facing internal skills under `.claude/skills`, command-backed workflow skill copies under `.claude/spec-first/workflows`, agents under `.claude/agents`, and managed state under `.claude/spec-first/state.json`. |
 | **Codex runtime** | Workflow, standalone, and agent-facing internal skills are generated under `.agents/skills`, agents under `.codex/agents`, and managed state under `.codex/spec-first/state.json`. |
 | **Readiness** | The setup workflow writes readiness ledger v2 plus setup-owned `graph-providers.json`, `runtime-capabilities.json`, and `provider-artifacts.json`; the graph bootstrap workflow consumes those facts and writes canonical graph facts, provider status, impact capabilities, and a report. |
@@ -597,7 +608,7 @@ Detailed runtime capability catalog: [Runtime Capability Catalog](https://github
 Expected Claude init output includes:
 
 ```text
-📦 Generated 19 command file(s) in .claude/commands/spec
+📦 Generated 20 command file(s) in .claude/commands/spec
 🧩 Generated 3 skill directory(ies) in .claude/skills
 🤖 Generated 51 agent file(s) in .claude/agents
 Next steps:
@@ -611,7 +622,7 @@ Next steps:
 Expected Codex init output includes:
 
 ```text
-🧩 Generated 22 skill directory(ies) in .agents/skills
+🧩 Generated 23 skill directory(ies) in .agents/skills
 🤖 Generated 51 agent file(s) in .codex/agents
 Next steps:
   1. Restart Codex or open a new session so the host loads the generated $spec-* skills.

@@ -186,6 +186,12 @@ describe('package install contracts', () => {
       expect(packedPaths).toContain('docs/contracts/workflows/review-finding.md');
       expect(packedPaths).toContain('docs/contracts/context-governance.md');
       expect(packedPaths).toContain('docs/contracts/workspace-gitnexus-consumption.md');
+      expect(packedPaths).toContain('skills/spec-prd/templates/standard/00-通用增量需求模板.md');
+      expect(packedPaths).toContain('skills/spec-prd/templates/standard/10-App客户端需求模板.md');
+      expect(packedPaths).toContain('skills/spec-prd/templates/standard/20-Admin中后台需求模板.md');
+      expect(packedPaths).toContain('skills/spec-prd/templates/standard/30-Backend中台服务需求模板.md');
+      expect(packedPaths).toContain('skills/spec-prd/templates/standard/README.md');
+      expect(packedPaths).not.toContain('skills/spec-prd/templates/standard/90-证券行业需求关注点与参考附录.md');
       expect(bytecodePaths).toEqual([]);
     } finally {
       fs.rmSync(bytecodePath, { force: true });

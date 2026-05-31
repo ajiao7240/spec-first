@@ -199,12 +199,14 @@ If the user names a standalone skill rather than a public workflow, invoke that 
 2. Safety/repair routes: setup, update, missing runtime assets, broken host readiness.
 3. Diagnostic routes: debug before work when the request is about a failure.
 4. Evaluation routes: code/doc review before implementation when the user asks for review.
-5. Definition routes: ideate/brainstorm before plan/work when the outcome is still unclear.
+5. Definition routes: ideate/brainstorm before plan/work when the outcome is still unclear; use the PRD workflow for brownfield PRD-grade requirements when existing product/system shape is already anchored.
 6. Optimization routes: metric-driven experiments before ordinary work when the user asks to optimize a measurable outcome.
 7. Execution routes: plan before work when the desired outcome is clear but the implementation path is not.
 8. Knowledge routes: compound/compound-refresh after or around completed work.
 
 Do not chain multiple workflows automatically unless the active workflow explicitly hands off. Route to the next best workflow and let that workflow govern its own handoff.
+
+PRD/readiness tie-break: independent critique of a requirements, plan, task, or Markdown artifact routes to document review. Brownfield PRD authoring/refinement, current-state/code-aware PRD validation, and "can this PRD go to planning without inventing WHAT?" route to the PRD workflow.
 
 ### Route Map
 
@@ -220,8 +222,9 @@ Do not chain multiple workflows automatically unless the active workflow explici
 | requirements, plan, spec, or markdown document review | `/spec:doc-review` | `$spec-doc-review` |
 | audit spec-first skill/agent assets for engineering quality, boundary, or governance issues | `/spec:skill-audit` | `$spec-skill-audit` |
 | audit app/PRD-to-implementation consistency or drift across the project | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` |
-| asking what to build, wants ideas, or asks for options/surprising improvements without a concrete feature | `/spec:ideate` | `$spec-ideate` |
+| 0-1 product idea, asking what to build, wants ideas, or asks for options/surprising improvements without a concrete feature | `/spec:ideate` | `$spec-ideate` |
 | still defining WHAT to build, unclear problem frame, or product decisions before planning | `/spec:brainstorm` or `/spec:ideate` | `$spec-brainstorm` or `$spec-ideate` |
+| brownfield PRD authoring, existing PRD refinement, or code-aware PRD validation for an existing system increment | `/spec:prd` | `$spec-prd` |
 | optimize a measurable outcome through experiments | `/spec:optimize` | `$spec-optimize` |
 | clear desired outcome but needs an execution plan | `/spec:plan` | `$spec-plan` |
 | split a settled plan into executable tasks or compile task docs before work | `spec-write-tasks` standalone skill | `spec-write-tasks` standalone skill |

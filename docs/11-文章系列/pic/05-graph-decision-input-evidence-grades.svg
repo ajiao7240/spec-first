@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Graph Evidence 四个可信等级</title>
+  <desc id="desc">primary（已确认）、session-local（本轮可用）、advisory（仅供参考）、stale（已过期）四个等级的含义和使用方式。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102a43"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <marker id="arrow-down" markerWidth="12" markerHeight="12" refX="6" refY="10" orient="auto">
+      <path d="M1,1 L6,11 L11,1 Z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="700" rx="30" fill="url(#bg)"/>
+  <text x="600" y="60" text-anchor="middle" fill="#e0f2fe" font-size="34" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Graph Evidence 四个可信等级</text>
+  <text x="600" y="96" text-anchor="middle" fill="#93c5fd" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">使用图谱结果前，先确认它的可信等级</text>
+
+  <!-- primary -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="140" width="510" height="130" rx="16" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <rect x="80" y="140" width="6" height="130" rx="3" fill="#34d399"/>
+    <text x="110" y="178" fill="#6ee7b7" font-size="20" font-family="'SF Mono', Menlo, Consolas, monospace" font-weight="700">primary</text>
+    <text x="110" y="210" fill="#f1f5f9" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">源码 / 测试 / schema / exit code 支撑</text>
+    <text x="110" y="250" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">→ 可基于此做实现决策</text>
+  </g>
+
+  <!-- session-local -->
+  <g filter="url(#shadow)">
+    <rect x="610" y="140" width="510" height="130" rx="16" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <rect x="610" y="140" width="6" height="130" rx="3" fill="#38bdf8"/>
+    <text x="640" y="178" fill="#7dd3fc" font-size="20" font-family="'SF Mono', Menlo, Consolas, monospace" font-weight="700">session-local</text>
+    <text x="640" y="210" fill="#f1f5f9" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">本轮 live MCP 调用成功返回</text>
+    <text x="640" y="250" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">→ 本轮有效，不写入 canonical readiness</text>
+  </g>
+
+  <!-- advisory -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="300" width="510" height="130" rx="16" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
+    <rect x="80" y="300" width="6" height="130" rx="3" fill="#fbbf24"/>
+    <text x="110" y="338" fill="#fde68a" font-size="20" font-family="'SF Mono', Menlo, Consolas, monospace" font-weight="700">advisory</text>
+    <text x="110" y="370" fill="#f1f5f9" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">候选 / definitions-only / 低置信 pointer</text>
+    <text x="110" y="410" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">→ 决定去哪里读，不替代读源码</text>
+  </g>
+
+  <!-- stale -->
+  <g filter="url(#shadow)">
+    <rect x="610" y="300" width="510" height="130" rx="16" fill="url(#card)" stroke="#f87171" stroke-width="2"/>
+    <rect x="610" y="300" width="6" height="130" rx="3" fill="#f87171"/>
+    <text x="640" y="338" fill="#fca5a5" font-size="20" font-family="'SF Mono', Menlo, Consolas, monospace" font-weight="700">stale</text>
+    <text x="640" y="370" fill="#f1f5f9" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">source_revision 与 graph-facts 不符</text>
+    <text x="640" y="410" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">→ 不能当真，先刷新图谱或直接读源码</text>
+  </g>
+
+  <!-- 消费顺序 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="464" width="1040" height="100" rx="18" fill="#082f49" stroke="#7dd3fc" stroke-width="2"/>
+    <text x="600" y="504" text-anchor="middle" fill="#e0f2fe" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">正确消费顺序</text>
+    <text x="600" y="540" text-anchor="middle" fill="#7dd3fc" font-size="17" font-family="'SF Mono', Menlo, Consolas, monospace">advisory pointer → 读源码确认 → primary evidence → 判断</text>
+  </g>
+
+  <!-- dirty-advisory 说明 -->
+  <text x="600" y="618" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">dirty-advisory = 工作区有未提交改动，图谱结果只能当参考，不能当确认证据</text>
+  <text x="600" y="648" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">definitions-only = 只有 symbol/file 定位，无 process graph，无影响面分析</text>
+</svg>

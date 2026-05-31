@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">正确上下文的四个问题</title>
+  <desc id="desc">判断一段上下文是否值得放进当前任务的四个问题：服务任务？source还是mirror？可信等级？消费者是谁？</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102a43"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="700" rx="30" fill="url(#bg)"/>
+  <text x="600" y="60" text-anchor="middle" fill="#e0f2fe" font-size="34" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">放进上下文之前，先问四个问题</text>
+  <text x="600" y="96" text-anchor="middle" fill="#93c5fd" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">每一个问题都在帮你过滤噪声，保留真正有用的决策输入</text>
+
+  <!-- Q1 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="140" width="510" height="150" rx="18" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <circle cx="130" cy="185" r="24" fill="#0b2138" stroke="#38bdf8" stroke-width="2"/>
+    <text x="130" y="192" text-anchor="middle" fill="#7dd3fc" font-size="20" font-family="Arial, sans-serif" font-weight="700">1</text>
+    <text x="170" y="185" fill="#f8fafc" font-size="19" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">是否服务当前任务？</text>
+    <text x="170" y="218" fill="#bae6fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">相关 ≠ 必要。精确读取，不广播全量。</text>
+    <text x="170" y="268" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">context_refs → smallest useful section</text>
+  </g>
+
+  <!-- Q2 -->
+  <g filter="url(#shadow)">
+    <rect x="610" y="140" width="510" height="150" rx="18" fill="url(#card)" stroke="#22d3ee" stroke-width="2"/>
+    <circle cx="660" cy="185" r="24" fill="#0b2138" stroke="#22d3ee" stroke-width="2"/>
+    <text x="660" y="192" text-anchor="middle" fill="#67e8f9" font-size="20" font-family="Arial, sans-serif" font-weight="700">2</text>
+    <text x="700" y="185" fill="#f8fafc" font-size="19" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">source 还是 generated mirror？</text>
+    <text x="700" y="218" fill="#bae6fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">mirror 不是 source-of-truth，不能当真。</text>
+    <text x="700" y="268" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">generated_runtime_mirror_excluded</text>
+  </g>
+
+  <!-- Q3 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="320" width="510" height="180" rx="18" fill="url(#card)" stroke="#a78bfa" stroke-width="2"/>
+    <circle cx="130" cy="365" r="24" fill="#0b2138" stroke="#a78bfa" stroke-width="2"/>
+    <text x="130" y="372" text-anchor="middle" fill="#c4b5fd" font-size="20" font-family="Arial, sans-serif" font-weight="700">3</text>
+    <text x="170" y="365" fill="#f8fafc" font-size="19" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">可信等级是什么？</text>
+    <text x="170" y="400" fill="#ddd6fe" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">primary / session-local / advisory / stale</text>
+    <text x="170" y="430" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">advisory 当 confirmed 用 = 最常见幻觉来源</text>
+    <text x="170" y="478" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">evidence_grade · freshness_state</text>
+  </g>
+
+  <!-- Q4 -->
+  <g filter="url(#shadow)">
+    <rect x="610" y="320" width="510" height="180" rx="18" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <circle cx="660" cy="365" r="24" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="660" y="372" text-anchor="middle" fill="#6ee7b7" font-size="20" font-family="Arial, sans-serif" font-weight="700">4</text>
+    <text x="700" y="365" fill="#f8fafc" font-size="19" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">消费者是谁？</text>
+    <text x="700" y="400" fill="#bbf7d0" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">plan / work / review / debug / knowledge</text>
+    <text x="700" y="430" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">不同阶段需要不同的上下文，按需收集。</text>
+    <text x="700" y="478" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">context-bundle.v1 · artifact-summary.v1</text>
+  </g>
+
+  <!-- 底部结论 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="534" width="1040" height="100" rx="18" fill="#082f49" stroke="#7dd3fc" stroke-width="2"/>
+    <text x="600" y="578" text-anchor="middle" fill="#e0f2fe" font-size="22" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">四个问题都能回答 → 这段上下文值得放进去</text>
+    <text x="600" y="614" text-anchor="middle" fill="#7dd3fc" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">有一个答案不确定 → 先排除，按需精确引用</text>
+  </g>
+</svg>

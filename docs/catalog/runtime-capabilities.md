@@ -18,12 +18,12 @@
 
 | 范围 | 当前值 |
 |---|---|
-| Bundled source skills | 38 |
+| Bundled source skills | 39 |
 | Bundled source agents | 51 |
 | Bundled agent support files | 0 |
-| Governance records by entry surface | internal_only: 17, standalone_skill: 2, workflow_command: 19 |
-| Claude runtime delivery | 19 commands, 19 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
-| Codex runtime delivery | 0 commands, 19 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Governance records by entry surface | internal_only: 17, standalone_skill: 2, workflow_command: 20 |
+| Claude runtime delivery | 20 commands, 20 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Codex runtime delivery | 0 commands, 20 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
 | Beta workflow entries | spec-polish-beta |
 | Workflow runtime contracts | 1 |
 | Planned runtime contracts | 0 |
@@ -45,6 +45,7 @@
 | optimize | spec-optimize | /spec:optimize | $spec-optimize | claude=command; codex=skill | no | Run metric-driven iterative optimization loops |
 | plan | spec-plan | /spec:plan | $spec-plan | claude=command; codex=skill | no | Run the Spec-First planning workflow |
 | polish-beta | spec-polish-beta | /spec:polish-beta | $spec-polish-beta | claude=command; codex=skill | yes | [BETA] Start the dev server and iterate on browser-visible polish |
+| prd | spec-prd | /spec:prd | $spec-prd | claude=command; codex=skill | no | Run the Spec-First PRD requirements workflow |
 | release-notes | spec-release-notes | /spec:release-notes | $spec-release-notes | claude=command; codex=skill | no | Summarize recent spec-first releases or answer release questions |
 | sessions | spec-sessions | /spec:sessions | $spec-sessions | claude=command; codex=skill | no | Search and summarize prior coding agent sessions |
 | skill-audit | spec-skill-audit | /spec:skill-audit | $spec-skill-audit | claude=command; codex=skill | no | Run the Spec-First skill audit workflow |

@@ -190,6 +190,17 @@
       }
     },
     {
+      "skill_name": "spec-prd",
+      "entry_surface": "workflow_command",
+      "command_name": "prd",
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "command",
+        "codex": "skill"
+      }
+    },
+    {
       "skill_name": "spec-compound",
       "entry_surface": "workflow_command",
       "command_name": "compound",

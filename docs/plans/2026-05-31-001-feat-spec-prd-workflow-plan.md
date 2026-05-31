@@ -2,7 +2,7 @@
 title: "feat: spec-prd 增量 PRD workflow 落地计划"
 type: feat
 artifact_kind: implementation-plan
-status: active
+status: completed
 date: 2026-05-31
 spec_id: 2026-05-30-003-spec-prd-owner-final
 origin: docs/brainstorms/2026-05-30-003-spec-prd-owner-final-requirements.md

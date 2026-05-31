@@ -500,6 +500,12 @@ describe('spec_id planning contract', () => {
     expect(text).toContain('scan `docs/brainstorms/`, `docs/plans/`, and `docs/tasks/` frontmatter');
     expect(text).toContain('If the same `spec_id` already exists');
     expect(text).toContain('alternative implementation plans, independent delivery chains, or abandon-and-replace work');
+    expect(text).toContain('`artifact_kind: prd-requirements`');
+    expect(text).toContain('PRD-grade requirements origin');
+    expect(text).toContain('R/F/AE');
+    expect(text).toContain('trace self-check summary');
+    expect(text).toContain('`document_role: split-summary`');
+    expect(text).toContain('`document_role: child-prd`');
     expect(combined).toContain('spec_id: YYYY-MM-DD-NNN-<slug>');
     expect(combined).toContain('origin: docs/brainstorms/YYYY-MM-DD-NNN-<slug>-requirements.md');
   });

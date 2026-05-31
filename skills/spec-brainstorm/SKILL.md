@@ -225,8 +225,10 @@ Follow the Interaction Rules above. Use the platform's blocking question tool wh
 - Surface dependencies or prerequisites only when they materially affect scope
 - Resolve product decisions here; leave technical implementation choices for planning
 - Bring ideas, alternatives, and challenges instead of only interviewing
+- **Pair decision and narrowing questions with your recommended answer** — when asking the user to pick a direction, priority, scope boundary, or next step, say what you'd choose and why before they answer. This makes your reasoning visible and lets them correct your priors instead of composing from scratch; it pairs naturally with the blocking tool's options (Rule 4). Do **not** attach a recommendation to the opening "what are you already thinking" question (it would fixate the user on an AI framing, contra the first guideline above) or to any prose-only diagnostic/introspective question or rigor probe (Rule 5 / Phase 1.2) — there a suggested answer signals which axes matter and biases the response.
+- **Track open decision branches** — treat the dialogue as a decision tree and resolve dependencies in order: answer a parent decision before the children it gates. If a branch is answerable from the codebase, read it instead of asking. For Standard and Deep brainstorms, record each *material* unresolved branch in the decision ledger with a `deferred_reason` (see Domain Language And Decision Ledger above) so it survives outside working memory; Lightweight brainstorms can track branches in-conversation without ledger ceremony. The ledger holds major open decisions, not every minor sub-question.
 
-**Exit condition:** Continue until the idea is clear OR the user explicitly wants to proceed.
+**Exit condition:** Continue until the idea is clear OR the user explicitly wants to proceed. Before exiting, check for unresolved branches — `deferred_reason` ledger notes for Standard/Deep, or in-conversation tracking for Lightweight — and carry them into the requirements document rather than dropping them silently, following the same routing as Inferred bets in Phase 2.5: `## Key Decisions` in interactive mode, `## Assumptions` in headless mode.
 
 ### Phase 2: Explore Approaches
 
