@@ -1,9 +1,9 @@
 
 ---
 
-# AI Coding 不是 Prompt 问题，而是 Workflow 问题
+# Spec-First：AI Coding 不是 Prompt 问题，而是 Workflow 问题
 
-**Spec-first：把 AI coding 从 ad-hoc chat，升级为 governed engineering loop**
+**把 AI coding 从 ad-hoc chat，升级为 governed engineering loop**
 
 ---
 
@@ -424,3 +424,9 @@ spec-first init --codex -u <name> --lang <zh|en>
 一起把这件事做得更扎实一些。
 
 ---
+
+`spec-first` 是开源项目，欢迎试用、提 issue、提建议。
+
+**GitHub：** http://github.com/sunrain520/spec-first
+
+**官网：** http://spec-first.cn/

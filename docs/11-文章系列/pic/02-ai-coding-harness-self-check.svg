@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780" viewBox="0 0 1200 780" role="img" aria-labelledby="title desc">
+  <title id="title">AI Coding Harness 六问自测</title>
+  <desc id="desc">六个自测问题，帮助判断当前 AI coding 过程缺哪一层 Harness，每个问题标注对应的 Context、Execution、Evidence、Governance、Knowledge 层。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102a43"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="780" rx="30" fill="url(#bg)"/>
+  <text x="600" y="60" text-anchor="middle" fill="#e0f2fe" font-size="34" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">六个问题，定位你缺哪一层 Harness</text>
+  <text x="600" y="96" text-anchor="middle" fill="#93c5fd" font-size="18" font-family="Arial, 'PingFang SC', sans-serif">能稳定回答全部，就暂时不需要这层 Harness；一半以上不确定，问题就不在 prompt</text>
+
+  <!-- Q1 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="140" width="510" height="124" rx="16" fill="url(#card)" stroke="#22d3ee" stroke-width="2"/>
+    <circle cx="118" cy="178" r="17" fill="#0b2138" stroke="#22d3ee" stroke-width="2"/>
+    <text x="118" y="184" text-anchor="middle" fill="#67e8f9" font-size="18" font-family="Arial, sans-serif" font-weight="700">1</text>
+    <rect x="430" y="160" width="140" height="30" rx="8" fill="#0b2138" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="500" y="181" text-anchor="middle" fill="#67e8f9" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Execution</text>
+    <text x="150" y="184" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">任务目标离开聊天窗口后，</text>
+    <text x="150" y="226" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">还能被别人读懂吗？</text>
+  </g>
+
+  <!-- Q2 -->
+  <g filter="url(#shadow)">
+    <rect x="610" y="140" width="510" height="124" rx="16" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <circle cx="648" cy="178" r="17" fill="#0b2138" stroke="#38bdf8" stroke-width="2"/>
+    <text x="648" y="184" text-anchor="middle" fill="#7dd3fc" font-size="18" font-family="Arial, sans-serif" font-weight="700">2</text>
+    <rect x="966" y="160" width="130" height="30" rx="8" fill="#0b2138" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="1031" y="181" text-anchor="middle" fill="#7dd3fc" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Context</text>
+    <text x="680" y="184" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">AI 做计划时，是否知道</text>
+    <text x="680" y="226" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">哪些代码事实可信？</text>
+  </g>
+
+  <!-- Q3 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="286" width="510" height="124" rx="16" fill="url(#card)" stroke="#22d3ee" stroke-width="2"/>
+    <circle cx="118" cy="324" r="17" fill="#0b2138" stroke="#22d3ee" stroke-width="2"/>
+    <text x="118" y="330" text-anchor="middle" fill="#67e8f9" font-size="18" font-family="Arial, sans-serif" font-weight="700">3</text>
+    <rect x="430" y="306" width="140" height="30" rx="8" fill="#0b2138" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="500" y="327" text-anchor="middle" fill="#67e8f9" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Execution</text>
+    <text x="150" y="330" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">实现过程中，scope</text>
+    <text x="150" y="372" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">是否会被显式约束？</text>
+  </g>
+
+  <!-- Q4 -->
+  <g filter="url(#shadow)">
+    <rect x="610" y="286" width="510" height="124" rx="16" fill="url(#card)" stroke="#67e8f9" stroke-width="2"/>
+    <circle cx="648" cy="324" r="17" fill="#0b2138" stroke="#67e8f9" stroke-width="2"/>
+    <text x="648" y="330" text-anchor="middle" fill="#a5f3fc" font-size="18" font-family="Arial, sans-serif" font-weight="700">4</text>
+    <rect x="966" y="306" width="130" height="30" rx="8" fill="#0b2138" stroke="#67e8f9" stroke-width="1.5"/>
+    <text x="1031" y="327" text-anchor="middle" fill="#a5f3fc" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Evidence</text>
+    <text x="680" y="330" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">Review 结论能否说明</text>
+    <text x="680" y="372" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">证据来源和残余风险？</text>
+  </g>
+
+  <!-- Q5 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="432" width="510" height="124" rx="16" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
+    <circle cx="118" cy="470" r="17" fill="#1c1606" stroke="#fbbf24" stroke-width="2"/>
+    <text x="118" y="476" text-anchor="middle" fill="#fde68a" font-size="18" font-family="Arial, sans-serif" font-weight="700">5</text>
+    <rect x="412" y="452" width="158" height="30" rx="8" fill="#1c1606" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="491" y="473" text-anchor="middle" fill="#fde68a" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Governance</text>
+    <text x="150" y="476" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">工具或 provider 不可用时，</text>
+    <text x="150" y="518" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">workflow 是否会显式降级？</text>
+  </g>
+
+  <!-- Q6 -->
+  <g filter="url(#shadow)">
+    <rect x="610" y="432" width="510" height="124" rx="16" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <circle cx="648" cy="470" r="17" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="648" y="476" text-anchor="middle" fill="#6ee7b7" font-size="18" font-family="Arial, sans-serif" font-weight="700">6</text>
+    <rect x="954" y="452" width="142" height="30" rx="8" fill="#04221a" stroke="#34d399" stroke-width="1.5"/>
+    <text x="1025" y="473" text-anchor="middle" fill="#6ee7b7" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Knowledge</text>
+    <text x="680" y="476" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">这次解决的问题，会成为</text>
+    <text x="680" y="518" fill="#f1f5f9" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">下次任务的输入优势吗？</text>
+  </g>
+
+  <!-- 结论 banner -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="592" width="1040" height="128" rx="20" fill="#082f49" stroke="#7dd3fc" stroke-width="2"/>
+    <text x="600" y="642" text-anchor="middle" fill="#e0f2fe" font-size="24" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">一半以上答案不确定？问题大概率不是 prompt 不够好</text>
+    <text x="600" y="688" text-anchor="middle" fill="#7dd3fc" font-size="22" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">你还缺一层 AI Coding Harness</text>
+  </g>
+</svg>

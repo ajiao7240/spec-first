@@ -550,3 +550,11 @@ Knowledge 让经验进入下一次任务。
 > 正确上下文不是无限上下文。
 
 这也是 AI coding 走向真实委派之前，必须先解决的第一层问题。
+
+---
+
+`spec-first` 是开源项目，欢迎试用、提 issue、提建议。
+
+**GitHub：** http://github.com/sunrain520/spec-first
+
+**官网：** http://spec-first.cn/

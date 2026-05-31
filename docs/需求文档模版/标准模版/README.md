@@ -12,7 +12,9 @@ industry: securities
 
 # 标准需求文档模板 — 证券行业使用指南
 
-本目录是从 `docs/需求文档模版/原始模版/` 的 6 份真实团队模板提炼出的**证券行业增量需求模板集**。它服务于 `spec-prd`（增量需求迭代 PRD）的产物形态，遵循 spec-first 的 **WHAT not HOW** 边界。
+本目录是从 `docs/需求文档模版/原始模版/` 的 7 份真实团队模板提炼出的**证券行业增量需求模板集**。它服务于 `spec-prd`（增量需求迭代 PRD）的产物形态，遵循 spec-first 的 **WHAT not HOW** 边界。
+
+> **`spec-prd` 的目标(skill 定位)**：让产品 owner 在**已有系统**上，把一句话增量需求、低质量碎片或已有 PRD，低成本转成**研发可直接规划的 PRD-grade requirements**——核心区别于"写更长的文档"在于:先结合代码现状与证据对齐系统现实，再确认增量(keep/extend/replace/remove/unknown)，最后产出带优先级、验收、证据标注、行业合规边界的 Markdown PRD，使下游 `spec-plan` 无需发明 WHAT。它**不是** 0-1 产品探索(那是 `spec-brainstorm`)，**不替代** `spec-plan` 决定 HOW，也**不替代**合规/法务确认。本模板库就是这个目标的 human-facing 产物形态。
 
 ## 一、行业定位与使用前提
 
@@ -22,7 +24,8 @@ industry: securities
 
 - 本目录是 **human-facing 标准模板库**，给产品 owner、研发、测试、评审者直接使用。
 - `spec-prd` 未来的 `prd-output-template.md` / `domain-lenses.md` 是 **runtime authoring contract**，应从本目录提炼或引用，不应静默分叉。
-- 本目录新增或调整 core section、surface lens、证券行业 overlay 后，`spec-prd` 需求与 runtime reference 也应同步评估 drift。
+- **分层 drift 范围**：通用骨架（core section + surface lens + overlay 叠加机制）由 runtime reference derive 内置、随 skill 分发，drift test 锁定与本目录通用部分一致；**证券行业 overlay 内容**（C1-C12 具体 lens）是**项目本地模板**，用 fixture / reviewer checklist 暴露 drift，**不**硬编进通用 runtime reference、不在 drift test 锁定范围。注:`00` 的「行业横切关注点自检」section 是 core（PRD 作者必做的"适用/不涉及"自检**动作**）；它指向的 overlay **内容**才是项目本地——两者区分见 `90-证券行业需求关注点与参考附录.md`。
+- 本目录新增或调整 core section、surface lens 后，`spec-prd` 通用 runtime reference 应同步评估 drift；调整证券 overlay 内容只需更新本地模板与 fixture，不触发通用 skill drift。
 
 使用前必须先确定四个边界：
 
@@ -77,8 +80,8 @@ industry: securities
 
 所有模板遵循 `spec-prd` 的两层模板规则：
 
-- **[core] 始终必填**：Summary、Change Delta、Requirements（含优先级分级）、Acceptance Examples、Scope Boundaries（含 Non-Goals）、Evidence And Assumptions、行业横切关注点自检。这是下游 `spec-plan` 消费的最小骨架，缺任一项 plan 就得发明 WHAT。需求优先级（P0/P1/P2 或 MoSCoW + 可降级/是否阻塞上线）是 core 的一部分——专业 PRD 必须回答"排期被砍时先砸哪些"。
-- **[conditional] 按需展开**：Problem Frame、Current System Snapshot、Goals / Success Metrics、Glossary、领域模型 / 核心实体、Actors、Use Cases、Interaction、Exception、Data / Compliance Boundaries、Release Checklist、Outstanding Questions 等。小增量可折叠或省略；**省略项若有未决点，必须落入 Outstanding Questions，不得静默丢弃**。Success Metrics 有可信证据才写目标值，无证据写可观察口径或进入 Assumptions。领域模型仅在需求涉及多个相互关联业务对象时展开。
+- **[core] 始终必填**：PRD 元数据（surface 模板叫「属性确认」）、Summary、Change Delta、Requirements（含优先级分级）、Acceptance Examples、Scope Boundaries（含 Non-Goals）、Evidence And Assumptions、行业横切关注点自检。这是下游 `spec-plan` 消费的最小骨架，缺任一项 plan 就得发明 WHAT。需求优先级（P0/P1/P2 或 MoSCoW + 可降级/是否阻塞上线）是 core 的一部分——专业 PRD 必须回答"排期被砍时先砸哪些"。
+- **[conditional] 按需展开**：Problem Frame、Current System Snapshot、Goals / Success Metrics、Glossary、领域模型 / 核心实体、Actors、Use Cases、Interaction、Exception、Data / Compliance Boundaries、Dependencies / Constraints / Risks、Release Checklist、Outstanding Questions 等。小增量可折叠或省略；**省略项若有未决点，必须落入 Outstanding Questions，不得静默丢弃**。Success Metrics 有可信证据才写目标值，无证据写可观察口径或进入 Assumptions。领域模型仅在需求涉及多个相互关联业务对象时展开；Dependencies / Constraints / Risks 命中外部依赖或高风险时必填。
 - 对应 surface 命中时，conditional 升为必填。例如 App 命中交易/行情时必须写交互与展示规则；Backend 命中订单/资金时必须写状态语义、幂等、对账和异常。
 
 ## 五、WHAT not HOW 边界（必读）
@@ -127,6 +130,29 @@ PRD 里每条 current-state claim 应带 evidence tag（`confirmed-source` / `us
 11. **多语言/配置化数据缺失** → 只给界面可见文案，隐藏逻辑文案/配置/埋点缺失，导致返工。
 12. **UI 设计稿与产品稿不同步**。
 
+### 七b、交付前自检清单（handoff 给 spec-plan / doc-review 之前）
+
+§7 是"写之前"防错；本清单是"交付前"过一遍的 gate（与 `prd-readiness-lens` 互补、human-facing 版）：
+
+**完整性**
+- [ ] 每条 core 需求都有优先级、验收样例、证据 tag
+- [ ] Change Delta 分清 keep/extend/replace/remove/unknown，历史逻辑写了差异不是"沿用一致"
+- [ ] 命中的行业关注点(C1-C12)都标了"适用/不涉及"，无留空
+- [ ] 触及资金/交易/权限/数据/审计时，边界与合规点已显式标注或入 Outstanding Questions
+
+**质量**
+- [ ] 无模糊词："等"、"相关"、"合适的"、"更好"、"优化体验"——每条都换成可验收表述
+- [ ] 有量化口径(数量/时延/精度/状态)而非定性描述
+- [ ] 现状 claim 与用户说法冲突时已标 contradiction + source tag，未把猜测写成事实
+- [ ] 不含 HOW(接口字段/schema/表结构/任务拆解)——那是 `spec-plan`
+
+**可读性 / 一致性**
+- [ ] 术语在 Glossary 有定义且全文一致(同一概念不混用账户/客户/用户)
+- [ ] 前后无矛盾(Scope 说不做的，需求里没偷偷出现)
+- [ ] 表格对齐、层级清晰、流程图与文字一致
+
+**修改建议格式（refine intent 用）**：给反馈时用 `原文 → 建议 → 原因` 三段，让作者能直接改，而非泛泛"建议完善"。
+
 ## 八、与 spec-first 链路衔接
 
 ```text
@@ -137,3 +163,44 @@ spec-prd（用本目录模板产出 PRD）
 ```
 
 PRD 完成后：产品行为已明确、下游无需发明 WHAT → 进 `spec-plan`；需查完整性 → `spec-doc-review`；**不要**直接进 `spec-work`。
+
+## 九、原始模板 ↔ 标准库校准映射（沉淀,供对照）
+
+本标准库由 `docs/需求文档模版/原始模版/` 的 7 份真实团队模板(AI友好大纲、PRD标准模板、通用、Admin前端、基础、客户端开发组、中台一组)结合业界标准 PRD 实践(Spec Kit、ProductPlan、Atlassian、Aha、Lenny)提炼。下表固化"原始内容去了哪 / 为什么有些没进标准库",避免后续对照原始模板时重复质疑。
+
+**产品级内容 → 已覆盖映射**
+
+| 原始模板内容 | 标准库落点 |
+| --- | --- |
+| 一句话需求 / 背景 / 范围(做/不做) | `00` Summary / Problem Frame / Scope Boundaries |
+| 需求属性(展业地/灰度/合规/第三方/大字号) | `00` PRD 元数据 + `10`/`30` 属性确认 |
+| 需求目标 / 衡量标准 | `00` Goals / Success Metrics |
+| 用户角色 / 使用场景 / 用户故事 | `00` Actors / Use Cases（UC+EARS 取代裸 user story） |
+| 业务规则 / 异常 / 验收 | `00` Requirements+BR / Exception / Acceptance(GWT) |
+| 功能优先级 / 可降级 / 阻塞上线 | `00` Requirements 优先级分级 |
+| 名词解释 / 核心实体 / 实体关系 | `00` Glossary / 领域模型 |
+| 数据字段「含义」/ 数据口径 | `00` Data / Compliance Boundaries |
+| 状态机流转 | `30` Backend 状态语义 |
+| 与线上对比 / 历史版本 / 存量数据 | `30` Backend + `00` Change Delta |
+| 配置项 / 生效时效 / 上线 Checklist | `30` Backend / `00` Release Readiness |
+| 业务域依赖 / 依赖事项 | `00` Dependencies / Constraints / Risks + `30` 业务域依赖 |
+| 菜单 / 权限 / 列表 / 表单 / 枚举 / 脱敏 | `20` Admin |
+| 多语言文案 / 埋点 | `10` App |
+| 非功能(性能/兼容) | `20` Admin 非功能 + `30` 契约期望 |
+| 责任人 / 版本记录 / 相关文档 | `00` PRD 元数据 / 变更记录 |
+
+**有意排除(WHAT-not-HOW 边界,不是遗漏)**
+
+这些原始模板有、标准库**故意不收**,因为属 HOW,归 `spec-plan` 与接口文档:
+
+- 接口清单 / 入参出参 / 接口详情（原始「通用」§9、「中台一组」附录、「PRD标准模板」前端描述）
+- 数据字段的类型 / 唯一约束 / 自增逻辑 / 命名（「PRD标准模板」§3.6 数据字段定义）
+- Biztype / Bizcode 映射（「中台一组」§9.2）
+- 事件定义 MQ 生产/消费 / 事件键（原始「通用」§9.3）
+- 状态机的副作用调用、落库、配置中间件选型
+
+**暂不收(归 v2 大需求场景)**
+
+- 「PRD标准模板」§3.7 需求列表(功能模块→一级/二级功能树):是功能清单分解视角,与 v1 的"R 编号 + 优先级"是两种组织方式,更接近 v2 packet 分解,留给 `docs/02-架构设计/需求拆分/大需求拆分.md` 描述的演化阶段。
+
+> 校准基线:7 份原始模板的**产品级**内容已被标准库完整覆盖,排除项落在 WHAT-not-HOW 正确边界,无失真。新增原始模板后应回到本表评估增量。

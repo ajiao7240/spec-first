@@ -55,20 +55,22 @@ Prompt 问题
 
 ## 第一季 12 篇目录
 
+> **标题格式约定：** 所有系列文章正文标题统一为 `Spec-First：xxxx`。下表“建议标题”列已按此格式给出；`xxxx` 为论点式主题，写作时仍可微调措辞，但保留 `Spec-First：` 前缀。
+
 | # | 内容类型 | 建议标题 | 核心论点 | Evidence ticket | 回流资产 |
 |---|---|---|---|---|---|
-| 01 | 已发布 | AI Coding 不是 Prompt 问题，而是 Workflow 问题 | AI coding 的瓶颈在 workflow，不在 prompt | `01-spec-first.md` | 系列入口文 |
-| 02 | 枢纽 | 什么是 AI Coding Harness：spec-first 的定位升级 | Harness 是把不稳定 AI 推理放进可重复、可观察、可约束、可验证闭环 | `docs/contracts/ai-coding-harness.md`、系列规划 C-07 | Harness 六层图 |
-| 03 | 观点 | 为什么你不敢把任务真正交给 AI | 信任问题来自意图、上下文、证据、review、知识都没有工程化 | 外部趋势源 + 第一篇痛点 | AI Coding Workflow 自测清单 |
-| 04 | 机制 | Context Harness：正确上下文不是无限上下文 | AI 需要 bounded decision inputs，而不是无限读仓库 | `workflow-host-instruction-reuse-policy-2026-05-25.md` | Context 选择清单 |
-| 05 | 机制 | 别再让 AI 猜你的代码：Graph 如何改变决策输入 | Graph/readiness facts 是 Context/Evidence 层，不是炫技 | `docs/contracts/graph-evidence-policy.md`、GitNexus readiness docs | Graph evidence 解释卡 |
-| 06 | 取舍 | 不要修生成物，要修 Source-of-Truth | generated runtime 出错时必须回 source/generator，而不是手改 mirror | `modify-source-not-artifacts-2026-04-13.md` | Source/runtime 边界卡 |
-| 07 | 观点 | Spec 不是文档负担，是给 Agent 的压缩上下文 | Spec 是轻量任务边界，不是传统重文档 | 角色契约的 `Light contract` | Spec 最小字段卡 |
-| 08 | 机制 | Plan 如何防止 AI 在执行中跑偏 | Plan 的价值是约束 scope、验证、风险和 handoff | README workflow artifacts、plan docs | Plan anti-drift checklist |
-| 09 | 取舍 | Scripts prepare, LLM decides：同步上游不是复制文件 | 脚本列事实，LLM 做语义适配；不要让脚本假装架构师 | `upstream-ce-sync-upgrade-methodology-2026-04-26.md` | Script/LLM 职责边界卡 |
-| 10 | 机制 | Review Harness：为什么“你再检查一下”没用 | Review 需要角色、证据、影响面、降级和 residual risk | `reviewer-dispatch-failure-2026-05-07.md`、doc-review dispatch learning | Review checklist |
-| 11 | 机制 | Knowledge Harness：每次修复都应该变成下次输入优势 | 经验不能留在聊天记录，应变成可发现、可刷新、可复用的 learning | `docs/solutions/`、compound 相关 docs | Knowledge capture 模板 |
-| 12 | 案例 | 真实跑一圈：从模糊需求到 Review 和 Knowledge | 用一个小任务展示 Spec -> Plan -> Work -> Review -> Knowledge 如何闭环 | 选一个可公开的小型任务 artifact | End-to-end walkthrough |
+| 01 | 已发布 | Spec-First：AI Coding 不是 Prompt 问题，而是 Workflow 问题 | AI coding 的瓶颈在 workflow，不在 prompt | `01-spec-first.md` | 系列入口文 |
+| 02 | 枢纽 | Spec-First：从 Workflow 到 AI Coding Harness | Harness 是把不稳定 AI 推理放进可重复、可观察、可约束、可验证闭环 | `docs/contracts/ai-coding-harness.md`、系列规划 C-07 | Harness 六层图 |
+| 03 | 观点 | Spec-First：为什么你不敢把任务真正交给 AI | 信任问题来自意图、上下文、证据、review、知识都没有工程化 | 外部趋势源 + 第一篇痛点 | AI Coding Workflow 自测清单 |
+| 04 | 机制 | Spec-First：Context Harness——正确上下文不是无限上下文 | AI 需要 bounded decision inputs，而不是无限读仓库 | `workflow-host-instruction-reuse-policy-2026-05-25.md` | Context 选择清单 |
+| 05 | 机制 | Spec-First：别再让 AI 猜你的代码——Graph 如何改变决策输入 | Graph/readiness facts 是 Context/Evidence 层，不是炫技 | `docs/contracts/graph-evidence-policy.md`、GitNexus readiness docs | Graph evidence 解释卡 |
+| 06 | 取舍 | Spec-First：不要修生成物，要修 Source-of-Truth | generated runtime 出错时必须回 source/generator，而不是手改 mirror | `modify-source-not-artifacts-2026-04-13.md` | Source/runtime 边界卡 |
+| 07 | 观点 | Spec-First：Spec 不是文档负担，是给 Agent 的压缩上下文 | Spec 是轻量任务边界，不是传统重文档 | 角色契约的 `Light contract` | Spec 最小字段卡 |
+| 08 | 机制 | Spec-First：Plan 如何防止 AI 在执行中跑偏 | Plan 的价值是约束 scope、验证、风险和 handoff | README workflow artifacts、plan docs | Plan anti-drift checklist |
+| 09 | 取舍 | Spec-First：Scripts prepare, LLM decides——同步上游不是复制文件 | 脚本列事实，LLM 做语义适配；不要让脚本假装架构师 | `upstream-ce-sync-upgrade-methodology-2026-04-26.md` | Script/LLM 职责边界卡 |
+| 10 | 机制 | Spec-First：Review Harness——为什么“你再检查一下”没用 | Review 需要角色、证据、影响面、降级和 residual risk | `reviewer-dispatch-failure-2026-05-07.md`、doc-review dispatch learning | Review checklist |
+| 11 | 机制 | Spec-First：Knowledge Harness——每次修复都应该变成下次输入优势 | 经验不能留在聊天记录，应变成可发现、可刷新、可复用的 learning | `docs/solutions/`、compound 相关 docs | Knowledge capture 模板 |
+| 12 | 案例 | Spec-First：真实跑一圈——从模糊需求到 Review 和 Knowledge | 用一个小任务展示 Spec -> Plan -> Work -> Review -> Knowledge 如何闭环 | 选一个可公开的小型任务 artifact | End-to-end walkthrough |
 
 ## 第一季资产节奏
 
@@ -123,7 +125,7 @@ Harness 坐标：
 
 下一篇优先写：
 
-> 什么是 AI Coding Harness：spec-first 的定位升级
+> Spec-First：从 Workflow 到 AI Coding Harness
 
 这篇要完成三件事：
 

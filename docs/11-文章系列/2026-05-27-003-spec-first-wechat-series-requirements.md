@@ -123,17 +123,19 @@ Codebase → Graph → Spec → Plan → Work → Review → Knowledge
 
 以下为框架级候选标题，按内容流归类。具体标题在写作时按节奏选取、调整或替换。
 
+> **标题格式约定：** 系列正文标题统一为 `Spec-First：xxxx`，下表候选已按此格式给出；`xxxx` 同时承载该篇核心论点，写作时可微调措辞但保留前缀。完整格式说明见 `2026-05-27-004-spec-first-wechat-series-content-roadmap.md`。
+
 ### 流 1：概念层
 
 | 编号 | 候选标题 | 核心论点 |
 |---|---|---|
-| C-01 | AI 工程的下一个瓶颈，不是模型不够强 | 决策输入质量决定输出质量，不是模型智能 |
-| C-02 | 为什么我不做 Prompt 框架 | Prompt 是输入形式，Harness 是系统结构；二者不是同一层的东西 |
-| C-03 | Spec > Code：结构化意图比代码本身更值钱 | Spec 的可读性、可追踪性、可 review 性远高于代码本身 |
-| C-04 | AI coding 的五个反模式 | 把常见错误做法梳理清楚，反推 Harness 的必要性 |
-| C-05 | 当你同时使用两个 AI coding 工具时 | 双宿主一致性问题引出 governed Harness 的必要性 |
-| C-06 | Scripts prepare, LLM decides：我认为最重要的 AI 工程原则 | 分工原则：脚本产出确定性事实，LLM 做语义判断 |
-| **C-07** | **什么是 AI Coding Harness：spec-first 的定位升级** | **定义文章：Harness = 把不稳定 AI 推理放进可重复、可观察、可验证闭环** |
+| C-01 | Spec-First：AI 工程的下一个瓶颈，不是模型不够强 | 决策输入质量决定输出质量，不是模型智能 |
+| C-02 | Spec-First：为什么我不做 Prompt 框架 | Prompt 是输入形式，Harness 是系统结构；二者不是同一层的东西 |
+| C-03 | Spec-First：Spec > Code——结构化意图比代码本身更值钱 | Spec 的可读性、可追踪性、可 review 性远高于代码本身 |
+| C-04 | Spec-First：AI coding 的五个反模式 | 把常见错误做法梳理清楚，反推 Harness 的必要性 |
+| C-05 | Spec-First：当你同时使用两个 AI coding 工具时 | 双宿主一致性问题引出 governed Harness 的必要性 |
+| C-06 | Spec-First：Scripts prepare, LLM decides——我认为最重要的 AI 工程原则 | 分工原则：脚本产出确定性事实，LLM 做语义判断 |
+| **C-07** | **Spec-First：从 Workflow 到 AI Coding Harness** | **定义文章：Harness = 把不稳定 AI 推理放进可重复、可观察、可验证闭环** |
 
 > C-07 是系列的枢纽文章，建议在第 2 周发布，确立"Harness"作为整个系列的叙事锚点。
 
@@ -143,36 +145,36 @@ Codebase → Graph → Spec → Plan → Work → Review → Knowledge
 
 | 编号 | 候选标题 | 对应 Harness 层 |
 |---|---|---|
-| H-01 | Context Harness：给 AI 正确上下文，而不是无限上下文 | Context |
-| H-02 | Execution Harness：把 AI 任务执行变成可跟踪的流程 | Execution |
-| H-03 | Evidence Harness：AI 的结论，必须有证据来源 | Evidence |
-| H-04 | Evaluation Harness：你的 AI coding 有没有真的变好 | Evaluation |
-| H-05 | Governance Harness：权限、边界、降级——AI 工程的安全层 | Governance |
-| H-06 | Knowledge Harness：每次 AI coding 的经验都不应该消失 | Knowledge |
+| H-01 | Spec-First：Context Harness——给 AI 正确上下文，而不是无限上下文 | Context |
+| H-02 | Spec-First：Execution Harness——把 AI 任务执行变成可跟踪的流程 | Execution |
+| H-03 | Spec-First：Evidence Harness——AI 的结论，必须有证据来源 | Evidence |
+| H-04 | Spec-First：Evaluation Harness——你的 AI coding 有没有真的变好 | Evaluation |
+| H-05 | Spec-First：Governance Harness——权限、边界、降级，AI 工程的安全层 | Governance |
+| H-06 | Spec-First：Knowledge Harness——每次 AI coding 的经验都不应该消失 | Knowledge |
 
 **2B — Workflow 工作链系列**（从用户操作视角）
 
 | 编号 | 候选标题 | 对应节点 |
 |---|---|---|
-| W-01 | 代码库的"地图"从哪里来：Graph Bootstrap 的设计逻辑 | Codebase → Graph |
-| W-02 | 从"猜代码"到"知道代码"：代码图谱如何改变 AI 的决策输入 | Graph → Context |
-| W-03 | 从想法到 Spec：Brainstorm workflow 的设计逻辑 | Ideate → Spec |
-| W-04 | Plan 约束实现：如何让 AI 不在执行中跑偏 | Plan |
-| W-05 | 执行阶段的治理：AI coding 的五个关键控制点 | Work |
-| W-06 | 不要再说"你再检查一下"：结构化 Review 的六个维度 | Review |
-| W-07 | 知识复利：每次任务都是下次任务的输入优势 | Compound/Knowledge |
-| W-08 | GitNexus 集成：代码图谱驱动的 AI 开发是什么感觉 | 进阶/Graph provider |
+| W-01 | Spec-First：代码库的“地图”从哪里来——Graph Bootstrap 的设计逻辑 | Codebase → Graph |
+| W-02 | Spec-First：从“猜代码”到“知道代码”——代码图谱如何改变 AI 的决策输入 | Graph → Context |
+| W-03 | Spec-First：从想法到 Spec——Brainstorm workflow 的设计逻辑 | Ideate → Spec |
+| W-04 | Spec-First：Plan 约束实现——如何让 AI 不在执行中跑偏 | Plan |
+| W-05 | Spec-First：执行阶段的治理——AI coding 的五个关键控制点 | Work |
+| W-06 | Spec-First：不要再说“你再检查一下”——结构化 Review 的六个维度 | Review |
+| W-07 | Spec-First：知识复利——每次任务都是下次任务的输入优势 | Compound/Knowledge |
+| W-08 | Spec-First：GitNexus 集成——代码图谱驱动的 AI 开发是什么感觉 | 进阶/Graph provider |
 
 ### 流 3：Building in Public
 
 | 编号 | 候选标题 | 主题 |
 |---|---|---|
-| B-01 | 我为什么要做 spec-first（创始故事） | 动机与起点 |
-| B-02 | Light contract：为什么我不做重状态机 | 核心设计哲学 |
-| B-03 | 我在 spec-first 里踩过的三个坑 | 失败与反思 |
-| B-04 | 一个开源 CLI 的双宿主设计故事 | Claude + Codex 双宿主架构决策 |
-| B-05 | 如何为一个 AI workflow 工具写测试 | 工程实践细节 |
-| B-06 | spec-first 第一个月：发生了什么 | 项目进展回顾 |
+| B-01 | Spec-First：我为什么要做 spec-first（创始故事） | 动机与起点 |
+| B-02 | Spec-First：Light contract——为什么我不做重状态机 | 核心设计哲学 |
+| B-03 | Spec-First：我在 spec-first 里踩过的三个坑 | 失败与反思 |
+| B-04 | Spec-First：一个开源 CLI 的双宿主设计故事 | Claude + Codex 双宿主架构决策 |
+| B-05 | Spec-First：如何为一个 AI workflow 工具写测试 | 工程实践细节 |
+| B-06 | Spec-First：spec-first 第一个月发生了什么 | 项目进展回顾 |
 
 ---
 
@@ -182,10 +184,10 @@ Codebase → Graph → Spec → Plan → Work → Review → Knowledge
 
 | 周次 | 文章 1（实操/深度） | 文章 2（概念/思想） | 文章 3（BIP） |
 |---|---|---|---|
-| 第 1 周 | ~~01 总览（已发）~~ | C-02 为什么我不做 Prompt 框架 | B-01 我为什么做 spec-first |
-| **第 2 周** | **C-07 什么是 AI Coding Harness（枢纽）** | W-01 Graph Bootstrap | B-02 Light contract |
-| 第 3 周 | H-01 Context Harness | W-03 从想法到 Spec | B-03 踩过的三个坑 |
-| 第 4 周 | H-03 Evidence Harness | W-04 Plan 约束实现 | B-04 双宿主设计故事 |
+| 第 1 周 | ~~01 总览（已发）~~ | C-02 Spec-First：为什么我不做 Prompt 框架 | B-01 Spec-First：我为什么做 spec-first |
+| **第 2 周** | **C-07 Spec-First：从 Workflow 到 AI Coding Harness（枢纽）** | W-01 Spec-First：Graph Bootstrap | B-02 Spec-First：Light contract |
+| 第 3 周 | H-01 Spec-First：Context Harness | W-03 Spec-First：从想法到 Spec | B-03 Spec-First：踩过的三个坑 |
+| 第 4 周 | H-03 Spec-First：Evidence Harness | W-04 Spec-First：Plan 约束实现 | B-04 Spec-First：双宿主设计故事 |
 
 > 第 2 周的 C-07 是整个系列的叙事转折点：从"workflow 问题"升级为"Harness 工程"，后续所有文章都在 Harness 框架下展开。
 

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
   <title id="title">spec-first 的六层 AI Coding Harness</title>
-  <desc id="desc">展示 Context、Execution、Evidence、Evaluation、Governance、Knowledge 六层 Harness 与核心工作流链路。</desc>
+  <desc id="desc">展示 Context、Execution、Evidence、Evaluation、Governance、Knowledge 六层 Harness 与核心工作流链路，每层标注 spec-first 中对应的真实工程抓手。</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#07111f"/>
@@ -21,39 +21,39 @@
   <g filter="url(#shadow)">
     <rect x="110" y="145" width="300" height="150" rx="18" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
     <text x="260" y="188" text-anchor="middle" fill="#f8fafc" font-size="24" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Context Harness</text>
-    <text x="260" y="226" text-anchor="middle" fill="#bae6fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">给正确上下文</text>
-    <text x="260" y="254" text-anchor="middle" fill="#cbd5e1" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">不广播整个 repo</text>
+    <text x="260" y="226" text-anchor="middle" fill="#bae6fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">给正确上下文，不投喂整库</text>
+    <text x="260" y="254" text-anchor="middle" fill="#cbd5e1" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">context_refs · mirror 排除</text>
   </g>
   <g filter="url(#shadow)">
     <rect x="450" y="145" width="300" height="150" rx="18" fill="url(#card)" stroke="#22d3ee" stroke-width="2"/>
     <text x="600" y="188" text-anchor="middle" fill="#f8fafc" font-size="24" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Execution Harness</text>
-    <text x="600" y="226" text-anchor="middle" fill="#bae6fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">让任务可跟踪</text>
-    <text x="600" y="254" text-anchor="middle" fill="#cbd5e1" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">但不变成状态机</text>
+    <text x="600" y="226" text-anchor="middle" fill="#bae6fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">让任务可跟踪，不漂移</text>
+    <text x="600" y="254" text-anchor="middle" fill="#cbd5e1" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">source_plan_hash · target_repo</text>
   </g>
   <g filter="url(#shadow)">
     <rect x="790" y="145" width="300" height="150" rx="18" fill="url(#card)" stroke="#67e8f9" stroke-width="2"/>
     <text x="940" y="188" text-anchor="middle" fill="#f8fafc" font-size="24" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Evidence Harness</text>
-    <text x="940" y="226" text-anchor="middle" fill="#bae6fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">结论必须有来源</text>
-    <text x="940" y="254" text-anchor="middle" fill="#cbd5e1" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">provenance / freshness / limits</text>
+    <text x="940" y="226" text-anchor="middle" fill="#bae6fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">结论必须有来源、可分级</text>
+    <text x="940" y="254" text-anchor="middle" fill="#cbd5e1" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">evidence_grade: primary→stale</text>
   </g>
 
   <g filter="url(#shadow)">
     <rect x="110" y="465" width="300" height="150" rx="18" fill="url(#card)" stroke="#a78bfa" stroke-width="2"/>
     <text x="260" y="508" text-anchor="middle" fill="#f8fafc" font-size="24" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Evaluation Harness</text>
-    <text x="260" y="546" text-anchor="middle" fill="#ddd6fe" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">记录有没有变好</text>
-    <text x="260" y="574" text-anchor="middle" fill="#cbd5e1" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">不是只看使用次数</text>
+    <text x="260" y="546" text-anchor="middle" fill="#ddd6fe" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">记录有没有真的变好</text>
+    <text x="260" y="574" text-anchor="middle" fill="#cbd5e1" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">spec-optimize · quality_signals</text>
   </g>
   <g filter="url(#shadow)">
     <rect x="450" y="465" width="300" height="150" rx="18" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
     <text x="600" y="508" text-anchor="middle" fill="#f8fafc" font-size="24" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Governance Harness</text>
-    <text x="600" y="546" text-anchor="middle" fill="#fde68a" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">边界、权限、降级</text>
-    <text x="600" y="574" text-anchor="middle" fill="#cbd5e1" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">source / runtime / provider</text>
+    <text x="600" y="546" text-anchor="middle" fill="#fde68a" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">边界、降级、证据卫生</text>
+    <text x="600" y="574" text-anchor="middle" fill="#cbd5e1" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">mutation-gated · redaction</text>
   </g>
   <g filter="url(#shadow)">
     <rect x="790" y="465" width="300" height="150" rx="18" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
     <text x="940" y="508" text-anchor="middle" fill="#f8fafc" font-size="24" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Knowledge Harness</text>
     <text x="940" y="546" text-anchor="middle" fill="#bbf7d0" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">经验进入下一次任务</text>
-    <text x="940" y="574" text-anchor="middle" fill="#cbd5e1" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">learning / review / compound</text>
+    <text x="940" y="574" text-anchor="middle" fill="#cbd5e1" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">docs/solutions · compound-refresh</text>
   </g>
 
   <g filter="url(#shadow)">
