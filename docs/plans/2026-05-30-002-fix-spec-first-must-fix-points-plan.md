@@ -12,7 +12,7 @@ spec_id: 2026-05-30-002-spec-first-must-fix
 
 将 150 轮审查收敛出的「现在最该先做」三点落为最小可维护改动:① 证据诚实性收敛——把已散落在多处的 graph 诚实性规则 wire 进下游 skill,并补一条**确为净新增**的「graph claim 必须引用具体字段」约束;② 给最高风险核心 skill(首批仅 code-review)补 eval 安全网(防 prose 盲改);③ 在 spec-work 一处接最小消费标注(复用既有 run-artifact 字段,只加 used/ignored 语义)。三项都保留,但每项砍到最小核心,不新建框架、不新建真相源、不引入状态机。
 
-**经对抗性审查修正(见末尾 Review Findings):** ① 原稿把 ① 误称「真 bug 修复」——经回源,blast-radius 禁令(`graph-provider-consumption.md` line 92)与 impact_context=false 处理(line 136)**已存在**,① 的真实价值是 wiring(skills 当前不引用该契约)+ 字段引用净新增,已据实降格定性;③ 与既有 `read_artifacts`/`graph_evidence_used` 去重,净新增收窄为 used/ignored 标注。
+**经对抗性审查修正(见末尾 Review Findings):** ① 原稿把 ① 误定性为缺陷修复——经回源,blast-radius 禁令(`graph-provider-consumption.md` line 92)与 impact_context=false 处理(line 136)**已存在**,① 的真实价值是 wiring(skills 当前不引用该契约)+ 字段引用净新增,已据实降格定性;③ 与既有 `read_artifacts`/`graph_evidence_used` 去重,净新增收窄为 used/ignored 标注。
 
 ---
 
@@ -21,7 +21,7 @@ spec_id: 2026-05-30-002-spec-first-must-fix
 `docs/项目审查/2026-05-30-codex-100轮审查后当前优化点.md`(canonical-index)与 Claude 50 轮审查交叉印证出系统当前最尖锐的缺口:一个以「可验证」为信条的系统,却无法验证自身证据是否诚实、行为是否退化、artifact 是否被消费。本方案不覆盖全部 P0-P6,只取其中「不做就持续出错 / 无法验证」的硬约束子集,作为先行窄计划。
 
 证据已核实(均回源 `docs/contracts/**`、`skills/**`、`src/cli/**`、`tests/**`):
-- `impact_context=false → 按 stale 处理` 的等价规则已在 `docs/contracts/graph-provider-consumption.md`;`do not claim blast radius` 措辞已在 `spec-debug`/`spec-code-review`,但只挂在 `unavailable-provider` 条件下,**未覆盖 `impact_context=false / definitions-only`**。
+- `impact_context=false → 按 stale 处理` 与 blast-radius 禁令已在 `docs/contracts/graph-provider-consumption.md`;本计划不新增该禁令,真实缺口是 downstream skill 与 scenario matrix 尚未统一 wiring 到 `impact_context=false / definitions-only` 口径,且缺少 graph claim 必须引用具体字段的 consumer 约束。
 - `code-review`/`plan`/`debug`/`brainstorm`/`compound` 五个核心 skill **无 `evals/` 目录**;eval 有两种既有格式 + 两个硬编码 shape 测试。
 - `spec-work-run-artifact` 基础设施(schema + producer + atomic-write + schema-validator + immutable/containment/prune)已齐备,`script_confirmed`/`llm_asserted`/`provider_untrusted` 三分已存在。
 
@@ -31,7 +31,7 @@ spec_id: 2026-05-30-002-spec-first-must-fix
 
 ## Requirements
 
-- R1. 消费 graph 证据的下游 skill,在 `impact_context=false`/definitions-only 时不得输出 blast-radius 级断言;graph-backed claim 必须引用具体字段。(证据诚实性,真 bug 修复)
+- R1. 消费 graph 证据的下游 skill,必须把既有 `impact_context=false`/definitions-only 诚实性规则 wire 到实际执行口径;graph-backed claim 必须引用具体字段。(证据诚实性收敛,wiring + 字段引用净新增)
 - R2. 加固以「改一处共享契约 + 各 skill 加指针」实现,不在四处重写规则。
 - R3. 为最高风险核心 skill(首批仅 `spec-code-review`)补最小 fresh-source eval fixture + 配套 shape 测试,防 prose 行为盲改。
 - R4. 在 `spec-work` closeout 记录最小消费事实(读了哪些 artifact、是否用于决策),复用现有 run-artifact 基础设施,不新建 schema 体系。
@@ -96,10 +96,10 @@ spec_id: 2026-05-30-002-spec-first-must-fix
 
 ## Key Technical Decisions
 
-- **加固走共享契约而非四处重写**:在 `downstream-graph-evidence-consumption.md` 补两条显式 consumer 约束,各 skill 加指针引用。理由:避免同一规则四份 prose drift(本就是审查发现的脆弱点)。
+- **加固走共享契约而非四处重写**:在 `downstream-graph-evidence-consumption.md` 补一条字段引用 consumer 约束,并扩展 `scenario-capability-matrix.md` 既有触发条件;各 skill 只加指针引用。理由:避免同一规则四份 prose drift(本就是审查发现的脆弱点)。
 - **blast-radius 禁令的触发条件扩展,而非新增禁令**:复用 `spec-debug`/`spec-code-review` 已有措辞,把触发条件从 `unavailable-provider` 扩到含 `impact_context=false / definitions-only`。
 - **eval 首批只做 code-review**:它是 1101 行、最复杂、最常改、最高风险的单点;先验证「补 eval」模式,其余 4 个 deferred。避免一次铺开 5 套 fixture + 5 个测试的过度投入。
-- **ledger 复用 spec-work-run-artifact,只在 work 一处接**:schema/producer/atomic-write/validator 全齐,扩现有 schema 加 consumption 字段即可;消费字段进 `script_confirmed`(脚本可验证存在性) / `llm_asserted`(是否用于决策的语义判断)既有三分,不新建分区。
+- **ledger 复用 spec-work-run-artifact,只在 work 一处接**:schema/producer/atomic-write/validator 全齐,复用既有 `read_artifacts` / `graph_evidence_used`,只补 used/ignored 语义标注,并要求关联 `key_decisions` 或 validated evidence;不复制 artifact 字段、不新建分区。
 - **消费 ledger 只记事实不判断成功**:脚本记录「读了/未读、是否用于决策」,「是否产生价值」由 LLM/人类解释,不脚本化。
 
 ---
@@ -112,7 +112,7 @@ spec_id: 2026-05-30-002-spec-first-must-fix
 - 加固是改契约还是改四处 skill? → 改一处共享契约 + U2a 指针(ground truth 确认契约已存在且 skills 未引用)。
 - ledger 新建还是复用? → 复用 run-artifact,且经审查去重为 used/ignored 净新增。
 - eval 补几个 skill? → 首批仅 code-review,其余 deferred(避免过度设计)。
-- ① 是不是「真 bug 修复」? → **否**(对抗审查回源纠正):禁令已存在于 `graph-provider-consumption.md` line 92/136,① 真实价值是 wiring + 字段引用净新增,已据实降格。
+- ① 是不是新的缺陷修复? → **否**(对抗审查回源纠正):禁令已存在于 `graph-provider-consumption.md` line 92/136,① 真实价值是 wiring + 字段引用净新增,已据实降格。
 
 ### Deferred to Implementation
 
