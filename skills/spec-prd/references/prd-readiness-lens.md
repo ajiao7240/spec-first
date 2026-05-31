@@ -25,7 +25,7 @@ Run these additional checks:
 4. `interaction readiness` - user-visible flows specify entry, state, feedback, confirmation, and cancellation when relevant.
 5. `evidence provenance` - user-stated, confirmed-source, external-research, GitNexus pointer, and assumptions are not blended.
 6. `planning invention risk` - planning would not need to invent actors, flows, acceptance, scope, priority, or current behavior.
-7. `terminology ambiguity` - canonical terms are defined or unresolved terms are in Outstanding Questions.
+7. `terminology ambiguity` - canonical terms are defined or unresolved terms are in Outstanding Questions. When `docs/contracts/domain-glossary.md` exists, `skills/spec-prd/scripts/check-glossary-drift.js <prd-path>` reports deterministic `avoid_term_used` findings (script-owned facts). Treat each finding as advisory, not a hard failure: confirm whether the PRD genuinely uses a non-canonical term versus quoting, defining, or discussing the term itself, then fix or record the decision. Absent/empty glossary yields no findings and is not a gap.
 8. `code-claim contradiction` - user/source mismatches are recorded as contradictions, not silently resolved.
 9. `hard-decision unresolved` - scope-changing or hard-to-reverse product decisions are decided, assumed with risk, or blocked.
 10. `vague-wording` - words such as "等", "相关", "合适的", "更好", and "优化体验" are replaced by verifiable behavior.

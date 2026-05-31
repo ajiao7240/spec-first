@@ -47,14 +47,14 @@ Avoid "same as before" or "reuse existing logic" unless the preserved behavior a
 
 ## Contradiction Handling
 
-If user wording conflicts with confirmed source:
+A contradiction can arise from three sources: user wording, confirmed source, and the project domain glossary (`docs/contracts/domain-glossary.md`) when it exists. If any two conflict:
 
 1. Record the mismatch as `contradiction`.
-2. Cite the source path or source tag.
-3. Give an evidence-backed recommended default when one is safe.
+2. Cite the source path or source tag for each side (including the glossary's `canonical_name` when a canonical term is involved).
+3. Give an evidence-backed recommended default when one is safe. Prefer the established canonical term over a new ad-hoc one unless the source proves the canonical is now stale.
 4. Ask one minimal owner question that decides scope or acceptance.
 
-Do not silently convert user-stated claims into confirmed source facts.
+Do not silently convert user-stated claims into confirmed source facts, and do not silently override an established canonical term — surface the conflict.
 
 ## Confirmed Claim Rule
 

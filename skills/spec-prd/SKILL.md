@@ -73,6 +73,7 @@ Load these references only when the phase needs them:
 - `references/intent-routing.md` for input classification, create/refine/validate intent, route-outs, and split-decision rules.
 - `references/current-state-analysis.md` before writing current-state or Change Delta claims.
 - `references/domain-language-and-decision-ledger.md` when terminology, domain boundaries, or source/user contradictions matter.
+- `docs/contracts/domain-glossary.md` when it exists — the project-level canonical glossary, read before introducing or naming domain terms so prior-PRD canonical terms are reused, not reinvented. Optional and opt-in; absence is fine for a single small increment.
 - `references/prd-output-template.md` before drafting or materially rewriting a PRD artifact.
 - `references/domain-lenses.md` when selecting App, H5/PC, Admin, Backend/Java, CLI/DevTool, Mixed, or project-local industry overlays.
 - `references/prd-readiness-lens.md` before final handoff to planning or doc review.
@@ -124,7 +125,7 @@ Write or update `Current System Snapshot` only for claims that affect the PRD. U
 
 Confirm the increment as `keep`, `extend`, `replace`, `remove`, or `unknown`. Do not let current-state discovery expand the product scope silently.
 
-When domain terminology is ambiguous, read `references/domain-language-and-decision-ledger.md`. Prefer source-first questioning: if existing docs/code can answer a terminology or behavior question, inspect them before asking the owner. If user wording conflicts with confirmed source, record the contradiction, source tag, recommended default, and one minimal owner confirmation question.
+When domain terminology is ambiguous, read `references/domain-language-and-decision-ledger.md`. Prefer source-first questioning: if existing docs/code can answer a terminology or behavior question, inspect them before asking the owner. When `docs/contracts/domain-glossary.md` exists, read it first so canonical terms established by prior PRDs are reused; if a new term conflicts with a canonical entry, surface the contradiction rather than drifting. If user wording conflicts with confirmed source, record the contradiction, source tag, recommended default, and one minimal owner confirmation question. When a domain-specific term has been sharpened across two or more PRDs, propose promoting it to the project glossary preview-first (owner-confirmed write only).
 
 ### Phase 3: Draft, Refine, Or Split
 

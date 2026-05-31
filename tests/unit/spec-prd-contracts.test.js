@@ -2,6 +2,8 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
+const { execFileSync } = require('node:child_process');
 
 const {
   buildFilteredAssetSet,
@@ -22,6 +24,8 @@ const DOMAIN_LANGUAGE_PATH = path.join(
 const OUTPUT_TEMPLATE_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'prd-output-template.md');
 const DOMAIN_LENSES_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'domain-lenses.md');
 const READINESS_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'prd-readiness-lens.md');
+const GLOSSARY_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'domain-glossary.md');
+const DRIFT_SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'scripts', 'check-glossary-drift.js');
 const EVALS_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'evals', 'examples.json');
 const GOVERNANCE_PATH = path.join(
   REPO_ROOT,
@@ -168,6 +172,8 @@ describe('spec-prd workflow contracts', () => {
       '`unknown`',
       'contradiction',
       'A current-state claim without an evidence tag cannot be treated as `confirmed-source`',
+      'three sources',
+      'project domain glossary',
     ]);
     expectContainsAll(domainLanguage, [
       'Source-First Questioning',
@@ -180,6 +186,12 @@ describe('spec-prd workflow contracts', () => {
       'hard to reverse',
       'surprising without context',
       'reflects a real tradeoff',
+      'Only capture domain-specific terms.',
+      'Define what a term IS, not what it DOES.',
+      'Cross-PRD Glossary Promotion',
+      'docs/contracts/domain-glossary.md',
+      'two or more PRDs',
+      'preview-first',
     ]);
     expect(domainLanguage).not.toContain('default create `CONTEXT.md`');
     expect(domainLanguage).not.toContain('always create ADR');
@@ -262,6 +274,8 @@ describe('spec-prd workflow contracts', () => {
       'do not introduce a second evidence enum',
       'ready-for-planning',
       'doc-review',
+      'check-glossary-drift.js',
+      'avoid_term_used',
     ]);
   });
 
@@ -382,5 +396,105 @@ describe('spec-prd workflow contracts', () => {
       'not_run_reason:',
     ]);
     expect(artifact).not.toContain('status: passed');
+  });
+
+  test('project domain glossary artifact defines the cross-PRD canonical layer with light contract', () => {
+    const glossary = read(GLOSSARY_PATH);
+
+    expectContainsAll(glossary, [
+      'Project Domain Glossary',
+      'canonical_name',
+      'first_seen_prd',
+      'referenced_by',
+      'status',
+      'preview-first',
+      '只收领域专属术语',
+      'IS not DOES',
+      'docs/contracts/',
+    ]);
+    // 不引入第二套证据 enum,复用既有等级
+    expect(glossary).toContain('graph-evidence-policy.md');
+    // 明确否定独立 CONTEXT.md / ADR 文件树拓扑
+    expect(glossary).toMatch(/不是.*独立的.*CONTEXT\.md/);
+    expect(glossary).not.toContain('sequential numbering');
+  });
+
+  test('glossary drift script reports script-owned facts and degrades when glossary is absent or empty', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glossary-drift-'));
+    try {
+      const prdPath = path.join(tmpDir, 'prd.md');
+      fs.writeFileSync(prdPath, 'The system sends a bill to the customer.\n', 'utf8');
+
+      // absent glossary -> graceful degrade, no findings, exit 0
+      const absent = JSON.parse(
+        execFileSync('node', [DRIFT_SCRIPT_PATH, prdPath, '--glossary', path.join(tmpDir, 'nope.md')], {
+          encoding: 'utf8',
+        }),
+      );
+      expect(absent.glossary_status).toBe('absent');
+      expect(absent.findings).toEqual([]);
+
+      // glossary with a real canonical entry whose avoid term appears in the PRD
+      const glossaryPath = path.join(tmpDir, 'g.md');
+      fs.writeFileSync(
+        glossaryPath,
+        '# Glossary\n### Invoice\nA request for payment.\n- avoid: bill\n- status: active\n',
+        'utf8',
+      );
+      const hit = JSON.parse(
+        execFileSync('node', [DRIFT_SCRIPT_PATH, prdPath, '--glossary', glossaryPath], { encoding: 'utf8' }),
+      );
+      expect(hit.glossary_status).toBe('present');
+      expect(hit.findings).toHaveLength(1);
+      expect(hit.findings[0]).toMatchObject({
+        reason_code: 'avoid_term_used',
+        term_used: 'bill',
+        canonical_name: 'Invoice',
+      });
+
+      // fenced code-block examples must not be parsed as real entries
+      const exampleOnly = path.join(tmpDir, 'example.md');
+      fs.writeFileSync(
+        exampleOnly,
+        '# Glossary\n## format\n```md\n### {canonical_name}\n- avoid: bill\n```\n',
+        'utf8',
+      );
+      const empty = JSON.parse(
+        execFileSync('node', [DRIFT_SCRIPT_PATH, prdPath, '--glossary', exampleOnly], { encoding: 'utf8' }),
+      );
+      expect(empty.glossary_status).toBe('empty');
+      expect(empty.findings).toEqual([]);
+
+      // regression: an avoid term on multiple lines must report every line
+      // (guards against stateful-regex lastIndex carry-over)
+      const multiPrd = path.join(tmpDir, 'multi.md');
+      fs.writeFileSync(multiPrd, 'a bill here\nanother bill\nthird bill line\n', 'utf8');
+      const multi = JSON.parse(
+        execFileSync('node', [DRIFT_SCRIPT_PATH, multiPrd, '--glossary', glossaryPath], { encoding: 'utf8' }),
+      );
+      expect(multi.findings).toHaveLength(3);
+      expect(multi.findings.map((f) => f.line)).toEqual([1, 2, 3]);
+
+      // regression: ASCII terms ending in non-word chars (C++, .NET) must match
+      const symPrd = path.join(tmpDir, 'sym.md');
+      fs.writeFileSync(symPrd, 'we use C++ here\n', 'utf8');
+      const symGloss = path.join(tmpDir, 'symg.md');
+      fs.writeFileSync(symGloss, '# G\n### Cancel\nx\n- avoid: C++\n- status: active\n', 'utf8');
+      const sym = JSON.parse(
+        execFileSync('node', [DRIFT_SCRIPT_PATH, symPrd, '--glossary', symGloss], { encoding: 'utf8' }),
+      );
+      expect(sym.findings).toHaveLength(1);
+      expect(sym.findings[0].term_used).toBe('C++');
+
+      // ASCII whole-word: 'bill' must not match 'billing'/'billed'
+      const wordPrd = path.join(tmpDir, 'word.md');
+      fs.writeFileSync(wordPrd, 'the billing system was billed\n', 'utf8');
+      const word = JSON.parse(
+        execFileSync('node', [DRIFT_SCRIPT_PATH, wordPrd, '--glossary', glossaryPath], { encoding: 'utf8' }),
+      );
+      expect(word.findings).toEqual([]);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
