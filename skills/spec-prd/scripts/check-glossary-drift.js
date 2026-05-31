@@ -12,10 +12,14 @@ const path = require('path');
 const DEFAULT_GLOSSARY = 'docs/contracts/domain-glossary.md';
 
 function parseArgs(argv) {
-  const args = { target: null, glossary: DEFAULT_GLOSSARY };
+  const args = { target: null, glossary: DEFAULT_GLOSSARY, error: null };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--glossary') {
+      if (!argv[i + 1] || argv[i + 1].startsWith('--')) {
+        args.error = 'missing value for --glossary';
+        break;
+      }
       args.glossary = argv[i + 1];
       i += 1;
     } else if (!args.target) {
@@ -102,7 +106,10 @@ function detectDrift(targetText, entries) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.target) {
+  if (args.error || !args.target) {
+    if (args.error) {
+      process.stderr.write(`${args.error}\n`);
+    }
     process.stderr.write(
       'usage: check-glossary-drift.js <target-prd-path> [--glossary <path>]\n'
     );

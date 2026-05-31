@@ -14,7 +14,7 @@
 
 沿用 `skills/spec-prd/references/domain-language-and-decision-ledger.md` 的 Canonical Term Handling:
 
-- **Opinionated**:同一概念多个叫法,选一个 canonical,其余进 `aliases / avoid`。
+- **Opinionated**:同一概念多个叫法,选一个 canonical,会让 planning 混淆或不应继续使用的说法进 `avoid`。
 - **只收领域专属术语**:本项目/领域独有的概念才进;通用工程概念(timeout、retry、cache、pagination)即使高频也不收。
 - **定义 IS not DOES**:一两句说清"它是什么",不写行为、流程或实现。这是 `WHAT not HOW` 在术语粒度的落地。
 
@@ -26,7 +26,7 @@
 |---|---|
 | `canonical_name` | 唯一规范术语名 |
 | `definition` | 一两句说明它 IS 什么(无实现细节) |
-| `aliases` / `avoid` | 应避免的别名,防止 planning 混淆 |
+| `avoid` | 应避免的别名或历史说法,防止 planning 混淆;v1 drift 检测只消费此字段 |
 | `source_tag` | 证据等级,复用 `confirmed` / `advisory`;不引入第二套 enum |
 | `first_seen_prd` | 首次确立该术语的 PRD 路径(repo-relative) |
 | `referenced_by` | 引用该术语的 PRD 路径列表(repo-relative) |
@@ -49,6 +49,8 @@
 ```
 
 退役术语保留条目并标 `status: deprecated` 或 `superseded_by`,不删除——保留历史可追溯。
+
+`avoid` 是 `spec-prd` v1 术语 drift 检测的唯一输入字段。若未来需要记录可接受别名,必须另起不参与 drift 检测的字段(例如 `accepted_aliases`),不能把它与应避免术语混写。
 
 ## 冲突治理
 

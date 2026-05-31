@@ -411,12 +411,14 @@ describe('spec-prd workflow contracts', () => {
       '只收领域专属术语',
       'IS not DOES',
       'docs/contracts/',
+      '`avoid` 是 `spec-prd` v1 术语 drift 检测的唯一输入字段',
     ]);
     // 不引入第二套证据 enum,复用既有等级
     expect(glossary).toContain('graph-evidence-policy.md');
     // 明确否定独立 CONTEXT.md / ADR 文件树拓扑
     expect(glossary).toMatch(/不是.*独立的.*CONTEXT\.md/);
     expect(glossary).not.toContain('sequential numbering');
+    expect(glossary).not.toContain('`aliases` / `avoid`');
   });
 
   test('glossary drift script reports script-owned facts and degrades when glossary is absent or empty', () => {
@@ -451,6 +453,20 @@ describe('spec-prd workflow contracts', () => {
         term_used: 'bill',
         canonical_name: 'Invoice',
       });
+
+      // non-contract aliases field is not a drift input; v1 consumes avoid only
+      const aliasOnlyGlossaryPath = path.join(tmpDir, 'aliases-only.md');
+      fs.writeFileSync(
+        aliasOnlyGlossaryPath,
+        '# Glossary\n### Invoice\nA request for payment.\n- aliases: bill\n- status: active\n',
+        'utf8',
+      );
+      const aliasesOnly = JSON.parse(
+        execFileSync('node', [DRIFT_SCRIPT_PATH, prdPath, '--glossary', aliasOnlyGlossaryPath], {
+          encoding: 'utf8',
+        }),
+      );
+      expect(aliasesOnly.findings).toEqual([]);
 
       // fenced code-block examples must not be parsed as real entries
       const exampleOnly = path.join(tmpDir, 'example.md');
@@ -493,6 +509,14 @@ describe('spec-prd workflow contracts', () => {
         execFileSync('node', [DRIFT_SCRIPT_PATH, wordPrd, '--glossary', glossaryPath], { encoding: 'utf8' }),
       );
       expect(word.findings).toEqual([]);
+
+      try {
+        execFileSync('node', [DRIFT_SCRIPT_PATH, prdPath, '--glossary'], { encoding: 'utf8', stdio: 'pipe' });
+        throw new Error('expected --glossary without value to fail');
+      } catch (err) {
+        expect(err.status).toBe(2);
+        expect(String(err.stderr)).toContain('missing value for --glossary');
+      }
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
