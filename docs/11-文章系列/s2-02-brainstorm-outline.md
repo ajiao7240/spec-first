@@ -4,7 +4,7 @@ description: 第二季第 3 篇大纲：brainstorm / ideate——从一句话到
 metadata:
   type: article-outline
   series: s2
-  series_index: "s2-03"
+  series_index: "s2-02"
 ---
 
 # Spec-First：为什么你的需求说清楚了，AI 还是做错了

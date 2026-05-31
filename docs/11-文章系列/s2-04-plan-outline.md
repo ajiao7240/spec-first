@@ -4,7 +4,7 @@ description: 第二季第 5 篇大纲：plan——计划不是微观指令，而
 metadata:
   type: article-outline
   series: s2
-  series_index: "s2-05"
+  series_index: "s2-04"
 ---
 
 # Spec-First：你给 AI 的计划，其实是在帮它跑偏

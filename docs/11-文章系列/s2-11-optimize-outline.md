@@ -4,7 +4,7 @@ description: 第二季第 12 篇大纲：optimize——有指标才能优化，m
 metadata:
   type: article-outline
   series: s2
-  series_index: "s2-12"
+  series_index: "s2-11"
 ---
 
 # Spec-First：把它优化好一点——这句话为什么会让 AI 失控

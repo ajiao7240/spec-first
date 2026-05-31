@@ -4,7 +4,7 @@ description: 第二季第 11 篇大纲：compound / compound-refresh——每次
 metadata:
   type: article-outline
   series: s2
-  series_index: "s2-11"
+  series_index: "s2-10"
 ---
 
 # Spec-First：你解决过的问题，为什么下次还要重新解决一遍
