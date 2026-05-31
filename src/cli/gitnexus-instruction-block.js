@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { writeFileAtomic } = require('./atomic-write');
 
 const GITNEXUS_START = '<!-- gitnexus:start -->';
 const GITNEXUS_END = '<!-- gitnexus:end -->';
@@ -312,12 +313,6 @@ function formatInstructionAction(action) {
     default:
       return action;
   }
-}
-
-function writeFileAtomic(filePath, content) {
-  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmpPath, content, 'utf8');
-  fs.renameSync(tmpPath, filePath);
 }
 
 function parseArgs(argv) {

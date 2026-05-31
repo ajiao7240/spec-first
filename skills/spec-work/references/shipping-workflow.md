@@ -124,7 +124,7 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
 
 3. **Commit and Create Pull Request**
 
-   Load the `git-commit-push-pr` skill to handle committing, pushing, and PR creation. The skill handles convention detection, branch safety, logical commit splitting, adaptive PR descriptions, and attribution badges.
+   Load the `git-commit-push-pr` skill to handle committing, pushing, and PR creation. The skill handles convention detection, branch safety, logical commit splitting, adaptive PR descriptions, and attribution badges. `git-commit-push-pr` is a host-provided skill, not a spec-first runtime asset; if the current host does not expose it, degrade gracefully — perform the commit/push/PR steps directly with `git` / `gh` and note that the helper was unavailable.
 
    When providing context for the PR description, include:
    - The plan's summary and key decisions
@@ -134,7 +134,7 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
    - The Post-Deploy Monitoring & Validation section (see Phase 3 Step 5)
    - Any "Known Residuals" accepted in the Phase 3 Residual Work Gate, rendered as a dedicated section in the PR body with severity, file:line, and title per finding
 
-   If the user prefers to commit without creating a PR, load the `git-commit` skill instead.
+   If the user prefers to commit without creating a PR, load the `git-commit` skill instead (also host-provided; if absent, commit directly with `git` and note the helper was unavailable).
 
 4. **Notify User**
    - Summarize what was completed

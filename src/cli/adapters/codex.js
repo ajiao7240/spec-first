@@ -5,6 +5,7 @@ const PlatformAdapter = require('./base');
 const {
   isHostComparativeRuntimeSkill,
 } = require('../host-comparative-workflows');
+const { listBundledAgentNames } = require('../plugin');
 
 /**
  * Codex platform adapter
@@ -209,11 +210,29 @@ function transformCodexContent(content) {
   );
 
   transformed = transformed.replace(
-    /`(spec-[a-z0-9-]+(?:agent|reviewer|researcher|analyst|specialist|oracle|sentinel|guardian|strategist|expert|detector|sync|resolver|historian|writer))`/g,
+    bundledAgentReferencePattern(),
     (_match, agentName) => `\`.codex/agents/${agentName}.agent.md\``,
   );
 
   return transformed;
+}
+
+// 用已注册 agent 名集合(确定性事实源)而非启发式后缀白名单做反引号引用重写,
+// 避免新增 agent 用了白名单外后缀时在 Codex runtime 静默漏重写。
+let bundledAgentReferencePatternCache = null;
+function bundledAgentReferencePattern() {
+  if (bundledAgentReferencePatternCache === null) {
+    // 长名优先,避免互为前缀的 agent 名发生短匹配截断。
+    const names = listBundledAgentNames()
+      .slice()
+      .sort((a, b) => b.length - a.length)
+      .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    // 空集合时退化为永不匹配的正则,避免 `(${''})` => `\`()\`` 误吞所有反引号对(含代码围栏)。
+    bundledAgentReferencePatternCache = names.length === 0
+      ? /(?!)/g
+      : new RegExp(`\`(${names.join('|')})\``, 'g');
+  }
+  return bundledAgentReferencePatternCache;
 }
 
 function rewriteSkillName(content, skillName) {

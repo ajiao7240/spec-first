@@ -466,6 +466,13 @@ function listBundledAgents() {
   return listAgentMarkdownEntries(sourceDir);
 }
 
+function listBundledAgentNames() {
+  return listBundledAgents()
+    .map((entry) => entry.replace(/^.*[\\/]/, ''))
+    .filter((name) => name.endsWith('.agent.md'))
+    .map((name) => name.replace(/\.agent\.md$/, ''));
+}
+
 function listBundledAgentSupportFiles() {
   const sourceDir = getBundledPath('agents');
   if (!fs.existsSync(sourceDir)) {
@@ -959,6 +966,7 @@ module.exports = {
   inspectInstalledAssets,
   listBundledAgentSupportFiles,
   listBundledAgents,
+  listBundledAgentNames,
   listBundledCommands,
   listBundledSkills,
   loadPluginManifest,
@@ -1257,6 +1265,10 @@ function transformedContentIntegrityIssues(actualContent, adapter, { kind, skill
     issues.push('codex_path_rewrite_drift');
   }
 
+  if (adapter.id === 'codex' && codexBareAgentReferencePattern().test(contentForPathRewriteCheck)) {
+    issues.push('codex_agent_rewrite_drift');
+  }
+
   const expectedSkillName = adapter.id === 'codex' && !isWorkflowSkill && typeof skillName === 'string' && skillName.startsWith('spec-')
     ? skillName.replace(/^spec-/, '')
     : skillName;
@@ -1277,4 +1289,22 @@ function codexPathRewriteCheckContent(content, { skillName } = {}) {
     'Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`',
     'Claude Code installs it as `[claude using-spec-first skill path]`',
   );
+}
+
+// 检测本应被 Codex adapter 重写成 `.codex/agents/<name>.agent.md` 路径、
+// 但在 runtime 内容里仍以裸 `spec-<agent>` 反引号形式残留的已注册 agent 引用。
+// 与 codex.js 的重写共享同一份已注册 agent 名事实源,关闭 drift 检测盲区。
+let codexBareAgentReferencePatternCache = null;
+function codexBareAgentReferencePattern() {
+  if (codexBareAgentReferencePatternCache === null) {
+    const names = listBundledAgentNames()
+      .slice()
+      .sort((a, b) => b.length - a.length)
+      .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    // 空集合时退化为永不匹配的正则,避免 `\`()\`` 把所有反引号对误判为 drift。
+    codexBareAgentReferencePatternCache = names.length === 0
+      ? /(?!)/
+      : new RegExp(`\`(${names.join('|')})\``);
+  }
+  return codexBareAgentReferencePatternCache;
 }

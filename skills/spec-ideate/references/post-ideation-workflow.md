@@ -115,7 +115,7 @@ If resuming:
 
 Hand off the ideation content to the `proof` skill in HITL review mode. This uploads the doc, runs an iterative review loop (user annotates in Proof, agent ingests feedback and applies tracked edits), and (in repo mode) syncs the reviewed markdown back to `docs/ideation/`.
 
-Load the `proof` skill in HITL-review mode with:
+Load the `proof` skill (host-provided; if the host does not expose it, tell the user this review surface is unavailable) in HITL-review mode with:
 
 - **source content:** the survivors and rejection summary from Phase 4 (in repo mode, this is the file written in 5.1; in elsewhere mode, render to a temp file as the source for upload)
 - **doc title:** `Ideation: <topic>` or the H1 of the ideation doc

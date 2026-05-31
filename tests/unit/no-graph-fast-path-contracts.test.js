@@ -62,10 +62,10 @@ describe('no-graph fast path contracts', () => {
     expect(usingSpecFirst).toContain('clear lightweight docs, small-code, plan, work, or review goal');
     expect(usingSpecFirst).toContain('route by that goal and require the selected workflow to disclose degraded graph/MCP evidence when relevant');
 
-    expect(initCommand).toContain('For lightweight docs, small fixes, first trials, or lightweight plan/work/review');
-    expect(initCommand).toContain('For enhanced readiness');
+    expect(initCommand).toContain('for lightweight docs, small fixes, first trials, plan, work, review, or debug');
+    expect(initCommand).toContain('for enhanced readiness');
     expect(initCommand).toContain('Project guidance comes from AGENTS.md, CLAUDE.md, docs/contracts, direct source evidence, tests, and graph facts.');
-    expect(initCommand).toContain('对 docs、小修复、首次试用或轻量 plan/work/review');
+    expect(initCommand).toContain('docs、小修复、首次试用、plan、work、review 或 debug');
   });
 
   test('fast path does not introduce a quick workflow or CLI mode', () => {

@@ -34,6 +34,7 @@ const {
   summarizeOperationPlan,
 } = require('../state');
 const { planRuntimeUntrack } = require('../runtime-untrack');
+const { writeFileAtomic } = require('../atomic-write');
 const { getAdapter } = require('../adapters');
 const { applyManagedBlock, buildManagedBlock } = require('../lang-policy');
 const {
@@ -1642,11 +1643,8 @@ function toWorkspaceRelativePath(childPath, workspaceRoot) {
 }
 
 function writeJsonFileAtomic(filePath, payload) {
-  const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmpPath = path.join(dir, `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`);
-  fs.writeFileSync(tmpPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
-  fs.renameSync(tmpPath, filePath);
+  // 复用共享 atomic-write(带 crypto 随机临时后缀与失败清理),不再内联弱版实现。
+  writeFileAtomic(filePath, `${JSON.stringify(payload, null, 2)}\n`);
 }
 
 function validateContainedWorkspaceWritePath(workspaceRoot, filePath) {

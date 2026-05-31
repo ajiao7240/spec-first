@@ -143,6 +143,33 @@ describe('lightweight schema validator contracts', () => {
     ]);
   });
 
+  test('enforces required/properties even when type:object is omitted', () => {
+    const schema = {
+      required: ['a'],
+      properties: { a: { type: 'string' } },
+    };
+
+    expect(validateAgainstSchema(schema, {}).errors).toEqual([
+      'root: missing required key a',
+    ]);
+    expect(validateAgainstSchema(schema, { a: 'ok' }).errors).toEqual([]);
+    expect(validateAgainstSchema(schema, { a: 1 }).errors).toEqual([
+      'root.a: expected string, received number',
+    ]);
+  });
+
+  test('enforces exclusiveMinimum and exclusiveMaximum bounds', () => {
+    expect(validateAgainstSchema({ type: 'integer', exclusiveMinimum: 0 }, 0).errors).toEqual([
+      'root: expected number > 0, received 0',
+    ]);
+    expect(validateAgainstSchema({ type: 'integer', exclusiveMinimum: 0 }, 1).errors).toEqual([]);
+    expect(validateAgainstSchema({ type: 'integer', exclusiveMaximum: 10 }, 10).errors).toEqual([
+      'root: expected number < 10, received 10',
+    ]);
+    expect(SUPPORTED_SCHEMA_KEYWORDS).toContain('exclusiveMinimum');
+    expect(SUPPORTED_SCHEMA_KEYWORDS).toContain('exclusiveMaximum');
+  });
+
   test('fails closed for unsupported schema references', () => {
     const result = validateAgainstSchema({
       $ref: 'https://example.invalid/schema.json',

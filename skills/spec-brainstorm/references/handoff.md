@@ -74,7 +74,7 @@ Immediately execute the `spec-work` workflow in the current session using the fi
 
 **If user selects "Open in Proof — review and comment to iterate with the agent":**
 
-Load the `proof` skill in HITL-review mode with:
+Load the `proof` skill in HITL-review mode with (`proof` is a host-provided skill, not a spec-first runtime asset; if the host does not expose it, skip the Proof handoff and tell the user this review surface is unavailable):
 
 - **source file:** `docs/brainstorms/YYYY-MM-DD-<topic>-requirements.md`
 - **doc title:** `Requirements: <topic title>`

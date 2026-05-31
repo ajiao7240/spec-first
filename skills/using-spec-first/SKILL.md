@@ -218,6 +218,8 @@ Do not chain multiple workflows automatically unless the active workflow explici
 | existing bug, failure, test failure, stack trace, or abnormal behavior to reproduce or diagnose | `/spec:debug` | `$spec-debug` |
 | code review, PR review, diff audit, or implementation-quality evaluation | `/spec:code-review` | `$spec-code-review` |
 | requirements, plan, spec, or markdown document review | `/spec:doc-review` | `$spec-doc-review` |
+| audit spec-first skill/agent assets for engineering quality, boundary, or governance issues | `/spec:skill-audit` | `$spec-skill-audit` |
+| audit app/PRD-to-implementation consistency or drift across the project | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` |
 | asking what to build, wants ideas, or asks for options/surprising improvements without a concrete feature | `/spec:ideate` | `$spec-ideate` |
 | still defining WHAT to build, unclear problem frame, or product decisions before planning | `/spec:brainstorm` or `/spec:ideate` | `$spec-brainstorm` or `$spec-ideate` |
 | optimize a measurable outcome through experiments | `/spec:optimize` | `$spec-optimize` |
@@ -227,7 +229,6 @@ Do not chain multiple workflows automatically unless the active workflow explici
 | polish a browser-visible UI and iterate with a running app | `/spec:polish-beta` | `$spec-polish-beta` |
 | capture a recently solved problem or compound knowledge after work | `/spec:compound` | `$spec-compound` |
 | refresh, correct, merge, replace, or retire existing durable docs/learnings/pattern docs | `/spec:compound-refresh` | `$spec-compound-refresh` |
-| PR description writing or regeneration | `git-commit-push-pr` skill in description-only mode | `git-commit-push-pr` skill in description-only mode |
 | recent spec-first release notes | `/spec:release-notes` | `$spec-release-notes` |
 
 `spec-write-tasks` is not a `/spec:*` or `$spec-*` workflow entrypoint. Ordinary execution-ready work routes to the stable work entrypoint.

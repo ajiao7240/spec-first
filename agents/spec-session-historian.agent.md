@@ -2,6 +2,7 @@
 name: spec-session-historian
 description: "Synthesizes findings from prior Claude Code and Codex coding-agent sessions about the same problem or topic. Receives pre-extracted skeleton/error file paths from a `spec-sessions` orchestrator and returns prose findings. Not intended for direct dispatch; use the sessions workflow or another caller that runs discovery and extraction first."
 model: inherit
+tools: Read, Grep, Glob, Bash
 ---
 
 **Note: The current year is 2026.** Use this when interpreting session timestamps.

@@ -19,6 +19,12 @@ source_basis:
   - skills/spec-plan/references/graph-evidence-posture.md
   - docs/contracts/graph-evidence-policy.md
   - docs/02-架构设计/需求拆分/大需求拆分.md
+  - docs/需求文档模版/原始模版/
+  - docs/需求文档模版/标准模版/
+relationship_to_vision_roadmap:
+  vision_doc: docs/02-架构设计/需求拆分/大需求拆分.md
+  diagnosis: docs/brainstorms/2026-05-30-003-spec-prd-关系诊断-vs-大需求拆分.md
+  stance: 本文是终态愿景的第一阶段落地真相源(关系 C)。spec-prd v1 = 单文件增量 PRD + 复杂度识别闸;packet/multi-surface/拆分为 v2+ 演化,复用愿景文档结构设计,最终载体 v2 再定。
 graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidence 强度按 docs/contracts/graph-evidence-policy.md 分级,stale/dirty-advisory/impact-unavailable 时不得当 fresh impact evidence。(本文撰写时 graph-facts 实测为 dirty-advisory + impact_context=false,但该状态会随 graph 刷新变化,需求约束以 policy 为准,不钉死此快照值。)"
 ---
 
@@ -30,7 +36,9 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 
 `spec-brainstorm` 保持 0-1 想法探索、问题定义和 WHAT shaping；`spec-prd` 聚焦已有系统上的增量需求迭代 PRD 输出。它的核心体验是：产品 owner 说出想法后，skill 先结合现有代码和 GitNexus orientation 分析涉及的流程与系统现状，再帮助产品确认增量，最后输出高质量 Markdown PRD。
 
-首版不拆多个 PRD skill，不新增独立 agent。`create`、`refine`、`validate` 是 `spec-prd` 内部 intent；`code-align` 不是平行 intent，而是贯穿全部 intent 的 evidence posture，只有在用户明确要求“先对齐代码现状、暂不输出完整 PRD”时作为子模式运行。首版用 references + fresh-source eval + focused contract tests 控制质量；只有实际 eval 证明单一 orchestrator 稳定失效时，才新增内部 reviewer agent。
+首版不拆多个 PRD skill。`create`、`refine`、`validate` 是 `spec-prd` 内部 intent；`code-align` 不是平行 intent，而是贯穿全部 intent 的 evidence posture，只有在用户明确要求“先对齐代码现状、暂不输出完整 PRD”时作为子模式运行。首版用 references + fresh-source eval + focused contract tests 控制质量。v1 规划纳入 1 个 eval-gated 内部 readiness reviewer（`spec-requirements-readiness-reviewer`，命名待定），它 own PRD-grade readiness 判断、主要服务 `spec-prd` 自检、不作为用户公开入口；被 `spec-doc-review` 复用是条件能力（须 reviewer 实体化且同步更新 doc-review persona 契约）。其实体化受 eval 校准——先由 orchestrator 执行 readiness lens，只有 fresh-source eval 证明单 orchestrator 自审不稳时才落地为独立 agent。
+
+本次结合 `docs/需求文档模版/标准模版/` 反向校准：`spec-prd` v1 不只是内置通用 App/Admin/Backend surface lens，还必须支持**项目模板库与行业 overlay lens**。在证券行业项目中，surface lens 之上要叠加证券行业检查（监管辖区、客户/账户/产品范围、适当性、AML/KYC、行情、交易、资金清结算、风控、审计留痕、精度与时区）。这些检查是 PRD 作者期的 WHAT 约束，不是技术实现或法务意见替代品。
 
 ---
 
@@ -41,7 +49,7 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 | 扩展 `spec-brainstorm` 还是新增 skill | 新增 `spec-prd`；`spec-brainstorm` 保持 0-1 边界 |
 | 新增几个公开 skill | 1 个：`spec-prd` |
 | 是否拆 create/refine/validate/code-align | 不拆；create/refine/validate 为内部 intent，code-align 为 evidence posture / 子模式 |
-| 是否新增 agent | v1 不新增 |
+| 是否新增 agent | v1 新增 1 个 eval-gated 内部 readiness reviewer（非公开入口），实体化受 eval 校准 |
 | PRD artifact 放哪里 | 继续放 `docs/brainstorms/*-requirements.md` |
 | 是否新增 `docs/prds/` | 不新增 |
 | 是否新建 evidence 词表 | 不新建；映射到既有 graph evidence policy |
@@ -56,7 +64,7 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 - `spec-brainstorm`: 我还不知道要做什么，帮我一起想清楚。
 - `spec-prd`: 我已经有增量方向或已有 PRD，帮我结合系统现状写成研发可用 PRD。
 
-风险不通过取消 `spec-prd` 解决，而通过严格边界解决：单入口、共享 artifact、复用 gate、复用 evidence policy、v1 不新增 agent。
+风险不通过取消 `spec-prd` 解决，而通过严格边界解决：单入口、共享 artifact、复用 gate、复用 evidence policy、v1 不新增公开 agent 入口（仅允许 1 个 eval-gated 内部 readiness reviewer）。
 
 **外部一手证据(来自 `001` 的 curl 核验,支撑本决策)**：CodeStable `cs-req`(★868)把"现状档案层"与"模糊想法讨论层 `cs-brainstorm`"显式拆成不同入口——这是 `spec-prd`(增量/现状)与 `spec-brainstorm`(0-1)分入口的真实业界先例；Sourcegraph / CodeScene 已出 MCP code-graph server，印证 code-grounding 是业界方向，但均未明文化"现状证据分级 + 现状不反向扩 scope"治理(R11-R13/R40 的差异化点);testany-agent-skills 的 writer+reviewer 门禁印证 readiness lens 方向，但其十余个公开入口是反例，佐证 D1 单入口。Tessl 经核验为 Agent Enablement Platform(skill 治理)，与本需求无直接竞争，不引为论据。
 
@@ -69,7 +77,7 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 | Issue | Final decision | Consequence |
 | --- | --- | --- |
 | H1. 与 `spec-app-consistency-audit` 重叠 | `spec-prd` 负责 App PRD 作者期的 current-state、Change Delta、异常/交互/验收补齐；`spec-app-consistency-audit` 负责 PRD/Figma/source/route/analytics/i18n 的静态一致性审计 | App lens 不复用 app-audit artifact spine，不自动触发 app-audit；用户显式要求 App 一致性审计时 handoff |
-| H2. Requirements Readiness Gate 如何复用 | Planning 必须把共享核心抽到 `docs/contracts/workflows/requirements-readiness-gate.md`，`spec-brainstorm` 与 `spec-prd` 都引用它；`spec-prd` 只追加 PRD-specific lens | 不跨读另一个 skill 的私有 reference，不复制 gate 文案制造 drift |
+| H2. Requirements Readiness Gate 如何复用 | **v1 by-reference**：`spec-prd` 在自己的 `prd-readiness-lens.md` 内引用既有 Requirements Readiness Gate 的维度清单（不复制全文、不跨读 brainstorm 私有 reference），物理抽取到 `docs/contracts/workflows/requirements-readiness-gate.md` 推迟到 v2 重构 | v1 不动 `spec-brainstorm` source 与双宿主 runtime；contract test 必须断言两处 gate 维度不 drift |
 | H3. 与 `spec-brainstorm` 路由冲突 | 同时像 feature idea 和 brownfield PRD 时，若用户给出现有系统锚点且目标是 PRD/需求文档，优先 `spec-prd`；若产品形态、actor、核心 outcome 未定，优先 `spec-brainstorm` | `using-spec-first` 和 skill description 必须加 tie-break fixture |
 | H4. `code-align` 分类错误 | `code-align` 降级为 evidence posture / report-only 子模式，不作为第四个平行 intent | intent model 只保留 create/refine/validate |
 | H5. Requirement 过多 | PRD 产品需求保留用户可见行为、artifact、quality/handoff；实现纪律下沉 Implementation Direction / Architecture Guardrails | Planning 要瘦身 R 列表，不把 source 注册点当产品需求 |
@@ -93,7 +101,7 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 | 09 | GitNexus 能否当事实？ | dirty-advisory 只作 pointer，关键 claim 要 source confirmation |
 | 10 | Artifact 是否新建 `docs/prds/`？ | 不新增，沿用 `docs/brainstorms/*-requirements.md` |
 | 11 | 多端是否拆 skill？ | 不拆，使用 domain lens references |
-| 12 | 是否新增 agent？ | v1 不新增，除非 eval 证明需要 |
+| 12 | 是否新增 agent？ | v1 纳入 1 个 eval-gated 内部 readiness reviewer，实体化受 eval 校准（见 D5/R38）|
 | 13 | PRD 是否写 HOW？ | 禁止 implementation units / schema / file plan |
 | 14 | 首屏交互怎样最小？ | 现状对齐 + 一个关键 scope 问题 |
 | 15 | 已有 PRD refine 如何避免重写目标？ | 保留原意，输出 mismatch/gap 与 addendum |
@@ -101,7 +109,7 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 | 17 | 成功指标怎么设？ | 衡量 handoff quality，不编造业务指标 |
 | 18 | 新 workflow 落地成本包括什么？ | 双宿主治理、注册、README、tests、eval、runtime init |
 | 19 | `003` 能否 ready for planning？ | 能，但必须吸收 H1-H3 作为显式决策 |
-| 20 | 最终 owner 决策是什么？ | 1 个 `spec-prd`，0 新 agent，3 intent + code posture，shared gate |
+| 20 | 最终 owner 决策是什么？ | 1 个 `spec-prd`，1 个 eval-gated 内部 readiness reviewer（非公开入口），3 intent + code posture，by-reference 复用 gate |
 
 ---
 
@@ -127,16 +135,57 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 - G5. 按不同 surface 加载差异化需求关注点：App、H5/PC、Admin、Backend/Java、CLI/DevTool、Mixed。
 - G6. 保持 PRD artifact 与 `spec-plan`、`spec-doc-review`、`spec-write-tasks`、`spec-work` 的现有链路兼容。
 - G7. 用 source confirmation 和 evidence tags 防止把猜测、过期图谱或行业常识写成系统事实。
+- G8. 支持项目内 PRD 模板库作为 human-facing authoring reference，并在 skill references 中沉淀可执行的 template contract；两者不得形成冲突真相源。
 
 ## Non-Goals
 
 - NG1. 不替代 `spec-brainstorm` 的 0-1 探索。
 - NG2. 不替代 `spec-plan` 做技术设计、文件改动计划、schema、接口字段或任务拆解。
 - NG3. 不新增多个公开 PRD skill。
-- NG4. v1 不新增独立 agent、长期需求数据库、复杂状态机或中心化 PRD 知识库。
+- NG4. v1 不新增长期需求数据库、复杂状态机或中心化 PRD 知识库;不新增用户公开 agent 入口。（v1 允许 1 个 eval-gated 内部 readiness reviewer，见 R38/R39。）
 - NG5. 不默认联网做市场/竞品/客户研究。
 - NG6. 不新增 `docs/prds/` 作为第二需求真相源。
 - NG7. 不手改 `.claude/`、`.codex/`、`.agents/skills/` generated runtime。
+- NG8. **v1 不做大需求 Requirements Packet、跨端 Multi-Surface Packet、Parent/Child 拆分的完整实现**（packet 目录 / `manifest.json` / `trace-ledger.json` / `25-surfaces` / `35-integration-contracts` 等）。v1 产物是单文件 PRD；遇到大需求/跨端信号时由复杂度识别闸输出 split-decision 建议并 handoff（见 Scope: v1 vs v2）。完整实现为 v2+ 演化，复用《大需求拆分.md》愿景蓝图。
+
+---
+
+## Scope: v1 vs v2（与终态愿景的关系）
+
+本文是《大需求拆分.md》终态愿景的**第一阶段落地真相源**（关系 C，诊断见 `docs/brainstorms/2026-05-30-003-spec-prd-关系诊断-vs-大需求拆分.md`）。范围边界：
+
+| 能力 | v1（本文落地） | v2+（愿景演化，复用《大需求拆分.md》设计） |
+| --- | --- | --- |
+| 单文件增量 PRD（小/中需求） | ✅ 完整实现 | 保持 |
+| Current-State + Change Delta | ✅ 单文档段落 | 升级为 `06-prd/code-alignment.md` 等 packet 内结构 |
+| 复杂度识别闸 | ✅ 识别 + split-decision 建议 + handoff | 升级为完整复杂度决策树 + 自动 packet 化 |
+| 大需求 Requirements Packet | ❌ 不做（识别后 handoff） | ✅ thin entry + packet 目录 |
+| 跨端 Multi-Surface Packet | ❌ 不做（识别后 handoff） | ✅ surfaces + integration-contracts + lane |
+| Parent/Child 拆分 | ❌ 不做（识别后 handoff） | ✅ split-decision + child packets |
+| packet 最终载体 | 不决定 | v2 再定（spec-prd 长出 vs 回流 brainstorm/spec-requirements）|
+
+**复杂度识别闸（v1 低成本提前埋点）**：`spec-prd` 在 Scope confirmation 阶段检测复杂度信号——
+- 大需求信号：requirements 预计 >15-20 条、多 capability、需 roadmap/MVP/phase、后续 plan 会膨胀。
+- 跨端信号：涉及多个 surface/team/system、存在共享接口/字段/权限/配置/埋点、需端到端验收才算完成。
+
+命中时**不硬塞单文件**，而是由 LLM 输出 split-decision 建议（说明这是大需求/跨端闭环、建议如何拆）并 handoff，由产品 owner/PM 确认拆分边界、优先级和发布节奏后再落盘子 PRD；不命中则正常单文件 PRD。识别闸只做"识别 + LLM 语义拆分建议 + owner 确认 handoff"，不引入 packet 目录/trace-ledger/集成契约等重机制——那是 v2。脚本、GitNexus 和代码分析只提供页面/接口/流程/权限/状态等事实输入，不负责业务拆分裁决。
+
+**超大 PRD 的 v1 文档拓扑（轻量多文档，不是 packet）**：
+
+同一个大需求共享同一个 base `spec_id` / slug，文件名后缀和 frontmatter `document_role` 区分角色：
+
+```text
+docs/brainstorms/
+  YYYY-MM-DD-NNN-<slug>-original-prd.md
+  YYYY-MM-DD-NNN-<slug>-split-summary-requirements.md
+  YYYY-MM-DD-NNN-<slug>-<child-id>-requirements.md
+```
+
+1. **原始需求文档 / source input**：PM 提供的原始 PRD 保持 by-reference，优先不改写；若需要归档，使用同一个 base `spec_id`，`artifact_kind: source-input`，`document_role: original-prd`。若只有粘贴内容，`spec-prd` 应在 split summary 中保留原始输入摘要、来源和未确认主张，不把 LLM 重写稿伪装成原文。
+2. **拆分汇总需求文档 / split summary**：默认仍写在 `docs/brainstorms/*-requirements.md`，`artifact_kind: prd-requirements`，`document_role: split-summary`，使用同一个 base `spec_id`。它记录拆分依据、子 PRD 列表、每个子 PRD 的范围/依赖/优先级/是否可独立进入 `spec-plan`、owner 确认状态和未决问题。
+3. **拆分后的模块需求文档 / child PRD**：每个可独立规划的模块生成自己的 `docs/brainstorms/*-requirements.md`，`artifact_kind: prd-requirements`，`document_role: child-prd`，共享同一个 base `spec_id`，用唯一 `child_id` 区分模块，并用 `parent_spec_id`、`source_prd`、`split_summary` 回链。下游 `spec-plan` 默认消费 child PRD，而不是拿原始超大 PRD 或 split summary 直接规划。
+
+该拓扑只靠 Markdown frontmatter + 文档互链，不新增 `docs/prds/`、不新增 manifest/trace-ledger，也不自动创建完整 Requirements Packet。
 
 ---
 
@@ -149,6 +198,7 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 | 已有 PRD 完善 | PRD/requirements path 或粘贴内容 | 保留原意，做 current-state scan，输出 gap report 和修订稿 | PRD addendum 或修订版 requirements |
 | 一句话增量需求 | “后台增加批量导入” | 判断 surface 和现有流程，问最少阻塞问题，补齐 PRD | Markdown PRD |
 | 想法但依附现有系统 | “让订单异常更清楚” | 先对齐现有流程和异常路径，再确认增量 | Current-state + Change Delta + PRD |
+| 初版超大 PRD | PM 给出多模块/多端/多系统 PRD | 先 validate/refine 原文与 current-state，再由 LLM 输出 split-decision 建议，等待 owner 确认后再拆子 PRD | Split-decision report + 子 PRD 草案/待确认清单 |
 | 0-1 模糊想法 | “想做一个社区产品” | 转 `spec-brainstorm`，不生成伪完整 PRD | Brainstorm handoff |
 | PRD 可规划性检查 | 已有 PRD | 执行 readiness lens 和 codebase fit 检查 | Gap report / 修订建议 |
 
@@ -164,11 +214,12 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 体验闭环：
 
 1. **Scope confirmation:** 确认 surface、目标流程、是否改现有能力。
-2. **Current-state reveal:** 展示现状摘要、证据来源、不确定点。
-3. **Delta confirmation:** 确认 keep / extend / replace / remove / unknown。
-4. **Focused gap questions:** 只问会改变产品行为、范围或验收的问题。
-5. **Draft PRD:** 输出 Markdown PRD 或 patch-style addendum。
-6. **Readiness and handoff:** 标风险，推荐 `spec-doc-review` 或 `spec-plan`。
+2. **Complexity gate:** 检测大需求/跨端/多 capability 信号；命中时先输出 split-decision 建议，不直接写巨型 PRD。
+3. **Current-state reveal:** 展示现状摘要、证据来源、不确定点。
+4. **Delta confirmation:** 确认 keep / extend / replace / remove / unknown。
+5. **Focused gap questions:** 只问会改变产品行为、范围或验收的问题。
+6. **Draft PRD:** 输出 Markdown PRD、patch-style addendum，或在 owner 确认拆分后输出子 PRD 草案。
+7. **Readiness and handoff:** 标风险，推荐 `spec-doc-review` 或 `spec-plan`。
 
 ---
 
@@ -179,22 +230,35 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 - A3. Evidence provider：GitNexus、源码、测试、文档、contracts、README、历史 requirements/plans/solutions。
 - A4. Downstream planner：消费 PRD artifact，输出 implementation plan。
 - A5. Reviewer：通过 `spec-doc-review` 检查 PRD 完整性、一致性和可规划性。
+- A6. Readiness reviewer（内部 helper，eval-gated）：判断 PRD 是否 code-grounded 且 planning-ready（current-state accuracy、change delta clarity、exception/interaction 覆盖、evidence provenance、planning invention risk），主要服务 `spec-prd` 自检；被 `spec-doc-review` 复用是条件能力（须实体化 + 更新 doc-review persona 契约）。非用户公开入口，实体化受 eval 校准。
 
 ---
 
 ## Key Flows
 
-- F1. Existing PRD refinement
+- F1. Create PRD from increment（intent: `create`）
+  - **Trigger:** 用户有明确增量方向、依附现有系统，但还没有 PRD，要求从零写一份。
+  - **Steps:** 确认 surface 与目标流程 -> current-state scan -> 确认 Change Delta -> focused gap questions -> 按 core/conditional 模板 synthesize PRD -> readiness lens。
+  - **Outcome:** 增量想法变成证据明确、可规划的新 PRD。
+  - **Covered by:** R3, R7, R8, R9, R10, R16, R18, R21
+
+- F1b. Existing PRD refinement（intent: `refine`）
   - **Trigger:** 用户提供已有 PRD/requirements，要求细化、完善、优化或补充。
   - **Steps:** 读取原文 -> 抽取已有主张 -> 做 current-state scan -> 输出 mismatch/gap -> 补齐名词、用例、异常、交互、验收 -> 保存 PRD。
   - **Outcome:** 已有 PRD 升级为证据明确、可规划、可验收的 PRD-grade requirements。
-  - **Covered by:** R1, R3, R8, R11, R17, R22
+  - **Covered by:** R3, R7, R8, R9, R10, R16, R17, R18, R19, R20
 
-- F2. One-line increment to PRD
+- F1c. Oversized initial PRD split-decision（intent: `validate` -> `refine`）
+  - **Trigger:** PM 提供初版超大 PRD，涉及多模块、多端、多系统、多个角色或后续 plan 明显会膨胀。
+  - **Steps:** 读取原文 -> 抽取模块/角色/流程/规则/验收主张 -> 做 current-state scan -> 运行复杂度识别闸 -> LLM 输出 split-decision 建议（子 PRD 范围、依赖、优先级、是否可独立 plan）-> owner 确认/调整 -> 按确认结果逐个生成或修订子 PRD。
+  - **Outcome:** 超大 PRD 先变成可审查的拆分决策，而不是被硬塞成巨型单文件；正式子 PRD 只在 owner 确认边界后落盘。
+  - **Covered by:** R6b, R6d, R7, R8, R9, R10, R13, R16, R23
+
+- F2. One-line increment to PRD（intent: `create`，轻量入口）
   - **Trigger:** 用户给一句话增量需求。
   - **Steps:** 判断 surface 和流程 -> 问一个最关键问题 -> current-state scan -> Change Delta -> PRD synthesis -> readiness lens。
   - **Outcome:** 短需求变成可交给 `spec-plan` 的 Markdown PRD。
-  - **Covered by:** R2, R4, R7, R9, R18, R23
+  - **Covered by:** R3, R7, R9, R10, R16, R18, R21
 
 - F3. Idea routing
   - **Trigger:** 用户只有想法，未说明是 0-1 还是现有系统迭代。
@@ -202,7 +266,7 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
   - **Outcome:** 不把 0-1 想法伪装成 PRD，也不把增量需求拉回过度 brainstorm。
   - **Covered by:** R5, R6
 
-- F4. Code-aware validation
+- F4. Code-aware validation（intent: `validate`）
   - **Trigger:** 用户已有 PRD，但不确定是否能进入研发规划。
   - **Steps:** 检查 current-state accuracy、change delta、异常、交互、验收、scope、evidence provenance -> 输出 gap report。
   - **Outcome:** 产品 owner 知道 PRD 是否 ready，以及最小补齐项。
@@ -226,6 +290,9 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 - R4. `code-align` 必须作为 evidence posture / 子模式处理，不得作为第四个平行 intent；create/refine/validate/code-align 均不得拆成多个公开 skill。
 - R5. 0-1 产品探索、目标用户/核心流程未定、产品形态未定时，必须推荐 `spec-brainstorm`。
 - R6. `using-spec-first` 后续路由必须区分：0-1 探索走 `spec-brainstorm`；已有系统增量 PRD、已有 PRD 完善、code-aware PRD 检查走 `spec-prd`。当输入同时像 feature idea 和 brownfield PRD 时，若用户给出现有系统锚点且目标是 PRD/需求文档，优先 `spec-prd`；若产品形态、actor、核心 outcome 未定，优先 `spec-brainstorm`。
+- R6b. `spec-prd` v1 必须在 Scope confirmation 阶段运行复杂度识别闸：检测到大需求信号（requirements 预计 >15-20 条、多 capability、需 roadmap/MVP/phase）或跨端信号（多 surface/team/system、共享接口/字段/权限/配置/埋点、需端到端验收）时，不得硬塞单文件 PRD，必须输出 split-decision 建议（说明大需求/跨端闭环 + 建议拆法）并 handoff；不命中则走单文件 PRD。识别闸不实现 packet 目录 / trace-ledger / 集成契约（那是 v2，见 Scope: v1 vs v2 与 NG8）。
+- R6c. 当 refine 输入低质量（残缺、自相矛盾、或并非 PRD 而是聊天记录/需求邮件/碎片笔记）时，`spec-prd` 不得假装它是完整 PRD 直接 refine：必须先把输入结构化为可识别的主张与缺口，按 `create` 路径补齐，并在文档标注哪些是原始输入、哪些是补全；输入完全无法支撑增量判断时，回到 Scope confirmation 向用户取最小必要信息，不得编造产品意图。
+- R6d. 当超大初版 PRD 命中复杂度识别闸并经 owner 确认需要拆分时，`spec-prd` v1 必须采用轻量多文档拓扑：原始 PRD/source input by-reference 保留；新增或更新一个 split summary requirements 文档记录拆分依据与子 PRD 索引；同一大需求共享同一个 base `spec_id` / slug，每个 child PRD 使用 `document_role: child-prd` 与唯一 `child_id` 区分模块，并回链 `parent_spec_id` / `source_prd` / `split_summary`。不得把 split summary 当作完整 Requirements Packet manifest，也不得跳过 owner 确认直接批量落盘 child PRD。
 
 **Current-State Analysis**
 
@@ -241,14 +308,22 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 
 - R14. PRD 输出必须是 Markdown 文档，默认路径为 `docs/brainstorms/YYYY-MM-DD-NNN-<slug>-requirements.md`。
 - R15. PRD frontmatter 必须包含 `spec_id`，并可包含 `artifact_kind: prd-requirements`、`target_surface`、`evidence_grade`。
-- R16. PRD 必须包含 Summary、Problem Frame、Current System Snapshot、Change Delta、Goals/Non-Goals、Glossary、Actors、Use Cases、Requirements、Acceptance Examples、Scope Boundaries、Evidence And Assumptions、Outstanding Questions。
-- R17. PRD 必须补齐名词解释，并标明术语来源。
+- R16. PRD 模板采用 core + conditional 两层，不是统一硬性全填。**Core sections（始终必填）**：Summary、Change Delta、Requirements、Acceptance Examples、Scope Boundaries（含 Non-Goals，小需求可为 compact 单列表）、Evidence And Assumptions——这是下游 `spec-plan` 消费的最小骨架，缺任一项 plan 就得发明 WHAT 或 scope。
+- R16b. **Conditional sections（按 target surface 与需求规模决定是否展开）**：Problem Frame、Current System Snapshot、Goals / Success Metrics / Non-Goals 详述、Glossary、Actors、Use Cases、Interaction Requirements、Exception Handling、Outstanding Questions。小增量可折叠或省略；大需求或对应 surface 命中时必须展开（如 App surface 命中必须含 Interaction Requirements；Backend/Java 命中必须含 Exception Handling 与状态机）。conditional section 一旦展开，其内容仍须满足 R17-R21 的对应要求；被省略项若存在未决点，必须落入 Outstanding Questions，不得静默丢弃。Scope Boundaries 始终在 core（R16），conditional 仅控制其是否拆分 Deferred / Outside-identity 的展开粒度。
+- R16c. 每份产出 PRD 应支持 `Success Metrics` / 衡量口径作为 conditional section：用户或证据给出可信业务指标时必须纳入；没有可信指标时不得编造目标值，应写成可观察口径或进入 Assumptions / Outstanding Questions。该要求用于补齐 PRD 文档内容，不替代本文 S1-S5 这些 workflow 质量信号。
+- R16d. 当项目存在 source-owned human-facing 模板库（如 `docs/需求文档模版/标准模版/`）时，`spec-prd` 的 `prd-output-template.md` / `domain-lenses.md` 必须与该模板库的 core section、surface lens 和行业 overlay 保持语义一致；若运行时 reference 与文档模板发生冲突，以当前实现 source 中明确声明的 source-of-truth 为准，并用 drift test 或审查项暴露差异，不得让两套模板各自演化。
+- R17. Glossary 展开时必须补齐名词解释，并标明术语来源；术语缺解释而被省略时，须在 Outstanding Questions 标注。
 - R18. 核心产品用例必须包含 actor、trigger、precondition、main path、alternative/error path、outcome、covered requirements。
-- R19. PRD 必须覆盖异常处理：权限异常、输入异常、状态冲突、弱网/超时、重复提交、部分成功、撤销/回滚、兼容/降级。
-- R20. PRD 必须覆盖交互设计约束：入口、状态、反馈文案、确认/取消、空态、加载态、错误态、可访问性或国际化需求。
+- R19. 当需求触及异常路径（或 surface 为 Backend/Java、Admin 等异常敏感端）时，Exception Handling 必须展开并覆盖：权限异常、输入异常、状态冲突、弱网/超时、重复提交、部分成功、撤销/回滚、兼容/降级。
+- R20. 当需求含用户交互（或 surface 为 App、H5/PC、Admin）时，Interaction Requirements 必须展开并覆盖：入口、状态、反馈文案、确认/取消、空态、加载态、错误态、可访问性或国际化需求。
 - R21. 条件型行为必须有 Given/When/Then 或 EARS 等价验收样例。
 - R22. 无证据的 metrics、客户反馈、业务规则、交互文案必须进入 Assumptions 或 Outstanding Questions，不得编造。
+- R22b. 当需求触及权限、用户数据、资金/交易、审计或合规时，PRD 必须显式标注涉及的权限边界、数据敏感性与合规点（作为产品约束，不是技术实现）；无法确认时进入 Outstanding Questions，不得默认放行。
+- R22c. 当项目或用户明确处于强监管行业（首个落地行业：证券/券商）时，PRD 必须叠加行业 overlay lens：监管辖区/展业地、客户分类、账户类型、产品/市场范围、投资者适当性、AML/KYC、风控、行情权限、交易/订单、资金清结算、审计留痕、数据精度与时区。行业规则只能作为产品约束和待确认项写入 PRD；不得把行业常识、历史经验或外部资料直接写成合规事实。
 - R23. PRD 不得包含 implementation units、文件改动计划、数据库 schema、接口字段设计或任务拆解。
+- R23b. PRD 必须保留 requirement↔acceptance 的内部 traceability：每条核心产品需求至少被一个 acceptance example 覆盖，反之每个 acceptance 标注其覆盖的 requirement，便于下游 `spec-plan` 直接消费而无需重建 trace。
+- R23c. PRD 中每条 current-state claim 必须带 Evidence Contract 定义的 evidence tag（`confirmed-source` / `user-stated` / `gitnexus-pointer` / `external-research` / `assumption`）；未标 tag 的现状描述不得作为 confirmed fact 进入 PRD 主体。
+- R23d. PRD 生成语言遵循当前 host 的 language setting（本仓库默认中文）；引用的源码标识符、路径、配置键、协议名保持原文，新生成的说明与结论按 language setting 输出。
 
 **Domain Lenses**
 
@@ -259,11 +334,13 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 - R28. Backend/Java lens 必须关注 API contract、状态机、幂等、事务、错误码、安全、性能、迁移、观测性、向后兼容。
 - R29. CLI/DevTool lens 必须关注命令入口、参数、配置、dry-run/preview-first、日志、跨平台、失败恢复、升级路径。
 - R30. Mixed lens 必须关注 source-of-truth、跨端一致性、接口契约、异步同步、降级策略和集成验收。
+- R30b. Domain lens 必须支持「surface lens + industry overlay」组合，而不是互斥选择。例如证券 App 下单需求同时命中 App lens（页面栈/交互/弱网）与证券 overlay（适当性/交易时段/行情权限/订单/资金/审计）。
+- R30c. `spec-prd` 必须允许项目模板库提供行业/团队特有 lens 作为 authoring reference；这些 reference 是 PRD 作者期输入，不替代 `spec-plan` 的 HOW，也不替代合规/法务最终确认。
 
 **Quality And Handoff**
 
-- R31. `spec-prd` 必须复用 Requirements Readiness Gate；复用方式必须是抽取共享核心到 `docs/contracts/workflows/requirements-readiness-gate.md`，再由 `spec-brainstorm` 和 `spec-prd` 引用，`spec-prd` 只增加 PRD-specific lens。**Fallback（见 Risks 段）**：若 planning 评估物理抽取对 `spec-brainstorm` 回归风险过高，v1 可降级为 `spec-prd` by-reference 引用 gate 维度清单、物理抽取推迟到 v2；无论哪条都必须有 contract test 断言两处 gate 维度不 drift。
-- R32. PRD-specific lens 必须检查 current-state accuracy、change delta clarity、exception coverage、interaction readiness、evidence provenance、planning invention risk。
+- R31. `spec-prd` 必须复用既有 Requirements Readiness Gate。**v1 复用方式为 by-reference**：`spec-prd` 在 `prd-readiness-lens.md` 内引用 gate 的维度清单（不复制全文、不跨读 `spec-brainstorm` 的私有 reference），并追加 PRD-specific lens；把 gate 物理抽取到 `docs/contracts/workflows/requirements-readiness-gate.md` 由 `spec-brainstorm` 与 `spec-prd` 共享，推迟到 v2 重构。无论 v1/v2，contract test 必须断言两处 gate 维度不 drift。
+- R32. PRD-specific lens 必须检查 current-state accuracy、change delta clarity、exception coverage、interaction readiness、evidence provenance、planning invention risk；当行业 overlay 适用时，还必须检查监管/资金/交易/数据/审计边界是否显式标注。
 - R33. Readiness 失败时，必须输出最小补齐问题或修订建议；用户选择带 assumptions 继续时，文档必须记录风险。
 - R34. 完成后必须推荐下一步：继续 refine、`spec-doc-review`、`spec-plan` 或 done for now；不得直接进入 `spec-work`。
 - R35. `spec-plan` 必须能把 `artifact_kind: prd-requirements` 的 `docs/brainstorms/*-requirements.md` 当普通 requirements artifact 消费。
@@ -272,12 +349,12 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 
 - R36. `skills/spec-prd/SKILL.md` 必须保持精简，只保留触发、边界、核心 workflow、reference load 条件和 handoff。
 - R37. 详细 current-state contract、PRD template、domain lenses、readiness lens 必须放入 references。
-- R38. v1 不得新增独立 agent。
-- R39. 后续新增 agent 必须是内部 reviewer/helper，不得作为用户公开入口，且必须有 eval 失败证据。
+- R38. v1 规划纳入 1 个内部 readiness reviewer agent（暂名 `spec-requirements-readiness-reviewer`）：它 own PRD-grade readiness 判断，主要服务 `spec-prd` 自检，不得作为用户公开入口。其**实体化受 eval 校准**——v1 先由 `spec-prd` orchestrator 依 `prd-readiness-lens.md` 执行 readiness lens；只有 fresh-source eval 证明单 orchestrator 自审稳定失效（漏判、自审盲区）时，才把该 reviewer 落地为独立 agent 文件。**被 `spec-doc-review` 复用是条件能力**：仅当 reviewer 已实体化且按 U6c 同步更新 `spec-doc-review` 的 conditional persona/dispatch 契约后才成立；否则复用范围降级为 `spec-prd` 内部自检。
+- R39. 该 reviewer 必须是内部 reviewer/helper，不得作为用户公开入口；其 own 的独有切片是 current-state accuracy、change delta clarity、exception/interaction 覆盖、evidence provenance、planning invention risk，且不得与 `spec-repo-research-analyst`（现状采集）、`spec-spec-flow-analyzer`（flow gap）、`spec-product-lens-reviewer`（产品 premise）重复职责。v1 不为现状采集新增 researcher agent，现状证据采集复用 `spec-repo-research-analyst`。
 - R40. 不得新增第二套 evidence enum；PRD evidence tags 必须映射到 `docs/contracts/graph-evidence-policy.md`。
 - R41. 不得新增 `docs/prds/` 作为默认真相源。
 
-> **R 分层落地（H5 收口）**：上组 **Skill And Agent Architecture（R36-R41）是架构约束/实现纪律，不是用户可见的产品需求**。Decision Closure H5 裁决"实现纪律下沉"——本文不重排 R 编号以保持 AE/flow 引用稳定，但 planning 应把 R36-R41（及 R4 的"不拆公开 skill"、R23 的 HOW 禁令）当作 **Architecture Guardrails** 对待，不作为对等产品行为去逐条设计验收。真·产品行为需求是 R5-R22、R24-R35。这样 41 条里真正驱动 PRD 内容的约 ~25 条，落在 size 合理区间。
+> **R 分层落地（H5 收口）**：上组 **Skill And Agent Architecture（R36-R41）是架构约束/实现纪律，不是用户可见的产品需求**。Decision Closure H5 裁决"实现纪律下沉"——本文不重排 R 编号以保持 AE/flow 引用稳定，但 planning 应把 R36-R41（及 R4 的"不拆公开 skill"、R23 的 HOW 禁令）当作 **Architecture Guardrails** 对待，不作为对等产品行为去逐条设计验收。真·产品行为需求集中在 R5-R22、R24-R35 及其 b/c/d 扩展项；新增模板库和行业 overlay 要求只补强 PRD 作者期 lens，不改变单入口与 light-contract 边界。
 
 ---
 
@@ -294,6 +371,11 @@ graph_evidence_note: "GitNexus 可用于 query/context orientation；其 evidenc
 | 异常处理 | 关键异常有 expected behavior 和反馈 | 只写“提示错误” |
 | 交互约束 | 入口、状态、反馈、确认/取消、空态/加载/错误态明确 | UI/交互靠实现者猜 |
 | 验收样例 | 条件行为有 Given/When/Then 或 EARS 等价样例 | 无法判断实现是否满足 |
+| 权限/数据 | 触及权限/数据/资金/审计/合规时显式标注边界与敏感性 | 权限和数据影响隐含、留给实现者猜 |
+| Trace | 每条核心需求↔acceptance 互相标注，current-state claim 带 evidence tag | 需求与验收脱节、现状无证据来源 |
+| Success Metrics | 有可信证据时给出可观察/可衡量口径；无证据时显式进入 assumptions | 编造增长率、转化率或效率目标 |
+| 行业 overlay | 强监管行业命中时显式写辖区、客户/账户/产品范围、资金交易、审计与合规待确认点 | 把行业常识当事实，或把合规/资金交易影响留给 plan 猜 |
+| 模板一致性 | skill references 与项目模板库的 core/lens 语义一致 | 人用模板与 skill 输出模板互相漂移 |
 | Handoff | `spec-plan` 只需决定 HOW | 产品行为仍留给 planning 发明 |
 
 ---
@@ -326,33 +408,45 @@ PRD evidence tags 是文档层便捷标签，不是新的 graph evidence contrac
 
 ## Acceptance Examples
 
-- AE1. **Covers R1-R4.** Given 用户要求完善已有 PRD，when `spec-prd` 运行，then workflow 以原 PRD 为 primary input，保留核心意图，并输出补强后的 PRD 或 addendum。
+- AE1. **Covers R3, R7, R16.** Given 用户要求完善已有 PRD，when `spec-prd` 运行，then workflow 以原 PRD 为 primary input，保留核心意图，做 current-state scan，并按 core/conditional 模板输出补强后的 PRD 或 addendum。
 - AE2. **Covers R5-R6.** Given 用户提出 0-1 新产品想法，when 产品形态和核心流程未定，then workflow 推荐 `spec-brainstorm`，不得生成伪完整 PRD。
+- AE2b. **Covers R6b.** Given 用户说“给 App+H5+后台做一套带灰度的新业务，帮我写 PRD”，when 复杂度识别闸检测到跨端 + 多 capability 信号，then `spec-prd` v1 不硬塞单文件，而是输出 split-decision 建议（标明这是跨端闭环、建议拆分方式）并 handoff，不在 v1 生成 packet 目录或集成契约。
+- AE2c. **Covers R6d.** Given PM 提供一份超大初版 PRD 且 owner 确认需要拆分，when `spec-prd` 继续 refine，then workflow 保留原始 PRD/source input 引用，生成 split summary requirements 文档作为拆分索引，并为每个可独立规划模块生成 child PRD；同组文档共享同一个 base `spec_id`，每个 child PRD 通过唯一 `child_id` 区分并回链 parent/source/summary，不得把 split summary 写成 packet manifest。
 - AE3. **Covers R7-R13.** Given 用户只说“后台用户列表增加批量导入”，when 当前系统已有 Admin 列表与权限模式，then PRD 必须输出 Current System Snapshot、Change Delta、权限、导入校验、失败行反馈、审计日志和回滚问题。
 - AE4. **Covers R11-R12, R40.** Given GitNexus 指向某 route 但源码读取发现 route 已重命名，when 写现状分析，then GitNexus claim 必须降级为 stale/advisory pointer，不得写成 confirmed fact。
-- AE5. **Covers R17-R23.** Given PRD 草稿缺少术语、用例、异常和交互，when refine 完成，then PRD 必须包含 Glossary、Use Cases、Exception Handling、Interaction Requirements 和 Acceptance Examples。
+- AE5. **Covers R17, R18, R19, R20, R21.** Given PRD 草稿缺少术语、用例、异常和交互，when refine 完成，then PRD 必须包含 Glossary、Use Cases、Exception Handling、Interaction Requirements 和 Acceptance Examples。
+- AE5b. **Covers R22, R23.** Given 用户给的需求里夹带无证据的 metrics/客户反馈和具体接口字段设计，when 写 PRD，then 无证据内容必须进入 Assumptions 或 Outstanding Questions、不得编造，且 PRD 不得包含 implementation units / schema / 接口字段 / 任务拆解。
+- AE5c. **Covers R6c.** Given 用户粘贴的是一段需求邮件 / 聊天记录而非结构化 PRD，when 走 refine，then `spec-prd` 先把输入结构化为主张与缺口、按 create 路径补齐并标注原始 vs 补全，输入不足时回到 Scope confirmation 取最小必要信息，不编造产品意图。
+- AE5d. **Covers R22b.** Given 需求是“后台导出用户手机号清单”，when 生成 PRD，then 必须显式标注涉及的权限边界、数据敏感性与合规点；无法确认合规口径时进入 Outstanding Questions，不得默认放行。
+- AE5e. **Covers R23b, R23c, R23d.** Given PRD 完成，then 每条核心需求至少被一个 acceptance 覆盖且互相标注 trace、每条 current-state claim 带 evidence tag、文档语言遵循 host language setting（默认中文，标识符/路径保留原文）。
+- AE5f. **Covers R16c.** Given 用户没有提供可信成功指标，when 生成 PRD，then Success Metrics 只能写可观察口径或进入 Assumptions / Outstanding Questions，不得编造数值目标；given 用户提供已确认目标，then PRD 应把目标写入可衡量口径并标 evidence tag。
 - AE6. **Covers R24-R30.** Given target surface 是 Backend/Java，when 生成 PRD，then 输出必须关注 API contract、幂等、事务、错误码、兼容和观测性，而不是套用 App 页面模板。
+- AE6b. **Covers R22c, R30b, R30c, R32.** Given 项目行业为证券且用户要求“App 下单页增加风险提示”，when 生成 PRD，then workflow 同时叠加 App lens 与证券 overlay，明确监管辖区/市场/账户/客户分类、适当性/风险揭示、订单/行情/资金影响、审计留痕与待确认合规口径，且不写接口字段或风控算法。
 - AE7. **Covers R31-R35.** Given readiness lens 发现产品行为仍未决，when workflow 收尾，then 输出最小补齐问题或记录带 assumptions 继续的风险，并推荐 `spec-doc-review` 或 `spec-plan`。
-- AE8. **Covers R36-R41.** Given 规划 `spec-prd` v1，when implementation plan 编写，then 不新增 agent、不新增 `docs/prds/`、不新增 evidence enum，并把详细模板放入 references。
+- AE8. **Covers R36-R41.** Given 规划 `spec-prd` v1，when implementation plan 编写，then 不新增公开 agent 入口、不新增 `docs/prds/`、不新增 evidence enum，并把详细模板放入 references；readiness reviewer 仅作内部 helper，其实体化须有 fresh-source eval 证据。
 - AE9. **Covers R6, R24, R31.** Given 用户说“App 订单页增加异常提示，帮我完善 PRD”，when 路由判断，then 进入 `spec-prd` 写 PRD；given 用户说“拿这份 PRD、Figma、源码做一致性审计”，then 推荐 `spec-app-consistency-audit`。
-- AE10. **Covers R31.** Given planning 抽取共享 readiness gate，when 实现 `spec-prd`，then `spec-brainstorm` 与 `spec-prd` 引用同一个 `docs/contracts/workflows/requirements-readiness-gate.md` 核心，不复制两份 gate 文案。
+- AE10. **Covers R31.** Given `spec-prd` v1 以 by-reference 复用 readiness gate，when 实现 `prd-readiness-lens.md`，then 它引用既有 gate 的维度清单而非复制全文，且 contract test 断言 `spec-prd` 与 `spec-brainstorm` 两处 gate 维度不 drift。
+- AE11. **Covers R16d, U4, U5.** Given `docs/需求文档模版/标准模版/` 已存在人用标准模板，when plan 实现 `prd-output-template.md` 与 `domain-lenses.md`，then 必须明确它们与模板库的关系（derive / reference / intentionally diverge），并用 focused drift check 或 reviewer checklist 防止 core section 与 lens 语义漂移。
 
 ---
 
 ## Implementation Direction
 
-- U1. 抽取共享 `docs/contracts/workflows/requirements-readiness-gate.md`，并把 `spec-brainstorm` 的 gate 引用迁移到该共享核心。
+- U1. v1：在 `skills/spec-prd/references/prd-readiness-lens.md` 内 by-reference 引用既有 Requirements Readiness Gate 维度清单（不抽取、不改 `spec-brainstorm` source）；加 contract test 断言 `spec-prd` 与 `spec-brainstorm` 两处 gate 维度不 drift。物理抽取到 `docs/contracts/workflows/requirements-readiness-gate.md` 列为 v2 重构项。
 - U2. 新增 `skills/spec-prd/SKILL.md`，保持精简，只写触发、边界、workflow、reference load 条件和 handoff。
 - U3. 新增 `skills/spec-prd/references/current-state-analysis.md`。
-- U4. 新增 `skills/spec-prd/references/prd-output-template.md`。
-- U5. 新增 `skills/spec-prd/references/domain-lenses.md`，明确 App lens 与 `spec-app-consistency-audit` 的边界。
+- U4. 新增 `skills/spec-prd/references/prd-output-template.md`，以 `docs/需求文档模版/标准模版/00-通用增量需求模板.md` 的 core/conditional 分层为 human-facing seed，并明确 source-of-truth 关系；至少覆盖 Success Metrics 的 conditional 规则。
+- U5. 新增 `skills/spec-prd/references/domain-lenses.md`，明确 App lens 与 `spec-app-consistency-audit` 的边界，并支持 surface lens + industry overlay 组合；首个行业 overlay 以 `docs/需求文档模版/标准模版/90-证券行业需求关注点与参考附录.md` 为 seed。
 - U6. 新增 `skills/spec-prd/references/prd-readiness-lens.md`，引用共享 gate 并追加 PRD-specific lens。
+- U6b. readiness reviewer 落地姿态：v1 先由 `spec-prd` orchestrator 依 `prd-readiness-lens.md` 自执行 readiness；plan 用 fresh-source eval 校准是否需实体化 `agents/spec-requirements-readiness-reviewer.agent.md`（受 R38/R39 eval 门槛约束）。
+- U6c. 若 reviewer 被实体化且要被 `spec-doc-review` 复用，必须同步更新 `skills/spec-doc-review/SKILL.md` 的 conditional persona 列表与 Dispatch Capability Gate 契约（当前其 reviewer 列表为固定 always-on + 5 个 conditional persona，不含该 reviewer），并补 doc-review persona-selection 的 contract test；若 v1 不实体化，则 R38/R39 的"跨 spec-doc-review 复用"降级为 **spec-prd 内部自检**，doc-review 复用推迟到 reviewer 实体化时。
 - U7. 新增 `skills/spec-prd/references/intent-routing.md`，固化 create/refine/validate、code-align posture 和 `spec-brainstorm` tie-break。
+- U7b. `intent-routing.md` / `prd-output-template.md` 必须定义超大 PRD 的轻量多文档拓扑：source input by-reference、split summary requirements、child PRD requirements；同一大需求共享 base `spec_id` / slug，child PRD 使用 `child_id` + parent/source/summary 回链，且只在 owner 确认后落盘。
 - U8. 新增 host command template 与 dual-host governance 注册。
 - U9. 更新 `using-spec-first` 路由规则，区分 `spec-brainstorm`、`spec-prd`、`spec-app-consistency-audit`。
 - U10. 更新 `spec-plan` intake 文档，确认 `artifact_kind: prd-requirements` 等价消费。
 - U11. 补 focused tests：skill entrypoint lint、public workflow registration、routing tie-break、shared gate drift、spec-plan intake、no generated runtime manual edit。
-- U12. 增加 fresh-source eval fixtures。
+- U12. 增加 fresh-source eval fixtures，其中须包含一组 readiness 自审 fixtures，用于校准是否实体化 readiness reviewer agent（R38 eval 门槛证据）。
 - U13. 更新 README / README.zh-CN / 用户手册 artifact map / CHANGELOG。
 
 ---
@@ -362,11 +456,18 @@ PRD evidence tags 是文档层便捷标签，不是新的 graph evidence contrac
 | Fixture | Input | Expected behavior |
 | --- | --- | --- |
 | Existing PRD refine | 已有 PRD path，要求“完善” | 保留原意，输出 gap report、current-state snapshot、补齐后的 PRD |
+| Oversized initial PRD split | PM 给出一份跨 App/Admin/Backend/资金交易的超大 PRD | 先输出 split-decision；owner 确认后生成 split summary + child PRDs，原始 PRD by-reference 保留，同组文档共享 base `spec_id`，child PRD 以 `child_id` 和 parent/source/summary 回链 |
 | One-line Admin iteration | “后台用户列表增加批量导入” | 触发 Admin lens，补权限、导入校验、失败行反馈、审计/回滚问题 |
 | 0-1 idea | “想做一个新社区产品” | 推荐 `spec-brainstorm`，不生成伪 PRD |
 | Backend/Java change | “给现有订单状态增加取消原因” | 关注状态机、错误码、幂等、兼容、观测性 |
+| Low-quality refine input | 粘贴一段需求邮件/聊天记录要求“完善 PRD” | 先结构化为主张+缺口、按 create 补齐、标注原始 vs 补全，不假装是完整 PRD |
+| Security-sensitive increment | “后台导出用户手机号清单” | 显式标注权限边界/数据敏感性/合规点，不确定项进 Outstanding Questions |
+| Securities industry App order | “证券 App 下单页增加风险提示” | 同时触发 App lens + securities overlay，补适当性、风险揭示、交易时段/订单、资金影响、审计留痕和合规待确认项 |
+| Success metrics without evidence | “把转化率提升 30%”但无证据来源 | 不写成 confirmed target，进入 Assumptions 或要求用户确认 |
+| Template drift | 人用模板新增行业横切自检但 skill reference 未覆盖 | focused drift check / reviewer checklist 提醒更新 `prd-output-template.md` 或 `domain-lenses.md` |
 | Stale GitNexus pointer | GitNexus 与源码不一致 | 降级 GitNexus pointer，以源码为准 |
-| No-agent v1 boundary | 用户问是否要多个 agent | 回答 v1 不新增 agent，除非 eval 证明需要内部 reviewer |
+| Readiness reviewer eval gate | 用户问是否要新增 agent | 回答 v1 仅纳入 1 个内部 readiness reviewer(非公开入口),且实体化须 fresh-source eval 证明 orchestrator 自审失效；现状采集复用 `spec-repo-research-analyst`，不新增 researcher agent |
+| Public agent entry boundary | 实现把 readiness reviewer 暴露为 `/spec:` 公开入口 | eval / contract test 失败，要求回到内部 helper 形态 |
 | PRD readiness fail | PRD 缺异常和验收 | 输出最小补齐问题或修订建议，不进入 `spec-work` |
 | Claude-risk regression | 实现新增 `docs/prds/` 或独立 evidence enum | eval / contract test 失败，要求回到 shared artifact 与 existing evidence policy |
 | App audit boundary | “App PRD + Figma + source 一致性审计” | 推荐 `spec-app-consistency-audit`，不把 `spec-prd` 当审计 workflow |
@@ -381,14 +482,19 @@ PRD evidence tags 是文档层便捷标签，不是新的 graph evidence contrac
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
-| **R31/U1 抽取共享 readiness gate 会动 `spec-brainstorm` source** | 把 gate 从 `requirements-capture.md` 抽到 `docs/contracts/workflows/requirements-readiness-gate.md` 需改 brainstorm 引用 + 双宿主回归，并可能触动已 completed 的 `2026-05-29-001` Requirements Readiness Gate plan | Planning 先评估抽取成本；**fallback**：若抽取对 brainstorm 回归风险过高，v1 允许 `spec-prd` 在自己的 `prd-readiness-lens.md` 内**引用 gate 的维度清单(by reference,不复制全文)**，把物理抽取降级为 v2 重构。无论哪条，contract test 必须断言两处 gate 维度不 drift |
+| 两处 readiness gate 维度 drift（v1 by-reference 不抽取，gate 内容存在两份引用） | `spec-prd` 与 `spec-brainstorm` 的 gate 维度可能随时间分叉 | v1 by-reference 不复制全文、只引用维度清单（R31/D7/U1）；**contract test 必须断言两处 gate 维度不 drift**；物理抽取作为 v2 重构消除双份。v1 不动 `spec-brainstorm` source，规避双宿主回归与触动已 completed 的 `2026-05-29-001` plan |
 | `spec-prd` 与 `spec-brainstorm` 路由冲突 | 用户不知走哪个入口 | D12 tie-break + routing fixtures（Evaluation Plan 中 Brownfield tie-break / 0-1 idea 两条） |
 | `spec-prd` 与 `spec-app-consistency-audit` 边界混淆 | App 场景重复或漏审 | D11 边界 + AE9 + App audit boundary fixture；两 skill 的 When-Not-To-Use 互相点名 |
 | PRD 变成实现方案 | 绕过 `spec-plan` source-of-truth | R23 + PRD-specific lens 的 planning invention risk 检查 |
 | GitNexus pointer 被写成事实 | 现状不准 | R11/R12/R40 evidence tags + source confirmation；Stale GitNexus pointer fixture |
-| 模板过重拖累小需求 | 小需求负担上升 | right-sized section inclusion + references 按需加载 |
-| 过早新增 agent | 维护成本与上下文膨胀 | R38 v1 禁止；R39 要求 eval 失败证据 |
+| 模板过重拖累小需求 | 小需求负担上升 | R16/R16b core+conditional 分层(小增量只填 core)+ references 按需加载 |
+| 过早实体化 readiness reviewer agent | 维护成本、上下文膨胀、与现有 agent 重叠 | R38 实体化受 eval 门槛(须 fresh-source eval 证明单 orchestrator 自审失效);R39 划清与 `spec-repo-research-analyst`/`spec-spec-flow-analyzer`/`spec-product-lens-reviewer` 的职责边界;v1 默认 orchestrator-owned |
+| readiness reviewer 沦为 `spec-prd` 专属(agent collection 反模式) | 单 skill 私有 agent 增殖 | 设计上 reviewer 的调用契约保持可被 `spec-doc-review` 复用(实体化 + 更新 doc-review persona 契约后启用,见 U6c/R38);非公开入口 |
 | 多端 lens 关注点混用 | App/Admin/Backend 需求串味 | R24-R30 lens matrix + 各 surface acceptance fixture |
+| 行业 overlay 与 surface lens 漂移 | 证券需求只套 App/Admin/Backend 通用模板，漏掉适当性、资金交易、审计等行业问题 | R22c/R30b/R30c 要求 surface lens + industry overlay 组合；Evaluation 增加 securities fixture |
+| 人用模板与 skill reference 多真相源 | `docs/需求文档模版/标准模版/` 与 `skills/spec-prd/references/*` 各自演化，输出不一致 | R16d/U4/U5 明确 source-of-truth 关系；用 drift check 或 reviewer checklist 暴露差异，避免 silent divergence |
+| v1 过早实现 packet/multi-surface（范围爆炸成需求编译系统） | 违 light-contract / 80-20，未证明价值就上规模 | NG8 明确 v1 不实现 packet；R6b 复杂度识别闸只做识别+建议+handoff；完整实现推迟 v2（Scope: v1 vs v2）|
+| 两文档多真相源（003 与《大需求拆分.md》对立） | 下游不知以哪份为准 | 关系 C 分层：003=增量 PRD 当前真相源，愿景文档降为多阶段路线图（frontmatter 声明 + 关系诊断）|
 
 ---
 
@@ -398,15 +504,17 @@ PRD evidence tags 是文档层便捷标签，不是新的 graph evidence contrac
 - D2. `spec-brainstorm` 继续负责 0-1 / WHAT shaping。
 - D3. `spec-prd` 负责已有系统上的增量需求迭代 PRD 输出。
 - D4. create/refine/validate 是内部 intent；code-align 是 evidence posture / 子模式，不拆公开入口。
-- D5. v1 不新增 agent。
+- D5. v1 纳入 1 个 eval-gated 内部 readiness reviewer（`spec-requirements-readiness-reviewer`，命名待定），非公开入口，主要服务 `spec-prd` 自检；被 `spec-doc-review` 复用为条件能力（须实体化 + 更新 doc-review persona 契约）。实体化受 fresh-source eval 校准，现状采集不新增 agent（复用 `spec-repo-research-analyst`）。
 - D6. PRD artifact 默认仍写 `docs/brainstorms/*-requirements.md`。
-- D7. Requirements Readiness Gate 共享核心抽到 `docs/contracts/workflows/requirements-readiness-gate.md`；`spec-prd` 仅增加 PRD-specific lens。
+- D7. v1 以 by-reference 复用既有 Requirements Readiness Gate（`spec-prd` 在 `prd-readiness-lens.md` 引用维度清单 + 追加 PRD-specific lens），物理抽取到 `docs/contracts/workflows/requirements-readiness-gate.md` 推迟到 v2；contract test 断言两处 gate 维度不 drift。
 - D8. 复用 graph evidence policy，不新增 evidence 权威体系。
 - D9. Current-state analysis 是核心差异化，但不得反向驱动 HOW。
 - D10. `001/002` 作为 Claude 侧分析输入；本 `003` 是 owner 当前 planning source。
 - D11. `spec-prd` 的 App lens 是 PRD 作者期 lens；PRD/Figma/source 一致性审计继续归 `spec-app-consistency-audit`。
 - D12. 路由 tie-break：现有系统锚点 + PRD/需求文档目标优先 `spec-prd`；产品形态/actor/core outcome 未定优先 `spec-brainstorm`。
 - D13. 外部竞品研究是 opt-in advisory evidence，不进入默认 PRD run。
+- D14. 本文是《大需求拆分.md》终态愿景的第一阶段落地（关系 C）：`spec-prd` v1 = 单文件增量 PRD + 复杂度识别闸；大需求 packet / 跨端 multi-surface / 拆分推迟 v2，复用愿景文档结构设计，packet 最终载体 v2 再定。两文档分层消除多真相源。
+- D15. `docs/需求文档模版/标准模版/` 是 human-facing 标准模板库；`skills/spec-prd/references/prd-output-template.md` 与 `domain-lenses.md` 是 runtime authoring contract。v1 plan 必须声明二者关系并防 drift；证券行业 overlay 作为首个行业示例进入 domain lenses。
 
 ---
 
@@ -414,14 +522,15 @@ PRD evidence tags 是文档层便捷标签，不是新的 graph evidence contrac
 
 ### Resolve Before Planning
 
-- None. 产品形态、skill 数量、agent 策略、artifact 策略、evidence 策略、App audit 边界、shared readiness gate 复用方式和 `spec-brainstorm` / `spec-prd` 路由 tie-break 均已收敛。
+- None. 产品形态、skill 数量、agent 策略、artifact 策略、evidence 策略、App audit 边界、shared readiness gate 复用方式、标准模板库关系、证券行业 overlay 和 `spec-brainstorm` / `spec-prd` 路由 tie-break 均已收敛。
 
 ### Deferred to Planning
 
-- [Affects R31/U1][Architecture] **shared readiness gate 的落地路径二选一**：物理抽取到 `docs/contracts/workflows/requirements-readiness-gate.md`(改动 brainstorm,需双宿主回归)vs v1 先 by-reference 引用、抽取推迟 v2(见 Risks 段 fallback)。plan 第一步应先评估抽取对 `spec-brainstorm` 的回归成本再定，两条都要 contract test 断言 gate 不 drift。
+- [Affects R31/U1][v2-重构] shared readiness gate 物理抽取到 `docs/contracts/workflows/requirements-readiness-gate.md`（由 `spec-brainstorm` 与 `spec-prd` 共享）已定为 **v2 重构项**：v1 走 by-reference，待 `spec-prd` 上线、确认两处 gate 确有 drift 痛点后再抽取。此项不阻塞 v1 planning。
 - [Affects U8][Technical] Claude/Codex command template、dual-host governance 注册点由 `spec-plan` 根据当前 source generator 确认。
 - [Affects U10][Technical] `spec-plan` intake 是否需要 contract test fixture 覆盖 `artifact_kind: prd-requirements`。
 - [Affects U12][Evaluation] fresh-source eval 用现有 reviewer 机制还是最小 read-only fixture prompt 执行。
+- [Affects U4/U5][Technical] `prd-output-template.md` 与 `domain-lenses.md` 是直接引用 `docs/需求文档模版/标准模版/`、复制精简内容，还是建立生成/检查脚本，由 `spec-plan` 在最小维护成本原则下决定；无论选择哪种，必须留下 drift 暴露机制。
 
 ---
 
@@ -430,6 +539,78 @@ PRD evidence tags 是文档层便捷标签，不是新的 graph evidence contrac
 本文已作为 planning 唯一 source。全面审查后修复/标注的点，供 plan 阶段注意：
 
 - **结构修复**：上一轮插入 Risks 段时误吞了 `## Key Decisions` 标题与 D1，已还原。
-- **Traceability 校准（建议 plan 收口，未逐条改以免再动结构）**：Key Flows 的 `Covered by` 与 AE 的 `Covers` 把 **meta requirement 误当 flow/AE 覆盖项**——R1(新增 skill 存在性)、R2(定位)、R4(code-align posture)是架构 meta，不是某条 Given/When/Then 能验收的行为。F1 应覆盖 R3+R7-R10+R16-R20(而非 R1/R22)；AE 的范围式 `Covers R1-R4` 应收窄到真正验收的行为 R。这不改变需求实质，只是覆盖映射的精度，plan 生成 traceability 时按此校准。
+- **Traceability 已修正（不再留给 plan）**：原 Key Flows 的 `Covered by` 与 AE 的 `Covers` 把 meta requirement（R1 skill 存在性、R2 定位、R4 posture）误当 flow/AE 覆盖项，已逐条收窄为真正可验收的行为 R——F1→R3/R7-R10/R16-R20，F2→R3/R7/R9/R10/R16/R18/R21，AE1→R3/R7/R16，AE5 拆出 AE5b 覆盖 R22/R23。meta R 与架构 guardrail（R1/R2/R4、R36-R41）只由 Owner Decision / Key Decisions 承载，不进 flow/AE 行为覆盖（AE8 例外：它专门验收 R36-R41 这组架构约束本身）。
 - **事实时效**：R12 与 frontmatter graph note 已从"钉死当前 dirty-advisory 快照"改为"按 graph-evidence-policy 条件判定"，避免 graph 刷新后文档过期。
 - **冗余**：Owner Decision 表、Decision Closure、20-Round、Key Decisions(D1-D13)、Risks 之间有内容重复(单入口/无 agent/shared gate/tie-break 各说多遍)。owner-final 保留以自洽，plan 引用时认 Key Decisions(D1-D13)与 Requirements(R)为准，其余为论证过程。
+
+---
+
+## 变更记录（2026-05-30 brainstorm：新增 readiness reviewer agent）
+
+owner 在 `/spec:brainstorm` 复审中决定调整一条原已收敛决策：从「v1 不新增 agent」改为「v1 纳入 1 个 eval-gated 内部 readiness reviewer」。
+
+- **决策实质**：新增内部 reviewer helper（暂名 `spec-requirements-readiness-reviewer`），own PRD-grade readiness 判断，主要服务 `spec-prd` 自检、设计上保持可被 `spec-doc-review` 复用（实体化 + 更新 doc-review persona 契约后启用），**非用户公开入口**；实体化受 fresh-source eval 校准——v1 先 orchestrator-owned 执行 `prd-readiness-lens.md`，仅当 eval 证明单 orchestrator 自审稳定失效时才落地为独立 agent。
+- **未改动的边界**：单入口 `spec-prd`、PRD artifact 路径、graph evidence policy、domain lens、与 `spec-brainstorm`/`spec-app-consistency-audit` 的 tie-break 均不变；现状采集**不**新增 researcher agent，复用 `spec-repo-research-analyst`。
+- **同步更新处**：Summary、Owner Decision 表、20-Round#12、NG4、R38/R39、D5、Actors A6、U6b、U12、Risks（过早实体化 / agent collection 两条）、AE8、Evaluation Plan（readiness reviewer eval gate / public agent entry boundary 两条 fixture）。
+- **plan 注意**：R38/R39 是 Architecture Guardrails（按 H5 收口，不作对等产品验收）；reviewer 是否实体化由 plan 阶段 fresh-source eval 决定，不在本需求文档预判。
+
+---
+
+## 变更记录（2026-05-30 brainstorm：PRD 模板刚性收口）
+
+owner 在 `/spec:brainstorm` 复审中收口 R16「必须包含 13 section」与 Risks「right-sized」的字面冲突。
+
+- **决策实质**：PRD 模板改为 **core + conditional 两层**——core sections（Summary、Change Delta、Requirements、Acceptance Examples、Scope Boundaries、Evidence And Assumptions）始终必填，作为 `spec-plan` 消费的最小骨架；conditional sections（Problem Frame、Current System Snapshot、Goals / Success Metrics / Non-Goals、Glossary、Actors、Use Cases、Interaction Requirements、Exception Handling、Outstanding Questions）按 target surface 与需求规模决定是否展开。
+- **裁剪不丢证据**：conditional section 展开时仍须满足 R17-R21；被省略项若有未决点，必须落入 Outstanding Questions，不得静默丢弃。
+- **同步更新处**：R16 拆为 R16(core)+R16b(conditional)；R17/R19/R20 措辞从无条件「必须」校准为「该 section 展开/对应 surface 命中时必须」；Risks 段「模板过重」mitigation 引用 R16/R16b。
+- **未改动**：13 个 section 的清单本身不增删；每个 section 的具体文案/字段留给 plan 阶段 `prd-output-template.md`（HOW）。
+
+---
+
+## 变更记录（2026-05-30 brainstorm：与终态愿景分层、确立 v1/v2 范围边界）
+
+owner 选定关系 C：本文是《大需求拆分.md》终态愿景的**第一阶段落地真相源**，两文档从"对立"变"分层"，消除多真相源。
+
+- **决策实质**：`spec-prd` v1 只做单文件增量 PRD + **复杂度识别闸**（检测大需求/跨端信号则输出 split-decision 建议并 handoff，不硬塞单文件、不实现 packet 重机制）；大需求 Requirements Packet、跨端 Multi-Surface Packet、Parent/Child 拆分推迟 **v2+**，届时复用《大需求拆分.md》的 packet/contract 结构设计；packet 最终载体（spec-prd 长出 vs 回流 brainstorm/spec-requirements）推迟到 v2 再定，不阻塞 v1。
+- **关系处理**：给《大需求拆分.md》加 frontmatter + 关系声明，标为多阶段愿景路线图、增量 PRD 层以 003 为准；本文 frontmatter 加 `relationship_to_vision_roadmap` 指针；新增关系诊断文档 `docs/brainstorms/2026-05-30-003-spec-prd-关系诊断-vs-大需求拆分.md`。
+- **同步更新处**：新增 `## Scope: v1 vs v2` section、NG8（v1 不实现 packet/multi-surface/拆分）、R6b（复杂度识别闸）、AE2b（识别闸验收）、D14（关系 C 决策）、Risks 两条（v1 过早实现 packet / 多真相源）。
+- **未改动**：spec-prd 单入口、单文件 PRD 核心体验、core/conditional 模板、by-reference gate、reviewer 决策、domain lens、路由 tie-break 均不变；本次只新增 v1/v2 边界与识别闸，未推翻任何既有决策。
+- **plan 注意**：v1 实现范围以 NG8 + Scope: v1 vs v2 为界；复杂度识别闸（R6b）是 v1 必做的轻量行为，packet 完整实现明确不在 v1。
+
+---
+
+## 变更记录（2026-05-30 brainstorm：完整性补强 7 点）
+
+owner 要求审查"还有哪些需要完善"，按推荐补强 6 点（第 7 点重复运行/幂等留给 plan）。均为新增，未推翻既有决策。
+
+- **intent-flow 对齐**：拆出 F1（create：有增量方向但无 PRD，从零写）与 F1b（refine：完善已有 PRD），F2 标注为 create 轻量入口，F4 标注 = `validate` intent；解决 `create` intent 原先无专属 flow 的结构缺口。
+- **安全/权限维度**：新增 R22b——触及权限/数据/资金/审计/合规时 PRD 必须显式标注边界与敏感性，不确定进 Outstanding Questions；AE5d + Quality Bar「权限/数据」行 + Security-sensitive fixture 配套。
+- **输入质量边界**：新增 R6c——低质量/非 PRD 输入须先结构化按 create 补齐并标注原始 vs 补全，不足时回 Scope confirmation 取信息、不编造；AE5c + Low-quality refine fixture 配套。
+- **PRD 自身 trace**：新增 R23b——requirement↔acceptance 内部 traceability，便于 plan 直接消费。
+- **evidence tag 强制**：新增 R23c——每条 current-state claim 必须带 evidence tag，给 R11/R12 治理抓手。
+- **语言策略**：新增 R23d——PRD 生成语言遵循 host language setting（默认中文，标识符/路径保留原文）。
+- **配套**：AE5e 合并覆盖 R23b/R23c/R23d；Quality Bar 加「Trace」行。
+- **plan 注意**：F2 与 F1 同为 create intent（F2 是一句话轻量入口、F1 是完整 create），plan 实现时按同一 intent 处理；重复运行/幂等行为（覆盖 vs 新文件 vs merge）本文未决，留给 plan。
+
+---
+
+## 变更记录（2026-05-31 work：标准 PRD 模板与证券行业 overlay 双向收口）
+
+owner 要求结合 `docs/需求文档模版/标准模版/` 与证券行业属性，反向优化 `spec-prd` skill 需求，并同步优化模板库。
+
+- **决策实质**：`spec-prd` v1 必须支持「surface lens + industry overlay」组合；证券行业作为首个行业 overlay，覆盖监管辖区/展业地、客户分类、账户类型、产品/市场范围、适当性、AML/KYC、风控、行情权限、交易/订单、资金清结算、审计留痕、数据精度与时区。
+- **模板关系**：`docs/需求文档模版/标准模版/` 定位为 human-facing 标准模板库；`skills/spec-prd/references/prd-output-template.md` 与 `domain-lenses.md` 定位为 runtime authoring contract。二者不能静默漂移，plan 必须声明 derive/reference/diverge 关系并提供 drift 暴露机制。
+- **Success Metrics 收口**：吸收业界 PRD 对标文档的校准提示，新增 R16c——产出 PRD 支持 Success Metrics 作为 conditional section；有可信证据则填，无证据不得编造，进入 Assumptions / Outstanding Questions。
+- **同步更新处**：新增 G8、R16c/R16d、R22c、R30b/R30c，扩展 R32、Quality Bar、AE5f/AE6b/AE11、U4/U5、Evaluation Plan、Risks、D15、Deferred to Planning。
+- **未改动**：单入口 `spec-prd`、PRD artifact 路径、core/conditional 分层、by-reference readiness gate、readiness reviewer eval 门槛、v1 不做 packet/multi-surface 的边界均不变。
+
+---
+
+## 变更记录（2026-05-31 plan：超大 PRD 拆分文档拓扑收口）
+
+owner 追问“LLM 能否拆分”以及“是否会有原始需求、拆分模块需求、拆分汇总需求多份文档”，补强超大初版 PRD 的 v1 执行边界。
+
+- **决策实质**：`spec-prd` v1 允许 LLM 基于原始 PRD、历史文档、代码现状和 GitNexus pointer 给出语义拆分建议，但拆分边界、优先级和发布节奏必须由产品 owner/PM 确认后才落盘。脚本/工具只提供事实，不做业务拆分裁决。
+- **文档拓扑**：超大 PRD 命中复杂度识别闸后采用轻量三层文档：原始 PRD/source input by-reference 保留；split summary requirements 文档记录拆分依据和 child PRD 索引；同一大需求共享一个 base `spec_id` / slug，每个 child PRD 使用唯一 `child_id` 并回链 `parent_spec_id` / `source_prd` / `split_summary`。默认仍在 `docs/brainstorms/*-requirements.md` 下，不新增 `docs/prds/`。
+- **边界不变**：这不是完整 Requirements Packet，不新增 manifest/trace-ledger/integration-contracts，也不绕过 owner 确认批量生成 child PRD；v2 才考虑 packet 化。
+- **同步更新处**：Scope v1/v2、Product Shape、Interaction Model、F1c、R6d、AE2c、U7b、Evaluation Plan；对应实施计划 `docs/plans/2026-05-31-001-feat-spec-prd-workflow-plan.md` 同步补 R10 和相关 implementation unit。

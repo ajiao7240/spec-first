@@ -50,7 +50,7 @@ Based on selection:
 - **Start work** -> Invoke the current host's work entrypoint with the plan path in the current session. Do not merely tell the user to run it manually.
 - **Compile task pack with `spec-write-tasks`** -> Load the standalone `spec-write-tasks` skill with the plan path. Do not invoke it through slash commands, `$spec-*` commands, or any command-backed workflow surface. If it writes an executable task pack with matching `spec_id` and verifiable `source_plan_hash`, offer to proceed with the current host's work entrypoint using the task-pack path. If it returns `skip`, `return-to-plan`, `draft-only`, unverifiable identity/hash, or a non-executable task pack, do not offer task-pack execution; follow the returned recommendation instead.
 - **Create Issue** -> Follow the Issue Creation section below
-- **Open in Proof (web app) — review and comment to iterate with the agent** -> Load the `proof` skill in HITL-review mode with:
+- **Open in Proof (web app) — review and comment to iterate with the agent** -> Load the `proof` skill (host-provided; if the host does not expose it, tell the user this review surface is unavailable) in HITL-review mode with:
   - source file: `docs/plans/<plan_filename>.md`
   - doc title: `Plan: <plan title from frontmatter>`
   - identity: `ai:spec-first` / `Spec-First`

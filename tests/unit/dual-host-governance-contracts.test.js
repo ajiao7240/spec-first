@@ -422,4 +422,19 @@ describe('dual-host governance contracts', () => {
     expect(skill).toContain('bounded direct repo reads');
     expect(skill).not.toContain('只要 provider setup 仍 ready，重复 `spec-mcp-setup` 不应删除这些 readiness facts');
   });
+
+  test('skills-governance.json conforms to its own schema (schema is enforced, not decorative)', () => {
+    const { validateAgainstSchema } = require('../../src/contracts/schema-validator');
+    const schema = JSON.parse(read(path.join(
+      REPO_ROOT,
+      'src/cli/contracts/dual-host-governance/skills-governance.schema.json',
+    )));
+    const data = JSON.parse(read(path.join(
+      REPO_ROOT,
+      'src/cli/contracts/dual-host-governance/skills-governance.json',
+    )));
+    const result = validateAgainstSchema(schema, data);
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toBe(true);
+  });
 });

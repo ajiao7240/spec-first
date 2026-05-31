@@ -22,6 +22,8 @@ const SUPPORTED_SCHEMA_KEYWORDS = [
   'pattern',
   'minimum',
   'maximum',
+  'exclusiveMinimum',
+  'exclusiveMaximum',
 ];
 
 function getExpectedTypes(schema) {
@@ -31,6 +33,15 @@ function getExpectedTypes(schema) {
 
 function schemaAllowsType(schema, typeName) {
   return getExpectedTypes(schema).includes(typeName);
+}
+
+function schemaHasObjectConstraints(schema) {
+  return (
+    schemaAllowsType(schema, 'object')
+    || Array.isArray(schema.required)
+    || (schema.properties && typeof schema.properties === 'object')
+    || Object.prototype.hasOwnProperty.call(schema, 'additionalProperties')
+  );
 }
 
 function validateAgainstSchema(schema, value, pointer = 'root', errors = [], rootSchema = schema, refStack = []) {
@@ -110,7 +121,9 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = [], roo
     errors.push(`${pointer}: value ${JSON.stringify(value)} does not equal const ${JSON.stringify(schema.const)}`);
   }
 
-  if (schemaAllowsType(schema, 'object') && value && typeof value === 'object' && !Array.isArray(value)) {
+  // 对象级约束(required/properties/additionalProperties)只要 value 是普通对象就执行,
+  // 不以显式 type:object 为前提——否则省略 type 的合法子 schema 会静默放行缺失的 required 字段。
+  if (schemaHasObjectConstraints(schema) && value && typeof value === 'object' && !Array.isArray(value)) {
     const required = Array.isArray(schema.required) ? schema.required : [];
     for (const key of required) {
       if (!Object.prototype.hasOwnProperty.call(value, key)) {
@@ -173,6 +186,12 @@ function validateAgainstSchema(schema, value, pointer = 'root', errors = [], roo
     }
     if (typeof schema.maximum === 'number' && value > schema.maximum) {
       errors.push(`${pointer}: expected number <= ${schema.maximum}, received ${value}`);
+    }
+    if (typeof schema.exclusiveMinimum === 'number' && value <= schema.exclusiveMinimum) {
+      errors.push(`${pointer}: expected number > ${schema.exclusiveMinimum}, received ${value}`);
+    }
+    if (typeof schema.exclusiveMaximum === 'number' && value >= schema.exclusiveMaximum) {
+      errors.push(`${pointer}: expected number < ${schema.exclusiveMaximum}, received ${value}`);
     }
   }
 
