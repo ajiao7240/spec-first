@@ -177,7 +177,26 @@ echo "{article_path}" | grep -q "\-outline" && echo "outline" || echo "draft"
 
 **若是大纲文件：** 用 `AskUserQuestion` 提示先完成正文写作，或选择继续用大纲。
 
-**若是正文文件：** 直接进入 Step 3。
+**若是正文文件：** 直接进入 Step 2.5。
+
+---
+
+## Step 2.5: 需求模式识别（写需求类文章时）
+
+**触发条件：** 文章主题涉及需求工具（brainstorm / spec-prd / ideate）时执行此步骤，帮助作者明确文章的目标读者和需求场景定位。
+
+spec-first 的需求工具按产品阶段分三种模式：
+
+| 模式 | 场景 | 推荐工具 | 文章定位 |
+|---|---|---|---|
+| **0-1** | 全新产品/功能，方向未定，需要探索 | `spec-ideate` → `spec-brainstorm` | 讲"如何把模糊想法变成可执行需求" |
+| **1-10** | 已有产品，增量功能，需求较清晰 | `spec-brainstorm` 或 `spec-prd` | 讲"如何快速收敛需求边界" |
+| **10-100** | 存量系统，增量需求，需要 PRD 级文档 | `spec-prd`（brownfield increment） | 讲"如何在已有系统上写清楚 WHAT/WHY" |
+
+**写作时的区分原则：**
+- brainstorm 文章：强调"意图显式化"，适合 0-1 场景，核心是把模糊变清晰
+- spec-prd 文章：强调"current-state evidence + change delta"，适合 1-10/10-100 场景，核心是让 plan 不用猜 WHAT
+- 两篇文章都要说清楚：什么时候用这个工具，什么时候用另一个
 
 ---
 
