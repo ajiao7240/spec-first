@@ -23,7 +23,7 @@ describe('spec-first gitignore policy', () => {
     expect(patterns).toContain('.code-review-graph/');
     expect(getSpecFirstGitignorePatternMetadata()['.code-review-graph/']).toMatchObject({
       reason: 'retired-crg-residual-ignore',
-      'residual-ignore-expiry': '1.9.0',
+      'residual-ignore-expiry': '1.10.0',
     });
     expect(patterns).toContain('.spec-first/config/*.json');
     expect(patterns).not.toContain('.spec-first/' + 'standards/');

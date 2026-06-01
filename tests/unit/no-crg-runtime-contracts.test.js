@@ -182,7 +182,7 @@ describe('retired internal graph runtime removal contract', () => {
     expect(getSpecFirstGitignorePatterns()).toContain(residualPattern);
     expect(metadata).toMatchObject({
       reason: 'retired-crg-residual-ignore',
-      'residual-ignore-expiry': '1.9.0',
+      'residual-ignore-expiry': '1.10.0',
     });
     expect(compareSemver(packageJson.version, metadata['residual-ignore-expiry'])).toBeLessThan(0);
   });

@@ -45,7 +45,7 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
 const SPEC_FIRST_GITIGNORE_PATTERN_METADATA = {
   '.code-review-graph/': {
     reason: 'retired-crg-residual-ignore',
-    'residual-ignore-expiry': '1.9.0',
+    'residual-ignore-expiry': '1.10.0',
   },
 };
 
