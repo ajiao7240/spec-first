@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="540" viewBox="0 0 1200 540" role="img" aria-labelledby="title desc">
+  <title id="title">什么时候需要 write-tasks，什么时候直接 work</title>
+  <desc id="desc">task pack 是可选的，只有复杂任务才需要</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="540" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">什么时候需要 write-tasks</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">task pack 是可选的——不要为了"看起来更完整"而强制使用</text>
+
+  <!-- 直接 work -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="110" width="510" height="300" rx="20" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="315" y="152" text-anchor="middle" fill="#6ee7b7" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">直接 plan → work</text>
+    <text x="315" y="180" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">适合简单任务</text>
+    <text x="90" y="216" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• plan 只有 1-2 个 implementation units</text>
+    <text x="90" y="240" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 任务简单，边界清晰</text>
+    <text x="90" y="264" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 不需要并行执行</text>
+    <text x="90" y="288" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 单文件修复、typo、局部改动</text>
+    <text x="315" y="370" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">✓ 更快，更简单</text>
+  </g>
+
+  <!-- 需要 write-tasks -->
+  <g filter="url(#shadow)">
+    <rect x="630" y="110" width="510" height="300" rx="20" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="885" y="152" text-anchor="middle" fill="#7dd3fc" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">需要 write-tasks</text>
+    <text x="885" y="180" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">适合复杂任务</text>
+    <text x="660" y="216" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• plan 有 3+ 个 implementation units</text>
+    <text x="660" y="240" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 跨模块，有依赖关系</text>
+    <text x="660" y="264" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 有并行执行机会</text>
+    <text x="660" y="288" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 需要明确的 stop_if 和 done_signal</text>
+    <text x="885" y="370" text-anchor="middle" fill="#38bdf8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">✓ 更清晰的执行边界</text>
+  </g>
+
+  <text x="600" y="480" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">task pack 不是"更专业"的标志——它是解决特定问题的工具，不需要时不要用</text>
+</svg>

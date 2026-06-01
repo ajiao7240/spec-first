@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">brainstorm 的执行逻辑：从想法到 requirements brief</title>
+  <desc id="desc">brainstorm 的四个阶段：评估范围、理解想法、探索方案、写需求文档</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="620" rx="30" fill="url(#bg)"/>
+  <text x="600" y="56" text-anchor="middle" fill="#e0f2fe" font-size="30" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">brainstorm 的执行逻辑</text>
+  <text x="600" y="88" text-anchor="middle" fill="#93c5fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">从一句话到可交给 plan 的 requirements brief</text>
+
+  <!-- 阶段1 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="120" width="240" height="360" rx="18" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="180" y="162" text-anchor="middle" fill="#7dd3fc" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Phase 0</text>
+    <text x="180" y="188" text-anchor="middle" fill="#f8fafc" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">评估范围</text>
+    <text x="90" y="224" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 判断是否需要 brainstorm</text>
+    <text x="90" y="248" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 分类：轻量/标准/深度</text>
+    <text x="90" y="272" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 检查是否有已有文档</text>
+    <text x="90" y="296" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 判断是否软件任务</text>
+    <rect x="90" y="380" width="160" height="36" rx="8" fill="#0b2138" stroke="#38bdf8" stroke-width="1"/>
+    <text x="170" y="404" text-anchor="middle" fill="#7dd3fc" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">范围分类</text>
+  </g>
+  <path d="M302 300 H338" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <!-- 阶段2 -->
+  <g filter="url(#shadow)">
+    <rect x="340" y="120" width="240" height="360" rx="18" fill="#082f49" stroke="#22d3ee" stroke-width="2"/>
+    <text x="460" y="162" text-anchor="middle" fill="#67e8f9" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Phase 1</text>
+    <text x="460" y="188" text-anchor="middle" fill="#f8fafc" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">理解想法</text>
+    <text x="370" y="224" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 扫描已有上下文</text>
+    <text x="370" y="248" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 检查 docs/solutions/</text>
+    <text x="370" y="272" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 一次一个问题追问</text>
+    <text x="370" y="296" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 挑战假设，探索 what-if</text>
+    <rect x="370" y="380" width="160" height="36" rx="8" fill="#0b2138" stroke="#22d3ee" stroke-width="1"/>
+    <text x="450" y="404" text-anchor="middle" fill="#67e8f9" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">问题澄清</text>
+  </g>
+  <path d="M582 300 H618" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <!-- 阶段3 -->
+  <g filter="url(#shadow)">
+    <rect x="620" y="120" width="240" height="360" rx="18" fill="#082f49" stroke="#a78bfa" stroke-width="2"/>
+    <text x="740" y="162" text-anchor="middle" fill="#c4b5fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Phase 2</text>
+    <text x="740" y="188" text-anchor="middle" fill="#f8fafc" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">探索方案</text>
+    <text x="650" y="224" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 提出 2-3 个方向</text>
+    <text x="650" y="248" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 评估 pros/cons</text>
+    <text x="650" y="272" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 给出推荐方向</text>
+    <text x="650" y="296" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 合成摘要确认</text>
+    <rect x="650" y="380" width="160" height="36" rx="8" fill="#0b2138" stroke="#a78bfa" stroke-width="1"/>
+    <text x="730" y="404" text-anchor="middle" fill="#c4b5fd" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">方向确认</text>
+  </g>
+  <path d="M862 300 H898" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <!-- 阶段4 -->
+  <g filter="url(#shadow)">
+    <rect x="900" y="120" width="240" height="360" rx="18" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="1020" y="162" text-anchor="middle" fill="#6ee7b7" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Phase 3</text>
+    <text x="1020" y="188" text-anchor="middle" fill="#f8fafc" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">写需求文档</text>
+    <text x="930" y="224" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 写 requirements brief</text>
+    <text x="930" y="248" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 包含六个最小字段</text>
+    <text x="930" y="272" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 存入 docs/brainstorms/</text>
+    <text x="930" y="296" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 交接给 spec-plan</text>
+    <rect x="930" y="380" width="180" height="36" rx="8" fill="#04221a" stroke="#34d399" stroke-width="1.5"/>
+    <text x="1020" y="404" text-anchor="middle" fill="#6ee7b7" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">*-requirements.md</text>
+  </g>
+
+  <text x="600" y="556" text-anchor="middle" fill="#475569" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">brainstorm 是思考伙伴，不是需求提取器——它会挑战假设、提出替代方案、探索 what-if</text>
+</svg>

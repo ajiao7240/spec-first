@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="580" viewBox="0 0 1200 580" role="img" aria-labelledby="title desc">
+  <title id="title">什么时候需要重新做这三件事</title>
+  <desc id="desc">升级版本、换宿主、代码大量变更、MCP 配置变化时需要重新运行对应步骤</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102a43"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="580" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">什么时候需要重新做</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">不同触发条件对应不同的重做范围</text>
+
+  <!-- 表头 -->
+  <rect x="60" y="100" width="1080" height="44" rx="8" fill="#082f49"/>
+  <text x="260" y="128" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">触发条件</text>
+  <text x="560" y="128" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">需要重做</text>
+  <text x="900" y="128" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">命令</text>
+  <line x1="460" y1="100" x2="460" y2="520" stroke="#1e3a5f" stroke-width="1"/>
+  <line x1="720" y1="100" x2="720" y2="520" stroke="#1e3a5f" stroke-width="1"/>
+
+  <!-- 行1 -->
+  <rect x="60" y="144" width="1080" height="56" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="260" y="178" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">升级 spec-first 版本</text>
+  <text x="560" y="172" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">init + mcp-setup</text>
+  <text x="560" y="192" text-anchor="middle" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">（graph-bootstrap 可选）</text>
+  <text x="900" y="178" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-first init + /spec:mcp-setup</text>
+
+  <!-- 行2 -->
+  <rect x="60" y="200" width="1080" height="56" rx="0" fill="transparent"/>
+  <text x="260" y="234" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">换宿主（Claude ↔ Codex）</text>
+  <text x="560" y="228" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">init（新宿主）</text>
+  <text x="560" y="248" text-anchor="middle" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">mcp-setup 可能需要</text>
+  <text x="900" y="234" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-first init --codex</text>
+
+  <!-- 行3 -->
+  <rect x="60" y="256" width="1080" height="56" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="260" y="290" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">代码库大量变更（branch switch / merge）</text>
+  <text x="560" y="284" text-anchor="middle" fill="#a78bfa" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">graph-bootstrap</text>
+  <text x="560" y="304" text-anchor="middle" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">（init/mcp-setup 不需要）</text>
+  <text x="900" y="290" text-anchor="middle" fill="#a78bfa" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">/spec:graph-bootstrap</text>
+
+  <!-- 行4 -->
+  <rect x="60" y="312" width="1080" height="56" rx="0" fill="transparent"/>
+  <text x="260" y="346" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">MCP 工具配置变化</text>
+  <text x="560" y="340" text-anchor="middle" fill="#38bdf8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">mcp-setup</text>
+  <text x="560" y="360" text-anchor="middle" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">（init 不需要）</text>
+  <text x="900" y="346" text-anchor="middle" fill="#38bdf8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">/spec:mcp-setup</text>
+
+  <!-- 行5 -->
+  <rect x="60" y="368" width="1080" height="56" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="260" y="402" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">doctor 报告 runtime drift</text>
+  <text x="560" y="396" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">init（hard reset）</text>
+  <text x="560" y="416" text-anchor="middle" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">会先 reset 再重建</text>
+  <text x="900" y="402" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-first init（自动处理 drift）</text>
+
+  <!-- 行6 -->
+  <rect x="60" y="424" width="1080" height="56" rx="0" fill="transparent"/>
+  <text x="260" y="458" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">workflow 行为异常 / 找不到命令</text>
+  <text x="560" y="452" text-anchor="middle" fill="#fde68a" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">先 doctor，再按提示</text>
+  <text x="560" y="472" text-anchor="middle" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">doctor 会告诉你该做什么</text>
+  <text x="900" y="458" text-anchor="middle" fill="#fde68a" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-first doctor</text>
+
+  <line x1="60" y1="480" x2="1140" y2="480" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="600" y="520" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">遇到问题先跑 doctor——它会告诉你哪里出了问题，以及该怎么修</text>
+</svg>

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">plan 如何防止 scope 扩张</title>
+  <desc id="desc">没有 plan 时 AI 会扩张 scope，有 plan 时 scope 被约束在边界内</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/></filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto"><path d="M1,1 L13,7 L1,13 Z" fill="#38bdf8"/></marker>
+  </defs>
+  <rect width="1200" height="560" rx="30" fill="url(#bg)"/>
+  <text x="600" y="56" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">plan 如何防止 scope 扩张</text>
+  <text x="600" y="88" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">没有 plan 时 AI 会"顺手"做很多事，有 plan 时 scope 被约束在边界内</text>
+
+  <!-- 没有 plan -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="120" width="480" height="320" rx="20" fill="#0f172a" stroke="#f87171" stroke-width="2" stroke-dasharray="8 5"/>
+    <text x="300" y="162" text-anchor="middle" fill="#fca5a5" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">没有 plan</text>
+    <text x="300" y="192" text-anchor="middle" fill="#64748b" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">任务：修复登录错误提示</text>
+    <rect x="90" y="214" width="400" height="40" rx="8" fill="#111c2e" stroke="#334155" stroke-width="1.5"/>
+    <text x="290" y="240" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">改了错误提示文案</text>
+    <rect x="90" y="264" width="400" height="40" rx="8" fill="#111c2e" stroke="#334155" stroke-width="1.5"/>
+    <text x="290" y="290" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">顺手重构了认证模块</text>
+    <rect x="90" y="314" width="400" height="40" rx="8" fill="#111c2e" stroke="#334155" stroke-width="1.5"/>
+    <text x="290" y="340" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">顺手改了 UI 组件</text>
+    <rect x="90" y="364" width="400" height="40" rx="8" fill="#111c2e" stroke="#334155" stroke-width="1.5"/>
+    <text x="290" y="390" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">顺手调整了样式</text>
+    <text x="300" y="420" text-anchor="middle" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">diff 变大，review 很难判断</text>
+  </g>
+
+  <!-- 箭头 -->
+  <path d="M542 280 H646" stroke="#38bdf8" stroke-width="5" marker-end="url(#arrow)"/>
+  <text x="594" y="264" text-anchor="middle" fill="#38bdf8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">加 plan</text>
+
+  <!-- 有 plan -->
+  <g filter="url(#shadow)">
+    <rect x="648" y="120" width="492" height="320" rx="20" fill="#082f49" stroke="#34d399" stroke-width="2"/>
+    <text x="894" y="162" text-anchor="middle" fill="#6ee7b7" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">有 plan</text>
+    <text x="894" y="192" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">任务：修复登录错误提示</text>
+    <rect x="678" y="214" width="432" height="40" rx="8" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="894" y="240" text-anchor="middle" fill="#bbf7d0" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">✓ 改了错误提示文案</text>
+    <rect x="678" y="264" width="432" height="40" rx="8" fill="#0b2138" stroke="#475569" stroke-width="1.5"/>
+    <text x="894" y="290" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">✗ 认证模块不在 scope 内，跳过</text>
+    <rect x="678" y="314" width="432" height="40" rx="8" fill="#0b2138" stroke="#475569" stroke-width="1.5"/>
+    <text x="894" y="340" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">✗ UI 组件不在 scope 内，跳过</text>
+    <rect x="678" y="364" width="432" height="40" rx="8" fill="#0b2138" stroke="#475569" stroke-width="1.5"/>
+    <text x="894" y="390" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">✗ 样式不在 scope 内，跳过</text>
+    <text x="894" y="420" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">diff 精准，review 容易判断</text>
+  </g>
+
+  <text x="600" y="500" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">plan 的 non-goals 是防止 scope 扩张最有效的工具——明确说"不做什么"</text>
+</svg>

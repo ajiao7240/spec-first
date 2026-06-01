@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">Bug track vs Knowledge track：两种 learning 的结构</title>
+  <desc id="desc">Bug track 记录具体问题，Knowledge track 记录实践和模式</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="560" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Bug track vs Knowledge track</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">两种 learning 的结构不同，适用场景也不同</text>
+
+  <!-- Bug track -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="110" width="510" height="340" rx="20" fill="#082f49" stroke="#f87171" stroke-width="2"/>
+    <text x="315" y="152" text-anchor="middle" fill="#fca5a5" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Bug track</text>
+    <text x="315" y="180" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">记录一个具体的问题</text>
+    <text x="90" y="214" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">## Problem</text>
+    <text x="90" y="234" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">问题描述和用户可见影响</text>
+    <text x="90" y="262" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">## Symptoms</text>
+    <text x="90" y="282" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">可观察到的症状</text>
+    <text x="90" y="310" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">## What Didn't Work ← 关键</text>
+    <text x="90" y="330" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">尝试过但失败的方案</text>
+    <text x="90" y="358" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">## Solution + Why This Works</text>
+    <text x="90" y="378" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">解决方案和根因解释</text>
+    <text x="90" y="406" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">## Prevention</text>
+    <text x="90" y="426" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">预防策略</text>
+  </g>
+
+  <!-- Knowledge track -->
+  <g filter="url(#shadow)">
+    <rect x="630" y="110" width="510" height="340" rx="20" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="885" y="152" text-anchor="middle" fill="#6ee7b7" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Knowledge track</text>
+    <text x="885" y="180" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">记录一个实践或模式</text>
+    <text x="660" y="214" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">## Context</text>
+    <text x="660" y="234" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">什么情况促使了这条 guidance</text>
+    <text x="660" y="262" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">## Guidance</text>
+    <text x="660" y="282" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">具体的实践或建议</text>
+    <text x="660" y="310" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">## Why This Matters</text>
+    <text x="660" y="330" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">背后的原因和不遵守的后果</text>
+    <text x="660" y="358" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">## When to Apply</text>
+    <text x="660" y="378" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">适用条件</text>
+    <text x="660" y="406" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">## Examples</text>
+    <text x="660" y="426" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">before/after 对比</text>
+  </g>
+
+  <text x="600" y="510" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">track 由 problem_type 决定——compound 会自动判断，不需要手动选择</text>
+</svg>

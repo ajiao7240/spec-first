@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">context_refs 是有界指针，不是 scope authority</title>
+  <desc id="desc">context_refs 告诉 work 从哪里开始读，但不授权 work 扩张 scope</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="560" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">context_refs：有界指针，不是 scope authority</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">context_refs 给方向，不给越权扩张范围的借口</text>
+
+  <!-- 表头 -->
+  <rect x="60" y="100" width="1080" height="44" rx="8" fill="#082f49"/>
+  <text x="200" y="128" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">维度</text>
+  <text x="560" y="128" text-anchor="middle" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">✗ 错误理解</text>
+  <text x="960" y="128" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">✓ 正确理解</text>
+  <line x1="360" y1="100" x2="360" y2="460" stroke="#1e3a5f" stroke-width="1"/>
+  <line x1="760" y1="100" x2="760" y2="460" stroke="#1e3a5f" stroke-width="1"/>
+
+  <!-- 行1 -->
+  <rect x="60" y="144" width="1080" height="52" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="200" y="176" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">context_refs 是什么</text>
+  <text x="560" y="176" text-anchor="middle" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">scope authority（授权范围）</text>
+  <text x="960" y="176" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">bounded reading pointers（有界指针）</text>
+
+  <!-- 行2 -->
+  <text x="200" y="228" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">指向整个目录</text>
+  <text x="560" y="228" text-anchor="middle" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">可以读整个目录</text>
+  <text x="960" y="228" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">低质量 handoff，需要更窄的锚点</text>
+
+  <!-- 行3 -->
+  <rect x="60" y="248" width="1080" height="52" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="200" y="280" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">指向具体文件/section</text>
+  <text x="560" y="280" text-anchor="middle" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">可以读整个文件</text>
+  <text x="960" y="280" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">只读指定的 section，不扩展到父目录</text>
+
+  <!-- 行4 -->
+  <text x="200" y="332" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">context_refs 的作用</text>
+  <text x="560" y="332" text-anchor="middle" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">决定 work 的 scope</text>
+  <text x="960" y="332" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">告诉 work 从哪里开始读，scope 由 plan 决定</text>
+
+  <!-- 行5 -->
+  <rect x="60" y="352" width="1080" height="52" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="200" y="384" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">context_refs 缺失</text>
+  <text x="560" y="384" text-anchor="middle" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">work 不知道从哪里开始</text>
+  <text x="960" y="384" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">work 从 source plan 和 plan-indicated files 开始</text>
+
+  <line x1="60" y1="404" x2="1140" y2="404" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="600" y="444" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">context_refs 必须指向最小有用的 section、文件、测试或 contract</text>
+  <text x="600" y="468" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">整个 plan 或整个目录的 ref 是低质量 handoff</text>
+</svg>

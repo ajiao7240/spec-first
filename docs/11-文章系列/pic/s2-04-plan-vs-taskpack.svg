@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="580" viewBox="0 0 1200 580" role="img" aria-labelledby="title desc">
+  <title id="title">plan vs task pack：source 和派生的关系</title>
+  <desc id="desc">plan 是 source of truth，task pack 是派生产物；task pack 只能重排执行切片，不能修改 scope</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/></filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto"><path d="M1,1 L13,7 L1,13 Z" fill="#38bdf8"/></marker>
+  </defs>
+  <rect width="1200" height="580" rx="30" fill="url(#bg)"/>
+  <text x="600" y="56" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">plan vs task pack：source 和派生</text>
+  <text x="600" y="88" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">plan 是 source of truth，task pack 是可选的派生产物</text>
+
+  <!-- plan -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="120" width="460" height="340" rx="20" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="290" y="162" text-anchor="middle" fill="#6ee7b7" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">spec-plan（source）</text>
+    <text x="290" y="192" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">docs/plans/*-plan.md</text>
+    <rect x="90" y="214" width="400" height="44" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="290" y="242" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">goal / non-goals / scope</text>
+    <rect x="90" y="268" width="400" height="44" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="290" y="296" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">implementation units</text>
+    <rect x="90" y="322" width="400" height="44" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="290" y="350" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">verification / risks / handoff</text>
+    <text x="290" y="420" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">✓ 可以直接交给 spec-work</text>
+    <text x="290" y="444" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">小任务不需要 task pack</text>
+  </g>
+
+  <!-- 箭头 -->
+  <path d="M522 300 H666" stroke="#38bdf8" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="594" y="284" text-anchor="middle" fill="#38bdf8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-write-tasks</text>
+  <text x="594" y="302" text-anchor="middle" fill="#38bdf8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">（可选，复杂任务）</text>
+
+  <!-- task pack -->
+  <g filter="url(#shadow)">
+    <rect x="668" y="120" width="472" height="340" rx="20" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="904" y="162" text-anchor="middle" fill="#7dd3fc" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">task pack（派生）</text>
+    <text x="904" y="192" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">docs/tasks/*-tasks.md</text>
+    <rect x="698" y="214" width="412" height="44" rx="10" fill="#0b2138" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="904" y="242" text-anchor="middle" fill="#bae6fd" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">spec_id + source_plan_hash</text>
+    <rect x="698" y="268" width="412" height="44" rx="10" fill="#0b2138" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="904" y="296" text-anchor="middle" fill="#bae6fd" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">执行切片（可重排）</text>
+    <rect x="698" y="322" width="412" height="44" rx="10" fill="#0b2138" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="904" y="350" text-anchor="middle" fill="#bae6fd" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">context_refs / done_signal / stop_if</text>
+    <text x="904" y="420" text-anchor="middle" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">✗ 不能修改 scope 和验收标准</text>
+    <text x="904" y="444" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">plan 变了必须重新编译</text>
+  </g>
+
+  <text x="600" y="520" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">task pack 的 source_plan_hash 防止过期链路静默执行——plan 变了，旧 task pack 会被拒绝</text>
+</svg>

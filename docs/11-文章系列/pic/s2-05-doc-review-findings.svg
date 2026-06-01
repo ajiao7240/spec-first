@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="540" viewBox="0 0 1200 540" role="img" aria-labelledby="title desc">
+  <title id="title">doc-review findings 的四种处理方式</title>
+  <desc id="desc">per-finding walk-through / Auto-resolve / Append-to-Open-Questions / Report-only 四种处理方式</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#102a43"/><stop offset="1" stop-color="#0f172a"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="540" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">doc-review findings 的四种处理方式</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">每个 finding 都有明确的处理路径</text>
+
+  <!-- 方式1 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="110" width="250" height="180" rx="14" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <text x="185" y="148" text-anchor="middle" fill="#6ee7b7" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">safe_auto</text>
+    <text x="185" y="172" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">自动修复</text>
+    <text x="90" y="206" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">低风险、明确的问题</text>
+    <text x="90" y="226" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">如：typo、格式问题</text>
+    <text x="185" y="270" text-anchor="middle" fill="#34d399" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">自动应用，无需确认</text>
+  </g>
+
+  <!-- 方式2 -->
+  <g filter="url(#shadow)">
+    <rect x="330" y="110" width="250" height="180" rx="14" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <text x="455" y="148" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">per-finding</text>
+    <text x="455" y="172" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">逐条处理</text>
+    <text x="360" y="206" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">需要用户判断的问题</text>
+    <text x="360" y="226" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">如：scope 边界争议</text>
+    <text x="455" y="270" text-anchor="middle" fill="#38bdf8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">逐条确认，用户决定</text>
+  </g>
+
+  <!-- 方式3 -->
+  <g filter="url(#shadow)">
+    <rect x="600" y="110" width="250" height="180" rx="14" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
+    <text x="725" y="148" text-anchor="middle" fill="#fde68a" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Open Questions</text>
+    <text x="725" y="172" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">追加到待解决问题</text>
+    <text x="630" y="206" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">暂时无法解决的问题</text>
+    <text x="630" y="226" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">如：需要更多信息</text>
+    <text x="725" y="270" text-anchor="middle" fill="#fbbf24" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">追加到文档 Outstanding Questions</text>
+  </g>
+
+  <!-- 方式4 -->
+  <g filter="url(#shadow)">
+    <rect x="870" y="110" width="270" height="180" rx="14" fill="url(#card)" stroke="#a78bfa" stroke-width="2"/>
+    <text x="1005" y="148" text-anchor="middle" fill="#c4b5fd" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Report-only</text>
+    <text x="1005" y="172" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">仅报告</text>
+    <text x="900" y="206" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">dispatch 不可用时的降级</text>
+    <text x="900" y="226" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">或用户选择不自动修复</text>
+    <text x="1005" y="270" text-anchor="middle" fill="#a78bfa" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">输出 findings 报告，用户手动处理</text>
+  </g>
+
+  <text x="600" y="360" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">findings 有 severity 分级：P0（阻断）/ P1（重要）/ P2（建议）/ FYI（信息）</text>
+  <text x="600" y="384" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">P0 findings 必须修复后才能进入 work；P1/P2 由用户决定</text>
+</svg>

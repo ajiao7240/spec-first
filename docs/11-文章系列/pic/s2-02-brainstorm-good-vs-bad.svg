@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">好的 requirements brief vs 差的 brief</title>
+  <desc id="desc">具体可验证的 brief 让 plan 不用猜，模糊的 brief 让 AI 发明行为</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="620" rx="30" fill="url(#bg)"/>
+  <text x="600" y="56" text-anchor="middle" fill="#e0f2fe" font-size="30" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">好的 brief vs 差的 brief</text>
+  <text x="600" y="88" text-anchor="middle" fill="#93c5fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">具体可验证 vs 模糊抽象——差别决定了 AI 是否会发明行为</text>
+
+  <!-- 表头 -->
+  <text x="300" y="128" text-anchor="middle" fill="#f87171" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">✗ 差的写法（AI 会猜）</text>
+  <text x="900" y="128" text-anchor="middle" fill="#34d399" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">✓ 好的写法（AI 能精确消费）</text>
+  <line x1="600" y1="108" x2="600" y2="580" stroke="#1e3a5f" stroke-width="2"/>
+
+  <!-- 行1：谁在用 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="148" width="510" height="70" rx="12" fill="#1c0606" stroke="#f87171" stroke-width="1.5"/>
+    <text x="90" y="174" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">谁在用：</text>
+    <text x="90" y="200" fill="#fca5a5" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">"用户可以用健康检查接口确认服务状态"</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="630" y="148" width="510" height="70" rx="12" fill="#04221a" stroke="#34d399" stroke-width="1.5"/>
+    <text x="660" y="174" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">谁在用：</text>
+    <text x="660" y="200" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">"运维工程师配置 Kubernetes liveness probe"</text>
+  </g>
+
+  <!-- 行2：成功标准 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="234" width="510" height="70" rx="12" fill="#1c0606" stroke="#f87171" stroke-width="1.5"/>
+    <text x="90" y="260" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">成功标准：</text>
+    <text x="90" y="286" fill="#fca5a5" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">"健康检查接口能正常工作"</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="630" y="234" width="510" height="70" rx="12" fill="#04221a" stroke="#34d399" stroke-width="1.5"/>
+    <text x="660" y="260" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">成功标准：</text>
+    <text x="660" y="286" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">"liveness probe 在崩溃后 30s 内检测到"</text>
+  </g>
+
+  <!-- 行3：不做什么 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="320" width="510" height="70" rx="12" fill="#1c0606" stroke="#f87171" stroke-width="1.5"/>
+    <text x="90" y="346" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">不做什么：</text>
+    <text x="90" y="372" fill="#fca5a5" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">（没有写）</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="630" y="320" width="510" height="70" rx="12" fill="#04221a" stroke="#34d399" stroke-width="1.5"/>
+    <text x="660" y="346" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">不做什么：</text>
+    <text x="660" y="372" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">"不做 metrics 收集，不做 alerting"</text>
+  </g>
+
+  <!-- 行4：结果 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="406" width="510" height="80" rx="12" fill="#1c0606" stroke="#f87171" stroke-width="2"/>
+    <text x="300" y="438" text-anchor="middle" fill="#f87171" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">AI 发明行为</text>
+    <text x="300" y="466" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">做了一个"合理"的实现，但不是你想要的</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="630" y="406" width="510" height="80" rx="12" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="885" y="438" text-anchor="middle" fill="#34d399" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">plan 精确消费</text>
+    <text x="885" y="466" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">不需要猜，直接决定 HOW</text>
+  </g>
+
+  <text x="600" y="560" text-anchor="middle" fill="#475569" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">模糊的 brief 不是"没有需求"，而是"需求在你脑子里，但没有写出来"</text>
+</svg>

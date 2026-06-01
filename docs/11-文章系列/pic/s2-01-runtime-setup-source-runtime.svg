@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="660" viewBox="0 0 1200 660" role="img" aria-labelledby="title desc">
+  <title id="title">source 与 runtime 的边界：为什么不能手改生成物</title>
+  <desc id="desc">spec-first 的单向生成链：skills/agents/templates 是 source，.claude/.codex/.agents/skills 是 runtime mirror，修改必须从 source 开始</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <marker id="arrow-green" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M1,1 L13,7 L1,13 Z" fill="#34d399"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M1,1 L13,7 L1,13 Z" fill="#f87171"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="660" rx="30" fill="url(#bg)"/>
+  <text x="600" y="56" text-anchor="middle" fill="#e0f2fe" font-size="30" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">source 与 runtime 的边界</text>
+  <text x="600" y="88" text-anchor="middle" fill="#93c5fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">init 建立单向生成链——修改必须从 source 开始，不能手改 runtime</text>
+
+  <!-- Source 层 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="120" width="1040" height="130" rx="18" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="600" y="158" text-anchor="middle" fill="#6ee7b7" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Source-of-Truth（人维护，checked-in，可 review）</text>
+    <rect x="116" y="176" width="200" height="44" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="216" y="204" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">skills/</text>
+    <rect x="336" y="176" width="200" height="44" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="436" y="204" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">agents/</text>
+    <rect x="556" y="176" width="200" height="44" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="656" y="204" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">templates/</text>
+    <rect x="776" y="176" width="300" height="44" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="926" y="204" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">src/cli/ · docs/</text>
+  </g>
+
+  <!-- 生成箭头（正确方向） -->
+  <path d="M600 252 L600 310" stroke="#34d399" stroke-width="4" marker-end="url(#arrow-green)"/>
+  <rect x="460" y="264" width="280" height="34" rx="8" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+  <text x="600" y="287" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-first init（单向生成）</text>
+
+  <!-- Runtime 层 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="318" width="1040" height="130" rx="18" fill="#0f172a" stroke="#64748b" stroke-width="2" stroke-dasharray="8 5"/>
+    <text x="600" y="356" text-anchor="middle" fill="#94a3b8" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Generated Runtime Mirror（生成的，不直接修改）</text>
+    <rect x="116" y="374" width="200" height="44" rx="10" fill="#111c2e" stroke="#475569" stroke-width="1.5"/>
+    <text x="216" y="402" text-anchor="middle" fill="#64748b" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">.claude/</text>
+    <rect x="336" y="374" width="200" height="44" rx="10" fill="#111c2e" stroke="#475569" stroke-width="1.5"/>
+    <text x="436" y="402" text-anchor="middle" fill="#64748b" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">.codex/</text>
+    <rect x="556" y="374" width="200" height="44" rx="10" fill="#111c2e" stroke="#475569" stroke-width="1.5"/>
+    <text x="656" y="402" text-anchor="middle" fill="#64748b" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">.agents/skills/</text>
+    <rect x="776" y="374" width="300" height="44" rx="10" fill="#111c2e" stroke="#475569" stroke-width="1.5"/>
+    <text x="926" y="402" text-anchor="middle" fill="#64748b" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">.gitignore (managed)</text>
+  </g>
+
+  <!-- 错误箭头（禁止手改） -->
+  <path d="M600 450 L600 508" stroke="#f87171" stroke-width="3" stroke-dasharray="6 4" marker-end="url(#arrow-red)"/>
+  <text x="600" y="490" text-anchor="middle" fill="#f87171" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">✗ 手改 runtime → 下次 init 被覆盖</text>
+
+  <!-- 结论 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="516" width="1040" height="80" rx="18" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="600" y="552" text-anchor="middle" fill="#e0f2fe" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">正确做法：修改 source → 运行 spec-first init → runtime 刷新</text>
+    <text x="600" y="580" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">source 变更后：spec-first init --claude 或 spec-first init --codex</text>
+  </g>
+</svg>

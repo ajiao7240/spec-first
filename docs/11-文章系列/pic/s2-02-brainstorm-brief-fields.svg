@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="660" viewBox="0 0 1200 660" role="img" aria-labelledby="title desc">
+  <title id="title">requirements brief 的最小字段</title>
+  <desc id="desc">一份好的 requirements brief 必须回答的六个问题：谁用、当前痛点、成功标准、不做什么、边界、验收条件</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102a43"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="660" rx="30" fill="url(#bg)"/>
+  <text x="600" y="56" text-anchor="middle" fill="#e0f2fe" font-size="30" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">requirements brief 的最小字段</text>
+  <text x="600" y="88" text-anchor="middle" fill="#93c5fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">plan 需要从 brief 里读到这六件事，才不用猜 WHAT</text>
+
+  <!-- 字段1：谁用 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="120" width="340" height="120" rx="16" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <rect x="60" y="120" width="6" height="120" rx="3" fill="#38bdf8"/>
+    <text x="90" y="158" fill="#7dd3fc" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">01 · 谁在用</text>
+    <text x="90" y="184" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">具体的用户角色或场景</text>
+    <text x="90" y="220" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">不是"用户"，而是"首次安装的开发者"</text>
+  </g>
+
+  <!-- 字段2：当前痛点 -->
+  <g filter="url(#shadow)">
+    <rect x="430" y="120" width="340" height="120" rx="16" fill="url(#card)" stroke="#f87171" stroke-width="2"/>
+    <rect x="430" y="120" width="6" height="120" rx="3" fill="#f87171"/>
+    <text x="460" y="158" fill="#fca5a5" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">02 · 当前痛点</text>
+    <text x="460" y="184" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">现在卡在哪里</text>
+    <text x="460" y="220" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">不是"体验不好"，而是"5分钟内无法完成初始化"</text>
+  </g>
+
+  <!-- 字段3：成功标准 -->
+  <g filter="url(#shadow)">
+    <rect x="800" y="120" width="340" height="120" rx="16" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <rect x="800" y="120" width="6" height="120" rx="3" fill="#34d399"/>
+    <text x="830" y="158" fill="#6ee7b7" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">03 · 成功标准</text>
+    <text x="830" y="184" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">怎么算做好了</text>
+    <text x="830" y="220" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">可验证的标准，不是"更好的体验"</text>
+  </g>
+
+  <!-- 字段4：不做什么 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="270" width="340" height="120" rx="16" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
+    <rect x="60" y="270" width="6" height="120" rx="3" fill="#fbbf24"/>
+    <text x="90" y="308" fill="#fde68a" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">04 · 不做什么</text>
+    <text x="90" y="334" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">明确的 non-goals</text>
+    <text x="90" y="370" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">防止 AI 在执行中扩张 scope</text>
+  </g>
+
+  <!-- 字段5：边界和风险 -->
+  <g filter="url(#shadow)">
+    <rect x="430" y="270" width="340" height="120" rx="16" fill="url(#card)" stroke="#a78bfa" stroke-width="2"/>
+    <rect x="430" y="270" width="6" height="120" rx="3" fill="#a78bfa"/>
+    <text x="460" y="308" fill="#c4b5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">05 · 边界和风险</text>
+    <text x="460" y="334" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">哪些地方容易出问题</text>
+    <text x="460" y="370" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">已知约束、依赖、潜在风险</text>
+  </g>
+
+  <!-- 字段6：验收条件 -->
+  <g filter="url(#shadow)">
+    <rect x="800" y="270" width="340" height="120" rx="16" fill="url(#card)" stroke="#22d3ee" stroke-width="2"/>
+    <rect x="800" y="270" width="6" height="120" rx="3" fill="#22d3ee"/>
+    <text x="830" y="308" fill="#67e8f9" font-size="15" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">06 · 验收条件</text>
+    <text x="830" y="334" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">怎么验证做完了</text>
+    <text x="830" y="370" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">具体的测试场景或检查项</text>
+  </g>
+
+  <!-- 结论 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="424" width="1080" height="100" rx="18" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="600" y="462" text-anchor="middle" fill="#e0f2fe" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">六个字段都有答案 → plan 不需要猜 WHAT，直接决定 HOW</text>
+    <text x="600" y="496" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">缺少任何一个 → plan 会在执行中发明行为，导致 AI 做错</text>
+  </g>
+
+  <text x="600" y="590" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">产出路径：docs/brainstorms/YYYY-MM-DD-NNN-{slug}-requirements.md</text>
+</svg>

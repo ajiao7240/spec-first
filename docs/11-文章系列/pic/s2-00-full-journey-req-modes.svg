@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680" role="img" aria-labelledby="title desc">
+  <title id="title">三种需求模式：0-1 / 1-10 / 10-100</title>
+  <desc id="desc">spec-first 按产品阶段区分三种需求模式，核心差别在需求工具的选择</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102a43"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="680" rx="30" fill="url(#bg)"/>
+  <text x="600" y="58" text-anchor="middle" fill="#e0f2fe" font-size="32" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">三种需求模式：先判断阶段，再选工具</text>
+  <text x="600" y="92" text-anchor="middle" fill="#93c5fd" font-size="17" font-family="Arial, 'PingFang SC', sans-serif">不同阶段的产品，需求工具不同，链路也不同</text>
+
+  <!-- 0-1 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="120" width="340" height="440" rx="20" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <rect x="60" y="120" width="340" height="6" rx="3" fill="#34d399"/>
+    <text x="230" y="168" text-anchor="middle" fill="#6ee7b7" font-size="36" font-family="Arial, sans-serif" font-weight="700">0 → 1</text>
+    <text x="230" y="202" text-anchor="middle" fill="#f8fafc" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">全新产品 / 功能探索</text>
+    <text x="230" y="234" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">方向未定，需要探索</text>
+    <rect x="90" y="260" width="280" height="44" rx="10" fill="#04221a" stroke="#34d399" stroke-width="1.5"/>
+    <text x="230" y="288" text-anchor="middle" fill="#6ee7b7" font-size="15" font-family="'SF Mono', Menlo, Consolas, monospace">spec-ideate</text>
+    <path d="M230 304 L230 322" stroke="#34d399" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="90" y="330" width="280" height="44" rx="10" fill="#04221a" stroke="#34d399" stroke-width="1.5"/>
+    <text x="230" y="358" text-anchor="middle" fill="#6ee7b7" font-size="15" font-family="'SF Mono', Menlo, Consolas, monospace">spec-brainstorm</text>
+    <path d="M230 374 L230 392" stroke="#34d399" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="90" y="400" width="280" height="44" rx="10" fill="#0b2138" stroke="#64748b" stroke-width="1.5"/>
+    <text x="230" y="428" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">requirements brief</text>
+    <text x="230" y="500" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">把模糊想法变成</text>
+    <text x="230" y="522" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">可审查的需求边界</text>
+  </g>
+
+  <!-- 1-10 -->
+  <g filter="url(#shadow)">
+    <rect x="430" y="120" width="340" height="440" rx="20" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <rect x="430" y="120" width="340" height="6" rx="3" fill="#38bdf8"/>
+    <text x="600" y="168" text-anchor="middle" fill="#7dd3fc" font-size="36" font-family="Arial, sans-serif" font-weight="700">1 → 10</text>
+    <text x="600" y="202" text-anchor="middle" fill="#f8fafc" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">已有产品 / 增量功能</text>
+    <text x="600" y="234" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">需求较清晰，方向已定</text>
+    <rect x="460" y="260" width="280" height="44" rx="10" fill="#082f49" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="600" y="288" text-anchor="middle" fill="#7dd3fc" font-size="15" font-family="'SF Mono', Menlo, Consolas, monospace">spec-brainstorm</text>
+    <text x="600" y="318" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">或</text>
+    <rect x="460" y="330" width="280" height="44" rx="10" fill="#082f49" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="600" y="358" text-anchor="middle" fill="#7dd3fc" font-size="15" font-family="'SF Mono', Menlo, Consolas, monospace">spec-prd</text>
+    <path d="M600 374 L600 392" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="460" y="400" width="280" height="44" rx="10" fill="#0b2138" stroke="#64748b" stroke-width="1.5"/>
+    <text x="600" y="428" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">requirements brief / PRD 文档</text>
+    <text x="600" y="500" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">快速收敛需求边界</text>
+    <text x="600" y="522" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">让 plan 不用猜 WHAT</text>
+  </g>
+
+  <!-- 10-100 -->
+  <g filter="url(#shadow)">
+    <rect x="800" y="120" width="340" height="440" rx="20" fill="url(#card)" stroke="#a78bfa" stroke-width="2"/>
+    <rect x="800" y="120" width="340" height="6" rx="3" fill="#a78bfa"/>
+    <text x="970" y="168" text-anchor="middle" fill="#c4b5fd" font-size="36" font-family="Arial, sans-serif" font-weight="700">10 → 100</text>
+    <text x="970" y="202" text-anchor="middle" fill="#f8fafc" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">存量系统 / 增量需求</text>
+    <text x="970" y="234" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">需要 PRD 级文档</text>
+    <rect x="830" y="260" width="280" height="44" rx="10" fill="#0b0618" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="970" y="288" text-anchor="middle" fill="#c4b5fd" font-size="15" font-family="'SF Mono', Menlo, Consolas, monospace">spec-prd</text>
+    <path d="M970 304 L970 322" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="830" y="330" width="280" height="44" rx="10" fill="#0b0618" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="970" y="358" text-anchor="middle" fill="#c4b5fd" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">current-state evidence</text>
+    <text x="970" y="378" text-anchor="middle" fill="#c4b5fd" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">+ change delta</text>
+    <path d="M970 396 L970 414" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="830" y="422" width="280" height="44" rx="10" fill="#0b2138" stroke="#64748b" stroke-width="1.5"/>
+    <text x="970" y="450" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">prd-requirements 文档</text>
+    <text x="970" y="500" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">PRD 级需求，让 plan</text>
+    <text x="970" y="522" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">不用猜 WHAT</text>
+  </g>
+
+  <text x="600" y="628" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">三种模式的核心差别在需求阶段——其余链路（plan → work → review → compound）基本一致</text>
+</svg>

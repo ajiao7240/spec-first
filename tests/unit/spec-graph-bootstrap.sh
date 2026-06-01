@@ -533,8 +533,11 @@ assert_eq "all-repos child rows carry parent run id" "true" "$(jq -r '(.run_id a
 assert_eq "all-repos summary records total timing" "true" "$(jq -r '(.timing.started_at | type == "string") and (.timing.finished_at | type == "string") and (.timing.duration_ms | type == "number") and (.timing.duration_ms >= 0)' <<<"$all_repos_output")"
 assert_eq "all-repos child rows record timing" "true" "$(jq -r 'all(.results[]; (.started_at | type == "string") and (.finished_at | type == "string") and (.duration_ms | type == "number") and (.duration_ms >= 0))' <<<"$all_repos_output")"
 assert_eq "all-repos graph bootstrap reports partial success" "partial:1:1" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.action_required)"' <<<"$all_repos_output")"
-assert_eq "all-repos quality signals expose P5-full seven-key baseline" "build_target_coverage_ratio,child_count,command_failed_rate,dirty_advisory_child_rate,host_instruction_drift_rate,impact_probe_with_test_provenance_rate,process_results_rate" "$(jq -r '.quality_signals | keys | sort | join(",")' <<<"$all_repos_output")"
+assert_eq "all-repos quality signals expose P5-full eight-key baseline" "build_target_coverage_ratio,child_count,command_failed_rate,dirty_advisory_child_rate,host_instruction_drift_rate,impact_probe_with_test_provenance_rate,process_results_rate,runtime_ignore_coverage_missing_rate" "$(jq -r '.quality_signals | keys | sort | join(",")' <<<"$all_repos_output")"
 assert_eq "all-repos quality signals count process, command, impact, and drift facts" "2:0.5:0.5:0:null:0.5:0" "$(jq -r '.quality_signals | "\(.child_count):\(.process_results_rate):\(.command_failed_rate):\(.dirty_advisory_child_rate):\(.build_target_coverage_ratio // "null"):\(.impact_probe_with_test_provenance_rate):\(.host_instruction_drift_rate)"' <<<"$all_repos_output")"
+# make_repo writes a .gitignore without the spec-first managed block, so both children are advisory "missing".
+assert_eq "all-repos per-child runtime ignore coverage detects missing managed block" "project-a:missing|project-b:missing" "$(jq -r '[.results[] | "\(.repo_label):\(.runtime_ignore_coverage)"] | sort | join("|")' <<<"$all_repos_output")"
+assert_eq "all-repos quality signals compute runtime ignore coverage missing rate" "1" "$(jq -r '.quality_signals.runtime_ignore_coverage_missing_rate' <<<"$all_repos_output")"
 assert_eq "all-repos graph bootstrap records child reason" "project-b:missing_provider_config" "$(jq -r '.results[] | select(.workspace_relative_path=="project-b") | "\(.repo_label):\(.reason_code)"' <<<"$all_repos_output")"
 assert_eq "all-repos graph bootstrap records parent host normalization" "drift-detected:false:true:0" "$(jq -r '.parent_host_instruction_normalization as $norm | "\($norm.status):\(.parent_writes_host_instruction_files):\($norm.advisory):\($norm.exit_code)"' <<<"$all_repos_output")"
 assert_contains "all-repos graph bootstrap prints child start progress" "all-repos child 1/2 start repo=project-a" "$(cat "$all_repos_progress_err")"
@@ -622,12 +625,18 @@ make_repo "$ALL_REPOS_DEGRADED_WORKSPACE/project-a"
 make_repo "$ALL_REPOS_DEGRADED_WORKSPACE/project-b"
 write_fixture_config "$ALL_REPOS_DEGRADED_WORKSPACE/project-a" "$ALL_REPOS_DEGRADED_LEDGER" true
 write_fixture_config "$ALL_REPOS_DEGRADED_WORKSPACE/project-b" "$ALL_REPOS_DEGRADED_LEDGER" true
+# Exercise the non-missing runtime ignore coverage states: project-a carries the spec-first managed
+# block (present), project-b has no .gitignore at all (no-gitignore). Neither counts as missing.
+printf '# spec-first:start\n.claude/skills/\n.spec-first/graph/\n# spec-first:end\n' >> "$ALL_REPOS_DEGRADED_WORKSPACE/project-a/.gitignore"
+rm -f "$ALL_REPOS_DEGRADED_WORKSPACE/project-b/.gitignore"
 set +e
 all_repos_degraded_output="$(cd "$ALL_REPOS_DEGRADED_WORKSPACE" && PATH="$TEST_PATH" GITNEXUS_QUERY_DEFINITIONS_ONLY=1 bash "$BOOTSTRAP_SCRIPT" --all-repos)"
 all_repos_degraded_status=$?
 set -e
 assert_eq "all-repos definitions-only query exits ready" "0" "$all_repos_degraded_status"
 assert_eq "all-repos definitions-only children are ready" "ready:2:0:0" "$(jq -r '"\(.overall_status):\(.counts.ready):\(.counts.degraded):\(.counts.action_required)"' <<<"$all_repos_degraded_output")"
+assert_eq "all-repos runtime ignore coverage distinguishes present and no-gitignore" "project-a:present|project-b:no-gitignore" "$(jq -r '[.results[] | "\(.repo_label):\(.runtime_ignore_coverage)"] | sort | join("|")' <<<"$all_repos_degraded_output")"
+assert_eq "all-repos no missing managed block keeps zero missing rate and no init advisory" "0:All child repos produced graph bootstrap artifacts." "$(jq -r '(.quality_signals.runtime_ignore_coverage_missing_rate | tostring) + ":" + .next_action' <<<"$all_repos_degraded_output")"
 assert_eq "all-repos definitions-only child exposes query-only limits" "true:false:unavailable:true" "$(jq -r '.results[0].result.capabilities.query_global_graph as $query | .results[0].result.capabilities.impact_context as $impact | .results[0].result.capabilities.impact_context_status as $status | .results[0].result.capabilities.impact_context_limitations as $limits | "\($query):\($impact):\($status):\(($limits | index("definitions_only_no_process_graph")) != null)"' <<<"$all_repos_degraded_output")"
 
 ALL_REPOS_NO_SOURCE_WORKSPACE="$TMP_DIR/all-repos-no-source-workspace"
@@ -1243,7 +1252,10 @@ all_repos_dirty_classification_status=$?
 set -e
 assert_eq "all-repos dirty classification summary is ready" "0:ready:non-graph-only:graph-affecting-blocked" "$all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.results[] | select(.workspace_relative_path=="project-a") | .dirty_classification) + ":" + (.results[] | select(.workspace_relative_path=="project-b") | .dirty_classification)' <<<"$all_repos_dirty_classification_output")"
 assert_eq "all-repos quality signals count dirty advisory children" "2:1:0:0.5:null:1:0" "$(jq -r '.quality_signals | "\(.child_count):\(.process_results_rate):\(.command_failed_rate):\(.dirty_advisory_child_rate):\(.build_target_coverage_ratio // "null"):\(.impact_probe_with_test_provenance_rate):\(.host_instruction_drift_rate)"' <<<"$all_repos_dirty_classification_output")"
-assert_eq "all-repos dirty advisory does not request rerun" "All child repos produced graph bootstrap artifacts." "$(jq -r '.next_action' <<<"$all_repos_dirty_classification_output")"
+# Both children carry a make_repo .gitignore without the spec-first managed block, so the ready
+# summary surfaces an advisory next_action recommending `spec-first init` (without changing overall_status).
+assert_eq "all-repos ready summary recommends init when child managed ignore blocks are missing" "ready:All child repos produced graph bootstrap artifacts, but one or more child .gitignore lack the spec-first managed block; run \`spec-first init\` (all-repos) to add managed ignore coverage and untrack generated runtime assets." "$(jq -r '.overall_status + ":" + .next_action' <<<"$all_repos_dirty_classification_output")"
+assert_eq "all-repos ready summary computes runtime ignore coverage missing rate" "1" "$(jq -r '.quality_signals.runtime_ignore_coverage_missing_rate' <<<"$all_repos_dirty_classification_output")"
 
 DIRTY_REFRESH_REPO="$TMP_DIR/dirty-refresh-repo"
 DIRTY_REFRESH_LEDGER="$TMP_DIR/dirty-refresh-home/.codex/spec-first/host-setup.json"
@@ -1426,8 +1438,10 @@ JSON
   ps_all_repos_dirty_classification_output="$(cd "$PS_ALL_REPOS_DIRTY_CLASSIFICATION_WORKSPACE" && PATH="$TEST_PATH" pwsh -NoLogo -NoProfile -NonInteractive -File "$BOOTSTRAP_PS1" -AllRepos)"
   ps_all_repos_dirty_classification_status=$?
   set -e
-  assert_eq "PowerShell all-repos dirty advisory summary is ready" "0:ready:2:0:All child repos produced graph bootstrap artifacts." "$ps_all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.counts.ready | tostring) + ":" + (.counts.action_required | tostring) + ":" + .next_action' <<<"$ps_all_repos_dirty_classification_output")"
+  assert_eq "PowerShell all-repos ready summary recommends init when child managed ignore blocks are missing" "0:ready:2:0:All child repos produced graph bootstrap artifacts, but one or more child .gitignore lack the spec-first managed block; run \`spec-first init\` (all-repos) to add managed ignore coverage and untrack generated runtime assets." "$ps_all_repos_dirty_classification_status:$(jq -r '.overall_status + ":" + (.counts.ready | tostring) + ":" + (.counts.action_required | tostring) + ":" + .next_action' <<<"$ps_all_repos_dirty_classification_output")"
   assert_eq "PowerShell all-repos quality signals count dirty advisory children" "2:1:0:0.5:null:1:0" "$(jq -r '.quality_signals | "\(.child_count):\(.process_results_rate):\(.command_failed_rate):\(.dirty_advisory_child_rate):\(.build_target_coverage_ratio // "null"):\(.impact_probe_with_test_provenance_rate):\(.host_instruction_drift_rate)"' <<<"$ps_all_repos_dirty_classification_output")"
+  assert_eq "PowerShell all-repos quality signals compute runtime ignore coverage missing rate" "1" "$(jq -r '.quality_signals.runtime_ignore_coverage_missing_rate' <<<"$ps_all_repos_dirty_classification_output")"
+  assert_eq "PowerShell all-repos per-child runtime ignore coverage detects missing managed block" "project-a:missing|project-b:missing" "$(jq -r '[.results[] | "\(.repo_label):\(.runtime_ignore_coverage)"] | sort | join("|")' <<<"$ps_all_repos_dirty_classification_output")"
 fi
 
 INCREMENTAL_REPO="$TMP_DIR/incremental-repo"

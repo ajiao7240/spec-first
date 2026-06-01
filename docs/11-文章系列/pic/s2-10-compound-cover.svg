@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="511" viewBox="0 0 1200 511">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#102a43"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2563eb"/><stop offset="1" stop-color="#06b6d4"/></linearGradient>
+  </defs>
+  <rect width="1200" height="511" fill="url(#bg)"/>
+  <g opacity="0.07" stroke="#60a5fa" stroke-width="1"><path d="M0 100 H1200"/><path d="M0 200 H1200"/><path d="M0 300 H1200"/><path d="M0 400 H1200"/><path d="M200 0 V511"/><path d="M400 0 V511"/><path d="M600 0 V511"/><path d="M800 0 V511"/><path d="M1000 0 V511"/></g>
+  <rect x="80" y="120" width="5" height="270" rx="3" fill="url(#accent)" opacity="0.9"/>
+  <rect x="100" y="120" width="200" height="32" rx="6" fill="#0b2138" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="200" y="141" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">Spec-First 第二季 · 第 10 篇</text>
+  <text x="100" y="218" fill="#f8fafc" font-size="40" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">你解决过的问题</text>
+  <text x="100" y="278" fill="#f8fafc" font-size="34" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">为什么下次还要重新解决一遍</text>
+  <text x="100" y="330" fill="#93c5fd" font-size="20" font-family="Arial, 'PingFang SC', sans-serif">spec-compound · compound-refresh · 知识复利</text>
+  <rect x="100" y="362" width="680" height="2" rx="1" fill="url(#accent)" opacity="0.6"/>
+  <text x="100" y="394" fill="#64748b" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">compound 不是写文档，而是在上下文最新鲜时把可复用经验固化下来。</text>
+  <text x="100" y="470" fill="#475569" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">spec-first.cn</text>
+</svg>

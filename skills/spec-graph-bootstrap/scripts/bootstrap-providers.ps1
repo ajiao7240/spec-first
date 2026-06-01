@@ -500,6 +500,7 @@ function New-WorkspaceQualitySignals {
   $dirtyAdvisoryCount = @($Results | Where-Object { Test-ChildIsDirtyAdvisory -Child $_ }).Count
   $impactProbeWithTestProvenanceCount = @($Results | Where-Object { Test-ChildHasImpactProbeWithTestProvenance -Child $_ }).Count
   $hostInstructionDriftCount = @($Results | Where-Object { Test-ChildHasHostInstructionDrift -Child $_ }).Count
+  $runtimeIgnoreCoverageMissingCount = @($Results | Where-Object { [string]$_.runtime_ignore_coverage -eq 'missing' }).Count
   return [ordered]@{
     child_count = $childCount
     build_target_coverage_ratio = Get-BuildTargetCoverageRatio -TargetFacts $TargetFacts
@@ -508,6 +509,7 @@ function New-WorkspaceQualitySignals {
     dirty_advisory_child_rate = ConvertTo-WorkspaceQualityRate -Count $dirtyAdvisoryCount -Total $childCount
     impact_probe_with_test_provenance_rate = ConvertTo-WorkspaceQualityRate -Count $impactProbeWithTestProvenanceCount -Total $childCount
     host_instruction_drift_rate = ConvertTo-WorkspaceQualityRate -Count $hostInstructionDriftCount -Total $childCount
+    runtime_ignore_coverage_missing_rate = ConvertTo-WorkspaceQualityRate -Count $runtimeIgnoreCoverageMissingCount -Total $childCount
   }
 }
 
@@ -608,6 +610,18 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
         diagnostic = $diagnostic
       }
     }
+    # Advisory-only: graph-bootstrap writes runtime artifacts into this child but does not own
+    # its .gitignore. Record whether the child carries the spec-first managed block so the
+    # workspace summary can recommend `spec-first init` when ignore coverage is missing.
+    # Detection reuses the SPEC_FIRST_GITIGNORE_START marker ('# spec-first:start').
+    $childGitignorePath = Join-Path ([string]$TargetFacts.workspace_root) (Join-Path ([string]$child.workspace_relative_path) '.gitignore')
+    $childRuntimeIgnoreCoverage = if (-not (Test-Path -LiteralPath $childGitignorePath -PathType Leaf)) {
+      'no-gitignore'
+    } elseif (@(Get-Content -LiteralPath $childGitignorePath -ErrorAction SilentlyContinue) -contains '# spec-first:start') {
+      'present'
+    } else {
+      'missing'
+    }
     $results += [pscustomobject][ordered]@{
       parent_run_id = $runId
       repo_label = [string]$child.repo_label
@@ -621,6 +635,7 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
       reason_code = $childResult.reason_code
       dirty_classification = if ($childResult.PSObject.Properties.Name -contains 'dirty_classification') { $childResult.dirty_classification } else { $null }
       dirty_paths_breakdown = if ($childResult.PSObject.Properties.Name -contains 'dirty_paths_breakdown') { $childResult.dirty_paths_breakdown } else { $null }
+      runtime_ignore_coverage = $childRuntimeIgnoreCoverage
       result = $childResult
     }
     [Console]::Error.WriteLine("spec-graph-bootstrap: all-repos child $childIndex/$($children.Count) finish repo=$([string]$child.workspace_relative_path) status=$([string]($childResult.overall_status ?? 'unknown')) workflow=$([string]($childResult.workflow_mode ?? 'unknown')) duration_ms=$childDurationMs")
@@ -693,7 +708,7 @@ function Write-WorkspaceGraphBootstrapSummaryAndExit {
     }
     overall_status = $overallStatus
     reason_code = if ($actionRequiredCount -gt 0) { 'all-repos-partial-or-action-required' } elseif ($degradedCount -gt 0) { 'all-repos-degraded-fallback' } else { $null }
-    next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Inspect per-child provider reason_code/recommended_action. Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } elseif ($notApplicableCount -gt 0) { 'All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children.' } else { 'All child repos produced graph bootstrap artifacts.' }
+    next_action = if ($actionRequiredCount -gt 0) { 'Inspect per-child reason_code and rerun setup/bootstrap for action-required repos.' } elseif ($degradedCount -gt 0) { 'Inspect per-child provider reason_code/recommended_action. Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos.' } elseif ($notApplicableCount -gt 0) { 'All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children.' } elseif (@($results | Where-Object { [string]$_.runtime_ignore_coverage -eq 'missing' }).Count -gt 0) { 'All child repos produced graph bootstrap artifacts, but one or more child .gitignore lack the spec-first managed block; run `spec-first init` (all-repos) to add managed ignore coverage and untrack generated runtime assets.' } else { 'All child repos produced graph bootstrap artifacts.' }
   }
 
   try {

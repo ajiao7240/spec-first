@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">brownfield vs greenfield：两种需求模式的本质区别</title>
+  <desc id="desc">greenfield 从零开始，brainstorm 探索方向；brownfield 在已有系统上改，spec-prd 描述 delta</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="560" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">brownfield vs greenfield：两种需求模式</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">本质区别在于：是否有"当前系统状态"需要描述</text>
+
+  <!-- greenfield -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="110" width="510" height="340" rx="20" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="315" y="152" text-anchor="middle" fill="#6ee7b7" font-size="22" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Greenfield（从零开始）</text>
+    <text x="315" y="182" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">没有"当前系统"，从空白开始</text>
+    <rect x="90" y="206" width="420" height="46" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="300" y="235" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">核心问题：我们要做什么？</text>
+    <rect x="90" y="262" width="420" height="46" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="300" y="291" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">工具：spec-ideate → spec-brainstorm</text>
+    <rect x="90" y="318" width="420" height="46" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="300" y="347" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">产出：requirements brief</text>
+    <text x="315" y="420" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">适用：0-1 场景，全新产品/功能</text>
+  </g>
+
+  <!-- brownfield -->
+  <g filter="url(#shadow)">
+    <rect x="630" y="110" width="510" height="340" rx="20" fill="#082f49" stroke="#a78bfa" stroke-width="2"/>
+    <text x="885" y="152" text-anchor="middle" fill="#c4b5fd" font-size="22" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">Brownfield（存量系统）</text>
+    <text x="885" y="182" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">有"当前系统"，在上面做增量改动</text>
+    <rect x="660" y="206" width="432" height="46" rx="10" fill="#0b2138" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="876" y="235" text-anchor="middle" fill="#ddd6fe" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">核心问题：在当前系统上改什么？</text>
+    <rect x="660" y="262" width="432" height="46" rx="10" fill="#0b2138" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="876" y="291" text-anchor="middle" fill="#ddd6fe" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">工具：spec-prd（brownfield increment）</text>
+    <rect x="660" y="318" width="432" height="46" rx="10" fill="#0b2138" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="876" y="347" text-anchor="middle" fill="#ddd6fe" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">产出：prd-requirements 文档</text>
+    <text x="885" y="420" text-anchor="middle" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">适用：1-10 / 10-100 场景，存量系统</text>
+  </g>
+
+  <text x="600" y="510" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">两者都产出 docs/brainstorms/*-requirements.md，但 spec-prd 的产物带 artifact_kind: prd-requirements 标记</text>
+</svg>

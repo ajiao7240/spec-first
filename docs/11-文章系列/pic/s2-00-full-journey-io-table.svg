@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680" role="img" aria-labelledby="title desc">
+  <title id="title">spec-first 各节点输入输出总览</title>
+  <desc id="desc">从环境就绪到经验沉淀，每个节点的输入、输出、适用模式和多仓注意事项</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="680" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">各节点输入 / 输出 / 适用场景</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">每一步都留下下一步能读取的高质量上下文</text>
+
+  <!-- 表头 -->
+  <rect x="40" y="100" width="1120" height="40" rx="8" fill="#082f49"/>
+  <text x="130" y="126" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">节点</text>
+  <text x="340" y="126" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">输入</text>
+  <text x="580" y="126" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">输出</text>
+  <text x="820" y="126" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">适用模式</text>
+  <text x="1040" y="126" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">多仓注意</text>
+
+  <!-- 分隔线 -->
+  <line x1="230" y1="100" x2="230" y2="660" stroke="#1e3a5f" stroke-width="1"/>
+  <line x1="450" y1="100" x2="450" y2="660" stroke="#1e3a5f" stroke-width="1"/>
+  <line x1="700" y1="100" x2="700" y2="660" stroke="#1e3a5f" stroke-width="1"/>
+  <line x1="940" y1="100" x2="940" y2="660" stroke="#1e3a5f" stroke-width="1"/>
+
+  <!-- 数据行 -->
+  <!-- 行高 46，起始 y=148 -->
+  <!-- 环境就绪 -->
+  <rect x="40" y="140" width="1120" height="46" rx="0" fill="#04221a" opacity="0.5"/>
+  <text x="130" y="169" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">init/mcp-setup/graph</text>
+  <text x="340" y="169" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">—</text>
+  <text x="580" y="169" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">runtime + readiness facts</text>
+  <text x="820" y="169" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">全部</text>
+  <text x="1040" y="169" text-anchor="middle" fill="#fbbf24" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">每个 child 独立</text>
+
+  <!-- ideate -->
+  <rect x="40" y="186" width="1120" height="46" rx="0" fill="transparent"/>
+  <text x="130" y="215" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-ideate</text>
+  <text x="340" y="215" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">模糊想法</text>
+  <text x="580" y="215" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">方向候选</text>
+  <text x="820" y="215" text-anchor="middle" fill="#34d399" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">0-1</text>
+  <text x="1040" y="215" text-anchor="middle" fill="#475569" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">—</text>
+
+  <!-- brainstorm -->
+  <rect x="40" y="232" width="1120" height="46" rx="0" fill="#04221a" opacity="0.5"/>
+  <text x="130" y="261" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-brainstorm</text>
+  <text x="340" y="261" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">方向 / 想法</text>
+  <text x="580" y="261" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">requirements brief</text>
+  <text x="820" y="261" text-anchor="middle" fill="#38bdf8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">0-1 / 1-10</text>
+  <text x="1040" y="261" text-anchor="middle" fill="#475569" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">—</text>
+
+  <!-- spec-prd -->
+  <rect x="40" y="278" width="1120" height="46" rx="0" fill="transparent"/>
+  <text x="130" y="307" text-anchor="middle" fill="#c4b5fd" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-prd</text>
+  <text x="340" y="307" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">存量系统 + 变更请求</text>
+  <text x="580" y="307" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">prd-requirements 文档</text>
+  <text x="820" y="307" text-anchor="middle" fill="#a78bfa" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">1-10 / 10-100</text>
+  <text x="1040" y="307" text-anchor="middle" fill="#fbbf24" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">需标明 target_repo</text>
+
+  <!-- plan -->
+  <rect x="40" y="324" width="1120" height="46" rx="0" fill="#04221a" opacity="0.5"/>
+  <text x="130" y="353" text-anchor="middle" fill="#67e8f9" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-plan</text>
+  <text x="340" y="353" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">需求文档</text>
+  <text x="580" y="353" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">plan doc</text>
+  <text x="820" y="353" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">全部</text>
+  <text x="1040" y="353" text-anchor="middle" fill="#fbbf24" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">需标明 target_repo</text>
+
+  <!-- doc-review -->
+  <rect x="40" y="370" width="1120" height="46" rx="0" fill="transparent"/>
+  <text x="130" y="399" text-anchor="middle" fill="#c4b5fd" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-doc-review</text>
+  <text x="340" y="399" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">plan doc</text>
+  <text x="580" y="399" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">findings</text>
+  <text x="820" y="399" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">全部</text>
+  <text x="1040" y="399" text-anchor="middle" fill="#475569" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">—</text>
+
+  <!-- write-tasks -->
+  <rect x="40" y="416" width="1120" height="46" rx="0" fill="#04221a" opacity="0.3"/>
+  <text x="130" y="445" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">write-tasks（可选）</text>
+  <text x="340" y="445" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">plan doc</text>
+  <text x="580" y="445" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">task pack</text>
+  <text x="820" y="445" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">复杂任务</text>
+  <text x="1040" y="445" text-anchor="middle" fill="#fbbf24" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">task 带 target_repo</text>
+
+  <!-- work -->
+  <rect x="40" y="462" width="1120" height="46" rx="0" fill="transparent"/>
+  <text x="130" y="491" text-anchor="middle" fill="#7dd3fc" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-work</text>
+  <text x="340" y="491" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">plan / task pack</text>
+  <text x="580" y="491" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">code + verification</text>
+  <text x="820" y="491" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">全部</text>
+  <text x="1040" y="491" text-anchor="middle" fill="#f87171" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">写入前确认 target_repo</text>
+
+  <!-- code-review -->
+  <rect x="40" y="508" width="1120" height="46" rx="0" fill="#04221a" opacity="0.5"/>
+  <text x="130" y="537" text-anchor="middle" fill="#fde68a" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-code-review</text>
+  <text x="340" y="537" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">diff</text>
+  <text x="580" y="537" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">findings</text>
+  <text x="820" y="537" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">全部</text>
+  <text x="1040" y="537" text-anchor="middle" fill="#475569" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">—</text>
+
+  <!-- compound -->
+  <rect x="40" y="554" width="1120" height="46" rx="0" fill="transparent"/>
+  <text x="130" y="583" text-anchor="middle" fill="#6ee7b7" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">spec-compound</text>
+  <text x="340" y="583" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">已解决问题</text>
+  <text x="580" y="583" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">docs/solutions/</text>
+  <text x="820" y="583" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">全部</text>
+  <text x="1040" y="583" text-anchor="middle" fill="#475569" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">—</text>
+
+  <line x1="40" y1="600" x2="1160" y2="600" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="600" y="632" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">多仓工作区：写入前必须有明确 target_repo；父 workspace 的 advisory facts 不是任何 child 的 canonical truth</text>
+</svg>

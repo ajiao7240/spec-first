@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">doc-review vs code-review：两种 review 的分工</title>
+  <desc id="desc">doc-review 审查 WHAT/WHY，code-review 审查 HOW——两者互补，不能互相替代</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="560" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">doc-review vs code-review：两种 review 的分工</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">两者互补，不能互相替代</text>
+
+  <!-- 表头 -->
+  <rect x="60" y="100" width="1080" height="44" rx="8" fill="#082f49"/>
+  <text x="200" y="128" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">维度</text>
+  <text x="560" y="128" text-anchor="middle" fill="#a78bfa" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">doc-review</text>
+  <text x="960" y="128" text-anchor="middle" fill="#fbbf24" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">code-review</text>
+  <line x1="360" y1="100" x2="360" y2="460" stroke="#1e3a5f" stroke-width="1"/>
+  <line x1="760" y1="100" x2="760" y2="460" stroke="#1e3a5f" stroke-width="1"/>
+
+  <!-- 行1 -->
+  <rect x="60" y="144" width="1080" height="52" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="200" y="176" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">审查对象</text>
+  <text x="560" y="176" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">需求、计划、task pack、文档</text>
+  <text x="960" y="176" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">代码 diff、实现质量</text>
+
+  <!-- 行2 -->
+  <text x="200" y="228" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">核心问题</text>
+  <text x="560" y="228" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">WHAT/WHY 是否正确</text>
+  <text x="960" y="228" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">HOW 是否正确</text>
+
+  <!-- 行3 -->
+  <rect x="60" y="248" width="1080" height="52" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="200" y="280" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">运行时机</text>
+  <text x="560" y="280" text-anchor="middle" fill="#a78bfa" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">plan 之后，work 之前</text>
+  <text x="960" y="280" text-anchor="middle" fill="#fbbf24" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">work 之后，merge 之前</text>
+
+  <!-- 行4 -->
+  <text x="200" y="332" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">发现的问题</text>
+  <text x="560" y="332" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">需求矛盾、scope 不清、风险遗漏</text>
+  <text x="960" y="332" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">bug、安全漏洞、性能问题</text>
+
+  <!-- 行5 -->
+  <rect x="60" y="352" width="1080" height="52" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="200" y="384" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">修复成本</text>
+  <text x="560" y="384" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">低（改文档）</text>
+  <text x="960" y="384" text-anchor="middle" fill="#fbbf24" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">中（改代码）</text>
+
+  <line x1="60" y1="404" x2="1140" y2="404" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="600" y="444" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">两种 review 都需要——doc-review 防止在错误方向上写代码，code-review 防止实现质量问题</text>
+  <text x="600" y="468" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">命令：/spec:doc-review（Claude Code）· $spec-doc-review（Codex）</text>
+</svg>

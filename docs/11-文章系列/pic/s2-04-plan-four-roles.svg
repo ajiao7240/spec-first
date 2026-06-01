@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">plan 是什么：scope、验证、风险、handoff 的边界文档</title>
+  <desc id="desc">plan 的四个核心职责：约束 scope、定义验证方式、标注风险、明确 handoff</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#102a43"/><stop offset="1" stop-color="#0f172a"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="620" rx="30" fill="url(#bg)"/>
+  <text x="600" y="56" text-anchor="middle" fill="#e0f2fe" font-size="30" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">plan 的四个核心职责</text>
+  <text x="600" y="88" text-anchor="middle" fill="#93c5fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif">plan 是决策 artifact，不是微观指令——实现细节仍然由 LLM 判断</text>
+
+  <!-- scope -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="120" width="510" height="180" rx="18" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <text x="315" y="162" text-anchor="middle" fill="#7dd3fc" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">① 约束 scope</text>
+    <text x="90" y="196" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 这次改动涉及哪些文件和模块</text>
+    <text x="90" y="220" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 明确的 non-goals（不做什么）</text>
+    <text x="90" y="244" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 影响面边界</text>
+    <rect x="90" y="264" width="460" height="20" rx="4" fill="#0b2138"/>
+    <text x="315" y="279" text-anchor="middle" fill="#38bdf8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">防止 AI 在执行中扩张 scope</text>
+  </g>
+
+  <!-- 验证 -->
+  <g filter="url(#shadow)">
+    <rect x="630" y="120" width="510" height="180" rx="18" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <text x="885" y="162" text-anchor="middle" fill="#6ee7b7" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">② 定义验证方式</text>
+    <text x="660" y="196" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 每个 implementation unit 怎么验证</text>
+    <text x="660" y="220" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 测试场景和检查命令</text>
+    <text x="660" y="244" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• done_signal 和 stop_if</text>
+    <rect x="660" y="264" width="460" height="20" rx="4" fill="#0b2138"/>
+    <text x="885" y="279" text-anchor="middle" fill="#34d399" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">让 work 知道什么时候算完成</text>
+  </g>
+
+  <!-- 风险 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="330" width="510" height="180" rx="18" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
+    <text x="315" y="372" text-anchor="middle" fill="#fde68a" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">③ 标注风险</text>
+    <text x="90" y="406" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 已知的技术风险和依赖</text>
+    <text x="90" y="430" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 可能影响 scope 的未知项</text>
+    <text x="90" y="454" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 降级路径（失败时怎么处理）</text>
+    <rect x="90" y="474" width="460" height="20" rx="4" fill="#0b2138"/>
+    <text x="315" y="489" text-anchor="middle" fill="#fbbf24" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">让 work 知道哪里需要特别注意</text>
+  </g>
+
+  <!-- handoff -->
+  <g filter="url(#shadow)">
+    <rect x="630" y="330" width="510" height="180" rx="18" fill="url(#card)" stroke="#a78bfa" stroke-width="2"/>
+    <text x="885" y="372" text-anchor="middle" fill="#c4b5fd" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">④ 明确 handoff</text>
+    <text x="660" y="406" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 完成后交给谁消费</text>
+    <text x="660" y="430" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• 需要更新哪些文档</text>
+    <text x="660" y="454" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">• CHANGELOG 要求</text>
+    <rect x="660" y="474" width="460" height="20" rx="4" fill="#0b2138"/>
+    <text x="885" y="489" text-anchor="middle" fill="#a78bfa" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">让 work 知道任务结束后该做什么</text>
+  </g>
+
+  <text x="600" y="572" text-anchor="middle" fill="#475569" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">plan 不写代码，不写实现步骤——它只写边界、验证、风险和交接</text>
+</svg>

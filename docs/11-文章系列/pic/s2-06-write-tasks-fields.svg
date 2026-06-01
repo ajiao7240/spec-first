@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">task pack 的最小字段：spec_id / source_plan / source_plan_hash</title>
+  <desc id="desc">task pack 必须带 spec_id、source_plan、source_plan_hash，防止过期链路静默执行</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#102a43"/><stop offset="1" stop-color="#0f172a"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="620" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">task pack 的最小字段</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">这三个字段防止过期链路静默执行</text>
+
+  <!-- spec_id -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="110" width="340" height="200" rx="18" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <text x="230" y="152" text-anchor="middle" fill="#7dd3fc" font-size="18" font-family="'SF Mono', Menlo, Consolas, monospace" font-weight="700">spec_id</text>
+    <text x="230" y="182" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">plan 的唯一标识</text>
+    <text x="90" y="218" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 从 source plan 复制</text>
+    <text x="90" y="240" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• task pack 和 plan 的 spec_id 必须一致</text>
+    <text x="90" y="262" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 不一致 = wrong-chain handoff，拒绝执行</text>
+    <rect x="90" y="278" width="280" height="20" rx="4" fill="#0b2138"/>
+    <text x="230" y="293" text-anchor="middle" fill="#38bdf8" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">2026-06-01-001-cli-health-check</text>
+  </g>
+
+  <!-- source_plan -->
+  <g filter="url(#shadow)">
+    <rect x="430" y="110" width="340" height="200" rx="18" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <text x="600" y="152" text-anchor="middle" fill="#6ee7b7" font-size="18" font-family="'SF Mono', Menlo, Consolas, monospace" font-weight="700">source_plan</text>
+    <text x="600" y="182" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">source plan 的路径</text>
+    <text x="460" y="218" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 指向 docs/plans/ 里的 plan 文件</text>
+    <text x="460" y="240" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• task pack 不是独立的 source of truth</text>
+    <text x="460" y="262" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• plan 变了，task pack 必须重新编译</text>
+    <rect x="460" y="278" width="280" height="20" rx="4" fill="#0b2138"/>
+    <text x="600" y="293" text-anchor="middle" fill="#34d399" font-size="11" font-family="'SF Mono', Menlo, Consolas, monospace">docs/plans/2026-06-01-001-...-plan.md</text>
+  </g>
+
+  <!-- source_plan_hash -->
+  <g filter="url(#shadow)">
+    <rect x="800" y="110" width="340" height="200" rx="18" fill="url(#card)" stroke="#a78bfa" stroke-width="2"/>
+    <text x="970" y="152" text-anchor="middle" fill="#c4b5fd" font-size="16" font-family="'SF Mono', Menlo, Consolas, monospace" font-weight="700">source_plan_hash</text>
+    <text x="970" y="182" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">plan 内容的 hash</text>
+    <text x="830" y="218" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• plan 内容变了，hash 就变了</text>
+    <text x="830" y="240" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• hash 不匹配 = plan 已过期</text>
+    <text x="830" y="262" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 过期 task pack 被 spec-work 拒绝</text>
+    <rect x="830" y="278" width="280" height="20" rx="4" fill="#0b2138"/>
+    <text x="970" y="293" text-anchor="middle" fill="#a78bfa" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">sha256:abc123...</text>
+  </g>
+
+  <!-- 结论 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="344" width="1080" height="100" rx="16" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="600" y="382" text-anchor="middle" fill="#e0f2fe" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">三个字段一起，形成可追踪的链路：plan → task pack → work</text>
+    <text x="600" y="412" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">任何一个字段缺失或不匹配，spec-work 都会拒绝执行，防止静默错误</text>
+    <text x="600" y="432" text-anchor="middle" fill="#64748b" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">generated_by: spec-write-tasks · mode: executable</text>
+  </g>
+
+  <text x="600" y="510" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">task pack 产出路径：docs/tasks/YYYY-MM-DD-NNN-{slug}-tasks.md</text>
+</svg>

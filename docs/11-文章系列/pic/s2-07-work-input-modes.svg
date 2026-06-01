@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">work 的三种输入模式</title>
+  <desc id="desc">plan / task pack / bare prompt 三种输入模式的适用场景和处理方式</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#102a43"/><stop offset="1" stop-color="#0f172a"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="560" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">work 的三种输入模式</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">不同输入对应不同的执行策略</text>
+
+  <!-- plan -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="110" width="340" height="320" rx="18" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <text x="230" y="152" text-anchor="middle" fill="#6ee7b7" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">plan</text>
+    <text x="230" y="180" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">最常见的输入</text>
+    <text x="90" y="214" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 直接读取 plan 的 implementation units</text>
+    <text x="90" y="236" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 按 plan 的 verification 验证</text>
+    <text x="90" y="258" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 适合简单到中等复杂度的任务</text>
+    <text x="230" y="390" text-anchor="middle" fill="#34d399" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">/spec:work plan.md</text>
+  </g>
+
+  <!-- task pack -->
+  <g filter="url(#shadow)">
+    <rect x="430" y="110" width="340" height="320" rx="18" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <text x="600" y="152" text-anchor="middle" fill="#7dd3fc" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">task pack</text>
+    <text x="600" y="180" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">复杂任务的输入</text>
+    <text x="460" y="214" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 验证 spec_id + source_plan_hash</text>
+    <text x="460" y="236" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 按 wave 顺序执行 task cards</text>
+    <text x="460" y="258" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 适合跨模块、有依赖的任务</text>
+    <text x="600" y="390" text-anchor="middle" fill="#38bdf8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">/spec:work tasks.md</text>
+  </g>
+
+  <!-- bare prompt -->
+  <g filter="url(#shadow)">
+    <rect x="800" y="110" width="340" height="320" rx="18" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
+    <text x="970" y="152" text-anchor="middle" fill="#fde68a" font-size="18" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">bare prompt</text>
+    <text x="970" y="180" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">最简单的输入</text>
+    <text x="830" y="214" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 直接描述要做什么</text>
+    <text x="830" y="236" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• work 自己构建 task list</text>
+    <text x="830" y="258" fill="#64748b" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 适合小任务、typo、局部修复</text>
+    <text x="970" y="390" text-anchor="middle" fill="#fbbf24" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">/spec:work "修复这个 bug"</text>
+  </g>
+
+  <text x="600" y="500" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">三种模式都支持，但 plan 和 task pack 提供更清晰的 scope 边界</text>
+</svg>

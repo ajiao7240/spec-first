@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="580" viewBox="0 0 1200 580" role="img" aria-labelledby="title desc">
+  <title id="title">散弹枪式 debug vs 系统性 debug</title>
+  <desc id="desc">反复问 AI 会让 bug 越来越多；系统性 debug 先复现再修复，一次只改一件事</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="#38bdf8"/></marker>
+    <marker id="arrow-red" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="#f87171"/></marker>
+  </defs>
+  <rect width="1200" height="580" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">散弹枪式 debug vs 系统性 debug</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">反复问 AI 会让 bug 越来越多；系统性 debug 先复现再修复</text>
+
+  <!-- 散弹枪式 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="110" width="480" height="360" rx="18" fill="#1c0606" stroke="#f87171" stroke-width="2"/>
+    <text x="300" y="152" text-anchor="middle" fill="#fca5a5" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">✗ 散弹枪式 debug</text>
+    <text x="90" y="186" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">发现 bug</text>
+    <path d="M300 196 L300 224" stroke="#f87171" stroke-width="2" marker-end="url(#arrow-red)"/>
+    <text x="90" y="246" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">问 AI："你再看看"</text>
+    <path d="M300 256 L300 284" stroke="#f87171" stroke-width="2" marker-end="url(#arrow-red)"/>
+    <text x="90" y="306" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">AI 改了几个地方</text>
+    <path d="M300 316 L300 344" stroke="#f87171" stroke-width="2" marker-end="url(#arrow-red)"/>
+    <text x="90" y="366" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">bug 还在，但多了新问题</text>
+    <text x="90" y="390" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">不知道哪个改动有效</text>
+    <text x="90" y="414" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">不知道根因是什么</text>
+    <text x="300" y="450" text-anchor="middle" fill="#f87171" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">越 debug 越乱</text>
+  </g>
+
+  <!-- 系统性 debug -->
+  <g filter="url(#shadow)">
+    <rect x="660" y="110" width="480" height="360" rx="18" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="900" y="152" text-anchor="middle" fill="#6ee7b7" font-size="17" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">✓ 系统性 debug</text>
+    <text x="690" y="186" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">发现 bug</text>
+    <path d="M900 196 L900 224" stroke="#34d399" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="690" y="246" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">先复现（建立 feedback loop）</text>
+    <path d="M900 256 L900 284" stroke="#34d399" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="690" y="306" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">提出假设，一次只验证一个</text>
+    <path d="M900 316 L900 344" stroke="#34d399" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="690" y="366" fill="#6ee7b7" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">找到根因（有 source/test/log 支撑）</text>
+    <text x="690" y="390" fill="#6ee7b7" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">一次只改一件事</text>
+    <text x="690" y="414" fill="#6ee7b7" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">验证修复有效</text>
+    <text x="900" y="450" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="600">根因清楚，修复可靠</text>
+  </g>
+
+  <text x="600" y="530" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">spec-debug 的核心：先调查，再修复——不是"试几个修复看看"</text>
+</svg>

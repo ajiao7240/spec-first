@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="580" viewBox="0 0 1200 580" role="img" aria-labelledby="title desc">
+  <title id="title">plan 的结构：implementation units 和关键字段</title>
+  <desc id="desc">一份好的 plan 包含 goal、non-goals、implementation units、verification、risks 等关键字段</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="580" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">一份好的 plan 包含什么</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">关键字段和它们的作用</text>
+
+  <!-- 表头 -->
+  <rect x="60" y="100" width="1080" height="44" rx="8" fill="#082f49"/>
+  <text x="200" y="128" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">字段</text>
+  <text x="560" y="128" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">作用</text>
+  <text x="960" y="128" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">缺失时的后果</text>
+  <line x1="360" y1="100" x2="360" y2="500" stroke="#1e3a5f" stroke-width="1"/>
+  <line x1="760" y1="100" x2="760" y2="500" stroke="#1e3a5f" stroke-width="1"/>
+
+  <!-- 行1 -->
+  <rect x="60" y="144" width="1080" height="52" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="200" y="176" text-anchor="middle" fill="#6ee7b7" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">goal / non-goals</text>
+  <text x="560" y="176" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">明确做什么和不做什么</text>
+  <text x="960" y="176" text-anchor="middle" fill="#f87171" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">AI 会扩张 scope</text>
+
+  <!-- 行2 -->
+  <text x="200" y="228" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">implementation units</text>
+  <text x="560" y="228" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">把工作拆成可执行的单元</text>
+  <text x="960" y="228" text-anchor="middle" fill="#f87171" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">AI 不知道从哪里开始</text>
+
+  <!-- 行3 -->
+  <rect x="60" y="248" width="1080" height="52" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="200" y="280" text-anchor="middle" fill="#34d399" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">verification</text>
+  <text x="560" y="280" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">每个 unit 怎么验证完成</text>
+  <text x="960" y="280" text-anchor="middle" fill="#f87171" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">AI 不知道什么时候算完</text>
+
+  <!-- 行4 -->
+  <text x="200" y="332" text-anchor="middle" fill="#fbbf24" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">risks</text>
+  <text x="560" y="332" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">已知风险和降级路径</text>
+  <text x="960" y="332" text-anchor="middle" fill="#f87171" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">遇到问题不知道怎么处理</text>
+
+  <!-- 行5 -->
+  <rect x="60" y="352" width="1080" height="52" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="200" y="384" text-anchor="middle" fill="#a78bfa" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">target_repo</text>
+  <text x="560" y="384" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">多仓时明确写入哪个 repo</text>
+  <text x="960" y="384" text-anchor="middle" fill="#f87171" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">AI 可能改错仓库</text>
+
+  <!-- 行6 -->
+  <text x="200" y="436" text-anchor="middle" fill="#67e8f9" font-size="14" font-family="'SF Mono', Menlo, Consolas, monospace">deferred unknowns</text>
+  <text x="560" y="436" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">留给 work 阶段解决的问题</text>
+  <text x="960" y="436" text-anchor="middle" fill="#fbbf24" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">plan 会变成伪完整</text>
+
+  <line x1="60" y1="456" x2="1140" y2="456" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="600" y="496" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">plan 不写代码，不写实现步骤——只写边界、验证、风险和交接</text>
+  <text x="600" y="520" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">产出路径：docs/plans/YYYY-MM-DD-NNN-{slug}-plan.md</text>
+</svg>

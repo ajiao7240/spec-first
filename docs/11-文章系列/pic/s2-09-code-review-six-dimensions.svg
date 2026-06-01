@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">review 的六个维度</title>
+  <desc id="desc">correctness / security / performance / maintainability / test coverage / docs 六个维度</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#102a43"/><stop offset="1" stop-color="#0f172a"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="620" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">review 的六个维度</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">每个维度都有对应的 reviewer persona，从不同角度发现问题</text>
+
+  <!-- correctness -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="110" width="340" height="160" rx="16" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <text x="90" y="148" fill="#6ee7b7" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">correctness（正确性）</text>
+    <text x="90" y="178" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• intent vs implementation 是否一致</text>
+    <text x="90" y="200" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 边界条件是否处理正确</text>
+    <text x="90" y="222" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 错误处理是否完整</text>
+    <text x="230" y="252" text-anchor="middle" fill="#34d399" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">correctness-reviewer</text>
+  </g>
+
+  <!-- security -->
+  <g filter="url(#shadow)">
+    <rect x="430" y="110" width="340" height="160" rx="16" fill="url(#card)" stroke="#f87171" stroke-width="2"/>
+    <text x="460" y="148" fill="#fca5a5" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">security（安全性）</text>
+    <text x="460" y="178" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 认证和授权是否正确</text>
+    <text x="460" y="200" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 输入验证是否充分</text>
+    <text x="460" y="222" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 敏感信息是否泄露</text>
+    <text x="600" y="252" text-anchor="middle" fill="#f87171" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">security-reviewer</text>
+  </g>
+
+  <!-- performance -->
+  <g filter="url(#shadow)">
+    <rect x="800" y="110" width="340" height="160" rx="16" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
+    <text x="830" y="148" fill="#fde68a" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">performance（性能）</text>
+    <text x="830" y="178" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 是否有不必要的 DB 查询</text>
+    <text x="830" y="200" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 是否有内存泄漏</text>
+    <text x="830" y="222" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 是否有 N+1 问题</text>
+    <text x="970" y="252" text-anchor="middle" fill="#fbbf24" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">performance-reviewer</text>
+  </g>
+
+  <!-- maintainability -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="300" width="340" height="160" rx="16" fill="url(#card)" stroke="#a78bfa" stroke-width="2"/>
+    <text x="90" y="338" fill="#c4b5fd" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">maintainability（可维护性）</text>
+    <text x="90" y="368" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 是否违反项目约定</text>
+    <text x="90" y="390" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 是否有重复代码</text>
+    <text x="90" y="412" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 是否有不必要的复杂度</text>
+    <text x="230" y="442" text-anchor="middle" fill="#a78bfa" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">maintainability-reviewer</text>
+  </g>
+
+  <!-- test coverage -->
+  <g filter="url(#shadow)">
+    <rect x="430" y="300" width="340" height="160" rx="16" fill="url(#card)" stroke="#22d3ee" stroke-width="2"/>
+    <text x="460" y="338" fill="#67e8f9" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">test coverage（测试覆盖）</text>
+    <text x="460" y="368" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 关键行为是否有测试</text>
+    <text x="460" y="390" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 边界条件是否有测试</text>
+    <text x="460" y="412" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 错误路径是否有测试</text>
+    <text x="600" y="442" text-anchor="middle" fill="#22d3ee" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">test-coverage-reviewer</text>
+  </g>
+
+  <!-- docs -->
+  <g filter="url(#shadow)">
+    <rect x="800" y="300" width="340" height="160" rx="16" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <text x="830" y="338" fill="#7dd3fc" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">docs（文档）</text>
+    <text x="830" y="368" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• CHANGELOG 是否需要更新</text>
+    <text x="830" y="390" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• API 文档是否需要更新</text>
+    <text x="830" y="412" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">• 注释是否需要更新</text>
+    <text x="970" y="442" text-anchor="middle" fill="#38bdf8" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">docs-reviewer</text>
+  </g>
+
+  <text x="600" y="540" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">六个维度并行审查，每个 reviewer 从不同角度发现问题，最后合并去重</text>
+</svg>

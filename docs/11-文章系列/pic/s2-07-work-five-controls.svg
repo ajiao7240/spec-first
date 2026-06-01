@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">work 的五个关键控制点</title>
+  <desc id="desc">scope 验证、task identity、vertical tracer bullet、review gate、handoff evidence 五个控制点</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#102a43"/><stop offset="1" stop-color="#0f172a"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="620" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">work 的五个关键控制点</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">受控执行比快速执行更重要</text>
+
+  <!-- 控制点1 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="110" width="210" height="380" rx="16" fill="url(#card)" stroke="#38bdf8" stroke-width="2"/>
+    <text x="165" y="148" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">① scope 验证</text>
+    <text x="165" y="174" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">任务开始前</text>
+    <text x="90" y="206" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• 确认 goal 和 non-goals</text>
+    <text x="90" y="226" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• 确认涉及的文件</text>
+    <text x="90" y="246" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• 确认 target_repo</text>
+    <text x="165" y="460" text-anchor="middle" fill="#38bdf8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">防止 scope 扩张</text>
+  </g>
+
+  <!-- 控制点2 -->
+  <g filter="url(#shadow)">
+    <rect x="290" y="110" width="210" height="380" rx="16" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
+    <text x="395" y="148" text-anchor="middle" fill="#6ee7b7" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">② task identity</text>
+    <text x="395" y="174" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">链路验证</text>
+    <text x="320" y="206" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• spec_id 匹配</text>
+    <text x="320" y="226" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• source_plan_hash 匹配</text>
+    <text x="320" y="246" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• 不匹配则拒绝执行</text>
+    <text x="395" y="460" text-anchor="middle" fill="#34d399" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">防止过期链路</text>
+  </g>
+
+  <!-- 控制点3 -->
+  <g filter="url(#shadow)">
+    <rect x="520" y="110" width="210" height="380" rx="16" fill="url(#card)" stroke="#a78bfa" stroke-width="2"/>
+    <text x="625" y="148" text-anchor="middle" fill="#c4b5fd" font-size="13" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">③ vertical tracer</text>
+    <text x="625" y="174" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">执行策略</text>
+    <text x="550" y="206" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• 先关闭一个行为</text>
+    <text x="550" y="226" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• 实现+验证+文档</text>
+    <text x="550" y="246" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• 再扩展到下一个</text>
+    <text x="625" y="460" text-anchor="middle" fill="#a78bfa" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">防止半成品堆积</text>
+  </g>
+
+  <!-- 控制点4 -->
+  <g filter="url(#shadow)">
+    <rect x="750" y="110" width="210" height="380" rx="16" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
+    <text x="855" y="148" text-anchor="middle" fill="#fde68a" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">④ review gate</text>
+    <text x="855" y="174" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">质量检查点</text>
+    <text x="780" y="206" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• 内置的 review 触发</text>
+    <text x="780" y="226" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• required / optional</text>
+    <text x="780" y="246" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• 高风险 task 必须 review</text>
+    <text x="855" y="460" text-anchor="middle" fill="#fbbf24" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">防止质量问题累积</text>
+  </g>
+
+  <!-- 控制点5 -->
+  <g filter="url(#shadow)">
+    <rect x="980" y="110" width="160" height="380" rx="16" fill="url(#card)" stroke="#22d3ee" stroke-width="2"/>
+    <text x="1060" y="148" text-anchor="middle" fill="#67e8f9" font-size="13" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">⑤ handoff</text>
+    <text x="1060" y="168" text-anchor="middle" fill="#67e8f9" font-size="13" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">evidence</text>
+    <text x="1060" y="194" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">任务结束</text>
+    <text x="1000" y="226" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• diff 摘要</text>
+    <text x="1000" y="246" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• 验证结果</text>
+    <text x="1000" y="266" fill="#64748b" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">• 残余风险</text>
+    <text x="1060" y="460" text-anchor="middle" fill="#22d3ee" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">防止信息丢失</text>
+  </g>
+
+  <text x="600" y="560" text-anchor="middle" fill="#475569" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">五个控制点加在一起，让 work 从"让 AI 自由发挥"变成"在 plan 边界内的受控执行"</text>
+</svg>

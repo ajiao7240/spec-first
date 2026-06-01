@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="580" viewBox="0 0 1200 580" role="img" aria-labelledby="title desc">
+  <title id="title">requirements brief 如何交接给 plan</title>
+  <desc id="desc">brainstorm 产出 requirements brief，plan 读取后产出 plan doc，两者的边界：brainstorm 负责 WHAT/WHY，plan 负责 HOW</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#132f4c"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M1,1 L13,7 L1,13 Z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="580" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">requirements brief 如何交接给 plan</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">brainstorm 负责 WHAT/WHY，plan 负责 HOW</text>
+
+  <!-- brainstorm 产出 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="110" width="460" height="360" rx="20" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="290" y="152" text-anchor="middle" fill="#7dd3fc" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">brainstorm 负责</text>
+    <text x="290" y="180" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">WHAT + WHY</text>
+    <rect x="90" y="204" width="400" height="44" rx="10" fill="#0b2138" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="290" y="232" text-anchor="middle" fill="#bae6fd" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">✓ 用户是谁，当前痛点是什么</text>
+    <rect x="90" y="258" width="400" height="44" rx="10" fill="#0b2138" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="290" y="286" text-anchor="middle" fill="#bae6fd" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">✓ 成功标准和验收条件</text>
+    <rect x="90" y="312" width="400" height="44" rx="10" fill="#0b2138" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="290" y="340" text-anchor="middle" fill="#bae6fd" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">✓ 明确的 non-goals</text>
+    <rect x="90" y="366" width="400" height="44" rx="10" fill="#0b2138" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="290" y="394" text-anchor="middle" fill="#bae6fd" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">✓ 已知边界和风险</text>
+    <text x="290" y="450" text-anchor="middle" fill="#f87171" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">✗ 不包含：库选型、schema、endpoint、文件路径</text>
+  </g>
+
+  <!-- 箭头 -->
+  <path d="M522 290 H666" stroke="#38bdf8" stroke-width="5" marker-end="url(#arrow)"/>
+  <text x="594" y="274" text-anchor="middle" fill="#38bdf8" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">*-requirements.md</text>
+
+  <!-- plan 接收 -->
+  <g filter="url(#shadow)">
+    <rect x="668" y="110" width="472" height="360" rx="20" fill="#04221a" stroke="#34d399" stroke-width="2"/>
+    <text x="904" y="152" text-anchor="middle" fill="#6ee7b7" font-size="20" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">plan 负责</text>
+    <text x="904" y="180" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">HOW</text>
+    <rect x="698" y="204" width="412" height="44" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="904" y="232" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">✓ 实施路径和文件边界</text>
+    <rect x="698" y="258" width="412" height="44" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="904" y="286" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">✓ 依赖关系和风险处理</text>
+    <rect x="698" y="312" width="412" height="44" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="904" y="340" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">✓ 验证方式和 handoff</text>
+    <rect x="698" y="366" width="412" height="44" rx="10" fill="#0b2138" stroke="#34d399" stroke-width="1.5"/>
+    <text x="904" y="394" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">✓ implementation-time 决策空间</text>
+    <text x="904" y="450" text-anchor="middle" fill="#f87171" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">✗ 不应该：发明 WHAT，猜测用户意图</text>
+  </g>
+
+  <text x="600" y="530" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">如果 brief 缺少任何一个字段，plan 就会在执行中发明行为——这就是"需求说清楚了但 AI 做错了"的根因</text>
+</svg>

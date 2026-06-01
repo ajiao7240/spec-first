@@ -721,6 +721,18 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
     else
       child_result="$child_output"
     fi
+    # Advisory-only: graph-bootstrap writes runtime artifacts into this child but does not own
+    # its .gitignore. Record whether the child carries the spec-first managed block so the
+    # workspace summary can recommend `spec-first init` when ignore coverage is missing.
+    # Detection reuses the SPEC_FIRST_GITIGNORE_START marker ('# spec-first:start').
+    child_gitignore="$WORKSPACE_ROOT_FOR_ALL/$child_path/.gitignore"
+    if [ ! -f "$child_gitignore" ]; then
+      child_runtime_ignore_coverage="no-gitignore"
+    elif grep -Fxq '# spec-first:start' "$child_gitignore" 2>/dev/null; then
+      child_runtime_ignore_coverage="present"
+    else
+      child_runtime_ignore_coverage="missing"
+    fi
     jq \
       --arg parent_run_id "$WORKSPACE_RUN_ID" \
       --arg repo_label "$child_label" \
@@ -729,6 +741,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
       --arg child_finished_at "$child_finished_at" \
       --argjson exit_code "$child_status" \
       --argjson child_duration_ms "$child_duration_ms" \
+      --arg runtime_ignore_coverage "$child_runtime_ignore_coverage" \
       --argjson result "$child_result" \
       '. + [{
         parent_run_id:$parent_run_id,
@@ -743,6 +756,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
         reason_code:($result.reason_code // null),
         dirty_classification:($result.dirty_classification // null),
         dirty_paths_breakdown:($result.dirty_paths_breakdown // null),
+        runtime_ignore_coverage:$runtime_ignore_coverage,
         result:$result
       }]' "$SUMMARY_ITEMS" > "$SUMMARY_ITEMS.next"
     mv "$SUMMARY_ITEMS.next" "$SUMMARY_ITEMS"
@@ -871,6 +885,13 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
               ] | length) / ($results | length)
             )
             end
+          ),
+          runtime_ignore_coverage_missing_rate:(
+            if ($results | length) == 0 then null
+            else (
+              ([$results[] | select(.runtime_ignore_coverage == "missing")] | length) / ($results | length)
+            )
+            end
           )
         },
         timing:{
@@ -907,6 +928,7 @@ if [ "$ALL_REPOS" = "true" ] || [ "$DEFAULT_ALL_REPOS" = "true" ]; then
           if ([$results[] | select(.overall_status != "ready" and .overall_status != "ready-dirty-advisory" and .workflow_mode != "degraded-fallback" and .overall_status != "degraded" and .workflow_mode != "no-source" and .overall_status != "not-applicable")] | length) > 0 then "Inspect per-child reason_code and rerun setup/bootstrap for action-required repos."
           elif ([$results[] | select(.workflow_mode == "degraded-fallback" or .overall_status == "degraded")] | length) > 0 then "Inspect per-child provider reason_code/recommended_action. Use degraded child artifacts with disclosed limitations, or refresh query readiness for degraded repos."
           elif ([$results[] | select(.workflow_mode == "no-source" or .overall_status == "not-applicable")] | length) > 0 then "All code-bearing child repos produced graph bootstrap artifacts; skip GitNexus process routing for no-source children."
+          elif ([$results[] | select(.runtime_ignore_coverage == "missing")] | length) > 0 then "All child repos produced graph bootstrap artifacts, but one or more child .gitignore lack the spec-first managed block; run `spec-first init` (all-repos) to add managed ignore coverage and untrack generated runtime assets."
           else "All child repos produced graph bootstrap artifacts."
           end
         )

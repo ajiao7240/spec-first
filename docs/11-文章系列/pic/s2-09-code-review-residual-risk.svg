@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">residual risk：review 后仍然存在的风险</title>
+  <desc id="desc">residual risk 是 review 完成后仍然存在的已知风险，需要在 handoff 中明确说明</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+  </defs>
+  <rect width="1200" height="520" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">residual risk：review 后仍然存在的风险</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">review 不能消除所有风险——residual risk 让风险可见</text>
+
+  <!-- 表头 -->
+  <rect x="60" y="100" width="1080" height="44" rx="8" fill="#082f49"/>
+  <text x="200" y="128" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">类型</text>
+  <text x="560" y="128" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">描述</text>
+  <text x="960" y="128" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">处理方式</text>
+  <line x1="360" y1="100" x2="360" y2="420" stroke="#1e3a5f" stroke-width="1"/>
+  <line x1="760" y1="100" x2="760" y2="420" stroke="#1e3a5f" stroke-width="1"/>
+
+  <!-- 行1 -->
+  <rect x="60" y="144" width="1080" height="56" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="200" y="178" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">已知但未修复</text>
+  <text x="560" y="178" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">P1/P2 finding 被接受，暂不修复</text>
+  <text x="960" y="178" text-anchor="middle" fill="#fbbf24" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">记录在 handoff，后续跟进</text>
+
+  <!-- 行2 -->
+  <text x="200" y="234" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">无法验证</text>
+  <text x="560" y="234" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">某些场景无法在当前环境复现</text>
+  <text x="960" y="234" text-anchor="middle" fill="#fbbf24" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">记录限制，上线后监控</text>
+
+  <!-- 行3 -->
+  <rect x="60" y="256" width="1080" height="56" rx="0" fill="#04221a" opacity="0.4"/>
+  <text x="200" y="290" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">依赖外部系统</text>
+  <text x="560" y="290" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">风险来自外部依赖，无法在代码层面消除</text>
+  <text x="960" y="290" text-anchor="middle" fill="#fbbf24" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">记录依赖，添加降级路径</text>
+
+  <!-- 行4 -->
+  <text x="200" y="346" text-anchor="middle" fill="#f1f5f9" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">性能风险</text>
+  <text x="560" y="346" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">在高负载下可能出现问题，但当前无法压测</text>
+  <text x="960" y="346" text-anchor="middle" fill="#fbbf24" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">记录风险，上线后压测</text>
+
+  <line x1="60" y1="368" x2="1140" y2="368" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="600" y="408" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">residual risk 不是"review 没做好"——它是诚实地说明 review 的边界</text>
+  <text x="600" y="432" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">让下游（work、compound、release）知道还有哪些风险需要关注</text>
+</svg>

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="540" viewBox="0 0 1200 540" role="img" aria-labelledby="title desc">
+  <title id="title">compound 在工作流中的位置</title>
+  <desc id="desc">compound 在 work 和 code-review 之后运行，是工作流的最后一步</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#132f4c"/></linearGradient>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/></filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="#38bdf8"/></marker>
+  </defs>
+  <rect width="1200" height="540" rx="30" fill="url(#bg)"/>
+  <text x="600" y="52" text-anchor="middle" fill="#e0f2fe" font-size="28" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">compound 在工作流中的位置</text>
+  <text x="600" y="82" text-anchor="middle" fill="#93c5fd" font-size="15" font-family="Arial, 'PingFang SC', sans-serif">work 和 code-review 之后，是工作流的最后一步</text>
+
+  <!-- 节点 -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="180" width="130" height="60" rx="12" fill="#082f49" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="105" y="216" text-anchor="middle" fill="#7dd3fc" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">brainstorm</text>
+  </g>
+  <path d="M172 210 H208" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="210" y="180" width="100" height="60" rx="12" fill="#082f49" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="260" y="216" text-anchor="middle" fill="#7dd3fc" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">plan</text>
+  </g>
+  <path d="M312 210 H348" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="350" y="180" width="100" height="60" rx="12" fill="#082f49" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="400" y="216" text-anchor="middle" fill="#7dd3fc" font-size="13" font-family="'SF Mono', Menlo, Consolas, monospace">work</text>
+  </g>
+  <path d="M452 210 H488" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="490" y="180" width="140" height="60" rx="12" fill="#082f49" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="560" y="216" text-anchor="middle" fill="#fde68a" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">code-review</text>
+  </g>
+  <path d="M632 210 H668" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- compound 高亮 -->
+  <g filter="url(#shadow)">
+    <rect x="670" y="160" width="160" height="100" rx="14" fill="#04221a" stroke="#34d399" stroke-width="3"/>
+    <text x="750" y="202" text-anchor="middle" fill="#6ee7b7" font-size="16" font-family="'SF Mono', Menlo, Consolas, monospace" font-weight="700">compound</text>
+    <text x="750" y="228" text-anchor="middle" fill="#34d399" font-size="12" font-family="Arial, 'PingFang SC', sans-serif">← 在这里</text>
+  </g>
+  <path d="M832 210 H868" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="870" y="180" width="280" height="60" rx="12" fill="#04221a" stroke="#34d399" stroke-width="1.5"/>
+    <text x="1010" y="216" text-anchor="middle" fill="#6ee7b7" font-size="12" font-family="'SF Mono', Menlo, Consolas, monospace">docs/solutions/</text>
+  </g>
+
+  <!-- 说明 -->
+  <text x="750" y="320" text-anchor="middle" fill="#34d399" font-size="14" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">compound 在这里沉淀经验</text>
+  <text x="750" y="344" text-anchor="middle" fill="#94a3b8" font-size="13" font-family="Arial, 'PingFang SC', sans-serif">上下文最新鲜，质量最高</text>
+  <line x1="750" y1="290" x2="750" y2="260" stroke="#34d399" stroke-width="2" stroke-dasharray="4 3"/>
+
+  <!-- 下游消费 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="390" width="1080" height="80" rx="16" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="600" y="426" text-anchor="middle" fill="#e0f2fe" font-size="16" font-family="Arial, 'PingFang SC', sans-serif" font-weight="700">下次任务：spec-plan 和 spec-work 按需引用 docs/solutions/</text>
+    <text x="600" y="452" text-anchor="middle" fill="#7dd3fc" font-size="14" font-family="Arial, 'PingFang SC', sans-serif">applies_when 字段让经验在需要的时候自动出现</text>
+  </g>
+</svg>
