@@ -87,6 +87,58 @@ assert_output "older version notifies" "true" "$comparison_older"
 assert_output "prerelease notifies for release" "true" "$comparison_prerelease"
 assert_output "invalid version is ignored" "false" "$comparison_invalid"
 
+echo "1b. timeout resolution"
+timeout_output="$(
+  node - "$REPO_ROOT" <<'EOF'
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const {
+  DEFAULT_VERSION_REMINDER_TIMEOUT_MS,
+  resolveVersionReminderTimeoutMs,
+} = require(path.join(repoRoot, 'src/cli/version-reminder'));
+
+function withEnv(value, fn) {
+  const had = Object.prototype.hasOwnProperty.call(process.env, 'SPEC_FIRST_VERSION_REMINDER_TIMEOUT_MS');
+  const prev = process.env.SPEC_FIRST_VERSION_REMINDER_TIMEOUT_MS;
+  if (value === undefined) {
+    delete process.env.SPEC_FIRST_VERSION_REMINDER_TIMEOUT_MS;
+  } else {
+    process.env.SPEC_FIRST_VERSION_REMINDER_TIMEOUT_MS = value;
+  }
+  try {
+    return fn();
+  } finally {
+    if (had) {
+      process.env.SPEC_FIRST_VERSION_REMINDER_TIMEOUT_MS = prev;
+    } else {
+      delete process.env.SPEC_FIRST_VERSION_REMINDER_TIMEOUT_MS;
+    }
+  }
+}
+
+process.stdout.write(JSON.stringify({
+  defaultConst: DEFAULT_VERSION_REMINDER_TIMEOUT_MS,
+  unset: withEnv(undefined, () => resolveVersionReminderTimeoutMs()),
+  override: withEnv('5000', () => resolveVersionReminderTimeoutMs()),
+  invalid: withEnv('abc', () => resolveVersionReminderTimeoutMs()),
+  zero: withEnv('0', () => resolveVersionReminderTimeoutMs()),
+  negative: withEnv('-1', () => resolveVersionReminderTimeoutMs()),
+}));
+EOF
+)"
+timeout_default=$(node -e "const d = JSON.parse(process.argv[1]); process.stdout.write(String(d.defaultConst));" "$timeout_output")
+timeout_unset=$(node -e "const d = JSON.parse(process.argv[1]); process.stdout.write(String(d.unset));" "$timeout_output")
+timeout_override=$(node -e "const d = JSON.parse(process.argv[1]); process.stdout.write(String(d.override));" "$timeout_output")
+timeout_invalid=$(node -e "const d = JSON.parse(process.argv[1]); process.stdout.write(String(d.invalid));" "$timeout_output")
+timeout_zero=$(node -e "const d = JSON.parse(process.argv[1]); process.stdout.write(String(d.zero));" "$timeout_output")
+timeout_negative=$(node -e "const d = JSON.parse(process.argv[1]); process.stdout.write(String(d.negative));" "$timeout_output")
+assert_output "default timeout is 2000ms (not 350)" "2000" "$timeout_default"
+assert_output "unset env falls back to default" "2000" "$timeout_unset"
+assert_output "valid env override is used" "5000" "$timeout_override"
+assert_output "invalid env falls back to default" "2000" "$timeout_invalid"
+assert_output "zero env falls back to default" "2000" "$timeout_zero"
+assert_output "negative env falls back to default" "2000" "$timeout_negative"
+
 echo "2. reminder formatting"
 formatted_output="$(
   node - "$REPO_ROOT" <<'EOF'

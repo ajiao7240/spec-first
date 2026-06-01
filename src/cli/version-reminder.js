@@ -8,6 +8,15 @@ const { getAdapter } = require('./adapters');
 
 const STARTUP_REMINDER_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const UNKNOWN_RUNTIME_VERSION = 'unknown-runtime-version';
+const DEFAULT_VERSION_REMINDER_TIMEOUT_MS = 2000;
+
+// 默认网络超时；可经 SPEC_FIRST_VERSION_REMINDER_TIMEOUT_MS 覆盖(慢网调大、CI 调小)。
+// 350ms 曾导致在常见网络下查询 registry.npmjs.org(实测约 630ms)每次静默超时,提醒形同虚设。
+function resolveVersionReminderTimeoutMs() {
+  const raw = process.env.SPEC_FIRST_VERSION_REMINDER_TIMEOUT_MS;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_VERSION_REMINDER_TIMEOUT_MS;
+}
 
 function shouldNotifyVersionReminder(currentVersion, latestVersion) {
   const comparison = compareVersions(currentVersion, latestVersion);
@@ -27,7 +36,7 @@ async function maybeShowVersionReminder(options = {}) {
     packageName = '',
     currentVersion = '',
     output = process.stderr,
-    timeoutMs = 350,
+    timeoutMs = resolveVersionReminderTimeoutMs(),
     lookupLatestVersion = defaultLookupLatestVersion,
   } = options;
 
@@ -98,7 +107,7 @@ async function buildStartupVersionReminder(options = {}) {
   }
 
   const projectRoot = options.projectRoot || process.cwd();
-  const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 350;
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : resolveVersionReminderTimeoutMs();
   const packageName = options.packageName || 'spec-first';
   const nowMs = Number.isFinite(options.nowMs) ? options.nowMs : Date.now();
   const cooldownMs = Number.isFinite(options.cooldownMs)
@@ -414,7 +423,7 @@ async function defaultLookupStartupLatestVersion({ host, packageName, timeoutMs 
 }
 
 async function lookupLatestGitHubPackageVersion(options = {}) {
-  const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 350;
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : resolveVersionReminderTimeoutMs();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -621,7 +630,7 @@ async function defaultLookupLatestVersion(packageName, options = {}) {
     return override;
   }
 
-  const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 350;
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : resolveVersionReminderTimeoutMs();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -791,6 +800,7 @@ function isNumericIdentifier(value) {
 }
 
 module.exports = {
+  DEFAULT_VERSION_REMINDER_TIMEOUT_MS,
   buildStartupGraphReadinessSnapshot,
   buildStartupVersionReminder,
   clearStartupVersionReminderCooldown,
@@ -800,5 +810,6 @@ module.exports = {
   maybeShowVersionReminder,
   maybeShowStartupVersionReminder,
   resolveCurrentRuntimeVersion,
+  resolveVersionReminderTimeoutMs,
   shouldNotifyVersionReminder,
 };
