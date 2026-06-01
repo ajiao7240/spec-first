@@ -110,6 +110,11 @@ if grep -q "安装完成" "$INSTALL_LOG"; then
   else
     echo "   ⚠ postinstall 输出未包含 spec-first doctor（可能被 npm 吞掉）"
   fi
+  if grep -q "registry.npmjs.org" "$INSTALL_LOG"; then
+    echo "   ✓ postinstall 输出包含官方 registry 安装引导"
+  else
+    echo "   ⚠ postinstall 输出未包含官方 registry 引导（可能被 npm 吞掉）"
+  fi
 else
   echo "   ⚠ postinstall 输出不可见（foreground_scripts 行为差异）"
 fi

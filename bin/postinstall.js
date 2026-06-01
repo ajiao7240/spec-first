@@ -15,6 +15,8 @@ if (!ensureSupportedNodeVersion()) {
         spec-first init
   详情：  spec-first -v
   说明：  managed assets 由 init/clean 管理，按 Claude/Codex host 生成
+  最新版：如未装到最新版（镜像源可能滞后），可显式从官方源安装：
+        npm install -g spec-first --registry=https://registry.npmjs.org
 
 `);
 }
