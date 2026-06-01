@@ -49,7 +49,7 @@ Include these when they reduce planning invention:
 - `## Release / Operation Readiness`
 - `## Outstanding Questions`
 
-Success Metrics are conditional. If there is no credible metric source, write an observable measurement口径 or record the assumption; do not invent target values.
+Success Metrics are conditional. When present, each goal should be measurable: metric, target value, and — when available — current baseline and measurement window, with leading/lagging type for core goals. If there is no credible metric source, write an observable measurement口径 or record the assumption; do not invent target values.
 
 ## Authoring Discipline
 

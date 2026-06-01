@@ -30,6 +30,7 @@ Run these additional checks:
 9. `hard-decision unresolved` - scope-changing or hard-to-reverse product decisions are decided, assumed with risk, or blocked.
 10. `vague-wording` - words such as "等", "相关", "合适的", "更好", and "优化体验" are replaced by verifiable behavior.
 11. `priority-completeness` - core requirements have priority and, when relevant, degrade/block-release semantics.
+12. `goal-measurability` - when the PRD includes `Goals / Success Metrics`, each goal is measurable: it has a metric and target value, plus current baseline and measurement window when available, and vague verbs (提升/改善/优化/更好) are replaced with observable口径. This is a standard for what a *stated* goal must look like, not a demand to manufacture metrics — when no credible metric source exists, the correct move is to downgrade to an observable口径 or move the unproven metric into Assumptions / Outstanding Questions (consistent with `success-metrics-without-evidence`'s no-invention rule), never to fabricate target values. A small increment with no goal-justification need omits this section, and its absence is not a gap.
 
 ## Project-Local Overlay Check
 

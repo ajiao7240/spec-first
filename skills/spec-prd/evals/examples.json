@@ -69,6 +69,12 @@
       "expected": ["downgrade to observable metric or assumption"]
     },
     {
+      "id": "weak-goal-measurability",
+      "intent": "refine",
+      "input_shape": "PRD goal worded as 提升用户体验 with no metric",
+      "expected": ["flag goal-measurability gap", "ask for metric/baseline/window or downgrade to observable口径", "do not invent target values"]
+    },
+    {
       "id": "terminology-conflict",
       "intent": "refine",
       "input_shape": "same concept named account/customer/user",
