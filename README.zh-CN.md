@@ -12,9 +12,7 @@
 
 **面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。**
 
-`spec-first` 帮助团队把 AI coding 会话变成可复用的工程闭环：环境与代码图谱准备、想法整理、需求澄清、增量 PRD、文档审查、计划编写、任务包编译、执行/调试/优化/打磨、代码与 App 一致性审查、知识沉淀与系统进化。
-
-它让脚本负责确定性的安装、生成、校验和事实采集；让 LLM 负责需求理解、方案取舍、实现判断和评审决策。
+`spec-first` 把一次性的 AI coding 对话变成可复用的工程闭环：requirements、PRD、plans、task packs、work、debug、reviews 和 learnings 留在仓库里，而不是消失在一次会话中。
 
 官网：[spec-first.cn](http://spec-first.cn/)
 
@@ -26,23 +24,9 @@
 
 ![spec-first workflow flow](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
 
-```text
-开放式改进问题
-  -> $spec-ideate 或 /spec:ideate
-  -> docs/ideation/YYYY-MM-DD-topic-ideation.md
-  -> 选定一个粗略想法
-  -> $spec-brainstorm 或 /spec:brainstorm
-  -> docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
-  -> 或用 $spec-prd / /spec:prd 生成已有系统增量 PRD-grade requirements
-  -> $spec-plan 或 /spec:plan
-  -> docs/plans/YYYY-MM-DD-NNN-topic-plan.md
-  -> $spec-work 或 /spec:work
-  -> 代码、测试和验证记录
-  -> $spec-code-review 或 /spec:code-review
-  -> 结构化 findings 和 residual risks
-```
+这是 README 维护的演示素材位。当前复用 source-controlled workflow SVG；未来如果要替换为终端动画或截图，可以直接替换这个位置，不需要重排页面结构。
 
-重点不是再提供一组 prompt 片段，而是让每次 AI coding 会话都留下项目内可复用的工程上下文。
+重点不是再提供一组 prompt 片段或 agent team，而是编排工程产物与证据：requirements brief、plan、task pack、diff、review、failure analysis 和可复用 learning。
 
 ## 一个小例子
 
@@ -52,28 +36,27 @@
 $spec-brainstorm "Improve onboarding for first-time CLI users"
 ```
 
-Claude Code 用户可改用 `/spec:brainstorm "Improve onboarding for first-time CLI users"`。
-
-一条完整 workflow 链路可能留下这些产物：
+Claude Code 用户可改用：
 
 ```text
-docs/ideation/2026-05-01-cli-onboarding-ideation.md
-docs/brainstorms/2026-05-01-001-cli-onboarding-requirements.md
-docs/plans/2026-05-01-001-feat-cli-onboarding-plan.md
-docs/tasks/2026-05-01-001-feat-cli-onboarding-tasks.md
+/spec:brainstorm "Improve onboarding for first-time CLI users"
 ```
 
-当你需要 AI 主动生成并排序多个方向时，先用 `ideate`。第一次 brainstorm 通常只为一个已选想法生成 requirements brief。plan、task-pack、work、review、debug 和 compound 入口会在你继续推进链路时分别写入各自职责内的产物。
+第一次 brainstorm 通常只生成一个 requirements brief：
 
-完整走查见 [首次工作流走查](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md)。
+```text
+docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
+```
+
+随后进入当前宿主的 plan 入口继续推进。更长的链路后续可能增加 `docs/plans/`、`docs/tasks/`、代码/测试改动、review findings 和 `docs/solutions/` learnings，但不是每个 workflow 都写入所有 artifact。
+
+完整走查见 [首次工作流走查](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md)。产物归属见 [产物目录](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/10-%E4%BA%A7%E7%89%A9%E7%9B%AE%E5%BD%95.md)。
 
 ## 为什么使用 spec-first？
 
 AI coding 最大的问题通常不是 agent 不会写代码，而是关键判断只停留在聊天窗口里：下一次会话缺上下文，reviewer 看不到计划为什么变化，团队也很难复用一次成功经验。
 
-`spec-first` 对问题的判断很明确：真正需要被编排的不只是 agent，而是软件生命周期本身。需求、计划、任务、diff、review、失败根因和经验沉淀必须能跨会话存活，才能支撑长期项目。
-
-### 核心区别：编排目标是谁
+`spec-first` 让软件生命周期本身保持可读：
 
 | 问题 | Agent 编排工具 | spec-first |
 |---|---|---|
@@ -83,17 +66,16 @@ AI coding 最大的问题通常不是 agent 不会写代码，而是关键判断
 | 人的角色 | 尽量减少介入 | 工程师对 scope、tradeoff、验收保持在环 |
 | 自动化边界 | 倾向更长的自动接力 | 脚本准备事实，LLM 做语义判断 |
 
-`spec-first` 给这些工作一个轻量结构：
+它带来的结果是：
 
 - requirements 变成持久 brief，而不是会话里消失的 prompt。
 - plans 和 task packs 把模糊意图变成可评审、可执行的上下文。
-- work、review、debug 和 compound workflows 会沉淀证据与经验。
-- 脚本准备事实和 runtime assets；LLM 决定范围、取舍、实现策略和评审证据。
+- work、review、debug、optimize 和 compound workflows 会沉淀证据与经验。
 - 一套 source assets 同时支持 Claude Code 的 `/spec:*` 入口和 Codex 的 `$spec-*` 入口，不需要手工维护生成副本。
 
 ## 快速开始
 
-Prerequisites / 前置条件：
+前置条件：
 
 - Node.js `>=20.0.0` 和 npm。
 - Git 已安装并在 `PATH` 中；`doctor`、setup 和 workflow 检查会读取 Git 仓库事实。
@@ -123,15 +105,15 @@ npm install -g spec-first
 spec-first doctor
 ```
 
-在 Win64 上，推荐使用 Windows Terminal + PowerShell 7+ 或原生 `cmd.exe` 做安装和 smoke check。Windows PowerShell 5.1 也支持，但 PowerShell 7+ 的 UTF-8 行为更稳定。Git Bash、MSYS2、WSL 可用于 POSIX 环境，但不能替代 Windows 原生验证，因为 npm `.cmd` shim、`%PATH%`、quoting 和 code page 行为不同。
+在 Win64 上，推荐使用 Windows Terminal + PowerShell 7+ 或原生 `cmd.exe` 做安装和 smoke check。Windows PowerShell 5.1 也支持，但 PowerShell 7+ 的 UTF-8 行为更稳定。
 
-初始化实际使用的宿主 runtime。`spec-first init` 是交互式流程：多选 Claude Code 和/或 Codex、确认开发者姓名与语言、预览写入内容，然后显式确认。
+初始化实际使用的宿主 runtime：
 
 ```bash
 spec-first init
 ```
 
-可用 `spec-first init --codex` 或 `spec-first init --claude --codex` 跳过宿主选择步骤。脚本中可用 `spec-first init -y` 初始化默认宿主集合，或把 `-y` 与显式宿主 flag、`-u <name>`、`--lang <zh|en>` 组合使用。
+`spec-first init` 是交互式流程：多选 Claude Code 和/或 Codex、确认开发者姓名与语言、预览写入内容，然后显式确认。可用 `spec-first init --codex` 或 `spec-first init --claude` 只跳过宿主选择步骤。脚本中可用 `spec-first init -y` 初始化默认宿主集合，或把 `-y` 与显式宿主 flag、`-u <name>`、`--lang <zh|en>` 组合使用。
 
 重启宿主或新开会话，让宿主加载刚生成的 runtime assets。
 
@@ -145,250 +127,56 @@ spec-first init
 $spec-brainstorm "改进 onboarding"
 ```
 
-如果不确定该用哪个 workflow，可以在宿主会话中直接描述任务或询问下一步；`using-spec-first` 会推荐一个公开入口并说明原因。
+当 `docs/brainstorms/` 下出现 requirements brief，第一次接入就完成了。如果不确定该用哪个 workflow，可以在宿主会话中直接描述任务或询问下一步；`using-spec-first` 会推荐一个公开入口并说明原因。
 
-### Fast path 与增强 readiness
+## Workflow Entry Points
 
-完成 `doctor`、`init` 和宿主重启后，即使还没有编译 graph readiness，也可以先进入轻量宿主 workflow。这适合 docs-only、小 bugfix、轻量 plan/work/review 和首次项目试用：
+这张表是公开入口的唯一映射表。共享 prose 优先说“当前宿主”；具体 `/spec:*` 与 `$spec-*` 映射集中放在这里和 init/runtime 指引中。
 
-```text
-$spec-ideate / $spec-brainstorm / $spec-prd / $spec-plan / $spec-work / $spec-code-review
-/spec:ideate / /spec:brainstorm / /spec:prd / /spec:plan / /spec:work / /spec:code-review
-```
-
-当任务依赖 MCP/helper tools、graph evidence、书面项目指导、跨模块或跨仓影响分析时，再走 setup/bootstrap 增强路径。缺失或过期的 graph facts 是需要披露的 degraded evidence，不是伪造的成功状态，也不是所有 workflow 的硬前置。
-
-Graph refresh 触发节点：
-
-| 事件或需求 | 默认动作 |
-|---|---|
-| 首次 setup 或 provider package projection 过期 | 运行 `/spec:mcp-setup` 或 `$spec-mcp-setup`；它刷新 setup-owned provider config，不刷新 graph index。 |
-| 需要当前 GitNexus readiness | 运行 `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap`；这是显式 graph readiness refresh 入口。 |
-| 切换分支、pull、rebase、merge 或 dirty worktree 变化 | 下一个 graph consumer 检测 stale `source_revision` / `worktree_status_hash`；不会自动 rebuild index。 |
-| setup/init 后 worktree dirty | `/spec:graph-bootstrap` / `$spec-graph-bootstrap` 记录 dirty classification；setup-owned / non-graph metadata dirty 可正常刷新，graph-affecting dirty 走 warn-and-continue 并写入 `dirty-advisory`，不能当 fresh primary evidence。 |
-| docs、typo、小型本地 bug 或首次试用 | graph facts stale / unavailable 时披露限制，并继续 bounded direct reads。 |
-| shared API/route/provider contract、core workflow、跨模块变更或高风险 review | 在声明 graph-backed impact 或 execution-flow evidence 前显式刷新 graph readiness。 |
-
-宿主 startup reminder 可能附带一条 compact GitNexus graph snapshot，包含 `query_ready`、freshness、dirty/stale 状态、能力摘要和 limitations。这只是启动 helper 产出的只读上下文，不会刷新 graph readiness，也不决定 workflow scope。
-
-`query_ready`、`definitions-only`、`dirty-advisory`、`graph-affecting-blocked`、`stale`、`session-local`、`setup-inferred` 等贯穿 setup、bootstrap、startup snapshot 与下游 workflow 的 GitNexus readiness/capability lifecycle 术语，集中固化于 `docs/contracts/gitnexus-capability-catalog.md` 的 **Capability State Vocabulary** 章节；其他文档、skill 与 runtime prose 必须使用该词典中的术语，不要引入同义词。
-
-当 `$spec-plan` 输出 `Graph / GitNexus Evidence` 后，下游 workflow 会把它作为有边界的 evidence 输入，而不是新的 scope authority。`$spec-work` 用它收窄 source reads 和 test selection，并在 closeout 中报告 `graph_evidence_used`；`$spec-code-review` 在 Coverage 中披露 `Graph evidence:`，且只在 evidence fresh 或 session-local 时优先使用 `api_impact`、`shape_check`、`tool_map` 等 GitNexus native capability；`$spec-debug` 可在 hypothesis ledger 中记录 `graph_evidence`，但 root cause 仍必须由 reproduction、source、log 或 test 证据确认。stale / degraded evidence 会降级到 direct source reads，本身不阻断 workflow。
-
-### Readiness ladder / 就绪层级
-
-`doctor` 是第一层健康检查，不代表所有能力都 ready。请把三层 readiness 分开看：
-
-| 层级 | 运行入口 | 能证明什么 | 不能证明什么 |
+| Intent | Claude Code | Codex | Expected result |
 |---|---|---|---|
-| CLI/runtime health | `spec-first doctor` | Node/Git/package 检查、generated host runtime assets、workflow surface 和 stale verification evidence。 | MCP/helper setup、graph provider index 或 `query_ready` graph facts。 |
-| Harness setup | `/spec:mcp-setup` 或 `$spec-mcp-setup` | 必备 MCP/helper runtime facts 和 setup-owned provider config artifacts。 | provider index 已构建，或 graph query 已 ready。 |
-| Graph readiness | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 下游 workflow 可消费的 canonical `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness facts。 | 某个 graph 结果一定与当前任务语义相关；证据怎么用仍由 LLM 判断。 |
+| Setup required harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` | 必备 MCP/helper runtime facts 和 setup-owned provider config artifacts |
+| Compile graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Canonical `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness facts |
+| Update spec-first or runtime assets | `/spec:update` | `$spec-update` | 版本/runtime 刷新指引 |
+| Search agent session history | `/spec:sessions` | `$spec-sessions` | 会话历史答案和恢复上下文 |
+| Research Slack context | `/spec:slack-research` | `$spec-slack-research` | Slack 工具可用时生成组织上下文 digest |
+| Audit source skills | `/spec:skill-audit` | `$spec-skill-audit` | Skill 治理与质量 findings |
+| Generate and evaluate ideas | `/spec:ideate` | `$spec-ideate` | `docs/ideation/` 下的 ranked ideation artifact |
+| Brainstorm requirements | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
+| Write/refine brownfield PRD requirements | `/spec:prd` | `$spec-prd` | `docs/brainstorms/` 下的 PRD-grade requirements |
+| Review docs/plans | `/spec:doc-review` | `$spec-doc-review` | Document findings、gaps 和 residual risks |
+| Write or deepen a plan | `/spec:plan` | `$spec-plan` | `docs/plans/` 下的 implementation plan |
+| Compile task pack | use installed standalone `write-tasks` skill | use installed standalone `write-tasks` skill | `docs/tasks/` 下的 derived task pack |
+| Audit App consistency | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` | Static App consistency report 和 run-scoped audit evidence |
+| Debug a failure or bug | `/spec:debug` | `$spec-debug` | Root cause、fix 和 verification evidence |
+| Execute work | `/spec:work` | `$spec-work` | Scoped source changes、tests 和 verification notes |
+| Optimize a measurable outcome | `/spec:optimize` | `$spec-optimize` | Metric-driven experiment loop 和 retained improvements |
+| Polish browser-visible UI beta | `/spec:polish-beta` | `$spec-polish-beta` | Browser-visible UI polish pass |
+| Review code | `/spec:code-review` | `$spec-code-review` | Structured findings 和 residual risks |
+| Capture learning | `/spec:compound` | `$spec-compound` | `docs/solutions/` 下的 reusable learning |
+| Refresh stale learnings | `/spec:compound-refresh` | `$spec-compound-refresh` | 更新、合并或退役 solution docs |
+| Read release notes | `/spec:release-notes` | `$spec-release-notes` | 指定版本变更摘要 |
 
-如果 `doctor` 通过但 graph-heavy workflow 报告 graph evidence 缺失或过期，应继续跑 setup/bootstrap 层，而不是把 `doctor` 当成 graph readiness gate。
+想要选项、批判或意外方向，还没确定问题框架时，用 `ideate`。已经有粗略产品问题或功能想法，需要 actors、flows、边界和 acceptance examples 时，用 `brainstorm`。已有系统增量或粗糙 PRD 需要 current-state evidence 和 change delta 时，用 `prd`。已有 requirements、plan 或 task 文档，需要找缺口时，用 `doc-review`。不要把 `brainstorm` 当作所有不清楚请求的默认入口。
 
-### 完成标志
+## 产物与工作方式
 
-第一次 brainstorm 运行会生成类似这样的 requirements brief：
+`spec-first` 有两类 durable surface：仓库内 workflow artifacts 和 generated host runtime assets。
 
-```text
-docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
-```
-
-随后进入当前宿主的 plan 入口继续推进。
-
-## 研发全流程总览
-
-这张图用于区分终端命令和宿主会话内 workflow 入口，并快速看到从安装到执行完成的全景路径：
-
-```text
-在目标项目 repo 的终端中
-  |
-  | npm install -g spec-first
-  | spec-first doctor
-  | spec-first init
-  |   按引导多选 Claude Code 和/或 Codex
-  v
-重启 Claude Code 或 Codex
-  |
-  +-- 轻量 fast path：docs、小修复、首次试用
-  |     -> /spec:ideate / $spec-ideate
-  |     -> /spec:brainstorm / $spec-brainstorm
-  |     -> /spec:prd / $spec-prd
-  |     -> /spec:plan / $spec-plan
-  |     -> /spec:work / $spec-work
-  |     -> /spec:code-review / $spec-code-review
-  |
-  +-- graph-heavy 或跨模块工作的增强 readiness
-        -> /spec:mcp-setup       或 $spec-mcp-setup
-        -> /spec:graph-bootstrap 或 $spec-graph-bootstrap
-  v
-在宿主会话中选择下一步 workflow
-  |
-  +-- 需要候选方向、批判或改进想法
-  |     -> /spec:ideate 或 $spec-ideate
-  |     -> docs/ideation/*-ideation.md
-  |
-  +-- 已有粗略产品问题或功能想法
-  |     -> /spec:brainstorm 或 $spec-brainstorm
-  |     -> docs/brainstorms/*-requirements.md
-  |
-  +-- 已有系统增量需要 PRD-grade requirements
-  |     -> /spec:prd 或 $spec-prd
-  |     -> docs/brainstorms/*-requirements.md
-  |
-  +-- 目标已定，但实现路径还不清楚
-  |     -> /spec:plan 或 $spec-plan
-  |     -> docs/plans/*-plan.md
-  |
-  +-- 计划较大，需要确定性任务交接
-  |     -> 已安装的 standalone write-tasks skill
-  |     -> docs/tasks/*-tasks.md
-  |
-  +-- plan 或 task pack 已准备好执行
-  |     -> /spec:work 或 $spec-work
-  |     -> 代码、测试和验证记录
-  |
-  +-- 移动 App 改动需要在运行时 QA 前做静态一致性审查
-  |     -> /spec:app-consistency-audit 或 $spec-app-consistency-audit
-  |     -> .spec-first/app-audit/runs/<run-id>/
-  |
-  +-- 失败、bug 或难解释的错误
-  |     -> /spec:debug 或 $spec-debug
-  |     -> 根因、修复和验证证据
-  v
-合并或交接前
-  |
-  | /spec:code-review 或 $spec-code-review
-  | /spec:doc-review  或 $spec-doc-review
-  v
-问题解决后
-  |
-  | /spec:compound 或 $spec-compound
-  v
-为下一次 AI coding 会话留下项目内可复用上下文
-```
-
-不是每个项目都要走完所有节点。按当前状态选择入口；状态不清楚时，直接在宿主会话里询问下一步该运行什么。
-
-## 当前工程闭环
-
-上面的总览图展示的是常见 first-run 路径。完整闭环更广：
-
-```text
-mcp-setup / graph-bootstrap
-  -> ideate
-  -> brainstorm
-  -> prd
-  -> doc-review
-  -> plan
-  -> write-tasks
-  -> work / debug / optimize / polish
-  -> code-review / app-consistency-audit
-  -> compound / compound-refresh / sessions / slack-research / skill-audit
-  -> 反哺项目知识、文档、skills 和下一次 workflow 选择
-```
-
-这是一条工程闭环，不是一串必须逐项执行的命令。根据当前状态进入最匹配的节点；当下一步不清楚时，宿主会话里的入口治理会推荐一个公开 workflow 并说明理由。`write-tasks` 是 standalone skill；可浏览 UI 的 polish 当前通过 `polish-beta` 暴露。
-
-想要选项、批判或意外方向，还没确定问题框架时，用 `ideate`。已经有粗略产品问题或功能想法，需要整理 actors、flows、边界和验收样例时，用 `brainstorm`。已有系统增量、粗糙 PRD 或低质量产品笔记需要结合现状证据和 Change Delta 写成 PRD-grade requirements 时，用 `prd`。已有 requirements、plan 或 task 文档，需要找缺口时，用 `doc-review`。不要把 `brainstorm` 当作所有不清楚请求的默认入口。
-
-| 需求 | 更合适的入口 |
-|---|---|
-| “我们该改进什么？”或“给我一些想法” | `ideate` |
-| “我有一个粗略产品问题，帮我成型” | `brainstorm` |
-| “现有后台/用户/交易流程这次增量需要 PRD” | `prd` |
-| “这份 requirements 或 plan 文档可能有缺口” | `doc-review` |
-
-| 层级 | 节点 | 回答的问题 | 持久输出 |
-|---|---|---|---|
-| 能力底座 | `mcp-setup`、`graph-bootstrap` | AI 是否有正确工具？是否拿到了当前代码库事实？ | setup 报告、provider 配置、graph readiness facts、impact capability facts。 |
-| 需求成型 | `ideate`、`brainstorm`、`prd`、`doc-review` | 问题是否值得做、是否清楚、文档是否有明显缺口？ | 想法、requirements briefs、PRD-grade requirements、审查 findings、风险和开放问题。 |
-| 设计与交接 | `plan`、standalone `write-tasks` skill | 该怎么实现？大计划如何变成可执行任务？ | implementation plans 和 validated task packs。 |
-| 工程执行 | `work`、`debug`、`optimize`、`polish` | 如何实现、修复、优化或完成交付细节？ | 代码改动、测试、修复、度量结果和验证记录。 |
-| 质量关口 | `code-review`、`app-consistency-audit` | 结果是否符合计划、代码质量和 App/产品一致性要求？ | review findings、residual risks 和 run-scoped audit evidence。 |
-| 知识与进化 | `compound`、`compound-refresh`、`sessions`、`slack-research`、`skill-audit` | 什么经验要复用、什么外部/历史/团队上下文要刷新、spec-first 自己哪里要进化？ | learnings、刷新后的上下文、会话总结、组织研究和 skill audit findings。 |
-
-边界仍然保持轻量：scripts 和 CLI 负责准备事实；LLM 负责判断 scope、tradeoff、下一步 workflow、实现策略和评审结论。最后一层把经验反哺到文档、skills 和项目记忆中，而不是把 `spec-first` 变成刚性状态机。
-
-## 支持的开发模式
-
-`spec-first` 的开发模式按仓库和项目拓扑定义，不按单个 workflow 的 `mode:*` 参数定义。当前支持三种：
-
-| 模式 | 典型形态 | `.spec-first` 权威边界 | 处理方式 |
-|---|---|---|---|
-| 单仓单项目 | 一个 Git repo 中就是一个应用、SDK、CLI 或服务 | 当前 repo root | requirements、plan、work、review、graph facts 都以当前 repo 为边界。 |
-| 单仓多模块 | 一个 Git repo 中包含多个 app、package、service 或 Android module | 同一个 repo root | 不为每个 module 拆多套 `.spec-first`；由 plan、task pack、work 和 review 在 repo 内按 module 边界拆分和路由。Monorepo modules 不是 GitNexus group 成员。 |
-| 多仓工作区 | 父目录下有多个独立 child Git repos | 每个 child repo 自己的 repo root；父级 workspace artifacts 仅作 advisory context | 父 workspace 负责候选发现并可写 advisory workspace summaries，可用 GitNexus group readiness 做只读路由；repo-local setup、graph、plan、work、review 必须落到显式 child repo。 |
-
-```text
-单仓单项目
-my-app/
-  .git/
-  .spec-first/
-  src/
-
-单仓多模块
-platform/
-  .git/
-  .spec-first/
-  apps/web/
-  apps/mobile/
-  packages/core/
-
-多仓工作区
-workspace/
-  frontend/
-    .git/
-    .spec-first/
-  backend/
-    .git/
-    .spec-first/
-  mobile/
-    .git/
-    .spec-first/
-```
-
-核心 contract 是：`.spec-first` 的事实边界永远是 **selected Git repo root**。
-
-- 单仓多模块不要在每个 module 下各放一套 `.spec-first`，否则 plan、review、graph facts 和 knowledge 会分裂。
-- 多仓工作区的父目录不拥有 repo-local truth。父级 workspace summaries，包括 `.spec-first/workspace/gitnexus-readiness.json`，只作 advisory；plan、task pack、setup、graph bootstrap、work、review、测试、changelog 更新和 commit 仍需要写明 `target_repo` 或 per-unit/per-task `target_repo`。
-- `mode:headless`、`mode:report-only`、`mode:autofix`、`depth:deep` 等是 workflow 或 skill 的运行姿态，不是开发模式分类。
-
-## 你会得到什么
-
-`spec-first` 把 AI 辅助开发建模成少数可持久化实体和事件驱动流程。
-
-### 持久实体
-
-| 实体 | 典型位置 | 作用 |
-|---|---|---|
-| Ideation shortlist | `docs/ideation/` | 在进入需求成型前，对候选想法进行排序、批判和取舍。 |
-| Requirements brief | `docs/brainstorms/` | 在实现压力到来前记录问题、角色、流程、约束和验收样例。 |
-| Implementation plan | `docs/plans/` | 把目标拆成实现单元、取舍、验证目标和非目标。 |
-| Task pack | `docs/tasks/` | 当计划需要确定性任务身份、依赖顺序和验证时，提供结构化交接。 |
-| App consistency audit run | `.spec-first/app-audit/runs/<run-id>/` | 在运行时验证前记录 PRD、Figma、源码、路由、架构、埋点和 i18n 的静态一致性证据。 |
-| Review/debug evidence | workflow 输出、diff、tests、reports | 让代码评审和失败诊断基于证据，而不是感觉。 |
-| Learning | `docs/solutions/` | 把已经解决的问题沉淀成可复用工程知识。 |
-
-按 repo-relative path 表示：
+Repo-relative artifact roots：
 
 ```text
 docs/
-  ideation/      需求成型前的候选想法排序与批判
-  brainstorms/   早期问题澄清得到的 requirements briefs
+  ideation/      requirements shaping 前的 ranked idea candidates
+  brainstorms/   requirements briefs 与 PRD-grade requirements
   plans/         可评审、可执行的 implementation plans
-  tasks/         大计划需要结构化交接时生成的 task packs
-  solutions/     解决问题后沉淀的可复用经验
+  tasks/         结构化 handoff 用 derived task packs
+  solutions/     解决问题后沉淀的 reusable learnings
 .spec-first/
-  app-audit/runs/ App 静态一致性审查事实和报告
+  app-audit/runs/ static App consistency audit facts and reports
 ```
 
-Not every workflow writes every artifact；每个入口只写入与自身职责匹配的产物。
-
-每类产物由谁生成、谁读取、是否应该手改，见 [产物目录](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/10-%E4%BA%A7%E7%89%A9%E7%9B%AE%E5%BD%95.md)。
-
-## 工作方式
+Runtime shape：
 
 ```text
 Source assets
@@ -405,92 +193,38 @@ Workflow artifacts
   ideation -> brainstorms -> plans -> tasks -> work/review/debug -> learnings
 ```
 
-source of truth 位于仓库源码资产中。`.claude/`、`.codex/`、`.agents/skills/` 下的 generated runtime copies 可丢弃，可通过 `spec-first init` 重建。init 期间也会一次性解除已被 git index 跟踪的 managed runtime 路径，保留工作区文件，同时避免历史 generated mirror 继续产生 noisy diff。定制 source、刷新 runtime、消费 provider evidence 与凭证治理的边界见 [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md)。
+Source-of-truth assets 位于仓库中。`.claude/`、`.codex/` 和 `.agents/skills/` 下的 generated runtime copies 是可丢弃镜像，可通过 `spec-first init` 重建。init 期间，spec-first 也会一次性 untrack 已被 Git 索引的 managed runtime paths，保留 worktree 文件但避免历史 generated mirrors 制造 noisy diffs。
 
-init 后的运行时结构：
+开发模式规则保持很小：`.spec-first` facts 以所选 Git repo root 为权威。单个 Git 仓库包含多个模块时，不要在每个模块下创建独立 `.spec-first`。父目录包含多个 child Git repos 时，parent workspace summaries 仅作 advisory；setup、graph、plan、work、review、tests、changelog updates 和 commits 仍需明确 target repo。
 
-```text
-your-project/
-├── docs/
-│   ├── ideation/
-│   ├── brainstorms/
-│   ├── plans/
-│   ├── tasks/
-│   └── solutions/
-├── .claude/          # 使用 Claude Code 时生成
-├── .codex/           # 使用 Codex 时生成
-├── .agents/skills/   # Codex-facing generated skills
-└── AGENTS.md 或 CLAUDE.md
-```
+详细参考：
 
-### 主要流程
-
-| 流程 | 从这里开始 | 稳定什么 |
-|---|---|---|
-| 想法生成 | `/spec:ideate` 或 `$spec-ideate` | 候选方向、批判、排序，以及进入单个想法的 handoff。 |
-| 问题澄清 | `/spec:brainstorm` 或 `$spec-brainstorm` | 一个已选想法的原始需求、用户目标、边界和验收样例。 |
-| 增量 PRD | `/spec:prd` 或 `$spec-prd` | 现状证据、Change Delta、优先级、验收样例和 `artifact_kind: prd-requirements`。 |
-| 实施规划 | `/spec:plan` 或 `$spec-plan` | 架构选择、实现单元、验证范围和已知未知。 |
-| 执行开发 | `/spec:work` 或 `$spec-work` | 代码改动、聚焦测试、验证记录和 scope 控制。 |
-| App 一致性审查 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | 运行时验证前审查 PRD、Figma、源码、路由、KMP/Clean Architecture、埋点、i18n 和行业规则一致性。 |
-| 质量与恢复 | `/spec:code-review`、`$spec-code-review`、`/spec:debug`、`$spec-debug` | findings、residual risks、根因、修复和证据。 |
-| 知识复利 | `/spec:compound` 或 `$spec-compound` | 解决问题后的可复用经验。 |
-
-## 选择你的路径
-
-| 你的情况 | 从这里开始 | 预期结果 |
-|---|---|---|
-| 需要开放式改进方向或多个候选想法 | `/spec:ideate` 或 `$spec-ideate` | `docs/ideation/` 下的 ranked ideation artifact |
-| 已有粗略产品问题或功能想法 | `/spec:brainstorm` 或 `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
-| 已有系统增量或粗糙 PRD 需要产品 owner 级需求 | `/spec:prd` 或 `$spec-prd` | `docs/brainstorms/` 下的 PRD-grade requirements |
-| 目标已定，但还没有实施策略 | `/spec:plan` 或 `$spec-plan` | `docs/plans/` 下的 plan |
-| 已有 plan 或 task pack，准备执行 | `/spec:work` 或 `$spec-work` | 代码改动、测试和验证记录 |
-| 移动 App 改动在 QA 前需要 PRD/Figma/source 一致性审查 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit` | `.spec-first/app-audit/runs/` 下的静态审查报告和范围化证据 |
-| 遇到失败测试、bug 或难解释的错误 | `/spec:debug` 或 `$spec-debug` | 根因、修复和验证证据 |
-| 合并前需要评审 diff 风险 | `/spec:code-review` 或 `$spec-code-review` | 结构化 findings 和 residual risks |
-
-## 核心 workflows
-
-| 我想要... | Claude Code | Codex | 预期产物 |
-|---|---|---|---|
-| 生成并排序想法 | `/spec:ideate` | `$spec-ideate` | `docs/ideation/` 下的 ideation artifact |
-| 把一个想法澄清成需求 | `/spec:brainstorm` | `$spec-brainstorm` | `docs/brainstorms/` 下的 requirements brief |
-| 编写/完善已有系统增量 PRD | `/spec:prd` | `$spec-prd` | `docs/brainstorms/` 下的 PRD-grade requirements |
-| 规划实现 | `/spec:plan` | `$spec-plan` | `docs/plans/` 下的 plan |
-| 执行开发 | `/spec:work` | `$spec-work` | 代码、测试和验证记录 |
-| 审查 App 一致性 | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` | 静态一致性报告和范围化审查产物 |
-| 代码评审 | `/spec:code-review` | `$spec-code-review` | 结构化 findings 和 residual risks |
-| 调试问题 | `/spec:debug` | `$spec-debug` | 根因、修复和验证 |
+- [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md)
+- [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md)
+- [三种开发模式](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/08-%E4%B8%89%E7%A7%8D%E5%BC%80%E5%8F%91%E6%A8%A1%E5%BC%8F.md)
 
 ## Trust Model
 
-`spec-first` 不要求 LLM 模拟确定性工具，也不把 LLM 判断替换成刚性状态机。
+`spec-first` 不要求 LLM 假装执行确定性工具，也不把 LLM 判断替换成僵硬状态机。
 
 核心规则很简单：Scripts prepare, LLM decides.
 
-- **脚本负责什么：** 安装、校验、生成、清理、hash 和机器事实报告。
-- **LLM 决定什么：** 需求 framing、scope boundaries、tradeoffs、implementation judgment、review evidence 和 next steps。
-- **会写入什么：** repo-local docs、plans、task packs、显式路由后的 durable review/debug summaries，以及 init 期间生成的 managed runtime assets。full-detail code-review JSON 默认只写到当前 OS temp root 下，例如 `<os-temp>/spec-first/spec-code-review/<run-id>/`，作为临时 handoff，除非 workflow 写入 concise durable summary。
-- **哪些是生成产物：** `.claude/`、`.codex/` 和 `.agents/skills/` runtime copies。
-- **普通上下文默认排除什么：** `.spec-first/audits/**` 和 `.claude/**`、`.codex/**`、`.agents/skills/**` 等 generated mirrors。只有 runtime/setup/audit workflow 明确需要，或用户点名具体路径时才按需读取。
-- **上下文交接优先什么：** 优先使用 `artifact-summary.v1` 和 `context-bundle.v1` 风格的 summary-plus-path 包，再按需展开 full artifacts 或 raw tool output。
-- **应该修改什么：** 修改 `skills/`、`agents/`、`templates/`、`src/cli/` 和 docs 中的 source assets；不要手改 generated runtime copies。
+- **脚本负责什么：** install、validate、generate、clean、hash 和 report machine facts。
+- **LLM 负责什么：** requirements framing、scope boundaries、tradeoffs、implementation judgment、review evidence 和 next steps。
+- **应该修改哪里：** 修改 `skills/`、`agents/`、`templates/`、`src/cli/` 和 docs 下的 source assets；不要手改 generated runtime copies。
+- **普通上下文排除什么：** `.spec-first/audits/**` 和 `.claude/**`、`.codex/**`、`.agents/skills/**` 等 generated mirrors。
 - **provider/tool facts 怎么用：** GitNexus、browser/MCP tools、shell commands 和 package managers 只提供 evidence inputs，不拥有 semantic authority。Raw provider/tool output 是 untrusted quoted data；进入 prompts、reports、facts 或 durable artifacts 前必须经过 validation、containment、escaping、excerpt cap 和 provenance/readiness classification。
 - **credentials 放在哪里：** provider credentials 应来自环境变量、host secret manager 或 provider-native store，不写入 repo source、generated runtime mirrors、durable artifacts 或 raw logs。按团队/provider cadence 轮换，并在疑似泄露后立即轮换。
-- **spec-first 不是什么：** 不是通用 agent marketplace，不是单次 prompt pack，也不是脱离 Claude Code/Codex 独立运行的应用。
-
-当 plan 需要确定性的 task-pack handoff 时，使用已安装的 standalone `write-tasks` skill，再进入执行 workflow。
-
-使用 `spec-first clean --claude` 或 `spec-first clean --codex` 删除 managed runtime assets。
+- **spec-first 不是什么：** 不是通用 agent marketplace，不是单个 prompt pack，也不是脱离 Claude Code 或 Codex 独立运行的 standalone app。
 
 ## 适合使用 spec-first 的情况
 
-适合使用 `spec-first` 的情况：
+适合使用 `spec-first`：
 
-- 你已经在使用 Claude Code 或 Codex，并希望在项目内获得稳定 workflow，而不是一次性 prompt。
-- 你希望 AI coding 工作留下可追踪的 requirements、plans、显式路由后的 review summaries 和 learnings。
-- 你希望脚本处理确定性 setup，同时把语义判断保留给 LLM。
-- 你希望 workflow layer 足够轻量，并能从 source assets 重建。
+- 你已经使用 Claude Code 或 Codex，希望用项目内 workflow 替代一次性 prompt。
+- 你希望 AI coding work 留下 durable requirements、plans、显式路由的 review summaries 和 learnings。
+- 你希望脚本处理确定性 setup，同时让语义判断继续由 LLM 完成。
+- 你希望 workflow layer 足够轻，并能从 source assets 重新生成。
 
 如果你只需要单次 prompt 片段、通用 agent marketplace、不依赖宿主的独立应用，或团队流程不希望 workflow artifacts 写入 repo，`spec-first` 可能不是最合适的形态。
 
@@ -506,7 +240,7 @@ your-project/
 
 - [用户手册](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/README.md)
 - [核心概念](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/02-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.md)
-- [架构总览](https://github.com/sunrain520/spec-first/blob/main/docs/02-%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/01-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84.md)
+- [整体架构](https://github.com/sunrain520/spec-first/blob/main/docs/02-%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/01-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84.md)
 - [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md)
 
 使用 workflows：
@@ -517,66 +251,33 @@ your-project/
 
 开发与贡献：
 
-- [贡献指南](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md)
-- [安全政策](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md)
+- [Contributing Guide](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md)
+- [Security Policy](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md)
 - [License](https://github.com/sunrain520/spec-first/blob/main/LICENSE)
 - [开发规范](https://github.com/sunrain520/spec-first/blob/main/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/06-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md)
 - [测试方案](https://github.com/sunrain520/spec-first/blob/main/docs/03-%E5%AE%9E%E6%96%BD%E6%96%B9%E6%A1%88/04-%E6%B5%8B%E8%AF%95%E6%96%B9%E6%A1%88.md)
 
-版本记录：
+版本历史：
 
-- [版本更新记录](https://github.com/sunrain520/spec-first/blob/main/docs/08-%E7%89%88%E6%9C%AC%E6%9B%B4%E6%96%B0/README.md)
+- [版本更新](https://github.com/sunrain520/spec-first/blob/main/docs/08-%E7%89%88%E6%9C%AC%E6%9B%B4%E6%96%B0/README.md)
 
 详细手册和实施文档均以中文为主。
 
-## 完整 Workflow Reference
+## Runtime 与 CLI Reference
 
-| 意图 | Claude Code | Codex |
-|---|---|---|
-| 安装必备 harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` |
-| 编译 graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
-| 更新 spec-first 或 runtime assets | `/spec:update` | `$spec-update` |
-| 搜索 agent session 历史 | `/spec:sessions` | `$spec-sessions` |
-| 研究 Slack 组织上下文 | `/spec:slack-research` | `$spec-slack-research` |
-| 审查 source skills | `/spec:skill-audit` | `$spec-skill-audit` |
-| 生成并评估想法 | `/spec:ideate` | `$spec-ideate` |
-| 需求澄清 | `/spec:brainstorm` | `$spec-brainstorm` |
-| 编写/完善已有系统增量 PRD | `/spec:prd` | `$spec-prd` |
-| 文档/计划评审 | `/spec:doc-review` | `$spec-doc-review` |
-| 写计划或深化计划 | `/spec:plan` | `$spec-plan` |
-| 编译 task pack | 使用已安装的 standalone `write-tasks` skill | 使用已安装的 standalone `write-tasks` skill |
-| 审查 App 一致性 | `/spec:app-consistency-audit` | `$spec-app-consistency-audit` |
-| 调试失败或 bug | `/spec:debug` | `$spec-debug` |
-| 执行工作 | `/spec:work` | `$spec-work` |
-| 优化可度量目标 | `/spec:optimize` | `$spec-optimize` |
-| 打磨可浏览 UI beta | `/spec:polish-beta` | `$spec-polish-beta` |
-| 代码评审 | `/spec:code-review` | `$spec-code-review` |
-| 知识沉淀 | `/spec:compound` | `$spec-compound` |
-| 刷新过期知识沉淀 | `/spec:compound-refresh` | `$spec-compound-refresh` |
-| 查看版本说明 | `/spec:release-notes` | `$spec-release-notes` |
+首次接入只需要记住这条因果链：
 
-当 managed Claude hook 或 Codex 顶层 workflow-entry guidance 展示启动版本提醒时，提醒只会指向上表中的 update 入口；它不会安装包、刷新 runtime assets 或重启宿主。
+```text
+source assets -> spec-first init -> host runtime assets -> workflow artifacts
+```
 
-## Runtime Reference
+只有在需要 setup、provider 或 workspace evidence 时，再读更深的 runtime / graph 细节：
 
-`spec-first` 提供 CLI helpers（`doctor`、`init`、`clean`、`tasks`、版本/help 输出）、workflow source assets、host-filtered runtime 生成，以及 ideation、brainstorm、PRD requirements、plan、task-pack handoff、work、App consistency audit、debug、review、setup、update、sessions、Slack research、release notes、skill audit、compound、optimize 和 browser-visible polish 等公开 workflow 入口。
-
-通过当前宿主的 setup workflow 管理 required harness runtime setup，覆盖 MCP servers、graph-provider MCP servers、helper CLIs 和项目 setup facts。
-
-通过当前宿主的 graph bootstrap workflow 编译 external graph readiness，产出供下游 workflow 使用的 canonical graph / impact readiness artifacts。
-
-当前上下文与 graph readiness 使用以下路径：
-
-- 用当前宿主的 setup workflow 安装并验证 required harness runtime：Sequential Thinking、Context7、GitNexus、`gh`、`jq`、`vhs`、`silicon`、`ffmpeg`、`ast-grep` 和 global `ast-grep` skill。`agent-browser` 是 non-blocking browser automation helper capability；只有需要 browser evidence 或截图自动化时，才在 setup 前设置 `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1`。Setup 会写入 `gitnexus_capability_discovery` 等 GitNexus availability/discovery facts；这些只是来自 checked-in baseline、provider pin 和 setup projection 的 setup-inferred native capability hints，不是 query-ready graph evidence，也不是 live MCP proof。
-- 在 setup 报告 `baseline_ready=true` 后运行当前宿主的 graph bootstrap workflow。它读取 setup-owned config facts，校验 provider command arrays，临时运行 GitNexus probes，并写入 `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness artifacts。
-- 场景自适应 facts 已进入 setup/bootstrap 证据链。Setup 可写入 `.spec-first/workspace/scenario-fingerprint-setup.json`；graph bootstrap 可合并为 `.spec-first/workspace/scenario-fingerprint.json`、`.spec-first/workspace/graph-targets.json` 和 `.spec-first/workspace/graph-bootstrap-summary.json.quality_signals`。这些产物都是 advisory deterministic context：脚本准备事实，当前 workflow 决定使用 graph evidence、bounded direct source reads、`spec-first clean --workspace-orphans`，还是 handoff 到 setup/bootstrap。
-- 把切换分支、pull、rebase、merge、dirty worktree 变化和 provider fingerprint mismatch 视为 graph freshness invalidation signals。下游 workflow 可以建议 graph bootstrap，但不会隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。
-- 当前宿主的 plan workflow 是当前阶段第一个 graph-readiness consumer。它会报告 graph 状态、读取 setup-inferred GitNexus availability/discovery facts、检查 freshness，并在 facts 缺失、blocked、stale 或 degraded 时退回 bounded direct repo reads。当没有 graph artifacts、没有 GitNexus MCP surface 且没有 setup-owned GitNexus projection 时，plan 走 no-graph fast path，不消耗令牌展开详细 GitNexus 探测。涉及代码、架构、API 或跨模块计划且存在 graph/GitNexus evidence 时，它还会在旁边写出 `Graph / GitNexus Evidence` posture，包含 `native_tool_or_resource`、`capability_status`、`evidence_grade`、`evidence_posture`、`freshness_state` 和 `source_tags`，让读者看清计划使用了 checked-in baseline、setup projection、live MCP tool/resource evidence、session-local inference 还是源码 fallback。
-- 在父 workspace 下存在多个 child Git repos 时，只读代码问题可以使用 `workspace-graph-targets.v1` 和 `workspace-gitnexus-readiness.v1` advisory facts 选择 bounded candidate repos；`group.status="group-ready"` 优先使用 GitNexus-first evidence via group query，group config 缺失或未评估时走 bounded registry/per-repo fan-out。除下一条父 workspace 维护入口外，写入、测试、changelog、review autofix 和 commit 仍必须有明确 `target_repo` / per-child scope。
-- dirty-advisory 或 stale GitNexus evidence 仍可用于只读 plan 定向，但不能当作 fresh primary evidence；涉及当前源码或测试事实的结论必须直接读源码或测试确认。
-- 父 workspace 维护操作中，`init` 会检测 child repos 并在引导中询问全部 child 或单个 child；setup 和 graph bootstrap 在未传 `--repo <child>` 时仍默认处理全部 child repos，`--repo <child>` 用于收窄这些运行，`--all-repos` 仍作为它们的显式等价入口。父目录可以写 advisory `.spec-first/workspace/*summary.json`。父目录不把 repo-local `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/impact/*` 或 `.spec-first/providers/*` 当作 parent-local truth。
-- 用已安装的 standalone `write-tasks` skill 做确定性的 task-pack handoff，再让当前宿主的 work、code-review 和 doc-review workflow 基于当前请求、plans/task packs、diffs、targeted file reads 与 tests 确定 scope authority。
-- 移动 App 的 PRD/Figma/source 对齐审查使用 App consistency audit workflow。它消费本地 `prd:<path>` 与 `figma-context:<path>` 输入；`figma-ref:<id-or-url>` 只是 reference，只有宿主提供的 Figma MCP 能力 materialize 出本地 JSON 后才成为 evidence。Figma MCP 是 App-audit 可选能力，不属于 required setup baseline。
+- `spec-first doctor` 检查 CLI/runtime health，不证明 MCP/helper setup、provider indexes 或 fresh graph query evidence。
+- 当前宿主的 setup workflow 会写入 `gitnexus_capability_discovery` 等 setup-owned facts；这些是来自 checked-in baseline、provider pin 和 setup projection 的 setup-inferred native capability hints，不是 query-ready graph evidence，也不是 live MCP proof。
+- 当前宿主的 graph bootstrap workflow 写入 canonical graph/provider/impact readiness facts。切换分支、pull、rebase、merge、dirty worktree changes 和 provider fingerprint mismatch 都是 freshness invalidation signals；下游 workflow 可建议 bootstrap，但不会隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。
+- `query_ready`、`definitions-only`、`dirty-advisory`、`stale`、`session-local`、`setup-inferred` 等 lifecycle terms 定义在 [Capability State Vocabulary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/gitnexus-capability-catalog.md)。请使用该词典，不要引入同义词。
+- Graph evidence policy 与跨 workflow 消费边界见 [Graph Evidence Policy](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/graph-evidence-policy.md)、[Graph Provider Consumption](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/graph-provider-consumption.md) 和 [Workspace GitNexus Consumption](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/workspace-gitnexus-consumption.md)。
 
 CLI reference：
 
@@ -591,47 +292,7 @@ spec-first tasks hash <plan-path> [--json]
 spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]
 ```
 
-Runtime asset summary：
-
-当 `init` 在包含多个 child Git repo 的父 workspace 中运行时，会自动识别 workspace 模式，并在引导中询问全部 child 或单个 child。它会在父目录写 advisory routing assets，例如 `.spec-first/workspace/init-summary.json`、host 入口文档、host runtime assets 和 managed `.gitignore` block。父 workspace 仍不拥有 child repo-local truth，例如 `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/providers/*` 或 `.spec-first/impact/*`。
-
-managed `.gitignore` block 也会忽略 `.gitnexus/` 等本地图谱 provider artifacts；`.code-review-graph/` 仅作为迁移窗口历史残留继续忽略。
-
-详细 runtime capability catalog 见 [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md)。
-
-| 层级 | 当前 contract |
-|---|---|
-| **能力层资产** | 仓库内置源码资产共 `39` 个 skills、`51` 个 agents、`0` 个 agent support files。运行时交付会按双宿主治理过滤：当前版本在 Claude 侧安装 `20` 个 commands + `2` 个 standalone skills + `1` 个 agent-facing internal skills，在 Codex 侧安装 `20` 个 workflow skills + `2` 个 standalone skills + `1` 个 agent-facing internal skills；两侧都会安装 `51` 个 agents |
-| **Claude runtime** | commands 生成到 `.claude/commands/spec`，standalone 与 agent-facing internal skills 生成到 `.claude/skills`，command-backed workflow skill 副本生成到 `.claude/spec-first/workflows`，agents 生成到 `.claude/agents`，managed state 位于 `.claude/spec-first/state.json`。 |
-| **Codex runtime** | workflow、standalone 与 agent-facing internal skills 生成到 `.agents/skills`，agents 生成到 `.codex/agents`，managed state 位于 `.codex/spec-first/state.json`。 |
-| **Readiness** | setup workflow 写 readiness ledger v2 以及 setup-owned `graph-providers.json`、`runtime-capabilities.json` 和 `provider-artifacts.json`；graph bootstrap workflow 消费这些事实并写 canonical graph facts、provider status、impact capabilities 和 report。 |
-
-Claude init 的预期输出包含：
-
-```text
-📦 Generated 20 command file(s) in .claude/commands/spec
-🧩 Generated 3 skill directory(ies) in .claude/skills
-🤖 Generated 51 agent file(s) in .claude/agents
-下一步:
-  1. 重启 Claude Code 或新开会话，让宿主加载刚生成的 /spec:* commands。
-  2. 对 docs、小修复、首次试用或轻量 plan/work/review，可直接在新会话启动匹配的 /spec:* workflow。
-  3. 需要增强 readiness 时，运行 /spec:mcp-setup 安装并验证必装 MCP/helper runtime。
-  4. 如果 /spec:mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap。
-  5. graph readiness 就绪后，按用户意图进入 brainstorm/plan/work/review/debug 等 workflow；项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts、直接源码证据、测试和 graph facts。
-```
-
-Codex init 的预期输出包含：
-
-```text
-🧩 Generated 23 skill directory(ies) in .agents/skills
-🤖 Generated 51 agent file(s) in .codex/agents
-下一步:
-  1. 重启 Codex 或新开会话，让宿主加载刚生成的 $spec-* skills。
-  2. 对 docs、小修复、首次试用或轻量 plan/work/review，可直接在新会话启动匹配的 $spec-* workflow。
-  3. 需要增强 readiness 时，运行 $spec-mcp-setup 安装并验证必装 MCP/helper runtime。
-  4. 如果 $spec-mcp-setup 显示 graph bootstrap 仍 pending，再按提示运行 $spec-graph-bootstrap。
-  5. graph readiness 就绪后，按用户意图进入 brainstorm/plan/work/review/debug 等 workflow；项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts、直接源码证据、测试和 graph facts。
-```
+需要查看当前 runtime delivery 细节时，使用 `spec-first doctor`、`spec-first init` 输出、`spec-first --help` 和 [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md)。README 有意不硬编码内部 skills/agents/commands 数量，因为这些计数会随版本漂移。
 
 ## 开发与贡献
 
@@ -650,14 +311,8 @@ npm run build
 npm test
 ```
 
-`npm run build` 执行 `npm pack --dry-run`，用于验证发布包内容。
+`npm run build` 会执行 `npm pack --dry-run` 并通过 npm 验证 package payload 形态。
 
-`npm run test:ai-dev:benchmarks` 校验 5 个 checked-in advisory benchmark fixtures 的 contract 与 evidence shape，并暴露已记录的 semantic-review evidence；它不为 LLM 语义质量打分，也不运行真实 agent。
+修改 source assets 时，编辑 `skills/`、`agents/`、`templates/` 或 `src/cli/`，再通过 `spec-first init` 重新生成 runtime copies，并在 fresh host session 中选择目标宿主。
 
-`npm run test:release:install` 在设置 `SPEC_FIRST_SMOKE_ARTIFACT_DIR` 时会把 release package evidence 写到 `.spec-first/ci/npm-install-matrix/`：package content manifest、tarball-installed Claude/Codex programmatic init-plan/apply evidence，以及给 reviewer 使用的 release artifact summary。
-
-`npm run test:release:website` 是维护者发布官网同步门禁。它要求存在 `../spec-first-official-website` 或设置 `SPEC_FIRST_WEBSITE_REPO`，并用当前 package repo facts 运行官网侧 `content:audit`。
-
-修改 source assets 时，应修改 `skills/`、`agents/`、`templates/` 或 `src/cli/`，再在新宿主会话中通过 `spec-first init` 并选择目标宿主来重建 runtime copies。
-
-贡献与支持细节见 [CONTRIBUTING.md](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md)、[SECURITY.md](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md)、[LICENSE](https://github.com/sunrain520/spec-first/blob/main/LICENSE) 和 [GitHub Issues](https://github.com/sunrain520/spec-first/issues)。
+贡献与支持见 [CONTRIBUTING.md](https://github.com/sunrain520/spec-first/blob/main/CONTRIBUTING.md)、[SECURITY.md](https://github.com/sunrain520/spec-first/blob/main/SECURITY.md)、[LICENSE](https://github.com/sunrain520/spec-first/blob/main/LICENSE) 和 [GitHub Issues](https://github.com/sunrain520/spec-first/issues)。

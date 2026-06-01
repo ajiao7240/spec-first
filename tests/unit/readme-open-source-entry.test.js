@@ -18,6 +18,30 @@ const FIRST_WORKFLOW_WALKTHROUGH_PATH = path.join(
 );
 const ARTIFACT_CATALOG_PATH = path.join(REPO_ROOT, 'docs/05-用户手册/10-产物目录.md');
 
+const PUBLIC_WORKFLOW_ENTRIES = [
+  ['mcp-setup', '/spec:mcp-setup', '$spec-mcp-setup'],
+  ['graph-bootstrap', '/spec:graph-bootstrap', '$spec-graph-bootstrap'],
+  ['update', '/spec:update', '$spec-update'],
+  ['sessions', '/spec:sessions', '$spec-sessions'],
+  ['slack-research', '/spec:slack-research', '$spec-slack-research'],
+  ['skill-audit', '/spec:skill-audit', '$spec-skill-audit'],
+  ['ideate', '/spec:ideate', '$spec-ideate'],
+  ['brainstorm', '/spec:brainstorm', '$spec-brainstorm'],
+  ['prd', '/spec:prd', '$spec-prd'],
+  ['doc-review', '/spec:doc-review', '$spec-doc-review'],
+  ['plan', '/spec:plan', '$spec-plan'],
+  ['write-tasks', 'write-tasks', 'write-tasks'],
+  ['app-consistency-audit', '/spec:app-consistency-audit', '$spec-app-consistency-audit'],
+  ['debug', '/spec:debug', '$spec-debug'],
+  ['work', '/spec:work', '$spec-work'],
+  ['optimize', '/spec:optimize', '$spec-optimize'],
+  ['polish-beta', '/spec:polish-beta', '$spec-polish-beta'],
+  ['code-review', '/spec:code-review', '$spec-code-review'],
+  ['compound', '/spec:compound', '$spec-compound'],
+  ['compound-refresh', '/spec:compound-refresh', '$spec-compound-refresh'],
+  ['release-notes', '/spec:release-notes', '$spec-release-notes'],
+];
+
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
@@ -31,6 +55,14 @@ function expectOrderedSections(content, sections) {
     expect(currentIndex).toBeGreaterThan(previousIndex);
     previousIndex = currentIndex;
   }
+}
+
+function h2Headings(markdown) {
+  return [...markdown.matchAll(/^## (.+)$/gm)].map((match) => match[1]);
+}
+
+function countOccurrences(content, needle) {
+  return content.split(needle).length - 1;
 }
 
 function localMarkdownLinks(markdown) {
@@ -80,54 +112,54 @@ describe('README open-source entry contract', () => {
     }
   });
 
-  test('README shows proof and success path before runtime reference details', () => {
+  test('README keeps mirrored streamlined information architecture', () => {
     const englishReadme = read(README_EN_PATH);
     const chineseReadme = read(README_ZH_PATH);
 
-    expectOrderedSections(englishReadme, [
-      '## See It In 90 Seconds',
-      '## A Tiny Example',
-      '## Why spec-first?',
-      '## Quickstart',
-      '### You are done when',
-      '## What You Get',
-      '## How It Works',
-      '## Choose Your Path',
-      '## Core Workflows',
-      '## Trust Model',
-      '## Use spec-first when',
-      '## Documentation',
-      '## Full Workflow Reference',
-      '## Runtime Reference',
-      '## Development & Contributing',
+    expect(h2Headings(englishReadme)).toEqual([
+      'See It In 90 Seconds',
+      'A Tiny Example',
+      'Why spec-first?',
+      'Quickstart',
+      'Workflow Entry Points',
+      'Operating Model',
+      'Trust Model',
+      'Use spec-first when',
+      'Documentation',
+      'Runtime And CLI Reference',
+      'Development & Contributing',
     ]);
 
-    expectOrderedSections(chineseReadme, [
-      '## 90 秒看懂',
-      '## 一个小例子',
-      '## 为什么使用 spec-first？',
-      '## 快速开始',
-      '### 完成标志',
-      '## 你会得到什么',
-      '## 工作方式',
-      '## 选择你的路径',
-      '## 核心 workflows',
-      '## Trust Model',
-      '## 适合使用 spec-first 的情况',
-      '## 相关文档',
-      '## 完整 Workflow Reference',
-      '## Runtime Reference',
-      '## 开发与贡献',
+    expect(h2Headings(chineseReadme)).toEqual([
+      '90 秒看懂',
+      '一个小例子',
+      '为什么使用 spec-first？',
+      '快速开始',
+      'Workflow Entry Points',
+      '产物与工作方式',
+      'Trust Model',
+      '适合使用 spec-first 的情况',
+      '相关文档',
+      'Runtime 与 CLI Reference',
+      '开发与贡献',
     ]);
+
+    expect(h2Headings(englishReadme)).toHaveLength(h2Headings(chineseReadme).length);
   });
 
-  test('README embeds a maintainable animated SVG workflow diagram', () => {
+  test('README uses one canonical workflow visual and one canonical entry table', () => {
     const englishReadme = read(README_EN_PATH);
     const chineseReadme = read(README_ZH_PATH);
     const svg = read(README_FLOW_SVG_PATH);
 
     for (const readme of [englishReadme, chineseReadme]) {
-      expect(readme).toContain(`![spec-first workflow flow](${README_FLOW_SVG_URL})`);
+      expect(countOccurrences(readme, `![spec-first workflow flow](${README_FLOW_SVG_URL})`)).toBe(1);
+      expect(countOccurrences(readme, '| Intent | Claude Code | Codex | Expected result |')).toBe(1);
+      expect(readme).not.toContain('## End-To-End Development Flow');
+      expect(readme).not.toContain('## Current Engineering Loop');
+      expect(readme).not.toContain('## Choose Your Path');
+      expect(readme).not.toContain('## Core Workflows');
+      expect(readme).not.toContain('## Full Workflow Reference');
     }
 
     expect(svg).toContain('<svg');
@@ -140,72 +172,117 @@ describe('README open-source entry contract', () => {
     expect(svg).toContain('docs/tasks');
   });
 
-  test('README names first-run artifacts and does not imply every workflow emits every artifact', () => {
-    const englishReadme = read(README_EN_PATH);
-
-    expect(englishReadme).toContain('docs/ideation/2026-05-01-cli-onboarding-ideation.md');
-    expect(englishReadme).toContain('docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md');
-    expect(englishReadme).toContain('docs/plans/');
-    expect(englishReadme).toContain('docs/tasks/');
-    expect(englishReadme).toContain('Not every workflow writes every artifact');
-    expect(englishReadme).not.toContain('Every workflow writes all of these artifacts');
-  });
-
-  test('README explains the first workflow chain with a tiny example and path chooser', () => {
+  test('canonical workflow table preserves every public entrypoint', () => {
     const englishReadme = read(README_EN_PATH);
     const chineseReadme = read(README_ZH_PATH);
 
-    expect(englishReadme).toContain('## A Tiny Example');
-    expect(englishReadme).toContain('$spec-brainstorm "Improve onboarding for first-time CLI users"');
-    expect(englishReadme).toContain('docs/ideation/2026-05-01-cli-onboarding-ideation.md');
-    expect(englishReadme).toContain('docs/brainstorms/2026-05-01-001-cli-onboarding-requirements.md');
-    expect(englishReadme).toContain('docs/plans/2026-05-01-001-feat-cli-onboarding-plan.md');
-    expect(englishReadme).toContain('docs/tasks/2026-05-01-001-feat-cli-onboarding-tasks.md');
-    expect(englishReadme).toContain('Use `ideate` first when you want the AI to generate and rank options.');
-    expect(englishReadme).toContain('The first brainstorm run usually creates only the requirements brief for one chosen idea.');
-    expect(englishReadme).toContain('If you are not sure which workflow to use');
-    expect(englishReadme).toContain('## Choose Your Path');
-    expect(englishReadme).toContain('An open-ended improvement question or you want options');
-    expect(englishReadme).toContain('A rough product problem or feature idea');
-    expect(englishReadme).toContain('/spec:debug');
-    expect(englishReadme).toContain('$spec-code-review');
-    expect(englishReadme).toContain(`${GITHUB_BLOB_ROOT}/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md`);
-    expect(englishReadme).toContain(`${GITHUB_BLOB_ROOT}/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/10-%E4%BA%A7%E7%89%A9%E7%9B%AE%E5%BD%95.md`);
+    for (const [label, claudeEntry, codexEntry] of PUBLIC_WORKFLOW_ENTRIES) {
+      for (const readme of [englishReadme, chineseReadme]) {
+        expect(readme).toContain(label);
+        expect(readme).toContain(claudeEntry);
+        expect(readme).toContain(codexEntry);
+      }
+    }
 
-    expect(chineseReadme).toContain('## 一个小例子');
-    expect(chineseReadme).toContain('当你需要 AI 主动生成并排序多个方向时，先用 `ideate`。');
-    expect(chineseReadme).toContain('第一次 brainstorm 通常只为一个已选想法生成 requirements brief');
-    expect(chineseReadme).toContain('如果不确定该用哪个 workflow');
-    expect(chineseReadme).toContain('## 选择你的路径');
-    expect(chineseReadme).toContain('需要开放式改进方向或多个候选想法');
-    expect(chineseReadme).toContain('已有粗略产品问题或功能想法');
-    expect(chineseReadme).toContain('$spec-debug');
+    expect(englishReadme).toContain('use installed standalone `write-tasks` skill');
+    expect(chineseReadme).toContain('use installed standalone `write-tasks` skill');
   });
 
-  test('README distinguishes ideate, brainstorm, doc-review, and beta work entrypoints', () => {
+  test('README distinguishes host-session entries from shell commands in Quickstart', () => {
     const englishReadme = read(README_EN_PATH);
     const chineseReadme = read(README_ZH_PATH);
 
-    expect(englishReadme).toContain('Use `ideate` when you want options, critiques, or surprising directions');
-    expect(englishReadme).toContain('Use `brainstorm` when you already have a rough problem or feature');
-    expect(englishReadme).toContain('Use `doc-review` when a requirements, plan, or task document already exists');
-    expect(englishReadme).toContain('Do not make `brainstorm` the default entrypoint for every unclear request.');
-    expect(englishReadme).toContain('| "What should we improve?" or "give me ideas" | `ideate` |');
-    expect(englishReadme).toContain('| "I have this rough product problem; shape it" | `brainstorm` |');
-    expect(englishReadme).toContain('| "This requirements or plan document has gaps" | `doc-review` |');
-    expect(englishReadme).not.toContain('| Trial Codex delegation beta (explicit opt-in) | `/spec:work-beta` | `$spec-work-beta` |');
+    expectOrderedSections(englishReadme, [
+      'Install and run the first health check from the native terminal for your platform.',
+      'npm install -g spec-first',
+      'spec-first doctor',
+      'Initialize the host runtime you actually use:',
+      'spec-first init',
+      'Host-session workflow entries are not shell commands:',
+      '# In a Claude Code session',
+      '/spec:brainstorm "Improve onboarding"',
+      '# In a Codex session',
+      '$spec-brainstorm "Improve onboarding"',
+      'You are done with the first pass when a requirements brief appears under `docs/brainstorms/`.',
+    ]);
 
-    expect(chineseReadme).toContain('想要选项、批判或意外方向，还没确定问题框架时，用 `ideate`。');
-    expect(chineseReadme).toContain('已经有粗略产品问题或功能想法，需要整理 actors、flows、边界和验收样例时，用 `brainstorm`。');
-    expect(chineseReadme).toContain('已有 requirements、plan 或 task 文档，需要找缺口时，用 `doc-review`。');
-    expect(chineseReadme).toContain('不要把 `brainstorm` 当作所有不清楚请求的默认入口。');
-    expect(chineseReadme).toContain('| “我们该改进什么？”或“给我一些想法” | `ideate` |');
-    expect(chineseReadme).toContain('| “我有一个粗略产品问题，帮我成型” | `brainstorm` |');
-    expect(chineseReadme).toContain('| “这份 requirements 或 plan 文档可能有缺口” | `doc-review` |');
-    expect(chineseReadme).not.toContain('| 试用 Codex delegation beta（显式 opt-in） | `/spec:work-beta` | `$spec-work-beta` |');
+    expectOrderedSections(chineseReadme, [
+      '请在当前平台的原生终端中安装并运行第一次健康检查。',
+      'npm install -g spec-first',
+      'spec-first doctor',
+      '初始化实际使用的宿主 runtime：',
+      'spec-first init',
+      '宿主内 workflow 入口不是 shell 命令：',
+      '# 在 Claude Code 会话中',
+      '/spec:brainstorm "改进 onboarding"',
+      '# 在 Codex 会话中',
+      '$spec-brainstorm "改进 onboarding"',
+      '当 `docs/brainstorms/` 下出现 requirements brief，第一次接入就完成了。',
+    ]);
+
+    for (const readme of [englishReadme, chineseReadme]) {
+      expect(readme).toContain('Node.js `>=20.0.0`');
+      expect(readme).toContain('throwaway/test repo');
+      expect(readme).toContain('docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md');
+      expect(readme).not.toContain('must initialize both hosts');
+      expect(readme).not.toContain('$spec-next');
+      expect(readme).not.toContain('/spec:next');
+    }
   });
 
-  test('user manual adds first workflow walkthrough and artifact catalog', () => {
+  test('README foregrounds promotion fit and avoids hardcoded runtime counts', () => {
+    const englishReadme = read(README_EN_PATH);
+    const chineseReadme = read(README_ZH_PATH);
+
+    expect(englishReadme).toContain('Spec-driven AI engineering workflows for Claude Code and Codex.');
+    expect(englishReadme).toContain('one-off AI coding chats into a reusable engineering loop');
+    expect(englishReadme).toContain('The point is not another prompt snippet or agent team.');
+    expect(englishReadme).toContain('Use `spec-first` when:');
+    expect(englishReadme).toContain('It may not fit when');
+
+    expect(chineseReadme).toContain('面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。');
+    expect(chineseReadme).toContain('把一次性的 AI coding 对话变成可复用的工程闭环');
+    expect(chineseReadme).toContain('重点不是再提供一组 prompt 片段或 agent team');
+    expect(chineseReadme).toContain('适合使用 `spec-first`');
+    expect(chineseReadme).toContain('可能不是最合适的形态');
+
+    for (const readme of [englishReadme, chineseReadme]) {
+      expect(readme).not.toMatch(/Bundled source assets ship with `?\d+`? skills/);
+      expect(readme).not.toMatch(/Generated \d+ command file/);
+      expect(readme).not.toMatch(/Generated \d+ skill director/);
+      expect(readme).not.toMatch(/Generated \d+ agent file/);
+      expect(readme).not.toContain('Expected Claude init output includes:');
+      expect(readme).not.toContain('Expected Codex init output includes:');
+    }
+  });
+
+  test('README keeps runtime, graph, and source boundary links discoverable', () => {
+    const englishReadme = read(README_EN_PATH);
+    const chineseReadme = read(README_ZH_PATH);
+
+    for (const readme of [englishReadme, chineseReadme]) {
+      expect(readme).toContain('docs/contracts/source-runtime-customization-boundary.md');
+      expect(readme).toContain('docs/catalog/runtime-capabilities.md');
+      expect(readme).toContain('docs/contracts/gitnexus-capability-catalog.md');
+      expect(readme).toContain('docs/contracts/graph-evidence-policy.md');
+      expect(readme).toContain('docs/contracts/graph-provider-consumption.md');
+      expect(readme).toContain('docs/contracts/workspace-gitnexus-consumption.md');
+      expect(readme).toContain('Capability State Vocabulary');
+      expect(readme).toContain('query_ready');
+      expect(readme).toContain('definitions-only');
+      expect(readme).toContain('dirty-advisory');
+      expect(readme).toContain('session-local');
+      expect(readme).toContain('setup-inferred');
+      expect(readme).toContain('`gitnexus_capability_discovery`');
+    }
+
+    expect(englishReadme).toContain('not query-ready graph evidence');
+    expect(chineseReadme).toContain('不是 query-ready graph evidence');
+    expect(englishReadme).toContain('provider credentials belong in environment variables');
+    expect(chineseReadme).toContain('provider credentials 应来自环境变量');
+  });
+
+  test('user manual keeps first workflow walkthrough and artifact catalog targets', () => {
     expect(fs.existsSync(USER_MANUAL_INDEX_PATH)).toBe(true);
     expect(fs.existsSync(FIRST_WORKFLOW_WALKTHROUGH_PATH)).toBe(true);
     expect(fs.existsSync(ARTIFACT_CATALOG_PATH)).toBe(true);
