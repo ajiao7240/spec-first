@@ -6,7 +6,7 @@ argument-hint: "[feature idea or problem to explore]"
 
 # Brainstorm a Feature or Improvement
 
-**Note: The current year is 2026.** Use this when dating requirements documents.
+Use the current host/session date when dating requirements documents. If the date is unavailable, read it with a deterministic command; do not hard-code calendar years in this source file.
 
 Brainstorming helps answer **WHAT** to build through collaborative dialogue. It precedes the current host's plan entrypoint, which answers **HOW** to build it.
 

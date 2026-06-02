@@ -1,5 +1,7 @@
 # `spec-evolve` Skill 终版技术方案
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 > 文档角色：`spec-first 自我演化决策入口 / Meta Workflow Skill / Best Practice Intake Skill`
 > 适用项目：`spec-first`
 > 核心目标：让 spec-first 能持续审查自身、吸收业界最佳实践、做出有证据的演进决策，并通过自己的 workflow 持续优化自己。

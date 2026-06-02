@@ -1,5 +1,7 @@
 # spec-first 研发场景自适应实施方案
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 > 视角:Spec-First Evolution Architect / AI Coding Harness 守护者
 > 输出基线:`docs/10-prompt/结构化项目角色契约.md`
 > 触发证据:`docs/03-实施方案/2026-05-28-mcp-setup-graph-bootstrap-深度优化建议.md`(kaz-mvp 实测,multi-repo + multi-build-target + cross-machine-residual 复合场景全链路暴露)

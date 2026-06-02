@@ -1,5 +1,7 @@
 # `mcp-setup` 与 `graph-bootstrap` 深度优化建议报告
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 > 视角:Spec-First Evolution Architect / AI Coding Harness 守护者
 > 评估对象:`/Users/kuang/xiaobu/kaz-mvp`(Android Gradle 多仓 workspace,顶层 git 已损坏,6 个 child git 子仓 + 数十个非 git Gradle 子模块)
 > 实测时间:2026-05-28

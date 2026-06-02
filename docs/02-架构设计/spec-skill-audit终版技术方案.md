@@ -1,5 +1,7 @@
 # `spec-skill-audit` 终版技术方案
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 > 定位：在 `spec-first` 中新增一个 **workflow skill**，用于审查 skill 质量、边界、治理、运行时投递与安全风险。
 > 重要边界：**不是 CLI、不是 npm 包、不是外部平台**。
 > 新增位置：`skills/spec-skill-audit/`。

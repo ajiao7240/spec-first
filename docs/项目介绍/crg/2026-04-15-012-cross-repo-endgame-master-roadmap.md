@@ -1,5 +1,7 @@
 # Cross-repo 终局总路线图
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 **Goal:** 建立 `CRG + spec-graph-bootstrap + cross-repo / multi-service` 的终局总控路线图，把“当前已批准可开发范围”和“终局愿景研究路线”统一到一份文档中，回答以下问题：
 
 1. 当前到底做到哪一层？

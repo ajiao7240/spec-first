@@ -59,7 +59,7 @@ spec-slack-research
 spec-slack-research free trial
 spec-slack-research What did we say about free trial recently?
 spec-slack-research free trial in #proj-reverse-trial
-spec-slack-research onboarding flow after:2026-03-01
+spec-slack-research onboarding flow after:<YYYY-MM-DD>
 ```
 
 The input can be a keyword, a natural language question, or include Slack search modifiers like channel hints (`in:#channel`) and date filters (`after:YYYY-MM-DD`). The agent extracts the topic and formulates searches from whatever form the input takes.

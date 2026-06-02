@@ -38,7 +38,7 @@ When research is recommended, do it — don't just offer. Stale recommendations 
 3. Collate findings into a brief research summary before proceeding to planning.
 
 Example for "plan a date night in Seattle this Saturday":
-- "Best restaurants open late Saturday in Capitol Hill Seattle 2026"
+- "Best restaurants open late Saturday in Capitol Hill Seattle [current year]"
 - "Events happening in Seattle [specific date]"
 - "Seattle waterfront current status and hours"
 

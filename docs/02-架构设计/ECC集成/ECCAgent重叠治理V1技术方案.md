@@ -1,5 +1,7 @@
 # ECC Agent 重叠治理 V1 技术方案
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 > 状态：V1 技术方案
 > 日期：2026-05-05
 > 适用范围：spec-first 自身的 agent 专家体系治理、ECC 能力吸收、router / finding / synthesis 设计

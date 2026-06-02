@@ -1,5 +1,7 @@
 # CRG Workspace Topology 后续扩展说明
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 ## 背景
 
 当前 CRG workspace topology 已经完成三类开发模式的基础支持：

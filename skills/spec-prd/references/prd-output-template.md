@@ -19,6 +19,19 @@ Default path: `docs/brainstorms/YYYY-MM-DD-NNN-<slug>-requirements.md`.
 
 `artifact_kind: prd-requirements` marks a PRD-grade requirements origin that the current host's plan workflow can consume as requirements. Do not create `docs/prds/`.
 
+## Output Shape
+
+Choose the lightest output that prevents downstream planning from inventing WHAT:
+
+| Shape | Use when | Default content |
+| --- | --- | --- |
+| `bypass` | The request is a clear bugfix, tiny script/docs edit, or implementation-ready task where PRD ceremony adds no durable value. | No PRD artifact; provide a compact plan/work handoff. |
+| `compact-prd` | A small brownfield increment needs durable WHAT trace but no broad surface or topology risk. | Core sections only, plus minimal evidence and assumptions. |
+| `normal-prd` | An ordinary product/system increment needs planning-ready requirements, acceptance, and scope. | Core sections plus triggered surface/domain sections. |
+| `topology-heavy-prd` | Workflow, contract, migration, replace, remove, source-of-truth, or mixed-surface changes could leave active surfaces or consumers ambiguous. | Core sections plus topology, surface map, producer/consumer, source-of-truth, negative acceptance, and decision notes as needed. |
+
+The selected shape is run-local authoring posture, not frontmatter, schema, or a second artifact taxonomy.
+
 ## Core Sections
 
 Every normal PRD includes:

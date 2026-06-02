@@ -3,6 +3,8 @@
 
 # spec-first × ECC 专家能力整合技术方案
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 > 建议文件名：`docs/2026-05-04-ecc-agent-integration-final/TECHNICAL_PLAN.md`
 > 文档定位：终态设计 + MVP 落地边界
 > 核心目标：吸收 ECC 的专家能力，提升 spec-first 的专家团队能力，但不让 ECC 的 agent/command/hook 体系反向主导 spec-first。

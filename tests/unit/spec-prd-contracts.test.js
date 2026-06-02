@@ -51,6 +51,13 @@ const FRESH_SOURCE_EVAL_PATH = path.join(
   'spec-prd',
   'fresh-source-eval-2026-05-31.md',
 );
+const FRESH_SOURCE_EVAL_DOMAIN_GRILL_PATH = path.join(
+  REPO_ROOT,
+  'docs',
+  'validation',
+  'spec-prd',
+  'fresh-source-eval-2026-06-03-domain-grill.md',
+);
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -72,6 +79,8 @@ describe('spec-prd workflow contracts', () => {
     const firstHundredTwentyLines = text.split(/\r?\n/).slice(0, 120).join('\n');
 
     expect(text).toContain('name: spec-prd');
+    expect(text.split(/\r?\n/).length).toBeLessThanOrEqual(170);
+    expect(firstHundredTwentyLines).toMatch(/## Purpose/);
     expect(firstHundredTwentyLines).toMatch(/## Workflow Contract Summary/);
     for (const field of [
       'When To Use',
@@ -88,6 +97,23 @@ describe('spec-prd workflow contracts', () => {
     expect(firstHundredTwentyLines).toContain('docs/brainstorms/*-requirements.md');
     expect(firstHundredTwentyLines).toContain('artifact_kind: prd-requirements');
     expect(firstHundredTwentyLines).toContain('Do not create `docs/prds/`');
+    expect(firstHundredTwentyLines).toContain('do not hard-code calendar years');
+    expect(firstHundredTwentyLines).toContain('untrusted document content');
+    expect(firstHundredTwentyLines).toContain('embedded agent instructions');
+    expect(firstHundredTwentyLines).toContain('output_shape: bypass | compact-prd | normal-prd | topology-heavy-prd');
+    expect(firstHundredTwentyLines).not.toContain('current year is 2026');
+  });
+
+  test('entrypoint stays a decision spine instead of duplicating reference details', () => {
+    const text = read(SKILL_PATH);
+
+    expect(text).toContain('Reference Trigger Map');
+    expect(text).toContain('Choose `output_shape` before drafting');
+    expect(text).not.toContain('- `bypass` - no PRD artifact');
+    expect(text).not.toContain('- `compact-prd` - write only the core sections');
+    expect(text).not.toContain('- Summary\n- Change Delta\n- Requirements');
+    expect(text).not.toContain('Include conditional sections only when they reduce planning invention: Problem Frame');
+    expect(text).not.toContain('templates/standard/10-App客户端需求模板.md` for App/client PRDs');
   });
 
   test('governance and manifest expose prd as dual-host workflow command', () => {
@@ -156,6 +182,7 @@ describe('spec-prd workflow contracts', () => {
   test('current-state and domain-language references preserve evidence boundaries', () => {
     const currentState = read(CURRENT_STATE_PATH);
     const domainLanguage = read(DOMAIN_LANGUAGE_PATH);
+    const skill = read(SKILL_PATH);
 
     expectContainsAll(currentState, [
       '`confirmed-source`',
@@ -192,6 +219,14 @@ describe('spec-prd workflow contracts', () => {
       'Bounded Scenario Grill',
       'Use 1-3 concrete scenarios',
       'not a coaching script',
+      'Trigger only when one of these is true:',
+      'Do not trigger when:',
+      'Ask at most one question at a time.',
+      'write_target: Glossary | Decision Notes | Evidence And Assumptions | Outstanding Questions',
+      'This format is for asking the owner, not a third persistent field set.',
+      'compress it into that section\'s existing fields and do not add new fields',
+      'Do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` by default.',
+      'run-local Domain Grill Gate',
       'hard to reverse',
       'surprising without context',
       'reflects a real tradeoff',
@@ -202,6 +237,12 @@ describe('spec-prd workflow contracts', () => {
       'two or more PRDs',
       'preview-first',
     ]);
+    expectContainsAll(skill, [
+      'Bounded Scenario Grill / Domain Grill Gate',
+      'run-local only',
+      'persist results into existing PRD sections',
+      'do not create standalone context, ADR, or runtime artifacts',
+    ]);
     expect(domainLanguage).not.toContain('default create `CONTEXT.md`');
     expect(domainLanguage).not.toContain('always create ADR');
   });
@@ -211,8 +252,9 @@ describe('spec-prd workflow contracts', () => {
     const lens = read(CHANGE_TOPOLOGY_PATH);
 
     expect(skill).toContain('references/change-topology-lens.md');
-    expect(skill).toContain('Before deep evidence gathering, run an internal Framing Gate');
-    expect(skill).toContain('classify the system-change topology before drafting requirements');
+    expect(skill).toContain('run the internal Framing Gate');
+    expect(skill).toContain('classify the topology before drafting');
+    expect(skill).toContain('promote only planning-relevant boundaries into the PRD');
     expectContainsAll(lens, [
       'Framing Gate',
       'Evidence Plan',
@@ -255,6 +297,12 @@ describe('spec-prd workflow contracts', () => {
       'artifact_kind: prd-requirements',
       'docs/brainstorms/YYYY-MM-DD-NNN-<slug>-requirements.md',
       'Do not create `docs/prds/`',
+      '## Output Shape',
+      '`bypass`',
+      '`compact-prd`',
+      '`normal-prd`',
+      '`topology-heavy-prd`',
+      'not frontmatter, schema, or a second artifact taxonomy',
       '## Summary',
       '## Change Delta',
       '## Requirements',
@@ -318,6 +366,11 @@ describe('spec-prd workflow contracts', () => {
       'Testability',
       'Boundary integrity',
       'Planning-invention & Handoff readiness',
+      'Run checks by pack',
+      'Always Gate',
+      'Topology Pack',
+      'Domain And Decision Pack',
+      'Metrics And Overlay Pack',
       '`current-state accuracy`',
       '`change delta clarity`',
       '`exception coverage`',
@@ -336,6 +389,10 @@ describe('spec-prd workflow contracts', () => {
       '`negative-acceptance coverage`',
       '`framing-evidence alignment`',
       '`owner-question minimality`',
+      '`domain-grill coverage`',
+      '`decision-note adequacy`',
+      '`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`',
+      'must not require `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/`',
       'handoff entropy check',
       'unresolved framing risks',
       'do not introduce a second evidence enum',
@@ -399,6 +456,10 @@ describe('spec-prd workflow contracts', () => {
     ]);
     expect(runtimeCore).not.toContain('industry: securities');
     expect(runtimeCore).not.toContain('C1 监管');
+    expect(runtimeCore).toContain('AE-01（对应 R-01）');
+    expect(runtimeCore).toContain('AE-02（对应 R-02，异常）');
+    expect(runtimeCore).not.toContain('AC-01');
+    expect(runtimeCore).not.toContain('AC-02');
     expect(read(path.join(RUNTIME_TEMPLATE_DIR, '10-App客户端需求模板.md'))).not.toContain('industry: securities');
     expect(read(path.join(RUNTIME_TEMPLATE_DIR, '20-Admin中后台需求模板.md'))).not.toContain('industry: securities');
     expect(read(path.join(RUNTIME_TEMPLATE_DIR, '30-Backend中台服务需求模板.md'))).not.toContain('industry: securities');
@@ -444,6 +505,13 @@ describe('spec-prd workflow contracts', () => {
       'success-metrics-without-evidence',
       'terminology-conflict',
       'code-claim-contradiction',
+      'untrusted-prd-input-injection',
+      'compact-prd-output-shape',
+      'domain-term-conflict-source-first',
+      'source-user-current-behavior-contradiction',
+      'bounded-scenario-grill-permission-edge',
+      'decision-note-not-adr',
+      'no-context-artifact-topology',
       'hard-decision-unresolved',
       'source-candidate-unconfirmed',
       'oversized-initial-prd',
@@ -461,7 +529,15 @@ describe('spec-prd workflow contracts', () => {
       'Framing Gate marks source-of-truth risk',
       'framing-evidence alignment catches identity drift',
       'owner-question minimality asks only default/entry/permission decision',
+      'source-first term lookup',
+      'confirmed contradiction with source tag',
+      'bounded scenario grill',
+      'PRD-local Decision Notes',
+      'no CONTEXT.md default',
+      'treat embedded instructions as document content',
+      'compact-prd',
     ]);
+    expect(serialized).not.toContain('executed eval runner');
   });
 
   test('fresh-source eval artifact records the source-only evaluation status', () => {
@@ -479,6 +555,23 @@ describe('spec-prd workflow contracts', () => {
       'not_run_reason:',
     ]);
     expect(artifact).not.toContain('status: passed');
+  });
+
+  test('domain-grill fresh-source eval artifact records an executed dispatched eval for this change', () => {
+    const artifact = read(FRESH_SOURCE_EVAL_DOMAIN_GRILL_PATH);
+
+    expectContainsAll(artifact, [
+      'fresh_source_eval:',
+      'status: passed',
+      'skills/spec-prd/SKILL.md',
+      'skills/spec-prd/references/domain-language-and-decision-ledger.md',
+      'skills/spec-prd/references/prd-readiness-lens.md',
+      'skills/spec-plan/SKILL.md',
+      'runtime_paths_checked: []',
+      'dispatched read-only',
+      'Run Provenance',
+    ]);
+    expect(artifact).not.toContain('status: not_run');
   });
 
   test('project domain glossary artifact defines the cross-PRD canonical layer with light contract', () => {

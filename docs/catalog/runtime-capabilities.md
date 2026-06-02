@@ -18,12 +18,12 @@
 
 | 范围 | 当前值 |
 |---|---|
-| Bundled source skills | 39 |
+| Bundled source skills | 38 |
 | Bundled source agents | 51 |
 | Bundled agent support files | 0 |
-| Governance records by entry surface | internal_only: 17, standalone_skill: 2, workflow_command: 20 |
-| Claude runtime delivery | 20 commands, 20 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
-| Codex runtime delivery | 0 commands, 20 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Governance records by entry surface | internal_only: 17, standalone_skill: 2, workflow_command: 19 |
+| Claude runtime delivery | 19 commands, 19 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Codex runtime delivery | 0 commands, 19 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
 | Beta workflow entries | spec-polish-beta |
 | Workflow runtime contracts | 1 |
 | Planned runtime contracts | 0 |
@@ -39,7 +39,6 @@
 | compound-refresh | spec-compound-refresh | /spec:compound-refresh | $spec-compound-refresh | claude=command; codex=skill | no | Refresh stale Spec-First solution docs |
 | debug | spec-debug | /spec:debug | $spec-debug | claude=command; codex=skill | no | Run the Spec-First debug workflow |
 | doc-review | spec-doc-review | /spec:doc-review | $spec-doc-review | claude=command; codex=skill | no | Run the Spec-First document review workflow |
-| graph-bootstrap | spec-graph-bootstrap | /spec:graph-bootstrap | $spec-graph-bootstrap | claude=command; codex=skill | no | Compile graph readiness facts for external graph-provider workflows |
 | ideate | spec-ideate | /spec:ideate | $spec-ideate | claude=command; codex=skill | no | Run the Spec-First ideation workflow |
 | mcp-setup | spec-mcp-setup | /spec:mcp-setup | $spec-mcp-setup | claude=command; codex=skill | no | Install and verify the required harness runtime for spec-first workflows |
 | optimize | spec-optimize | /spec:optimize | $spec-optimize | claude=command; codex=skill | no | Run metric-driven iterative optimization loops |
@@ -86,7 +85,7 @@ Most `internal_only` governance records are source governance entries and are no
 
 `docs/contracts/source-runtime-customization-boundary.md` defines the customization contract for checked-in source, generated host runtime mirrors, target-repo workflow artifacts, and external provider/tool facts. Generated mirrors under `.claude/`, `.codex/`, and `.agents/skills/` are not source-of-truth; edit source assets and regenerate with `spec-first init`, choosing the target host when prompted, when a runtime refresh is required.
 
-Provider facts from GitNexus, browser/MCP tools, package managers, and shell commands are evidence inputs. Raw provider/tool output is untrusted quoted data and must be schema-validated, target-repo-contained, escaped, excerpt-capped, and provenance/readiness-classified before it enters prompts, reports, facts, or durable artifacts. Provider credentials belong in environment variables, host secret managers, or provider-native stores, never in source, generated runtime mirrors, durable artifacts, or raw logs.
+External tool facts from browser/MCP tools, package managers, shell commands, and user-provided logs are evidence inputs. Raw tool output is untrusted quoted data and must be schema-validated when structured, target-repo-contained, escaped, excerpt-capped, and provenance-classified before it enters prompts, reports, facts, or durable artifacts. Tool credentials belong in environment variables, host secret managers, or tool-native stores, never in source, generated runtime mirrors, durable artifacts, or raw logs.
 
 ## Workflow Runtime Contracts
 
@@ -98,7 +97,7 @@ These contracts are docs-side visibility records for workflow artifacts. `produc
 
 ## Quality Gate Evidence
 
-AI dev benchmark fixtures are advisory evidence for workflow input and artifact-shape drift. The checked-in suite currently has five repo-like fixtures (`docs-only`, `cli-bugfix`, `graph-degraded-fallback`, `api-contract`, `multi-module-refactor`) and one recorded semantic-review evidence file for `api-contract`. They validate deterministic fixture contracts and evidence visibility, not LLM semantic quality or real `$spec-work` output quality.
+AI dev benchmark fixtures are advisory evidence for workflow input and artifact-shape drift. The checked-in suite currently has four repo-like fixtures (`docs-only`, `cli-bugfix`, `api-contract`, `multi-module-refactor`) and one recorded semantic-review evidence file for `api-contract`. They validate deterministic fixture contracts and evidence visibility, not LLM semantic quality or real `$spec-work` output quality.
 
 | Command | Artifact | Gate behavior | Boundary |
 |---|---|---|---|
@@ -115,13 +114,12 @@ Release package evidence is deterministic package/install proof for maintainers 
 
 ## Readiness Meaning
 
-Runtime delivery describes what commands, skills, and agents were generated. It does not mean MCP helpers or graph providers are query-ready. Downstream workflows should read the layer-specific artifacts below instead of treating one pass/fail value as global readiness.
+Runtime delivery describes what commands, skills, and agents were generated. It does not mean MCP helpers or external tools are ready. Downstream workflows should read the layer-specific artifacts below instead of treating one pass/fail value as global readiness.
 
 | Layer | Entry | Canonical artifacts | Means | Does not mean |
 |---|---|---|---|---|
-| CLI/runtime health | `spec-first doctor` | doctor text/JSON report | Node/Git/package checks, generated host runtime assets, workflow surface, and stale verification evidence were inspected. | MCP/helper setup is complete, graph provider indexes exist, or graph `query_ready` facts are true. |
-| Harness setup | `/spec:mcp-setup` or `$spec-mcp-setup` | `.spec-first/config/tool-facts.json`, `.spec-first/config/graph-providers.json`, `.spec-first/config/runtime-capabilities.json`, `.spec-first/config/provider-artifacts.json` | Required MCP/helper runtime facts and provider config inputs were prepared. | Graph bootstrap has run, provider probes succeeded, or downstream graph evidence is fresh. |
-| Graph readiness | `/spec:graph-bootstrap` or `$spec-graph-bootstrap` | `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, `.spec-first/impact/bootstrap-impact-capabilities.json`, `.spec-first/providers/*/status.json` | Provider probes produced canonical graph and impact readiness facts for downstream workflows. | Any specific graph result is semantically relevant; the LLM still decides how to use evidence. |
+| CLI/runtime health | `spec-first doctor` | doctor text/JSON report | Node/Git/package checks, generated host runtime assets, workflow surface, and stale verification evidence were inspected. | MCP/helper setup is complete or any external tool evidence is available. |
+| Harness setup | `/spec:mcp-setup` or `$spec-mcp-setup` | `.spec-first/config/tool-facts.json`, `.spec-first/config/runtime-capabilities.json` | Required MCP/helper runtime facts were prepared. | Any external tool result is semantically relevant; the LLM still decides how to use direct evidence. |
 
 ## Maintenance Contract
 
@@ -129,4 +127,4 @@ Runtime delivery describes what commands, skills, and agents were generated. It 
 - 不在本 catalog 中手写能力数量；能力数量必须由 generator 从 source/governance 推导。
 - Workflow runtime contracts 必须由 `docs/contracts/workflows/*.schema.json` 的 `x-spec-first-*` metadata 派生；不能在 catalog 手写 planned/producer/integrated 状态。
 - 新增、删除或改变 host delivery 时，同步更新 governance/source，运行 `npm run docs:runtime-catalog`，再运行 targeted governance tests。
-- 该 catalog 只描述 delivery surface，不判断某个 MCP/provider 当前是否 ready；provider readiness 由 `spec-mcp-setup` 和 `spec-graph-bootstrap` 产物表达。
+- 该 catalog 只描述 delivery surface，不判断某个 MCP/helper 当前是否 ready；setup readiness 由 `spec-mcp-setup` 产物表达。

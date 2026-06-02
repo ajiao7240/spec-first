@@ -63,9 +63,9 @@ If the line above resolved to a plain branch name (like `feat/my-branch`), use i
 
 If the line above resolved to a plain repo folder name, use it for session discovery. Otherwise derive it at runtime.
 
-## Note: 2026
+## Current Date Boundary
 
-The current year is 2026. Use this when interpreting session timestamps.
+Use the current host/session date when interpreting session timestamps. If the date is unavailable, derive the scan window from explicit user time ranges or deterministic session metadata; do not hard-code calendar years in this source file.
 
 ## Guardrails
 

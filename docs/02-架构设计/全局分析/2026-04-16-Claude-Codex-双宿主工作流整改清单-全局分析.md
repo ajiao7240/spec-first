@@ -1,5 +1,7 @@
 # Claude/Codex 双宿主工作流整改清单全局分析
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 - 日期：`2026-04-16`
 - 目标文档：`docs/06-待办事项/2026-04-16-Claude-Codex-双宿主-skill-整改清单.md`
 - 审查口径：只以当前仓库代码、runtime 同步实现、SKILL 文档真源为依据

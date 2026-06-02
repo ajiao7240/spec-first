@@ -2,7 +2,7 @@
 
 > 调研日期：2026-06-02
 > 调研对象：`/Users/kuang/xiaobu/scale-engine`（`@hongmaple0820/scale-engine` v0.44.0）
-> 调研方式：`scale-engine/src/**/*.ts` **全量覆盖**（42 个模块 / 306 文件 / 87,018 行）逐文件结构化扫描 + 主干能力文件精读；补充只读分析 `/Users/kuang/xiaobu/project-scaffold` 的治理脚手架资产与 `/Users/kuang/xiaobu/scale-os-config-claude-code` 的 Claude Code 运行时配置投影资产
+> 调研方式：`scale-engine/src/**/*.ts` **全量覆盖**（42 个模块 / 306 文件 / 87,018 行）逐文件结构化扫描 + 主干能力文件精读；补充只读分析 `/Users/kuang/xiaobu/project-scaffold` 的治理脚手架资产、`/Users/kuang/xiaobu/scale-os-config-claude-code` 的 Claude Code 运行时配置投影资产，以及 `/Users/kuang/xiaobu/scale-engine/docs/workflow/知识相关.md` 的知识分层说明
 > 目标：以 scale-engine 为能力矿藏，评估哪些能力值得重构融入 spec-first，重点强化**知识 / 上下文**等 harness 能力
 > 判断基线：`docs/10-prompt/结构化项目角色契约.md`
 
@@ -12,7 +12,7 @@
 
 scale-engine 是一个 **87,018 行 TypeScript / 306 文件 / 42 个子模块** 的庞大系统，远超既有路线图（`spec-first-scale-integration-version-roadmap-v2-final.md`）描述的规模（路线图称 SCALE v2.0、只提 GovernanceTemplatePacks/EvidenceStore/ReviewStore，实际版本 v0.44.0）。其架构本质是 **FSM（状态机）+ Gate（门禁引擎）+ Policy（规则引擎）+ Ledger（账本）** 驱动的"自主 AI 工程操作系统"。
 
-补充观察：`project-scaffold` 不是另一个引擎，而是把 SCALE 协作规则落到真实项目的**治理基线脚手架**；`scale-os-config-claude-code` 也不是业务模板，而是把 SCALE Engine 的治理意图投影到 **Claude Code host-native settings、hooks、permission、MCP、skill registry 和质量契约**上的配置包。它们回答的不是"spec-first 应该内置什么执行循环"，而是"一个派生项目如何让人和 Agent 都能看到任务目标、影响范围、验证证据、技能选择、安全边界和沉淀责任"。因此本报告现在分三层看：**SCALE 本体提供能力矿藏，project-scaffold 提供可复制的治理资产形态，scale-os-config-claude-code 提供 host runtime 投影样板**。
+补充观察：`project-scaffold` 不是另一个引擎，而是把 SCALE 协作规则落到真实项目的**治理基线脚手架**；`scale-os-config-claude-code` 也不是业务模板，而是把 SCALE Engine 的治理意图投影到 **Claude Code host-native settings、hooks、permission、MCP、skill registry 和质量契约**上的配置包；`docs/workflow/知识相关.md` 则把这些能力背后的知识系统拆成上下文、记忆、代码理解、能力选择和沉淀治理等分层。它们回答的不是"spec-first 应该内置什么执行循环"，而是"一个派生项目如何让人和 Agent 都能看到任务目标、影响范围、验证证据、技能选择、安全边界和沉淀责任"。因此本报告现在分四层看：**SCALE 本体提供能力矿藏，project-scaffold 提供可复制的治理资产形态，scale-os-config-claude-code 提供 host runtime 投影样板，知识相关文档提供 Knowledge Harness 分层骨架**。
 
 **两个项目高度同源**：结构化扫描与主干精读发现 SCALE 多处逐字复制 spec-first 的工程理念——`KarpathyEvaluator` 的 K1-K4、`PromptOptimizer` 的执行规则、`AntiPatternRegistry` 的四原则，都直接对应 spec-first `CLAUDE.md` 的"编码执行准则"。这说明 SCALE 不是异质系统，而是把 spec-first 共享的理念用**重型确定性引擎**实现的另一条路线。
 
@@ -27,6 +27,8 @@ scale-engine 是一个 **87,018 行 TypeScript / 306 文件 / 42 个子模块** 
 > project-scaffold 的**重型门禁和 `.scale` runtime truth** 不要；它的**任务证据模板、reality-check 分类、验证 profile、资源治理、上下文地图和 preview-first 升级路径**值得补进 spec-first 文档与 workflow lens。
 
 > scale-os-config-claude-code 的**`.claude/settings.json` 大段 shell hook、`.scale/workflow.json` 状态机和 blocking gate 投影**不要；它的**生成报告、自检脚本、permission/protected-path 映射、skill registry 安全元数据、验证 profile、host capability report 和 dry-run 反例**值得补进 spec-first 的 runtime generation / doctor / closeout 文档。
+
+> `知识相关.md` 的**六层 Knowledge Harness 骨架**可以整体借鉴；但 SCALE 的 `.scale/config.yaml`、Memory Provider Router、SQLite KnowledgeBase、Graphify/CodeGraph 默认 provider、`scale memory/codegraph/skill` CLI 和外部写入策略不能整体搬进 spec-first。spec-first 应把六层改写为 source-first、文件化、advisory、可降级的 agent/skill 协作 lens；GBrain / Graphify / CodeGraph 这类 provider 可以进入 `recommended` / `platform` 安装 profile，团队可 opt-in 设为默认安装，但不能默认成为 truth。
 
 ### 业界最佳实践视角说明
 
@@ -43,6 +45,56 @@ scale-engine 是一个 **87,018 行 TypeScript / 306 文件 / 42 个子模块** 
 ## 一、能力总表（全 42 模块，带集成建议勾选）
 
 图例：✅ 建议摘取重写　🟡 谨慎评估（重叠/升级/借鉴思路）　❌ 不要（撞红线/定位冲突/已剥离）
+
+### 0. 全量覆盖矩阵（42 个目录模块 + 2 个根入口）
+
+本矩阵来自对 `/Users/kuang/xiaobu/scale-engine/src/**/*.ts` 当前 306 个文件的全量读取 inventory；行数口径使用 `wc -l`，与 87,018 行总数一致。根目录 `index.ts` / `version.ts` 不是一级目录模块，单独列为 `(root)`。
+
+| 模块 / 入口 | 文件 / 行 | 能力定位 | 集成判断 |
+|-------------|-----------|----------|----------|
+| `workflow` | 65 / 24,694 | 最大模块，集中承载 gates、governance templates、engineering standards、review store、verification、task level、cognitive planning、security audit、execution loops | 只摘 `TaskLevelDetector`、`VerificationCommands`、`OutOfScopeStore`、`HonestDelivery`、`KarpathyEvaluator`、`RuleMaturity` 等确定性 advisory；不搬 gate/execution loop |
+| `api` | 4 / 8,514 | CLI/master control plane、doctor、MCP、quickstart | 借 doctor/classify/report 思路；不搬 6k 行 CLI control plane 或 MCP runtime |
+| `skills` | 25 / 4,623 | skill registry、radar、discovery、frontmatter、repository safety、trigger routing、executor | 借 metadata、install safety、frontmatter 校验、progressive disclosure；不搬自动触发/执行引擎 |
+| `cli` | 16 / 4,051 | 各命令入口，尤其 phaseCommands 绑定 FSM、SQLite store、capabilities、workflow engine | 借命令口径和报告形态；不搬 phase command 作为 spec-first 执行主线 |
+| `runtime` | 10 / 3,827 | AiOsRuntime、runtime doctor、evidence ledger、session ledger、cost/model usage、final report guard | 摘 RuntimeEvidenceLedger、FinalReportGuard、doctor/cost ledger 思路；不搬 AiOsRuntime 中心编排 |
+| `adapters` | 24 / 3,753 | 多 host adapter 投影，覆盖 Claude Code、Aider、Windsurf、Devin 等 | 借 host capability mapping / adapter contract / drift test 思路；不扩 spec-first 默认宿主矩阵 |
+| `output` | 6 / 2,967 | HTML renderer、artifact layer、UI prototype、governance dashboard | 借 generated report 不能替代 source doc 的原则；dashboard/HTML renderer 作为平台化能力不内置 |
+| `memory` | 6 / 2,650 | MemoryBrain/Fabric/Providers/Learning/Intelligence，含 provider 和 DB 方向 | 借 MemoryIntelligence 冲突/新鲜度、MemoryLearning promotion 思路；不搬 memory provider/SQLite |
+| `guardrails` | 10 / 2,579 | OWASP、dependency auditor、behavior detectors、red team、gateway/review enforcer | 摘 advisory detectors、dependency/security scan；不搬 blocking gateway |
+| `artifact` | 5 / 2,228 | artifact types、store、sqlite store、FSM definitions | 借 artifact schema/authority/freshness 字段思想；不把 SQLite/FSM 当 spec-first truth |
+| `agents` | 20 / 1,981 | agent types、pool、dispatcher、channel、coordinator、profiles | 借 profile/handoff/write-set 问题清单；不搬 agent scheduler |
+| `evolution` | 9 / 1,970 | evolution engine、rule maturity、session learnings、skill creator、hook generator、defect creator | 摘 RuleMaturity、SessionLearnings；不搬 auto skill/hook/defect generation |
+| `context` | 7 / 1,965 | ContextBudget/Compiler/Builder、ProjectAnatomy、anti-pattern registry、session sequence | 摘 ContextCompiler、ContextBudget 分类、anti-pattern registry；与现有 context-bundle 对齐 |
+| `tools` | 10 / 1,912 | command compressor、safe runner、tool policy/capability/ledger/orchestrator | 摘 CommandOutputCompressor、SafeCommandRunner、tool readiness/ledger；不搬 tool orchestrator |
+| `knowledge` | 6 / 1,472 | KnowledgeBase、TF-IDF、SQLite KB、Graphify KB、Cerebrum manager | 借 TF-IDF/recall baseline；不搬 SQLite/Graphify provider 为核心 truth |
+| `cortex` | 9 / 1,429 | reflexion、instinct store/extractor、session injector、governance metrics | 借 SessionInjector 防重放 sentinel；不搬本地 LLM reflexion/instinct truth |
+| `bootstrap` | 2 / 1,368 | DependencyBootstrap 与 renderer，安装/检查 RTK、Graphify、CodeGraph 等 | 借 readiness plan、post-check、rollback hint；不搬 provider-coupled bootstrap |
+| `orchestrator` | 5 / 1,323 | daemon、reconciliation loop、policy loader、workspace/tracker adapter | 企业平台可 opt-in；spec-first 不内置 daemon/reconcile loop |
+| `hooks` | 5 / 1,307 | hook generator/deployer、workflow hooks、bug pattern detector | 借 BugPatternDetector 和 hook source-generation 原则；不搬自动 hook 写入 |
+| `prompts` | 3 / 1,302 | phase prompt registry、prompt optimizer、vibe template gallery | 借 request normalizer / prompt gallery docs；不替代 brainstorm/spec-prd |
+| `codegraph` | 1 / 1,243 | CodeIntelligence graph provider，symbols/callers/impact/capability checks | 作为 optional provider 方向记录；当前不恢复 graph provider 核心依赖 |
+| `capabilities` | 8 / 1,227 | browser/search/computer/installed-skills capability registry | 借 capability/readiness 表达；browser/search/computer 维持外部工具 opt-in |
+| `shield` | 3 / 1,005 | protected paths、shield protocol、policy compiler | 借 permission/protected-path projection；不搬 SCALE Shield blocking runtime |
+| `workflows` | 6 / 978 | DAG builder/executor、workflow orchestrator、gate parser、presets | 仅借 GateParser / preset taxonomy 作为平台参考；不搬 DAG executor |
+| `dashboard` | 4 / 739 | dashboard server、metrics aggregator | 平台化可观测性参考；不进核心 |
+| `core` | 5 / 710 | EventBus、DI container、external command、GBrain runtime、logger | 不搬 DI/event runtime；仅借 external command 边界和 logging discipline |
+| `env` | 1 / 698 | EnvironmentDoctor，环境变量、工具、项目结构、git/OS/runtime 检查 | 借 environment readiness facts 和 degraded reason；不作为 gate |
+| `eval` | 2 / 605 | WorkflowEval、BenchmarkPublisher | 摘失败分类、pass@k、benchmark 发布思路 |
+| `tasks` | 2 / 556 | TaskEngine、IssueTriageFSM | 不搬 task engine/FSM；只借 issue triage 状态字段作 checklist |
+| `setup` | 2 / 515 | SetupWizard、SetupVerification | 借 setup verification / post-init checklist；不搬 wizard flow |
+| `topology` | 4 / 497 | DomainMapper、LayerClassifier、TourGenerator | 借 project topology/context map 生成思路，作为 optional context lens |
+| `governance` | 2 / 338 | progressive governance、governance ROI | 借 ROI/渐进治理语言；不引入 block engine |
+| `routing` | 3 / 309 | ModelRouter、LocalModelProvider、PromptCachePolicy | 不搬模型路由；可借 prompt cache policy 作为平台参考 |
+| `config` | 1 / 287 | profiles 配置 | 借 profile taxonomy；不作为 spec-first 配置源 |
+| `fsm` | 2 / 267 | FSMAgentBridge | 不搬，FSM 仅可作为外部 artifact lifecycle 参考 |
+| `(root)` | 2 / 257 | `index.ts` 聚合导出、`version.ts` | 仅用于确认包 surface；不产生独立集成项 |
+| `testing` | 2 / 174 | DiffTestSelector | 摘按 diff 选择测试 |
+| `review` | 3 / 168 | CrossModelReviewer、ReviewAggregator、review commands | 摘 review 共识聚合 |
+| `tui` | 1 / 132 | TUI dashboard | 不进核心，平台化 UI 参考 |
+| `cache` | 1 / 131 | ScanCache | 可借文件 hash/cache invalidation；只能做 advisory cache |
+| `orchestration` | 1 / 116 | EffectsWiring | 不搬 effects wiring；中心编排边界参考 |
+| `qa` | 2 / 108 | browser daemon、E2E test orchestrator | 借 browser evidence / QA profile 表达；保持外部工具 opt-in |
+| `i18n` | 1 / 43 | Language 类型 | 无独立集成项；仅确认多语言配置 surface |
 
 ### A. ✅ 建议摘取（确定性脚本 · 补真实洞 · 契约兼容）
 
@@ -185,6 +237,70 @@ scale-engine 是一个 **87,018 行 TypeScript / 306 文件 / 42 个子模块** 
 
 **核心判断**：知识/上下文的增强，**不靠引入 SCALE 的引擎，而是靠摘取它的几个确定性算法 + 一个新知识类别（拒绝记忆），用 spec-first 文件化方式重写**。
 
+### 3.1 `知识相关.md` 的六层体系：借骨架，不搬 provider
+
+`知识相关.md` 的原始分层更细：`Agent Adapter / Session 注入 -> Context Pack / Context Compiler -> Memory Provider Router -> Memory Fabric / Memory Brain -> KnowledgeBase / GraphifyKnowledgeBase -> CodeGraph / Graphify / fallback scan -> Skill Radar / Skill Policy -> Out-of-scope / Cerebrum / Glossary`。对 spec-first 来说，正确做法不是照搬这些 CLI、provider 和 `.scale` 配置，而是压缩成六层 **Knowledge Harness lens**：
+
+1. **项目上下文 / 术语层**：让 agent 先知道项目目标、术语、source-of-truth 和已拒绝误解。
+2. **Context Pack / 预算层**：把任务相关上下文按来源、预算、included/omitted 和 reason_code 交给 LLM。
+3. **记忆召回 / 冲突层**：召回 `docs/solutions/`、历史 session、git 历史和 out-of-scope rationale，并标记 stale/conflict。
+4. **代码理解 / 影响层**：用 bounded source reads、`rg`、ast-grep、测试和可选外部 provider facts 理解代码结构与影响面。
+5. **能力选择 / Agent 路由层**：决定当前任务需要哪个 public workflow、skill、reviewer 或外部研究能力。
+6. **沉淀治理 / 知识升级层**：把 runtime evidence、review 结论和真实复用价值沉淀进 changelog、docs/solutions、标准或后续 plan。
+
+这个六层体系可以整体借来作为 spec-first 的知识协作语言，因为它与角色契约中的 `Codebase -> Context -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge` 链路一致；但它必须保持三条边界：第一，外部 provider 只产 advisory facts，不能成为 truth；第二，长期写入只在 `ship/consolidate` 后发生，不能在需求探索时把猜测 promote；第三，agent/skill 选择由 LLM 根据任务语义判断，不由脚本、状态机或 Skill Radar 强制决定。
+
+### 3.2 六层对应的 spec-first agent / skill
+
+下表不是新增 runtime contract，而是把现有 `skills/` 与 `agents/` 映射到六层 Knowledge Harness。`skill` 表示主要入口或消费者；`agent / reviewer` 表示适合在该层提供专业判断的现有角色，实际调度仍由对应 workflow 的文档化 phase 和当前 host 能力决定。
+
+| 六层 | SCALE 对应 | spec-first 正确形态 | 对应 skill | 对应 agent / reviewer | 边界 |
+|------|------------|---------------------|------------|------------------------|------|
+| 1. 项目上下文 / 术语层 | `ContextBuilder`、`ProjectAnatomy`、`.scale/GLOSSARY.md`、Agent Adapter 注入 | 读取 `AGENTS.md` / `CLAUDE.md`、`docs/contracts/**`、README、项目规范、domain glossary 或 PRD-local glossary；缺失时降级为 direct source evidence | `using-spec-first`、`spec-prd`、`spec-brainstorm`、`spec-plan` | `spec-repo-research-analyst`、`spec-coherence-reviewer`、`spec-product-lens-reviewer`、`spec-scope-guardian-reviewer` | 不要求每个项目固定存在 `CONTEXT.md`、`.scale/GLOSSARY.md` 或统一 glossary；术语缺口是 advisory gap，不是 blocker |
+| 2. Context Pack / 预算层 | `ContextCompiler`、`ContextBudget`、`MemoryFabric pack`、Session 注入 | 在 workflow 内形成 bounded context bundle：source refs、included/omitted、token budget、degraded reason、验证限制；脚本收集事实，LLM 判断相关性 | `spec-plan`、`spec-work`、`spec-code-review`、`spec-doc-review`、`spec-debug` | `spec-repo-research-analyst`、`spec-spec-flow-analyzer`、`spec-feasibility-reviewer` | 不做无限上下文和全仓常驻注入；context 排序可以借鉴 SCALE 算法，但不能让算法替代语义取舍 |
+| 3. 记忆召回 / 冲突层 | `Memory Provider Router`、`Memory Brain`、`Memory Fabric`、`MemoryLearning`、`OutOfScopeStore`、`Cerebrum` | 以 `docs/solutions/`、`spec-sessions`、git history、out-of-scope rationale 和 review/validation docs 为可审计记忆；召回结果标注 provenance、freshness、conflict | `spec-sessions`、`spec-compound-refresh`、`spec-compound`、`spec-debug`、`spec-plan` | `spec-learnings-researcher`、`spec-session-historian`、`spec-git-history-analyzer`、`spec-pattern-recognition-specialist` | 不把 SQLite、GBrain、agentmemory 或 SCALE local memory 设为 truth；外部记忆默认只读、可降级、不可直接写长期规则 |
+| 4. 代码理解 / 影响层 | `CodeGraph`、`Graphify`、`fallback scan`、`KnowledgeBase recall` | 默认用 bounded direct source reads、`rg`、ast-grep、git diff、测试和构建日志；可选 provider 只能补充 orientation 或 degraded facts | `spec-prd`、`spec-plan`、`spec-debug`、`spec-work`、`spec-code-review` | `spec-repo-research-analyst`、`spec-architecture-strategist`、`spec-api-contract-reviewer`、`spec-data-migrations-reviewer`、`spec-security-reviewer`、`spec-performance-reviewer`、`spec-testing-reviewer` | 不恢复 Graph/GitNexus/Graphify 为核心 provider truth；源码、diff 和实测命令永远高于图谱摘要 |
+| 5. 能力选择 / Agent 路由层 | `Skill Radar`、`Skill Policy`、`SkillRepository`、`.scale/skills.json` | 由 `using-spec-first` 做 public workflow 路由，由各 workflow 按 documented phase 选择最小必要 skill / reviewer / research；skill registry 只提供 metadata 与 safety hints | `using-spec-first`、`spec-skill-audit`、`spec-mcp-setup`、`spec-update`、`spec-code-review`、`spec-doc-review` | `spec-project-standards-reviewer`、`spec-agent-native-reviewer`、`spec-cli-agent-readiness-reviewer`、`spec-best-practices-researcher`、`spec-framework-docs-researcher` | 不用 Skill Radar 强制执行，不把所有 skill 全文常驻上下文；agent 激活必须最小、可解释、可降级 |
+| 6. 沉淀治理 / 知识升级层 | `memory settle/promote`、`Out-of-scope`、`Cerebrum`、docs/rules/ADR | 交付后按证据把结论写入 `CHANGELOG.md`、`docs/solutions/`、docs/contracts、README 或后续 plan；未验证内容只保留为 candidate / follow-up | `spec-compound`、`spec-compound-refresh`、`spec-release-notes`、`spec-work`、`spec-code-review` | `spec-learnings-researcher`、`spec-maintainability-reviewer`、`spec-project-standards-reviewer`、`spec-coherence-reviewer`、`spec-code-simplicity-reviewer` | 只有真实运行证据、review 结论或重复复用价值才能长期沉淀；不能把会话中临时猜测自动 promote 为项目规则 |
+
+落到 workflow 节点上，六层的读写纪律应保持与 SCALE 原则一致但更轻量：`define/spec/plan/review` 主要读知识，`work/build` 消费约束并产生 runtime evidence，`verify/review` 校验证据可信度，`ship/compound` 才做长期沉淀。这样既借到了 SCALE 的知识系统骨架，又不引入 provider truth、中心化流程引擎或强状态机。
+
+### 3.3 Provider 依赖安装策略：默认强推荐，不默认强信任
+
+用户视角下，默认安装 GBrain、Graphify、CodeGraph 的确能提高上限：跨会话召回更连续，陌生仓库影响面分析更快，context pack 更容易带上历史经验和代码结构。但 spec-first 需要区分两个问题：**是否默认安装** 与 **是否默认信任**。前者可以按团队 profile 提升自动化程度；后者必须始终保持 source-first、evidence-first。
+
+因此推荐采用三档安装 profile，而不是单一"默认全装"或"默认不装"：
+
+| Profile | 默认行为 | 适用场景 | 安装对象 | 信任边界 |
+|---------|----------|----------|----------|----------|
+| `minimal` | 不安装外部 provider，只检测并提示 | 个人项目、低依赖环境、快速试用、隐私敏感仓库 | 无；只用 direct source reads、`rg`、git diff、测试、`docs/solutions/`、`spec-sessions` | 没有 provider facts，能力上限较低但 truth 边界最清晰 |
+| `recommended` | 默认检测并**强推荐一键安装**，用户显式确认后安装 | 大多数团队项目，希望提升 recall / impact 但仍保持轻量治理 | 可选 GBrain 或等价 memory provider；可选 Graphify / CodeGraph 中一个代码理解 provider | provider 输出一律标 `advisory`、`freshness`、`source`、`confidence`、`fallback_used`；源码和实测命令优先 |
+| `platform` | 团队可在 project / org profile 中把 provider 设为默认安装和默认启用 | 企业 agent platform、多仓协作、长期知识治理、需要统一 onboarding 的团队 | GBrain + Graphify + CodeGraph 或团队指定 provider 组合 | 安装和启用仍不等于 truth；长期 memory 写入默认走 candidate -> review -> promote，外部写入需显式 policy |
+
+需要注意：GBrain / Graphify / CodeGraph 只是 `memory` / `knowledge` pack 的核心外部 provider，不是完整依赖清单。按 SCALE 原始安装面，依赖应按层拆开：
+
+| 依赖层 | SCALE 对象 | 是否需要安装 | spec-first 借鉴判断 |
+|--------|------------|--------------|----------------------|
+| Host/runtime projection | `scale init --agent <agent>` 生成 settings、knowledge doc、skills dir、hooks、`.scale/config.yaml` | 生成/写入 runtime asset，不是第三方 provider 安装 | spec-first 只借 generation report、self-test、permission projection；不手改 generated mirror，不引入 `.scale` truth |
+| Memory provider | GBrain、agentmemory、scale-local / Memory Brain、`.scale/memory-providers.json` | GBrain 是 SCALE 默认外部 provider；agentmemory 可选；scale-local 是本地 fallback；Memory Brain 依赖 SQLite/better-sqlite3 | `recommended/platform` 可安装 GBrain 或等价 provider；agentmemory 仅 explicit opt-in；spec-first 核心仍以 `docs/solutions/` / `spec-sessions` 为可审计记忆 |
+| Knowledge / code provider | Graphify CLI、Graphify graph artifact、CodeGraph CLI、`.codegraph/` 索引、`.scale/code-intelligence.json` | Graphify / CodeGraph 属 knowledge pack 外部安装；图谱/索引还需要初始化和刷新 | 可作为 secondary provider；必须暴露 commit/hash/freshness/fallback，不替代源码、diff、测试 |
+| Built-in fallback | `internal-scan`、`rg`、`read`、TF-IDF、Context Compiler、Memory Fabric | 不需要安装第三方；属于引擎内置或通用 shell/source read 能力 | spec-first 默认应优先使用这层：bounded direct reads、`rg`、ast-grep、git diff、测试日志 |
+| Skill / tool registry | `.scale/skills.json`、`.scale/tools.json`、Skill Radar、SkillRepository | 多数是配置和 metadata；第三方 skill 需要另行安装 | 只借 registry metadata：source、trigger、risk、install command、recommended action；不把技能全文常驻上下文 |
+| UI / docs knowledge skills | awesome-design-md、ui-ux-pro-max、Anthropic / Claude Code skills | UI pack 或显式 setup/apply 后安装 | 不是知识核心依赖；仅在 UI/UX/文档类任务或 platform profile 中 opt-in |
+| Web / browser evidence tools | web-access、Agent Browser、Chrome DevTools MCP、Playwright | 按 web research、浏览器验证、E2E 场景安装 | 不随 knowledge provider 默认安装；由具体 workflow 根据最新信息、网页证据或 UI 验证需求触发 |
+| Governance local stores | Out-of-scope、Cerebrum、learning candidates、glossary、runtime evidence | 多为本地文件/懒创建 store；不应被当作外部依赖 | 可借 out-of-scope / do-not-repeat / learning candidate 语义，但长期沉淀仍走 evidence -> review -> docs/rules |
+
+正确安装流程应保留 SCALE 的 preview-first 节奏，但改成 spec-first 的 source/runtime 边界：
+
+1. **detect**：`init` / `doctor` / `mcp-setup` 类入口检测 provider 是否存在、版本、权限、索引新鲜度、是否能读当前 repo。
+2. **plan**：输出安装计划，列出 `benefit`、`cost`、`privacy`、`write_policy`、`install_command`、`verify_command` 和 `degraded fallback`。
+3. **apply**：只有用户显式确认或团队 profile 明确选择 `recommended/platform` 时才安装，不 silent write。
+4. **verify**：验证 provider CLI/MCP 可用、索引与当前 commit / files hash 对齐、memory provider 写入策略符合配置。
+5. **consume**：workflow 消费 provider facts 时必须带 freshness/confidence/reason_code；与源码、diff、测试冲突时降级 provider facts。
+6. **settle/promote**：只有交付后有 runtime evidence、review 结论或重复复用价值，才进入长期知识候选；默认不把一次会话猜测写入外部 memory。
+
+这个策略承认"默认安装可以更强"，但把默认安装限定在 profile 化选择中：`minimal` 保持轻量核心，`recommended` 提供一键上限提升，`platform` 面向团队默认全装。无论哪一档，provider 和外部工具都只是增强 LLM 输入质量的工具，不拥有 scope、truth、review finding 或任务完成状态。
+
 ---
 
 ## 四、project-scaffold 补充分析：治理基线层
@@ -318,7 +434,7 @@ scale-engine 是一个 **87,018 行 TypeScript / 306 文件 / 42 个子模块** 
 
 按"边际增益 ÷ 边际成本"排序，每步独立可验证、不撞红线、全部产 advisory 不阻断：
 
-0. **治理 / runtime 投影基线 lens** —— project-scaffold 的四问 closeout、Reality Check 分类、Runtime Contract、资源治理、docs-impact、product smoke、verification profile、dry-run 语义和 redline advisory；scale-os-config-claude-code 的 generation report、host capability summary、generated self-test、skill registry metadata、permission projection 和 dry-run 假阳性反例。验证：workflow prose / contract test 能检查这些分类存在，`init/update/doctor` 类报告能列出 must-run/degraded/unsupported，且不新增任务状态 truth。
+0. **治理 / runtime 投影基线 lens + Knowledge Harness 六层 lens + provider 安装 profile** —— project-scaffold 的四问 closeout、Reality Check 分类、Runtime Contract、资源治理、docs-impact、product smoke、verification profile、dry-run 语义和 redline advisory；scale-os-config-claude-code 的 generation report、host capability summary、generated self-test、skill registry metadata、permission projection 和 dry-run 假阳性反例；`知识相关.md` 的项目上下文、Context Pack、记忆召回、代码理解、能力选择、沉淀治理六层映射；GBrain / Graphify / CodeGraph 这类 provider 采用 `minimal` / `recommended` / `platform` 三档安装策略。验证：workflow prose / contract test 能检查这些分类存在，`init/update/doctor` 类报告能列出 must-run/degraded/unsupported 和 provider install recommendation，且不新增任务状态 truth 或 provider truth。
 1. **OutOfScopeStore（✅#4）** —— 新增 markdown 拒绝记忆。零冲突、纯增量。验证：被拒概念能写入/去重检索。
 2. **VerificationCommands（✅#2）+ RuntimeEvidenceLedger（✅#3）** —— 验证命令探测 + 结构化证据留存(advisory)。验证：closeout 产出命令清单 + 证据 JSON，现有测试不破。
 3. **TaskLevelDetector（✅#1）** —— git diff 任务分级 advisory。验证：构造不同规模 diff 得到合理等级 + 理由。
@@ -347,6 +463,7 @@ scale-engine 是一个 **87,018 行 TypeScript / 306 文件 / 42 个子模块** 
 
 **已执行（全量覆盖，非按样本抽查）**：
 - `scale-engine/src/**/*.ts` 计数经 `find -type f -name '*.ts' | wc -l` 与 `wc -l` 复核：42 个一级模块 / 306 个 .ts 文件 / 87,018 行。
+- 当前轮重新读取全部 306 个 `.ts` 文件生成 deterministic inventory：逐文件记录 `sha256`、`wc -l` 行数、导入、导出、class/interface/function 声明、能力 flags，并汇总为 42 个目录模块 + `(root)` 的覆盖矩阵；矩阵已写入本文 §1.0。
 - 全部 306 个 .ts 文件做逐文件结构化扫描：行数、导出符号、外部依赖、能力 flags（sqlite/fs_write/command/hook/gate/fsm/policy/knowledge/context/security 等）与模块归类。
 - 逐模块结构化笔记 8 份（knowledge-memory-cortex / context-runtime-artifact-eval / workflow-fsm-governance / guardrails-shield-hooks-tools / skills-routing-agents-capabilities / evolution-output-adapters-prompts / api-core-infra / cli-review-tui-workflows），覆盖率经脚本核对无遗漏模块。
 - 关键文件全文通读：GateSystem、GateCatalog、KnowledgeBase、CerebrumManager、MemoryBrain/Fabric/Providers/Intelligence/Learning、SessionInjector/InstinctStore/Extractor/ReflexionEngine、RuntimeEvidenceLedger、ContextBudget/Compiler/AntiPatternRegistry、WorkflowEval、HonestDelivery/KarpathyEvaluator、VerificationCommands、TaskLevelDetector、OutOfScopeStore、SocraticQuestioner/AmbiguityScorer、ReviewStore/CrossModelReviewer、RuleMaturity/SessionLearnings、detectors/DiffTestSelector/SafeCommandRunner/DependencyAuditor、PromptOptimizer/ClaudeCodeAdapter、CodeIntelligence、workflows/presets 等。

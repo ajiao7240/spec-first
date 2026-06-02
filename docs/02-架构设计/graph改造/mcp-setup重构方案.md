@@ -1,5 +1,7 @@
 # `spec-mcp-setup` 终版重构技术方案
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 > 状态说明：本文是 CRG 删除前后的探索性设计记录，不代表当前 runtime contract。
 > 当前实现已移除内置 CRG 与 graph-bootstrap workflow。
 > 如需恢复图谱能力，请另见后续 external graph provider 集成方案。

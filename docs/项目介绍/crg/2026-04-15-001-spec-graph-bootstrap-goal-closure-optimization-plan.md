@@ -2,13 +2,14 @@
 title: "spec-graph-bootstrap 目标闭环优化方案"
 type: plan
 status: active
+lifecycle: historical-input
 date: 2026-04-15
 origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 ---
 
 # spec-graph-bootstrap 目标闭环优化方案
 
-> Lifecycle: historical-input / external-reference. 本文保留历史 CRG/CE/ECC 方案、迁移或对比材料；其中 `src/crg`、`spec-first crg`、`graph.db`、`better-sqlite3`、`.claude-plugin`、命令数量和文件数量等旧口径可能已过期。当前 source of truth 以 `docs/archive-index.md`、`docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/`、`CHANGELOG.md`、`spec-mcp-setup` 和 `spec-graph-bootstrap` 为准。
+> Lifecycle: historical-input / external-reference. 本文保留历史 CRG/CE/ECC 方案、迁移或对比材料；其中 `src/crg`、`spec-first crg`、`graph.db`、`better-sqlite3`、`.claude-plugin`、命令数量和文件数量等旧口径可能已过期。当前 source of truth 以 `docs/archive-index.md`、`docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/`、`CHANGELOG.md`、`spec-mcp-setup` 和 direct source evidence workflows 为准。
 
 ## 1. 问题重述
 
@@ -622,4 +623,3 @@ origin: docs/01-需求分析/spec-graph-bootstrap需求/修订终版.md
 一句话总结：
 
 **下一阶段最重要的优化，不是再让 `spec-graph-bootstrap` 生成更多内容，而是让它生成的内容被稳定消费、被量化验证、并被证明真正提升 agent 效能。**
-

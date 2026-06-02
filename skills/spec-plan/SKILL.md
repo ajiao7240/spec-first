@@ -6,7 +6,7 @@ argument-hint: "[optional: feature description, requirements doc path, plan path
 
 # Create Technical Plan
 
-**Note: The current year is 2026.** Use this when dating plans and searching for recent documentation.
+Use the current host/session date when dating plans and searching for recent documentation. If the date is unavailable, read it with a deterministic command; do not hard-code calendar years in this source file.
 
 `spec-brainstorm` defines **WHAT** to build. `spec-plan` defines **HOW** to build it. `spec-work` executes the plan. A prior brainstorm is useful context but never required — `spec-plan` works from any input: a requirements doc, a bug report, a feature idea, or a rough description.
 
@@ -179,6 +179,8 @@ If a relevant requirements document exists:
 4. Use the source document as the primary input to planning and research
 5. Reference important carried-forward decisions in the plan with `(see origin: <source-path>)`
 6. Do not silently omit source content — if the origin document discussed it, the plan must address it even if briefly. Before finalizing, scan each section of the origin document to verify nothing was dropped.
+
+When planning from a PRD-grade origin, run a PRD handoff entropy check before inventing WHAT. If the plan would need to choose a canonical term, source-of-truth, domain ownership, or hard decision consequence that the PRD did not settle, route to PRD refine or emit an inline PRD feedback candidate instead of deciding it in the plan. Keep this as a handoff boundary only: do not run a separate grill workflow in `spec-plan`, do not copy the full `spec-prd` readiness lens, and do not auto-write back to the PRD.
 
 If the origin requirements document is a legacy document without `spec_id`, do not edit the origin by default. Generate a new plan-local `spec_id`, note in the plan that origin identity was not inherited, and treat the requirements-to-plan link as weak trace. If the user explicitly asks to backfill the origin requirements document, handle that as a separate scoped edit.
 

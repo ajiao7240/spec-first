@@ -43,6 +43,8 @@ When a new PRD's term conflicts with an existing canonical entry, surface it imm
 
 ## Bounded Scenario Grill
 
+> `spec-prd/SKILL.md` Phase 2 也把这套机制称为 run-local Domain Grill Gate,readiness lens 用 `domain-grill coverage` 指代同一覆盖检查。三者是同一流程,不是独立概念。本文件是 trigger / cadence / question format / no-artifact 规则的权威定义;SKILL.md 只做摘要引用。
+
 Use 1-3 concrete scenarios to stress-test domain boundaries only when the PRD would otherwise be ambiguous. Examples:
 
 - a normal happy path
@@ -50,6 +52,44 @@ Use 1-3 concrete scenarios to stress-test domain boundaries only when the PRD wo
 - an exception or contradiction that changes acceptance
 
 Keep the grill bounded. It is a source-backed precision tool, not a coaching script or a long interview.
+
+Trigger only when one of these is true:
+
+- a domain term has multiple plausible meanings and the wrong choice would change requirements or acceptance
+- user-stated current behavior conflicts with source, docs, tests, or contracts
+- a source-of-truth, ownership, or artifact authority decision affects downstream planning
+- a concrete scenario reveals ambiguity in actor, permission, state transition, exception handling, or negative acceptance
+- a hard-to-reverse product or architecture boundary is being decided and would be surprising without context
+
+Do not trigger when:
+
+- the question is an implementation detail that `spec-plan` owns
+- the fact is cheap to confirm from source, docs, tests, glossary, or ADR-like artifacts
+- the term is a general engineering concept rather than a project/domain concept
+- the decision is easy to reverse, obvious, or not the result of a real tradeoff
+- the PRD can safely carry a labeled, non-load-bearing assumption
+
+Question cadence:
+
+- Ask at most one question at a time.
+- Ask no more than 1-3 grill questions in a normal PRD run.
+- If more than 3 load-bearing questions appear necessary, record blockers, route to PRD refine/doc-review, or ask the owner to choose assumptions instead of continuing a long interview.
+- Always give a `recommended_answer` unless there is no defensible default.
+- If the owner says "you decide", use the recommended answer only when evidence supports it or it is safely labeled as an assumption.
+
+Run-local question format:
+
+```text
+question:
+recommended_answer:
+why_recommended:
+source_tag:
+consequence_if_chosen:
+consequence_if_not_chosen:
+write_target: Glossary | Decision Notes | Evidence And Assumptions | Outstanding Questions
+```
+
+This format is for asking the owner, not a third persistent field set. Persist the result into existing PRD-local sections. If it lands in `Decision Notes`, map it back to the existing fields: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`. Fold `why_recommended`, `consequence_if_chosen`, and `consequence_if_not_chosen` into `consequence` prose when useful. If it lands in `Glossary`, `Evidence And Assumptions`, or `Outstanding Questions`, compress it into that section's existing fields and do not add new fields. Do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` by default.
 
 ## Decision Notes
 

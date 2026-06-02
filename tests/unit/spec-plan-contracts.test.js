@@ -148,6 +148,21 @@ describe('spec-plan context orientation contract', () => {
     expect(text).not.toContain('must use `docs/adr/`');
   });
 
+  test('prd-grade handoff entropy check routes unresolved WHAT gaps back to PRD', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('PRD handoff entropy check');
+    expect(text).toContain('canonical term');
+    expect(text).toContain('source-of-truth');
+    expect(text).toContain('domain ownership');
+    expect(text).toContain('hard decision consequence');
+    expect(text).toContain('route to PRD refine or emit an inline PRD feedback candidate');
+    expect(text).toContain('do not run a separate grill workflow in `spec-plan`');
+    expect(text).toContain('do not copy the full `spec-prd` readiness lens');
+    expect(text).toContain('do not auto-write back to the PRD');
+    expect(text).not.toContain('Domain Grill workflow');
+  });
+
   test('uses Direct Evidence Readiness without hidden evidence gates', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');

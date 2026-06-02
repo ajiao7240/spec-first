@@ -1,5 +1,6 @@
 ---
 title: GitNexus vs CodeGraph 对比选型
+lifecycle: historical-input
 date: 2026-06-01
 author: reviewer
 status: research-decision

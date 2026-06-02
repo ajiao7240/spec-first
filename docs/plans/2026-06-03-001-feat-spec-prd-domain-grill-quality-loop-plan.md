@@ -2,7 +2,7 @@
 title: "feat: spec-prd Domain Grill 质量闭环技术方案"
 type: feat
 artifact_kind: implementation-plan
-status: active
+status: completed
 date: 2026-06-03
 spec_id: 2026-06-03-001-spec-prd-domain-grill
 origin: none

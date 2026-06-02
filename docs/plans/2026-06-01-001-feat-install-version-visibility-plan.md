@@ -1,7 +1,7 @@
 ---
 date: 2026-06-01
 spec_id: 2026-06-01-001-spec-first-install-version-visibility
-status: active
+status: completed
 plan_type: fix
 origin: docs/brainstorms/2026-06-01-001-spec-first-install-version-visibility-requirements.md
 ---

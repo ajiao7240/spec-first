@@ -1,5 +1,7 @@
 # 新增 Skill 接入通用指南
 
+> Lifecycle: historical-input. 本文是旧 skill 接入指南，只作为背景；当前 skill / workflow / dual-host governance 以 `AGENTS.md`、`docs/10-prompt/结构化项目角色契约.md`、`skills/`、`agents/`、`src/cli/contracts/dual-host-governance/skills-governance.json` 和 `docs/catalog/runtime-capabilities.md` 为准。
+
 ## 1. 文档目标
 
 本文档用于指导在当前 `spec-first` 仓库中新增一个 skill，并决定它应该如何接入整个工作流体系。
@@ -126,10 +128,10 @@ spec-first init --codex
 
 典型例子：
 
-- `spec-graph-bootstrap`
 - `spec-brainstorm`
 - `spec-plan`
 - `spec-code-review`
+- `spec-doc-review`
 
 接入方式：
 
@@ -200,22 +202,9 @@ description: ...
 - 能力型 skill：`name == 目录名`
 - 主流程 workflow：遵循现有 `*-workflow` 家族命名
 
-### 5.3 特例：显式 user-invocable 的 workflow
+### 5.3 特例：显式公开入口的 workflow
 
-例如：
-
-- `skills/spec-graph-bootstrap/SKILL.md`
-
-它直接使用：
-
-```md
----
-name: spec-graph-bootstrap
-user-invocable: true
----
-```
-
-这适用于明确要作为平台显式入口暴露的 workflow。除非你要做的是新的主入口阶段，否则不要默认使用这一模式。
+公开入口必须同时在 source skill、Claude command template 和 dual-host governance 中成立。不要仅凭某个 `SKILL.md` frontmatter 判断它已经是当前用户入口；以 `docs/catalog/runtime-capabilities.md` 生成结果和 `src/cli/contracts/dual-host-governance/skills-governance.json` 为准。
 
 ## 6. 新增 Skill 的标准接入步骤
 

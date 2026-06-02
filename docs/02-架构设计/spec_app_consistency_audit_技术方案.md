@@ -1,6 +1,7 @@
 ---
 title: "spec-app-consistency-audit 技术方案"
 spec_id: "2026-05-01-001-spec-app-consistency-audit"
+lifecycle: historical-input
 ---
 
 # spec-app-consistency-audit 技术方案

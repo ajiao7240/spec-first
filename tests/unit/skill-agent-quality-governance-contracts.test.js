@@ -6,9 +6,23 @@ const path = require('node:path');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const CONTRACT_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'workflows', 'skill-agent-quality-governance.md');
 const DOCS_README_PATH = path.join(REPO_ROOT, 'docs', 'README.md');
+const SOURCE_ROOTS = ['skills', 'agents'];
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
+}
+
+function walkPromptFiles(dir) {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...walkPromptFiles(full));
+    } else if (/\.(md|yaml|yml|json)$/.test(entry.name)) {
+      out.push(full);
+    }
+  }
+  return out;
 }
 
 describe('skill/agent quality governance thin contract', () => {
@@ -43,5 +57,33 @@ describe('skill/agent quality governance thin contract', () => {
 
     expect(readme).toContain('docs/contracts/workflows/skill-agent-quality-governance.md');
     expect(readme).toContain('skill / agent 质量治理的薄契约、执行边界语言和例外说明');
+  });
+
+  test('source skills and agents do not hard-code the current year or current date', () => {
+    const bannedPatterns = [
+      /(?:note:\s*)?the current year is 20\d{2}/i,
+      /current year is 20\d{2}/i,
+      /current date is 20\d{2}[-/]\d{1,2}[-/]\d{1,2}/i,
+      /today is 20\d{2}[-/]\d{1,2}[-/]\d{1,2}/i,
+      /当前年份[^。\n]*20\d{2}/,
+      /当前日期[^。\n]*20\d{2}/,
+      /今天是[^。\n]*20\d{2}/,
+      /今年是[^。\n]*20\d{2}/,
+    ];
+    const violations = [];
+
+    for (const root of SOURCE_ROOTS) {
+      for (const file of walkPromptFiles(path.join(REPO_ROOT, root))) {
+        const relativePath = path.relative(REPO_ROOT, file);
+        const content = read(file);
+        bannedPatterns.forEach((pattern) => {
+          if (pattern.test(content)) {
+            violations.push(`${relativePath} matches ${pattern}`);
+          }
+        });
+      }
+    }
+
+    expect(violations).toEqual([]);
   });
 });

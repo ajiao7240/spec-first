@@ -1,5 +1,7 @@
 # spec-graph-bootstrap 三类拓扑产物与 spec-plan Stage-0 消费对照说明
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 **说明日期**：2026-04-20  
 **适用范围**：`spec-graph-bootstrap`、`stage0-context`、`spec-plan`  
 **说明目标**：回答三类仓库形态下，最终产物目录如何落地，以及后续 `spec-plan` 实际先读哪些文件  

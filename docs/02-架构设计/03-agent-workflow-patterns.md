@@ -1,5 +1,7 @@
 # Agent Workflow Patterns
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 ## 概述
 
 这些模式不是 spec-graph-bootstrap 独有的实现细节，而是从它的执行方式里提炼出来的通用工作流规范。它们的价值在于把“默认会这么做”的经验写成可引用、可复用、可审查的规则。

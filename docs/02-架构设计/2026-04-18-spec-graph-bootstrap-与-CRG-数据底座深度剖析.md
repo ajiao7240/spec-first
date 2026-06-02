@@ -1,5 +1,7 @@
 # spec-graph-bootstrap 与 CRG 数据底座深度剖析
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 > 生成时间：2026-04-18
 > 范围：`skills/spec-graph-bootstrap/`（Skill 层）+ `src/crg/`（数据底座）+ `src/bootstrap-compiler/`（编译层）+ `src/context-routing/`（消费层）
 > 目的：系统化梳理 graph-informed Stage-0 的阶段合约、工具链、SQLite schema、降级链路、并行语义与铁律，作为后续工程演进与 Review 的基线。

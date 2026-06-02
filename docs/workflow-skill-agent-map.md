@@ -4,13 +4,13 @@
 ## 一、核心 Workflow 链路
 
 ```
-Codebase → Graph → Spec → Plan → Tasks → Code → Review → Knowledge
+Codebase → Context → Spec → Plan → Tasks → Code → Review → Knowledge
 ```
 
 | 链路节点 | 对应 Workflow | 说明 |
 |---------|-------------|------|
 | Codebase | `/spec:update`、`/spec:mcp-setup` | 建立运行时基线，修复 runtime drift |
-| Graph | `/spec:graph-bootstrap` | 编译图谱可读性事实，生成 graph-facts.json |
+| Context | direct source reads / `rg` / ast-grep / git diff / tests/logs | 为需求、计划、执行和审查准备可验证的源码与测试证据 |
 | Spec | `/spec:brainstorm`、`/spec:prd`、`/spec:ideate` | 需求探索与 PRD 产出 |
 | Plan | `/spec:plan` | 将需求转化为结构化实施计划 |
 | Tasks | `spec-write-tasks` | 将计划编译为可执行任务包（standalone） |
@@ -38,7 +38,6 @@ Codebase → Graph → Spec → Plan → Tasks → Code → Review → Knowledge
 | `/spec:sessions` | spec-sessions | 搜索并综合历史 coding agent 会话，回答关于过去工作的问题 | spec-session-historian |
 | `/spec:slack-research` | spec-slack-research | 搜索 Slack 组织上下文，返回经解读的 research digest | spec-slack-researcher |
 | `/spec:mcp-setup` | spec-mcp-setup | 安装、配置并验证 spec-first 工作流所需宿主运行时，建立就绪基线 | 无 |
-| `/spec:graph-bootstrap` | spec-graph-bootstrap | 编译项目图谱可读性事实，生成规范化 provider 状态与 graph-facts 产物 | 无 |
 | `/spec:update` | spec-update | 检查 CLI 版本是否最新，运行时资产过期时给出刷新建议 | 无 |
 | `/spec:skill-audit` | spec-skill-audit | 审计 skill 资产的源码质量、触发精度、边界契约与双宿主一致性 | 无 |
 | `/spec:app-consistency-audit` | spec-app-consistency-audit | 对移动 App 的 PRD、Figma、源码、路由、架构边界等做静态一致性审查 | 无（专家判断由 skill-local prompts 承载） |
@@ -104,7 +103,7 @@ Codebase → Graph → Spec → Plan → Tasks → Code → Review → Knowledge
 ## 四、备注
 
 - **spec-write-tasks 是 standalone skill**，不绑定特定 workflow 命令，作为 spec-plan 到 spec-work 之间的可选派生步骤独立存在；plan 始终是 single source of truth，task pack 是派生产物，不得反向扩展 plan 范围。
-- **spec-graph-bootstrap 计划在移除 GitNexus 专项中被删除**，当前功能依赖 GitNexus 作为 primary graph provider；移除后该 workflow 的 graph readiness 编译能力需由替代方案承接。
+- **代码上下文默认走 direct evidence**：普通 workflow 使用 bounded source reads、`rg`、ast-grep、git diff、tests/logs 和用户提供证据，不依赖外部图谱 readiness 入口。
 - **Agent 激活分为三类**：always-on（如 spec-correctness-reviewer、spec-coherence-reviewer）；条件激活（按 diff 内容、文档信号或技术栈决定）；opt-in（如 spec-slack-researcher，需用户明确请求）。
 - **dispatch 不可用时的降级行为**：spec-code-review 和 spec-doc-review 均定义了 dispatch 不可用时退化为单 agent 报告模式，不执行文档编辑或自动修复。
 - **spec-session-historian** 不由 spec-compound 直接 dispatch，而是通过 spec-sessions skill 间接调度（Phase 1 Session History Enrichment）。

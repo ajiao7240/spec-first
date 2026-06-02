@@ -1,7 +1,7 @@
 ---
 title: "refactor: 彻底删除 GitNexus active integration"
 type: refactor
-status: active
+status: completed
 date: 2026-06-02
 spec_id: 2026-06-02-001-refactor-remove-gitnexus-integration
 origin: docs/brainstorms/2026-06-02-001-refactor-remove-gitnexus-integration-requirements.md
@@ -84,19 +84,31 @@ origin PRD 明确要求“彻底删除 GitNexus，从安装流程、使用流程
 
 ---
 
-## Graph Readiness
+## Direct Evidence Readiness
 
 - target_repo: spec-first
-- status: unavailable
+- evidence_sources: [direct source reads, rg, ast-grep, git diff, tests/logs, user-provided evidence]
+- source_refs:
+  - `docs/brainstorms/2026-06-02-001-refactor-remove-gitnexus-integration-requirements.md`
+  - `docs/10-prompt/结构化项目角色契约.md`
+  - active source/docs/test/package inventory listed below
 - source_revision: unavailable
 - current_revision: unavailable
-- stale: not-applicable
-- primary_providers: none
-- degraded_providers: none
-- fallback_capabilities: bounded direct source reads, `rg`, ast-grep, git diff, tests/logs, user-provided evidence
-- runtime_mcp_evidence: unavailable
+- worktree_status: dirty at planning/review time; execution must re-check before edits
 - confidence: confirmed-source for direct reads; no graph evidence used
-- limitations: `.spec-first/graph/graph-facts.json` is absent in this checkout, and the plan target is to retire graph readiness artifacts rather than consume them
+- limitations: no graph readiness artifacts are consumed; this plan retires graph readiness surfaces and uses direct source/test/package evidence only
+
+---
+
+## Direct Evidence
+
+- repo_scope: `/Users/kuang/xiaobu/spec-first`
+- source_reads_completed: role contract, origin PRD, existing plan, active source/docs/test/package GitNexus inventory
+- source_reads_required: current source reads during each implementation unit before editing
+- commands_or_tools_used: `rg`, `sed`, `git status`, package/test manifest inspection
+- impact_on_plan: implementation must delete active producers and consumers, then prove absence across source, package, generated runtime, release install, and current docs
+- key_findings: `spec-graph-bootstrap` and review-pre-facts are GitNexus-only active surfaces; no provider-neutral replacement is in scope
+- limitations: historical docs may retain GitNexus mentions only when explicitly archived and not linked as current guidance
 
 ---
 
@@ -107,7 +119,7 @@ origin PRD 明确要求“彻底删除 GitNexus，从安装流程、使用流程
 - `docs/10-prompt/结构化项目角色契约.md`: confirms this is a large source/runtime/workflow governance change and must prefer light contracts, explicit boundaries, and scripts-prepare/LLM-decides separation.
 - `docs/brainstorms/2026-06-02-001-refactor-remove-gitnexus-integration-requirements.md`: primary WHAT source, including R-01 through R-16 and AE-01 through AE-13.
 - Existing plan at `docs/plans/2026-06-02-001-refactor-remove-gitnexus-integration-plan.md`: superseded in content because it retained stale graph-bootstrap and graph readiness assumptions.
-- Direct `rg` inventory over active roots: confirmed references in `src/cli`, `skills`, `templates`, `tests`, `scripts`, `.github`, `README.md`, `README.zh-CN.md`, `AGENTS.md`, `CLAUDE.md`, `docs/contracts`, `docs/05-用户手册`, `package.json`, and `.gitignore`.
+- Direct `rg` inventory over active roots: confirmed references in `src/cli`, `skills`, `templates`, `tests`, `scripts`, `.github`, `README.md`, `README.zh-CN.md`, `AGENTS.md`, `CLAUDE.md`, `docs/contracts`, `docs/05-用户手册`, `docs/README.md`, `docs/catalog/runtime-capabilities.md`, `docs/workflow-skill-agent-map.md`, `package.json`, `bin/`, and `.gitignore`. Broader historical docs under `docs/00-版本路线/`, `docs/02-架构设计/`, `docs/03-实施方案/`, and `docs/项目介绍/` must either be explicitly archived/retired or cleaned before they are linked as current guidance.
 
 ### Active Surface Inventory
 
@@ -181,21 +193,26 @@ The replacement context path is not a new provider contract. It is a workflow po
 
 **Approach:**
 
-- Define active roots for the guard: `AGENTS.md`, `CLAUDE.md`, `README.md`, `README.zh-CN.md`, `package.json`, `.gitignore`, `src/`, `skills/`, `agents/`, `templates/`, `tests/`, `scripts/`, `.github/`, `docs/contracts/`, and active `docs/05-用户手册/`.
+- Define active roots for the guard: `AGENTS.md`, `CLAUDE.md`, `README.md`, `README.zh-CN.md`, `package.json`, `.gitignore`, `bin/`, `src/`, `skills/`, `agents/`, `templates/`, `tests/`, `scripts/`, `.github/`, `docs/contracts/`, active `docs/05-用户手册/`, `docs/README.md`, `docs/catalog/runtime-capabilities.md`, and `docs/workflow-skill-agent-map.md`.
+- Treat broader docs that can act as current navigation or source-of-truth (`docs/00-版本路线/`, `docs/02-架构设计/`, `docs/03-实施方案/`, `docs/项目介绍/`) as active unless each matching file is explicitly classified as archived/retired.
 - Match terms case-insensitively: `gitnexus`, `git-nexus`, `graph-bootstrap`, `review-pre-facts`, `Graph / GitNexus Evidence`, `workspace-gitnexus`, `graph-facts`, `provider-status`, and `bootstrap-impact`.
-- Allow only current removal artifacts and explicitly archived historical docs outside active roots: origin PRD, this plan, `CHANGELOG.md`, and docs marked as retired/archive where they are not linked as current user guidance.
+- Allow only current removal artifacts and explicitly archived historical docs outside active roots: origin PRD, this plan, `CHANGELOG.md`, and docs with a deterministic archive signal where they are not linked as current user guidance.
+- Define the archive signal before broad cleanup: either an explicit path allowlist or a frontmatter/lifecycle marker such as `historical-input`, `external-reference`, `archive`, or `retired`. Add a link/navigation check so active README, user manual, contracts, catalog, package docs, and workflow maps do not present archived GitNexus pages as current setup or usage guidance.
 - Update quality gate path filters that currently reference `skills/spec-graph-bootstrap/**`, `src/cli/helpers/review-pre-facts/**`, or `tests/unit/spec-graph-bootstrap-contracts.test.js`.
+- In U1, add the residual guard helper/policy and focused synthetic tests only. Do not wire the broad active-source guard into the normal unit/quality-gate path until U8, after U2 through U7 remove the known active references.
 
 **Test scenarios:**
 
 - Happy path: active roots with no GitNexus terms pass.
 - Error path: a synthetic active file containing `$spec-graph-bootstrap` fails the residual guard.
 - Edge case: origin PRD and this plan are allowed while active docs are not.
+- Edge case: an explicitly archived historical doc passes only when it carries the chosen archive signal and is not linked as current guidance.
+- Error path: a non-archived doc outside the narrow active roots fails if it contains current GitNexus guidance.
 
 **Verification:**
 
-- Focused existing unit suites that cover active surface residue, package/tarball contents, and quality-gate path filters pass under the repo's existing Jest/shell test style.
-- The residual guard is included in the normal unit/quality gate path.
+- Focused existing unit suites that cover residual guard helper behavior, synthetic active-file failure, archive allowlist behavior, package/tarball contents, and quality-gate path filters pass under the repo's existing Jest/shell test style.
+- The residual guard is not included in the normal unit/quality gate path until U8 wires it after active references have been removed.
 
 ---
 
@@ -397,7 +414,6 @@ The replacement context path is not a new provider contract. It is a workflow po
 
 **Files:**
 
-- Modify: `skills/spec-mcp-setup/SKILL.md`
 - Modify: `skills/using-spec-first/SKILL.md`
 - Modify: `skills/spec-plan/SKILL.md`
 - Modify: `skills/spec-code-review/SKILL.md`
@@ -407,6 +423,7 @@ The replacement context path is not a new provider contract. It is a workflow po
 - Modify: `skills/spec-brainstorm/SKILL.md`
 - Modify: `skills/spec-write-tasks/SKILL.md`
 - Modify: `skills/spec-work/references/shipping-workflow.md`
+- Check only after U2 owns the setup prose cleanup: `skills/spec-mcp-setup/SKILL.md`
 - Modify related workflow invariant fixtures and skill contract tests under `tests/unit/` and `tests/fixtures/workflow-invariants/`
 
 **Approach:**
@@ -416,6 +433,7 @@ The replacement context path is not a new provider contract. It is a workflow po
 - Delete `## Graph / GitNexus Evidence` block production/consumption from plan/work/debug/review paths.
 - Remove workspace-gitnexus routing and group-ready hints from `using-spec-first`; parent workspace still requires explicit target repo before writes.
 - Keep source/runtime governance, target repo discipline, reviewer dispatch boundaries, and direct evidence disclosure.
+- Do not re-own setup-specific prose in `skills/spec-mcp-setup/SKILL.md`; U2 owns that file's setup behavior and handoff text. U6 only scans it for cross-workflow consistency after U2.
 
 **Execution note:** Read each full `SKILL.md` before editing. These are semantic prose changes, so run fresh-source eval if the host can dispatch a fresh read-only reviewer; otherwise record why not.
 
@@ -514,6 +532,8 @@ The replacement context path is not a new provider contract. It is a workflow po
 - Remove GitNexus workspace/review-pre-facts fixtures from the package/test tree.
 - Invert tests that previously asserted GitNexus presence to assert absence in active source and generated outputs.
 - Update release continuity guards so deleted GitNexus contract files are not required package contents.
+- Wire the broad residual guard into the normal unit/quality-gate path only here, after U2 through U7 have removed active references.
+- Run `npm run docs:runtime-catalog` after governance/source delivery edits and assert `docs/catalog/runtime-capabilities.md` has no GitNexus, graph-bootstrap, review-pre-facts, or graph readiness rows.
 - Keep general evidence, source/runtime, and review-finding tests; only delete GitNexus-specific implementation expectations.
 
 **Test scenarios:**
@@ -522,6 +542,7 @@ The replacement context path is not a new provider contract. It is a workflow po
 - Happy path: unit tests fail if active source reintroduces `$spec-graph-bootstrap`.
 - Happy path: `npm test` no longer tries to run graph-provider e2e.
 - Edge case: `CHANGELOG.md`, origin PRD, and this plan are not rejected by residual tests.
+- Happy path: package manifest and runtime catalog checks include `bin/` and `docs/catalog/runtime-capabilities.md`.
 
 **Verification:**
 
@@ -529,6 +550,7 @@ The replacement context path is not a new provider contract. It is a workflow po
 - `npm run test:unit`
 - `npm run test:smoke`
 - `npm run build`
+- `npm run test:release:install` or `npm run test:release`
 - Prefer `npm test` once the suite no longer contains GitNexus graph-provider e2e.
 
 ---
@@ -558,15 +580,20 @@ The replacement context path is not a new provider contract. It is a workflow po
 **Test scenarios:**
 
 - Happy path: `.agents/skills/spec-graph-bootstrap/` is not generated.
+- Happy path: `.claude/spec-first/workflows/spec-graph-bootstrap/` is not generated.
 - Happy path: `.claude/commands/spec/graph-bootstrap.md` is not generated.
 - Happy path: generated `AGENTS.md` / `CLAUDE.md` mirrors have no `<!-- gitnexus:start -->`.
 - Edge case: old ignored residue does not affect `doctor`, `init`, or workflow routing.
+- Edge case: stale generated `spec-graph-bootstrap` mirrors are pruned by source-owned init behavior, not hand-edited.
 
 **Verification:**
 
 - `spec-first init`
 - `spec-first doctor --claude`
 - `spec-first doctor --codex`
+- `test ! -e .claude/spec-first/workflows/spec-graph-bootstrap`
+- `test ! -e .claude/commands/spec/graph-bootstrap.md`
+- `test ! -e .agents/skills/spec-graph-bootstrap`
 - Residual scan over source and generated runtime mirrors passes, with generated mirrors checked only after regeneration.
 
 ---
@@ -610,6 +637,7 @@ Full validation before handoff:
 - `npm run test:unit`
 - `npm run test:smoke`
 - `npm run build`
+- `npm run test:release:install` or `npm run test:release`
 - Prefer `npm test` after graph-provider e2e has been removed from the main test chain.
 - `spec-first init`
 - `spec-first doctor --claude`
@@ -619,10 +647,12 @@ Full validation before handoff:
 ```bash
 rg -n -i "gitnexus|git-nexus|graph-bootstrap|review-pre-facts|Graph / GitNexus Evidence|workspace-gitnexus|graph-facts|provider-status|bootstrap-impact" \
   AGENTS.md CLAUDE.md README.md README.zh-CN.md package.json .gitignore \
-  src skills agents templates tests scripts .github docs/contracts docs/05-用户手册
+  bin src skills agents templates tests scripts .github \
+  docs/contracts docs/05-用户手册 docs/README.md docs/catalog/runtime-capabilities.md docs/workflow-skill-agent-map.md \
+  docs/00-版本路线 docs/02-架构设计 docs/03-实施方案 docs/项目介绍
 ```
 
-The scan should have no active-source matches. Allowed matches belong only to the current removal PRD, this plan, `CHANGELOG.md`, or explicitly archived historical documents outside active roots.
+The scan should have no active-source matches. Allowed matches belong only to the current removal PRD, this plan, `CHANGELOG.md`, or documents that match the deterministic archive rule and are not linked as current setup or usage guidance.
 
 ---
 
@@ -637,15 +667,15 @@ The scan should have no active-source matches. Allowed matches belong only to th
 
 ## Readiness And Handoff
 
-Plan status: ready for `$spec-work`.
+Plan status: completed.
 
-Recommended execution order:
+Completion evidence:
 
-1. U1 establishes the guard.
-2. U2, U3, U4, and U5 remove producers and public command surfaces.
-3. U6 and U7 update consumers and current documentation.
-4. U8 rewrites tests/package/CI to assert absence.
-5. U9 regenerates runtime and performs final residual validation.
+- Active source/docs residual scan returned no GitNexus / graph-bootstrap / review-pre-facts matches in current runtime-facing surfaces.
+- Historical docs that still contain retired graph terms now carry lifecycle/archive markers and are not current setup or usage guidance.
+- Generated runtime mirrors were scanned for retired GitNexus / graph-bootstrap terms after source cleanup and returned no matches.
+- `npm run typecheck`, `npm run test:unit`, `npm run test:release`, and `npm run build` passed.
+- `spec-first doctor --claude` and `spec-first doctor --codex` exited successfully; remaining drift warnings are unrelated spec-plan/spec-prd runtime mismatch warnings from concurrent source changes, not GitNexus residue.
 
 Do not start implementation by deleting generated runtime mirrors. Source changes must come first; generated runtime is only proof after `spec-first init`.
 

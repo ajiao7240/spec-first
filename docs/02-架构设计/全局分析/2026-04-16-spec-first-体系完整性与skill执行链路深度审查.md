@@ -1,5 +1,7 @@
 # spec-first 体系完整性与 skill 执行链路深度审查
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 日期：2026-04-16  
 审查口径：仅依据当前工作树中的代码与技能文档，不依据主观印象，不把设计意图等同于已落地实现。
 

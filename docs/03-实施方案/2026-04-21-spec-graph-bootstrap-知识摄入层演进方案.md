@@ -1,5 +1,7 @@
 # spec-graph-bootstrap 知识摄入层演进方案
 
+> Lifecycle: historical-input / external-reference. 本文保留旧架构、方案、迁移或研究记录；当前 source of truth 以 `docs/README.md`、根目录 README、`docs/05-用户手册/`、`docs/contracts/`、`skills/`、`src/cli/` 和 `CHANGELOG.md` 为准。
+
 > 来源：基于业界借鉴文章《Kreuzberg + Tree-sitter + LSP 三层工程智能架构》的技术洞察，结合顶尖软件工程审查 + AI Coding Workflow 架构 + Specification Engineering 三层视角，对 `spec-graph-bootstrap` 的架构缺口与演进路径做出系统性分析。
 >
 > 核心命题：spec-graph-bootstrap 当前只有"结构层"和"语义层"，**完全缺少"摄入层"**。从"工具降级链"演进为"双轴并行萃取 + 合并"，是下一阶段最高价值比的架构方向。
