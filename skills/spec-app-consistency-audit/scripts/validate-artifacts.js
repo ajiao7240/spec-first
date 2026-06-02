@@ -20,7 +20,7 @@ const TRACEABLE_EVIDENCE_FIELDS = ['file', 'path', 'artifact_id', 'node_id', 'ro
 const PUBLIC_PLACEHOLDER_PATTERN = /^<[A-Za-z0-9._:-]+>$/;
 const FIGMA_REFERENCE_PATH_PATTERN = /^figma-(?:ref|node|file):[a-f0-9]{12}$/;
 const SECRET_PATH_PATTERN = /(?:^|\/)(?:\.env(?:\.|$)|\.npmrc$|\.pypirc$|\.netrc$|\.git-credentials$|.*(?:token|secret|credentials|password|apikey|api_key).*|.*\.(?:pem|key|p12|pfx|keystore|kdbx|mobileprovision|cer)$)/i;
-const GENERATED_OR_CONTROL_PATH_PATTERN = /^(?:\.git(?:\/|$)|\.spec-first\/|\.claude\/|\.codex\/|\.agents\/|\.gitnexus(?:\/|$)|\.code-review-graph(?:\/|$))/;
+const GENERATED_OR_CONTROL_PATH_PATTERN = /^(?:\.git(?:\/|$)|\.spec-first\/|\.claude\/|\.codex\/|\.agents\/)/;
 
 function validateArtifact(artifact, options = {}) {
   const errors = [];

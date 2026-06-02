@@ -1,6 +1,6 @@
 # Parent Artifact Quarantine Contract
 
-`parent-artifact-quarantine.v1` is a setup-owned advisory artifact for parent multi-repo workspaces. It marks repo-local graph/setup/index artifacts that exist at the parent workspace root, where downstream workflows could otherwise mistake them for current child-repo truth.
+`parent-artifact-quarantine.v1` is a setup-owned advisory artifact for parent multi-repo workspaces. It marks repo-local setup artifacts that exist at the parent workspace root, where downstream workflows could otherwise mistake them for current child-repo truth.
 
 ## Producer
 
@@ -29,9 +29,9 @@ The producer may write an empty `quarantined_paths[]` list when a parent workspa
   ],
   "quarantined_paths": [
     {
-      "path": ".spec-first/graph/graph-facts.json",
-      "reason_code": "parent-workspace-must-not-have-repo-local-graph",
-      "stale_indicator": "parent-workspace-repo-local-artifact-present",
+      "path": ".spec-first/config/tool-facts.json",
+      "reason_code": "parent-workspace-must-not-have-repo-local-setup-artifact",
+      "stale_indicator": "parent-workspace-repo-local-setup-artifact-present",
       "last_generated_at": "2026-05-28T00:00:00Z",
       "fingerprint_origin": "/path/to/child-or-foreign-repo"
     }
@@ -43,19 +43,17 @@ The producer may write an empty `quarantined_paths[]` list when a parent workspa
 
 ## Reason Codes
 
-- `parent-workspace-must-not-have-repo-local-graph`: parent root contains repo-local graph/setup facts.
-- `parent-workspace-must-not-have-graph-index`: parent root contains a GitNexus index directory.
 - `foreign-absolute-path-stat-failed`: an embedded absolute path no longer exists and does not live under the current user home.
-- `retired-provider-residue`: retired provider residue exists under the parent workspace.
-- `repo_root-mismatches-workspace-root`: an embedded `repo_root` / provider index path points somewhere other than the parent workspace root.
+- `parent-workspace-must-not-have-repo-local-setup-artifact`: repo-local setup facts exist under a parent workspace.
+- `repo_root-mismatches-workspace-root`: an embedded `repo_root` path points somewhere other than the parent workspace root.
 
 ## Consumers
 
 `spec-first clean --workspace-orphans` is preview-first. Without `--confirm`, it lists `quarantined_paths[]` and must not delete files. `spec-first clean --workspace-orphans --confirm` is the explicit deletion mode for supported workspace orphan targets; it prints the same preview before deleting existing quarantined paths.
 
-Cleanup consumers must reject absolute paths, parent traversal, backslashes, symlink escapes, and paths outside the supported parent-orphan surface (`.spec-first/graph/**`, `.spec-first/impact/**`, selected `.spec-first/config/*.json`, selected `.spec-first/providers/**`, and `.gitnexus/**`). The quarantine artifact is advisory evidence; successful deletion is proven by the cleanup command result and filesystem state, not by the artifact itself.
+Cleanup consumers must reject absolute paths, parent traversal, backslashes, symlink escapes, and paths outside the supported parent-orphan surface (selected `.spec-first/config/*.json`). The quarantine artifact is advisory evidence; successful deletion is proven by the cleanup command result and filesystem state, not by the artifact itself.
 
-LLM workflows may use the artifact as degraded-evidence context when deciding whether parent workspace graph/config facts are trustworthy. They must not treat quarantine as confirmed deletion truth or as child repo readiness truth.
+LLM workflows may use the artifact as degraded-evidence context when deciding whether parent workspace config facts are trustworthy. They must not treat quarantine as confirmed deletion truth or as child repo readiness truth.
 
 ## Failure Mode
 

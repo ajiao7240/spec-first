@@ -38,6 +38,10 @@ Include these when they reduce planning invention:
 
 - `## Problem Frame`
 - `## Current System Snapshot`
+- `## Change Topology`
+- `## Surface Map`
+- `## Source-Of-Truth Resolution`
+- `## Negative Acceptance`
 - `## Goals / Success Metrics`
 - `## Glossary`
 - `## Decision Notes`
@@ -58,6 +62,39 @@ Use brownfield increment examples, not 0-1 expansion examples:
 - vague original -> improved concrete wording -> reason
 - replace "等", "相关", "合适的", "更好", and "优化体验" with observable scope, state, quantity, trigger, or acceptance
 - product constraints are allowed; implementation units, schemas, exact API fields, database tables, and task breakdown are not
+- run the Framing Gate and Evidence Plan from `change-topology-lens.md` when the input signals removal, migration, workflow/contract change, source-of-truth movement, generated/runtime mirrors, package/docs/test cleanup, or cross-surface scope
+- do not print the run-local Framing Gate by default; promote only the parts that reduce planning invention into Current System Snapshot, Change Topology, Surface Map, Source-Of-Truth Resolution, Negative Acceptance, Evidence And Assumptions, or Outstanding Questions
+
+For medium, large, mixed-surface, workflow, contract, migration, replace, or remove changes, include topology-driven sections only as needed:
+
+````markdown
+## Change Topology
+
+Primary topology: add | extend | replace | remove | migrate | split | merge | policy-change | workflow-change | contract-change
+
+Why this topology matters:
+
+## Surface Map
+
+| surface | current behavior | owner/source | artifact/contract | consumer | delta | evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+
+## Source-Of-Truth Resolution
+
+| item | current source-of-truth | target source-of-truth | generated mirrors / non-authoritative refs | conflict rule |
+| --- | --- | --- | --- | --- |
+
+## Negative Acceptance
+
+```text
+NA-01
+Given <current or future state>
+When <implementation or workflow runs>
+Then <must not happen>
+```
+````
+
+These sections are not implementation planning. They define WHAT boundaries so planning does not invent affected surfaces, consumers, or source-of-truth decisions.
 
 ## Stable Trace Rules
 

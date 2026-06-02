@@ -48,7 +48,7 @@
 
 ## Runtime Artifact Policy
 
-`.spec-first/graph/**`、`.spec-first/providers/**`、`.spec-first/impact/**`、`.spec-first/workspace/**`、`.spec-first/app-audit/**` 和 `.spec-first/workflows/**` 默认也不是普通 source context。下游 workflow 应优先读取该目录下的 canonical summary、readiness facts、validated contract 或明确路径，而不是扫描整棵 `.spec-first/**`。
+`.spec-first/workspace/**`、`.spec-first/app-audit/**` 和 `.spec-first/workflows/**` 默认也不是普通 source context。下游 workflow 应优先读取该目录下的 canonical summary、validated contract 或明确路径，而不是扫描整棵 `.spec-first/**`。
 
 `summary-first` 规则：
 
@@ -57,7 +57,7 @@
 3. 不把 raw logs、大 JSON、旧 audit snapshots 或 generated mirrors 广播给 reviewer / worker。
 4. 如果因为预算或边界排除 context，应在输出或 coverage 中说明 excluded path 和 reason_code。
 
-GitNexus live MCP results、`review-pre-facts` raw results 和 `gitnexus-session-evidence.v1` summaries 遵循同一规则：只传 compact facts、source-read requirements、limitations 和 temp artifact paths；不得把 raw MCP dumps 或完整 provider output 广播进普通 prompt bundle。
+External-tool results and session summaries follow the same rule: pass only compact facts, source-read requirements, limitations, and precise artifact paths; do not broadcast raw MCP dumps or full external-tool output into ordinary prompt bundles.
 
 ## Cache-Friendly Prompt Layout
 
@@ -77,7 +77,6 @@ GitNexus live MCP results、`review-pre-facts` raw results 和 `gitnexus-session
 | workflow / task | allowed scope |
 | --- | --- |
 | `spec-update` / `spec-mcp-setup` | runtime delivery、host setup、drift repair 所需的 host runtime paths |
-| `spec-graph-bootstrap` | `.spec-first/graph/**`、`.spec-first/providers/**`、`.spec-first/impact/**` 的 readiness / provider evidence |
 | `spec-skill-audit` | `.spec-first/audits/skill-audit/**` 的本轮 summary、scorecard、runtime-drift evidence |
 | `spec-app-consistency-audit` | `.spec-first/app-audit/**` 的 run-scoped evidence |
 | changelog author resolution | 读取全局 developer profile：`~/.spec-first/.developer`，只用于 `CHANGELOG.md` 作者字段，不纳入 broad context bundle |
@@ -91,7 +90,7 @@ GitNexus live MCP results、`review-pre-facts` raw results 和 `gitnexus-session
 
 1. 用户请求、diff、changed files、计划/需求/task-pack summary。
 2. source-of-truth files 和 nearby implementation/test slices。
-3. canonical readiness / review facts 的 summary 或 validated contract。
+3. validated summaries, review facts, or deterministic setup facts.
 4. 精确路径的 full artifact 或 raw evidence，仅当用户要求、workflow 明确需要，或 summary 显示证据不足。
 
 禁止把 `.spec-first/audits/**`、`.claude/**`、`.codex/**`、`.agents/skills/**` 纳入默认 `rg --files` / file-search / agent prompt bundle 的普通候选集。

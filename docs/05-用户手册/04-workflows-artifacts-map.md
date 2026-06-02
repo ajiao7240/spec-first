@@ -2,21 +2,18 @@
 
 本文说明当前 `spec-first` 会写入哪些 project-local runtime/control-plane 产物、它们由谁生成、后续如何被使用，以及哪些目录不应提交到 Git。
 
-当前版本的图相关产物是 **external graph-provider readiness facts**，不是内置代码图库。App consistency audit、skill audit 和 quality gate 等目录也是可重建的执行产物。脚本负责写入确定性事实，LLM 根据这些事实判断下一步是否使用 GitNexus、bounded direct repo reads 或专项审查报告。
+当前版本不再生成当前能力用的图谱 readiness 产物。App consistency audit、skill audit 和 quality gate 等目录是可重建的执行产物。脚本负责写入确定性事实，LLM 根据这些事实判断下一步是否使用 bounded direct source reads、`rg`、ast-grep、git diff、tests/logs、用户证据或专项审查报告。
 
 ## 总览
 
 | 目录 | 写入阶段 | 触发方式 | 主要作用 | 主要产物 |
 | --- | --- | --- | --- | --- |
-| `.spec-first/config/` | `spec-mcp-setup` setup facts 阶段 | `/spec:mcp-setup` 或 `$spec-mcp-setup` | 记录 host baseline、graph provider 配置、setup-inferred GitNexus capability discovery、candidate tools/resources、fallback 能力和 artifact path contract；不是 query-ready graph evidence 或 live MCP proof | `runtime-capabilities.json`、`graph-providers.json`、`provider-artifacts.json` |
-| `.spec-first/providers/<provider>/` | `spec-graph-bootstrap` provider evidence 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 保存 provider 原始日志、provider 状态和规范化能力事实 | `raw/*.log`、`status.json`、`normalized/*.json` |
-| `.spec-first/graph/` | `spec-graph-bootstrap` canonical graph readiness 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 提供下游 workflow 读取的 graph readiness 真相源与用户报告 | `provider-status.json`、`graph-facts.json`、`bootstrap-report.md` |
-| `.spec-first/impact/` | `spec-graph-bootstrap` capability envelope 阶段 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` | 表达 context selection、impact radius、review support 的 primary/fallback 支持情况 | `bootstrap-impact-capabilities.json` |
-| `.spec-first/workspace/` | parent workspace advisory 阶段 | 父 workspace 下的 `spec-mcp-setup`、`spec-graph-bootstrap`、read-only resolver 或 `spec-first clean --workspace-orphans` | 保存跨 child repo 候选、批量维护 summary、scenario fingerprint、parent orphan quarantine 和只读 graph target 建议 | `project-config-bootstrap-summary.json`、`mcp-setup-summary.json`、`mcp-verify-summary.json`、`scenario-fingerprint-setup.json`、`scenario-fingerprint.json`、`parent-artifact-quarantine.json`、`graph-bootstrap-summary.json`、`graph-targets.json` |
+| `.spec-first/config/` | `spec-mcp-setup` setup facts 阶段 | `/spec:mcp-setup` 或 `$spec-mcp-setup` | 记录 host baseline、required MCP/helper readiness、candidate tools/resources、fallback 能力和 artifact path contract；不是 query-ready direct evidence 或 live MCP proof | `runtime-capabilities.json` |
+| `.spec-first/workspace/` | parent workspace advisory 阶段 | 父 workspace 下的 `spec-mcp-setup`、read-only resolver 或 `spec-first clean --workspace-orphans` | 保存跨 child repo 候选、批量维护 summary、scenario fingerprint 和 parent orphan quarantine | `project-config-bootstrap-summary.json`、`mcp-setup-summary.json`、`mcp-verify-summary.json`、`scenario-fingerprint-setup.json`、`scenario-fingerprint.json`、`parent-artifact-quarantine.json` |
 | `.spec-first/audits/skill-audit/` | `spec-skill-audit` source skill audit 阶段 | `/spec:skill-audit`、`$spec-skill-audit` 或直接运行 `write-audit-artifacts.js` | 保存 source skill inventory、scorecard、安全/治理/runtime drift 信号和改进计划 | `latest/skill-audit-summary.md`、`latest/skill-improvement-plan.md`、`latest/*.json`、`latest/patch-preview/*` |
 | `.spec-first/app-audit/runs/<run-id>/` | `spec-app-consistency-audit` App 一致性审查阶段 | `/spec:app-consistency-audit` 或 `$spec-app-consistency-audit`；headless 自动化下亦可直接调用 `node skills/spec-app-consistency-audit/scripts/run-audit.js mode:headless base:<ref>` | 保存移动 App PRD / Figma / source / route / architecture / analytics / i18n 静态一致性审查证据；`issue_synthesis_status` 三态(`not_run` / `llm_provided` / `fixture_provided`)区分确定性 runner 产物与上游 LLM/fixture 注入的语义 issue；markdown 摘要由下游 Report Writer 产出，不由 runner 直接生成 | 由 runner 产出: `metadata.json`、`preflight.json`、`impact-facts.json`、`issues.json`、`audit-report.json`、`app-audit-context.json`、`merged-context.json`、`artifact-manifest.json`、`headless-envelope.txt`；由下游 Report Writer 产出: `app-consistency-audit.md`、`app-consistency-audit.summary.md` |
 | `.spec-first/workflows/verification/<slug>/` | verification evidence 阶段 | 上游 verification 流程写入，`doctor` 读取 | 作为验证证据投递目录 | `verification-evidence.json` |
-| `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/` | `spec-work` closeout evidence 阶段 | `$spec-work` closeout durable evidence trigger 适用时，由 source-owned producer 写入 | 保存本次 work 的 compact run evidence、验证摘要、source refs 和可选 `graph_evidence_used` session-local GitNexus evidence 摘要；`workflow_integrated=false` 仍表示完整 replay/retention lifecycle 未完成 | `run.json` |
+| `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/` | `spec-work` closeout evidence 阶段 | `$spec-work` closeout durable evidence trigger 适用时，由 source-owned producer 写入 | 保存本次 work 的 compact run evidence、验证摘要、source refs 和可选 `direct_evidence_used` session-local direct source evidence evidence 摘要；`workflow_integrated=false` 仍表示完整 replay/retention lifecycle 未完成 | `run.json` |
 | `.spec-first/workflows/quality-gates/ai-dev-quality-gate/` | AI Dev Quality Gate 阶段 | `npm run test:ai-dev:gate` | 记录质量门结果与失败主题，供后续诊断和知识沉淀 | `ai-dev-quality-gate-result.json`、`quality-feedback-topics.json`、JUnit 输出 |
 
 不在 `.spec-first/` 下、但容易被误解的临时 handoff：
@@ -32,7 +29,7 @@
 | `docs/ideation/*-ideation.md` | 主动想法探索与候选方向收敛 | `/spec:ideate` 或 `$spec-ideate` | 保存候选想法、批判、排序、被拒原因和进入 brainstorm 的 handoff；不是 requirements、plan 或代码 | 通常提交，作为后续 brainstorm/plan 的背景输入 |
 | `docs/brainstorms/*-requirements.md` | 需求成型 | `/spec:brainstorm` 或 `$spec-brainstorm` | 保存一个已选想法的问题框架、actors、flows、边界、非目标和验收样例 | 通常提交，作为 plan 的上游输入 |
 | `docs/brainstorms/*-requirements.md` | PRD-grade requirements | `/spec:prd` 或 `$spec-prd` | 保存已有系统增量的 current-state evidence、Change Delta、优先级、验收、Evidence And Assumptions；frontmatter 使用 `artifact_kind: prd-requirements`，仍不是 `docs/prds/` | 通常提交，作为 plan 的上游输入；也可先进入 doc review |
-| `docs/plans/*-plan.md` | 实施规划 | `/spec:plan` 或 `$spec-plan` | 保存实施单元、取舍、验证范围、风险、非目标，以及必要时紧邻 `Graph Readiness` 的 `Graph / GitNexus Evidence` posture | 通常提交，作为 work 或 write-tasks 的上游输入 |
+| `docs/plans/*-plan.md` | 实施规划 | `/spec:plan` 或 `$spec-plan` | 保存实施单元、取舍、验证范围、风险、非目标和证据限制 | 通常提交，作为 work 或 write-tasks 的上游输入 |
 | `docs/tasks/*-tasks.md` | 任务包派生 | standalone `write-tasks` skill | 保存从 plan 派生的 executable handoff、依赖、任务身份和 freshness contract | 视团队协作需要提交 |
 | `docs/solutions/**/*` | 知识沉淀 | `/spec:compound` 或 `$spec-compound` | 保存已解决问题的可复用工程经验 | 通常提交 |
 
@@ -42,17 +39,14 @@
 | --- | --- | --- |
 | `docs/ideation/` | 候选方向与想法排序 | `spec-brainstorm` 选择一个想法继续成型；维护者回看被拒绝方向与取舍理由 |
 | `docs/brainstorms/` | 需求成型 brief 与 PRD-grade requirements | `spec-plan`、doc review、后续维护者复核 scope、acceptance examples、Change Delta 和 evidence posture |
-| `docs/plans/` / `docs/tasks/` | 计划与可执行任务交接 | `spec-work`、standalone `write-tasks`、code/doc review；计划中的 `Graph / GitNexus Evidence` block 说明 `native_tool_or_resource`、`capability_status`、`evidence_grade`、`evidence_posture`、`freshness_state`、`source_tags` 和源码验证要求 |
+| `docs/plans/` / `docs/tasks/` | 计划与可执行任务交接 | `spec-work`、standalone `write-tasks`、code/doc review；计划中的 evidence posture 说明 direct source reads、验证命令、限制和源码验证要求 |
 | `docs/solutions/` | 可复用工程知识 | 后续 brainstorm/plan/work/debug/review 复用经验 |
-| `config/` | setup-owned machine facts | graph-bootstrap 前置校验、host readiness 指针、setup-inferred GitNexus availability/discovery facts、candidate `native_tools[]` / `native_resources[]`、fallback 能力判断 |
-| `providers/<provider>/` | provider-local evidence | 失败诊断、原始日志追踪、provider 规范化事实复核 |
-| `graph/` | canonical readiness facts | `spec-plan` 等下游 workflow 判断 graph facts 是否 primary、degraded、blocked 或 stale |
-| `impact/` | impact/review capability envelope | 下游 workflow 决定是否使用 provider 影响分析，或回退 bounded direct repo reads |
-| `workspace/` | parent workspace advisory summaries | 多仓父目录下展示 child repo readiness、scenario fingerprint、批量维护结果、parent orphan quarantine 和只读候选；不作为 repo-local truth |
+| `config/` | setup-owned machine facts | mcp-setup 前置校验、host readiness 指针、required helper readiness、candidate `native_tools[]` / `native_resources[]`、fallback 能力判断 |
+| `workspace/` | parent workspace advisory summaries | 多仓父目录下展示 child repo 候选、scenario fingerprint、批量维护结果和 parent orphan quarantine；不作为 repo-local truth |
 | `audits/skill-audit/` | skill audit execution artifacts | 维护者读取审计摘要、P0/P1 evidence、score signals 和改进计划 |
 | `app-audit/runs/` | App consistency audit execution artifacts | 评审者读取静态一致性报告、degraded modes、issues 和 runtime follow-up 建议 |
 | `verification/*` | 验证证据投递目录 | `doctor` 校验与汇总 |
-| `workflows/spec-work/*` | Work run evidence | 后续 `spec-code-review` 可通过 source-owned reader best-effort 读取 `graph_evidence_used`；缺失、not-readable 或 scope mismatch 时只在 Coverage 记录 unavailable/stale |
+| `workflows/spec-work/*` | Work run evidence | 后续 `spec-code-review` 可通过 source-owned reader best-effort 读取 `direct_evidence_used`；缺失、not-readable 或 scope mismatch 时只在 Coverage 记录 unavailable/stale |
 | `quality-gates/*` | 质量门机器结果 | gate 结果留痕与失败主题沉淀 |
 | `<os-temp>/spec-first/spec-code-review/*` | Code review 临时 handoff | 当前 run 的 reviewer/orchestrator 协调，不作为 repo-local durable artifact |
 
@@ -60,16 +54,13 @@
 
 | 产物目录 | 主要读取方 | 读取发生阶段 | 读取目的 |
 | --- | --- | --- | --- |
-| `config/` | `skills/spec-graph-bootstrap/scripts/bootstrap-providers.*`、`spec-plan` | graph-bootstrap preflight / Plan availability selection | 校验 baseline、provider command arrays、artifact path contract、setup-inferred GitNexus native capability discovery 和 fallback 能力；不把 discovery facts 当 query-ready evidence |
-| `providers/<provider>/` | graph-bootstrap 报告、维护者排障 | bootstrap 后诊断 | 查看 provider 原始输出和规范化结果 |
-| `graph/` | `spec-plan`，后续 graph-aware workflow | plan / work / review 前置判断 | 判断 graph readiness、provider 覆盖、confidence、limitations 与 staleness；`spec-plan` 可把这些 facts 派生为 Plan-local GitNexus evidence posture，但不写回 readiness artifacts |
-| `impact/` | `spec-plan`，后续 impact-aware workflow | plan / work / review 前置判断 | 判断 impact radius、review support 与 context selection 是否有可信 provider 支持 |
-| `workspace/` | 父 workspace 下的 LLM workflow、维护者 | workspace 只读定位或批量维护后 | 查看 child repo 候选、per-child readiness 和 next action；不替代 child repo canonical artifacts |
+| `config/` | `spec-mcp-setup`、`doctor`、相关 workflow | mcp-setup preflight / host readiness selection | 校验 baseline、required helper readiness、artifact path contract 和 fallback 能力；不把 discovery facts 当 query-ready evidence |
+| `workspace/` | 父 workspace 下的 LLM workflow、维护者 | workspace 只读定位或批量维护后 | 查看 child repo 候选、per-child setup summary 和 next action；不替代 child repo source truth |
 | `audits/skill-audit` | 维护者、`spec-skill-audit` 后续 LLM 审查 | skill 审计后 | 查看 deterministic facts、score signals、P0/P1 evidence 和 patch preview 建议 |
 | `app-audit/runs/<run-id>` | 评审者、`spec-code-review` headless 调用、后续 QA / runtime validation | App 一致性审查后 | 查看 PRD/Figma/source 一致性问题、证据链、降级范围和运行时验证建议 |
 | `verification/<slug>` | `src/cli/commands/doctor.js` | `doctor` 检查阶段 | 校验 verification evidence 是否存在、有效、足够新 |
 | `quality-gates/ai-dev-quality-gate` | `scripts/run-ai-dev-quality-gate.js`、`src/verification/quality-feedback.js` | AI gate 执行后 | 记录 gate 结果并提取失败主题 |
-| `workflows/spec-work/<workspace-slug>/<run-id>` | `spec-code-review`、shipping handoff、维护者 | work closeout 后 | 读取 compact work evidence、验证摘要和可选 `graph_evidence_used`；不得把 run artifact 当作 source scope authority |
+| `workflows/spec-work/<workspace-slug>/<run-id>` | `spec-code-review`、shipping handoff、维护者 | work closeout 后 | 读取 compact work evidence、验证摘要和可选 `direct_evidence_used`；不得把 run artifact 当作 source scope authority |
 
 ## 1. config/
 
@@ -78,27 +69,25 @@
 | 阶段 | Required Harness Runtime setup facts |
 | 触发 | `/spec:mcp-setup` 或 `$spec-mcp-setup` |
 | 目录形状 | `.spec-first/config/` |
-| 关键源码 | `skills/spec-mcp-setup/scripts/write-provider-config.*`、`skills/spec-mcp-setup/scripts/verify-tools.*` |
-| 事实边界 | setup-owned config facts；不是 graph-bootstrap 的结果真相源 |
+| 关键源码 | `skills/spec-mcp-setup/scripts/write-setup-facts.*`、`skills/spec-mcp-setup/scripts/verify-tools.*` |
+| 事实边界 | setup-owned config facts；不是 mcp-setup 的结果真相源 |
 
 ### 写入内容
 
 | 文件 | 角色 |
 | --- | --- |
-| `runtime-capabilities.json` | host ledger 指针、baseline 摘要、fallback tool 能力、`project_graph_readiness` 派生摘要和 `gitnexus_capability_discovery` setup-inferred availability summary |
-| `graph-providers.json` | provider 配置、受限 command arrays、GitNexus `native_capabilities` projection（含公共 `source_tags[]`、candidate tools/resources、limitations）、derived readiness 投影和下一步提示 |
-| `provider-artifacts.json` | provider raw/normalized/status 路径与 canonical graph/impact artifact path contract |
+| `runtime-capabilities.json` | host ledger 指针、baseline 摘要、required helper readiness 和 fallback tool 能力 |
 
-`spec-mcp-setup` 可以从 canonical artifacts 重建 setup-owned projection，但不运行 provider build，也不把自然语言 setup 输出当成 fallback readiness 真相源。
+`spec-mcp-setup` 写入 setup-owned facts，但不把自然语言 setup 输出当成后续 workflow 的源码证据真相源。
 
 ## Parent workspace advisory summaries
 
 | 项目 | 内容 |
 | --- | --- |
 | 阶段 | parent workspace advisory summaries |
-| 触发 | 父 workspace 下运行 `spec-mcp-setup`、`spec-graph-bootstrap`，或显式运行 `resolve-workspace-graph-targets.* --write-summary` |
+| 触发 | 父 workspace 下运行 `spec-mcp-setup` 或显式只读定位 |
 | 目录形状 | `.spec-first/workspace/` |
-| 关键源码 | `skills/spec-mcp-setup/scripts/*`、`skills/spec-graph-bootstrap/scripts/bootstrap-providers.*`、`skills/spec-graph-bootstrap/scripts/resolve-workspace-graph-targets.*` |
+| 关键源码 | `skills/spec-mcp-setup/scripts/*` |
 | 事实边界 | advisory workspace facts；不是任何 child repo 的 canonical truth |
 
 ### 写入内容
@@ -109,19 +98,16 @@
 | `mcp-setup-summary.json` | 父 workspace 下 install-mcp 的 per-child 汇总 |
 | `mcp-verify-summary.json` | 父 workspace 下 verify-tools 的 per-child readiness 汇总；`parent_workspace_pollution_count` 记录本次 parent orphan quarantine 命中数 |
 | `scenario-fingerprint-setup.json` | `developer-scenario-fingerprint-setup.v1`，setup-time 场景事实；包含 topology、worktree、complexity dimensions、foreign residual indicators 和 advisory limitations |
-| `scenario-fingerprint.json` | `developer-scenario-fingerprint.v1`，bootstrap-time 合并场景事实；合并 setup layer、graph/provider refs、dirty child count、build-target coverage 和 freshness signals |
-| `parent-artifact-quarantine.json` | `parent-artifact-quarantine.v1`，父 workspace 下 repo-local graph/config/provider/index 污染的 advisory quarantine；`spec-first clean --workspace-orphans` 默认只预览，`--confirm` 才删除受支持的 quarantined parent orphan 路径 |
-| `graph-bootstrap-summary.json` | 父 workspace 下 graph bootstrap all-child maintenance 的 per-child 汇总 |
-| `graph-targets.json` | 只读 workspace graph target resolver 的候选 repo、status、artifact pointer、next action，以及 Gradle/npm build-target coverage facts（`non_git_build_modules[]` / `coverage_summary` / `graph_coverage_class`） |
-| `gitnexus-readiness.json` | `workspace-gitnexus-readiness.v1`，记录 GitNexus group-ready / bounded registry fallback 的只读 advisory routing facts |
+| `scenario-fingerprint.json` | `developer-scenario-fingerprint.v1`，合并 setup layer、dirty child count、build-target coverage 和 freshness signals |
+| `parent-artifact-quarantine.json` | `parent-artifact-quarantine.v1`，父 workspace 下 repo-local retired residue 的 advisory quarantine；`spec-first clean --workspace-orphans` 默认只预览，`--confirm` 才删除受支持的 quarantined parent orphan 路径 |
 
-`workspace/` 只帮助 LLM 或维护者看清候选、批量维护结果和 GitNexus group readiness fallback。它不能替代 child repo 内的 `.spec-first/config/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/providers/`、prior GitNexus evidence、ast-grep 或 bounded direct source reads，也不允许普通 plan/work/debug/review 隐式运行 `group_sync`。
+`workspace/` 只帮助 LLM 或维护者看清候选和批量维护结果。它不能替代 child repo 内的 `.spec-first/config/`、当前源码、git diff、tests/logs、ast-grep 或 bounded direct source reads。
 
 ## Spec-work run evidence
 
 `spec-work` 的 run artifact 写入 `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json`。它是 closeout evidence，不是 plan/task 的 source authority；当前 contract 标记 `producer_available=true` 且 `workflow_integrated=false`，表示 producer 可写 schema-aligned payload，但完整 replay/retention lifecycle 仍是后续工作。
 
-`graph_evidence_used` 是 optional compact summary，用于把 `$spec-work` 从 plan envelope 消费到的 GitNexus evidence 传递给下游 `$spec-code-review`。它只保存 `capabilities_used`、`evidence_grade`、`evidence_posture`、`freshness_state`、`repo_scope`、`graph_findings_applied`、`graph_findings_as_risk_only`、`source_reads_validated` 和 `redaction_status`，不保存 raw provider output、源码摘录或 credentialed URL。`spec-code-review` 读取失败、artifact scope 不匹配或字段缺失时，应在 Coverage 的 `Graph evidence:` 行记录 unavailable/stale 并继续 direct source reads。
+`direct_evidence_used` 是 optional compact summary，用于把 `$spec-work` 从 plan envelope 消费到的 direct source evidence evidence 传递给下游 `$spec-code-review`。它只保存 `capabilities_used`、`evidence_grade`、`evidence_posture`、`freshness_state`、`repo_scope`、`graph_findings_applied`、`graph_findings_as_risk_only`、`source_reads_validated` 和 `redaction_status`，不保存 raw provider output、源码摘录或 credentialed URL。`spec-code-review` 读取失败、artifact scope 不匹配或字段缺失时，应在 Coverage 的 `direct evidence:` 行记录 unavailable/stale 并继续 direct source reads。
 
 ## Code review temporary handoff
 
@@ -134,64 +120,7 @@
 - 如果 shipping 阶段接受 residual findings，PR 描述应写 `Known Residuals`；无 PR 提交路径才写 `docs/residual-review-findings/<branch-or-head-sha>.md` 这类 concise durable summary。
 - 不默认把 full-detail per-reviewer JSON bundle 复制进 `docs/` 或 `.spec-first/`。
 
-## 2. providers/&lt;provider&gt;/
-
-| 项目 | 内容 |
-| --- | --- |
-| 阶段 | provider evidence capture |
-| 触发 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` |
-| 目录形状 | `.spec-first/providers/<provider>/` |
-| 关键源码 | `skills/spec-graph-bootstrap/scripts/bootstrap-providers.*` |
-| 事实边界 | provider-local 证据；下游 workflow 默认先读 canonical artifacts |
-
-### 写入内容
-
-| 文件 | 角色 |
-| --- | --- |
-| `raw/*.log` | provider build/status/query probe 原始输出 |
-| `status.json` | 单 provider 的状态、query readiness、refresh mode、`last_indexed_commit`、diagnostics 和 raw log pointers |
-| `normalized/*.json` | provider 规范化事实，例如 architecture facts、reuse candidates 或 impact capabilities |
-
-provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 来判断工程决策。
-
-## 3. graph/
-
-| 项目 | 内容 |
-| --- | --- |
-| 阶段 | canonical graph readiness |
-| 触发 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` |
-| 目录形状 | `.spec-first/graph/` |
-| 关键源码 | `skills/spec-graph-bootstrap/scripts/bootstrap-providers.*` |
-| 事实真源 | graph readiness aggregate；不是长期知识库 |
-
-### 写入内容
-
-| 文件 | 角色 |
-| --- | --- |
-| `provider-status.json` | provider readiness 聚合，包含 ready/failed/skipped providers、workflow mode、confidence 和 limitations |
-| `graph-facts.json` | 下游 graph facts 入口，包含 repo identity、snapshot、provider summary、capabilities 和 staleness hints |
-| `bootstrap-report.md` | 面向用户的 bootstrap 结果、next actions、limitations 和 artifact paths |
-
-`graph/` 是可重建 runtime/control-plane。它回答“当前 provider readiness 是否可用”，不承载手工维护的设计知识。
-
-## 4. impact/
-
-| 项目 | 内容 |
-| --- | --- |
-| 阶段 | fallback-aware impact capability envelope |
-| 触发 | `/spec:graph-bootstrap` 或 `$spec-graph-bootstrap` |
-| 目录形状 | `.spec-first/impact/` |
-| 关键源码 | `skills/spec-graph-bootstrap/scripts/bootstrap-providers.*` |
-
-### 写入内容
-
-| 文件 | 角色 |
-| --- | --- |
-| `bootstrap-impact-capabilities.json` | 表达 `context_selection`、`impact_radius`、`review_support` 的 support level、primary/fallback 来源、confidence 和 limitations |
-
-没有 query-ready provider 时，capability envelope 必须明确 `partial` 或 `none`，不能凭空声明 provider impact 可用。
-
-## 5. audits/skill-audit/
+## 2. audits/skill-audit/
 
 | 项目 | 内容 |
 | --- | --- |
@@ -285,8 +214,7 @@ provider raw logs 只服务诊断。下游 workflow 不应直接耦合 raw logs 
 
 ## 9. Git 边界
 
-- `.spec-first/config/`、`.spec-first/providers/`、`.spec-first/graph/`、`.spec-first/impact/`、`.spec-first/workspace/`、`.spec-first/audits/`、`.spec-first/app-audit/` 与 `.spec-first/workflows/` 默认不进入 Git。
+- `.spec-first/config/`、`.spec-first/workspace/`、`.spec-first/audits/`、`.spec-first/app-audit/` 与 `.spec-first/workflows/` 默认不进入 Git。
 - `docs/ideation/`、`docs/brainstorms/`、`docs/plans/`、`docs/tasks/` 和 `docs/solutions/` 才是长期协作文档层。
-- provider readiness facts 是当前代码和工具状态的投影，不要把它改造成第二套手工维护事实源。
-- 若 graph facts stale、blocked 或 degraded，下游 workflow 应说明限制，并回退到 bounded direct repo reads 或其他已配置 provider。
-- 切换分支、pull、rebase、merge、dirty worktree 变化和 provider fingerprint mismatch 是 freshness invalidation signal；只有 `spec-graph-bootstrap` 显式刷新 canonical graph readiness artifacts。
+- setup facts 是当前工具状态的投影，不要把它改造成第二套手工维护事实源。
+- 若 local evidence facts stale、blocked 或 degraded，下游 workflow 应说明限制，并回退到 bounded direct repo reads、git diff、tests/logs 或用户提供证据。

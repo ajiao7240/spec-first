@@ -156,28 +156,27 @@ When the user asks "what next?" after a workflow:
 - If a brainstorm requirements document exists and implementation direction is not yet planned, recommend plan.
 - If a plan or validated task pack exists and the work is implementation-ready, recommend work.
 - If there is an existing diff and the user asks whether it is ready, recommend code review or doc review based on the artifact.
-- After init, prefer setup/readiness guidance only when the user asks about setup/readiness, missing runtime assets, MCP/provider setup, graph-heavy capabilities, or a workflow is blocked by unavailable tools.
-- After init, when runtime or MCP readiness is unresolved but the user has a clear lightweight docs, small-code, plan, work, or review goal, route by that goal and require the selected workflow to disclose degraded graph/MCP evidence when relevant.
+- After init, prefer setup/readiness guidance only when the user asks about setup/readiness, missing runtime assets, MCP setup, or a workflow is blocked by unavailable tools.
+- After init, when runtime or MCP readiness is unresolved but the user has a clear lightweight docs, small-code, plan, work, or review goal, route by that goal and require the selected workflow to disclose degraded setup/MCP evidence when relevant.
 
 ## Scenario Fingerprint Routing
 
-When `.spec-first/workspace/scenario-fingerprint.json` or `.spec-first/workspace/scenario-fingerprint-setup.json` is already present, treat it as advisory deterministic context for guide mode and entry routing. Prefer the bootstrap layer (`developer-scenario-fingerprint.v1`) over the setup layer (`developer-scenario-fingerprint-setup.v1`). If only the setup layer exists, use it with the limitation that bootstrap-only fields are unavailable. Do not run setup, graph-bootstrap, clean, provider commands, or runtime regeneration just to create a fingerprint from this entry governor.
+When `.spec-first/workspace/scenario-fingerprint.json` or `.spec-first/workspace/scenario-fingerprint-setup.json` is already present, treat it as advisory deterministic context for guide mode and entry routing. Prefer the bootstrap layer (`developer-scenario-fingerprint.v1`) over the setup layer (`developer-scenario-fingerprint-setup.v1`). If only the setup layer exists, use it with the limitation that bootstrap-only fields are unavailable. Do not run setup, clean, external-tool commands, or runtime regeneration just to create a fingerprint from this entry governor.
 
 Scenario fingerprints are not gates, approvals, or source scope authority. Read their independent dimensions and scenario class as routing evidence for the current user intent; do not collapse them into a single risk score. The route output still remains one entrypoint, one reason, and one next action.
 
 Use this compatibility rule before the priority checks:
 
-- If the fingerprint is missing and old graph artifacts exist, such as `.spec-first/graph/graph-facts.json`, `.spec-first/providers/**`, or `.gitnexus/**`, add one advisory line that rerunning `$spec-mcp-setup` / `/spec:mcp-setup` will upgrade the workspace with a scenario fingerprint, then continue normal routing by user intent.
-- If the fingerprint is missing and no setup or graph artifacts exist, recommend `$spec-mcp-setup` / `/spec:mcp-setup` for setup/readiness, graph-heavy, review/impact/refactor, or "what next?" requests. For clearly lightweight work, route by intent and mention missing scenario evidence only when it affects trust in graph/MCP facts.
+- If the fingerprint is missing and setup artifacts exist, add one advisory line that rerunning `$spec-mcp-setup` / `/spec:mcp-setup` will refresh the workspace scenario fingerprint, then continue normal routing by user intent.
+- If the fingerprint is missing and no setup artifacts exist, recommend `$spec-mcp-setup` / `/spec:mcp-setup` for setup/readiness or "what next?" requests. For clearly lightweight work, route by intent and mention missing scenario evidence only when it affects trust in setup/MCP facts.
 
 Apply these scenario-aware checks in priority order, then fall back to the ordinary Routing Rules:
 
 1. `state_class=foreign-residual-workspace` or non-empty `foreign_residual_indicators[]`: route to the current repair owner before downstream work. Recommend `spec-first clean --workspace-orphans` as the preview-first inspection step, then `spec-first clean --workspace-orphans --confirm` only when the user explicitly wants to delete the quarantined parent artifacts; pair cleanup with `spec-first init` or `$spec-mcp-setup` / `/spec:mcp-setup` when setup facts or generated runtime guidance must be refreshed.
-2. `state_class=first-time-git-repo`: recommend `$spec-mcp-setup` / `/spec:mcp-setup` so setup-owned facts exist before graph-heavy workflows.
-3. `complexity_dimensions.git_alignment_broken=true` and the user is asking for impact analysis, review, refactor, or cross-module reasoning: disclose the coverage blind spot and prefer bounded direct reads or the graph-bootstrap handoff that can refresh current graph-target facts. Do not claim full graph coverage.
-4. `providers_status_refs.gitnexus.query_ready=false`, `query_ready=null`, unavailable provider status, or query-unverified provider facts: recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap` when setup projection is present; otherwise use bounded direct reads and disclose fallback evidence.
-5. `complexity_dimensions.worktree_dirty_graph_affecting=true` and the user is asking for commit, PR, review, or graph-backed impact: mention the bounded dirty path sample when present, ask the selected downstream workflow to disclose dirty/stale evidence, and avoid claiming fresh graph-backed impact.
-6. None of the above: route normally by the user's immediate intent.
+2. `state_class=first-time-git-repo`: recommend `$spec-mcp-setup` / `/spec:mcp-setup` when the user is asking for setup/readiness or wants durable setup facts before downstream work.
+3. `complexity_dimensions.git_alignment_broken=true` and the user is asking for impact analysis, review, refactor, or cross-module reasoning: disclose the coverage blind spot and prefer bounded direct reads; do not claim full workspace coverage.
+4. `complexity_dimensions.worktree_dirty_source_affecting=true` and the user is asking for commit, PR, review, or impact: mention the bounded dirty path sample when present and ask the selected downstream workflow to disclose dirty evidence.
+5. None of the above: route normally by the user's immediate intent.
 
 If `freshness.stale_setup_layer=true`, add one advisory line recommending rerunning `$spec-mcp-setup` / `/spec:mcp-setup`; do not block ordinary routing solely for stale setup-layer evidence.
 
@@ -213,7 +212,6 @@ PRD/readiness tie-break: independent critique of a requirements, plan, task, or 
 | Intent | Claude | Codex |
 | --- | --- | --- |
 | environment setup, host setup, MCP setup, missing tools, host readiness, project-local setup | `/spec:mcp-setup` | `$spec-mcp-setup` |
-| compile or refresh GitNexus graph readiness, provider index, or graph-provider query proof after setup | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` |
 | check/update spec-first, refresh generated runtime assets, or repair stale `/spec:*` / `$spec-*` entries | `/spec:update` | `$spec-update` |
 | retrieve past coding-agent sessions or ask what happened in prior work | `/spec:sessions` | `$spec-sessions` |
 | Slack or organizational discussion context | `/spec:slack-research` | `$spec-slack-research` |
@@ -238,17 +236,9 @@ PRD/readiness tie-break: independent critique of a requirements, plan, task, or 
 
 If none of the above applies, do not force the request into `spec-first`.
 
-### Graph Refresh Routing Boundary
+### Parent Workspace Direct Reads
 
-Requests such as “refresh GitNexus”, “rebuild graph/index”, “update graph readiness after branch switch”, or “verify current graph impact evidence” route to `$spec-graph-bootstrap` / `/spec:graph-bootstrap` when setup-owned provider projection is already ready. If the request is about missing MCP config, stale provider package projection, host runtime repair, or generated runtime assets, route to setup/update first and let that workflow hand off to graph-bootstrap.
-
-Entry routing itself never runs provider analyze/build/status/query commands and never writes canonical `.spec-first/graph/*`, `.spec-first/providers/*`, or `.spec-first/impact/*` artifacts. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are freshness signals for the selected workflow to disclose or hand off; they are not automatic routing-governor rebuild triggers.
-
-### Parent Workspace Graph Evidence
-
-If the user asks a read-only codebase question from a parent workspace containing multiple child Git repos, do not force a workflow only because there are multiple repos. Use `workspace-graph-targets.v1` as advisory evidence when available, prefer bounded candidate repos with `primary` status, and try GitNexus-first evidence for the concrete question before bounded direct reads. When `.spec-first/workspace/gitnexus-readiness.json` exists, treat `workspace-gitnexus-readiness.v1` as advisory routing evidence: `group.status="group-ready"` prefers group query, while `group-missing` or `not-evaluated-no-mcp-input` means bounded registry/per-repo fallback or explicit disclosure, not provider failure. `degraded-fallback`, `stale`, `dirty-uncertain`, and definitions-only GitNexus evidence must be named as limitations.
-
-If the request asks for planning, writing, fixing, testing, changelog updates, review autofix, or commits, route normally but require explicit `target_repo` / per-child scope before any repo-local write.
+If the user asks a read-only codebase question from a parent workspace containing multiple child Git repos, do not force a workflow only because there are multiple repos. Use bounded direct reads in the likely child repo candidates and state the target-repo assumption. If the request asks for planning, writing, fixing, testing, changelog updates, review autofix, or commits, route normally but require explicit `target_repo` / per-child scope before any repo-local write.
 
 ## Dispatch And Host Boundaries
 
@@ -281,9 +271,9 @@ When a top-level Codex orchestrator is about to route into a public `$spec-*` wo
 spec-first startup-reminder --codex
 ```
 
-This is a read-only best-effort check. Missing CLI, command failure, network failure, empty output, malformed local state, or missing graph artifacts must be ignored and must not block workflow routing.
+This is a read-only best-effort check. Missing CLI, command failure, network failure, empty output, or malformed local state must be ignored and must not block workflow routing.
 
-If the command prints a reminder, surface that reminder and continue routing. Version reminders point to `$spec-update`, where the user decides whether to upgrade; they must not install packages, refresh runtime assets, or restart Codex. The same helper may also print a compact GitNexus graph snapshot with `query_ready`, freshness, dirty/stale status, capability summary, and limitations. That snapshot is read-only startup context; it must not refresh graph readiness, write canonical graph facts, or become scope/finding/root-cause authority.
+If the command prints a reminder, surface that reminder and continue routing. Version reminders point to `$spec-update`, where the user decides whether to upgrade; they must not install packages, refresh runtime assets, or restart Codex.
 
 Bounded subagents, leaf reviewers, and worker agents must not run the startup reminder or write reminder cooldown state. They inherit the parent task scope.
 

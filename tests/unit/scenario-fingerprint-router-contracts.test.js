@@ -28,27 +28,24 @@ describe('scenario fingerprint router contract', () => {
       'Scenario fingerprints are not gates, approvals, or source scope authority.',
       'do not collapse them into a single risk score',
       'one entrypoint, one reason, and one next action',
-      'Do not run setup, graph-bootstrap, clean, provider commands, or runtime regeneration just to create a fingerprint',
+      'Do not run setup, clean, external-tool commands, or runtime regeneration just to create a fingerprint',
     ]);
   });
 
-  test('router documents legacy graph artifact grace and no-artifact setup guidance', () => {
+  test('router documents setup-artifact and no-artifact setup guidance', () => {
     const skill = read(USING_SPEC_FIRST);
 
     expectContainsAll(skill, [
-      'If the fingerprint is missing and old graph artifacts exist',
-      '.spec-first/graph/graph-facts.json',
-      '.spec-first/providers/**',
-      '.gitnexus/**',
-      'rerunning `$spec-mcp-setup` / `/spec:mcp-setup` will upgrade the workspace with a scenario fingerprint',
+      'If the fingerprint is missing and setup artifacts exist',
+      'rerunning `$spec-mcp-setup` / `/spec:mcp-setup` will refresh the workspace scenario fingerprint',
       'then continue normal routing by user intent',
-      'If the fingerprint is missing and no setup or graph artifacts exist',
+      'If the fingerprint is missing and no setup artifacts exist',
       'recommend `$spec-mcp-setup` / `/spec:mcp-setup`',
       'For clearly lightweight work, route by intent',
     ]);
   });
 
-  test('router keeps the six priority checks independent and advisory', () => {
+  test('router keeps the priority checks independent and advisory', () => {
     const skill = read(USING_SPEC_FIRST);
 
     expectContainsAll(skill, [
@@ -56,9 +53,8 @@ describe('scenario fingerprint router contract', () => {
       '1. `state_class=foreign-residual-workspace` or non-empty `foreign_residual_indicators[]`',
       '2. `state_class=first-time-git-repo`',
       '3. `complexity_dimensions.git_alignment_broken=true`',
-      '4. `providers_status_refs.gitnexus.query_ready=false`, `query_ready=null`',
-      '5. `complexity_dimensions.worktree_dirty_graph_affecting=true`',
-      '6. None of the above: route normally by the user\'s immediate intent.',
+      '4. `complexity_dimensions.worktree_dirty_source_affecting=true`',
+      '5. None of the above: route normally by the user\'s immediate intent.',
       'If `freshness.stale_setup_layer=true`',
     ]);
   });

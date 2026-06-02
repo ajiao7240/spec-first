@@ -9,10 +9,8 @@ const TEXT_FILE_PATTERN = /\.(kt|kts|java|swift|m|mm|xml|json|ya?ml|gradle|prope
 const SKIPPED_DIRS = new Set([
   '.agents',
   '.claude',
-  '.code-review-graph',
   '.codex',
   '.git',
-  '.gitnexus',
   '.gradle',
   '.idea',
   '.next',
@@ -30,7 +28,7 @@ const ISSUE_SYNTHESIS_STATUSES = new Set(['not_run', 'llm_provided', 'fixture_pr
 const GIT_REF_PATTERN = /^[A-Za-z0-9._/@{}^~+-]+$/;
 const DEFAULT_MAX_SOURCE_HASH_BYTES = 1024 * 1024;
 const DEFAULT_MAX_SKIPPED_LARGE_FILES = 50;
-const CONTROL_SOURCE_INPUT_PATTERN = /^(?:\.git(?:\/|$)|\.spec-first\/|\.claude\/|\.codex\/|\.agents\/|\.gitnexus(?:\/|$)|\.code-review-graph(?:\/|$))/;
+const CONTROL_SOURCE_INPUT_PATTERN = /^(?:\.git(?:\/|$)|\.spec-first\/|\.claude\/|\.codex\/|\.agents\/)/;
 
 function makeArtifact(options) {
   return {

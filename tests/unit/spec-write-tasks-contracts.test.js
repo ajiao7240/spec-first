@@ -66,7 +66,7 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('`Requirements` (or legacy `Requirements Trace`)');
     expect(skill).toContain('A mismatch is a wrong-chain handoff');
     expect(skill).toContain('bounded source orientation');
-    expect(skill).toContain('`## Graph / GitNexus Evidence` block');
+    expect(skill).toContain('If the source plan contains a `## Direct Evidence` block');
     expect(skill).toContain('`impact_on_plan` may influence task ordering');
     expect(skill).toContain('`source_reads_required` may become granular `context_refs`, `stop_if`, or `test_focus`');
     expect(skill).toContain('must not create new tasks, expand source-plan scope');
@@ -76,9 +76,7 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('then current task/phase refs');
     expect(skill).toContain('then focused source-of-truth sections');
     expect(skill).toContain('only then deeper references');
-    expect(skill).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
-    expect(skill).toContain('src/cli/helpers/review-pre-facts/');
-    expect(skill).toContain('do not create a parallel reviewer facts pipeline');
+    expect(skill).toContain('do not create an external-tool facts pipeline');
     expect(skill).toContain('Start with targeted direct repo reads');
     expect(skill).toContain('optionally use LSP when available');
     expect(skill).toContain('LSP provider rule');
@@ -108,13 +106,12 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('read `docs/contracts/` only by precise path or section');
     expect(skill).toContain('Written project standards may become hard task constraints only when they apply to the changed files');
     expect(skill).not.toContain('read `AGENTS.md`, `CLAUDE.md`, directory-scoped standards files, `docs/contracts/`');
-    expect(skill).not.toContain('docs/examples/standards-' + 'glue-consumption-examples.md');
-    expect(skill).not.toContain('.spec-first/' + 'standards/');
-    expect(skill).not.toContain('glue-' + 'map.json');
+    expect(skill).not.toContain('docs/examples/standards-glue-consumption-examples.md');
+    expect(skill).not.toContain('.spec-first/standards/');
+    expect(skill).not.toContain('glue-map.json');
     expect(skill).toContain('The deterministic validator only proves frontmatter identity/freshness plus the `Task Pack Contract` machine-readable structure');
-    expect(skill).not.toContain('spec-first ' + 'crg hook');
-    expect(skill).not.toContain('$spec-' + 'graph' + '-bootstrap');
-    expect(skill).not.toContain('/spec:' + 'graph' + '-bootstrap');
+    expect(skill).toContain('direct source reads, changed files, tests/logs, and limitations');
+    expect(skill).toContain('external-tool facts are advisory context refs');
   });
 
   test('task pack schema requires executable handoff metadata and quality structures', () => {
@@ -131,7 +128,7 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('only machine-readable task-card source for validators');
     expect(schema).not.toContain('"done_signal": "Validator tests pass.",\n      "done_signal": "Validator tests pass.",');
     expect(schema).toContain('Orientation Evidence');
-    expect(schema).toContain('provider');
+    expect(schema).toContain('source');
     expect(schema).toContain('`direct-repo-reads`, `lsp`, `mixed`, or `skipped`');
     expect(schema).toContain('evidence_refs');
     expect(schema).toContain('limitations');
@@ -167,7 +164,7 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('Scripts must not judge task splitting quality');
     expect(schema).toContain('If `spec_id` does not match the current source plan, execution must be rejected');
     expect(schema).toContain('expected_side_effects, when present, use repo-relative exact paths or bounded globs and never `**` whole-repo globs');
-    expect(schema).not.toContain('`crg`');
+    expect(schema).toContain('`direct-repo-reads`, `lsp`, `mixed`, or `skipped`');
   });
 
   test('quality guide owns quality examples without redefining schema fields', () => {
@@ -207,7 +204,7 @@ describe('spec-write-tasks contracts', () => {
     expect(guide).toContain('Horizontal slicing smell: a task pack that writes all tests for every unit first, then all implementation, then all docs makes feedback late');
     expect(guide).toContain('Horizontal all-tests-then-all-implementation slicing');
     expect(guide).toContain('Prefer vertical tracer bullets with one behavior, verification loop, and docs/config evidence closed together');
-    expect(guide).not.toContain('CR' + 'G');
+    expect(guide).toContain('orientation_evidence');
   });
 
   test('eval cases cover trigger, boundary, failure, and expected behavior posture', () => {

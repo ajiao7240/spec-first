@@ -112,19 +112,6 @@ describe('clean --dry-run', () => {
       const dryRun = captureCommand(projectRoot, runClean, ['--claude', '--dry-run']);
       expect(dryRun.exitCode).toBe(0);
 
-      const claudeInstructionPath = path.join(projectRoot, 'CLAUDE.md');
-      fs.appendFileSync(
-        claudeInstructionPath,
-        [
-          '',
-          '<!-- gitnexus:start -->',
-          '# GitNexus — Code Intelligence',
-          '<!-- gitnexus:end -->',
-          '',
-        ].join('\n'),
-        'utf8',
-      );
-
       const cleanResult = captureCommand(projectRoot, runClean, ['--claude']);
       expect(cleanResult.exitCode).toBe(0);
 
@@ -140,12 +127,11 @@ describe('clean --dry-run', () => {
 
       expect(dryRun.stdout).toContain('CLAUDE.md');
       expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(true);
+      const claudeInstructionPath = path.join(projectRoot, 'CLAUDE.md');
       const claudeInstruction = fs.readFileSync(claudeInstructionPath, 'utf8');
       expect(claudeInstruction).not.toContain('spec-first:bootstrap:start');
       expect(claudeInstruction).not.toContain('spec-first:coding-guidelines:start');
       expect(claudeInstruction).not.toContain('spec-first:runtime-tools:start');
-      expect(claudeInstruction).toContain('<!-- gitnexus:start -->');
-      expect(claudeInstruction).toContain('# GitNexus — Code Intelligence');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -181,43 +167,6 @@ describe('clean --dry-run', () => {
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(false);
       }
 
-    } finally {
-      initLogSpy.mockRestore();
-      fs.rmSync(projectRoot, { recursive: true, force: true });
-    }
-  });
-
-  test('clean removes obsolete managed graph workflow assets recorded in state', () => {
-    const projectRoot = makeTempDir();
-    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    const retiredCommandFile = ['graph', 'bootstrap'].join('-') + '.md';
-    const retiredSkillName = ['spec', 'graph', 'bootstrap'].join('-');
-
-    try {
-      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
-      const statePath = path.join(projectRoot, '.claude', 'spec-first', 'state.json');
-      const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-      state.commands.push(retiredCommandFile);
-      state.workflowSkills.push(retiredSkillName);
-      state.commands.sort();
-      state.workflowSkills.sort();
-      fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-
-      const retiredCommandPath = path.join(projectRoot, '.claude', 'commands', 'spec', retiredCommandFile);
-      const retiredWorkflowPath = path.join(projectRoot, '.claude', 'spec-first', 'workflows', retiredSkillName);
-      fs.writeFileSync(retiredCommandPath, 'old managed command\n', 'utf8');
-      fs.mkdirSync(retiredWorkflowPath, { recursive: true });
-      fs.writeFileSync(path.join(retiredWorkflowPath, 'SKILL.md'), 'old managed skill\n', 'utf8');
-
-      const dryRun = captureCommand(projectRoot, runClean, ['--claude', '--dry-run']);
-      expect(dryRun.exitCode).toBe(0);
-      expect(dryRun.stdout).toContain(path.posix.join('.claude/commands/spec', retiredCommandFile));
-      expect(dryRun.stdout).toContain(path.posix.join('.claude/spec-first/workflows', retiredSkillName));
-
-      const cleanResult = captureCommand(projectRoot, runClean, ['--claude']);
-      expect(cleanResult.exitCode).toBe(0);
-      expect(fs.existsSync(retiredCommandPath)).toBe(false);
-      expect(fs.existsSync(retiredWorkflowPath)).toBe(false);
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -279,10 +228,10 @@ describe('clean --workspace-orphans', () => {
     const projectRoot = makeTempDir();
     try {
       const workspaceDir = path.join(projectRoot, '.spec-first', 'workspace');
-      const graphFactsPath = path.join(projectRoot, '.spec-first', 'graph', 'graph-facts.json');
-      fs.mkdirSync(path.dirname(graphFactsPath), { recursive: true });
+      const toolFactsPath = path.join(projectRoot, '.spec-first', 'config', 'tool-facts.json');
+      fs.mkdirSync(path.dirname(toolFactsPath), { recursive: true });
       fs.mkdirSync(workspaceDir, { recursive: true });
-      fs.writeFileSync(graphFactsPath, '{"schema_version":"graph-facts.v1"}\n', 'utf8');
+      fs.writeFileSync(toolFactsPath, '{"schema_version":"tool-facts.v1"}\n', 'utf8');
       fs.writeFileSync(
         path.join(workspaceDir, 'parent-artifact-quarantine.json'),
         `${JSON.stringify({
@@ -296,8 +245,8 @@ describe('clean --workspace-orphans', () => {
           consumers: ['spec-first clean --workspace-orphans'],
           quarantined_paths: [
             {
-              path: '.spec-first/graph/graph-facts.json',
-              reason_code: 'parent-workspace-must-not-have-repo-local-graph',
+              path: '.spec-first/config/tool-facts.json',
+              reason_code: 'parent-workspace-must-not-have-repo-local-setup-facts',
               stale_indicator: 'parent-workspace-repo-local-artifact-present',
               last_generated_at: '2026-05-28T00:00:00Z',
               fingerprint_origin: '/tmp/project-a',
@@ -315,10 +264,10 @@ describe('clean --workspace-orphans', () => {
       expect(result.stderr).toBe('');
       expect(after).toEqual(before);
       expect(result.stdout).toContain('Parent workspace orphan artifact preview:');
-      expect(result.stdout).toContain('.spec-first/graph/graph-facts.json (parent-workspace-must-not-have-repo-local-graph)');
+      expect(result.stdout).toContain('.spec-first/config/tool-facts.json (parent-workspace-must-not-have-repo-local-setup-facts)');
       expect(result.stdout).toContain('Run `spec-first clean --workspace-orphans --confirm` to delete listed paths.');
       expect(result.stdout).toContain('No files were changed.');
-      expect(fs.existsSync(graphFactsPath)).toBe(true);
+      expect(fs.existsSync(toolFactsPath)).toBe(true);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -328,16 +277,12 @@ describe('clean --workspace-orphans', () => {
     const projectRoot = makeTempDir();
     try {
       const workspaceDir = path.join(projectRoot, '.spec-first', 'workspace');
-      const graphFactsPath = path.join(projectRoot, '.spec-first', 'graph', 'graph-facts.json');
-      const graphIndexPath = path.join(projectRoot, '.gitnexus');
-      const retiredProviderPath = path.join(projectRoot, '.spec-first', 'providers', 'code-review-graph');
-      fs.mkdirSync(path.dirname(graphFactsPath), { recursive: true });
-      fs.mkdirSync(graphIndexPath, { recursive: true });
-      fs.mkdirSync(retiredProviderPath, { recursive: true });
+      const toolFactsPath = path.join(projectRoot, '.spec-first', 'config', 'tool-facts.json');
+      const runtimeFactsPath = path.join(projectRoot, '.spec-first', 'config', 'runtime-capabilities.json');
+      fs.mkdirSync(path.dirname(toolFactsPath), { recursive: true });
       fs.mkdirSync(workspaceDir, { recursive: true });
-      fs.writeFileSync(graphFactsPath, '{"schema_version":"graph-facts.v1"}\n', 'utf8');
-      fs.writeFileSync(path.join(graphIndexPath, 'meta.json'), '{"repoPath":"/tmp/old"}\n', 'utf8');
-      fs.writeFileSync(path.join(retiredProviderPath, 'state.json'), '{}\n', 'utf8');
+      fs.writeFileSync(toolFactsPath, '{"schema_version":"tool-facts.v1"}\n', 'utf8');
+      fs.writeFileSync(runtimeFactsPath, '{"schema_version":"runtime-capabilities.v1"}\n', 'utf8');
       fs.writeFileSync(
         path.join(workspaceDir, 'parent-artifact-quarantine.json'),
         `${JSON.stringify({
@@ -351,25 +296,18 @@ describe('clean --workspace-orphans', () => {
           consumers: ['spec-first clean --workspace-orphans'],
           quarantined_paths: [
             {
-              path: '.spec-first/graph/graph-facts.json',
+              path: '.spec-first/config/tool-facts.json',
               reason_code: 'foreign-absolute-path-stat-failed',
               stale_indicator: '/Users/old/project',
               last_generated_at: '2026-05-28T00:00:00Z',
               fingerprint_origin: '/Users/old/project',
             },
             {
-              path: '.gitnexus/',
-              reason_code: 'parent-workspace-must-not-have-graph-index',
-              stale_indicator: 'parent-workspace-graph-index-present',
+              path: '.spec-first/config/runtime-capabilities.json',
+              reason_code: 'parent-workspace-must-not-have-repo-local-setup-facts',
+              stale_indicator: 'parent-workspace-repo-local-artifact-present',
               last_generated_at: '2026-05-28T00:00:01Z',
               fingerprint_origin: '/tmp/old',
-            },
-            {
-              path: '.spec-first/providers/code-review-graph/',
-              reason_code: 'retired-provider-residue',
-              stale_indicator: 'retired-code-review-graph-provider-directory-present',
-              last_generated_at: null,
-              fingerprint_origin: 'code-review-graph',
             },
           ],
         }, null, 2)}\n`,
@@ -381,11 +319,10 @@ describe('clean --workspace-orphans', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe('');
       expect(result.stdout).toContain('Parent workspace orphan artifact preview:');
-      expect(result.stdout).toContain('Deleted 3 workspace orphan path(s).');
+      expect(result.stdout).toContain('Deleted 2 workspace orphan path(s).');
       expect(result.stdout).not.toContain('No files were changed.');
-      expect(fs.existsSync(graphFactsPath)).toBe(false);
-      expect(fs.existsSync(graphIndexPath)).toBe(false);
-      expect(fs.existsSync(retiredProviderPath)).toBe(false);
+      expect(fs.existsSync(toolFactsPath)).toBe(false);
+      expect(fs.existsSync(runtimeFactsPath)).toBe(false);
       expect(fs.existsSync(path.join(workspaceDir, 'parent-artifact-quarantine.json'))).toBe(true);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -422,7 +359,7 @@ describe('clean --workspace-orphans', () => {
           quarantined_paths: [
             {
               path: 'src/index.js',
-              reason_code: 'parent-workspace-must-not-have-repo-local-graph',
+              reason_code: 'parent-workspace-must-not-have-repo-local-setup-artifact',
               stale_indicator: 'malformed-test-fixture',
               last_generated_at: null,
               fingerprint_origin: null,

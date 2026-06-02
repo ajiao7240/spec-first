@@ -7,6 +7,7 @@ fresh_source_eval:
     - skills/spec-prd/SKILL.md
     - skills/spec-prd/references/intent-routing.md
     - skills/spec-prd/references/current-state-analysis.md
+    - skills/spec-prd/references/change-topology-lens.md
     - skills/spec-prd/references/domain-language-and-decision-ledger.md
     - skills/spec-prd/references/prd-output-template.md
     - skills/spec-prd/references/domain-lenses.md
@@ -22,7 +23,7 @@ fresh_source_eval:
     - skills/using-spec-first/SKILL.md
     - skills/spec-plan/SKILL.md
   runtime_paths_checked: []
-  changed_behavior: "Adds the public brownfield PRD workflow and its routing, readiness, and dual-host source contracts."
+  changed_behavior: "Adds the public brownfield PRD workflow and later strengthens it with an early Framing Gate, Evidence Plan, change-topology, owner-question ladder, surface map, producer/consumer, source-of-truth, negative acceptance, and handoff entropy gates."
   reviewer_context: "fresh source snippets from current disk were not dispatched to a separate reviewer in this run"
   checks:
     trigger_precision: not_checked
@@ -32,5 +33,5 @@ fresh_source_eval:
     deterministic_vs_semantic_boundary: not_checked
     tests: not_checked
   findings: []
-  not_run_reason: "The current Codex tool surface did not expose a fresh read-only subagent dispatch primitive at the time this artifact was written; source contract tests and direct source reads are used as fallback evidence. Runtime mirrors were not treated as source."
+  not_run_reason: "Fresh read-only subagent dispatch was not executed in this run. The current subagent tool policy allows spawning only when the user explicitly asks for sub-agents/delegation/parallel agent work; source contract tests and direct source reads are used as fallback evidence. Runtime mirrors were not treated as source."
 ```

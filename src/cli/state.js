@@ -34,9 +34,7 @@ const WINDOWS_RESERVED_PATH_NAMES = new Set([
   'LPT8',
   'LPT9',
 ]);
-const RETIRED_UNMANAGED_COMMAND_FILES = new Set([
-  ['graph', 'bootstrap'].join('-') + '.md',
-]);
+const RETIRED_UNMANAGED_COMMAND_FILES = new Set();
 const RETIRED_STANDARDS_SKILL = ['spec', 'standards'].join('-');
 const RETIRED_COMMON_RUNTIME_ASSET_PATHS = [
   { kind: 'remove_dir', path: '.spec-first/standards' },

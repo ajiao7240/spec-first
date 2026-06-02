@@ -15,14 +15,9 @@ const GATE_ID = 'ai-dev-quality-gate';
 const QUALITY_FEEDBACK_FILE = 'quality-feedback-topics.json';
 const WORKFLOW_RUNTIME_CONTRACT_TESTS = [
   'tests/unit/branch-protection-policy.test.js',
-  'tests/unit/no-crg-runtime-contracts.test.js',
-  'tests/unit/graph-anchor-extraction-helper.test.js',
   'tests/unit/init-source-path-coverage.test.js',
   'tests/unit/package-install-contracts.test.js',
   'tests/unit/mcp-setup-powershell-contracts.test.js',
-  'tests/unit/spec-graph-bootstrap-contracts.test.js',
-  'tests/unit/bootstrap-providers-powershell-contracts.test.js',
-  'tests/unit/graph-provider-consumption-contracts.test.js',
   'tests/unit/ai-dev-quality-gate.test.js',
   'tests/unit/ai-dev-benchmark-fixtures.test.js',
   'tests/unit/spec-plan-contracts.test.js',

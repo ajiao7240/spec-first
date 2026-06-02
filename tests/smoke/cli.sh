@@ -95,39 +95,15 @@ grep -q "Interactively install workflows" <<<"$help_output"
 grep -q "clean (--claude|--codex)" <<<"$help_output"
 grep -q "repair-worktree" <<<"$help_output"
 grep -q "tasks <subcommand>" <<<"$help_output"
-grep -q "gitnexus-instruction" <<<"$help_output"
-if grep -q "crg <subcommand>" <<<"$help_output"; then
-  echo "help output should not advertise retired graph command" >&2
-  exit 1
-fi
 if grep -q "stage0-context" <<<"$help_output"; then
   echo "help output should not advertise stage0-context" >&2
   exit 1
 fi
 grep -q "Spec-First v${expected_version}" <<<"$version_output"
 grep -q "Claude Code & Codex" <<<"$version_output"
-if grep -q "graph""-bootstrap" <<<"$version_output"; then
-  echo "version output should not advertise retired graph workflow" >&2
-  exit 1
-fi
-retired_stdout="$TMP_DIR/retired-command.stdout"
-retired_stderr="$TMP_DIR/retired-command.stderr"
-if node "$REPO_ROOT/bin/spec-first.js" crg --help >"$retired_stdout" 2>"$retired_stderr"; then
-  retired_status=0
-else
-  retired_status=$?
-fi
-retired_combined="$(cat "$retired_stdout" "$retired_stderr")"
-if [ "$retired_status" -eq 0 ]; then
-  echo "retired graph command should not exit successfully" >&2
-  exit 1
-fi
-if ! grep -Eiq "unknown command|unknown|unsupported|invalid" <<<"$retired_combined"; then
-  echo "retired graph command should use normal unknown-command path" >&2
-  exit 1
-fi
-if grep -q "src/""crg" <<<"$retired_combined" || grep -q "crg <subcommand>" <<<"$retired_combined"; then
-  echo "retired graph command output leaks old implementation details" >&2
+unknown_output="$(node "$REPO_ROOT/bin/spec-first.js" unknown-command 2>&1 || true)"
+if ! grep -Eiq "unknown command|usage" <<<"$unknown_output"; then
+  echo "unknown command should use normal usage path" >&2
   exit 1
 fi
 echo "✓ help/version output is present"
@@ -195,7 +171,7 @@ claude_output="$(run_programmatic_init "$TMP_DIR" claude kuang en)"
 grep -q "Generated ${expected_command_count} command file(s)" <<<"$claude_output"
 grep -q "Generated ${expected_claude_skill_count} skill directory(ies)" <<<"$claude_output"
 grep -q "Generated ${expected_agent_count} agent file(s)" <<<"$claude_output"
-for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md graph-bootstrap.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md slack-research.md update.md work.md; do
+for file in brainstorm.md code-review.md compound.md compound-refresh.md debug.md doc-review.md ideate.md mcp-setup.md optimize.md plan.md polish-beta.md release-notes.md sessions.md slack-research.md update.md work.md; do
   test -f "$TMP_DIR/.claude/commands/spec/$file"
 done
 test ! -e "$TMP_DIR/.claude/commands/spec/"standards".md"
@@ -233,7 +209,6 @@ if (state.developer) throw new Error('state should no longer track developer pro
 NODE
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md"
 grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/CLAUDE.md"
-grep -q 'workspace-graph-targets.v1' "$TMP_DIR/CLAUDE.md"
 grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md"
 test -f "$TMP_DIR/.claude/hooks/session-start"
 grep -q 'startup-reminder' "$TMP_DIR/.claude/hooks/session-start"
@@ -276,7 +251,7 @@ grep -q "Generated ${expected_agent_count} agent file(s) in .codex/agents" <<<"$
 grep -q "Generated ${expected_codex_total_skill_count} skill directory(ies) in .agents/skills" <<<"$codex_output"
 installed_codex_skill_count="$(find "$TMP_DIR/.agents/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 test "$installed_codex_skill_count" = "$expected_codex_total_skill_count"
-for skill in spec-plan spec-work spec-code-review spec-doc-review spec-brainstorm spec-graph-bootstrap spec-mcp-setup spec-compound-refresh; do
+for skill in spec-plan spec-work spec-code-review spec-doc-review spec-brainstorm spec-mcp-setup spec-compound-refresh; do
   test -f "$TMP_DIR/.agents/skills/$skill/SKILL.md"
 done
 test ! -e "$TMP_DIR/.agents/skills/spec-"standards"/SKILL.md"
@@ -297,7 +272,6 @@ for agent in spec-repo-research-analyst.agent.md spec-session-historian.agent.md
 done
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/AGENTS.md"
 grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/AGENTS.md"
-grep -q 'workspace-graph-targets.v1' "$TMP_DIR/AGENTS.md"
 grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/AGENTS.md"
 grep -q 'spec-first startup-reminder --codex' "$TMP_DIR/AGENTS.md"
 grep -q 'must not block routing' "$TMP_DIR/AGENTS.md"

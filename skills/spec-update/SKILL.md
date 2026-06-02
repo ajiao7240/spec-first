@@ -24,7 +24,7 @@ Use when checking spec-first version freshness, stale plugin/CLI symptoms, or wh
 
 ### When Not To Use
 
-Do not use for feature work, graph/provider readiness refresh, MCP setup repair, or hand-editing generated runtime mirrors as source fixes.
+Do not use for feature work, MCP setup repair, or hand-editing generated runtime mirrors as source fixes.
 
 ### Inputs
 

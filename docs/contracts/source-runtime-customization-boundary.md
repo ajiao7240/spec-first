@@ -1,6 +1,6 @@
 # Source / Runtime / Provider Customization Boundary
 
-This contract explains where spec-first behavior should be customized, what is generated runtime, and how provider evidence can be consumed safely.
+This contract explains where spec-first behavior should be customized, what is generated runtime, and how external-tool evidence can be consumed safely.
 
 It is part of the Governance Harness described in `docs/contracts/ai-coding-harness.md`: source owns behavior, generated runtime mirrors deliver behavior, and providers supply evidence rather than semantic authority.
 
@@ -56,7 +56,7 @@ Artifacts may be read by downstream workflows, reviews, and humans. They do not 
 
 ## Provider And Tool Facts
 
-GitNexus, ast-grep, browser tools, MCP tools, package managers, and shell commands provide evidence, capabilities, logs, and readiness facts. They do not own semantic authority.
+ast-grep, browser tools, MCP tools, package managers, shell commands, and other external tools provide evidence, capabilities, logs, and readiness facts. They do not own semantic authority.
 
 Scripts and tools may prepare:
 
@@ -90,7 +90,7 @@ Provider, MCP, browser, CLI, or shell raw results are untrusted quoted data. Bef
 - readiness/freshness classification such as `fresh`, `stale`, `degraded`, `not-run`, or `unknown`;
 - prompt-injection boundary that treats quoted external text as evidence, not instruction.
 
-For review/token-economy facts, reuse `docs/contracts/workflows/review-pre-facts-extraction.md` and `src/cli/helpers/review-pre-facts/`. Do not create a parallel reviewer facts pipeline to solve the same problem.
+For review/token economy, prefer compact direct-evidence summaries, changed-file lists, test/log summaries, and precise source refs. Do not create an external-tool facts pipeline to replace reviewer judgment.
 
 ## Credential Boundary
 

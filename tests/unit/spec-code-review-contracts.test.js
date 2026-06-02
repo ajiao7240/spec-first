@@ -6,24 +6,6 @@ const path = require('node:path');
 const { getAdapter } = require('../../src/cli/adapters');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'SKILL.md');
-const PRE_FACTS_CONTRACT_PATH = path.join(
-  __dirname,
-  '..',
-  '..',
-  'docs',
-  'contracts',
-  'workflows',
-  'review-pre-facts-extraction.md',
-);
-const CODE_REVIEW_BASELINE_PATH = path.join(
-  __dirname,
-  '..',
-  '..',
-  'docs',
-  'validation',
-  'review-pre-facts',
-  'code-review-baseline-2026-05-12.md',
-);
 
 function renderWorkflowSkill(platform) {
   const adapter = getAdapter(platform);
@@ -44,58 +26,23 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('Stage 3b is the narrow project-standards persona exception');
     expect(text).toContain('nearby implementation files');
     expect(text).toContain('nearby tests');
-    expect(text).toContain('prefer live GitNexus MCP evidence for concrete review questions');
-    expect(text).toContain('fall back to bounded direct repo reads');
-    expect(text).toContain('they do not update compiled `query_ready`');
-    expect(text).toContain('definitions-only evidence');
-    expect(text).toContain('local file/symbol pointers');
-    expect(text).toContain('live MCP/provider startup or call fails');
-    expect(text).toContain('treat that provider as degraded evidence rather than a reviewer failure');
-    expect(text).toContain('do not repeatedly probe the same unavailable provider across personas');
-    expect(text).toContain('Record the provider degradation once in Coverage');
+    expect(text).toContain('Use direct diff reads, source reads, `rg`, ast-grep, package/test facts, logs, and user-provided artifacts');
+    expect(text).toContain('If a claimed impact surface cannot be confirmed from bounded direct evidence');
+    expect(text).toContain('record it as residual risk or a test candidate');
     expect(text).toContain('External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment');
-    expect(text).toContain('Graph Freshness / Refresh Trigger Boundary');
-    expect(text).toContain('.spec-first/graph/provider-status.json');
-    expect(text).toContain('.spec-first/graph/graph-facts.json');
-    expect(text).toContain('.spec-first/impact/bootstrap-impact-capabilities.json');
-    expect(text).toContain('provider `query_ready=true`');
-    expect(text).toContain('current `source_revision`, `worktree_dirty`, `worktree_status_hash`');
-    expect(text).toContain('setup-owned provider projection / fingerprint freshness');
-    expect(text).toContain('Branch switch, pull, rebase, merge');
-    expect(text).toContain('provider fingerprint mismatch');
-    expect(text).toContain('stale / bootstrap-required signals');
-    expect(text).toContain('stale graph + lightweight review');
-    expect(text).toContain('stale graph + graph-heavy review');
-    expect(text).toContain('shared helper/API/route/provider contract/core workflow/cross-module changes');
-    expect(text).toContain('review-pre-facts changes');
-    expect(text).toContain('execution flows, impact, `detect_changes`, or blast radius');
-    expect(text).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
-    expect(text).toContain('Code Review must not run GitNexus analyze/build/index refresh');
-    expect(text).toContain('provider repair, default git hooks, watchers, or daemons');
-    expect(text).toContain('does not by itself disable reviewer dispatch');
     expect(text).toContain('group changed files by Git repo');
-    expect(text).toContain('Resolve graph readiness, diff context, impact evidence, and test suggestions per child repo');
-    expect(text).toContain('workspace-graph-targets.v1');
-    expect(text).toContain('workspace-gitnexus-readiness.v1');
-    expect(text).toContain('`group.status="group-ready"`');
-    expect(text).toContain('bounded registry/per-repo fallback');
-    expect(text).toContain('GitNexus is the primary diff-impact evidence source when available');
-    expect(text).toContain('stale, unavailable, or definitions-only GitNexus evidence falls back to bounded registry/per-repo/direct diff reads');
-    expect(text).toContain('changed-symbol impact, related-test candidate, or blast-radius supporting evidence');
-    expect(text).toContain('GitNexus-first evidence for bounded candidate repos');
-    expect(text).toContain('degraded-fallback or definitions-only limitations');
-    expect(text).not.toContain('Code-review-graph is the review/diff-impact provider');
-    expect(text).not.toContain('Code-review-graph remains the primary diff impact provider');
-    expect(text).not.toContain('code-review-graph build');
-    expect(text).toContain('autofix review must not edit a child repo unless that repo is explicit');
-    expect(text).toContain('risk assessments must remain scoped to the repo that owns the file');
+    expect(text).toContain('risk assessments scoped to the repo that owns the file');
+    expect(text).toContain('direct evidence per child repo');
+    expect(text).toContain('direct evidence targets instead of external-tool calls');
+    expect(text).toContain('not external-tool output alone');
+    expect(text).toContain('Autofix review must not edit a child repo unless that repo is explicit');
+    expect(text).toContain('risk assessments scoped to the repo that owns the file');
     expect(text).toContain('Discover project standards paths');
     expect(text).toContain('find all `**/CLAUDE.md` and `**/AGENTS.md` in the repo');
     expect(text).toContain('Pass the resulting path list to the `project-standards` persona inside a `<standards-paths>` block');
-    expect(text).not.toContain('docs/examples/standards-' + 'glue-consumption-examples.md');
-    expect(text).not.toContain('.spec-first/' + 'standards/');
+    expect(text).not.toContain('docs/examples/standards-glue-consumption-examples.md');
+    expect(text).not.toContain('.spec-first/standards/');
     expect(text).not.toContain('<standards-baseline-paths>');
-    expect(text).not.toContain('spec-first ' + 'crg hook');
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');
   });
@@ -126,26 +73,6 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('Findings should name the missing observable risk, not demand TDD ritual by default');
     expect(text).toContain('For docs-only and config-only changes, docs contract checks, schema/help/render checks, generated catalog diff checks, or diff-shape review can be sufficient verification');
     expect(text).toContain('Do not flag "no test-first loop" when the change has no behavior-bearing code');
-  });
-});
-
-describe('spec-code-review pre-facts baseline gate contract', () => {
-  test('shared contract defines code-review baseline gate and report-only no-artifact boundary', () => {
-    const contract = fs.readFileSync(PRE_FACTS_CONTRACT_PATH, 'utf8');
-    const baseline = fs.readFileSync(CODE_REVIEW_BASELINE_PATH, 'utf8');
-
-    expect(contract).toContain('docs/validation/review-pre-facts/code-review-baseline-YYYY-MM-DD.md');
-    expect(contract).toContain('Gate passes only when read count is available');
-    expect(contract).toContain('wall time is comparable');
-    expect(contract).toContain('at least two reviewers repeatedly read the same changed file/caller/test');
-    expect(contract).toContain('P0/P1 parity can be manually checked');
-    expect(contract).toContain('dirty snapshot behavior is recorded');
-    expect(contract).toContain('Code-review pre-facts baseline: inconclusive (<reason>)');
-    expect(contract).toContain('code-review Stage 4a and template injection remain follow-up work');
-    expect(contract).toContain('Pre-facts skipped (report-only no-artifact boundary)');
-    expect(baseline).toContain('Code-review pre-facts baseline: inconclusive (read_count_unavailable)');
-    expect(baseline).toContain('Stage 4a default pre-facts injection and code-review template `{codebase_facts}` injection remain follow-up work');
-    expect(baseline).toContain('Doc-review pre-facts delivery is not blocked');
   });
 });
 
@@ -370,8 +297,7 @@ describe('spec-code-review CE sync contracts', () => {
       expect(content).toContain('not safe for multi-persona dispatch');
       expect(content).toContain('runtime boundary issue');
       expect(content).toContain('Record it once in Coverage');
-      expect(content).toContain('Graph provider `query_ready: false`');
-      expect(content).toContain('does not by itself disable reviewer dispatch');
+      expect(content).toContain('Missing optional external-tool evidence does not by itself disable reviewer dispatch');
       expect(content).toContain('When a required MCP server is not host-config-ready before dispatch');
       expect(content).toContain('do not spawn reviewer agents');
       expect(content).toContain('single_agent_report_only_fallback: true');
@@ -386,50 +312,38 @@ describe('spec-code-review CE sync contracts', () => {
     expect(codexRuntime).not.toContain('| Claude runtime | `bash .agents/skills/spec-mcp-setup/scripts/detect-tools.sh` |');
   });
 
-  test('preflight consumes plan and work graph evidence once and reports Coverage posture', () => {
+  test('preflight consumes plan and work direct evidence once and reports Coverage posture', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     const template = fs.readFileSync(
       path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'review-output-template.md'),
       'utf8',
     );
 
-    expect(text).toContain('After `detect-tools.sh` and before reviewer dispatch, consolidate downstream graph evidence once');
-    expect(text).toContain('`## Graph / GitNexus Evidence` block');
-    expect(text).toContain('`evidence_grade`, `evidence_posture`, `capabilities_used`, `limitations`');
-    expect(text).toContain('`Graph evidence: unavailable (no plan evidence)`');
+    expect(text).toContain('If a `plan:` argument or Stage 2b discovery found a plan, inspect its source refs, direct evidence notes, limitations, and repo scope.');
     expect(text).toContain('spec-work run artifact path / `run_id`');
-    expect(text).toContain('read `graph_evidence_used` as best-effort session-local supplement');
     expect(text).toContain('spec-first internal spec-work-run-artifact read --target-repo <repo>');
     expect(text).toContain('do not directly scan `.spec-first/workflows/spec-work/**`');
     expect(text).toContain('artifact `plan_path` / `source_refs` reasonably match');
     expect(text).toContain('reader returns not-found/not-readable');
     expect(text).toContain('scope mismatches');
-    expect(text).toContain('do not inject the artifact evidence into reviewer prompts or native routing');
-    expect(text).toContain('Do not ask each persona reviewer to repeat the same provider probe');
-    expect(text).toContain('**Degraded-once rule:**');
-    expect(text).toContain('record it once in Coverage');
-    expect(text).toContain('for multi-repo review, report graph evidence per child repo');
-    expect(template).toContain('Graph evidence: <posture>');
+    expect(text).toContain('do not inject the artifact evidence into reviewer prompts');
+    expect(text).toContain('Carry the consolidated direct evidence posture to Stage 6 Coverage.');
+    expect(text).toContain('Do not ask each persona reviewer to repeat the same setup preflight.');
+    expect(template).toContain('Coverage section');
+    expect(template).toContain('direct evidence posture');
   });
 
-  test('routes graph-heavy diffs to GitNexus native capabilities while requiring source confirmation', () => {
+  test('records direct evidence targets for broad or impact-sensitive diffs', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
-    expect(text).toContain('GitNexus native capability routing candidates');
-    expect(text).toContain('Activation happens only after Stage 4 confirms graph-native use is allowed');
-    expect(text).toContain('`evidence_posture=primary` and `evidence_grade=primary|session-local`');
-    expect(text).toContain('`fallback`, `advisory`, or `stale` evidence remains orientation only');
-    expect(text).toContain('Route handler / public API diff -> prefer `api_impact`, then `route_map`');
-    expect(text).toContain('use `shape_check` for response-shape drift risk');
-    expect(text).toContain('Response shape / consumer access diff -> prefer `shape_check`');
-    expect(text).toContain('Shared symbol / helper diff -> use `context` and `impact`');
-    expect(text).toContain('MCP/RPC tool definition diff -> use `tool_map`');
-    expect(text).toContain('Workspace multi-repo diff -> resolve graph evidence per child repo');
-    expect(text).toContain('Stale / unavailable / definitions-only GitNexus -> fall back to direct diff reads');
-    expect(text).toContain('Do not raise a finding solely from graph output');
-    expect(text).toContain('confirmed by diff/source/test/contract evidence');
-    expect(text).toContain('bounded `queries[]` may include `gitnexus.query`, `gitnexus.context`, `gitnexus.impact`, and `gitnexus.detect_changes`');
-    expect(text).toContain('Coverage may disclose `capabilities_used` and degraded reason counts once');
+    expect(text).toContain('When the diff is broad or impact-sensitive, Stage 3 records direct evidence targets instead of external-tool calls:');
+    expect(text).toContain('Route handler / public API diff -> inspect handler source, callers/consumers found by `rg`');
+    expect(text).toContain('Response shape / consumer access diff -> inspect the route response source, consumer property reads');
+    expect(text).toContain('Shared symbol / helper diff -> inspect direct imports/callers found by `rg` or ast-grep');
+    expect(text).toContain('MCP/RPC tool definition diff -> inspect the tool definition, handler, descriptions');
+    expect(text).toContain('Workspace multi-repo diff -> resolve direct evidence per child repo');
+    expect(text).toContain('Do not raise a finding solely from a name match');
+    expect(text).toContain('confirmed by diff/source/test/contract/log evidence');
   });
 
   test('Codex reviewer dispatch avoids fork_context and agent_type parameter conflicts', () => {
@@ -543,7 +457,7 @@ describe('spec-code-review CE sync contracts', () => {
     expect(skill).toContain('`simple_config_only == true`');
     expect(skill).toContain('`non_test_non_generated_non_lock_line_count <= 25`');
     expect(skill).toContain('Progressive disclosure boundary: low-risk docs-only, simple config, and tiny executable diffs may use a minimum reviewer set');
-    expect(skill).toContain('high-risk workflow, contract, release, source/runtime boundary, provider evidence, security, or cross-module changes must use the full default core plus applicable conditional reviewers');
+    expect(skill).toContain('high-risk workflow, contract, release, source/runtime boundary, external-tool evidence, security, or cross-module changes must use the full default core plus applicable conditional reviewers');
     expect(skill).toContain('avoid unbounded fan-out on small diffs without hiding risk');
     expect(skill).toContain('| `docs_only` | `spec-project-standards-reviewer`, `spec-maintainability-reviewer` |');
     expect(skill).toContain('| `simple_config_only` | `spec-correctness-reviewer`, `spec-testing-reviewer`, `spec-project-standards-reviewer` |');

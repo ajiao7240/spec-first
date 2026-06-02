@@ -47,18 +47,17 @@ describe('self-reflection capability upgrade contract', () => {
     expect(contract).toContain('If a cycle intentionally writes fewer files, `00-summary.md` must explain why');
   });
 
-  test('keeps provider freshness vocabulary stable and bounded', () => {
+  test('keeps external-tool freshness vocabulary stable and bounded', () => {
     const contract = fs.readFileSync(CONTRACT_PATH, 'utf8');
     const statuses = [
       'current',
       'stale',
       'partial',
-      'definitions-only',
       'unavailable',
       'not-used',
     ];
 
-    expect(contract).toContain('## Provider Freshness Classification');
+    expect(contract).toContain('## External-Tool Freshness Classification');
     for (const status of statuses) {
       expect(contract).toContain(`| \`${status}\``);
     }

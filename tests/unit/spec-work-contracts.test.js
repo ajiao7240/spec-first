@@ -24,7 +24,7 @@ const TRACKER_DEFER_PATH = path.join(
 );
 
 describe('spec-work context orientation contract', () => {
-  test('uses plan/task-pack guided direct reads without retired graph hooks', () => {
+  test('uses plan/task-pack guided direct reads without hidden hooks', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     expect(text).toContain('Context Orientation Anchor');
     expect(text).toContain('the plan or task pack');
@@ -36,14 +36,9 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('Host Instruction Reuse Policy allows it');
     expect(text).not.toContain('AGENTS.md` / `CLAUDE.md` / project role docs');
     expect(text).toContain('project-guidance facts');
-    expect(text).not.toContain('docs/examples/standards-' + 'glue-consumption-examples.md');
-    expect(text).not.toContain('.spec-first/' + 'standards/');
-    expect(text).not.toContain('glue-' + 'map.json');
-    expect(text).toContain('prefer live GitNexus MCP evidence for concrete execution questions');
-    expect(text).toContain('fall back to bounded direct repo reads');
-    expect(text).toContain('they do not update compiled `query_ready`');
-    expect(text).toContain('definitions-only evidence');
-    expect(text).toContain('local file/symbol pointers');
+    expect(text).not.toContain('docs/examples/standards-glue-consumption-examples.md');
+    expect(text).not.toContain('.spec-first/standards/');
+    expect(text).not.toContain('glue-map.json');
     expect(text).toContain('Scope expansion is judged against the plan/task pack and concrete diff');
     expect(text).toContain('Use this intake order for context economy');
     expect(text).toContain('first read the plan/task summary and contract metadata');
@@ -51,43 +46,18 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('then current task/phase refs');
     expect(text).toContain('then focused source-of-truth sections');
     expect(text).toContain('only then deeper references');
-    expect(text).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
-    expect(text).toContain('src/cli/helpers/review-pre-facts/');
-    expect(text).toContain('do not create a parallel reviewer facts pipeline');
+    expect(text).toContain('do not create a new external-tool facts pipeline');
     expect(text).toContain('provenance-backed rejected/out-of-scope rationale');
     expect(text).toContain('advisory boundary evidence');
     expect(text).toContain('do not treat rejected rationale as task status');
-    expect(text).toContain('Graph Freshness / Refresh Trigger Boundary');
-    expect(text).toContain('.spec-first/graph/provider-status.json');
-    expect(text).toContain('.spec-first/graph/graph-facts.json');
-    expect(text).toContain('.spec-first/impact/bootstrap-impact-capabilities.json');
-    expect(text).toContain('provider `query_ready=true`');
-    expect(text).toContain('current `source_revision`, `worktree_dirty`, `worktree_status_hash`');
-    expect(text).toContain('setup-owned provider projection / fingerprint freshness');
-    expect(text).toContain('Branch switch, pull, rebase, merge');
-    expect(text).toContain('provider fingerprint mismatch');
-    expect(text).toContain('stale / bootstrap-required signals');
-    expect(text).toContain('stale graph + lightweight work');
-    expect(text).toContain('stale graph + graph-heavy work');
-    expect(text).toContain('shared helper/API/route/provider contract/core workflow/cross-module changes');
-    expect(text).toContain('review-pre-facts changes');
-    expect(text).toContain('execution flows or blast radius');
-    expect(text).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
-    expect(text).toContain('must not run GitNexus analyze/build/index refresh');
-    expect(text).toContain('provider repair, default git hooks, watchers, or daemons');
-    expect(text).toContain('Review-produced `detect_changes` / impact summaries');
-    expect(text).toContain('not Work refresh triggers');
+    expect(text).toContain('Direct Evidence Boundary');
+    expect(text).toContain('Work does not require external-tool readiness before ordinary implementation.');
+    expect(text).toContain('Use direct source reads, `rg`, ast-grep, git diff, focused tests, logs, package metadata, and user-provided artifacts');
+    expect(text).toContain('claims that the direct evidence supports');
     expect(text).toContain('Workspace Repo Scope');
-    expect(text).toContain('workspace-graph-targets.v1');
-    expect(text).toContain('workspace-gitnexus-readiness.v1');
-    expect(text).toContain('`group.status="group-ready"` may orient cross-repo GitNexus queries');
-    expect(text).toContain('stale/advisory group evidence never expands work scope');
-    expect(text).toContain('bounded candidate repos');
-    expect(text).toContain('GitNexus-first evidence per candidate');
-    expect(text).toContain('degraded-fallback');
+    expect(text).toContain('bounded direct reads of candidate repos');
     expect(text).toContain('single `target_repo` or per-unit/per-task `target_repo`');
     expect(text).toContain('actual `git status` changes belong to the selected child repo');
-    expect(text).not.toContain('spec-first ' + 'crg hook');
     expect(text).not.toContain('stage0-context');
     expect(text).not.toContain('selected_assets');
   });
@@ -124,43 +94,31 @@ describe('spec-work context orientation contract', () => {
     expect(text).toContain('do not force TDD where no behavior-bearing code changes');
   });
 
-  test('consumes plan Graph GitNexus evidence without expanding implementation scope', () => {
+  test('consumes plan direct evidence without expanding implementation scope', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     const shipping = fs.readFileSync(SHIPPING_WORKFLOW_PATH, 'utf8');
 
-    expect(text).toContain('`## Graph / GitNexus Evidence` block');
-    for (const field of ['capabilities_used', 'key_findings', 'impact_on_plan', 'source_reads_required']) {
+    expect(text).toContain('If the plan contains a direct evidence or current-state section');
+    for (const field of ['source refs', 'limitations', 'required verification']) {
       expect(text).toContain(field);
     }
     expect(text).toContain('advisory implementation focus');
-    expect(text).toContain('mandatory direct read evidence');
-    expect(text).toContain('evidence_grade=primary');
-    expect(text).toContain('evidence_posture=fallback');
-    expect(text).toContain('candidate file/symbol pointers only');
-    expect(text).toContain('If a shared symbol is about to be edited');
-    expect(text).toContain('prefer `detect_changes` as advisory changed-symbol/process evidence');
-    expect(text).toContain('focus verification and risk disclosure only');
-    expect(text).toContain('downstream `non-expansion rule`');
+    expect(text).toContain('Any implementation or risk claim still needs current source, diff, test, log, or user-provided evidence');
+    expect(text).toContain('Apply the downstream non-expansion rule');
     expect(text).toContain('not silently added to the implementation unit');
-    expect(text).toContain('repo_scope: parent-workspace-orientation-only');
     expect(text).toContain('resolve an explicit `target_repo` or per-unit/per-task repo scope before writing files');
 
-    expect(shipping).toContain('Graph evidence used (when applicable)');
-    expect(shipping).toContain('graph_evidence_used');
+    expect(shipping).toContain('Direct evidence used (when applicable)');
+    expect(shipping).toContain('direct_evidence_used');
     for (const field of [
-      'capabilities_used',
-      'evidence_grade',
-      'evidence_posture',
-      'freshness_state',
+      'source_refs',
+      'checks_or_logs',
       'repo_scope',
-      'graph_findings_applied',
-      'graph_findings_as_risk_only',
-      'source_reads_validated',
+      'limitations',
     ]) {
       expect(shipping).toContain(field);
     }
-    expect(shipping).toContain('`fallback` belongs to `evidence_posture`, not `evidence_grade`');
-    expect(shipping).toContain('must not expand implementation scope');
+    expect(shipping).toContain('Omit the section when the ordinary changed-file/test summary is enough');
   });
 });
 

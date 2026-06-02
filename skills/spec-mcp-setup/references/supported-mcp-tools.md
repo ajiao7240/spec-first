@@ -1,112 +1,40 @@
-# Supported Required Harness Runtime Tools
+# Supported MCP Tools
 
-This reference is the human-readable index for the runtime managed by `spec-mcp-setup`. The machine truth for MCP servers and graph providers remains `skills/spec-mcp-setup/mcp-tools.json`.
+This reference summarizes the current `spec-mcp-setup` registry. The machine source of truth is `skills/spec-mcp-setup/mcp-tools.json`.
 
-## Instruction Surface Boundary
+## Current Required Tools
 
-`AGENTS.md` and `CLAUDE.md` may contain a managed `spec-first:runtime-tools` block. That block is only a lightweight usage-boundary index for agents at session start.
+| Tool | Required | Category | Host config | Command |
+| --- | --- | --- | --- | --- |
+| Sequential Thinking | Yes | `mcp` | Yes | `npx -y @modelcontextprotocol/server-sequential-thinking@latest` |
+| Context7 | Yes | `mcp` | Yes | `npx -y @upstash/context7-mcp@latest` |
 
-Do not treat repo-root instruction files as the tool catalog, install guide, or readiness source. Keep the complete human-readable catalog in this file, MCP / graph-provider machine truth in `skills/spec-mcp-setup/mcp-tools.json`, setup-owned project facts in `.spec-first/config/*.json`, and canonical graph readiness facts in `.spec-first/graph/*` plus `.spec-first/impact/*`.
+## Setup Rules
 
-## Required MCP Tools
+- All registry entries must have `required=true`.
+- Current registry categories are `mcp` only.
+- MCP tools must define deterministic install, host config, detection, summary, and uninstall metadata.
+- Package-backed setup paths normally request latest versions through `@latest`.
+- Warmup cache lives under `$HOME/.spec-first/cache/mcp-warmup/` unless `SPEC_FIRST_WARMUP_CACHE_DIR` overrides it.
+- `--verify-only` only reads facts and must not perform installs or host config writes.
 
-| Tool | Required | Category | Host Config | Project Bootstrap | Purpose |
-|---|---:|---|---|---|---|
-| Sequential Thinking | Yes | `mcp` | Claude/Codex MCP server | No | Reflective reasoning support |
-| Context7 | Yes | `mcp` | Claude/Codex MCP server | No | Current framework/library documentation |
+## Required Helper Tools
 
-## Required Graph Providers
+`agent-browser` and ast-grep are required helper tools for workflows that need browser automation or structural search. Each helper is not an MCP server, has no host config write, and is reported under `"helper_tools"` in setup-owned facts.
 
-| Tool | Required | Category | Role | Default Access | Setup Command | Bootstrap Owner |
-|---|---:|---|---|---|---|
-| GitNexus | Yes | `graph-provider` | `global_knowledge` | required host MCP | `npx -y <configured-gitnexus-package> mcp` | `spec-graph-bootstrap` reads `graph-providers.json` command arrays and transiently runs analyze/status/query probes |
+## Project Setup Facts
 
-`spec-mcp-setup` only warms required provider packages, configures host-MCP-required providers, and writes setup-owned config facts. It must not run `gitnexus analyze`, `gitnexus status`, `gitnexus query`, `gitnexus impact`, or provider index refresh commands.
+Setup writes project-local facts under `.spec-first/config/` when target writes are allowed:
 
-## Required Helper Tooling
+- `tool-facts.json`: setup-owned tool and helper readiness facts.
+- `runtime-capabilities.json`: setup-owned direct evidence posture and host ledger pointer.
 
-Required helper tooling is not an MCP server category and is intentionally not listed in `mcp-tools.json`.
+These files are setup facts, not semantic code evidence. Downstream workflows decide what source files, tests, logs, or docs are relevant for the user's task.
 
-| Tool | Required | Type | Purpose |
-|---|---:|---|---|
-| `agent-browser` | Non-blocking | helper CLI + global skill | Browser automation helper used by downstream workflows |
-| `gh` | Yes | helper CLI | GitHub issue/PR operations |
-| `jq` | Yes | helper CLI / script dependency | JSON parsing for deterministic setup scripts |
-| `vhs` | Yes | helper CLI | Terminal demo recording |
-| `silicon` | Yes | helper CLI | Code screenshot rendering |
-| `ffmpeg` | Yes | helper CLI | Media conversion and video assembly |
-| `ast-grep` | Yes | helper CLI | Structural code search and rewrite |
-| global `ast-grep` skill | Yes | global skill | Agent-facing ast-grep usage guidance |
+## Handoff
 
-Default helper install mode runs baseline helpers and skips browser automation unless explicitly requested:
+After setup:
 
-```bash
-SPEC_FIRST_BROWSER_HELPER_REQUIRED=1
-CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error
-agent-browser install
-npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y
-brew update && if brew list --formula <tool> >/dev/null 2>&1; then brew upgrade -q <tool>; else brew install -q <tool>; fi
-npx -y skills@latest add ast-grep/agent-skill -g -y
-```
-
-The helper install path preserves inherited npm registry / proxy env vars through the sudo fallback, so `NPM_CONFIG_REGISTRY` / `npm_config_registry` can point npm and npx at a domestic mirror without rewriting global config. On Linux, `agent-browser install` uses `--with-deps`; on macOS and Windows it stays `agent-browser install` and relies on existing browser detection or the upstream runtime download path. `agent-browser` install/repair is demand-aware: without `SPEC_FIRST_BROWSER_HELPER_REQUIRED=1`, setup records `result=skipped`, `baseline_blocking=false`, and `browser_capability_demand_signals[]` but does not download Chrome runtime. With explicit demand, `install-helpers.*` installs `agent-browser` browser runtime, the global `agent-browser` skill, and the global `ast-grep` skill in parallel, while package-manager-backed helper CLIs stay serialized to avoid lock contention.
-
-Package-backed setup paths normally request latest versions: npm/npx packages use `@latest`, floating `uvx` MCP/tool commands use `--upgrade`, Cargo installs use `--force`, and Homebrew/winget handoffs prefer upgrade-before-install semantics. Temporary package pins must live in `mcp-tools.json`; provider projections must read that package spec from the registry instead of hard-coding it in prose or tests. GitNexus is pinned to `gitnexus@1.6.6-rc.76` on the `rc` channel for reproducible setup; this replaces the prior `gitnexus@1.6.5` stable pin to absorb the upstream worker-pool race fix in PR https://github.com/abhigyanpatwari/GitNexus/pull/1833 (1.6.5 reproducibly aborts with `libc++abi: terminating due to uncaught exception of type Napi::Error` on multi-repo workspace bootstraps). The RC pin is acknowledged as a non-stable channel exception per the governance plan risk register; revert to the next `gitnexus` stable that bundles PR #1833 once it ships, after the same `--version`, `analyze --help`, and representative query probe verification recorded in the GitNexus evidence governance plan. Future pin changes need the same explicit record in `CHANGELOG.md` and the governance plan execution log. Successful MCP warmups are cached under `$HOME/.spec-first/cache/mcp-warmup/` so repeated setup in another repo can skip unchanged package warmups; set `SPEC_FIRST_WARMUP_CACHE_DIR` to move the cache root, `SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS` to tune the default 86400-second TTL for `@latest` / `--upgrade` commands, or `SPEC_FIRST_FORCE_WARMUP=1` / `SPEC_FIRST_DISABLE_WARMUP_CACHE=1` to bypass the cache. `--verify-only` only reads facts and does not upgrade.
-
-After `agent-browser install` succeeds, `install-helpers.*` writes `$HOME/.agent-browser/spec-first-install.json`. `--verify-only` only reads that marker, the CLI presence, and the global skill file; it does not run install or diagnostic commands. Missing marker does not block `baseline_ready`; it stays visible as `install_status=action-required` under the non-blocking `agent-browser` helper fact.
-
-`install-helpers.* --verify-only` only detects the helper facts and returns:
-
-```json
-{
-  "helper_tools": {
-    "agent-browser": {},
-    "gh": {},
-    "jq": {},
-    "vhs": {},
-    "silicon": {},
-    "ffmpeg": {},
-    "ast-grep": {},
-    "ast-grep-skill": {}
-  }
-}
-```
-
-## Readiness Boundary
-
-Readiness ledger v2 is written by `verify-tools.*` after merging MCP/graph-provider facts with helper facts.
-
-`baseline_ready=true` means:
-
-- required MCP tools are configured;
-- required graph providers are configured; host MCP config is required only for providers with `host_config_required=true`;
-- every baseline-blocking helper fact is ready. Non-blocking `agent-browser` facts may be `ready`, `skipped`, or `degraded` without blocking the harness baseline.
-
-It does not mean graph facts are query-ready. On first setup, graph providers remain:
-
-```json
-{
-  "configured": true,
-  "enabled_for_bootstrap": true,
-  "query_ready": false,
-  "bootstrap_required": true
-}
-```
-
-`verify-tools.*` also writes setup-owned project facts when run inside a git repo:
-
-- `.spec-first/config/graph-providers.json`
-- `.spec-first/config/runtime-capabilities.json`
-- `.spec-first/config/provider-artifacts.json`
-
-For GitNexus, those setup-owned facts may include `graph-providers.json.providers.gitnexus.native_capabilities` and `runtime-capabilities.json.gitnexus_capability_discovery`. They are setup-inferred availability/discovery facts only: they help `$spec-plan` choose read-only native tools such as `query`, `context`, `impact`, `api_impact`, `route_map`, `shape_check`, `cypher`, `tool_map`, `list_repos`, or workspace advisory `group_list`, and read-only resources such as repo context/schema/processes and group status/contracts. They do not prove current live MCP exposure, query success, resource readability, or canonical `query_ready` graph evidence. Setup source tags stop at `checked-in-baseline`, `provider-pin`, and `setup-projection`; live MCP tool/resource tags are added only by workflows that verify the current session surface.
-
-`runtime-capabilities.json` records a `host_ledger_pointer` to the host readiness ledger v2. `spec-graph-bootstrap` must follow that pointer and fail closed on conflicts; it must not guess host ledger paths.
-
-Run `/spec:graph-bootstrap` or `$spec-graph-bootstrap` to compile provider readiness, canonical graph facts, impact capabilities, and a bootstrap report. The command may transiently execute validated provider command arrays from `.spec-first/config/graph-providers.json`; it must not perform persistent installs or edit host MCP config.
-
-Repeated setup, reinstall, or post-upgrade verification preserves existing project graph readiness summaries when the existing provider projection is for the same repo and the provider is still configured and dependency-ready. It must not reset canonical project graph readiness to `not-bootstrapped` just because setup reran. Uninstall or broken provider config must not preserve query readiness.
-
-The final setup output should make this handoff explicit below the grouped readiness blocks: run `/spec:graph-bootstrap` or `$spec-graph-bootstrap` when durable graph readiness refresh is needed; hand off to `/spec:plan` or `$spec-plan` for Plan-stage live GitNexus evidence when a new session can load newly written MCP config, or when the current session already exposes the relevant MCP surface. Dirty worktree or stale durable readiness does not automatically make prior/session-local Plan evidence unusable. If the current agent determines it only needs the deterministic bootstrap script and does not need newly loaded MCP servers, it may accept "继续完成" in the current session; downstream workflows should still use a restarted/new session before relying on newly written MCP config.
-
-Setup is idempotent: re-running it preserves existing setup-owned project facts and host MCP config entries must not contain internal setup metadata such as selected scope. For Codex, higher-precedence config handling is per MCP server section, not per config file.
+- If any row is `action-required`, fix that row and rerun setup.
+- If a parent workspace target is ambiguous, choose a child repo and rerun with `--repo <child>`.
+- If required runtime is ready, continue to the workflow that matches the user intent: plan, work, review, debug, or docs.

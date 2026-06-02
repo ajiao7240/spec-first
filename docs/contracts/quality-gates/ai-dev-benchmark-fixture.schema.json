@@ -30,7 +30,6 @@
         "api-contract",
         "docs-only",
         "cli-bugfix",
-        "graph-degraded-fallback",
         "multi-module-refactor"
       ]
     },

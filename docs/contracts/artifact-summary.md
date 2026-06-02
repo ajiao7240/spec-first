@@ -23,7 +23,7 @@
 ```json
 {
   "schema_version": "spec-first.artifact-summary.v1",
-  "artifact_type": "plan|task-pack|review|work|compound|audit|release|graph-readiness",
+  "artifact_type": "plan|task-pack|review|work|compound|audit|release|setup-readiness",
   "source_path": "docs/plans/example-plan.md",
   "producer": "spec-plan",
   "timestamp": "2026-05-14T00:00:00Z",
@@ -36,8 +36,8 @@
   "evidence_paths": ["tests/unit/example.test.js"],
   "evidence_summaries": [
     {
-      "kind": "graph-session",
-      "summary": "compact advisory graph evidence",
+      "kind": "direct-evidence",
+      "summary": "compact advisory direct evidence",
       "source_reads_required": ["src/example.js"],
       "limitations": ["session-local evidence requires source confirmation"],
       "redaction_status": "none-required"
@@ -58,7 +58,7 @@
 - Work artifacts 汇总 changed files、verification commands、review tier 和 residual status。
 - Compound artifacts 汇总 reusable lesson delta 与 source evidence paths。
 - Tool-heavy artifacts 汇总 exit code、reason_code、关键字段和 raw log paths，而不是嵌入 raw output。
-- Graph/session evidence summary 可以记录 capabilities used、source reads required、limitations 和 redaction status，但不得嵌入 raw provider output，也不得成为 finding / root cause 的 source of truth。
+- Direct/session evidence summary 可以记录 source reads required、commands used、limitations 和 redaction status，但不得嵌入 raw external-tool output，也不得成为 finding / root cause 的 source of truth。
 
 ## Consumer 规则
 
@@ -66,4 +66,4 @@
 2. 只有 `full_artifact_read_triggers` 适用时才展开 full artifact。
 3. agent handoff 传递 summary 和 paths，不复制 full artifact body。
 4. 如果缺少 summary，标记 `summary_missing`，并读取最小可用 status、manifest 或 explicit path。
-5. Graph/session evidence summary 是 advisory handoff；consumer 必须回到 `evidence_paths` 或 `source_reads_required` 做 source/test/contract confirmation。
+5. Direct/session evidence summary 是 advisory handoff；consumer 必须回到 `evidence_paths` 或 `source_reads_required` 做 source/test/contract confirmation。

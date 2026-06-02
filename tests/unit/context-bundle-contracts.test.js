@@ -64,12 +64,12 @@ describe('context bundle and summary contracts', () => {
     expect(bundle.related_paths[0].path).toBe('skills/spec-work/SKILL.md');
     expect(bundle.artifact_summaries[0].reason).toBe('summary-first handoff');
     expect(bundle.evidence_paths[0].path).toBe('tests/unit/spec-work-contracts.test.js');
-    expect(bundle.evidence_summaries[0].schema_version).toBe('gitnexus-session-evidence.v1');
+    expect(bundle.evidence_summaries[0].schema_version).toBe('direct-evidence-summary.v1');
     expect(bundle.full_read_triggers.length).toBeGreaterThan(0);
     expect(bundle.excluded_context[0].reason_code).toBe('runtime_audit_artifact_excluded');
 
     expect(summary.schema_version).toBe('spec-first.artifact-summary.v1');
-    expect(summary.evidence_summaries[0].kind).toBe('graph-session');
+    expect(summary.evidence_summaries[0].kind).toBe('direct-evidence');
     expect(summary.evidence_summaries[0].redaction_status).toBe('none-required');
     expect(summary.full_artifact_read_triggers.length).toBeGreaterThan(0);
     expect(finding.schema_version).toBe('spec-first.review-finding.v1');
@@ -80,12 +80,13 @@ describe('context bundle and summary contracts', () => {
     expect(reviewFinding).toContain('不是 `spec-code-review` reviewer JSON 返回 schema');
     expect(reviewFinding).toContain('skills/spec-code-review/references/findings-schema.json');
     expect(reviewFinding).toContain('不得静默丢弃 P0/P1 findings');
-    expect(reviewFinding).toContain('`type="graph"` evidence 只是 supporting evidence');
-    expect(reviewFinding).toContain('不得单独形成 high-confidence finding');
+    expect(reviewFinding).toContain('External-tool evidence is supporting evidence');
+    expect(reviewFinding).toContain('must not form a high-confidence finding');
     expect(governance).toContain('stable instruction prefix');
     expect(governance).toContain('dynamic suffix');
-    expect(governance).toContain('GitNexus live MCP results');
-    expect(governance).toContain('不得把 raw MCP dumps');
+    expect(governance).toContain('External-tool results and session summaries');
+    expect(governance).toContain('raw MCP dumps');
+    expect(governance).toContain('compact facts, source-read requirements, limitations, and precise artifact paths');
     expect(governance).toContain('docs/contracts/context-bundle.md');
     expect(governance).toContain('docs/contracts/artifact-summary.md');
   });
@@ -132,14 +133,12 @@ describe('context bundle and summary contracts', () => {
       changedFiles: [
         'skills/spec-work/SKILL.md',
         '.spec-first/audits/old-run/summary.json',
-        '.spec-first/graph/graph-facts.json',
-        '.spec-first/providers/gitnexus/status.json',
+        '.spec-first/workspace/legacy-summary.json',
       ],
       relatedPaths: ['docs/contracts/context-bundle.md'],
       artifactSummaries: ['docs/contracts/artifact-summary.md'],
       evidencePaths: [
-        '.spec-first/impact/bootstrap-impact-capabilities.json',
-        '.spec-first/workspace/workspace-graph-targets.json',
+        '.spec-first/workspace/scenario-fingerprint-setup.json',
         '.spec-first/app-audit/latest/summary.json',
         '.spec-first/workflows/spec-work/run.json',
         '.spec-first/sessions/session-a.json',
@@ -164,19 +163,11 @@ describe('context bundle and summary contracts', () => {
         reason_code: 'runtime_audit_artifact_excluded',
       }),
       expect.objectContaining({
-        path: '.spec-first/graph/graph-facts.json',
+        path: '.spec-first/workspace/legacy-summary.json',
         reason_code: 'runtime_context_artifact_excluded',
       }),
       expect.objectContaining({
-        path: '.spec-first/providers/gitnexus/status.json',
-        reason_code: 'runtime_context_artifact_excluded',
-      }),
-      expect.objectContaining({
-        path: '.spec-first/impact/bootstrap-impact-capabilities.json',
-        reason_code: 'runtime_context_artifact_excluded',
-      }),
-      expect.objectContaining({
-        path: '.spec-first/workspace/workspace-graph-targets.json',
+        path: '.spec-first/workspace/scenario-fingerprint-setup.json',
         reason_code: 'runtime_context_artifact_excluded',
       }),
       expect.objectContaining({
@@ -399,7 +390,7 @@ describe('context bundle and summary contracts', () => {
       stage: 'skill-audit',
       intent: 'runtime_drift_check',
       changedFiles: [],
-      relatedPaths: ['.spec-first/graph/graph-facts.json', '.agents/skills/spec-work/SKILL.md'],
+      relatedPaths: ['.spec-first/workspace/scenario-fingerprint-setup.json', '.agents/skills/spec-work/SKILL.md'],
       artifactSummaries: [],
       evidencePaths: [],
       fullReadTriggers: [],
@@ -410,7 +401,7 @@ describe('context bundle and summary contracts', () => {
 
     expect(bundle.related_paths).toEqual([
       expect.objectContaining({
-        path: '.spec-first/graph/graph-facts.json',
+        path: '.spec-first/workspace/scenario-fingerprint-setup.json',
         reason: 'explicitly provided related path; runtime context explicitly allowed',
       }),
       expect.objectContaining({

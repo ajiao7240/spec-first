@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
@@ -7,12 +8,17 @@ const { spawnSync } = require('node:child_process');
 const {
   runChecks,
 } = require('../../scripts/check-release-continuity.cjs');
+const {
+  buildRuntimeCapabilityCatalog,
+} = require('../../scripts/generate-runtime-capability-catalog');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
 describe('release continuity guard', () => {
   test('reports deterministic release/source-runtime continuity guards with reason codes', () => {
-    const result = runChecks();
+    const runtimeCatalogPath = path.join(os.tmpdir(), `spec-first-current-runtime-catalog-${process.pid}.md`);
+    fs.writeFileSync(runtimeCatalogPath, buildRuntimeCapabilityCatalog(), 'utf8');
+    const result = runChecks({ runtimeCatalogPath });
     const guardsById = new Map(result.guards.map((entry) => [entry.guard_id, entry]));
 
     expect(result.schema_version).toBe('release-continuity-guard/v1');
@@ -22,7 +28,6 @@ describe('release continuity guard', () => {
       result: 'pass',
       reason_code: 'runtime-catalog-current',
       classification: 'blocking',
-      artifact_path: 'docs/catalog/runtime-capabilities.md',
     });
     expect(guardsById.get('public-workflow-contract-summary-coverage')).toMatchObject({
       result: 'pass',

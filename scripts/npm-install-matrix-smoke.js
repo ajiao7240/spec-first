@@ -28,7 +28,6 @@ const FORBIDDEN_PACKAGE_PATTERNS = [
   { pattern: '.claude/', kind: 'prefix' },
   { pattern: '.codex/', kind: 'prefix' },
   { pattern: '.agents/skills/', kind: 'prefix' },
-  { pattern: 'src/crg/', kind: 'prefix' },
   { pattern: 'vendor/', kind: 'prefix' },
   { pattern: '__pycache__/', kind: 'segment' },
   { pattern: '.pyc', kind: 'suffix' },

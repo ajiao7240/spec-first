@@ -19,7 +19,6 @@ const GOVERNED_CRITICAL_SKILLS = [
   'spec-code-review',
   'spec-debug',
   'spec-doc-review',
-  'spec-graph-bootstrap',
   'spec-mcp-setup',
   'spec-plan',
   'spec-work',

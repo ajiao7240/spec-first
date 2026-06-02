@@ -70,7 +70,6 @@ function runUnit() {
   runBash('tests/unit/developer.sh');
   runBash('tests/unit/lang-policy.sh');
   runMcpSetup();
-  runGraphBootstrap();
   runBash('tests/unit/version-reminder.sh');
   runJest(['tests/unit', '--runInBand']);
 }
@@ -81,18 +80,6 @@ function runMcpSetup() {
     return;
   }
   runBash('tests/unit/mcp-setup.sh');
-}
-
-function runGraphBootstrap() {
-  if (isWindows && !forcePosixOnWindows) {
-    runJest([
-      'tests/unit/mcp-setup-powershell-contracts.test.js',
-      'tests/unit/spec-graph-bootstrap-contracts.test.js',
-      '--runInBand',
-    ]);
-    return;
-  }
-  runBash('tests/unit/spec-graph-bootstrap.sh');
 }
 
 function runSmoke() {
@@ -143,7 +130,6 @@ function main() {
     all: runAll,
     unit: runUnit,
     'mcp-setup': runMcpSetup,
-    'graph-bootstrap': runGraphBootstrap,
     smoke: runSmoke,
     integration: runIntegration,
     release: runRelease,

@@ -14,6 +14,7 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'SKILL.md');
 const ROUTING_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'intent-routing.md');
 const CURRENT_STATE_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'current-state-analysis.md');
+const CHANGE_TOPOLOGY_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'change-topology-lens.md');
 const DOMAIN_LANGUAGE_PATH = path.join(
   REPO_ROOT,
   'skills',
@@ -159,17 +160,25 @@ describe('spec-prd workflow contracts', () => {
     expectContainsAll(currentState, [
       '`confirmed-source`',
       '`user-stated`',
-      '`gitnexus-pointer`',
+      '`source-candidate`',
       '`external-research`',
       '`assumption`',
-      'do not add a new evidence enum',
-      'candidate pointer only',
+      'These PRD tags are authoring provenance labels, not a provider contract.',
+      'Candidate source hits can guide what to read next',
+      'external-tool output, generated mirrors, historical docs, and old plans remain pointers',
       'Current System Snapshot',
       '`keep`',
       '`extend`',
       '`replace`',
       '`remove`',
       '`unknown`',
+      'Framing-Aligned Evidence',
+      'each load-bearing claim should explain which WHAT boundary it supports',
+      'Surface And Contract Discovery',
+      'surface | current behavior | owner/source | artifact/contract | consumer | delta | evidence',
+      'producer | artifact/schema/path | freshness/authority | consumers | change effect | evidence',
+      'Source-Of-Truth Discovery',
+      'current_source_of_truth:',
       'contradiction',
       'A current-state claim without an evidence tag cannot be treated as `confirmed-source`',
       'three sources',
@@ -197,6 +206,48 @@ describe('spec-prd workflow contracts', () => {
     expect(domainLanguage).not.toContain('always create ADR');
   });
 
+  test('change topology lens protects system-shape classification and boundary reasoning', () => {
+    const skill = read(SKILL_PATH);
+    const lens = read(CHANGE_TOPOLOGY_PATH);
+
+    expect(skill).toContain('references/change-topology-lens.md');
+    expect(skill).toContain('Before deep evidence gathering, run an internal Framing Gate');
+    expect(skill).toContain('classify the system-change topology before drafting requirements');
+    expectContainsAll(lens, [
+      'Framing Gate',
+      'Evidence Plan',
+      'Owner Question Ladder',
+      'shape of the system change',
+      'candidate_topologies:',
+      'load_bearing_surfaces:',
+      'source_of_truth_risk:',
+      'producer_consumer_risk:',
+      'negative_space_risk:',
+      'owner_question_needed:',
+      'evidence_plan:',
+      'claim_or_question | surface | source_to_read_or_command | required_evidence_tag | why_load_bearing | fallback_if_unconfirmed',
+      'Evidence planning is mandatory for workflow, contract, setup/runtime, migration, replace, remove, and mixed-surface PRDs',
+      'not to force a new final PRD section',
+      '`add`',
+      '`extend`',
+      '`replace`',
+      '`remove`',
+      '`migrate`',
+      '`split`',
+      '`merge`',
+      '`policy-change`',
+      '`workflow-change`',
+      '`contract-change`',
+      'Surface Map',
+      'Producer / Artifact / Consumer',
+      'Source-Of-Truth Resolution',
+      'Negative Space',
+      'Ask only questions that decide scope, behavior, source-of-truth, or acceptance',
+      'If more than three owner questions seem necessary',
+      'not a request to add implementation units',
+    ]);
+  });
+
   test('output template carries generic skeleton, trace rules, closeout, and split topology', () => {
     const template = read(OUTPUT_TEMPLATE_PATH);
 
@@ -210,8 +261,15 @@ describe('spec-prd workflow contracts', () => {
       '## Acceptance Examples',
       '## Scope Boundaries',
       '## Evidence And Assumptions',
+      '## Change Topology',
+      '## Surface Map',
+      '## Source-Of-Truth Resolution',
+      '## Negative Acceptance',
       'Success Metrics are conditional',
       'do not invent target values',
+      'Framing Gate',
+      'Evidence Plan',
+      'do not print the run-local Framing Gate by default',
       'vague original -> improved concrete wording -> reason',
       '"等", "相关", "合适的", "更好", and "优化体验"',
       'implementation units, schemas, exact API fields, database tables, and task breakdown are not',
@@ -271,6 +329,15 @@ describe('spec-prd workflow contracts', () => {
       '`hard-decision unresolved`',
       '`vague-wording`',
       '`priority-completeness`',
+      '`change-topology fit`',
+      '`surface-map completeness`',
+      '`producer-consumer closure`',
+      '`source-of-truth clarity`',
+      '`negative-acceptance coverage`',
+      '`framing-evidence alignment`',
+      '`owner-question minimality`',
+      'handoff entropy check',
+      'unresolved framing risks',
       'do not introduce a second evidence enum',
       'ready-for-planning',
       'doc-review',
@@ -347,6 +414,8 @@ describe('spec-prd workflow contracts', () => {
       expect(runtimeCore).toContain(section);
       expect(runtimeTemplate).toContain(section);
     }
+    expect(runtimeCore).toContain('run-local Framing Gate 和 Evidence Plan');
+    expect(runtimeCore).toContain('plan 发明 WHAT');
     for (const surface of ['App', 'Admin', 'Backend', 'H5/PC', 'CLI/DevTool', 'Mixed']) {
       expect(runtimeLenses).toContain(surface);
     }
@@ -367,12 +436,16 @@ describe('spec-prd workflow contracts', () => {
       'zero-to-one-route-out',
       'app-prd-figma-source-audit',
       'backend-java-contract-change',
+      'remove-active-integration',
+      'workflow-contract-change',
+      'source-of-truth-migration',
+      'extend-identity-drift',
       'securities-app-order',
       'success-metrics-without-evidence',
       'terminology-conflict',
       'code-claim-contradiction',
       'hard-decision-unresolved',
-      'stale-gitnexus-pointer',
+      'source-candidate-unconfirmed',
       'oversized-initial-prd',
       'readiness-fail-trace-gap',
       'template-drift',
@@ -380,6 +453,15 @@ describe('spec-prd workflow contracts', () => {
     ]) {
       expect(ids).toContain(id);
     }
+    const serialized = JSON.stringify(examples);
+    expectContainsAll(serialized, [
+      'Framing Gate before broad source reads',
+      'Evidence Plan includes package/docs/tests/runtime/downstream consumers',
+      'Owner Question Ladder for workflow/contract decisions',
+      'Framing Gate marks source-of-truth risk',
+      'framing-evidence alignment catches identity drift',
+      'owner-question minimality asks only default/entry/permission decision',
+    ]);
   });
 
   test('fresh-source eval artifact records the source-only evaluation status', () => {
@@ -389,6 +471,7 @@ describe('spec-prd workflow contracts', () => {
       'fresh_source_eval:',
       'status: not_run',
       'skills/spec-prd/SKILL.md',
+      'skills/spec-prd/references/change-topology-lens.md',
       'skills/spec-prd/references/prd-output-template.md',
       'skills/spec-prd/templates/standard/00-通用增量需求模板.md',
       'templates/claude/commands/spec/prd.md',
@@ -414,7 +497,8 @@ describe('spec-prd workflow contracts', () => {
       '`avoid` 是 `spec-prd` v1 术语 drift 检测的唯一输入字段',
     ]);
     // 不引入第二套证据 enum,复用既有等级
-    expect(glossary).toContain('graph-evidence-policy.md');
+    expect(glossary).toContain('source_tag');
+    expect(glossary).toContain('confirmed | advisory');
     // 明确否定独立 CONTEXT.md / ADR 文件树拓扑
     expect(glossary).toMatch(/不是.*独立的.*CONTEXT\.md/);
     expect(glossary).not.toContain('sequential numbering');

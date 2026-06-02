@@ -72,9 +72,9 @@
   ],
   "evidence_summaries": [
     {
-      "schema_version": "gitnexus-session-evidence.v1",
+      "schema_version": "direct-evidence-summary.v1",
       "summary_ref": "temp-artifact-or-workflow-summary",
-      "reason": "bounded graph context; source reads still required"
+      "reason": "bounded direct evidence; source reads still required"
     }
   ],
   "full_read_triggers": [
@@ -107,10 +107,10 @@
 5. 只有列出的 `full_read_triggers` 命中时，consumer 才展开完整文件。
 6. `docs/contracts/context-governance.md` 排除的 runtime/generated paths 仍保持排除，除非任务明确是 setup/update/runtime-drift/audit scope。
 7. Degraded bundle 仍是有用 evidence，但最终判断必须说明 limitation。
-8. `evidence_summaries` 可以携带 compact graph/session evidence refs，例如 `gitnexus-session-evidence.v1` 或 pre-facts run summary；consumer 必须按其中的 `source_reads_required` 精确读取源码，不得把 summary 当 confirmed source fact。
+8. `evidence_summaries` 可以携带 compact direct evidence 或 session summary refs；consumer 必须按其中的 `source_reads_required` 精确读取源码，不得把 summary 当 confirmed source fact。
 
 ## 最小内部 Helper
 
 `spec-first internal context-bundle --help` 输出 helper 的完整参数说明；`spec-first internal context-bundle --json --stage <stage>` 可以从显式 path arguments 生成这个 envelope。它是 deterministic helper：把路径规范化为 repo-relative canonical paths，应用 runtime / outside-repo / symlink-escape exclusion，记录 budget pressure 并输出 JSON。它不搜索 repo、不排序文件、不检查 provider internals，也不决定 semantic relevance。
 
-普通上下文默认遵循 `docs/contracts/context-governance.md`，排除 `.spec-first/audits/**`、`.spec-first/graph/**`、`.spec-first/providers/**`、`.spec-first/impact/**`、`.spec-first/workspace/**`、`.spec-first/app-audit/**`、`.spec-first/workflows/**` 和 generated mirrors。setup/update/runtime-drift/audit 等明确任务可用 `--allow-runtime-context` 将这些精确路径纳入 envelope。
+普通上下文默认遵循 `docs/contracts/context-governance.md`，排除 `.spec-first/audits/**`、`.spec-first/workspace/**`、`.spec-first/app-audit/**`、`.spec-first/workflows/**` 和 generated mirrors。setup/update/runtime-drift/audit 等明确任务可用 `--allow-runtime-context` 将这些精确路径纳入 envelope。

@@ -59,7 +59,7 @@
   "provider_untrusted": {
     "readiness_status": "degraded",
     "summaries": [
-      "graph facts were dirty-advisory and used only for orientation"
+      "setup facts were advisory and used only for orientation"
     ]
   },
   "retention": {

@@ -69,7 +69,7 @@ Researcher 和 synthesis 必须区分事实来源、freshness 和判断。脚本
 | social signal | social discourse only | never as fact alone |
 | recommendation | cite assumptions and tradeoffs | separate fact/judgment |
 
-Advisory graph facts、social discourse、old review notes 和 generated runtime mirrors 都不能覆盖当前 source 和验证结果。
+Advisory external-tool facts、social discourse、old review notes 和 generated runtime mirrors 都不能覆盖当前 source 和验证结果。
 
 ## 5. Existing Exceptions
 

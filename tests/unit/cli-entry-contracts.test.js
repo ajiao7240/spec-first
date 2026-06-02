@@ -32,18 +32,16 @@ describe('CLI entry contract', () => {
     expect(result.stdout).toContain('Interactively install workflows');
     expect(result.stdout).toContain('clean (--claude|--codex)');
     expect(result.stdout).toContain('tasks <subcommand>');
-    expect(result.stdout).toContain('gitnexus-instruction');
-    expect(result.stdout).not.toContain('crg <subcommand>');
+    expect(result.stdout).toContain('session <subcommand>');
   });
 
-  test('version exits successfully and keeps workflow names out of package CLI output', () => {
+  test('version exits successfully and keeps package CLI guidance visible', () => {
     const result = runCli(['-v']);
 
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
     expect(result.stdout).toContain(`Spec-First v${PACKAGE_JSON.version}`);
     expect(result.stdout).toContain('Claude Code & Codex');
-    expect(result.stdout).not.toContain('graph-bootstrap');
   });
 
   test('unknown command exits with usage-error code and actionable help', () => {
@@ -54,8 +52,6 @@ describe('CLI entry contract', () => {
     expect(result.stderr).toMatch(/Unknown command: unknown-command/i);
     expect(result.stderr).toContain('Run `spec-first --help`');
     expect(result.stderr).toContain('Usage:');
-    expect(result.stderr).not.toContain('src/crg');
-    expect(result.stderr).not.toContain('crg <subcommand>');
   });
 
   test('CI and NO_COLOR mode does not emit ANSI escape sequences', () => {

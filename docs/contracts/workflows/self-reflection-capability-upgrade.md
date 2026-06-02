@@ -52,9 +52,8 @@ Cycle artifacts are reviewable evidence, not long-term truth by themselves:
 
 Generated/runtime inputs are evidence only:
 
-- `.spec-first/graph/`
-- `.spec-first/impact/`
 - `.spec-first/audits/`
+- `.spec-first/workflows/`
 - `.claude/`
 - `.codex/`
 - `.agents/skills/`
@@ -68,7 +67,7 @@ Scripts/tools may prepare:
 - file lists
 - git commit / branch / dirty state
 - artifact timestamps and hashes
-- provider readiness facts
+- external-tool readiness facts
 - schema/shape checks
 - command availability and exit codes
 
@@ -134,22 +133,21 @@ Rules:
 - Local reference projects are evidence, not source truth.
 - Counter-signals are required for any practice that could introduce runtime, agent, script, or command surface area.
 
-## Provider Freshness Classification
+## External-Tool Freshness Classification
 
-Self-reflection reports must classify graph/provider evidence before using it:
+Self-reflection reports must classify external-tool evidence before using it:
 
 | Status | Meaning | Allowed use |
 |---|---|---|
 | `current` | artifact/source revision matches current worktree context | primary supporting evidence |
 | `stale` | artifact revision or generated timestamp lags current source | advisory only; require fallback source reads |
-| `partial` | provider ran but lacks relevant scope or fields | pointers only; require fallback evidence |
-| `definitions-only` | provider returned definitions but no process/flow evidence | file/symbol pointers only |
-| `unavailable` | provider/tool/artifact missing or failed | do not rely on it |
-| `not-used` | graph/provider evidence was not relevant | no claim |
+| `partial` | tool ran but lacks relevant scope or fields | pointers only; require fallback evidence |
+| `unavailable` | tool/artifact missing or failed | do not rely on it |
+| `not-used` | external-tool evidence was not relevant | no claim |
 
 Reports must state:
 
-- provider artifact path
+- external-tool artifact path
 - artifact generated time when available
 - recorded source revision when available
 - current source revision
@@ -295,7 +293,7 @@ Before closing a self-reflection cycle:
 - frontmatter fields exist in every report
 - every Accepted CUD links to a current capability gap
 - every roadmap item links only to Accepted CUDs
-- graph/provider evidence has freshness status
+- external-tool evidence has freshness status
 - plan handoff exists for implementation-oriented Accepted CUDs
 - review expectation is named
 - compound expectation is named
@@ -309,7 +307,7 @@ Before closing a self-reflection cycle:
 | CUD-001 | Required report set, source/runtime boundary, loop scope |
 | CUD-002 | Evidence intake table and rules |
 | CUD-003 | CUD contract, lifecycle vocabulary, plan/review/compound handoff |
-| CUD-004 | Provider freshness classification |
+| CUD-004 | External-tool freshness classification |
 | CUD-005 | Review expectations and fresh-source eval boundary |
 
 Skipped/deferred items remain intentionally unimplemented:

@@ -6,28 +6,20 @@ const {
   removeManagedRuntimeToolsBlock,
 } = require('../../src/cli/runtime-tools-index');
 
-function legacyRuntimeToolsBlock() {
+function managedRuntimeToolsBlock() {
   return [
     RUNTIME_TOOLS_START,
-    '## 代码智能与运行时工具（由 spec-first 管理）',
+    '## Runtime Tools',
     '',
-    '`spec-mcp-setup` 管理本项目推荐/必需的 MCP servers、graph-provider MCP servers 与 helper tooling。',
-    '',
-    '### 使用边界',
-    '- `GitNexus`：用于全局代码知识图谱、架构理解、自然语言代码咨询/搜索、相似模块查找、执行流查询、影响分析和提交前变更检测。',
-    '- `code-review-graph`：用于变更集影响分析、review context、相关测试和 graph stats。',
-    '- `ast-grep`：用于结构化代码搜索和安全 rewrite。',
-    '',
-    '### 不要做',
-    '- 不要把 helper tools 当成 MCP server 写入 `mcp-tools.json`。',
-    '- 不要在本文件复制安装命令、版本号、完整工具表或动态 ready 状态。',
+    '- `spec-mcp-setup` manages required MCP servers and helper tooling.',
+    '- Runtime facts are setup evidence, not source authority.',
     '',
     RUNTIME_TOOLS_END,
   ].join('\n');
 }
 
-describe('legacy runtime tools instruction cleanup', () => {
-  test('exports only marker constants and the legacy cleanup helper', () => {
+describe('runtime tools instruction cleanup', () => {
+  test('exports marker constants and cleanup helper', () => {
     const runtimeToolsIndex = require('../../src/cli/runtime-tools-index');
 
     expect(runtimeToolsIndex).toEqual({
@@ -37,99 +29,71 @@ describe('legacy runtime tools instruction cleanup', () => {
     });
   });
 
-  test('removes only the managed block and preserves surrounding content', () => {
+  test('removes the managed marker block and preserves surrounding content', () => {
     const content = [
       '# Header',
       '',
-      legacyRuntimeToolsBlock(),
+      managedRuntimeToolsBlock(),
       '',
-      '<!-- gitnexus:start -->',
-      '# GitNexus — Code Intelligence',
-      '<!-- gitnexus:end -->',
+      '## Next',
       '',
     ].join('\n');
 
     const updated = removeManagedRuntimeToolsBlock(content);
 
     expect(updated).toContain('# Header');
-    expect(updated).toContain('<!-- gitnexus:start -->');
-    expect(updated).toContain('# GitNexus — Code Intelligence');
+    expect(updated).toContain('## Next');
     expect(updated).not.toContain(RUNTIME_TOOLS_START);
     expect(updated).not.toContain(RUNTIME_TOOLS_END);
-    expect(updated).not.toContain('代码智能与运行时工具');
   });
 
-  test('repairs partial legacy markers by stripping the loose managed section', () => {
+  test('repairs partial managed markers by stripping standalone marker lines', () => {
     const corrupted = [
       '# Header',
       '',
       RUNTIME_TOOLS_START,
-      '## Runtime Code Intelligence Tools (managed by spec-first)',
+      '## Runtime Tools',
       '',
-      '`spec-mcp-setup` manages the MCP servers and helper tooling.',
+      '- Keep this user-authored prose.',
       '',
-      '### Usage Boundaries',
-      '- `GitNexus`: Use for global code knowledge.',
-      '- `code-review-graph`: Use for change-set impact analysis.',
-      '- `ast-grep`: Use for structural code search.',
+      '## Next',
       '',
-      '### Do Not',
-      '- Do not write helper tools into `mcp-tools.json` as MCP servers.',
-      '- Do not duplicate install commands.',
-      '',
-      '<!-- gitnexus:start -->',
-      '# GitNexus — Code Intelligence',
-      '<!-- gitnexus:end -->',
-      '',
+      '- Keep this next section.',
     ].join('\n');
 
     const updated = removeManagedRuntimeToolsBlock(corrupted);
 
     expect(updated).toContain('# Header');
-    expect(updated).toContain('<!-- gitnexus:start -->');
+    expect(updated).toContain('## Runtime Tools');
+    expect(updated).toContain('Keep this user-authored prose.');
+    expect(updated).toContain('## Next');
+    expect(updated).toContain('Keep this next section.');
     expect(updated).not.toContain(RUNTIME_TOOLS_START);
-    expect(updated).not.toContain('Runtime Code Intelligence Tools');
   });
 
-  test('repairs partial legacy markers when the visible heading is clean', () => {
+  test('strips an orphaned end marker', () => {
     const corrupted = [
       '# Header',
       '',
-      RUNTIME_TOOLS_START,
-      '## Runtime Code Intelligence Tools',
+      RUNTIME_TOOLS_END,
       '',
-      '`spec-mcp-setup` manages the MCP servers and helper tooling.',
-      '',
-      '### Usage Boundaries',
-      '- `GitNexus`: Use for global code knowledge.',
-      '- `code-review-graph`: Use for change-set impact analysis.',
-      '- `ast-grep`: Use for structural code search.',
-      '',
-      '### Do Not',
-      '- Do not write helper tools into `mcp-tools.json` as MCP servers.',
-      '- Do not duplicate install commands.',
-      '',
-      '<!-- gitnexus:start -->',
-      '# GitNexus — Code Intelligence',
-      '<!-- gitnexus:end -->',
-      '',
+      '## Runtime Tools',
     ].join('\n');
 
     const updated = removeManagedRuntimeToolsBlock(corrupted);
 
     expect(updated).toContain('# Header');
-    expect(updated).toContain('<!-- gitnexus:start -->');
-    expect(updated).not.toContain(RUNTIME_TOOLS_START);
-    expect(updated).not.toContain('Runtime Code Intelligence Tools');
+    expect(updated).toContain('## Runtime Tools');
+    expect(updated).not.toContain(RUNTIME_TOOLS_END);
   });
 
-  test('leaves instruction files without legacy runtime tools unchanged except newline normalization', () => {
+  test('leaves files without managed runtime tools unchanged except newline normalization', () => {
     const content = [
       '# Header',
       '',
-      '<!-- gitnexus:start -->',
-      '# GitNexus — Code Intelligence',
-      '<!-- gitnexus:end -->',
+      '## Runtime Tools',
+      '',
+      '- User-authored section.',
       '',
     ].join('\n');
 

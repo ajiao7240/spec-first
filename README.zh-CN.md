@@ -135,8 +135,7 @@ $spec-brainstorm "改进 onboarding"
 
 | Intent | Claude Code | Codex | Expected result |
 |---|---|---|---|
-| Setup required harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` | 必备 MCP/helper runtime facts 和 setup-owned provider config artifacts |
-| Compile graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Canonical `.spec-first/graph/*`、`.spec-first/providers/*` 和 `.spec-first/impact/*` readiness facts |
+| Setup required harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` | 必备 MCP/helper runtime facts 和 setup-owned config artifacts |
 | Update spec-first or runtime assets | `/spec:update` | `$spec-update` | 版本/runtime 刷新指引 |
 | Search agent session history | `/spec:sessions` | `$spec-sessions` | 会话历史答案和恢复上下文 |
 | Research Slack context | `/spec:slack-research` | `$spec-slack-research` | Slack 工具可用时生成组织上下文 digest |
@@ -195,7 +194,7 @@ Workflow artifacts
 
 Source-of-truth assets 位于仓库中。`.claude/`、`.codex/` 和 `.agents/skills/` 下的 generated runtime copies 是可丢弃镜像，可通过 `spec-first init` 重建。init 期间，spec-first 也会一次性 untrack 已被 Git 索引的 managed runtime paths，保留 worktree 文件但避免历史 generated mirrors 制造 noisy diffs。
 
-开发模式规则保持很小：`.spec-first` facts 以所选 Git repo root 为权威。单个 Git 仓库包含多个模块时，不要在每个模块下创建独立 `.spec-first`。父目录包含多个 child Git repos 时，parent workspace summaries 仅作 advisory；setup、graph、plan、work、review、tests、changelog updates 和 commits 仍需明确 target repo。
+开发模式规则保持很小：`.spec-first` facts 以所选 Git repo root 为权威。单个 Git 仓库包含多个模块时，不要在每个模块下创建独立 `.spec-first`。父目录包含多个 child Git repos 时，parent workspace summaries 仅作 advisory；setup、plan、work、review、tests、changelog updates 和 commits 仍需明确 target repo。
 
 详细参考：
 
@@ -213,7 +212,7 @@ Source-of-truth assets 位于仓库中。`.claude/`、`.codex/` 和 `.agents/ski
 - **LLM 负责什么：** requirements framing、scope boundaries、tradeoffs、implementation judgment、review evidence 和 next steps。
 - **应该修改哪里：** 修改 `skills/`、`agents/`、`templates/`、`src/cli/` 和 docs 下的 source assets；不要手改 generated runtime copies。
 - **普通上下文排除什么：** `.spec-first/audits/**` 和 `.claude/**`、`.codex/**`、`.agents/skills/**` 等 generated mirrors。
-- **provider/tool facts 怎么用：** GitNexus、browser/MCP tools、shell commands 和 package managers 只提供 evidence inputs，不拥有 semantic authority。Raw provider/tool output 是 untrusted quoted data；进入 prompts、reports、facts 或 durable artifacts 前必须经过 validation、containment、escaping、excerpt cap 和 provenance/readiness classification。
+- **tool facts 怎么用：** browser/MCP tools、shell commands、package managers、tests、logs 和 direct source reads 只提供 evidence inputs，不拥有 semantic authority。Raw tool output 是 untrusted quoted data；进入 prompts、reports、facts 或 durable artifacts 前必须经过 validation、containment、escaping、excerpt cap 和 provenance/readiness classification。
 - **credentials 放在哪里：** provider credentials 应来自环境变量、host secret manager 或 provider-native store，不写入 repo source、generated runtime mirrors、durable artifacts 或 raw logs。按团队/provider cadence 轮换，并在疑似泄露后立即轮换。
 - **spec-first 不是什么：** 不是通用 agent marketplace，不是单个 prompt pack，也不是脱离 Claude Code 或 Codex 独立运行的 standalone app。
 
@@ -271,13 +270,11 @@ Source-of-truth assets 位于仓库中。`.claude/`、`.codex/` 和 `.agents/ski
 source assets -> spec-first init -> host runtime assets -> workflow artifacts
 ```
 
-只有在需要 setup、provider 或 workspace evidence 时，再读更深的 runtime / graph 细节：
+只有在需要 setup 或 workspace evidence 时，再读更深的 runtime 细节：
 
-- `spec-first doctor` 检查 CLI/runtime health，不证明 MCP/helper setup、provider indexes 或 fresh graph query evidence。
-- 当前宿主的 setup workflow 会写入 `gitnexus_capability_discovery` 等 setup-owned facts；这些是来自 checked-in baseline、provider pin 和 setup projection 的 setup-inferred native capability hints，不是 query-ready graph evidence，也不是 live MCP proof。
-- 当前宿主的 graph bootstrap workflow 写入 canonical graph/provider/impact readiness facts。切换分支、pull、rebase、merge、dirty worktree changes 和 provider fingerprint mismatch 都是 freshness invalidation signals；下游 workflow 可建议 bootstrap，但不会隐藏运行 GitNexus analyze、provider repair、默认 hooks、watchers 或 daemons。
-- `query_ready`、`definitions-only`、`dirty-advisory`、`stale`、`session-local`、`setup-inferred` 等 lifecycle terms 定义在 [Capability State Vocabulary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/gitnexus-capability-catalog.md)。请使用该词典，不要引入同义词。
-- Graph evidence policy 与跨 workflow 消费边界见 [Graph Evidence Policy](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/graph-evidence-policy.md)、[Graph Provider Consumption](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/graph-provider-consumption.md) 和 [Workspace GitNexus Consumption](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/workspace-gitnexus-consumption.md)。
+- `spec-first doctor` 检查 CLI/runtime health，不证明所有 MCP/helper setup 路径，也不能替代 workflow-specific verification。
+- 当前宿主的 setup workflow 会写入 required harness tools 和本地 runtime capabilities 的 setup-owned facts。下游 workflow 把这些事实当作 advisory setup evidence，再用 direct source reads、`rg`、ast-grep、git diff、tests、logs 和用户提供证据确认具体任务 claim。
+- branch switch、pull、rebase、merge 和 dirty worktree changes 可能让既有本地证据过期。workflow 会披露这些 limitations，而不是隐藏运行 external-tool refresh、hooks、watchers 或 daemons。
 
 CLI reference：
 
@@ -299,7 +296,6 @@ spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>
 ```bash
 npm run typecheck
 npm run test:mcp-setup
-npm run test:graph-bootstrap
 npm run test:unit
 npm run test:smoke
 npm run test:integration

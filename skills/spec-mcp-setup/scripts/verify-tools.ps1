@@ -217,30 +217,8 @@ function New-ParentArtifactQuarantine {
     }
   }
 
-  Add-ParentJsonArtifactQuarantineItem -Items $items -WorkspaceRoot $WorkspaceRoot -RelativePath '.spec-first/graph/graph-facts.json' -DefaultReason 'parent-workspace-must-not-have-repo-local-graph'
-  Add-ParentJsonArtifactQuarantineItem -Items $items -WorkspaceRoot $WorkspaceRoot -RelativePath '.spec-first/config/graph-providers.json' -DefaultReason 'parent-workspace-must-not-have-repo-local-graph'
-  Add-ParentJsonArtifactQuarantineItem -Items $items -WorkspaceRoot $WorkspaceRoot -RelativePath '.spec-first/config/runtime-capabilities.json' -DefaultReason 'parent-workspace-must-not-have-repo-local-graph'
-
-  if (Test-Path -LiteralPath (Join-Path $WorkspaceRoot '.spec-first/providers/code-review-graph')) {
-    $items.Add((New-ParentQuarantineItem -Path '.spec-first/providers/code-review-graph/' -ReasonCode 'retired-provider-residue' -StaleIndicator 'retired-code-review-graph-provider-directory-present' -FingerprintOrigin 'code-review-graph')) | Out-Null
-  }
-
-  if (Test-Path -LiteralPath (Join-Path $WorkspaceRoot '.gitnexus')) {
-    $metaPath = Join-Path $WorkspaceRoot '.gitnexus/meta.json'
-    $meta = Read-JsonObjectOrNull -Path $metaPath
-    $repoPath = Get-NestedValue -InputObject $meta -PathParts @('repoPath')
-    $indexedAt = Get-NestedValue -InputObject $meta -PathParts @('indexedAt')
-    $reasonCode = 'parent-workspace-must-not-have-graph-index'
-    $staleIndicator = 'parent-workspace-graph-index-present'
-    if (Test-ForeignAbsoluteStatFailure -Candidate $repoPath) {
-      $reasonCode = 'foreign-absolute-path-stat-failed'
-      $staleIndicator = $repoPath
-    } elseif (-not [string]::IsNullOrWhiteSpace($repoPath) -and $repoPath -ne $WorkspaceRoot) {
-      $reasonCode = 'repo_root-mismatches-workspace-root'
-      $staleIndicator = $repoPath
-    }
-    $items.Add((New-ParentQuarantineItem -Path '.gitnexus/' -ReasonCode $reasonCode -StaleIndicator $staleIndicator -LastGeneratedAt $indexedAt -FingerprintOrigin $repoPath)) | Out-Null
-  }
+  Add-ParentJsonArtifactQuarantineItem -Items $items -WorkspaceRoot $WorkspaceRoot -RelativePath '.spec-first/config/tool-facts.json' -DefaultReason 'parent-workspace-must-not-have-repo-local-setup-artifact'
+  Add-ParentJsonArtifactQuarantineItem -Items $items -WorkspaceRoot $WorkspaceRoot -RelativePath '.spec-first/config/runtime-capabilities.json' -DefaultReason 'parent-workspace-must-not-have-repo-local-setup-artifact'
 
   [ordered]@{
     schema_version = 'parent-artifact-quarantine.v1'
@@ -440,10 +418,8 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
         $childResult = [pscustomobject]@{
           schema_version = 'mcp-verify-child-result.v1'
           baseline_ready = [bool]$childLedger.baseline_ready
-          repo_config_status = $childLedger.repo_config_status
+          tool_facts_status = $childLedger.tool_facts_status
           runtime_capabilities_status = $childLedger.runtime_capabilities_status
-          provider_artifacts_status = $childLedger.provider_artifacts_status
-          graph_bootstrap_required = [bool]$childLedger.graph_bootstrap_required
           reason_code = [string]$childLedger.reason_code
           next_actions = @($childLedger.next_actions)
         }
@@ -634,9 +610,6 @@ foreach ($property in $helperTools.PSObject.Properties) {
     $nextActions.Add($helperAction)
   }
 }
-if ($baselineReady -and -not $nextActions.Contains('run spec-graph-bootstrap')) {
-  $nextActions.Add('run spec-graph-bootstrap')
-}
 $factsTargetKind = if ($Facts.PSObject.Properties.Name -contains 'target_kind') { [string]$Facts.target_kind } else { '' }
 if ($null -ne $Facts.PSObject.Properties['target'] -and -not [bool]$Facts.target.state_write_allowed -and -not [string]::IsNullOrWhiteSpace([string]$Facts.target.next_action) -and -not $nextActions.Contains([string]$Facts.target.next_action)) {
   $nextActions.Add([string]$Facts.target.next_action)
@@ -668,19 +641,15 @@ $combined = [ordered]@{
     schema_version = 'v2'
   }
   host_pointer_reconciliation = $HostPointerReconciliation
-  repo_config_status = 'pending'
-  repo_config_path = $null
+  tool_facts_status = 'pending'
+  tool_facts_path = $null
   runtime_capabilities_status = 'pending'
   runtime_capabilities_path = $null
-  provider_artifacts_status = 'pending'
-  provider_artifacts_path = $null
   overall_status = if ($baselineReady) { 'ready' } else { 'action-required' }
   baseline_ready = [bool]$baselineReady
   host_runtime_ready = [bool]$baselineReady
-  graph_bootstrap_required = $true
   completed_at = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
   tools = $Facts.tools
-  graph_providers = $Facts.graph_providers
   helper_tools = $helperTools
   mirror_endpoints = if ($HelperFacts.PSObject.Properties.Name -contains 'mirror_endpoints') { $HelperFacts.mirror_endpoints } else { $null }
   recommended_environment_variables = if ($HelperFacts.PSObject.Properties.Name -contains 'recommended_environment_variables') { $HelperFacts.recommended_environment_variables } else { $null }
@@ -691,37 +660,16 @@ $combinedTmp = Join-Path $MarkerDir ("readiness-ledger-combined.{0}.tmp" -f ([gu
 $finalTmp = Join-Path $MarkerDir ("readiness-ledger.{0}.tmp" -f ([guid]::NewGuid().ToString('N')))
 $combined | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8 $combinedTmp
 
-$providerResult = & (Join-Path $ScriptDir 'write-provider-config.ps1') -FactsFile $combinedTmp | ConvertFrom-Json
-$combined.repo_config_status = $providerResult.repo_config_status
-$combined.repo_config_path = $providerResult.repo_config_path
-$combined.runtime_capabilities_status = if ($providerResult.PSObject.Properties.Name -contains 'runtime_capabilities_status') { $providerResult.runtime_capabilities_status } else { 'unknown' }
-$combined.runtime_capabilities_path = if ($providerResult.PSObject.Properties.Name -contains 'runtime_capabilities_path') { $providerResult.runtime_capabilities_path } else { $null }
-$combined.provider_artifacts_status = if ($providerResult.PSObject.Properties.Name -contains 'provider_artifacts_status') { $providerResult.provider_artifacts_status } else { 'unknown' }
-$combined.provider_artifacts_path = if ($providerResult.PSObject.Properties.Name -contains 'provider_artifacts_path') { $providerResult.provider_artifacts_path } else { $null }
-$combined.graph_bootstrap_required = if ($providerResult.PSObject.Properties.Name -contains 'graph_bootstrap_required') { [bool]$providerResult.graph_bootstrap_required } else { $true }
-$providerActionRequired = @($combined.repo_config_status, $combined.runtime_capabilities_status, $combined.provider_artifacts_status) | Where-Object { $_ -ne 'ready' -and $_ -ne 'written' }
-if ($providerActionRequired.Count -gt 0) {
+$setupFactsResult = & (Join-Path $ScriptDir 'write-setup-facts.ps1') -FactsFile $combinedTmp | ConvertFrom-Json
+$combined.tool_facts_status = $setupFactsResult.tool_facts_status
+$combined.tool_facts_path = $setupFactsResult.tool_facts_path
+$combined.runtime_capabilities_status = if ($setupFactsResult.PSObject.Properties.Name -contains 'runtime_capabilities_status') { $setupFactsResult.runtime_capabilities_status } else { 'unknown' }
+$combined.runtime_capabilities_path = if ($setupFactsResult.PSObject.Properties.Name -contains 'runtime_capabilities_path') { $setupFactsResult.runtime_capabilities_path } else { $null }
+$setupActionRequired = @($combined.tool_facts_status, $combined.runtime_capabilities_status) | Where-Object { $_ -ne 'ready' -and $_ -ne 'written' }
+if ($setupActionRequired.Count -gt 0) {
   $combined.baseline_ready = $false
   $combined.host_runtime_ready = $false
   $combined.overall_status = 'action-required'
-}
-
-if ($providerResult.PSObject.Properties.Name -contains 'providers' -and $null -ne $providerResult.providers) {
-  foreach ($property in $providerResult.providers.PSObject.Properties) {
-    $provider = $property.Value
-    if ($combined.tools.PSObject.Properties.Name -contains $property.Name) {
-      $tool = $combined.tools.PSObject.Properties[$property.Name].Value
-      $tool.query_ready = [bool]$provider.query_ready
-      $tool.bootstrap_required = [bool]$provider.bootstrap_required
-      $tool.next_action = if ($provider.PSObject.Properties.Name -contains 'next_action') { $provider.next_action } else { '' }
-    }
-    if ($combined.graph_providers.PSObject.Properties.Name -contains $property.Name) {
-      $graphProvider = $combined.graph_providers.PSObject.Properties[$property.Name].Value
-      $graphProvider.query_ready = [bool]$provider.query_ready
-      $graphProvider.bootstrap_required = [bool]$provider.bootstrap_required
-      $graphProvider.next_action = if ($provider.PSObject.Properties.Name -contains 'next_action') { $provider.next_action } else { '' }
-    }
-  }
 }
 $filteredNextActions = New-Object System.Collections.Generic.List[string]
 $nonBlockingHelperActions = New-Object System.Collections.Generic.List[string]
@@ -735,8 +683,6 @@ foreach ($property in $combined.helper_tools.PSObject.Properties) {
 foreach ($action in @($combined.next_actions)) {
   if (
     -not [string]::IsNullOrWhiteSpace($action) -and
-    $action -ne 'run spec-graph-bootstrap' -and
-    $action -ne 'enter a git repo and run spec-graph-bootstrap' -and
     -not $nonBlockingHelperActions.Contains([string]$action) -and
     -not $filteredNextActions.Contains($action)
   ) {
@@ -747,8 +693,6 @@ if ($null -ne $combined.target -and -not [bool]$combined.target.state_write_allo
   $filteredNextActions.Add([string]$combined.target.next_action)
 } elseif ($combined.repo_status -eq 'not-git-repo' -and [string]$combined.target_kind -ne 'non-git-folder' -and -not $filteredNextActions.Contains('choose a child repo and rerun with --repo <child>')) {
   $filteredNextActions.Add('choose a child repo and rerun with --repo <child>')
-} elseif ($combined.baseline_ready -and $combined.graph_bootstrap_required -and -not $filteredNextActions.Contains('run spec-graph-bootstrap')) {
-  $filteredNextActions.Add('run spec-graph-bootstrap')
 }
 $combined.next_actions = @($filteredNextActions)
 
@@ -774,47 +718,11 @@ function Format-Required {
   return 'no'
 }
 
-function Format-Query {
-  param([object]$Value)
-  if ($null -eq $Value) { return 'n/a' }
-  if ([bool]$Value) { return 'ready' }
-  return 'pending'
-}
-
-function Format-Bootstrap {
-  param([object]$Value)
-  if ($null -eq $Value) { return 'n/a' }
-  if ([bool]$Value) { return 'required' }
-  return 'done'
-}
-
-function Get-ProviderNamesByQueryReady {
-  param(
-    [object]$Tools,
-    [bool]$Ready
-  )
-
-  $names = @()
-  foreach ($property in $Tools.PSObject.Properties) {
-    $tool = $property.Value
-    if ($tool.type -ne 'graph-provider') {
-      continue
-    }
-    $queryReady = if ($tool.PSObject.Properties.Name -contains 'query_ready') { [bool]$tool.query_ready } else { $false }
-    if ($queryReady -eq $Ready) {
-      $names += $property.Name
-    }
-  }
-  if ($names.Count -eq 0) { return 'n/a' }
-  return ($names -join ',')
-}
-
 function Format-Remark {
   param([string]$Name)
   switch ($Name) {
     'sequential-thinking' { return '反思式推理辅助' }
     'context7' { return '当前框架和库文档' }
-    'gitnexus' { return '全局代码知识图谱与影响分析' }
     'agent-browser' { return '浏览器自动化辅助' }
     'gh' { return 'GitHub issue 和 PR 操作' }
     'jq' { return 'JSON 解析与转换' }
@@ -823,9 +731,8 @@ function Format-Remark {
     'ffmpeg' { return '媒体转换与视频合成' }
     'ast-grep' { return '结构化代码搜索和重写' }
     'ast-grep-skill' { return 'ast-grep 使用指引' }
-    'graph-providers.json' { return '供 graph bootstrap 消费的 provider 投影' }
+    'tool-facts.json' { return '记录 setup-owned 工具事实' }
     'runtime-capabilities.json' { return '记录 setup-owned 能力事实和 host ledger 指针' }
-    'provider-artifacts.json' { return '记录 setup-owned provider 产物与就绪证据' }
     default { return 'MCP 工具' }
   }
 }
@@ -847,30 +754,17 @@ function Write-StatusBlock {
 Write-Host "📝 宿主就绪标记已更新: $MarkerPath"
 Write-Host "🔎 当前宿主基线状态: $($combined.overall_status)"
 Write-Host "🧭 baseline_ready: $($combined.baseline_ready)"
-if ($combined.graph_bootstrap_required) {
-  Write-Host '🧩 Graph providers are configured but not query-ready yet.'
-} else {
-  Write-Host '🧩 Graph providers are query-ready.'
-}
+Write-Host '🧩 代码上下文证据使用 bounded direct source reads、rg、ast-grep、git diff、tests/logs。'
 Write-Host '✅ readiness ledger v2 已写入'
 Write-Host ''
 Write-Host 'Required Harness Runtime status (grouped):'
 $harnessNext = if ($combined.baseline_ready) { '' } else { 'fix action-required rows' }
-$graphSummaryStatus = if ($combined.graph_bootstrap_required) { 'pending' } else { 'ready' }
-$graphSummaryNext = if ($combined.graph_bootstrap_required) { 'run spec-graph-bootstrap' } else { '' }
-$graphSummaryEvidence = "ready: $(Get-ProviderNamesByQueryReady -Tools $combined.tools -Ready $true); pending: $(Get-ProviderNamesByQueryReady -Tools $combined.tools -Ready $false)"
 $summaryRows = @(
   @(
     'Harness runtime',
     $(if ($combined.baseline_ready) { 'ready' } else { 'action-required' }),
     "baseline_ready=$($combined.baseline_ready.ToString().ToLowerInvariant())",
     $harnessNext
-  ),
-  @(
-    'Graph readiness',
-    $graphSummaryStatus,
-    $graphSummaryEvidence,
-    $graphSummaryNext
   )
 )
 
@@ -892,25 +786,6 @@ $mcpRows = @(
   }
 )
 
-$graphRows = @(
-  foreach ($property in $combined.tools.PSObject.Properties) {
-    $tool = $property.Value
-    if ($tool.type -ne 'graph-provider') {
-      continue
-    }
-
-    ,@(
-      (Format-Cell $property.Name),
-      (Format-Cell (Format-Remark $property.Name)),
-      (Format-Cell $tool.dependency_status),
-      (Format-Cell $tool.host_config_status),
-      (Format-Query $tool.query_ready),
-      (Format-Bootstrap $tool.bootstrap_required),
-      (Format-Cell $tool.next_action)
-    )
-  }
-)
-
 $helperRows = @(
   foreach ($property in $combined.helper_tools.PSObject.Properties) {
     $helper = $property.Value
@@ -927,9 +802,8 @@ $helperRows = @(
 )
 
 $targetNext = if ($null -ne $combined.target -and -not [string]::IsNullOrWhiteSpace([string]$combined.target.next_action)) { [string]$combined.target.next_action } else { '' }
-$projectionNext = if ($combined.repo_config_status -eq 'ready' -or $combined.repo_config_status -eq 'written') { '' } elseif (-not [string]::IsNullOrWhiteSpace($targetNext)) { $targetNext } else { 'write provider projection' }
+$toolFactsNext = if ($combined.tool_facts_status -eq 'ready' -or $combined.tool_facts_status -eq 'written') { '' } elseif (-not [string]::IsNullOrWhiteSpace($targetNext)) { $targetNext } else { 'write setup facts' }
 $runtimeNext = if ($combined.runtime_capabilities_status -eq 'ready' -or $combined.runtime_capabilities_status -eq 'written') { '' } elseif (-not [string]::IsNullOrWhiteSpace($targetNext)) { $targetNext } else { 'write runtime capabilities' }
-$artifactsNext = if ($combined.provider_artifacts_status -eq 'ready' -or $combined.provider_artifacts_status -eq 'written') { '' } elseif (-not [string]::IsNullOrWhiteSpace($targetNext)) { $targetNext } else { 'write provider artifacts' }
 
 $sections = @(
   [ordered]@{
@@ -943,11 +817,6 @@ $sections = @(
     rows = $mcpRows
   }
   [ordered]@{
-    title = 'Graph providers'
-    headers = @('Name', 'Role', 'Dependency', 'Host', 'Query', 'Bootstrap', 'Next')
-    rows = $graphRows
-  }
-  [ordered]@{
     title = 'Helper tools'
     headers = @('Name', 'Type', 'Result', 'Dependency', 'Install', 'Skill', 'Next')
     rows = $helperRows
@@ -956,9 +825,8 @@ $sections = @(
     title = 'Project setup facts'
     headers = @('Artifact', 'Project', 'Next')
     rows = @(
-      @('graph-providers.json', (Format-Cell $combined.repo_config_status), (Format-Cell $projectionNext)),
-      @('runtime-capabilities.json', (Format-Cell $combined.runtime_capabilities_status), (Format-Cell $runtimeNext)),
-      @('provider-artifacts.json', (Format-Cell $combined.provider_artifacts_status), (Format-Cell $artifactsNext))
+      @('tool-facts.json', (Format-Cell $combined.tool_facts_status), (Format-Cell $toolFactsNext)),
+      @('runtime-capabilities.json', (Format-Cell $combined.runtime_capabilities_status), (Format-Cell $runtimeNext))
     )
   }
 )
@@ -969,17 +837,14 @@ switch ($combined.host) {
   'claude' {
     $hostDisplay = 'Claude Code'
     $setupCommand = '/spec:mcp-setup'
-    $graphCommand = '/spec:graph-bootstrap'
   }
   'codex' {
     $hostDisplay = 'Codex'
     $setupCommand = '$spec-mcp-setup'
-    $graphCommand = '$spec-graph-bootstrap'
   }
   default {
     $hostDisplay = 'Claude Code / Codex'
     $setupCommand = '/spec:mcp-setup or $spec-mcp-setup'
-    $graphCommand = '/spec:graph-bootstrap or $spec-graph-bootstrap'
   }
 }
 
@@ -989,22 +854,13 @@ if ($combined.baseline_ready) {
   $targetStateWriteAllowed = if ($null -ne $combined.target) { [bool]$combined.target.state_write_allowed } else { $true }
   $targetNextAction = if ($null -ne $combined.target) { [string]$combined.target.next_action } else { '' }
   if (-not $targetStateWriteAllowed) {
-    Write-Host "  1. 选择目标 child repo，并用 --repo 重新运行 $setupCommand / $graphCommand。"
+    Write-Host "  1. 选择目标 child repo，并用 --repo 重新运行 $setupCommand。"
     if (-not [string]::IsNullOrWhiteSpace($targetNextAction)) {
       Write-Host "     $targetNextAction"
     }
   } else {
-    if ($combined.graph_bootstrap_required) {
-      Write-Host "  1. 现在可以运行 $graphCommand 完成 deterministic graph readiness 编译；也可以在本会话直接回复“继续完成”，让 agent 调用 bootstrap 脚本。"
-      Write-Host "  2. 如果只需要 Plan 阶段 live GitNexus evidence，可在当前已可见 MCP surface 下进入 plan；若 setup 刚写入 MCP 配置，先重启 $hostDisplay 或新开会话再 probe。"
-      Write-Host "  3. dirty worktree 或 stale durable readiness 不等于 Plan 不能使用 prior/session-local GitNexus evidence；需要 durable readiness 时再运行 $graphCommand。"
-      Write-Host '  4. graph readiness 完成后，按用户意图进入 plan/work/review/debug 等下游 workflow；项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts、源码、测试和 graph readiness facts。'
-      Write-Host "  5. 重启 $hostDisplay 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
-    } else {
-      Write-Host '  1. graph readiness 已就绪；如果已经有明确任务，可以在新会话直接描述目标，或选择匹配的 plan/work/review/debug workflow。'
-      Write-Host '  2. 如果已经有明确任务，可以在新会话直接描述目标；using-spec-first 会按意图选择合适 workflow。'
-      Write-Host "  3. 重启 $hostDisplay 或新开会话只在下游 workflow 依赖新写入的 MCP 配置或 live MCP probe 前需要。"
-    }
+    Write-Host '  1. Required harness runtime 已就绪；如果已经有明确任务，可以直接描述目标，或选择匹配的 plan/work/review/debug workflow。'
+    Write-Host "  2. 重启 $hostDisplay 或新开会话只在下游 workflow 依赖新写入的 MCP 配置前需要。"
   }
 } else {
   Write-Host "  1. 先处理表格中的 action-required 行，然后重新运行 $setupCommand。"

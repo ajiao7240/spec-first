@@ -57,7 +57,7 @@ Follow `docs/contracts/context-governance.md`: ordinary Document Review context 
 
 ## Summary-First Section Bundles
 
-Use `docs/contracts/context-bundle.md` and `docs/contracts/artifact-summary.md` as the handoff posture: reviewers should receive selected document sections, summaries, evidence paths, full-read triggers, and relevant pre-facts instead of an automatic full-document broadcast. Findings should map to the shared `review-finding.v1` minimum fields in `docs/contracts/workflows/review-finding.md`; workflow-specific fields may remain as extensions. Apply reviewer budgets and finding caps as context controls, never as permission to drop P0/P1 evidence silently.
+Use `docs/contracts/context-bundle.md` and `docs/contracts/artifact-summary.md` as the handoff posture: reviewers should receive selected document sections, summaries, evidence paths, full-read triggers, and relevant direct source/test facts instead of an automatic full-document broadcast. Findings should map to the shared `review-finding.v1` minimum fields in `docs/contracts/workflows/review-finding.md`; workflow-specific fields may remain as extensions. Apply reviewer budgets and finding caps as context controls, never as permission to drop P0/P1 evidence silently.
 
 Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
 
@@ -67,11 +67,9 @@ When document findings depend on domain terminology, project-specific concepts, 
 
 For major document decisions or open questions, carry a lightweight decision note: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when unresolved. Use source tags such as `confirmed`, `advisory`, `session-local`, `stale`, or `user`. Recommend an ADR-like artifact only when the decision is hard to reverse, would be surprising without context, and reflects a real tradeoff; do not create the artifact from review unless an explicit workflow route chooses that work.
 
-## Graph Freshness / Refresh Trigger Boundary
+## Direct Evidence Boundary
 
-Before treating compiled graph facts or pre-facts as graph-fresh review evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, `.spec-first/impact/bootstrap-impact-capabilities.json`, provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Doc Review to rebuild providers.
-
-For stale graph + lightweight document review, such as docs-only prose, typo-level wording, first project trial, or a plan that can be checked from the document and bounded source reads, disclose limitations and continue with bounded reads or session-local live MCP pointers. For stale graph + graph-heavy document review, such as shared helper/API/route/provider contract/core workflow/cross-module plans, review-pre-facts changes, high-risk review, or conclusions that depend on execution flows, impact, `detect_changes`, or blast radius, recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap` before claiming graph-backed evidence. Doc Review must not run GitNexus analyze/build/index refresh, provider repair, default git hooks, watchers, or daemons. A stale pre-facts tier degrades evidence; it is not a reviewer-dispatch failure by itself.
+Doc Review does not require external-tool readiness before reviewer dispatch. When a document makes codebase or current-state claims, use bounded direct reads, `rg`, ast-grep, package/test facts, logs, and user-provided artifacts to check those claims. If the document's impact claims cannot be confirmed from direct evidence within the review scope, record that limitation instead of claiming repository-wide coverage.
 
 ## Invocation Boundary
 
@@ -140,9 +138,9 @@ Analyze the document content to determine which conditional personas to activate
 
 ### Scale-Aware Document Review Posture
 
-Use the smallest reviewer posture that can still catch material risk. Low-risk docs-only edits, typo-level prose updates, and narrow task-pack metadata checks can use the minimum document-review set: `spec-coherence-reviewer`, `spec-maintainability-reviewer`, and `spec-scope-guardian-reviewer` when scope is relevant. High-risk workflow, contract, release, source/runtime boundary, provider evidence, security, or cross-module planning changes must use the full default document-review set plus applicable conditional personas. Record the selected posture (`minimum` or `full`) and the reason in Coverage.
+Use the smallest reviewer posture that can still catch material risk. Low-risk docs-only edits, typo-level prose updates, and narrow task-pack metadata checks can use the minimum document-review set: `spec-coherence-reviewer`, `spec-maintainability-reviewer`, and `spec-scope-guardian-reviewer` when scope is relevant. High-risk workflow, contract, release, source/runtime boundary, external-tool evidence, security, or cross-module planning changes must use the full default document-review set plus applicable conditional personas. Record the selected posture (`minimum` or `full`) and the reason in Coverage.
 
-This is progressive disclosure, not evidence suppression. A minimum set does not drop known P0/P1 risks; if the document is broad, sensitive, unclear, or has prior unresolved findings, use the full set. Do not create a separate reviewer facts pipeline for this posture; reuse existing document sections, summary-first bundles, and review-pre-facts evidence.
+This is progressive disclosure, not evidence suppression. A minimum set does not drop known P0/P1 risks; if the document is broad, sensitive, unclear, or has prior unresolved findings, use the full set. Do not create a separate reviewer facts pipeline for this posture; reuse existing document sections, summary-first bundles, and direct evidence summaries.
 
 **product-lens** -- activate when the document makes challengeable claims about what to build and why, or when the proposed work carries strategic weight beyond the immediate problem. The system's users may be end users, developers, operators, maintainers, or any other audience -- the criteria are domain-agnostic. Check for either leg:
 
@@ -183,39 +181,13 @@ This is progressive disclosure, not evidence suppression. A minimum set does not
 - High-stakes domains (auth, payments, data migrations, external integrations)
 - Proposals of new abstractions, frameworks, or significant architectural patterns
 
-## Phase 1b: Pre-Facts Extraction
+## Phase 1b: Direct Evidence Summary
 
-Before announcing or dispatching personas, build a single advisory `{codebase_facts}` block for every reviewer. Read `docs/contracts/workflows/review-pre-facts-extraction.md` and `references/pre-facts-extraction.md` for the trust model, target extraction rules, helper modes, and command boundary.
+Before announcing or dispatching personas, build a compact advisory `{codebase_facts}` block only when the document makes codebase, current-state, implementation, or migration claims that reviewers need to check. Use bounded direct reads, `rg`, ast-grep when useful, package/test facts, logs, and user-provided artifacts. Do not create temp provider artifacts or call hidden provider helpers.
 
-Pre-facts are advisory evidence only. They improve reviewer navigation and reduce repeated runtime reads, but they are not a hard gate, do not select personas, do not replace reviewer judgment, and do not prevent dispatch. Agent tools remain available for fallback validation.
+The block is advisory evidence only. It improves reviewer navigation and reduces repeated reads, but it is not a hard gate, does not select personas, does not replace reviewer judgment, and does not prevent dispatch. If no codebase facts are needed or available, inject a legal empty block with `tier="not-needed"` or `tier="unavailable"` and record the reason in Coverage.
 
-Resolve `<review-pre-facts-cmd>` from the shared command table:
-
-| Context | Command |
-| --- | --- |
-| Source checkout | `node bin/spec-first.js internal review-pre-facts` |
-| Installed Codex runtime | `spec-first internal review-pre-facts` |
-| Installed Claude runtime | `spec-first internal review-pre-facts` |
-
-Do not call files under `src/cli/helpers/review-pre-facts/` directly. Use the hidden package CLI boundary so source checkout, Codex runtime, and Claude runtime exercise the same helper.
-
-Use an orchestrator-owned temp directory under `os.tmpdir()/spec-first/review-pre-facts/<run-id>/`. Raw live MCP results, provider results, rendered facts, and run summary are session-scoped temp artifacts, not durable project state.
-
-Execution sequence:
-
-1. Run `<review-pre-facts-cmd> --mode prepare --workflow doc-review --document <path> --run-id <run-id> --summary-dir <temp-dir> --output <temp-dir>/query-plan.json`.
-2. If prepare returns a bounded query plan and the current host exposes the declared MCP tool, execute only the query plan's declared `tool_name`, `operation`, and `arguments` for implemented helper operations (`query`, `context`, `impact`, `detect_changes`). Do not invent provider methods, add query args, expand target lists, or run plan-outside queries. Write the raw live MCP result to `<temp-dir>/provider-raw-result.json`.
-3. Call `<review-pre-facts-cmd> --mode normalize-provider-results --query-plan <temp-dir>/query-plan.json --raw-result <temp-dir>/provider-raw-result.json --source live-mcp --output <temp-dir>/provider-results.json --run-id <run-id> --summary-dir <temp-dir>`.
-4. If normalization writes provider results, call `<review-pre-facts-cmd> --mode render --provider-results <temp-dir>/provider-results.json --workflow doc-review --document <path> --run-id <run-id> --summary-dir <temp-dir> --output <temp-dir>/codebase-facts.txt`. Invalid provider results still render a legal degraded block with `tier="unavailable"` and return success; use that block instead of reusing the same output path for `one-shot`.
-5. If query plan execution is unavailable, raw result is oversized or invalid, normalization returns no usable facts before provider results exist, or render exits non-zero without writing the final facts block, call `<review-pre-facts-cmd> --mode one-shot --workflow doc-review --document <path> --run-id <run-id> --summary-dir <temp-dir> --output <temp-dir>/codebase-facts.txt`.
-
-The final Phase 1b output is always a complete `<codebase-facts readiness="..." tier="..." reason="...">` block. If every path degrades, inject a legal empty block with `tier="unavailable"` or `tier="no-targets"`; never leave a literal `{codebase_facts}` placeholder in reviewer prompts.
-
-The helper records `review-pre-facts-run-summary.v1` in the temp summary dir. Carry its selected tier and reason into the final Coverage section as:
-
-`Pre-facts tier: <tier> (<reason>)`
-
-For graph-fresh claims, require the helper's snapshot comparison to match `source_revision`, `worktree_dirty`, and `worktree_status_hash`. If graph readiness is stale, provider query fails, provider output lacks provenance, or raw/provider output exceeds v1 limits, use bounded reads / unavailable fallback and do not claim graph-fresh pass.
+Never leave a literal `{codebase_facts}` placeholder in dispatched reviewer prompts; replace it with either the compact block or the legal empty block.
 
 ## Phase 2: Announce and Dispatch Personas
 

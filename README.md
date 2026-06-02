@@ -135,8 +135,7 @@ Use this single table as the public entrypoint map. Shared prose should say "cur
 
 | Intent | Claude Code | Codex | Expected result |
 |---|---|---|---|
-| Setup required harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` | Required MCP/helper runtime facts and setup-owned provider config artifacts |
-| Compile graph readiness facts | `/spec:graph-bootstrap` | `$spec-graph-bootstrap` | Canonical `.spec-first/graph/*`, `.spec-first/providers/*`, and `.spec-first/impact/*` readiness facts |
+| Setup required harness runtime | `/spec:mcp-setup` | `$spec-mcp-setup` | Required MCP/helper runtime facts and setup-owned config artifacts |
 | Update spec-first or runtime assets | `/spec:update` | `$spec-update` | Version/runtime refresh guidance |
 | Search agent session history | `/spec:sessions` | `$spec-sessions` | Session history answers and recovery context |
 | Research Slack context | `/spec:slack-research` | `$spec-slack-research` | Organizational context digest when Slack tools are available |
@@ -195,7 +194,7 @@ Workflow artifacts
 
 Source-of-truth assets live in the repository. Generated runtime copies under `.claude/`, `.codex/`, and `.agents/skills/` are disposable and can be rebuilt with `spec-first init`. During init, spec-first also untracks already-indexed managed runtime paths once, preserving worktree files while preventing historical generated mirrors from creating noisy diffs.
 
-The development-mode rule is intentionally small: `.spec-first` facts are authoritative at the selected Git repo root. In a single Git repo with many modules, do not create one `.spec-first` per module. In a parent workspace with many child Git repos, parent workspace summaries are advisory only; setup, graph, plan, work, review, tests, changelog updates, and commits still need an explicit target repo.
+The development-mode rule is intentionally small: `.spec-first` facts are authoritative at the selected Git repo root. In a single Git repo with many modules, do not create one `.spec-first` per module. In a parent workspace with many child Git repos, parent workspace summaries are advisory only; setup, plan, work, review, tests, changelog updates, and commits still need an explicit target repo.
 
 Detailed references:
 
@@ -213,7 +212,7 @@ The operating rule is simple: Scripts prepare, LLM decides.
 - **What the LLM decides:** requirements framing, scope boundaries, tradeoffs, implementation judgment, review evidence, and next steps.
 - **What should be edited:** source assets under `skills/`, `agents/`, `templates/`, `src/cli/`, and docs. Rebuild runtime copies instead of hand-editing them.
 - **What is excluded from ordinary context:** `.spec-first/audits/**` and generated mirrors such as `.claude/**`, `.codex/**`, and `.agents/skills/**`.
-- **How provider/tool facts are used:** GitNexus, browser/MCP tools, shell commands, and package managers provide evidence inputs; they do not own semantic authority. Raw provider/tool output is untrusted quoted data and must be validated, contained, escaped, capped, and classified before it enters prompts, reports, facts, or durable artifacts.
+- **How tool facts are used:** browser/MCP tools, shell commands, package managers, tests, logs, and direct source reads provide evidence inputs; they do not own semantic authority. Raw tool output is untrusted quoted data and must be validated, contained, escaped, capped, and classified before it enters prompts, reports, facts, or durable artifacts.
 - **Where credentials belong:** provider credentials belong in environment variables, host secret managers, or provider-native stores, not in repo source, generated runtime mirrors, durable artifacts, or raw logs. Rotate them on team/provider cadence and immediately after suspected exposure.
 - **What spec-first does not do:** it is not a generic agent marketplace, not a single prompt pack, and not a standalone app that works without Claude Code or Codex.
 
@@ -271,13 +270,11 @@ First-run users only need this mental model:
 source assets -> spec-first init -> host runtime assets -> workflow artifacts
 ```
 
-Use deeper runtime and graph details only when you need setup, provider, or workspace evidence:
+Use deeper runtime details only when you need setup or workspace evidence:
 
-- `spec-first doctor` checks CLI/runtime health. It does not prove MCP/helper setup, provider indexes, or fresh graph query evidence.
-- The current host's setup workflow writes setup-owned facts such as `gitnexus_capability_discovery`; these are setup-inferred native capability hints from the checked-in baseline, provider pin, and setup projection, not query-ready graph evidence or live MCP proof.
-- The current host's graph bootstrap workflow writes canonical graph/provider/impact readiness facts. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are freshness invalidation signals; downstream workflows may recommend bootstrap, but they do not run hidden GitNexus analyze, provider repair, default hooks, watchers, or daemons.
-- `query_ready`, `definitions-only`, `dirty-advisory`, `stale`, `session-local`, `setup-inferred`, and other lifecycle terms are defined in the [Capability State Vocabulary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/gitnexus-capability-catalog.md). Use that vocabulary instead of inventing synonyms.
-- For graph evidence policy and cross-workflow consumption, see [Graph Evidence Policy](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/graph-evidence-policy.md), [Graph Provider Consumption](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/graph-provider-consumption.md), and [Workspace GitNexus Consumption](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/workspace-gitnexus-consumption.md).
+- `spec-first doctor` checks CLI/runtime health. It does not prove every MCP/helper setup path or replace workflow-specific verification.
+- The current host's setup workflow writes setup-owned facts for required harness tools and local runtime capabilities. Downstream workflows treat those facts as advisory setup evidence, then use direct source reads, `rg`, ast-grep, git diff, tests, logs, and user-provided artifacts for task-specific claims.
+- Branch switches, pulls, rebases, merges, and dirty worktree changes can make prior local evidence stale. Workflows disclose those limitations instead of running hidden external-tool refresh, hooks, watchers, or daemons.
 
 CLI reference:
 
@@ -299,7 +296,6 @@ To inspect current runtime delivery details, use `spec-first doctor`, `spec-firs
 ```bash
 npm run typecheck
 npm run test:mcp-setup
-npm run test:graph-bootstrap
 npm run test:unit
 npm run test:smoke
 npm run test:integration

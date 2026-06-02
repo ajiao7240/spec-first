@@ -47,11 +47,11 @@ function readJson(filePath) {
 }
 
 describe('package install contracts', () => {
-  test('retired graph native packages are absent from package manifests', () => {
+  test('package manifest ships current docs without native parser dependencies', () => {
     const pkg = readJson(PACKAGE_JSON_PATH);
     const lock = readJson(PACKAGE_LOCK_PATH);
-    const sqliteDep = 'better' + '-sqlite3';
-    const parserDep = 'tree' + '-sitter';
+    const sqliteDep = 'better-sqlite3';
+    const parserDep = 'tree-sitter';
     const nativePackages = [
       sqliteDep,
       parserDep,
@@ -86,14 +86,10 @@ describe('package install contracts', () => {
     expect(pkg.files).toContain('docs/contracts/artifact-summary.md');
     expect(pkg.files).toContain('docs/contracts/context-bundle.md');
     expect(pkg.files).toContain('docs/contracts/context-governance.md');
-    expect(pkg.files).toContain('docs/contracts/gitnexus-capability-catalog.md');
-    expect(pkg.files).toContain('docs/contracts/graph-evidence-policy.md');
-    expect(pkg.files).toContain('docs/contracts/graph-provider-consumption.md');
     expect(pkg.files).toContain('docs/contracts/quality-gates/');
     expect(pkg.files).toContain('docs/contracts/release-package-evidence.schema.json');
     expect(pkg.files).toContain('docs/contracts/verifiers/');
     expect(pkg.files).toContain('docs/contracts/website-sync-contract.md');
-    expect(pkg.files).toContain('docs/contracts/workspace-gitnexus-consumption.md');
     expect(pkg.files).toContain('docs/contracts/workflows/');
     expect(pkg.files).toContain('scripts/check-release-continuity.cjs');
     expect(pkg.files).toContain('scripts/check-website-sync.cjs');
@@ -110,9 +106,8 @@ describe('package install contracts', () => {
     expect(pkg.files).toContain('!skills/**/__pycache__/**');
     expect(pkg.files).toContain('!skills/**/*.pyc');
     expect(pkg.files).toContain('!skills/**/*.pyo');
-    expect(pkg.scripts['test:e2e:' + 'crg']).toBeUndefined();
-    expect(pkg.scripts.test).not.toContain('test:e2e:' + 'crg');
     expect(pkg.overrides).toBeUndefined();
+
   });
 
   test('published package includes package-script entrypoint files', () => {
@@ -179,13 +174,8 @@ describe('package install contracts', () => {
       expect(packedPaths).toContain('docs/contracts/ai-coding-harness.md');
       expect(packedPaths).toContain('docs/contracts/artifact-summary.md');
       expect(packedPaths).toContain('docs/contracts/context-bundle.md');
-      expect(packedPaths).toContain('docs/contracts/gitnexus-capability-catalog.md');
-      expect(packedPaths).toContain('docs/contracts/graph-evidence-policy.md');
-      expect(packedPaths).toContain('docs/contracts/graph-provider-consumption.md');
-      expect(packedPaths).toContain('docs/contracts/workflows/review-pre-facts-extraction.md');
       expect(packedPaths).toContain('docs/contracts/workflows/review-finding.md');
       expect(packedPaths).toContain('docs/contracts/context-governance.md');
-      expect(packedPaths).toContain('docs/contracts/workspace-gitnexus-consumption.md');
       expect(packedPaths).toContain('skills/spec-prd/templates/standard/00-通用增量需求模板.md');
       expect(packedPaths).toContain('skills/spec-prd/templates/standard/10-App客户端需求模板.md');
       expect(packedPaths).toContain('skills/spec-prd/templates/standard/20-Admin中后台需求模板.md');
@@ -224,14 +214,9 @@ describe('package install contracts', () => {
     expect(executableWithoutShebang).toEqual([]);
   });
 
-  test('postinstall keeps setup summary without native repair logic', () => {
+  test('postinstall keeps setup summary focused on init guidance', () => {
     const postinstall = fs.readFileSync(POSTINSTALL_PATH, 'utf8');
-    const sqliteDep = 'better' + '-sqlite3';
-    const parserDep = 'tree' + '-sitter';
-    const pruneScript = 'prune' + '-native';
-    const prebuildTool = 'prebuild' + '-install';
 
-    expect(postinstall).not.toMatch(new RegExp(`CRG|${sqliteDep}|${parserDep}|${pruneScript}|npm rebuild|${prebuildTool}`, 'i'));
     expect(postinstall).toMatch(/spec-first init/);
     expect(postinstall).toMatch(/managed assets/);
     expect(postinstall).toMatch(/Claude|Codex/);
@@ -276,7 +261,6 @@ describe('package install contracts', () => {
       'test',
       'test:unit',
       'test:mcp-setup',
-      'test:graph-bootstrap',
       'test:smoke',
       'test:integration',
       'test:release',

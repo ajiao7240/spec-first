@@ -331,16 +331,7 @@ function validateWorkspaceOrphanDeletionPlan(projectRoot, operations) {
 
 function isAllowedWorkspaceOrphanPath(entryPath) {
   const normalized = String(entryPath || '').replace(/\/+$/, '');
-  return normalized === '.gitnexus'
-    || normalized === '.spec-first/graph'
-    || normalized.startsWith('.spec-first/graph/')
-    || normalized === '.spec-first/impact'
-    || normalized.startsWith('.spec-first/impact/')
-    || normalized === '.spec-first/providers/code-review-graph'
-    || normalized.startsWith('.spec-first/providers/code-review-graph/')
-    || normalized === '.spec-first/providers/gitnexus'
-    || normalized.startsWith('.spec-first/providers/gitnexus/')
-    || normalized === '.spec-first/config/graph-providers.json'
+  return normalized === '.spec-first/config/tool-facts.json'
     || normalized === '.spec-first/config/runtime-capabilities.json';
 }
 

@@ -108,13 +108,10 @@ describe('workflow artifact paths', () => {
   });
 
   test('doctor and quality gate use verification artifact paths', () => {
-    const retiredPath = ['src', 'crg'].join('/');
     const expectedImport = ['verification', 'artifact-paths'].join('/');
     const doctorSource = fs.readFileSync(path.join(REPO_ROOT, 'src/cli/commands/doctor.js'), 'utf8');
     const gateSource = fs.readFileSync(path.join(REPO_ROOT, 'scripts/run-ai-dev-quality-gate.js'), 'utf8');
 
-    expect(doctorSource).not.toContain(retiredPath);
-    expect(gateSource).not.toContain(retiredPath);
     expect(doctorSource).toContain(expectedImport);
     expect(gateSource).toContain(expectedImport);
   });

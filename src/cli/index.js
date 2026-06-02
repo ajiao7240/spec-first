@@ -9,7 +9,6 @@ const { runInternal } = require('./commands/internal');
 const { runRepairWorktree } = require('./commands/repair-worktree');
 const { runSession } = require('./commands/session');
 const { runTasks } = require('./commands/tasks');
-const { runGitNexusInstructionBlockCommand } = require('./gitnexus-instruction-block');
 const {
   clearStartupVersionReminderCooldown,
   maybeShowStartupVersionReminder,
@@ -69,10 +68,6 @@ async function runCli(argv) {
     return Promise.resolve(runInternal(args.slice(1)));
   }
 
-  if (cmd === 'gitnexus-instruction') {
-    return Promise.resolve(runGitNexusInstructionBlockCommand(args.slice(1)));
-  }
-
   console.error(`Unknown command: ${cmd}`);
   console.error('Run `spec-first --help` to list available package CLI commands.');
   printHelp(true);
@@ -93,7 +88,6 @@ async function runStartupReminder(args) {
 
   await maybeShowStartupVersionReminder({
     host: parsed.host,
-    includeGraphSnapshot: true,
     packageName: pkg.name,
     output: process.stdout,
   });
@@ -163,7 +157,6 @@ function printHelp(withErrorPrefix = false) {
     '  repair-worktree        Preview broken worktree pointer repair guidance',
     '  tasks <subcommand>      Hash and validate derived task packs',
     '  session <subcommand>    Opt-in multi-actor session advisory (register|list|heartbeat|unregister)',
-    '  gitnexus-instruction    Create or normalize GitNexus host instruction blocks',
     '',
     '🪝 Installed workflow entrypoints are provided by the host after `spec-first init`.',
     '',

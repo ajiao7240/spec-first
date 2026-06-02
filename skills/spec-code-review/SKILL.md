@@ -16,11 +16,11 @@ Use before creating a PR, after completing implementation work, or whenever a sc
 
 ### When Not To Use
 
-Do not use for requirements/plan-only document review, planning unresolved work, creating commits/pushes/PRs, filing tracker tickets without an explicit routing decision, or treating graph/provider startup failure as a reviewer failure.
+Do not use for requirements/plan-only document review, planning unresolved work, creating commits/pushes/PRs, filing tracker tickets without an explicit routing decision, or treating optional external-tool startup failure as a reviewer failure.
 
 ### Inputs
 
-Current branch diff, PR URL/number, branch target, or explicit `base:<sha-or-ref>`; optional `plan:<path>` and mode token (`mode:autofix`, `mode:report-only`, or `mode:headless`); repository instructions, plan/task/work artifacts, package/test context, and graph/MCP evidence as advisory review context.
+Current branch diff, PR URL/number, branch target, or explicit `base:<sha-or-ref>`; optional `plan:<path>` and mode token (`mode:autofix`, `mode:report-only`, or `mode:headless`); repository instructions, plan/task/work artifacts, package/test context, and optional external-tool evidence as advisory review context.
 
 ### Outputs
 
@@ -32,7 +32,7 @@ Session-scoped review artifacts live under the OS temp directory and are named i
 
 ### Failure Modes
 
-Conflicting mode flags, missing headless diff scope, unsafe shared-checkout switching, unavailable/unsafe dispatch, degraded MCP/provider evidence, or zero reviewer results. Fall back to single-agent report-only when safe, or emit the documented failure envelope for headless/programmatic callers.
+Conflicting mode flags, missing headless diff scope, unsafe shared-checkout switching, unavailable/unsafe dispatch, degraded optional external-tool evidence, or zero reviewer results. Fall back to single-agent report-only when safe, or emit the documented failure envelope for headless/programmatic callers.
 
 ### Workflow
 
@@ -48,13 +48,13 @@ Follows `docs/contracts/workflows/scenario-capability-matrix.md` with high-risk 
 
 Overrides: high-risk
 
-- `foreign-residual-workspace` -> `blocked-action-required`: stop before graph-backed findings, autofix, or PR-ready review claims until `spec-first clean --workspace-orphans` preview and `spec-first init` refresh local artifacts, or the user explicitly accepts degraded evidence.
-- `unavailable-provider` condition -> `fallback-only`: use bounded direct diff/source/test evidence and record graph limitations in Coverage; do not claim graph-backed blast radius, related tests, or changed-symbol coverage.
+- `foreign-residual-workspace` -> `blocked-action-required`: stop before autofix or PR-ready review claims until `spec-first clean --workspace-orphans` preview and `spec-first init` refresh local artifacts, or the user explicitly accepts degraded evidence.
+- optional external-tool evidence unavailable -> `fallback-only`: use bounded direct diff/source/test evidence and record the limitation in Coverage; do not claim blast radius, related tests, or changed-symbol coverage that was not confirmed from direct evidence.
 - `non-git-build-workspace` coverage gaps -> `partial`: review covered git roots normally, but treat uncovered build modules as direct-read/test candidates before raising cross-module findings.
 
 ## Context Orientation Anchor
 
-Orient review from the diff scope, current user request, plan/task/work artifacts when present, already-loaded host/project instructions, package manifests and command registries, nearby implementation files, nearby tests, and test results. Treat `AGENTS.md`, `CLAUDE.md`, and project role docs as host instruction sources that are normally already loaded by the current session, not automatic re-read targets for every review run. Read those source instruction files only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it; Stage 3b is the narrow project-standards persona exception and discovers paths before leaf reviewers read relevant sections. When graph readiness artifacts are degraded, stale, or unavailable, prefer live GitNexus MCP evidence for concrete review questions when the relevant GitNexus tool is loaded and responsive, then fall back to bounded direct repo reads. Treat successful MCP calls as session-local evidence only; they do not update compiled `query_ready` or replace reviewer judgment. GitNexus is the review/diff-impact evidence source for this workflow: if available, use it for changed-symbol impact, review context, related-test candidates, and blast-radius pointers; if GitNexus returns definitions-only evidence, use those results only as local file/symbol pointers and continue with bounded direct repo reads before making findings. Provider evidence is advisory: graph/MCP/provider output can focus review, but findings still need direct source confirmation. If a live MCP/provider startup or call fails, treat that provider as degraded evidence rather than a reviewer failure unless the reviewer itself cannot complete; do not repeatedly probe the same unavailable provider across personas in the same run. Record the provider degradation once in Coverage and continue with bounded direct repo reads. External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment.
+Orient review from the diff scope, current user request, plan/task/work artifacts when present, already-loaded host/project instructions, package manifests and command registries, nearby implementation files, nearby tests, and test results. Treat `AGENTS.md`, `CLAUDE.md`, and project role docs as host instruction sources that are normally already loaded by the current session, not automatic re-read targets for every review run. Read those source instruction files only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it; Stage 3b is the narrow project-standards persona exception and discovers paths before leaf reviewers read relevant sections. Use bounded direct diff/source reads, `rg`, ast-grep when useful, package/test facts, logs, and user-provided artifacts as review evidence. External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment. Findings still need direct source, diff, test, contract, log, or artifact confirmation.
 
 ## Domain Language And Decision Ledger
 
@@ -78,13 +78,11 @@ For docs-only and config-only changes, docs contract checks, schema/help/render 
 
 Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
 
-## Graph Freshness / Refresh Trigger Boundary
+## Direct Review Evidence Boundary
 
-Before treating compiled graph facts as primary review evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, and `.spec-first/impact/bootstrap-impact-capabilities.json` for provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Code Review to rebuild providers.
+Code Review does not require external-tool readiness before reviewer dispatch. Use direct diff reads, source reads, `rg`, ast-grep, package/test facts, logs, and user-provided artifacts to build review context and confirm findings. If a claimed impact surface cannot be confirmed from bounded direct evidence, record it as residual risk or a test candidate instead of raising it as a confirmed finding.
 
-For stale graph + lightweight review, such as docs-only prose, narrow typo fixes, first project trial, or a small local bug with direct source evidence, disclose limitations in Coverage and continue with bounded direct reads or session-local live MCP pointers. For stale graph + graph-heavy review, such as shared helper/API/route/provider contract/core workflow/cross-module changes, review-pre-facts changes, high-risk review, or claims that depend on execution flows, impact, `detect_changes`, or blast radius, recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap` before claiming graph-backed evidence. Code Review must not run GitNexus analyze/build/index refresh, provider repair, default git hooks, watchers, or daemons. Graph provider `query_ready: false` or definitions-only evidence does not by itself disable reviewer dispatch; it only limits graph evidence and should be carried into Coverage.
-
-When review runs from a parent workspace containing multiple independent Git repos, group changed files by Git repo. Resolve graph readiness, diff context, impact evidence, and test suggestions per child repo, then aggregate findings without merging repo-local evidence. For read-only review questions without a diff, use `workspace-graph-targets.v1` as an advisory candidate list, try GitNexus-first evidence for bounded candidate repos, and carry degraded-fallback or definitions-only limitations into the review context. `workspace-gitnexus-readiness.v1` group evidence may orient cross-repo risk discovery when `group.status="group-ready"`; otherwise use bounded registry/per-repo fallback and disclose the limitation. GitNexus is the primary diff-impact evidence source when available; stale, unavailable, or definitions-only GitNexus evidence falls back to bounded registry/per-repo/direct diff reads and must be disclosed in Coverage. GitNexus native routing may provide global orientation, route/API/shape, symbol, Cypher, tool-surface, changed-symbol impact, related-test candidate, or blast-radius supporting evidence. File references, suggested fixes, and risk assessments must remain scoped to the repo that owns the file; autofix review must not edit a child repo unless that repo is explicit in the diff or `target_repo` scope.
+When review runs from a parent workspace containing multiple independent Git repos, group changed files by Git repo and keep file references, suggested fixes, and risk assessments scoped to the repo that owns the file. For read-only review questions without a diff, ask for or infer only bounded candidate repos from the user request and direct file discovery. Autofix review must not edit a child repo unless that repo is explicit in the diff or `target_repo` scope.
 
 ## Progress Reporting Boundary
 
@@ -469,7 +467,7 @@ Compute and record these facts before choosing the reviewer team:
 - `prior_comments_present`: Stage 1 `hasPriorComments=true`.
 - `plan_explicit`: Stage 2b found an explicit plan.
 
-Progressive disclosure boundary: low-risk docs-only, simple config, and tiny executable diffs may use a minimum reviewer set; high-risk workflow, contract, release, source/runtime boundary, provider evidence, security, or cross-module changes must use the full default core plus applicable conditional reviewers. The goal is to avoid unbounded fan-out on small diffs without hiding risk.
+Progressive disclosure boundary: low-risk docs-only, simple config, and tiny executable diffs may use a minimum reviewer set; high-risk workflow, contract, release, source/runtime boundary, external-tool evidence, security, or cross-module changes must use the full default core plus applicable conditional reviewers. The goal is to avoid unbounded fan-out on small diffs without hiding risk.
 
 Use the minimum reviewer set only when all of these are true:
 
@@ -525,20 +523,17 @@ Review team:
 
 This is progress reporting, not a blocking confirmation.
 
-#### GitNexus native capability routing candidates
+#### Direct evidence routing candidates
 
-When the diff is graph-heavy, Stage 3 records candidate GitNexus native capability routing, but does not activate those calls yet. Activation happens only after Stage 4 confirms graph-native use is allowed: `evidence_posture=primary` and `evidence_grade=primary|session-local`. `fallback`, `advisory`, or `stale` evidence remains orientation only until source/diff/test/contract reads confirm the relevant fact.
+When the diff is broad or impact-sensitive, Stage 3 records direct evidence targets instead of external-tool calls:
 
-- Route handler / public API diff -> prefer `api_impact`, then `route_map`, then `query` / `context`; use `shape_check` for response-shape drift risk.
-- Response shape / consumer access diff -> prefer `shape_check`; a finding still needs source/diff/test/contract confirmation.
-- Shared symbol / helper diff -> use `context` and `impact` for caller/callee and blast-radius pointers.
-- MCP/RPC tool definition diff -> use `tool_map` for handler, description, and consumer mismatch evidence.
-- Workspace multi-repo diff -> resolve graph evidence per child repo, using group resources only as read-only orientation and keeping findings scoped to the child repo that owns the file.
-- Stale / unavailable / definitions-only GitNexus -> fall back to direct diff reads, record the limitation in Coverage, and continue reviewer dispatch when dispatch is otherwise safe.
+- Route handler / public API diff -> inspect handler source, callers/consumers found by `rg`, route definitions, tests, and response-shape contracts when present.
+- Response shape / consumer access diff -> inspect the route response source, consumer property reads, fixtures, and tests before raising shape drift.
+- Shared symbol / helper diff -> inspect direct imports/callers found by `rg` or ast-grep, then sample representative tests.
+- MCP/RPC tool definition diff -> inspect the tool definition, handler, descriptions, generated runtime expectations, and tests.
+- Workspace multi-repo diff -> resolve direct evidence per child repo and keep findings scoped to the child repo that owns the file.
 
-GitNexus output is supporting evidence only. Do not raise a finding solely from graph output; every finding must be confirmed by diff/source/test/contract evidence before it enters the merged finding set.
-
-When the shared pre-facts helper is used for review context, its bounded `queries[]` may include `gitnexus.query`, `gitnexus.context`, `gitnexus.impact`, and `gitnexus.detect_changes`. Treat non-query pre-facts as compact pointers for changed symbols, callers, impact summaries, and diff-scope candidates; Coverage may disclose `capabilities_used` and degraded reason counts once, but findings still require direct diff/source/test/contract confirmation.
+Direct evidence targets are review focus, not scope expansion. Do not raise a finding solely from a name match; every finding must be confirmed by diff/source/test/contract/log evidence before it enters the merged finding set.
 
 ### Stage 3b: Discover project standards paths
 
@@ -570,16 +565,14 @@ Interpret the JSON facts narrowly:
 - `host_config_status: ready | fallback-active | not-required` means the host config is acceptable for dispatch.
 - `host_config_status: action-required | precedence-blocked`, missing required dependencies, or a non-ready required MCP project status means the current runtime is not safe for multi-persona dispatch.
 - A required MCP startup/config failure is a **runtime boundary issue**, not a code-review finding. Record it once in Coverage with the tool id, status, and next action.
-- Graph provider `query_ready: false` or definitions-only evidence does not by itself disable reviewer dispatch; it only limits graph evidence and should be carried into Coverage.
+- Missing optional external-tool evidence does not by itself disable reviewer dispatch; it only limits the review claims and should be carried into Coverage when relevant.
 
-After `detect-tools.sh` and before reviewer dispatch, consolidate downstream graph evidence once:
+After `detect-tools.sh` and before reviewer dispatch, consolidate direct handoff evidence once:
 
-- If a `plan:` argument or Stage 2b discovery found a plan, inspect its `## Graph / GitNexus Evidence` block for `evidence_grade`, `evidence_posture`, `capabilities_used`, `limitations`, and repo scope. If no plan exists or the plan has no evidence block, record `Graph evidence: unavailable (no plan evidence)` in Coverage and continue.
-- If the caller explicitly handed off a spec-work run artifact path / `run_id`, or if the source-owned reader can read a recent artifact, read `graph_evidence_used` as best-effort session-local supplement. Prefer `spec-first internal spec-work-run-artifact read --target-repo <repo>` and add `--workspace-slug` / `--run-id` when an exact selector is available; do not directly scan `.spec-first/workflows/spec-work/**` or implement "latest run.json" selection in this skill prose.
-- Before consuming work artifact evidence, confirm it is bound to the current review scope: explicit path/run id came from this handoff, or artifact `plan_path` / `source_refs` reasonably match the current `plan:`, review base, and changed files. If the reader returns not-found/not-readable, `graph_evidence_used` is missing, schema/shape is unavailable, or scope mismatches, record `Graph evidence: unavailable` / `stale` with the reason and do not inject the artifact evidence into reviewer prompts or native routing.
-- Carry the consolidated graph evidence posture to Stage 6 Coverage and native capability routing. Do not ask each persona reviewer to repeat the same provider probe.
-
-**Degraded-once rule:** if GitNexus startup, readiness, or native capability probing fails or returns degraded/stale in this preflight, record it once in Coverage with the tool/resource and reason. Do not repeatedly probe the same unavailable provider across personas or hypotheses.
+- If a `plan:` argument or Stage 2b discovery found a plan, inspect its source refs, direct evidence notes, limitations, and repo scope.
+- If the caller explicitly handed off a spec-work run artifact path / `run_id`, or if the source-owned reader can read a recent artifact, read direct source/test/log evidence as best-effort supplement. Prefer `spec-first internal spec-work-run-artifact read --target-repo <repo>` and add `--workspace-slug` / `--run-id` when an exact selector is available; do not directly scan `.spec-first/workflows/spec-work/**` or implement "latest run.json" selection in this skill prose.
+- Before consuming work artifact evidence, confirm it is bound to the current review scope: explicit path/run id came from this handoff, or artifact `plan_path` / `source_refs` reasonably match the current `plan:`, review base, and changed files. If the reader returns not-found/not-readable, direct evidence is missing, schema/shape is unavailable, or scope mismatches, record the limitation and do not inject the artifact evidence into reviewer prompts.
+- Carry the consolidated direct evidence posture to Stage 6 Coverage. Do not ask each persona reviewer to repeat the same setup preflight.
 
 When a required MCP server is not host-config-ready before dispatch, do not spawn reviewer agents in Codex or Claude. Set `single_agent_report_only_fallback: true`, treat the effective mode as report-only, and run the selected persona lenses inline with bounded direct repo reads. This avoids multiplying the same MCP startup failure across every leaf reviewer. If the preflight script is missing or cannot run, do not invent readiness facts; record `runtime readiness preflight unavailable` in Coverage and continue only if the host has not already reported MCP startup failure in the current session. If the host has already reported `MCP startup incomplete` or equivalent startup failure, use the single-agent report-only fallback.
 
@@ -601,7 +594,7 @@ When dispatch is unavailable, explicitly disabled, or unsafe, set `single_agent_
 - Treat the effective mode as report-only, even if no `mode:report-only` token was provided.
 - If the user requested `mode:autofix` or `mode:headless`, stop and explain that mutating review requires reviewer/fixer dispatch capability or an isolated workflow that permits it; offer report-only as the safe fallback.
 - Do not create `<review-artifact-dir>/` and do not write reviewer artifacts.
-- The orchestrator applies the selected persona lenses itself, serially, using the same diff, plan, standards, and graph evidence.
+- The orchestrator applies the selected persona lenses itself, serially, using the same diff, plan, standards, and direct evidence.
 - Skip Stage 5b validator dispatch and all fixer paths.
 - In Coverage, state `single-agent report-only fallback: reviewer dispatch unavailable, explicitly disabled, or unsafe`.
 
@@ -816,13 +809,13 @@ Assemble the final report using **pipe-delimited markdown tables for findings** 
 7. **Learnings & Past Solutions.** Surface spec-learnings-researcher results: if past solutions are relevant, flag them as "Known Pattern" with links to docs/solutions/ files.
 8. **Learning Capture Recommendation.** Decide whether the current review produced a new reusable lesson worth capturing. This recommendation is advisory only: it is not a finding, not residual actionable work, not a verdict input, not an autofix item, and not a merge gate. Use the same three-tier judgment as Work/Debug:
    - **Skip silently** for mechanical fixes, one-off docs edits, formatting-only changes, or review results with no generalizable lesson. If the lesson cannot be stated in one sentence, skip rather than offer.
-   - **Offer neutrally** when the lesson can be stated in one sentence, such as a repeated finding pattern, reusable review heuristic, source/runtime or host-entrypoint boundary lesson, provider evidence limitation, or known pattern future reviews should remember.
-   - **Lean into the offer** when the pattern appears in 3+ places or reveals a wrong assumption about a shared dependency, framework, workflow, source/runtime boundary, or provider-evidence convention.
+   - **Offer neutrally** when the lesson can be stated in one sentence, such as a repeated finding pattern, reusable review heuristic, source/runtime or host-entrypoint boundary lesson, external-tool evidence limitation, or known pattern future reviews should remember.
+   - **Lean into the offer** when the pattern appears in 3+ places or reveals a wrong assumption about a shared dependency, framework, workflow, source/runtime boundary, or external-evidence convention.
    When offering, phrase it as the user's choice to run the current host's compound entrypoint with brief context. In report-only, autofix, and headless modes, ask no questions; include at most one advisory line when learning-worthy evidence exists. Do not automatically run `spec-compound`, do not write `docs/solutions/`, do not file tickets, and do not add extra prompts because of this checklist. If an older learning appears stale, recommend `spec-compound-refresh` only with a narrow scope hint and only after the new learning-capture path is clear.
 9. **Agent-Native Gaps.** Surface spec-agent-native-reviewer results. Omit section if no gaps found.
 10. **Schema Drift Check.** If spec-schema-drift-detector ran, summarize whether drift was found. If drift exists, list the unrelated schema objects and the required cleanup command. If clean, say so briefly.
 11. **Deployment Notes.** If spec-deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage.
-12. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, graph evidence posture, and any intent uncertainty carried by non-interactive modes. Include `Graph evidence: <fresh/session-local/advisory/fallback/unavailable> (from plan: <capabilities_used> / work: <graph_evidence_used if available>) | limitations: <reason>`; for multi-repo review, report graph evidence per child repo. Provider evidence is advisory whenever it is stale, degraded, definitions-only, or unconfirmed by source.
+12. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, direct evidence posture, and any intent uncertainty carried by non-interactive modes. Include `Direct evidence: <source refs/checks/logs used> | limitations: <reason>` when coverage depends on bounded direct evidence; for multi-repo review, report evidence per child repo. External-tool evidence is advisory whenever it is degraded or unconfirmed by source.
 13. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
 
 Do not include time estimates.
@@ -926,7 +919,7 @@ Before delivering the review, verify:
 4. **Line numbers are accurate.** Verify each cited line number against the file content. A finding pointing to the wrong line is worse than no finding.
 5. **Protected artifacts are respected.** Discard any findings that recommend deleting or gitignoring files in `docs/brainstorms/`, `docs/plans/`, or `docs/solutions/`.
 6. **Findings don't duplicate linter output.** Don't flag things the project's linter/formatter would catch (missing semicolons, wrong indentation). Focus on semantic issues.
-7. **Source validation is present.** Every surviving finding must be backed by diff/source/test/contract evidence, not provider output alone.
+7. **Source validation is present.** Every surviving finding must be backed by diff/source/test/contract evidence, not external-tool output alone.
 
 ## Language-Aware Conditionals
 

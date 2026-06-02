@@ -19,14 +19,9 @@ describe('spec-first gitignore policy', () => {
     expect(patterns).toContain('.claude/commands/spec/');
     expect(patterns).toContain('.claude/hooks/session-start');
     expect(patterns).toContain('.agents/skills/');
-    expect(patterns).toContain('.gitnexus/');
-    expect(patterns).toContain('.code-review-graph/');
-    expect(getSpecFirstGitignorePatternMetadata()['.code-review-graph/']).toMatchObject({
-      reason: 'retired-crg-residual-ignore',
-      'residual-ignore-expiry': '1.10.0',
-    });
+    expect(getSpecFirstGitignorePatternMetadata()).toEqual({});
     expect(patterns).toContain('.spec-first/config/*.json');
-    expect(patterns).not.toContain('.spec-first/' + 'standards/');
+    expect(patterns).not.toContain('.spec-first/standards/');
     expect(patterns).toContain('.spec-first/sessions/');
     expect(patterns).not.toContain('.claude/');
     expect(patterns).not.toContain('.codex/');

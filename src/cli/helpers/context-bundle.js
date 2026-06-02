@@ -15,24 +15,6 @@ const EXCLUDED_PREFIXES = [
     reason: 'runtime audit artifacts are excluded from ordinary context',
   },
   {
-    prefix: '.spec-first/graph',
-    kind: 'runtime_context_artifact',
-    reason_code: 'runtime_context_artifact_excluded',
-    reason: 'runtime context artifacts are excluded from ordinary context',
-  },
-  {
-    prefix: '.spec-first/providers',
-    kind: 'runtime_context_artifact',
-    reason_code: 'runtime_context_artifact_excluded',
-    reason: 'runtime context artifacts are excluded from ordinary context',
-  },
-  {
-    prefix: '.spec-first/impact',
-    kind: 'runtime_context_artifact',
-    reason_code: 'runtime_context_artifact_excluded',
-    reason: 'runtime context artifacts are excluded from ordinary context',
-  },
-  {
     prefix: '.spec-first/workspace',
     kind: 'runtime_context_artifact',
     reason_code: 'runtime_context_artifact_excluded',

@@ -57,6 +57,30 @@
       "expected": ["state semantics", "idempotency expectation", "error semantics", "WHAT not HOW"]
     },
     {
+      "id": "remove-active-integration",
+      "intent": "create",
+      "input_shape": "owner asks to彻底删除 an installed workflow/provider integration from setup, usage, artifacts, docs, tests, and package surface",
+      "expected": ["Framing Gate before broad source reads", "Evidence Plan includes package/docs/tests/runtime/downstream consumers", "primary topology remove", "Surface Map", "Producer / Artifact / Consumer", "Source-Of-Truth Resolution", "Negative Acceptance", "active-vs-archive boundary", "no empty shell"]
+    },
+    {
+      "id": "workflow-contract-change",
+      "intent": "create",
+      "input_shape": "change a skill/workflow handoff and its produced artifact contract",
+      "expected": ["Framing Gate before drafting", "Owner Question Ladder for workflow/contract decisions", "primary topology workflow-change or contract-change", "public entry and internal helper boundary", "producer-consumer closure", "generated runtime boundary", "downstream skills identified"]
+    },
+    {
+      "id": "source-of-truth-migration",
+      "intent": "create",
+      "input_shape": "move canonical configuration from generated runtime mirror to source template with backward compatibility",
+      "expected": ["Framing Gate marks source-of-truth risk", "Evidence Plan distinguishes source template from generated mirror", "primary topology migrate", "current and target source-of-truth", "generated mirrors marked non-authoritative", "drift validation", "rollback or cleanup boundary"]
+    },
+    {
+      "id": "extend-identity-drift",
+      "intent": "validate",
+      "input_shape": "PRD says extend existing capability but changes default visibility and user entry behavior",
+      "expected": ["framing-evidence alignment catches identity drift", "owner-question minimality asks only default/entry/permission decision", "identity drift surfaced", "reclassify to replace or policy-change", "negative acceptance for unchanged permissions or explicit owner decision"]
+    },
+    {
       "id": "securities-app-order",
       "intent": "create",
       "input_shape": "securities App order change with local overlay docs",
@@ -93,10 +117,10 @@
       "expected": ["readiness fail or ask-owner outcome"]
     },
     {
-      "id": "stale-gitnexus-pointer",
+      "id": "source-candidate-unconfirmed",
       "intent": "validate",
-      "input_shape": "graph evidence is stale or definitions-only",
-      "expected": ["gitnexus-pointer only", "direct source confirmation required"]
+      "input_shape": "source search points to a candidate file but the claim has not been read and confirmed",
+      "expected": ["source-candidate only", "direct source confirmation required"]
     },
     {
       "id": "oversized-initial-prd",

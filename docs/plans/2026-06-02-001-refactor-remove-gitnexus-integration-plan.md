@@ -1,59 +1,86 @@
 ---
-title: "refactor: 彻底移除 GitNexus 集成"
+title: "refactor: 彻底删除 GitNexus active integration"
 type: refactor
 status: active
 date: 2026-06-02
 spec_id: 2026-06-02-001-refactor-remove-gitnexus-integration
+origin: docs/brainstorms/2026-06-02-001-refactor-remove-gitnexus-integration-requirements.md
 ---
 
-# refactor: 彻底移除 GitNexus 集成
+# refactor: 彻底删除 GitNexus active integration
 
 ## Summary
 
-将 spec-first 中所有 GitNexus 专属代码、workflow、测试、契约文档和历史文档引用完整移除。移除后，spec-first 仍是完整的 workflow harness，但不再依赖任何图谱 provider——各 workflow 的上下文理解回退到 grep/Read 直读模式，`spec:graph-bootstrap` 命令消失。
+本计划把 GitNexus 从 spec-first 的 active product surface 中硬删除：安装/setup 不再配置 GitNexus，CLI/runtime 不再注入 GitNexus 指令，`spec-graph-bootstrap` source skill 与 Claude command template 整体删除，workflow skills 不再消费 graph-bootstrap / review-pre-facts / GitNexus readiness 产物，文档、测试、package 和 runtime generation 全部改为无 GitNexus 当前能力。
+
+删除后的默认上下文路径是 bounded direct source reads、`rg`、ast-grep、git diff、tests/logs 和用户提供证据。本期不新增替代 graph provider，也不保留 provider-neutral graph-bootstrap 空壳。
 
 ---
 
 ## Problem Frame
 
-上一分析会话（见会话 transcript `2026-06-02-150315-spec-firstgitnexus.txt`）对 GitNexus 集成侵入性做了完整勘察，发现：
+origin PRD 明确要求“彻底删除 GitNexus，从安装流程、使用流程、产物等等全部彻底删除”。当前仓库中 GitNexus 已经不是一个单点 MCP provider，而是横跨 setup registry、provider projection、host instruction block、startup reminder、workflow routing、`spec-graph-bootstrap` public workflow、review-pre-facts helper、contracts、README、用户手册、tests、fixtures、CI quality gate 和 package allowlist 的 active integration。
 
-- 运行时协议层（facts/降级/零硬依赖）本身设计干净
-- 但 `spec-first init` 无条件向每个仓库注入 `# GitNexus — Code Intelligence` 指令块，与图谱是否可用无关
-- `gitnexus` 品牌名硬编码进入口文档（CLAUDE.md/AGENTS.md）、6 个核心 workflow skill prose、readiness 查找逻辑，导致一个外部 provider 在 source 层被当成了"图谱能力"本身
-
-分析提出三条路径：A 彻底清除、B 去品牌化+默认关闭、C 仅修指令块注入。用户明确选择路径 A。
+旧计划的问题是仍按“GitNexus graph provider 下线”理解删除边界，保留了 graph readiness 空结构、历史文档批量改写和部分 provider 骨架；这与最新 PRD 的 R-06 / R-16 冲突。新的技术决策是：删除产物生产者、删除公共入口、删除所有 active 消费链，再用残留扫描保护 active source 不重新引用 GitNexus。
 
 ---
 
 ## Requirements
 
-- R1. 移除所有 GitNexus 专属 JS 源码模块
-- R2. 移除 `spec:graph-bootstrap` workflow（`skills/spec-graph-bootstrap/`）
-- R3. 移除 review-pre-facts 证据消费层（`src/cli/helpers/review-pre-facts/`）
-- R4. `spec-first init` 不再向宿主注入 GitNexus 指令块
-- R5. 6 个核心 workflow skill 的 SKILL.md 移除 GitNexus/review-pre-facts 引用，保留 grep/Read 直读作为唯一上下文路径
-- R6. `using-spec-first` 路由表和场景指纹检测移除 GitNexus/graph-bootstrap 条目
-- R7. 移除所有 GitNexus 相关单测和测试 fixtures
-- R8. 从 `package.json` 的 files 白名单移除已删契约文档
-- R9. 历史规划文档（docs/brainstorms/、docs/plans/）清理 GitNexus 引用
-- R10. CHANGELOG 记录本次 breaking change（user-visible）
-- R11. `npm run typecheck` + `npm run test:unit` + `npm run test:smoke` 全部通过
+| Origin requirement | Plan coverage | Primary units |
+| --- | --- | --- |
+| R-01 setup 不再把 GitNexus 列为 required tool / graph-provider / host MCP server | 删除 `mcp-tools.json` GitNexus entry、warmup/install/verify/projection 输出与 setup prose | U2, U8 |
+| R-02 setup 不再写 GitNexus provider projection / runtime capabilities | 停止写 `graph-providers.json.providers.gitnexus`、`gitnexus_capability_discovery`、GitNexus command arrays 和 artifact refs | U2, U9 |
+| R-03 `spec-first init` 不再注入 GitNexus block | 删除 instruction block source、init normalize path、checked-in host docs block 和 generated runtime 入口 | U4, U9 |
+| R-04 CLI 不暴露 GitNexus commands | 删除 `gitnexus-instruction`、`workspace-gitnexus-readiness` 和 GitNexus-only `review-pre-facts` active command | U4, U5, U8 |
+| R-05 router 不推荐 graph-bootstrap / workspace-gitnexus | 更新 `using-spec-first` 与 host bootstrap managed block source | U4, U6 |
+| R-06 删除 `spec-graph-bootstrap` source skill 和 command template | 整目录删除 `skills/spec-graph-bootstrap/`，删除 `templates/claude/commands/spec/graph-bootstrap.md`，清理 skill governance/runtime index/tests | U3, U9 |
+| R-07 workflow 上下文改为 direct reads / `rg` / ast-grep / tests/logs | 更新所有 active workflow skill prose，删除 GitNexus-first、Graph / GitNexus Evidence 和 review-pre-facts 依赖 | U6 |
+| R-08 evidence 输出不再含 GitNexus-specific envelope | 删除 plan/work/debug/review 中 graph evidence block 消费与 run artifact GitNexus 口径 | U5, U6, U7 |
+| R-09 旧 `.gitnexus` / provider artifacts 视为 retired residue | clean/doctor/setup 只做 preview-first residue 处理，不把旧 artifact 当 readiness | U2, U4, U9 |
+| R-10 active contracts 不再定义 GitNexus capability/readiness/pre-facts | 删除或 retire active GitNexus contracts，更新引用它们的总合同和 source/runtime contract | U7, U8 |
+| R-11 README / 用户手册不再介绍 GitNexus 当前路径 | 更新 README、README.zh-CN 和 active 用户手册；历史分析只可标 archived 且不再被 current docs 链接 | U7 |
+| R-12 tests/package 保护删除后 contract | 删除或改写 GitNexus unit/smoke/fixture/benchmark/package assertions；`npm run build` tarball 无 active GitNexus assets | U8 |
+| R-13 active-source residual scan 只允许 archive/removal docs/changelog | 新增/更新 residual guard，allowlist 仅覆盖 origin PRD、本计划、CHANGELOG 和明确 archived historical docs | U1, U8 |
+| R-14 本期不新增替代 graph provider | 所有 units 只删除或降级为 direct-read prose，不新增 graph abstraction/schema | All |
+| R-15 发布说明标记 user-visible breaking change | CHANGELOG 和 release/package docs 记录 GitNexus setup、graph-bootstrap、artifacts、evidence path retired | U8 |
+| R-16 删除 source skill 后同步更新所有 consumer skills | 至少覆盖 `spec-mcp-setup`、`using-spec-first`、`spec-plan`、`spec-code-review`、`spec-doc-review`、`spec-work`、`spec-debug`、`spec-brainstorm`、`spec-write-tasks` | U2, U6 |
+
+**Origin acceptance examples:** AE-01 through AE-13 are all carried forward. The implementation is complete only when active setup, CLI, source skills, runtime generation, docs, tests, package build, and residual scans satisfy those examples.
 
 ---
 
 ## Scope Boundaries
 
-- 不修改 `docs/brainstorms/` 和 `docs/plans/` 中的历史档案文件（仅清理其中的 gitnexus 引用段落，不删除文件）
-- 不改动 `agents/` 下任何 reviewer agent（无 GitNexus 直接依赖）
-- 不改动 `src/cli/helpers/` 中其他辅助模块（非 gitnexus 相关）
-- 不引入新的图谱能力抽象或替代方案（本次只做移除，不做替换）
-- 不删除 `.spec-first/graph/` 目录结构本身（只删除其中由 GitNexus 生成的具体文件）
+本期做：
 
-### Deferred to Follow-Up Work
+- 删除 GitNexus install/setup/config/warmup/projection/verification/next-action 行为。
+- 删除 GitNexus host instruction block 的 source、CLI command、init generation path 和 checked-in `AGENTS.md` / `CLAUDE.md` managed block。
+- 删除 `skills/spec-graph-bootstrap/` source directory、its scripts/evals、and `templates/claude/commands/spec/graph-bootstrap.md`。
+- 删除 GitNexus-only review-pre-facts helper 和 active workflow consumption。
+- 更新 active workflow skills，使代码理解、plan、work、debug、review、doc-review、brainstorm、tasks 只依赖 bounded direct evidence。
+- 清理 active contracts、README、用户手册、runtime capability catalog、tests、fixtures、CI gates、package allowlist 中的当前 GitNexus 语义。
+- 以 source-first 方式通过 `spec-first init` 重新生成 runtime mirrors；不手改 generated runtime assets。
+- 更新 `CHANGELOG.md`，标记 user-visible breaking change。
 
-- `spec-first doctor` 输出是否需要调整 GitNexus 状态展示：独立小任务
-- 若未来引入其他 graph provider，可参考已清理后的 provider-agnostic 抽象骨架重新建设
+本期不做：
+
+- 不新增替代 provider、provider-neutral graph workflow、graph readiness schema 或新的 evidence pipeline。
+- 不把 ast-grep、browser tooling、Context7、sequential-thinking、shell commands 等非 GitNexus 工具一起删除。
+- 不重写历史事实：历史 PRD/plan/analysis/validation/run artifacts 可保留为 archive，但 active docs/tests/package/workflow 不得把它们当 current contract。
+- 不强删用户全局自管 GitNexus MCP 配置；只删除 spec-first source/runtime/setup 管理的入口，并对本地 retired residue 使用 preview-first cleanup。
+- 不在计划阶段实施代码删除或运行 npm 测试；执行验证属于后续 `$spec-work`。
+
+---
+
+## Completion Criteria
+
+- `skills/spec-graph-bootstrap/` and `templates/claude/commands/spec/graph-bootstrap.md` do not exist in source, package contents, or regenerated runtime mirrors.
+- `spec-first --help`, `spec-first init`, `spec-first doctor`, `spec-first clean`, startup reminder, and host bootstrap prose do not mention GitNexus, graph-bootstrap, review-pre-facts, or graph readiness as current behavior.
+- `skills/spec-mcp-setup` no longer installs, warms, configures, verifies, projects, or hands off to GitNexus.
+- All active workflow skills named in R-16 have no active dependency on `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, `.spec-first/impact/bootstrap-impact-capabilities.json`, `.spec-first/workspace/gitnexus-readiness.json`, `Graph / GitNexus Evidence`, `review-pre-facts`, `$spec-graph-bootstrap`, or `/spec:graph-bootstrap`.
+- Active docs/tests/package/CI/source roots pass the residual allowlist scan.
+- `CHANGELOG.md` contains the user-visible breaking change entry.
 
 ---
 
@@ -61,60 +88,59 @@ spec_id: 2026-06-02-001-refactor-remove-gitnexus-integration
 
 - target_repo: spec-first
 - status: unavailable
-- source_revision: N/A
-- current_revision: N/A
-- stale: N/A
+- source_revision: unavailable
+- current_revision: unavailable
+- stale: not-applicable
 - primary_providers: none
 - degraded_providers: none
-- fallback_capabilities: bounded direct repo reads
+- fallback_capabilities: bounded direct source reads, `rg`, ast-grep, git diff, tests/logs, user-provided evidence
 - runtime_mcp_evidence: unavailable
-- confidence: not-applicable
-- limitations: 本计划的目标正是移除 graph readiness 基础设施，不适用图谱证据
+- confidence: confirmed-source for direct reads; no graph evidence used
+- limitations: `.spec-first/graph/graph-facts.json` is absent in this checkout, and the plan target is to retire graph readiness artifacts rather than consume them
 
 ---
 
 ## Context & Research
 
-### 涉及文件规模（来自会话分析）
+### Source Evidence Read
 
-| 类别 | 规模 |
-|------|------|
-| 整删 JS 核心模块 | 2 文件（`gitnexus-instruction-block.js` 409 行、`compile-workspace-gitnexus-readiness.js` 664 行） |
-| 整删 skill | `skills/spec-graph-bootstrap/`（12 文件，约 10k 行） |
-| 整删 review-pre-facts | `src/cli/helpers/review-pre-facts/`（14 JS 文件，3128 行） |
-| 整删单测 | 4 个 unit test 文件 |
-| 整删契约文档 | 6 个（gitnexus-capability-catalog、workspace-gitnexus-consumption、downstream-graph-evidence-consumption、graph-evidence-policy、graph-provider-consumption、workflows/review-pre-facts-extraction） |
-| 修改 CLI 命令 | `init.js`（2280 行）、`clean.js`、`internal.js` |
-| 修改辅助模块 | `scenario-fingerprint.js`（982 行，31 处 gitnexus 引用） |
-| 修改 skill prose | 7 个 SKILL.md（spec-plan 8 处、spec-code-review 10 处、spec-doc-review 6 处、spec-work 7 处、spec-debug 4 处、using-spec-first 5 处、spec-write-tasks 2 处） |
-| 清理历史文档 | docs/brainstorms/ 21 个文件，docs/plans/ 63 个文件 |
+- `docs/10-prompt/结构化项目角色契约.md`: confirms this is a large source/runtime/workflow governance change and must prefer light contracts, explicit boundaries, and scripts-prepare/LLM-decides separation.
+- `docs/brainstorms/2026-06-02-001-refactor-remove-gitnexus-integration-requirements.md`: primary WHAT source, including R-01 through R-16 and AE-01 through AE-13.
+- Existing plan at `docs/plans/2026-06-02-001-refactor-remove-gitnexus-integration-plan.md`: superseded in content because it retained stale graph-bootstrap and graph readiness assumptions.
+- Direct `rg` inventory over active roots: confirmed references in `src/cli`, `skills`, `templates`, `tests`, `scripts`, `.github`, `README.md`, `README.zh-CN.md`, `AGENTS.md`, `CLAUDE.md`, `docs/contracts`, `docs/05-用户手册`, `package.json`, and `.gitignore`.
 
-### 关键函数和调用链
+### Active Surface Inventory
 
-- `init.js:2040` → `normalizeGitNexusInstructionBlock(finalInstruction, { createMissing: true, ... })` — 无条件注入入口
-- `internal.js:4,22` — `workspace-gitnexus-readiness` 命令注册
-- `scenario-fingerprint.js` — `extractGitNexusStatus()`、`buildBootstrapGitNexusRef()`、`providerIsDegraded()`、`providerStatusRef()` 四个函数需删除
-- `src/cli/helpers/review-pre-facts/readiness.js:19` — `providers.find(p => p.provider === 'gitnexus')` 硬编码
+| Surface | Current active files / dirs | Planning implication |
+| --- | --- | --- |
+| setup registry/projection | `skills/spec-mcp-setup/mcp-tools.json`, `skills/spec-mcp-setup/SKILL.md`, `skills/spec-mcp-setup/references/supported-mcp-tools.md`, `skills/spec-mcp-setup/scripts/*` | Remove GitNexus provider identity and stop producing setup-owned graph/readiness facts |
+| graph-bootstrap public workflow | `skills/spec-graph-bootstrap/`, `templates/claude/commands/spec/graph-bootstrap.md` | Delete source assets; no empty shell |
+| CLI/init/runtime source | `src/cli/gitnexus-instruction-block.js`, `src/cli/index.js`, `src/cli/commands/init.js`, `src/cli/commands/internal.js`, `src/cli/commands/clean.js`, `src/cli/commands/doctor.js`, `src/cli/version-reminder.js`, `src/cli/instruction-bootstrap.js`, `src/cli/runtime-tools-index.js`, `src/cli/gitignore-policy.js` | Remove commands, blocks, startup graph snapshot, routing hints, clean/ignore productization |
+| review pre-facts helper | `src/cli/helpers/review-pre-facts/`, `src/cli/helpers/compile-workspace-gitnexus-readiness.js` | Delete GitNexus-only deterministic helper and hidden command path |
+| workflow skills | `skills/spec-mcp-setup/SKILL.md`, `skills/using-spec-first/SKILL.md`, `skills/spec-plan/SKILL.md`, `skills/spec-code-review/SKILL.md`, `skills/spec-doc-review/SKILL.md`, `skills/spec-work/SKILL.md`, `skills/spec-debug/SKILL.md`, `skills/spec-brainstorm/SKILL.md`, `skills/spec-write-tasks/SKILL.md` | Replace active GitNexus evidence paths with bounded direct evidence |
+| contracts/docs | `docs/contracts/*gitnexus*`, `docs/contracts/*graph*`, `docs/contracts/workflows/review-pre-facts-extraction.md`, `docs/contracts/ai-coding-harness.md`, `docs/contracts/source-runtime-customization-boundary.md`, `docs/contracts/parent-artifact-quarantine.md`, `README.md`, `README.zh-CN.md`, `docs/05-用户手册/**` | Remove active contract references; archive only where explicitly historical |
+| tests/fixtures/CI/package | `tests/unit/*gitnexus*`, `tests/unit/*graph-bootstrap*`, `tests/unit/*review-pre-facts*`, `tests/fixtures/review-pre-facts/`, `tests/fixtures/gitnexus-workspace/`, `tests/benchmark/extract-graph-anchors.sh`, `.github/workflows/ai-dev-quality-gate.yml`, `scripts/run-ai-dev-quality-gate.js`, `scripts/run-test-suite.cjs`, `package.json` | Delete or rewrite expectations to assert absence |
 
-### 保持不动的部分
+### Context Model After Deletion
 
-- `src/cli/helpers/scenario-fingerprint.js` 中的 provider-agnostic 路由骨架（仅删 gitnexus 专属函数）
-- `Graph Readiness` 块结构（保留 `providers_status_refs: {}` 空对象兼容现有消费者）
-- runtime artifacts 结构（`.spec-first/graph/` 目录本身可继续存在，只删已生成文件）
+The replacement context path is not a new provider contract. It is a workflow posture:
+
+- scripts and tools may deterministically gather file paths, git diff, package/test facts, syntax checks, and logs;
+- LLM workflows choose what evidence matters and disclose limitations;
+- no active workflow waits for GitNexus readiness or graph-bootstrap output before ordinary plan/work/debug/review;
+- graph-heavy future capability requires a new PRD with its own source, artifacts, consumers, failure modes, and tests.
 
 ---
 
 ## Key Technical Decisions
 
-- **整删 review-pre-facts 而非保留**：该模块设计目的是 GitNexus 证据规范化消费层，其 fixtures 全部为 provider/graph-facts 数据结构。移除 GitNexus 后无数据源，保留无意义。（source_tag: user-decision）
-
-- **直读模式作为 skill 的唯一上下文路径**：各 skill SKILL.md 中的 `fallback 到 grep/Read` 提升为唯一路径，去掉"优先 GitNexus，fallback 到直读"的两段式姿态。（source_tag: user-decision）
-
-- **历史文档批量替换而非删除**：docs/brainstorms/ 和 docs/plans/ 是历史档案，有完整性价值。只清理其中的 gitnexus 引用段落，文件本身保留。（source_tag: user-decision）
-
-- **`providers_status_refs: {}` 保留空对象**：删除 gitnexus 字段后，scenario fingerprint 中的 `providers_status_refs` 保留空对象，兼容可能读取该字段但做 null check 的下游消费者。（source_tag: advisory）
-
-- **`providerQueryDegraded` 固定为 `false`**：移除 gitnexus 后，scenario fingerprint 的 `providerQueryDegraded` 计算由 `extractGitNexusStatus()` 驱动，移除后无 provider 可降级，直接改为常量 `false`，`provider-degraded` scenario class 永远不触达。（source_tag: advisory）
+- **Delete `spec-graph-bootstrap`, do not preserve a provider-neutral shell.** The current skill, scripts, evals, tests, and artifacts are GitNexus-centered. Keeping the name would preserve a public entry whose only real behavior was removed.
+- **Remove producers before cleaning consumers.** Setup projection, CLI commands, source skill directories, and helper modules must disappear before workflow prose can truthfully stop referencing their outputs.
+- **Retire GitNexus artifacts, do not reinterpret them.** `.gitnexus/`, `.spec-first/providers/gitnexus/`, `.spec-first/graph/*`, `.spec-first/impact/bootstrap-impact-capabilities.json`, and `.spec-first/workspace/gitnexus-readiness.json` are no longer current readiness facts. They may be cleaned as residue, but cannot guide routing or evidence.
+- **Use absence tests, not historical rewrite, as the durable guard.** Historical docs can retain past facts when archived; active source, runtime generation, package contents, tests, README, user manual current paths, and contracts must pass a residual allowlist scan.
+- **Do not introduce a replacement graph abstraction.** Direct reads and `rg` are a fallback evidence posture, not a new `graph provider`.
+- **Source-first runtime cleanup.** Modify source and generator logic first, then run `spec-first init`. Do not patch `.claude/`, `.codex/`, or `.agents/skills/` by hand.
+- **Tests must protect the new product contract.** Existing tests that assert GitNexus presence should be deleted or inverted to assert absence; otherwise the implementation can appear complete while package/runtime still exposes GitNexus.
 
 ---
 
@@ -122,426 +148,510 @@ spec_id: 2026-06-02-001-refactor-remove-gitnexus-integration
 
 ### Resolved During Planning
 
-- **review-pre-facts 要整删还是保留**：整删。唯一消费者是 GitNexus 证据流，无其他独立用途。（user-decision）
-- **历史文档要删文件还是清引用**：清引用，保留文件。（user-decision）
-- **`scenario-fingerprint.js` 的 `provider-degraded` scenario class 是否要同步删除**：不删。该 class 枚举仍有描述意义，只是永远不会被触发。（advisory）
+- Should `skills/spec-graph-bootstrap/` be deleted or converted to a shell? Deleted. The PRD explicitly rejects an empty or provider-neutral shell for this increment.
+- Should review-pre-facts remain as a generic helper? No. Current operation names, readiness reads, fixtures, and workflow instructions are GitNexus-only.
+- Should historical brainstorms/plans be bulk edited? No by default. Treat them as archive unless they are linked from active docs/contracts/package/tests as current behavior.
+- Should a replacement graph provider be introduced? No. Future graph capability requires a separate PRD.
 
 ### Deferred to Implementation
 
-- `spec-first doctor` 命令是否会因 GitNexus 相关状态检查报错：执行期间运行 `spec-first doctor --claude` 观察实际输出，必要时修正
-- 7 个 SKILL.md 的具体段落边界：各 skill 文件较长，精确删除边界需执行期读取确认，不宜在计划层固定
+- Exact test deletion vs inversion per suite: decide while editing each test file, based on whether the suite protects active behavior or only GitNexus implementation internals.
+- Exact residue cleanup command UX for `.gitnexus/` and `.spec-first/providers/gitnexus/`: keep preview-first and source-owned; do not force-delete user-owned global config.
+- Whether some old user-manual pages should be moved under an explicit archive section instead of edited in place: allowed if it removes them from active onboarding/current contract links.
 
 ---
 
 ## Implementation Units
 
-### U1. 整删纯 GitNexus 专属文件和 runtime artifacts
+### U1. Establish Active Residual Guard And Allowlist
 
-**Goal:** 删除所有以 GitNexus 为主体的文件——无外部 require 依赖的独立删除，是后续所有单元的前提。
+**Goal:** Create the deletion safety net before broad edits, so implementation can distinguish active product residue from allowed historical archive.
 
-**Requirements:** R1, R2, R3, R7
+**Requirements:** R-12, R-13, R-15
 
-**Dependencies:** 无
+**Dependencies:** None
 
 **Files:**
+
+- Modify focused existing guard suites for active surface, package, tarball, and quality-gate residue checks; do not introduce a standalone `remove-gitnexus` test file.
+- Modify: `scripts/run-test-suite.cjs`
+- Modify: `scripts/run-ai-dev-quality-gate.js`
+- Modify: `.github/workflows/ai-dev-quality-gate.yml`
+- Modify: `src/cli/contracts/quality-gates/branch-protection-policy.json`
+
+**Approach:**
+
+- Define active roots for the guard: `AGENTS.md`, `CLAUDE.md`, `README.md`, `README.zh-CN.md`, `package.json`, `.gitignore`, `src/`, `skills/`, `agents/`, `templates/`, `tests/`, `scripts/`, `.github/`, `docs/contracts/`, and active `docs/05-用户手册/`.
+- Match terms case-insensitively: `gitnexus`, `git-nexus`, `graph-bootstrap`, `review-pre-facts`, `Graph / GitNexus Evidence`, `workspace-gitnexus`, `graph-facts`, `provider-status`, and `bootstrap-impact`.
+- Allow only current removal artifacts and explicitly archived historical docs outside active roots: origin PRD, this plan, `CHANGELOG.md`, and docs marked as retired/archive where they are not linked as current user guidance.
+- Update quality gate path filters that currently reference `skills/spec-graph-bootstrap/**`, `src/cli/helpers/review-pre-facts/**`, or `tests/unit/spec-graph-bootstrap-contracts.test.js`.
+
+**Test scenarios:**
+
+- Happy path: active roots with no GitNexus terms pass.
+- Error path: a synthetic active file containing `$spec-graph-bootstrap` fails the residual guard.
+- Edge case: origin PRD and this plan are allowed while active docs are not.
+
+**Verification:**
+
+- Focused existing unit suites that cover active surface residue, package/tarball contents, and quality-gate path filters pass under the repo's existing Jest/shell test style.
+- The residual guard is included in the normal unit/quality gate path.
+
+---
+
+### U2. Remove GitNexus From MCP Setup Registry, Scripts, And Setup Prose
+
+**Goal:** `$spec-mcp-setup` no longer installs, warms, configures, verifies, projects, or hands off to GitNexus.
+
+**Requirements:** R-01, R-02, R-05, R-09, R-16
+
+**Dependencies:** U1
+
+**Files:**
+
+- Modify: `skills/spec-mcp-setup/mcp-tools.json`
+- Modify: `skills/spec-mcp-setup/SKILL.md`
+- Modify: `skills/spec-mcp-setup/references/supported-mcp-tools.md`
+- Modify: `skills/spec-mcp-setup/scripts/detect-tools.sh`
+- Modify: `skills/spec-mcp-setup/scripts/install-mcp.sh`
+- Modify: `skills/spec-mcp-setup/scripts/install-mcp.ps1`
+- Modify: `skills/spec-mcp-setup/scripts/verify-tools.sh`
+- Modify: `skills/spec-mcp-setup/scripts/verify-tools.ps1`
+- Modify: `skills/spec-mcp-setup/scripts/write-provider-config.sh`
+- Modify: `skills/spec-mcp-setup/scripts/write-provider-config.ps1`
+- Modify or delete tests: `tests/unit/mcp-setup.sh`, `tests/unit/mcp-setup-powershell-contracts.test.js`, and related setup contract tests
+
+**Approach:**
+
+- Delete the `gitnexus` tool entry from `mcp-tools.json`. If no graph providers remain, setup output should not render a current `Graph providers` readiness table that implies a pending provider.
+- Remove GitNexus package pin, host config entries, native capabilities, mutation boundary, `global_knowledge` role, and license advisory.
+- Stop writing GitNexus-derived setup facts: `graph-providers.json.providers.gitnexus`, `runtime-capabilities.json.gitnexus_capability_discovery`, GitNexus command arrays, GitNexus raw/normalized artifact refs, and graph-bootstrap next actions.
+- Update setup scripts so old `.gitnexus/` or `.spec-first/providers/gitnexus/` paths are classified only as retired residue or cleanup candidates, not current readiness.
+- Remove prose that says setup hands off to `$spec-graph-bootstrap` or Plan-stage live GitNexus probing.
+
+**Execution note:** Characterization-first. Capture current setup output shape from focused tests before editing, then update tests to assert absence rather than preserving old table columns that only existed for graph providers.
+
+**Test scenarios:**
+
+- Happy path: `verify-tools.*` reports required harness runtime without GitNexus rows or graph-bootstrap next action.
+- Happy path: generated `.spec-first/config/runtime-capabilities.json` has no `gitnexus_capability_discovery`.
+- Happy path: generated `.spec-first/config/graph-providers.json` is absent or contains no providers; it must not contain `gitnexus`.
+- Edge case: old `.gitnexus/` in a workspace is reported as retired residue or ignored for readiness, not as a provider failure.
+- Error path: stale provider projection does not ask the user to run graph-bootstrap.
+
+**Verification:**
+
+- `bash -n` / PowerShell parse checks for edited scripts pass.
+- Focused mcp-setup unit and contract tests pass.
+- `rg -n -i "gitnexus|graph-bootstrap|graph-facts|provider-status|bootstrap-impact|workspace-gitnexus" skills/spec-mcp-setup tests/unit/mcp-setup*` returns only allowed archive/removal references, ideally none in active setup source/tests.
+
+---
+
+### U3. Delete Graph-Bootstrap Public Workflow Source
+
+**Goal:** Remove the public workflow and source assets that produce GitNexus graph readiness artifacts.
+
+**Requirements:** R-05, R-06, R-12, R-16
+
+**Dependencies:** U1
+
+**Files:**
+
+- Delete: `skills/spec-graph-bootstrap/`
+- Delete: `templates/claude/commands/spec/graph-bootstrap.md`
+- Modify: `src/cli/contracts/dual-host-governance/skills-governance.json`
+- Modify: `src/cli/runtime-tools-index.js`
+- Modify: `package.json`
+- Modify: `scripts/run-test-suite.cjs`
+- Delete or rewrite: `tests/unit/spec-graph-bootstrap.sh`
+- Delete or rewrite: `tests/unit/spec-graph-bootstrap-contracts.test.js`
+- Delete or rewrite: `tests/benchmark/extract-graph-anchors.sh`
+- Delete or rewrite: `tests/unit/graph-anchor-extraction-helper.test.js`
+
+**Approach:**
+
+- Remove the entire source directory, including `SKILL.md`, `evals/`, and `scripts/`.
+- Remove the Claude command template so `/spec:graph-bootstrap` is not generated.
+- Remove generated runtime governance entries that list `spec-graph-bootstrap` as a deliverable source skill.
+- Remove package/test suite entries such as `test:graph-bootstrap` and graph-bootstrap runners.
+- Do not create a replacement `spec-graph` skill, empty command, or provider-neutral bootstrap contract in this increment.
+
+**Test scenarios:**
+
+- Happy path: skill governance no longer expects `spec-graph-bootstrap`.
+- Happy path: command generation source has no `graph-bootstrap.md`.
+- Happy path: package dry-run excludes `skills/spec-graph-bootstrap/` and `templates/claude/commands/spec/graph-bootstrap.md`.
+- Error path: any active workflow or test that references `$spec-graph-bootstrap` fails residual guard.
+
+**Verification:**
+
+- `test ! -e skills/spec-graph-bootstrap`
+- `test ! -e templates/claude/commands/spec/graph-bootstrap.md`
+- Focused governance/runtime tool index tests pass after expectation updates.
+
+---
+
+### U4. Remove CLI, Init, Host Bootstrap, Startup, Doctor, Clean, And Ignore GitNexus Paths
+
+**Goal:** The CLI and host entry source no longer expose GitNexus commands, instruction blocks, startup graph snapshots, graph-bootstrap routing, or managed ignore policy.
+
+**Requirements:** R-03, R-04, R-05, R-09
+
+**Dependencies:** U1, U3
+
+**Files:**
+
 - Delete: `src/cli/gitnexus-instruction-block.js`
 - Delete: `src/cli/helpers/compile-workspace-gitnexus-readiness.js`
-- Delete: `skills/spec-graph-bootstrap/`（整目录）
-- Delete: `docs/contracts/gitnexus-capability-catalog.md`
-- Delete: `docs/contracts/workspace-gitnexus-consumption.md`
-- Delete: `docs/contracts/downstream-graph-evidence-consumption.md`
-- Delete: `docs/contracts/graph-evidence-policy.md`
-- Delete: `docs/contracts/graph-provider-consumption.md`
-- Delete: `docs/contracts/workflows/review-pre-facts-extraction.md`
-- Delete: `tests/unit/gitnexus-instruction-block.test.js`
-- Delete: `tests/unit/workspace-gitnexus-readiness.test.js`
-- Delete: `tests/unit/workspace-gitnexus-contracts.test.js`
-- Delete: `tests/unit/gitnexus-capability-catalog-contracts.test.js`
-- Delete: `tests/fixtures/review-pre-facts/providers/`（整目录，3 个 gitnexus fixture）
-- Delete（runtime artifacts）: `.spec-first/graph/graph-facts.json`、`.spec-first/graph/provider-status.json`、`.spec-first/graph/bootstrap-report.md`、`.spec-first/providers/gitnexus/`（若存在）
-
-**Approach:**
-- 所有删除均为纯文件系统操作，无代码引用方向的修改
-- runtime artifacts 删除防止残留的已生成文件在后续 doctor/init 时触发不一致
-
-**Patterns to follow:**
-- 无特殊模式，直接 `rm -rf` / `rm -f`
-
-**Test scenarios:**
-- Test expectation: none — 纯删除，验证 via U8 残留引用扫描
-
-**Verification:**
-- `ls` 确认上述路径均不存在
-- `grep -rn "gitnexus" src/cli/gitnexus-instruction-block.js` 报 No such file
-
----
-
-### U2. 修改 CLI 命令（init.js、clean.js、internal.js）
-
-**Goal:** 解除 init 的 GitNexus 指令块注入，移除 clean 的 `.gitnexus` 清理逻辑，移除 internal 的 `workspace-gitnexus-readiness` 命令注册。
-
-**Requirements:** R4, R1
-
-**Dependencies:** U1（被 require 的模块在 U1 已删）
-
-**Files:**
+- Modify: `src/cli/index.js`
 - Modify: `src/cli/commands/init.js`
-- Modify: `src/cli/commands/clean.js`
 - Modify: `src/cli/commands/internal.js`
-
-**Approach:**
-
-`init.js` 三处修改：
-1. 删除 `require('../gitnexus-instruction-block')` 行（约 52 行）
-2. 从 skipNames Set 删除 `'.gitnexus'` 条目（约 1540 行）
-3. 将 `normalizeGitNexusInstructionBlock(finalInstruction, {...}).content` 调用替换为直接使用 `finalInstruction`，并删除对应的 `operations.push` 改用 `finalInstruction`（约 2040-2051 行）
-
-`clean.js` 一处修改：
-- 从 `isAllowedWorkspaceOrphanPath()` 函数删除 `.gitnexus`、`.spec-first/providers/gitnexus`、`.spec-first/providers/gitnexus/` 前缀、`.spec-first/config/graph-providers.json` 四个条件
-
-`internal.js` 两处修改：
-1. 删除 `require('../helpers/compile-workspace-gitnexus-readiness')` 行
-2. 删除 `require('../helpers/review-pre-facts')` 行（review-pre-facts 在 U4 删除）
-3. 删除 `workspace-gitnexus-readiness` 和 `review-pre-facts` 两个 if 分支
-
-**Patterns to follow:**
-- 参考 `src/cli/commands/init.js` 现有的 `applyManagedBlock` / `applyManagedBootstrapBlock` 调用链，`finalInstruction` 是倒数第二步的产物，直接传给 `buildPlanFileOperation` 即可
-
-**Test scenarios:**
-- Happy path: 修改后 `node --check src/cli/commands/init.js` 无语法错误
-- Happy path: 修改后 `node --check src/cli/commands/clean.js` 无语法错误
-- Happy path: 修改后 `node --check src/cli/commands/internal.js` 无语法错误
-- Integration: `spec-first init` 执行成功且不在 CLAUDE.md/AGENTS.md 中写入 gitnexus block（U8 验证）
-
-**Verification:**
-- 三个文件通过 `node --check` 语法检查
-- `grep -n "gitnexus\|GitNexus\|normalizeGitNexus\|review-pre-facts" src/cli/commands/init.js src/cli/commands/clean.js src/cli/commands/internal.js` 无输出
-
----
-
-### U3. 修改 scenario-fingerprint.js（移除 31 处 gitnexus 引用）
-
-**Goal:** 从 scenario-fingerprint.js 移除所有 GitNexus 专属函数和计算逻辑，同时保持指纹结构的 schema 兼容性。
-
-**Requirements:** R1
-
-**Dependencies:** 无（独立文件，不 require 已删模块）
-
-**Files:**
-- Modify: `src/cli/helpers/scenario-fingerprint.js`
-
-**Approach:**
-
-删除项：
-- `REPO_LOCAL_ARTIFACT_PATHS` 数组：移除 `.spec-first/providers/gitnexus/status.json` 和 `.gitnexus/meta.json`
-- `extractGitNexusStatus()` 函数（约 783-793 行）
-- `buildBootstrapGitNexusRef()` 函数（约 795-807 行）
-- `providerIsDegraded()` 函数（约 414-425 行）
-- `providerStatusRef()` 函数（约 427-449 行）
-
-修改项：
-- `computeSetupLayer()`：`const providerQueryDegraded = providerIsDegraded(targetFacts)` → `const providerQueryDegraded = false`
-- `computeSetupLayer()` 返回对象：`providers_status_refs: { gitnexus: providerStatusRef(targetFacts) }` → `providers_status_refs: {}`
-- `computeBootstrapLayer()`：删除 `gitnexusStatus` 变量声明及其参与的 `currentRevision` 备用源
-- `computeBootstrapLayer()`：删除 `hasGitNexusStatus`、`gitnexusQueryReady`，`providerQueryDegraded = false`
-- `computeBootstrapLayer()` 返回对象：`providers_status_refs: { ...setupRefs, gitnexus: buildBootstrapGitNexusRef({...}) }` → `providers_status_refs: { ...setupRefs }`
-- `computeBootstrapLayer()` `generated_from.provider_status`：固定为 `null`（文件已删）
-- `hasParentRepoLocalArtifacts()`：移除 `'.gitnexus'`
-- `hasPriorSpecFirstArtifacts()`：移除 `.spec-first/providers/gitnexus/status.json` 和 `.spec-first/config/graph-providers.json`
-- `buildLimitations()`：将 `'...GitNexus indexing is not implied'` 改为通用措辞
-
-**Patterns to follow:**
-- 文件现有的 CommonJS 风格和 2 空格缩进
-- 保持 `provider-degraded` 在 `PROVISIONAL_SCENARIO_CLASSES` 枚举（不删，只是永不触达）
-
-**Test scenarios:**
-- Happy path: `node --check src/cli/helpers/scenario-fingerprint.js` 无语法错误
-- Happy path: `grep -n "gitnexus\|GitNexus" src/cli/helpers/scenario-fingerprint.js` 无输出
-- Edge case: `providers_status_refs` 字段在 setup 层输出仍存在（值为 `{}`），消费者不崩溃
-
-**Verification:**
-- 文件通过 `node --check`
-- 无 gitnexus 残留引用
-- `npm run test:unit` 中 `scenario-fingerprint` 相关测试通过（若有）
-
----
-
-### U4. 删除 review-pre-facts 模块及相关契约文档
-
-**Goal:** 删除 GitNexus 证据消费层的全部文件（JS 模块、测试 fixtures、契约文档）。
-
-**Requirements:** R3, R6
-
-**Dependencies:** U1（part of the same deletion wave；U2 已在 internal.js 移除 require）
-
-**Files:**
-- Delete: `src/cli/helpers/review-pre-facts/`（整目录 14 文件）
-- Delete: `tests/fixtures/review-pre-facts/`（剩余 fixture 文件，约 14 个）
-
-注：`docs/contracts/` 下的相关契约文档在 U1 已删，无需重复。
-
-**Approach:**
-- `rm -rf src/cli/helpers/review-pre-facts/ tests/fixtures/review-pre-facts/`
-- U2 已在 `internal.js` 移除 `require('../helpers/review-pre-facts')` 和对应的 `if` 分支，删除模块目录后不会有悬空 require
-
-**Test scenarios:**
-- Test expectation: none — 纯删除，验证 via U8 残留扫描
-
-**Verification:**
-- `ls src/cli/helpers/review-pre-facts` → 路径不存在
-- `ls tests/fixtures/review-pre-facts` → 路径不存在
-
----
-
-### U5. 修改 7 个 skill SKILL.md
-
-**Goal:** 从 7 个核心 workflow skill 的 SKILL.md 中删除所有 GitNexus 和 review-pre-facts 引用段落，保留 grep/Read 直读作为唯一上下文路径。
-
-**Requirements:** R5, R6
-
-**Dependencies:** U1（spec-graph-bootstrap 已删，prose 引用才合理删除）、U4（review-pre-facts 已删）
-
-**Files:**
-- Modify: `skills/spec-write-tasks/SKILL.md`（2 处，低难度）
-- Modify: `skills/spec-work/SKILL.md`（7 处，中难度）
-- Modify: `skills/spec-debug/SKILL.md`（4 处，中难度）
-- Modify: `skills/using-spec-first/SKILL.md`（5 处，中难度）
-- Modify: `skills/spec-plan/SKILL.md`（8 处，高难度）
-- Modify: `skills/spec-doc-review/SKILL.md`（6 处，高难度）
-- Modify: `skills/spec-code-review/SKILL.md`（10 处，高难度）
-
-**Approach:**
-
-删除原则：**删除 GitNexus/review-pre-facts 引用段落，保留 grep/Read 直读路径作为唯一上下文路径**。具体操作：
-
-**spec-write-tasks**（低难度）：
-- 删除 `review-pre-facts-extraction.md` 和 `src/cli/helpers/review-pre-facts/` 的引用子句
-- 删除 `## Graph / GitNexus Evidence` 块消费段落
-
-**spec-work**（中难度）：
-- Context Orientation Anchor：删除"When graph readiness artifacts are degraded...prefer live GitNexus MCP evidence..."段落，保留直读路径
-- 删除 `review-pre-facts` 引用子句
-- 删除 `## Graph Freshness / Refresh Trigger Boundary` 整节
-- 简化 Workspace Repo Scope 节，删除 GitNexus-first evidence 和 workspace-gitnexus-readiness 逻辑
-- 删除 `## Graph / GitNexus Evidence` 块消费段落（含三条 bullet）
-
-**spec-debug**（中难度）：
-- Context Orientation Anchor：简化 parent workspace 段落，删除 GitNexus-first 查询逻辑
-- 删除 `## Graph Freshness / Refresh Trigger Boundary` 整节（含 pre-facts helper 段）
-- 删除 hypothesis ledger 中 `graph_evidence` 可选字段说明
-- 删除 causal chain gate 中 `graph_evidence` 相关验证要求
-
-**using-spec-first**（中难度）：
-- 兼容规则段：移除 `.gitnexus/**` 从旧图谱工件检测
-- 删除场景优先级检查第 4 条（`providers_status_refs.gitnexus.query_ready`）
-- 路由表：删除 `compile or refresh GitNexus graph readiness...` 一行
-- 删除 `### Graph Refresh Routing Boundary` 整节
-- 删除 `### Parent Workspace Graph Evidence` 整节
-- Codex 启动提醒段：删除 GitNexus graph snapshot 相关句子
-
-**spec-plan**（高难度）：
-- Phase 1.1a 中删除 setup projection gitnexus 相关检查
-- Phase 1.1a.1 整节描述中删除 gitnexus 专属姿态探测逻辑
-- workspace graph 规划中删除 gitnexus-readiness.json 读取段
-- 删除 `review-pre-facts` 信任模型引用
-
-**spec-doc-review**（高难度）：
-- 删除 Phase 1b 完整预事实提取阶段（review-pre-facts 命令序列 5 步）
-- 删除图表新鲜度检查段和 spec-graph-bootstrap 推荐段
-
-**spec-code-review**（高难度）：
-- 删除 Stage 3b 预事实提取（native capability routing）段
-- 删除多仓库 GitNexus 证据聚合段
-- 删除 Degraded-once rule（GitNexus startup fails）段
-- 删除 `## Graph / GitNexus Evidence` 块消费段
-
-**Execution note:** 每个 SKILL.md 修改前读取全文确认边界，避免误删相邻语义段落。prose 变更需 fresh-source eval 验证语义正确性（见 `docs/contracts/workflows/fresh-source-eval-checklist.md`）。
-
-**Patterns to follow:**
-- `docs/contracts/context-governance.md` Host Instruction Reuse Policy 的表述模式（保留的段落风格）
-- 修改后的句式应与 skill 原有段落风格一致，不引入新抽象
-
-**Test scenarios:**
-- Happy path: 每个修改后的 SKILL.md `grep -n "gitnexus\|GitNexus\|review-pre-facts\|spec-graph-bootstrap" <file>` 无输出
-- Edge case: using-spec-first 路由表中 `spec:graph-bootstrap` 行删除后，无孤儿路由条目
-- Edge case: spec-plan 删除 gitnexus 相关逻辑后，Phase 1.1a 的 graph readiness 路径仍完整（仅描述"无图谱 provider 时直接 fallback"）
-
-**Verification:**
-- 7 个文件均无 gitnexus/GitNexus/review-pre-facts/spec-graph-bootstrap 残留（可接受：仅在历史引用段落中用于说明"已移除"的记录性提及）
-
----
-
-### U6. 修改 package.json + CLAUDE.md + AGENTS.md + 重生成 runtime
-
-**Goal:** 从 package.json 的 files 白名单删除已删契约文档；从 CLAUDE.md/AGENTS.md 删除 `<!-- gitnexus:start/end -->` managed block；重生成 host runtime 确保 `.claude/` 和 `.codex/` 同步。
-
-**Requirements:** R4, R8
-
-**Dependencies:** U1（契约文档已删）
-
-**Files:**
-- Modify: `package.json`
-- Modify: `CLAUDE.md`
+- Modify: `src/cli/commands/clean.js`
+- Modify: `src/cli/commands/doctor.js`
+- Modify: `src/cli/version-reminder.js`
+- Modify: `src/cli/instruction-bootstrap.js`
+- Modify: `src/cli/gitignore-policy.js`
+- Modify: `.gitignore`
 - Modify: `AGENTS.md`
+- Modify: `CLAUDE.md`
+- Delete or rewrite: `tests/unit/gitnexus-instruction-block.test.js`
+- Modify: `tests/unit/clean-dry-run.test.js`
+- Modify: `tests/unit/claude-settings.test.js`
+- Modify related init/doctor/runtime bootstrap tests
 
 **Approach:**
 
-`package.json` 的 `"files"` 数组删除：
-```
-"docs/contracts/gitnexus-capability-catalog.md"
-"docs/contracts/graph-evidence-policy.md"
-"docs/contracts/graph-provider-consumption.md"
-"docs/contracts/workspace-gitnexus-consumption.md"
-```
-
-`CLAUDE.md` 和 `AGENTS.md` 删除 managed block：
-```
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
-...
-<!-- gitnexus:end -->
-```
-
-重生成 runtime（CLI 操作，不手改 generated runtime assets）：
-```bash
-spec-first init
-spec-first doctor --claude
-```
+- Remove `gitnexus-instruction` registration from `src/cli/index.js` and help output.
+- Remove GitNexus block normalization from `init.js`, including next-step text that says to run graph-bootstrap.
+- Delete checked-in `<!-- gitnexus:start -->` / `<!-- gitnexus:end -->` blocks from `AGENTS.md` and `CLAUDE.md`.
+- Remove startup reminder code that reads `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, `.spec-first/impact/bootstrap-impact-capabilities.json`, or prints GitNexus graph state.
+- Remove `workspace-gitnexus-readiness` internal command path; remove `review-pre-facts` internal command registration in U5.
+- Update `clean` and `doctor` so retired GitNexus residue is not presented as active setup/runtime readiness.
+- Remove `.gitnexus` from managed ignore policy/source docs after implementation has a preview-first cleanup path for local residue; do not leave `.gitnexus` as a current spec-first-managed artifact.
 
 **Test scenarios:**
-- Happy path: `grep "gitnexus" CLAUDE.md AGENTS.md` 无输出
-- Happy path: `grep "gitnexus-capability-catalog\|workspace-gitnexus-consumption\|graph-evidence-policy\|graph-provider-consumption" package.json` 无输出
-- Integration: `spec-first init` 执行成功，生成的 `.claude/CLAUDE.md` 不含 gitnexus block
-- Integration: `spec-first doctor --claude` 通过，无因 gitnexus 相关缺失而报错
+
+- Happy path: `spec-first --help` has no `gitnexus-instruction`.
+- Happy path: `spec-first init` generated instruction source has no GitNexus block or graph-bootstrap next step.
+- Happy path: startup reminder output does not read or print graph readiness snapshot.
+- Edge case: `spec-first clean --dry-run` can report old residue without treating it as current readiness.
+- Error path: partial GitNexus managed block in host docs is removed by source edits, not repaired into a fresh block.
 
 **Verification:**
-- CLAUDE.md/AGENTS.md 无 gitnexus managed block
-- `spec-first doctor --claude` 退出码 0
+
+- `node --check` passes for edited JS files.
+- Focused CLI/init/clean/doctor/startup tests pass.
+- `rg -n -i "gitnexus|graph-bootstrap|workspace-gitnexus|graph-facts|provider-status|bootstrap-impact" src/cli AGENTS.md CLAUDE.md .gitignore` returns no active references.
 
 ---
 
-### U7. 清理历史文档（docs/brainstorms/ + docs/plans/）
+### U5. Delete Review-Pre-Facts Helper And Hidden Command Consumption
 
-**Goal:** 批量清理历史文档中的 gitnexus 引用段落，保留文件，不破坏历史记录完整性。
+**Goal:** Remove the GitNexus-only deterministic reviewer facts pipeline and all active references to it.
 
-**Requirements:** R9
+**Requirements:** R-04, R-07, R-08, R-10, R-12, R-16
 
-**Dependencies:** 无（独立操作，不影响其他单元）
+**Dependencies:** U1, U4
 
 **Files:**
-- Modify: `docs/brainstorms/`（21 个含 gitnexus 引用的文件）
-- Modify: `docs/plans/`（63 个含 gitnexus 引用的文件）
+
+- Delete: `src/cli/helpers/review-pre-facts/`
+- Delete: `tests/fixtures/review-pre-facts/`
+- Delete or rewrite: `tests/unit/review-pre-facts-helper.test.js`
+- Delete or rewrite: `tests/unit/review-pre-facts-internal-command.test.js`
+- Modify: `src/cli/commands/internal.js`
+- Modify: `skills/spec-doc-review/SKILL.md`
+- Modify: `skills/spec-doc-review/references/pre-facts-extraction.md`
+- Modify: `skills/spec-code-review/SKILL.md`
+- Modify related doc-review/code-review contract tests
 
 **Approach:**
 
-分两类处理：
-
-1. **`## Graph / GitNexus Evidence` 整节**（出现在 plan 文档中）：删除该节全部内容
-2. **行内 gitnexus 文字引用**：
-   - `$spec-graph-bootstrap` / `/spec:graph-bootstrap` 命令引用：替换为 `（已移除：spec:graph-bootstrap）`
-   - `GitNexus`、`gitnexus` 文字：按上下文处理——纯叙述可保留作历史记录，指令性/可操作性引用（如"使用 GitNexus 作为首选工具"）改为注释或删除
-
-优先处理 docs/plans 中含实操指令的文件（通常标记为 `status: active` 或 `status: partially-shipped`）。纯叙事 brainstorm 文件可批量 sed 替换。
+- Delete the helper directory rather than trying to generalize operation names. Current constants are `gitnexus.query`, `gitnexus.context`, `gitnexus.impact`, and `gitnexus.detect_changes`.
+- Remove hidden CLI command `internal review-pre-facts`.
+- Remove doc-review/code-review pre-facts command choreography and replace with reviewer context built from bounded document/source reads, git diff, tests/logs, and user evidence.
+- Delete `review-pre-facts` fixtures because they encode GitNexus provider results and readiness artifacts.
 
 **Test scenarios:**
-- Test expectation: none — 历史档案修改，无行为影响；残留的记录性提及（如"当时使用了 GitNexus"）是预期保留的
+
+- Happy path: doc-review and code-review can dispatch/use reviewers with a bounded `{codebase_facts}` summary that does not require helper output.
+- Happy path: `spec-first internal review-pre-facts` is no longer a valid active command.
+- Edge case: reviewer dispatch absence is not blamed on stale graph/pre-facts.
+- Error path: active workflow prose containing `review-pre-facts` fails residual guard.
 
 **Verification:**
-- `grep -rn "$spec-graph-bootstrap\|/spec:graph-bootstrap" docs/brainstorms/ docs/plans/` 无"可操作性"引用（记录性提及可接受）
+
+- `test ! -e src/cli/helpers/review-pre-facts`
+- `test ! -e tests/fixtures/review-pre-facts`
+- Focused doc-review/code-review contract tests pass after expectation updates.
 
 ---
 
-### U8. CHANGELOG 更新 + 全面验证
+### U6. Update Active Workflow Skills To Direct-Read Evidence
 
-**Goal:** 记录本次 breaking change；运行完整验证链确认仓库在移除后保持可用状态。
+**Goal:** Remove graph-bootstrap / GitNexus / review-pre-facts consumption from all active workflow skills named by R-16.
 
-**Requirements:** R10, R11
+**Requirements:** R-05, R-07, R-08, R-16
 
-**Dependencies:** U1, U2, U3, U4, U5, U6, U7
+**Dependencies:** U2, U3, U5
 
 **Files:**
-- Modify: `CHANGELOG.md`
+
+- Modify: `skills/spec-mcp-setup/SKILL.md`
+- Modify: `skills/using-spec-first/SKILL.md`
+- Modify: `skills/spec-plan/SKILL.md`
+- Modify: `skills/spec-code-review/SKILL.md`
+- Modify: `skills/spec-doc-review/SKILL.md`
+- Modify: `skills/spec-work/SKILL.md`
+- Modify: `skills/spec-debug/SKILL.md`
+- Modify: `skills/spec-brainstorm/SKILL.md`
+- Modify: `skills/spec-write-tasks/SKILL.md`
+- Modify: `skills/spec-work/references/shipping-workflow.md`
+- Modify related workflow invariant fixtures and skill contract tests under `tests/unit/` and `tests/fixtures/workflow-invariants/`
 
 **Approach:**
 
-CHANGELOG 新增条目（user-visible breaking change）：
+- Replace “GitNexus-first, fallback to direct reads” with “bounded direct source reads, `rg`, ast-grep, git diff, tests/logs, and user evidence”.
+- Delete graph freshness / graph refresh trigger sections that recommend `$spec-graph-bootstrap` or read `.spec-first/graph/*`.
+- Delete `## Graph / GitNexus Evidence` block production/consumption from plan/work/debug/review paths.
+- Remove workspace-gitnexus routing and group-ready hints from `using-spec-first`; parent workspace still requires explicit target repo before writes.
+- Keep source/runtime governance, target repo discipline, reviewer dispatch boundaries, and direct evidence disclosure.
 
-```
-### Changed
-- **BREAKING**: 移除 GitNexus 图谱 provider 集成
-  - `spec:graph-bootstrap` workflow 和命令已移除
-  - `spec-first init` 不再向宿主注入 GitNexus 指令块
-  - review-pre-facts 证据消费层已移除
-  - 各 workflow 上下文证据回退为 grep/Read 直读模式
-```
-
-验证链：
-```bash
-# 1. 无残留引用（src/、skills/、agents/、templates/、tests/ 范围）
-grep -rn "gitnexus\|GitNexus\|graph-facts\|review-pre-facts\|spec-graph-bootstrap" \
-  src/ skills/ agents/ templates/ tests/ \
-  --include="*.js" --include="*.md" --include="*.json" --include="*.sh"
-
-# 2. 语法检查
-npm run typecheck
-
-# 3. 单测（gitnexus 测试已删，其余应通过）
-npm run test:unit
-
-# 4. smoke 通过
-npm run test:smoke
-
-# 5. CLAUDE.md/AGENTS.md 无 gitnexus block
-grep -n "gitnexus" CLAUDE.md AGENTS.md
-
-# 6. runtime 重生成干净
-spec-first init
-spec-first doctor --claude
-```
+**Execution note:** Read each full `SKILL.md` before editing. These are semantic prose changes, so run fresh-source eval if the host can dispatch a fresh read-only reviewer; otherwise record why not.
 
 **Test scenarios:**
-- Happy path: 残留扫描命令返回空（`echo $?` 为 0 表示 grep 无匹配）
-- Happy path: `npm run typecheck` 退出码 0
-- Happy path: `npm run test:unit` 退出码 0（删除的测试文件不计入通过，其余保持）
-- Happy path: `npm run test:smoke` 退出码 0
-- Integration: `spec-first init` + `spec-first doctor --claude` 均退出码 0
+
+- Happy path: `$spec-plan` from a PRD with no graph facts records direct-read limitations, not GitNexus evidence.
+- Happy path: `$spec-work` consumes source/test evidence and does not expect a graph evidence block.
+- Happy path: `$spec-debug` hypothesis ledger has no GitNexus-specific root-cause gate.
+- Happy path: `$spec-code-review` and `$spec-doc-review` do not instruct users to run graph-bootstrap before high-risk review.
+- Edge case: parent workspace routing still requires explicit write target and does not infer from graph artifacts.
 
 **Verification:**
-- 所有 5 个验证命令退出码 0
-- CHANGELOG.md 包含 breaking change 条目
+
+- Focused skill contract tests pass after expectation updates.
+- Residual scan has no active workflow skill hits for GitNexus terms except allowed removal-plan references, ideally none.
+
+---
+
+### U7. Retire Active Contracts, README, User Manual, And Runtime Capability Catalog References
+
+**Goal:** Remove GitNexus as a current documented capability and contract source.
+
+**Requirements:** R-10, R-11, R-12, R-13, R-15
+
+**Dependencies:** U3, U5, U6
+
+**Files:**
+
+- Delete or archive: `docs/contracts/gitnexus-capability-catalog.md`
+- Delete or archive: `docs/contracts/workspace-gitnexus-consumption.md`
+- Delete or archive: `docs/contracts/downstream-graph-evidence-consumption.md`
+- Delete or rewrite: `docs/contracts/graph-evidence-policy.md`
+- Delete or rewrite: `docs/contracts/graph-provider-consumption.md`
+- Delete or archive: `docs/contracts/workflows/review-pre-facts-extraction.md`
+- Modify: `docs/contracts/ai-coding-harness.md`
+- Modify: `docs/contracts/source-runtime-customization-boundary.md`
+- Modify: `docs/contracts/parent-artifact-quarantine.md`
+- Modify: `README.md`
+- Modify: `README.zh-CN.md`
+- Modify: `docs/05-用户手册/README.md`
+- Modify active current-path pages under `docs/05-用户手册/`
+- Modify: `scripts/generate-runtime-capability-catalog.js`
+- Modify related README/user-manual/contract tests
+
+**Approach:**
+
+- Remove active contract pages whose only purpose is GitNexus capability/readiness/pre-facts. If preserving for history, move or mark them explicitly as archived and ensure active docs no longer link to them as current contract.
+- Update `ai-coding-harness.md` so Context/Evidence Harness examples refer to direct evidence and source confirmation, not GitNexus lanes.
+- Update source/runtime boundary docs so provider facts remain generally untrusted evidence, but without GitNexus-specific current paths or review-pre-facts reuse.
+- Remove README table rows and test commands for graph-bootstrap.
+- Update user manual current onboarding, concepts, artifact map, best practices, local install, first workflow walkthrough, and development modes to remove GitNexus setup/use flows.
+- Treat old CRG/GitNexus analysis pages as historical archive if retained; do not keep them in current user manual navigation as active behavior.
+
+**Test scenarios:**
+
+- Happy path: README and README.zh-CN list only existing public workflows.
+- Happy path: runtime capability catalog generation does not produce a graph readiness row.
+- Happy path: user manual quickstart has no GitNexus install/setup/bootstrap step.
+- Edge case: historical pages can mention GitNexus only if clearly archived and not part of active onboarding.
+
+**Verification:**
+
+- README/user-manual/contract tests pass after updated expectations.
+- Residual guard passes for active docs.
+
+---
+
+### U8. Rewrite Tests, Fixtures, Package, CI, And Release Guards Around Absence
+
+**Goal:** Make the test/build system enforce that GitNexus is gone from the active product surface.
+
+**Requirements:** R-12, R-13, R-15
+
+**Dependencies:** U1 through U7
+
+**Files:**
+
+- Modify: `package.json`
+- Modify: `scripts/check-release-continuity.cjs`
+- Modify: `scripts/run-test-suite.cjs`
+- Modify: `scripts/run-ai-dev-quality-gate.js`
+- Modify: `.github/workflows/ai-dev-quality-gate.yml`
+- Delete: `tests/fixtures/gitnexus-workspace/`
+- Delete: `tests/fixtures/review-pre-facts/`
+- Delete or rewrite GitNexus-specific unit tests under `tests/unit/`
+- Modify: `tests/unit/user-manual-contracts.test.js`
+- Modify: `tests/unit/spec-debug-contracts.test.js`
+- Modify: `tests/unit/spec-doc-review-contracts.test.js`
+- Modify: `tests/unit/spec-work-run-artifact-contract.test.js`
+- Modify: `tests/unit/ai-dev-quality-gate.test.js`
+- Modify: `tests/unit/gitignore-policy.test.js`
+
+**Approach:**
+
+- Remove `test:graph-bootstrap` and package allowlist entries for GitNexus-only contracts and skills.
+- Remove GitNexus workspace/review-pre-facts fixtures from the package/test tree.
+- Invert tests that previously asserted GitNexus presence to assert absence in active source and generated outputs.
+- Update release continuity guards so deleted GitNexus contract files are not required package contents.
+- Keep general evidence, source/runtime, and review-finding tests; only delete GitNexus-specific implementation expectations.
+
+**Test scenarios:**
+
+- Happy path: `npm run build` tarball has no GitNexus-only skills/templates/contracts/fixtures.
+- Happy path: unit tests fail if active source reintroduces `$spec-graph-bootstrap`.
+- Happy path: `npm test` no longer tries to run graph-provider e2e.
+- Edge case: `CHANGELOG.md`, origin PRD, and this plan are not rejected by residual tests.
+
+**Verification:**
+
+- `npm run typecheck`
+- `npm run test:unit`
+- `npm run test:smoke`
+- `npm run build`
+- Prefer `npm test` once the suite no longer contains GitNexus graph-provider e2e.
+
+---
+
+### U9. Regenerate Runtime And Validate End-To-End Absence
+
+**Goal:** Confirm source changes project cleanly into Claude/Codex runtime without hand-editing generated mirrors.
+
+**Requirements:** R-03, R-05, R-06, R-11, R-12, R-13
+
+**Dependencies:** U1 through U8
+
+**Files:**
+
+- Generated by command, do not hand-edit: `.claude/`
+- Generated by command, do not hand-edit: `.codex/`
+- Generated by command, do not hand-edit: `.agents/skills/`
+- Modify only if source change requires it: generator code under `src/cli/` and templates under `templates/`
+
+**Approach:**
+
+- Run `spec-first init` after source cleanup.
+- Verify generated runtime mirrors do not include `spec-graph-bootstrap`, GitNexus managed blocks, or graph-bootstrap commands.
+- Run host doctor paths only after source deletion has removed GitNexus expectations.
+- If old local `.gitnexus/` or `.spec-first/providers/gitnexus/` residues appear, preview cleanup and remove only repo-local retired residue; do not mutate user-global MCP config.
+
+**Test scenarios:**
+
+- Happy path: `.agents/skills/spec-graph-bootstrap/` is not generated.
+- Happy path: `.claude/commands/spec/graph-bootstrap.md` is not generated.
+- Happy path: generated `AGENTS.md` / `CLAUDE.md` mirrors have no `<!-- gitnexus:start -->`.
+- Edge case: old ignored residue does not affect `doctor`, `init`, or workflow routing.
+
+**Verification:**
+
+- `spec-first init`
+- `spec-first doctor --claude`
+- `spec-first doctor --codex`
+- Residual scan over source and generated runtime mirrors passes, with generated mirrors checked only after regeneration.
 
 ---
 
 ## System-Wide Impact
 
-- **双宿主生成**：CLAUDE.md/AGENTS.md 修改后需重新生成 `.claude/` 和 `.codex/` runtime，通过 `spec-first init` 完成
-- **`spec:graph-bootstrap` 命令消失**：用户依赖该命令的文档、脚本、CI 配置需要手工清理（scope 外，deferred）
-- **`workspace-gitnexus-readiness.v1` advisory artifact 失效**：using-spec-first skill 的 parent workspace 路由中引用该 artifact，U5 已清理 prose，但已有仓库若存有该文件的内容不影响运行
-- **scenario fingerprint `provider-degraded` class 永不触达**：不是 bug，而是预期状态；若将来新 provider 接入，该 class 可自然复用
+- **User-visible breaking change:** GitNexus MCP setup, graph-bootstrap workflow, graph readiness artifacts, GitNexus startup reminders, and GitNexus evidence paths are retired.
+- **Workflow context shift:** plan/work/debug/review lose graph impact shortcuts; they must compensate with narrower direct source reads, git diff, tests/logs, and explicit limitations.
+- **Runtime generation:** source changes affect Claude and Codex. The only valid runtime update path is `spec-first init`.
+- **Package contents:** published tarball must drop GitNexus-only skills, templates, contracts, fixtures, and tests.
+- **CI expectations:** quality gates and release continuity checks must stop requiring deleted files and start protecting absence.
+- **Historical docs:** old research and plans can remain as archive, but active docs must not link to them as current setup or usage guidance.
 
 ---
 
-## Risks & Dependencies
+## Risks & Mitigations
 
-| 风险 | 缓解 |
-|------|------|
-| scenario-fingerprint.js 修改后 provider_query_degraded 硬编码为 false 改变了某些测试 fixture 中的 state_class 预期 | U8 验证中 `npm run test:unit` 会暴露，届时修正 fixture |
-| spec-plan SKILL.md Phase 1.1a 删除 gitnexus 部分后，graph readiness 路径叙述不完整 | U5 执行时完整读取 Phase 1.1a 内容，确保仅删 gitnexus 专属段落，保留通用图谱状态读取结构 |
-| CLAUDE.md 的 managed block 删除后 `spec-first init` 重新注入（若 source 未同步） | U2 已在 init.js 移除注入逻辑，源先于 runtime 修改 |
-| 历史文档批量替换误改正文叙述内容 | 替换策略保守：只改"可操作性"引用，不改"叙述性"历史内容；可 `git diff` 逐文件 review |
+| Risk | Mitigation |
+| --- | --- |
+| Hidden consumer still expects `.spec-first/graph/*` or `review-pre-facts` | U1 residual guard plus focused `rg` over active roots; U6 updates all R-16 skills |
+| Setup script JSON projections break because graph-provider assumptions were structural | Characterization-first tests in U2; remove provider table/output only where GitNexus was the sole provider |
+| Generated runtime reintroduces graph-bootstrap from governance metadata | U3 updates dual-host governance and command templates; U9 verifies regenerated mirrors |
+| Removing `.gitnexus` ignore reveals local residue as untracked files | Treat as retired repo-local residue during U4/U9 preview cleanup; do not keep active ignore policy solely to hide current product residue |
+| Historical docs create false residual failures | Guard uses explicit archive/removal allowlist; active docs/tests/package cannot rely on archive pages |
+| Direct-read fallback makes reviews less exhaustive | Workflow prose must disclose limitation and choose targeted reads/tests; future graph capability requires separate PRD |
+
+---
+
+## Verification Plan
+
+Focused validation during implementation:
+
+- `node --check` for edited JS files.
+- `bash -n` for edited shell scripts.
+- PowerShell parse checks for edited `.ps1` scripts.
+- Focused unit/contract suites for setup, init, clean, doctor, startup, workflow skills, README/user manual, package, and residual guard.
+
+Full validation before handoff:
+
+- `npm run typecheck`
+- `npm run test:unit`
+- `npm run test:smoke`
+- `npm run build`
+- Prefer `npm test` after graph-provider e2e has been removed from the main test chain.
+- `spec-first init`
+- `spec-first doctor --claude`
+- `spec-first doctor --codex`
+- Active residual scan:
+
+```bash
+rg -n -i "gitnexus|git-nexus|graph-bootstrap|review-pre-facts|Graph / GitNexus Evidence|workspace-gitnexus|graph-facts|provider-status|bootstrap-impact" \
+  AGENTS.md CLAUDE.md README.md README.zh-CN.md package.json .gitignore \
+  src skills agents templates tests scripts .github docs/contracts docs/05-用户手册
+```
+
+The scan should have no active-source matches. Allowed matches belong only to the current removal PRD, this plan, `CHANGELOG.md`, or explicitly archived historical documents outside active roots.
 
 ---
 
 ## Documentation / Operational Notes
 
-- 完成后更新 `README.md` 和 `README.zh-CN.md`：移除 spec-graph-bootstrap 使用说明和 GitNexus 配置指引（scope 外，可在独立 PR 处理）
-- 若团队有外部 wiki 或 onboarding 文档引用 `spec:graph-bootstrap`，需同步清理
+- `CHANGELOG.md` must record this as a user-visible breaking change and name the retired surfaces: GitNexus setup, `spec-graph-bootstrap`, GitNexus artifacts, review-pre-facts, and GitNexus evidence path.
+- README and user manual should guide users toward normal spec-first workflows without graph readiness setup.
+- If maintainers still need GitNexus for unrelated personal work, that is outside spec-first managed setup and should not appear in spec-first source/runtime/package.
+- Follow-up graph provider work must start from a new PRD with explicit artifacts, consumers, failure modes, mutation boundaries, tests, and release communication.
 
 ---
 
+## Readiness And Handoff
+
+Plan status: ready for `$spec-work`.
+
+Recommended execution order:
+
+1. U1 establishes the guard.
+2. U2, U3, U4, and U5 remove producers and public command surfaces.
+3. U6 and U7 update consumers and current documentation.
+4. U8 rewrites tests/package/CI to assert absence.
+5. U9 regenerates runtime and performs final residual validation.
+
+Do not start implementation by deleting generated runtime mirrors. Source changes must come first; generated runtime is only proof after `spec-first init`.
+
 ## Sources & References
 
-- 分析会话 transcript: `2026-06-02-150315-spec-firstgitnexus.txt`（仓库根目录）
-- 初步方案文档: `.claude/plans/wiggly-stargazing-tide.md`
-- 角色契约: `docs/10-prompt/结构化项目角色契约.md`
-- fresh-source eval checklist: `docs/contracts/workflows/fresh-source-eval-checklist.md`
+- Origin PRD: `docs/brainstorms/2026-06-02-001-refactor-remove-gitnexus-integration-requirements.md`
+- Role contract: `docs/10-prompt/结构化项目角色契约.md`
+- Plan template: `skills/spec-plan/references/plan-template.md`
+- Fresh-source eval checklist: `docs/contracts/workflows/fresh-source-eval-checklist.md`

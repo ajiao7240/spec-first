@@ -63,7 +63,7 @@ describe('spec-app-consistency-audit CLI e2e', () => {
     const testSource = fs.readFileSync(__filename, 'utf8');
 
     expect(testSource).toContain("'commit', '--no-verify'");
-    expect(testSource).not.toContain('core.hooksPath=' + '/dev/null');
+    expect(testSource).not.toMatch(/core\.hooksPath=\/dev\/null/);
   });
 
   test('metadata finalize only updates lifecycle fields without changing source facts', () => {

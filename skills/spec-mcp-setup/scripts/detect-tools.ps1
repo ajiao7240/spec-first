@@ -50,15 +50,6 @@ function Test-HostConfigRequired {
   return $true
 }
 
-function Get-ProviderAccessMode {
-  param([object]$Tool)
-  if ($null -ne $Tool.provider_config -and $null -ne $Tool.provider_config.PSObject.Properties['access_mode']) {
-    return [string]$Tool.provider_config.access_mode
-  }
-  if (Test-HostConfigRequired -Tool $Tool) { return 'live_mcp' }
-  return 'cli_artifact'
-}
-
 function Get-ClaudeMcpServer {
   param(
     [object]$Config,
@@ -153,7 +144,6 @@ function Get-ProjectStatus {
 }
 
 $tools = [ordered]@{}
-$graphProviders = [ordered]@{}
 $nextActions = New-Object System.Collections.Generic.List[string]
 
 function Add-NextAction {
@@ -178,16 +168,7 @@ foreach ($tool in @($ToolsJson.tools)) {
     ((-not $hostConfigRequired) -and $hostConfigStatus -eq 'not-required')
   )
   $type = if ($null -ne $tool.category) { $tool.category } else { 'mcp' }
-  $providerEnabled = (
-    $type -eq 'graph-provider' -and
-    $null -ne $tool.provider_config -and
-    [bool]$tool.provider_config.enabled_for_bootstrap
-  )
-  $configured = if ($type -eq 'graph-provider') {
-    ($providerEnabled -and $dependencyStatus -eq 'ready' -and $hostReady)
-  } else {
-    ($hostConfigStatus -eq 'ready' -or $hostConfigStatus -eq 'fallback-active')
-  }
+  $configured = ($hostConfigStatus -eq 'ready' -or $hostConfigStatus -eq 'fallback-active')
   $nextAction = ''
 
   if ($dependencyStatus -ne 'ready') {
@@ -202,8 +183,6 @@ foreach ($tool in @($ToolsJson.tools)) {
     $nextAction = 'bootstrap project'
   } elseif ($projectStatus -eq 'failed') {
     $nextAction = 'repair project bootstrap'
-  } elseif ($type -eq 'graph-provider' -and $configured) {
-    $nextAction = 'run spec-graph-bootstrap'
   }
 
   Add-NextAction $nextAction
@@ -217,27 +196,7 @@ foreach ($tool in @($ToolsJson.tools)) {
     project_status = $projectStatus
     selected_scope = $SelectedScope
     next_action = $nextAction
-  }
-  if ($type -eq 'graph-provider') {
-    $toolFact.configured = [bool]$configured
-    $toolFact.enabled_for_bootstrap = [bool]$configured
-    $toolFact.query_ready = $false
-    $toolFact.bootstrap_required = $true
-
-    $graphProviders[$tool.id] = [ordered]@{
-      required = [bool]$tool.required
-      role = $tool.provider_role
-      access_mode = Get-ProviderAccessMode -Tool $tool
-      host_config_required = [bool]$hostConfigRequired
-      dependency_status = $dependencyStatus
-      host_config_status = $hostConfigStatus
-      configured = [bool]$configured
-      enabled_for_bootstrap = [bool]$configured
-      query_ready = $false
-      bootstrap_required = $true
-      capabilities = @($tool.provider_config.capabilities)
-      next_action = $nextAction
-    }
+    configured = [bool]$configured
   }
 
   $tools[$tool.id] = $toolFact
@@ -263,6 +222,5 @@ foreach ($tool in @($ToolsJson.tools)) {
   target_candidates = @($TargetFacts.candidates)
   reason_code = $TargetFacts.reason_code
   tools = $tools
-  graph_providers = $graphProviders
   next_actions = @($nextActions)
 } | ConvertTo-Json -Depth 10 -Compress

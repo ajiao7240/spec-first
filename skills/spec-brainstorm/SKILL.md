@@ -85,6 +85,10 @@ When the idea involves domain terminology, team-specific concepts, or ADR-like c
 
 For major open decisions, carry a lightweight decision note: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when unresolved. Use source tags such as `confirmed`, `advisory`, `session-local`, `stale`, or `user`. Suggest creating an ADR-like artifact only when the decision is hard to reverse, would be surprising without context, and reflects a real tradeoff.
 
+## External-Tool Context
+
+Use only lightweight read-only evidence as session-local pointers. Confirm important claims with direct source reads before writing them into requirements. Do not route mutation, refresh, broad impact, or maintenance operations through brainstorm by default. External-tool evidence must not expand product scope or let implementation details back-drive user-facing requirements.
+
 ## Feature Description
 
 <feature_description> #$ARGUMENTS </feature_description>
@@ -171,7 +175,7 @@ If nothing obvious appears after a short scan, say so and continue. Two rules go
 - **Tools available + user didn't ask**: Note in output: "Slack tools detected. Ask me to search Slack for organizational context at any point, or include it in your next prompt."
 - **No tools + user asked**: Note in output: "Slack context was requested but no Slack tools are available. Install and authenticate the Slack plugin to enable organizational context search."
 
-**GitNexus / graph context** (software brainstorms only) — requirements shaping is about WHAT, not implementation proof. When a technical or architecture brainstorm needs current repo orientation, use only lightweight `query` / `context` / read-only resource evidence as session-local pointers, then confirm important claims with direct source reads before writing them into requirements. Do not route `impact`, `detect_changes`, route/API/shape/tool/Cypher, provider refresh, `group_sync`, or `rename` through brainstorm by default; those belong to planning, review, debug, or explicit maintenance paths. Graph evidence must not expand product scope or let implementation details back-drive user-facing requirements.
+**Codebase context** (software brainstorms only) — requirements shaping is about WHAT, not implementation proof. When a technical or architecture brainstorm needs current repo orientation, use bounded direct source reads, `rg`, ast-grep when useful, package/test facts, logs, and user-provided evidence. Confirm important claims with direct source reads before writing them into requirements. Codebase evidence must not expand product scope or let implementation details back-drive user-facing requirements.
 
 #### 1.2 Product Pressure Test
 

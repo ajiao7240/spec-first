@@ -30,7 +30,6 @@ const VALID_SCENARIO_TYPES = new Set([
   'api-contract',
   'docs-only',
   'cli-bugfix',
-  'graph-degraded-fallback',
   'multi-module-refactor',
 ]);
 
@@ -272,18 +271,6 @@ function validateFixture({ repoRoot, fixtureDir, manifestSchema }) {
       fixtureId,
       reasonCode: 'missing-validation-command',
       message: 'validation_commands must declare at least one command.',
-      artifactPaths,
-    }));
-  }
-
-  if (
-    manifest.scenario_type === 'graph-degraded-fallback'
-    && (!manifest.degraded_mode_expectations || typeof manifest.degraded_mode_expectations !== 'object')
-  ) {
-    failures.push(createFailure({
-      fixtureId,
-      reasonCode: 'missing-degraded-expectation',
-      message: 'graph-degraded-fallback fixtures must declare degraded_mode_expectations.',
       artifactPaths,
     }));
   }

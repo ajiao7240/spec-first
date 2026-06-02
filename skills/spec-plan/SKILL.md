@@ -26,7 +26,7 @@ Do not use to implement code, run tests as proof, review a finished document wit
 
 ### Inputs
 
-A feature/request description, requirements document path, existing plan path to deepen, bug report, rough task description, or non-software planning prompt; optional project standards, graph readiness facts, package/test context, and nearby source evidence as planning context.
+A feature/request description, requirements document path, existing plan path to deepen, bug report, rough task description, or non-software planning prompt; optional project standards, package/test context, setup/runtime facts, and nearby source evidence as planning context.
 
 ### Outputs
 
@@ -38,7 +38,7 @@ Plan files under the appropriate docs location, reused source-document links, op
 
 ### Failure Modes
 
-Empty or ambiguous input requires a blocking clarification or planning bootstrap; missing/unreadable source documents are surfaced instead of silently ignored; degraded graph or provider facts stay advisory; implementation-dependent questions are deferred to `spec-work`.
+Empty or ambiguous input requires a blocking clarification or planning bootstrap; missing/unreadable source documents are surfaced instead of silently ignored; setup/runtime facts stay advisory; implementation-dependent questions are deferred to `spec-work`.
 
 ### Workflow
 
@@ -55,9 +55,9 @@ Overrides: none
 
 ## Context Orientation Anchor
 
-Orient from the current user request or requirement, existing plans or task packs, already-loaded host/project instructions, `docs/contracts/`, existing brainstorms/plans/solutions, package manifests and command registries, nearby implementation files, nearby tests, graph/provider readiness facts when relevant, and git diff or changed files when applicable. Treat `AGENTS.md`, `CLAUDE.md`, and project role docs as host instruction sources that are normally already loaded by the current session, not automatic re-read targets for every planning run. Written project standards from loaded host instructions, directory-scoped equivalents, or precisely read source files may define hard project context when they apply to the planned files; docs, prior plans, and provider facts remain advisory unless the current source plan or user request promotes them to scope authority. Read instruction source only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it. External tools may prioritize inspection, but they do not define scope authority. The LLM still chooses the candidate change surface from explicit repo context and source-plan constraints.
+Orient from the current user request or requirement, existing plans or task packs, already-loaded host/project instructions, `docs/contracts/`, existing brainstorms/plans/solutions, package manifests and command registries, nearby implementation files, nearby tests, direct source evidence, and git diff or changed files when applicable. Treat `AGENTS.md`, `CLAUDE.md`, and project role docs as host instruction sources that are normally already loaded by the current session, not automatic re-read targets for every planning run. Written project standards from loaded host instructions, directory-scoped equivalents, or precisely read source files may define hard project context when they apply to the planned files; docs and prior plans remain advisory unless the current source plan or user request promotes them to scope authority. Read instruction source only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it. External tools may prioritize inspection, but they do not define scope authority. The LLM still chooses the candidate change surface from explicit repo context and source-plan constraints.
 
-Use this intake order for context economy: first read the request/requirements summary and contract metadata, then deterministic inventory or readiness facts, then current phase/task refs, then focused source-of-truth sections, and only then deeper references. Reuse the trust model in `docs/contracts/workflows/review-pre-facts-extraction.md` and `src/cli/helpers/review-pre-facts/` for review/token-economy facts; do not create a parallel reviewer facts pipeline.
+Use this intake order for context economy: first read the request/requirements summary and contract metadata, then deterministic inventory or readiness facts, then current phase/task refs, then focused source-of-truth sections, and only then deeper references. Do not create a hidden reviewer facts pipeline; use bounded direct reads, `rg`, ast-grep, git diff, tests/logs, and user evidence.
 
 When sessions, learnings, standards, or prior plans expose provenance-backed rejected/out-of-scope rationale relevant to the current scope, consume those replay refs as advisory boundary evidence before re-opening the same option. Record the source, rationale, and freshness/confidence; do not turn rejected rationale into active workflow state or a permanent blocker.
 
@@ -73,7 +73,7 @@ Follow `docs/contracts/context-governance.md`: ordinary Planning context exclude
 
 ## Cache-Friendly Context Layout
 
-Keep role boundaries, plan quality bar, graph/readiness limits, and reference load conditions in the stable instruction prefix. Put the current request, requirement summary, repo evidence, tool summaries, project-guidance facts, `artifact-summary.v1`, and `context-bundle.v1` from `docs/contracts/context-bundle.md` in the dynamic suffix. Plan handoff should summarize goal, scope, non-goals, implementation units, verification, and open questions before asking downstream work to read the full plan.
+Keep role boundaries, plan quality bar, setup/readiness limits, and reference load conditions in the stable instruction prefix. Put the current request, requirement summary, repo evidence, tool summaries, project-guidance facts, `artifact-summary.v1`, and `context-bundle.v1` from `docs/contracts/context-bundle.md` in the dynamic suffix. Plan handoff should summarize goal, scope, non-goals, implementation units, verification, and open questions before asking downstream work to read the full plan.
 
 Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
 
@@ -285,72 +285,34 @@ Collect:
 - **Tools available + user didn't ask**: Note in output: "Slack tools detected. Ask me to search Slack for organizational context at any point, or include it in your next prompt."
 - **No tools + user asked**: Note in output: "Slack context was requested but no Slack tools are available. Install and authenticate the Slack plugin to enable organizational context search."
 
-#### 1.1a Graph Readiness Facts (Optional, Bounded)
+#### 1.1a Direct Evidence Readiness
 
-If the current cwd is a non-Git parent workspace that contains child Git repos, first resolve the intended project target. A single-repo plan must name a top-level `target_repo` using the workspace-relative child path before reading graph readiness. A cross-repo plan must name `target_repo` per implementation unit instead of implying workspace-wide write scope. If no active repo or explicit cross-repo scope is available, ask the user to choose before writing a repo-specific plan; do not let scripts or graph facts choose semantically between child repos.
+If the current cwd is a non-Git parent workspace that contains child Git repos, first resolve the intended project target. A single-repo plan must name a top-level `target_repo` using the workspace-relative child path before writing repo-specific requirements or implementation units. A cross-repo plan must name `target_repo` per implementation unit instead of implying workspace-wide write scope. If no active repo or explicit cross-repo scope is available, ask the user to choose before writing a repo-specific plan; do not let scripts or setup facts choose semantically between child repos.
 
-For parent-workspace read-only planning questions, consume the advisory `workspace-graph-targets.v1` facts when available, or run the read-only workspace graph target resolver to produce them. Treat `primary` children as bounded candidate repos for GitNexus-first evidence, include `degraded-fallback` children only with their limitations, and exclude `stale`, `dirty-uncertain`, `setup-ready-bootstrap-required`, and `unavailable` children from primary evidence unless the plan explicitly records the degraded fallback. The LLM still chooses the semantic target repo from the user request and evidence; the resolver only supplies deterministic readiness facts. For cross-repo plans, also read `.spec-first/workspace/gitnexus-readiness.json` when present and surface `workspace-gitnexus-readiness.v1` as advisory evidence with nested `group.status`, `query_usability_counts`, limitations, and per-unit `target_repo` requirements; do not invent a top-level `group_status`. If durable `group.status="not-evaluated-no-mcp-input"` or registry counts are `null`, either add a session-local live MCP overlay for the current planning question or explicitly disclose that group/registry overlay was not evaluated. Any implementation plan that can lead to edits, tests, changelog updates, or commits must still name `target_repo` at the plan or implementation-unit level.
+For code implementation, architecture, API/routes, cross-module, or test strategy plans, collect bounded direct evidence:
 
-Setup projection pre-check: after repo scope / `target_repo` is resolved and before the no-graph/no-MCP fast unavailable gate, read setup-owned GitNexus capability availability when present:
+- current git status and diff scope when relevant;
+- file discovery with `rg --files` and targeted text search with `rg`;
+- nearby source files, tests, package manifests, config, and contracts;
+- ast-grep structural search when simple text search is too weak;
+- test/log output supplied by the user or produced by focused commands.
 
-- `.spec-first/config/graph-providers.json.providers.gitnexus.native_capabilities`
-- `.spec-first/config/runtime-capabilities.json.gitnexus_capability_discovery`
-
-These are setup-inferred availability inputs only. They can guide `native_tool_or_resource`, `capability_status`, `capabilities_used`, and limitations, but they must not change `Graph Readiness.status`, provider `query_ready`, workspace `query_usability`, freshness state, or durable graph-backed evidence claims. `status=available` or `status=mutation-gated` with `project_graph_readiness.status=not-bootstrapped` is not a contradiction: it only means the native surface is setup-inferred discoverable; durable graph evidence still requires canonical provider `query_ready=true`.
-
-Treat `source_tags[]` as the GitNexus catalog provenance field, not as setup-internal diagnostics. Setup projection may carry `checked-in-baseline`, `provider-pin`, and `setup-projection`; it must not be reported as `live-mcp-tool` or `live-mcp-resource`. Host config, dependency readiness, and workspace advisory facts belong to `source_provenance`, provider fingerprint facts, or limitations. Read `native_tools[]` and `native_resources[]` separately when present; read-only resources are evidence surfaces with provenance/freshness limits, not execution capabilities.
-
-Apply this setup-to-Plan mapping: setup `available` -> Plan `capability_status: available`; setup `unavailable` -> `unavailable`; setup `mutation-gated` -> `mutation-gated`; setup `unknown` -> `partial` with a non-empty limitation containing the literal phrase `setup-inferred unknown`. Plan never invents `available` from setup `unknown`.
-
-Apply the provenance rule before making any current live-surface claim: `registry-only` and `configured-not-verified` require a current live MCP probe; `configured-and-detected` can guide surface selection, but it remains setup-inferred availability and does not prove graph-backed evidence or query success. A live tool claim requires a current-session surface tagged `live-mcp-tool`; a live resource claim requires `live-mcp-resource`; LLM conclusions drawn from those results should add `session-local-inference`. Missing, invalid, stale-by-fingerprint, or capability-missing projection is advisory/unknown; continue with a live MCP probe when available or bounded direct reads. Do not run setup, graph-bootstrap, provider refresh, GitNexus analyze/status/query CLI commands, group sync, provider repair, default hooks, watchers, or daemons from Plan.
-
-Apply the mutation rule strictly: `mutation_boundary: policy-blocked` is a hard setup/Plan workflow boundary. Plan must not ask the user for approval to execute that surface in this workflow; it records the limitation, chooses read-only alternatives, or hands off to a separate preview-first maintenance plan only if the user explicitly asks for that class of action.
-
-Fast unavailable path: after repo scope / `target_repo` is resolved and setup projection has been checked, do a cheap surface gate before deeper graph probing. If the selected repo has no canonical graph readiness artifacts (`.spec-first/graph/` is absent and `.spec-first/impact/bootstrap-impact-capabilities.json` is absent), the current host session exposes no current-session GitNexus MCP tool/resource surface, and no setup-owned GitNexus capability projection is present, set `Graph Readiness.status: unavailable`, record `runtime_mcp_evidence: unavailable`, use `fallback_capabilities: bounded direct repo reads`, and continue to Phase 1.1b. Do not run 1.1a.1 detailed Graph / GitNexus Evidence Posture for this no-graph/no-MCP/no-setup-projection path, and do not run provider refresh, MCP setup, GitNexus analyze, group sync, or extra discovery commands just to prove absence. If setup projection is present, do not take this fast unavailable shortcut solely because graph artifacts and live MCP surfaces are absent; interpret the setup projection as advisory availability input, then decide whether the task warrants a `Graph / GitNexus Evidence` posture. If the user explicitly asked for graph or GitNexus evidence and no setup projection is present, disclose the unavailable status and recommend `$spec-mcp-setup` or `$spec-graph-bootstrap` as the next readiness action instead of silently expanding this planning run.
-
-Check whether canonical graph readiness artifacts exist:
-
-- `.spec-first/graph/provider-status.json`
-- `.spec-first/graph/graph-facts.json`
-- `.spec-first/impact/bootstrap-impact-capabilities.json`
-
-If the artifacts exist, read them as compiled readiness facts before deciding how much graph evidence to trust. Before treating compiled graph facts as primary planning evidence, check provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Compare recorded `source_revision`, `worktree_dirty`, and `worktree_status_hash` to the current repo snapshot. If any differs from the current snapshot, report the graph facts as `stale` and do not treat them as current primary evidence. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Planning to rebuild providers.
-
-If any artifact cannot be read as valid JSON, treat graph readiness as `blocked` with reason `invalid-json`, name the exact artifact path and parse/read error in the Graph Readiness block, and continue planning with live MCP evidence or bounded direct repo reads. Do not rewrite, delete, or silently regenerate graph artifacts from `spec-plan`; deterministic repair belongs to `spec-graph-bootstrap` / `spec-mcp-setup`.
-
-If the artifacts are missing, blocked, setup-not-ready, stale, or degraded, planning still continues. Before falling all the way back to bounded direct repo reads, try live GitNexus MCP evidence when a relevant GitNexus tool or read-only resource is loaded in the current session and the planning question would benefit from it. For GitNexus, this means calling the MCP tools such as `gitnexus_query`, `gitnexus_context`, or `gitnexus_impact` for the concrete planning question and treating a successful response as session-local evidence. If live GitNexus returns `definitions` but no `processes` / `process_symbols`, record `runtime_mcp_evidence: partial-definitions-only`; use those definitions only as local file/symbol pointers, then supplement with bounded direct repo reads. A successful or partial live MCP call does not change compiled `query_ready`, does not make `.spec-first/graph/graph-facts.json` current, and must not be written back as graph readiness. If the MCP tool is unavailable, fails, or the provider status reports `graph_ready=false` / `provider-crash`, say so and use bounded direct repo reads and local research as needed; graph readiness is evidence context, not a planning gate.
-
-For stale graph + lightweight planning such as docs-only prose, narrow typo fixes, first project trial, or a small local bug with direct source evidence, disclose limitations and continue. For stale graph + graph-heavy planning such as shared helper/API/route/provider contract/core workflow/cross-module changes, review-pre-facts changes, high-risk review follow-up, or decisions that depend on execution flows or blast radius, recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap` before claiming graph-backed impact evidence. Planning must not run GitNexus analyze/build/index refresh, provider repair, default git hooks, watchers, or daemons. GitNexus impact results are planning evidence when graph facts are fresh or explicitly session-local; they are not refresh triggers.
-
-In the generated plan, include a machine-testable Graph Readiness block before `Context & Research`:
+In the generated plan, include a machine-testable Direct Evidence block before `Context & Research`:
 
 ```md
-## Graph Readiness
+## Direct Evidence
 
 - target_repo:
-- status: primary | degraded-fallback | stale | blocked | setup-not-ready | unavailable
-- source_revision:
+- source_refs:
 - current_revision:
-- stale:
-- primary_providers:
-- degraded_providers:
-- fallback_capabilities:
-- runtime_mcp_evidence:
+- worktree_dirty:
+- discovery_methods:
+- tests_or_logs:
 - confidence:
 - limitations:
 ```
 
-Use `status: unavailable` when canonical artifacts are missing. For `degraded-fallback`, state usable primary providers, fallback capabilities, and any successful, partial, or failed live MCP evidence with limitations. For `blocked` or `setup-not-ready`, report the fact and proceed with live MCP evidence only if the tool is actually responsive; otherwise use bounded direct repo reads where possible. Do not expand this into context selection, impact analysis, review evidence, or task-level artifacts.
-
-#### 1.1a.1 Graph / GitNexus Evidence Posture
-
-When the plan involves code implementation, architecture, API/routes, cross-module or cross-repo behavior, execution flows, testing strategy, or review risk, and graph artifacts, workspace advisory facts, setup-owned GitNexus capability projection, or a current-session GitNexus MCP tool/resource surface are present, run a lightweight GitNexus evidence posture probe immediately after interpreting Graph Readiness. The envelope is task-specific evidence context: it is not canonical readiness truth, must not replace `Graph Readiness.status`, provider `query_ready`, workspace `query_usability`, or impact support levels, and must not write back to `.spec-first/graph/*`, `.spec-first/providers/*`, `.spec-first/impact/*`, setup projections, or workspace advisory artifacts.
-
-Skip the detailed posture probe on the no-graph/no-MCP/no-setup-projection fast unavailable path above. For docs-only, prose-only, narrow planning, or other non-code-affecting runs, use `provider: not-applicable` or omit the detailed fields when the plan output format does not need them; do not spend tokens enumerating GitNexus native capabilities that cannot affect the decision.
-
-**STOP. Before filling the envelope, read `references/graph-evidence-posture.md`.** It carries the envelope shape pointer (the `## Graph / GitNexus Evidence` block in `references/plan-template.md` is the field/enum source of truth), the four-axis interpretation (including `evidence_posture=fallback + evidence_grade=primary` orthogonality and `source_reads_required mandatory`), the GitNexus `source_tags[]` provenance vocabulary, the LLM-owned native capability selection matrix (route/API/shape, symbol/refactor, tool/RPC, cypher, orientation), the session-local tool/resource boundary, the scope authority rule, the `mutation-gated` capability handling for `workspace_group_sync` / `group_sync` / `symbol_rename` / GitNexus `rename`, and the multi-repo `target_repo` requirement. Do not reconstruct these rules from memory and do not inline them in this skill.
-
-For graph-heavy planning where deterministic pre-facts would reduce repeated source reads, the hidden helper may be called with `--workflow plan`. Its output is workflow-neutral: `query`, `context`, `impact`, and `detect_changes` facts can populate `capabilities_used`, `key_findings`, `source_reads_required`, and limitations in the existing Graph / GitNexus Evidence block, but they do not choose scope, requirements, or implementation units. Do not route `route_map`, `api_impact`, `shape_check`, `tool_map`, `cypher`, group resources, refresh, repair, `group_sync`, or `rename` through the helper query plan.
+Use this block to disclose what was actually read or verified. Do not claim repository-wide impact coverage from a narrow search. Do not add hidden pre-facts or external-tool evidence envelopes.
 
 #### 1.1b Detect Execution Posture Signals
 

@@ -70,7 +70,7 @@ function validPayload(overrides = {}) {
     },
     provider_untrusted: {
       readiness_status: 'degraded',
-      summaries: ['provider evidence was degraded and not used as confirmed truth'],
+      summaries: ['external-tool evidence was limited and not used as confirmed truth'],
     },
     retention: {
       retention_status: 'lifecycle-deferred',
@@ -82,16 +82,12 @@ function validPayload(overrides = {}) {
   };
 }
 
-function validGraphEvidenceUsed() {
+function validDirectEvidenceUsed() {
   return {
-    capabilities_used: ['api_impact', 'shape_check'],
-    evidence_grade: 'primary',
-    evidence_posture: 'fallback',
-    freshness_state: 'fresh',
+    source_refs: ['skills/spec-work/SKILL.md'],
+    checks_or_logs: ['npm run test:unit -- spec-work-run-artifact'],
     repo_scope: 'spec-first',
-    graph_findings_applied: ['shape_check focused response-shape contract reads'],
-    graph_findings_as_risk_only: ['consumer outside plan scope recorded as follow-up'],
-    source_reads_validated: ['docs/contracts/downstream-graph-evidence-consumption.md direct read'],
+    limitations: ['bounded direct evidence only'],
     redaction_status: 'none-required',
   };
 }
@@ -283,43 +279,43 @@ describe('spec-work run artifact producer', () => {
     }
   });
 
-  test('writes compact graph_evidence_used when provided and remains backward compatible when omitted', () => {
+  test('writes compact direct_evidence_used when provided and remains backward compatible when omitted', () => {
     const repo = makeRepo();
     try {
-      const withGraphPath = writePayload(repo, validPayload({
-        graph_evidence_used: validGraphEvidenceUsed(),
-      }), 'with-graph.json');
-      const withoutGraphPath = writePayload(repo, validPayload(), 'without-graph.json');
+      const withDirectPath = writePayload(repo, validPayload({
+        direct_evidence_used: validDirectEvidenceUsed(),
+      }), 'with-direct.json');
+      const withoutDirectPath = writePayload(repo, validPayload(), 'without-direct.json');
 
-      const withGraph = captureStdout(() => runInternal([
+      const withDirect = captureStdout(() => runInternal([
         'spec-work-run-artifact',
         'write',
         '--input',
-        withGraphPath,
+        withDirectPath,
         '--run-id',
-        'run-with-graph',
+        'run-with-direct',
         '--target-repo',
         repo,
       ]));
-      const withGraphOutput = JSON.parse(withGraph.stdout);
-      expect(withGraph.code).toBe(0);
-      const withGraphArtifact = JSON.parse(fs.readFileSync(path.join(repo, withGraphOutput.artifact_path), 'utf8'));
-      expect(withGraphArtifact.graph_evidence_used).toEqual(validGraphEvidenceUsed());
+      const withDirectOutput = JSON.parse(withDirect.stdout);
+      expect(withDirect.code).toBe(0);
+      const withDirectArtifact = JSON.parse(fs.readFileSync(path.join(repo, withDirectOutput.artifact_path), 'utf8'));
+      expect(withDirectArtifact.direct_evidence_used).toEqual(validDirectEvidenceUsed());
 
-      const withoutGraph = captureStdout(() => runInternal([
+      const withoutDirect = captureStdout(() => runInternal([
         'spec-work-run-artifact',
         'write',
         '--input',
-        withoutGraphPath,
+        withoutDirectPath,
         '--run-id',
-        'run-without-graph',
+        'run-without-direct',
         '--target-repo',
         repo,
       ]));
-      const withoutGraphOutput = JSON.parse(withoutGraph.stdout);
-      expect(withoutGraph.code).toBe(0);
-      const withoutGraphArtifact = JSON.parse(fs.readFileSync(path.join(repo, withoutGraphOutput.artifact_path), 'utf8'));
-      expect(Object.prototype.hasOwnProperty.call(withoutGraphArtifact, 'graph_evidence_used')).toBe(false);
+      const withoutDirectOutput = JSON.parse(withoutDirect.stdout);
+      expect(withoutDirect.code).toBe(0);
+      const withoutDirectArtifact = JSON.parse(fs.readFileSync(path.join(repo, withoutDirectOutput.artifact_path), 'utf8'));
+      expect(Object.prototype.hasOwnProperty.call(withoutDirectArtifact, 'direct_evidence_used')).toBe(false);
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
@@ -420,7 +416,7 @@ describe('spec-work run artifact producer', () => {
     }
   });
 
-  test('rejects generated runtime mirrors, provider graph artifacts, absolute paths, raw output, and secrets', () => {
+  test('rejects generated runtime mirrors, non-workflow runtime artifacts, absolute paths, raw output, and secrets', () => {
     const oversizedLog = Array.from({ length: 1000 }, (_, index) => `line ${index}`).join('\n');
     const badPayloads = [
       validPayload({ plan_source: 'bogus' }),
@@ -444,20 +440,20 @@ describe('spec-work run artifact producer', () => {
       validPayload({
         script_confirmed: {
           ...validPayload().script_confirmed,
-          artifact_refs: ['.spec-first/graph/provider-status.json'],
+          artifact_refs: ['.spec-first/config/tool-facts.json'],
         },
       }),
       validPayload({ llm_asserted: { ...validPayload().llm_asserted, summary: '/var/folders/raw/path' } }),
-      validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, raw_output: 'provider raw text' } }),
+      validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, raw_output: 'external tool raw text' } }),
       validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, details: oversizedLog } }),
       validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, nested: { transcript: oversizedLog } } }),
       validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, summaries: Array.from({ length: 21 }, (_, index) => `summary ${index}`) } }),
-      validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), provider_raw_output: 'provider raw text' } }),
-      validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), redaction_status: undefined } }),
-      validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), evidence_grade: 'fallback' } }),
+      validPayload({ direct_evidence_used: { ...validDirectEvidenceUsed(), provider_raw_output: 'external tool raw text' } }),
+      validPayload({ direct_evidence_used: { ...validDirectEvidenceUsed(), redaction_status: undefined } }),
+      validPayload({ direct_evidence_used: { ...validDirectEvidenceUsed(), checks_or_logs: 'npm test' } }),
       validPayload({ producer: { workflow_integrated: true, reason_code: 'unknown-trigger' } }),
       validPayload({ producer: { workflow_integrated: 'true', reason_code: 'trigger-task-pack' } }),
-      validPayload({ graph_evidence_used: { ...validGraphEvidenceUsed(), capabilities_used: Array.from({ length: 21 }, (_, index) => `cap-${index}`) } }),
+      validPayload({ direct_evidence_used: { ...validDirectEvidenceUsed(), source_refs: Array.from({ length: 21 }, (_, index) => `source-${index}`) } }),
       validPayload({ provider_untrusted: { ...validPayload().provider_untrusted, summaries: ['Authorization: Bearer secret-token'] } }),
       validPayload({ llm_asserted: { ...validPayload().llm_asserted, summary: 'https://example.com/log?token=abc123' } }),
       validPayload({ llm_asserted: { ...validPayload().llm_asserted, summary: oversizedLog } }),

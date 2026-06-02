@@ -152,7 +152,7 @@ describe('npm install matrix smoke script', () => {
   test('package content manifest fails with reason codes for missing required and forbidden paths', () => {
     const files = [
       ...VALID_PACK_FILES.filter((file) => file.path !== 'README.md'),
-      { path: 'src/crg/index.js', size: 12, mode: 420 },
+      { path: '.claude/commands/spec/work.md', size: 12, mode: 420 },
       { path: 'skills/spec-work/scripts/__pycache__/tool.pyc', size: 13, mode: 420 },
     ];
     const manifest = buildPackageContentManifest(packJson(files), {
@@ -167,7 +167,7 @@ describe('npm install matrix smoke script', () => {
       }),
       expect.objectContaining({
         reason_code: 'forbidden-package-path-present',
-        paths: ['src/crg/index.js'],
+        paths: ['.claude/commands/spec/work.md'],
       }),
       expect.objectContaining({
         reason_code: 'forbidden-package-path-present',

@@ -27,15 +27,11 @@ describe('AI dev quality gate integration', () => {
 
   test('AI dev quality gate workflow triggers on workflow runtime contract surfaces, calls dedicated script, and uploads result artifact', () => {
     const workflow = read(AI_GATE_WORKFLOW_PATH);
-    const retiredSource = 'src/' + 'crg/**';
-    const retiredContracts = 'docs/contracts/' + 'crg/**';
 
     expect(workflow).toContain('name: AI Dev Quality Gate');
     expect(workflow).toContain("src/cli/contracts/quality-gates/**");
-    expect(workflow).not.toContain(retiredSource);
     expect(workflow).toContain("src/contracts/**");
     expect(workflow).toContain("src/verification/**");
-    expect(workflow).not.toContain(retiredContracts);
     expect(workflow).toContain("docs/contracts/verifiers/**");
     expect(workflow).toContain("docs/contracts/quality-gates/**");
     expect(workflow).toContain("scripts/run-ai-dev-benchmark-fixtures.js");
@@ -47,16 +43,12 @@ describe('AI dev quality gate integration', () => {
     expect(workflow).toContain("skills/spec-code-review/**");
     expect(workflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
     expect(workflow).toContain("tests/unit/branch-protection-policy.test.js");
-    expect(workflow).toContain("tests/unit/no-crg-runtime-contracts.test.js");
-    expect(workflow).toContain("tests/benchmark/extract-graph-anchors.sh");
-    expect(workflow).toContain("tests/unit/graph-anchor-extraction-helper.test.js");
     expect(workflow).toContain("tests/unit/package-install-contracts.test.js");
     expect(workflow).toContain("tests/unit/ai-dev-benchmark-fixtures.test.js");
     expect(workflow).toContain("tests/fixtures/ai-dev-benchmarks/**");
     expect(workflow).not.toContain("docs/10-prompt/skills/");
     expect(workflow).toContain("tests/integration/verification-gate.integration.test.js");
     expect(workflow).not.toContain("src/bootstrap-compiler/**");
-    expect(workflow).not.toContain("docs/contracts/spec-" + "graph" + "-bootstrap/**");
     expect(workflow).not.toContain("src/context-routing/**");
     expect(workflow).not.toContain("src/cli/commands/stage0-context.js");
     expect(workflow).toContain('npm run test:ai-dev:gate');

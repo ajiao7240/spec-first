@@ -96,7 +96,7 @@ describe('context governance runtime exclusion contract', () => {
   test('user-facing docs explain context exclusion separately from gitignore', () => {
     expect(fs.existsSync(CONTRACT_PATH)).toBe(true);
     expect(read('README.md')).toContain('What is excluded from ordinary context');
-    expect(read('README.zh-CN.md')).toContain('普通上下文默认排除什么');
+    expect(read('README.zh-CN.md')).toContain('普通上下文排除什么');
     expect(read('docs/05-用户手册/05-最佳实践.md')).toContain('普通 plan/work/debug/review/compound context 默认排除');
     expect(read('docs/05-用户手册/12-gitignore参考.md')).toContain('不应作为普通 LLM 上下文扫描源');
   });

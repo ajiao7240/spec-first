@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -7,7 +8,6 @@ const { spawnSync } = require('node:child_process');
 
 const SETUP_SCHEMA_VERSION = 'developer-scenario-fingerprint-setup.v1';
 const BOOTSTRAP_SCHEMA_VERSION = 'developer-scenario-fingerprint.v1';
-const PENDING_BUILD_TARGET_SCAN_REASON = 'pending-build-target-scan-p4';
 const PROVISIONAL_SCENARIO_CLASSES = [
   'clean-single-repo',
   'dirty-single-repo',
@@ -17,7 +17,6 @@ const PROVISIONAL_SCENARIO_CLASSES = [
   'foreign-residual-workspace',
   'non-git-folder',
   'non-git-build-workspace',
-  'provider-degraded',
 ];
 const GENERATED_RUNTIME_SEGMENTS = new Set([
   '.git',
@@ -40,17 +39,14 @@ const BUILD_MANIFEST_NAMES = new Set([
   'pnpm-workspace.yaml',
 ]);
 const REPO_LOCAL_ARTIFACT_PATHS = [
-  '.spec-first/graph/graph-facts.json',
-  '.spec-first/providers/gitnexus/status.json',
+  '.spec-first/config/tool-facts.json',
   '.spec-first/config/runtime-capabilities.json',
-  '.gitnexus/meta.json',
 ];
 
 function runScenarioFingerprint(argv, env = {}) {
   const io = {
     cwd: env.cwd || process.cwd(),
     stdout: env.stdout || process.stdout,
-    stderr: env.stderr || process.stderr,
   };
   const parsed = parseArgs(argv);
   if (parsed.error) {
@@ -75,10 +71,6 @@ function runScenarioFingerprint(argv, env = {}) {
         cwd: io.cwd,
         workspaceRoot: parsed.options.workspaceRoot,
         setupFingerprintPath: parsed.options.setupFingerprint,
-        graphFactsPath: parsed.options.graphFacts,
-        providerStatusPath: parsed.options.providerStatus,
-        graphBootstrapSummaryPath: parsed.options.graphBootstrapSummary,
-        graphTargetsPath: parsed.options.graphTargets,
       });
     if (!result.fingerprint_setup_missing && (parsed.options.writeArtifact || parsed.options.output)) {
       if (!parsed.options.output) {
@@ -140,26 +132,23 @@ function computeSetupLayer(input = {}) {
     Number(coverageGap.uncovered_count || 0) > 0
     || Number(coverageGap.uncovered_build_modules || 0) > 0
   ));
-  const providerQueryDegraded = providerIsDegraded(targetFacts);
   const firstTimeGitRepo = targetKind === 'git-repo' && !hasPriorSpecFirstArtifacts(targetRoot);
   const multiRepoWorkspace = topologyMode === 'multi-repo-workspace' || childRepos.length > 0;
-  const worktreeDirtyGraphAffecting = multiRepoWorkspace ? childDirtyCount > 0 : gitDirty.dirty;
+  const worktreeDirtySourceAffecting = multiRepoWorkspace ? childDirtyCount > 0 : gitDirty.dirty;
   const complexityDimensions = {
     multi_repo_workspace: multiRepoWorkspace,
     non_git_folder_target: targetKind === 'non-git-folder',
     non_git_build_targets_present: nonGitBuildTargetsPresent,
     git_alignment_broken: Boolean(coverageGap && Number(coverageGap.uncovered_count || coverageGap.uncovered_build_modules || 0) > 0),
     parent_repo_local_artifacts_present: parentRepoLocalArtifactsPresent,
-    worktree_dirty_graph_affecting: worktreeDirtyGraphAffecting,
-    provider_query_degraded: providerQueryDegraded,
+    worktree_dirty_source_affecting: worktreeDirtySourceAffecting,
   };
   const stateClass = classifyState({
     targetKind,
     multiRepoWorkspace,
     firstTimeGitRepo,
     nonGitBuildTargetsPresent,
-    worktreeDirtyGraphAffecting,
-    providerQueryDegraded,
+    worktreeDirtySourceAffecting,
     foreignResidualIndicators,
   });
 
@@ -171,7 +160,7 @@ function computeSetupLayer(input = {}) {
     producer: 'spec-first internal compute-scenario-fingerprint --layer setup',
     state_class: stateClass,
     scenario_class_provisional: true,
-    scenario_class_source: 'docs/plans/2026-05-28-002-PA-pre-calibration-notes.md',
+    scenario_class_source: 'direct setup facts and bounded source reads',
     workspace_root: toPosixPath(workspaceRoot),
     target_root: toPosixPath(targetRoot),
     topology: {
@@ -191,19 +180,16 @@ function computeSetupLayer(input = {}) {
       build_manifest_sample: buildTargets.sample,
     },
     worktree: {
-      dirty: worktreeDirtyGraphAffecting,
+      dirty: worktreeDirtySourceAffecting,
       dirty_paths_sample: gitDirty.paths.slice(0, 30).map(pathValue => ({
         path: toPosixPath(pathValue),
-        graph_affecting: isGraphAffectingPath(pathValue),
+        source_affecting: isSourceAffectingPath(pathValue),
       })),
       status_hash: gitDirty.status_hash,
       head: gitDirty.head,
       dirty_child_count: childDirtyCount,
     },
     complexity_dimensions: complexityDimensions,
-    providers_status_refs: {
-      gitnexus: providerStatusRef(targetFacts),
-    },
     foreign_residual_indicators: foreignResidualIndicators,
     freshness: {
       setup_generated_at: new Date().toISOString(),
@@ -238,138 +224,71 @@ function computeBootstrapLayer(input = {}) {
       fingerprint_setup_missing: true,
       reason_code: 'fingerprint-setup-missing',
       setup_fingerprint_path: toPosixPath(setupFingerprintPath),
-      next_action: 'Run spec-first mcp setup before graph bootstrap to create .spec-first/workspace/scenario-fingerprint-setup.json.',
+      next_action: 'Run spec-first mcp setup to create .spec-first/workspace/scenario-fingerprint-setup.json.',
     };
   }
 
   const setup = readOptionalJson(setupFingerprintPath, 'invalid-setup-scenario-fingerprint');
   const workspaceRoot = path.resolve(input.workspaceRoot || setup.workspace_root || provisionalWorkspaceRoot);
   const targetRoot = path.resolve(setup.target_root || workspaceRoot);
-  const graphFactsPath = path.resolve(input.graphFactsPath || path.join(workspaceRoot, '.spec-first', 'graph', 'graph-facts.json'));
-  const providerStatusPath = path.resolve(input.providerStatusPath || path.join(workspaceRoot, '.spec-first', 'graph', 'provider-status.json'));
-  const graphBootstrapSummaryPath = input.graphBootstrapSummaryPath
-    ? path.resolve(input.graphBootstrapSummaryPath)
-    : path.join(workspaceRoot, '.spec-first', 'workspace', 'graph-bootstrap-summary.json');
-  const graphTargetsPath = input.graphTargetsPath
-    ? path.resolve(input.graphTargetsPath)
-    : path.join(workspaceRoot, '.spec-first', 'workspace', 'graph-targets.json');
-  const graphFacts = readJsonIfExists(graphFactsPath, 'invalid-graph-facts') || {};
-  const providerStatus = readJsonIfExists(providerStatusPath, 'invalid-provider-status') || {};
-  const graphBootstrapSummary = readJsonIfExists(graphBootstrapSummaryPath, 'invalid-graph-bootstrap-summary') || {};
-  const graphTargets = readJsonIfExists(graphTargetsPath, 'invalid-graph-targets') || {};
-  const gitnexusStatus = extractGitNexusStatus(providerStatus);
-  const buildTargetCoverage = extractBuildTargetCoverage(graphTargets);
-  const currentRevision = graphFacts.source_revision
-    || (gitnexusStatus.repo_snapshot && gitnexusStatus.repo_snapshot.source_revision)
-    || (isGitRepo(targetRoot) ? getGitDirtyFacts(targetRoot).head : null);
-  const staleSetup = computeSetupLayerStaleness({
-    setup,
-    currentRevision,
-    graphBootstrapSummary,
-  });
-  const dirtyChildCount = deriveDirtyChildCount({
-    setup,
-    graphFacts,
-    graphBootstrapSummary,
-  });
-  const bootstrapGeneratedAt = new Date().toISOString();
-  const setupRefs = setup.providers_status_refs && typeof setup.providers_status_refs === 'object'
-    ? setup.providers_status_refs
-    : {};
-
-  // 用 bootstrap 新证据重算分类面，避免 setup 层仍显示 clean 而 graph facts 已经 dirty。
-  const setupTopology = setup.topology && typeof setup.topology === 'object' ? setup.topology : {};
+  const gitDirty = isGitRepo(targetRoot)
+    ? getGitDirtyFacts(targetRoot)
+    : { dirty: false, paths: [], status_hash: null, head: null };
+  const setupWorktree = setup.worktree && typeof setup.worktree === 'object' ? setup.worktree : {};
   const setupDimensions = setup.complexity_dimensions && typeof setup.complexity_dimensions === 'object'
     ? setup.complexity_dimensions
     : {};
-  const targetKind = setupTopology.target_kind || (setupTopology.repo_topology === 'non-git-folder' ? 'non-git-folder' : 'git-repo');
-  const multiRepoWorkspace = setupTopology.repo_topology === 'multi-repo-workspace'
-    || Boolean(setupDimensions.multi_repo_workspace);
-  const nonGitBuildTargetsPresent = Boolean(setupTopology.non_git_build_targets_present
-    || setupDimensions.non_git_build_targets_present);
-  const firstTimeGitRepo = setup.state_class === 'first-time-git-repo';
+  const staleSetupReasons = [];
+  const setupRevision = setup.freshness && setup.freshness.source_revision;
+  if (setupRevision && gitDirty.head && setupRevision !== gitDirty.head) {
+    staleSetupReasons.push('source-revision-changed');
+  }
+  if (setupWorktree.status_hash && gitDirty.status_hash && setupWorktree.status_hash !== gitDirty.status_hash) {
+    staleSetupReasons.push('worktree-status-hash-changed');
+  }
+  const worktreeDirtySourceAffecting = Boolean(
+    gitDirty.dirty || setupDimensions.worktree_dirty_source_affecting,
+  );
+  const mergedDimensions = {
+    ...setupDimensions,
+    worktree_dirty_source_affecting: worktreeDirtySourceAffecting,
+  };
+  const setupTopology = setup.topology && typeof setup.topology === 'object' ? setup.topology : {};
   const foreignResidualIndicators = Array.isArray(setup.foreign_residual_indicators)
     ? setup.foreign_residual_indicators
     : [];
-  const dirtyPathsSampleFromGraph = Array.isArray(graphFacts.dirty_paths_sample)
-    ? graphFacts.dirty_paths_sample
-    : [];
-  const hasGitNexusStatus = gitnexusStatus && Object.keys(gitnexusStatus).length > 0;
-  const worktreeDirtyGraphAffecting = Boolean(
-    graphFacts.dirty_classification === 'graph-affecting-blocked'
-    || dirtyPathsSampleFromGraph.some(item => item && item.graph_affecting === true)
-    || (multiRepoWorkspace && dirtyChildCount > 0)
-    || (graphFacts.worktree_dirty === true
-        && (setupDimensions.worktree_dirty_graph_affecting === true || dirtyPathsSampleFromGraph.length === 0
-            ? Boolean(setupDimensions.worktree_dirty_graph_affecting)
-            : false))
-  );
-  const gitnexusQueryReady = Boolean(
-    hasGitNexusStatus
-    && (gitnexusStatus.query_ready === true || gitnexusStatus.graph_ready === true)
-  );
-  const providerQueryDegraded = hasGitNexusStatus
-    ? !gitnexusQueryReady
-    : Boolean(setupDimensions.provider_query_degraded);
-  const mergedDimensions = {
-    ...setupDimensions,
-    worktree_dirty_graph_affecting: worktreeDirtyGraphAffecting,
-    provider_query_degraded: providerQueryDegraded,
-  };
-  const mergedStateClass = classifyState({
+  const targetKind = setupTopology.target_kind || (setupTopology.repo_topology === 'non-git-folder' ? 'non-git-folder' : 'git-repo');
+  const stateClass = classifyState({
     targetKind,
-    multiRepoWorkspace,
-    firstTimeGitRepo,
-    nonGitBuildTargetsPresent,
-    worktreeDirtyGraphAffecting,
-    providerQueryDegraded,
+    multiRepoWorkspace: Boolean(mergedDimensions.multi_repo_workspace),
+    firstTimeGitRepo: setup.state_class === 'first-time-git-repo',
+    nonGitBuildTargetsPresent: Boolean(mergedDimensions.non_git_build_targets_present),
+    worktreeDirtySourceAffecting,
     foreignResidualIndicators,
   });
-  const mergedTags = Array.from(new Set([
-    ...buildTags(mergedStateClass, mergedDimensions),
-    'bootstrap-layer',
-    ...(staleSetup.stale ? ['stale-setup-layer'] : []),
-  ]));
+  const generatedAt = new Date().toISOString();
 
   return {
     ...setup,
-    state_class: mergedStateClass,
-    complexity_dimensions: mergedDimensions,
     schema_version: BOOTSTRAP_SCHEMA_VERSION,
     advisory: true,
     layer: 'bootstrap',
-    generated_at: bootstrapGeneratedAt,
+    generated_at: generatedAt,
     producer: 'spec-first internal compute-scenario-fingerprint --layer bootstrap',
     workspace_root: toPosixPath(workspaceRoot),
     target_root: toPosixPath(targetRoot),
-    topology: {
-      ...(setup.topology || {}),
-      git_misaligned_build_targets: buildTargetCoverage.gitMisalignedBuildTargets,
-      build_target_coverage_ratio: buildTargetCoverage.coverageRatio,
-      build_target_coverage_reason_code: buildTargetCoverage.reasonCode,
-      graph_coverage_class: buildTargetCoverage.graphCoverageClass,
-    },
+    state_class: stateClass,
+    complexity_dimensions: mergedDimensions,
     worktree: {
-      ...(setup.worktree || {}),
-      dirty: graphFacts.worktree_dirty == null ? Boolean(setup.worktree && setup.worktree.dirty) : Boolean(graphFacts.worktree_dirty),
-      dirty_paths_sample: Array.isArray(graphFacts.dirty_paths_sample)
-        ? graphFacts.dirty_paths_sample.map(item => ({
-          ...item,
-          path: toPosixPath(item.path),
-        }))
-        : (setup.worktree && Array.isArray(setup.worktree.dirty_paths_sample) ? setup.worktree.dirty_paths_sample : []),
-      status_hash: graphFacts.worktree_status_hash || (setup.worktree && setup.worktree.status_hash) || null,
-      head: currentRevision || (setup.worktree && setup.worktree.head) || null,
-      dirty_child_count: dirtyChildCount,
-    },
-    providers_status_refs: {
-      ...setupRefs,
-      gitnexus: buildBootstrapGitNexusRef({
-        setupRef: setupRefs.gitnexus || null,
-        gitnexusStatus,
-        providerStatusPath,
-        graphFactsPath,
-      }),
+      ...setupWorktree,
+      dirty: worktreeDirtySourceAffecting,
+      dirty_paths_sample: gitDirty.paths.slice(0, 30).map(pathValue => ({
+        path: toPosixPath(pathValue),
+        source_affecting: isSourceAffectingPath(pathValue),
+      })),
+      status_hash: gitDirty.status_hash || setupWorktree.status_hash || null,
+      head: gitDirty.head || setupWorktree.head || null,
+      dirty_child_count: setupWorktree.dirty_child_count || 0,
     },
     freshness: {
       ...(setup.freshness || {}),
@@ -377,26 +296,25 @@ function computeBootstrapLayer(input = {}) {
         path: toWorkspaceRelative(workspaceRoot, setupFingerprintPath),
         schema_version: setup.schema_version || null,
         generated_at: setup.generated_at || (setup.freshness && setup.freshness.setup_generated_at) || null,
-        source_revision: (setup.freshness && setup.freshness.source_revision) || (setup.worktree && setup.worktree.head) || null,
+        source_revision: setupRevision || null,
       },
-      stale_setup_layer: staleSetup.stale,
-      stale_setup_layer_reasons: staleSetup.reasons,
-      bootstrap_generated_at: bootstrapGeneratedAt,
-      bootstrap_source_revision: currentRevision,
-      graph_facts_freshness_state: graphFacts.freshness_state || null,
+      stale_setup_layer: staleSetupReasons.length > 0,
+      stale_setup_layer_reasons: staleSetupReasons,
+      bootstrap_generated_at: generatedAt,
+      bootstrap_source_revision: gitDirty.head || null,
     },
     generated_from: {
       ...(setup.generated_from || {}),
       setup_fingerprint: toWorkspaceRelative(workspaceRoot, setupFingerprintPath),
-      graph_facts: fs.existsSync(graphFactsPath) ? toWorkspaceRelative(workspaceRoot, graphFactsPath) : null,
-      provider_status: fs.existsSync(providerStatusPath) ? toWorkspaceRelative(workspaceRoot, providerStatusPath) : null,
-      graph_bootstrap_summary: fs.existsSync(graphBootstrapSummaryPath) ? toWorkspaceRelative(workspaceRoot, graphBootstrapSummaryPath) : null,
-      graph_targets: fs.existsSync(graphTargetsPath) ? toWorkspaceRelative(workspaceRoot, graphTargetsPath) : null,
     },
-    tags: mergedTags,
+    tags: Array.from(new Set([
+      ...buildTags(stateClass, mergedDimensions),
+      'bootstrap-layer',
+      ...(staleSetupReasons.length > 0 ? ['stale-setup-layer'] : []),
+    ])),
     limitations: Array.from(new Set([
       ...((setup.limitations && Array.isArray(setup.limitations)) ? setup.limitations : []),
-      'build-target coverage fields are null until P4 build-target scan fills them',
+      'scenario fingerprint uses bounded direct source and git status evidence only',
     ])),
   };
 }
@@ -404,48 +322,10 @@ function computeBootstrapLayer(input = {}) {
 function classifyState(facts) {
   if (facts.foreignResidualIndicators.length > 0) return 'foreign-residual-workspace';
   if (facts.targetKind === 'non-git-folder') return facts.nonGitBuildTargetsPresent ? 'non-git-build-workspace' : 'non-git-folder';
-  if (facts.multiRepoWorkspace) return facts.worktreeDirtyGraphAffecting ? 'multi-repo-dirty-workspace' : 'multi-repo-workspace';
-  if (facts.providerQueryDegraded) return 'provider-degraded';
+  if (facts.multiRepoWorkspace) return facts.worktreeDirtySourceAffecting ? 'multi-repo-dirty-workspace' : 'multi-repo-workspace';
   if (facts.firstTimeGitRepo) return 'first-time-git-repo';
-  if (facts.worktreeDirtyGraphAffecting) return 'dirty-single-repo';
+  if (facts.worktreeDirtySourceAffecting) return 'dirty-single-repo';
   return 'clean-single-repo';
-}
-
-function providerIsDegraded(facts) {
-  const provider = facts.graph_providers && facts.graph_providers.gitnexus
-    ? facts.graph_providers.gitnexus
-    : facts.tools && facts.tools.gitnexus
-      ? facts.tools.gitnexus
-      : null;
-  if (!provider) return false;
-  if (provider.dependency_status && provider.dependency_status !== 'ready') return true;
-  if (provider.host_config_status && !['ready', 'not-required', 'fallback-active'].includes(provider.host_config_status)) return true;
-  if (provider.project_status && !['ready', 'not-applicable', 'workspace-target-required'].includes(provider.project_status)) return true;
-  return false;
-}
-
-function providerStatusRef(facts) {
-  const provider = facts.graph_providers && facts.graph_providers.gitnexus
-    ? facts.graph_providers.gitnexus
-    : facts.tools && facts.tools.gitnexus
-      ? facts.tools.gitnexus
-      : null;
-  if (!provider) {
-    return {
-      configured: false,
-      query_ready: null,
-      bootstrap_required: null,
-      status_path: null,
-      reason_code: 'provider-not-present-in-setup-facts',
-    };
-  }
-  return {
-    configured: Boolean(provider.configured),
-    query_ready: provider.query_ready == null ? null : Boolean(provider.query_ready),
-    bootstrap_required: provider.bootstrap_required == null ? null : Boolean(provider.bootstrap_required),
-    status_path: '.spec-first/graph/provider-status.json',
-    reason_code: null,
-  };
 }
 
 function normalizeCandidates(candidates, workspaceRoot) {
@@ -486,7 +366,7 @@ function getGitDirtyFacts(repoRoot) {
     : [];
   const head = spawnGit(repoRoot, ['rev-parse', 'HEAD']);
   return {
-    dirty: paths.some(isGraphAffectingPath),
+    dirty: paths.some(isSourceAffectingPath),
     paths,
     status_hash: status.ok ? `sha256:${sha256(status.stdout)}` : null,
     head: head.ok ? head.stdout.trim() : null,
@@ -503,21 +383,18 @@ function spawnGit(repoRoot, args) {
 }
 
 function sha256(text) {
-  return require('node:crypto').createHash('sha256').update(text || '').digest('hex');
+  return crypto.createHash('sha256').update(text || '').digest('hex');
 }
 
 function isGitRepo(candidate) {
   return spawnGit(candidate, ['rev-parse', '--is-inside-work-tree']).ok;
 }
 
-function isGraphAffectingPath(pathValue) {
+function isSourceAffectingPath(pathValue) {
   if (!pathValue) return false;
   const normalized = toPosixPath(pathValue);
   return !(
     normalized.startsWith('.spec-first/config/')
-    || normalized.startsWith('.spec-first/graph/')
-    || normalized.startsWith('.spec-first/providers/')
-    || normalized.startsWith('.spec-first/impact/')
     || normalized.startsWith('.spec-first/workspace/')
     || normalized.startsWith('.spec-first/workflows/')
     || normalized.startsWith('.spec-first/sessions/')
@@ -527,17 +404,16 @@ function isGraphAffectingPath(pathValue) {
 }
 
 function hasParentRepoLocalArtifacts(workspaceRoot) {
-  return ['.spec-first/graph', '.spec-first/providers', '.spec-first/impact', '.gitnexus']
+  return ['.spec-first/config', '.spec-first/workspace']
     .some(relativePath => fs.existsSync(path.join(workspaceRoot, relativePath)));
 }
 
 function hasPriorSpecFirstArtifacts(targetRoot) {
   return [
-    '.spec-first/config/graph-providers.json',
+    '.spec-first/config/tool-facts.json',
     '.spec-first/config/runtime-capabilities.json',
-    '.spec-first/config/provider-artifacts.json',
-    '.spec-first/graph/graph-facts.json',
-    '.spec-first/providers/gitnexus/status.json',
+    '.spec-first/workspace/scenario-fingerprint.json',
+    '.spec-first/workspace/scenario-fingerprint-setup.json',
   ].some(relativePath => fs.existsSync(path.join(targetRoot, relativePath)));
 }
 
@@ -653,13 +529,13 @@ function buildTags(stateClass, dimensions) {
 function buildLimitations({ targetKind, firstTimeGitRepo, buildTargets, foreignResidualIndicators }) {
   const limitations = [];
   if (targetKind === 'non-git-folder') {
-    limitations.push('non-git folder facts are setup-time orientation only; GitNexus indexing is not implied');
+    limitations.push('non-git folder facts are setup-time orientation only');
   }
   if (firstTimeGitRepo) {
-    limitations.push('first-time git repo has no prior setup or graph readiness artifacts');
+    limitations.push('first-time git repo has no prior setup artifacts');
   }
   if (buildTargets.sample.length > 0) {
-    limitations.push('build manifest scan is bounded setup-time evidence; build-target coverage is finalized by P4');
+    limitations.push('build manifest scan is bounded setup-time evidence');
   }
   if (foreignResidualIndicators.length > 0) {
     limitations.push('foreign residual classification requires both stat failure and foreign prefix mismatch');
@@ -684,14 +560,6 @@ function parseArgs(argv) {
       options.ledger = argv[++i];
     } else if (arg === '--setup-fingerprint') {
       options.setupFingerprint = argv[++i];
-    } else if (arg === '--graph-facts') {
-      options.graphFacts = argv[++i];
-    } else if (arg === '--provider-status') {
-      options.providerStatus = argv[++i];
-    } else if (arg === '--graph-bootstrap-summary') {
-      options.graphBootstrapSummary = argv[++i];
-    } else if (arg === '--graph-targets') {
-      options.graphTargets = argv[++i];
     } else if (arg === '--workspace-root') {
       options.workspaceRoot = argv[++i];
     } else if (arg === '--max-build-scan-depth') {
@@ -719,10 +587,6 @@ function usage() {
     '  --ledger <json>           Read setup readiness ledger facts',
     '  --target-facts <json>     Read project target facts',
     '  --setup-fingerprint <json> Read setup scenario fingerprint for bootstrap layer',
-    '  --graph-facts <json>      Read graph facts for bootstrap layer',
-    '  --provider-status <json>  Read provider status for bootstrap layer',
-    '  --graph-bootstrap-summary <json> Read parent graph-bootstrap summary for bootstrap layer',
-    '  --graph-targets <json>    Read workspace graph targets for bootstrap build-target coverage',
     '  --workspace-root <path>   Override workspace root',
     '  --out <path>              Write fingerprint artifact',
     '  --max-build-scan-depth N  Bounded build manifest scan depth (default: 4)',
@@ -775,152 +639,21 @@ function readOptionalJson(filePath, reasonCode) {
   }
 }
 
-function readJsonIfExists(filePath, reasonCode) {
-  if (!filePath || !fs.existsSync(filePath)) return null;
-  return readOptionalJson(filePath, reasonCode);
+function dedupeIndicators(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = `${item.artifact_path}|${item.field_path}|${item.path}|${item.reason_code}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
-function extractGitNexusStatus(providerStatus) {
-  if (!providerStatus || typeof providerStatus !== 'object') return {};
-  if (providerStatus.provider === 'gitnexus') return providerStatus;
-  if (Array.isArray(providerStatus.providers)) {
-    return providerStatus.providers.find(provider => provider && provider.provider === 'gitnexus') || {};
-  }
-  if (Array.isArray(providerStatus.results)) {
-    return providerStatus.results.find(provider => provider && provider.provider === 'gitnexus') || {};
-  }
-  return {};
-}
-
-function buildBootstrapGitNexusRef({ setupRef, gitnexusStatus, providerStatusPath, graphFactsPath }) {
-  return {
-    ...(setupRef || {}),
-    configured: gitnexusStatus.configured == null ? (setupRef && setupRef.configured) || false : Boolean(gitnexusStatus.configured),
-    graph_ready: gitnexusStatus.graph_ready == null ? null : Boolean(gitnexusStatus.graph_ready),
-    query_ready: gitnexusStatus.query_ready == null ? (setupRef ? setupRef.query_ready : null) : Boolean(gitnexusStatus.query_ready),
-    status: gitnexusStatus.status || null,
-    status_path: toPosixPath(providerStatusPath),
-    graph_facts_path: toPosixPath(graphFactsPath),
-    repo_label_resolution_path: `${toPosixPath(providerStatusPath)}#repo_label_resolution`,
-    reason_code: gitnexusStatus.reason_code || (setupRef && setupRef.reason_code) || null,
-  };
-}
-
-function extractBuildTargetCoverage(graphTargets) {
-  if (!graphTargets || typeof graphTargets !== 'object' || Object.keys(graphTargets).length === 0) {
-    return {
-      gitMisalignedBuildTargets: null,
-      coverageRatio: null,
-      reasonCode: PENDING_BUILD_TARGET_SCAN_REASON,
-      graphCoverageClass: null,
-    };
-  }
-  const summary = graphTargets.coverage_summary && typeof graphTargets.coverage_summary === 'object'
-    ? graphTargets.coverage_summary
-    : {};
-  const hasRatio = summary.coverage_ratio != null && Number.isFinite(Number(summary.coverage_ratio));
-  const coverageInference = graphTargets.coverage_inference || null;
-  const reasonCode = graphTargets.coverage_reason_code || graphTargets.reason_code || null;
-  return {
-    gitMisalignedBuildTargets: Number.isFinite(Number(summary.uncovered_build_modules))
-      ? Number(summary.uncovered_build_modules)
-      : null,
-    coverageRatio: hasRatio ? Number(summary.coverage_ratio) : null,
-    reasonCode: hasRatio ? null : (reasonCode || (coverageInference === 'computed' ? null : PENDING_BUILD_TARGET_SCAN_REASON)),
-    graphCoverageClass: graphTargets.graph_coverage_class || null,
-  };
-}
-
-function computeSetupLayerStaleness({ setup, currentRevision, graphBootstrapSummary }) {
-  const reasons = [];
-  const setupRevision = setup && setup.freshness
-    ? setup.freshness.source_revision
-    : null;
-  if (setupRevision && currentRevision && setupRevision !== currentRevision) {
-    reasons.push({
-      reason_code: 'setup-source-revision-mismatch',
-      setup_source_revision: setupRevision,
-      bootstrap_source_revision: currentRevision,
-    });
-  }
-
-  const currentChildRevisions = collectSummaryChildRevisions(graphBootstrapSummary);
-  const childRepos = setup && setup.topology && Array.isArray(setup.topology.child_repos)
-    ? setup.topology.child_repos
-    : [];
-  for (const child of childRepos) {
-    const key = child.workspace_relative_path || child.repo_label || child.git_root;
-    if (!key || !child.head || !currentChildRevisions.has(key)) continue;
-    const current = currentChildRevisions.get(key);
-    if (current && current !== child.head) {
-      reasons.push({
-        reason_code: 'setup-child-revision-mismatch',
-        workspace_relative_path: child.workspace_relative_path || null,
-        repo_label: child.repo_label || null,
-        setup_source_revision: child.head,
-        bootstrap_source_revision: current,
-      });
-    }
-  }
-  return {
-    stale: reasons.length > 0,
-    reasons,
-  };
-}
-
-function collectSummaryChildRevisions(summary) {
-  const revisions = new Map();
-  const rows = summary && Array.isArray(summary.results) ? summary.results : [];
-  for (const row of rows) {
-    const revision = childRevisionFromSummaryRow(row);
-    if (!revision) continue;
-    for (const key of [row.workspace_relative_path, row.repo_label]) {
-      if (key) revisions.set(key, revision);
-    }
-  }
-  return revisions;
-}
-
-function childRevisionFromSummaryRow(row) {
-  const providers = row && row.result && Array.isArray(row.result.results)
-    ? row.result.results
-    : [];
-  for (const provider of providers) {
-    if (provider && provider.repo_snapshot && provider.repo_snapshot.source_revision) {
-      return provider.repo_snapshot.source_revision;
-    }
-  }
-  return row && row.result ? row.result.source_revision || null : null;
-}
-
-function deriveDirtyChildCount({ setup, graphFacts, graphBootstrapSummary }) {
-  const qualitySignals = graphBootstrapSummary && graphBootstrapSummary.quality_signals
-    ? graphBootstrapSummary.quality_signals
-    : null;
-  if (qualitySignals && Number.isFinite(Number(qualitySignals.child_count)) && Number.isFinite(Number(qualitySignals.dirty_advisory_child_rate))) {
-    return Math.round(Number(qualitySignals.child_count) * Number(qualitySignals.dirty_advisory_child_rate));
-  }
-  if (setup && setup.worktree && Number.isFinite(Number(setup.worktree.dirty_child_count))) {
-    return Number(setup.worktree.dirty_child_count);
-  }
-  return graphFacts && graphFacts.source_revision_dirty ? 1 : 0;
-}
-
-function toWorkspaceRelative(workspaceRoot, filePath) {
-  const absoluteRoot = path.resolve(workspaceRoot);
-  const absolutePath = path.resolve(filePath);
-  if (!isSubpath(toPosixPath(absoluteRoot), toPosixPath(absolutePath))) {
-    return toPosixPath(absolutePath);
-  }
-  const relative = path.relative(absoluteRoot, absolutePath);
-  return toPosixPath(relative || '.');
-}
-
-function atomicWriteJson(filePath, payload) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  const tmp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`);
-  fs.renameSync(tmp, filePath);
+function atomicWriteJson(outputPath, payload) {
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  const tmpPath = `${outputPath}.${process.pid}.tmp`;
+  fs.writeFileSync(tmpPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  fs.renameSync(tmpPath, outputPath);
 }
 
 function writeJson(stream, payload) {
@@ -943,38 +676,24 @@ function reasonError(reasonCode, message) {
   return error;
 }
 
-function toPosixPath(value) {
-  return String(value || '').replace(/\\/g, '/');
-}
-
 function isSubpath(root, candidate) {
   const normalizedRoot = toPosixPath(root).replace(/\/+$/, '');
-  const normalizedCandidate = toPosixPath(candidate).replace(/\/+$/, '');
+  const normalizedCandidate = toPosixPath(candidate);
   return normalizedCandidate === normalizedRoot || normalizedCandidate.startsWith(`${normalizedRoot}/`);
 }
 
-function dedupeIndicators(indicators) {
-  const seen = new Set();
-  const result = [];
-  for (const indicator of indicators) {
-    const key = `${indicator.artifact_path}|${indicator.field_path}|${indicator.path}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(indicator);
-  }
-  return result;
+function toWorkspaceRelative(workspaceRoot, absolutePath) {
+  return toPosixPath(path.relative(workspaceRoot, absolutePath));
 }
 
-if (require.main === module) {
-  process.exitCode = runScenarioFingerprint(process.argv.slice(2));
+function toPosixPath(value) {
+  return String(value || '').replace(/\\/g, '/');
 }
 
 module.exports = {
   BOOTSTRAP_SCHEMA_VERSION,
   PROVISIONAL_SCENARIO_CLASSES,
-  PENDING_BUILD_TARGET_SCAN_REASON,
   SETUP_SCHEMA_VERSION,
-  classifyState,
   computeBootstrapLayer,
   computeSetupLayer,
   runScenarioFingerprint,

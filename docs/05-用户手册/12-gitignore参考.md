@@ -1,13 +1,13 @@
 # spec-first `.gitignore` 参考
 
-本文面向把 `spec-first` 安装到业务项目里的用户，说明在执行 `spec-first init`、`spec-mcp-setup` 和 `spec-graph-bootstrap` 后，哪些产物应该加入 `.gitignore`，哪些产物可以按团队协作需要提交。
+本文面向把 `spec-first` 安装到业务项目里的用户，说明在执行 `spec-first init` 和 `spec-mcp-setup` 后，哪些产物应该加入 `.gitignore`，哪些产物可以按团队协作需要提交。
 
 从 `v1.7.0` 起，`spec-first init` 会在当前目标项目的 `.gitignore` 中自动写入或更新一个 `# spec-first:start` / `# spec-first:end` managed block。交互式 init 会在确认前预览这次写入；取消时不会改变文件系统。团队仍然应该 review 并提交 `.gitignore`，让后续成员获得相同忽略规则。
 
 核心原则：
 
 - `.claude/`、`.codex/` 和 `.agents/skills/` 下的 spec-first runtime mirror 可重建，不作为项目 source truth。
-- `.spec-first/config/`、`.spec-first/graph/`、`.spec-first/providers/`、`.spec-first/impact/` 和 `.spec-first/workspace/` 是本地 readiness/control-plane facts，默认不提交。
+- `.spec-first/config/` 和 `.spec-first/workspace/` 是本地 setup/control-plane facts，默认不提交。
 - `.spec-first/audits/**` 和 generated runtime mirrors 也不应作为普通 LLM 上下文扫描源；只有 setup/update/runtime-drift/audit 任务或用户明确点名路径时才按需读取。
 - `.spec-first/sessions/` 是 multi-actor 治理协议的 opt-in advisory 记录目录，由 `spec-first session register` 等命令写入；属于 runtime state，默认不提交。
 - `AGENTS.md`、`CLAUDE.md`、`docs/`、项目源码、测试和 confirmed standards source 应按团队正常协作策略提交。
@@ -32,8 +32,8 @@
 .agents/skills/
 .context/spec-first/
 
-# spec-first local setup, graph readiness, and workflow runtime artifacts
-.gitnexus/
+# spec-first local setup and workflow runtime artifacts
+.direct-source-evidence/
 .code-review-graph/
 .spec-first-graph/
 .spec-first/*.local.yaml
@@ -41,16 +41,13 @@
 .spec-first/config/*.json
 .spec-first/audits/
 .spec-first/app-audit/
-.spec-first/graph/
-.spec-first/providers/
-.spec-first/impact/
 .spec-first/workflows/
 .spec-first/workspace/
 .spec-first/sessions/
 # spec-first:end
 ```
 
-普通单 repo / monorepo 中，`init` 保持当前行为，只维护当前执行目录对应的目标项目 `.gitignore`，通常应在项目根目录运行。在父 workspace 且检测到多个 child Git repos 时，`init` 会在引导中询问全部 child 或单个 child：选择全部时逐个初始化 child repo，并在父目录写 advisory `.spec-first/workspace/init-summary.json`、父级 host 入口文档和 host runtime assets，用于父级只读路由；父目录不把 `.spec-first/config/*`、`.spec-first/graph/*`、`.spec-first/providers/*` 或 `.spec-first/impact/*` 作为 parent-local truth。
+普通单 repo / monorepo 中，`init` 保持当前行为，只维护当前执行目录对应的目标项目 `.gitignore`，通常应在项目根目录运行。在父 workspace 且检测到多个 child Git repos 时，`init` 会在引导中询问全部 child 或单个 child：选择全部时逐个初始化 child repo，并在父目录写 advisory `.spec-first/workspace/init-summary.json`、父级 host 入口文档和 host runtime assets，用于父级只读路由；父目录不把 child repo 的 `.spec-first/config/*` 作为 parent-local truth。
 
 如果项目里已经有同类规则，`init` 仍会保留 spec-first managed block，保证后续版本可以幂等更新。它不会尝试判断所有语义等价的 glob，也不会删除 block 外的用户规则。
 
@@ -86,26 +83,14 @@
   .agents/
     skills/                         # Codex skill runtime mirror，忽略
 
-  .gitnexus/                         # GitNexus 本地图谱索引/metadata，忽略
+  .direct-source-evidence/                         # direct source evidence 本地图谱索引/metadata，忽略
   .code-review-graph/                # 迁移前 CRG 本地索引/cache 残留，迁移窗口内忽略
 
   .spec-first/
     config.local.example.yaml       # 本地配置模板，可提交
     config.local.yaml               # 本地配置，忽略
     config/
-      graph-providers.json          # setup-owned projection，忽略
       runtime-capabilities.json     # setup-owned local readiness facts，忽略
-      provider-artifacts.json       # setup/bootstrap path contract，忽略
-    providers/
-      <provider>/raw/*.log          # provider 原始日志，忽略
-      <provider>/status.json        # provider 本地状态，忽略
-      <provider>/normalized/*.json  # provider 规范化事实，忽略
-    graph/
-      provider-status.json          # canonical graph readiness facts，忽略
-      graph-facts.json              # canonical graph readiness facts，忽略
-      bootstrap-report.md           # 本地 bootstrap 报告，忽略
-    impact/
-      bootstrap-impact-capabilities.json # impact capability envelope，忽略
     workspace/
       *.json                        # 父级多仓 advisory summaries，忽略
 
@@ -136,11 +121,8 @@
 | `.claude/tasks/`、`.claude/worktrees/` | Claude Code host-local scratch/worktree 产物 |
 | `.codex/commands/spec/`、`.codex/spec-first/`、`.codex/agents/`、`.agents/skills/` | `spec-first init` 可重建的 runtime assets |
 | `.spec-first/config.local.yaml`、`.spec-first/*.local.yaml` | 本地配置，可能包含个人路径或私有设置 |
-| `.gitnexus/`、`.code-review-graph/` | GitNexus 本地图谱索引，以及迁移前 CRG 残留 cache；`.code-review-graph/` 仅迁移窗口内保留 |
+| `.direct-source-evidence/`、`.code-review-graph/` | direct source evidence 本地图谱索引，以及迁移前 CRG 残留 cache；`.code-review-graph/` 仅迁移窗口内保留 |
 | `.spec-first/config/*.json` | `spec-mcp-setup` 生成的 setup-owned 本地投影，不是第二个版本源 |
-| `.spec-first/providers/` | provider 原始日志、状态和规范化输出，依赖本机环境和当前索引 |
-| `.spec-first/graph/` | graph readiness facts，可由 `spec-graph-bootstrap` 重建 |
-| `.spec-first/impact/` | impact capability envelope，可由 `spec-graph-bootstrap` 重建 |
 | `.spec-first/workspace/` | 父级多仓 advisory summaries，不是 child repo canonical truth |
 | `.spec-first/audits/`、`.spec-first/app-audit/`、`.spec-first/workflows/` | workflow execution evidence，默认本地留存 |
 | `.spec-first/sessions/` | multi-actor 治理协议的 opt-in advisory 记录目录，由 `spec-first session register` 写入；不启用时为空 |

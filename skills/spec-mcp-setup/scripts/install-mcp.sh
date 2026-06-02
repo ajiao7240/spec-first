@@ -675,8 +675,8 @@ EOF
     fi
   elif [ "$status" = "ready" ]; then
     last_action="host-config-skipped"
-    next_action="run spec-graph-bootstrap"
-    diagnostic_summary="host MCP config is not required for this provider"
+    next_action=""
+    diagnostic_summary="host MCP config is not required for this tool"
   fi
 
   append_result "$tool_id" "$status" "$last_action" "$install_kind" "$reason_code" "$next_action" "$configured_path" "$selected_scope" "$fallback_applied" "$exit_code" "$diagnostic_summary" "$repair_diagnostic_summary"

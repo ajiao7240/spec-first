@@ -9,25 +9,16 @@ function read(relativePath) {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
 }
 
-function readDir(relativeDirPath) {
-  const dir = path.join(REPO_ROOT, relativeDirPath);
-  return fs.readdirSync(dir)
-    .filter((f) => f.endsWith('.js'))
-    .sort()
-    .map((f) => fs.readFileSync(path.join(dir, f), 'utf8'))
-    .join('\n');
-}
-
 describe('AI Coding Harness contract', () => {
   test('defines spec-first as a bounded AI Coding Harness, not a state machine', () => {
     const contract = read('docs/contracts/ai-coding-harness.md');
 
     expect(contract).toContain('AI Coding Harness for spec-driven software engineering');
-    expect(contract).toContain('Codebase -> Graph -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge');
+    expect(contract).toContain('Codebase -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge');
     expect(contract).toContain('不是新的 workflow、command、state machine、universal schema');
     expect(contract).toContain('Scripts prepare deterministic facts');
     expect(contract).toContain('LLM workflows decide semantic meaning');
-    expect(contract).toContain('GitNexus 和其他 providers 不拥有 scope authority');
+    expect(contract).toContain('External tools and providers do not own scope authority');
   });
 
   test('maps Harness layers to existing light contracts', () => {
@@ -48,44 +39,27 @@ describe('AI Coding Harness contract', () => {
       'context-governance.md',
       'context-bundle.md',
       'artifact-summary.md',
-      'workflows/review-pre-facts-extraction.md',
       'workflows/spec-id-traceability.md',
       'workflows/spec-work-run-artifact.schema.json',
-      'graph-evidence-policy.md',
-      'graph-provider-consumption.md',
-      'gitnexus-capability-catalog.md',
-      'workspace-gitnexus-consumption.md',
+      'workflows/review-finding.md',
+      'verifiers/verification-evidence.schema.json',
+      'source-runtime-customization-boundary.md',
+      'dual-host-governance/README.md',
     ]) {
       expect(contract).toContain(referenced);
     }
   });
 
-  test('defines GitNexus lanes without promoting every capability into helper scope', () => {
+  test('defines direct evidence lanes without promoting external tools into scope authority', () => {
     const contract = read('docs/contracts/ai-coding-harness.md');
-    const preFacts = read('docs/contracts/workflows/review-pre-facts-extraction.md');
-    const policy = read('docs/contracts/graph-evidence-policy.md');
-    const catalog = read('docs/contracts/gitnexus-capability-catalog.md');
-    const helper = readDir('src/cli/helpers/review-pre-facts');
 
-    expect(contract).toContain('deterministic-helper');
-    expect(contract).toContain('`query`, `context`, `impact`, `detect_changes`');
-    expect(contract).toContain('workflow-native-session');
-    expect(contract).toContain('`route_map`, `api_impact`, `shape_check`, `tool_map`, `cypher`');
-    expect(contract).toContain('workspace-resource');
-    expect(contract).toContain('mutation-gated-maintenance');
-    expect(preFacts).toContain('The GitNexus executable operation candidate allowlist is intentionally small');
-    expect(preFacts).toContain('Current Implementation Boundary');
-    expect(preFacts).toContain('currently supports only');
-    expect(helper).toContain("const WORKFLOWS = new Set(['doc-review', 'code-review', 'plan', 'debug']);");
-    expect(helper).toContain("query: 'gitnexus.query'");
-    expect(helper).toContain("context: 'gitnexus.context'");
-    expect(helper).toContain("impact: 'gitnexus.impact'");
-    expect(helper).toContain("detect_changes: 'gitnexus.detect_changes'");
-    expect(helper).toContain('tool_name: OPERATION_TOOL_NAMES[operation]');
-    expect(helper).toContain("operation: 'query'");
-    expect(preFacts).toContain('must not appear in `queries[]`');
-    expect(preFacts).toMatch(/provider summary-only arguments may be emitted only after the current executable tool schema proves support/i);
-    expect(policy).toContain('`gitnexus-session-evidence.v1`');
-    expect(catalog).toContain('Harness Lane Classification');
+    expect(contract).toContain('spec-first 的默认 evidence lane 是 bounded direct evidence');
+    expect(contract).toContain('bounded direct evidence');
+    expect(contract).toContain('| source-read | focused file reads, `rg`, ast-grep, local package/test metadata |');
+    expect(contract).toContain('| verification | tests, syntax checks, CLI output, logs, deterministic validators |');
+    expect(contract).toContain('| handoff-summary | artifact summaries, changed files, review/debug/work summaries |');
+    expect(contract).toContain('| external-tool | browser/MCP/package manager/shell outputs when explicitly useful |');
+    expect(contract).toContain('source reads remain the confirmation path');
+    expect(contract).toContain('untrusted until validated, bounded, summarized, and confirmed against source/test/log evidence when material');
   });
 });

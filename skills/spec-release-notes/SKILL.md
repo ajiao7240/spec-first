@@ -48,9 +48,9 @@ Humans deciding whether to update, `spec-update`, release triage, and support/de
 Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
 Overrides: none
 
-## GitNexus Boundary
+## Evidence Boundary
 
-This workflow does not run GitNexus or create a release-specific graph evidence pipeline. Release-note answers are grounded in published release metadata and, when a caller already provides it, source-confirmed git / `detect_changes` / graph summary context. Any graph-informed release context remains advisory, must be summarized rather than copied from raw provider output, and cannot replace release tags, changelog entries, PR bodies, or source-confirmed evidence.
+This workflow does not create a release-specific external evidence pipeline. Release-note answers are grounded in published release metadata and, when a caller already provides it, source-confirmed git, diff, test, or review summary context. External-tool context remains advisory, must be summarized rather than copied from raw output, and cannot replace release tags, changelog entries, PR bodies, or source-confirmed evidence.
 
 Data comes from the GitHub Releases API for `sunrain520/spec-first`, filtered to the `spec-first-v*` tag prefix so sibling components (`cli-v*`, `coding-tutor-v*`, `marketplace-v*`, `cursor-marketplace-v*`) are excluded.
 

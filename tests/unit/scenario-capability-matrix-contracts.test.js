@@ -23,7 +23,6 @@ const SCENARIO_CLASSES = [
   'foreign-residual-workspace',
   'non-git-folder',
   'non-git-build-workspace',
-  'provider-degraded',
 ];
 
 const CAPABILITY_CLASSES = [
@@ -81,7 +80,7 @@ describe('scenario capability matrix contract', () => {
     const rows = matrixRows(section(matrix, '## Default Matrix', '## High-Risk Overrides'));
 
     expect(matrix).toContain('Scenario Capability Matrix');
-    expect(matrix).toContain('Scripts prepare the fingerprint and graph-target facts; LLM workflows decide');
+    expect(matrix).toContain('Scripts prepare the fingerprint facts; LLM workflows decide');
     expect(matrix).toContain('This matrix is advisory. It is not a hard gate');
     expect(matrix).toContain('| Scenario class | Capability class | Required Evidence | Fallback path | LLM decision point |');
 
@@ -128,12 +127,12 @@ describe('scenario capability matrix contract', () => {
     }
   });
 
-  test('high-risk workflow overrides cover foreign residual and unavailable provider conditions', () => {
+  test('high-risk workflow overrides cover foreign residual and optional external-tool limitations', () => {
     for (const workflow of HIGH_RISK_WORKFLOWS) {
       const skill = read(path.join('skills', workflow, 'SKILL.md'));
       expect(skill).toContain('Overrides: high-risk');
       expect(skill).toContain('`foreign-residual-workspace` -> `blocked-action-required`');
-      expect(skill).toContain('`unavailable-provider` condition -> `fallback-only`');
+      expect(skill).toContain('optional external-tool evidence unavailable -> `fallback-only`');
       expect(skill).toContain('`non-git-build-workspace` coverage gaps -> `partial`');
     }
   });

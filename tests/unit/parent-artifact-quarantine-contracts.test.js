@@ -21,7 +21,7 @@ describe('parent artifact quarantine contract', () => {
     expect(contract).toContain('spec-first clean --workspace-orphans --confirm');
     expect(contract).toContain('preview-first');
     expect(contract).toContain('foreign-absolute-path-stat-failed');
-    expect(contract).toContain('retired-provider-residue');
+    expect(contract).toContain('parent-workspace-must-not-have-repo-local-setup-artifact');
     expect(contract).toContain('repo_root-mismatches-workspace-root');
     expect(artifactMap).toContain('parent-artifact-quarantine.json');
     expect(artifactMap).toContain('parent_workspace_pollution_count');
@@ -37,10 +37,8 @@ describe('parent artifact quarantine contract', () => {
       'freshness',
       'spec-first clean --workspace-orphans',
       'LLM workflow degraded-evidence judgment',
-      'parent-workspace-must-not-have-repo-local-graph',
-      'parent-workspace-must-not-have-graph-index',
+      'parent-workspace-must-not-have-repo-local-setup-artifact',
       'foreign-absolute-path-stat-failed',
-      'retired-provider-residue',
       'repo_root-mismatches-workspace-root',
       'parent_workspace_pollution_count',
     ];

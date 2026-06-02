@@ -1,5 +1,5 @@
 #!/bin/bash
-# detect-tools.sh - Detect MCP tool and graph-provider host readiness facts.
+# detect-tools.sh - Detect MCP tool host readiness facts.
 
 set -euo pipefail
 
@@ -229,7 +229,6 @@ project_status() {
 }
 
 tools_json='{}'
-graph_providers_json='{}'
 next_actions_json='[]'
 
 append_next_action() {
@@ -241,10 +240,7 @@ append_next_action() {
 while IFS= read -r tool_id; do
   required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .required' "$TOOLS_JSON")"
   category="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .category // "mcp"' "$TOOLS_JSON")"
-  provider_role="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .provider_role // empty' "$TOOLS_JSON")"
   host_required="$(host_config_required "$tool_id")"
-  provider_enabled="$(jq -r --arg id "$tool_id" '(.tools[] | select(.id == $id) | .provider_config.enabled_for_bootstrap) // false' "$TOOLS_JSON")"
-  access_mode="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | (.provider_config.access_mode // (if (if has("host_config_required") then .host_config_required else true end) then "live_mcp" else "cli_artifact" end))' "$TOOLS_JSON")"
   dep_status=ready
 
   while IFS= read -r dep; do
@@ -266,11 +262,7 @@ while IFS= read -r tool_id; do
   fi
 
   configured=false
-  if [ "$category" = "graph-provider" ]; then
-    if [ "$provider_enabled" = "true" ] && [ "$dep_status" = "ready" ] && [ "$host_ready" = "true" ]; then
-      configured=true
-    fi
-  elif [ "$cfg_status" = "ready" ] || [ "$cfg_status" = "fallback-active" ]; then
+  if [ "$cfg_status" = "ready" ] || [ "$cfg_status" = "fallback-active" ]; then
     configured=true
   fi
 
@@ -287,8 +279,6 @@ while IFS= read -r tool_id; do
     next_action="bootstrap project"
   elif [ "$proj_status" = "failed" ]; then
     next_action="repair project bootstrap"
-  elif [ "$category" = "graph-provider" ] && [ "$configured" = "true" ]; then
-    next_action="run spec-graph-bootstrap"
   fi
 
   append_next_action "$next_action"
@@ -316,43 +306,7 @@ while IFS= read -r tool_id; do
         selected_scope: $scope,
         next_action: $next
       } + $extra)}
-      | if $type == "graph-provider" then
-        .[$id] += {
-          configured: $configured,
-          enabled_for_bootstrap: $configured,
-          query_ready: false,
-          bootstrap_required: true
-        }
-      else . end' <<<"$tools_json")"
-
-  if [ "$category" = "graph-provider" ]; then
-    capabilities="$(jq -c --arg id "$tool_id" '.tools[] | select(.id == $id) | .provider_config.capabilities // []' "$TOOLS_JSON")"
-    graph_providers_json="$(jq \
-      --arg id "$tool_id" \
-      --arg role "$provider_role" \
-      --arg access_mode "$access_mode" \
-      --arg host_required "$host_required" \
-      --argjson required_json "$required" \
-      --arg dep "$dep_status" \
-      --arg cfg "$cfg_status" \
-      --arg next "$next_action" \
-      --argjson configured "$configured" \
-      --argjson capabilities "$capabilities" \
-      '. + {($id): {
-        required: $required_json,
-        role: $role,
-        access_mode: $access_mode,
-        host_config_required: ($host_required == "true"),
-        dependency_status: $dep,
-        host_config_status: $cfg,
-        configured: $configured,
-        enabled_for_bootstrap: $configured,
-        query_ready: false,
-        bootstrap_required: true,
-        capabilities: $capabilities,
-        next_action: $next
-      }}' <<<"$graph_providers_json")"
-  fi
+      | .[$id] += {configured: $configured}' <<<"$tools_json")"
 done < <(jq -r '.tools[].id' "$TOOLS_JSON")
 
 jq -n \
@@ -363,7 +317,6 @@ jq -n \
   --arg target_kind "$TARGET_KIND" \
   --argjson target "$TARGET_JSON" \
   --argjson tools "$tools_json" \
-  --argjson graph_providers "$graph_providers_json" \
   --argjson next_actions "$next_actions_json" \
   '{
     schema_version: "tool-facts.v2",
@@ -385,6 +338,5 @@ jq -n \
     target_candidates: ($target.candidates // []),
     reason_code: ($target.reason_code // ""),
     tools: $tools,
-    graph_providers: $graph_providers,
     next_actions: $next_actions
   }'

@@ -18,7 +18,6 @@
       "required": true,
       "category": "mcp",
       "host_config_required": true,
-      "provider_role": null,
       "description": "动态反思性问题解决，spec-first 全工作流通用依赖",
       "dependencies": ["node", "npx"],
       "installation": {
@@ -88,8 +87,7 @@
       "project_bootstrap": {
         "kind": "none",
         "required": false
-      },
-      "provider_config": null
+      }
     },
     {
       "id": "context7",
@@ -98,7 +96,6 @@
       "required": true,
       "category": "mcp",
       "host_config_required": true,
-      "provider_role": null,
       "description": "最新框架文档查询，spec-first 全工作流通用依赖",
       "dependencies": ["node", "npx"],
       "installation": {
@@ -168,180 +165,6 @@
       "project_bootstrap": {
         "kind": "none",
         "required": false
-      },
-      "provider_config": null
-    },
-    {
-      "id": "gitnexus",
-      "name": "GitNexus",
-      "summary_label": "GitNexus",
-      "required": true,
-      "category": "graph-provider",
-      "host_config_required": true,
-      "provider_role": "global_knowledge",
-      "description": "全局代码库知识图谱与架构认知 provider，用于项目级代码事实输入",
-      "dependencies": ["node", "npm", "npx"],
-      "package": "gitnexus",
-      "version": "1.6.6-rc.76",
-      "installation": {
-        "kind": "warmup",
-        "unix": {
-          "command": "npx",
-          "args": ["-y", "{{package}}@{{version}}", "--help"]
-        },
-        "windows": {
-          "command": "npx",
-          "args": ["-y", "{{package}}@{{version}}", "--help"]
-        }
-      },
-      "host_config": {
-        "claude": {
-          "command": "npx",
-          "args": ["-y", "{{package}}@{{version}}", "mcp"],
-          "scope": "managed",
-          "targets": {
-            "managed": {
-              "config_path": {
-                "macos": "/Library/Application Support/ClaudeCode/managed-mcp.json",
-                "linux": "/etc/claude-code/managed-mcp.json",
-                "wsl": "/etc/claude-code/managed-mcp.json",
-                "windows": "C:\\Program Files\\ClaudeCode\\managed-mcp.json"
-              },
-              "config_format": "json",
-              "precedence": 100,
-              "writable_check": "parent-or-file"
-            },
-            "user": {
-              "config_path": "$HOME/.claude.json",
-              "config_format": "json",
-              "precedence": 10,
-              "writable_check": "parent-or-file"
-            }
-          },
-          "fallback_order": ["managed", "user"],
-          "uninstall_targets": ["managed", "user"]
-        },
-        "codex": {
-          "command": "npx",
-          "args": ["-y", "{{package}}@{{version}}", "mcp"],
-          "startup_timeout_sec": 90,
-          "scope": "user",
-          "targets": {
-            "user": {
-              "config_path": "$HOME/.codex/config.toml",
-              "config_format": "toml",
-              "precedence": 50,
-              "writable_check": "parent-or-file"
-            },
-            "system": {
-              "config_path": "/etc/codex/config.toml",
-              "config_format": "toml",
-              "precedence": 100,
-              "writable_check": "file-only"
-            }
-          },
-          "fallback_order": ["user"],
-          "uninstall_targets": ["user", "system"]
-        }
-      },
-      "detection": {
-        "kind": "host_config_exact",
-        "key": "gitnexus"
-      },
-      "project_bootstrap": {
-        "kind": "none",
-        "required": false
-      },
-      "provider_config": {
-        "enabled_for_bootstrap": true,
-        "query_ready_after_setup": false,
-        "role": "global_knowledge",
-        "capabilities": [
-          "build_global_graph",
-          "architecture_map",
-          "dependency_map",
-          "execution_flow",
-          "repo_wiki",
-          "query_global_graph"
-        ],
-        "native_capabilities": {
-          "query": {
-            "meaning": "Search GitNexus graph processes, symbols, and definitions for codebase orientation.",
-            "native_tools": ["query"],
-            "native_resources": [],
-            "mutation_boundary": "read-only",
-            "fallback_posture": "bounded direct source reads, ast-grep, git diff, tests/logs, or prior GitNexus evidence",
-            "source_tags": ["checked-in-baseline", "provider-pin"]
-          },
-          "context": {
-            "meaning": "Inspect a specific GitNexus symbol with incoming and outgoing relationships.",
-            "native_tools": ["context"],
-            "native_resources": ["gitnexus://repo/{name}/context"],
-            "mutation_boundary": "read-only",
-            "fallback_posture": "bounded source reads plus local call/reference search",
-            "source_tags": ["checked-in-baseline", "provider-pin"]
-          },
-          "impact": {
-            "meaning": "Estimate upstream or downstream blast radius for a named symbol or file.",
-            "native_tools": ["impact", "detect_changes"],
-            "native_resources": ["gitnexus://repo/{name}/processes", "gitnexus://repo/{name}/process/{processName}"],
-            "mutation_boundary": "read-only",
-            "fallback_posture": "git diff, ast-grep, tests/logs, and bounded source reads",
-            "source_tags": ["checked-in-baseline", "provider-pin"]
-          },
-          "route_api_evidence": {
-            "meaning": "Map API routes, consumers, middleware, and route-level impact evidence.",
-            "native_tools": ["route_map", "api_impact"],
-            "native_resources": [],
-            "mutation_boundary": "read-only",
-            "fallback_posture": "route handler reads, consumer source reads, and bounded API contract search",
-            "source_tags": ["checked-in-baseline", "provider-pin"]
-          },
-          "shape_check": {
-            "meaning": "Compare detected route response keys against consumer property access.",
-            "native_tools": ["shape_check"],
-            "native_resources": [],
-            "mutation_boundary": "read-only",
-            "fallback_posture": "route response source reads plus consumer access search",
-            "source_tags": ["checked-in-baseline", "provider-pin"]
-          },
-          "cypher": {
-            "meaning": "Run read-oriented structural graph queries when schema-aware graph inspection is needed.",
-            "native_tools": ["cypher"],
-            "native_resources": ["gitnexus://repo/{name}/schema"],
-            "mutation_boundary": "read-only",
-            "fallback_posture": "direct contract/source reads and narrower GitNexus query/context calls",
-            "source_tags": ["checked-in-baseline", "provider-pin"]
-          },
-          "tool_map": {
-            "meaning": "Inspect MCP/RPC tool definitions and handler mappings.",
-            "native_tools": ["tool_map"],
-            "native_resources": [],
-            "mutation_boundary": "read-only",
-            "fallback_posture": "tool definition source reads and bounded text search",
-            "source_tags": ["checked-in-baseline", "provider-pin"]
-          },
-          "repo_registry": {
-            "meaning": "List indexed repositories available to the GitNexus runtime.",
-            "native_tools": ["list_repos"],
-            "native_resources": ["gitnexus://repos"],
-            "mutation_boundary": "read-only",
-            "fallback_posture": "workspace advisory artifacts or bounded per-repo source reads",
-            "source_tags": ["checked-in-baseline", "provider-pin"]
-          },
-          "workspace_group": {
-            "meaning": "Orient parent-workspace GitNexus group readiness and read-only group evidence without running group maintenance.",
-            "native_tools": ["group_list"],
-            "native_resources": ["gitnexus://group/{name}/contracts", "gitnexus://group/{name}/status"],
-            "mutation_boundary": "read-only",
-            "fallback_posture": "workspace advisory artifacts, bounded registry/per-repo fallback, and explicit preview-first maintenance plans for group_sync or other group mutations",
-            "source_tags": ["checked-in-baseline", "provider-pin"]
-          }
-        }
-      },
-      "license_notice": {
-        "required": true,
-        "message": "Review GitNexus licensing terms before commercial use."
       }
     }
   ]

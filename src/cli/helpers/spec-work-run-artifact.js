@@ -33,29 +33,21 @@ const ALLOWED_PAYLOAD_PRODUCER_FIELDS = new Set([
   'reason_code',
 ]);
 const ALLOWED_LLM_ASSERTED_FIELDS = new Set(['summary', 'read_artifacts', 'key_decisions', 'deferred_follow_up', 'next_action']);
-const ALLOWED_GRAPH_EVIDENCE_FIELDS = new Set([
-  'capabilities_used',
-  'evidence_grade',
-  'evidence_posture',
-  'freshness_state',
+const ALLOWED_DIRECT_EVIDENCE_FIELDS = new Set([
+  'source_refs',
+  'checks_or_logs',
   'repo_scope',
-  'graph_findings_applied',
-  'graph_findings_as_risk_only',
-  'source_reads_validated',
+  'limitations',
   'redaction_status',
 ]);
-const ALLOWED_GRAPH_EVIDENCE_GRADES = new Set(['primary', 'session-local', 'advisory', 'stale']);
-const ALLOWED_GRAPH_EVIDENCE_POSTURES = new Set(['primary', 'fallback']);
-const ALLOWED_GRAPH_FRESHNESS_STATES = new Set(['fresh', 'stale', 'dirty-advisory', 'query-unverified']);
-const ALLOWED_GRAPH_REDACTION_STATUSES = new Set(['redacted', 'none-required']);
+const ALLOWED_DIRECT_EVIDENCE_REDACTION_STATUSES = new Set(['redacted', 'none-required']);
 const GENERATED_RUNTIME_PREFIXES = ['.claude/', '.codex/', '.agents/skills/'];
-const FORBIDDEN_ARTIFACT_PREFIXES = ['.spec-first/graph/', '.spec-first/providers/'];
 const LLM_SUMMARY_MAX_LENGTH = 1000;
 const LLM_NEXT_ACTION_MAX_LENGTH = 500;
 const LLM_ARRAY_ITEM_MAX_LENGTH = 500;
-const GRAPH_EVIDENCE_SHORT_MAX_LENGTH = 160;
-const GRAPH_EVIDENCE_ITEM_MAX_LENGTH = 300;
-const GRAPH_EVIDENCE_MAX_ITEMS = 20;
+const DIRECT_EVIDENCE_SHORT_MAX_LENGTH = 160;
+const DIRECT_EVIDENCE_ITEM_MAX_LENGTH = 300;
+const DIRECT_EVIDENCE_MAX_ITEMS = 20;
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/;
 const ARTIFACT_SCHEMA_PATH = path.join(__dirname, '..', '..', '..', 'docs', 'contracts', 'workflows', 'spec-work-run-artifact.schema.json');
 const ALLOWED_PAYLOAD_FIELDS = new Set([
@@ -70,7 +62,7 @@ const ALLOWED_PAYLOAD_FIELDS = new Set([
   'script_confirmed',
   'llm_asserted',
   'provider_untrusted',
-  'graph_evidence_used',
+  'direct_evidence_used',
   'retention',
 ]);
 const ALLOWED_SCRIPT_CONFIRMED_FIELDS = new Set([
@@ -937,8 +929,8 @@ function validatePayload(payload) {
     validateStringArray(payload.provider_untrusted.summaries, 'provider_untrusted.summaries', errors, { maxLength: 500, maxLines: 5, maxItems: 20 });
   }
 
-  if (Object.prototype.hasOwnProperty.call(payload, 'graph_evidence_used')) {
-    validateGraphEvidenceUsed(payload.graph_evidence_used, errors);
+  if (Object.prototype.hasOwnProperty.call(payload, 'direct_evidence_used')) {
+    validateDirectEvidenceUsed(payload.direct_evidence_used, errors);
   }
 
   validateRetention(payload.retention, errors);
@@ -973,46 +965,33 @@ function validatePayloadProducer(producer, errors) {
   }
 }
 
-function validateGraphEvidenceUsed(graphEvidenceUsed, errors) {
-  if (graphEvidenceUsed === null) return;
-  if (!graphEvidenceUsed || typeof graphEvidenceUsed !== 'object' || Array.isArray(graphEvidenceUsed)) {
-    errors.push('graph_evidence_used must be an object or null');
+function validateDirectEvidenceUsed(directEvidenceUsed, errors) {
+  if (directEvidenceUsed === null) return;
+  if (!directEvidenceUsed || typeof directEvidenceUsed !== 'object' || Array.isArray(directEvidenceUsed)) {
+    errors.push('direct_evidence_used must be an object or null');
     return;
   }
-  for (const field of Object.keys(graphEvidenceUsed)) {
-    if (!ALLOWED_GRAPH_EVIDENCE_FIELDS.has(field)) errors.push(`graph_evidence_used.${field} is not allowed`);
+  for (const field of Object.keys(directEvidenceUsed)) {
+    if (!ALLOWED_DIRECT_EVIDENCE_FIELDS.has(field)) errors.push(`direct_evidence_used.${field} is not allowed`);
   }
-  for (const field of ALLOWED_GRAPH_EVIDENCE_FIELDS) {
-    if (!Object.prototype.hasOwnProperty.call(graphEvidenceUsed, field)) {
-      errors.push(`graph_evidence_used.${field} is required`);
+  for (const field of ALLOWED_DIRECT_EVIDENCE_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(directEvidenceUsed, field)) {
+      errors.push(`direct_evidence_used.${field} is required`);
     }
   }
-  validateStringArray(graphEvidenceUsed.capabilities_used, 'graph_evidence_used.capabilities_used', errors, {
-    maxLength: GRAPH_EVIDENCE_SHORT_MAX_LENGTH,
-    maxItems: GRAPH_EVIDENCE_MAX_ITEMS,
-  });
-  if (!ALLOWED_GRAPH_EVIDENCE_GRADES.has(graphEvidenceUsed.evidence_grade)) {
-    errors.push('graph_evidence_used.evidence_grade is invalid');
-  }
-  if (!ALLOWED_GRAPH_EVIDENCE_POSTURES.has(graphEvidenceUsed.evidence_posture)) {
-    errors.push('graph_evidence_used.evidence_posture is invalid');
-  }
-  if (!ALLOWED_GRAPH_FRESHNESS_STATES.has(graphEvidenceUsed.freshness_state)) {
-    errors.push('graph_evidence_used.freshness_state is invalid');
-  }
-  validateBoundedString(graphEvidenceUsed.repo_scope, 'graph_evidence_used.repo_scope', errors, {
-    maxLength: GRAPH_EVIDENCE_SHORT_MAX_LENGTH,
+  validateBoundedString(directEvidenceUsed.repo_scope, 'direct_evidence_used.repo_scope', errors, {
+    maxLength: DIRECT_EVIDENCE_SHORT_MAX_LENGTH,
     maxLines: 1,
   });
-  for (const field of ['graph_findings_applied', 'graph_findings_as_risk_only', 'source_reads_validated']) {
-    validateStringArray(graphEvidenceUsed[field], `graph_evidence_used.${field}`, errors, {
-      maxLength: GRAPH_EVIDENCE_ITEM_MAX_LENGTH,
-      maxItems: GRAPH_EVIDENCE_MAX_ITEMS,
+  for (const field of ['source_refs', 'checks_or_logs', 'limitations']) {
+    validateStringArray(directEvidenceUsed[field], `direct_evidence_used.${field}`, errors, {
+      maxLength: DIRECT_EVIDENCE_ITEM_MAX_LENGTH,
+      maxItems: DIRECT_EVIDENCE_MAX_ITEMS,
       maxLines: 4,
     });
   }
-  if (!ALLOWED_GRAPH_REDACTION_STATUSES.has(graphEvidenceUsed.redaction_status)) {
-    errors.push('graph_evidence_used.redaction_status is invalid');
+  if (!ALLOWED_DIRECT_EVIDENCE_REDACTION_STATUSES.has(directEvidenceUsed.redaction_status)) {
+    errors.push('direct_evidence_used.redaction_status is invalid');
   }
 }
 
@@ -1155,9 +1134,6 @@ function validateRepoRelativeField(value, field, errors, options = {}) {
   if (GENERATED_RUNTIME_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
     errors.push(`${field} must not point at generated runtime mirrors`);
   }
-  if (FORBIDDEN_ARTIFACT_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
-    errors.push(`${field} must not point at provider graph artifacts`);
-  }
   if (normalized.startsWith('.spec-first/') && !(options.allowSpecFirstWorkflows && normalized.startsWith('.spec-first/workflows/'))) {
     errors.push(`${field} uses unsupported .spec-first artifact path`);
   }
@@ -1207,7 +1183,7 @@ function buildArtifact(payload, { runId, workspaceSlug, artifactPath, warnings }
     script_confirmed: payload.script_confirmed,
     llm_asserted: payload.llm_asserted,
     provider_untrusted: payload.provider_untrusted,
-    ...(Object.prototype.hasOwnProperty.call(payload, 'graph_evidence_used') ? { graph_evidence_used: payload.graph_evidence_used } : {}),
+    ...(Object.prototype.hasOwnProperty.call(payload, 'direct_evidence_used') ? { direct_evidence_used: payload.direct_evidence_used } : {}),
     retention,
     artifact_path: artifactPath,
     warnings,
@@ -1253,7 +1229,7 @@ function buildRetention(retention) {
 
 function classifyErrors(errors) {
   if (errors.some((error) => /secret|credential|raw output|absolute path|URL/i.test(error))) return 'security-rejected';
-  if (errors.some((error) => /path|runtime mirrors|graph artifacts/.test(error))) return 'path-rejected';
+  if (errors.some((error) => /path|runtime mirrors/.test(error))) return 'path-rejected';
   return 'schema-rejected';
 }
 

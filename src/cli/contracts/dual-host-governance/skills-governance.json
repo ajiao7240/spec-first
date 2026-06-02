@@ -234,17 +234,6 @@
       }
     },
     {
-      "skill_name": "spec-graph-bootstrap",
-      "entry_surface": "workflow_command",
-      "command_name": "graph-bootstrap",
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "command",
-        "codex": "skill"
-      }
-    },
-    {
       "skill_name": "spec-dhh-rails-style",
       "entry_surface": "internal_only",
       "command_name": null,

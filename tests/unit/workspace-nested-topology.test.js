@@ -38,12 +38,11 @@ describe('workspace nested topology Stage-0 retirement', () => {
     }
   });
 
-  test('review no longer has a hidden graph compatibility entrypoint', () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'crg-before-review-'));
+  test('review uses direct CLI routing without hidden compatibility entrypoints', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'before-review-'));
 
     try {
       const result = runCli([
-        'crg',
         'hook',
         'before-review',
         `--repo=${repoRoot}`,

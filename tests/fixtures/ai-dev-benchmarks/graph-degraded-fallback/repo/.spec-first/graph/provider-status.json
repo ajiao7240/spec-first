@@ -1,6 +1,0 @@
-{
-  "schema_version": "v1",
-  "provider": "gitnexus",
-  "status": "unavailable",
-  "reason_code": "graph-provider-unavailable"
-}

@@ -1,5 +1,3 @@
-const crypto = require('node:crypto');
-const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -73,15 +71,9 @@ async function maybeShowVersionReminder(options = {}) {
 async function maybeShowStartupVersionReminder(options = {}) {
   const output = options.output || process.stdout;
   const reminder = await buildStartupVersionReminder(options);
-  const graphSnapshot = options.includeGraphSnapshot
-    ? buildStartupGraphReadinessSnapshot(options)
-    : null;
   const messages = [];
   if (reminder && reminder.message) {
     messages.push(reminder.message);
-  }
-  if (graphSnapshot && graphSnapshot.message) {
-    messages.push(graphSnapshot.message);
   }
 
   if (messages.length === 0) {
@@ -170,243 +162,6 @@ function formatStartupVersionReminder({ host, currentVersion, latestVersion }) {
     statusLine,
     `Run ${updateEntry} when you choose to upgrade. This startup reminder is read-only and will not install, refresh runtime assets, or restart the host.`,
   ].join('\n');
-}
-
-function buildStartupGraphReadinessSnapshot(options = {}) {
-  const host = normalizeHost(options.host);
-  if (!host) {
-    return null;
-  }
-
-  const projectRoot = options.projectRoot || process.cwd();
-  const runtime = resolveCurrentRuntimeVersion({ host, projectRoot });
-  if (!runtime.runtimeExists) {
-    return null;
-  }
-
-  try {
-    return buildStartupGraphReadinessSnapshotUnchecked({ host, projectRoot });
-  } catch {
-    return null;
-  }
-}
-
-function buildStartupGraphReadinessSnapshotUnchecked({ host, projectRoot }) {
-  const providerStatus = readJsonArtifact(path.join(projectRoot, '.spec-first/graph/provider-status.json'));
-  const graphFacts = readJsonArtifact(path.join(projectRoot, '.spec-first/graph/graph-facts.json'));
-  const impactCapabilities = readJsonArtifact(path.join(projectRoot, '.spec-first/impact/bootstrap-impact-capabilities.json'));
-  const provider = findGitNexusProvider(providerStatus.value);
-  const repoSnapshot = currentStartupRepoSnapshot(projectRoot);
-  const queryReady = gitNexusQueryReady(providerStatus.value, graphFacts.value, provider);
-  const freshness = classifyStartupGraphFreshness(graphFacts, repoSnapshot);
-  const dirty = repoSnapshot.ok
-    ? (repoSnapshot.worktree_dirty ? 'dirty' : 'clean')
-    : 'unknown';
-  const capabilities = formatStartupGraphCapabilities(queryReady, impactCapabilities.value);
-  const limitations = startupGraphLimitations({
-    providerStatus,
-    graphFacts,
-    impactCapabilities,
-    provider,
-    queryReady,
-    freshness,
-    repoSnapshot,
-  });
-  const graphEntry = host === 'claude' ? '/spec:graph-bootstrap' : '$spec-graph-bootstrap';
-  const action = freshness === 'fresh' && queryReady
-    ? 'no refresh needed for compiled graph readiness'
-    : `run ${graphEntry} when current graph evidence is needed`;
-
-  return {
-    message: [
-      `[spec-first] GitNexus graph: query_ready=${queryReady ? 'true' : 'false'}; freshness=${freshness}; dirty=${dirty}; capabilities=${capabilities}; limitations=${limitations.join(', ')}.`,
-      `Graph snapshot is read-only; ${action}.`,
-    ].join('\n'),
-    query_ready: queryReady,
-    freshness,
-    dirty,
-    capabilities,
-    limitations,
-  };
-}
-
-function readJsonArtifact(artifactPath) {
-  try {
-    if (!fs.existsSync(artifactPath)) {
-      return { ok: false, reason_code: 'canonical_artifact_missing', value: null };
-    }
-    const parsed = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { ok: false, reason_code: 'invalid_json_object', value: null };
-    }
-    return { ok: true, reason_code: null, value: parsed };
-  } catch {
-    return { ok: false, reason_code: 'artifact_unreadable', value: null };
-  }
-}
-
-function findGitNexusProvider(providerStatus) {
-  const providers = Array.isArray(providerStatus && providerStatus.providers)
-    ? providerStatus.providers
-    : [];
-  return providers.find((provider) => provider && provider.provider === 'gitnexus') || null;
-}
-
-function gitNexusQueryReady(providerStatus, graphFacts, provider) {
-  const readyProviders = Array.isArray(providerStatus && providerStatus.ready_primary_providers)
-    ? providerStatus.ready_primary_providers
-    : [];
-  const graphReadyProviders = Array.isArray(graphFacts && graphFacts.provider_summary && graphFacts.provider_summary.ready_primary_providers)
-    ? graphFacts.provider_summary.ready_primary_providers
-    : [];
-  return Boolean(
-    provider
-    && provider.query_ready === true
-    && readyProviders.includes('gitnexus')
-    && graphFacts
-    && graphFacts.capabilities
-    && graphFacts.capabilities.query_global_graph === true
-    && graphReadyProviders.includes('gitnexus'),
-  );
-}
-
-function classifyStartupGraphFreshness(graphFacts, repoSnapshot) {
-  if (!graphFacts.ok) {
-    return 'unavailable';
-  }
-  if (!repoSnapshot.ok) {
-    return 'unknown';
-  }
-
-  const recordedRevision = graphFacts.value.source_revision || graphFacts.value.staleness_hints?.source_revision || '';
-  const recordedDirty = graphFacts.value.worktree_dirty;
-  const recordedStatusHash = graphFacts.value.worktree_status_hash
-    || graphFacts.value.staleness_hints?.worktree_status_hash
-    || '';
-
-  return recordedRevision === repoSnapshot.source_revision
-    && recordedDirty === repoSnapshot.worktree_dirty
-    && recordedStatusHash === repoSnapshot.worktree_status_hash
-    ? 'fresh'
-    : 'stale';
-}
-
-function currentStartupRepoSnapshot(projectRoot) {
-  const sourceRevision = execStartupGit(projectRoot, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
-  const status = execStartupGit(projectRoot, ['status', '--porcelain']).replace(/\n+$/g, '');
-  if (!sourceRevision) {
-    return {
-      ok: false,
-      source_revision: '',
-      worktree_dirty: null,
-      worktree_status_hash: '',
-    };
-  }
-
-  return {
-    ok: true,
-    source_revision: sourceRevision,
-    worktree_dirty: status.length > 0,
-    worktree_status_hash: `sha256:${crypto.createHash('sha256').update(status).digest('hex')}`,
-  };
-}
-
-function execStartupGit(projectRoot, args) {
-  try {
-    return execFileSync('git', ['-C', projectRoot, ...args], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 500,
-    });
-  } catch {
-    return '';
-  }
-}
-
-function formatStartupGraphCapabilities(queryReady, impactCapabilities) {
-  if (!impactCapabilities || typeof impactCapabilities !== 'object') {
-    return queryReady
-      ? 'query/context=available, impact=unknown, review=unknown'
-      : 'unavailable';
-  }
-
-  const capabilities = impactCapabilities.capabilities && typeof impactCapabilities.capabilities === 'object'
-    ? impactCapabilities.capabilities
-    : {};
-  const contextSupport = supportLevel(capabilities.context_selection, queryReady ? 'available' : 'unknown');
-  const impactSupport = supportLevel(capabilities.impact_radius, 'unknown');
-  const reviewSupport = supportLevel(capabilities.review_support, 'unknown');
-  return `query/context=${contextSupport}, impact=${impactSupport}, review=${reviewSupport}`;
-}
-
-function supportLevel(capability, fallback) {
-  return capability && typeof capability.support_level === 'string' && capability.support_level.trim()
-    ? capability.support_level.trim()
-    : fallback;
-}
-
-function startupGraphLimitations({
-  providerStatus,
-  graphFacts,
-  impactCapabilities,
-  provider,
-  queryReady,
-  freshness,
-  repoSnapshot,
-}) {
-  const limitations = [];
-  if (!providerStatus.ok || !graphFacts.ok || !impactCapabilities.ok) {
-    limitations.push('canonical_artifact_missing');
-  }
-  if (!provider) {
-    limitations.push('gitnexus_provider_unavailable');
-  }
-  if (!queryReady) {
-    limitations.push('query_not_ready');
-  }
-  if (freshness === 'stale') {
-    limitations.push('snapshot_mismatch');
-  }
-  if (!repoSnapshot.ok) {
-    limitations.push('git_snapshot_unavailable');
-  }
-
-  addLimitations(limitations, graphFacts.value?.capabilities?.impact_context_limitations);
-  addLimitations(limitations, provider?.limitations);
-  addLimitations(limitations, provider?.review_support?.limitations);
-  addLimitations(limitations, impactCapabilities.value?.capabilities?.impact_radius?.limitations);
-  addLimitations(limitations, impactCapabilities.value?.capabilities?.review_support?.limitations);
-
-  return [...new Set(limitations)].slice(0, 5).length > 0
-    ? [...new Set(limitations)].slice(0, 5)
-    : ['none'];
-}
-
-function addLimitations(target, values) {
-  if (Array.isArray(values)) {
-    for (const value of values) {
-      const limitation = normalizeStartupLimitation(value);
-      if (limitation) {
-        target.push(limitation);
-      }
-    }
-  } else if (typeof values === 'string' && values.trim()) {
-    const limitation = normalizeStartupLimitation(values);
-    if (limitation) {
-      target.push(limitation);
-    }
-  }
-}
-
-function normalizeStartupLimitation(value) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.length > 80) {
-    return '';
-  }
-  return trimmed.replace(/[.;]+$/g, '');
 }
 
 async function defaultLookupStartupLatestVersion({ host, packageName, timeoutMs }) {
@@ -801,7 +556,6 @@ function isNumericIdentifier(value) {
 
 module.exports = {
   DEFAULT_VERSION_REMINDER_TIMEOUT_MS,
-  buildStartupGraphReadinessSnapshot,
   buildStartupVersionReminder,
   clearStartupVersionReminderCooldown,
   defaultLookupLatestVersion,

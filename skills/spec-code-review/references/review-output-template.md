@@ -83,7 +83,7 @@ Use this **exact format** when presenting synthesized review findings. Findings 
 
 ### Coverage
 
-- Graph evidence: <posture>: <tools/resources used or "none" | reason for unavailability>
+- Direct evidence: <source refs/checks/logs used | limitations>
 - Suppressed: 2 findings below anchor 75 (1 at anchor 50, 1 at anchor 25)
 - Residual risks: No rate limiting on export endpoint
 - Testing gaps: No test for concurrent export requests
@@ -138,7 +138,7 @@ This fails because: no pipe-delimited tables, no severity-grouped `###` headers,
 - **Agent-Native Gaps section** -- results from spec-agent-native-reviewer. Omit if no gaps found.
 - **Schema Drift Check section** -- results from spec-schema-drift-detector. Omit if the agent did not run.
 - **Deployment Notes section** -- key checklist items from spec-deployment-verification-agent. Omit if the agent did not run.
-- **Coverage section** -- graph evidence posture, suppressed count, residual risks, testing gaps, failed reviewers
+- **Coverage section** -- direct evidence posture, suppressed count, residual risks, testing gaps, failed reviewers
 - **Summary uses blockquotes** for verdict, reasoning, and fix order
 - **Horizontal rule** (`---`) separates findings from verdict
 - **`###` headers** for each section -- never plain text headers

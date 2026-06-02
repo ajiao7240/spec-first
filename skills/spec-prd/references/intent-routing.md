@@ -51,7 +51,7 @@ In these cases, offer one concise route:
 
 Use split-decision when the input is an oversized initial PRD or multi-module feature with cross-surface ownership, multiple independent release tracks, or more than one coherent PRD scope.
 
-The LLM may recommend semantic split boundaries using source input, existing docs, code, and GitNexus pointers. Tools provide facts; the product owner confirms the actual split boundary, priority, and release order.
+The LLM may recommend semantic split boundaries using source input, existing docs, code, and directly inspected evidence. Tools provide facts; the product owner confirms the actual split boundary, priority, and release order.
 
 Only after owner confirmation may the workflow write:
 

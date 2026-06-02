@@ -634,8 +634,8 @@ foreach ($tool in @($ToolsJson.tools)) {
     }
   } elseif ($status -eq 'ready') {
     $lastAction = 'host-config-skipped'
-    $nextAction = 'run spec-graph-bootstrap'
-    $diagnosticSummary = 'host MCP config is not required for this provider'
+    $nextAction = ''
+    $diagnosticSummary = 'host MCP config is not required for this tool'
   }
 
   $results.Add([pscustomobject]@{

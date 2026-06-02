@@ -48,7 +48,7 @@ describe('instruction bootstrap', () => {
     expect(twice).toContain('用户询问下一步时');
     expect(twice).toContain('用 `using-spec-first` guide mode 推荐一个入口、一个理由、一个动作');
     expect(twice).toContain('bounded subagent');
-    expect(twice).toContain('workspace-graph-targets.v1');
+    expect(twice).toContain('bounded direct reads');
     expect(twice).toContain('target_repo');
     expect(twice).toContain('Runtime context 默认排除 `.spec-first/audits/**`');
     expect(twice).toContain('generated mirrors（`.claude/**`、`.codex/**`、`.agents/skills/**`）');
@@ -62,8 +62,7 @@ describe('instruction bootstrap', () => {
     expect(twice).not.toContain('Routing Priority');
     expect(twice).not.toContain('Route Map');
     expect(twice).not.toContain('User Next-Step Guide Mode');
-    expect(twice).not.toContain('spec-' + 'standards` 无参数运行默认为每个 discovered child repo');
-    expect(twice).not.toContain('setup 和 graph bootstrap 可默认按 discovered child repos');
+    expect(twice).not.toContain('discovered child repo');
     expect(twice).not.toContain('完整选择策略、优先级和 red flags');
     expect(twice).not.toContain('internal-only skills：`using-spec-first`');
     expect(twice).not.toContain('高级路由');
@@ -175,7 +174,7 @@ describe('instruction bootstrap', () => {
       '## Workflow Entry Governance',
       '',
       '- This block is the spec-first workflow entry reminder; `using-spec-first` is a standalone meta skill, not a workflow command',
-      '- Common entry anchors: environment/MCP→`/spec:mcp-setup`; graph readiness compiler→`/spec:graph-bootstrap`',
+      '- Common entry anchors: environment/MCP→`/spec:mcp-setup`; update/runtime repair→`/spec:update`; execution→`/spec:work`',
       '- Do not expose internal-only skills directly',
       '- CUSTOM DRIFT',
       '',

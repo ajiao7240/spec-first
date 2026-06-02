@@ -150,7 +150,7 @@ describe('ai dev quality gate contract', () => {
     });
   });
 
-  test('benchmark check summary reflects the five-fixture suite while staying advisory', () => {
+  test('benchmark check summary reflects fixture counts while staying advisory', () => {
     expect(buildBenchmarkFixturesCheck({
       passed: true,
       fixtures: [
@@ -165,7 +165,6 @@ describe('ai dev quality gate contract', () => {
         },
         { fixture_id: 'cli-bugfix', status: 'passed' },
         { fixture_id: 'docs-only', status: 'passed' },
-        { fixture_id: 'graph-degraded-fallback', status: 'passed' },
         { fixture_id: 'multi-module-refactor', status: 'passed' },
       ],
       failures: [],
@@ -176,7 +175,7 @@ describe('ai dev quality gate contract', () => {
       passed: true,
       advisory: true,
       summary: {
-        fixtures_total: 5,
+        fixtures_total: 4,
         fixtures_failed: 0,
         failures_total: 0,
       },
@@ -187,14 +186,9 @@ describe('ai dev quality gate contract', () => {
   test('runner keeps a bounded explicit test list instead of inferring checks from workflow state', () => {
     expect(WORKFLOW_RUNTIME_CONTRACT_TESTS).toEqual([
       'tests/unit/branch-protection-policy.test.js',
-      'tests/unit/no-crg-runtime-contracts.test.js',
-      'tests/unit/graph-anchor-extraction-helper.test.js',
       'tests/unit/init-source-path-coverage.test.js',
       'tests/unit/package-install-contracts.test.js',
       'tests/unit/mcp-setup-powershell-contracts.test.js',
-      'tests/unit/spec-graph-bootstrap-contracts.test.js',
-      'tests/unit/bootstrap-providers-powershell-contracts.test.js',
-      'tests/unit/graph-provider-consumption-contracts.test.js',
       'tests/unit/ai-dev-quality-gate.test.js',
       'tests/unit/ai-dev-benchmark-fixtures.test.js',
       'tests/unit/spec-plan-contracts.test.js',
@@ -209,37 +203,25 @@ describe('ai dev quality gate contract', () => {
 
   test('workflow path filters cover governance contracts and workflow self-updates', () => {
     const aiWorkflow = fs.readFileSync(path.join(REPO_ROOT, '.github', 'workflows', 'ai-dev-quality-gate.yml'), 'utf8');
-    const retiredSource = 'src/' + 'crg/**';
-    const retiredContracts = 'docs/contracts/' + 'crg/**';
 
     expect(aiWorkflow).toContain("src/cli/contracts/quality-gates/**");
-    expect(aiWorkflow).not.toContain(retiredSource);
     expect(aiWorkflow).toContain("src/contracts/**");
     expect(aiWorkflow).toContain("docs/contracts/quality-gates/**");
     expect(aiWorkflow).toContain("scripts/run-ai-dev-benchmark-fixtures.js");
     expect(aiWorkflow).toContain("scripts/run-ai-dev-quality-gate.js");
+    expect(aiWorkflow).toContain("scripts/run-test-suite.cjs");
     expect(aiWorkflow).toContain("src/cli/gitignore-policy.js");
-    expect(aiWorkflow).toContain("src/cli/helpers/review-pre-facts/**");
     expect(aiWorkflow).toContain("skills/spec-mcp-setup/**");
-    expect(aiWorkflow).toContain("skills/spec-graph-bootstrap/**");
     expect(aiWorkflow).toContain("skills/spec-doc-review/**");
     expect(aiWorkflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
     expect(aiWorkflow).toContain("tests/unit/branch-protection-policy.test.js");
-    expect(aiWorkflow).toContain("tests/unit/no-crg-runtime-contracts.test.js");
-    expect(aiWorkflow).toContain("tests/benchmark/extract-graph-anchors.sh");
-    expect(aiWorkflow).toContain("tests/unit/graph-anchor-extraction-helper.test.js");
     expect(aiWorkflow).toContain("tests/unit/init-source-path-coverage.test.js");
     expect(aiWorkflow).toContain("tests/unit/package-install-contracts.test.js");
     expect(aiWorkflow).toContain("tests/unit/mcp-setup-powershell-contracts.test.js");
-    expect(aiWorkflow).toContain("tests/unit/spec-graph-bootstrap-contracts.test.js");
-    expect(aiWorkflow).toContain("tests/unit/bootstrap-providers-powershell-contracts.test.js");
-    expect(aiWorkflow).toContain("tests/unit/graph-provider-consumption-contracts.test.js");
     expect(aiWorkflow).toContain("tests/unit/ai-dev-quality-gate.test.js");
     expect(aiWorkflow).toContain("tests/unit/ai-dev-benchmark-fixtures.test.js");
     expect(aiWorkflow).toContain("tests/fixtures/ai-dev-benchmarks/**");
-    expect(aiWorkflow).not.toContain(retiredContracts);
     expect(aiWorkflow).not.toContain("src/bootstrap-compiler/**");
-    expect(aiWorkflow).not.toContain("docs/contracts/spec-" + "graph" + "-bootstrap/**");
     expect(aiWorkflow).not.toContain("src/context-routing/**");
     expect(aiWorkflow).not.toContain("src/cli/commands/stage0-context.js");
     for (const testFile of WORKFLOW_RUNTIME_CONTRACT_TESTS) {

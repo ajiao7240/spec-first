@@ -83,18 +83,8 @@ function parseFrontmatter(content) {
 }
 
 describe('docs/solutions contracts', () => {
-  test('docs/solutions only contains valid solution docs and no deep-review report', () => {
+  test('docs/solutions only contains valid solution docs', () => {
     const files = listMarkdownFiles(SOLUTIONS_ROOT);
-    const retiredDeepReview = path.join(
-      'docs',
-      'solutions',
-      'logic-errors',
-      ['spec', 'graph', 'bootstrap'].join('-') + '-deep-review.md',
-    );
-
-    expect(files.map((filePath) => path.relative(REPO_ROOT, filePath))).not.toContain(
-      retiredDeepReview,
-    );
 
     for (const filePath of files) {
       expect(VALID_CATEGORIES.has(path.basename(path.dirname(filePath)))).toBe(true);

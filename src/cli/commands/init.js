@@ -49,7 +49,6 @@ const {
   buildBootstrapBlock,
   inspectInstructionBootstrap,
 } = require('../instruction-bootstrap');
-const { normalizeGitNexusInstructionBlock } = require('../gitnexus-instruction-block');
 const { removeManagedRuntimeToolsBlock } = require('../runtime-tools-index');
 const {
   getClaudeSettingsPath,
@@ -1442,15 +1441,13 @@ function printInitNextSteps(platform, lang = 'zh') {
   const hostDisplay = platform === 'claude' ? 'Claude Code' : 'Codex';
   const entryKind = platform === 'claude' ? '/spec:* commands' : '$spec-* skills';
   const mcpSetupCommand = platform === 'claude' ? '/spec:mcp-setup' : '$spec-mcp-setup';
-  const graphBootstrapCommand = platform === 'claude' ? '/spec:graph-bootstrap' : '$spec-graph-bootstrap';
 
   if (lang === 'en') {
     console.log('Setup complete. Next steps:');
     console.log(`  1. Restart ${hostDisplay} or open a new session so it loads the generated ${entryKind}.`);
     console.log(`  2. Start with the matching ${entryKind} for lightweight docs, small fixes, first trials, plan, work, review, or debug.`);
     console.log(`  3. For stronger readiness, run ${mcpSetupCommand} to install and verify the required MCP/helper runtime.`);
-    console.log(`  4. If setup reports graph bootstrap is pending, run ${graphBootstrapCommand} when prompted.`);
-    console.log('  5. Then choose the workflow by user intent. Project guidance comes from AGENTS.md, CLAUDE.md, docs/contracts, direct source evidence, tests, and graph facts.');
+    console.log('  4. Then choose the workflow by user intent. Project guidance comes from AGENTS.md, CLAUDE.md, docs/contracts, direct source evidence, tests, and logs.');
     return;
   }
 
@@ -1458,8 +1455,7 @@ function printInitNextSteps(platform, lang = 'zh') {
   console.log(`  1. 重启 ${hostDisplay} 或新开会话，让宿主加载刚生成的 ${entryKind}。`);
   console.log(`  2. docs、小修复、首次试用、plan、work、review 或 debug，可直接启动匹配的 ${entryKind}。`);
   console.log(`  3. 需要更完整的 readiness 时，运行 ${mcpSetupCommand} 安装并验证必装 MCP/helper runtime。`);
-  console.log(`  4. 如果 setup 提示 graph bootstrap 仍 pending，再按提示运行 ${graphBootstrapCommand}。`);
-  console.log('  5. 然后按用户意图选择 workflow；项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts、直接源码证据、测试和 graph facts。');
+  console.log('  4. 然后按用户意图选择 workflow；项目指导来自 AGENTS.md、CLAUDE.md、docs/contracts、直接源码证据、测试和日志。');
 }
 
 function printInitNextStepsForPlatforms(platforms, lang = 'zh') {
@@ -1474,8 +1470,7 @@ function printInitNextStepsForPlatforms(platforms, lang = 'zh') {
     console.log('  1. Restart Claude Code and Codex or open new sessions so each host loads the generated entrypoints.');
     console.log('  2. Use /spec:* in Claude Code or $spec-* in Codex for lightweight docs, small fixes, first trials, plan, work, review, or debug.');
     console.log('  3. For stronger readiness, run /spec:mcp-setup or $spec-mcp-setup in the host you plan to use.');
-    console.log('  4. If setup reports graph bootstrap is pending, run /spec:graph-bootstrap or $spec-graph-bootstrap when prompted.');
-    console.log('  5. Then choose the workflow by user intent: brainstorm/plan/work/review/debug.');
+    console.log('  4. Then choose the workflow by user intent: brainstorm/plan/work/review/debug.');
     return;
   }
 
@@ -1483,8 +1478,7 @@ function printInitNextStepsForPlatforms(platforms, lang = 'zh') {
   console.log('  1. 重启 Claude Code 和 Codex 或分别新开会话，让宿主加载刚生成的入口。');
   console.log('  2. docs、小修复、首次试用、plan、work、review 或 debug，可在对应宿主启动 /spec:* command 或 $spec-* skill。');
   console.log('  3. 需要更完整的 readiness 时，在计划使用的宿主里运行 /spec:mcp-setup 或 $spec-mcp-setup。');
-  console.log('  4. 如果 setup 提示 graph bootstrap 仍 pending，再按提示运行 /spec:graph-bootstrap 或 $spec-graph-bootstrap。');
-  console.log('  5. 然后按用户意图进入 brainstorm/plan/work/review/debug 等 workflow。');
+  console.log('  4. 然后按用户意图进入 brainstorm/plan/work/review/debug 等 workflow。');
 }
 
 function printHelp() {
@@ -1519,8 +1513,8 @@ function printHelp() {
     '  CI callers that need dry-run evidence or custom target selection should use require("spec-first/src/cli/init-plan").',
     '',
     '➡️ After successful init:',
-    '  Claude: restart Claude Code. For lightweight work, start the matching /spec:* workflow; for enhanced readiness, run /spec:mcp-setup, then /spec:graph-bootstrap if prompted, then route by user intent.',
-    '  Codex: restart Codex. For lightweight work, start the matching $spec-* workflow; for enhanced readiness, run $spec-mcp-setup, then $spec-graph-bootstrap if prompted, then route by user intent.',
+    '  Claude: restart Claude Code. For lightweight work, start the matching /spec:* workflow; for enhanced readiness, run /spec:mcp-setup, then route by user intent.',
+    '  Codex: restart Codex. For lightweight work, start the matching $spec-* workflow; for enhanced readiness, run $spec-mcp-setup, then route by user intent.',
     '',
     '🔗 Repository:',
     '  https://github.com/sunrain520/spec-first',
@@ -1537,7 +1531,6 @@ function discoverChildGitRepos(workspaceRoot, maxDepth = 3) {
     '.codex',
     '.direnv',
     '.git',
-    '.gitnexus',
     '.spec-first',
     '.venv',
     '.worktrees',
@@ -2037,16 +2030,10 @@ function buildInitMetadataPlan({
     instructionWithBootstrap,
     buildCodingGuidelinesBlock(developer.lang),
   );
-  const normalizedGitNexusInstruction = normalizeGitNexusInstructionBlock(finalInstruction, {
-    createMissing: true,
-    defaultRepoName: path.basename(projectRoot),
-    lang: developer.lang,
-    gitRootTopology,
-  }).content;
   operations.push(buildPlanFileOperation(
     projectRoot,
     adapter.instructionFile,
-    normalizedGitNexusInstruction,
+    finalInstruction,
     'managed_instruction_file',
   ));
 

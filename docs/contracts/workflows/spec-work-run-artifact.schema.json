@@ -185,7 +185,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
+            "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
           }
         },
         "raw_log_ref": {
@@ -232,7 +232,7 @@
           "items": {
             "type": "string",
             "maxLength": 500,
-            "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?:graph|providers)/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
+            "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.claude/)(?!\\.codex/)(?!\\.agents/skills/)(?!\\.spec-first/(?!workflows/)).+[^/]$"
           }
         },
         "key_decisions": {
@@ -259,74 +259,30 @@
         }
       }
     },
-    "graph_evidence_used": {
+    "direct_evidence_used": {
       "type": ["object", "null"],
-      "description": "Compact GitNexus/graph evidence summary from plan intake, workflow-native session evidence, or work closeout. Absent means no graph evidence was consumed or available. This is advisory Harness evidence, not scope authority.",
+      "description": "Compact direct source/test/log evidence summary from plan intake or work closeout. Absent means the ordinary changed-file/test summary was sufficient. This is advisory Harness evidence, not scope authority.",
       "additionalProperties": false,
       "required": [
-        "capabilities_used",
-        "evidence_grade",
-        "evidence_posture",
-        "freshness_state",
+        "source_refs",
+        "checks_or_logs",
         "repo_scope",
-        "graph_findings_applied",
-        "graph_findings_as_risk_only",
-        "source_reads_validated",
+        "limitations",
         "redaction_status"
       ],
       "properties": {
-        "capabilities_used": {
+        "source_refs": {
           "type": "array",
           "maxItems": 20,
-          "items": { "type": "string", "maxLength": 160 }
-        },
-        "lanes_used": {
-          "type": "array",
-          "maxItems": 8,
-          "items": {
-            "type": "string",
-            "enum": [
-              "deterministic-helper",
-              "workflow-native-session",
-              "workspace-resource",
-              "mutation-gated-maintenance"
-            ]
-          }
-        },
-        "evidence_grade": {
-          "type": "string",
-          "enum": ["primary", "session-local", "advisory", "stale"]
-        },
-        "evidence_posture": {
-          "type": "string",
-          "enum": ["primary", "fallback"]
-        },
-        "freshness_state": {
-          "type": "string",
-          "enum": ["fresh", "stale", "dirty-advisory", "query-unverified"]
+          "items": { "type": "string", "maxLength": 300 }
         },
         "repo_scope": { "type": "string", "maxLength": 160 },
-        "graph_findings_applied": {
+        "checks_or_logs": {
           "type": "array",
           "maxItems": 20,
           "items": { "type": "string", "maxLength": 300 }
         },
-        "graph_findings_as_risk_only": {
-          "type": "array",
-          "maxItems": 20,
-          "items": { "type": "string", "maxLength": 300 }
-        },
-        "graph_findings_rejected_after_source_read": {
-          "type": "array",
-          "maxItems": 20,
-          "items": { "type": "string", "maxLength": 300 }
-        },
-        "source_reads_required": {
-          "type": "array",
-          "maxItems": 20,
-          "items": { "type": "string", "maxLength": 300 }
-        },
-        "source_reads_validated": {
+        "limitations": {
           "type": "array",
           "maxItems": 20,
           "items": { "type": "string", "maxLength": 300 }

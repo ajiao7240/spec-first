@@ -75,15 +75,13 @@ describe('spec-ideate host entrypoint contract', () => {
       fs.readFileSync(POST_IDEATION_PATH, 'utf8'),
       fs.readFileSync(UNIVERSAL_IDEATION_PATH, 'utf8'),
     ].join('\n');
-    const retiredField = 'war' + 'rant';
-
     expect(combined).toContain('**basis** (required, tagged)');
     expect(combined).toContain('**Basis:** [`direct:` / `external:` / `reasoned:`');
     expect(combined).toContain('Basis-integrity check');
     expect(combined).toContain('basis strength');
-    expect(combined).not.toMatch(new RegExp(`\\*\\*${retiredField}\\*\\*`));
-    expect(combined).not.toContain(`${retiredField} strength`);
-    expect(combined).not.toContain(`${retiredField}-integrity`);
+    expect(combined).not.toMatch(/\*\*warrant\*\*/);
+    expect(combined).not.toContain('warrant strength');
+    expect(combined).not.toContain('warrant-integrity');
   });
 
   test('topic axes and bounded recovery are explicit but skipped for atomic and surprise-me subjects', () => {

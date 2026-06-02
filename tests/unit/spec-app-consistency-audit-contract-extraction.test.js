@@ -243,7 +243,7 @@ describe('spec-app-consistency-audit contract extraction', () => {
     try {
       write(fixture.repoRoot, '.spec-first/app-audit/runs/run/GhostScreen.kt', 'class GhostScreen');
       write(fixture.repoRoot, '.claude/agents/GhostAgent.kt', 'class GhostAgent');
-      write(fixture.repoRoot, '.gitnexus/index/GhostIndex.kt', 'class GhostIndex');
+      write(fixture.repoRoot, '.local-tool-cache/index/GhostIndex.kt', 'class GhostIndex');
 
       const artifact = extractCodeContract({ repoRoot: fixture.repoRoot, source: fixture.repoRoot });
       const serialized = JSON.stringify(artifact);

@@ -70,19 +70,18 @@ describe('coding guidelines instruction block', () => {
     expect(zh).toContain('LLM 经常默默选择一种解释然后执行。这个原则强制明确推理：');
     expect(zh).toContain('### 2. 简洁优先');
     expect(zh).toContain('检验标准：每一行修改都应该能直接追溯到用户的请求。');
-    expect(zh).toContain('### 5. 工具参数卫生');
-    expect(zh).toContain('不要传 PDF/page 分页参数');
-    expect(zh).toContain('宿主文件读取工具');
-    expect(zh).toContain('不能是 `""`');
+    expect(zh).toContain('### 4. 目标驱动执行');
+    expect(zh).not.toContain('### 5. 工具参数卫生');
+    expect(zh).not.toContain('不要传 PDF/page 分页参数');
     expect(en).toContain('Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.');
     expect(en).toContain('## Coding Execution Guidelines');
     expect(en).not.toContain('## Coding Execution Guidelines (managed by spec-first)');
     expect(en).toContain('### 2. Simplicity First');
     expect(en).toContain('The test: Every changed line should trace directly to the user\'s request.');
-    expect(en).toContain('### 5. Tool Parameter Hygiene');
-    expect(en).toContain('do not pass PDF/page pagination parameters');
-    expect(en).toContain('For host file-read tools');
-    expect(en).toContain('never `""`');
+    expect(en).toContain('### 4. Goal-Driven Execution');
+    expect(en).not.toContain('### 5. Tool Parameter Hygiene');
+    expect(en).not.toContain('do not pass PDF/page pagination parameters');
+    expect(en).toContain('These guidelines are working if:');
     expect(en).not.toContain('Claude Code `Read`');
 
     for (const block of [zh, en]) {
@@ -127,6 +126,61 @@ describe('coding guidelines instruction block', () => {
     expect(updated).toContain('custom tail');
     expect(updated).not.toContain(CODING_GUIDELINES_START);
     expect(updated).not.toContain(CODING_GUIDELINES_END);
+  });
+
+  test('strips a legacy five-section managed body (incl. removed Tool Parameter Hygiene) when rebuilding', () => {
+    const legacyBody = [
+      '## 编码执行准则',
+      '',
+      '### 1. 编码前思考',
+      'LLM 经常默默选择一种解释然后执行。这个原则强制明确推理：',
+      '- 明确说明假设：如果不确定，询问而不是猜测。',
+      '- 呈现多种解释：当存在歧义时，不要默默选择。',
+      '- 适时提出异议：如果存在更简单的方法，说出来。',
+      '- 困惑时停下来：指出不清楚的地方并要求澄清。',
+      '',
+      '### 2. 简洁优先',
+      '- a',
+      '- b',
+      '- c',
+      '- d',
+      '- e',
+      '',
+      '### 3. 精准修改',
+      '- a',
+      '- b',
+      '- c',
+      '- d',
+      '',
+      '### 4. 目标驱动执行',
+      '- a',
+      '- b',
+      '- c',
+      '',
+      '### 5. 工具参数卫生',
+      '',
+      '使用文件读取工具时，optional 参数不适用就省略：',
+      '- 读取 Markdown、文本、源码或配置文件时，不要传 PDF/page 分页参数。',
+      '- 不确定的 optional 参数不要传空字符串、空数组或占位值。',
+      '- 宿主文件读取工具读取文本文件时，只传文件路径和必要的范围参数；`pages` 等分页参数只用于真实 PDF/分页文档且不能是 `""`。',
+    ].join('\n');
+    const legacy = [
+      '# Header',
+      '',
+      CODING_GUIDELINES_START,
+      legacyBody,
+      '',
+      '# Tail',
+    ].join('\n');
+
+    const updated = applyManagedCodingGuidelinesBlock(legacy, buildCodingGuidelinesBlock('zh'));
+
+    expect(updated).toContain('# Header');
+    expect(updated).toContain('# Tail');
+    expect(updated).not.toContain('### 5. 工具参数卫生');
+    expect(updated).not.toContain('不要传 PDF/page 分页参数');
+    expect(updated.match(/^## 编码执行准则$/gm)).toHaveLength(1);
+    expect(updated.match(/<!-- spec-first:coding-guidelines:start -->/g)).toHaveLength(1);
   });
 
   test('repairs a corrupted marker state by removing a drifted managed body before rebuilding', () => {

@@ -104,9 +104,9 @@ First-run specs should default to `execution.mode: serial`, `execution.max_concu
 
 Follow `docs/contracts/context-governance.md`: ordinary Optimize context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Optimization run state under `.spec-first/workflows/spec-optimize/**` is local scratch for this workflow only; pass compact strategy/result summaries to agents and avoid broad runtime/audit scans unless the metric explicitly targets runtime/setup/audit behavior.
 
-## GitNexus Utilization Boundary
+## Evidence Utilization Boundary
 
-GitNexus utilization data may be consumed only as optimization input or diagnostic context: prior `graph_capability_usage`, `graph_evidence_used`, degraded reason counts, repeated source-read summaries, source-confirmed session evidence, or `.spec-first/workspace/graph-bootstrap-summary.json.quality_signals` can suggest what to measure. P5-full quality signals are `child_count`, `process_results_rate`, `command_failed_rate`, `dirty_advisory_child_rate`, `build_target_coverage_ratio`, `impact_probe_with_test_provenance_rate`, and `host_instruction_drift_rate`; treat them as baseline diagnostics, not optimization targets by default. When `process_results_rate < 0.5`, recommend first measuring graph evidence quality or using bounded direct-source fallback before optimizing graph-dependent workflows. When `host_instruction_drift_rate=1.0`, recommend refreshing host GitNexus instruction blocks with `spec-first init` before optimizing workflows whose measurement depends on host instructions. Low `build_target_coverage_ratio` should narrow graph-dependent experiment scope or require direct-source fallback for uncovered build modules. The optimization target, metric, winner selection, mutable scope, and final integration remain owned by the approved optimization spec and measured results, not by a graph provider. Optimize must not run provider refresh, `analyze`, `group_sync`, `rename`, hooks, watchers, or daemons as part of ordinary graph evidence handling.
+Optimization may consume prior direct-read summaries, degraded reason counts, source-confirmed session evidence, review summaries, test results, and quality-gate reports as diagnostic context. Treat these as baseline diagnostics, not optimization targets by default. The optimization target, metric, winner selection, mutable scope, and final integration remain owned by the approved optimization spec and measured results, not by an external tool. Optimize must not run external-tool refresh, hooks, watchers, or daemons as part of ordinary evidence handling.
 
 ## Dispatch And Backend Boundary
 
@@ -453,7 +453,7 @@ Optionally dispatch `spec-repo-research-analyst` for deeper codebase analysis if
 
 Generate an initial set of hypotheses. Each hypothesis should have:
 - **Description**: what to try
-- **Category**: one of the standard categories (signal-extraction, graph-signals, embedding, algorithm, preprocessing, parameter-tuning, architecture, data-handling) or a domain-specific category
+- **Category**: one of the standard categories (signal-extraction, structural-signals, embedding, algorithm, preprocessing, parameter-tuning, architecture, data-handling) or a domain-specific category
 - **Priority**: high, medium, or low based on expected impact and feasibility
 - **Required dependencies**: any new packages or tools needed
 

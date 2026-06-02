@@ -52,7 +52,7 @@ describe('public workflow contract summary', () => {
     const work = fs.readFileSync(path.join(ROOT, 'skills', 'spec-work', 'SKILL.md'), 'utf8');
 
     expect(usingSpecFirst).toContain('Core boundary: scripts and CLI commands prepare deterministic facts; the LLM decides the workflow recommendation.');
-    expect(plan).toContain('degraded graph or provider facts stay advisory');
+    expect(plan).toContain('setup/runtime facts stay advisory');
     expect(plan).toContain('implementation-dependent questions are deferred to `spec-work`');
     expect(writeTasks).toContain('Task packs are derived execution indexes and never replace the source plan.');
     expect(work).toContain('planned spec-work run JSON schema is not current runtime truth');
@@ -63,13 +63,12 @@ describe('public workflow contract summary', () => {
     const brainstorm = fs.readFileSync(path.join(ROOT, 'skills', 'spec-brainstorm', 'SKILL.md'), 'utf8');
     const debug = fs.readFileSync(path.join(ROOT, 'skills', 'spec-debug', 'SKILL.md'), 'utf8');
     const setup = fs.readFileSync(path.join(ROOT, 'skills', 'spec-mcp-setup', 'SKILL.md'), 'utf8');
-    const graph = fs.readFileSync(path.join(ROOT, 'skills', 'spec-graph-bootstrap', 'SKILL.md'), 'utf8');
     const update = fs.readFileSync(path.join(ROOT, 'skills', 'spec-update', 'SKILL.md'), 'utf8');
 
     expect(brainstorm).toContain('planning would otherwise invent WHAT to build');
     expect(debug).toContain('root cause must be established before changing code');
-    expect(setup).toContain('Do not use to compile graph readiness');
-    expect(graph).toContain('only default local workflow that may refresh canonical project graph readiness artifacts');
+    expect(setup).toContain('Setup must not make semantic code-understanding judgments');
+    expect(setup).toContain('Project setup facts');
     expect(update).toContain('hand-editing generated runtime mirrors as source fixes');
   });
 

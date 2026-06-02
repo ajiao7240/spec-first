@@ -22,7 +22,7 @@ Do not use for planned feature implementation, requirements/plan review, setup/u
 
 ### Inputs
 
-Bug description, issue or error evidence, reproduction path, repo instructions, package/test commands, nearby source/tests, logs, and graph/MCP evidence as advisory debugging context.
+Bug description, issue or error evidence, reproduction path, repo instructions, package/test commands, nearby source/tests, logs, and direct/external-tool evidence as advisory debugging context.
 
 ### Outputs
 
@@ -34,7 +34,7 @@ Tests, traces, logs, issue summaries, code changes, and final debug summary. Gen
 
 ### Failure Modes
 
-Unreproducible bug, missing environment or credentials, ambiguous target repo, stale graph for graph-heavy debugging, contradicted hypothesis, unsafe branch state, or failed validation.
+Unreproducible bug, missing environment or credentials, ambiguous target repo, unavailable external-tool evidence for broad impact claims, contradicted hypothesis, unsafe branch state, or failed validation.
 
 ### Workflow
 
@@ -51,7 +51,7 @@ Follows `docs/contracts/workflows/scenario-capability-matrix.md` with high-risk 
 Overrides: high-risk
 
 - `foreign-residual-workspace` -> `blocked-action-required`: stop before root-cause claims or fixes that rely on stale local artifacts until `spec-first clean --workspace-orphans` preview and `spec-first init` refresh local state, or the user explicitly accepts degraded evidence.
-- `unavailable-provider` condition -> `fallback-only`: use reproduction, logs, tests, and bounded source reads; do not claim graph-backed causal links or blast radius.
+- optional external-tool evidence unavailable -> `fallback-only`: use reproduction, logs, tests, and bounded source reads; do not claim causal links or blast radius that direct evidence did not confirm.
 - `non-git-build-workspace` coverage gaps -> `partial`: debug covered git roots normally, and inspect uncovered build modules directly before concluding they are unaffected.
 
 ## Core Principles
@@ -65,7 +65,7 @@ These principles govern every phase. They are repeated at decision points becaus
 
 ## Context Orientation Anchor
 
-Orient debugging from the reported symptom, reproduction path, already-loaded host/project instructions, package manifests and command registries, nearby implementation files, nearby tests, recent diffs, and runtime logs. Treat `AGENTS.md`, `CLAUDE.md`, and project role docs as host instruction sources that are normally already loaded by the current session, not automatic re-read targets for every debug run. Read those source instruction files only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it, such as a user-named path, missing/stale loaded context, source/runtime governance work, or a directory-scoped instruction file that may govern changed files. In a parent workspace containing multiple independent Git repos, use `workspace-graph-targets.v1` only as advisory read-only evidence: prefer bounded candidate repos with `primary` status, try GitNexus-first queries for the concrete symptom, and treat `degraded-fallback` or definitions-only GitNexus results as file/symbol pointers to verify with tests, logs, runtime probes, or direct source reads. `workspace-gitnexus-readiness.v1` can orient investigation with group or bounded registry/per-repo evidence, but `group-missing` is fallback context, not provider failure. Before Phase 3 writes, the bug must have a single explicit `target_repo` or per-fix repo scope, even when GitNexus group evidence is ready; do not let cwd, graph target facts, group readiness facts, or live MCP results choose a sibling repo for edits.
+Orient debugging from the reported symptom, reproduction path, already-loaded host/project instructions, package manifests and command registries, nearby implementation files, nearby tests, recent diffs, and runtime logs. Treat `AGENTS.md`, `CLAUDE.md`, and project role docs as host instruction sources that are normally already loaded by the current session, not automatic re-read targets for every debug run. Read those source instruction files only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it, such as a user-named path, missing/stale loaded context, source/runtime governance work, or a directory-scoped instruction file that may govern changed files. In a parent workspace containing multiple independent Git repos, use bounded direct reads only after the symptom, user request, or plan makes the candidate repo scope clear. Before Phase 3 writes, the bug must have a single explicit `target_repo` or per-fix repo scope; do not let cwd or broad workspace discovery choose a sibling repo for edits.
 
 ## Domain Language And Decision Ledger
 
@@ -79,13 +79,9 @@ Follow `docs/contracts/context-governance.md`: ordinary Debug context excludes `
 
 Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
 
-## Graph Freshness / Refresh Trigger Boundary
+## Direct Debug Evidence Boundary
 
-Before using compiled graph facts as primary debugging evidence, check `.spec-first/graph/provider-status.json`, `.spec-first/graph/graph-facts.json`, and `.spec-first/impact/bootstrap-impact-capabilities.json` for provider `query_ready=true`, current `source_revision`, `worktree_dirty`, `worktree_status_hash`, and setup-owned provider projection / fingerprint freshness. Branch switch, pull, rebase, merge, dirty worktree changes, and provider fingerprint mismatch are stale / bootstrap-required signals, not permission for Debug to rebuild providers.
-
-For stale graph + lightweight debugging, such as a single-file typo, missing import, null dereference, off-by-one, or a small local bug with direct source evidence, disclose limitations and continue with bounded direct reads, tests, logs, or session-local live GitNexus pointers. For stale graph + graph-heavy debugging, such as shared helper/API/route/provider contract/core workflow/cross-module failures, review-pre-facts failures, high-risk regressions, or symptoms where execution flows and blast radius materially shape the root-cause search, recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap` before claiming graph-backed impact evidence. Debug must not run GitNexus analyze/build/index refresh, provider repair, default git hooks, watchers, or daemons.
-
-When a debugging run has an explicit stack-trace symbol, named file, or diff scope and graph evidence is fresh or explicitly session-local, the hidden pre-facts helper may be called with `--workflow debug`. Its neutral facts may include `query`, `context`, `impact`, and `detect_changes` summaries for hypothesis focus, but root cause still requires reproduction/source/log/runtime/test confirmation and raw diff or full provider output must stay out of durable summaries.
+Debug does not require external-tool readiness before investigation. Use reproduction, direct source reads, `rg`, ast-grep, git diff, focused tests, runtime probes, logs, and user-provided artifacts to build and close the causal chain. If a blast-radius or related-test claim cannot be confirmed from direct evidence, record it as residual risk instead of treating it as root-cause proof.
 
 ## Execution Flow
 
@@ -107,7 +103,7 @@ All phases self-size — a simple bug flows through them in seconds, a complex b
 
 Before declaring root cause or proposing a fix, establish or attempt the smallest feedback loop that can observe the symptom: a failing test, CLI invocation, HTTP/browser script, trace replay, throwaway harness, property/fuzz loop, or another concrete reproducer. If no loop can be created in the current environment, record `feedback_loop_not_possible` with the exact missing condition and continue with bounded evidence; do not pretend a loop exists.
 
-Maintain a lightweight hypothesis ledger for non-obvious bugs: `hypothesis`, `prediction`, `evidence_for`, `evidence_against`, `probe_result`, and `final_root_cause`. The ledger is working evidence, not a durable schema. Add optional `graph_evidence` when GitNexus evidence shaped the hypothesis. Use `graph_evidence` only when GitNexus evidence shaped the hypothesis; include the capability name, compact result summary, freshness/grade, and which causal-chain link it informs. `graph_evidence` does not replace `evidence_for` source/test confirmed facts. If graph evidence is `stale` or `dirty-advisory`, mark that in the field; stale graph + graph-heavy debugging should still recommend `$spec-graph-bootstrap` before claiming graph-backed causality. After a fix, rerun the same feedback loop or state why it cannot be rerun before handoff.
+Maintain a lightweight hypothesis ledger for non-obvious bugs: `hypothesis`, `prediction`, `evidence_for`, `evidence_against`, `probe_result`, and `final_root_cause`. The ledger is working evidence, not a durable schema. Evidence must come from reproduction, source reads, tests, logs, runtime values, diffs, or user-provided artifacts before it can close a causal-chain link. After a fix, rerun the same feedback loop or state why it cannot be rerun before handoff.
 
 ---
 
@@ -206,8 +202,6 @@ Before forming a new hypothesis, review what has already been ruled out and why.
 
 **Causal chain gate:** Do not proceed to Phase 3 until you can explain the full causal chain — from the original trigger through every step to the observed symptom — with no gaps. The user can explicitly authorize proceeding with the best-available hypothesis if investigation is stuck.
 
-If a hypothesis ledger entry uses `graph_evidence`, every uncertain link informed by that graph evidence must be closed by at least one non-graph observation before declaring root cause: reproduction, source read, log line, runtime value, or test result. A GitNexus-backed root cause with no non-graph confirmation violates this gate. This requirement applies only to hypotheses that use `graph_evidence`; trivial-bug fast-path and hypotheses without graph evidence keep the existing chain gate.
-
 *Reminder: if a prediction was wrong but the fix appears to work, you found a symptom. The real cause is still active.*
 
 #### Present findings
@@ -297,9 +291,9 @@ Analyze how this was introduced and what allowed it to survive. Note any systemi
 **Problem**: [What was broken]
 **Root Cause**: [Full causal chain, with file:line references]
 **Recommended Tests**: [Tests to add/modify to prevent recurrence, with specific file and assertion guidance]
-**Graph evidence** (when applicable):
-- graph_claims_validated_by: [Which graph findings were confirmed by reproduction/source/log/test, or "none"]
-- graph_claims_remaining_advisory: [Which graph findings were not independently confirmed, or "none"]
+**Direct evidence**:
+- claims_validated_by: [Which reproduction/source/log/test facts confirmed the causal chain, or "none"]
+- claims_remaining_advisory: [Which suspected links were not independently confirmed, or "none"]
 **Fix**: [What was changed — or "diagnosis only" if Phase 3 was skipped]
 **Prevention**: [Test coverage added; defense-in-depth if applicable]
 **Confidence**: [High/Medium/Low]

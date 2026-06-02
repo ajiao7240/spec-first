@@ -88,7 +88,6 @@ describe('ai dev benchmark fixture suite', () => {
       'api-contract',
       'cli-bugfix',
       'docs-only',
-      'graph-degraded-fallback',
       'multi-module-refactor',
     ]);
 
@@ -109,7 +108,7 @@ describe('ai dev benchmark fixture suite', () => {
     expect(result.passed).toBe(true);
     expect(result.advisory).toBe(true);
     expect(result.failures).toEqual([]);
-    expect(result.fixtures).toHaveLength(5);
+    expect(result.fixtures).toHaveLength(4);
     expect(result.fixtures).toEqual(expect.arrayContaining([
       expect.objectContaining({
         fixture_id: 'api-contract',
@@ -129,10 +128,6 @@ describe('ai dev benchmark fixture suite', () => {
       }),
       expect.objectContaining({
         fixture_id: 'cli-bugfix',
-        status: 'passed',
-      }),
-      expect.objectContaining({
-        fixture_id: 'graph-degraded-fallback',
         status: 'passed',
       }),
       expect.objectContaining({

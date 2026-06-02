@@ -23,12 +23,12 @@
   "schema_version": "spec-first.review-finding.v1",
   "finding_id": "F-001",
   "severity": "blocking|high|medium|low|info",
-  "category": "requirements|architecture|code-quality|test|security|performance|ux|i18n|analytics|graph|changelog|documentation",
+  "category": "requirements|architecture|code-quality|test|security|performance|ux|i18n|analytics|changelog|documentation",
   "title": "简洁的 finding 标题",
   "description": "问题是什么，以及为什么重要",
   "evidence": [
     {
-      "type": "file|diff|test|graph|standard|requirement|compound|artifact",
+      "type": "file|diff|test|external-tool|standard|requirement|compound|artifact",
       "path": "repo-relative/path",
       "anchor": "line、section、symbol、command 或 artifact key",
       "summary": "Evidence 摘要"
@@ -51,5 +51,5 @@
 2. 每个 actionable finding 必须至少包含一条带 path 或 command anchor 的 evidence entry。
 3. bounded fanout 可使用 finding caps，但不得静默丢弃 P0/P1 findings。
 4. 领域 workflows 可以增加 `extensions`，但共享字段必须保持 severity、evidence、verification 和 residual handling 可比较。
-5. `type="graph"` evidence 只是 supporting evidence；除非 paired with direct file / diff / test / standard / requirement / contract evidence，否则不得单独形成 high-confidence finding、root-cause claim 或 merge/block decision。
-6. Finding 引用 `gitnexus-session-evidence.v1` 或 pre-facts evidence 时，必须总结 freshness / limitations，并写明确认该 claim 的 source reads、tests 或 contracts。
+5. External-tool evidence is supporting evidence; unless paired with direct file, diff, test, standard, requirement, contract, or log evidence, it must not form a high-confidence finding, root-cause claim, or merge/block decision by itself.
+6. Finding 引用 compact evidence summary 时，必须总结 freshness / limitations，并写明确认该 claim 的 source reads、tests、logs 或 contracts。

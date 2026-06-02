@@ -52,7 +52,7 @@ function writeJson(filePath, value) {
 describe('setup scenario fingerprint contract', () => {
   test('internal CLI writes advisory setup fingerprint for a clean single repo', () => {
     const repo = initCommittedRepo();
-    writeJson(path.join(repo, '.spec-first', 'config', 'graph-providers.json'), { schema_version: 'fixture' });
+    writeJson(path.join(repo, '.spec-first', 'config', 'tool-facts.json'), { schema_version: 'fixture' });
     const ledger = path.join(repo, 'ledger.json');
     writeJson(ledger, {
       target_kind: 'git-repo',
@@ -60,15 +60,9 @@ describe('setup scenario fingerprint contract', () => {
       target_root: repo,
       workspace_root: repo,
       repo_label: 'fixture',
-      graph_providers: {
-        gitnexus: {
-          configured: true,
-          dependency_status: 'ready',
-          host_config_status: 'ready',
-          project_status: 'not-applicable',
-          query_ready: true,
-          bootstrap_required: false,
-        },
+      setup_facts: {
+        tool_facts_path: '.spec-first/config/tool-facts.json',
+        runtime_capabilities_path: '.spec-first/config/runtime-capabilities.json',
       },
     });
     const output = path.join(repo, '.spec-first', 'workspace', 'scenario-fingerprint-setup.json');
@@ -95,15 +89,14 @@ describe('setup scenario fingerprint contract', () => {
       non_git_build_targets_present: false,
       git_alignment_broken: false,
       parent_repo_local_artifacts_present: false,
-      worktree_dirty_graph_affecting: false,
-      provider_query_degraded: false,
+      worktree_dirty_source_affecting: false,
     });
   });
 
   test('classifies normal first-time clones without artifacts separately from foreign residuals', () => {
     const repo = initCommittedRepo();
     const homeMissingPath = path.join(os.homedir(), 'definitely-missing-spec-first-fixture');
-    writeJson(path.join(repo, '.spec-first', 'graph', 'graph-facts.json'), {
+    writeJson(path.join(repo, '.spec-first', 'config', 'tool-facts.json'), {
       repo_root: homeMissingPath,
     });
     fs.rmSync(path.join(repo, '.spec-first'), { recursive: true, force: true });
@@ -125,7 +118,7 @@ describe('setup scenario fingerprint contract', () => {
 
   test('foreign residual requires stat failure and foreign prefix mismatch', () => {
     const repo = initCommittedRepo();
-    writeJson(path.join(repo, '.spec-first', 'graph', 'graph-facts.json'), {
+    writeJson(path.join(repo, '.spec-first', 'config', 'tool-facts.json'), {
       repo_root: '/private/var/spec-first-foreign-missing/repo',
     });
 
@@ -192,8 +185,7 @@ describe('setup scenario fingerprint contract', () => {
       'non_git_build_targets_present',
       'git_alignment_broken',
       'parent_repo_local_artifacts_present',
-      'worktree_dirty_graph_affecting',
-      'provider_query_degraded',
+      'worktree_dirty_source_affecting',
     ]) {
       expect(contract).toContain(`\`${dimension}\``);
     }

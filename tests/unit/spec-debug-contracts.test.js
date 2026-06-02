@@ -23,7 +23,7 @@ describe('spec-debug branch-aware handoff contract', () => {
     expect(text).not.toContain('must use `docs/adr/`');
   });
 
-  test('uses workspace graph targets only for read-only debugging evidence', () => {
+  test('uses bounded direct reads before choosing a repo for debugging fixes', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
     expect(text).toContain('Context Orientation Anchor');
@@ -33,36 +33,13 @@ describe('spec-debug branch-aware handoff contract', () => {
     expect(text).toContain('Maintain a run-local context ledger for this workflow');
     expect(text).toContain('Reuse loaded summaries within the same workflow run');
     expect(text).toContain('Re-read only when exact wording is needed');
-    expect(text).toContain('workspace-graph-targets.v1');
-    expect(text).toContain('workspace-gitnexus-readiness.v1');
-    expect(text).toContain('group or bounded registry/per-repo evidence');
-    expect(text).toContain('`group-missing` is fallback context, not provider failure');
-    expect(text).toContain('GitNexus-first queries');
-    expect(text).toContain('degraded-fallback');
-    expect(text).toContain('definitions-only GitNexus results as file/symbol pointers');
     expect(text).toContain('single explicit `target_repo` or per-fix repo scope');
-    expect(text).toContain('do not let cwd, graph target facts, group readiness facts, or live MCP results choose a sibling repo for edits');
-    expect(text).toContain('Graph Freshness / Refresh Trigger Boundary');
-    expect(text).toContain('.spec-first/graph/provider-status.json');
-    expect(text).toContain('.spec-first/graph/graph-facts.json');
-    expect(text).toContain('.spec-first/impact/bootstrap-impact-capabilities.json');
-    expect(text).toContain('provider `query_ready=true`');
-    expect(text).toContain('current `source_revision`, `worktree_dirty`, `worktree_status_hash`');
-    expect(text).toContain('setup-owned provider projection / fingerprint freshness');
-    expect(text).toContain('Branch switch, pull, rebase, merge');
-    expect(text).toContain('provider fingerprint mismatch');
-    expect(text).toContain('stale / bootstrap-required signals');
-    expect(text).toContain('stale graph + lightweight debugging');
-    expect(text).toContain('stale graph + graph-heavy debugging');
-    expect(text).toContain('shared helper/API/route/provider contract/core workflow/cross-module failures');
-    expect(text).toContain('review-pre-facts failures');
-    expect(text).toContain('execution flows and blast radius');
-    expect(text).toContain('recommend `$spec-graph-bootstrap` / `/spec:graph-bootstrap`');
-    expect(text).toContain('Debug must not run GitNexus analyze/build/index refresh');
-    expect(text).toContain('provider repair, default git hooks, watchers, or daemons');
-    expect(text).toContain('called with `--workflow debug`');
-    expect(text).toContain('`query`, `context`, `impact`, and `detect_changes` summaries');
-    expect(text).toContain('raw diff or full provider output must stay out of durable summaries');
+    expect(text).toContain('do not let cwd or broad workspace discovery choose a sibling repo for edits');
+    expect(text).toContain('Direct Debug Evidence Boundary');
+    expect(text).toContain('Debug does not require external-tool readiness before investigation.');
+    expect(text).toContain('Use reproduction, direct source reads, `rg`, ast-grep, git diff, focused tests, runtime probes, logs, and user-provided artifacts');
+    expect(text).toContain('If a blast-radius or related-test claim cannot be confirmed from direct evidence');
+    expect(text).toContain('record it as residual risk instead of treating it as root-cause proof');
   });
 
   test('skill-owned branches default to commit-and-PR with explicit override checks', () => {
@@ -135,33 +112,26 @@ describe('spec-debug branch-aware handoff contract', () => {
     expect(text).toContain('Failed fix evidence reset');
     expect(text).toContain('record the invalidated evidence before forming the next hypothesis');
     expect(text).toContain('Do not stack another fix attempt on top of a contradicted hypothesis');
-    expect(text).toContain('optional `graph_evidence`');
-    expect(text).toContain('Use `graph_evidence` only when GitNexus evidence shaped the hypothesis');
-    expect(text).toContain('capability name, compact result summary, freshness/grade');
-    expect(text).toContain('`graph_evidence` does not replace `evidence_for` source/test confirmed facts');
-    expect(text).toContain('stale graph + graph-heavy debugging should still recommend `$spec-graph-bootstrap`');
-    expect(text).toContain('every uncertain link informed by that graph evidence must be closed by at least one non-graph observation');
-    expect(text).toContain('reproduction, source read, log line, runtime value, or test result');
-    expect(text).toContain('GitNexus-backed root cause with no non-graph confirmation violates this gate');
-    expect(text).toContain('applies only to hypotheses that use `graph_evidence`');
+    expect(text).toContain('**Concrete observation**: the runtime value, log line, instrumented boundary, working comparison, or specific code reference that grounds the hypothesis');
+    expect(text).toContain('The causal chain: how the trigger leads to the observed symptom, step by step');
+    expect(text).toContain('For uncertain links in the chain');
+    expect(text).toContain('Do not proceed to Phase 3 until you can explain the full causal chain');
+    expect(text).toContain('with no gaps');
   });
 
-  test('debug summary can disclose validated and advisory graph claims', () => {
+  test('debug summary discloses direct evidence and residual risk', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
-    expect(text).toContain('**Graph evidence** (when applicable):');
-    expect(text).toContain('graph_claims_validated_by');
-    expect(text).toContain('graph_claims_remaining_advisory');
-    expect(text).toContain('confirmed by reproduction/source/log/test');
-    expect(text).toContain('not independently confirmed');
+    expect(text).toContain('**Direct evidence**:');
+    expect(text).toContain('claims_validated_by');
+    expect(text).toContain('claims_remaining_advisory');
   });
 
-  test('multi-repo debug requires target repo before fixes even with group evidence', () => {
+  test('multi-repo debug requires target repo before fixes', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
     expect(text).toContain('single explicit `target_repo` or per-fix repo scope');
-    expect(text).toContain('even when GitNexus group evidence is ready');
-    expect(text).toContain('do not let cwd, graph target facts, group readiness facts, or live MCP results choose a sibling repo for edits');
+    expect(text).toContain('do not let cwd or broad workspace discovery choose a sibling repo for edits');
   });
 
   test('fix phase preserves project test conventions and right-sized review', () => {

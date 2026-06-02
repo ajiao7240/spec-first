@@ -22,19 +22,13 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
     ],
   },
   {
-    title: 'spec-first local setup, graph readiness, and workflow runtime artifacts',
+    title: 'spec-first local setup and workflow runtime artifacts',
     patterns: [
-      '.gitnexus/',
-      '.code-review-graph/',
-      '.spec-first-graph/',
       '.spec-first/*.local.yaml',
       '.spec-first/config.local.yaml',
       '.spec-first/config/*.json',
       '.spec-first/audits/',
       '.spec-first/app-audit/',
-      '.spec-first/graph/',
-      '.spec-first/providers/',
-      '.spec-first/impact/',
       '.spec-first/workflows/',
       '.spec-first/workspace/',
       '.spec-first/sessions/',
@@ -42,12 +36,7 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
   },
 ];
 
-const SPEC_FIRST_GITIGNORE_PATTERN_METADATA = {
-  '.code-review-graph/': {
-    reason: 'retired-crg-residual-ignore',
-    'residual-ignore-expiry': '1.10.0',
-  },
-};
+const SPEC_FIRST_GITIGNORE_PATTERN_METADATA = {};
 
 function getSpecFirstGitignorePatterns() {
   return SPEC_FIRST_GITIGNORE_SECTIONS.flatMap((section) => section.patterns);

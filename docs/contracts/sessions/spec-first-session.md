@@ -66,7 +66,7 @@ stale 文件——清理由 LLM advisory 提示用户进行，避免脚本越过
 非合法行为：
 
 - 把 session 文件作为硬 lock 阻塞其他 session 启动
-- 把 `session_id` 注入到 readiness/graph/standards artifact 字段（违反
+- 把 `session_id` 注入到 setup/runtime artifact 字段（违反
   light contract，超出 advisory 范畴；属于角色契约 12 节反对的反模式）
 - 在 generated runtime 里读取该文件作 contract truth
 

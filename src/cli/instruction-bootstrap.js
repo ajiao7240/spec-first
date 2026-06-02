@@ -149,11 +149,11 @@ function buildZhBootstrapBody(hostId) {
 - 本 block 只做轻量 workflow entry context router；完整路由策略在 \`skills/using-spec-first/SKILL.md\`
 - substantial work 前先判断是否进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答；已在 workflow 或 bounded subagent 中时不重新分流
 - 按当前意图选择一个入口；不要默认进入 \`spec-brainstorm\`，不要自动串联多个 workflow；用户询问下一步时，用 \`using-spec-first\` guide mode 推荐一个入口、一个理由、一个动作
-- 父级多仓 workspace：只读代码问题可用 \`workspace-graph-targets.v1\` advisory facts 和 \`workspace-gitnexus-readiness.v1\` 的 group-ready / bounded-fallback 提示；写入、修复、测试、review autofix 或 commit 前必须有明确 \`target_repo\` / per-child scope
+- 父级多仓 workspace：写入、修复、测试、review autofix 或 commit 前必须有明确 \`target_repo\` / per-child scope；只读定位也应使用 bounded direct reads 并说明目标 repo 假设
 - Runtime context 默认排除 \`.spec-first/audits/**\` 和 generated mirrors（\`.claude/**\`、\`.codex/**\`、\`.agents/skills/**\`）；只有 setup/update/runtime-drift/audit 等明确运行时任务按需读取
 ${hostLine}
 ${surfaceLine}；不要直接暴露 internal-only skills，例如 \`git-worktree\`
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；graph readiness→\`${entry('graph-bootstrap')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\``;
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\``;
 }
 
 function buildEnBootstrapBody(hostId) {
@@ -177,11 +177,11 @@ function buildEnBootstrapBody(hostId) {
 - This block is only a thin workflow entry context router; the full routing policy lives in \`skills/using-spec-first/SKILL.md\`
 - Before substantial work, decide whether to enter a public spec-first workflow; lightweight Q&A and narrow factual lookups may be answered directly; if already inside a workflow or bounded subagent, do not reroute
 - Pick one entrypoint by current intent; do not default to \`spec-brainstorm\` or automatically chain workflows; when the user asks what to run next, use \`using-spec-first\` guide mode to recommend one entrypoint, one reason, and one action
-- Parent multi-repo workspace: read-only code questions may use \`workspace-graph-targets.v1\` advisory facts and \`workspace-gitnexus-readiness.v1\` group-ready / bounded-fallback hints; writes, fixes, tests, review autofix, or commits require explicit \`target_repo\` / per-child scope
+- Parent multi-repo workspace: writes, fixes, tests, review autofix, or commits require explicit \`target_repo\` / per-child scope; read-only orientation should use bounded direct reads and state target-repo assumptions
 - Runtime context excludes \`.spec-first/audits/**\` and generated mirrors (\`.claude/**\`, \`.codex/**\`, \`.agents/skills/**\`) by default; only setup/update/runtime-drift/audit tasks read them when explicitly needed
 ${hostLine}
 ${surfaceLine}; do not expose internal-only skills directly, for example \`git-worktree\`
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; graph readiness→\`${entry('graph-bootstrap')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/tasks/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\``;
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/tasks/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\``;
 }
 
 function stripStandaloneMarkerLines(content) {

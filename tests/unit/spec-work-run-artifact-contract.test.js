@@ -71,7 +71,7 @@ function validArtifact() {
     },
     provider_untrusted: {
       readiness_status: 'degraded',
-      summaries: ['graph facts not used as primary evidence'],
+      summaries: ['setup facts not used as primary evidence'],
     },
     retention: {
       retention_status: 'lifecycle-deferred',
@@ -86,19 +86,12 @@ function validArtifact() {
   };
 }
 
-function validGraphEvidenceUsed() {
+function validDirectEvidenceUsed() {
   return {
-    capabilities_used: ['api_impact', 'shape_check'],
-    lanes_used: ['workflow-native-session'],
-    evidence_grade: 'primary',
-    evidence_posture: 'fallback',
-    freshness_state: 'fresh',
+    source_refs: ['skills/spec-work/SKILL.md'],
+    checks_or_logs: ['npm run test:unit -- spec-work-run-artifact'],
     repo_scope: 'spec-first',
-    graph_findings_applied: ['shape_check pointed at existing response-shape test coverage'],
-    graph_findings_as_risk_only: ['extra consumer outside plan scope kept as follow-up'],
-    graph_findings_rejected_after_source_read: ['route consumer outside source plan rejected after direct read'],
-    source_reads_required: ['skills/spec-work/SKILL.md'],
-    source_reads_validated: ['skills/spec-work/SKILL.md direct read confirmed closeout wording'],
+    limitations: ['bounded direct evidence only'],
     redaction_status: 'none-required',
   };
 }
@@ -146,72 +139,58 @@ describe('spec-work run artifact contract', () => {
     expect(validateAgainstSchema(schema, validArtifact()).errors).toEqual([]);
   });
 
-  test('schema adds optional graph_evidence_used without breaking old artifacts', () => {
+  test('schema adds optional direct_evidence_used without breaking old artifacts', () => {
     const schema = readJson(SCHEMA_PATH);
 
-    expect(schema.properties.graph_evidence_used).toBeDefined();
-    expect(schema.required).not.toContain('graph_evidence_used');
-    expect(schema.properties.graph_evidence_used.required).toEqual([
-      'capabilities_used',
-      'evidence_grade',
-      'evidence_posture',
-      'freshness_state',
+    expect(schema.properties.direct_evidence_used).toBeDefined();
+    expect(schema.required).not.toContain('direct_evidence_used');
+    expect(schema.properties.direct_evidence_used.required).toEqual([
+      'source_refs',
+      'checks_or_logs',
       'repo_scope',
-      'graph_findings_applied',
-      'graph_findings_as_risk_only',
-      'source_reads_validated',
+      'limitations',
       'redaction_status',
     ]);
-    expect(schema.properties.graph_evidence_used.properties.evidence_grade.enum).toEqual([
-      'primary',
-      'session-local',
-      'advisory',
-      'stale',
-    ]);
-    expect(schema.properties.graph_evidence_used.properties.evidence_grade.enum).not.toContain('fallback');
-    expect(schema.properties.graph_evidence_used.properties.evidence_posture.enum).toContain('fallback');
-    expect(schema.properties.graph_evidence_used.properties.capabilities_used.maxItems).toBe(20);
-    expect(schema.properties.graph_evidence_used.properties.lanes_used.items.enum).toContain('deterministic-helper');
-    expect(schema.properties.graph_evidence_used.properties.lanes_used.items.enum).toContain('workflow-native-session');
-    expect(schema.properties.graph_evidence_used.properties.source_reads_required.maxItems).toBe(20);
-    expect(schema.properties.graph_evidence_used.properties.graph_findings_rejected_after_source_read.maxItems).toBe(20);
-    expect(schema.properties.graph_evidence_used.properties.graph_findings_applied.items.maxLength).toBe(300);
+    expect(schema.properties.direct_evidence_used.properties.source_refs.maxItems).toBe(20);
+    expect(schema.properties.direct_evidence_used.properties.checks_or_logs.maxItems).toBe(20);
+    expect(schema.properties.direct_evidence_used.properties.limitations.maxItems).toBe(20);
+    expect(schema.properties.direct_evidence_used.properties.source_refs.items.maxLength).toBe(300);
 
     expect(validateAgainstSchema(schema, validArtifact()).errors).toEqual([]);
   });
 
-  test('schema validates compact graph evidence including primary fallback orthogonality', () => {
+  test('schema validates compact direct evidence', () => {
     const schema = readJson(SCHEMA_PATH);
     const artifact = validArtifact();
-    artifact.graph_evidence_used = validGraphEvidenceUsed();
+    artifact.direct_evidence_used = validDirectEvidenceUsed();
 
     expect(validateAgainstSchema(schema, artifact).errors).toEqual([]);
   });
 
-  test('schema rejects incomplete or unbounded graph evidence summaries', () => {
+  test('schema rejects incomplete or unbounded direct evidence summaries', () => {
     const schema = readJson(SCHEMA_PATH);
     const missingRedaction = validArtifact();
-    missingRedaction.graph_evidence_used = validGraphEvidenceUsed();
-    delete missingRedaction.graph_evidence_used.redaction_status;
-    const tooManyFindings = validArtifact();
-    tooManyFindings.graph_evidence_used = {
-      ...validGraphEvidenceUsed(),
-      graph_findings_applied: Array.from({ length: 21 }, (_, index) => `finding-${index}`),
+    missingRedaction.direct_evidence_used = validDirectEvidenceUsed();
+    delete missingRedaction.direct_evidence_used.redaction_status;
+    const tooManyRefs = validArtifact();
+    tooManyRefs.direct_evidence_used = {
+      ...validDirectEvidenceUsed(),
+      source_refs: Array.from({ length: 21 }, (_, index) => `source-${index}`),
     };
     const tooLongScope = validArtifact();
-    tooLongScope.graph_evidence_used = {
-      ...validGraphEvidenceUsed(),
+    tooLongScope.direct_evidence_used = {
+      ...validDirectEvidenceUsed(),
       repo_scope: 'x'.repeat(161),
     };
 
     expect(validateAgainstSchema(schema, missingRedaction).errors).toContain(
-      'root.graph_evidence_used: missing required key redaction_status'
+      'root.direct_evidence_used: missing required key redaction_status'
     );
-    expect(validateAgainstSchema(schema, tooManyFindings).errors).toContain(
-      'root.graph_evidence_used.graph_findings_applied: expected at most 20 item(s), received 21'
+    expect(validateAgainstSchema(schema, tooManyRefs).errors).toContain(
+      'root.direct_evidence_used.source_refs: expected at most 20 item(s), received 21'
     );
     expect(validateAgainstSchema(schema, tooLongScope).errors).toContain(
-      'root.graph_evidence_used.repo_scope: expected string length at most 160, received 161'
+      'root.direct_evidence_used.repo_scope: expected string length at most 160, received 161'
     );
   });
 
@@ -257,7 +236,7 @@ describe('spec-work run artifact contract', () => {
     );
   });
 
-  test('schema rejects generated mirror and provider artifact path classes', () => {
+  test('schema rejects generated mirror and non-workflow runtime artifact path classes', () => {
     const schema = readJson(SCHEMA_PATH);
     const generatedMirrorArtifact = validArtifact();
     generatedMirrorArtifact.source_refs = ['.agents/skills/spec-work/SKILL.md'];
@@ -268,13 +247,13 @@ describe('spec-work run artifact contract', () => {
     const allowedWorkflowArtifact = validArtifact();
     allowedWorkflowArtifact.script_confirmed.artifact_refs = ['.spec-first/workflows/spec-work/spec-first/phase1b-smoke/run.json'];
     allowedWorkflowArtifact.llm_asserted.read_artifacts = ['.spec-first/workflows/spec-work/spec-first/phase1b-smoke/run.json'];
-    const providerArtifact = validArtifact();
-    providerArtifact.script_confirmed.artifact_refs = ['.spec-first/graph/provider-status.json'];
+    const runtimeConfigArtifact = validArtifact();
+    runtimeConfigArtifact.script_confirmed.artifact_refs = ['.spec-first/config/tool-facts.json'];
 
     expect(validateAgainstSchema(schema, generatedMirrorArtifact).errors.some((error) => (
       error.includes('root.source_refs[0]') && error.includes('does not match pattern')
     ))).toBe(true);
-    expect(validateAgainstSchema(schema, providerArtifact).errors.some((error) => (
+    expect(validateAgainstSchema(schema, runtimeConfigArtifact).errors.some((error) => (
       error.includes('root.script_confirmed.artifact_refs[0]') && error.includes('does not match pattern')
     ))).toBe(true);
     expect(validateAgainstSchema(schema, sourceWorkflowArtifact).errors.some((error) => (

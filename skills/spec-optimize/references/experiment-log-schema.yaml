@@ -135,7 +135,7 @@ experiment_entry:
 
     category:
       type: string
-      description: "Category for grouping and diversity selection (e.g., signal-extraction, graph-signals, embedding, algorithm, preprocessing)"
+      description: "Category for grouping and diversity selection (e.g., signal-extraction, structural-signals, embedding, algorithm, preprocessing)"
 
     outcome:
       type: enum

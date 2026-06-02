@@ -107,7 +107,7 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
    - `trigger-task-pack` - the input is a validated task-pack path.
    - `trigger-not-run-validation` - any Phase 2 or Phase 3 verification status is `not-run`.
    - `trigger-deferred-follow-up` - the closeout has non-empty `deferred_follow_up[]`.
-   - `trigger-substantive-work` - the work is important enough to leave durable evidence because it consumed degraded/stale provider evidence, hands off to review/compound/release, resumed through compaction, or was long or cross-cutting enough for context loss to matter.
+   - `trigger-substantive-work` - the work is important enough to leave durable evidence because it consumed limited optional external-tool evidence, hands off to review/compound/release, resumed through compaction, or was long or cross-cutting enough for context loss to matter.
 
    When any trigger matches, call the internal producer with a fresh run id:
 
@@ -156,23 +156,17 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
 
    If a check was not run, say `not run` with the concrete reason. If no user action remains, omit `Next action` instead of inventing follow-up work.
 
-   **Graph evidence used (when applicable)**
+   **Direct evidence used (when applicable)**
 
-   If the plan/task-pack or this work run consumed GitNexus evidence, include a compact `graph_evidence_used` mini-section in closeout or handoff evidence. Omit the section when no graph evidence was available or consumed.
+   If the plan/task-pack or this work run consumed direct source/test/log evidence that materially shaped scope or verification, include a compact `direct_evidence_used` mini-section in closeout or handoff evidence. Omit the section when the ordinary changed-file/test summary is enough.
 
    ```text
-   Graph evidence used:
-   - capabilities_used: <list or none>
-   - evidence_grade: <primary | session-local | advisory | stale>
-   - evidence_posture: <primary | fallback>
-   - freshness_state: <fresh | stale | dirty-advisory | query-unverified>
-   - repo_scope: <target-repo-name | per-unit | per-fix | parent-workspace-orientation-only>
-   - graph_findings_applied: <which findings influenced file/test selection>
-   - graph_findings_as_risk_only: <extra discovered surfaces recorded as risk/follow-up, not implemented>
-   - source_reads_validated: <key findings confirmed by direct source reads>
+   Direct evidence used:
+   - source_refs: <list or none>
+   - checks_or_logs: <list or none>
+   - repo_scope: <target-repo-name | per-unit | per-fix>
+   - limitations: <bounded coverage or none>
    ```
-
-   `fallback` belongs to `evidence_posture`, not `evidence_grade`. Extra graph findings outside the plan/task scope stay in `graph_findings_as_risk_only` and must not expand implementation scope.
 
    **Learning-worthy compound check**
 

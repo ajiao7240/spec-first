@@ -23,7 +23,7 @@ describe('release publish script', () => {
     const websiteGateIndex = script.indexOf("runNpmChecked(['run', 'test:release:website'])");
     const versionWriteIndex = script.indexOf('writePackageJson(nextPkg)');
     const packIndex = script.indexOf("runNpmChecked(['pack'])");
-    const dryRunPackIndex = script.indexOf("runNpmChecked(['pack', '--dry-run'])");
+    const dryRunPackIndex = script.indexOf("spawnSync('npm', ['pack', '--dry-run']");
     const restoreIndex = script.lastIndexOf('writePackageJson(pkg)');
 
     expect(releaseGateIndex).toBeGreaterThan(-1);

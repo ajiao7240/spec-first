@@ -38,7 +38,7 @@ Requirements artifacts under `docs/brainstorms/` using `artifact_kind: prd-requi
 
 ### Failure Modes
 
-Missing target surface, unresolved product identity, current-state claims without evidence, owner decisions that would change scope, stale graph evidence presented as confirmed truth, or PRD readiness gaps that would force planning to invent WHAT.
+Missing target surface, unresolved product identity, current-state claims without evidence, owner decisions that would change scope, unconfirmed source candidates presented as confirmed truth, or PRD readiness gaps that would force planning to invent WHAT.
 
 ### Workflow
 
@@ -72,6 +72,7 @@ Load these references only when the phase needs them:
 
 - `references/intent-routing.md` for input classification, create/refine/validate intent, route-outs, and split-decision rules.
 - `references/current-state-analysis.md` before writing current-state or Change Delta claims.
+- `references/change-topology-lens.md` when the change may alter capability identity, source-of-truth, workflow handoff, artifacts, contracts, runtime generation, or active product surface. Load it early for an internal Framing Gate when the user's wording already signals removal, migration, workflow/contract change, source-of-truth movement, or cross-surface cleanup.
 - `references/domain-language-and-decision-ledger.md` when terminology, domain boundaries, or source/user contradictions matter.
 - `docs/contracts/domain-glossary.md` when it exists — the project-level canonical glossary, read before introducing or naming domain terms so prior-PRD canonical terms are reused, not reinvented. Optional and opt-in; absence is fine for a single small increment.
 - `references/prd-output-template.md` before drafting or materially rewriting a PRD artifact.
@@ -111,11 +112,13 @@ Handle input modes explicitly:
 
 Read `references/current-state-analysis.md`.
 
+Before deep evidence gathering, run an internal Framing Gate from `references/change-topology-lens.md` when the prompt or input draft already signals removal, migration, workflow/contract change, source-of-truth movement, generated/runtime mirrors, package/docs/test cleanup, or cross-surface scope. Use it to name candidate topologies, load-bearing surfaces, required evidence, negative-space risks, and the smallest owner questions. The gate is run-local authoring discipline; only write its output into the PRD when it reduces planning invention.
+
 Gather scope-appropriate evidence:
 
 - User-stated facts and decisions.
 - Repo source, docs, tests, contracts, templates, and prior requirements/plans.
-- GitNexus only as session-local orientation or `gitnexus-pointer` when stale, dirty, or impact-unavailable.
+- Source candidates from bounded direct reads, `rg`, ast-grep, package/test facts, logs, and user-provided artifacts; confirm material claims before marking them `confirmed-source`.
 - External research only when explicitly requested or required, with source/date.
 - Assumptions only when labeled and safe to carry.
 
@@ -124,6 +127,8 @@ Write or update `Current System Snapshot` only for claims that affect the PRD. U
 ### Phase 2: Change Delta And Domain Language
 
 Confirm the increment as `keep`, `extend`, `replace`, `remove`, or `unknown`. Do not let current-state discovery expand the product scope silently.
+
+When the delta affects capability identity, source-of-truth, public entrypoints, workflows, artifacts, contracts, setup/runtime generation, docs/tests/package, or active product surface, read or reuse `references/change-topology-lens.md` and classify the system-change topology before drafting requirements. Use the lens to decide whether the PRD needs a Surface Map, Producer / Artifact / Consumer table, Source-Of-Truth Resolution, Negative Space acceptance, or a minimal owner-question ladder. This is a PRD precision tool, not a request to add implementation units.
 
 When domain terminology is ambiguous, read `references/domain-language-and-decision-ledger.md`. Prefer source-first questioning: if existing docs/code can answer a terminology or behavior question, inspect them before asking the owner. When `docs/contracts/domain-glossary.md` exists, read it first so canonical terms established by prior PRDs are reused; if a new term conflicts with a canonical entry, surface the contradiction rather than drifting. If user wording conflicts with confirmed source, record the contradiction, source tag, recommended default, and one minimal owner confirmation question. When a domain-specific term has been sharpened across two or more PRDs, propose promoting it to the project glossary preview-first (owner-confirmed write only).
 
@@ -146,7 +151,7 @@ Use core sections for every normal PRD:
 - Scope Boundaries
 - Evidence And Assumptions
 
-Include conditional sections only when they reduce planning invention: Problem Frame, Current System Snapshot, Goals / Success Metrics, Glossary, Decision Notes, Actors, Use Cases, Interaction Requirements, Exception Handling, Data / Compliance Boundaries, Release / Operation Readiness, and Outstanding Questions.
+Include conditional sections only when they reduce planning invention: Problem Frame, Current System Snapshot, Change Topology, Surface Map, Source-Of-Truth Resolution, Negative Acceptance, Goals / Success Metrics, Glossary, Decision Notes, Actors, Use Cases, Interaction Requirements, Exception Handling, Data / Compliance Boundaries, Release / Operation Readiness, and Outstanding Questions.
 
 For oversized initial PRDs, produce a split-decision recommendation first. Write split summary and child PRDs only when the owner confirms module boundaries, priorities, and release sequencing. Keep the original PRD or source input by reference; do not introduce packet manifests or trace-ledgers in v1.
 

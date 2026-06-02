@@ -1,6 +1,6 @@
 # Project Domain Glossary
 
-本文件是 spec-first 项目级 **canonical 领域语言** 的 source-of-truth。它解决一个真实债务:`docs/brainstorms/` 下已有数十个 requirements/PRD,共享大量术语(GitNexus、readiness、reason_code、degraded-mode 等),但若每个 PRD 各自定义,领域语言会随时间漂移。本 glossary 让第 N 个 PRD 不必重新发明第 1 个 PRD 已确立的术语。
+本文件是 spec-first 项目级 **canonical 领域语言** 的 source-of-truth。它解决一个真实债务:`docs/brainstorms/` 下已有数十个 requirements/PRD,共享大量术语(readiness、reason_code、degraded-mode 等),但若每个 PRD 各自定义,领域语言会随时间漂移。本 glossary 让第 N 个 PRD 不必重新发明第 1 个 PRD 已确立的术语。
 
 这是 `docs/contracts/` 拓扑下的一个 contract artifact,**不是** 独立的 `CONTEXT.md` 或 `docs/adr/` 文件树。它是 glossary,不是 spec、不是 scratchpad、不是实现决策仓库。
 
@@ -32,7 +32,7 @@
 | `referenced_by` | 引用该术语的 PRD 路径列表(repo-relative) |
 | `status` | `active` / `deprecated` / `superseded_by: <canonical_name>` |
 
-`source_tag` 词表与 `docs/contracts/graph-evidence-policy.md` 的证据等级一致,不另造枚举。
+`source_tag` 词表应与 active workflow evidence labels 保持一致,不另造枚举。
 
 ## 条目格式
 

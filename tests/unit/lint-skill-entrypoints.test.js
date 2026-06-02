@@ -39,7 +39,7 @@ describe('lint skill entrypoints', () => {
     const config = testConfig();
     const governance = testGovernance();
     const rules = buildRules(config, governance);
-    const forbiddenCommand = '/spec:' + 'using-spec-first';
+    const forbiddenCommand = '/spec:using-spec-first';
 
     const findings = analyzeContent(
       `Do not route users to \`${forbiddenCommand}\`.`,
@@ -54,7 +54,7 @@ describe('lint skill entrypoints', () => {
     const config = testConfig();
     const governance = testGovernance();
     const rules = buildRules(config, governance);
-    const forbiddenCommand = '/spec:' + 'using-spec-first';
+    const forbiddenCommand = '/spec:using-spec-first';
 
     const findings = analyzeContent(
       `Route users to \`${forbiddenCommand}\`.`,
@@ -75,9 +75,9 @@ describe('lint skill entrypoints', () => {
     const config = testConfig();
     const governance = testGovernance();
     const rules = buildRules(config, governance);
-    const slashCommand = '/spec:' + 'write-tasks';
-    const sourceSlashCommand = '/spec:' + 'spec-write-tasks';
-    const codexCommand = '$' + 'spec-write-tasks';
+    const slashCommand = '/spec:write-tasks';
+    const sourceSlashCommand = '/spec:spec-write-tasks';
+    const codexCommand = '$spec-write-tasks';
 
     const findings = analyzeContent(
       [

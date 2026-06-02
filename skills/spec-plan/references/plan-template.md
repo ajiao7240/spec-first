@@ -81,41 +81,25 @@ implements_schemas: []  # optional; include only repo-relative contract schema p
 
 ---
 
-## Graph Readiness
+## Direct Evidence Readiness
 
 - target_repo:
-- status: primary | degraded-fallback | stale | blocked | setup-not-ready | unavailable
-- source_revision:
+- evidence_sources: [direct source reads, rg, ast-grep, git diff, tests/logs, user-provided evidence]
+- source_refs:
 - current_revision:
-- stale:
-- primary_providers:
-- degraded_providers:
-- fallback_capabilities:
-- runtime_mcp_evidence:
+- worktree_status:
 - confidence:
 - limitations:
 
 ---
 
-<!-- Optional plan-local section — include the full block for code/architecture/API/cross-module
-     or review-risk plans when canonical graph artifacts, workspace advisory facts,
-     setup-owned GitNexus capability projection, or a current-session GitNexus MCP surface
-     exists. For the no-graph/no-MCP/no-setup-projection fast path, collapse this to a
-     minimal unavailable block; for docs-only/non-code plans, use not-applicable or omit. -->
-## Graph / GitNexus Evidence
+## Direct Evidence
 
-- provider: GitNexus | unavailable | not-applicable
-- native_tool_or_resource:
 - repo_scope:
-- capability_status: available | partial | unavailable | mutation-gated
-- evidence_grade: primary | session-local | advisory | stale
-- evidence_posture: primary | fallback
-- freshness_state: fresh | stale | dirty-advisory | query-unverified
-- source_tags: [replace with applicable tags: checked-in-baseline, provider-pin, setup-projection, live-mcp-tool, live-mcp-resource, session-local-inference, user-decision]
-- source_contract_fields:
+- source_reads_completed:
 - source_reads_required:
+- commands_or_tools_used:
 - impact_on_plan:
-- capabilities_used:
 - key_findings:
 - limitations:
 

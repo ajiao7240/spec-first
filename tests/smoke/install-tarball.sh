@@ -45,12 +45,11 @@ echo "   tarball: $TARBALL_PATH"
 test -f "$TARBALL_PATH"
 PACK_LIST="$TARBALL_DIR/pack-list.txt"
 tar -tf "$TARBALL_PATH" > "$PACK_LIST"
-obsolete_src="src/""crg"
 parser_dep="tree""-sitter"
 sqlite_dep="better""-sqlite3"
 retired_standards="standards"
-if grep -E "$obsolete_src|$parser_dep|$sqlite_dep" "$PACK_LIST"; then
-  echo "✗ tarball 文件列表包含已删除的图谱运行时内容"
+if grep -E "$parser_dep|$sqlite_dep" "$PACK_LIST"; then
+  echo "✗ tarball 文件列表包含不应打包的 native parser 依赖"
   exit 1
 fi
 if grep -q '^package/\.claude-plugin/' "$PACK_LIST"; then
@@ -61,8 +60,6 @@ if grep -E '(^|/)__pycache__/|\.py[co]$' "$PACK_LIST"; then
   echo "✗ tarball 文件列表不应包含 Python bytecode 缓存"
   exit 1
 fi
-grep -q "skills/spec-graph-bootstrap/SKILL.md" "$PACK_LIST"
-grep -q "templates/claude/commands/spec/graph-bootstrap.md" "$PACK_LIST"
 if grep -q "skills/spec-"standards"/" "$PACK_LIST"; then
   echo "✗ tarball 文件列表不应包含已删除的 spec-"standards" skill"
   exit 1
@@ -74,7 +71,9 @@ fi
 grep -q "skills/spec-skill-audit/SKILL.md" "$PACK_LIST"
 grep -q "skills/spec-skill-audit/scripts/write-audit-artifacts.js" "$PACK_LIST"
 grep -q "templates/claude/commands/spec/skill-audit.md" "$PACK_LIST"
-echo "   ✓ tarball 未包含内置 CRG runtime / .claude-plugin，且包含 external graph bootstrap 与 skill audit"
+grep -q "skills/spec-mcp-setup/SKILL.md" "$PACK_LIST"
+grep -q "templates/claude/commands/spec/mcp-setup.md" "$PACK_LIST"
+echo "   ✓ tarball 包含当前 workflow assets，且未包含 generated mirrors/native parser caches"
 
 # -------------------------------------------------------------------------
 # 2. 隔离安装
@@ -96,11 +95,11 @@ test "$install_rc" -eq 0
 # -------------------------------------------------------------------------
 echo "3. 验证安装日志..."
 
-if grep -E "$parser_dep|$sqlite_dep|$obsolete_src" "$INSTALL_LOG"; then
-  echo "✗ 安装日志包含已删除的图谱运行时内容"
+if grep -E "$parser_dep|$sqlite_dep" "$INSTALL_LOG"; then
+  echo "✗ 安装日志包含不应出现的 native parser 依赖"
   exit 1
 fi
-echo "   ✓ 安装日志未包含已删除的图谱运行时内容"
+echo "   ✓ 安装日志未包含 native parser 依赖"
 
 # 3a. postinstall 输出断言（依赖 foreground_scripts）
 if grep -q "安装完成" "$INSTALL_LOG"; then
@@ -164,9 +163,8 @@ const fs = require('fs');
 const path = require('path');
 const root = '$GLOBAL_PKG';
 const forbidden = [
-  'src/' + 'crg',
-  'vendor/' + 'tree' + '-sitter-objc',
-  'vendor/' + 'tree' + '-sitter-swift',
+  'vendor/tree-sitter-objc',
+  'vendor/tree-sitter-swift',
   '.claude-plugin',
 ];
 for (const rel of forbidden) {
@@ -175,28 +173,28 @@ for (const rel of forbidden) {
     process.exit(1);
   }
 }
-if (!fs.existsSync(path.join(root, 'skills/spec-' + 'graph' + '-bootstrap/SKILL.md'))) {
-  console.error('external graph bootstrap skill missing from package');
-  process.exit(1);
-}
-if (!fs.existsSync(path.join(root, 'templates/claude/commands/spec/' + 'graph' + '-bootstrap.md'))) {
-  console.error('external graph bootstrap command missing from package');
-  process.exit(1);
-}
-if (!fs.existsSync(path.join(root, 'skills/spec-' + 'skill' + '-audit/SKILL.md'))) {
+if (!fs.existsSync(path.join(root, 'skills/spec-skill-audit/SKILL.md'))) {
   console.error('skill audit skill missing from package');
   process.exit(1);
 }
-if (!fs.existsSync(path.join(root, 'skills/spec-' + 'skill' + '-audit/scripts/write-audit-artifacts.js'))) {
+if (!fs.existsSync(path.join(root, 'skills/spec-skill-audit/scripts/write-audit-artifacts.js'))) {
   console.error('skill audit artifact writer missing from package');
   process.exit(1);
 }
-if (!fs.existsSync(path.join(root, 'templates/claude/commands/spec/' + 'skill' + '-audit.md'))) {
+if (!fs.existsSync(path.join(root, 'templates/claude/commands/spec/skill-audit.md'))) {
   console.error('skill audit command missing from package');
   process.exit(1);
 }
+if (!fs.existsSync(path.join(root, 'skills/spec-mcp-setup/SKILL.md'))) {
+  console.error('mcp setup skill missing from package');
+  process.exit(1);
+}
+if (!fs.existsSync(path.join(root, 'templates/claude/commands/spec/mcp-setup.md'))) {
+  console.error('mcp setup command missing from package');
+  process.exit(1);
+}
 "
-echo "   ✓ 全局包未包含内置 CRG runtime，且包含 external graph bootstrap 与 skill audit"
+echo "   ✓ 全局包包含当前 setup 与 skill audit assets"
 
 NODE_PATH="$TMP_PREFIX/lib/node_modules" node -e "
 const m = require('spec-first/src/cli/init-plan');
