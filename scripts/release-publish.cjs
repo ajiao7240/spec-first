@@ -112,7 +112,13 @@ try {
 
   if (dryRun) {
     console.log('\n▸ 预览发布 tarball 内容...');
-    runNpmChecked(['pack', '--dry-run']);
+    // pnpm 不支持 pack --dry-run，直接用 npm 二进制避免 npm_execpath 指向 pnpm 时出错
+    try {
+      const { spawnSync } = require('node:child_process');
+      spawnSync('npm', ['pack', '--dry-run'], { cwd: repoRoot, stdio: 'inherit' });
+    } catch (_) {
+      console.log('  (tarball 预览跳过：npm pack --dry-run 不可用)');
+    }
   } else {
     console.log('\n▸ 生成发布 tarball...');
     runNpmChecked(['pack']);
