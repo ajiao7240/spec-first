@@ -20,6 +20,10 @@ implements_schemas: []
 
 本轮范围较大：CE `docs/**` 目录下的变更不作为同步 source，不进入逐文件同步台账、不提取 hunk、不做同步判定；过滤 `docs/**` 与 `tests/**` 后仍有 124 个 CE 文件条目，包含 18 个新增、14 个删除、52 个修改、40 个重命名。执行前必须先完成隔离工作面、非 docs/tests 实施面的逐文件判定台账（ledger）和 post-ledger gate；其中 agent 后缀、code-review base 检测、HTML 输出、`CONCEPTS.md`、`resolve-pr-feedback` 聚类删除、Codex runtime / `CODEX_HOME` 等都属于需要语义判断的变更。
 
+本计划不把当前 spec-first 约束当作自动否定 CE 变更的理由。当前约束只作为 compatibility facts：如果 CE 行为与现状冲突，U1/U2 必须把它转成明确的接受路径、适配路径、contract migration 或 spike，而不是简单标记 rejected。只有当迁移价值不足、consumer contract 无法闭合、或安全/边界 gate 失败时，才拒绝或延后。
+
+同样，本计划不把 CE diff 当作可直接覆盖 spec-first 的 patch。spec-first 已在多个 workflow/agent/CLI 面向 source/runtime 边界、双宿主、review contract、artifact handoff 和安全护栏做过改进；同步必须做语义合并：理解 CE 改动想解决的问题，识别 spec-first 当前已有改进，保留本地更强约束，并只把 CE 中能提升当前系统的意图和机制合并进来。
+
 ---
 
 ## 问题背景
@@ -43,12 +47,14 @@ Updating 834ca4e5..4cc6f7a6
 - R2. 保持 source-first：只修改 `skills/`、`agents/`、`templates/`、`src/cli/`、`docs/`、`tests/`、`README*.md`、`AGENTS.md`、`CHANGELOG.md` 等 source 文件；不手改 `.claude/`、`.codex/`、`.agents/skills/` 生成运行时镜像。
 - R3. 所有 CE 路径、名称、配置、badge 和 repo URL 必须按 spec-first 语义适配，不能保留面向 CE 的当前行为。
 - R4. Agent 重命名/删除不能按 CE 文件状态直接执行；必须审计 spec-first selector、persona catalog、runtime adapter、tests、README/runtime 计数和历史验证价值。
-- R5. `*.agent.md -> *.md` agent 后缀变更不得混入普通同步；若接受，必须作为独立 runtime contract 迁移。
-- R6. `spec-code-review` base 检测、reviewer dispatch、persona catalog、leaf artifact 写入边界和 tests 必须保持一致。
-- R7. `resolve-pr-feedback` 行为改动必须保留会修改仓库的 resolver 边界、reply/resolve ownership、combined validation 和 PR thread safety。
-- R8. 本轮接受 CE 的 `spec-plan` / `spec-brainstorm` HTML 输出、section references 和 `CONCEPTS.md`,但只作为有边界的 artifact/rendering/glossary 能力进入(Markdown 保持 canonical source,HTML 为 derived sidecar;`CONCEPTS.md` 为 advisory 词表),不得制造第二 PRD/ADR/source-of-truth。
+- R5. `*.agent.md -> *.md` agent 后缀变更不得混入普通 agent 内容同步；不得因当前 discovery 只支持 `.agent.md` 自动拒绝。若接受，必须作为独立 runtime contract 迁移，覆盖 discovery、adapter rewrite、runtime references、tests 和 rollback。
+- R6. `spec-code-review` base 检测、reviewer dispatch、persona catalog、leaf artifact 写入边界和 tests 必须保持一致；CE 删除 `resolve-base.sh` 可以被接受，但必须先用本地 tests 证明 fork-safe base detection、fail-closed 和 runtime path consumers 仍闭合。
+- R7. `resolve-pr-feedback` 行为改动必须保留会修改仓库的 resolver 边界、reply/resolve ownership、combined validation 和 PR thread safety；CE 删除 cross-invocation 聚类可以被接受，但必须先用重复 thread fixture 证明不会造成重复 mutation/reply/resolve。
+- R8. 本轮接受 CE 的 `spec-plan` / `spec-brainstorm` HTML rendering、section references 和 `CONCEPTS.md` 能力，但交付形态由 U7 gate 决定：可以是 Markdown canonical + HTML sidecar 的适配路径，也可以是 HTML-only parity contract migration；无论哪条路径，`CONCEPTS.md` 仅为 advisory 词表，不得制造第二 PRD/ADR/source-of-truth。
 - R9. CLI/runtime 变更必须映射到当前 CommonJS `src/cli/**` 架构，并覆盖 Codex/Claude 双宿主测试。
 - R10. 所有 source 变更必须补 `CHANGELOG.md`；用户可见行为变化标注 `(user-visible)`。
+- R11. 每个接受的 CE hunk 都必须做语义合并，不得直接整段替换 spec-first 已改进内容；ledger 至少记录 CE intent、spec-first local improvements to preserve、merge strategy、consumer tests。
+- R12. 执行过程中必须打开文件阅读后再合并：每个 accepted/adapted/contract-migration 条目在改动前必须读取 CE 当前文件或删除前版本、CE hunk、当前 spec-first 目标文件和相关 consumer/test 文件；不得只看 name-status、diff 摘要、搜索片段或 CE 原文就直接替换。
 
 ---
 
@@ -63,7 +69,7 @@ Updating 834ca4e5..4cc6f7a6
 
 ### 延后到后续工作
 
-- Agent source 后缀统一从 `.agent.md` 迁移到 `.md`：需要单独 runtime contract plan，覆盖 `src/cli/plugin.js`、`src/cli/adapters/*`、agent governance tests、runtime references 和 smoke tests。
+- Agent source 后缀统一从 `.agent.md` 迁移到 `.md`：默认不混入普通 agent 内容同步；若 U1/U2 判定本轮吸收 CE suffix migration 的价值高于迁移成本，必须先把本计划重切出独立 runtime contract migration 单元，覆盖 `src/cli/plugin.js`、`src/cli/adapters/*`、agent governance tests、runtime references 和 smoke tests。
 - 新增 dogfood/browser QA 工作流：需要和 `spec-polish-beta`、`test-browser`、`spec-code-review` 的职责边界做产品判断。
 - CE `docs/solutions/**` 的新增、删除、重命名、日期后缀清理都不在本轮处理，也不从本计划派生后续任务。
 
@@ -74,6 +80,8 @@ Updating 834ca4e5..4cc6f7a6
 - 排除 CE `docs/**` 与 `tests/**` 后的 124 个 CE 文件条目全部有同步判定。
 - CE `docs/**` 变更没有逐文件台账行，且不会进入同步执行队列；若被 bounded advisory read，只作为 rationale 摘要，不作为同步 source。
 - 每个修改/重命名文件都有 CE hunk 证据和 spec-first 当前目标文件对比。
+- 每个 accepted/adapted/contract-migration 行都有语义合并记录：CE 要解决什么、spec-first 当前已有何改进、保留哪些本地约束、最终合并到哪些 source/test。
+- 每个 accepted/adapted/contract-migration 行都有 direct-read evidence：至少列出 `opened_ce_ref`、`opened_target_ref`、必要的 `opened_consumer_refs`，以及这些文件中要保留或合并的具体语义。
 - 每个删除文件都有引用审计和删除/保留/延后原因。
 - 所有接受的 CE 变更都完成 spec-first 命名、配置路径、host/runtime、badge、repo URL 和 artifact path 适配。
 - 所有新增/修改 source 都有对应 tests 或明确的无测试理由。
@@ -98,8 +106,8 @@ Updating 834ca4e5..4cc6f7a6
   - `skills/spec-code-review/SKILL.md`
   - `skills/resolve-pr-feedback/references/full-mode.md`
   - `agents/spec-pr-comment-resolver.agent.md`
-- 当前 revision：`a6ec34960c648903315cd22a86dc8f6b52aa0d7b`
-- worktree 状态：dirty；本计划前已有许多无关 docs/skill/test 文件被修改
+- 当前 revision：最近一次终审核对为 `308d590da5a75bdcba807340971b6e2361e676c1`；实施时以 U0 刷新的 base revision 为准。
+- worktree 状态：最近一次终审核对为 dirty，包含未跟踪 `docs/01-需求分析/13.scale集成/`；实施时以 U0 刷新的 `git status --short` 和 target-overlap matrix 为准。
 - 置信度：计划范围为 medium-high；最终同步判定在 U1 ledger 与 U2 post-ledger gate 完成前为 medium
 - 限制：本轮读取了本地 CE 同级仓库，但计划文档刻意避免绝对路径；计划阶段没有实施代码，也没有运行测试。
 
@@ -137,7 +145,7 @@ Updating 834ca4e5..4cc6f7a6
   - 当前 `resolve-pr-feedback` 仍包含跨调用聚类。
   - 当前配置约定是 `.spec-first/config.local.yaml`，不是 CE `.compound-engineering/config.local.yaml`。
 - 限制：
-- 本计划自身不内嵌完整 124 行 ledger；U1 将该 ledger 作为第一个阻塞实施产物，以保持计划可维护。CE `docs/**` 变更不进入该 ledger 的逐文件同步行。
+  - 本计划自身不内嵌完整 124 行 ledger；U1 将该 ledger 作为第一个同步判定阻塞产物，以保持计划可维护。CE `docs/**` 变更不进入该 ledger 的逐文件同步行。
 
 ---
 
@@ -168,11 +176,14 @@ Updating 834ca4e5..4cc6f7a6
 ## 关键技术决策
 
 - **D1. 第一个同步产物是 CE 同步台账，而不是代码编辑。** 这个 range 太宽，不能直接 patch。先完成 U0 隔离工作面，再在隔离后的工作面创建完整逐文件台账；ledger/CHANGELOG 属于 planning artifact source edit，不等同于同步 CE source。
-- **D2. 本批次保留 `.agent.md` source 后缀。** CE 的 `.md` 重命名是 runtime contract 迁移。本批次可以把 agent 内容同步到既有 `.agent.md` 文件，但后缀迁移延后。
-- **D3. 删除是语义决策。** CE 删除只证明 CE 不再使用该文件,不代表该 reviewer 对 spec-first 无价值;"selector 无引用"同样只证明未被静态接线,不等于无价值。删除门槛由 orchestrator(非执行 leaf agent)持有,仅当(selector / persona-catalog / test / README / runtime 引用全无)AND(无独立 spec-first reviewer 能力)AND(git 历史显示从未承载 spec-first 特有价值)三者同时成立才删除,否则默认保留。
-- **D4. 优先语义适配，而不是直接同步。** 多数现有目标文件都是已演化的 spec-first 资产；直接同步仅限没有本地等价物且不影响 host 边界的新 references/scripts。
+- **D2. Agent 后缀先作为 contract migration 候选处理。** 当前 `.agent.md` discovery 是兼容性事实，不是 CE `.md` 迁移的否定理由。本批次默认先把 agent 内容同步到既有 `.agent.md` 文件；若 U1/U2 接受 suffix migration，则必须先重切出独立 runtime migration 单元，再改 discovery、adapter rewrite、runtime references 和 tests。
+- **D3. 删除是语义决策。** CE 删除只证明 CE 不再使用该文件,不代表该 reviewer 对 spec-first 无价值;"selector 无引用"同样只证明未被静态接线,不等于无价值。删除门槛由 orchestrator(非执行 leaf agent)持有,仅当(selector / persona-catalog / test / README / runtime 引用全无)AND(无独立 spec-first reviewer 能力)AND(git 历史显示从未承载 spec-first 特有价值)三者同时成立才删除；未证明时不得删除,但必须记录待迁移/待合并/待评估的原因。
+- **D4. 优先语义适配，而不是文本同步。** 多数现有目标文件都是已演化的 spec-first 资产；低风险新增仅限没有本地等价物且不影响 host 边界的新 references/scripts，即使新增也必须完成 spec-first 命名、路径和 consumer 适配。
 - **D5. 保持 source/runtime 边界。** Runtime regeneration 可以作为 source 验证后的检查步骤，但 runtime mirrors 不作为 source 编辑。
 - **D6. 用 tests 承接 consumer contracts。** CE tests 是证据，但 spec-first 需要本地 tests 证明当前 adapters、skill prose、agent governance 与 CLI 行为。
+- **D7. 当前约束转成验收 gate，而不是否决理由。** 例如 `resolve-base.sh`、cross-invocation 聚类、Markdown downstream consumers、`.agent.md` 后缀、CommonJS CLI root/home contract 都是迁移要闭合的 consumer facts。若 CE 行为能用本地 contract tests、smoke tests 和 source/runtime 边界证明闭合，可以接受；若不能闭合，才保留当前行为或延后。
+- **D8. 语义合并优先于文本替换。** CE hunk 是上游意图和实现证据，不是最终文本。每次修改必须先读当前 spec-first 目标文件，找出本地已增强的 contract、安全条款、双宿主措辞、测试约束和 artifact 边界，再把 CE 改进合并进去；禁止用 CE 整段覆盖导致本地改进倒退。
+- **D9. 文件阅读是执行 gate。** `git diff --name-status`、`git diff --stat`、`rg` 命中和 hunk 摘要只负责定位，不足以授权修改。真正编辑前必须打开并阅读 CE 源文件/旧版本、当前 spec-first 目标文件和相关 consumer/test 文件；最终报告必须说明哪些文件被打开、读到了什么本地改进、合并时保留了什么。
 
 ---
 
@@ -181,15 +192,15 @@ Updating 834ca4e5..4cc6f7a6
 ### 计划阶段已解决
 
 - **这次同步是否应直接在当前 dirty worktree 实施？** 不应。当前 worktree 已有大量既存编辑；实施应使用 clean worktree，或先协调、提交、stash 无关工作。
-- **是否现在接受 CE 的 `.agent.md -> .md` 重命名？** 不应。它需要单独 runtime contract 迁移。
+- **是否现在接受 CE 的 `.agent.md -> .md` 重命名？** 不能作为普通同步直接接受；若 U1/U2 证明它应在本轮落地，必须先重切为独立 runtime contract migration。
 - **是否直接复制 CE docs/tests？** 不应。CE `docs/**` 变更不作为同步 source；CE tests 不直接复制，只能作为行为证据，接受的行为需要改写成本地 tests。
 
 ### 延后到实施阶段
 
 - **哪些被 CE 删除的 reviewer agents 也应在 spec-first 删除？** 延后到 U3/U4 完成 reference 与 selector 审计后决定。
-- **`resolve-base.sh` 应删除还是保留为 spec-first 的可信确定性 helper？** 本轮默认保留；若要删除，必须另开 runtime/review contract migration。
+- **`resolve-base.sh` 应删除还是保留为 spec-first 的可信确定性 helper？** 不预设永久保留。U5 先做行为 characterization；若 CE inline/prose base detection 能用本地 tests 覆盖 fork PR、non-default base、shallow clone 和 fail-closed，且 runtime adapter consumers 已迁移，则本轮可接受删除；否则保留 helper 并记录未闭合原因。
 - **`CONCEPTS.md` 的 glossary authority 边界与 consumers 如何界定?** 本轮接受其作为 repo-local advisory 词表(R8);U8 只界定它被哪些 skill 读取、与 spec-prd domain-language ledger 的关系,不把它提升为 PRD/ADR/canonical source。
-- **HTML output 是否属于当前 `spec-plan` / `spec-brainstorm` 产品面？** 本轮只允许作为 Markdown canonical artifact 的 derived sidecar；HTML-only artifact 需要另行证明 downstream consumer contract。
+- **HTML output 是否属于当前 `spec-plan` / `spec-brainstorm` 产品面？** 属于本轮要评估的产品面。U7 先对比 CE HTML-only contract 与 spec-first markdown downstream consumers；若 HTML-only contract 可用 tests 证明 doc-review/work/task-pack/issue consumers 均闭合，可以接受 parity migration，否则接受 sidecar 适配路径。
 
 ---
 
@@ -202,8 +213,8 @@ flowchart TD
   A[CE 范围 834ca4e5..4cc6f7a6] --> Z[U0 隔离工作面]
   Z --> B[U1 确定性 ledger]
   B --> C[U2 post-ledger gate]
-  C --> D0{accepted / deferred / rejected}
-  D0 -->|直接同步| D[无本地冲突的新 refs/scripts]
+  C --> D0{accepted-adapted / contract-migration / spike / rejected}
+  D0 -->|低风险新增| D[无本地冲突的新 refs/scripts]
   D0 -->|语义适配| E[既有 spec-first skills/agents/CLI]
   D0 -->|不同步| F[仅 CE 需要的 metadata/product assumptions]
   D0 -->|延后 spike| G[Agent 后缀 / dogfood / 产品面]
@@ -264,8 +275,20 @@ flowchart TD
 - 提取过滤 `docs/**` 与 `tests/**` 后的 CE `name-status`。
 - 对 CE `docs/**` 变更只记录“按范围规则跳过”的总括说明，不建立逐文件台账行，不提取 hunk，不做同步判定；若某个已接受的非 docs/tests 变更需要 CE docs/contracts rationale，则记录 bounded advisory read 的路径、摘要和非 source 边界。
 - 每个条目记录 CE 路径、状态、目标 spec-first 路径、当前目标是否存在、决策类别和验证断言。
+- 每个 accepted/adapted/contract-migration 条目额外记录四个语义合并字段：
+  - `ce_intent`：CE hunk 要解决的问题或提升点。
+  - `local_improvements_to_preserve`：当前 spec-first 目标文件中比 CE 更强或不同的约束、测试、边界、双宿主语义、安全条款。
+  - `merge_strategy`：`merge-ce-intent` / `preserve-local-and-add-ce-case` / `contract-migration` / `replace-only-after-equivalence-test`。
+  - `consumer_tests`：证明合并后未倒退的本地 tests 或明确无测试理由。
+- 每个 accepted/adapted/contract-migration 条目还必须记录 direct-read evidence：
+  - `opened_ce_ref`：实际打开阅读的 CE 文件路径和版本/行段；删除项读取删除前版本。
+  - `opened_target_ref`：实际打开阅读的 spec-first 目标文件路径和行段。
+  - `opened_consumer_refs`：必要时实际打开的 selector、adapter、reference、test、README/docs consumer 文件。
+  - `read_summary`：用 2-4 句概括读到的 CE 意图、本地改进和合并边界。
+- 决策类别至少区分 `accepted-direct`、`accepted-adapted`、`contract-migration`、`spike`、`rejected`、`out-of-scope`。当 CE 行为与当前 spec-first consumer 冲突时，默认先尝试填 `contract-migration` 或 `accepted-adapted` 的验收条件，而不是直接填 `rejected`。
 - 对修改/重命名文件，记录简短 hunk 级证据，而不是只记录文件状态。
 - 对删除文件，记录 `rg` 引用审计命令与结果。
+- 明确禁止把 `cp`、整文件复制、bulk string replacement 或 CE 文件全文作为合并实现方式；唯一例外是全新、无本地等价物、无 consumer 依赖的新 reference/script，仍需记录 `opened_ce_ref` 与 spec-first 命名/路径适配。
 - 在相关 ledger 行填完前，将实施单元 U3-U12 标记为 blocked。
 
 **遵循模式：**
@@ -279,6 +302,8 @@ flowchart TD
 - 台账包含 124 个过滤后的非 docs CE 条目。
 - 台账不包含 CE `docs/**` 逐文件行。
 - 台账中实施范围文件没有 `TBD` / `unknown` 决策行。
+- 台账中 accepted/adapted/contract-migration 行没有缺失 `opened_ce_ref`、`opened_target_ref`、`read_summary` 的记录。
+- 台账中没有“直接复制/直接替换”作为 merge strategy；`replace-only-after-equivalence-test` 只能用于证明 CE 新文本等价覆盖且保留本地改进的低风险段落。
 - 正确性抽检:独立重判抽样 N 行(覆盖 modify / rename / delete 各类)并比对其决策类别,验证台账不只是"填满"而是"判得对";抽检不一致的行必须回到逐文件证据重判。
 - 每个 D/R 条目都有当前 spec-first 引用审计。
 - 对已接受的语义变更，若存在相关 CE docs/contracts advisory rationale，台账只摘要 rationale，不把 CE docs 变更加入同步队列。
@@ -287,7 +312,7 @@ flowchart TD
 
 ### U2. Post-Ledger Gate 与实施单元重切
 
-**目标：** 基于 U1 ledger 重切本计划的实施面，防止未被 accepted ledger 行支撑的 U3-U12 被机械执行。
+**目标：** 基于 U1 ledger 重切本计划的实施面，防止未被 accepted/contract-migration ledger 行与语义合并策略支撑的 U3-U12 被机械执行。
 
 **需求：** R1, R3, R10
 
@@ -299,9 +324,11 @@ flowchart TD
 - 测试：无
 
 **方案：**
-- 汇总 U1 ledger 的 accepted / deferred / rejected / spike 行。
-- 没有 accepted ledger 行支撑的实施单元不得进入 U3-U12；必须取消、降级为 spike，或拆成独立 plan/contract migration。
-- 对 accepted 行按目标文件、consumer contract 和验证面重排 U3-U12；若重排影响本计划正文，先更新计划与 `CHANGELOG.md`，再进入后续单元。
+- 汇总 U1 ledger 的 `accepted-direct` / `accepted-adapted` / `contract-migration` / `spike` / `rejected` / `out-of-scope` 行。
+- 没有 accepted 或 contract-migration ledger 行支撑的实施单元不得进入 U3-U12；必须取消、降级为 spike，或拆成独立 plan/contract migration。
+- 对 accepted 与 contract-migration 行按目标文件、consumer contract 和验证面重排 U3-U12；若重排影响本计划正文，先更新计划与 `CHANGELOG.md`，再进入后续单元。
+- 对每个 accepted/adapted 行做 semantic merge readiness check：如果 ledger 没有 `local_improvements_to_preserve` 或 `merge_strategy`，不得进入实现；如果 merge strategy 会删除本地改进，必须先补等价/优于当前行为的测试或改为 spike。
+- 对每个 accepted/adapted/contract-migration 行做 direct-read readiness check：如果 ledger 没有 `opened_ce_ref`、`opened_target_ref` 和 `read_summary`，不得进入实现；如果目标文件未实际打开阅读，不得编辑。
 - 将 CE-only product assumptions、release metadata、plugin metadata 和 docs/tests 直接复制维持 rejected 或 out-of-scope 状态。
 - 台账纠偏回路:任一下游单元(U3-U12)若发现与某 ledger 行的决策矛盾,必须回写该 ledger 行并重新推导受影响单元的范围,而非沿既定单元结构继续执行;回写记录进 ledger 的修订说明。
 
@@ -313,15 +340,17 @@ flowchart TD
 - 测试预期：无，本单元是计划重切与执行 gate。
 
 **验证：**
-- U3-U12 中每个仍保留的单元都有至少一个 accepted ledger 行支撑，或被显式标为 spike/decision-only。
+- U3-U12 中每个仍保留的单元都有至少一个 accepted 或 contract-migration ledger 行支撑，或被显式标为 spike/decision-only。
+- U3-U12 每个保留单元都有对应 semantic merge strategy；执行时不得把 CE 文件内容作为单一 source-of-truth。
+- U3-U12 每个保留单元都有 direct-read evidence；执行时不得只凭 diff 摘要或搜索结果改文件。
 - 所有被取消、降级或拆出的 CE 变更都有 ledger reason。
 - 若本计划被重切，`CHANGELOG.md` 记录本轮 source 文档变更。
 
 ---
 
-### U3. 在不迁移后缀的前提下校准 Agent 清单
+### U3. 校准 Agent 清单并处理后缀迁移 Gate
 
-**目标：** 在保持 spec-first `.agent.md` source/runtime contract 不变的前提下，同步已接受的 CE agent 内容改动。
+**目标：** 同步已接受的 CE agent 内容改动，并把 CE `.md` 后缀迁移从“当前不支持”转成可验证的 runtime migration gate。
 
 **需求：** R2, R3, R4, R5
 
@@ -338,7 +367,10 @@ flowchart TD
 - 修改：`tests/unit/agent-support-contracts.test.js`
 
 **方案：**
-- 本批次不把 spec-first source 文件重命名为 `.md`。
+- 默认路径是内容同步不改后缀：把 CE agent 内容映射到既有 `agents/*.agent.md`，避免普通内容同步和 runtime contract migration 混在一个不可回滚 diff 中。
+- 如果 U1/U2 将 CE `.md` 后缀标记为 `contract-migration`，先停止普通 agent 内容同步，重切出 suffix migration 子单元：同时改 `src/cli/plugin.js` discovery、`src/cli/adapters/*` runtime rewrite、agent support file copying、governance tests、runtime path docs 和 smoke tests。
+- suffix migration 验收必须证明双宿主 runtime 均能发现、安装、引用和清理新的 agent source shape；不能只证明当前 source 文件被重命名。
+- Agent 内容同步必须逐个 agent 做语义合并：先比较 CE 新 agent 的判断姿态、输出 contract、tool/frontmatter、security/readonly 边界，再比较当前 spec-first agent 的本地改进；只吸收 CE 更强的 rubric 或 coverage，不整段替换导致 spec-first 输出 schema、语言策略或父 workflow ownership 丢失。
 - 对 CE agent 内容更新，将 `ce-*` 映射为 `spec-*`，只应用匹配当前 spec-first reviewer catalog 的行为。
 - 对 CE 删除的 reviewers，先审计 `skills/spec-code-review/SKILL.md`、`references/persona-catalog.md`、tests、README 和历史验证，再决定删除或保留。
 - 对 maintainability / data-migration / pr-comment-resolver 等替换型 agents，保留 spec-first 输出 schema 与父工作流 ownership 边界。
@@ -349,12 +381,13 @@ flowchart TD
 
 **测试场景：**
 - 正常路径：已接受的 agent 内容保持 `name: spec-*`，并输出预期 reviewer JSON/schema 形状。
-- 边界情况：因为本轮不做后缀迁移，CE `.md` source 文件不会导致 spec-first 漏掉 bundled agent discovery。
+- 边界情况：若选择内容同步不改后缀，CE `.md` source 文件不会导致 spec-first 漏掉 bundled agent discovery。
+- contract migration：若选择 suffix migration，contract tests 证明 `.md` source agents 能被 discovery、Codex rewrite、Claude/Codex runtime delivery 和 cleanup flows 一致消费。
 - 错误路径：删除 CE reviewer 前，如果 spec-first selector 仍引用该 reviewer，contract test 必须失败。
 
 **验证：**
 - Bundled agent discovery、persona catalog、selector references 与 U1 ledger / U2 post-ledger gate 中的 agent 决策一致；不以 CE 原始清单或 pre-change 清单作为默认基准。
-- Codex runtime references 仍指向 `.codex/agents/<name>.agent.md`。
+- Codex runtime references 与 U1/U2 的 suffix 决策一致：未迁移时仍指向 `.codex/agents/<name>.agent.md`；迁移时同步更新 adapter、tests 与 runtime catalog。
 - source 或 tests 不引用不存在的已接受/已删除 agent。
 
 ---
@@ -376,8 +409,9 @@ flowchart TD
 - 新增：`tests/unit/review-skill-contract.test.js`(本单元内创建)
 
 **方案：**
+- 先提取 CE code-review 改动意图：减少哲学/语言 convention reviewer、强化 maintainability、合并 migration/schema drift、调整 artifact sections。再逐项和当前 spec-first review contracts 对比，不能用 CE `SKILL.md` 整段覆盖当前 spec-first 的 mode-aware demotion、confidence calibration、validator/synthesis 和 artifact boundary 改进。
 - 只有在保留置信度校准与 output JSON contracts 的前提下，才应用新的 maintainability reviewer posture。
-- 将 CE migration persona consolidation 与当前 spec-first data migration / schema drift 策略对齐。
+- 将 CE migration persona consolidation 与当前 spec-first data migration / schema drift 策略语义合并：如果接受合并 schema drift 到 data-migration reviewer，必须迁移 selector、report section、artifact preservation 和 tests；如果保留独立 schema drift agent，也要吸收 CE 更精确的 spawn gate。
 - 除非当前已有独立 contract 授权 agent `Write`，否则 leaf reviewer artifact writing 仍由 orchestrator 拥有；如果修改 tool allowlist，必须记录精确写入位置和禁止 repo mutation 的负向边界。
 
 **遵循模式：**
@@ -395,16 +429,16 @@ flowchart TD
 
 ---
 
-### U5. 保留 Review Base Helper 并隔离删除迁移
+### U5. 评估并迁移 Review Base 检测契约
 
-**目标：** 本批次保留 `resolve-base.sh` 作为 spec-first 可信确定性 helper，只同步兼容的 prose 改良；CE 删除该 helper 的方向另开 runtime/review contract migration。
+**目标：** 不以当前 `resolve-base.sh` 存在作为否定 CE 删除的理由；先刻画 base detection 行为契约，再在保留 helper 与删除 helper 两条路径中选择能闭合 consumer contract 的最小方案。
 
 **需求：** R6, R9
 
 **依赖：** U1, U2
 
 **文件：**
-- 修改：`skills/spec-code-review/scripts/resolve-base.sh`，仅当同步兼容改良或测试 fixture 需要
+- 修改/删除：`skills/spec-code-review/scripts/resolve-base.sh`，由本单元 gate 决定
 - 修改：`skills/spec-code-review/SKILL.md`
 - 修改：`src/cli/adapters/claude.js`
 - 修改：`src/cli/adapters/codex.js`
@@ -412,9 +446,11 @@ flowchart TD
 - 修改：如存在 focused resolve-base tests
 
 **方案：**
-- 将 CE 删除 `resolve-base.sh` 标记为本批次不同步，因为当前 spec-first 依赖 fork-safe helper contract。
-- 只同步不削弱 helper 行为的 prose、tests 或 runtime path rewrite 改良。
-- 如果后续确实要删除 helper，必须先创建独立 runtime/review contract migration plan，明确 PR mode、branch mode、non-default base、fork PR、unresolved base fail-closed、consumer tests 和 rollback path；不得在本批次 U5 内删除。
+- 先补或确认 characterization tests，锁定当前必须保留的行为：PR mode 基于 PR base repo、branch/standalone mode default-base fallback、non-default base、fork PR、shallow clone retry、unresolved base fail-closed、不会回退到 `git diff HEAD`。
+- 路线 A：保留 helper。仅同步 CE prose 中更清晰的 base detection 说明，并保持 runtime adapter path rewrite 与 helper tests 通过。
+- 路线 B：接受 CE 删除 helper。只有当 `spec-code-review/SKILL.md` 的 inline/prose 命令、runtime adapters、tests 和 smoke 能完整替代 helper contract 时才执行删除；删除同时移除 runtime rewrite 依赖、更新 tests、记录 rollback path。
+- 不得把 CE inline prose 直接粘贴覆盖当前 spec-first review base 段落；必须保留 spec-first 已有的 trusted helper/path rewrite/fail-closed 表述，或用测试证明迁移后的 prose/command contract 等价或更强。
+- U5 的选择依据是 consumer contract 是否闭合，而不是“CE 删除了”或“当前有 helper”。
 
 **遵循模式：**
 - 既有 `skills/spec-code-review/scripts/resolve-base.sh` 使用点。
@@ -422,13 +458,15 @@ flowchart TD
 
 **测试场景：**
 - 正常路径：branch review 根据 default base 解析 merge-base。
-- 正常路径：PR review 使用 PR metadata base，而不是硬编码 `main`。
-- 边界情况：没有 matching remote 的 fork PR fail closed，或使用已文档化 fallback。
+- 正常路径：PR review 使用 PR metadata base repo，而不是硬编码 `main` 或 naive `origin/<base>`。
+- 边界情况：non-default base、fork PR、shallow clone、missing origin 或 local-only base 均按 contract 解析或 fail closed。
 - 错误路径：unresolved base 不回退到 `git diff HEAD`。
+- contract migration：若删除 helper，tests 证明 prose/inline 命令覆盖同一组行为，且 adapters/tests 不再引用已删除 helper path。
 
 **验证：**
-- `resolve-base.sh` 仍存在，runtime adapters 仍能 rewrite 到已安装 workflow skill path。
-- PR mode、branch mode、non-default base、fork PR 和 unresolved base failure 行为仍有测试或明确验证命令。
+- 路线 A：`resolve-base.sh` 仍存在，runtime adapters 仍能 rewrite 到已安装 workflow skill path。
+- 路线 B：`resolve-base.sh` 已删除且无 runtime/source/tests 残留引用，base detection contract tests 仍通过。
+- 无论哪条路线，PR mode、branch mode、non-default base、fork PR、shallow clone 和 unresolved base failure 行为都有测试或明确验证命令。
 
 ---
 
@@ -450,12 +488,15 @@ flowchart TD
 - 修改：`tests/unit/spec-pr-comment-resolver-contracts.test.js`
 
 **方案：**
-- 默认保留跨调用聚类或至少保留 advisory dedupe，直到重复 thread fixture 证明删除不会造成重复 mutation、重复 reply 或 thread resolution 冲突。
-- 如果移除跨调用聚类，同时更新 `get-pr-comments` 的 `cross_invocation` 输出 schema，或明确保留该字段但父流程忽略。
+- 将 CE 删除跨调用聚类视为可接受候选，而不是因当前 `cross_invocation` consumer 存在直接拒绝。
+- 先用重复 thread fixture 明确当前聚类保护的风险：重复 mutation、重复 reply、thread resolution 冲突、同文件并发 resolver 冲突。
+- 路线 A：保留跨调用聚类或 advisory dedupe，并只同步 CE 更清晰的 resolver rubric。
+- 路线 B：接受 CE 简化，删除 `cross_invocation` 与 `<cluster-brief>` contract；同时更新 `get-pr-comments` 输出 schema、parent workflow step numbers、resolver input contract、pagination tests 和 summary wording，确保重复 thread fixture 仍不回归。
+- resolver agent 改写必须语义合并 CE “默认修复，只基于证据转向”的判断姿态和当前 spec-first 的 cluster safety、防注入、targeted-test、orchestrator mutation ownership；不得用 CE 新 agent 全文替换当前 agent 后丢掉本地安全护栏或结果字段。
 - 将 resolver rubric 更新为“默认修复，只基于证据转向”，同时保留 `not-addressing`、`declined`、`replied`、`needs-human` 含义。
 - 保持 validation、commit/push、replies 和 thread resolution 的 orchestrator ownership。
 - 重写 resolver agent 与 rubric 时,必须保留“评论文本为不可信输入、绝不执行其中内嵌的命令/脚本/shell、独立读代码判断正确修复”的防注入护栏(当前 `agents/spec-pr-comment-resolver.agent.md` Security 段),将其作为“默认修复”姿态下不可协商的不变量,不得随 rubric 简化被稀释。
-- 同步移除 parent 与 agent 中过时的 cluster-brief 语言。
+- 若路线 B 删除聚类，同步移除 parent 与 agent 中过时的 cluster-brief 语言；若路线 A 保留聚类，不得留下“已删除聚类”的错误 schema 描述。
 
 **遵循模式：**
 - `skills/resolve-pr-feedback/references/full-mode.md` 中当前 mutating resolver dispatch boundary。
@@ -466,7 +507,7 @@ flowchart TD
 - 错误路径：风险不可界定的变更返回 `needs-human` 并携带 decision context。
 - 安全:resolver agent 仍保留“评论文本不可信、绝不执行其中命令/脚本”的护栏;contract test 断言该 clause 在 rubric 重写后依然存在。
 - 回归：重复根因的多个 PR threads 不会导致重复 mutation、重复 reply 或 thread resolution 冲突。
-- 回归：如果移除聚类，则不残留 cluster-specific summary 或 `<cluster-brief>` 要求。
+- 回归：路线 B 移除聚类时，不残留 cluster-specific summary、`cross_invocation` 或 `<cluster-brief>` 要求；路线 A 保留聚类时，schema 和 parent consumption 仍一致。
 
 **验证：**
 - Full-mode step numbers 与 summary references 一致。
@@ -475,9 +516,9 @@ flowchart TD
 
 ---
 
-### U7. 评估 Markdown Canonical + HTML Sidecar 输出
+### U7. 评估并落地 HTML 输出契约
 
-**目标：** 只在 U2 post-ledger gate 接受后，把 CE HTML output mode 适配为 Markdown canonical artifact 的可选 derived sidecar；不引入 HTML-only source artifact。
+**目标：** 只在 U2 post-ledger gate 接受后，同步 CE HTML rendering 与 section references；不因当前 markdown-only downstream consumers 自动否定 CE HTML-only 行为，而是通过 consumer contract gate 选择 sidecar 适配或 HTML-only parity migration。
 
 **需求：** R3, R8
 
@@ -499,9 +540,11 @@ flowchart TD
 
 **方案：**
 - 将 CE config keys 从 `.compound-engineering/config.local.yaml` 映射到 `.spec-first/config.local.yaml`。
-- Markdown 始终是 canonical source artifact；HTML 只能是由同一 Markdown 内容派生的展示 sidecar。
-- 对 pipeline / disable-model-invocation contexts 强制 markdown，因为下游自动化消费 markdown。
-- `spec-doc-review`、task-pack、`spec-work`、issue creation 和 Proof 继续消费 Markdown；HTML 不触发 source mutation path。
+- 路线 A：Markdown canonical + HTML sidecar。Markdown 仍是 canonical source artifact；HTML 是由同一内容派生的展示 sidecar。适用于 downstream consumers 仍只能可靠消费 Markdown 的阶段。
+- 路线 B：CE parity HTML-only artifact。只有当 `spec-doc-review`、task-pack、`spec-work`、issue creation、Proof 或其他 downstream consumers 的输入 contract 被同步更新并有 tests 证明能消费 HTML artifact 时才接受；若任一 consumer 不能闭合，回到路线 A。
+- HTML/markdown rendering references 与 section references 必须从 CE 中提取可复用的 rendering idioms、section anatomy、post-write audit 和 agent-consumability rules，再合并到当前 `spec-plan` / `spec-brainstorm` 的已改进 handoff、context、question cadence 和 plan-template 语义；不得用 CE references 直接替换导致当前 spec-first plan/brainstorm 结构倒退。
+- 对 pipeline / disable-model-invocation contexts，默认强制 markdown；若路线 B 要覆盖 pipeline，必须新增 HTML parser/selector contract tests，不能只靠人工阅读 HTML。
+- `spec-doc-review`、task-pack、`spec-work`、issue creation 和 Proof 的消费路径必须在 U7 report 中逐项标注：`markdown-only`、`html-supported` 或 `not-a-consumer`。
 - 保持 plan/brainstorm section content 的权威性独立于 rendering。
 
 **遵循模式：**
@@ -509,7 +552,8 @@ flowchart TD
 - `skills/spec-plan/references/plan-template.md` 中当前 markdown plan template。
 
 **测试场景：**
-- 正常路径：`output:html` 同时保留 canonical Markdown artifact，并生成/加载 `.html` sidecar 的 rendering instructions。
+- 正常路径 A：`output:html` 同时保留 canonical Markdown artifact，并生成/加载 `.html` sidecar 的 rendering instructions。
+- 正常路径 B：`output:html` 生成 HTML-only artifact 时，下游 consumer contract tests 证明 HTML 可被读取、review、handoff 或显式拒绝且不误当 Markdown。
 - 正常路径：没有 output arg 时默认 markdown。
 - 边界情况：注释掉的 `# plan_output: html` 被忽略。
 - 边界情况：未知 `output:pdf` fallback，并报告最终 resolved output。
@@ -518,7 +562,8 @@ flowchart TD
 
 **验证：**
 - 没有当前工作流把 `.compound-engineering/config.local.yaml` 当作 active config 读取。
-- HTML output 不为 plan/requirements content 创建第二 source-of-truth；downstream consumers 的 canonical input 仍是 Markdown。
+- 路线 A：HTML output 不为 plan/requirements content 创建第二 source-of-truth；downstream consumers 的 canonical input 仍是 Markdown。
+- 路线 B：HTML-only artifact 有明确 source-of-truth 与 consumer tests，不依赖“当前 Markdown consumer”作为否定理由，也不制造 Markdown/HTML 双 canonical。
 
 ---
 
@@ -542,6 +587,7 @@ flowchart TD
 - 修改：`tests/unit/spec-compound-contracts.test.js`
 
 **方案：**
+- 将 CE `CONCEPTS.md` 的“shared domain vocabulary”意图迁移到 spec-first 术语体系；内容不得直接复制 CE plugin/converter/marketplace 专有定义，必须改写为 spec-first 的 workflow harness、skill/agent/tool、artifact、source/runtime、knowledge harness 语义。
 - 将 `CONCEPTS.md` 定义为 repo-local advisory vocabulary，而不是 PRD、ADR、glossary contract 或 canonical product truth。
 - 允许 `spec-plan` / `spec-brainstorm` 在文件存在时读取它，用于命名一致性。
 - 仅在明确 vocabulary bootstrap 或高置信 doc compounding 场景下，允许 `spec-compound` / `spec-compound-refresh` 创建或更新它。
@@ -576,8 +622,8 @@ flowchart TD
 - 新增：`tests/unit/compound-support-files.test.js`(本单元内创建)
 
 **方案：**
-- 仅当匹配当前 discoverability 与 collision handling 时，同步“生成 learning filename 去日期后缀”。
-- 只有在同步更新当前 references/tests 时，才把 `mode:autofix` 改为 `mode:headless`。
+- 仅当匹配当前 discoverability 与 collision handling 时，语义合并“生成 learning filename 去日期后缀”；不得机械重命名现有 `docs/solutions/**` 或覆盖当前 lifecycle/frontmatter 改进。
+- 只有在同步更新当前 references/tests 并确认现有 interactive/autofix 语义不倒退时，才把 `mode:autofix` 改为 `mode:headless`。
 - 保持 compound-refresh 保守：不确定场景标记 stale 或给出推荐，不做破坏性覆盖。
 - CE `docs/solutions/**` 变更本轮直接跳过；不做 filename cleanup、rename 同步或 broad mechanical renames。
 
@@ -612,8 +658,8 @@ flowchart TD
 - 新增：`tests/unit/git-commit-contracts.test.js`(本单元内创建)
 
 **方案：**
-- 保留 spec-first 决策：PR description writing 归属 `git-commit-push-pr`，不是公开 `spec-pr-description` workflow。
-- 同步 value-led PR body guidance 与 user-visible bug summary emphasis。
+- 保留 spec-first 决策：PR description writing 归属 `git-commit-push-pr`，不是公开 `spec-pr-description` workflow；从 CE 只合并 value-led body writing、safe body-file update 和 default-branch handling 的语义改进。
+- 同步 value-led PR body guidance 与 user-visible bug summary emphasis，但必须保留当前 spec-first host-provided/internal-only helper 边界和 README/Route Map 治理。
 - 使用 body-file 风格的 update/create contract，避免 shell quoting 和 markdown parsing 陷阱。
 - 如果当前分支是 default branch，根据当前 Git tool 边界要求从 fresh remote base 创建 feature branch。
 
@@ -648,7 +694,7 @@ flowchart TD
 - 修改：`tests/unit/spec-plan-contracts.test.js`，如果 `spec-plan` external research dispatch references 变化
 
 **方案：**
-- 用当前环境 web-search / web-fetch capability checks 替换固定 `WebSearch` / `WebFetch` 假设。
+- 用当前环境 web-search / web-fetch capability checks 语义合并 CE 对固定 `WebSearch` / `WebFetch` 假设的放松；不得覆盖 spec-first 已有的 source attribution、thin external signal、untrusted input 和 no-fabrication 输出纪律。
 - 保留规则：shell/network commands 不能自动替代 purpose-built web tools，除非当前 host 明确 wired 了这种工具。
 - 保持 source attribution 和“external signal thin”输出纪律。
 
@@ -692,7 +738,8 @@ flowchart TD
 - 修改：`tests/smoke/cli.sh`
 
 **方案：**
-- 先定义 spec-first 自己的 root/home contract：project root 默认来自当前工作目录；本轮不新增 explicit home arg，也不引入 CE TypeScript `resolveTargetHome` contract。
+- 先定义 spec-first 自己的 root/home contract：project root 默认来自当前工作目录。CE `resolveTargetHome` / `resolveCodexHome` 是行为证据，不是可直接复制的 TypeScript API；需要语义映射到当前 CommonJS CLI、project-scoped runtime 和 preview-first operation plan。
+- 不预设拒绝 explicit home arg。若 U1/U2 证明 CE explicit home / `CODEX_HOME` 语义对 Codex runtime delivery 有价值，可以作为 `contract-migration` 接受，但必须明确它只改变 Codex runtime home，不改变 project root、source root 或 `.spec-first` state root。
 - 只有在符合 project-scoped Codex support 时，才把 CE `CODEX_HOME` detection/root behavior 映射到当前 adapter 与 init/doctor flow。
 - `CODEX_HOME` 仅能作为 Codex runtime home 候选输入，不改变 project root、source root 或 `.spec-first` state root。
 - 只为 exact managed marker 或已确认的 spec-first historical install inventory 增加 legacy cleanup entries；“可能存在”的 artifacts 只能进入 doctor/report scan，不能进入 clean delete plan。
@@ -707,7 +754,7 @@ flowchart TD
 
 **测试场景：**
 - 正常路径：当前 spec-first 支持该 target 时，Codex install 尊重 `CODEX_HOME`。
-- 边界情况：本轮不新增 explicit home arg；若 CE diff 引入相关语义，标记为 rejected 或独立 contract migration。
+- contract migration：若接受 explicit Codex home arg 或 `CODEX_HOME` 行为，dry-run/init/doctor tests 证明它只改变 Codex runtime home，不改变 project root、source root 或 `.spec-first` state root。
 - 错误路径：legacy cleanup 不删除 non-managed user files。
 - 错误路径：仅“可能存在”的 legacy artifacts 只出现在 report/doctor 中，不进入 delete plan。
 - 回归：接受变更后，agent discovery 仍能找到所有 bundled agents。
@@ -734,12 +781,12 @@ flowchart TD
 
 | 风险 | 可能性 | 影响 | 缓解 |
 |------|------------|------|------|
-| Agent suffix migration 破坏 runtime discovery | 若混入本轮同步则高 | 高 | 延后 suffix migration；本批次保留 `.agent.md` |
+| Agent suffix migration 破坏 runtime discovery | 若混入普通内容同步则高 | 高 | 作为独立 contract-migration gate 处理；通过 discovery/adapter/runtime/smoke tests 后才接受 |
 | CE 删除移除 spec-first-specific reviewer 价值 | 中 | 高 | 删除前强制 selector/reference/history audit |
-| HTML output 破坏 markdown-only downstream workflows | 中 | 中 | Markdown 保持 canonical source artifact；HTML 只作为 derived sidecar |
+| HTML output 破坏 markdown-only downstream workflows | 中 | 中 | 用 consumer contract gate 选择 sidecar 或 HTML-only parity；不让当前 Markdown consumer 直接否定 CE 行为 |
 | 从 CE 复制错误 config path | 中 | 中 | 所有 config 读取映射到 `.spec-first/config.local.yaml`；增加 residual scan |
 | 当前 dirty worktree 导致意外覆盖 | 高 | 高 | 使用 isolated worktree 或记录完备的 overlap matrix |
-| 删除 `resolve-base.sh` 移除 deterministic fork-safe 行为 | 低 | 高 | 本轮默认保留；删除必须另开 runtime/review contract migration |
+| 删除 `resolve-base.sh` 移除 deterministic fork-safe 行为 | 中 | 高 | 先做 base detection characterization；删除 helper 只有在 inline/prose contract 和 adapter/tests 闭合后接受 |
 | Legacy cleanup 误删用户 runtime 文件 | 中 | 高 | clean delete plan 只接受 managed marker 或 confirmed historical inventory；“可能存在”只进入 report |
 | Source sync 后 runtime mirrors 漂移 | 中 | 中 | 先跑 source tests，再执行受控 `spec-first init` 验证 |
 
@@ -755,14 +802,14 @@ flowchart TD
 
 ### 阶段 2：Workflow 与 Agent 语义
 
-- U3 在不迁移后缀的前提下校准 Agent 清单。
+- U3 校准 Agent 清单并处理后缀迁移 Gate。
 - U4 校准代码审查 Persona 与 Artifact 契约。
-- U5 保留 Review Base Helper 并隔离删除迁移。
+- U5 评估并迁移 Review Base 检测契约。
 - U6 围绕按价值修复简化 PR 反馈处理。
 
 ### 阶段 3：Artifact 格式与知识面
 
-- U7 评估 Markdown canonical + HTML sidecar 输出。
+- U7 评估并落地 HTML 输出契约。
 - U8 引入 `CONCEPTS.md` 作为 advisory 词表基底。
 - U9 同步 Compound 与 Compound-Refresh 命名/Headless 改进。
 
@@ -785,8 +832,8 @@ flowchart TD
 - `CHANGELOG.md`：每个 source change 必须更新；workflow/runtime 的用户可见变化需要标注。
 - `README.md` / `README.zh-CN.md`：仅当已接受变更改变公开 workflow、setup 或 runtime 行为时更新。
 - `docs/catalog/runtime-capabilities.md`：runtime delivery 或公开 workflow inventory 变化时重新生成/更新。
-- `docs/validation/2026-06-03-ce-4cc6f7a6-sync-ledger.md`：记录逐文件决策与验证证据。
-- `docs/validation/2026-06-03-ce-4cc6f7a6-sync-report.md`：最终同步报告，包含 residual scans、validations 和 intentional differences。
+- `docs/validation/2026-06-03-ce-4cc6f7a6-sync-ledger.md`：记录逐文件决策、direct-read evidence、语义合并策略与验证证据。
+- `docs/validation/2026-06-03-ce-4cc6f7a6-sync-report.md`：最终同步报告，包含 residual scans、validations、intentional differences、opened file evidence 摘要和未直接替换确认。
 
 ---
 
@@ -794,7 +841,7 @@ flowchart TD
 
 按单元聚焦检查：
 
-- U0/U1/U2：检查 isolated worktree 或 overlap matrix、ledger 完整性和 post-ledger gate 结果。
+- U0/U1/U2：检查 isolated worktree 或 overlap matrix、ledger 完整性、direct-read evidence 完整性、semantic merge readiness 和 post-ledger gate 结果。
 - U3/U4：`npx jest tests/unit/agents-governance-contracts.test.js tests/unit/spec-code-review-contracts.test.js --runInBand`。
 - U5：`npx jest tests/unit/spec-code-review-contracts.test.js --runInBand`；同步运行 `resolve-base.sh` 相关 focused tests。
 - U6：`npx jest tests/unit/resolve-pr-feedback-contracts.test.js tests/unit/spec-pr-comment-resolver-contracts.test.js --runInBand`。
