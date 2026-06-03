@@ -46,6 +46,7 @@ describe('git-commit-push-pr PR description contracts', () => {
     const reference = read(WRITING_REFERENCE_PATH);
 
     expect(text).toContain('**Read `references/pr-description-writing.md` once now**');
+    expect(text).toContain('the core principle at the top governs every step');
     expect(text).toContain('Run Step Pre-A from the reference');
     expect(text).toContain('Step 6 walks through it in order (Pre-A through H)');
     expect(text).toContain('the Spec-First badge');
@@ -74,6 +75,19 @@ describe('git-commit-push-pr PR description contracts', () => {
     expect(text).not.toContain('ask_user` in Gemini');
     expect(text).not.toContain('ask_user` in Pi');
     expect(text).not.toContain('Compound Engineering badge');
+  });
+
+  test('PR description writing leads with value and user-visible bug before-after', () => {
+    const reference = read(WRITING_REFERENCE_PATH);
+
+    expect(reference).toContain('## Core principle');
+    expect(reference).toContain('The diff is already visible on GitHub.');
+    expect(reference).toContain('Cut any sentence a reader could reconstruct from the diff itself.');
+    expect(reference).toContain('If the lead sentence describes what was moved, renamed, or added rather than what is now possible or fixed, rewrite it.');
+    expect(reference).toContain('For user-facing bugs, run an extra before/after pass before writing the mechanism');
+    expect(reference).toContain('name what the user would have seen before and what they now see instead');
+    expect(reference).toContain('Only then mention the technical cause or fix');
+    expect(reference).not.toContain('Adds `evidence-decider.ts`');
   });
 
   test('creates feature branches from an explicit fresh-base decision flow', () => {

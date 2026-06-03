@@ -45,7 +45,7 @@ Choose full or lightweight mode, gather bounded evidence, check existing learnin
 
 ### Downstream Consumers
 
-`spec-plan`, `spec-work`, `spec-code-review`, `spec-sessions`, future compound-refresh runs, and humans searching `docs/solutions/`.
+`spec-plan`, `spec-work`, `spec-code-review`, `spec-sessions`, future compound-refresh runs, repo-local advisory vocabulary when present, and humans searching `docs/solutions/`.
 
 ## Scenario Capability
 
@@ -71,6 +71,7 @@ These files are the durable contract for the workflow. Read them on-demand at th
 
 - `references/schema.yaml` — canonical frontmatter fields and enum values (read when validating YAML)
 - `references/yaml-schema.md` — category mapping from problem_type to directory (read when classifying)
+- `references/concepts-vocabulary.md` — advisory `CONCEPTS.md` inclusion and update-only rules (read in Phase 2.4 when `CONCEPTS.md` exists)
 - `assets/resolution-template.md` — section structure for new docs (read when assembling)
 
 When spawning subagents, pass the relevant file contents into the task prompt so they have the contract without needing cross-skill paths.
@@ -125,7 +126,7 @@ If the user says yes, invoke `spec-sessions` in Phase 1 with the narrow problem 
 <critical_requirement>
 **The primary output is ONE file - the final documentation.**
 
-Phase 1 subagents return TEXT DATA to the orchestrator. They must NOT use Write, Edit, or create any files. Only the orchestrator writes files: the solution doc in Phase 2, and — if the Discoverability Check finds a gap — a small edit to a project instruction file (AGENTS.md or CLAUDE.md). The instruction-file edit is maintenance, not a second deliverable; it ensures future agents can discover the knowledge store.
+Phase 1 subagents return TEXT DATA to the orchestrator. They must NOT use Write, Edit, or create any files. Only the orchestrator writes files: the solution doc in Phase 2, an update-only refinement to an existing repo-root `CONCEPTS.md` in Phase 2.4 when qualifying terms surface, and — if the Discoverability Check finds a gap — a small edit to a project instruction file (AGENTS.md or CLAUDE.md). The vocabulary and instruction-file edits are maintenance side effects, not second deliverables; the primary output remains one `docs/solutions/` learning document.
 </critical_requirement>
 
 ### Phase 0.5: Auto Memory Scan
@@ -287,6 +288,17 @@ When creating a new doc, preserve the section order from `assets/resolution-temp
 
 </sequential_tasks>
 
+### Phase 2.4: Vocabulary Capture
+
+After the learning is written or updated, check whether `CONCEPTS.md` exists at the repo root.
+
+- If `CONCEPTS.md` exists, read `references/concepts-vocabulary.md`, scan the new learning plus the source-confirming context for qualifying project-specific terms, and add or refine only those entries.
+- If `CONCEPTS.md` does not exist, do not create or bootstrap it from `spec-compound`. Record `CONCEPTS.md: not present; no vocabulary maintenance applied` and continue.
+- Keep the scan scoped to the new learning's vocabulary neighborhood. Do not run a repo-wide concept sweep, do not seed core nouns outside the solved problem area, and do not add `(see CONCEPTS.md)` pointers to learning docs.
+- If the reference criteria produce no qualifying terms, record `CONCEPTS.md: scanned, no qualifying terms` rather than silently skipping the step.
+
+Vocabulary capture is advisory maintenance. It must not change the learning's frontmatter schema, duplicate the learning content, or become a mandatory completion gate for projects without `CONCEPTS.md`.
+
 ### Phase 2.5: Selective Refresh Check
 
 After writing the new learning, decide whether this new solution is evidence that older docs should be refreshed.
@@ -369,6 +381,8 @@ After the learning is written and the refresh decision is made, check whether th
       ```
    c. In full mode, explain to the user why this matters — agents working in this repo (including fresh sessions, other tools, or collaborators without the plugin) won't know to check `docs/solutions/` unless the instruction file surfaces it. Show the proposed change and where it would go, then use the platform's blocking question tool to get consent before making the edit: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to presenting the proposal in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question. In lightweight mode, output a one-liner note and move on
 
+5. If `CONCEPTS.md` exists at repo root, run a parallel discoverability check for it. Assess whether the substantive instruction file would lead an agent to discover the repo-local advisory vocabulary. Use the same edit-placement and consent flow as the `docs/solutions/` check. Skip this step entirely if `CONCEPTS.md` does not exist; do not nag for an artifact the project has not adopted.
+
 ### Phase 3: Optional Enhancement
 
 **WAIT for Phase 2 to complete before proceeding.**
@@ -406,7 +420,8 @@ The orchestrator (main conversation) performs ALL of the following in one sequen
    - YAML frontmatter with track-appropriate fields, applying the YAML-safety quoting rule for array items (see `references/yaml-schema.md` > YAML Safety Rules)
    - Bug track: Problem, root cause, solution with key code snippets, one prevention tip
    - Knowledge track: Context, guidance with key examples, one applicability note
-4. **Skip specialized agent reviews** (Phase 3) to conserve context
+4. **Vocabulary capture (update-only)**: if `CONCEPTS.md` exists at repo root, read `references/concepts-vocabulary.md`, scan the new doc and source-confirming context for qualifying terms, and add or refine entries using the same criteria as Phase 2.4. Do not create or bootstrap `CONCEPTS.md` in lightweight mode. Record the outcome in the output, such as `CONCEPTS.md: updated — 1 refined`, `CONCEPTS.md: scanned, no qualifying terms`, or `CONCEPTS.md: not present; no vocabulary maintenance applied`.
+5. **Skip specialized agent reviews** (Phase 3) to conserve context
 
 **Lightweight output:**
 ```
@@ -415,16 +430,22 @@ The orchestrator (main conversation) performs ALL of the following in one sequen
 File created:
 - docs/solutions/[category]/[filename].md
 
+CONCEPTS.md: <updated — N added/refined | scanned, no qualifying terms | not present; no vocabulary maintenance applied>
+
 [If discoverability check found instruction files don't surface the knowledge store:]
 Tip: Your AGENTS.md/CLAUDE.md doesn't surface docs/solutions/ to agents —
 a brief mention helps all agents discover these learnings.
+
+[If CONCEPTS.md was refined and isn't surfaced in the instruction files:]
+Tip: Your AGENTS.md/CLAUDE.md doesn't surface CONCEPTS.md —
+a one-line mention helps agents find the shared advisory vocabulary.
 
 Note: This was created in lightweight mode. For richer documentation
 (cross-references, detailed prevention strategies, specialized reviews),
 re-run the current host's compound entrypoint in a fresh session.
 ```
 
-**No subagents are launched. No parallel tasks. One file written.**
+**No subagents are launched. No parallel tasks. One primary solution doc is written; optional maintenance writes may update an existing `CONCEPTS.md` or a project instruction file under the documented rules.**
 
 In lightweight mode, the overlap check is skipped (no Related Docs Finder subagent). This means lightweight mode may create a doc that overlaps with an existing one. That is acceptable — `spec-compound-refresh` will catch it later. Only suggest `spec-compound-refresh` if there is an obvious narrow refresh target. Do not broaden into a large refresh sweep from a lightweight session.
 
@@ -488,7 +509,7 @@ Knowledge track:
 |----------|-----------|
 | Subagents write files like `context-analysis.md`, `solution-draft.md` | Subagents return text data; orchestrator writes one final file |
 | Research and assembly run in parallel | Research completes → then assembly runs |
-| Multiple files created during workflow | One solution doc written or updated: `docs/solutions/[category]/[filename].md` (plus an optional small edit to a project instruction file for discoverability) |
+| Multiple files created during workflow | One solution doc written or updated: `docs/solutions/[category]/[filename].md` (plus optional maintenance writes: update-only `CONCEPTS.md` refinement when the file already exists, and a small project instruction-file edit for discoverability) |
 | Creating a new doc when an existing doc covers the same problem | Check overlap assessment; update the existing doc when overlap is high |
 
 ## Success Output

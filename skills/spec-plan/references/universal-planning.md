@@ -7,10 +7,43 @@ This file is loaded when spec-plan detects a non-software task (Phase 0.1b). It 
 The detection stub in SKILL.md routes here for anything that isn't clearly software. Verify the classification is correct before proceeding:
 
 - **Is this actually a software task?** The key distinction is task-type, not topic-domain. A study guide about Rust is non-software (producing educational content). A Rust library refactor is software (modifying code). If this is actually software, return to Phase 0.2 in the main SKILL.md.
-- **Is this a quick-help request, not a planning task?** Error messages, factual questions, and single-step tasks don't need a plan. Respond directly and exit. Examples: "zsh: command not found: brew", "what's the capital of France."
+- **Is this a trivial single-fact lookup?** Only a question answerable from one fact with no research, retrieval, or judgment skips planning. Respond directly and exit. Examples: "zsh: command not found: brew", "what's the capital of France." A question that needs multiple steps, source reads, retrieval, or synthesis is an answer-seeking task, not a quick-help exit.
 - **Pipeline mode?** If invoked from LFG or any `disable-model-invocation` context: output "This is a non-software task. The LFG pipeline requires spec-work, which only supports software tasks. Use the current host's plan entrypoint directly for non-software planning." and stop.
 
-Once past these checks, commit to producing a plan. Do not exit because the task looks like a "lookup" or "research question" — the user invoked `spec-plan` because they want a structured output.
+Once past these checks, commit to the task. Do not exit because it looks like a "lookup" or "research question" — the user invoked the plan workflow on purpose. Then choose the disposition below.
+
+---
+
+## Disposition: Plan-Seeking vs. Answer-Seeking
+
+Two kinds of non-software task land here, with different deliverables:
+
+- **Plan-seeking** — the deliverable is a plan: a trip itinerary, study curriculum, event runbook, operational project plan, or similar saved/shared artifact. Follow Steps 1-3 below.
+- **Answer-seeking** — the deliverable is an answer: an investigative or analytical question where planning is the working scaffold, not the artifact. Follow the Answer-Seeking Flow below and skip the Step 3 artifact menu by default.
+
+If a request blends both, answer the investigative part first, then produce the plan artifact. Commit to one disposition before reading further, and do not surface the routing label unless it helps the user understand a real caveat.
+
+## Answer-Seeking Flow
+
+For answer-seeking tasks, state a brief plan of attack in chat, execute it, then deliver the answer. No plan file is written unless the user asks to save the result.
+
+### State A Brief Plan Of Attack
+
+Say how the question will be answered, right-sized to it. A light question gets a one-line approach; a multi-part analysis gets a few bullets. This is non-blocking: announce the approach and continue. Stop to ask only on a genuine fork the agent cannot responsibly resolve.
+
+### Execute The Plan
+
+Carry out the approach. When the answer depends on facts the model cannot reliably supply from memory — current data, recent events, named local artifacts, repo-specific behavior, or user-provided files — gather them first.
+
+Ground answers about the user's own code, repo, CLI, service, or named artifact in direct source reads, not memory. Reading code and artifacts to understand them is in-bounds research; writing or running code that changes the system is not. Code changes belong in the software work entrypoint.
+
+### Deliver The Answer
+
+Answer in chat. Do not write a plan file and do not run the Step 3 save/share menu by default. If the investigation produced a table, sourced summary, or other reusable artifact the user may want to keep, offer to save it; otherwise just answer.
+
+### Veil Of Value
+
+Surface the approach, caveats, and answer in the user's terms. Hide workflow plumbing such as which phase ran or whether a plan file was skipped. Never hide evidence limits, partial reads, stale data, or uncertainty that affects trust in the answer.
 
 ---
 

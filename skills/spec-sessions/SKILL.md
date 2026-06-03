@@ -85,6 +85,12 @@ Return distilled replay references, not full session replays. A useful replay re
 
 Use checkpoint-style summaries first when the caller provides them; open skeleton/error extracts only when needed to answer the current question. Do not create a durable replay index or require every future workflow to read complete history.
 
+## Advisory Vocabulary Hook
+
+When synthesizing prior sessions about project-specific terms, and repo-root `CONCEPTS.md` exists, the orchestrator may read it as current vocabulary context for term normalization before dispatching or summarizing results. Use it only to align terminology in keywords, `problem_topic`, and final prose with the current repo's advisory vocabulary.
+
+Do not treat `CONCEPTS.md` as session evidence, do not use it to replace extracted session snippets, and do not let it override timestamped prior decisions or current source evidence. `spec-sessions` must not create, update, require, or bootstrap `CONCEPTS.md`; if it is absent, continue with session metadata and extracted scratch files only.
+
 ## Execution
 
 If no argument is provided, ask what the user wants to know about their session history. Use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to asking in plain text only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.

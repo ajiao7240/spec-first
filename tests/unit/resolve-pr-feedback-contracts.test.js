@@ -102,6 +102,25 @@ describe('resolve-pr-feedback declined verdict contract', () => {
     expect(text).toContain('Declined: [specific harm cited');
     expect(text).toContain('Declined (count): [what was declined and the harm cited]');
   });
+
+  test('default-to-fix rubric treats validation as a tripwire after cluster contract removal', () => {
+    const text = read(SKILL_PATH, FULL_MODE_PATH);
+
+    expect(text).toContain('Default to fixing. Don\'t churn on what isn\'t real.');
+    expect(text).toContain('Validation is a tripwire, not a gate');
+    expect(text).toContain('don\'t manufacture doubt or risk to avoid work');
+    expect(text).toContain('Judge every item on its merits regardless of source');
+    expect(text).toContain('divert only on a concrete signal');
+
+    expect(text).toContain('Create one task entry per new unresolved review thread, actionable PR comment, or actionable review body.');
+    expect(text).toContain('Already resolved threads are not returned by `get-pr-comments` and are not dispatch inputs.');
+    expect(text).toContain('Only new review threads, actionable PR comments, and actionable review bodies are dispatch inputs.');
+    expect(text).not.toContain('Cross-Invocation Cluster Analysis (Gated)');
+    expect(text).not.toContain('cross_invocation');
+    expect(text).not.toContain('<cluster-brief>');
+    expect(text).not.toContain('cluster_assessment');
+    expect(text).not.toContain('Spawns parallel agents for each thread.');
+  });
 });
 
 describe('resolve-pr-feedback dispatch boundary contract', () => {
@@ -119,6 +138,7 @@ describe('resolve-pr-feedback dispatch boundary contract', () => {
     expect(text).toContain('process dispatch units sequentially in the current agent');
     expect(text).toContain('serialize the affected units or stop for orchestration');
     expect(text).toContain('No two dispatch units that touch the same file should run in parallel.');
+    expect(text).toContain('If two items reference the same file, serialize those units.');
     expect(text).not.toContain('Spawns parallel agents for each thread.');
   });
 
@@ -128,6 +148,7 @@ describe('resolve-pr-feedback dispatch boundary contract', () => {
     expect(text).toContain('Handle this thread using the same Mutating resolver dispatch boundary as Full Mode.');
     expect(text).toContain('If dispatch is unavailable, explicitly disabled, or unsafe, process the thread sequentially in the current agent.');
     expect(text).toContain('spawn one `spec-pr-comment-resolver` agent for the thread');
+    expect(text).toContain('Full Mode steps 5-7');
     expect(text).not.toContain('Spawn a single `spec-pr-comment-resolver` agent for the thread.');
   });
 });

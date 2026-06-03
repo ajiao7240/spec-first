@@ -1,7 +1,7 @@
 ---
 title: 同步 CE 4cc6f7a6 工作流更新到 spec-first 技术方案
 type: refactor
-status: active
+status: completed
 date: 2026-06-03
 spec_id: 2026-06-03-002-sync-ce-4cc6f7a6-workflow-updates
 target_repo: spec-first

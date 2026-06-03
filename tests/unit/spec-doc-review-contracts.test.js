@@ -29,6 +29,13 @@ const REVIEW_OUTPUT_TEMPLATE_PATH = path.join(
   'references',
   'review-output-template.md',
 );
+const COHERENCE_REVIEWER_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'agents',
+  'spec-coherence-reviewer.agent.md',
+);
 
 describe('spec-doc-review best-judgment wording contract', () => {
   test('user-visible doc review paths no longer expose LFG wording', () => {
@@ -84,6 +91,32 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(template).toContain('Origin: {origin}');
     expect(template).toContain('Use `Document type` and `Origin` to calibrate the review');
     expect(template).toContain('If `Origin` is not `none`, do not routinely re-litigate upstream WHAT/WHY');
+  });
+
+  test('coherence reviewer adapts by document type and owns expanded safe-auto consistency fixes', () => {
+    const reviewer = fs.readFileSync(COHERENCE_REVIEWER_PATH, 'utf8');
+
+    expect(reviewer).toContain('## Document type adaptation');
+    expect(reviewer).toContain('Document type:');
+    expect(reviewer).toContain('requirements');
+    expect(reviewer).toContain('R-ID / A-ID / F-ID / AE-ID enumerations');
+    expect(reviewer).toContain('plan');
+    expect(reviewer).toContain('U-ID enumerations');
+    expect(reviewer).toContain('task-pack');
+    expect(reviewer).toContain('source_unit');
+    expect(reviewer).toContain('requirement_refs');
+    expect(reviewer).toContain('context_refs');
+    expect(reviewer).toContain('stop_if');
+    expect(reviewer).toContain('declared source plan instead of inventing a second scope');
+    expect(reviewer).toContain('Summary/detail mismatch where the body is authoritative');
+    expect(reviewer).toContain('Prose-vs-prose contradiction where one passage is more detailed');
+    expect(reviewer).toContain('Missing list entry derivable from elsewhere in the document');
+    expect(reviewer).toContain('When you find one of the six patterns above');
+    expect(reviewer).toContain('maybe the summary is intentionally lossy');
+    expect(reviewer).toContain('maybe both readings are acceptable');
+    expect(reviewer).toContain('maybe the omission is intentional');
+    expect(reviewer).toContain('tools: Read, Grep, Glob, Bash');
+    expect(reviewer).not.toContain('ce-coherence-reviewer');
   });
 
   test('doc review preserves visual aids and escapes table pipes', () => {

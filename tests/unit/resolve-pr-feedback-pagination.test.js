@@ -154,7 +154,7 @@ describe('resolve-pr-feedback paginated GraphQL scripts', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  test('get-pr-comments merges slurped reviewThreads, issue comments, and reviews into the legacy consumer shape', () => {
+  test('get-pr-comments merges slurped reviewThreads, issue comments, and reviews without resolved-thread dispatch inputs', () => {
     const output = execFileSync('bash', [GET_PR_COMMENTS, '123', 'OWNER/REPO'], {
       encoding: 'utf8',
       env: fakeEnv(binDir),
@@ -168,10 +168,9 @@ describe('resolve-pr-feedback paginated GraphQL scripts', () => {
     expect(result.review_threads[1].node.isOutdated).toBe(true);
     expect(result.pr_comments.map((entry) => entry.id)).toEqual(['issue-1', 'issue-2']);
     expect(result.review_bodies.map((entry) => entry.id)).toEqual(['review-1', 'review-2']);
-    expect(result.cross_invocation.signal).toBe(true);
-    expect(result.cross_invocation.resolved_threads).toEqual([
-      expect.objectContaining({ thread_id: 'thread-resolved-1', path: 'src/resolved.js' }),
-    ]);
+    expect(result.cross_invocation).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain('thread-resolved-1');
+    expect(JSON.stringify(result)).not.toContain('src/resolved.js');
     expect(result.fetch_warnings).toEqual([
       expect.objectContaining({
         code: 'thread_comments_truncated',

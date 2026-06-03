@@ -22,6 +22,33 @@ const REQUIREMENTS_PATH = path.join(
   'references',
   'requirements-capture.md',
 );
+const BRAINSTORM_SECTIONS_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-brainstorm',
+  'references',
+  'brainstorm-sections.md',
+);
+const MARKDOWN_RENDERING_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-brainstorm',
+  'references',
+  'markdown-rendering.md',
+);
+const HTML_RENDERING_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-brainstorm',
+  'references',
+  'html-rendering.md',
+);
 const HANDOFF_PATH = path.join(
   __dirname,
   '..',
@@ -50,12 +77,15 @@ describe('spec-brainstorm host entrypoint contract', () => {
     expect(skill).toContain('already-loaded project standards and host instructions, `docs/contracts/`, existing brainstorms/plans/solutions');
     expect(skill).toContain('Read `AGENTS.md` / `CLAUDE.md` source only under `docs/contracts/context-governance.md`\'s Host Instruction Reuse Policy');
     expect(skill).toContain('repo-local glossary or ADR-like artifacts that actually exist');
-    expect(skill).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
+    expect(skill).toContain('If `CONCEPTS.md` exists, treat it as repo-local advisory vocabulary for naming consistency only');
+    expect(skill).toContain('it is not a PRD, ADR, workflow contract, source-of-truth override, or setup requirement');
+    expect(skill).toContain('Do not require a fixed `CONTEXT.md`, `CONCEPTS.md`, `docs/adr/`, or glossary directory.');
     expect(skill).toContain('If those artifacts are absent, record the gap as advisory context and continue');
     expect(skill).toContain('`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`');
     expect(skill).toContain('`confirmed`, `advisory`, `session-local`, `stale`, or `user`');
     expect(skill).toContain('hard to reverse, would be surprising without context, and reflects a real tradeoff');
     expect(skill).not.toContain('must use `CONTEXT.md`');
+    expect(skill).not.toContain('must use `CONCEPTS.md`');
     expect(skill).not.toContain('must use `docs/adr/`');
   });
 
@@ -108,13 +138,36 @@ describe('spec-brainstorm host entrypoint contract', () => {
     expect(skill).toContain('read `references/synthesis-summary.md`');
     expect(skill).toContain('announce-mode');
     expect(skill).toContain('Do not write the requirements doc in the same turn');
+    expect(synthesis).toContain('Two-stage shape: internal draft, then chat-time scoping synthesis');
     expect(synthesis).toContain('Three-Bucket Structure');
+    expect(synthesis).toContain('Do not paste this draft verbatim into chat');
+    expect(synthesis).toContain('Stage 2: Chat-Time Scoping Synthesis');
+    expect(synthesis).toContain('**What we\'re building**');
+    expect(synthesis).toContain('**Key trade-offs**');
+    expect(synthesis).toContain('**What\'s not in scope**');
+    expect(synthesis).toContain('**Call outs**');
+    expect(synthesis).toContain('Path A / Path B Gate');
+    expect(synthesis).toContain('Path A — no blocking questions fired and tier is Lightweight');
+    expect(synthesis).toContain('Path B — any blocking question fired, or tier is Standard / Deep-feature / Deep-product');
+    expect(synthesis).toContain('Follow the local `SKILL.md` announce-mode rule');
+    expect(synthesis).toContain('do not write the requirements doc in the same turn');
+    expect(skill).toContain('internal three-bucket draft, chat-time scoping shape');
+    expect(skill).toContain('compose the internal Stated / Inferred / Out-of-scope draft');
+    expect(skill).toContain('emit only the compressed Path A "What we\'re building" / "Proposing" shape');
+    expect(synthesis).toContain('Affirmability test');
+    expect(synthesis).toContain('Detail test');
+    expect(synthesis).toContain('implementation paths, file names, method names, or class names');
+    expect(synthesis).toContain('No open scope decisions to weigh in on');
     expect(synthesis).toContain('**Stated**');
     expect(synthesis).toContain('**Inferred**');
     expect(synthesis).toContain('**Out of scope**');
     expect(synthesis).toContain('## Assumptions');
+    expect(synthesis).toContain('current-host entrypoint');
     expect(synthesis).not.toContain('STRATEGY.md');
     expect(synthesis).not.toContain('/ce-');
+    expect(synthesis).not.toContain('write the requirements doc now');
+    expect(synthesis).not.toContain('proceed to Phase 3 doc-write in the same turn');
+    expect(skill).not.toContain('emit the Stated / Inferred / Out-of-scope synthesis');
   });
 
   test('requirements template uses Summary and Assumptions without durable Next Steps', () => {
@@ -127,6 +180,36 @@ describe('spec-brainstorm host entrypoint contract', () => {
     expect(text).toContain('behavioral-conditional requirements');
     expect(text).not.toContain('## Next Steps');
     expect(text).not.toContain('`-> current host');
+  });
+
+  test('requirements section and rendering references keep markdown canonical with optional HTML sidecar only', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const sections = fs.readFileSync(BRAINSTORM_SECTIONS_PATH, 'utf8');
+    const markdown = fs.readFileSync(MARKDOWN_RENDERING_PATH, 'utf8');
+    const html = fs.readFileSync(HTML_RENDERING_PATH, 'utf8');
+
+    expect(skill).toContain('Read `references/brainstorm-sections.md` for the format-independent content contract');
+    expect(skill).toContain('then read `references/requirements-capture.md` for the concrete canonical markdown template and readiness gate.');
+    expect(skill).toContain('Read `references/markdown-rendering.md` before writing the canonical markdown requirements document.');
+    expect(skill).toContain('Markdown remains the source artifact for `spec-plan`, document review, and future handoff.');
+    expect(skill).toContain('optional sidecar only');
+    expect(skill).toContain('do not replace the markdown requirements document without focused downstream consumer tests');
+    expect(sections).toContain('Markdown requirements documents remain canonical');
+    expect(sections).toContain('`requirements-capture.md` remains the concrete markdown template and readiness gate');
+    expect(sections).toContain('Brainstorm artifacts have no `active` to `completed` status lifecycle.');
+    expect(sections).toContain('optional HTML sidecar');
+    expect(markdown).toContain('YAML frontmatter appears at the top');
+    expect(markdown).toContain('Markdown stays markdown.');
+    expect(markdown).toContain('behavioral-conditional requirements covered by acceptance examples');
+    expect(html).toContain('optional HTML sidecar');
+    expect(html).toContain('not an exclusive output mode');
+    expect(html).toContain('write the markdown requirements document first');
+    expect(html).toContain('not add or omit load-bearing content');
+    for (const text of [sections, markdown, html]) {
+      expect(text).not.toContain('.compound-engineering');
+      expect(text).not.toMatch(/\bce-[a-z]/);
+      expect(text).not.toContain('output mode is exclusive');
+    }
   });
 
   test('chat handoff uses absolute paths while docs stay portable', () => {

@@ -25,6 +25,24 @@ const COMPOUND_REFRESH_PER_ACTION_FLOWS_PATH = path.join(
   'references',
   'per-action-flows.md',
 );
+const COMPOUND_CONCEPTS_REFERENCE_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-compound',
+  'references',
+  'concepts-vocabulary.md',
+);
+const COMPOUND_REFRESH_CONCEPTS_REFERENCE_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-compound-refresh',
+  'references',
+  'concepts-vocabulary.md',
+);
 
 function plannedRuntimeContent(adapter, targetPath) {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-compound-runtime-'));
@@ -77,6 +95,60 @@ describe('spec-compound host entrypoint contract', () => {
     expect(refresh).toContain('External-tool/session evidence can focus which files or relationships to inspect');
     expect(refresh).toContain('raw external-tool output and raw diff hunks');
     expect(refresh).toContain('the specific refresh implication');
+  });
+
+  test('compound maintains CONCEPTS.md only as existing advisory vocabulary', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const reference = fs.readFileSync(COMPOUND_CONCEPTS_REFERENCE_PATH, 'utf8');
+
+    expect(skill).toContain('references/concepts-vocabulary.md');
+    expect(skill).toContain('### Phase 2.4: Vocabulary Capture');
+    expect(skill).toContain('If `CONCEPTS.md` exists, read `references/concepts-vocabulary.md`');
+    expect(skill).toContain('If `CONCEPTS.md` does not exist, do not create or bootstrap it from `spec-compound`');
+    expect(skill).toContain('CONCEPTS.md: not present; no vocabulary maintenance applied');
+    expect(skill).toContain('the primary output remains one `docs/solutions/` learning document');
+    expect(skill).toContain('Vocabulary capture is advisory maintenance');
+    expect(skill).toContain('Do not run a repo-wide concept sweep');
+    expect(skill).toContain('CONCEPTS.md: <updated');
+    expect(skill).toContain('One primary solution doc is written; optional maintenance writes');
+    expect(skill).not.toContain('One file written.');
+    expect(skill).not.toContain('mode:headless');
+    expect(skill).not.toContain('ce-compound');
+
+    expect(reference).toContain('repo-local advisory vocabulary');
+    expect(reference).toContain('not a PRD, ADR, workflow contract, product roadmap, setup requirement, or source-of-truth override');
+    expect(reference).toContain('vocabulary maintenance is update-only');
+    expect(reference).toContain('do not create or bootstrap it during learning capture');
+    expect(reference).toContain('A downstream project does not need this file for `spec-first` to work');
+    expect(reference).toContain('Do not run a repo-wide concept sweep from compound');
+    expect(reference).not.toContain('ce-compound');
+    expect(reference).not.toContain('Compound Engineering');
+  });
+
+  test('compound-refresh keeps autofix mode and scopes advisory vocabulary maintenance', () => {
+    const skill = fs.readFileSync(COMPOUND_REFRESH_SKILL_PATH, 'utf8');
+    const reference = fs.readFileSync(COMPOUND_REFRESH_CONCEPTS_REFERENCE_PATH, 'utf8');
+
+    expect(skill).toContain('mode:autofix');
+    expect(skill).not.toContain('mode:headless');
+    expect(skill).toContain('references/concepts-vocabulary.md');
+    expect(skill).toContain('**Vocabulary**');
+    expect(skill).toContain('## Phase 4.5: Vocabulary Capture');
+    expect(skill).toContain('First, read `references/concepts-vocabulary.md`');
+    expect(skill).toContain('If `CONCEPTS.md` does not exist, do not create or bootstrap it from an ordinary refresh');
+    expect(skill).toContain('CONCEPTS.md: not present; no vocabulary maintenance applied');
+    expect(skill).toContain('must not turn `CONCEPTS.md` into a PRD, ADR, workflow contract, source-of-truth override, setup requirement, or mandatory downstream project file');
+    expect(skill).toContain('CONCEPTS.md: <not present; no vocabulary maintenance applied | scanned, no qualifying terms | updated');
+    expect(skill).toContain('In `mode:autofix`, include a discoverability recommendation in the report rather than editing instruction files');
+    expect(skill).not.toContain('ce-compound-refresh');
+
+    expect(reference).toContain('vocabulary maintenance is scoped and advisory');
+    expect(reference).toContain('do not create or bootstrap it as part of an ordinary refresh');
+    expect(reference).toContain('recommend an explicit separately scoped vocabulary bootstrap');
+    expect(reference).toContain('Do not turn a focused refresh into a repo-wide vocabulary sweep');
+    expect(reference).toContain('In `mode:autofix`, report a discoverability recommendation only');
+    expect(reference).not.toContain('ce-compound-refresh');
+    expect(reference).not.toContain('mode:headless');
   });
 
   test('compound-refresh checks inbound links before deleting solution docs', () => {

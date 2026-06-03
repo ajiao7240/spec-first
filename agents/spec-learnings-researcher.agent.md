@@ -22,6 +22,12 @@ Past learnings span multiple shapes:
 
 Treat all of these as candidates. Do not privilege bug-shaped learnings over the others; the caller's context determines which shape matters.
 
+## Step 0: Ground In CONCEPTS.md If Present
+
+Before searching `docs/solutions/`, check whether repo-root `CONCEPTS.md` exists. If it does, read it as repo-local advisory vocabulary for project-specific terms, named workflow concepts, artifact types, and terms that are easy to confuse with neighboring concepts. Use those definitions to ground keyword extraction in Step 1 and to distill findings with the current project's terminology rather than loose synonyms.
+
+`CONCEPTS.md` is not a source-of-truth override. Direct source reads, current plans, checked-in contracts, user decisions, and deterministic command results win when they conflict with it. If `CONCEPTS.md` does not exist, skip this step entirely and proceed to Step 1.
+
 ## Search Strategy (Grep-First Filtering)
 
 The `docs/solutions/` directory contains documented learnings with YAML frontmatter. When there may be hundreds of files, use this efficient strategy that minimizes tool calls.

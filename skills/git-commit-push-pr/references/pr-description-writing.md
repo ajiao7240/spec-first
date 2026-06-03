@@ -6,6 +6,19 @@ Step Pre-A resolves the commit range, diff, and (for existing PRs) the current P
 
 ---
 
+## Core principle
+
+The diff is already visible on GitHub. The description exists to explain what the diff cannot show: what was impossible before and is now possible, what was broken and is now fixed, and which shape changed. Cut any sentence a reader could reconstruct from the diff itself.
+
+- Bad: "Adds `branch-creation.md`, modifies `git-commit-push-pr/SKILL.md`, and updates contract tests."
+- Good: "Default-branch shipping now verifies a fresh base before any PR work touches the branch."
+
+If the lead sentence describes what was moved, renamed, or added rather than what is now possible or fixed, rewrite it. This applies to every section, not just the opening. Restating the diff is the default failure mode this reference exists to prevent.
+
+For user-facing bugs, run an extra before/after pass before writing the mechanism: name what the user would have seen before and what they now see instead. Only then mention the technical cause or fix, and only if it helps the reviewer understand risk.
+
+---
+
 ## Step Pre-A: Resolve the PR commit range and diff
 
 Determine which commits and diff the description should cover. Run this first; Steps A and beyond assume the commit list and full diff are in context.
@@ -162,7 +175,7 @@ If the repo has documented style preferences in context, follow those. Otherwise
 
 ### Writing principles
 
-- **Lead with value**: Open with what's now possible or fixed, not what was moved around. The subtler failure is leading with the mechanism ("Replace the hardcoded capture block with a tiered skill") instead of the outcome ("Evidence capture now works for CLI tools and libraries, not just web apps").
+- **Lead with value**: Open with what's now possible or fixed, not what was moved around. The subtler failure is leading with the mechanism ("Replace the hardcoded capture block with a tiered skill") instead of the outcome ("Evidence capture now works for CLI tools and libraries, not just web apps"). For user-facing bugs, lead with the visible before/after before naming the implementation mechanism.
 - **No orphaned opening paragraphs**: If the description uses `##` headings anywhere, the opening must also be under a heading (e.g., `## Summary`). For short descriptions with no sections, a bare paragraph is fine.
 - **Describe the net result, not the journey**: The description covers the end state, not how you got there. No iteration history, debugging steps, intermediate failures, or bugs found and fixed during development. This applies equally when regenerating for an existing PR: rewrite from the current state, not as a log of what changed since the last version. Exception: process details critical to understand a design choice.
 - **When commits conflict, trust the final diff**: The commit list is supporting context, not the source of truth. If commits describe intermediate steps later revised or reverted, describe the end state from the full branch diff.

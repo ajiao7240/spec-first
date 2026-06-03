@@ -12,7 +12,7 @@ Use the current host/session date when dating plans and searching for recent doc
 
 **When directly invoked, always plan.** Never classify a direct invocation as "not a planning task" and abandon the workflow. If the input is unclear, ask clarifying questions or use the planning bootstrap (Phase 0.4) to establish enough context — but always stay in the planning workflow.
 
-This workflow produces a durable implementation plan. It does **not** implement code, run tests, or learn from execution-time results. If the answer depends on changing code and seeing what happens, that belongs in `spec-work`, not here.
+For software and plan-seeking tasks, this workflow produces a durable implementation or structured plan. For non-software answer-seeking tasks routed through `references/universal-planning.md`, it uses planning as the working scaffold and answers in chat without writing a plan file by default. It does **not** implement code, run tests, or learn from execution-time results. If the answer depends on changing code and seeing what happens, that belongs in `spec-work`, not here.
 
 ## Workflow Contract Summary
 
@@ -30,11 +30,11 @@ A feature/request description, requirements document path, existing plan path to
 
 ### Outputs
 
-A durable plan document or in-place plan deepening with goals, non-goals, requirements, implementation units, file/test references, sequencing, risks, assumptions, and post-plan handoff options.
+A durable plan document or in-place plan deepening with goals, non-goals, requirements, implementation units, file/test references, sequencing, risks, assumptions, and post-plan handoff options; for non-software answer-seeking tasks, an evidence-grounded chat answer with no plan artifact by default.
 
 ### Artifacts
 
-Plan files under the appropriate docs location, reused source-document links, optional doc-review findings or plan-handoff outputs, and no execution-run artifact.
+Plan files under the appropriate docs location, reused source-document links, optional doc-review findings or plan-handoff outputs, and no execution-run artifact. Non-software answer-seeking tasks create no durable artifact unless the user asks to save the result.
 
 ### Failure Modes
 
@@ -63,7 +63,7 @@ When sessions, learnings, standards, or prior plans expose provenance-backed rej
 
 ## Domain Language And Decision Ledger
 
-When planning involves domain terminology, project-specific concepts, architectural options, or ADR-like choices, consume existing context before asking questions that repo/docs can answer: already-loaded project standards and host instructions, `docs/contracts/`, existing brainstorms/plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. Read `AGENTS.md` / `CLAUDE.md` source only under the Host Instruction Reuse Policy, not as a default domain-context step. Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, record the gap as advisory context and continue with bounded source evidence.
+When planning involves domain terminology, project-specific concepts, architectural options, or ADR-like choices, consume existing context before asking questions that repo/docs can answer: already-loaded project standards and host instructions, `docs/contracts/`, existing brainstorms/plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. If `CONCEPTS.md` exists, treat it as repo-local advisory vocabulary for naming consistency only: it is not a PRD, ADR, workflow contract, source-of-truth override, or setup requirement. Read `AGENTS.md` / `CLAUDE.md` source only under the Host Instruction Reuse Policy, not as a default domain-context step. Do not require a fixed `CONTEXT.md`, `CONCEPTS.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, record the gap as advisory context and continue with bounded source evidence.
 
 For major planning decisions, carry a lightweight decision note in the plan or handoff: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when unresolved. Use source tags such as `confirmed`, `advisory`, `session-local`, `stale`, or `user`. Suggest creating an ADR-like artifact only when the decision is hard to reverse, would be surprising without context, and reflects a real tradeoff.
 
@@ -584,6 +584,10 @@ Do not add these as boilerplate. Include them only when they improve execution q
 **Alternatives Considered — what to vary.** When this section is included, alternatives must differ on *how* the work is built: architecture, sequencing, boundaries, integration pattern, rollout strategy. Tiny implementation variants (which hash function, which serialization format) belong in Key Technical Decisions, not Alternatives. Product-shape alternatives (different actors, different core outcome, different positioning) belong in `spec-brainstorm`, not here — surface them back upstream rather than re-litigating product questions during planning.
 
 #### 4.2 Core Plan Template
+
+Read `skills/spec-plan/references/plan-sections.md` before writing the plan. That file defines the format-independent content contract: which sections earn their place, which metadata fields are stable, and which downstream consumers rely on markdown as the canonical artifact.
+
+Read `skills/spec-plan/references/markdown-rendering.md` before writing the canonical markdown plan. Markdown remains the source artifact for `spec-work`, `spec-write-tasks`, `spec-doc-review`, and plan deepening. If a future run explicitly produces an HTML companion, read `skills/spec-plan/references/html-rendering.md` and treat that file as an optional sidecar only; do not replace the markdown plan without focused downstream consumer tests.
 
 Read `skills/spec-plan/references/plan-template.md` before writing the plan. That file is the source of truth for the core plan skeleton, optional Deep extensions, current heading names, and the implementation-unit heading format. Do not reconstruct the template from memory and do not inline the full template in this skill.
 

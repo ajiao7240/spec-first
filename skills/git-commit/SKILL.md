@@ -86,7 +86,18 @@ Keep this lightweight:
 
 ### Step 4: Stage and commit
 
-If the current branch from the context above is `main`, `master`, or the resolved default branch from Step 1, warn the user and ask whether to continue committing here or create a feature branch first. Use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to presenting options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question. If the user chooses to create a branch, derive the name from the change content, create it with `git checkout -b <branch-name>`, then continue.
+If the current branch from the context above is `main`, `master`, or the resolved default branch from Step 1, automatically create a feature branch before staging or committing. Committing directly on the default branch is not an option in this workflow.
+
+Derive the branch name from the change content, validate it, and create it from the current HEAD so uncommitted work and any local-only commits stay attached to the new branch:
+
+```bash
+BRANCH_NAME="<branch-name>"
+git check-ref-format --branch "$BRANCH_NAME"
+git checkout -b "$BRANCH_NAME"
+git branch --show-current
+```
+
+Use the confirmed branch name for the rest of the workflow. If the branch already exists, derive a safe unique name and retry once. If branch creation still fails, stop before staging and report the failure; do not commit on the default branch.
 
 Write the commit message:
 - **Subject line**: Concise, imperative mood, focused on *why* not *what*. Follow the convention determined in Step 2.

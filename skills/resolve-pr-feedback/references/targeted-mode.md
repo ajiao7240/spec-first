@@ -31,4 +31,4 @@ Handle this thread using the same Mutating resolver dispatch boundary as Full Mo
 
 Pass the same fields full mode does, including `isOutdated` and the location fields: `line`, `originalLine`, `startLine`, `originalStartLine`. Targeted threads can be outdated too and need the same relocation handling.
 
-Then follow the same validate -> commit -> push -> reply -> resolve flow as Full Mode steps 6-8 in [full-mode.md](full-mode.md).
+Then follow the same validate -> commit -> push -> reply -> resolve flow as Full Mode steps 5-7 in [full-mode.md](full-mode.md).

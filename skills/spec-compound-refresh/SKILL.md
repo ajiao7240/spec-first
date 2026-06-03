@@ -39,12 +39,19 @@ Select scope, inspect supporting learnings before derived patterns, classify eac
 
 ### Downstream Consumers
 
-`spec-compound`, future planning/work/review sessions, `spec-sessions`, and humans relying on `docs/solutions/` as reusable knowledge.
+`spec-compound`, future planning/work/review sessions, `spec-sessions`, repo-local advisory vocabulary when present, and humans relying on `docs/solutions/` as reusable knowledge.
 
 ## Scenario Capability
 
 Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
 Overrides: none
+
+## Support Files
+
+These files are the durable contract for the workflow. Read them on-demand at the step that needs them — do not bulk-load at skill start.
+
+- `references/per-action-flows.md` — per-action execution rules for Keep, Update, Consolidate, Replace, and Delete (read in Phase 4)
+- `references/concepts-vocabulary.md` — advisory `CONCEPTS.md` inclusion and scoped update rules (read when collecting or reconciling vocabulary signals)
 
 ## Mode Detection
 
@@ -211,6 +218,7 @@ A learning has several dimensions that can independently go stale. Surface-level
 - **Related docs** — are cross-referenced learnings and patterns still present and consistent?
 - **Auto memory** (Claude Code only) — does the injected auto-memory block in your system prompt contain entries in the same problem domain? Scan that block directly. If the block is absent, skip this dimension. A memory note describing a different approach than what the learning recommends is a supplementary drift signal.
 - **Overlap** — while investigating, note when another doc in scope covers the same problem domain, references the same files, or recommends a similar solution. For each overlap, record: the two file paths, which dimensions overlap (problem, solution, root cause, files, prevention), and which doc appears broader or more current. These signals feed Phase 1.75 (Document-Set Analysis).
+- **Vocabulary** — note project-specific terms the learning cites, such as named workflow concepts, artifact types, domain entities, status/lifecycle concepts, or terms that are easy to confuse with neighboring project terms. For each term, note whether it appears in `CONCEPTS.md` and whether an existing definition still matches the refreshed evidence. Do not edit `CONCEPTS.md` during investigation; collect the signal for Phase 4.5.
 
 Match investigation depth to the learning's specificity — a learning referencing exact file paths and code snippets needs more verification than one describing a general principle.
 
@@ -529,6 +537,20 @@ The reference contains the detailed judgment boundaries, examples, and step-by-s
 - Delete still performs the final inbound-link check before unlinking the file.
 - Autofix mode still stale-marks ambiguous Replace/Delete cases instead of making unattended judgment-heavy edits.
 
+## Phase 4.5: Vocabulary Capture
+
+After per-learning actions execute, aggregate the Vocabulary signals collected during investigation and reconcile them with `CONCEPTS.md`.
+
+First, read `references/concepts-vocabulary.md`. This is required before deciding whether terms qualify; the reference owns the advisory boundary and exclusion rules.
+
+1. Aggregate qualifying in-scope terms. If the same term surfaced from multiple docs, union compatible shades of meaning into one entry rather than duplicating or using most-recent-wins.
+2. If `CONCEPTS.md` exists at repo root, add missing in-scope terms and refine existing entries only when the refreshed evidence adds durable precision. Keep edits scoped to the docs and code investigated in this refresh.
+3. Scrub touched or nearby entries when they violate the reference criteria, such as implementation details, source paths, current-config values, status/owner metadata, version-specific claims, duplicate entries, or undefined project-specific sibling terms.
+4. If `CONCEPTS.md` does not exist, do not create or bootstrap it from an ordinary refresh. Record `CONCEPTS.md: not present; no vocabulary maintenance applied` in the report. When useful, recommend an explicit separately scoped vocabulary bootstrap rather than widening this refresh.
+5. If the reference criteria produce no qualifying terms, record `CONCEPTS.md: scanned, no qualifying terms` in the report rather than silently skipping the step.
+
+Vocabulary capture is advisory maintenance. It must not turn `CONCEPTS.md` into a PRD, ADR, workflow contract, source-of-truth override, setup requirement, or mandatory downstream project file. In `mode:autofix`, keep this scoped and deterministic: apply only clear in-scope additions/refinements, and report uncertain terms as recommendations.
+
 ## Output Format
 
 **The full report MUST be printed as markdown output.** Do not summarize findings internally and then output a one-liner. The report is the deliverable — print every section in full, formatted as readable markdown with headers, tables, and bullet points.
@@ -547,6 +569,8 @@ Replaced: Z
 Deleted: W
 Skipped: V
 Marked stale: S
+
+CONCEPTS.md: <not present; no vocabulary maintenance applied | scanned, no qualifying terms | updated — N added, N refined, N scrubbed | recommendation only — explicit bootstrap suggested>
 ```
 
 Then for EVERY file processed, list:
@@ -674,4 +698,6 @@ After the refresh report is generated, check whether the project's instruction f
       ```
    c. In interactive mode, explain to the user why this matters — agents working in this repo (including fresh sessions, other tools, or collaborators without the plugin) won't know to check `docs/solutions/` unless the instruction file surfaces it. Show the proposed change and where it would go, then use the platform's blocking question tool to get consent before making the edit: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to presenting the proposal in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question. In autofix mode, include it as a "Discoverability recommendation" line in the report — do not attempt to edit instruction files (autofix scope is doc maintenance, not project config).
 
-5. **Amend or create a follow-up commit when the check produces edits.** If step 4 resulted in an edit to an instruction file and Phase 5 already committed the refresh changes, stage the newly edited file and either amend the existing commit (if still on the same branch and no push has occurred) or create a small follow-up commit (e.g., `docs: add docs/solutions/ discoverability to AGENTS.md`). If Phase 5 already pushed the branch to a remote (e.g., the branch+PR path), push the follow-up commit as well so the open PR includes the discoverability change. This keeps the working tree clean and the remote in sync at the end of the run. If the user chose "Don't commit" in Phase 5, leave the instruction-file edit unstaged alongside the other uncommitted refresh changes — no separate commit logic needed.
+5. If `CONCEPTS.md` exists at repo root, run a parallel discoverability check for it. Use the same workflow as the `docs/solutions/` check: same target file, same edit-placement judgment, and same consent-then-edit interaction shape in interactive mode. In `mode:autofix`, include a discoverability recommendation in the report rather than editing instruction files. Skip this step entirely if `CONCEPTS.md` does not exist; do not nag for an artifact the project has not adopted.
+
+6. **Amend or create a follow-up commit when the check produces edits.** If step 4 or step 5 resulted in an edit to an instruction file and Phase 5 already committed the refresh changes, stage the newly edited file and either amend the existing commit (if still on the same branch and no push has occurred) or create a small follow-up commit (e.g., `docs: add docs/solutions/ discoverability to AGENTS.md`, `docs: add CONCEPTS.md discoverability to AGENTS.md`, or a combined message when both edits landed). If Phase 5 already pushed the branch to a remote (e.g., the branch+PR path), push the follow-up commit as well so the open PR includes the discoverability change. This keeps the working tree clean and the remote in sync at the end of the run. If the user chose "Don't commit" in Phase 5, leave the instruction-file edit unstaged alongside the other uncommitted refresh changes — no separate commit logic needed.

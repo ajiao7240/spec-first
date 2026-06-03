@@ -44,6 +44,33 @@ const PLAN_TEMPLATE_PATH = path.join(
   'references',
   'plan-template.md',
 );
+const PLAN_SECTIONS_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-plan',
+  'references',
+  'plan-sections.md',
+);
+const MARKDOWN_RENDERING_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-plan',
+  'references',
+  'markdown-rendering.md',
+);
+const HTML_RENDERING_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-plan',
+  'references',
+  'html-rendering.md',
+);
 const SYNTHESIS_PATH = path.join(
   __dirname,
   '..',
@@ -139,12 +166,15 @@ describe('spec-plan context orientation contract', () => {
     expect(text).toContain('already-loaded project standards and host instructions, `docs/contracts/`, existing brainstorms/plans/solutions');
     expect(text).toContain('Read `AGENTS.md` / `CLAUDE.md` source only under the Host Instruction Reuse Policy');
     expect(text).toContain('repo-local glossary or ADR-like artifacts that actually exist');
-    expect(text).toContain('Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.');
+    expect(text).toContain('If `CONCEPTS.md` exists, treat it as repo-local advisory vocabulary for naming consistency only');
+    expect(text).toContain('it is not a PRD, ADR, workflow contract, source-of-truth override, or setup requirement');
+    expect(text).toContain('Do not require a fixed `CONTEXT.md`, `CONCEPTS.md`, `docs/adr/`, or glossary directory.');
     expect(text).toContain('If those artifacts are absent, record the gap as advisory context and continue');
     expect(text).toContain('`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`');
     expect(text).toContain('`confirmed`, `advisory`, `session-local`, `stale`, or `user`');
     expect(text).toContain('hard to reverse, would be surprising without context, and reflects a real tradeoff');
     expect(text).not.toContain('must use `CONTEXT.md`');
+    expect(text).not.toContain('must use `CONCEPTS.md`');
     expect(text).not.toContain('must use `docs/adr/`');
   });
 
@@ -316,6 +346,9 @@ describe('spec_id planning contract', () => {
   test('plan synthesis checkpoints and template naming are in place', () => {
     const skill = fs.readFileSync(SKILL_PATH, 'utf8');
     const planTemplate = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
+    const planSections = fs.readFileSync(PLAN_SECTIONS_PATH, 'utf8');
+    const markdownRendering = fs.readFileSync(MARKDOWN_RENDERING_PATH, 'utf8');
+    const htmlRendering = fs.readFileSync(HTML_RENDERING_PATH, 'utf8');
     const synthesis = fs.readFileSync(SYNTHESIS_PATH, 'utf8');
     const deepening = fs.readFileSync(DEEPENING_PATH, 'utf8');
     const visual = fs.readFileSync(VISUAL_COMMUNICATION_PATH, 'utf8');
@@ -330,8 +363,30 @@ describe('spec_id planning contract', () => {
     expect(planTemplate).toContain('## Assumptions');
     expect(planTemplate).toContain('Include only for unconfirmed inferred bets');
     expect(planTemplate).toContain('Keep these out of Key Technical Decisions and Implementation Units');
+    expect(skill).toContain('Read `skills/spec-plan/references/plan-sections.md` before writing the plan.');
+    expect(skill).toContain('Read `skills/spec-plan/references/markdown-rendering.md` before writing the canonical markdown plan.');
     expect(skill).toContain('Read `skills/spec-plan/references/plan-template.md` before writing the plan.');
     expect(skill).toContain('Do not reconstruct the template from memory and do not inline the full template in this skill.');
+    expect(skill).toContain('Markdown remains the source artifact for `spec-work`, `spec-write-tasks`, `spec-doc-review`, and plan deepening.');
+    expect(skill).toContain('optional sidecar only');
+    expect(skill).toContain('do not replace the markdown plan without focused downstream consumer tests');
+    expect(planSections).toContain('Markdown remains the canonical plan artifact.');
+    expect(planSections).toContain('`plan-template.md` is still the concrete markdown skeleton');
+    expect(planSections).toContain('`spec-work`, `spec-write-tasks`, and `spec-doc-review` can consume');
+    expect(planSections).toContain('optional HTML sidecar');
+    expect(planSections).toContain('not an exclusive output mode');
+    expect(markdownRendering).toContain('YAML frontmatter appears at the top of the file');
+    expect(markdownRendering).toContain('Markdown stays markdown');
+    expect(markdownRendering).toContain('Use H3 headings for implementation units: `### U1. [Name]`');
+    expect(htmlRendering).toContain('optional HTML sidecar');
+    expect(htmlRendering).toContain('not an exclusive output mode');
+    expect(htmlRendering).toContain('write the markdown plan first');
+    expect(htmlRendering).toContain('not add or omit load-bearing content');
+    for (const text of [planSections, markdownRendering, htmlRendering]) {
+      expect(text).not.toContain('.compound-engineering');
+      expect(text).not.toMatch(/\bce-[a-z]/);
+      expect(text).not.toContain('output mode is exclusive');
+    }
     const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
     expect(template.indexOf('## Requirements')).toBeLessThan(template.indexOf('## Assumptions'));
     expect(template.indexOf('## Assumptions')).toBeLessThan(template.indexOf('## Scope Boundaries'));
@@ -341,31 +396,68 @@ describe('spec_id planning contract', () => {
     expect(skill).toContain('continue to recognize legacy `- U1. **[Name]**` list-item units as valid anchors.');
     expect(synthesis).toContain('Solo variant (Phase 0.7)');
     expect(synthesis).toContain('Brainstorm-sourced variant (Phase 5.1.5)');
+    expect(synthesis).toContain('Two-stage shape: internal draft, then chat-time synthesis');
+    expect(synthesis).toContain('Do not paste this draft verbatim into chat');
+    expect(synthesis).toContain('Stage 2: Chat-Time Scoping Synthesis');
+    expect(synthesis).toContain('No user-facing **Stated** or **Out of scope** bucket appears in chat');
+    expect(synthesis).toContain('Call outs');
+    expect(synthesis).toContain('Auto-proceed is allowed only when plan depth is Lightweight and zero Call outs survive the keep test');
+    expect(synthesis).toContain('For Standard or Deep plans, always fire the confirmation gate even when zero Call outs survive');
+    expect(synthesis).toContain('affirmability test');
+    expect(synthesis).toContain('detail test');
+    expect(synthesis).toContain('Implementation Units, PR count, branch sequencing, effort estimates, or test command recipes');
+    expect(synthesis).toContain('exact JSON or response shapes');
+    expect(synthesis).toContain('bare origin IDs such as `R1`, `AE2`, `F3`, or `U4` without plain names');
+    expect(synthesis).toContain('Do not route unconfirmed inferences into Key Technical Decisions or Implementation Units');
+    expect(synthesis).toContain('current host\'s brainstorm entrypoint');
     expect(synthesis).toContain('## Assumptions');
     expect(deepening).toContain('**Requirements**');
     expect(deepening).toContain('Requirements / Open Questions classification');
     expect(visual).toContain('Summary or Problem Frame');
     expect([skill, synthesis].join('\n')).not.toContain('STRATEGY.md');
     expect([skill, synthesis].join('\n')).not.toContain('/ce-');
+    expect(synthesis).not.toContain('/ce-brainstorm');
+    expect(synthesis).not.toContain('/ce-plan');
   });
 
   test('Claude command projection points plan template reference at the workflow runtime copy', () => {
     const command = plannedRuntimeContent(new ClaudeAdapter(), '.claude/commands/spec/plan.md');
 
+    expect(command).toContain('Read `.claude/spec-first/workflows/spec-plan/references/plan-sections.md` before writing the plan.');
+    expect(command).toContain('Read `.claude/spec-first/workflows/spec-plan/references/markdown-rendering.md` before writing the canonical markdown plan.');
     expect(command).toContain('Read `.claude/spec-first/workflows/spec-plan/references/plan-template.md` before writing the plan.');
+    expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/plan-sections.md')).toContain('Markdown remains the canonical plan artifact.');
+    expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/markdown-rendering.md')).toContain('Markdown stays markdown');
+    expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/html-rendering.md')).toContain('optional HTML sidecar');
     expect(command).not.toContain('Read `references/plan-template.md` before writing the plan.');
     expect(command).not.toContain('Read `skills/spec-plan/references/plan-template.md` before writing the plan.');
   });
 
   test('universal planning avoids slash-only handoff wording', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
     const text = fs.readFileSync(UNIVERSAL_PLANNING_PATH, 'utf8');
 
+    expect(skill).toContain('For software and plan-seeking tasks, this workflow produces a durable implementation or structured plan.');
+    expect(skill).toContain('For non-software answer-seeking tasks routed through `references/universal-planning.md`, it uses planning as the working scaffold and answers in chat without writing a plan file by default.');
+    expect(skill).toContain('for non-software answer-seeking tasks, an evidence-grounded chat answer with no plan artifact by default');
+    expect(skill).toContain('Non-software answer-seeking tasks create no durable artifact unless the user asks to save the result.');
     expect(text).toContain('current host\'s plan entrypoint');
     expect(text).toContain('software work entrypoint');
     expect(text).toContain('The user invoked the plan workflow');
+    expect(text).toContain('Disposition: Plan-Seeking vs. Answer-Seeking');
+    expect(text).toContain('**Plan-seeking**');
+    expect(text).toContain('**Answer-seeking**');
+    expect(text).toContain('state a brief plan of attack in chat, execute it, then deliver the answer');
+    expect(text).toContain('No plan file is written unless the user asks to save the result');
+    expect(text).toContain('Ground answers about the user\'s own code, repo, CLI, service, or named artifact in direct source reads, not memory');
+    expect(text).toContain('Code changes belong in the software work entrypoint');
+    expect(text).toContain('Do not write a plan file and do not run the Step 3 save/share menu by default');
+    expect(text).toContain('Veil Of Value');
     expect(text).not.toContain('Use `/spec:plan` directly');
     expect(text).not.toContain('The user invoked `/spec:plan`');
     expect(text).not.toContain('Do not offer `/spec:work`');
+    expect(text).not.toContain('/ce-plan');
+    expect(text).not.toContain('/ce-work');
     expect(text).not.toContain('/spec:plan` on Claude Code');
     expect(text).not.toContain('$spec-plan` on Codex');
     expect(text).not.toContain('/spec:work` on Claude Code');

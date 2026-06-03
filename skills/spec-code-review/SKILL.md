@@ -218,7 +218,7 @@ The scale-aware reviewer preflight in Stage 3 may replace this default core with
 | `spec-security-reviewer` | Auth, public endpoints, user input, permissions |
 | `spec-performance-reviewer` | DB queries, data transforms, caching, async |
 | `spec-api-contract-reviewer` | Routes, serializers, type signatures, versioning |
-| `spec-data-migrations-reviewer` | Migrations, schema changes, backfills |
+| `spec-data-migrations-reviewer` | Migration files, schema dumps (`db/schema.rb`, `structure.sql`), backfill scripts, or data transformations -- not model/query-only changes without migration artifacts |
 | `spec-reliability-reviewer` | Error handling, retries, timeouts, background jobs |
 | `spec-adversarial-reviewer` | Diff >=50 changed non-test/non-generated/non-lockfile lines, or auth, payments, data mutations, external APIs |
 | `spec-cli-readiness-reviewer` | CLI command definitions, argument parsing, CLI framework usage, command handler implementations |
@@ -237,10 +237,10 @@ The scale-aware reviewer preflight in Stage 3 may replace this default core with
 
 **Spec-First conditional (migration-specific):**
 
-| Agent | Select when diff includes migration files |
+| Agent | Select when diff includes migration artifacts |
 |-------|------------------------------------------|
 | `spec-schema-drift-detector` | Cross-references schema.rb against included migrations |
-| `spec-deployment-verification-agent` | Produces deployment checklist with SQL verification queries |
+| `spec-deployment-verification-agent` | Produces deployment checklist with SQL verification queries for risky migration artifacts |
 
 ## Review Scope
 
@@ -501,7 +501,7 @@ Skip it for standalone branch reviews, PRs with no prior feedback yet, and appro
 
 Stack-specific personas are additive. A Rails UI change may warrant `kieran-rails` plus `julik-frontend-races`; a TypeScript API diff may warrant `kieran-typescript` plus `api-contract` and `reliability`.
 
-For Spec-First conditional agents, check if the diff includes files matching `db/migrate/*.rb`, `db/schema.rb`, or data backfill scripts.
+For Spec-First conditional agents, check if the diff includes files matching `db/migrate/*.rb`, `db/schema.rb`, `structure.sql`, or data backfill scripts. Do not trigger migration-only agents for model/query-only changes without migration artifacts.
 
 Announce the team before spawning:
 

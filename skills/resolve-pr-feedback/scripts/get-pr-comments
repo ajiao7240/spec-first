@@ -30,9 +30,6 @@ fi
 #                                 comments: { nodes: [...], pageInfo: ... } } }]
 #   pr_comments      - top-level PR conversation comments (excludes PR author and known review bots)
 #   review_bodies    - review submissions with non-empty body text (excludes PR author and known review bots)
-#   cross_invocation - cross-invocation awareness envelope:
-#     signal: true when both resolved and unresolved threads exist (multi-round review)
-#     resolved_threads: last N resolved threads by recency, for cluster analysis input
 #   fetch_warnings   - deterministic warnings about incomplete nested data,
 #                      such as per-thread comments beyond the fetched first 100.
 #
@@ -154,13 +151,6 @@ jq -n \
   # resolver can factor in that the referenced line may have moved.
   [$all_threads[]
     | select(.isResolved == false)] as $unresolved |
-  # Resolved threads for cross-invocation awareness (last 10 by most recent comment)
-  ([$all_threads[]
-    | select(.isResolved == true)
-    | { thread_id: .id, path: .path, line: .line,
-        first_comment_body: .comments.nodes[0].body,
-        last_comment_at: ([.comments.nodes[].createdAt] | sort | last) }]
-    | sort_by(.last_comment_at) | .[-10:] | reverse) as $resolved |
 {
   review_threads: [$unresolved[] | { node: . }],
   pr_comments: [$all_comments[]
@@ -175,10 +165,6 @@ jq -n \
     | select(
         .author.login as $l | $ci_bot_logins | index($l) | not
       )],
-  cross_invocation: {
-    signal: (($resolved | length) > 0 and ($unresolved | length) > 0),
-    resolved_threads: $resolved
-  },
   fetch_warnings: (
     if ($truncated_threads | length) > 0 then
       [{

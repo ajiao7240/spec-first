@@ -88,6 +88,23 @@ describe('spec session history contracts', () => {
     expect(text).toContain('Do not create a durable replay index or require every future workflow to read complete history.');
   });
 
+  test('spec-sessions can use CONCEPTS.md only as advisory vocabulary context', () => {
+    const text = fs.readFileSync(SESSIONS_SKILL, 'utf8');
+
+    expect(text).toContain('Advisory Vocabulary Hook');
+    expect(text).toContain('repo-root `CONCEPTS.md` exists');
+    expect(text).toContain('current vocabulary context for term normalization');
+    expect(text).toContain('align terminology in keywords, `problem_topic`, and final prose');
+    expect(text).toContain('Do not treat `CONCEPTS.md` as session evidence');
+    expect(text).toContain('do not use it to replace extracted session snippets');
+    expect(text).toContain('do not let it override timestamped prior decisions or current source evidence');
+    expect(text).toContain('must not create, update, require, or bootstrap `CONCEPTS.md`');
+    expect(text).toContain('if it is absent, continue with session metadata and extracted scratch files only');
+    expect(text).not.toContain('The current year is 2026');
+    expect(text).not.toContain('ce-session-historian');
+    expect(text).not.toContain('ce-sessions-XXXX');
+  });
+
   test('runtime projection rewrites session helper scripts to bundled workflow paths', () => {
     for (const [adapter, targetPath, runtimeScriptRoot] of [
       [new ClaudeAdapter(), '.claude/spec-first/workflows/spec-sessions/SKILL.md', '.claude/spec-first/workflows/spec-sessions/scripts'],

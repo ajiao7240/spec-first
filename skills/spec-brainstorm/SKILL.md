@@ -81,7 +81,7 @@ These rules apply to every brainstorm, including the universal (non-software) fl
 
 ## Domain Language And Decision Ledger
 
-When the idea involves domain terminology, team-specific concepts, or ADR-like choices, consume existing context before asking questions that repo/docs can answer: already-loaded project standards and host instructions, `docs/contracts/`, existing brainstorms/plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. Read `AGENTS.md` / `CLAUDE.md` source only under `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy, not as a default domain-context step. Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, record the gap as advisory context and continue with the best available evidence.
+When the idea involves domain terminology, team-specific concepts, or ADR-like choices, consume existing context before asking questions that repo/docs can answer: already-loaded project standards and host instructions, `docs/contracts/`, existing brainstorms/plans/solutions, and any repo-local glossary or ADR-like artifacts that actually exist. If `CONCEPTS.md` exists, treat it as repo-local advisory vocabulary for naming consistency only: it is not a PRD, ADR, workflow contract, source-of-truth override, or setup requirement. Read `AGENTS.md` / `CLAUDE.md` source only under `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy, not as a default domain-context step. Do not require a fixed `CONTEXT.md`, `CONCEPTS.md`, `docs/adr/`, or glossary directory. If those artifacts are absent, record the gap as advisory context and continue with the best available evidence.
 
 For major open decisions, carry a lightweight decision note: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when unresolved. Use source tags such as `confirmed`, `advisory`, `session-local`, `stale`, or `user`. Suggest creating an ADR-like artifact only when the decision is hard to reverse, would be surprising without context, and reflects a real tradeoff.
 
@@ -266,7 +266,7 @@ If relevant, call out whether the choice is:
 
 ### Phase 2.5: Synthesis Summary
 
-**STOP. Before composing the synthesis, read `references/synthesis-summary.md`.** The prose-summary requirement, three-bucket structure, anti-pattern guidance, soft-cut behavior, self-redirect support, prose-feedback rules, and routing into requirements doc sections all live there. Composing a synthesis without these rules loaded produces malformed output such as missing prose summaries, implementation-detail leakage, and proposal-pitch wording.
+**STOP. Before composing the synthesis, read `references/synthesis-summary.md`.** The prose-summary requirement, internal three-bucket draft, chat-time scoping shape, anti-pattern guidance, soft-cut behavior, self-redirect support, prose-feedback rules, and routing into requirements doc sections all live there. Composing a synthesis without these rules loaded produces malformed output such as missing prose summaries, implementation-detail leakage, and proposal-pitch wording.
 
 Surface a synthesis to the user before Phase 3 writes the requirements doc. This is the user's last low-cost opportunity to correct scope before the durable artifact lands.
 
@@ -274,11 +274,13 @@ Fires for **all tiers** including Lightweight. Skip Phase 2.5 entirely on the Ph
 
 **Headless mode** (pipeline / `disable-model-invocation`): compose the synthesis but do not ask for confirmation. Inferred bets route to a `## Assumptions` section in the doc so downstream review can scrutinize them as unvalidated assumptions, not confirmed decisions.
 
-**Announce-mode (Phase 0.2 fast path):** on the "requirements already clear" fast path, Phase 2.5 fires in announce-mode: emit the Stated / Inferred / Out-of-scope synthesis for visibility, then end the turn. Do not write the requirements doc in the same turn as the synthesis emission. On the user's next message, proceed to Phase 3 doc-write if it is an acknowledgment, follow-up, or non-correcting input; if it corrects scope, revise and re-emit the synthesis.
+**Announce-mode (Phase 0.2 fast path):** on the "requirements already clear" fast path, Phase 2.5 fires in announce-mode: compose the internal Stated / Inferred / Out-of-scope draft, emit only the compressed Path A "What we're building" / "Proposing" shape for visibility, then end the turn. Do not write the requirements doc in the same turn as the synthesis emission. On the user's next message, proceed to Phase 3 doc-write if it is an acknowledgment, follow-up, or non-correcting input; if it corrects scope, revise and re-emit the synthesis.
 
 ### Phase 3: Capture the Requirements
 
-Write or update a requirements document only when the conversation produced durable decisions worth preserving. Read `references/requirements-capture.md` for the document template, formatting rules, visual aid guidance, and completeness checks.
+Write or update a requirements document only when the conversation produced durable decisions worth preserving. Read `references/brainstorm-sections.md` for the format-independent content contract, then read `references/requirements-capture.md` for the concrete canonical markdown template and readiness gate.
+
+Read `references/markdown-rendering.md` before writing the canonical markdown requirements document. Markdown remains the source artifact for `spec-plan`, document review, and future handoff. If a future run explicitly produces an HTML companion, read `references/html-rendering.md` and treat that file as an optional sidecar only; do not replace the markdown requirements document without focused downstream consumer tests.
 
 For **Lightweight** brainstorms, keep the document compact. Skip document creation when the user only needs brief alignment and no durable decisions need to be preserved.
 

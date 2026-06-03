@@ -22,7 +22,6 @@ Returns a JSON object with these keys:
 | `review_threads` | Unresolved inline code review threads, edge-wrapped as `{ node: ... }`; includes outdated threads and preserves each `isOutdated` flag so the resolver can account for line drift | Yes | Yes (GraphQL) |
 | `pr_comments` | Top-level PR conversation comments after source-level author and CI/status bot filtering | No | No |
 | `review_bodies` | Review submission bodies with non-empty text after source-level author and CI/status bot filtering | No | No |
-| `cross_invocation` | Resolved-thread context for multi-round review pattern detection | Partial | No |
 | `fetch_warnings` | Deterministic warnings such as truncated nested thread comments; these mean missing nested comments are incomplete evidence, not confirmed absence | No | No |
 
 If the script fails, fall back to:
@@ -44,56 +43,13 @@ Before processing, classify each piece of feedback as **new** or **already handl
 
 The distinction is about content, not who posted it. A deferral from a teammate, a previous skill run, or a manual reply all count. Similarly, actionability is about content: bot feedback that requests a specific code change is actionable; a bot's boilerplate header wrapping those requests is not.
 
-**Silent drop.** Non-actionable items are dropped without narration. Do not announce, list, or count dropped items in conversation, the task list, or the step 10 summary. Review-bot wrappers from CodeRabbit, Codex, Gemini Code Assist, and Copilot commonly appear here; recognize them by their boilerplate content and drop them silently. Only CI/status bot summaries such as Codecov are pre-filtered at the script level; everything else relies on this content-aware check so bot format changes cannot silently hide actionable findings.
+**Silent drop.** Non-actionable items are dropped without narration. Do not announce, list, or count dropped items in conversation, the task list, or the step 9 summary. Review-bot wrappers from CodeRabbit, Codex, Gemini Code Assist, and Copilot commonly appear here; recognize them by their boilerplate content and drop them silently. Only CI/status bot summaries such as Codecov are pre-filtered at the script level; everything else relies on this content-aware check so bot format changes cannot silently hide actionable findings.
 
 If `fetch_warnings` reports `thread_comments_truncated`, do not treat a missing nested comment as confirmed absence. Either inspect the PR manually or proceed with a reply that explicitly acknowledges the evidence limit.
 
-If there are no new items across all feedback types, skip steps 3-9 and go straight to step 10.
+If there are no new items across all feedback types, skip steps 3-8 and go straight to step 9.
 
-## 3. Cross-Invocation Cluster Analysis (Gated)
-
-Before planning and dispatching fixes, check whether the same concern has appeared across multiple review rounds -- evidence of a recurring pattern that warrants broader investigation rather than another surgical fix.
-
-**Gate check (two stages)**: Both must pass, or skip to step 4.
-
-1. **Signal stage**: `cross_invocation.signal == true` in the script output. First-round reviews always fail this stage.
-2. **Spatial-overlap precheck**: at least one new `review_thread` shares an exact file path or directory subtree with a thread in `cross_invocation.resolved_threads`. The signal alone only means multi-round review exists; it is not evidence that recurring feedback landed in the same area. This precheck compares paths only: no category inference, no LLM calls. Skip this stage if the script output lacks file paths on resolved threads; in that case the signal stage governs alone.
-
-Only inline `review_threads` participate in the precheck. `pr_comments` and `review_bodies` have no file paths and cannot contribute to spatial overlap; they are always dispatched individually regardless of clustering.
-
-Single-round clustering is deliberately not performed: the evidence is too thin to justify holistic fixes and the false-positive rate is high. First-round "one helper would fix all of these" opportunities are handled as individual fixes until repeated reviewer evidence promotes the pattern into cross-invocation mode.
-
-If both gate stages pass, analyze feedback for thematic clusters spanning new threads and previously resolved threads. Include resolved threads from `cross_invocation.resolved_threads` alongside new threads in the analysis. Mark prior-resolved threads as `previously_resolved` so dispatch knows not to individually re-resolve them.
-
-Assign exactly one concern category from this fixed list: `error-handling`, `validation`, `type-safety`, `naming`, `performance`, `testing`, `security`, `documentation`, `style`, `architecture`, `other`.
-
-Group by category and spatial proximity, requiring cross-round evidence:
-
-| Thematic match | Spatial proximity | Contains prior-resolved? | Action |
-|---|---|---|---|
-| Same category | Same file or subtree | Yes | Cluster |
-| Same category | Same file or subtree | No (new-only) | No cluster |
-| Same category | Unrelated locations | Any | No cluster |
-| Different categories | Any | Any | No cluster |
-
-Synthesize a cluster brief for each cluster:
-
-```xml
-<cluster-brief>
-  <theme>[concern category]</theme>
-  <area>[common directory path]</area>
-  <files>[comma-separated file paths]</files>
-  <threads>[comma-separated new thread/comment IDs]</threads>
-  <hypothesis>[one sentence: what the recurring feedback across rounds suggests about a deeper issue]</hypothesis>
-  <prior-resolutions>
-    <thread id="PRRT_..." path="..." category="..."/>
-  </prior-resolutions>
-</cluster-brief>
-```
-
-The `<prior-resolutions>` element is always present and lists the previously resolved threads in the cluster. Items not in any cluster remain as individual items. Previously resolved threads that do not cluster with any new thread are dropped; they provided context but no cross-round pattern was found.
-
-## 4. Plan
+## 3. Plan
 
 Create a task list of all **new** unresolved items grouped by type:
 
@@ -102,9 +58,9 @@ Create a task list of all **new** unresolved items grouped by type:
 - Style/convention fixes
 - Test additions needed
 
-If step 3 produced clusters, include them in the task list as cluster items alongside individual items.
+Create one task entry per new unresolved review thread, actionable PR comment, or actionable review body. Already resolved threads are not returned by `get-pr-comments` and are not dispatch inputs.
 
-## 5. Implement
+## 4. Implement
 
 Process all three feedback types. Review threads are the primary type; PR comments and review bodies are secondary but must not be ignored.
 
@@ -112,17 +68,17 @@ Process all three feedback types. Review threads are the primary type; PR commen
 
 Resolver dispatch is mutating-sensitive. Direct invocation of this workflow authorizes resolver dispatch by default when the host exposes a dispatch primitive, the user has not forbidden delegation, and the dispatch units pass the batching and file-overlap checks below.
 
-Each resolver may edit only the files needed for its assigned thread or cluster and must return the actual `files_changed` list. The orchestrator owns final integration: combined validation, staging, commits, pushes, PR replies, and thread resolution. Resolver agents must not stage files, create commits, push, or resolve review threads directly unless a future host-specific isolation contract explicitly says otherwise.
+Each resolver may edit only the files needed for its assigned feedback item and must return the actual `files_changed` list. The orchestrator owns final integration: combined validation, staging, commits, pushes, PR replies, and thread resolution. Resolver agents must not stage files, create commits, push, or resolve review threads directly unless a future host-specific isolation contract explicitly says otherwise.
 
 If dispatch is unavailable, explicitly disabled, or mutation would be unsafe, process dispatch units sequentially in the current agent. If file overlap or discovered collisions make parallel mutation unsafe, serialize the affected units or stop for orchestration instead of running shared-file fixes in parallel.
 
-### Dispatch boundary for previously-resolved threads
+### Dispatch inputs
 
-Previously resolved threads from `cross_invocation.resolved_threads` participate in clustering and appear in cluster briefs as `<prior-resolutions>` context. They are never individually dispatched. Only new threads get individual or cluster dispatch.
+Only new review threads, actionable PR comments, and actionable review bodies are dispatch inputs. Resolved threads are not returned by `get-pr-comments`; if a previously resolved or already replied item appears during manual inspection, use it as background only and do not dispatch, reply to, or resolve it again.
 
 ### Individual dispatch
 
-For review threads, spawn a `spec-pr-comment-resolver` agent for each new thread that is not already assigned to a cluster. Clustered threads are handled by cluster dispatch; do not dispatch them individually.
+For review threads, spawn a `spec-pr-comment-resolver` agent for each new thread.
 
 Each agent receives:
 
@@ -133,11 +89,7 @@ Each agent receives:
 - The feedback type: `review_thread`
 - The `isOutdated` flag from the thread node
 
-For PR comments and review bodies, spawn a `spec-pr-comment-resolver` agent for each actionable non-clustered item. The agent receives the comment ID, body text, PR number, and feedback type: `pr_comment` or `review_body`. The agent must identify the relevant files from the comment text and the PR diff.
-
-### Cluster dispatch
-
-For each cluster, dispatch one `spec-pr-comment-resolver` agent that receives the `<cluster-brief>` block, all thread details for threads in the cluster, the PR number, and the feedback types. The cluster agent reads the broader area before making targeted fixes. It returns one summary per thread it handled plus a `cluster_assessment`.
+For PR comments and review bodies, spawn a `spec-pr-comment-resolver` agent for each actionable item. The agent receives the comment ID, body text, PR number, and feedback type: `pr_comment` or `review_body`. The agent must identify the relevant files from the comment text and the PR diff.
 
 ### Agent return format
 
@@ -150,10 +102,6 @@ Each agent returns:
 - **files_changed**: list of files modified, empty if no code changed
 - **reason**: brief explanation
 
-Cluster agents additionally return:
-
-- **cluster_assessment**: what the broader investigation found and whether a holistic or individual approach was taken
-
 Verdict meanings:
 
 - `fixed` -- code change made as requested
@@ -165,26 +113,26 @@ Verdict meanings:
 
 ### Batching and conflict avoidance
 
-Clusters count as one dispatch unit regardless of how many threads they contain. If there are 1-4 dispatch units total, dispatch all in parallel. For 5 or more dispatch units, batch in groups of 4.
+If there are 1-4 dispatch units total, dispatch all in parallel. For 5 or more dispatch units, batch in groups of 4.
 
-No two dispatch units that touch the same file should run in parallel. Before dispatching, check for file overlaps across clusters and individual items. If a cluster's file list overlaps with an individual item's file, or with another cluster's files, serialize those units. Non-overlapping units can still run in parallel. Platforms without parallel dispatch should run units sequentially: cluster units first, then individual items.
+No two dispatch units that touch the same file should run in parallel. Before dispatching, check for file overlaps across items. If two items reference the same file, serialize those units. Non-overlapping units can still run in parallel. Platforms without parallel dispatch should run units sequentially.
 
-Fixes can expand beyond the referenced file. Step 6 catches cross-agent test breakage, and step 9 catches unresolved threads. If either surfaces inconsistent changes from parallel fixes, rerun the affected agents sequentially.
+Fixes can expand beyond the referenced file. Step 5 catches cross-agent test breakage, and step 8 catches unresolved threads. If either surfaces inconsistent changes from parallel fixes, rerun the affected agents sequentially.
 
-## 6. Validate Combined State
+## 5. Validate Combined State
 
-After all agents complete, aggregate `files_changed` across every returned summary. If it is empty, skip steps 6 and 7 and proceed to step 8.
+After all agents complete, aggregate `files_changed` across every returned summary. If it is empty, skip steps 5 and 6 and proceed to step 7.
 
 Resolvers run only targeted tests on their own changes. This step runs the project's full validation once against the combined diff.
 
 1. Run the project's validation command.
-2. Green -> proceed to step 7.
+2. Green -> proceed to step 6.
 3. Red and failures touch resolver-changed files -> one inline diagnose-and-fix pass. Re-run validation. If still red, escalate with `needs-human` and do not commit.
-4. Red and failures touch only files no resolver changed -> treat as pre-existing. Proceed to step 7, but add a commit footer: `Note: pre-existing failure in <test> not addressed by this PR.`
+4. Red and failures touch only files no resolver changed -> treat as pre-existing. Proceed to step 6, but add a commit footer: `Note: pre-existing failure in <test> not addressed by this PR.`
 
-Record the validation outcome for the step 10 summary.
+Record the validation outcome for the step 9 summary.
 
-## 7. Commit and Push
+## 6. Commit and Push
 
 Stage only files reported by resolvers and commit with a message referencing the PR:
 
@@ -201,7 +149,7 @@ Push to remote:
 git push
 ```
 
-## 8. Reply and Resolve
+## 7. Reply and Resolve
 
 After the push succeeds, post replies and resolve where applicable.
 
@@ -265,7 +213,7 @@ rm -f "$reply_file"
 
 Include enough quoted context in the reply so the reader can follow which comment is being addressed without scrolling.
 
-## 9. Verify
+## 8. Verify
 
 Re-fetch feedback to confirm resolution:
 
@@ -282,7 +230,7 @@ If new threads remain, check the iteration count for this run:
 
 PR comments and review bodies have no resolve mechanism, so they will still appear in the output. Verify they were replied to by checking the PR conversation.
 
-## 10. Summary
+## 9. Summary
 
 Present a concise summary of all work done. Group by verdict, one line per item describing what was done, not just where.
 
@@ -296,14 +244,6 @@ Not addressing (count): [what was skipped and why]
 Declined (count): [what was declined and the harm cited]
 
 Validation: [one line; omit when no code changes were committed]
-```
-
-If clusters were investigated, append:
-
-```text
-Cluster investigations (count):
-
-1. [theme] in [area]: [cluster_assessment from the agent]
 ```
 
 If any agent returned `needs-human`, append a decisions section using the returned `decision_context`. If there are pending decisions from a previous run, surface them after the new work.

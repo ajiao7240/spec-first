@@ -33,7 +33,7 @@ Spawned when the orchestrator identifies relevant patterns in the diff. The orch
 | `security` | `spec-security-reviewer` | Auth middleware, public endpoints, user input handling, permission checks, secrets management |
 | `performance` | `spec-performance-reviewer` | Database queries, ORM calls, loop-heavy data transforms, caching layers, async/concurrent code |
 | `api-contract` | `spec-api-contract-reviewer` | Route definitions, serializer/interface changes, event schemas, exported type signatures, API versioning |
-| `data-migrations` | `spec-data-migrations-reviewer` | Migration files, schema changes, backfill scripts, data transformations |
+| `data-migrations` | `spec-data-migrations-reviewer` | Migration files, schema dumps (`db/schema.rb`, `structure.sql`), backfill scripts, or data transformations -- not model/query-only changes without migration artifacts |
 | `reliability` | `spec-reliability-reviewer` | Error handling, retry logic, circuit breakers, timeouts, background jobs, async handlers, health checks |
 | `adversarial` | `spec-adversarial-reviewer` | Diff has >=50 changed non-test, non-generated, non-lockfile lines, OR touches auth, payments, data mutations, external API integrations, or other high-risk domains |
 | `cli-readiness` | `spec-cli-readiness-reviewer` | CLI command definitions, argument parsing, CLI framework usage, command handler implementations |
@@ -54,17 +54,17 @@ These reviewers keep their original opinionated lens. They are additive with the
 
 ## Spec-First Conditional Agents (migration-specific)
 
-These Spec-First conditional agents provide specialized analysis beyond what the persona agents cover. Spawn them when the diff includes database migrations, schema.rb, or data backfills.
+These Spec-First conditional agents provide specialized analysis beyond what the persona agents cover. Spawn them when the diff includes database migration files, schema dumps (`db/schema.rb`, `structure.sql`), or data backfills. Do not trigger migration-only agents for model/query-only changes without migration artifacts.
 
 | Agent | Focus |
 |-------|-------|
 | `spec-schema-drift-detector` | Cross-references schema.rb changes against included migrations to catch unrelated drift |
-| `spec-deployment-verification-agent` | Produces Go/No-Go deployment checklist with SQL verification queries and rollback procedures |
+| `spec-deployment-verification-agent` | Produces Go/No-Go deployment checklist with SQL verification queries and rollback procedures for risky migration artifacts |
 
 ## Selection rules
 
 1. **Run the Stage 3 scale-aware reviewer preflight.** Low-risk tiny diffs may use a minimum core of 2-3 reviewers; sensitive, medium, broad, unclear, explicit-plan, prior-comment, or untracked-excluded reviews use the full default core.
 2. **For each cross-cutting conditional persona**, the orchestrator reads the diff and decides whether the persona's domain is relevant. This is a judgment call, not a keyword match.
 3. **For each stack-specific conditional persona**, use file types and changed patterns as a starting point, then decide whether the diff actually introduces meaningful work for that reviewer. Do not spawn language-specific reviewers just because one config or generated file happens to match the extension.
-4. **For Spec-First conditional agents**, spawn when the diff includes migration files (`db/migrate/*.rb`, `db/schema.rb`) or data backfill scripts.
+4. **For Spec-First conditional agents**, spawn when the diff includes migration files (`db/migrate/*.rb`), schema dumps (`db/schema.rb`, `structure.sql`), or data backfill scripts. Do not spawn these agents for model/query-only changes without migration artifacts.
 5. **Announce the team** before spawning with the selected core tier and a one-line justification per conditional reviewer selected.

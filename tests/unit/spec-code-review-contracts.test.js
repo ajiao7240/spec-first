@@ -221,6 +221,77 @@ describe('spec-code-review CE sync contracts', () => {
     expect(template).toContain('Imperfect information is not grounds for omission');
   });
 
+  test('maintainability reviewer targets structural simplification without gaining write access', () => {
+    const reviewer = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'agents', 'spec-maintainability-reviewer.agent.md'),
+      'utf8',
+    );
+
+    expect(reviewer).toContain('structural quality, complexity deletion');
+    expect(reviewer).toContain('catch changes that make the codebase harder to change, delete, or reason about');
+    expect(reviewer).toContain('delete complexity');
+    expect(reviewer).toContain('Structural simplification (highest priority)');
+    expect(reviewer).toContain('Complexity moved, not removed');
+    expect(reviewer).toContain('Code-judo misses');
+    expect(reviewer).toContain('Spaghetti growth');
+    expect(reviewer).toContain('File-size regression');
+    expect(reviewer).toContain('1000 lines');
+    expect(reviewer).toContain('Wrong layer / leaked logic');
+    expect(reviewer).toContain('Thin wrappers');
+    expect(reviewer).toContain('new `any`, `@ts-ignore`, unchecked `as` casts, `unknown as Foo`');
+    expect(reviewer).toContain('Ad-hoc object shapes');
+    expect(reviewer).toContain('P1');
+    expect(reviewer).toContain('P2');
+    expect(reviewer).toContain('P3');
+    expect(reviewer).toContain('Structural findings need a **concrete reframe** in `suggested_fix`');
+    expect(reviewer).toContain('explicit `any` or `@ts-ignore` in new code');
+    expect(reviewer).toContain('new wrapper with no added behavior');
+    expect(reviewer).toContain('suppress unless severity is P1');
+    expect(reviewer).toContain('Philosophy without a concrete structural fix');
+    expect(reviewer).toContain('"reviewer": "maintainability"');
+    expect(reviewer).toContain('tools: Read, Grep, Glob, Bash');
+    expect(reviewer).not.toContain('tools: Read, Grep, Glob, Bash, Write');
+    expect(reviewer).not.toContain('ce-maintainability');
+  });
+
+  test('data-migrations reviewer adds verification rubric without absorbing schema drift', () => {
+    const reviewer = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'agents', 'spec-data-migrations-reviewer.agent.md'),
+      'utf8',
+    );
+    const catalog = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'persona-catalog.md'),
+      'utf8',
+    );
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(reviewer).toContain('deploy-window safety, rollback risk, and verification plans');
+    expect(reviewer).toContain('Never trust fixtures as proof of production shape');
+    expect(reviewer).toContain('Migration safety');
+    expect(reviewer).toContain('Verification and observability');
+    expect(reviewer).toContain('Read-only SQL to prove correctness after deploy');
+    expect(reviewer).toContain('Rollback or feature-flag guardrails for risky paths');
+    expect(reviewer).toContain('Flag missing verification for risky transforms as **P2** `manual`');
+    expect(reviewer).toContain('concrete verification shape in `suggested_fix`');
+    expect(reviewer).toContain('verifiable swapped mapping');
+    expect(reviewer).toContain('concrete orphaned reference');
+    expect(reviewer).toContain('Schema drift is still owned by `spec-schema-drift-detector`');
+    expect(reviewer).toContain('Do not replace it');
+    expect(reviewer).toContain('"reviewer": "data-migrations"');
+    expect(reviewer).toContain('tools: Read, Grep, Glob, Bash');
+    expect(reviewer).not.toContain('tools: Read, Grep, Glob, Bash, Write');
+    expect(reviewer).not.toContain('"reviewer": "data-migration"');
+    expect(reviewer).not.toContain('ce-data-migration');
+    expect(catalog).toContain('Migration files, schema dumps (`db/schema.rb`, `structure.sql`), backfill scripts, or data transformations -- not model/query-only changes without migration artifacts');
+    expect(catalog).toContain('Do not trigger migration-only agents for model/query-only changes without migration artifacts');
+    expect(catalog).toContain('Do not spawn these agents for model/query-only changes without migration artifacts');
+    expect(skill).toContain('Migration files, schema dumps (`db/schema.rb`, `structure.sql`), backfill scripts, or data transformations -- not model/query-only changes without migration artifacts');
+    expect(skill).toContain('Do not trigger migration-only agents for model/query-only changes without migration artifacts');
+    expect(skill).toContain('Select when diff includes migration artifacts');
+    expect(catalog).toContain('`spec-schema-drift-detector` | Cross-references schema.rb changes against included migrations to catch unrelated drift');
+    expect(skill).toContain('For spec-schema-drift-detector specifically, pass the resolved review base branch explicitly so it never assumes `main`');
+  });
+
   test('tracker defer references keep the tracker confidence tuple consistent', () => {
     const files = [
       path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'tracker-defer.md'),
