@@ -800,7 +800,7 @@ flowchart TD
 - U6：`npx jest tests/unit/resolve-pr-feedback-contracts.test.js tests/unit/spec-pr-comment-resolver-contracts.test.js --runInBand`。
 - U7/U8/U9：`npx jest tests/unit/spec-plan-contracts.test.js tests/unit/spec-brainstorm-contracts.test.js tests/unit/spec-compound-contracts.test.js tests/unit/compound-support-files.test.js --runInBand`(`compound-support-files.test.js` 由 U9 创建,矩阵命令在该测试落盘后运行)。
 - U10：`npx jest tests/unit/git-commit-push-pr-contracts.test.js tests/unit/git-commit-contracts.test.js --runInBand`(`git-commit-contracts.test.js` 由 U10 创建,矩阵命令在该测试落盘后运行)。
-- U11：`npx jest tests/unit/web-researcher-contracts.test.js tests/unit/spec-ideate-contracts.test.js --runInBand`；如果 `spec-plan` external research references 变化，同步运行 `tests/unit/spec-plan-contracts.test.js`。
+- U11：`npx jest tests/unit/web-researcher-contracts.test.js tests/unit/spec-ideate-contracts.test.js --runInBand`（`web-researcher-contracts.test.js` 由 U11 创建,矩阵命令在该测试落盘后运行）；如果 `spec-plan` external research references 变化，同步运行 `tests/unit/spec-plan-contracts.test.js`。
 - U12：`npx jest tests/unit/init-dry-run.test.js tests/unit/clean-dry-run.test.js tests/unit/runtime-plan-contracts.test.js --runInBand`。
 
 最终检查：
