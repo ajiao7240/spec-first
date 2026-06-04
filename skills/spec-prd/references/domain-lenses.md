@@ -38,3 +38,16 @@ When a project has local templates, standards, glossary, compliance docs, or ind
 4. Ask for confirmation when the overlay suggests legal, compliance, money movement, privacy, or safety implications.
 
 Do not treat template industry facts as confirmed project rules. The template asks what must be confirmed; it does not provide legal, compliance, exchange, clearing, or product-policy truth by itself.
+
+## Industry Overlay Triggers
+
+When the increment's industry context is clear from input or project docs, layer an industry overlay on top of the surface lens. The overlay only **raises questions and triggers conditional sections**; it never asserts an industry rule as confirmed truth. Record the overlay applied and route any legal/compliance/money/safety implication to owner confirmation, `Evidence And Assumptions`, or `Outstanding Questions` until a project source confirms it.
+
+| Industry context | Raise these questions (do not assume answers) |
+| --- | --- |
+| Securities / trading | order/position state semantics, trading-window and market rules, risk control, clearing/settlement, audit trail, regulatory disclosure |
+| Credit / lending | approval flow and limits, risk/anti-fraud gates, interest/fee rules, repayment and overdue states, compliance and data-retention boundaries |
+| Admin / mid-back-office | role/permission matrix, review and maker-checker flow, bulk action, export, audit log, data scope isolation |
+| Backend / platform service | state-machine semantics, idempotency, compatibility/versioning, transaction-visible outcomes, observability and operational readiness |
+
+These are surface-style lenses, not a separate role taxonomy. If no industry context is detectable, skip this and use the generic surface lens only. A missing industry overlay is a graceful absence, not permission to invent industry rules.

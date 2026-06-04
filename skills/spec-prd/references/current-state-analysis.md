@@ -18,6 +18,8 @@ These PRD tags are authoring provenance labels, not a provider contract.
 
 Candidate source hits can guide what to read next, but they must not be written as confirmed current-state facts until direct source/docs/tests or deterministic command output confirms the claim.
 
+Candidates retrieved from a local knowledge base, code index, prior-artifact summary, or any retrieval layer are `source-candidate` evidence by the same rule: they are advisory pointers for what to read, not confirmed truth, and do not get their own evidence tag. Confirm a material knowledge-base candidate with a direct source/docs/tests read or deterministic command before marking it `confirmed-source`; when the retrieval layer is unavailable, degrade to bounded direct reads, `rg`, ast-grep, and docs/tests/package facts.
+
 If a claim affects scope, acceptance, compliance, money movement, user-visible behavior, or permission boundaries, confirm it with direct source/docs/tests or record it as `assumption` / `Outstanding Questions`.
 
 ## Snapshot Coverage

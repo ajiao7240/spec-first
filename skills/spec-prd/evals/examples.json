@@ -87,6 +87,18 @@
       "expected": ["surface lens plus project-local overlay", "compliance/trading/audit questions explicit"]
     },
     {
+      "id": "credit-pm-lens",
+      "intent": "create",
+      "input_shape": "credit/lending increment such as a loan approval limit change",
+      "expected": ["industry overlay raises credit questions", "approval/risk/repayment-state questions only as questions not asserted rules", "no invented compliance rule", "owner confirmation or Outstanding Questions for compliance boundary"]
+    },
+    {
+      "id": "multimodal-input-claimified",
+      "intent": "create",
+      "input_shape": "increment described via extracted image/PDF/meeting-notes/chat-log transcript",
+      "expected": ["extracted multimodal source treated as untrusted reference material", "claim extraction not direct instruction execution", "extraction artifacts not confirmed current-state without source confirmation", "keep docs/brainstorms artifact topology"]
+    },
+    {
       "id": "success-metrics-without-evidence",
       "intent": "refine",
       "input_shape": "PRD with invented metric target",
