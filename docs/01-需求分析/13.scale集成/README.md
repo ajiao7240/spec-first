@@ -19,7 +19,7 @@
 | 开发顺序 | 文档 | 角色 | 实施时机 |
 | --- | --- | --- | --- |
 | 1 | `spec-first内化集成scale-project-scaffold技术方案.md` | 全局 source-of-truth，定义 goals / non-goals、版本线、artifact contract、source/runtime/provider 边界 | 所有切片开发前先以此文档校准范围；不直接跳过父方案进入子方案实现 |
-| 2 | `project-scaffold依赖安装流程与spec-first-setup优化技术方案.md` | 第一批实现子方案，负责 dependency readiness、install safety、doctor consumption、verification profile 和 honest closeout | 优先拆 v1.11-v1.13；当前 v1.11+v1.12 producer→consumer plan 已完成，后续另拆 v1.13 |
+| 2 | `project-scaffold依赖安装流程与spec-first-setup优化技术方案.md` | 第一批实现子方案,负责 dependency readiness、install safety、doctor consumption、verification profile 和 honest closeout | v1.11-v1.13 已落地;v1.11+v1.12 producer→consumer plan 与 v1.13 verification/honest-closeout plan 均已完成 |
 | 3 | `CodeGraph技术方案.md` | 最后一批 optional provider 子方案，负责 CodeGraph / Graphify / GBrain 的 provider-specific readiness、fallback、adapter 和 consumer contract | 等 v1.11-v1.15 的 readiness、verification、governance 和 Knowledge Harness 基线闭合后，在 v1.16 再进入实现；不作为 v1.11/v1.12 通用 readiness 槽位的实施依据 |
 
 因此，开发入口不是“先做 CodeGraph”，而是先完成从父方案抽取出的 v1.11+v1.12 最小可维护切片，再逐步推进到 verification/governance/knowledge/provider。
@@ -34,13 +34,13 @@
 | --- | --- | --- | --- | --- |
 | v1.11 | Dependency Readiness Baseline | 父方案 + project-scaffold 子方案 | helper/provider registry、`tool-facts.v2` normalizer、configured dependency scan facts producer、install safety、status renderer | 已完成（plan：`docs/plans/2026-06-04-001-feat-dependency-readiness-baseline-plan.md`；与 v1.12 同切片；`npm test` 通过） |
 | v1.12 | Host Projection / Doctor Consumption | 父方案 + project-scaffold 子方案 | `init` generation report、`doctor.decision_input_health`、`decision_input_health_basis`、setup/configured dependency facts consumption | 已完成（同上 plan；`doctor --codex --json` 已从 `tool-facts.json` 计算 `decision_input_health` 并输出 basis） |
-| v1.13 | Verification + Honest Closeout | 父方案 + project-scaffold 子方案 | `verification-profile.v1`、`verification-run-summary.v1`、`honest-closeout.v1`、run artifact ref mapping | 未开始 |
+| v1.13 | Verification + Honest Closeout | 父方案 + project-scaffold 子方案 | `verification-profile.v1`、`verification-run-summary.v1`、`honest-closeout.v1`、run artifact ref mapping | 已完成（plan：`docs/plans/2026-06-04-003-feat-verification-honest-closeout-plan.md`；commit `3fc4dbda`；`spec-work-run-artifact` bump v2；`npm test` 通过） |
 | v1.14 | Governance Lens Foundation | 父方案 | task-governance-signals、gate lens、resource governance、RuleMaturity shadow/advisory | 未开始 |
 | v1.15 | Knowledge Harness | 父方案 | context budget、artifact-summary、`docs/solutions` promotion、memory recall boundary、skill/tool capability lens | 未开始 |
 | v1.16 | Optional Provider Pack | 父方案 + CodeGraph 子方案 | CodeGraph / Graphify / GBrain provider-specific readiness、fallback、adapter candidate、workflow consumer | 未开始 |
 | v1.17 | Governance Maturity | 父方案 | RuleMaturity required-evidence candidate、governance ROI、resource/output hardening | 未开始 |
 
-下一步开发应单独拆 v1.13 verification / honest-closeout 计划或任务包，不直接从三份方案进入实现；v1.11 的**完成验收**需连带 v1.12 的 direct consumer（见下方 gate 约束），二者已作为同一 P0 producer→consumer 切片完成。
+v1.11+v1.12 已作为同一 P0 producer→consumer 切片完成,v1.13 verification / honest-closeout 已在独立 plan(`docs/plans/2026-06-04-003-...`)中落地并兑现 `spec-work` closeout 的可观察行为变化;下一步开发应推进到 v1.14 Governance Lens Foundation 及后续版本线,不直接从三份方案跳进实现。
 
 ### 开发顺序的依赖与验收约束（钉死，避免按版本号机械串行）
 
