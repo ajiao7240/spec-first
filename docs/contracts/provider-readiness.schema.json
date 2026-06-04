@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "provider",
+    "kind",
+    "profile",
+    "readiness_status",
+    "lifecycle",
+    "repo_aligned",
+    "capabilities",
+    "limitations",
+    "source_read_required",
+    "fallback",
+    "next_actions"
+  ],
+  "properties": {
+    "schema_version": { "const": "provider-readiness.v1" },
+    "provider": { "type": "string" },
+    "kind": { "enum": ["code-structure", "project-graph", "memory", "generic"] },
+    "profile": { "enum": ["minimal", "recommended", "platform"] },
+    "readiness_status": { "enum": ["fresh", "stale", "degraded", "not-run", "unknown"] },
+    "lifecycle": {
+      "type": "object",
+      "required": [
+        "installed",
+        "configured",
+        "initialized",
+        "indexed",
+        "server_reachable",
+        "artifact_exists",
+        "query_verified",
+        "fallback_used"
+      ],
+      "properties": {
+        "installed": { "type": "boolean" },
+        "configured": { "type": "boolean" },
+        "initialized": { "type": "boolean" },
+        "indexed": { "type": "boolean" },
+        "server_reachable": { "type": "boolean" },
+        "artifact_exists": { "type": "boolean" },
+        "query_verified": { "type": "boolean" },
+        "fallback_used": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "repo_aligned": { "enum": ["yes", "no", "unknown", "not-applicable"] },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source_read_required": { "type": "boolean" },
+    "fallback": {
+      "type": "object",
+      "required": ["available", "methods", "reason_code"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "methods": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "reason_code": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "next_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

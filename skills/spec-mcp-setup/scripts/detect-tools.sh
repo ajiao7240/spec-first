@@ -140,6 +140,8 @@ host_config_status() {
       [ -n "$section" ] || continue
       if toml_mcp_section_matches_exact "$path" "$detect_key" "$expected_command" "$expected_args"; then
         echo ready
+      elif toml_mcp_section_matches_registry_args_drift "$path" "$detect_key" "$expected_command" "$expected_args"; then
+        echo registry-args-drift
       else
         echo precedence-blocked
       fi
@@ -161,6 +163,16 @@ host_config_status() {
           else
             echo fallback-active
           fi
+        elif jq -e --arg key "$detect_key" --arg command "$expected_command" --argjson expected_args "$expected_args" '
+          def normalize_npm_latest:
+            map(if type == "string" then sub("@latest$"; "") else . end);
+          .mcpServers[$key] != null
+          and .mcpServers[$key].command == $command
+          and ((.mcpServers[$key] | has("scope")) | not)
+          and ((.mcpServers[$key].args // []) | normalize_npm_latest) == ($expected_args | normalize_npm_latest)
+          and ((.mcpServers[$key].args // []) != $expected_args)
+        ' "$CONFIG_PATH" >/dev/null 2>&1; then
+          echo registry-args-drift
         else
           echo action-required
         fi
@@ -169,6 +181,8 @@ host_config_status() {
 
       if toml_mcp_section_matches_exact "$CONFIG_PATH" "$detect_key" "$expected_command" "$expected_args"; then
         echo ready
+      elif toml_mcp_section_matches_registry_args_drift "$CONFIG_PATH" "$detect_key" "$expected_command" "$expected_args"; then
+        echo registry-args-drift
       else
         echo action-required
       fi
@@ -255,14 +269,14 @@ while IFS= read -r tool_id; do
   proj_status="$(project_status "$tool_id")"
   tool_extra_json='{}'
   host_ready=false
-  if [ "$cfg_status" = "ready" ] || [ "$cfg_status" = "fallback-active" ]; then
+  if [ "$cfg_status" = "ready" ] || [ "$cfg_status" = "fallback-active" ] || [ "$cfg_status" = "registry-args-drift" ]; then
     host_ready=true
   elif [ "$host_required" != "true" ] && [ "$cfg_status" = "not-required" ]; then
     host_ready=true
   fi
 
   configured=false
-  if [ "$cfg_status" = "ready" ] || [ "$cfg_status" = "fallback-active" ]; then
+  if [ "$cfg_status" = "ready" ] || [ "$cfg_status" = "fallback-active" ] || [ "$cfg_status" = "registry-args-drift" ]; then
     configured=true
   fi
 
@@ -281,6 +295,28 @@ while IFS= read -r tool_id; do
     next_action="repair project bootstrap"
   fi
 
+  result="ready"
+  reason_code="ready"
+  if [ "$dep_status" != "ready" ]; then
+    result="action-required"
+    reason_code="missing_dependency"
+  elif [ "$cfg_status" = "registry-args-drift" ]; then
+    result="degraded"
+    reason_code="host-config-version-drift"
+  elif [ "$cfg_status" = "action-required" ]; then
+    result="action-required"
+    reason_code="host-config-action-required"
+  elif [ "$cfg_status" = "precedence-blocked" ]; then
+    result="action-required"
+    reason_code="host-config-precedence-blocked"
+  elif [ "$proj_status" = "pending" ]; then
+    result="action-required"
+    reason_code="project-bootstrap-pending"
+  elif [ "$proj_status" = "failed" ]; then
+    result="action-required"
+    reason_code="project-bootstrap-failed"
+  fi
+
   append_next_action "$next_action"
 
   tools_json="$(jq \
@@ -293,6 +329,8 @@ while IFS= read -r tool_id; do
     --arg proj "$proj_status" \
     --arg scope "$SELECTED_SCOPE" \
     --arg next "$next_action" \
+    --arg result "$result" \
+    --arg reason_code "$reason_code" \
     --argjson configured "$configured" \
     --argjson extra "$tool_extra_json" \
     '.
@@ -304,6 +342,8 @@ while IFS= read -r tool_id; do
         host_config_status: $cfg,
         project_status: $proj,
         selected_scope: $scope,
+        result: $result,
+        reason_code: $reason_code,
         next_action: $next
       } + $extra)}
       | .[$id] += {configured: $configured}' <<<"$tools_json")"

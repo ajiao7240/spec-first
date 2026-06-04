@@ -1,13 +1,13 @@
 ---
-description: "Install and verify the required harness runtime for spec-first workflows"
+description: "Install, configure, verify, and refresh required harness runtime readiness facts for spec-first workflows"
 argument-hint: ""
 ---
 
-# MCP Setup
+# Runtime Setup
 
-This source template defines Claude command metadata only.
+This source template defines Claude command metadata for the legacy `/spec:mcp-setup` compatibility entrypoint.
 
-During `spec-first init` for Claude Code, spec-first renders the runtime command by combining this frontmatter with the body of `skills/spec-mcp-setup/SKILL.md`.
+During `spec-first init` for Claude Code, spec-first renders the runtime command by combining this frontmatter with the body of `skills/spec-mcp-setup/SKILL.md`. The recommended future user-facing entrypoint is `/spec:runtime-setup`; this template remains until the alias contract is implemented.
 
 The paired skill owns the multi-repo contract: when run from a parent workspace with no `--repo <child>`, setup defaults to all child repos. `--repo <child>` narrows the run, and `--all-repos` is the explicit equivalent of the parent-workspace default.
 

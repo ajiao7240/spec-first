@@ -544,18 +544,23 @@ mkdir -p "$MARKER_DIR"
 
 combined_tmp="$(mktemp "${MARKER_DIR}/readiness-ledger-combined.XXXXXX")"
 final_tmp="$(mktemp "${MARKER_DIR}/readiness-ledger.XXXXXX")"
-trap 'rm -f "$combined_tmp" "$final_tmp"' EXIT
+facts_scan_tmp="$(mktemp "${MARKER_DIR}/readiness-ledger-facts.XXXXXX")"
+trap 'rm -f "$combined_tmp" "$final_tmp" "$facts_scan_tmp"' EXIT
 chmod 600 "$combined_tmp" "$final_tmp"
+printf '%s\n' "$FACTS_JSON" > "$facts_scan_tmp"
+CONFIGURED_SCAN="$(bash "$SCRIPT_DIR/scan-configured-deps.sh" --repo-root "$RECONCILIATION_REPO_ROOT" --facts-file "$facts_scan_tmp" 2>/dev/null || jq -n '{configured_dependencies:[]}')"
 
 jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
   --arg marker_path "$MARKER_PATH" \
   --argjson helper "$HELPER_JSON" \
+  --argjson configured_scan "$CONFIGURED_SCAN" \
   --argjson host_pointer_reconciliation "$HOST_POINTER_RECONCILIATION" \
   '
   def host_ready:
     ((.host_config_required == false) and (.host_config_status == "not-required"))
     or (.host_config_status == "ready")
-    or (.host_config_status == "fallback-active");
+    or (.host_config_status == "fallback-active")
+    or (.host_config_status == "registry-args-drift");
   def tool_ready:
     (.dependency_status == "ready")
     and host_ready
@@ -619,11 +624,15 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       completed_at: $completed_at,
       tools: $facts.tools,
       helper_tools: $helper_tools,
+      provider_readiness: ($facts.provider_readiness // []),
+      configured_dependencies: ($configured_scan.configured_dependencies // []),
       mirror_endpoints: ($helper.mirror_endpoints // null),
       recommended_environment_variables: ($helper.recommended_environment_variables // null),
       next_actions: (
         (($facts.next_actions // []) + [
           ($helper_tools // {})[] | select(helper_action_required) | .next_action // ""
+        ] + [
+          ($configured_scan.configured_dependencies // [])[] | select((.result // "") == "action-required") | "review configured dependency: \(.command)"
         ])
         | map(select(. != ""))
         | unique
@@ -694,6 +703,22 @@ jq -c '
     elif $key == "ast-grep" then "结构化代码搜索和重写"
     elif $key == "ast-grep-skill" then "ast-grep 使用指引"
     else "工具" end;
+  def row13($id; $value; $kind):
+    [
+      display($id),
+      display($kind),
+      display($value.profile // "minimal"),
+      display($value.required // true),
+      display(if $value.baseline_blocking == null then true else $value.baseline_blocking end),
+      display($value.dependency_status),
+      display($value.configured_status // $value.host_config_status // $value.project_status),
+      display($value.allowed // "not-applicable"),
+      display($value.install_status // "not-applicable"),
+      display($value.safety // "not-checked"),
+      display($value.result // (if (($value.dependency_status // "") == "ready") then "ready" else "action-required" end)),
+      display($value.reason_code // ""),
+      display($value.next_action)
+    ];
   def summary_rows:
     [
       [
@@ -704,11 +729,47 @@ jq -c '
       ]
     ];
   def mcp_rows:
-    [(.tools // {} | to_entries[] | select((.value.type // "") == "mcp") |
-      [display(.key), remark(.key), display(.value.dependency_status), display(.value.host_config_status), display(.value.project_status), display(.value.next_action)])];
+    [(.tools // {} | to_entries[] | select((.value.type // "") == "mcp") | row13(.key; .value; "mcp"))];
   def helper_rows:
+    [(.helper_tools // {} | to_entries[] | row13(.key; .value; (.value.kind // .value.type // "helper")))];
+  def provider_rows:
+    [(.provider_readiness // [])[] |
+      [
+        display(.provider),
+        display(.kind),
+        display(.profile),
+        display(.readiness_status),
+        display(.lifecycle.installed),
+        display(.lifecycle.configured),
+        display(.lifecycle.query_verified),
+        display(.repo_aligned),
+        display(.fallback.reason_code),
+        display((.next_actions // []) | join("; "))
+      ]];
+  def configured_dependency_rows:
+    [(.configured_dependencies // [])[] |
+      [
+        display(.id),
+        display(.kind),
+        display(.source_path),
+        display(.command),
+        display(.args_shape),
+        display(.declared_tool_id),
+        display(.declared_status),
+        display(.dependency_status),
+        display(.configured_status),
+        display(.result),
+        display(.reason_code)
+      ]];
+  def install_safety_rows:
     [(.helper_tools // {} | to_entries[] |
-      [display(.key), display(.value.type // "helper"), display(.value.result), display(.value.dependency_status), display(.value.install_status), display(.value.skill_status), display(.value.next_action)])];
+      [
+        display(.key),
+        display(.value.safety // "not-checked"),
+        display(.value.install_source // ""),
+        display(.value.mirror_used // false),
+        display(.value.next_action)
+      ])];
   def project_rows:
     [
       {
@@ -726,9 +787,14 @@ jq -c '
   {
     sections: [
       {title: "Execution result", headers: ["Area", "Status", "Evidence", "Next"], rows: summary_rows},
-      {title: "MCP servers", headers: ["Name", "Role", "Dependency", "Host", "Project", "Next"], rows: mcp_rows},
-      {title: "Helper tools", headers: ["Name", "Type", "Result", "Dependency", "Install", "Skill", "Next"], rows: helper_rows},
-      {title: "Project setup facts", headers: ["Artifact", "Project", "Next"], rows: project_rows}
+      {title: "MCP servers", headers: ["id", "kind", "profile", "required", "baseline_blocking", "dependency", "configured", "allowed", "install", "safety", "result", "reason_code", "next_action"], rows: mcp_rows},
+      {title: "Helper tools", headers: ["id", "kind", "profile", "required", "baseline_blocking", "dependency", "configured", "allowed", "install", "safety", "result", "reason_code", "next_action"], rows: helper_rows},
+      {title: "Provider tools", headers: ["provider", "kind", "profile", "readiness", "installed", "configured", "query_verified", "repo_aligned", "fallback_reason", "next_actions"], rows: provider_rows},
+      {title: "Host configured dependencies", headers: ["id", "kind", "source_path", "command", "args_shape", "declared_tool_id", "declared_status", "dependency", "configured", "result", "reason_code"], rows: configured_dependency_rows},
+      {title: "Install safety", headers: ["id", "safety", "install_source", "mirror_used", "next_action"], rows: install_safety_rows},
+      {title: "Project setup facts", headers: ["Artifact", "Project", "Next"], rows: project_rows},
+      {title: "Verification profile", headers: ["Artifact", "Status", "Next"], rows: [["spec-first.verification.json", (if (.target_root // .repo_root) as $root | ($root + "/spec-first.verification.json") then "not-checked" else "not-checked" end), "v1.13 scope"]]},
+      {title: "Next steps", headers: ["#", "Action"], rows: [(.next_actions // []) | to_entries[] | [((.key + 1) | tostring), display(.value)]]}
     ]
   }
 ' "$MARKER_PATH" | render_status_block

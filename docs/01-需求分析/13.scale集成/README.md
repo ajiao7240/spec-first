@@ -1,0 +1,77 @@
+# SCALE 集成方案索引
+
+本目录用于收敛 `scale-engine` / `project-scaffold` / `scale-os-config-claude-code` 对 `spec-first` 的可借鉴能力，重点关注 dependency readiness、verification evidence、governance lens、Knowledge Harness 与 optional provider 的 source-first 内化。
+
+## 阅读顺序
+
+| 顺序 | 文档 | 定位 |
+| --- | --- | --- |
+| 1 | `spec-first内化集成scale-project-scaffold技术方案.md` | 父方案，定义全局边界、产物归属、版本路线和优先级 |
+| 2 | `project-scaffold依赖安装流程与spec-first-setup优化技术方案.md` | setup / doctor / verification 子方案，细化 v1.11-v1.13 的 dependency readiness、install safety、verification profile 和 honest closeout |
+| 3 | `CodeGraph技术方案.md` | optional provider 子方案，细化 v1.16 下 CodeGraph / Graphify / GBrain 的 readiness、fallback、workflow consumer 和 trust boundary |
+
+`bak/` 下文件只作为历史分析输入，不作为当前 source-of-truth。
+
+## 三份文档的开发关系
+
+三份文档不是并行实现入口，应按“父方案定边界、setup 子方案先落地、optional provider 最后接入”的顺序进入开发。
+
+| 开发顺序 | 文档 | 角色 | 实施时机 |
+| --- | --- | --- | --- |
+| 1 | `spec-first内化集成scale-project-scaffold技术方案.md` | 全局 source-of-truth，定义 goals / non-goals、版本线、artifact contract、source/runtime/provider 边界 | 所有切片开发前先以此文档校准范围；不直接跳过父方案进入子方案实现 |
+| 2 | `project-scaffold依赖安装流程与spec-first-setup优化技术方案.md` | 第一批实现子方案，负责 dependency readiness、install safety、doctor consumption、verification profile 和 honest closeout | 优先拆 v1.11-v1.13；当前 v1.11+v1.12 producer→consumer plan 已完成，后续另拆 v1.13 |
+| 3 | `CodeGraph技术方案.md` | 最后一批 optional provider 子方案，负责 CodeGraph / Graphify / GBrain 的 provider-specific readiness、fallback、adapter 和 consumer contract | 等 v1.11-v1.15 的 readiness、verification、governance 和 Knowledge Harness 基线闭合后，在 v1.16 再进入实现；不作为 v1.11/v1.12 通用 readiness 槽位的实施依据 |
+
+因此，开发入口不是“先做 CodeGraph”，而是先完成从父方案抽取出的 v1.11+v1.12 最小可维护切片，再逐步推进到 verification/governance/knowledge/provider。
+
+## 开发顺序
+
+当前一致性校准后的推荐版本线：
+
+> 开发进展取值：`未开始` / `计划中`（已拆 plan/tasks 未实现）/ `进行中`（实现中）/ `已完成`（实现 + 对应版本 gate + 测试通过）/ `阻塞`。进展必须基于真实 source/测试状态如实更新，不得用方案定稿冒充实现进展。
+
+| 版本 | 主题 | 主要依据文档 | 范围 | 开发进展 |
+| --- | --- | --- | --- | --- |
+| v1.11 | Dependency Readiness Baseline | 父方案 + project-scaffold 子方案 | helper/provider registry、`tool-facts.v2` normalizer、configured dependency scan facts producer、install safety、status renderer | 已完成（plan：`docs/plans/2026-06-04-001-feat-dependency-readiness-baseline-plan.md`；与 v1.12 同切片；`npm test` 通过） |
+| v1.12 | Host Projection / Doctor Consumption | 父方案 + project-scaffold 子方案 | `init` generation report、`doctor.decision_input_health`、`decision_input_health_basis`、setup/configured dependency facts consumption | 已完成（同上 plan；`doctor --codex --json` 已从 `tool-facts.json` 计算 `decision_input_health` 并输出 basis） |
+| v1.13 | Verification + Honest Closeout | 父方案 + project-scaffold 子方案 | `verification-profile.v1`、`verification-run-summary.v1`、`honest-closeout.v1`、run artifact ref mapping | 未开始 |
+| v1.14 | Governance Lens Foundation | 父方案 | task-governance-signals、gate lens、resource governance、RuleMaturity shadow/advisory | 未开始 |
+| v1.15 | Knowledge Harness | 父方案 | context budget、artifact-summary、`docs/solutions` promotion、memory recall boundary、skill/tool capability lens | 未开始 |
+| v1.16 | Optional Provider Pack | 父方案 + CodeGraph 子方案 | CodeGraph / Graphify / GBrain provider-specific readiness、fallback、adapter candidate、workflow consumer | 未开始 |
+| v1.17 | Governance Maturity | 父方案 | RuleMaturity required-evidence candidate、governance ROI、resource/output hardening | 未开始 |
+
+下一步开发应单独拆 v1.13 verification / honest-closeout 计划或任务包，不直接从三份方案进入实现；v1.11 的**完成验收**需连带 v1.12 的 direct consumer（见下方 gate 约束），二者已作为同一 P0 producer→consumer 切片完成。
+
+### 开发顺序的依赖与验收约束（钉死，避免按版本号机械串行）
+
+版本号给出**粗粒度落地批次**，但下列约束决定真实的依赖边界与验收口径，规划计划时以这些为准（与父方案 §8 / §9.0.1 / §10 对齐）：
+
+- **direct consumer gate：v1.11 + v1.12 是不可分割的 producer→consumer 对。** v1.11 只产 facts（registry / `tool-facts.v2` / configured scan / install safety / status renderer），其 deterministic consumer 是 v1.12 的 `doctor.decision_input_health` rollup。按父方案 §9.0.1「无消费方 = 不交付」，**v1.11 不单独宣称完成**；只有当 `doctor --json` 能从 setup facts 计算 `decision_input_health` 并输出 `decision_input_health_basis.artifact_refs` 时，v1.11+v1.12 这个 direct deterministic 切片才算过 gate。
+- **workflow consumer gate 延迟到 v1.13。** `doctor` 是 CLI 汇总面，不是 §6 named workflow consumer；§6 named workflow（`spec-plan` / `spec-work` 等）要等 v1.12 的 `doctor --json` projection 落地后才能读取这些 facts，并在 v1.13 verification / honest-closeout 接入 `spec-work` closeout 时兑现可观察行为变化。不得把 v1.12 doctor rollup 包装成已独立兑现 workflow 价值的最终里程碑。
+- **honest-closeout 的硬前置只是 v1.11 的工具存在性子集。** v1.13 的 `verification-run-summary` / `honest-closeout` 真正依赖的是 v1.11 中**工具存在性检测**（填 `not-run: missing_dependency`），而非 install safety、configured dependency scan 的完整度。后两者可与 v1.13 并行或紧随，**不阻塞 honest-closeout 落地**——honest-closeout 是父方案 §0.0 标注「最该早堵的谎报洞」，不应被 v1.11 全宽 baseline 串行推迟。
+- **v1.15 Knowledge Harness 以 provider-absent 为默认设计，不预设 v1.16。** v1.15 的 context budget / `docs/solutions` promotion / memory recall **boundary** / capability lens 均以 fallback（source-scan / `docs/solutions` / direct read）为默认路径；父方案 §5.3 六层表中 L3/L4 列出的 CodeGraph / GBrain 是 v1.16 的**可选增强**，缺失时 v1.15 仍完整可用，**v1.15 不依赖 v1.16**。
+- **v1.14 与 v1.17 的 governance 分两批是有意的。** v1.17 的 RuleMaturity required-evidence / blocking 候选需要 v1.14 foundation 先运行、沉淀**误报证据 + 人审**（父方案 §4.7），中间隔开 v1.15 / v1.16 不影响该依赖。
+
+## 产物规范
+
+| 产物 | Canonical 位置 | 规则 |
+| --- | --- | --- |
+| helper registry | `skills/spec-mcp-setup/helper-tools.json` | 描述 helper readiness / install safety；`required` 不等于 `baseline_blocking` |
+| provider registry | `skills/spec-mcp-setup/provider-tools.json` | 描述 provider profile / install strategy；不单独新增 provider install profile contract |
+| provider readiness contract | `docs/contracts/provider-readiness.md` | 字段 canonical 归父方案；只承载 lifecycle 布尔位、readiness freshness、repo alignment 与 fallback 等机械事实 |
+| verification profile contract | `docs/contracts/verification/verification-profile.md` | 描述项目级 verification source contract |
+| verification profile instance | `spec-first.verification.json` | repo root checked-in source；不放 `.spec-first/config/*.json` |
+| local verification override | `.spec-first/verification-profile.local.json` 或 `.spec-first/config.local.yaml` | 本地覆盖，gitignored，不作为团队 truth |
+| verification run summary | `docs/contracts/verification/verification-run-summary.md` | 逐 check 明细唯一 source |
+| work run artifact | `docs/contracts/workflows/spec-work-run-artifact.schema.json` | 只保留 validation 聚合 status / reason_code / artifact ref，不复制逐命令明细 |
+| setup facts | `.spec-first/config/tool-facts.json`、`.spec-first/config/runtime-capabilities.json` | generated local facts，由 `$spec-runtime-setup`（迁移期 alias `$spec-mcp-setup`）生产，供 `doctor` 消费 |
+
+## 边界
+
+- `spec-first init` 只做 source-managed runtime projection，不安装 MCP/helper/provider。
+- `$spec-runtime-setup`（迁移期 alias `$spec-mcp-setup`）生产 deterministic readiness facts，不做语义判断。
+- `doctor` 消费 setup facts 并输出 deterministic health rollup，不安装、不 repair。
+- CodeGraph / Graphify / GBrain 默认都是 optional provider，缺失或 stale 不阻塞 minimal workflow。
+- Provider readiness 只表示机械新鲜度且不承载 `confirmed_context`；confirmed context 必须来自 source/test/log/contract/user evidence。
+- 不复制 `.scale/workflow.json` 状态机、G0-G22 blocking gate、inline hook 或第三方技能全集。
+- required harness runtime setup workflow 的 canonical 入口名是 `$spec-runtime-setup` / `/spec:runtime-setup`，`$spec-mcp-setup` / `/spec:mcp-setup` 为迁移期 deprecated alias（详见父方案 §0.4.2）；`skills/spec-mcp-setup/**` 等 source 实体路径在后续 source 重命名 work 任务落地前保持现状。

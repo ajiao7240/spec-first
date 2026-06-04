@@ -85,5 +85,5 @@ function Expand-ToolArgs {
   foreach ($item in @($Args)) {
     $expanded += , (Expand-ToolTemplate -Tool $Tool -Value ([string]$item))
   }
-  return , $expanded
+  return $expanded
 }

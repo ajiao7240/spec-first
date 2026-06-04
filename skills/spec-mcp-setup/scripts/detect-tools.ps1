@@ -64,6 +64,37 @@ function Get-ClaudeMcpServer {
   return $servers.PSObject.Properties[$Key].Value
 }
 
+function Compare-ArgsExact {
+  param(
+    [object[]]$Actual,
+    [object[]]$Expected
+  )
+  if (@($Actual).Count -ne @($Expected).Count) { return $false }
+  for ($i = 0; $i -lt @($Expected).Count; $i++) {
+    if ([string]$Actual[$i] -ne [string]$Expected[$i]) { return $false }
+  }
+  return $true
+}
+
+function Normalize-NpmLatestArgument {
+  param([object]$Arg)
+  if ($Arg -is [string] -and $Arg.EndsWith('@latest', [System.StringComparison]::Ordinal)) {
+    return $Arg.Substring(0, $Arg.Length - 7)
+  }
+  return $Arg
+}
+
+function Test-RegistryArgsDrift {
+  param(
+    [object[]]$Actual,
+    [object[]]$Expected
+  )
+  if (Compare-ArgsExact -Actual $Actual -Expected $Expected) { return $false }
+  $normalizedActual = @($Actual | ForEach-Object { Normalize-NpmLatestArgument -Arg $_ })
+  $normalizedExpected = @($Expected | ForEach-Object { Normalize-NpmLatestArgument -Arg $_ })
+  return (Compare-ArgsExact -Actual $normalizedActual -Expected $normalizedExpected)
+}
+
 function Get-HostConfigStatus {
   param([object]$Tool)
   if (-not (Test-HostConfigRequired -Tool $Tool)) { return 'not-required' }
@@ -85,6 +116,9 @@ function Get-HostConfigStatus {
       if (Test-TomlMcpSectionExact -Path $path -Key $Tool.detection.key -Command $hostConfig.command -Args @(Expand-ToolArgs -Tool $Tool -Args $hostConfig.args)) {
         return 'ready'
       }
+      if (Test-TomlMcpSectionRegistryArgsDrift -Path $path -Key $Tool.detection.key -Command $hostConfig.command -Args @(Expand-ToolArgs -Tool $Tool -Args $hostConfig.args)) {
+        return 'registry-args-drift'
+      }
       return 'precedence-blocked'
     }
   }
@@ -100,16 +134,19 @@ function Get-HostConfigStatus {
         if ($server.command -ne $hostConfig.command) { return 'action-required' }
         $serverArgs = @($server.args)
         $expectedArgs = @(Expand-ToolArgs -Tool $Tool -Args $hostConfig.args)
-        if ($serverArgs.Count -ne $expectedArgs.Count) { return 'action-required' }
-        for ($i = 0; $i -lt $expectedArgs.Count; $i++) {
-          if ($serverArgs[$i] -ne $expectedArgs[$i]) { return 'action-required' }
-        }
         if ($null -ne $server.PSObject.Properties['scope']) { return 'action-required' }
+        if (-not (Compare-ArgsExact -Actual $serverArgs -Expected $expectedArgs)) {
+          if (Test-RegistryArgsDrift -Actual $serverArgs -Expected $expectedArgs) { return 'registry-args-drift' }
+          return 'action-required'
+        }
         if ($SelectedScope -eq 'managed') { return 'ready' }
         return 'fallback-active'
       }
 
       if (-not (Test-TomlMcpSectionExact -Path $ConfigPath -Key $Tool.detection.key -Command $hostConfig.command -Args @(Expand-ToolArgs -Tool $Tool -Args $hostConfig.args))) {
+        if (Test-TomlMcpSectionRegistryArgsDrift -Path $ConfigPath -Key $Tool.detection.key -Command $hostConfig.command -Args @(Expand-ToolArgs -Tool $Tool -Args $hostConfig.args)) {
+          return 'registry-args-drift'
+        }
         return 'action-required'
       }
       return 'ready'
@@ -165,10 +202,11 @@ foreach ($tool in @($ToolsJson.tools)) {
   $hostReady = (
     $hostConfigStatus -eq 'ready' -or
     $hostConfigStatus -eq 'fallback-active' -or
+    $hostConfigStatus -eq 'registry-args-drift' -or
     ((-not $hostConfigRequired) -and $hostConfigStatus -eq 'not-required')
   )
   $type = if ($null -ne $tool.category) { $tool.category } else { 'mcp' }
-  $configured = ($hostConfigStatus -eq 'ready' -or $hostConfigStatus -eq 'fallback-active')
+  $configured = ($hostConfigStatus -eq 'ready' -or $hostConfigStatus -eq 'fallback-active' -or $hostConfigStatus -eq 'registry-args-drift')
   $nextAction = ''
 
   if ($dependencyStatus -ne 'ready') {
@@ -185,6 +223,28 @@ foreach ($tool in @($ToolsJson.tools)) {
     $nextAction = 'repair project bootstrap'
   }
 
+  $result = 'ready'
+  $reasonCode = 'ready'
+  if ($dependencyStatus -ne 'ready') {
+    $result = 'action-required'
+    $reasonCode = 'missing_dependency'
+  } elseif ($hostConfigStatus -eq 'registry-args-drift') {
+    $result = 'degraded'
+    $reasonCode = 'host-config-version-drift'
+  } elseif ($hostConfigStatus -eq 'action-required') {
+    $result = 'action-required'
+    $reasonCode = 'host-config-action-required'
+  } elseif ($hostConfigStatus -eq 'precedence-blocked') {
+    $result = 'action-required'
+    $reasonCode = 'host-config-precedence-blocked'
+  } elseif ($projectStatus -eq 'pending') {
+    $result = 'action-required'
+    $reasonCode = 'project-bootstrap-pending'
+  } elseif ($projectStatus -eq 'failed') {
+    $result = 'action-required'
+    $reasonCode = 'project-bootstrap-failed'
+  }
+
   Add-NextAction $nextAction
 
   $toolFact = [ordered]@{
@@ -195,6 +255,8 @@ foreach ($tool in @($ToolsJson.tools)) {
     host_config_status = $hostConfigStatus
     project_status = $projectStatus
     selected_scope = $SelectedScope
+    result = $result
+    reason_code = $reasonCode
     next_action = $nextAction
     configured = [bool]$configured
   }

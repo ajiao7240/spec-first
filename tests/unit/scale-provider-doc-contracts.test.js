@@ -22,8 +22,12 @@ describe('SCALE provider documentation contracts', () => {
     expect(parent).toContain('provider readiness=`fresh` 不得单独产生 `confirmed_context`');
 
     expect(codegraph).toContain('"readiness_status": "fresh|stale|degraded|not-run|unknown"');
-    expect(codegraph).toContain('"candidate_trust": "advisory|evidence_candidate"');
+    expect(codegraph).toContain('Evidence Trust');
+    expect(codegraph).toContain('workflow 语义晋升判断');
+    expect(codegraph).toContain('Adapter 输出只写机械 readiness 和候选证据要求');
     expect(codegraph).toContain('不得回填进 readiness 字段');
+    expect(codegraph).not.toContain('"candidate_trust"');
+    expect(codegraph).not.toContain('"confirmed_context"');
     expect(codegraph).not.toContain('"status": "unavailable|stale|advisory|evidence_candidate"');
     expect(codegraph).not.toContain('"status": "evidence_candidate"');
     expect(codegraph).not.toContain('"status": "advisory"');

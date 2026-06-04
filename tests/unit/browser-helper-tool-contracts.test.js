@@ -20,6 +20,7 @@ const GOVERNANCE_PATH = path.join(
   'skills-governance.json',
 );
 const MCP_TOOLS_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'mcp-tools.json');
+const HELPER_TOOLS_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'helper-tools.json');
 const MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'SKILL.md');
 const MCP_SETUP_CHECK_HEALTH_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'scripts', 'check-health');
 const MCP_SETUP_INSTALL_HELPERS_PATH = path.join(
@@ -99,18 +100,34 @@ describe('browser helper tool contracts', () => {
     const manifest = loadPluginManifest();
     const governance = readJson(GOVERNANCE_PATH);
     const mcpTools = readJson(MCP_TOOLS_PATH);
+    const helperTools = readJson(HELPER_TOOLS_PATH);
 
     expect(fs.existsSync(LOCAL_AGENT_BROWSER_DIR)).toBe(false);
     expect(manifest.skills).not.toContain('agent-browser');
     expect(governance.skills.map((entry) => entry.skill_name)).not.toContain('agent-browser');
     expect(mcpTools.tools.map((tool) => tool.id)).not.toContain('agent-browser');
     expect(mcpTools.tools.map((tool) => tool.id)).not.toContain('ast-grep');
+    expect(helperTools.helpers.map((helper) => helper.id)).toEqual([
+      'agent-browser',
+      'gh',
+      'jq',
+      'vhs',
+      'silicon',
+      'ffmpeg',
+      'ast-grep',
+      'ast-grep-skill',
+    ]);
+    expect(helperTools.helpers.find((helper) => helper.id === 'agent-browser')).toMatchObject({
+      required: true,
+      baseline_blocking: false,
+    });
   });
 
   test('spec-mcp-setup owns agent-browser helper detection and install handoff', () => {
     const setupSkill = read(MCP_SETUP_SKILL_PATH);
     const checkHealth = read(MCP_SETUP_CHECK_HEALTH_PATH);
     const installHelpers = read(MCP_SETUP_INSTALL_HELPERS_PATH);
+    const helperTools = readJson(HELPER_TOOLS_PATH);
     const reference = read(MCP_SETUP_REFERENCE_PATH);
 
     expect(setupSkill).toContain('Required helper tooling outside `mcp-tools.json`');
@@ -132,8 +149,8 @@ describe('browser helper tool contracts', () => {
     expect(installHelpers).toContain('browser_capability_demand_signals');
     expect(installHelpers).toContain('status="skipped"');
     expect(installHelpers).not.toContain('env CI=true npm install -g agent-browser@latest');
-    expect(checkHealth).toContain('"agent-browser|required"');
-    expect(checkHealth).toContain('"ast-grep|required"');
+    expect(checkHealth).toContain('helper_registry_cli_ids');
+    expect(checkHealth).toContain('helper_registry_skill_ids');
     expect(checkHealth).toContain('--json');
     expect(checkHealth).toContain('Tool install status');
     expect(checkHealth).toContain('Skill install status');
@@ -141,6 +158,14 @@ describe('browser helper tool contracts', () => {
     expect(checkHealth).toContain('Status');
     expect(checkHealth).toContain('SPEC_FIRST_BROWSER_HELPER_REQUIRED=1');
     expect(checkHealth).toContain('npx -y skills@latest add ast-grep/agent-skill -g -y');
+    expect(helperTools.helpers.find((helper) => helper.id === 'ast-grep')).toMatchObject({
+      required: true,
+      baseline_blocking: false,
+    });
+    expect(helperTools.helpers.find((helper) => helper.id === 'ast-grep-skill')).toMatchObject({
+      required: true,
+      baseline_blocking: true,
+    });
     expect(reference).toContain('not an MCP server');
     expect(reference).toContain('"helper_tools"');
   });
@@ -157,6 +182,7 @@ describe('browser helper tool contracts', () => {
     const agentBrowser = payload.tools.find((tool) => tool.id === 'agent-browser');
     expect(agentBrowser).toMatchObject({
       required: true,
+      baseline_blocking: false,
       host_config_status: 'not-applicable',
       project_status: 'not-applicable',
     });
@@ -172,13 +198,15 @@ describe('browser helper tool contracts', () => {
     const astGrepTool = payload.tools.find((tool) => tool.id === 'ast-grep');
     expect(astGrepTool).toMatchObject({
       required: true,
+      baseline_blocking: false,
       host_config_status: 'not-applicable',
       project_status: 'not-applicable',
     });
 
-    const astGrepSkill = payload.skills.find((skill) => skill.id === 'ast-grep');
+    const astGrepSkill = payload.skills.find((skill) => skill.id === 'ast-grep-skill');
     expect(astGrepSkill).toMatchObject({
       required: true,
+      baseline_blocking: true,
       host_config_status: 'not-applicable',
       project_status: 'not-applicable',
     });

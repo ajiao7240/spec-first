@@ -136,14 +136,130 @@ if ((Test-SymlinkPath $specRoot) -or (Test-SymlinkPath $outDir)) {
 }
 
 $generatedAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$configuredDependencies = @()
+try {
+  $scanRaw = & node (Join-Path $scriptDir 'scan-configured-deps.cjs') --repo-root $repoRoot --facts-file $FactsFile
+  $scan = $scanRaw | ConvertFrom-Json
+  if (Test-JsonProperty -Object $scan -Name 'configured_dependencies') {
+    $configuredDependencies = @((Get-JsonPropertyValue -Object $scan -Name 'configured_dependencies'))
+  }
+} catch {
+  $configuredDependencies = @()
+}
+
+function Get-SetupItemResult {
+  param(
+    [AllowNull()][object]$Value,
+    [string]$DependencyStatus,
+    [string]$ConfiguredStatus,
+    [string]$ProjectStatus
+  )
+  $sourceResult = if (Test-JsonProperty -Object $Value -Name 'result') { [string](Get-JsonPropertyValue -Object $Value -Name 'result') } else { $null }
+  $sourceStatus = if (Test-JsonProperty -Object $Value -Name 'status') { [string](Get-JsonPropertyValue -Object $Value -Name 'status') } else { $null }
+
+  if ($sourceResult -eq 'skipped') { return 'skipped' }
+  if (@('action-required', 'precedence-blocked') -contains $ConfiguredStatus) { return 'action-required' }
+  if ($DependencyStatus -ne 'ready' -and $DependencyStatus -ne 'ok') {
+    if ($sourceResult -eq 'degraded') { return 'degraded' }
+    if (-not [string]::IsNullOrWhiteSpace($sourceResult) -and $sourceResult -ne 'ready') { return $sourceResult }
+    return 'action-required'
+  }
+  if ($ConfiguredStatus -eq 'registry-args-drift') { return 'degraded' }
+  if (@('pending', 'failed') -contains $ProjectStatus) { return 'action-required' }
+  if (-not [string]::IsNullOrWhiteSpace($sourceResult) -and $sourceResult -ne 'ready') { return $sourceResult }
+  if (@('ready', 'ok') -contains $sourceStatus) { return 'ready' }
+  if ($sourceResult -eq 'ready') { return 'ready' }
+  if (@('ready', 'not-applicable', 'not-required', 'fallback-active') -contains $ConfiguredStatus) { return 'ready' }
+  if ($sourceStatus -eq 'missing') { return 'action-required' }
+  if (-not [string]::IsNullOrWhiteSpace($sourceStatus)) { return $sourceStatus }
+  return 'unknown'
+}
+
+function Get-SetupItemReasonCode {
+  param(
+    [AllowNull()][object]$Value,
+    [string]$DependencyStatus,
+    [string]$ConfiguredStatus,
+    [string]$ProjectStatus,
+    [string]$Result,
+    [bool]$BaselineBlocking
+  )
+  $sourceReason = if (Test-JsonProperty -Object $Value -Name 'reason_code') { [string](Get-JsonPropertyValue -Object $Value -Name 'reason_code') } else { $null }
+
+  if ($Result -eq 'ready') { return 'ready' }
+  if ($Result -eq 'skipped') {
+    if (-not [string]::IsNullOrWhiteSpace($sourceReason) -and $sourceReason -ne 'ready') { return $sourceReason }
+    return 'optional-skipped'
+  }
+  if ($ConfiguredStatus -eq 'registry-args-drift') { return 'host-config-version-drift' }
+  if ($DependencyStatus -eq 'missing') { return 'missing_dependency' }
+  if ($ConfiguredStatus -eq 'action-required') { return 'host-config-action-required' }
+  if ($ConfiguredStatus -eq 'precedence-blocked') { return 'host-config-precedence-blocked' }
+  if ($ProjectStatus -eq 'pending') { return 'project-bootstrap-pending' }
+  if ($ProjectStatus -eq 'failed') { return 'project-bootstrap-failed' }
+  if ($Result -eq 'degraded') {
+    if (-not [string]::IsNullOrWhiteSpace($sourceReason) -and $sourceReason -ne 'ready') { return $sourceReason }
+    if ($BaselineBlocking) { return 'baseline-degraded' }
+    return 'optional-capability-degraded'
+  }
+  if ($Result -eq 'action-required') { return 'required-runtime-action-required' }
+  if (-not [string]::IsNullOrWhiteSpace($sourceReason)) { return $sourceReason }
+  return 'unknown'
+}
+
+function Convert-ToolMapToItems {
+  param(
+    [AllowNull()][object]$Map,
+    [string]$DefaultKind
+  )
+  $items = @()
+  if ($null -eq $Map) { return $items }
+  foreach ($property in $Map.PSObject.Properties) {
+    $value = $property.Value
+    $dependencyStatus = if (Test-JsonProperty -Object $value -Name 'dependency_status') { [string](Get-JsonPropertyValue -Object $value -Name 'dependency_status') } elseif (Test-JsonProperty -Object $value -Name 'status') { [string](Get-JsonPropertyValue -Object $value -Name 'status') } else { 'unknown' }
+    $required = if (Test-JsonProperty -Object $value -Name 'required') { [bool](Get-JsonPropertyValue -Object $value -Name 'required') } else { $true }
+    $baselineBlocking = if (Test-JsonProperty -Object $value -Name 'baseline_blocking') { [bool](Get-JsonPropertyValue -Object $value -Name 'baseline_blocking') } else { $required }
+    $configuredStatus = if (Test-JsonProperty -Object $value -Name 'configured_status') { [string](Get-JsonPropertyValue -Object $value -Name 'configured_status') } elseif (Test-JsonProperty -Object $value -Name 'host_config_status') { [string](Get-JsonPropertyValue -Object $value -Name 'host_config_status') } else { 'not-checked' }
+    $projectStatus = if (Test-JsonProperty -Object $value -Name 'project_status') { [string](Get-JsonPropertyValue -Object $value -Name 'project_status') } else { 'not-applicable' }
+    $result = Get-SetupItemResult -Value $value -DependencyStatus $dependencyStatus -ConfiguredStatus $configuredStatus -ProjectStatus $projectStatus
+    $items += [pscustomobject][ordered]@{
+      id = $property.Name
+      kind = if (Test-JsonProperty -Object $value -Name 'kind') { [string](Get-JsonPropertyValue -Object $value -Name 'kind') } elseif (Test-JsonProperty -Object $value -Name 'type') { [string](Get-JsonPropertyValue -Object $value -Name 'type') } else { $DefaultKind }
+      profile = if (Test-JsonProperty -Object $value -Name 'profile') { [string](Get-JsonPropertyValue -Object $value -Name 'profile') } else { 'minimal' }
+      required = $required
+      baseline_blocking = $baselineBlocking
+      dependency_status = $dependencyStatus
+      configured_status = $configuredStatus
+      result = $result
+      reason_code = Get-SetupItemReasonCode -Value $value -DependencyStatus $dependencyStatus -ConfiguredStatus $configuredStatus -ProjectStatus $projectStatus -Result $result -BaselineBlocking $baselineBlocking
+      installed = ($dependencyStatus -eq 'ready')
+      missing_dependency_reason = if ($dependencyStatus -eq 'ready') { $null } else { 'missing_dependency' }
+      next_action = if (Test-JsonProperty -Object $value -Name 'next_action') { [string](Get-JsonPropertyValue -Object $value -Name 'next_action') } else { '' }
+    }
+  }
+  return $items
+}
+
+$toolsMap = Get-JsonPropertyValue -Object $facts -Name 'tools'
+$helperToolsMap = Get-JsonPropertyValue -Object $facts -Name 'helper_tools'
+$items = @()
+$items += Convert-ToolMapToItems -Map $toolsMap -DefaultKind 'mcp'
+$items += Convert-ToolMapToItems -Map $helperToolsMap -DefaultKind 'helper'
+
 $toolFactsPayload = [ordered]@{
-  schema_version = 'tool-facts.v1'
+  schema_version = 'tool-facts.v2'
   generated_at = $generatedAt
   repo_root = $repoRoot
   host = Get-JsonPropertyValue -Object $facts -Name 'host'
   platform = Get-JsonPropertyValue -Object $facts -Name 'platform'
-  tools = Get-JsonPropertyValue -Object $facts -Name 'tools'
-  helper_tools = Get-JsonPropertyValue -Object $facts -Name 'helper_tools'
+  profile = 'minimal'
+  tools = $toolsMap
+  helper_tools = $helperToolsMap
+  provider_readiness = @()
+  items = $items
+  configured_dependencies = $configuredDependencies
+  schema_capabilities = @('items', 'configured_dependencies', 'schema_capabilities', 'tool-existence', 'provider-readiness-generic')
   target = Get-JsonPropertyValue -Object $facts -Name 'target'
 }
 $runtimePayload = [ordered]@{

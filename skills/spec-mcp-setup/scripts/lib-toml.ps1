@@ -172,6 +172,52 @@ function Test-TomlMcpSectionExact {
   return $true
 }
 
+function Normalize-NpmLatestArgs {
+  param([object[]]$Args)
+
+  $normalized = @()
+  foreach ($arg in @($Args)) {
+    if ($arg -is [string] -and $arg.EndsWith('@latest', [System.StringComparison]::Ordinal)) {
+      $normalized += , $arg.Substring(0, $arg.Length - 7)
+    } else {
+      $normalized += , $arg
+    }
+  }
+  return , $normalized
+}
+
+function Test-ArgsEqual {
+  param(
+    [object[]]$Actual,
+    [object[]]$Expected
+  )
+
+  if (@($Actual).Count -ne @($Expected).Count) { return $false }
+  for ($i = 0; $i -lt @($Expected).Count; $i++) {
+    if ([string]$Actual[$i] -ne [string]$Expected[$i]) { return $false }
+  }
+  return $true
+}
+
+function Test-TomlMcpSectionRegistryArgsDrift {
+  param(
+    [string]$Path,
+    [string]$Key,
+    [string]$Command,
+    [object[]]$Args
+  )
+
+  $section = Get-TomlMcpSection -Path $Path -Key $Key
+  if ([string]::IsNullOrWhiteSpace($section)) { return $false }
+
+  $actualCommand = ConvertFrom-TomlStringValue -Raw (Get-TomlMcpFieldValue -Section $section -Name 'command')
+  $actualArgs = @(ConvertFrom-TomlArgsValue -Raw (Get-TomlMcpFieldValue -Section $section -Name 'args'))
+  $expectedArgs = @($Args)
+  if ($actualCommand -ne $Command) { return $false }
+  if (Test-ArgsEqual -Actual $actualArgs -Expected $expectedArgs) { return $false }
+  return (Test-ArgsEqual -Actual (Normalize-NpmLatestArgs -Args $actualArgs) -Expected (Normalize-NpmLatestArgs -Args $expectedArgs))
+}
+
 function ConvertTo-MutableHashtable {
   param([object]$Object)
   if ($null -eq $Object) { return $null }

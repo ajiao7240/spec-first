@@ -5,6 +5,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'lib-helper-registry.ps1')
 
 $mode = if ($VerifyOnly) { 'verify-only' } else { 'install' }
 
@@ -16,6 +17,7 @@ $script:MirrorEndpoints = [ordered]@{
 
 $script:LastInstallProvenance = $null
 $browserHelperOptInAction = 'set SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 and rerun spec-mcp-setup install'
+$helperRegistry = Get-HelperRegistry
 
 function Get-NonNegativeIntEnv {
   param(
@@ -90,6 +92,45 @@ function Get-NpmMirrorEnv {
 function Test-CommandExists {
   param([string]$Name)
   return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Get-HelperEntry {
+  param([string]$Id)
+  foreach ($helper in @($helperRegistry.helpers)) {
+    if ($helper.id -eq $Id) { return $helper }
+  }
+  return $null
+}
+
+function Get-HelperProfile {
+  param([object]$Helper)
+  if ($null -ne $Helper -and $Helper.profiles -and @($Helper.profiles).Count -gt 0) {
+    return [string]@($Helper.profiles)[0]
+  }
+  return 'minimal'
+}
+
+function Test-EffectiveBaselineBlocking {
+  param([object]$Helper)
+  if ($null -eq $Helper) { return $true }
+  if ([string]$Helper.id -eq 'jq' -and (Get-PlatformName) -eq 'windows') {
+    return $false
+  }
+  return [bool]$Helper.baseline_blocking
+}
+
+function Get-HelperSafetyResult {
+  param([object]$Helper)
+  if ($null -eq $Helper -or $null -eq $Helper.safety) { return 'blocked' }
+  $flags = @($Helper.safety.risk_flags)
+  $pinStatus = if ($Helper.safety.version_policy) { [string]$Helper.safety.version_policy.pin_status } else { '' }
+  if ([string]::IsNullOrWhiteSpace([string]$Helper.safety.source) -or [string]::IsNullOrWhiteSpace($pinStatus)) { return 'blocked' }
+  if ($flags -contains 'installer-script' -or $flags -contains 'unknown-source') { return 'blocked' }
+  if ($Helper.installation -and [string]$Helper.installation.strategy -eq 'manual') { return 'unsupported' }
+  if ([bool]$Helper.safety.review_required -or $flags -contains 'unpinned-npx' -or $flags -contains 'global-install' -or $flags -contains 'global-npm-install' -or $pinStatus -eq 'latest' -or $pinStatus -eq 'unpinned') {
+    return 'review-required'
+  }
+  return 'safe'
 }
 
 function Invoke-HelperCommand {
@@ -445,16 +486,36 @@ function Add-HelperFact {
     [string[]]$BrowserCapabilityDemandSignals = @()
   )
 
+  $helper = Get-HelperEntry -Id $Id
+  $required = if ($null -ne $helper -and $helper.PSObject.Properties.Name -contains 'required') { [bool]$helper.required } else { $true }
+  $effectiveBaselineBlocking = if ($PSBoundParameters.ContainsKey('BaselineBlocking')) { [bool]$BaselineBlocking } else { Test-EffectiveBaselineBlocking -Helper $helper }
+  $profile = Get-HelperProfile -Helper $helper
+  $kind = if ($null -ne $helper -and -not [string]::IsNullOrWhiteSpace([string]$helper.kind)) { [string]$helper.kind } else { $Type }
+  $safety = Get-HelperSafetyResult -Helper $helper
+  $reasonCode = switch ($Result) {
+    'ready' { 'ready' }
+    'skipped' { 'optional-skipped' }
+    'degraded' { 'optional-capability-degraded' }
+    'action-required' { 'required-runtime-action-required' }
+    default { 'unknown' }
+  }
+
   $HelperTools[$Id] = [ordered]@{
-    required = $true
-    baseline_blocking = [bool]$BaselineBlocking
+    required = $required
+    baseline_blocking = $effectiveBaselineBlocking
+    profile = $profile
+    kind = $kind
     type = $Type
     dependency_status = $DependencyStatus
+    configured_status = 'not-applicable'
     host_config_status = 'not-applicable'
+    allowed = 'not-applicable'
     install_status = $InstallStatus
+    safety = $safety
     skill_status = $SkillStatus
     project_status = 'not-applicable'
     result = $Result
+    reason_code = $reasonCode
     next_action = $NextAction
     install_source = $InstallSource
     mirror_used = [bool]$MirrorUsed
@@ -627,14 +688,13 @@ if ($mode -eq 'install' -and $agentBrowserRequired -and (Test-CommandExists 'age
 
 Add-HelperFact -HelperTools $helperTools -Id 'agent-browser' -Type 'helper' -DependencyStatus $agentBrowserDependencyStatus -InstallStatus $agentBrowserInstallStatus -SkillStatus $agentBrowserSkillStatus -Result $agentBrowserStatus -NextAction $agentBrowserNextAction -BaselineBlocking $agentBrowserBaselineBlocking -InstallSource $agentBrowserInstallSource -MirrorUsed $agentBrowserMirrorUsed -BrowserCapabilityDemandSignals $agentBrowserDemandSignals
 
-$demoOnlyHelpers = @('vhs', 'silicon', 'ffmpeg')
-foreach ($helper in @('gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep')) {
+foreach ($helperEntry in @($helperRegistry.helpers | Where-Object { ($_.kind -eq 'cli' -or $_.kind -eq 'browser-helper') -and $_.id -ne 'agent-browser' })) {
+  $helper = [string]$helperEntry.id
   $status = 'ready'
   $dependencyStatus = 'ready'
   $installStatus = 'ready'
   $nextAction = ''
-  $isDemoOnly = $demoOnlyHelpers -contains $helper
-  $baselineBlocking = -not $isDemoOnly
+  $baselineBlocking = Test-EffectiveBaselineBlocking -Helper $helperEntry
   $installSource = 'official'
   $mirrorUsed = $false
 
@@ -642,7 +702,10 @@ foreach ($helper in @('gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep')) {
     $dependencyStatus = 'missing'
     $installStatus = 'action-required'
     $installCommand = Get-HelperInstallCommand -Name $helper -Platform $platform
-    if ($mode -eq 'install') {
+    if ($helper -eq 'ast-grep' -and (Test-CommandExists 'rg') -and $mode -ne 'install') {
+      $status = 'degraded'
+      $nextAction = "ast-grep missing; falling back to rg. Install via: $installCommand"
+    } elseif ($mode -eq 'install') {
       Reset-InstallProvenance
       if ((Invoke-HelperInstall -Name $helper -Platform $platform) -and (Test-CommandExists $helper)) {
         $dependencyStatus = 'ready'
@@ -653,7 +716,7 @@ foreach ($helper in @('gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep')) {
         $installSource = $provenance.install_source
         $mirrorUsed = [bool]$provenance.mirror_used
       } else {
-        if ($isDemoOnly) {
+        if (-not $baselineBlocking) {
           $status = 'degraded'
           $nextAction = "optional helper for feature-video skill; install via: $installCommand"
         } else {
@@ -662,7 +725,7 @@ foreach ($helper in @('gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep')) {
         }
       }
     } else {
-      if ($isDemoOnly) {
+      if (-not $baselineBlocking) {
         $status = 'degraded'
         $nextAction = "optional helper for feature-video skill; install via: $installCommand"
       } else {
@@ -725,21 +788,7 @@ $parallelResults = Wait-ParallelCommandTasks -Tasks $parallelTasks -TimeoutSecon
     $agentBrowserNextAction = ''
   }
 
-  $helperTools['agent-browser'] = [ordered]@{
-    required = $true
-    baseline_blocking = [bool]$agentBrowserBaselineBlocking
-    type = 'helper'
-    dependency_status = $agentBrowserDependencyStatus
-    host_config_status = 'not-applicable'
-    install_status = $agentBrowserInstallStatus
-    skill_status = $agentBrowserSkillStatus
-    project_status = 'not-applicable'
-    result = $agentBrowserStatus
-    next_action = $agentBrowserNextAction
-    install_source = $agentBrowserInstallSource
-    mirror_used = [bool]$agentBrowserMirrorUsed
-    browser_capability_demand_signals = @($agentBrowserDemandSignals)
-  }
+  Add-HelperFact -HelperTools $helperTools -Id 'agent-browser' -Type 'helper' -DependencyStatus $agentBrowserDependencyStatus -InstallStatus $agentBrowserInstallStatus -SkillStatus $agentBrowserSkillStatus -Result $agentBrowserStatus -NextAction $agentBrowserNextAction -BaselineBlocking $agentBrowserBaselineBlocking -InstallSource $agentBrowserInstallSource -MirrorUsed $agentBrowserMirrorUsed -BrowserCapabilityDemandSignals $agentBrowserDemandSignals
 }
 
 if ($astGrepSkillInstallQueued) {
@@ -759,17 +808,7 @@ if ($astGrepSkillInstallQueued) {
       }
   }
 
-  $helperTools['ast-grep-skill'] = [ordered]@{
-    required = $true
-    type = 'global-skill'
-    dependency_status = $astGrepSkillDependencyStatus
-    host_config_status = 'not-applicable'
-    install_status = $astGrepSkillInstallStatus
-    skill_status = $astGrepSkillStatus
-    project_status = 'not-applicable'
-    result = $astGrepSkillStatus
-    next_action = $astGrepSkillNextAction
-  }
+  Add-HelperFact -HelperTools $helperTools -Id 'ast-grep-skill' -Type 'global-skill' -DependencyStatus $astGrepSkillDependencyStatus -InstallStatus $astGrepSkillInstallStatus -SkillStatus $astGrepSkillStatus -Result $astGrepSkillStatus -NextAction $astGrepSkillNextAction
 } elseif (-not (Test-GlobalSkill 'ast-grep')) {
   Add-HelperFact -HelperTools $helperTools -Id 'ast-grep-skill' -Type 'global-skill' -DependencyStatus $astGrepSkillDependencyStatus -InstallStatus $astGrepSkillInstallStatus -SkillStatus $astGrepSkillStatus -Result $astGrepSkillStatus -NextAction $astGrepSkillNextAction
 } else {

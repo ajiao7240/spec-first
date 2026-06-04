@@ -1,18 +1,18 @@
 ---
 name: spec-mcp-setup
-description: Install, configure, and verify the required harness runtime for spec-first workflows on Claude Code or Codex.
-argument-hint: "[--claude|--codex] [--repo <path>] [--verify-only]"
+description: Install, configure, verify, and refresh required harness runtime readiness facts for spec-first workflows on Claude Code or Codex.
+argument-hint: "[--claude|--codex] [--repo <path>] [--check|--verify-only|--plan|--install]"
 ---
 
-# MCP Setup
+# Runtime Setup
 
-`spec-mcp-setup` prepares deterministic host/runtime facts for spec-first workflows. It installs or verifies required MCP servers and helper tooling, writes setup-owned project facts, and reports concrete next actions. It does not provide code-understanding authority; downstream workflows use bounded direct source reads, `rg`, ast-grep, git diff, tests/logs, and user-provided evidence.
+`spec-mcp-setup` is the current runnable entrypoint for the Runtime Setup workflow. The target user-facing name is `spec-runtime-setup` (`/spec:runtime-setup` on Claude Code and `$spec-runtime-setup` on Codex); `/spec:mcp-setup` and `$spec-mcp-setup` remain the compatibility names until the host alias contract is implemented. Runtime Setup prepares deterministic host/runtime facts for spec-first workflows. It installs or verifies required MCP servers and helper tooling, writes setup-owned project facts, and reports concrete next actions. It does not provide code-understanding authority; downstream workflows use bounded direct source reads, `rg`, ast-grep, git diff, tests/logs, and user-provided evidence.
 
 ## Contract Summary
 
 | Field | Contract |
 | --- | --- |
-| When to use | Host setup, MCP setup, helper-tool readiness, missing runtime assets, or project-local setup fact refresh. |
+| When to use | Host runtime setup, MCP setup, helper-tool readiness, missing runtime assets, or project-local setup fact refresh. |
 | When not to use | Ordinary planning, implementation, review, debugging, or code impact questions that can proceed from direct source evidence. |
 | Inputs | Current host, repo target, `skills/spec-mcp-setup/mcp-tools.json`, helper installer facts, host config state, git/workspace target facts, and project instructions. |
 | Outputs | Readiness ledger v2, setup scenario fingerprint, optional project setup facts under `.spec-first/config/`, and a grouped status block. |
@@ -29,13 +29,13 @@ Overrides: none
 
 ## Source Of Truth
 
-`skills/spec-mcp-setup/mcp-tools.json` is the machine registry for required MCP servers. Schema version is `6`. Current setup registry contains required MCP tools such as `sequential-thinking` and `context7`.
+`skills/spec-mcp-setup/mcp-tools.json` is the current source directory for the machine registry of required MCP servers. Schema version is `6`. Current setup registry contains required MCP tools such as `sequential-thinking` and `context7`. The directory name remains `spec-mcp-setup` during the entrypoint rename to avoid a broad source/runtime path migration in the same slice.
 
 Generated runtime mirrors under `.claude/`, `.codex/`, and `.agents/skills/` are not source. If setup prose or scripts change, update source first and use `spec-first init` only for runtime regeneration.
 
 ## Required Harness Runtime
 
-`mcp-tools.json` owns required MCP server definitions only. Required helper tooling outside `mcp-tools.json` is installed and verified by `install-helpers.*` and `check-health`, then recorded under `helper_tools` in setup facts.
+`mcp-tools.json` owns required MCP server definitions only. `helper-tools.json` is the single source for helper tooling readiness, baseline blocking, install safety metadata, and shell/PowerShell runner requirements. Required helper tooling outside `mcp-tools.json` is installed and verified by `install-helpers.*` and `check-health`, then recorded under `helper_tools` and `items[]` in setup facts.
 
 Required helper tooling must not be added to `mcp-tools.json`. Current helper checks include `agent-browser` and ast-grep capability detection. Use `install-helpers.* --verify-only` for read-only verification, and use the install path only when setup explicitly needs repair. The agent-browser repair path may run `npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y`, should respect `NPM_CONFIG_REGISTRY`, and may run `agent-browser install --with-deps` when browser automation support is required.
 
@@ -43,9 +43,16 @@ Required helper tooling must not be added to `mcp-tools.json`. Current helper ch
 
 Project-local setup writes `.spec-first/config/tool-facts.json`, `.spec-first/config/runtime-capabilities.json`, and when applicable `.spec-first/workspace/scenario-fingerprint-setup.json`. Scenario fingerprint wrapper failures are warn-and-continue: report `scenario_fingerprint_setup` status and keep the rest of setup actionable instead of blocking ordinary direct-evidence workflows.
 
+## Workflow Modes
+
+- `--check`: inspect current dependency/runtime status only; do not write setup facts, host config, or install tools.
+- `--verify-only` / `--refresh-facts`: verify readiness and refresh setup-owned facts; do not install tools or edit host config.
+- `--plan`: render install/config operations and safety results; do not write setup facts, host config, or install tools.
+- `--install`: apply required setup actions, write host config, and install required helper tooling; skip `blocked` install safety results and surface `review-required` risks before action.
+
 ## Workflow
 
-1. Identify the current host: Claude Code uses `/spec:mcp-setup`; Codex uses `$spec-mcp-setup`.
+1. Identify the current host: current runnable entrypoints are `/spec:mcp-setup` on Claude Code and `$spec-mcp-setup` on Codex. The target renamed entrypoints are `/spec:runtime-setup` and `$spec-runtime-setup` once the alias contract lands.
 2. If invoked from a parent workspace, select an explicit child repo or intentionally run setup for all supported child repos. Writes must stay within the selected target.
 3. Read `mcp-tools.json`, validate schema version, and verify every required tool has deterministic install, host-config, detection, and summary metadata.
 4. Run `detect-tools.*` or `install-mcp.*` as appropriate. Warm required package-backed MCP tools, write host config only through documented host targets, and record structured status.
@@ -60,16 +67,28 @@ The final setup output should contain:
 - `Execution result`: `Harness runtime` status and `baseline_ready`.
 - `MCP servers`: required MCP tool dependency/host/project readiness and next action.
 - `Helper tools`: helper install and readiness status.
+- `Provider tools`: generic provider readiness slot status when present.
+- `Host configured dependencies`: configured MCP/hooks/allowlist/setup/verification command facts.
+- `Install safety`: helper install source, risk, review, and mirror provenance.
 - `Project setup facts`: status for `tool-facts.json` and `runtime-capabilities.json`.
+- `Verification profile`: current verification profile visibility placeholder; full profile execution is v1.13 scope.
 - `Next steps`: either fix action-required rows, choose an explicit child repo, or continue to the user-intent workflow.
 
 `tool-facts.json` records setup-owned tool and helper readiness:
 
 ```json
 {
-  "schema_version": "tool-facts.v1",
+  "schema_version": "tool-facts.v2",
   "tools": {},
   "helper_tools": {},
+  "items": [],
+  "configured_dependencies": [],
+  "schema_capabilities": [
+    "items",
+    "configured_dependencies",
+    "tool-existence",
+    "provider-readiness-generic"
+  ],
   "source": {
     "repo_status": "git-repo"
   }

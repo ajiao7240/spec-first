@@ -1,0 +1,9 @@
+{
+  "schema_version": "provider-tools-registry.v1",
+  "providers": [],
+  "generic_provider_readiness": {
+    "schema_version": "provider-readiness.v1",
+    "readiness_status_values": ["fresh", "stale", "degraded", "not-run", "unknown"],
+    "fallback_methods": ["rg", "direct-source-read"]
+  }
+}

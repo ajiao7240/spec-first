@@ -6,6 +6,8 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $browserHelperOptInAction = 'set SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 and rerun spec-mcp-setup install'
+. (Join-Path $PSScriptRoot 'lib-helper-registry.ps1')
+$helperRegistry = Get-HelperRegistry
 
 function Test-CommandExists {
   param([string]$Name)
@@ -93,6 +95,31 @@ function Get-ProjectUrl {
   }
 }
 
+function Get-HelperEntry {
+  param([string]$Id)
+  foreach ($helper in @($helperRegistry.helpers)) {
+    if ($helper.id -eq $Id) { return $helper }
+  }
+  return $null
+}
+
+function Get-HelperProfile {
+  param([object]$Helper)
+  if ($null -ne $Helper -and $Helper.profiles -and @($Helper.profiles).Count -gt 0) {
+    return [string]@($Helper.profiles)[0]
+  }
+  return 'minimal'
+}
+
+function Test-EffectiveBaselineBlocking {
+  param([object]$Helper)
+  if ($null -eq $Helper) { return $true }
+  if ([string]$Helper.id -eq 'jq' -and (Get-PlatformName) -eq 'windows') {
+    return $false
+  }
+  return [bool]$Helper.baseline_blocking
+}
+
 function Test-GlobalSkillInstalled {
   param([string]$SkillName)
   $paths = @(
@@ -114,25 +141,62 @@ function Test-AgentBrowserReady {
 
 function New-HealthItem {
   param(
-    [string]$Id,
-    [bool]$Required,
+    [object]$Helper,
     [bool]$Ready,
     [Nullable[bool]]$DependencyReady,
     [string]$InstallCommand,
     [string]$Url
   )
 
-  $result = if ($Ready) { 'ready' } elseif ($Id -eq 'agent-browser') { 'skipped' } elseif ($Required) { 'action-required' } else { 'pending' }
+  $id = [string]$Helper.id
+  $required = [bool]$Helper.required
+  $baselineBlocking = Test-EffectiveBaselineBlocking -Helper $Helper
+  $kind = [string]$Helper.kind
+  $profile = Get-HelperProfile -Helper $Helper
+  $result = if ($Ready) {
+    'ready'
+  } elseif ($id -eq 'agent-browser') {
+    'skipped'
+  } elseif ($id -eq 'ast-grep' -and (Test-CommandExists 'rg')) {
+    'degraded'
+  } elseif ($baselineBlocking) {
+    'action-required'
+  } else {
+    'degraded'
+  }
   $effectiveDependencyReady = if ($null -ne $DependencyReady) { [bool]$DependencyReady } else { [bool]$Ready }
   $dependencyStatus = if ($effectiveDependencyReady) { 'ready' } else { 'missing' }
-  $nextAction = if ($Ready) { '' } else { $InstallCommand }
+  $nextAction = if ($Ready) {
+    ''
+  } elseif ($id -eq 'ast-grep' -and $result -eq 'degraded') {
+    'ast-grep missing; falling back to rg'
+  } elseif ($id -eq 'agent-browser') {
+    $browserHelperOptInAction
+  } else {
+    $InstallCommand
+  }
+  $reasonCode = if ($result -eq 'ready') {
+    'ready'
+  } elseif ($result -eq 'skipped') {
+    'optional-skipped'
+  } elseif ($result -eq 'degraded') {
+    'optional-capability-degraded'
+  } else {
+    'required-runtime-action-required'
+  }
   return [ordered]@{
-    id = $Id
-    required = $Required
+    id = $id
+    kind = $kind
+    profile = $profile
+    required = $required
+    baseline_blocking = $baselineBlocking
     dependency_status = $dependencyStatus
     host_config_status = 'not-applicable'
     project_status = 'not-applicable'
+    configured_status = 'not-applicable'
+    allowed = 'not-applicable'
     result = $result
+    reason_code = $reasonCode
     next_action = $nextAction
     install_command = $InstallCommand
     url = $Url
@@ -148,27 +212,24 @@ function Invoke-Git {
 }
 
 $platform = Get-PlatformName
-$toolDefs = @(
-  @{ id = 'agent-browser'; required = $true; ready = (Test-AgentBrowserReady); dependency_ready = (Test-CommandExists 'agent-browser') },
-  @{ id = 'gh'; required = $true; ready = (Test-CommandExists 'gh') },
-  @{ id = 'jq'; required = $false; ready = (Test-CommandExists 'jq') },
-  @{ id = 'vhs'; required = $true; ready = (Test-CommandExists 'vhs') },
-  @{ id = 'silicon'; required = $true; ready = (Test-CommandExists 'silicon') },
-  @{ id = 'ffmpeg'; required = $true; ready = (Test-CommandExists 'ffmpeg') },
-  @{ id = 'ast-grep'; required = $true; ready = ((Test-CommandExists 'ast-grep') -or (Test-CommandExists 'sg')) }
-)
-
 $tools = @()
-foreach ($tool in $toolDefs) {
-  $installCommand = Get-InstallCommand -Name $tool.id -Platform $platform
-  $dependencyReady = if ($tool.ContainsKey('dependency_ready')) { [Nullable[bool]]([bool]$tool.dependency_ready) } else { $null }
-  $tools += New-HealthItem -Id $tool.id -Required ([bool]$tool.required) -Ready ([bool]$tool.ready) -DependencyReady $dependencyReady -InstallCommand $installCommand -Url (Get-ProjectUrl -Name $tool.id)
+foreach ($helper in @($helperRegistry.helpers | Where-Object { $_.kind -eq 'cli' -or $_.kind -eq 'browser-helper' })) {
+  $id = [string]$helper.id
+  $installCommand = Get-InstallCommand -Name $id -Platform $platform
+  if ($id -eq 'agent-browser') {
+    $tools += New-HealthItem -Helper $helper -Ready (Test-AgentBrowserReady) -DependencyReady ([Nullable[bool]](Test-CommandExists 'agent-browser')) -InstallCommand $installCommand -Url (Get-ProjectUrl -Name $id)
+  } elseif ($id -eq 'ast-grep') {
+    $tools += New-HealthItem -Helper $helper -Ready (Test-CommandExists 'ast-grep') -DependencyReady ([Nullable[bool]](Test-CommandExists 'ast-grep')) -InstallCommand $installCommand -Url (Get-ProjectUrl -Name $id)
+  } else {
+    $tools += New-HealthItem -Helper $helper -Ready (Test-CommandExists $id) -DependencyReady $null -InstallCommand $installCommand -Url (Get-ProjectUrl -Name $id)
+  }
 }
 
-$astGrepSkillReady = Test-GlobalSkillInstalled -SkillName 'ast-grep'
-$skills = @(
-  New-HealthItem -Id 'ast-grep' -Required $true -Ready $astGrepSkillReady -DependencyReady $null -InstallCommand (Get-InstallCommand -Name 'ast-grep-skill' -Platform $platform) -Url (Get-ProjectUrl -Name 'ast-grep-skill')
-)
+$skills = @()
+foreach ($helper in @($helperRegistry.helpers | Where-Object { $_.kind -eq 'global-skill' })) {
+  $skillName = [string]$helper.detection.skill_name
+  $skills += New-HealthItem -Helper $helper -Ready (Test-GlobalSkillInstalled -SkillName $skillName) -DependencyReady $null -InstallCommand (Get-InstallCommand -Name ([string]$helper.id) -Platform $platform) -Url (Get-ProjectUrl -Name ([string]$helper.id))
+}
 
 $repoRoot = Invoke-Git -Arguments @('rev-parse', '--show-toplevel')
 $insideGitRepo = -not [string]::IsNullOrWhiteSpace($repoRoot)

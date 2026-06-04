@@ -91,9 +91,77 @@ setup_output="$(bash "$WRITE_SETUP_FACTS" --facts-file "$FACTS_FILE")"
 assert_eq "setup writer reason" "setup-facts-ready" "$(jq -r '.reason_code' <<<"$setup_output")"
 assert "tool facts file exists" test -f "$REPO_A/.spec-first/config/tool-facts.json"
 assert "runtime facts file exists" test -f "$REPO_A/.spec-first/config/runtime-capabilities.json"
-assert_eq "tool facts schema" "tool-facts.v1" "$(jq -r '.schema_version' "$REPO_A/.spec-first/config/tool-facts.json")"
+assert_eq "tool facts schema" "tool-facts.v2" "$(jq -r '.schema_version' "$REPO_A/.spec-first/config/tool-facts.json")"
+assert_eq "tool facts keeps legacy mcp map" "ready" "$(jq -r '.tools.context7.status' "$REPO_A/.spec-first/config/tool-facts.json")"
+assert_eq "tool facts exposes items array" "true" "$(jq -r '(.items | type == "array") and any(.items[]; .id == "context7")' "$REPO_A/.spec-first/config/tool-facts.json")"
+assert_eq "tool facts exposes configured dependency scan" "true" "$(jq -r '.configured_dependencies | type == "array"' "$REPO_A/.spec-first/config/tool-facts.json")"
+assert_eq "tool facts exposes schema capabilities" "true" "$(jq -r '.schema_capabilities | index("items") != null and index("configured_dependencies") != null and index("tool-existence") != null' "$REPO_A/.spec-first/config/tool-facts.json")"
 assert_eq "runtime facts schema" "runtime-capabilities.v1" "$(jq -r '.schema_version' "$REPO_A/.spec-first/config/runtime-capabilities.json")"
 assert_eq "direct evidence facts are available" "true" "$(jq -r '.direct_evidence.bounded_source_reads and .direct_evidence.ripgrep and .direct_evidence.git_diff' "$REPO_A/.spec-first/config/runtime-capabilities.json")"
+
+REPO_CONFLICT="$TMP_ROOT/repo-conflict"
+mkdir -p "$REPO_CONFLICT"
+printf '{"name":"repo-conflict"}\n' > "$REPO_CONFLICT/package.json"
+CONFLICT_FACTS="$TMP_ROOT/conflict-facts.json"
+cat > "$CONFLICT_FACTS" <<JSON
+{
+  "repo_status": "git-repo",
+  "repo_root": "$REPO_CONFLICT",
+  "host": "claude",
+  "platform": "macos",
+  "tools": {
+    "context7": {
+      "dependency_status": "ready",
+      "host_config_status": "action-required",
+      "result": "ready",
+      "reason_code": "ready",
+      "next_action": "configure host"
+    }
+  },
+  "target": {
+    "target_kind": "git-repo",
+    "target_root": "$REPO_CONFLICT",
+    "workspace_root": "$REPO_CONFLICT",
+    "state_write_allowed": true,
+    "reason_code": "explicit-repo-target"
+  }
+}
+JSON
+conflict_output="$(bash "$WRITE_SETUP_FACTS" --facts-file "$CONFLICT_FACTS")"
+assert_eq "conflict writer reason" "setup-facts-ready" "$(jq -r '.reason_code' <<<"$conflict_output")"
+assert_eq "tool facts repairs contradictory ready result" "action-required" "$(jq -r '.items[] | select(.id == "context7") | .result' "$REPO_CONFLICT/.spec-first/config/tool-facts.json")"
+assert_eq "tool facts repairs contradictory ready reason" "host-config-action-required" "$(jq -r '.items[] | select(.id == "context7") | .reason_code' "$REPO_CONFLICT/.spec-first/config/tool-facts.json")"
+
+REPO_DRIFT="$TMP_ROOT/repo-drift"
+DRIFT_HOME="$TMP_ROOT/home-drift"
+MANAGED_PARENT="$TMP_ROOT/managed-readonly"
+MANAGED_PATH="$MANAGED_PARENT/managed-mcp.json"
+mkdir -p "$REPO_DRIFT" "$DRIFT_HOME" "$MANAGED_PARENT"
+printf '{"name":"repo-drift"}\n' > "$REPO_DRIFT/package.json"
+git -C "$REPO_DRIFT" init >/dev/null
+cat > "$DRIFT_HOME/.claude.json" <<JSON
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    }
+  }
+}
+JSON
+touch "$MANAGED_PATH"
+chmod 500 "$MANAGED_PARENT"
+chmod 400 "$MANAGED_PATH"
+drift_output="$(MCP_SETUP_HOST=claude HOME="$DRIFT_HOME" MCP_SETUP_CLAUDE_MANAGED_PATH_OVERRIDE="$MANAGED_PATH" bash "$SCRIPTS_DIR/detect-tools.sh" --repo "$REPO_DRIFT")"
+chmod 700 "$MANAGED_PARENT"
+assert_eq "@latest drift is non-blocking host status" "registry-args-drift,registry-args-drift" "$(jq -r '[.tools["sequential-thinking"].host_config_status, .tools.context7.host_config_status] | join(",")' <<<"$drift_output")"
+assert_eq "@latest drift is reported as degraded" "degraded,degraded" "$(jq -r '[.tools["sequential-thinking"].result, .tools.context7.result] | join(",")' <<<"$drift_output")"
+assert_eq "@latest drift records version reason" "host-config-version-drift,host-config-version-drift" "$(jq -r '[.tools["sequential-thinking"].reason_code, .tools.context7.reason_code] | join(",")' <<<"$drift_output")"
+assert_eq "@latest drift has no configure-host action" "true" "$(jq -r '(.tools["sequential-thinking"].next_action == "") and (.tools.context7.next_action == "")' <<<"$drift_output")"
 
 REPO_SYMLINK="$TMP_ROOT/repo-symlink"
 OUTSIDE_CONFIG="$TMP_ROOT/outside-config"

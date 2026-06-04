@@ -40,7 +40,7 @@
 | debug | spec-debug | /spec:debug | $spec-debug | claude=command; codex=skill | no | Run the Spec-First debug workflow |
 | doc-review | spec-doc-review | /spec:doc-review | $spec-doc-review | claude=command; codex=skill | no | Run the Spec-First document review workflow |
 | ideate | spec-ideate | /spec:ideate | $spec-ideate | claude=command; codex=skill | no | Run the Spec-First ideation workflow |
-| mcp-setup | spec-mcp-setup | /spec:mcp-setup | $spec-mcp-setup | claude=command; codex=skill | no | Install and verify the required harness runtime for spec-first workflows |
+| mcp-setup | spec-mcp-setup | /spec:mcp-setup | $spec-mcp-setup | claude=command; codex=skill | no | Install, configure, verify, and refresh required harness runtime readiness facts for spec-first workflows |
 | optimize | spec-optimize | /spec:optimize | $spec-optimize | claude=command; codex=skill | no | Run metric-driven iterative optimization loops |
 | plan | spec-plan | /spec:plan | $spec-plan | claude=command; codex=skill | no | Run the Spec-First planning workflow |
 | polish-beta | spec-polish-beta | /spec:polish-beta | $spec-polish-beta | claude=command; codex=skill | yes | [BETA] Start the dev server and iterate on browser-visible polish |

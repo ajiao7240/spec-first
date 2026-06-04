@@ -5,6 +5,9 @@ set -euo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib-helper-registry.sh"
+
 MODE="install"
 DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
 
@@ -485,6 +488,18 @@ add_helper_fact() {
   local install_source="${9:-official}"
   local mirror_used="${10:-false}"
   local browser_capability_demand_signals="${11:-[]}"
+  local profile required safety_result reason_code
+
+  profile="$(helper_registry_profile "$id" 2>/dev/null || echo "minimal")"
+  required="$(jq -r --arg id "$id" '.helpers[] | select(.id == $id) | .required // true' "$(helper_registry_path)" 2>/dev/null || echo "true")"
+  safety_result="$(helper_registry_safety_result "$id" 2>/dev/null || echo "unknown")"
+  case "$result" in
+    ready) reason_code="ready" ;;
+    skipped) reason_code="optional-skipped" ;;
+    degraded) reason_code="optional-capability-degraded" ;;
+    action-required) reason_code="required-runtime-action-required" ;;
+    *) reason_code="unknown" ;;
+  esac
 
   HELPER_JSON="$(jq \
     --arg id "$id" \
@@ -495,19 +510,29 @@ add_helper_fact() {
     --arg result "$result" \
     --arg next_action "$next_action" \
     --argjson baseline_blocking "$baseline_blocking" \
+    --arg profile "$profile" \
+    --argjson required_json "$required" \
+    --arg safety_result "$safety_result" \
+    --arg reason_code "$reason_code" \
     --arg install_source "$install_source" \
     --argjson mirror_used "$mirror_used" \
     --argjson browser_capability_demand_signals "$browser_capability_demand_signals" \
     '. + {($id): {
-      required: true,
+      required: $required_json,
       baseline_blocking: $baseline_blocking,
+      profile: $profile,
+      kind: $type,
       type: $type,
       dependency_status: $dependency_status,
+      configured_status: "not-applicable",
       host_config_status: "not-applicable",
+      allowed: "not-applicable",
       install_status: $install_status,
+      safety: $safety_result,
       skill_status: $skill_status,
       project_status: "not-applicable",
       result: $result,
+      reason_code: $reason_code,
       next_action: $next_action,
       install_source: $install_source,
       mirror_used: $mirror_used,
@@ -645,6 +670,12 @@ process_cli_helper() {
     dependency_status="missing"
     install_status="action-required"
     install_command="$(install_command_for "$name" "$os")"
+    if [ "$name" = "ast-grep" ] && command -v rg >/dev/null 2>&1 && [ "$MODE" != "install" ]; then
+      status="degraded"
+      next_action="ast-grep missing; falling back to rg. Install via: ${install_command:-install ast-grep manually}"
+      add_helper_fact "$name" "helper" "$dependency_status" "$install_status" "not-applicable" "$status" "$next_action" "false" "$install_source" "$mirror_used"
+      return
+    fi
     if [ "$MODE" = "install" ]; then
       local provenance_file
       local install_succeeded="false"
@@ -948,13 +979,16 @@ finalize_global_skill() {
 
 OS="$(detect_os)"
 process_agent_browser
-for helper in gh jq vhs silicon ffmpeg ast-grep; do
-  case "$helper" in
-    vhs|silicon|ffmpeg) process_cli_helper "$helper" "$OS" "false" ;;
-    *) process_cli_helper "$helper" "$OS" "true" ;;
-  esac
+while IFS= read -r helper; do
+  [ "$helper" != "agent-browser" ] || continue
+  baseline_blocking="$(helper_registry_baseline_blocking "$helper")"
+  process_cli_helper "$helper" "$OS" "$baseline_blocking"
+done < <(helper_registry_cli_ids)
+while IFS= read -r helper_id; do
+  skill_name="$(helper_registry_skill_name "$helper_id")"
+  [ -n "$skill_name" ] || continue
+  process_global_skill "$skill_name" "$helper_id"
 done
-process_global_skill "ast-grep" "ast-grep-skill"
 wait_for_parallel_tasks
 finalize_agent_browser \
   "$AGENT_BROWSER_OS" \

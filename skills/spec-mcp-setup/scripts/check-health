@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib-helper-registry.sh"
+
 plugin_version=""
 json_output="no"
 BROWSER_HELPER_OPT_IN_ACTION="set SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 and rerun spec-mcp-setup install"
@@ -206,19 +209,15 @@ os="$(detect_os)"
 has_brew="$(command -v brew >/dev/null 2>&1 && echo "yes" || echo "no")"
 in_repo="$(git rev-parse --is-inside-work-tree >/dev/null 2>&1 && echo "yes" || echo "no")"
 
-deps=(
-  "agent-browser|required"
-  "gh|required"
-  "jq|required"
-  "vhs|required"
-  "silicon|required"
-  "ffmpeg|required"
-  "ast-grep|required"
-)
+deps=()
+while IFS= read -r helper_id; do
+  deps+=("$helper_id|$(helper_registry_baseline_blocking "$helper_id")")
+done < <(helper_registry_cli_ids)
 
-skills=(
-  "ast-grep|required"
-)
+skills=()
+while IFS= read -r helper_id; do
+  skills+=("$helper_id|$(helper_registry_skill_name "$helper_id")|$(helper_registry_baseline_blocking "$helper_id")")
+done < <(helper_registry_skill_ids)
 
 cli_ok=0
 cli_total=0
@@ -226,7 +225,7 @@ issues=0
 results=()
 
 for entry in "${deps[@]}"; do
-  IFS='|' read -r name tier <<<"$entry"
+  IFS='|' read -r name baseline_blocking <<<"$entry"
   cli_total=$((cli_total + 1))
   install_cmd="$(build_install_command "$name" "$os")"
   url="$(build_project_url "$name")"
@@ -234,18 +233,22 @@ for entry in "${deps[@]}"; do
   if [ "$name" = "agent-browser" ]; then
     if agent_browser_ready; then
       cli_ok=$((cli_ok + 1))
-      results+=("$name|$tier|ok|$install_cmd|$url")
+      results+=("$name|$baseline_blocking|ok|$install_cmd|$url")
     elif command -v agent-browser >/dev/null 2>&1; then
       cli_ok=$((cli_ok + 1))
-      results+=("$name|$tier|agent-browser-cli-ready|$install_cmd|$url")
+      results+=("$name|$baseline_blocking|agent-browser-cli-ready|$install_cmd|$url")
     else
-      results+=("$name|$tier|missing|$install_cmd|$url")
+      results+=("$name|$baseline_blocking|missing|$install_cmd|$url")
     fi
   elif command -v "$name" >/dev/null 2>&1; then
     cli_ok=$((cli_ok + 1))
-    results+=("$name|$tier|ok|$install_cmd|$url")
+    results+=("$name|$baseline_blocking|ok|$install_cmd|$url")
   else
-    results+=("$name|$tier|missing|$install_cmd|$url")
+    if [ "$name" = "ast-grep" ] && command -v rg >/dev/null 2>&1; then
+      results+=("$name|$baseline_blocking|degraded|$install_cmd|$url")
+    else
+      results+=("$name|$baseline_blocking|missing|$install_cmd|$url")
+    fi
   fi
 done
 
@@ -263,10 +266,10 @@ skill_ok=0
 skill_total=0
 skill_results=()
 for entry in "${skills[@]}"; do
-  IFS='|' read -r name tier <<<"$entry"
+  IFS='|' read -r helper_id name baseline_blocking <<<"$entry"
   skill_total=$((skill_total + 1))
-  install_cmd="$(build_install_command "${name}-skill" "$os")"
-  url="$(build_project_url "${name}-skill")"
+  install_cmd="$(build_install_command "$helper_id" "$os")"
+  url="$(build_project_url "$helper_id")"
 
   is_installed="no"
   if [ -n "$installed_skill_names" ]; then
@@ -281,9 +284,9 @@ for entry in "${skills[@]}"; do
 
   if [ "$is_installed" = "yes" ]; then
     skill_ok=$((skill_ok + 1))
-    skill_results+=("$name|$tier|ok|$install_cmd|$url")
+    skill_results+=("$helper_id|$name|$baseline_blocking|ok|$install_cmd|$url")
   else
-    skill_results+=("$name|$tier|missing|$install_cmd|$url")
+    skill_results+=("$helper_id|$name|$baseline_blocking|missing|$install_cmd|$url")
   fi
 done
 
@@ -335,11 +338,8 @@ if [ "$json_output" = "yes" ]; then
   printf '  "schema_version": "spec-mcp-setup-preflight.v2",\n'
   printf '  "tools": [\n'
   for index in "${!results[@]}"; do
-    IFS='|' read -r name tier status install_cmd url <<<"${results[$index]}"
-    required="false"
-    if [ "$tier" = "required" ]; then
-      required="true"
-    fi
+    IFS='|' read -r name baseline_blocking status install_cmd url <<<"${results[$index]}"
+    required="true"
     dependency_status="missing"
     result_status="pending"
     next_action="$install_cmd"
@@ -353,12 +353,19 @@ if [ "$json_output" = "yes" ]; then
       fi
       result_status="skipped"
       next_action="$BROWSER_HELPER_OPT_IN_ACTION"
-    elif [ "$tier" = "required" ]; then
+    elif [ "$status" = "degraded" ]; then
+      dependency_status="missing"
+      result_status="degraded"
+      next_action="ast-grep missing; falling back to rg"
+    elif [ "$baseline_blocking" = "true" ]; then
       result_status="action-required"
+    else
+      result_status="degraded"
     fi
-    printf '    {"id":"%s","required":%s,"dependency_status":"%s","host_config_status":"not-applicable","project_status":"not-applicable","result":"%s","next_action":"%s","install_command":"%s","url":"%s"}' \
+    printf '    {"id":"%s","required":%s,"baseline_blocking":%s,"dependency_status":"%s","host_config_status":"not-applicable","project_status":"not-applicable","result":"%s","next_action":"%s","install_command":"%s","url":"%s"}' \
       "$(json_escape "$name")" \
       "$required" \
+      "$baseline_blocking" \
       "$(json_escape "$dependency_status")" \
       "$(json_escape "$result_status")" \
       "$(json_escape "$next_action")" \
@@ -372,11 +379,8 @@ if [ "$json_output" = "yes" ]; then
   printf '  ],\n'
   printf '  "skills": [\n'
   for index in "${!skill_results[@]}"; do
-    IFS='|' read -r name tier status install_cmd url <<<"${skill_results[$index]}"
-    required="false"
-    if [ "$tier" = "required" ]; then
-      required="true"
-    fi
+    IFS='|' read -r helper_id name baseline_blocking status install_cmd url <<<"${skill_results[$index]}"
+    required="true"
     dependency_status="missing"
     result_status="pending"
     next_action="$install_cmd"
@@ -384,12 +388,16 @@ if [ "$json_output" = "yes" ]; then
       dependency_status="ready"
       result_status="ready"
       next_action=""
-    elif [ "$tier" = "required" ]; then
+    elif [ "$baseline_blocking" = "true" ]; then
       result_status="action-required"
+    else
+      result_status="degraded"
     fi
-    printf '    {"id":"%s","required":%s,"dependency_status":"%s","host_config_status":"not-applicable","project_status":"not-applicable","result":"%s","next_action":"%s","install_command":"%s","url":"%s"}' \
+    printf '    {"id":"%s","skill_name":"%s","required":%s,"baseline_blocking":%s,"dependency_status":"%s","host_config_status":"not-applicable","project_status":"not-applicable","result":"%s","next_action":"%s","install_command":"%s","url":"%s"}' \
+      "$(json_escape "$helper_id")" \
       "$(json_escape "$name")" \
       "$required" \
+      "$baseline_blocking" \
       "$(json_escape "$dependency_status")" \
       "$(json_escape "$result_status")" \
       "$(json_escape "$next_action")" \
@@ -423,8 +431,8 @@ printf "  %-15s %-9s %-10s\n" "Tool" "Required" "Status"
 printf "  %-15s %-9s %-10s\n" "----" "--------" "------"
 
 for result in "${results[@]}"; do
-  IFS='|' read -r name tier status install_cmd url <<<"$result"
-  printf "  %-15s %-9s %-10s\n" "$name" "$(required_label "$tier")" "$(status_label "$status")"
+  IFS='|' read -r name baseline_blocking status install_cmd url <<<"$result"
+  printf "  %-15s %-9s %-10s\n" "$name" "$(required_label required)" "$(status_label "$status")"
   if [ "$status" = "ok" ]; then
     continue
   else
@@ -448,8 +456,8 @@ if [ "${#skills[@]}" -gt 0 ]; then
   printf "  %-15s %-9s %-10s\n" "-----" "--------" "------"
 
   for result in "${skill_results[@]}"; do
-    IFS='|' read -r name tier status install_cmd url <<<"$result"
-    printf "  %-15s %-9s %-10s\n" "$name" "$(required_label "$tier")" "$(status_label "$status")"
+    IFS='|' read -r helper_id name baseline_blocking status install_cmd url <<<"$result"
+    printf "  %-15s %-9s %-10s\n" "$name" "$(required_label required)" "$(status_label "$status")"
     if [ "$status" = "ok" ]; then
       continue
     fi

@@ -556,7 +556,8 @@ function Test-ToolReady {
   $hostReady = (
     ($Tool.PSObject.Properties.Name -contains 'host_config_required' -and -not [bool]$Tool.host_config_required -and $Tool.host_config_status -eq 'not-required') -or
     $Tool.host_config_status -eq 'ready' -or
-    $Tool.host_config_status -eq 'fallback-active'
+    $Tool.host_config_status -eq 'fallback-active' -or
+    $Tool.host_config_status -eq 'registry-args-drift'
   )
   return (
     $Tool.dependency_status -eq 'ready' -and
@@ -665,8 +666,11 @@ $combined.tool_facts_status = $setupFactsResult.tool_facts_status
 $combined.tool_facts_path = $setupFactsResult.tool_facts_path
 $combined.runtime_capabilities_status = if ($setupFactsResult.PSObject.Properties.Name -contains 'runtime_capabilities_status') { $setupFactsResult.runtime_capabilities_status } else { 'unknown' }
 $combined.runtime_capabilities_path = if ($setupFactsResult.PSObject.Properties.Name -contains 'runtime_capabilities_path') { $setupFactsResult.runtime_capabilities_path } else { $null }
-$setupActionRequired = @($combined.tool_facts_status, $combined.runtime_capabilities_status) | Where-Object { $_ -ne 'ready' -and $_ -ne 'written' }
-if ($setupActionRequired.Count -gt 0) {
+$toolFactsPayload = if (-not [string]::IsNullOrWhiteSpace([string]$combined.tool_facts_path)) { Read-JsonObjectOrNull -Path ([string]$combined.tool_facts_path) } else { $null }
+$combined['provider_readiness'] = if ($toolFactsPayload -and $toolFactsPayload.PSObject.Properties.Name -contains 'provider_readiness') { @($toolFactsPayload.provider_readiness) } else { @() }
+$combined['configured_dependencies'] = if ($toolFactsPayload -and $toolFactsPayload.PSObject.Properties.Name -contains 'configured_dependencies') { @($toolFactsPayload.configured_dependencies) } else { @() }
+$setupActionRequired = @(@($combined.tool_facts_status, $combined.runtime_capabilities_status) | Where-Object { $_ -ne 'ready' -and $_ -ne 'written' })
+if (@($setupActionRequired).Count -gt 0) {
   $combined.baseline_ready = $false
   $combined.host_runtime_ready = $false
   $combined.overall_status = 'action-required'
@@ -718,6 +722,50 @@ function Format-Required {
   return 'no'
 }
 
+function Get-Field {
+  param(
+    [AllowNull()][object]$InputObject,
+    [string]$Name,
+    [object]$Default = ''
+  )
+  if ($null -eq $InputObject) { return $Default }
+  if ($InputObject -is [System.Collections.IDictionary] -and $InputObject.Contains($Name)) {
+    return $InputObject[$Name]
+  }
+  if ($InputObject.PSObject.Properties.Name -contains $Name) {
+    $value = $InputObject.PSObject.Properties[$Name].Value
+    if ($null -ne $value) { return $value }
+  }
+  return $Default
+}
+
+function Format-ToolRow13 {
+  param(
+    [string]$Id,
+    [object]$Tool,
+    [string]$KindFallback
+  )
+  $kind = Get-Field -InputObject $Tool -Name 'kind' -Default (Get-Field -InputObject $Tool -Name 'type' -Default $KindFallback)
+  $dependency = Get-Field -InputObject $Tool -Name 'dependency_status' -Default (Get-Field -InputObject $Tool -Name 'status' -Default 'unknown')
+  $configured = Get-Field -InputObject $Tool -Name 'configured_status' -Default (Get-Field -InputObject $Tool -Name 'host_config_status' -Default 'not-applicable')
+  $result = Get-Field -InputObject $Tool -Name 'result' -Default (Get-Field -InputObject $Tool -Name 'status' -Default 'unknown')
+  return @(
+    (Format-Cell $Id),
+    (Format-Cell $kind),
+    (Format-Cell (Get-Field -InputObject $Tool -Name 'profile' -Default 'minimal')),
+    (Format-Required (Get-Field -InputObject $Tool -Name 'required' -Default $true)),
+    (Format-Required (Get-Field -InputObject $Tool -Name 'baseline_blocking' -Default $true)),
+    (Format-Cell $dependency),
+    (Format-Cell $configured),
+    (Format-Cell (Get-Field -InputObject $Tool -Name 'allowed' -Default 'not-applicable')),
+    (Format-Cell (Get-Field -InputObject $Tool -Name 'install_status' -Default 'not-applicable')),
+    (Format-Cell (Get-Field -InputObject $Tool -Name 'safety' -Default 'not-checked')),
+    (Format-Cell $result),
+    (Format-Cell (Get-Field -InputObject $Tool -Name 'reason_code' -Default 'unknown')),
+    (Format-Cell (Get-Field -InputObject $Tool -Name 'next_action' -Default ''))
+  )
+}
+
 function Format-Remark {
   param([string]$Name)
   switch ($Name) {
@@ -760,7 +808,7 @@ Write-Host ''
 Write-Host 'Required Harness Runtime status (grouped):'
 $harnessNext = if ($combined.baseline_ready) { '' } else { 'fix action-required rows' }
 $summaryRows = @(
-  @(
+  ,@(
     'Harness runtime',
     $(if ($combined.baseline_ready) { 'ready' } else { 'action-required' }),
     "baseline_ready=$($combined.baseline_ready.ToString().ToLowerInvariant())",
@@ -775,14 +823,7 @@ $mcpRows = @(
       continue
     }
 
-    ,@(
-      (Format-Cell $property.Name),
-      (Format-Cell (Format-Remark $property.Name)),
-      (Format-Cell $tool.dependency_status),
-      (Format-Cell $tool.host_config_status),
-      (Format-Cell $tool.project_status),
-      (Format-Cell $tool.next_action)
-    )
+    ,(Format-ToolRow13 -Id $property.Name -Tool $tool -KindFallback 'mcp')
   }
 )
 
@@ -790,13 +831,55 @@ $helperRows = @(
   foreach ($property in $combined.helper_tools.PSObject.Properties) {
     $helper = $property.Value
     ,@(
+      (Format-ToolRow13 -Id $property.Name -Tool $helper -KindFallback 'helper')
+    )
+  }
+)
+
+$providerRows = @(
+  foreach ($provider in @($combined.provider_readiness)) {
+    ,@(
+      (Format-Cell (Get-Field -InputObject $provider -Name 'provider' -Default 'unknown')),
+      (Format-Cell (Get-Field -InputObject $provider -Name 'kind' -Default 'generic')),
+      (Format-Cell (Get-Field -InputObject $provider -Name 'profile' -Default 'minimal')),
+      (Format-Cell (Get-Field -InputObject $provider -Name 'readiness_status' -Default 'unknown')),
+      (Format-Cell (Get-NestedValue -InputObject $provider -PathParts @('lifecycle', 'installed'))),
+      (Format-Cell (Get-NestedValue -InputObject $provider -PathParts @('lifecycle', 'configured'))),
+      (Format-Cell (Get-NestedValue -InputObject $provider -PathParts @('lifecycle', 'query_verified'))),
+      (Format-Cell (Get-Field -InputObject $provider -Name 'repo_aligned' -Default 'unknown')),
+      (Format-Cell (Get-NestedValue -InputObject $provider -PathParts @('fallback', 'reason_code'))),
+      (Format-Cell ((@((Get-Field -InputObject $provider -Name 'next_actions' -Default @())) | ForEach-Object { [string]$_ }) -join '; '))
+    )
+  }
+)
+
+$configuredDependencyRows = @(
+  foreach ($dependency in @($combined.configured_dependencies)) {
+    ,@(
+      (Format-Cell (Get-Field -InputObject $dependency -Name 'id')),
+      (Format-Cell (Get-Field -InputObject $dependency -Name 'kind')),
+      (Format-Cell (Get-Field -InputObject $dependency -Name 'source_path')),
+      (Format-Cell (Get-Field -InputObject $dependency -Name 'command')),
+      (Format-Cell (Get-Field -InputObject $dependency -Name 'args_shape')),
+      (Format-Cell (Get-Field -InputObject $dependency -Name 'declared_tool_id')),
+      (Format-Cell (Get-Field -InputObject $dependency -Name 'declared_status')),
+      (Format-Cell (Get-Field -InputObject $dependency -Name 'dependency_status')),
+      (Format-Cell (Get-Field -InputObject $dependency -Name 'configured_status')),
+      (Format-Cell (Get-Field -InputObject $dependency -Name 'result')),
+      (Format-Cell (Get-Field -InputObject $dependency -Name 'reason_code'))
+    )
+  }
+)
+
+$installSafetyRows = @(
+  foreach ($property in $combined.helper_tools.PSObject.Properties) {
+    $helper = $property.Value
+    ,@(
       (Format-Cell $property.Name),
-      (Format-Cell $(if ($helper.PSObject.Properties.Name -contains 'type') { $helper.type } else { 'helper' })),
-      (Format-Cell $helper.result),
-      (Format-Cell $helper.dependency_status),
-      (Format-Cell $helper.install_status),
-      (Format-Cell $helper.skill_status),
-      (Format-Cell $helper.next_action)
+      (Format-Cell (Get-Field -InputObject $helper -Name 'safety' -Default 'not-checked')),
+      (Format-Cell (Get-Field -InputObject $helper -Name 'install_source')),
+      (Format-Cell (Get-Field -InputObject $helper -Name 'mirror_used' -Default $false)),
+      (Format-Cell (Get-Field -InputObject $helper -Name 'next_action'))
     )
   }
 )
@@ -813,13 +896,28 @@ $sections = @(
   }
   [ordered]@{
     title = 'MCP servers'
-    headers = @('Name', 'Role', 'Dependency', 'Host', 'Project', 'Next')
+    headers = @('id', 'kind', 'profile', 'required', 'baseline_blocking', 'dependency', 'configured', 'allowed', 'install', 'safety', 'result', 'reason_code', 'next_action')
     rows = $mcpRows
   }
   [ordered]@{
     title = 'Helper tools'
-    headers = @('Name', 'Type', 'Result', 'Dependency', 'Install', 'Skill', 'Next')
+    headers = @('id', 'kind', 'profile', 'required', 'baseline_blocking', 'dependency', 'configured', 'allowed', 'install', 'safety', 'result', 'reason_code', 'next_action')
     rows = $helperRows
+  }
+  [ordered]@{
+    title = 'Provider tools'
+    headers = @('provider', 'kind', 'profile', 'readiness', 'installed', 'configured', 'query_verified', 'repo_aligned', 'fallback_reason', 'next_actions')
+    rows = $providerRows
+  }
+  [ordered]@{
+    title = 'Host configured dependencies'
+    headers = @('id', 'kind', 'source_path', 'command', 'args_shape', 'declared_tool_id', 'declared_status', 'dependency', 'configured', 'result', 'reason_code')
+    rows = $configuredDependencyRows
+  }
+  [ordered]@{
+    title = 'Install safety'
+    headers = @('id', 'safety', 'install_source', 'mirror_used', 'next_action')
+    rows = $installSafetyRows
   }
   [ordered]@{
     title = 'Project setup facts'
@@ -827,6 +925,20 @@ $sections = @(
     rows = @(
       @('tool-facts.json', (Format-Cell $combined.tool_facts_status), (Format-Cell $toolFactsNext)),
       @('runtime-capabilities.json', (Format-Cell $combined.runtime_capabilities_status), (Format-Cell $runtimeNext))
+    )
+  }
+  [ordered]@{
+    title = 'Verification profile'
+    headers = @('Artifact', 'Status', 'Next')
+    rows = @(,@('spec-first.verification.json', 'not-checked', 'v1.13 scope'))
+  }
+  [ordered]@{
+    title = 'Next steps'
+    headers = @('#', 'Action')
+    rows = @(
+      for ($i = 0; $i -lt @($combined.next_actions).Count; $i += 1) {
+        ,@([string]($i + 1), (Format-Cell @($combined.next_actions)[$i]))
+      }
     )
   }
 )
