@@ -130,6 +130,11 @@ describe('spec-work run artifact boundary contract', () => {
     expect(text).toContain('Run Artifact Boundary');
     expect(text).toContain('write-side contract');
     expect(text).toContain('producer_available=true');
+    expect(text).toContain('spec-work-run-artifact/v2');
+    expect(text).toContain('script_confirmed.validation');
+    expect(text).toContain('run_summary_ref');
+    expect(text).toContain('verification-run-summary.v1');
+    expect(text).toContain('spec-work-run-artifact-payload/v2');
     expect(text).toContain('workflow_integrated');
     expect(text).toContain('.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json');
     expect(text).toContain('The writer treats each workspace/run-id pair as immutable');
@@ -140,6 +145,15 @@ describe('spec-work run artifact boundary contract', () => {
     expect(text).toContain('latest-artifact lookup is a fallback only');
     expect(text).toContain('Do not treat run evidence as source scope authority');
     expect(shipping).toContain('Evaluate Durable Evidence Triggers');
+    expect(shipping).toContain('Build Structured Verification Closeout');
+    expect(shipping).toContain('spec-first internal verification-profile load');
+    expect(shipping).toContain('spec-first internal verification-run-summary record');
+    expect(shipping).toContain('spec-first internal honest-closeout validate');
+    expect(shipping).toContain('natural-language-only assertions are honest-but-unverifiable');
+    expect(shipping).toContain('decision_input_health=warn|error');
+    expect(shipping).toContain('verification-run-summary.v1` check has `status=not-run`');
+    expect(shipping).toContain('spec-work-run-artifact-payload/v2');
+    expect(shipping).toContain('Do not include `script_confirmed.validation.commands[]`');
     expect(shipping).toContain('spec-first internal spec-work-run-artifact write');
     expect(shipping).toContain('producer.workflow_integrated=true');
     expect(shipping).toContain('trigger-task-pack');
@@ -192,7 +206,8 @@ describe('spec-work requirements and shipping policy contract', () => {
     expect(shipping).toContain('Review: <review tier or workflow used, plus residual status>');
     expect(shipping).toContain('Artifacts: <PR link, plan/task-pack path, evidence, or known-residuals path when applicable>');
     expect(shipping).toContain('Next action: <only if the user needs to do something now>');
-    expect(shipping).toContain('If a check was not run, say `not run` with the concrete reason.');
+    expect(shipping).toContain('If a check was not run, say `not run` with the concrete reason from `verification-run-summary.v1`.');
+    expect(shipping).toContain('If a validation claim lacks structured evidence, say `degraded` with the `honest-closeout.v1` reason code.');
     expect(shipping).toContain('omit `Next action` instead of inventing follow-up work');
   });
 

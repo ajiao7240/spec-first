@@ -1,6 +1,7 @@
 ---
 title: 新增 workflow 入口要同时维护 command manifest、governance 和 host adapter 边界
 date: 2026-04-26
+last_updated: 2026-06-04
 category: docs/solutions/architecture-patterns
 module: init-runtime-assets
 problem_type: architecture_pattern
@@ -23,7 +24,7 @@ tags: [workflow-entrypoint, dual-host-governance, init-runtime, skill-command, c
 - Codex workflow 入口是 `$spec-xxx`，由 `.agents/skills/spec-xxx/SKILL.md` 暴露。
 - 同一份 source skill 仍放在 `skills/spec-xxx/SKILL.md`。
 
-因此，“新增一个 workflow 入口”不是只新增一个 `SKILL.md`，也不是只改 Claude command template。它需要同时维护三层事实：command manifest、dual-host governance、host adapter 同步边界。
+因此，“新增一个 workflow 入口”不是只新增一个 `SKILL.md`，也不是只改 Claude command template。它需要同时维护三层事实：动态 command manifest 投影、dual-host governance、host adapter 同步边界。
 
 ## Guidance
 
@@ -35,27 +36,7 @@ tags: [workflow-entrypoint, dual-host-governance, init-runtime, skill-command, c
    skills/spec-xxx/SKILL.md
    ```
 
-2. 在 `.claude-plugin/plugin.json` 的 `commands` 数组登记 command：
-
-   ```json
-   {
-     "name": "xxx",
-     "filename": "xxx.md",
-     "description": "Run the Spec-First xxx workflow",
-     "argumentHint": "[...]",
-     "skill": "spec-xxx"
-   }
-   ```
-
-3. 新增 Claude command template：
-
-   ```text
-   templates/claude/commands/spec/xxx.md
-   ```
-
-   这个 template 只承载 Claude command frontmatter。`init --claude` 会把 template frontmatter 和 `skills/spec-xxx/SKILL.md` 的正文合成为运行时 command。
-
-4. 在 `src/cli/contracts/dual-host-governance/skills-governance.json` 登记交付策略：
+2. 在 `src/cli/contracts/dual-host-governance/skills-governance.json` 登记交付策略：
 
    ```json
    {
@@ -71,21 +52,36 @@ tags: [workflow-entrypoint, dual-host-governance, init-runtime, skill-command, c
    }
    ```
 
-普通 standalone skill 不走这条路径。它只需要 `skills/<name>/SKILL.md` 和 governance 中的 `entry_surface: "standalone_skill"`，不应出现在 `.claude-plugin/plugin.json` 的 `commands` 数组里。
+3. 新增 Claude command template：
+
+   ```text
+   templates/claude/commands/spec/xxx.md
+   ```
+
+   这个 template 只承载 Claude command frontmatter，例如 `description` 和 `argument-hint`。`src/cli/plugin.js` 会从 governance 的 `workflow_command` 记录和 template metadata 动态构建 command manifest；`init --claude` 再把 template frontmatter 和 `skills/spec-xxx/SKILL.md` 的正文合成为运行时 command。
+
+4. 用当前 runtime projection 测试确认两宿主交付面：
+
+   ```bash
+   npx jest tests/unit/init-source-path-coverage.test.js --runInBand
+   npm run test:smoke
+   ```
+
+普通 standalone skill 不走这条路径。它只需要 `skills/<name>/SKILL.md` 和 governance 中的 `entry_surface: "standalone_skill"`，不应出现在 workflow command governance 或 Claude command templates 中。
 
 ## Why This Matters
 
 这套设计把确定性同步和语义判断分开：
 
-- `.claude-plugin/plugin.json` 定义 command 名称、文件名和参数提示，是 command manifest。
+- `src/cli/plugin.js` 从 `skills-governance.json` 和 `templates/claude/commands/spec/*.md` 动态构建 command manifest，不再依赖 checked-in `.claude-plugin/plugin.json`。
 - `skills-governance.json` 定义 skill 是否暴露、在哪个 host 暴露、以 command 还是 skill 形态暴露，是双宿主治理真相源。
 - adapter 定义运行时落盘位置和转换规则，是平台执行边界。
 
 如果只改其中一层，会出现典型漂移：
 
 - 只新增 `SKILL.md`：governance 校验会认为 bundled skill 未登记，或者 init 不知道如何暴露。
-- 只改 manifest：缺少 source skill 或 governance 记录，workflow command 无法通过治理校验。
-- 只改 governance：Claude command 没有 template/manifest，`workflow_command` 找不到对应 command。
+- 只改 template：没有 governance `workflow_command` 记录时，动态 manifest 不会把它暴露为公开 workflow。
+- 只改 governance：Claude command 缺少 template metadata，manifest 构建会失败。
 - 误把 Codex 当 command 平台：Codex adapter 当前 `hasCommands=false`，不会写 `.codex/commands/spec/*.md`。
 
 ## When to Apply
@@ -141,9 +137,9 @@ tags: [workflow-entrypoint, dual-host-governance, init-runtime, skill-command, c
 
 ## Related
 
-- `.claude-plugin/plugin.json` — command manifest，声明 workflow command 名称与 backing skill。
+- `src/cli/plugin.js` — 动态构建 command manifest，并根据 governance 分出 `commands`、`workflowSkills` 和 `skills`。
 - `src/cli/contracts/dual-host-governance/skills-governance.json` — skill 暴露策略真相源。
-- `src/cli/plugin.js` — `buildFilteredAssetSet()` 根据 governance 分出 `commands`、`workflowSkills` 和 `skills`。
+- `templates/claude/commands/spec/*.md` — Claude command frontmatter source templates。
 - `src/cli/adapters/claude.js` — Claude command、skill、workflow skill 的运行时目录。
 - `src/cli/adapters/codex.js` — Codex 通过 `.agents/skills` 暴露 workflow，且 `hasCommands=false`。
 - `docs/solutions/developer-experience/standalone-skill-name-convention-2026-04-20.md` — standalone skill 的命名经验，与 workflow command 暴露边界互补。

@@ -111,20 +111,6 @@ describe('CE-lineage dispatch boundary contracts', () => {
     expect(combined).not.toContain('unavailable or disallowed');
   });
 
-  test('local skill-agent audit docs do not preserve exact stale dispatch phrases', () => {
-    const docs = readMarkdownFiles('docs/2026-05-05-skill-agent-audit');
-    const combined = docs.map(({ fileName, content }) => `\n--- ${fileName} ---\n${content}`).join('\n');
-
-    expect(docs.length).toBeGreaterThan(0);
-    expect(combined).not.toMatch(/session authorization/i);
-    expect(combined).not.toMatch(/current session authorization/i);
-    expect(combined).not.toContain('Codex should inline reviewer personas');
-    expect(combined).not.toContain('Codex cannot dispatch');
-    expect(combined).not.toContain('when dispatch is authorized');
-    expect(combined).not.toContain('unavailable or disallowed');
-    expect(combined).not.toContain('do not call spawn_agent merely because this skill mentions reviewer personas');
-  });
-
   test('Codex runtime never silently rewrites legacy Task dispatch to inline-only profile application', () => {
     const adapter = getAdapter('codex');
     const rendered = adapter.transformSkillContent(

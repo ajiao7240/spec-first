@@ -383,9 +383,35 @@ describe('dependency readiness baseline contracts', () => {
         },
       });
       writeJson(path.join(tmp, 'spec-first.verification.json'), {
-        checks: [
-          { id: 'lint', command: 'definitely-missing-verifier --strict' },
-        ],
+        schema_version: 'verification-profile.v1',
+        default_profile: 'default',
+        profiles: {
+          default: {
+            services: ['root'],
+            checks: ['lint'],
+          },
+        },
+        services: {
+          root: {
+            path: '.',
+            stack: 'node',
+            required: true,
+          },
+        },
+        stacks: {
+          node: {
+            detect: ['package.json'],
+            commands: {
+              lint: 'definitely-missing-verifier --strict',
+            },
+            runner_kind: {
+              lint: 'custom',
+            },
+            required_tools: {
+              lint: ['definitely-missing-verifier'],
+            },
+          },
+        },
       });
       const factsPath = path.join(tmp, 'facts.json');
       writeJson(factsPath, {
@@ -433,6 +459,137 @@ describe('dependency readiness baseline contracts', () => {
         result: 'action-required',
         reason_code: 'configured-dependency-undeclared',
       });
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('configured dependency scanner emits verification required tools independently from wrapper commands', () => {
+    const tmp = makeTempDir();
+    try {
+      writeJson(path.join(tmp, 'spec-first.verification.json'), {
+        schema_version: 'verification-profile.v1',
+        default_profile: 'default',
+        profiles: {
+          default: {
+            services: ['root'],
+            checks: ['e2e'],
+          },
+        },
+        services: {
+          root: {
+            path: '.',
+            stack: 'node',
+            required: true,
+          },
+        },
+        stacks: {
+          node: {
+            detect: ['package.json'],
+            commands: {
+              e2e: 'npm run test:e2e',
+            },
+            runner_kind: {
+              e2e: 'npm-script',
+            },
+            required_tools: {
+              e2e: ['definitely-missing-verifier'],
+            },
+          },
+        },
+      });
+
+      const result = spawnSync('node', [scanConfiguredDepsPath, '--repo-root', tmp], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(0);
+      const payload = JSON.parse(result.stdout);
+      expect(payload.configured_dependencies.find((entry) => entry.id === 'verification-command:e2e')).toMatchObject({
+        kind: 'verification-command',
+        command: 'npm',
+      });
+      expect(payload.configured_dependencies.find((entry) => entry.id === 'verification-required-tool:e2e:definitely-missing-verifier')).toMatchObject({
+        kind: 'verification-required-tool',
+        command: 'definitely-missing-verifier',
+        result: 'action-required',
+        reason_code: 'configured-dependency-undeclared',
+      });
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('configured dependency scanner reports invalid verification profiles instead of silently dropping them', () => {
+    const tmp = makeTempDir();
+    try {
+      writeJson(path.join(tmp, 'spec-first.verification.json'), {
+        schema_version: 'verification-profile.v1',
+        default_profile: 'default',
+        profiles: {
+          default: {
+            services: ['root'],
+            checks: ['missing-check'],
+          },
+        },
+        services: {
+          root: {
+            path: '.',
+            stack: 'node',
+            required: true,
+          },
+        },
+        stacks: {
+          node: {
+            detect: ['package.json'],
+            commands: {},
+            runner_kind: {},
+            required_tools: {},
+          },
+        },
+      });
+
+      const result = spawnSync('node', [scanConfiguredDepsPath, '--repo-root', tmp], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(0);
+      const payload = JSON.parse(result.stdout);
+      expect(payload.configured_dependencies).toEqual([
+        expect.objectContaining({
+          id: 'verification-profile:spec-first.verification.json',
+          kind: 'verification-profile',
+          result: 'action-required',
+          reason_code: 'profile-resolution-invalid',
+        }),
+      ]);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test('configured dependency scanner reports unreadable verification profile JSON', () => {
+    const tmp = makeTempDir();
+    try {
+      fs.writeFileSync(path.join(tmp, 'spec-first.verification.json'), '{', 'utf8');
+
+      const result = spawnSync('node', [scanConfiguredDepsPath, '--repo-root', tmp], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(0);
+      const payload = JSON.parse(result.stdout);
+      expect(payload.configured_dependencies).toEqual([
+        expect.objectContaining({
+          id: 'verification-profile:spec-first.verification.json',
+          kind: 'verification-profile',
+          result: 'action-required',
+          reason_code: 'profile-unreadable',
+        }),
+      ]);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }

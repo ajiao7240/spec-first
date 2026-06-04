@@ -39,7 +39,7 @@ A term lives in a single PRD's `## Glossary` by default (session-local, draft la
 
 Promotion is **preview-first**: propose the canonical entry to the owner, and write it to `docs/contracts/domain-glossary.md` only after confirmation. Never silent-write. Follow the field contract and entry format defined in that file. A single small increment never needs promotion — keep its terms in the PRD only.
 
-When a new PRD's term conflicts with an existing canonical entry, surface it immediately as a contradiction (see `current-state-analysis.md` Contradiction Handling) rather than letting the language drift.
+When a new PRD's term conflicts with an existing canonical entry, surface it immediately as a contradiction (see `evidence-and-topology.md` Contradiction Handling) rather than letting the language drift.
 
 ## Bounded Scenario Grill
 

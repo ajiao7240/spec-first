@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('node:fs');
+const path = require('node:path');
 const {
   SPEC_FIRST_GITIGNORE_END,
   SPEC_FIRST_GITIGNORE_START,
@@ -8,6 +10,10 @@ const {
   getSpecFirstGitignorePatternMetadata,
   getSpecFirstGitignorePatterns,
 } = require('../../src/cli/gitignore-policy');
+
+const REPO_ROOT = path.join(__dirname, '..', '..');
+const USER_MANUAL_GITIGNORE_PATH = path.join(REPO_ROOT, 'docs', '05-用户手册', '12-gitignore参考.md');
+const ROOT_GITIGNORE_PATH = path.join(REPO_ROOT, '.gitignore');
 
 describe('spec-first gitignore policy', () => {
   test('renders one managed block with narrow default patterns', () => {
@@ -18,13 +24,16 @@ describe('spec-first gitignore policy', () => {
     expect(block).toContain(SPEC_FIRST_GITIGNORE_END);
     expect(patterns).toContain('.claude/commands/spec/');
     expect(patterns).toContain('.claude/hooks/session-start');
+    expect(patterns).toContain('.codex/');
     expect(patterns).toContain('.agents/skills/');
     expect(getSpecFirstGitignorePatternMetadata()).toEqual({});
     expect(patterns).toContain('.spec-first/config/*.json');
     expect(patterns).not.toContain('.spec-first/standards/');
     expect(patterns).toContain('.spec-first/sessions/');
     expect(patterns).not.toContain('.claude/');
-    expect(patterns).not.toContain('.codex/');
+    expect(patterns).not.toContain('.codex/commands/spec/');
+    expect(patterns).not.toContain('.codex/spec-first/');
+    expect(patterns).not.toContain('.codex/agents/');
     expect(patterns).not.toContain('.agents/');
     expect(patterns).not.toContain('.spec-first/');
     expect(patterns).not.toContain('*.tgz');
@@ -87,6 +96,27 @@ describe('spec-first gitignore policy', () => {
 
   test('rejects non-string content', () => {
     expect(() => applySpecFirstGitignoreBlock(null)).toThrow('existingContent must be a string');
+  });
+
+  test('user manual mirrors the generated managed block and does not revive retired provider paths', () => {
+    const manual = fs.readFileSync(USER_MANUAL_GITIGNORE_PATH, 'utf8');
+    const block = buildSpecFirstGitignoreBlock();
+
+    expect(manual).toContain(`\`\`\`gitignore\n${block}\n\`\`\``);
+    expect(block).not.toContain('.direct-source-evidence/');
+    expect(block).not.toContain('.code-review-graph/');
+    expect(block).not.toContain('.spec-first-graph/');
+    expect(manual).toContain('不属于当前 `init` managed block');
+  });
+
+  test('repo-local ignore covers CI and host-local config without exporting them to user managed block', () => {
+    const rootGitignore = fs.readFileSync(ROOT_GITIGNORE_PATH, 'utf8');
+    const block = buildSpecFirstGitignoreBlock();
+
+    expect(rootGitignore).toContain('.spec-first/ci/');
+    expect(rootGitignore).toContain('.claude/settings.local.json');
+    expect(block).not.toContain('.spec-first/ci/');
+    expect(block).not.toContain('.claude/settings.local.json');
   });
 });
 

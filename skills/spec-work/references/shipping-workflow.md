@@ -98,14 +98,47 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
 
    If local repo convention calls for completion evidence in completed plans, append only a brief `Completion Evidence` note with implementation scope, verification, review status, and generated-runtime status. Do not add per-unit progress state.
 
-2.5. **Evaluate Durable Evidence Triggers**
+2.5. **Build Structured Verification Closeout**
+
+   When validation was run, considered, skipped, or blocked by missing dependencies, record it as structured evidence before evaluating durable triggers. Do not rely on prose such as "tests passed" as validation proof.
+
+   Use the deterministic helpers in this order:
+
+   ```bash
+   spec-first internal verification-profile load \
+     --target-repo <repo-root> \
+     --json
+
+   # After each selected command has actually run, or after a check is explicitly classified not-run:
+   spec-first internal verification-run-summary record \
+     --input <verification-run-summary-input.json> \
+     --run-id <fresh-run-id> \
+     --target-repo <repo-root> \
+     --json
+
+   spec-first internal honest-closeout validate \
+     --input <honest-closeout-claims.json> \
+     --target-repo <repo-root> \
+     --json
+   ```
+
+   Boundary rules:
+   - `verification-profile` only resolves candidate checks from `spec-first.verification.json`, local override, or package-script inference. It does not execute or decide verification.
+   - `verification-run-summary` only records actual command outcomes supplied by the workflow step. It does not rerun commands or infer `exit_code`.
+   - Dry-run or schedulable-but-not-executed checks must be `status=not-run` with `reason_code=schedulable`; missing required tools must be `status=not-run` with `reason_code=missing_dependency`.
+   - `honest-closeout` validates structured claim-to-evidence refs. Missing claim objects, empty evidence refs, or unsupported claims degrade or reject the closeout verdict; natural-language-only assertions are honest-but-unverifiable and must not be reported as verified.
+   - `decision_input_health=warn|error` from setup facts is readiness-side degraded evidence. It does not become a verification check status. Verification `passed|failed|not-run|degraded` comes from `verification-run-summary`; readiness degradation can only lower closeout confidence.
+
+   The final response's `Verification:` line must cite structured check statuses from the run summary (`passed`, `failed`, `not-run`, or `degraded`) and include the concrete `reason_code` for every `not-run` check. If no run summary or no structured closeout claim exists, say `degraded` or `not run` with the concrete reason; do not claim verified.
+
+2.6. **Evaluate Durable Evidence Triggers**
 
    Evaluate the durable evidence trigger chain before committing or creating a PR. This is an LLM-owned closeout judgment; scripts validate and write the supplied payload, but they do not decide whether the work is semantically important.
 
    Check the triggers in order and stop at the first match:
 
    - `trigger-task-pack` - the input is a validated task-pack path.
-   - `trigger-not-run-validation` - any Phase 2 or Phase 3 verification status is `not-run`.
+   - `trigger-not-run-validation` - any `verification-run-summary.v1` check has `status=not-run`.
    - `trigger-deferred-follow-up` - the closeout has non-empty `deferred_follow_up[]`.
    - `trigger-substantive-work` - the work is important enough to leave durable evidence because it consumed limited optional external-tool evidence, hands off to review/compound/release, resumed through compaction, or was long or cross-cutting enough for context loss to matter.
 
@@ -119,6 +152,18 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
    ```
 
    The payload must set `producer.workflow_integrated=true` and `producer.reason_code` to the matching trigger reason. If the producer writes the artifact, carry the repo-relative `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json` path into the final `Artifacts:` line.
+
+   The payload must use `spec-work-run-artifact-payload/v2`. Its `script_confirmed.validation` object is aggregate-only:
+
+   ```json
+   {
+     "status": "passed|failed|not-run|degraded",
+     "reason_code": "<structured-closeout-reason>",
+     "run_summary_ref": ".spec-first/workflows/spec-work/<workspace-slug>/<run-id>/verification-run-summary.json"
+   }
+   ```
+
+   Do not include `script_confirmed.validation.commands[]`; per-check command detail belongs only in `verification-run-summary.v1`.
 
    If no trigger matches, do not call the producer; record `producer.reason_code=no-trigger-matched` in closeout evidence. If the producer fails or returns `not-written`, keep the final response honest with the returned `reason_code` such as `producer-error` or `artifact-already-exists`. Do not treat run evidence as source scope authority, progress state, approval state, or a full replay index.
 
@@ -154,7 +199,7 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
    Next action: <only if the user needs to do something now>
    ```
 
-   If a check was not run, say `not run` with the concrete reason. If no user action remains, omit `Next action` instead of inventing follow-up work.
+   If a check was not run, say `not run` with the concrete reason from `verification-run-summary.v1`. If a validation claim lacks structured evidence, say `degraded` with the `honest-closeout.v1` reason code. If no user action remains, omit `Next action` instead of inventing follow-up work.
 
    **Direct evidence used (when applicable)**
 

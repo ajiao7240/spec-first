@@ -4,6 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadHelperRegistry, helperById } = require('../../../src/cli/helpers/setup-facts');
+const { resolveProfileChecks, validateProfileObject } = require('../../../src/verification/profile-loader');
 
 function parseArgs(argv) {
   // repoRoot 默认空串：缺 --repo-root 时由 main() 的 required 检查拒绝，
@@ -28,6 +29,15 @@ function readJsonIfPresent(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
   } catch (_error) {
     return null;
+  }
+}
+
+function readJsonState(filePath) {
+  if (!fs.existsSync(filePath)) return { status: 'missing', value: null, errors: [] };
+  try {
+    return { status: 'read', value: JSON.parse(fs.readFileSync(filePath, 'utf8')), errors: [] };
+  } catch (error) {
+    return { status: 'unreadable', value: null, errors: [error.message] };
   }
 }
 
@@ -231,17 +241,57 @@ function scanPackageSetupScripts(repoRoot, lookup) {
 
 function scanVerificationProfile(repoRoot, lookup) {
   const profilePath = path.join(repoRoot, 'spec-first.verification.json');
-  const profile = readJsonIfPresent(profilePath);
-  if (!profile) return [];
-  const checks = Array.isArray(profile.checks) ? profile.checks : [];
-  return checks
-    .map((check, index) => makeEntry({
+  const profileState = readJsonState(profilePath);
+  if (profileState.status === 'missing') return [];
+  if (profileState.status === 'unreadable') {
+    return [makeProfileProblemEntry(profilePath, 'profile-unreadable', profileState.errors)];
+  }
+  const profile = profileState.value;
+  const schemaValidation = validateProfileObject(profile);
+  if (schemaValidation.errors.length > 0) {
+    return [makeProfileProblemEntry(profilePath, 'profile-schema-invalid', schemaValidation.errors)];
+  }
+  const resolved = resolveProfileChecks(profile);
+  if (resolved.errors.length > 0) {
+    return [makeProfileProblemEntry(profilePath, resolved.reason_code || 'profile-resolution-invalid', resolved.errors)];
+  }
+  const entries = [];
+  for (const check of resolved.checks) {
+    const commandEntry = makeEntry({
       kind: 'verification-command',
       sourcePath: profilePath,
       command: check.command,
-      idSuffix: check.id || String(index),
-    }, lookup))
-    .filter(Boolean);
+      idSuffix: check.id,
+    }, lookup);
+    if (commandEntry) entries.push(commandEntry);
+    for (const tool of check.required_tools || []) {
+      const toolEntry = makeEntry({
+        kind: 'verification-required-tool',
+        sourcePath: profilePath,
+        command: tool,
+        idSuffix: `${check.id}:${tool}`,
+      }, lookup);
+      if (toolEntry) entries.push(toolEntry);
+    }
+  }
+  return entries;
+}
+
+function makeProfileProblemEntry(profilePath, reasonCode, errors) {
+  return {
+    id: 'verification-profile:spec-first.verification.json',
+    kind: 'verification-profile',
+    source_path: profilePath,
+    command: 'spec-first.verification.json',
+    args_shape: 'profile',
+    declared_tool_id: null,
+    declared_status: 'declared',
+    dependency_status: 'unknown',
+    configured_status: 'invalid',
+    result: 'action-required',
+    reason_code: reasonCode,
+    errors,
+  };
 }
 
 function scanFactsMcp(factsFile, lookup) {

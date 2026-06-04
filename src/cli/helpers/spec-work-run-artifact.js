@@ -2,13 +2,17 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
 const { writeFileAtomicIfAbsent } = require('../atomic-write');
 const { validateAgainstSchema } = require('../../contracts/schema-validator');
-const { isExactRepoRelativePath, isSecretDeniedPath } = require('./secret-deny-patterns');
+const { readVerificationRunSummary } = require('./verification-run-summary');
+const {
+  resolveTargetRepoRoot,
+  validateOutputContainment,
+  validateRepoRelativeField,
+} = require('./target-repo');
 
-const PAYLOAD_SCHEMA_VERSION = 'spec-work-run-artifact-payload/v1';
-const ARTIFACT_SCHEMA_VERSION = 'spec-work-run-artifact/v1';
+const PAYLOAD_SCHEMA_VERSION = 'spec-work-run-artifact-payload/v2';
+const ARTIFACT_SCHEMA_VERSION = 'spec-work-run-artifact/v2';
 const WORKFLOW = 'spec-work';
 const DEFAULT_RETENTION_DAYS = 30;
 const ALLOWED_RAW_LOG_KINDS = new Set(['none', 'repo_relative_artifact']);
@@ -41,7 +45,6 @@ const ALLOWED_DIRECT_EVIDENCE_FIELDS = new Set([
   'redaction_status',
 ]);
 const ALLOWED_DIRECT_EVIDENCE_REDACTION_STATUSES = new Set(['redacted', 'none-required']);
-const GENERATED_RUNTIME_PREFIXES = ['.claude/', '.codex/', '.agents/skills/'];
 const LLM_SUMMARY_MAX_LENGTH = 1000;
 const LLM_NEXT_ACTION_MAX_LENGTH = 500;
 const LLM_ARRAY_ITEM_MAX_LENGTH = 500;
@@ -75,12 +78,7 @@ const ALLOWED_SCRIPT_CONFIRMED_FIELDS = new Set([
 const ALLOWED_VALIDATION_FIELDS = new Set([
   'status',
   'reason_code',
-  'commands',
-]);
-const ALLOWED_VALIDATION_COMMAND_FIELDS = new Set([
-  'command',
-  'exit_code',
-  'summary',
+  'run_summary_ref',
 ]);
 const ALLOWED_RAW_LOG_REF_FIELDS = new Set([
   'kind',
@@ -220,6 +218,15 @@ function writeSpecWorkRunArtifact({ inputPath, runId, targetRepo }) {
   if (containment.errors.length > 0) {
     return rejected('artifact-path-escape', containment.errors);
   }
+  const runSummaryValidation = validateRunSummaryReference({
+    payload,
+    targetRepo,
+    workspaceSlug,
+    runId,
+  });
+  if (runSummaryValidation.errors.length > 0) {
+    return rejected(runSummaryValidation.reasonCode, runSummaryValidation.errors);
+  }
   const artifact = buildArtifact(payload, {
     runId,
     workspaceSlug,
@@ -293,42 +300,6 @@ function runPruneCli(argv) {
     exitCode: result.exitCode,
     output: result.output,
   };
-}
-
-function validateOutputContainment(targetRepoRoot, absoluteArtifactPath) {
-  const errors = [];
-  const rootPath = path.resolve(targetRepoRoot);
-  let realRepoRoot;
-  try {
-    realRepoRoot = fs.realpathSync(rootPath);
-  } catch (error) {
-    return { errors: [`target repo realpath failed: ${error.message}`] };
-  }
-
-  let current = path.dirname(absoluteArtifactPath);
-  while (current && path.resolve(current) !== path.dirname(path.resolve(current))) {
-    if (fs.existsSync(current)) {
-      let stat;
-      let realAncestor;
-      try {
-        stat = fs.lstatSync(current);
-        realAncestor = fs.realpathSync(current);
-      } catch (error) {
-        errors.push(`artifact output ancestor cannot be inspected: ${path.relative(rootPath, current) || '.'}`);
-      }
-      if (stat && realAncestor) {
-        const isTargetRoot = path.resolve(current) === rootPath;
-        const relative = path.relative(realRepoRoot, realAncestor);
-        if ((!isTargetRoot && stat.isSymbolicLink()) || relative.startsWith('..') || path.isAbsolute(relative)) {
-          errors.push(`artifact output ancestor escapes target repo: ${path.relative(rootPath, current) || '.'}`);
-        }
-      }
-    }
-    if (path.resolve(current) === rootPath) break;
-    current = path.dirname(current);
-  }
-
-  return { errors };
 }
 
 function parseReadArgs(args) {
@@ -814,30 +785,6 @@ function resolveSafeArtifactFile(targetRepoRoot, absoluteArtifactPath, relativeP
   };
 }
 
-function resolveTargetRepoRoot(targetRepo) {
-  if (typeof targetRepo !== 'string' || targetRepo.trim() === '') {
-    return { ok: false, errors: ['target repo is required'] };
-  }
-  const root = path.resolve(targetRepo);
-  try {
-    if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
-      return { ok: false, errors: ['target repo does not exist or is not a directory'] };
-    }
-    const topLevel = execFileSync('git', ['-C', root, 'rev-parse', '--show-toplevel'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-    const realRoot = fs.realpathSync(root);
-    const realTopLevel = fs.realpathSync(path.resolve(topLevel));
-    if (realRoot !== realTopLevel) {
-      return { ok: false, errors: ['target repo must be a Git repository root'] };
-    }
-  } catch (error) {
-    return { ok: false, errors: [`target repo must be a Git repository root: ${error.message}`] };
-  }
-  return { ok: true, root };
-}
-
 function resolveWorkflowRoot(targetRepoRoot) {
   const workflowRoot = path.join(targetRepoRoot, '.spec-first', 'workflows', WORKFLOW);
   const containment = validateOutputContainment(
@@ -1004,23 +951,60 @@ function validateValidation(validation, errors) {
   if (!['passed', 'failed', 'not-run', 'degraded'].includes(validation.status)) {
     errors.push('script_confirmed.validation.status is invalid');
   }
-  if (validation.status === 'not-run' && (!validation.reason_code || typeof validation.reason_code !== 'string')) {
-    errors.push('script_confirmed.validation.reason_code is required when validation is not-run');
+  if (!validation.reason_code || typeof validation.reason_code !== 'string') {
+    errors.push('script_confirmed.validation.reason_code is required');
   }
-  if (!Array.isArray(validation.commands)) {
-    errors.push('script_confirmed.validation.commands must be an array');
-    return;
+  validateRepoRelativeField(validation.run_summary_ref, 'script_confirmed.validation.run_summary_ref', errors, {
+    allowSpecFirstWorkflows: true,
+  });
+  if (typeof validation.run_summary_ref !== 'string' || !validation.run_summary_ref.endsWith('/verification-run-summary.json')) {
+    errors.push('script_confirmed.validation.run_summary_ref must point at verification-run-summary.json');
   }
-  for (const command of validation.commands) {
-    if (!command || typeof command !== 'object' || Array.isArray(command)) {
-      errors.push('script_confirmed.validation.commands entries must be objects');
-      continue;
-    }
-    validateObjectFields(command, 'script_confirmed.validation.commands[]', ALLOWED_VALIDATION_COMMAND_FIELDS, errors);
-    if (typeof command.command !== 'string' || command.command.trim() === '') errors.push('validation command must be a non-empty string');
-    if (!Number.isInteger(command.exit_code)) errors.push('validation exit_code must be an integer');
-    if (typeof command.summary !== 'string' || command.summary.length > 500) errors.push('validation summary must be a string <= 500 chars');
+}
+
+function validateRunSummaryReference({ payload, targetRepo, workspaceSlug, runId }) {
+  const validation = payload.script_confirmed && payload.script_confirmed.validation;
+  const runSummaryRef = validation && validation.run_summary_ref;
+  const expectedRef = path.join('.spec-first', 'workflows', WORKFLOW, workspaceSlug, runId, 'verification-run-summary.json');
+  if (runSummaryRef !== expectedRef) {
+    return {
+      reasonCode: 'validation-run-summary-ref-mismatch',
+      errors: [`script_confirmed.validation.run_summary_ref must be ${expectedRef}`],
+    };
   }
+
+  const read = readVerificationRunSummary({ targetRepo, runSummaryRef });
+  if (read.exitCode !== 0) {
+    return {
+      reasonCode: 'validation-run-summary-not-readable',
+      errors: [
+        `validation run summary is not readable: ${read.output.reason_code}`,
+        ...(read.output.errors || []),
+      ],
+    };
+  }
+
+  const aggregateStatus = aggregateRunSummaryStatus(read.output.summary);
+  if (aggregateStatus !== validation.status) {
+    return {
+      reasonCode: 'validation-run-summary-status-mismatch',
+      errors: [
+        `script_confirmed.validation.status ${validation.status} does not match run summary aggregate ${aggregateStatus}`,
+      ],
+    };
+  }
+
+  return { reasonCode: null, errors: [] };
+}
+
+function aggregateRunSummaryStatus(summary) {
+  const statuses = (summary && Array.isArray(summary.checks) ? summary.checks : [])
+    .map((check) => check.status);
+  if (statuses.includes('failed')) return 'failed';
+  if (statuses.includes('not-run')) return 'not-run';
+  if (statuses.includes('degraded')) return 'degraded';
+  if (statuses.length > 0 && statuses.every((status) => status === 'passed')) return 'passed';
+  return 'degraded';
 }
 
 function validateRawLogRef(rawLogRef, errors) {
@@ -1116,27 +1100,6 @@ function validateBoundedString(value, field, errors, options = {}) {
   }
   if (options.maxLength && value.length > options.maxLength) errors.push(`${field} must be <= ${options.maxLength} chars`);
   if (options.maxLines && value.split(/\r?\n/).length > options.maxLines) errors.push(`${field} must be <= ${options.maxLines} lines`);
-}
-
-function validateRepoRelativeField(value, field, errors, options = {}) {
-  if ((value === null || value === undefined || value === '') && options.nullable) return;
-  if (!isExactRepoRelativePath(value)) {
-    errors.push(`${field} must be a concrete repo-relative path`);
-    return;
-  }
-  const normalized = String(value).replace(/\\/g, '/');
-  if (normalized === '.git' || normalized.startsWith('.git/')) {
-    errors.push(`${field} must not point at Git internals`);
-  }
-  if (isSecretDeniedPath(normalized)) {
-    errors.push(`${field} must not point at secret-denied paths`);
-  }
-  if (GENERATED_RUNTIME_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
-    errors.push(`${field} must not point at generated runtime mirrors`);
-  }
-  if (normalized.startsWith('.spec-first/') && !(options.allowSpecFirstWorkflows && normalized.startsWith('.spec-first/workflows/'))) {
-    errors.push(`${field} uses unsupported .spec-first artifact path`);
-  }
 }
 
 function scanUnsafeStrings(value, errors, pointer = 'payload') {

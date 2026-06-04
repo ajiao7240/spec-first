@@ -216,6 +216,7 @@ grep -q -- '--claude' "$TMP_DIR/.claude/hooks/session-start"
 test -f "$TMP_DIR/.gitignore"
 grep -q '# spec-first:start' "$TMP_DIR/.gitignore"
 grep -q '.claude/commands/spec/' "$TMP_DIR/.gitignore"
+grep -q '.codex/' "$TMP_DIR/.gitignore"
 if grep -q ".spec-first/"standards"/" "$TMP_DIR/.gitignore"; then
   echo "init gitignore should not preserve retired standards artifact root" >&2
   exit 1

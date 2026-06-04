@@ -11,23 +11,15 @@ const {
 } = require('../../src/cli/plugin');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
-const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'SKILL.md');
-const ROUTING_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'intent-routing.md');
-const CURRENT_STATE_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'current-state-analysis.md');
-const CHANGE_TOPOLOGY_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'change-topology-lens.md');
-const DOMAIN_LANGUAGE_PATH = path.join(
-  REPO_ROOT,
-  'skills',
-  'spec-prd',
-  'references',
-  'domain-language-and-decision-ledger.md',
-);
-const OUTPUT_TEMPLATE_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'prd-output-template.md');
-const DOMAIN_LENSES_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'domain-lenses.md');
-const READINESS_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'references', 'prd-readiness-lens.md');
+const SKILL_DIR = path.join(REPO_ROOT, 'skills', 'spec-prd');
+const SKILL_PATH = path.join(SKILL_DIR, 'SKILL.md');
+const EVIDENCE_TOPOLOGY_PATH = path.join(SKILL_DIR, 'references', 'evidence-and-topology.md');
+const DOMAIN_LANGUAGE_PATH = path.join(SKILL_DIR, 'references', 'domain-language-and-decision-ledger.md');
+const OUTPUT_TEMPLATE_PATH = path.join(SKILL_DIR, 'references', 'prd-output-template.md');
+const READINESS_PATH = path.join(SKILL_DIR, 'references', 'prd-readiness-lens.md');
 const GLOSSARY_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'domain-glossary.md');
-const DRIFT_SCRIPT_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'scripts', 'check-glossary-drift.js');
-const EVALS_PATH = path.join(REPO_ROOT, 'skills', 'spec-prd', 'evals', 'examples.json');
+const DRIFT_SCRIPT_PATH = path.join(SKILL_DIR, 'scripts', 'check-glossary-drift.js');
+const EVALS_PATH = path.join(SKILL_DIR, 'evals', 'examples.json');
 const GOVERNANCE_PATH = path.join(
   REPO_ROOT,
   'src',
@@ -41,22 +33,19 @@ const USING_SPEC_FIRST_PATH = path.join(REPO_ROOT, 'skills', 'using-spec-first',
 const SPEC_PLAN_PATH = path.join(REPO_ROOT, 'skills', 'spec-plan', 'SKILL.md');
 const HUMAN_TEMPLATE_INDEX_PATH = path.join(REPO_ROOT, 'docs', '需求文档模版', '标准模版', 'README.md');
 const HUMAN_TEMPLATE_CORE_PATH = path.join(REPO_ROOT, 'docs', '需求文档模版', '标准模版', '00-通用增量需求模板.md');
-const RUNTIME_TEMPLATE_DIR = path.join(REPO_ROOT, 'skills', 'spec-prd', 'templates', 'standard');
-const RUNTIME_TEMPLATE_INDEX_PATH = path.join(RUNTIME_TEMPLATE_DIR, 'README.md');
-const RUNTIME_TEMPLATE_CORE_PATH = path.join(RUNTIME_TEMPLATE_DIR, '00-通用增量需求模板.md');
-const FRESH_SOURCE_EVAL_PATH = path.join(
-  REPO_ROOT,
-  'docs',
-  'validation',
-  'spec-prd',
-  'fresh-source-eval-2026-05-31.md',
-);
 const FRESH_SOURCE_EVAL_DOMAIN_GRILL_PATH = path.join(
   REPO_ROOT,
   'docs',
   'validation',
   'spec-prd',
   'fresh-source-eval-2026-06-03-domain-grill.md',
+);
+const FRESH_SOURCE_EVAL_SIMPLICITY_PATH = path.join(
+  REPO_ROOT,
+  'docs',
+  'validation',
+  'spec-prd',
+  'fresh-source-eval-2026-06-04-simplicity-refactor.md',
 );
 
 function read(filePath) {
@@ -73,8 +62,47 @@ function expectContainsAll(content, snippets) {
   }
 }
 
+function listCurrentFiles(dirPath) {
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const entryPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listCurrentFiles(entryPath));
+    } else if (entry.isFile()) {
+      files.push(path.relative(REPO_ROOT, entryPath).split(path.sep).join('/'));
+    }
+  }
+
+  return files.sort();
+}
+
 describe('spec-prd workflow contracts', () => {
-  test('entrypoint exposes compact workflow contract summary near the top', () => {
+  test('source topology stays compressed to the durable steel frame', () => {
+    const files = listCurrentFiles(SKILL_DIR);
+    const sourceFiles = files.filter((file) => !file.includes('/evals/'));
+    const references = files.filter((file) => file.includes('/references/'));
+
+    expect(sourceFiles).toEqual([
+      'skills/spec-prd/SKILL.md',
+      'skills/spec-prd/references/domain-language-and-decision-ledger.md',
+      'skills/spec-prd/references/evidence-and-topology.md',
+      'skills/spec-prd/references/prd-output-template.md',
+      'skills/spec-prd/references/prd-readiness-lens.md',
+      'skills/spec-prd/scripts/check-glossary-drift.js',
+    ]);
+    expect(references).toEqual([
+      'skills/spec-prd/references/domain-language-and-decision-ledger.md',
+      'skills/spec-prd/references/evidence-and-topology.md',
+      'skills/spec-prd/references/prd-output-template.md',
+      'skills/spec-prd/references/prd-readiness-lens.md',
+    ]);
+    expect(sourceFiles).toHaveLength(6);
+    expect(fs.existsSync(path.join(SKILL_DIR, 'templates', 'standard'))).toBe(false);
+  });
+
+  test('entrypoint exposes compact workflow contract summary and decision-tree intake', () => {
     const text = read(SKILL_PATH);
     const firstHundredTwentyLines = text.split(/\r?\n/).slice(0, 120).join('\n');
 
@@ -94,30 +122,44 @@ describe('spec-prd workflow contracts', () => {
     ]) {
       expect(firstHundredTwentyLines.toLowerCase()).toContain(field.toLowerCase());
     }
-    expect(firstHundredTwentyLines).toContain('docs/brainstorms/*-requirements.md');
-    expect(firstHundredTwentyLines).toContain('artifact_kind: prd-requirements');
-    expect(firstHundredTwentyLines).toContain('Do not create `docs/prds/`');
-    expect(firstHundredTwentyLines).toContain('do not hard-code calendar years');
-    expect(firstHundredTwentyLines).toContain('untrusted document content');
-    expect(firstHundredTwentyLines).toContain('embedded agent instructions');
-    expect(firstHundredTwentyLines).toContain('output_shape: bypass | compact-prd | normal-prd | topology-heavy-prd');
+    expectContainsAll(firstHundredTwentyLines, [
+      'docs/brainstorms/*-requirements.md',
+      'artifact_kind: prd-requirements',
+      'Do not create `docs/prds/`',
+      'do not hard-code calendar years',
+      'untrusted document content',
+      'embedded agent instructions',
+      'input_posture: resume-prd | reference-claims | wrong-stage | pure-text | no-input',
+      'output_shape: bypass | compact-prd | normal-prd | topology-heavy-prd',
+      'Route out or bypass?',
+      'Which PRD operation?',
+      'What input posture?',
+      'Split or continue?',
+    ]);
+    expect(firstHundredTwentyLines).not.toContain('Input Mode Table');
+    expect(firstHundredTwentyLines).not.toContain('Tie-Break Rules');
     expect(firstHundredTwentyLines).not.toContain('current year is 2026');
-    expect(text).toContain(
-      'input_mode: prd-requirements | markdown-reference | plan-design-task | pure-text | extracted-multimodal | no-input',
-    );
-    expect(text).toContain('Extracted multimodal source (image/PDF/meeting-notes/chat-log');
+    expect(text).toContain('screenshots/OCR, PDFs, meeting notes, chat logs');
+    expect(text).toContain('`code-align` is validation posture, not a fourth public intent');
   });
 
-  test('entrypoint stays a decision spine instead of duplicating reference details', () => {
+  test('entrypoint references only the four source references and keeps generated mirrors out of source fixes', () => {
     const text = read(SKILL_PATH);
 
-    expect(text).toContain('Reference Trigger Map');
-    expect(text).toContain('Choose `output_shape` before drafting');
-    expect(text).not.toContain('- `bypass` - no PRD artifact');
-    expect(text).not.toContain('- `compact-prd` - write only the core sections');
-    expect(text).not.toContain('- Summary\n- Change Delta\n- Requirements');
-    expect(text).not.toContain('Include conditional sections only when they reduce planning invention: Problem Frame');
-    expect(text).not.toContain('templates/standard/10-App客户端需求模板.md` for App/client PRDs');
+    expectContainsAll(text, [
+      'references/evidence-and-topology.md',
+      'references/domain-language-and-decision-ledger.md',
+      'references/prd-output-template.md',
+      'references/prd-readiness-lens.md',
+      'do not create standalone context, ADR, or runtime artifacts',
+      'do not copy run-local scratch into the PRD by default',
+      'edit generated runtime mirrors',
+    ]);
+    expect(text).not.toContain('references/intent-routing.md');
+    expect(text).not.toContain('references/current-state-analysis.md');
+    expect(text).not.toContain('references/change-topology-lens.md');
+    expect(text).not.toContain('references/domain-lenses.md');
+    expect(text).not.toContain('templates/standard/');
   });
 
   test('governance and manifest expose prd as dual-host workflow command', () => {
@@ -158,109 +200,26 @@ describe('spec-prd workflow contracts', () => {
     expect(codexAssets.commands.map((command) => command.name)).not.toContain('prd');
   });
 
-  test('intent routing keeps create refine validate internal and rejects topology drift', () => {
-    const routing = read(ROUTING_PATH);
+  test('evidence and topology reference preserves source truth and system-shape boundaries', () => {
+    const reference = read(EVIDENCE_TOPOLOGY_PATH);
 
-    expectContainsAll(routing, [
-      '`create`',
-      '`refine`',
-      '`validate`',
-      '`code-align` is not a fourth intent',
-      'artifact_kind: prd-requirements',
-      'preserve `spec_id`',
-      'continue numbering from the maximum existing ID',
-      'Other Markdown',
-      'Plan/design/task handoff',
-      'Lightweight Bypass',
-      'current host\'s plan workflow',
-      'current host\'s work workflow',
-      '0-1 product idea',
-      'App consistency audit workflow',
-      'Split-Decision Gate',
-      'Only after owner confirmation',
-    ]);
-    expect(routing).not.toContain('packet directories');
-    expect(routing).not.toContain('.code-flow/tasks');
-  });
-
-  test('current-state and domain-language references preserve evidence boundaries', () => {
-    const currentState = read(CURRENT_STATE_PATH);
-    const domainLanguage = read(DOMAIN_LANGUAGE_PATH);
-    const skill = read(SKILL_PATH);
-
-    expectContainsAll(currentState, [
+    expectContainsAll(reference, [
+      'Evidence Tags',
       '`confirmed-source`',
       '`user-stated`',
       '`source-candidate`',
       '`external-research`',
       '`assumption`',
-      'These PRD tags are authoring provenance labels, not a provider contract.',
+      'not a provider contract',
+      'local knowledge base, code index, prior-artifact summary, or any retrieval layer',
       'Candidate source hits can guide what to read next',
-      'external-tool output, generated mirrors, historical docs, and old plans remain pointers',
-      'Current System Snapshot',
+      'Current-state discovery constrains the PRD',
       '`keep`',
       '`extend`',
       '`replace`',
       '`remove`',
       '`unknown`',
-      'Framing-Aligned Evidence',
-      'each load-bearing claim should explain which WHAT boundary it supports',
-      'Surface And Contract Discovery',
-      'surface | current behavior | owner/source | artifact/contract | consumer | delta | evidence',
-      'producer | artifact/schema/path | freshness/authority | consumers | change effect | evidence',
-      'Source-Of-Truth Discovery',
-      'current_source_of_truth:',
-      'contradiction',
-      'A current-state claim without an evidence tag cannot be treated as `confirmed-source`',
-      'three sources',
-      'project domain glossary',
-      'local knowledge base, code index, prior-artifact summary, or any retrieval layer',
-    ]);
-    expectContainsAll(domainLanguage, [
-      'Source-First Questioning',
-      'repo-local glossary or ADR-like artifacts that actually exist',
-      'Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.',
-      'canonical term',
-      'Bounded Scenario Grill',
-      'Use 1-3 concrete scenarios',
-      'not a coaching script',
-      'Trigger only when one of these is true:',
-      'Do not trigger when:',
-      'Ask at most one question at a time.',
-      'write_target: Glossary | Decision Notes | Evidence And Assumptions | Outstanding Questions',
-      'This format is for asking the owner, not a third persistent field set.',
-      'compress it into that section\'s existing fields and do not add new fields',
-      'Do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` by default.',
-      'run-local Domain Grill Gate',
-      'hard to reverse',
-      'surprising without context',
-      'reflects a real tradeoff',
-      'Only capture domain-specific terms.',
-      'Define what a term IS, not what it DOES.',
-      'Cross-PRD Glossary Promotion',
-      'docs/contracts/domain-glossary.md',
-      'two or more PRDs',
-      'preview-first',
-    ]);
-    expectContainsAll(skill, [
-      'Bounded Scenario Grill / Domain Grill Gate',
-      'run-local only',
-      'persist results into existing PRD sections',
-      'do not create standalone context, ADR, or runtime artifacts',
-    ]);
-    expect(domainLanguage).not.toContain('default create `CONTEXT.md`');
-    expect(domainLanguage).not.toContain('always create ADR');
-  });
-
-  test('change topology lens protects system-shape classification and boundary reasoning', () => {
-    const skill = read(SKILL_PATH);
-    const lens = read(CHANGE_TOPOLOGY_PATH);
-
-    expect(skill).toContain('references/change-topology-lens.md');
-    expect(skill).toContain('run the internal Framing Gate');
-    expect(skill).toContain('classify the topology before drafting');
-    expect(skill).toContain('promote only planning-relevant boundaries into the PRD');
-    expectContainsAll(lens, [
+      'Topology Framing Gate',
       'Framing Gate',
       'Evidence Plan',
       'Owner Question Ladder',
@@ -273,16 +232,9 @@ describe('spec-prd workflow contracts', () => {
       'owner_question_needed:',
       'evidence_plan:',
       'claim_or_question | surface | source_to_read_or_command | required_evidence_tag | why_load_bearing | fallback_if_unconfirmed',
-      'Evidence planning is mandatory for workflow, contract, setup/runtime, migration, replace, remove, and mixed-surface PRDs',
-      'not to force a new final PRD section',
+      'Evidence planning is mandatory for workflow, contract, setup/runtime, migration, replace, remove, source-of-truth, generated/runtime, and mixed-surface PRDs',
       '`add`',
-      '`extend`',
-      '`replace`',
-      '`remove`',
-      '`migrate`',
-      '`split`',
       '`merge`',
-      '`policy-change`',
       '`workflow-change`',
       '`contract-change`',
       'Surface Map',
@@ -291,17 +243,55 @@ describe('spec-prd workflow contracts', () => {
       'Negative Space',
       'Ask only questions that decide scope, behavior, source-of-truth, or acceptance',
       'If more than three owner questions seem necessary',
-      'not a request to add implementation units',
+      'A current-state claim without an evidence tag cannot be treated as `confirmed-source`',
     ]);
+    expect(reference).not.toContain('implementation units');
   });
 
-  test('output template carries generic skeleton, trace rules, closeout, and split topology', () => {
+  test('domain-language reference keeps bounded grill and glossary promotion lightweight', () => {
+    const domainLanguage = read(DOMAIN_LANGUAGE_PATH);
+    const skill = read(SKILL_PATH);
+
+    expectContainsAll(domainLanguage, [
+      'Source-First Questioning',
+      'repo-local glossary or ADR-like artifacts that actually exist',
+      'Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.',
+      'canonical term',
+      'Only capture domain-specific terms.',
+      'Define what a term IS, not what it DOES.',
+      'Cross-PRD Glossary Promotion',
+      'docs/contracts/domain-glossary.md',
+      'two or more PRDs',
+      'preview-first',
+      'Bounded Scenario Grill',
+      'Use 1-3 concrete scenarios',
+      'not a coaching script',
+      'Ask at most one question at a time.',
+      'write_target: Glossary | Decision Notes | Evidence And Assumptions | Outstanding Questions',
+      'This format is for asking the owner, not a third persistent field set.',
+      'compress it into that section\'s existing fields and do not add new fields',
+      'Do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` by default.',
+      'hard to reverse',
+      'surprising without context',
+      'reflects a real tradeoff',
+    ]);
+    expectContainsAll(skill, [
+      'Bounded Scenario Grill / Domain Grill Gate',
+      'run-local only',
+      'persist results into existing PRD sections',
+    ]);
+    expect(domainLanguage).not.toContain('default create `CONTEXT.md`');
+    expect(domainLanguage).not.toContain('always create ADR');
+  });
+
+  test('output template owns section skeleton, surface lenses, overlays, and split topology', () => {
     const template = read(OUTPUT_TEMPLATE_PATH);
 
     expectContainsAll(template, [
       'artifact_kind: prd-requirements',
       'docs/brainstorms/YYYY-MM-DD-NNN-<slug>-requirements.md',
       'Do not create `docs/prds/`',
+      'Do not create a second packaged template tree',
       '## Output Shape',
       '`bypass`',
       '`compact-prd`',
@@ -314,18 +304,31 @@ describe('spec-prd workflow contracts', () => {
       '## Acceptance Examples',
       '## Scope Boundaries',
       '## Evidence And Assumptions',
-      '## Change Topology',
-      '## Surface Map',
-      '## Source-Of-Truth Resolution',
-      '## Negative Acceptance',
+      '## Surface Lenses',
+      'App',
+      'H5/PC',
+      'Admin',
+      'Backend/Java',
+      'CLI/DevTool',
+      'Mixed',
+      'These are surface lenses, not role taxonomies.',
+      'Project-Local Overlays',
+      'Missing local overlay docs are a graceful absence',
+      'Do not treat template industry facts as confirmed project rules',
+      'Industry Overlay Triggers',
+      'only raises questions and triggers conditional sections',
+      'Embedded Standard Skeleton',
+      'AE-01（对应 R-01）',
+      'AE-02（对应 R-01，异常）',
       'Success Metrics are conditional',
       'do not invent target values',
       'Framing Gate',
       'Evidence Plan',
+      'evidence-and-topology.md',
       'do not print the run-local Framing Gate by default',
-      'vague original -> improved concrete wording -> reason',
       '"等", "相关", "合适的", "更好", and "优化体验"',
       'implementation units, schemas, exact API fields, database tables, and task breakdown are not',
+      'Producer / Artifact / Consumer',
       'New IDs continue from the maximum current number',
       'Project-local IDs such as `US-*`, `FEAT-*`, or `NFR-*`',
       'uncovered requirements',
@@ -337,35 +340,13 @@ describe('spec-prd workflow contracts', () => {
       'source_prd:',
       'split_summary:',
     ]);
+    expect(template).not.toContain('templates/standard/');
+    expect(template).not.toContain('C1 监管');
+    expect(template).not.toContain('securities-pm');
+    expect(template).not.toContain('credit-pm');
   });
 
-  test('domain lenses derive generic surface mechanism without hard-coding industry overlay facts', () => {
-    const lenses = read(DOMAIN_LENSES_PATH);
-
-    expectContainsAll(lenses, [
-      'standard PRD templates are bundled with the workflow',
-      'Missing local overlay docs are a graceful absence',
-      'App',
-      'H5/PC',
-      'Admin',
-      'Backend/Java',
-      'CLI/DevTool',
-      'Mixed',
-      'templates/standard/',
-      'docs/需求文档模版/标准模版/',
-      'project-local overlay',
-      'Do not treat template industry facts as confirmed project rules',
-      'Industry Overlay Triggers',
-      'only **raises questions and triggers conditional sections**',
-      'not a separate role taxonomy',
-    ]);
-    expect(lenses).not.toContain('C1 监管');
-    expect(lenses).not.toContain('C12 客诉');
-    expect(lenses).not.toContain('securities-pm');
-    expect(lenses).not.toContain('credit-pm');
-  });
-
-  test('readiness lens references brainstorm gate dimensions and adds PRD-specific checks', () => {
+  test('readiness lens uses compound packs instead of long enumerated gate drift', () => {
     const readiness = read(READINESS_PATH);
 
     expectContainsAll(readiness, [
@@ -377,30 +358,25 @@ describe('spec-prd workflow contracts', () => {
       'Boundary integrity',
       'Planning-invention & Handoff readiness',
       'Run checks by pack',
-      'Always Gate',
+      'Core Pack',
       'Topology Pack',
       'Domain And Decision Pack',
       'Metrics And Overlay Pack',
-      '`current-state accuracy`',
-      '`change delta clarity`',
-      '`exception coverage`',
-      '`interaction readiness`',
-      '`evidence provenance`',
-      '`planning invention risk`',
-      '`terminology ambiguity`',
-      '`code-claim contradiction`',
-      '`hard-decision unresolved`',
-      '`vague-wording`',
-      '`priority-completeness`',
-      '`change-topology fit`',
-      '`surface-map completeness`',
-      '`producer-consumer closure`',
-      '`source-of-truth clarity`',
-      '`negative-acceptance coverage`',
+      '`current-state provenance`',
+      '`change delta and boundary clarity`',
+      '`planning-invention and trace risk`',
+      '`wording and testability`',
+      '`interaction and exception readiness`',
+      '`topology and surface fit`',
+      '`producer-consumer and source-of-truth closure`',
+      '`negative-space coverage`',
       '`framing-evidence alignment`',
+      '`terminology and contradiction handling`',
       '`owner-question minimality`',
-      '`domain-grill coverage`',
-      '`decision-note adequacy`',
+      '`domain-grill and decision-note adequacy`',
+      '`no context-artifact inflation`',
+      '`goal-measurability`',
+      '`project-local overlay check`',
       '`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`',
       'must not require `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/`',
       'handoff entropy check',
@@ -411,6 +387,34 @@ describe('spec-prd workflow contracts', () => {
       'check-glossary-drift.js',
       'avoid_term_used',
     ]);
+    expect(readiness).not.toContain('Always Gate');
+    expect(readiness).not.toContain('`current-state accuracy`');
+  });
+
+  test('human template mirror points to the embedded runtime skeleton instead of a second template tree', () => {
+    const templateIndex = read(HUMAN_TEMPLATE_INDEX_PATH);
+    const humanCore = read(HUMAN_TEMPLATE_CORE_PATH);
+    const runtimeTemplate = read(OUTPUT_TEMPLATE_PATH);
+
+    expect(templateIndex).toContain('human-facing 标准模板库');
+    expect(templateIndex).toContain('skills/spec-prd/references/prd-output-template.md');
+    expect(templateIndex).toContain('embedded runtime skeleton');
+    expect(templateIndex).toContain('不作为 packaged runtime 的必需读取路径');
+    expect(templateIndex).not.toContain('skills/spec-prd/templates/standard/');
+    for (const section of [
+      'Summary',
+      'Change Delta',
+      'Requirements',
+      'Acceptance Examples',
+      'Scope Boundaries',
+      'Evidence And Assumptions',
+    ]) {
+      expect(humanCore).toContain(section);
+      expect(runtimeTemplate).toContain(section);
+    }
+    for (const surface of ['App', 'Admin', 'Backend', 'H5/PC', 'CLI/DevTool', 'Mixed']) {
+      expect(runtimeTemplate).toContain(surface);
+    }
   });
 
   test('routing and downstream plan intake know prd-requirements boundaries', () => {
@@ -440,56 +444,6 @@ describe('spec-prd workflow contracts', () => {
       'child_id',
       'parent_spec_id',
     ]);
-  });
-
-  test('packaged templates and human mirror expose intended drift boundary', () => {
-    const templateIndex = read(HUMAN_TEMPLATE_INDEX_PATH);
-    const humanCore = read(HUMAN_TEMPLATE_CORE_PATH);
-    const runtimeTemplateIndex = read(RUNTIME_TEMPLATE_INDEX_PATH);
-    const runtimeCore = read(RUNTIME_TEMPLATE_CORE_PATH);
-    const runtimeTemplate = read(OUTPUT_TEMPLATE_PATH);
-    const runtimeLenses = read(DOMAIN_LENSES_PATH);
-    const runtimeFiles = fs.readdirSync(RUNTIME_TEMPLATE_DIR).sort();
-
-    expect(templateIndex).toContain('human-facing 标准模板库');
-    expect(templateIndex).toContain('skills/spec-prd/templates/standard/');
-    expect(templateIndex).toContain('packaged runtime template set');
-    expect(templateIndex).toContain('不作为 packaged runtime 的必需读取路径');
-    expect(runtimeTemplateIndex).toContain('随 `spec-prd` workflow assets 打包分发');
-    expect(runtimeTemplateIndex).toContain('打包后的运行时必须只依赖本目录即可加载模板');
-    expect(runtimeFiles).toEqual([
-      '00-通用增量需求模板.md',
-      '10-App客户端需求模板.md',
-      '20-Admin中后台需求模板.md',
-      '30-Backend中台服务需求模板.md',
-      'README.md',
-    ]);
-    expect(runtimeCore).not.toContain('industry: securities');
-    expect(runtimeCore).not.toContain('C1 监管');
-    expect(runtimeCore).toContain('AE-01（对应 R-01）');
-    expect(runtimeCore).toContain('AE-02（对应 R-02，异常）');
-    expect(runtimeCore).not.toContain('AC-01');
-    expect(runtimeCore).not.toContain('AC-02');
-    expect(read(path.join(RUNTIME_TEMPLATE_DIR, '10-App客户端需求模板.md'))).not.toContain('industry: securities');
-    expect(read(path.join(RUNTIME_TEMPLATE_DIR, '20-Admin中后台需求模板.md'))).not.toContain('industry: securities');
-    expect(read(path.join(RUNTIME_TEMPLATE_DIR, '30-Backend中台服务需求模板.md'))).not.toContain('industry: securities');
-    for (const section of [
-      'Summary',
-      'Change Delta',
-      'Requirements',
-      'Acceptance Examples',
-      'Scope Boundaries',
-      'Evidence And Assumptions',
-    ]) {
-      expect(humanCore).toContain(section);
-      expect(runtimeCore).toContain(section);
-      expect(runtimeTemplate).toContain(section);
-    }
-    expect(runtimeCore).toContain('run-local Framing Gate 和 Evidence Plan');
-    expect(runtimeCore).toContain('plan 发明 WHAT');
-    for (const surface of ['App', 'Admin', 'Backend', 'H5/PC', 'CLI/DevTool', 'Mixed']) {
-      expect(runtimeLenses).toContain(surface);
-    }
   });
 
   test('eval fixtures cover routing, evidence, readiness, and helper boundary cases', () => {
@@ -554,24 +508,7 @@ describe('spec-prd workflow contracts', () => {
     expect(serialized).not.toContain('executed eval runner');
   });
 
-  test('fresh-source eval artifact records the source-only evaluation status', () => {
-    const artifact = read(FRESH_SOURCE_EVAL_PATH);
-
-    expectContainsAll(artifact, [
-      'fresh_source_eval:',
-      'status: not_run',
-      'skills/spec-prd/SKILL.md',
-      'skills/spec-prd/references/change-topology-lens.md',
-      'skills/spec-prd/references/prd-output-template.md',
-      'skills/spec-prd/templates/standard/00-通用增量需求模板.md',
-      'templates/claude/commands/spec/prd.md',
-      'runtime_paths_checked: []',
-      'not_run_reason:',
-    ]);
-    expect(artifact).not.toContain('status: passed');
-  });
-
-  test('domain-grill fresh-source eval artifact records an executed dispatched eval for this change', () => {
+  test('domain-grill fresh-source eval artifact records an executed dispatched eval for cached-skill risk', () => {
     const artifact = read(FRESH_SOURCE_EVAL_DOMAIN_GRILL_PATH);
 
     expectContainsAll(artifact, [
@@ -586,6 +523,24 @@ describe('spec-prd workflow contracts', () => {
       'Run Provenance',
     ]);
     expect(artifact).not.toContain('status: not_run');
+  });
+
+  test('simplicity refactor eval artifact records not-run dispatch boundary without claiming pass', () => {
+    const artifact = read(FRESH_SOURCE_EVAL_SIMPLICITY_PATH);
+
+    expectContainsAll(artifact, [
+      'fresh_source_eval:',
+      'status: not_run',
+      'skills/spec-prd/SKILL.md',
+      'skills/spec-prd/references/evidence-and-topology.md',
+      'skills/spec-prd/references/prd-output-template.md',
+      'skills/spec-prd/references/prd-readiness-lens.md',
+      'runtime_paths_checked: []',
+      'The current Codex host exposes a multi-agent dispatch tool',
+      'does not claim semantic eval passed',
+      'generated runtime mirrors',
+    ]);
+    expect(artifact).not.toContain('status: passed');
   });
 
   test('project domain glossary artifact defines the cross-PRD canonical layer with light contract', () => {
@@ -603,10 +558,8 @@ describe('spec-prd workflow contracts', () => {
       'docs/contracts/',
       '`avoid` 是 `spec-prd` v1 术语 drift 检测的唯一输入字段',
     ]);
-    // 不引入第二套证据 enum,复用既有等级
     expect(glossary).toContain('source_tag');
     expect(glossary).toContain('confirmed | advisory');
-    // 明确否定独立 CONTEXT.md / ADR 文件树拓扑
     expect(glossary).toMatch(/不是.*独立的.*CONTEXT\.md/);
     expect(glossary).not.toContain('sequential numbering');
     expect(glossary).not.toContain('`aliases` / `avoid`');
@@ -618,7 +571,6 @@ describe('spec-prd workflow contracts', () => {
       const prdPath = path.join(tmpDir, 'prd.md');
       fs.writeFileSync(prdPath, 'The system sends a bill to the customer.\n', 'utf8');
 
-      // absent glossary -> graceful degrade, no findings, exit 0
       const absent = JSON.parse(
         execFileSync('node', [DRIFT_SCRIPT_PATH, prdPath, '--glossary', path.join(tmpDir, 'nope.md')], {
           encoding: 'utf8',
@@ -627,7 +579,6 @@ describe('spec-prd workflow contracts', () => {
       expect(absent.glossary_status).toBe('absent');
       expect(absent.findings).toEqual([]);
 
-      // glossary with a real canonical entry whose avoid term appears in the PRD
       const glossaryPath = path.join(tmpDir, 'g.md');
       fs.writeFileSync(
         glossaryPath,
@@ -645,7 +596,6 @@ describe('spec-prd workflow contracts', () => {
         canonical_name: 'Invoice',
       });
 
-      // non-contract aliases field is not a drift input; v1 consumes avoid only
       const aliasOnlyGlossaryPath = path.join(tmpDir, 'aliases-only.md');
       fs.writeFileSync(
         aliasOnlyGlossaryPath,
@@ -659,7 +609,6 @@ describe('spec-prd workflow contracts', () => {
       );
       expect(aliasesOnly.findings).toEqual([]);
 
-      // fenced code-block examples must not be parsed as real entries
       const exampleOnly = path.join(tmpDir, 'example.md');
       fs.writeFileSync(
         exampleOnly,
@@ -672,17 +621,14 @@ describe('spec-prd workflow contracts', () => {
       expect(empty.glossary_status).toBe('empty');
       expect(empty.findings).toEqual([]);
 
-      // regression: an avoid term on multiple lines must report every line
-      // (guards against stateful-regex lastIndex carry-over)
       const multiPrd = path.join(tmpDir, 'multi.md');
       fs.writeFileSync(multiPrd, 'a bill here\nanother bill\nthird bill line\n', 'utf8');
       const multi = JSON.parse(
         execFileSync('node', [DRIFT_SCRIPT_PATH, multiPrd, '--glossary', glossaryPath], { encoding: 'utf8' }),
       );
       expect(multi.findings).toHaveLength(3);
-      expect(multi.findings.map((f) => f.line)).toEqual([1, 2, 3]);
+      expect(multi.findings.map((finding) => finding.line)).toEqual([1, 2, 3]);
 
-      // regression: ASCII terms ending in non-word chars (C++, .NET) must match
       const symPrd = path.join(tmpDir, 'sym.md');
       fs.writeFileSync(symPrd, 'we use C++ here\n', 'utf8');
       const symGloss = path.join(tmpDir, 'symg.md');
@@ -693,7 +639,6 @@ describe('spec-prd workflow contracts', () => {
       expect(sym.findings).toHaveLength(1);
       expect(sym.findings[0].term_used).toBe('C++');
 
-      // ASCII whole-word: 'bill' must not match 'billing'/'billed'
       const wordPrd = path.join(tmpDir, 'word.md');
       fs.writeFileSync(wordPrd, 'the billing system was billed\n', 'utf8');
       const word = JSON.parse(

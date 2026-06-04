@@ -26,16 +26,11 @@
 .claude/hooks/session-start
 .claude/tasks/
 .claude/worktrees/
-.codex/commands/spec/
-.codex/spec-first/
-.codex/agents/
+.codex/
 .agents/skills/
 .context/spec-first/
 
 # spec-first local setup and workflow runtime artifacts
-.direct-source-evidence/
-.code-review-graph/
-.spec-first-graph/
 .spec-first/*.local.yaml
 .spec-first/config.local.yaml
 .spec-first/config/*.json
@@ -79,12 +74,10 @@
     commands/spec/                  # legacy cleanup/runtime path，忽略
     spec-first/                     # runtime state/profile，忽略
     agents/                         # generated runtime，忽略
+    hooks.json hooks/               # Codex host/runtime hook config，忽略
 
   .agents/
     skills/                         # Codex skill runtime mirror，忽略
-
-  .direct-source-evidence/                         # direct source evidence 本地图谱索引/metadata，忽略
-  .code-review-graph/                # 迁移前 CRG 本地索引/cache 残留，迁移窗口内忽略
 
   .spec-first/
     config.local.example.yaml       # 本地配置模板，可提交
@@ -111,6 +104,12 @@
 
 `AGENTS.md` 和 `CLAUDE.md` 是 checked-in host entry docs，不等同于 `.agents/skills/`、`.codex/agents/` 或 `.claude/skills/` 里的 runtime mirror。
 
+## 按团队策略决定的内容
+
+| 路径 | 建议 |
+| --- | --- |
+| `.claude/settings.json` | Claude Code 项目配置；`init --claude` 会写入 spec-first 受管 SessionStart matcher。团队希望共享 Claude hooks、permissions 或 MCP 配置时可提交；仅个人使用的配置应放到 `.claude/settings.local.json` 并在 managed block 外自行忽略。 |
+
 ## 默认不提交的内容
 
 默认不提交：
@@ -119,13 +118,14 @@
 | --- | --- |
 | `.claude/commands/spec/`、`.claude/skills/`、`.claude/spec-first/`、`.claude/agents/` | `spec-first init` 可重建的 runtime assets |
 | `.claude/tasks/`、`.claude/worktrees/` | Claude Code host-local scratch/worktree 产物 |
-| `.codex/commands/spec/`、`.codex/spec-first/`、`.codex/agents/`、`.agents/skills/` | `spec-first init` 可重建的 runtime assets |
+| `.codex/`、`.agents/skills/` | Codex host/runtime assets 与 `spec-first init` 可重建的 runtime mirror |
 | `.spec-first/config.local.yaml`、`.spec-first/*.local.yaml` | 本地配置，可能包含个人路径或私有设置 |
-| `.direct-source-evidence/`、`.code-review-graph/` | direct source evidence 本地图谱索引，以及迁移前 CRG 残留 cache；`.code-review-graph/` 仅迁移窗口内保留 |
 | `.spec-first/config/*.json` | `spec-mcp-setup` 生成的 setup-owned 本地投影，不是第二个版本源 |
 | `.spec-first/workspace/` | 父级多仓 advisory summaries，不是 child repo canonical truth |
 | `.spec-first/audits/`、`.spec-first/app-audit/`、`.spec-first/workflows/` | workflow execution evidence，默认本地留存 |
 | `.spec-first/sessions/` | multi-actor 治理协议的 opt-in advisory 记录目录，由 `spec-first session register` 写入；不启用时为空 |
+
+旧版本可能留下 `.direct-source-evidence/`、`.code-review-graph/`、`.spec-first-graph/`、`.spec-first/graph/`、`.spec-first/providers/`、`.spec-first/impact/` 或 `.gitnexus/` 等 retired provider / graph 残留。它们不属于当前 `init` managed block；如果这些路径出现在 `git status` 中，先按 setup/update/clean 指引确认是否为历史残留，不要为了隐藏噪声把 retired provider 路径重新加入当前默认规则。
 
 `*.tgz` 是本地打包产物，可重新执行 `npm pack` 生成，但它不是 spec-first 专属产物，因此不进入 init 默认 managed block。团队如果希望统一忽略 npm pack 产物，可以在 block 外自行加入：
 
@@ -143,15 +143,14 @@
 
 ```gitignore
 .claude/
-.codex/
 .agents/
 .spec-first/
 ```
 
 原因：
 
-- 整个 `.claude/` 或 `.codex/` 可能会隐藏团队有意提交的项目设置、hook 或非 spec-first 配置。
+- 整个 `.claude/` 可能会隐藏团队有意提交的项目设置、hook 或非 spec-first 配置；`.codex/` 是当前默认例外，Codex host/runtime config 与 spec-first Codex runtime mirror 都按本地可重建资产处理。
 - 整个 `.agents/` 可能会隐藏团队自定义 plugins 或 marketplace 配置。
 - 整个 `.spec-first/` 会隐藏 `.spec-first/config.local.example.yaml`、`.spec-first/specs/repo-profile.yaml` 和团队选择提交的 confirmed standards source。
 
-默认推荐是忽略 spec-first 可重建 runtime 和本地 facts，同时保留明确 source 路径的提交决策空间。
+默认推荐是忽略 spec-first 可重建 runtime、Codex host runtime root 和本地 facts，同时保留明确 source 路径的提交决策空间。

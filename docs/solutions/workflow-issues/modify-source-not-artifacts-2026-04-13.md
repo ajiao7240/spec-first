@@ -1,15 +1,15 @@
 ---
 title: "修改生成产物而非源头模板"
 date: "2026-04-13"
-last_updated: "2026-04-15"
+last_updated: "2026-06-04"
 category: "workflow-issues"
 module: "spec-first"
 problem_type: "workflow_issue"
 component: "documentation"
 severity: "high"
 applies_when:
-  - "发现 docs/contexts/ 或 .spec-first/workflows/ 里的生成产物与预期不一致"
-  - "发现 .agents/skills/、.claude/skills/、.codex/commands/ 等运行时副本与源码不一致"
+  - "发现历史 docs/contexts/、当前 .spec-first/workflows/ 或其他 workflow artifact 与预期不一致"
+  - "发现 .agents/skills/、.claude/skills/、.claude/commands/、.codex/agents/ 等运行时副本与源码不一致"
   - "slash command 或 $skill 运行时读到旧内容，怀疑源码没有改完"
   - "需要修复 spec-first 工作流的生成逻辑或模板输出"
 tags: ["injection-index", "spec-graph-bootstrap", "source-of-truth", "artifact", "generated-file", "phase-4", "spec-code-review", "runtime-artifact", "codex-runtime"]
@@ -19,10 +19,12 @@ tags: ["injection-index", "spec-graph-bootstrap", "source-of-truth", "artifact",
 
 ## Context
 
-在修复 `injection-index.yaml` 中 `advice.work` 的语义错误时，很容易直接打开
+历史案例：在修复 `injection-index.yaml` 中 `advice.work` 的语义错误时，很容易直接打开
 `docs/contexts/spec-first/injection-index.yaml` 这样的产物文件动手改，但它其实由
-`spec-graph-bootstrap` 运行时生成，真正的 source-of-truth 在
+当时的 `spec-graph-bootstrap` 运行时生成，真正的 source-of-truth 在
 `skills/spec-graph-bootstrap/SKILL.md` 的 Phase 4 模板里。
+
+2026-06-04 刷新时，`skills/spec-graph-bootstrap/` 与 `docs/contexts/` 已不是当前仓库的有效执行面。这个案例只保留为历史问题形态；当前 source/runtime 边界以 `docs/contracts/source-runtime-customization-boundary.md`、`docs/contracts/context-governance.md`、`docs/catalog/runtime-capabilities.md` 和 `src/cli/plugin.js` 为准。
 
 2026-04-15 的 `spec-code-review` 同步审查里，同样出现了另一种高频误判：
 
@@ -33,13 +35,13 @@ tags: ["injection-index", "spec-graph-bootstrap", "source-of-truth", "artifact",
 但从源码看，这类结论必须拆成两个独立判断：
 
 1. `skills/`、`agents/`、`templates/` 里的 source-of-truth 是否已经正确修改
-2. `.agents/skills/`、`.claude/skills/`、`.codex/commands/` 等运行时副本是否已经按同步链路刷新
+2. `.agents/skills/`、`.claude/skills/`、`.claude/commands/`、`.codex/agents/` 等运行时副本是否已经按同步链路刷新
 
 这两个问题不能混为一谈。runtime artifact 旧，只能先说明“产物未刷新或未重新安装”，不能直接推导为“源码缺陷”。
 
 ## Guidance
 
-遇到 `docs/contexts/`、`.spec-first/workflows/`、`.claude/`、`.codex/` 等运行时或生成产物出错时，先反向追踪生成链，优先修改源头模板，而不是直接修补产物。
+遇到 `.spec-first/workflows/`、`.claude/`、`.codex/`、`.agents/skills/` 等运行时、workflow artifact 或 generated mirror 出错时，先反向追踪生成链，优先修改源头模板、source workflow 或 CLI writer，而不是直接修补产物。
 
 对 spec-first 仓库，判断顺序应固定为：
 
@@ -65,51 +67,44 @@ spec-first init
 
 ```bash
 # 错误：修改产物
-vi docs/contexts/spec-first/injection-index.yaml
+vi .agents/skills/spec-code-review/SKILL.md
 
 # 正确：修改生成源头
-vi skills/spec-graph-bootstrap/SKILL.md  # 找到 Phase 4 yaml 模板
+vi skills/spec-code-review/SKILL.md
+spec-first init
 ```
 
-**Before（SKILL.md Phase 4 模板中）**：
-```yaml
-advice:
-  work: "优先 context-packs 和 test-map，而非 architecture"
-```
-
-**After**：
-```yaml
-advice:
-  work: "优先 code-facts 和 test-map，而非 architecture"
-```
-
-修改源头后，如需立即生效，有两个路径：
-1. 重新运行 `/spec:graph-bootstrap` 自动刷新产物
-2. 同步手动更新产物文件（仅作临时对齐，源头已修复）
-
-对 skills / commands / agents 这类安装型产物，不推荐手改 runtime 副本；应优先重新执行安装或同步链路，让运行时目录重新从源码生成。
+对 skills / commands / agents 这类安装型产物，不推荐手改 runtime 副本；应优先重新执行安装或同步链路，让运行时目录重新从源码生成。对 `.spec-first/workflows/**` 这类 workflow artifact，先确认它是 evidence artifact 还是某个 source-owned writer 的输出；artifact 本身不覆盖 `skills/`、`agents/`、`templates/`、`src/cli/` 或 `docs/contracts/**` 的行为契约。
 
 ## Why This Matters
 
-spec-first 项目遵循**单向生成链**设计：
+spec-first 项目遵循**单向生成链**设计。当前 runtime mirror 链路是：
 
 ```
-skills/spec-graph-bootstrap/SKILL.md   ← 源头（唯一真实来源）
-         ↓ Phase 4：LLM 执行生成逻辑
-docs/contexts/<slug>/injection-index.yaml  ← 产物（可重新生成）
+skills/、agents/、templates/、src/cli/contracts/**  ← source-of-truth
+         ↓ spec-first init / src/cli/plugin.js / host adapter
+.claude/、.codex/、.agents/skills/  ← generated runtime mirrors
 ```
 
-产物文件是运行时的临时输出，应被视为“可重新生成的缓存”而非可手工维护的配置文件。修改源头确保：持久性、可重现性、可追溯性。
+workflow artifact 链路是：
+
+```
+source workflow / CLI writer / docs contract  ← behavior source
+         ↓ workflow run
+docs/plans/、docs/validation/、docs/solutions/、.spec-first/workflows/**  ← durable evidence artifacts
+```
+
+产物文件应被视为可追溯证据或可重新生成的运行时镜像，而非可手工维护的行为配置。修改源头确保：持久性、可重现性、可追溯性。
 
 对 Codex / Claude runtime 安装链也是同一个原则：
 
 ```
 skills/spec-code-review/SKILL.md            ← 源头
-agents/review/*.md                     ← 源头
+agents/*.agent.md                       ← 源头
 templates/...                          ← 源头
          ↓ spec-first init / syncBundledAssets
 .agents/skills/spec-code-review/SKILL.md    ← Codex runtime 副本
-.codex/agents/review/*.md              ← Codex runtime 副本
+.codex/agents/*.agent.md               ← Codex runtime 副本
 .claude/skills/...                     ← Claude runtime 副本
 ```
 
@@ -124,7 +119,7 @@ templates/...                          ← 源头
 
 - 发现某个生成文件的内容错误，但不确定该改哪里时
 - 处理 workflow / template / command / runtime asset 一致性问题时
-- 看到改动目标位于 `docs/contexts/`、`.spec-first/`、`.claude/`、`.codex/` 这类明显产物目录时
+- 看到改动目标位于 `.spec-first/`、`.claude/`、`.codex/`、`.agents/skills/` 这类明显产物目录时
 - slash command / `$skill` 实际运行时读到了 `.agents/skills/...` 或 `.claude/skills/...` 的旧内容时
 - 代码审查中发现 runtime 副本与源目录不一致，需要区分“源码缺陷”与“未重新同步”时
 
@@ -134,9 +129,10 @@ templates/...                          ← 源头
 
 | 产物位置 | 源头位置 | 触发方式 |
 |---------|---------|---------|
-| `docs/contexts/<slug>/` 所有文件 | `skills/spec-graph-bootstrap/SKILL.md` Phase 4 | `/spec:graph-bootstrap` |
-| `.spec-first/workflows/bootstrap/<slug>/` JSON 文件 | `skills/spec-graph-bootstrap/SKILL.md` 各 Phase | `/spec:graph-bootstrap` |
-| `.claude/skills/`、`.agents/skills/` | `skills/` 目录各 SKILL.md | `spec-first init` |
+| `.claude/commands/spec/*.md` | `templates/claude/commands/spec/*.md` + `skills/spec-xxx/SKILL.md` + `skills-governance.json` | `spec-first init --claude` |
+| `.agents/skills/spec-xxx/SKILL.md` | `skills/spec-xxx/SKILL.md` + `skills-governance.json` | `spec-first init --codex` |
+| `.claude/agents/*.agent.md`、`.codex/agents/*.agent.md` | `agents/*.agent.md` | `spec-first init` |
+| `.spec-first/workflows/**` | 对应 source workflow、CLI writer 或 docs contract；先查 producer，再判断 artifact 是否需要重跑 | workflow-specific |
 
 **`spec-code-review` 具体案例**：
 
@@ -153,13 +149,13 @@ templates/...                          ← 源头
 
 **通用原则**：
 1. 遇到文件内容错误，先追溯其生成来源，再决定修改位置
-2. 产物目录（`docs/contexts/`、`.spec-first/workflows/`、`.claude/`、`.codex/`、`.agents/skills/`）中的文件默认不应手工编辑
+2. 产物目录（`.spec-first/workflows/`、`.claude/`、`.codex/`、`.agents/skills/`）中的文件默认不应手工编辑
 3. runtime 副本与源码不一致时，先判断“源码是否正确”，再判断“产物是否已刷新”
 4. 若无法立即重新生成产物，手工临时修改只可作为短期验证手段，且必须同步修改源头；对安装型 runtime 副本应尽量避免这样做
 
 **检查方式**：
 ```bash
-grep -n "docs/contexts" skills/spec-graph-bootstrap/SKILL.md
+grep -n "Source Of Truth" docs/contracts/source-runtime-customization-boundary.md
 ```
 
 ```bash
@@ -172,3 +168,5 @@ grep -n "skillsRoot\\|workflowsRoot" src/cli/adapters/codex.js
 - `docs/plans/2026-04-13-002-artifact-path-standardization-design.md` — 产物路径标准化设计，解释了源头/产物分层的整体方案
 - `docs/plans/2026-04-13-003-refactor-artifact-path-hard-cut-plan.md` — Unit 3 明确规定“只改 source-of-truth（skills/ 与 templates/），runtime 副本不作手工编辑入口”
 - `docs/validation/2026-04-01-spec-graph-bootstrap-deep-review.md` — 类似问题：PRD 模板（源头）vs 生成的 worker 产物的边界设计
+- `docs/contracts/source-runtime-customization-boundary.md` — 当前 source/runtime/provider 边界 source-of-truth
+- `docs/catalog/runtime-capabilities.md` — 当前 runtime delivery catalog，由 source/governance 生成

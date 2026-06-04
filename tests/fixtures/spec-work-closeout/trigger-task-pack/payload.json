@@ -1,5 +1,5 @@
 {
-  "schema_version": "spec-work-run-artifact-payload/v1",
+  "schema_version": "spec-work-run-artifact-payload/v2",
   "workflow": "spec-work",
   "mode": "interactive",
   "producer": {
@@ -16,13 +16,8 @@
   "script_confirmed": {
     "validation": {
       "status": "passed",
-      "commands": [
-        {
-          "command": "npm run test:jest -- tests/unit/spec-work-run-artifact-producer.test.js --runInBand",
-          "exit_code": 0,
-          "summary": "producer contract test passed"
-        }
-      ]
+      "reason_code": "run-summary-recorded",
+      "run_summary_ref": ".spec-first/workflows/spec-work/spec-first/trigger-task-pack/verification-run-summary.json"
     },
     "changed_files": [
       "skills/spec-work/SKILL.md",

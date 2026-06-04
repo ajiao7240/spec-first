@@ -80,6 +80,39 @@ describe('runtime untrack helper', () => {
     }
   });
 
+  test('plans and applies untrack for tracked Codex hook runtime while preserving worktree files', () => {
+    const repoRoot = makeTempDir();
+
+    try {
+      initRepo(repoRoot);
+      writeFile(repoRoot, '.codex/hooks.json', '{"hooks":[]}\n');
+      writeFile(repoRoot, '.codex/hooks/session-start', '#!/bin/bash\n');
+      commitAll(repoRoot);
+
+      const plan = planRuntimeUntrack({ projectRoot: repoRoot });
+      expect(plan.reason_code).toBe('untracked-runtime');
+      expect(plan.operations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'untrack_index',
+          path: '.codex/hooks.json',
+        }),
+        expect.objectContaining({
+          kind: 'untrack_index',
+          path: '.codex/hooks/session-start',
+        }),
+      ]));
+
+      const result = applyRuntimeUntrack({ projectRoot: repoRoot, operations: plan.operations });
+      expect(result.applied_count).toBe(2);
+      expect(tracked(repoRoot, '.codex/hooks.json')).toBe('');
+      expect(tracked(repoRoot, '.codex/hooks/session-start')).toBe('');
+      expect(fs.existsSync(path.join(repoRoot, '.codex/hooks.json'))).toBe(true);
+      expect(fs.existsSync(path.join(repoRoot, '.codex/hooks/session-start'))).toBe(true);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   test('reports none-tracked for ignored runtime files that were never added', () => {
     const repoRoot = makeTempDir();
 

@@ -18,6 +18,12 @@ The coordination layer that gives agents the right context, evidence boundary, a
 
 A named stage in the chain, such as brainstorm, PRD, plan, work, debug, review, or compound. Each node owns its inputs, outputs, artifacts, failure modes, and downstream handoff.
 
+### Steel Frame
+
+A small set of load-bearing skill structures that preserve core judgment, evidence, artifact, and validation boundaries while replacing scattered prompt patches, duplicate references, and template sprawl.
+
+Avoid: using steel frame to mean merely shorter prose. A steel-frame refactor must show where each removed rule's protected boundary migrated and how contract tests still cover the capability.
+
 ## Roles And Capabilities
 
 ### Skill

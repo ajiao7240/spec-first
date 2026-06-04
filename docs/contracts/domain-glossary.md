@@ -54,7 +54,7 @@
 
 ## 冲突治理
 
-新 PRD 的术语与本 glossary 的 canonical 条目冲突时,立即 surface(不静默漂移),按 `skills/spec-prd/references/current-state-analysis.md` 的 Contradiction Handling 三方处理:`user` vs `confirmed-source` vs `prior-PRD glossary`。
+新 PRD 的术语与本 glossary 的 canonical 条目冲突时,立即 surface(不静默漂移),按 `skills/spec-prd/references/evidence-and-topology.md` 的 Contradiction Handling 三方处理:`user` vs `confirmed-source` vs `prior-PRD glossary`。
 
 ## 消费者
 

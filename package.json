@@ -49,6 +49,7 @@
     "docs/contracts/provider-readiness.schema.json",
     "docs/contracts/release-package-evidence.schema.json",
     "docs/contracts/tool-facts.schema.json",
+    "docs/contracts/verification/",
     "docs/contracts/verifiers/",
     "docs/contracts/website-sync-contract.md",
     "docs/contracts/workflows/",

@@ -20,7 +20,7 @@ function readJson(filePath) {
 
 function validArtifact() {
   return {
-    schema_version: 'spec-work-run-artifact/v1',
+    schema_version: 'spec-work-run-artifact/v2',
     generated_at: '2026-05-17T00:00:00.000Z',
     workflow: 'spec-work',
     run_id: 'phase1b-smoke',
@@ -38,13 +38,8 @@ function validArtifact() {
     script_confirmed: {
       validation: {
         status: 'passed',
-        commands: [
-          {
-            command: 'npm run test:jest -- tests/unit/spec-work-run-artifact-producer.test.js --runInBand',
-            exit_code: 0,
-            summary: 'producer tests passed',
-          },
-        ],
+        reason_code: 'run-summary-recorded',
+        run_summary_ref: '.spec-first/workflows/spec-work/spec-first/phase1b-smoke/verification-run-summary.json',
       },
       changed_files: ['src/cli/helpers/spec-work-run-artifact.js'],
       artifact_refs: ['.spec-first/workflows/spec-work/spec-first/phase1b-smoke/run.json'],
@@ -86,12 +81,42 @@ function validArtifact() {
   };
 }
 
+function validV1Artifact() {
+  const artifact = validArtifact();
+  artifact.schema_version = 'spec-work-run-artifact/v1';
+  artifact.script_confirmed.validation = {
+    status: 'passed',
+    commands: [
+      {
+        command: 'npm run test:jest -- tests/unit/spec-work-run-artifact-producer.test.js --runInBand',
+        exit_code: 0,
+        summary: 'producer tests passed',
+      },
+    ],
+  };
+  return artifact;
+}
+
 function validDirectEvidenceUsed() {
   return {
     source_refs: ['skills/spec-work/SKILL.md'],
     checks_or_logs: ['npm run test:unit -- spec-work-run-artifact'],
     repo_scope: 'spec-first',
     limitations: ['bounded direct evidence only'],
+    redaction_status: 'none-required',
+  };
+}
+
+function validGraphEvidenceUsed() {
+  return {
+    capabilities_used: ['GitNexus context'],
+    evidence_grade: 'session-local',
+    evidence_posture: 'fallback',
+    freshness_state: 'fresh',
+    repo_scope: 'spec-first',
+    graph_findings_applied: ['validated direct source read selection'],
+    graph_findings_as_risk_only: [],
+    source_reads_validated: ['src/cli/helpers/spec-work-run-artifact.js'],
     redaction_status: 'none-required',
   };
 }
@@ -123,23 +148,29 @@ describe('spec-work run artifact contract', () => {
       'producer-error',
       'producer-write-side-only',
     ]);
+    expect(schema.properties.schema_version.enum).toEqual([
+      'spec-work-run-artifact/v1',
+      'spec-work-run-artifact/v2',
+    ]);
     expect(schema.properties.retention.properties.owner.type).toBe('string');
     expect(schema.properties.retention.properties.expires_at.type).toBe('string');
     expect(schema.properties.script_confirmed.additionalProperties).toBe(false);
-    expect(schema.properties.script_confirmed.properties.validation.additionalProperties).toBe(false);
-    expect(schema.properties.script_confirmed.properties.validation.properties.commands.items.additionalProperties).toBe(false);
+    expect(schema.$defs.validationV1.properties.commands.items.additionalProperties).toBe(false);
+    expect(schema.$defs.validationV2.required).toEqual(['status', 'reason_code', 'run_summary_ref']);
+    expect(schema.$defs.validationV2.additionalProperties).toBe(false);
+    expect(schema.$defs.validationV2.properties.run_summary_ref.pattern).toContain('verification-run-summary');
     expect(schema.properties.script_confirmed.properties.resume_evidence.additionalProperties).toBe(false);
     expect(schema.properties.provider_untrusted.additionalProperties).toBe(false);
     expect(schema.properties.provider_untrusted.properties.summaries.maxItems).toBe(20);
   });
 
-  test('schema validates a Phase 1B producer-written run artifact sample', () => {
+  test('schema validates a v2 producer-written run artifact sample', () => {
     const schema = readJson(SCHEMA_PATH);
 
     expect(validateAgainstSchema(schema, validArtifact()).errors).toEqual([]);
   });
 
-  test('schema adds optional direct_evidence_used without breaking old artifacts', () => {
+  test('schema adds optional direct_evidence_used without breaking old v1 artifacts', () => {
     const schema = readJson(SCHEMA_PATH);
 
     expect(schema.properties.direct_evidence_used).toBeDefined();
@@ -157,6 +188,17 @@ describe('spec-work run artifact contract', () => {
     expect(schema.properties.direct_evidence_used.properties.source_refs.items.maxLength).toBe(300);
 
     expect(validateAgainstSchema(schema, validArtifact()).errors).toEqual([]);
+    expect(validateAgainstSchema(schema, validV1Artifact()).errors).toEqual([]);
+  });
+
+  test('schema remains compatible with legacy v1 graph_evidence_used artifacts', () => {
+    const schema = readJson(SCHEMA_PATH);
+    const artifact = validV1Artifact();
+    artifact.graph_evidence_used = validGraphEvidenceUsed();
+
+    expect(schema.properties.graph_evidence_used).toBeDefined();
+    expect(schema.required).not.toContain('graph_evidence_used');
+    expect(validateAgainstSchema(schema, artifact).errors).toEqual([]);
   });
 
   test('schema validates compact direct evidence', () => {

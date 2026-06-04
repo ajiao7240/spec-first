@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "spec-first spec-work run artifact producer-available contract",
-  "description": "Source-owned write-side contract. The internal producer can write schema-aligned run.json artifacts for fresh workspace/run-id pairs, and spec-work closeout can mark artifacts workflow_integrated when a durable evidence trigger calls the producer.",
+  "description": "Source-owned write-side contract. The internal producer writes v2 run.json artifacts for fresh workspace/run-id pairs, spec-work closeout can mark artifacts workflow_integrated when a durable evidence trigger calls the producer, and read/prune consumers remain compatible with v1 artifacts.",
   "x-spec-first-contract-status": "producer_available",
   "x-spec-first-producer": "internal spec-work-run-artifact write",
   "x-spec-first-producer-available": true,
@@ -32,7 +32,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "spec-work-run-artifact/v1"
+      "enum": ["spec-work-run-artifact/v1", "spec-work-run-artifact/v2"]
     },
     "generated_at": {
       "type": "string"
@@ -153,26 +153,7 @@
       "required": ["validation", "changed_files", "artifact_refs", "raw_log_ref", "resume_evidence"],
       "properties": {
         "validation": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["status", "commands"],
-          "properties": {
-            "status": { "type": "string", "enum": ["passed", "failed", "not-run", "degraded"] },
-            "reason_code": { "type": "string" },
-            "commands": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["command", "exit_code", "summary"],
-                "properties": {
-                  "command": { "type": "string" },
-                  "exit_code": { "type": "integer" },
-                  "summary": { "type": "string", "maxLength": 500 }
-                }
-              }
-            }
-          }
+          "type": "object"
         },
         "changed_files": {
           "type": "array",
@@ -259,6 +240,84 @@
         }
       }
     },
+    "graph_evidence_used": {
+      "type": ["object", "null"],
+      "description": "Legacy compact graph evidence summary kept for v1 artifact read/prune compatibility. New v2 producer payloads use direct_evidence_used unless a future graph contract is explicitly reintroduced.",
+      "additionalProperties": false,
+      "required": [
+        "capabilities_used",
+        "evidence_grade",
+        "evidence_posture",
+        "freshness_state",
+        "repo_scope",
+        "graph_findings_applied",
+        "graph_findings_as_risk_only",
+        "source_reads_validated",
+        "redaction_status"
+      ],
+      "properties": {
+        "capabilities_used": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 160 }
+        },
+        "lanes_used": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "enum": [
+              "deterministic-helper",
+              "workflow-native-session",
+              "workspace-resource",
+              "mutation-gated-maintenance"
+            ]
+          }
+        },
+        "evidence_grade": {
+          "type": "string",
+          "enum": ["primary", "session-local", "advisory", "stale"]
+        },
+        "evidence_posture": {
+          "type": "string",
+          "enum": ["primary", "fallback"]
+        },
+        "freshness_state": {
+          "type": "string",
+          "enum": ["fresh", "stale", "dirty-advisory", "query-unverified"]
+        },
+        "repo_scope": { "type": "string", "maxLength": 160 },
+        "graph_findings_applied": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 300 }
+        },
+        "graph_findings_as_risk_only": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 300 }
+        },
+        "graph_findings_rejected_after_source_read": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 300 }
+        },
+        "source_reads_required": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 300 }
+        },
+        "source_reads_validated": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 300 }
+        },
+        "redaction_status": {
+          "type": "string",
+          "enum": ["redacted", "none-required"]
+        }
+      }
+    },
     "direct_evidence_used": {
       "type": ["object", "null"],
       "description": "Compact direct source/test/log evidence summary from plan intake or work closeout. Absent means the ordinary changed-file/test summary was sufficient. This is advisory Harness evidence, not scope authority.",
@@ -314,5 +373,84 @@
       "type": "array",
       "items": { "type": "string" }
     }
-  }
+  },
+  "$defs": {
+    "validationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "commands"],
+      "properties": {
+        "status": { "type": "string", "enum": ["passed", "failed", "not-run", "degraded"] },
+        "reason_code": { "type": "string" },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["command", "exit_code", "summary"],
+            "properties": {
+              "command": { "type": "string" },
+              "exit_code": { "type": "integer" },
+              "summary": { "type": "string", "maxLength": 500 }
+            }
+          }
+        }
+      }
+    },
+    "validationV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason_code", "run_summary_ref"],
+      "properties": {
+        "status": { "type": "string", "enum": ["passed", "failed", "not-run", "degraded"] },
+        "reason_code": { "type": "string" },
+        "run_summary_ref": {
+          "type": "string",
+          "pattern": "^\\.spec-first/workflows/spec-work/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/verification-run-summary\\.json$"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "required": ["schema_version"],
+        "properties": {
+          "schema_version": { "const": "spec-work-run-artifact/v1" }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "script_confirmed": {
+            "type": "object",
+            "properties": {
+              "validation": { "$ref": "#/$defs/validationV1" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": ["schema_version"],
+        "properties": {
+          "schema_version": { "const": "spec-work-run-artifact/v2" }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "script_confirmed": {
+            "type": "object",
+            "properties": {
+              "validation": { "$ref": "#/$defs/validationV2" }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

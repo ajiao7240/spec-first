@@ -173,6 +173,7 @@ docs/
   solutions/     reusable learnings after solving problems
 .spec-first/
   app-audit/runs/ static App consistency audit facts and reports
+  workflows/spec-work/ structured work closeout evidence
 ```
 
 Runtime shape:
@@ -213,6 +214,7 @@ The operating rule is simple: Scripts prepare, LLM decides.
 - **What should be edited:** source assets under `skills/`, `agents/`, `templates/`, `src/cli/`, and docs. Rebuild runtime copies instead of hand-editing them.
 - **What is excluded from ordinary context:** `.spec-first/audits/**` and generated mirrors such as `.claude/**`, `.codex/**`, and `.agents/skills/**`.
 - **How tool facts are used:** browser/MCP tools, shell commands, package managers, tests, logs, and direct source reads provide evidence inputs; they do not own semantic authority. Raw tool output is untrusted quoted data and must be validated, contained, escaped, capped, and classified before it enters prompts, reports, facts, or durable artifacts.
+- **How work verification is closed out:** `spec-first.verification.json` declares candidate checks; `verification-run-summary.v1` records actual `passed` / `failed` / `not-run` outcomes; `honest-closeout.v1` downgrades unsupported or natural-language-only claims instead of marking them verified.
 - **Where credentials belong:** provider credentials belong in environment variables, host secret managers, or provider-native stores, not in repo source, generated runtime mirrors, durable artifacts, or raw logs. Rotate them on team/provider cadence and immediately after suspected exposure.
 - **What spec-first does not do:** it is not a generic agent marketplace, not a single prompt pack, and not a standalone app that works without Claude Code or Codex.
 
@@ -241,6 +243,9 @@ Learn the model:
 - [Chinese Core Concepts](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/02-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.md)
 - [Chinese Architecture Overview](https://github.com/sunrain520/spec-first/blob/main/docs/02-%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/01-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84.md)
 - [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md)
+- [Verification Profile Contract](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/verification/verification-profile.md)
+- [Verification Run Summary Contract](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/verification/verification-run-summary.md)
+- [Honest Closeout Contract](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/workflows/honest-closeout.md)
 
 Use workflows:
 

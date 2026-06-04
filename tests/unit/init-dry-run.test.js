@@ -559,6 +559,7 @@ describe('init --dry-run', () => {
       const codexInstruction = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8');
       const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
       expect(gitignore).toContain(buildSpecFirstGitignoreBlock());
+      expect(gitignore).toContain('.codex/');
       expect(gitignore).toContain('.agents/skills/');
       expect(gitignore).not.toContain('.agents/\n');
       expect(codexInstruction).toContain('不要默认进入 `spec-brainstorm`');

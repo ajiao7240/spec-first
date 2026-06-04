@@ -1,7 +1,7 @@
 ---
 title: 上游 CE 更新同步到 spec-first 的常态化升级方法
 date: 2026-04-26
-last_updated: 2026-05-04
+last_updated: 2026-06-04
 category: docs/solutions/architecture-patterns
 module: workflow-asset-sync
 problem_type: architecture_pattern
@@ -18,7 +18,7 @@ tags: [ce-sync, workflow-assets, migration, governance, spec-first]
 
 ## Context
 
-`spec-first` 来源于 `compound-engineering-plugin`，但两边已经分叉。CE 更新不能按“复制文件”处理，因为 spec-first 有自己的产品边界、公共 workflow 入口、双宿主 runtime governance、README 计数、CHANGELOG 治理和本地独有能力。
+`spec-first` 来源于 `compound-engineering-plugin`，但两边已经分叉。CE 更新不能按“复制文件”处理，因为 spec-first 有自己的产品边界、公共 workflow 入口、动态 command manifest 投影、双宿主 runtime governance、README 计数、CHANGELOG 治理和本地独有能力。
 
 本方法沉淀自 CE `1284290a..e8c118e2` 同步过程。该轮同步暴露出几个高风险点：
 
@@ -168,6 +168,7 @@ Agent 和 skill frontmatter 变更必须更严格：
 | `plugins/compound-engineering/skills/ce-demo-reel/**` | `skills/feature-video/**` |
 | `plugins/compound-engineering/skills/ce-resolve-pr-feedback/**` | `skills/resolve-pr-feedback/**` |
 | `plugins/compound-engineering/skills/lfg/**` | `skills/lfg/**` |
+| CE `.claude-plugin/plugin.json` / host plugin manifests | 不直接迁移；按 `src/cli/plugin.js`、`skills-governance.json` 和 `templates/claude/commands/spec/*.md` 的当前动态 manifest 投影语义判断 |
 | CE plugin converter / legacy cleanup source | 只有 spec-first 存在同构治理面时才迁移 |
 
 命名规则：
@@ -269,13 +270,13 @@ CE 删除文件时，按以下顺序审计：
 
 ```bash
 rg -n '<old-skill-name>|<mapped-skill-name>|<command-name>' \
-  skills agents templates .claude-plugin src README.md README.zh-CN.md AGENTS.md CLAUDE.md tests
+  skills agents templates src README.md README.zh-CN.md AGENTS.md CLAUDE.md tests
 ```
 
 必须检查：
 
 - `skills/using-spec-first/SKILL.md`
-- `.claude-plugin/plugin.json`
+- `src/cli/plugin.js` 的动态 command manifest 构建逻辑（当前仓库不再维护 checked-in `.claude-plugin/plugin.json`）
 - `src/cli/contracts/dual-host-governance/skills-governance.json`
 - `templates/claude/commands/spec/**`
 - README / README.zh-CN runtime 计数
@@ -341,7 +342,7 @@ Agent 删除还必须额外检查：
 
 ```bash
 rg -n 'ce-pr-description|spec-pr-description|ce-demo-reel|ce-pr-body|__CE_PR_BODY|Compound Engineering badge|ask_user` in Gemini|ask_user` in Pi' \
-  skills agents templates .claude-plugin src tests README.md README.zh-CN.md CHANGELOG.md
+  skills agents templates src tests README.md README.zh-CN.md CHANGELOG.md
 ```
 
 按变更面追加关键词：
@@ -499,7 +500,7 @@ CE 删除 `ce-pr-description` 并把写作逻辑搬进 `ce-commit-push-pr`。本
 
 - 删除 `skills/spec-pr-description/SKILL.md`。
 - 删除 Claude command template 中的 `pr-description.md`。
-- 从 plugin manifest 和 dual-host governance 删除独立 `spec-pr-description` 记录。
+- 从 `skills-governance.json` 删除独立 `spec-pr-description` 记录；动态 command manifest 随 governance 和 command template 删除而消失。
 - 在 `using-spec-first` 中把 PR description 请求路由到 `git-commit-push-pr` description-only mode。
 - 新增 `skills/git-commit-push-pr/references/pr-description-writing.md`，并做 spec-first 适配。
 - 给 `git-commit-push-pr` 增加 contract test，防止 `spec-pr-description` 复活。

@@ -1,6 +1,7 @@
 ---
 title: 从竞品 skill 借鉴能力的判断方法论（80/20 + 双重过滤 + conditional 落地）
 date: 2026-06-01
+last_updated: 2026-06-04
 category: docs/solutions/architecture-patterns
 module: skill-evolution
 problem_type: architecture_pattern
@@ -11,7 +12,8 @@ applies_when:
   - 需要在「真实能力增益」与「保持 light contract / right-size 边界」之间做取舍
   - 借鉴对象与本项目 skill 产品基因不同（如传统 PM 完整模板 vs 工程证据增量模板）
   - 落地点是 skill prose / reference / template / eval 这类会投影到双宿主 runtime 的 source
-tags: [competitor-analysis, skill-evolution, 80-20, conditional-enhancement, fresh-source-eval, spec-prd]
+  - 借鉴落地后 reference/template 数量继续膨胀，需要判断是否转入钢筋结构精简
+tags: [competitor-analysis, skill-evolution, 80-20, conditional-enhancement, fresh-source-eval, spec-prd, steel-frame]
 ---
 
 # 从竞品 skill 借鉴能力的判断方法论
@@ -58,6 +60,8 @@ tags: [competitor-analysis, skill-evolution, 80-20, conditional-enhancement, fre
 过完筛子后，再用边际效应 vs 边际成本压一遍：已被覆盖的、carrying cost 陡升的、只是"加密度而非加能力"的，默认不进核心。本案从"值得借鉴"的 4-5 项进一步收到**1 项**(目标可衡量性)，其余归为"边际递减"。
 
 > 关键心法：**借对象的"功底/纪律"，不借对象的"形态/仪式"。** 本案借的是传统 PM 的 SMART + baseline + leading/lagging 目标质量纪律，不借它的 10 章模板和评审状态机。
+
+如果多轮借鉴或实战修补后，目标 skill 开始靠新增 lens、reference、模板树来承接每个新场景，这已经超出本文的"借什么"判断范围。此时转入钢筋结构精简：先找不可丢的承重判断轴，再把重复边界迁移到少量核心 reference 和 contract tests 中，避免借鉴成功反而让 skill 膨胀。
 
 ### 第 4 步：conditional 落地 + 双护栏 + fresh-source eval（落地与验证）
 
@@ -107,3 +111,4 @@ US→FR双层映射                   Use Cases已覆盖           ✗砍(增cer
 - `docs/contracts/workflows/fresh-source-eval-checklist.md` — skill prose 变更的语义验证规范
 - `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md` — source-first，不手改 runtime mirror
 - `docs/solutions/architecture-patterns/upstream-ce-sync-upgrade-methodology-2026-04-26.md` — 同源"脚本取证 + LLM 语义适配"协议(上游同步场景)
+- `docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md` — 后续方法论：当借鉴和修补让 skill/reference/template 树膨胀时，如何收束为钢筋结构

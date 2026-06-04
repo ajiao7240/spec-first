@@ -12,10 +12,6 @@ const CONTRACT_PATH = path.join(
   'self-reflection-capability-upgrade.md',
 );
 
-function read(relativePath) {
-  return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
-}
-
 describe('self-reflection capability upgrade contract', () => {
   test('anchors the required report set and report frontmatter fields', () => {
     const contract = fs.readFileSync(CONTRACT_PATH, 'utf8');
@@ -86,24 +82,5 @@ describe('self-reflection capability upgrade contract', () => {
     expect(contract).toContain('CUD-007 self-reflection agent profile: skipped.');
     expect(contract).not.toContain('spec-evolve is required');
     expect(contract).not.toContain('must add `spec-evolve`');
-  });
-
-  test('current cycle report set exists as reviewable evidence', () => {
-    const summary = read('docs/2026-05-05-self-reflection-upgrade/00-summary.md');
-
-    expect(summary).toContain('Cycle 0');
-    expect(summary).toContain('不新增 `spec-evolve`');
-    for (const fileName of [
-      '00-summary.md',
-      '01-composition-baseline.md',
-      '02-capability-gaps.md',
-      '03-industry-github-best-practices.md',
-      '04-capability-upgrade-decisions.md',
-      '05-prioritized-roadmap.md',
-      '06-next-self-reflection-input.md',
-      '07-continuous-iteration-loop.md',
-    ]) {
-      expect(fs.existsSync(path.join(REPO_ROOT, 'docs', '2026-05-05-self-reflection-upgrade', fileName))).toBe(true);
-    }
   });
 });

@@ -62,7 +62,7 @@ spec-first doctor
 | `team` / `platform` profile 命名不一致 | 统一以父方案 §0.4 总表为准：组织 opt-in profile 命名为 `platform`；不再使用 `team`（历史 `team` 表述全部归一为 `platform`） | `provider-tools.json`、`provider-readiness.v1`、父方案 §0.4 |
 | `tool-facts.v1/v2` 兼容未定义 | 增加 setup facts compatibility normalizer，doctor 只消费 normalized projection；invalid/stale 用 reason_code 降级 | `Dependency Readiness Projection`、doctor tests |
 | doctor 缺少 basis | 增加 `decision_input_health_basis`，输出 artifact refs、freshness、counts、reason_code；status 本身仍是 deterministic rollup | `spec-first doctor` |
-| honest closeout 可能变第二 artifact | 不新增独立 closeout artifact；映射到现有 `spec-work-run-artifact/v1` 与 final response closeout | `honest-closeout.v1` |
+| honest closeout 可能变第二 artifact | 不新增独立 closeout artifact；映射到现有 `spec-work-run-artifact/v2` 与 final response closeout | `honest-closeout.v1` |
 | Shell / PowerShell required tools 不同 | registry 支持 `runner_kind` / `platform_required_tools`；Windows PowerShell path 不强制 `jq`，Git Bash/WSL path 才要求 | testing strategy、PowerShell parity |
 | provider freshness 太抽象 | 定义最小 freshness 算法：repo HEAD、index HEAD、source fingerprint、generated/query time；stale provider 只作 advisory | Provider readiness |
 
@@ -180,7 +180,7 @@ spec-first doctor
 | `scale-engine` / `project-scaffold` | tool policy metadata：`requiredFor`、`recommendedFor`、`destructiveActions`、`evidenceRequired`、allowed domains | `.scale/tools.json` | `helper-tools-registry.v1` / `provider-tools.json` | P0 直接补入 | 这些是工具策略字段，不是安装清单；`requiredFor` 必须继续和 `baseline_blocking` 分离 |
 | `scale-engine` | memory provider routing：`allowExternalWrite=false`、`requireEvidence=true`、`writeMode=disabled/candidate-only` | `.scale/memory-providers.json` | GBrain / memory provider profile、`candidate -> review -> promote` 规则 | P2 optional provider | 只做 recall/candidate 约束；不默认写长期记忆，不把 memory 命中当 confirmed truth |
 | `scale-engine` / `project-scaffold` | adapter-first code intelligence：CodeGraph external CLI、Graphify artifact、fallback `internal-scan/rg/read`、ROI metrics | `docs/CODE_INTELLIGENCE.md`、`.scale/code-intelligence.json` | provider readiness/freshness/fallback、`CodeGraph技术方案.md` implementation alignment | P2 optional provider | provider `not-run`/stale 不能阻塞 minimal；ROI 只能作为是否保留 provider 的 advisory 指标 |
-| `scale-engine` | Runtime evidence 的 final-check / redaction / runtime doctor 思路 | `docs/RUNTIME_EVIDENCE.md` | `verification-run-summary.v1` 与 `spec-work-run-artifact/v1` 字段映射 | P1 推荐补入 | 不新增 `.scale/evidence` 平行 truth；复用 spec-first 现有 run artifact 与 final closeout |
+| `scale-engine` | Runtime evidence 的 final-check / redaction / runtime doctor 思路 | `docs/RUNTIME_EVIDENCE.md` | `verification-run-summary.v1` 与 `spec-work-run-artifact/v2` 字段映射 | P1 推荐补入 | 不新增 `.scale/evidence` 平行 truth；复用 spec-first 现有 run artifact 与 final closeout |
 | `project-scaffold` | resource policy：ignored dirs、retained runtime dirs、owners/modules | `.scale/resource-policy.json` | context/resource governance lens、future `resource-impact` advisory | P1 推荐补入 | 不作为默认 repo 扫描 source-of-truth；可作为资源分类和保留策略的参考模板 |
 | `project-scaffold` | product smoke：真实业务路径 probe、空 probe block、runtime evidence 要求 | `.scale/product-smoke.json` | `verification-profile.v1` 的 optional `productSmoke` profile | P1 推荐补入 | 只在项目显式声明 probe 后启用；不把示例 health check 当产品验收 |
 | `project-scaffold` | output policy：artifact manifest、禁止远程脚本/样式、detect secrets | `.scale/output-policy.json` | 文档/HTML sidecar 输出安全策略、artifact manifest future work | P2/P3 分拆补入 | secret/redaction/defaultGitPolicy 进入 P2 artifact-summary hardening；HTML sidecar/manifest 等到 P3，不引入 exclusive HTML output |
@@ -604,11 +604,11 @@ spec-first.verification.json
 
 用于记录真实验证执行，不替代现有 workflow final response，也不强制成为所有 workflow 的新独立 artifact。
 
-**canonical 字段定义见父方案 §4.4**（§0.4.3 登记）；本节只说明落点，不重定义字段。要点：顶层数组 `checks[]`，每条含 `id`/`service`/`command`/`status`/`exit_code`/`ran`/`required_tools`/`missing_tools`/`log_path`/`reason_code`，顶层含 `generated_at`/`profile`；`status` 复用 `passed/failed/not-run/degraded`，`log_path` 是 redacted repo-relative 字符串。
+**canonical 字段定义见 `docs/contracts/verification/verification-run-summary.schema.json`**（§0.4.3 登记）；本节只说明落点，不重定义字段。要点：顶层数组 `checks[]` 记录逐 check 明细，`status` 复用 `passed/failed/not-run/degraded`，`log_path` 是 redacted repo-relative 字符串。
 
 首选落点：
 
-- `spec-work`：产出或引用 `verification-run-summary.v1`；`spec-work-run-artifact/v1` 的 `script_confirmed.validation` 只保留聚合 status / reason_code / artifact ref，不复制逐 check 明细（与父方案 §4.4/§4.5 的单向引用口径一致）。
+- `spec-work`：产出或引用 `verification-run-summary.v1`；`spec-work-run-artifact/v2` 的 `script_confirmed.validation` 只保留聚合 `status` / `reason_code` / `run_summary_ref`，不复制逐 check 明细（与父方案 §4.4/§4.5 的单向引用口径一致）。
 - `spec-debug` / `spec-code-review`：可在各自 closeout 或 run evidence 中引用同一 `verification-run-summary.v1` 结构。
 - 对需要 durable validation evidence 的 closeout，`verification-run-summary.v1` 是逐 check 明细的唯一 source；不再使用 `script_confirmed.validation.commands[]` 作为并行明细结构。
 - 只有出现真实 durable consumer 时，才单独落盘 `verification-run-summary.v1`。
@@ -619,19 +619,19 @@ spec-first.verification.json
 
 本节是 `honest-closeout.v1` 的**字段映射面**；其 **claim 校验模型**（结构化 `{claim_type, asserted_status, evidence_refs[]}` + consistent/unsupported/degraded 判定）的 canonical 定义见父方案 §4.6（§0.4.3 登记）。二者是同一 contract 的两个面：父方案定义"怎么校验 claim"，本节定义"四问映射到哪些字段"，不是两套竞争定义。
 
-对于 `spec-work`，优先映射到现有 `spec-work-run-artifact/v1`：
+对于 `spec-work`，优先映射到现有 `spec-work-run-artifact/v2`：
 
 | 问题 | spec-first closeout 字段 |
 | --- | --- |
-| 这次任务解决什么问题？ | `objective_summary` |
-| 改动影响哪些文件、服务、文档？ | `changed_files`、`affected_surfaces` |
-| 哪些验证真实运行过，哪些没有运行？ | `verification_run_refs`、`not_run_reasons` |
-| 哪些结论沉淀，哪些只是过程产物？ | `durable_knowledge_refs`、`temporary_artifact_refs` |
+| 这次任务解决什么问题？ | `llm_asserted.summary` |
+| 改动影响哪些文件、服务、文档？ | `script_confirmed.changed_files`、`direct_evidence_used.source_refs` |
+| 哪些验证真实运行过，哪些没有运行？ | `script_confirmed.validation.run_summary_ref` 指向的 `verification-run-summary.v1` |
+| 哪些结论沉淀，哪些只是过程产物？ | `llm_asserted.deferred_follow_up`、`docs/solutions/**` refs、`script_confirmed.artifact_refs` |
 
 原则：
 
 - final response 可以摘要，但 durable artifact 要能支撑复查。
-- 若 `spec-work-run-artifact/v1` 已写入，本 contract 只作为字段映射，不再额外写 `honest-closeout.json`。
+- 若 `spec-work-run-artifact/v2` 已写入，本 contract 只作为字段映射，不再额外写 `honest-closeout.json`。
 - 未运行验证必须明确 `not_run`，不能写成 `passed` 或 `verified`。
 - provider evidence 要标 `advisory`，source/test/log evidence 才能支持 confirmed claim。
 
@@ -1085,7 +1085,7 @@ Graphify artifact stale 时：
 - `src/verification/profile-loader.js`
 - optional `productSmoke` verification profile support
 - quality contract required tools / red lines mapping
-- `spec-work-run-artifact/v1` validation ref mapping
+- `spec-work-run-artifact/v2` validation `run_summary_ref` mapping
 - `spec-work` / `spec-debug` / `spec-code-review` prose
 - focused tests
 
@@ -1243,7 +1243,7 @@ spec-first doctor --codex --json
 
 5. **再做 verification profile / run summary**
    - 把“哪些真实跑过”变成 durable evidence。
-   - 优先复用 `spec-work-run-artifact/v1`，不新增 closeout truth。
+   - 优先复用 `spec-work-run-artifact/v2`，不新增 closeout truth。
    - product smoke 和 quality contract 只作为 optional profile / red-line input，不成为状态机。
 
 6. **最后接 optional provider**

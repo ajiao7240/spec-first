@@ -138,14 +138,14 @@ Workflow consumption
 
 | Schema | canonical 定义位置 | 引用位置（不得重定义字段） |
 | --- | --- | --- |
-| `verification-profile.v1` | project-scaffold 子方案 §4.4 | 父方案 §4.3 |
-| `verification-run-summary.v1` | 父方案 §4.4 | project-scaffold 子方案 §4.5 |
-| `honest-closeout.v1`（claim 校验模型） | 父方案 §4.6 | project-scaffold 子方案 §4.6（字段映射面） |
+| `verification-profile.v1` | `docs/contracts/verification/verification-profile.schema.json` | 父方案 §4.3、project-scaffold 子方案 §4.4 |
+| `verification-run-summary.v1` | `docs/contracts/verification/verification-run-summary.schema.json` | 父方案 §4.4、project-scaffold 子方案 §4.5 |
+| `honest-closeout.v1`（claim 校验模型） | `docs/contracts/workflows/honest-closeout.schema.json` | 父方案 §4.6、project-scaffold 子方案 §4.6（字段映射面） |
 | `provider-readiness.v1` | 父方案 §7.1（落盘到 `docs/contracts/provider-readiness.md` / `.schema.json`） | project-scaffold 子方案 §4.3、CodeGraph 子方案 §5.1/§7 |
 | `decision_input_health_basis` | project-scaffold 子方案 §5.3 | project-scaffold 子方案 §4.1.1 |
-| `helper-tools-registry.v1` | 字段 canonical 现为 project-scaffold 子方案 §4.2；落盘到 `docs/contracts/helper-tools-registry.schema.json`（v1.11 实现后按 `spec-work-run-artifact/v1` 模式 schema 文件转 canonical、§4.2 转引用） | Setup_Scripts、`check-health`、`verify-tools`（从 registry 派生，不重定义字段） |
+| `helper-tools-registry.v1` | 字段 canonical 现为 project-scaffold 子方案 §4.2；落盘到 `docs/contracts/helper-tools-registry.schema.json`（v1.11 实现后按 schema 文件转 canonical、§4.2 转引用） | Setup_Scripts、`check-health`、`verify-tools`（从 registry 派生，不重定义字段） |
 | `tool-facts.v2` | 落盘到 `docs/contracts/tool-facts.schema.json`（v1.11 新增；含 v1 兼容说明） | `write-setup-facts`、Facts_Normalizer、`doctor` decision_input_health rollup |
-| `spec-work-run-artifact/v1` | `docs/contracts/workflows/spec-work-run-artifact.schema.json`（既有 source 实现） | 父方案 §4.5、project-scaffold 子方案 §4.6 |
+| `spec-work-run-artifact/v2` | `docs/contracts/workflows/spec-work-run-artifact.schema.json`（v2 写入；v1 read/prune 兼容） | 父方案 §4.5、project-scaffold 子方案 §4.6 |
 
 ---
 
@@ -476,7 +476,7 @@ profile 选择是 workflow 语义判断，helper 只解析。
 
 `spec-first` 已有 `docs/contracts/verifiers/verification-evidence.schema.json` 和 `doctor` 对 verification evidence freshness 的读取。下一步应补一个 workflow 级 run summary，统一表达命令真实执行情况。
 
-本节是 `verification-run-summary.v1` 的 **canonical 字段定义**（§0.4.3 登记）；子方案 §4.5 只引用，不重定义字段。字段为父子两版的并集，命名与既有 `spec-work-run-artifact.schema.json` 对齐以避免第三套形状：顶层数组用 `checks[]`（一个 check 解析为一条 command，不与 run-artifact 既有的 `validation.commands[]` 撞名）；`status` 复用既有 enum `passed/failed/not-run/degraded`；日志字段用 `log_path`（redacted repo-relative 字符串，不复用 run-artifact 里已是 object 的 `raw_log_ref` 名称）。
+`verification-run-summary.v1` 的 canonical 字段定义已落盘到 `docs/contracts/verification/verification-run-summary.schema.json`（§0.4.3 登记）；子方案 §4.5 只引用，不重定义字段。下方 JSON 仅保留为历史设计示例，遇到差异以 schema 文件为 source of truth。字段命名与 `spec-work-run-artifact/v2` 对齐：逐 check 明细只在 `checks[]`，run-artifact 只保留聚合 `validation.run_summary_ref`。
 
 ```json
 {

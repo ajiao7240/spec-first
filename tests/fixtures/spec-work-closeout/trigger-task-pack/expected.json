@@ -1,6 +1,6 @@
 {
   "status": "written",
-  "schema_version": "spec-work-run-artifact/v1",
+  "schema_version": "spec-work-run-artifact/v2",
   "producer": {
     "producer_available": true,
     "workflow_integrated": true,

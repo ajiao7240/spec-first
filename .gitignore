@@ -26,6 +26,7 @@ yarn-error.log*
 .serena/
 .worktrees/
 .claude/tasks/
+.claude/settings.local.json
 .playwright-mcp/
 /*-loop.md
 /*-userskuang*.txt
@@ -40,21 +41,21 @@ logs/
 .claude/spec-first/
 .claude/agents/
 .claude/hooks/session-start
-.codex/commands/spec/
-.codex/spec-first/
-.codex/agents/
+.codex/
 .agents/
 .context/spec-first/
 
 # Generated spec-first local config and workflow runtime artifacts
 # These files are runtime facts; verify presence/schema with setup scripts, not git status.
 .spec-first/config.local.yaml
+.spec-first/verification-profile.local.json
 .spec-first/config/*.json
 .spec-first/audits/
 .spec-first/app-audit/
 .spec-first/workflows/
 .spec-first/workspace/
 .spec-first/sessions/
+.spec-first/ci/
 
 # Published/package artifacts
 *.tgz

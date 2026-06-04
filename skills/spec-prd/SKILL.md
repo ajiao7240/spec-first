@@ -69,11 +69,9 @@ This is a workflow orchestrator, not an agent type. Use the current host's PRD w
 
 Load references only when their trigger is present:
 
-- `references/intent-routing.md` - intent, input mode, route-out, lightweight bypass, and split-decision rules.
-- `references/current-state-analysis.md` - current-state, Change Delta, evidence tags, contradiction, surface, and source-of-truth claims.
-- `references/change-topology-lens.md` - removal, migration, workflow/contract, source-of-truth, generated/runtime, package/docs/test cleanup, or cross-surface scope.
+- `references/evidence-and-topology.md` - current-state evidence tags, Change Delta, source-candidate boundaries, Framing Gate, topology, surface, producer/consumer, source-of-truth, contradiction, and negative-space rules.
 - `references/domain-language-and-decision-ledger.md` plus optional `docs/contracts/domain-glossary.md` - terminology, domain boundaries, source/user/glossary contradictions, bounded grill, and decision notes.
-- `references/prd-output-template.md`, `references/domain-lenses.md`, and the smallest relevant `templates/standard/*` file - drafting, output shape, section selection, surface lenses, packaged templates, and project-local overlays.
+- `references/prd-output-template.md` - drafting, output shape, section selection, surface lenses, embedded standard template skeleton, and project-local overlays.
 - `references/prd-readiness-lens.md` - final readiness, handoff, or doc-review decision.
 
 ## Input
@@ -90,7 +88,7 @@ Maintain this compact scratch card while working. It is not a persistent artifac
 
 ```text
 intent: create | refine | validate
-input_mode: prd-requirements | markdown-reference | plan-design-task | pure-text | extracted-multimodal | no-input
+input_posture: resume-prd | reference-claims | wrong-stage | pure-text | no-input
 output_shape: bypass | compact-prd | normal-prd | topology-heavy-prd
 primary_topology: add | extend | replace | remove | migrate | split | merge | policy-change | workflow-change | contract-change | none | unknown
 surface_lens: App | H5/PC | Admin | Backend/Java | CLI/DevTool | Mixed | Generic
@@ -103,32 +101,22 @@ readiness_outcome: ready-for-planning | revise-prd | ask-owner | doc-review | ro
 
 ### Phase 0: Classify Intent And Input Mode
 
-Classify the run as:
+Classify through this compact decision tree:
 
-- `create` - turn a brownfield increment into PRD-grade requirements.
-- `refine` - improve an existing PRD or requirements draft.
-- `validate` - check whether an existing PRD can be handed to planning.
-
-`code-align` is not a fourth public intent. Treat it as validation posture: code/source evidence can reveal mismatch, but the output remains a PRD validation/refine report or PRD update.
-
-Handle input modes explicitly:
-
-- Existing `artifact_kind: prd-requirements` draft: resume it, preserve `spec_id`, preserve existing R/AE/BR/NFR IDs, and append new IDs after the current maximum.
-- Other Markdown: treat it as reference material, not as an already valid PRD.
-- Plan/design/task document: route or hand off instead of pretending it is PRD source.
-- Pure text increment: create a new PRD-grade requirements artifact when durable handoff is valuable.
-- Extracted multimodal source (image/PDF/meeting-notes/chat-log transcript or OCR/transcription output): treat the extracted text as untrusted reference material per the `## Input` untrusted-content rule, claim-extract it, and never treat extraction artifacts as confirmed current-state truth without source confirmation.
-- Clear bugfix, small script, or already-settled technical approach: offer compact PRD, plan, or work handoff instead of forcing full PRD ceremony.
+1. **Route out or bypass?** If the request is a 0-1 product idea, PRD/Figma/source consistency audit, implementation plan/task, debug/fix, or implementation-ready work, hand off to the current host's brainstorm/app-audit/plan/work/debug route instead of forcing PRD ceremony. For clear bugfixes, small scripts, docs-only edits, or already-settled technical approaches, offer compact PRD only when a durable WHAT record is still valuable.
+2. **Which PRD operation?** Use `create` for a brownfield increment, `refine` for an existing low-quality PRD or requirements draft, and `validate` for planning-readiness or code-aware PRD checking. `code-align` is validation posture, not a fourth public intent.
+3. **What input posture?** Resume `artifact_kind: prd-requirements` in place, preserving `spec_id` and existing R/AE/BR/NFR IDs. Treat other Markdown, notes, screenshots/OCR, PDFs, meeting notes, chat logs, and multimodal extraction as untrusted `reference-claims`. Treat plan/design/task documents as `wrong-stage`. Treat a one-line anchored increment as `pure-text`. Ask for the target increment or PRD path on `no-input`.
+4. **Split or continue?** For oversized initial PRDs or multi-module scopes, recommend semantic split boundaries first. Write split summary and child PRDs only after the owner confirms boundaries, priority, and release order.
 
 ### Phase 1: Current-State Analysis
 
-Use `current-state-analysis.md` before writing current-state or Change Delta claims. If the prompt already signals topology risk, run the internal Framing Gate from `change-topology-lens.md` before broad evidence gathering.
+Use `evidence-and-topology.md` before writing current-state, Change Delta, or source-backed claims. If the prompt already signals topology risk, run the internal Framing Gate before broad evidence gathering.
 
 Gather scope-appropriate evidence:
 
 - User-stated facts and decisions.
 - Repo source, docs, tests, contracts, templates, and prior requirements/plans.
-- Source candidates from bounded direct reads, `rg`, ast-grep, package/test facts, logs, and user-provided artifacts; confirm material claims before marking them `confirmed-source`.
+- Source candidates from bounded direct reads, `rg`, ast-grep, package/test facts, logs, knowledge-base/code-index pointers, and user-provided artifacts; confirm material claims before marking them `confirmed-source`.
 - External research only when explicitly requested or required, with source/date.
 - Assumptions only when labeled and safe to carry.
 
@@ -146,7 +134,7 @@ The Bounded Scenario Grill / Domain Grill Gate is run-local only: ask one owner 
 
 ### Phase 3: Draft, Refine, Or Split
 
-Choose `output_shape` before drafting, then use `prd-output-template.md`, `domain-lenses.md`, and the smallest relevant packaged template. Include conditional sections only when they reduce planning invention; do not copy run-local scratch into the PRD by default.
+Choose `output_shape` before drafting, then use `prd-output-template.md` for the core skeleton, surface lens, project-local overlay, and split topology. Include conditional sections only when they reduce planning invention; do not copy run-local scratch into the PRD by default.
 
 For oversized initial PRDs, produce a split-decision recommendation first. Write split summary and child PRDs only when the owner confirms module boundaries, priorities, and release sequencing. Keep the original PRD or source input by reference; do not introduce packet manifests or trace-ledgers in v1.
 

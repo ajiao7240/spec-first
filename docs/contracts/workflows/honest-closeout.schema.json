@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-first honest closeout contract",
+  "description": "Structured closeout claim verdicts. The validator compares claims to explicit evidence references; it does not parse natural language or create a second durable closeout artifact.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "overall", "overall_reason_code", "claims"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "honest-closeout.v1" },
+    "generated_at": { "type": "string" },
+    "overall": { "type": "string", "enum": ["verified", "degraded", "unsupported"] },
+    "overall_reason_code": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_type",
+          "asserted_status",
+          "evidence_refs",
+          "verdict",
+          "reason_code"
+        ],
+        "properties": {
+          "claim_type": {
+            "type": "string",
+            "enum": ["validation", "impact_surface", "review", "knowledge_promotion"]
+          },
+          "asserted_status": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+          },
+          "verdict": { "type": "string", "enum": ["consistent", "unsupported", "degraded"] },
+          "reason_code": { "type": "string", "minLength": 1, "maxLength": 120 }
+        }
+      }
+    }
+  }
+}

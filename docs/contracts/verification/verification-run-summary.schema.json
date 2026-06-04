@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-first verification run summary contract",
+  "description": "Workflow-local summary of verification checks that were actually recorded after execution. This contract captures results; it does not run commands or infer exit codes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "profile", "checks"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "verification-run-summary.v1" },
+    "generated_at": { "type": "string" },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "name", "path"],
+      "properties": {
+        "source": { "type": "string", "enum": ["explicit", "local", "inferred", "missing"] },
+        "name": { "type": "string" },
+        "path": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "service",
+          "command",
+          "status",
+          "exit_code",
+          "ran",
+          "required_tools",
+          "missing_tools",
+          "log_path",
+          "reason_code",
+          "redaction_status"
+        ],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "service": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "command": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "status": { "type": "string", "enum": ["passed", "failed", "not-run", "degraded"] },
+          "exit_code": {
+            "anyOf": [
+              { "type": "integer" },
+              { "type": "null" }
+            ]
+          },
+          "ran": { "type": "boolean" },
+          "required_tools": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+          },
+          "missing_tools": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+          },
+          "log_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\.spec-first/workflows/spec-work/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/logs/.+[^/]$"
+              },
+              { "type": "null" }
+            ]
+          },
+          "reason_code": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "redaction_status": { "type": "string", "enum": ["redacted", "none-required"] }
+        }
+      }
+    }
+  }
+}

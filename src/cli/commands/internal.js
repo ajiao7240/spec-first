@@ -3,7 +3,10 @@
 const { runContextBundle } = require('../helpers/context-bundle');
 const { runScenarioFingerprint } = require('../helpers/scenario-fingerprint');
 const { runCli: runSecretDenyPatternsCli } = require('../helpers/secret-deny-patterns');
+const { runCli: runHonestCloseoutCli } = require('../helpers/honest-closeout');
 const { runCli: runSpecWorkRunArtifactCli } = require('../helpers/spec-work-run-artifact');
+const { runCli: runVerificationProfileCli } = require('../helpers/verification-profile');
+const { runCli: runVerificationRunSummaryCli } = require('../helpers/verification-run-summary');
 
 function runInternal(argv) {
   const args = Array.isArray(argv) ? [...argv] : [];
@@ -21,8 +24,20 @@ function runInternal(argv) {
     return runSecretDenyPatternsCli(args.slice(1));
   }
 
+  if (subcommand === 'honest-closeout') {
+    return runHonestCloseoutCli(args.slice(1));
+  }
+
   if (subcommand === 'spec-work-run-artifact') {
     return runSpecWorkRunArtifactCli(args.slice(1));
+  }
+
+  if (subcommand === 'verification-profile') {
+    return runVerificationProfileCli(args.slice(1));
+  }
+
+  if (subcommand === 'verification-run-summary') {
+    return runVerificationRunSummaryCli(args.slice(1));
   }
 
   if (args.includes('--json')) {
