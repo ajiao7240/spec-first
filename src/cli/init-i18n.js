@@ -8,6 +8,9 @@ const MESSAGES = {
     workspaceTarget: '选择 workspace 初始化目标:',
     workspaceAllRepos: (count) => `所有子仓库 (${count})`,
     workspaceCancel: '取消',
+    reuseGlobalProfile: (name, lang) => (
+      `检测到全局开发者: ${name} (${lang})。沿用?`
+    ),
     globalProfileOverwrite: (display, name, lang) => (
       `全局 developer profile 已存在: ${display}。是否用 ${name} (${lang}) 覆盖?`
     ),
@@ -41,6 +44,9 @@ const MESSAGES = {
     workspaceTarget: 'Select workspace target:',
     workspaceAllRepos: (count) => `All child repos (${count})`,
     workspaceCancel: 'Cancel',
+    reuseGlobalProfile: (name, lang) => (
+      `Detected global developer: ${name} (${lang}). Reuse it?`
+    ),
     globalProfileOverwrite: (display, name, lang) => (
       `Global developer profile already exists: ${display}. Overwrite it with ${name} (${lang})?`
     ),

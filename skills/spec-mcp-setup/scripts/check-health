@@ -185,6 +185,8 @@ required_label() {
 status_label() {
   case "$1" in
     ok) echo "installed" ;;
+    agent-browser-cli-ready|skipped) echo "skipped" ;;
+    degraded) echo "degraded" ;;
     *) echo "missing" ;;
   esac
 }
@@ -238,7 +240,7 @@ for entry in "${deps[@]}"; do
       cli_ok=$((cli_ok + 1))
       results+=("$name|$baseline_blocking|agent-browser-cli-ready|$install_cmd|$url")
     else
-      results+=("$name|$baseline_blocking|missing|$install_cmd|$url")
+      results+=("$name|$baseline_blocking|skipped|$install_cmd|$url")
     fi
   elif command -v "$name" >/dev/null 2>&1; then
     cli_ok=$((cli_ok + 1))
@@ -252,16 +254,9 @@ for entry in "${deps[@]}"; do
   fi
 done
 
-has_npx="no"
-has_jq="no"
-command -v npx >/dev/null 2>&1 && has_npx="yes"
-command -v jq >/dev/null 2>&1 && has_jq="yes"
-
-installed_skill_names=""
-if [ "$has_npx" = "yes" ] && [ "$has_jq" = "yes" ]; then
-  installed_skill_names="$(npx --yes skills list --global --json 2>/dev/null | jq -r '.[].name' 2>/dev/null || true)"
-fi
-
+# 全局 skill 安装检测改用确定性文件存在性（~/.agents|.codex|.claude/skills/<name>/SKILL.md），
+# 不再调用 `npx --yes skills list`：后者冷解析约 1.9s 且其结果与文件落点一一等价、本就被
+# global_skill_installed 作为权威兜底，属冗余慢操作。
 skill_ok=0
 skill_total=0
 skill_results=()
@@ -272,13 +267,7 @@ for entry in "${skills[@]}"; do
   url="$(build_project_url "$helper_id")"
 
   is_installed="no"
-  if [ -n "$installed_skill_names" ]; then
-    if printf '%s\n' "$installed_skill_names" | grep -qx "$name"; then
-      is_installed="yes"
-    fi
-  fi
-
-  if [ "$is_installed" = "no" ] && global_skill_installed "$name"; then
+  if global_skill_installed "$name"; then
     is_installed="yes"
   fi
 
@@ -435,6 +424,14 @@ for result in "${results[@]}"; do
   printf "  %-15s %-9s %-10s\n" "$name" "$(required_label required)" "$(status_label "$status")"
   if [ "$status" = "ok" ]; then
     continue
+  elif [ "$name" = "agent-browser" ]; then
+    if [ -n "$install_cmd" ]; then
+      detail "$install_cmd"
+    fi
+    if [ -n "$url" ]; then
+      detail "$url"
+    fi
+    continue
   else
     issues=$((issues + 1))
     if [ -n "$install_cmd" ]; then
@@ -469,13 +466,14 @@ fi
 
 if [ "$in_repo" = "yes" ]; then
   has_project_issues="no"
-  for state in "$legacy_markdown" "$legacy_ce_config" "$repo_cfg" "$repo_cfg_gitignore" "$example_cfg"; do
-    case "$state" in
-      present|missing|outdated)
-        has_project_issues="yes"
-        ;;
-    esac
-  done
+  [ "$legacy_markdown" = "present" ] && has_project_issues="yes"
+  [ "$legacy_ce_config" = "present" ] && has_project_issues="yes"
+  [ "$repo_cfg_gitignore" = "missing" ] && has_project_issues="yes"
+  case "$example_cfg" in
+    missing|outdated)
+      has_project_issues="yes"
+      ;;
+  esac
 
   if [ "$has_project_issues" = "yes" ]; then
     section "Project"
@@ -491,8 +489,7 @@ if [ "$in_repo" = "yes" ]; then
     fi
 
     if [ "$repo_cfg" = "missing" ]; then
-      warn "Local config missing (.spec-first/config.local.yaml)"
-      issues=$((issues + 1))
+      detail "Optional local config not created (.spec-first/config.local.yaml)"
     fi
 
     if [ "$repo_cfg_gitignore" = "missing" ]; then
@@ -503,9 +500,11 @@ if [ "$in_repo" = "yes" ]; then
     if [ "$example_cfg" = "missing" ]; then
       warn "Example config missing (.spec-first/config.local.example.yaml)"
       issues=$((issues + 1))
+      detail "bash \"$script_dir/bootstrap-project-config.sh\" --repo \"$repo_root\" --refresh-example"
     elif [ "$example_cfg" = "outdated" ]; then
       warn "Example config outdated (.spec-first/config.local.example.yaml)"
       issues=$((issues + 1))
+      detail "bash \"$script_dir/bootstrap-project-config.sh\" --repo \"$repo_root\" --refresh-example"
     fi
   fi
 fi

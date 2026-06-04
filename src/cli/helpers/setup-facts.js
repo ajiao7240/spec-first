@@ -7,6 +7,7 @@ const SETUP_FACTS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const READY_CONFIGURED_STATUSES = new Set(['ready', 'not-applicable', 'not-required', 'fallback-active']);
 const ACTION_CONFIGURED_STATUSES = new Set(['action-required', 'precedence-blocked']);
 const DEGRADED_CONFIGURED_STATUSES = new Set(['registry-args-drift']);
+const RESULT_ENUM = new Set(['ready', 'degraded', 'skipped', 'action-required', 'unsupported']);
 
 function readJsonFile(filePath) {
   const raw = fs.readFileSync(filePath, 'utf8');
@@ -230,7 +231,9 @@ function inferItemResult({ source, dependencyStatus, configuredStatus, projectSt
   if (sourceResult === 'ready') return 'ready';
   if (READY_CONFIGURED_STATUSES.has(configuredStatus)) return 'ready';
   if (source.status === 'missing') return 'action-required';
-  return source.status || 'unknown';
+  // 兜底：只允许已知 result 枚举透传，未知 status 字符串一律归 'unknown'，
+  // 避免非枚举值绕过 computeCounts / isRequiredAction 的枚举判断而漏计 required_action。
+  return RESULT_ENUM.has(source.status) ? source.status : 'unknown';
 }
 
 function inferReasonCode({ sourceReasonCode, dependencyStatus, configuredStatus, projectStatus, result, baselineBlocking }) {

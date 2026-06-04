@@ -978,6 +978,9 @@ finalize_global_skill() {
 }
 
 OS="$(detect_os)"
+# 父 shell 预热 install plan，使后续每个 helper 的 safety 查询只走 jq 查表、
+# 避免在 add_helper_fact 内按 helper 重复 fork node（详见 lib-helper-registry.sh）。
+helper_registry_prewarm_install_plan
 process_agent_browser
 while IFS= read -r helper; do
   [ "$helper" != "agent-browser" ] || continue

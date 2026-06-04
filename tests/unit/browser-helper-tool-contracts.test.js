@@ -6,7 +6,9 @@ const path = require('node:path');
 
 const { spawnSync } = require('node:child_process');
 const { loadPluginManifest } = require('../../src/cli/plugin');
-const { captureProgrammaticInit } = require('./helpers/init-plan');
+const { captureProgrammaticInit, useIsolatedDeveloperHome } = require('./helpers/init-plan');
+
+useIsolatedDeveloperHome();
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
@@ -156,7 +158,10 @@ describe('browser helper tool contracts', () => {
     expect(checkHealth).toContain('Skill install status');
     expect(checkHealth).toContain('Required');
     expect(checkHealth).toContain('Status');
+    expect(checkHealth).toContain('agent-browser-cli-ready|skipped) echo "skipped"');
     expect(checkHealth).toContain('SPEC_FIRST_BROWSER_HELPER_REQUIRED=1');
+    expect(checkHealth).toContain('elif [ "$name" = "agent-browser" ]; then');
+    expect(checkHealth).not.toMatch(/installed_skill_names=.*npx --yes skills list/);
     expect(checkHealth).toContain('npx -y skills@latest add ast-grep/agent-skill -g -y');
     expect(helperTools.helpers.find((helper) => helper.id === 'ast-grep')).toMatchObject({
       required: true,

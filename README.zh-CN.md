@@ -113,7 +113,7 @@ spec-first doctor
 spec-first init
 ```
 
-`spec-first init` 是交互式流程：多选 Claude Code 和/或 Codex、确认开发者姓名与语言、预览写入内容，然后显式确认。可用 `spec-first init --codex` 或 `spec-first init --claude` 只跳过宿主选择步骤。脚本中可用 `spec-first init -y` 初始化默认宿主集合，或把 `-y` 与显式宿主 flag、`-u <name>`、`--lang <zh|en>` 组合使用。
+`spec-first init` 是交互式流程：多选 Claude Code 和/或 Codex、确认开发者姓名与语言(若全局 developer profile 已存在,init 只询问一次是否沿用,而不再重复要求填名字)、预览写入内容,然后显式确认。可用 `spec-first init --codex` 或 `spec-first init --claude` 只跳过宿主选择步骤。脚本中可用 `spec-first init -y` 初始化默认宿主集合，或把 `-y` 与显式宿主 flag、`-u <name>`、`--lang <zh|en>` 组合使用。
 
 重启宿主或新开会话，让宿主加载刚生成的 runtime assets。
 

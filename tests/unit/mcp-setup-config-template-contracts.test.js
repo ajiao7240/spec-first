@@ -12,6 +12,22 @@ const TEMPLATE_PATH = path.join(
   'references',
   'config-template.yaml',
 );
+const PROJECT_EXAMPLE_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  '.spec-first',
+  'config.local.example.yaml',
+);
+const CHECK_HEALTH_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-mcp-setup',
+  'scripts',
+  'check-health',
+);
 
 describe('spec-mcp-setup config template contract', () => {
   test('document rendering hints stay inactive and spec-first scoped', () => {
@@ -30,5 +46,21 @@ describe('spec-mcp-setup config template contract', () => {
     expect(text).not.toContain('.compound-engineering');
     expect(text).not.toMatch(/\bce-[a-z]/);
     expect(text).not.toContain('exclusive format');
+  });
+
+  test('tracked local config example mirrors the source template', () => {
+    const template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
+    const projectExample = fs.readFileSync(PROJECT_EXAMPLE_PATH, 'utf8');
+
+    expect(projectExample).toBe(template);
+  });
+
+  test('check-health treats local config as optional and reports example repair action', () => {
+    const text = fs.readFileSync(CHECK_HEALTH_PATH, 'utf8');
+
+    expect(text).toContain('Optional local config not created (.spec-first/config.local.yaml)');
+    expect(text).not.toContain('warn "Local config missing (.spec-first/config.local.yaml)"');
+    expect(text).toContain('Example config outdated (.spec-first/config.local.example.yaml)');
+    expect(text).toContain('bootstrap-project-config.sh\\" --repo \\"$repo_root\\" --refresh-example');
   });
 });

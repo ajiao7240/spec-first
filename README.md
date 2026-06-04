@@ -113,7 +113,7 @@ Initialize the host runtime you actually use:
 spec-first init
 ```
 
-`spec-first init` is interactive: select Claude Code and/or Codex, confirm your developer name and language, preview the writes, then confirm. Use `spec-first init --codex` or `spec-first init --claude` to skip only the host selection step. Use `spec-first init -y` for scripted defaults, or combine `-y` with explicit host flags, `-u <name>`, and `--lang <zh|en>`.
+`spec-first init` is interactive: select Claude Code and/or Codex, then confirm your developer name and language — when a global developer profile already exists, init asks once whether to reuse it instead of re-prompting for the name — preview the writes, then confirm. Use `spec-first init --codex` or `spec-first init --claude` to skip only the host selection step. Use `spec-first init -y` for scripted defaults, or combine `-y` with explicit host flags, `-u <name>`, and `--lang <zh|en>`.
 
 Restart the host or open a new session so it loads the generated runtime assets.
 

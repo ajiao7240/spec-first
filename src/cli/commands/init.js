@@ -295,19 +295,36 @@ async function collectInitInput({
   const root = canonicalizeExistingPath(workspaceRoot);
   const resolvedDefaults = defaults || resolveDeveloperDefaults(root);
   const initMessages = messages || getInitMessages(defaultLang || parsed.lang || resolvedDefaults.lang);
-  const lang = parsed.lang || (parsed.yes
-    ? resolvedDefaults.lang
-    : await promptApi.select(initMessages.languageSelect, [
-      { label: 'Chinese / 中文 (zh)', value: 'zh' },
-      { label: 'English (en)', value: 'en' },
-    ], {
-      defaultIndex: resolvedDefaults.lang === 'en' ? 1 : 0,
-      hint: initMessages.selectHint,
-    }));
+
+  const existingGlobal = readDeveloperFile(getGlobalDeveloperPath());
+  const hasGlobalProfile = Boolean(existingGlobal && existingGlobal.name);
+  const hasExplicitIdentity = Boolean(parsed.name) || Boolean(parsed.lang);
+  // 全局 profile 已存在且未显式覆盖时,默认沿用,不再无条件先弹语言/名字提问。
+  const reuseGlobalProfile = hasGlobalProfile && !parsed.yes && !hasExplicitIdentity;
+
+  const promptLang = async () => promptApi.select(initMessages.languageSelect, [
+    { label: 'Chinese / 中文 (zh)', value: 'zh' },
+    { label: 'English (en)', value: 'en' },
+  ], {
+    defaultIndex: resolvedDefaults.lang === 'en' ? 1 : 0,
+    hint: initMessages.selectHint,
+  });
+
+  let lang;
+  if (parsed.lang) {
+    lang = parsed.lang;
+  } else if (parsed.yes) {
+    lang = resolvedDefaults.lang;
+  } else if (reuseGlobalProfile) {
+    // 延后到沿用确认分支决定;先用全局值,选 No 时再弹语言选择。
+    lang = resolvedDefaults.lang;
+  } else {
+    lang = await promptLang();
+  }
   if (typeof onLangSelected === 'function') {
     onLangSelected(lang);
   }
-  const activeMessages = getInitMessages(lang);
+  let activeMessages = getInitMessages(lang);
   const platforms = parsed.platforms.length > 0
     ? parsed.platforms
     : parsed.yes
@@ -327,12 +344,38 @@ async function collectInitInput({
   }
 
   const adapters = platforms.map((platform) => getAdapter(platform));
-  const name = parsed.name || (parsed.yes
-    ? resolvedDefaults.name
-    : await promptApi.textInput(activeMessages.developerName, {
+
+  let name;
+  if (parsed.name) {
+    name = parsed.name;
+  } else if (parsed.yes) {
+    name = resolvedDefaults.name;
+  } else if (reuseGlobalProfile) {
+    const confirmedReuse = await promptApi.confirm(
+      activeMessages.reuseGlobalProfile(existingGlobal.name, existingGlobal.lang),
+      { default: true },
+    );
+    if (confirmedReuse) {
+      name = existingGlobal.name;
+      lang = existingGlobal.lang;
+    } else {
+      // 选择不沿用:补回语言选择,再确认名字。
+      lang = await promptLang();
+      activeMessages = getInitMessages(lang);
+      name = await promptApi.textInput(activeMessages.developerName, {
+        default: resolvedDefaults.name,
+        validate: (value) => (String(value || '').trim().length > 0 ? true : activeMessages.nameRequired),
+      });
+    }
+    if (typeof onLangSelected === 'function') {
+      onLangSelected(lang);
+    }
+  } else {
+    name = await promptApi.textInput(activeMessages.developerName, {
       default: resolvedDefaults.name,
       validate: (value) => (String(value || '').trim().length > 0 ? true : activeMessages.nameRequired),
-    }));
+    });
+  }
   const target = parsed.yes
     ? collectDefaultInitTarget(root)
     : await collectInteractiveInitTarget(root, promptApi, activeMessages);
@@ -1497,7 +1540,7 @@ function printHelp() {
     '',
     'Interactive steps:',
     '  1. Select Claude Code and/or Codex',
-    '  2. Confirm developer name',
+    '  2. Confirm developer name (reuse the existing global profile when present)',
     '  3. Choose response language',
     '  4. Choose workspace target when child Git repos are detected',
     '  5. Preview write/reset operations',

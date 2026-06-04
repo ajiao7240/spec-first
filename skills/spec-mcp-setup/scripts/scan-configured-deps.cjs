@@ -6,7 +6,9 @@ const path = require('node:path');
 const { loadHelperRegistry, helperById } = require('../../../src/cli/helpers/setup-facts');
 
 function parseArgs(argv) {
-  const parsed = { repoRoot: process.cwd(), factsFile: '' };
+  // repoRoot 默认空串：缺 --repo-root 时由 main() 的 required 检查拒绝，
+  // 不静默回退 process.cwd()（多仓 workspace 下回退 cwd 会扫错仓库）。
+  const parsed = { repoRoot: '', factsFile: '' };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--repo-root') {
@@ -49,7 +51,9 @@ function argsShape(command) {
   }).join(',');
 }
 
-function declaredLookup(repoRoot) {
+function declaredLookup() {
+  // registry 恒取 spec-first 自身的 helper-tools.json（描述 spec-first harness helper），
+  // 不读被扫描目标仓的 registry —— 故不接收 repoRoot 形参。
   const { registry } = loadHelperRegistry(path.resolve(__dirname, '..', '..', '..'));
   const helpers = helperById(registry);
   const commands = new Map();
@@ -183,6 +187,33 @@ function scanClaudeSettings(repoRoot, lookup) {
   return entries;
 }
 
+function scanCodexConfig(repoRoot, lookup) {
+  // Codex host configured surface（Req18 双宿主 parity）：读 .codex/hooks.json 的
+  // hooks.<event>[].hooks[].command。只提取命令名与来源，不执行 hook。
+  const hooksPath = path.join(repoRoot, '.codex', 'hooks.json');
+  const config = readJsonIfPresent(hooksPath);
+  if (!config) return [];
+  const entries = [];
+  const hooks = config.hooks && typeof config.hooks === 'object' ? config.hooks : {};
+  for (const [hookName, hookEntries] of Object.entries(hooks)) {
+    const list = Array.isArray(hookEntries) ? hookEntries : [];
+    list.forEach((hook, hookIndex) => {
+      const commands = Array.isArray(hook.hooks) ? hook.hooks : [];
+      commands.forEach((candidate, commandIndex) => {
+        const command = typeof candidate === 'string' ? candidate : candidate && candidate.command;
+        const entry = makeEntry({
+          kind: 'hook',
+          sourcePath: hooksPath,
+          command,
+          idSuffix: `codex:${hookName}:${hookIndex}:${commandIndex}`,
+        }, lookup);
+        if (entry) entries.push({ ...entry, hook: hookName, host: 'codex' });
+      });
+    });
+  }
+  return entries;
+}
+
 function scanPackageSetupScripts(repoRoot, lookup) {
   const packageJsonPath = path.join(repoRoot, 'package.json');
   const packageJson = readJsonIfPresent(packageJsonPath);
@@ -251,10 +282,15 @@ function main() {
     process.exit(2);
   }
   const repoRoot = path.resolve(args.repoRoot);
-  const lookup = declaredLookup(repoRoot);
+  if (!fs.existsSync(repoRoot)) {
+    console.error(`scan-configured-deps: --repo-root does not exist: ${repoRoot}`);
+    process.exit(2);
+  }
+  const lookup = declaredLookup();
   const configuredDependencies = [
     ...scanFactsMcp(args.factsFile, lookup),
     ...scanClaudeSettings(repoRoot, lookup),
+    ...scanCodexConfig(repoRoot, lookup),
     ...scanPackageSetupScripts(repoRoot, lookup),
     ...scanVerificationProfile(repoRoot, lookup),
   ];

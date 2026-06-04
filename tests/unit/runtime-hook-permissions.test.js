@@ -5,7 +5,9 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { getAdapter } = require('../../src/cli/adapters');
-const { runProgrammaticInit } = require('./helpers/init-plan');
+const { runProgrammaticInit, useIsolatedDeveloperHome } = require('./helpers/init-plan');
+
+useIsolatedDeveloperHome();
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-hook-perms-'));

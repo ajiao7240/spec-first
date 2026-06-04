@@ -307,4 +307,9 @@ foreach ($skill in $skills) {
 }
 
 Write-Host ''
-Write-Host "Project local_config=$localConfig example_config=$exampleConfig gitignore=$localConfigGitignore"
+$localConfigDisplay = if ($localConfig -eq 'missing') { 'optional-missing' } else { $localConfig }
+Write-Host "Project local_config=$localConfigDisplay example_config=$exampleConfig gitignore=$localConfigGitignore"
+if ($exampleConfig -eq 'missing' -or $exampleConfig -eq 'outdated') {
+  $bootstrapScript = Join-Path $PSScriptRoot 'bootstrap-project-config.ps1'
+  Write-Host "Project config next action: pwsh `"$bootstrapScript`" -Repo `"$repoRoot`" -RefreshExample"
+}

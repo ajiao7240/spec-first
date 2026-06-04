@@ -437,4 +437,79 @@ describe('dependency readiness baseline contracts', () => {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
+
+  it('scan rejects when --repo-root is missing instead of falling back to cwd (C1)', () => {
+    const result = spawnSync('node', [scanConfiguredDepsPath], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    expect(result.status).toBe(2);
+    expect(result.stderr).toMatch(/--repo-root required/);
+  });
+
+  it('scan includes Codex host configured hooks for dual-host parity (C2/Req18)', () => {
+    const tmp = makeTempDir();
+    try {
+      writeJson(path.join(tmp, '.codex/hooks.json'), {
+        hooks: {
+          SessionStart: [
+            {
+              matcher: 'startup',
+              hooks: [{ type: 'command', command: 'definitely-missing-codex-hook --flag' }],
+            },
+          ],
+        },
+      });
+      const result = spawnSync('node', [scanConfiguredDepsPath, '--repo-root', tmp], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+      expect(result.status).toBe(0);
+      const payload = JSON.parse(result.stdout);
+      const codexHook = payload.configured_dependencies.find((entry) => entry.host === 'codex');
+      expect(codexHook).toMatchObject({
+        kind: 'hook',
+        host: 'codex',
+        command: 'definitely-missing-codex-hook',
+        result: 'action-required',
+        reason_code: 'configured-dependency-undeclared',
+      });
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('normalizes unknown source.status to "unknown" result, not pass-through (C5)', () => {
+    const projection = normalizeSetupFacts({
+      schema_version: 'tool-facts.v2',
+      items: [
+        // dependency ready 但 status 是非枚举自定义值：不得透传为 result
+        { id: 'weird', dependency_status: 'ready', status: 'some-custom-state', required: true },
+      ],
+    });
+    const item = projection.items.find((entry) => entry.id === 'weird');
+    expect(['ready', 'degraded', 'skipped', 'action-required', 'unsupported', 'unknown']).toContain(item.result);
+    expect(item.result).not.toBe('some-custom-state');
+  });
+
+  it('verify-tools status table defines all 9 required sections (C4/Req7)', () => {
+    const verifyTools = fs.readFileSync(
+      path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.sh'),
+      'utf8',
+    );
+    const requiredSections = [
+      'Execution result',
+      'MCP servers',
+      'Helper tools',
+      'Provider tools',
+      'Host configured dependencies',
+      'Install safety',
+      'Project setup facts',
+      'Verification profile',
+      'Next steps',
+    ];
+    for (const title of requiredSections) {
+      expect(verifyTools).toContain(`title: "${title}"`);
+    }
+  });
 });

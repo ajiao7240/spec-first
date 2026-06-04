@@ -11,6 +11,43 @@ function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-init-interactive-'));
 }
 
+// 现有用例隐式依赖真实 ~/.spec-first/.developer,会让 init 走"沿用确认"分支并污染机器全局 profile。
+// 仓库 jest 环境下 os.homedir() 无视 process.env.HOME,改用 spy 把 HOME 钉到隔离临时目录,
+// 使「无全局 profile」成为默认基线,各用例按需写入。
+let isolatedHome = null;
+let homedirSpy = null;
+
+beforeEach(() => {
+  isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-init-home-'));
+  homedirSpy = jest.spyOn(os, 'homedir').mockReturnValue(isolatedHome);
+});
+
+afterEach(() => {
+  if (homedirSpy) {
+    homedirSpy.mockRestore();
+    homedirSpy = null;
+  }
+  if (isolatedHome) {
+    fs.rmSync(isolatedHome, { recursive: true, force: true });
+    isolatedHome = null;
+  }
+});
+
+function writeGlobalDeveloperProfile({ name = 'leokuang', lang = 'zh' } = {}) {
+  const dir = path.join(isolatedHome, '.spec-first');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, '.developer'),
+    `name=${name}\nlang=${lang}\ninitialized_at=2026-06-04T00:00:00.000Z\nversion=test\n`,
+    'utf8',
+  );
+}
+
+function readGlobalDeveloperProfile() {
+  const filePath = path.join(isolatedHome, '.spec-first', '.developer');
+  return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
+}
+
 async function withCwd(cwd, fn) {
   const previous = process.cwd();
   process.chdir(cwd);
@@ -41,11 +78,17 @@ async function captureInit(cwd, args, promptOverrides = {}) {
   }
 }
 
+function isReusePrompt(question) {
+  const text = String(question || '');
+  return text.includes('沿用') || text.includes('Reuse');
+}
+
 function interactivePrompts({
   platforms = ['codex'],
   name = 'reviewer',
   lang = 'zh',
   confirmed = true,
+  reuseGlobalProfile = true,
   workspaceTarget = null,
 } = {}) {
   return {
@@ -61,7 +104,10 @@ function interactivePrompts({
       return Promise.resolve(options[0].value);
     }),
     textInput: jest.fn(() => Promise.resolve(name)),
-    confirm: jest.fn(() => Promise.resolve(confirmed)),
+    // confirm 承载两个语义:沿用全局 profile(reuse)与应用更改(apply),按 question 文本分流。
+    confirm: jest.fn((question) => Promise.resolve(
+      isReusePrompt(question) ? reuseGlobalProfile : confirmed,
+    )),
   };
 }
 
@@ -463,6 +509,72 @@ describe('interactive init command', () => {
       expect(fs.existsSync(path.join(childB, 'CLAUDE.md'))).toBe(true);
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('existing global profile reuses name and lang without re-prompting', async () => {
+    const projectRoot = makeTempDir();
+    writeGlobalDeveloperProfile({ name: 'leokuang', lang: 'zh' });
+    const prompts = interactivePrompts({ platforms: ['codex'], reuseGlobalProfile: true });
+
+    try {
+      const result = await captureInit(projectRoot, [], prompts);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      // 沿用确认弹出,但不再追问名字或语言。
+      expect(prompts.confirm.mock.calls.some((call) => isReusePrompt(call[0]))).toBe(true);
+      expect(prompts.textInput).not.toHaveBeenCalled();
+      expect(prompts.select).not.toHaveBeenCalled();
+      // 不弹覆盖确认,全局 profile 保持原值。
+      expect(prompts.confirm.mock.calls.some((call) => String(call[0]).includes('覆盖'))).toBe(false);
+      expect(readGlobalDeveloperProfile()).toContain('name=leokuang');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('declining reuse re-prompts for language and developer name', async () => {
+    const projectRoot = makeTempDir();
+    writeGlobalDeveloperProfile({ name: 'leokuang', lang: 'zh' });
+    const prompts = interactivePrompts({
+      platforms: ['codex'],
+      reuseGlobalProfile: false,
+      name: 'newname',
+      lang: 'zh',
+      confirmed: true,
+    });
+
+    try {
+      const result = await captureInit(projectRoot, [], prompts);
+
+      expect(result.exitCode).toBe(0);
+      // 选 No 后补回语言选择与名字输入。
+      expect(prompts.select).toHaveBeenCalled();
+      expect(prompts.textInput).toHaveBeenCalled();
+      // 改名后弹覆盖确认并写入新值。
+      expect(prompts.confirm.mock.calls.some((call) => String(call[0]).includes('覆盖'))).toBe(true);
+      expect(readGlobalDeveloperProfile()).toContain('name=newname');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('no global profile keeps the original name input flow', async () => {
+    const projectRoot = makeTempDir();
+    const prompts = interactivePrompts({ platforms: ['codex'], name: 'reviewer', lang: 'zh' });
+
+    try {
+      const result = await captureInit(projectRoot, [], prompts);
+
+      expect(result.exitCode).toBe(0);
+      // 无全局 profile:不弹沿用确认,直接走语言选择与名字输入框。
+      expect(prompts.confirm.mock.calls.some((call) => isReusePrompt(call[0]))).toBe(false);
+      expect(prompts.select).toHaveBeenCalled();
+      expect(prompts.textInput).toHaveBeenCalled();
+      expect(readGlobalDeveloperProfile()).toContain('name=reviewer');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 });

@@ -7,7 +7,9 @@ const path = require('node:path');
 const { runClean } = require('../../src/cli/commands/clean');
 const { getAdapter } = require('../../src/cli/adapters');
 const { readState } = require('../../src/cli/state');
-const { runProgrammaticInit } = require('./helpers/init-plan');
+const { runProgrammaticInit, useIsolatedDeveloperHome } = require('./helpers/init-plan');
+
+useIsolatedDeveloperHome();
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-clean-dry-run-'));

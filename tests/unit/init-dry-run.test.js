@@ -16,6 +16,7 @@ const { buildEmptyOperationPlan } = require('../../src/cli/state');
 const {
   captureProgrammaticInit,
   runProgrammaticInit,
+  useIsolatedDeveloperHome,
 } = require('./helpers/init-plan');
 
 function makeTempDir() {
@@ -235,6 +236,8 @@ function buildMinimalInitWritePlan(projectRoot) {
     runtimePlan: buildEmptyOperationPlan(),
   });
 }
+
+useIsolatedDeveloperHome();
 
 describe('init --dry-run', () => {
   test('interactive preview can cap long managed path lists', () => {

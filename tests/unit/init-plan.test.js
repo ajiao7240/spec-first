@@ -5,6 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { applyInitPlan, buildInitPlan } = require('../../src/cli/init-plan');
+const { useIsolatedDeveloperHome } = require('./helpers/init-plan');
+
+// applyInitPlan 会写全局 developer profile(~/.spec-first/.developer);隔离 HOME 避免污染运行机器。
+useIsolatedDeveloperHome();
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-init-plan-'));
