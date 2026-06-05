@@ -24,16 +24,27 @@ Run checks by pack. Always run the core pack; run conditional packs only when th
 - `current-state provenance` - material current-system claims have evidence tags; user-stated, confirmed-source, source-candidate, external-research, and assumptions are not blended; stale pointers are not presented as confirmed.
 - `change delta and boundary clarity` - keep/extend/replace/remove/unknown is explicit for material changes, scope boundaries are visible, and priority/degrade/block-release semantics are present when relevant.
 - `planning-invention and trace risk` - planning would not need to invent actors, flows, acceptance, scope, priority, or current behavior; core requirements have acceptance coverage or an explicit trace gap.
-- `wording and testability` - vague words such as "等", "相关", "合适的", "更好", and "优化体验" are replaced by verifiable behavior, state, trigger, quantity, or acceptance.
+- `wording and testability` - vague words such as "等", "相关", "合适的", "更好", and "优化体验" are replaced by verifiable behavior, state, trigger, quantity, or acceptance. INVEST, EARS, and Gherkin-style wording are optional clarity anchors, not scoring rubrics.
 - `interaction and exception readiness` - important user-visible entries, state, feedback, confirmation, cancellation, failure, empty, permission, retry, and partial-success cases are covered or intentionally out of scope when relevant.
 
 ### Quality Diagnosis Pack
 
-Run this pack when the input is an existing PRD, requirements draft, rough notes, or the user asks for deep PRD quality analysis or optimization suggestions.
+Run this pack when the input is an existing PRD, requirements draft, rough notes being refined/validated as PRD input, or the user asks for deep PRD quality analysis or optimization suggestions.
 
 - `adaptive product lens fit` - the applied surface/industry/product lens follows the actual target surface, current source evidence, and owner-stated objective; generic checklists are not applied as confirmed project facts.
+- `canonical lens reuse` - the diagnosis uses `prd-output-template.md`'s Adaptive Product Expert Lens as the quality-dimension source instead of copying a second near-duplicate dimension list.
 - `optimization suggestion closure` - major PRD gaps are expressed as `original -> recommendation -> reason -> write target`, prioritized by planning-invention risk, and either incorporated into the rewritten PRD or left as visible blockers.
 - `rewrite integrity` - the final PRD preserves stable IDs where applicable, separates critique from durable requirements, keeps HOW out of requirements, and does not drop confirmed source evidence, owner decisions, assumptions, or unresolved questions during cleanup.
+
+### Feature Slice Pack
+
+Run this pack when `## Feature Slices` is present or when PRD complexity suggests slices should exist.
+
+- `slice identity and trace` - each slice has a stable feature ID, business-readable title, source/evidence, requirement refs, acceptance refs or an explicit trace gap, and a visible mapping to Change Delta or core requirements.
+- `business capability boundary` - slices are grouped by product capability/outcome rather than Controller/Service/DAO files, screens alone, or code module partitions.
+- `source excerpt preservation` - original PRD text, user claim, or source claim remains visible enough for planning and review to trace why the slice exists.
+- `cross-cutting risk visibility` - permissions, rollout, compliance, operational, shared-source, and cross-surface concerns are visible as risk signals or cross-cutting notes, not hidden inside fake feature slices.
+- `program-slice boundary` - large slice count, cross-owner scope, or cross-release risk leads to split recommendation or owner confirmation; the PRD does not silently decide program/execution slices.
 
 ### Topology Pack
 

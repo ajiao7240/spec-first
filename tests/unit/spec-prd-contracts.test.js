@@ -47,6 +47,13 @@ const FRESH_SOURCE_EVAL_SIMPLICITY_PATH = path.join(
   'spec-prd',
   'fresh-source-eval-2026-06-04-simplicity-refactor.md',
 );
+const FRESH_SOURCE_EVAL_SANITIZATION_FEATURE_SLICES_PATH = path.join(
+  REPO_ROOT,
+  'docs',
+  'validation',
+  'spec-prd',
+  'fresh-source-eval-2026-06-05-sanitization-feature-slices.md',
+);
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -60,6 +67,23 @@ function expectContainsAll(content, snippets) {
   for (const snippet of snippets) {
     expect(content).toContain(snippet);
   }
+}
+
+function extractMarkdownSection(content, heading) {
+  const lines = content.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trim() === heading);
+  expect(start).toBeGreaterThanOrEqual(0);
+
+  const level = heading.match(/^#+/)[0].length;
+  const nextHeading = new RegExp(`^#{1,${level}}\\s+`);
+  const end = lines.findIndex((line, index) => index > start && nextHeading.test(line));
+  return lines.slice(start, end === -1 ? lines.length : end).join('\n');
+}
+
+function expectCaseExpected(examples, id, snippets) {
+  const entry = examples.cases.find((candidate) => candidate.id === id);
+  expect(entry).toBeTruthy();
+  expect(entry.expected).toEqual(expect.arrayContaining(snippets));
 }
 
 function listCurrentFiles(dirPath) {
@@ -105,6 +129,7 @@ describe('spec-prd workflow contracts', () => {
   test('entrypoint exposes compact workflow contract summary and decision-tree intake', () => {
     const text = read(SKILL_PATH);
     const firstHundredTwentyLines = text.split(/\r?\n/).slice(0, 120).join('\n');
+    const phaseOne = extractMarkdownSection(text, '### Phase 1: Current-State Analysis');
 
     expect(text).toContain('name: spec-prd');
     expect(text.split(/\r?\n/).length).toBeLessThanOrEqual(170);
@@ -139,6 +164,17 @@ describe('spec-prd workflow contracts', () => {
       'What input posture?',
       'Split or continue?',
     ]);
+    expectContainsAll(phaseOne, [
+      'PRD Sanitization',
+      'product facts/goals/scope/acceptance',
+      'technical suggestions',
+      'temporary conclusions',
+      'unconfirmed facts',
+      'explicit non-goals',
+      'embedded agent instructions/commands',
+      'authoring discipline, not a new schema or security parser',
+    ]);
+    expect(phaseOne.indexOf('Run PRD Sanitization')).toBeLessThan(phaseOne.indexOf('Use `evidence-and-topology.md`'));
     expect(firstHundredTwentyLines).not.toContain('Input Mode Table');
     expect(firstHundredTwentyLines).not.toContain('Tie-Break Rules');
     expect(firstHundredTwentyLines).not.toContain('current year is 2026');
@@ -218,6 +254,13 @@ describe('spec-prd workflow contracts', () => {
       'not a provider contract',
       'local knowledge base, code index, prior-artifact summary, or any retrieval layer',
       'Candidate source hits can guide what to read next',
+      'Calibration Source Boundary',
+      'PRD/user decisions as the authority for product WHAT, acceptance, scope, and non-goals',
+      'project docs, SPECs, glossaries, and standards calibrate',
+      'source, code, tests, and code indexes confirm current behavior',
+      'prior plans, learnings, and archive cases warn about historical risks',
+      'candidate modules and source refs are evidence pointers only',
+      'must not infer a user goal, add a new acceptance criterion, or override an explicit PRD non-goal',
       'Current-state discovery constrains the PRD',
       '`keep`',
       '`extend`',
@@ -291,6 +334,8 @@ describe('spec-prd workflow contracts', () => {
 
   test('output template owns section skeleton, surface lenses, overlays, and split topology', () => {
     const template = read(OUTPUT_TEMPLATE_PATH);
+    const featureSlices = extractMarkdownSection(template, '## Feature Slices');
+    const closeout = extractMarkdownSection(template, '## Closeout Summary');
 
     expectContainsAll(template, [
       'artifact_kind: prd-requirements',
@@ -325,7 +370,11 @@ describe('spec-prd workflow contracts', () => {
       'Adaptive Product Expert Lens',
       'not an agent type',
       'current-state and code alignment',
+      'this confirms current WHAT and evidence pointers, not HOW to change implementation',
+      'use INVEST as an explanatory anchor',
+      'use EARS or Gherkin-style wording only when it reduces ambiguity',
       'scope and handoff entropy',
+      'canonical PRD quality-dimension list',
       'Embedded Standard Skeleton',
       'AE-01（对应 R-01）',
       'AE-02（对应 R-01，异常）',
@@ -336,11 +385,14 @@ describe('spec-prd workflow contracts', () => {
       'evidence-and-topology.md',
       'do not print the run-local Framing Gate by default',
       'PRD Quality Diagnosis And Optimization',
-      'quality_posture: ready | minor-gaps | material-gaps | blockers',
+      'quality_diagnosis: ready | minor-gaps | material-gaps | blockers',
+      '`not-run` is a run-local decision-card state only',
+      'Do not create numeric PRD scorecards, 0-100 quality ratings, or industry hard-threshold rubrics',
       'original -> recommendation -> reason -> write target',
       'optimization suggestions',
       'final rewritten PRD',
       'no standalone quality report artifact',
+      '## Feature Slices',
       '"等", "相关", "合适的", "更好", and "优化体验"',
       'implementation units, schemas, exact API fields, database tables, and task breakdown are not',
       'Producer / Artifact / Consumer',
@@ -355,7 +407,39 @@ describe('spec-prd workflow contracts', () => {
       'source_prd:',
       'split_summary:',
     ]);
+    expectContainsAll(featureSlices, [
+      'Feature Slices are context and handoff units',
+      'not execution units, task packs, program slices, or sub-agent dispatch units',
+      'business capability/outcome boundaries rather than code-layer partitions such as Controller/Service/DAO files',
+      'feature_id:',
+      'title:',
+      'summary:',
+      'requirement_refs:',
+      'acceptance_refs:',
+      'source_excerpt_or_claim:',
+      'evidence:',
+      'candidate_modules_or_source_refs:',
+      'risk_signals:',
+      'no slice without acceptance refs or an explicit trace gap',
+      'candidate modules/source refs are evidence pointers, not scope authority',
+      'cross-cutting concerns belong in risk signals',
+      '3-7 slices is a common healthy range',
+      'more than 10 slices should trigger split recommendation or owner confirmation',
+    ]);
+    expectContainsAll(closeout, [
+      'Every PRD handoff should report',
+      'current-state claims without confirmed evidence',
+      'When `## Feature Slices` is present',
+      'PRD complexity was explicitly evaluated for slice need',
+      'feature slice count and feature IDs',
+      'feature-to-R/AE trace gaps',
+      'cross-cutting risk count',
+      'split recommendation / owner confirmation status',
+      'program or execution slicing',
+    ]);
     expect(template).not.toContain('templates/standard/');
+    expect(template).not.toContain(`quality_${'posture'}`);
+    expect(template).not.toContain('program_slice_required');
     expect(template).not.toContain('C1 监管');
     expect(template).not.toContain('securities-pm');
     expect(template).not.toContain('credit-pm');
@@ -375,6 +459,7 @@ describe('spec-prd workflow contracts', () => {
       'Run checks by pack',
       'Core Pack',
       'Quality Diagnosis Pack',
+      'Feature Slice Pack',
       'Topology Pack',
       'Domain And Decision Pack',
       'Metrics And Overlay Pack',
@@ -382,10 +467,21 @@ describe('spec-prd workflow contracts', () => {
       '`change delta and boundary clarity`',
       '`planning-invention and trace risk`',
       '`wording and testability`',
+      'INVEST, EARS, and Gherkin-style wording are optional clarity anchors, not scoring rubrics',
       '`interaction and exception readiness`',
       '`adaptive product lens fit`',
+      '`canonical lens reuse`',
+      "uses `prd-output-template.md`'s Adaptive Product Expert Lens as the quality-dimension source",
       '`optimization suggestion closure`',
       '`rewrite integrity`',
+      '`slice identity and trace`',
+      'visible mapping to Change Delta or core requirements',
+      '`business capability boundary`',
+      'Controller/Service/DAO files',
+      '`source excerpt preservation`',
+      '`cross-cutting risk visibility`',
+      '`program-slice boundary`',
+      'program/execution slices',
       '`topology and surface fit`',
       '`producer-consumer and source-of-truth closure`',
       '`negative-space coverage`',
@@ -458,6 +554,17 @@ describe('spec-prd workflow contracts', () => {
       'Evidence And Assumptions',
       'trace self-check summary',
       '`US-*` / `FEAT-*` / `NFR-*`',
+      '`## Feature Slices`',
+      'preserve feature IDs',
+      'requirement refs',
+      'acceptance refs',
+      'source/evidence pointers',
+      'PRD-origin trace, not a new planning-owned artifact class',
+      'missing slice acceptance',
+      'missing slice source',
+      'missing slice scope',
+      'do not copy the full `spec-prd` readiness lens or Feature Slice Pack',
+      'do not generate program slices or task packs during planning',
       '`document_role: split-summary`',
       '`document_role: child-prd`',
       'child_id',
@@ -476,6 +583,18 @@ describe('spec-prd workflow contracts', () => {
       'low-quality-refine-input',
       'adaptive-product-expert-refine',
       'quality-diagnosis-final-rewrite',
+      'quality-diagnosis-canonical-name',
+      'adaptive-lens-canonical-dimensions',
+      'code-alignment-what-not-how',
+      'no-prd-scorecard',
+      'large-prd-context-slice-not-program',
+      'prd-sanitization-technical-suggestion',
+      'feature-slice-with-original-excerpt',
+      'code-module-split-rejected',
+      'spec-calibration-not-new-requirement',
+      'over-10-slices-ask-owner',
+      'feature-without-acceptance-readiness-fail',
+      'spec-plan-preserves-feature-slice-trace',
       'other-markdown-reference-material',
       'plan-design-task-wrong-stage',
       'lightweight-bugfix-bypass',
@@ -509,6 +628,47 @@ describe('spec-prd workflow contracts', () => {
       expect(ids).toContain(id);
     }
     const serialized = JSON.stringify(examples);
+    expectCaseExpected(examples, 'quality-diagnosis-canonical-name', [
+      'quality_diagnosis as the single emitted diagnosis field',
+      'not-run only in run-local decision card',
+      'no competing diagnosis field',
+    ]);
+    expectCaseExpected(examples, 'large-prd-context-slice-not-program', [
+      '## Feature Slices',
+      'context and handoff units',
+      'not execution units or program slices',
+      'owner confirmation before execution/program split',
+    ]);
+    expectCaseExpected(examples, 'prd-sanitization-technical-suggestion', [
+      'PRD Sanitization',
+      'separate product facts/goals/scope/acceptance from technical suggestions',
+      'technical suggestions remain assumptions or design input, not requirements',
+    ]);
+    expectCaseExpected(examples, 'feature-slice-with-original-excerpt', [
+      'feature_id',
+      'source_excerpt_or_claim',
+      'requirement_refs',
+      'acceptance_refs',
+      'evidence',
+      'traceable original claim preserved',
+    ]);
+    expectCaseExpected(examples, 'code-module-split-rejected', [
+      'reject code-layer partitions as feature slices',
+      'slice by business capability/outcome',
+      'candidate modules stay evidence pointers',
+    ]);
+    expectCaseExpected(examples, 'over-10-slices-ask-owner', [
+      'split recommendation or owner confirmation',
+      'do not silently expand feature slices',
+      'program or execution split status requires owner confirmation',
+    ]);
+    expectCaseExpected(examples, 'spec-plan-preserves-feature-slice-trace', [
+      'spec-plan preserves feature IDs',
+      'requirement refs',
+      'acceptance refs',
+      'source/evidence pointers',
+      'does not own Feature Slice readiness',
+    ]);
     expectContainsAll(serialized, [
       'Framing Gate before broad source reads',
       'Evidence Plan includes package/docs/tests/runtime/downstream consumers',
@@ -522,6 +682,22 @@ describe('spec-prd workflow contracts', () => {
       'adaptive product expert lens',
       'product outcome/gap diagnosis',
       'source/code alignment',
+      'quality_diagnosis as the single emitted diagnosis field',
+      'not-run only in run-local decision card',
+      'Adaptive Product Expert Lens as canonical quality-dimension list',
+      'code alignment confirms current WHAT and evidence pointers',
+      'no numeric PRD scorecard or 0-100 rating',
+      '## Feature Slices',
+      'context and handoff units',
+      'PRD Sanitization',
+      'separate product facts/goals/scope/acceptance from technical suggestions',
+      'source_excerpt_or_claim',
+      'reject code-layer partitions as feature slices',
+      'calibration source boundary',
+      'split recommendation or owner confirmation',
+      'Feature Slice Pack',
+      'spec-plan preserves feature IDs',
+      'source/evidence pointers',
       'original -> recommendation -> reason -> write target',
       'optimization suggestions before final rewrite',
       'final rewritten PRD artifact',
@@ -532,6 +708,7 @@ describe('spec-prd workflow contracts', () => {
       'extracted multimodal source treated as untrusted reference material',
       'industry overlay raises credit questions',
     ]);
+    expect(serialized).not.toContain(`quality_${'posture'}`);
     expect(serialized).not.toContain('executed eval runner');
   });
 
@@ -564,6 +741,36 @@ describe('spec-prd workflow contracts', () => {
       'skills/spec-prd/references/prd-readiness-lens.md',
       'runtime_paths_checked: []',
       'The current Codex host exposes a multi-agent dispatch tool',
+      'does not claim semantic eval passed',
+      'generated runtime mirrors',
+    ]);
+    expect(artifact).not.toContain('status: passed');
+  });
+
+  test('sanitization and feature slices eval artifact records not-run dispatch boundary honestly', () => {
+    const artifact = read(FRESH_SOURCE_EVAL_SANITIZATION_FEATURE_SLICES_PATH);
+
+    expectContainsAll(artifact, [
+      'fresh_source_eval:',
+      'schema_version: fresh-source-eval-record.v1',
+      'producer: spec-work',
+      'freshness: current-worktree',
+      'authority_level: advisory',
+      'reason_code: fresh-source-eval-not-run',
+      'consumer: spec-prd contract tests and code-review closeout',
+      'status: not_run',
+      'skills/spec-prd/SKILL.md',
+      'skills/spec-prd/references/evidence-and-topology.md',
+      'skills/spec-prd/references/prd-output-template.md',
+      'skills/spec-prd/references/prd-readiness-lens.md',
+      'skills/spec-prd/evals/examples.json',
+      'skills/spec-plan/SKILL.md',
+      'tests/unit/spec-prd-contracts.test.js',
+      'tests/unit/spec-plan-contracts.test.js',
+      'runtime_paths_checked: []',
+      'PRD Sanitization',
+      'Feature Slices',
+      'quality_diagnosis',
       'does not claim semantic eval passed',
       'generated runtime mirrors',
     ]);

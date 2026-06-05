@@ -24,6 +24,16 @@ Candidates retrieved from a local knowledge base, code index, prior-artifact sum
 
 If a claim affects scope, acceptance, compliance, money movement, user-visible behavior, permission boundaries, source-of-truth, or downstream consumers, confirm it with direct source/docs/tests or record it as `assumption` / `Outstanding Questions`.
 
+## Calibration Source Boundary
+
+Use PRD/user decisions as the authority for product WHAT, acceptance, scope, and non-goals. Calibration sources can improve precision, but they do not create product requirements by themselves:
+
+- project docs, SPECs, glossaries, and standards calibrate canonical terms, domain boundaries, existing rules, and design-before-planning questions;
+- source, code, tests, and code indexes confirm current behavior, active surfaces, candidate paths, contradictions, regression risks, and downstream consumers;
+- prior plans, learnings, and archive cases warn about historical risks, but do not replace current acceptance or owner decisions.
+
+For Feature Slices, candidate modules and source refs are evidence pointers only. A code index hit, SPEC statement, or historical case must not infer a user goal, add a new acceptance criterion, or override an explicit PRD non-goal without owner confirmation.
+
 ## Current-State Coverage
 
 Right-size the snapshot, but check these dimensions before deciding something is irrelevant:

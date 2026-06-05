@@ -30,7 +30,79 @@
       "id": "quality-diagnosis-final-rewrite",
       "intent": "refine",
       "input_shape": "PRD draft needs deep quality analysis and a final standard PRD",
-      "expected": ["quality_posture", "original -> recommendation -> reason -> write target", "optimization suggestions before final rewrite", "final rewritten PRD artifact", "no standalone quality report artifact"]
+      "expected": ["quality_diagnosis", "original -> recommendation -> reason -> write target", "optimization suggestions before final rewrite", "final rewritten PRD artifact", "no standalone quality report artifact"]
+    },
+    {
+      "id": "quality-diagnosis-canonical-name",
+      "intent": "refine",
+      "input_shape": "existing PRD draft with prior legacy competing diagnosis wording",
+      "expected": ["quality_diagnosis as the single emitted diagnosis field", "not-run only in run-local decision card", "no competing diagnosis field"]
+    },
+    {
+      "id": "adaptive-lens-canonical-dimensions",
+      "intent": "validate",
+      "input_shape": "request to audit PRD quality with product-expert dimensions",
+      "expected": ["Adaptive Product Expert Lens as canonical quality-dimension list", "readiness pack references lens by name", "no duplicate dimension checklist"]
+    },
+    {
+      "id": "code-alignment-what-not-how",
+      "intent": "validate",
+      "input_shape": "PRD includes code references and source candidates",
+      "expected": ["code alignment confirms current WHAT and evidence pointers", "candidate modules are not implementation design", "HOW remains for planning"]
+    },
+    {
+      "id": "no-prd-scorecard",
+      "intent": "validate",
+      "input_shape": "user asks whether the PRD quality can be scored",
+      "expected": ["qualitative quality_diagnosis", "concrete optimization suggestions", "no numeric PRD scorecard or 0-100 rating"]
+    },
+    {
+      "id": "large-prd-context-slice-not-program",
+      "intent": "refine",
+      "input_shape": "large mixed-surface PRD with several feature groups",
+      "expected": ["## Feature Slices", "context and handoff units", "not execution units or program slices", "owner confirmation before execution/program split"]
+    },
+    {
+      "id": "prd-sanitization-technical-suggestion",
+      "intent": "refine",
+      "input_shape": "raw product note mixes goals, acceptance, and suggested API/database implementation",
+      "expected": ["PRD Sanitization", "separate product facts/goals/scope/acceptance from technical suggestions", "technical suggestions remain assumptions or design input, not requirements"]
+    },
+    {
+      "id": "feature-slice-with-original-excerpt",
+      "intent": "refine",
+      "input_shape": "multi-feature PRD draft with original owner wording",
+      "expected": ["feature_id", "source_excerpt_or_claim", "requirement_refs", "acceptance_refs", "evidence", "traceable original claim preserved"]
+    },
+    {
+      "id": "code-module-split-rejected",
+      "intent": "validate",
+      "input_shape": "PRD is sliced by Controller/Service/DAO module names",
+      "expected": ["reject code-layer partitions as feature slices", "slice by business capability/outcome", "candidate modules stay evidence pointers"]
+    },
+    {
+      "id": "spec-calibration-not-new-requirement",
+      "intent": "validate",
+      "input_shape": "SPEC or project doc suggests a related rule not stated in the owner PRD",
+      "expected": ["calibration source boundary", "SPEC/docs calibrate terms and existing rules", "do not add new product requirement without owner confirmation"]
+    },
+    {
+      "id": "over-10-slices-ask-owner",
+      "intent": "refine",
+      "input_shape": "PRD produces more than ten candidate feature slices",
+      "expected": ["split recommendation or owner confirmation", "do not silently expand feature slices", "program or execution split status requires owner confirmation"]
+    },
+    {
+      "id": "feature-without-acceptance-readiness-fail",
+      "intent": "validate",
+      "input_shape": "Feature Slice lacks acceptance refs and no explicit trace gap",
+      "expected": ["Feature Slice Pack", "readiness fail or ask-owner", "no slice without acceptance refs or explicit trace gap"]
+    },
+    {
+      "id": "spec-plan-preserves-feature-slice-trace",
+      "intent": "validate",
+      "input_shape": "PRD-grade origin with ## Feature Slices is handed to spec-plan",
+      "expected": ["spec-plan preserves feature IDs", "requirement refs", "acceptance refs", "source/evidence pointers", "does not own Feature Slice readiness"]
     },
     {
       "id": "other-markdown-reference-material",

@@ -1,7 +1,7 @@
 ---
 title: "feat: Strengthen spec-prd sanitization and feature slices"
 type: feat
-status: active
+status: completed
 date: 2026-06-05
 deepened: 2026-06-05
 spec_id: 2026-06-05-002-spec-prd-sanitization-feature-slices
@@ -453,7 +453,7 @@ $spec-plan Handoff
   - uncovered slices;
   - feature-to-R/AE trace gaps;
   - cross-cutting risk count;
-  - `program_slice_required: no | unknown | owner-confirmed`.
+  - split recommendation / owner confirmation status when slice count, cross-owner scope, or cross-release risk suggests program or execution slicing.
 
 **Patterns to follow:**
 - Existing `Quality Diagnosis Pack` and handoff entropy check in `prd-readiness-lens.md`.

@@ -68,6 +68,7 @@ Include these only when they reduce planning invention:
 - `## Data / Compliance Boundaries`
 - `## Release / Operation Readiness`
 - `## Outstanding Questions`
+- `## Feature Slices`
 
 Success Metrics are conditional. When present, each goal should be measurable: metric, target value, and when available, current baseline and measurement window, with leading/lagging type for core goals. If there is no credible metric source, write an observable measurement口径 or record the assumption; do not invent target values.
 
@@ -117,14 +118,16 @@ Use this run-local lens for existing PRD refinement, validation, or any input as
 Infer the lens from the current surface, industry context, business objective, affected code/docs/tests, and owner-stated constraints. Then inspect the PRD against these dimensions:
 
 - user/problem/outcome clarity, including who benefits and what changes in observable behavior
-- current-state and code alignment, including confirmed source, source-candidate limits, contradictions, and missing active surfaces
-- requirement quality: atomic, necessary, prioritized, testable, implementation-free, and traceable to evidence
-- acceptance coverage: happy path, exception path, negative acceptance, permissions, empty/loading/error, and cross-surface effects when relevant
+- current-state and code alignment, including confirmed source, source-candidate limits, contradictions, and missing active surfaces; this confirms current WHAT and evidence pointers, not HOW to change implementation
+- requirement quality: atomic, necessary, prioritized, testable, implementation-free, and traceable to evidence; use INVEST as an explanatory anchor when it clarifies quality, not as a scoring rubric
+- acceptance coverage: happy path, exception path, negative acceptance, permissions, empty/loading/error, and cross-surface effects when relevant; use EARS or Gherkin-style wording only when it reduces ambiguity
 - goals and metrics: measurable口径, baseline/window when available, no invented target values
 - industry/domain overlay: compliance, money movement, privacy, safety, audit, and operational questions only when triggered
 - scope and handoff entropy: non-goals, dependencies, rollout/ops boundaries, and remaining WHAT decisions
 
 This lens adapts the questions; it does not relax the evidence rules or replace owner confirmation for scope-changing product decisions.
+
+This lens is the canonical PRD quality-dimension list. Entrypoint and readiness prose should reference it by name and add only meta-checks such as lens fit, suggestion closure, rewrite integrity, or handoff entropy.
 
 ## Embedded Standard Skeleton
 
@@ -192,7 +195,7 @@ Use brownfield increment examples, not 0-1 expansion examples:
 For refine or validate mode, diagnose before rewriting and keep the diagnosis compact:
 
 ```text
-quality_posture: ready | minor-gaps | material-gaps | blockers
+quality_diagnosis: ready | minor-gaps | material-gaps | blockers
 evidence_depth:
 top_gaps:
 rewrite_strategy:
@@ -201,6 +204,34 @@ rewrite_strategy:
 Give optimization suggestions as `original -> recommendation -> reason -> write target`. Prioritize suggestions that reduce planning invention: missing current-state evidence, unclear delta, untestable wording, missing priority, missing acceptance, industry/compliance uncertainty, source/user contradiction, or scope creep.
 
 Then produce the final rewritten PRD using the standard skeleton and triggered sections. Ensure there is no standalone quality report artifact unless the user explicitly asks; put persistent decisions into `Decision Notes`, assumptions into `Evidence And Assumptions`, and unresolved blockers into `Outstanding Questions`.
+
+`not-run` is a run-local decision-card state only; do not emit it in the diagnosis block because an emitted refine/validate diagnosis has run by definition. Do not create numeric PRD scorecards, 0-100 quality ratings, or industry hard-threshold rubrics.
+
+## Feature Slices
+
+Add `## Feature Slices` when the PRD is large, mixed-surface, multi-feature, refine/validate with multiple goals, or otherwise likely to make planning infer feature boundaries. Feature Slices are context and handoff units, not execution units, task packs, program slices, or sub-agent dispatch units.
+
+Use business capability/outcome boundaries rather than code-layer partitions such as Controller/Service/DAO files. Each slice should preserve original PRD text or source claim when available:
+
+```text
+feature_id:
+title:
+summary:
+requirement_refs:
+acceptance_refs:
+source_excerpt_or_claim:
+evidence:
+candidate_modules_or_source_refs:
+risk_signals:
+```
+
+Rules:
+
+- no slice without acceptance refs or an explicit trace gap;
+- candidate modules/source refs are evidence pointers, not scope authority;
+- cross-cutting concerns belong in risk signals or cross-cutting notes, not fake feature slices;
+- 3-7 slices is a common healthy range, not a hard rule;
+- more than 10 slices should trigger split recommendation or owner confirmation before silent expansion.
 
 For medium, large, mixed-surface, workflow, contract, migration, replace, or remove changes, include topology-driven sections only as needed:
 
@@ -260,6 +291,13 @@ Every PRD handoff should report:
 - uncovered requirements
 - feature items without acceptance examples
 - current-state claims without confirmed evidence
+
+When `## Feature Slices` is present, or when PRD complexity was explicitly evaluated for slice need, additionally report:
+
+- feature slice count and feature IDs
+- feature-to-R/AE trace gaps
+- cross-cutting risk count
+- split recommendation / owner confirmation status when slice count, cross-owner scope, or cross-release risk suggests program or execution slicing
 
 If gaps remain, do not silently recommend planning. Ask the minimal blocking question, record accepted assumptions, or route to document review/refine.
 
