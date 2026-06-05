@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 1 | `spec-first内化集成scale-project-scaffold技术方案.md` | 父方案，定义全局边界、产物归属、版本路线和优先级 |
 | 2 | `project-scaffold依赖安装流程与spec-first-setup优化技术方案.md` | setup / doctor / verification 子方案，细化 v1.11-v1.13 的 dependency readiness、install safety、verification profile 和 honest closeout |
-| 3 | `CodeGraph技术方案.md` | optional provider 子方案，以「集成→安装→刷新→可用」全链路为主干，细化 v1.16 下 CodeGraph / Graphify / GBrain 的 lifecycle ladder、安装使用流程（四层 + 三态 mode + install gate）、刷新归属、readiness/fallback、workflow consumer 和 trust boundary；含 spec-kit / scale-engine 业界对标 |
+| 3 | `CodeGraph技术方案.md` | capability-aware 协同子方案，核心边界「install 帮装、消费不耦合」：`spec-runtime-setup` 过 install gate + 用户同意帮装 code-graph / project-graph 能力工具（与帮装 gh/jq 同构），消费侧只认能力类别（不写死工具名、经原生 MCP、advisory 回源）、刷新归工具；含 `gh`/本地源码/`curl` 实测证据与「为何不重蹈 GitNexus」论证 |
 
 `bak/` 下文件只作为历史分析输入，不作为当前 source-of-truth。
 
@@ -20,7 +20,7 @@
 | --- | --- | --- | --- |
 | 1 | `spec-first内化集成scale-project-scaffold技术方案.md` | 全局 source-of-truth，定义 goals / non-goals、版本线、artifact contract、source/runtime/provider 边界 | 所有切片开发前先以此文档校准范围；不直接跳过父方案进入子方案实现 |
 | 2 | `project-scaffold依赖安装流程与spec-first-setup优化技术方案.md` | 第一批实现子方案,负责 dependency readiness、install safety、doctor consumption、verification profile 和 honest closeout | v1.11-v1.13 已落地;v1.11+v1.12 producer→consumer plan 与 v1.13 verification/honest-closeout plan 均已完成 |
-| 3 | `CodeGraph技术方案.md` | 最后一批 optional provider 子方案，负责 CodeGraph / Graphify / GBrain 的 provider-specific readiness、fallback、adapter 和 consumer contract | 等 v1.11-v1.15 的 readiness、verification、governance 和 Knowledge Harness 基线闭合后，在 v1.16 再进入实现；不作为 v1.11/v1.12 通用 readiness 槽位的实施依据 |
+| 3 | `CodeGraph技术方案.md` | 最后一批 capability-aware 协同子方案，确定 code-graph（如 CodeGraph）/ project-graph（如 Graphify）能力工具与 spec-first 的协同边界；memory 能力默认走 `docs/solutions/`、不集成外部 memory 工具（GBrain 删除） | 等 v1.11-v1.15 的 readiness、verification、governance 和 Knowledge Harness 基线闭合后，在 v1.16 再进入实现；不作为 v1.11/v1.12 通用 readiness 槽位的实施依据 |
 
 因此，开发入口不是“先做 CodeGraph”，而是先完成从父方案抽取出的 v1.11+v1.12 最小可维护切片，再逐步推进到 verification/governance/knowledge/provider。
 
@@ -37,7 +37,7 @@
 | v1.13 | Verification + Honest Closeout | 父方案 + project-scaffold 子方案 | `verification-profile.v1`、`verification-run-summary.v1`、`honest-closeout.v1`、run artifact ref mapping | 已完成（plan：`docs/plans/2026-06-04-003-feat-verification-honest-closeout-plan.md`；commit `3fc4dbda`；`spec-work-run-artifact` bump v2；`npm test` 通过） |
 | v1.14 | Governance Lens Foundation | 父方案 | task-governance-signals、gate lens、resource governance、RuleMaturity shadow/advisory | 已完成（plan：`docs/plans/2026-06-05-001-feat-governance-lens-foundation-plan.md`；focused governance tests + `npm test` 通过） |
 | v1.15 | Knowledge Harness | 父方案 | context budget、artifact-summary、`docs/solutions` promotion、memory recall boundary、skill/tool capability lens | 未开始 |
-| v1.16 | Optional Provider Pack | 父方案 + CodeGraph 子方案 | **收敛交付**：CodeGraph 单点 opt-in pilot（先实测增益再升 recommended）+ Graphify 手动 artifact-doc（移出 readiness loop）+ GBrain 后置；复用已落地 `provider-readiness.v1`，不三者平级铺开 | 未开始 |
+| v1.16 | Capability-aware 协同 | 父方案 + CodeGraph 子方案 | **「install 帮装、消费不耦合」**：`spec-runtime-setup` 过 gate + 用户同意帮装 CodeGraph（code-graph，配 MCP+首次 index）+ Graphify（project-graph，CLI；生成由用户触发、产物当 doc 读）；消费侧只认能力类别、经原生 MCP、advisory 回源、刷新归工具；memory 走 `docs/solutions/`、**GBrain 删除**；填 `provider-tools.json` + 扩 install-helpers，消费侧不注入编排面/不建 adapter/fusion | 未开始 |
 | v1.17 | Governance Maturity | 父方案 | RuleMaturity required-evidence candidate、governance ROI、resource/output hardening | 未开始 |
 
 v1.11+v1.12 已作为同一 P0 producer→consumer 切片完成,v1.13 verification / honest-closeout 已在独立 plan(`docs/plans/2026-06-04-003-...`)中落地并兑现 `spec-work` closeout 的可观察行为变化;v1.14 Governance Lens Foundation 已完成;下一步开发应推进到 v1.15 Knowledge Harness 及后续版本线,不直接从三份方案跳进实现。
@@ -49,7 +49,7 @@ v1.11+v1.12 已作为同一 P0 producer→consumer 切片完成,v1.13 verificati
 - **direct consumer gate：v1.11 + v1.12 是不可分割的 producer→consumer 对。** v1.11 只产 facts（registry / `tool-facts.v2` / configured scan / install safety / status renderer），其 deterministic consumer 是 v1.12 的 `doctor.decision_input_health` rollup。按父方案 §9.0.1「无消费方 = 不交付」，**v1.11 不单独宣称完成**；只有当 `doctor --json` 能从 setup facts 计算 `decision_input_health` 并输出 `decision_input_health_basis.artifact_refs` 时，v1.11+v1.12 这个 direct deterministic 切片才算过 gate。
 - **workflow consumer gate 延迟到 v1.13。** `doctor` 是 CLI 汇总面，不是 §6 named workflow consumer；§6 named workflow（`spec-plan` / `spec-work` 等）要等 v1.12 的 `doctor --json` projection 落地后才能读取这些 facts，并在 v1.13 verification / honest-closeout 接入 `spec-work` closeout 时兑现可观察行为变化。不得把 v1.12 doctor rollup 包装成已独立兑现 workflow 价值的最终里程碑。
 - **honest-closeout 的硬前置只是 v1.11 的工具存在性子集。** v1.13 的 `verification-run-summary` / `honest-closeout` 真正依赖的是 v1.11 中**工具存在性检测**（填 `not-run: missing_dependency`），而非 install safety、configured dependency scan 的完整度。后两者可与 v1.13 并行或紧随，**不阻塞 honest-closeout 落地**——honest-closeout 是父方案 §0.0 标注「最该早堵的谎报洞」，不应被 v1.11 全宽 baseline 串行推迟。
-- **v1.15 Knowledge Harness 以 provider-absent 为默认设计，不预设 v1.16。** v1.15 的 context budget / `docs/solutions` promotion / memory recall **boundary** / capability lens 均以 fallback（source-scan / `docs/solutions` / direct read）为默认路径；父方案 §5.3 六层表中 L3/L4 列出的 CodeGraph / GBrain 是 v1.16 的**可选增强**，缺失时 v1.15 仍完整可用，**v1.15 不依赖 v1.16**。
+- **v1.15 Knowledge Harness 以 provider-absent 为默认设计，不预设 v1.16。** v1.15 的 context budget / `docs/solutions` promotion / memory recall **boundary** / capability lens 均以 fallback（source-scan / `docs/solutions` / direct read）为默认路径；父方案 §5.3 六层表中 L3/L4 列出的 code-graph 能力是 v1.16 的**可选增强（setup 帮装、用户同意）**，缺失时 v1.15 仍完整可用，**v1.15 不依赖 v1.16**。memory 能力本就由 v1.15 的 `docs/solutions/` 承担，不依赖任何外部 memory 工具。
 - **v1.14 与 v1.17 的 governance 分两批是有意的。** v1.17 的 RuleMaturity required-evidence / blocking 候选需要 v1.14 foundation 先运行、沉淀**误报证据 + 人审**（父方案 §4.7），中间隔开 v1.15 / v1.16 不影响该依赖。
 
 ## 产物规范
@@ -71,7 +71,7 @@ v1.11+v1.12 已作为同一 P0 producer→consumer 切片完成,v1.13 verificati
 - `spec-first init` 只做 source-managed runtime projection，不安装 MCP/helper/provider。
 - `$spec-runtime-setup`（迁移期 alias `$spec-mcp-setup`）生产 deterministic readiness facts，不做语义判断。
 - `doctor` 消费 setup facts 并输出 deterministic health rollup，不安装、不 repair。
-- CodeGraph / Graphify / GBrain 默认都是 optional provider，缺失或 stale 不阻塞 minimal workflow。
+- code-graph / project-graph 能力工具（如 CodeGraph / Graphify）可经 `spec-runtime-setup` 过 gate + 用户同意帮装；缺失或 stale 不阻塞 minimal workflow，消费侧 capability-aware（advisory 回源），刷新归工具。memory 能力默认走 `docs/solutions/`。
 - Provider readiness 只表示机械新鲜度且不承载 `confirmed_context`；confirmed context 必须来自 source/test/log/contract/user evidence。
 - 不复制 `.scale/workflow.json` 状态机、G0-G22 blocking gate、inline hook 或第三方技能全集。
 - required harness runtime setup workflow 的 canonical 入口名是 `$spec-runtime-setup` / `/spec:runtime-setup`，`$spec-mcp-setup` / `/spec:mcp-setup` 为迁移期 deprecated alias（详见父方案 §0.4.2）；`skills/spec-mcp-setup/**` 等 source 实体路径在后续 source 重命名 work 任务落地前保持现状。

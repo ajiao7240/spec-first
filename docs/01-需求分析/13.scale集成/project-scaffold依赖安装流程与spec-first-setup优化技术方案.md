@@ -83,7 +83,7 @@ spec-first doctor
 
 3. 保持 `init`、`runtime-setup`、`doctor` 职责边界清晰，避免 setup 事实、runtime 生成、provider 语义判断混成一套隐式状态。
 
-4. 为后续 verification profile、honest closeout、skill/tool registry，以及 v1.16 的 GBrain / Graphify / CodeGraph optional provider pack 打基础。
+4. 为后续 verification profile、honest closeout、skill/tool registry，以及 v1.16 的 capability-aware 协同（code-graph / project-graph 能力工具由研发人员自管，spec-first 不拥有其生命周期；memory 走 `docs/solutions/`）打基础。
 
 ## 1.2 Non-goals
 
@@ -165,7 +165,7 @@ spec-first doctor
 | `agent-browser`、Playwright MCP、Chrome DevTools MCP | skipped / degraded | `surface-ui`、browser/E2E 验证、`SPEC_FIRST_BROWSER_HELPER_REQUIRED=1` | 浏览器证据工具，不是普通 plan/work/debug 必装项 |
 | `gh` | optional / workflow-specific | commit / PR / GitHub review workflow | PR 操作需要，普通 setup/readiness 不应阻塞 |
 | `vhs`、`silicon`、`ffmpeg` | optional | feature-video、演示录制、截图渲染 | 媒体生成辅助，不是 harness baseline |
-| CodeGraph、Graphify、GBrain | optional provider | `recommended` / `platform` profile explicit apply 或 workflow 显式召回 | 只产 advisory candidate facts，不替代 source/test/log evidence |
+| code-graph / project-graph 能力（如 CodeGraph、Graphify） | optional capability tool | `recommended`/`platform` profile 下经 setup install gate 帮装（用户同意）；workflow 按 capability-class 利用其产出 | 只产 advisory candidate facts，不替代 source/test/log evidence；消费侧不耦合、刷新归工具（memory 走 `docs/solutions/`） |
 | postgres MCP、gosec、audit tools | surface-specific | `surface-data-security` | 需要凭据、权限和 security boundary，不默认安装 |
 
 ## 2.5 三个参考项目可补充集成项
@@ -453,7 +453,7 @@ Apply 规则：
 
 用于承载 GBrain / Graphify / CodeGraph 等 optional provider。
 
-本节只定义 v1.11/v1.12 需要的通用 provider readiness 槽位、profile 命名和 install safety 边界，避免 setup facts 无法表达 optional provider 的 `not-run` / `stale` / fallback。具体 CodeGraph / Graphify / GBrain registry entries、adapter、query consumer 和 context fusion 不属于本子方案的开发范围；它们在 v1.16 以父方案 + `CodeGraph技术方案.md` 为实施依据。
+本节只定义 v1.11/v1.12 需要的通用 provider readiness 槽位、profile 命名和 install safety 边界，避免 setup facts 无法表达外部能力的 `not-run` / `stale` / fallback。code-graph / project-graph 能力工具（如 CodeGraph / Graphify）的具体 `provider-tools.json` entry、install-helpers 扩展、消费引导**不属于本子方案的开发范围**；它们在 v1.16 以「install 帮装（过 gate）+ 消费 capability-aware」为定位，实施依据是父方案 + `CodeGraph技术方案.md`。memory 能力默认走 `docs/solutions/`。
 
 建议新增：
 
@@ -471,8 +471,8 @@ Profile：
 | Profile | 默认行为 | Provider |
 | --- | --- | --- |
 | `minimal` | 不安装，只检测已存在 provider；缺失不阻塞 | none |
-| `recommended` | 输出 install plan；用户显式确认后安装/初始化 | CodeGraph、Graphify candidate、GBrain candidate |
-| `platform` | 团队 opt-in profile，可纳入 provider pack | CodeGraph、Graphify、GBrain（browser/e2e 走 scenario overlay，不入 profile） |
+| `recommended` | 输出 install plan；用户显式确认后安装（过 install gate） | spec-first 自管 helper；code-graph / project-graph 能力工具（CodeGraph/Graphify）可经 setup 帮装,消费侧 capability-aware |
+| `platform` | 团队 opt-in profile | spec-first 自管 helper + team policy + code-intelligence 能力工具帮装（memory 走 `docs/solutions/`） |
 
 命名约束（以父方案 §0.4 总表为准）：
 
@@ -950,18 +950,13 @@ Graphify artifact stale 时：
 - 不能作为 current-state confirmed evidence。
 - final report 必须写 `stale advisory` 或 `not used`。
 
-## 6.3 GBrain
+## 6.3 Memory 能力（走 `docs/solutions/`，外部 memory 工具不集成）
 
-| 阶段 | 行为 | 默认 |
-| --- | --- | --- |
-| detect | 检查 CLI/server/config/reachability | yes |
-| recall | 按 query 召回 historical candidates | workflow explicit |
-| write | 写长期记忆 | no |
-| promote | verified learning -> durable memory | human / workflow gate |
+memory 能力（如 GBrain）与 spec-first 自有的 `docs/solutions/` file-first knowledge **直接重叠**，且后者可审计、零运维、写入摩擦本身防污染。因此**默认不集成任何外部 memory provider**（详见 `CodeGraph技术方案.md` §4.3）；memory recall/promotion 走 `docs/solutions/`，由 `spec-compound` 等既有 workflow 承担。
 
-默认不自动写入。允许写入的来源：
+默认不自动写入。允许写入 `docs/solutions/**` 的来源：
 
-- `spec-compound` 生成并确认的 `docs/solutions/**`
+- `spec-compound` 生成并确认的 verified learning
 - RCA / debug ledger 中 verified root cause
 - reviewed ADR / decision doc
 - 用户显式导入
@@ -969,9 +964,11 @@ Graphify artifact stale 时：
 不允许写入：
 
 - 单轮推理过程。
-- 未验证的 provider output。
+- 未验证的外部能力 output。
 - chat 中临时假设。
 - stale/out-of-scope 但未标注状态的内容。
+
+研发人员若自管外部 memory 工具，其召回按 capability-class 作 advisory candidate + citation 消费，仍需 source/docs 确认，不作 spec-first 自有 knowledge 节点。
 
 ---
 
@@ -985,7 +982,7 @@ Graphify artifact stale 时：
 | `spec-code-review` | 读取 provider readiness、diff/test evidence | provider 只用于扩大搜索范围；finding 需 source/diff/test 支撑 |
 | `spec-doc-review` | 读取文档 claims 的 source evidence、provider freshness | provider stale 时记录 coverage limitation |
 | `spec-debug` | 读取 helper/provider readiness 和 test/log command candidates | root cause 必须由 reproduction/source/log/test 确认 |
-| `spec-prd` | 读取 Graphify/GBrain/CodeGraph candidates | current-state 声明需要 direct evidence |
+| `spec-prd` | 读取 project-graph 文档 / `docs/solutions/` / code-graph candidates（研发人员自管时） | current-state 声明需要 direct evidence |
 | `spec-compound` | 读取 verification summary 和 closeout | 只沉淀 verified learning |
 | `spec-runtime-setup` | 生产 dependency / provider facts | 不做语义判断 |
 | `spec-update` | 检查 source/runtime drift | 不安装 optional provider |
@@ -1180,7 +1177,7 @@ spec-first doctor --codex --json
 | bootstrap status taxonomy | `manual-review`、`needs-init`、`version-drift` 不被折叠成 generic missing |
 | provider stale | `freshness=stale`、fallback visible |
 | provider query not verified | `query_verified=false` |
-| memory provider write disabled | GBrain/agentmemory 缺 write permission 时仍可 recall candidate，但不能 promote |
+| memory recall write disabled | 研发人员自管的外部 memory 工具缺 write permission 时仍可 recall candidate，但不能 promote；spec-first 默认 memory 走 `docs/solutions/` |
 | skill registry risky entry | `global-install` / `installer-script` / `unknown-source` 触发 review-required 或 blocked |
 | verification missing tool | `status=not-run`、`missing_tools[]` |
 | verification runner-specific tools | shell / PowerShell required tools 分开计算 |
@@ -1191,9 +1188,9 @@ spec-first doctor --codex --json
 
 以下不能由单元测试或 setup 成功直接证明：
 
-- GBrain 召回内容正确。
-- CodeGraph impact 完整。
-- Graphify artifact 与当前代码一致。
+- 研发人员自管的 memory 工具召回内容正确（spec-first 默认 memory 走 `docs/solutions/`）。
+- code-graph 能力的 impact 完整。
+- project-graph 文档与当前代码一致。
 - workflow review finding 正确。
 - 业务测试覆盖充分。
 

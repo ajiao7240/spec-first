@@ -24,7 +24,8 @@ describe('SCALE provider documentation contracts', () => {
     expect(codegraph).toContain('"readiness_status": "fresh|stale|degraded|not-run|unknown"');
     expect(codegraph).toContain('Evidence Trust');
     expect(codegraph).toContain('workflow 语义晋升判断');
-    expect(codegraph).toContain('Adapter 输出只写机械 readiness 和候选证据要求');
+    // capability-aware 重定位后无 adapter 概念,外部能力输出只写机械 readiness + 候选
+    expect(codegraph).toContain('外部能力的输出只写机械 readiness 和候选证据要求');
     expect(codegraph).toContain('不得回填进 readiness 字段');
     expect(codegraph).not.toContain('"candidate_trust"');
     expect(codegraph).not.toContain('"confirmed_context"');

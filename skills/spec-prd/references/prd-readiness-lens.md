@@ -27,6 +27,14 @@ Run checks by pack. Always run the core pack; run conditional packs only when th
 - `wording and testability` - vague words such as "等", "相关", "合适的", "更好", and "优化体验" are replaced by verifiable behavior, state, trigger, quantity, or acceptance.
 - `interaction and exception readiness` - important user-visible entries, state, feedback, confirmation, cancellation, failure, empty, permission, retry, and partial-success cases are covered or intentionally out of scope when relevant.
 
+### Quality Diagnosis Pack
+
+Run this pack when the input is an existing PRD, requirements draft, rough notes, or the user asks for deep PRD quality analysis or optimization suggestions.
+
+- `adaptive product lens fit` - the applied surface/industry/product lens follows the actual target surface, current source evidence, and owner-stated objective; generic checklists are not applied as confirmed project facts.
+- `optimization suggestion closure` - major PRD gaps are expressed as `original -> recommendation -> reason -> write target`, prioritized by planning-invention risk, and either incorporated into the rewritten PRD or left as visible blockers.
+- `rewrite integrity` - the final PRD preserves stable IDs where applicable, separates critique from durable requirements, keeps HOW out of requirements, and does not drop confirmed source evidence, owner decisions, assumptions, or unresolved questions during cleanup.
+
 ### Topology Pack
 
 Run this pack for medium/large/mixed-surface, workflow, contract, migration, replace, remove, source-of-truth, generated-runtime, artifact/schema/report, or active-surface changes.

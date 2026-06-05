@@ -8,7 +8,7 @@ argument-hint: "[increment request, existing PRD path, or validation target]"
 
 ## Purpose
 
-Turn an existing-system increment, rough product note, or low-quality PRD into the smallest durable PRD artifact that settles WHAT/WHY, current-state evidence, acceptance, and scope boundaries enough for `spec-plan` to plan without inventing product behavior.
+Turn an existing-system increment, rough product note, or low-quality PRD into the smallest durable PRD artifact that settles WHAT/WHY, current-state evidence, acceptance, and scope boundaries enough for `spec-plan` to plan without inventing product behavior. For existing PRDs, diagnose quality gaps, give targeted optimization suggestions, then rewrite the final PRD-grade artifact.
 
 Use the current host/session date when dating PRD requirements documents. If the date is unavailable, read it with a deterministic command; do not hard-code calendar years in this source file. All file references in generated documents must use repo-relative paths.
 
@@ -30,7 +30,7 @@ An increment request, existing PRD or requirements draft, rough Markdown notes, 
 
 ### Outputs
 
-A PRD-grade requirements artifact, a compact PRD bypass/handoff, a split-decision summary pending owner confirmation, or a validation/refine report with minimal blocking questions.
+A PRD-grade requirements artifact, concise PRD quality diagnosis and optimization suggestions for refine/validate mode, a compact PRD bypass/handoff, a split-decision summary pending owner confirmation, or a validation report with minimal blocking questions.
 
 ### Artifacts
 
@@ -63,7 +63,8 @@ This is a workflow orchestrator, not an agent type. Use the current host's PRD w
 2. **WHAT not HOW** - Product behavior, acceptance, scope, evidence, and business constraints belong here. Implementation units, database tables, exact API fields, and task breakdown belong in planning.
 3. **Evidence-tag current-state claims** - A current-state assertion is confirmed only when source, tests, docs, contracts, or user confirmation supports it.
 4. **Minimize blocking and right-size output** - Ask only the smallest scope-changing product question; choose bypass, compact, normal, or topology-heavy output via `prd-output-template.md`.
-5. **No second artifact topology** - Keep the chain: `docs/brainstorms/*-requirements.md` -> plan -> tasks -> work -> review -> knowledge.
+5. **Adaptive product expert lens** - Infer the product/surface/industry lens from input and evidence, then ask only the questions that improve PRD quality; do not create a new agent type or role taxonomy.
+6. **No second artifact topology** - Keep the chain: `docs/brainstorms/*-requirements.md` -> plan -> tasks -> work -> review -> knowledge.
 
 ## Reference Trigger Map
 
@@ -71,8 +72,8 @@ Load references only when their trigger is present:
 
 - `references/evidence-and-topology.md` - current-state evidence tags, Change Delta, source-candidate boundaries, Framing Gate, topology, surface, producer/consumer, source-of-truth, contradiction, and negative-space rules.
 - `references/domain-language-and-decision-ledger.md` plus optional `docs/contracts/domain-glossary.md` - terminology, domain boundaries, source/user/glossary contradictions, bounded grill, and decision notes.
-- `references/prd-output-template.md` - drafting, output shape, section selection, surface lenses, embedded standard template skeleton, and project-local overlays.
-- `references/prd-readiness-lens.md` - final readiness, handoff, or doc-review decision.
+- `references/prd-output-template.md` - drafting, output shape, adaptive product expert lens, PRD quality diagnosis, section selection, surface lenses, embedded standard template skeleton, and project-local overlays.
+- `references/prd-readiness-lens.md` - final PRD quality, readiness, handoff, or doc-review decision.
 
 ## Input
 
@@ -93,6 +94,7 @@ output_shape: bypass | compact-prd | normal-prd | topology-heavy-prd
 primary_topology: add | extend | replace | remove | migrate | split | merge | policy-change | workflow-change | contract-change | none | unknown
 surface_lens: App | H5/PC | Admin | Backend/Java | CLI/DevTool | Mixed | Generic
 evidence_depth: none | user-stated | source-candidate | confirmed-source | mixed
+quality_diagnosis: not-run | minor-gaps | material-gaps | blockers | ready
 owner_question_count: 0 | 1 | 2 | 3 | more-than-3
 readiness_outcome: ready-for-planning | revise-prd | ask-owner | doc-review | route-out | not-run
 ```
@@ -122,6 +124,8 @@ Gather scope-appropriate evidence:
 
 Write or update `Current System Snapshot` only for claims that affect the PRD. Unsupported current-state claims go to `Evidence And Assumptions` or `Outstanding Questions`.
 
+For existing PRD or draft inputs, also extract a quality diagnosis before rewriting: product outcome, actor/surface fit, current-state/code alignment, requirement atomicity, acceptance trace, metrics/priority, industry/domain risks, and planning-invention gaps. Treat external research and industry norms as advisory overlays unless confirmed by project source or owner decision.
+
 ### Phase 2: Change Delta And Domain Language
 
 Confirm the increment as `keep`, `extend`, `replace`, `remove`, or `unknown`. Do not let current-state discovery expand the product scope silently.
@@ -136,6 +140,8 @@ The Bounded Scenario Grill / Domain Grill Gate is run-local only: ask one owner 
 
 Choose `output_shape` before drafting, then use `prd-output-template.md` for the core skeleton, surface lens, project-local overlay, and split topology. Include conditional sections only when they reduce planning invention; do not copy run-local scratch into the PRD by default.
 
+When refining or validating an existing PRD, produce optimization suggestions in the compact form `original -> recommendation -> reason -> write target` before the final rewrite or blocking question. The final durable artifact is the rewritten PRD-grade document under `docs/brainstorms/`, not a standalone critique report.
+
 For oversized initial PRDs, produce a split-decision recommendation first. Write split summary and child PRDs only when the owner confirms module boundaries, priorities, and release sequencing. Keep the original PRD or source input by reference; do not introduce packet manifests or trace-ledgers in v1.
 
 ### Phase 4: Readiness And Handoff
@@ -147,4 +153,4 @@ Run the readiness lens before recommending planning:
 - If the document needs independent critique, hand off to the current host's document-review workflow.
 - If the input is better served by brainstorm, app consistency audit, debug, plan, or work, route out with a short reason.
 
-Close with a PRD summary: included sections, requirement count, acceptance example count, priority distribution, NFR/assumption/outstanding count, trace gaps, and whether planning would still have to invent WHAT.
+Close with a PRD summary: included sections, requirement count, acceptance example count, priority distribution, NFR/assumption/outstanding count, optimization suggestion count, trace gaps, and whether planning would still have to invent WHAT.

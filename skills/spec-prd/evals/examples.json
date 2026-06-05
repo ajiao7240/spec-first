@@ -21,6 +21,18 @@
       "expected": ["claim/gap extraction", "minimal blocking question", "no fake completeness"]
     },
     {
+      "id": "adaptive-product-expert-refine",
+      "intent": "refine",
+      "input_shape": "existing low-quality PRD with known surface, industry context, and source pointers",
+      "expected": ["adaptive product expert lens", "product outcome/gap diagnosis", "source/code alignment", "industry overlay as questions", "no new agent type"]
+    },
+    {
+      "id": "quality-diagnosis-final-rewrite",
+      "intent": "refine",
+      "input_shape": "PRD draft needs deep quality analysis and a final standard PRD",
+      "expected": ["quality_posture", "original -> recommendation -> reason -> write target", "optimization suggestions before final rewrite", "final rewritten PRD artifact", "no standalone quality report artifact"]
+    },
+    {
       "id": "other-markdown-reference-material",
       "intent": "create",
       "input_shape": "ordinary Markdown notes without artifact_kind: prd-requirements",

@@ -110,6 +110,22 @@ When the increment's industry context is clear from input or project docs, layer
 
 If no industry context is detectable, skip this section and use the generic surface lens only.
 
+## Adaptive Product Expert Lens
+
+Use this run-local lens for existing PRD refinement, validation, or any input asking for product-expert critique. It is not an agent type, persona taxonomy, scoring schema, or separate reviewer workflow.
+
+Infer the lens from the current surface, industry context, business objective, affected code/docs/tests, and owner-stated constraints. Then inspect the PRD against these dimensions:
+
+- user/problem/outcome clarity, including who benefits and what changes in observable behavior
+- current-state and code alignment, including confirmed source, source-candidate limits, contradictions, and missing active surfaces
+- requirement quality: atomic, necessary, prioritized, testable, implementation-free, and traceable to evidence
+- acceptance coverage: happy path, exception path, negative acceptance, permissions, empty/loading/error, and cross-surface effects when relevant
+- goals and metrics: measurable口径, baseline/window when available, no invented target values
+- industry/domain overlay: compliance, money movement, privacy, safety, audit, and operational questions only when triggered
+- scope and handoff entropy: non-goals, dependencies, rollout/ops boundaries, and remaining WHAT decisions
+
+This lens adapts the questions; it does not relax the evidence rules or replace owner confirmation for scope-changing product decisions.
+
 ## Embedded Standard Skeleton
 
 Use this skeleton as the packaged runtime template. It replaces the former separate template tree.
@@ -170,6 +186,21 @@ Use brownfield increment examples, not 0-1 expansion examples:
 - product constraints are allowed; implementation units, schemas, exact API fields, database tables, and task breakdown are not
 - run the Framing Gate and Evidence Plan from `evidence-and-topology.md` when the input signals removal, migration, workflow/contract change, source-of-truth movement, generated/runtime mirrors, package/docs/test cleanup, or cross-surface scope
 - do not print the run-local Framing Gate by default; promote only the parts that reduce planning invention into Current System Snapshot, Change Topology, Surface Map, Producer / Artifact / Consumer, Source-Of-Truth Resolution, Negative Acceptance, Evidence And Assumptions, or Outstanding Questions
+
+## PRD Quality Diagnosis And Optimization
+
+For refine or validate mode, diagnose before rewriting and keep the diagnosis compact:
+
+```text
+quality_posture: ready | minor-gaps | material-gaps | blockers
+evidence_depth:
+top_gaps:
+rewrite_strategy:
+```
+
+Give optimization suggestions as `original -> recommendation -> reason -> write target`. Prioritize suggestions that reduce planning invention: missing current-state evidence, unclear delta, untestable wording, missing priority, missing acceptance, industry/compliance uncertainty, source/user contradiction, or scope creep.
+
+Then produce the final rewritten PRD using the standard skeleton and triggered sections. Ensure there is no standalone quality report artifact unless the user explicitly asks; put persistent decisions into `Decision Notes`, assumptions into `Evidence And Assumptions`, and unresolved blockers into `Outstanding Questions`.
 
 For medium, large, mixed-surface, workflow, contract, migration, replace, or remove changes, include topology-driven sections only as needed:
 
