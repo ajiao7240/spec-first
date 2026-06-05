@@ -31,10 +31,10 @@
 | v1.11 | Dependency Readiness Baseline | 让用户知道 runtime 会调用什么、缺什么、哪些只是推荐 | `doctor` / `mcp-setup` 输出依赖 readiness、install plan、degraded reason | additive / default check-only |
 | v1.12 | Host Projection & Capability Matrix | 让 Claude/Codex runtime 生成物和宿主能力可观察 | `init` / `doctor` 输出 host capability 和 generation report | additive / runtime-report |
 | v1.13 | Skill Registry & Verification Profile | 让 skill/tool/验证命令从 prose 变成 metadata + evidence | closeout 能记录 tool/skill used/skipped/not-run；verification profile 有 required/optional 语义 | additive / evidence-contract |
-| v1.14 | Six-Layer Knowledge Harness | 建立统一的知识六层语言 | docs/contracts 与 workflow skill 明确六层读写纪律 | docs-contract / workflow-prose |
-| v1.15 | File-First Memory | 强化文件化记忆召回、冲突和升级 | plan/debug/compound 可召回 stale/conflict/out-of-scope rationale | knowledge / advisory |
+| v1.14 | Governance Lens Foundation | 建立 task/resource/gate/rule maturity 的轻量治理事实层 | `spec-plan` 消费 candidate depth；`spec-work` / `spec-code-review` 展示 resource advisory | governance / advisory |
+| v1.15 | Knowledge Harness | 建立统一的知识六层语言，并强化文件化记忆召回、冲突和升级 | workflow skill 明确六层读写纪律；plan/debug/compound 可召回 stale/conflict/out-of-scope rationale | knowledge / advisory |
 | v1.16 | Optional Provider Pack | 以 opt-in 方式接入 GBrain / Graphify / CodeGraph | recommended/platform 可推荐 provider，minimal 不受影响 | optional / experimental |
-| v1.17 | Evidence & Rule Maturity | 让交付证据、检测器和规则成熟度可审计 | final closeout 区分 verified/not-run/blocked；规则先 shadow | governance / evaluation |
+| v1.17 | Governance Maturity | 让规则成熟度、交付证据和治理 ROI 可审计 | required-evidence/blocking 只在误报证据、人审和 rollback 策略齐备后候选启用 | governance / evaluation |
 | v2.0 | Platform Profile | 提供企业级 platform profile 和多 host adapter contract | optional platform profile 支持更多 host/provider/policy | advanced / platform |
 
 ---
@@ -60,7 +60,7 @@ Wave A 完成后，才允许进入 provider 安装和 platform profile 的实现
 
 包含版本：v1.14、v1.15。
 
-目标：把 SCALE 的六层知识体系重写为 spec-first 的 source-first 知识模型，并强化不依赖外部 provider 的文件化记忆能力。
+目标：先把治理 lens foundation 接进 plan/work/review 的 advisory 路径，再把 SCALE 的六层知识体系重写为 spec-first 的 source-first 知识模型，并强化不依赖外部 provider 的文件化记忆能力。
 
 交付价值：
 
@@ -275,11 +275,67 @@ Wave B 完成后，才允许把 GBrain / Graphify / CodeGraph facts 接进 workf
 
 ---
 
-### v1.14 Six-Layer Knowledge Harness
+### v1.14 Governance Lens Foundation
 
 **发布目标**
 
-把 SCALE 的六层知识体系改写为 spec-first 自有的 Knowledge Harness contract，统一 workflow 对知识的读写边界。
+把 SCALE 的 task level、G0-G22 gate、resource policy 和 RuleMaturity 思路改写为 spec-first 自有的轻量 advisory facts，让 plan/work/review 获得更好的治理输入，但不引入中心 gate 引擎。
+
+**核心交付**
+
+- `task-governance-signals.v1`
+- `gate-lens-taxonomy.v1`
+- `resource-governance-lens.v1`
+- `rule-maturity.v1` schema/docs-only 边界。
+- `spec-plan` 消费 `candidate_level`，LLM 保留最终 depth 判断。
+- `spec-work` closeout 与 `spec-code-review` 展示 resource advisory。
+
+**主要文件面**
+
+- `docs/contracts/governance/*.md`
+- `docs/contracts/governance/*.schema.json`
+- `src/cli/helpers/task-governance-signals.js`
+- `src/cli/helpers/resource-governance-lens.js`
+- `src/cli/helpers/git-diff-signals.js`
+- `src/cli/commands/internal.js`
+- `skills/spec-plan/SKILL.md`
+- `skills/spec-work/references/shipping-workflow.md`
+- `skills/spec-code-review/SKILL.md`
+
+**不包含**
+
+- 不复制 SCALE 的 `S/M/L/CRITICAL` 终局等级。
+- 不输出折叠 `score` 或伪数值 `confidence`。
+- 不把 `.scale/resource-policy.json` 当 spec-first source-of-truth。
+- 不注册 `rule-maturity` producer/helper。
+- 不启用 blocking gate、pre-commit hook 或自动 promotion。
+
+**准入条件**
+
+- v1.13 verification / honest-closeout 已建立 evidence 与 closeout 边界。
+- `spec-plan` / `spec-work` / `spec-code-review` 有明确 consumer surface。
+
+**验收门槛**
+
+- `task-governance-signals` 只产 `lightweight` / `standard` / `deep` candidate。
+- `plan-declared` 来源只消费 planning context，不依赖尚未写出的 Implementation Units。
+- `resource-governance-lens` 区分 `subject_path` 与 `evidence_ref`，generated runtime 不进入 evidence ref。
+- `rule-maturity` 在 v1.14 只保留 shadow/advisory 边界，无 required-evidence/blocking producer。
+
+**建议验证**
+
+- focused governance contract/helper tests
+- focused consumer prose contract tests
+- `npm run typecheck`
+- `git diff --check`
+
+---
+
+### v1.15 Knowledge Harness
+
+**发布目标**
+
+把 SCALE 的六层知识体系改写为 spec-first 自有的 Knowledge Harness contract，统一 workflow 对知识的读写边界，并在不引入外部 memory brain 的前提下强化文件化记忆召回、冲突检测和升级机制。
 
 **六层**
 
@@ -296,8 +352,11 @@ Wave B 完成后，才允许把 GBrain / Graphify / CodeGraph facts 接进 workf
 
 - `docs/contracts/knowledge-harness.md`
 - 六层读写纪律。
-- workflow-skill-agent-map 更新。
+- `knowledge-recall-summary.v1`
+- `out-of-scope-memory.v1`
+- `learning-candidate.v1`
 - workflow prose 对六层的消费者/生产者说明。
+- candidate -> review -> promote 纪律。
 
 **主要文件面**
 
@@ -305,6 +364,7 @@ Wave B 完成后，才允许把 GBrain / Graphify / CodeGraph facts 接进 workf
 - `docs/contracts/ai-coding-harness.md`
 - `docs/contracts/context-bundle.md`
 - `docs/contracts/domain-glossary.md`
+- `docs/contracts/sessions/spec-first-session.md`
 - `docs/workflow-skill-agent-map.md`
 - `skills/using-spec-first/SKILL.md`
 - `skills/spec-prd/SKILL.md`
@@ -313,72 +373,29 @@ Wave B 完成后，才允许把 GBrain / Graphify / CodeGraph facts 接进 workf
 - `skills/spec-debug/SKILL.md`
 - `skills/spec-code-review/SKILL.md`
 - `skills/spec-compound/SKILL.md`
+- `skills/spec-compound-refresh/SKILL.md`
+- `skills/spec-sessions/SKILL.md`
+- `docs/solutions/`
 
 **不包含**
 
 - 不要求固定 `CONTEXT.md`。
 - 不引入 `.scale/GLOSSARY.md`。
-- 不引入 SQLite memory 或 provider router。
+- 不写外部 memory provider。
+- 不让 session-local guess 自动进入项目规则。
+- 不引入 SQLite memory、向量数据库或 provider router。
 
 **准入条件**
 
-- v1.13 已能记录 tool/skill evidence。
+- v1.14 governance lens 已明确 advisory facts 与 workflow judgment 边界。
 - 现有 `docs/contracts/context-bundle.md`、`domain-glossary.md` 边界清楚。
+- compound/refresh 现有流程能区分 stale/outdated/overlap。
 
 **验收门槛**
 
 - 每个 public workflow 明确读哪些层、写哪些层。
 - 长期写入只允许在 ship/compound/review-backed 场景。
 - provider facts 在 L4 只能 advisory。
-
-**建议验证**
-
-- docs contract tests
-- focused `rg` negative check for provider-as-truth wording
-- `git diff --check`
-
----
-
-### v1.15 File-First Memory
-
-**发布目标**
-
-在不引入外部 memory brain 的前提下，强化 spec-first 的项目记忆召回、冲突检测和升级机制。
-
-**核心交付**
-
-- `knowledge-recall-summary.v1`
-- `out-of-scope-memory.v1`
-- `learning-candidate.v1`
-- TF-IDF / keyword recall baseline。
-- candidate -> review -> promote 纪律。
-
-**主要文件面**
-
-- `skills/spec-sessions/SKILL.md`
-- `skills/spec-compound/SKILL.md`
-- `skills/spec-compound-refresh/SKILL.md`
-- `skills/spec-debug/SKILL.md`
-- `skills/spec-plan/SKILL.md`
-- `agents/spec-learnings-researcher.agent.md`
-- `agents/spec-session-historian.agent.md`
-- `agents/spec-git-history-analyzer.agent.md`
-- `docs/contracts/sessions/spec-first-session.md`
-- `docs/solutions/`
-
-**不包含**
-
-- 不写外部 memory provider。
-- 不让 session-local guess 自动进入项目规则。
-- 不引入向量数据库。
-
-**准入条件**
-
-- v1.14 六层 contract 已定义 L3/L6 边界。
-- compound/refresh 现有流程能区分 stale/outdated/overlap。
-
-**验收门槛**
-
 - 召回项必须带 provenance、freshness、confidence。
 - conflict 不能被静默 newest-wins。
 - out-of-scope rationale 可被 plan/work/debug 消费为 advisory boundary。
@@ -386,8 +403,10 @@ Wave B 完成后，才允许把 GBrain / Graphify / CodeGraph facts 接进 workf
 
 **建议验证**
 
+- docs contract tests
 - focused session/compound tests
 - synthetic stale/conflict fixture
+- focused `rg` negative check for provider-as-truth wording
 - `git diff --check`
 
 ---
@@ -431,8 +450,8 @@ Wave B 完成后，才允许把 GBrain / Graphify / CodeGraph facts 接进 workf
 **准入条件**
 
 - v1.11 readiness contract 已落地。
-- v1.14 Knowledge Harness 已定义 provider advisory 边界。
-- v1.15 file-first memory 已能承接长期知识。
+- v1.15 Knowledge Harness 已定义 provider advisory 边界。
+- v1.15 Knowledge Harness 已能承接长期知识。
 
 **验收门槛**
 
@@ -450,11 +469,11 @@ Wave B 完成后，才允许把 GBrain / Graphify / CodeGraph facts 接进 workf
 
 ---
 
-### v1.17 Evidence & Rule Maturity
+### v1.17 Governance Maturity
 
 **发布目标**
 
-让交付证据和规则成熟度可审计，避免强工具、强规则带来错误阻塞或错误完成声明。
+让规则成熟度、交付证据和治理 ROI 可审计，避免强工具、强规则带来错误阻塞或错误完成声明。
 
 **核心交付**
 
@@ -486,7 +505,8 @@ Wave B 完成后，才允许把 GBrain / Graphify / CodeGraph facts 接进 workf
 **准入条件**
 
 - v1.13 verification profile 能提供 command/not-run facts。
-- v1.14 六层 contract 已明确 evidence 与 knowledge promotion 关系。
+- v1.14 Governance Lens Foundation 已运行 shadow/advisory 规则。
+- v1.15 Knowledge Harness 已明确 evidence 与 knowledge promotion 关系。
 
 **验收门槛**
 
@@ -567,12 +587,16 @@ v1.11 Dependency Readiness
   ├─> v1.13 Skill/Verification Metadata
   └─> v1.16 Optional Provider Pack
 
-v1.14 Six-Layer Knowledge Harness
-  ├─> v1.15 File-First Memory
-  └─> v1.16 Optional Provider Pack
+v1.14 Governance Lens Foundation
+  ├─> v1.15 Knowledge Harness
+  └─> v1.17 Governance Maturity
 
 v1.13 Skill/Verification Metadata
-  └─> v1.17 Evidence & Rule Maturity
+  ├─> v1.14 Governance Lens Foundation
+  └─> v1.17 Governance Maturity
+
+v1.15 Knowledge Harness
+  └─> v1.16 Optional Provider Pack
 
 v1.11 + v1.12 + v1.16 + v1.17
   └─> v2.0 Platform Profile
@@ -580,7 +604,7 @@ v1.11 + v1.12 + v1.16 + v1.17
 
 关键 gate：
 
-- v1.16 不得早于 v1.11 和 v1.14。
+- v1.16 不得早于 v1.11 和 v1.15。
 - v2.0 不得早于 v1.11、v1.12、v1.16、v1.17。
 - blocking guardrail 不得早于 v1.17 RuleMaturity。
 
@@ -593,19 +617,19 @@ v1.11 + v1.12 + v1.16 + v1.17
 | v1.11 contract docs 与 script detection 原型 | 不改 install apply | 低 |
 | v1.12 host capability docs 与 self-test fixture | 不改 runtime generator 主路径 | 中 |
 | v1.13 skill metadata contract 与 verification profile schema | 不接 workflow closeout 前可并行 | 中 |
-| v1.14 Knowledge Harness docs | 可与 v1.11-v1.13 并行，但不能抢先定义 provider truth | 低 |
-| v1.15 recall prototype | 必须等 v1.14 L3/L6 边界确定 | 中 |
-| v1.16 provider pack | 必须等 v1.11 + v1.14 | 高 |
-| v1.17 evidence ledger | 可与 v1.15 并行，但 closeout 接入要等 v1.13 | 中 |
+| v1.14 Governance Lens Foundation | 可与 v1.11-v1.13 的后半段并行，但 consumer 接入要等 v1.13 closeout 边界清楚 | 中 |
+| v1.15 Knowledge Harness / recall prototype | 必须等 v1.14 advisory facts 与 workflow judgment 边界确定 | 中 |
+| v1.16 provider pack | 必须等 v1.11 + v1.15 | 高 |
+| v1.17 Governance Maturity | 可与 v1.15 并行设计，但 required-evidence/blocking 接入要等 v1.14 误报证据 | 中 |
 
 建议执行顺序：
 
 1. v1.11 U1-U3。
-2. v1.14 docs contract。
-3. v1.13 metadata/evidence closeout。
-4. v1.12 runtime projection report。
-5. v1.15 memory recall。
-6. v1.17 evidence/rule maturity。
+2. v1.13 metadata/evidence closeout。
+3. v1.12 runtime projection report。
+4. v1.14 Governance Lens Foundation。
+5. v1.15 Knowledge Harness / memory recall。
+6. v1.17 Governance Maturity。
 7. v1.16 optional provider pack。
 8. v2.0 platform profile。
 
@@ -647,7 +671,7 @@ git diff --check
 | 是否默认安装 GBrain / Graphify / CodeGraph？ | 否。minimal 不装；recommended 计划安装；platform 可默认但仍 advisory。 |
 | 是否恢复 graph provider 核心路径？ | 否。GitNexus 已退役，Graphify/CodeGraph 只做 optional orientation provider。 |
 | 是否扩展所有 host adapter？ | 否。Claude/Codex 优先；其他 host 进入 v2.0 platform profile。 |
-| 是否引入 blocking gates？ | 默认否。规则必须 shadow -> candidate -> approved-blocking。 |
+| 是否引入 blocking gates？ | 默认否。规则必须 shadow -> advisory -> required-evidence -> blocking。 |
 | 长期 memory 写入由谁决定？ | workflow/LLM 提 candidate，脚本校验 shape，compound/review/human 才 promote。 |
 
 ---
@@ -656,5 +680,5 @@ git diff --check
 
 1. 对本版本拆分文档和来源 roadmap 运行 `spec-doc-review`。
 2. 将 v1.11 拆成独立 implementation plan，范围限制在 dependency readiness contract + `spec-mcp-setup` check-only/reporting。
-3. v1.11 执行完成并通过 mcp-setup tests 后，再拆 v1.14 Knowledge Harness contract。
-4. v1.16 provider pack 暂缓，直到 v1.11 和 v1.14 都合并。
+3. v1.11 执行完成并通过 mcp-setup tests 后，再拆 v1.14 Governance Lens Foundation。
+4. v1.16 provider pack 暂缓，直到 v1.11 和 v1.15 都合并。

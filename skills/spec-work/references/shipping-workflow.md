@@ -120,6 +120,10 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
      --input <honest-closeout-claims.json> \
      --target-repo <repo-root> \
      --json
+
+   spec-first internal resource-governance-lens \
+     --target-repo <repo-root> \
+     --json
    ```
 
    Boundary rules:
@@ -127,9 +131,10 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
    - `verification-run-summary` only records actual command outcomes supplied by the workflow step. It does not rerun commands or infer `exit_code`.
    - Dry-run or schedulable-but-not-executed checks must be `status=not-run` with `reason_code=schedulable`; missing required tools must be `status=not-run` with `reason_code=missing_dependency`.
    - `honest-closeout` validates structured claim-to-evidence refs. Missing claim objects, empty evidence refs, or unsupported claims degrade or reject the closeout verdict; natural-language-only assertions are honest-but-unverifiable and must not be reported as verified.
+   - `resource-governance-lens` reports advisory facts for large files, generated output, raw logs, owner hints, and staging-scope risks. Its `subject_path` can name generated runtime mirrors, but `evidence_ref` must remain an allowed source/log/artifact or deterministic git-summary ref. Resource advisories are reported beside honest-closeout results; they do not block closeout, `git add`, commit, or review. Its `status=unavailable` (for example a non-git target) is a non-blocking degraded posture, not a fast-fail signal: read `status`, not the exit code, which stays `0` for `ok`, `advisory`, and `unavailable`.
    - `decision_input_health=warn|error` from setup facts is readiness-side degraded evidence. It does not become a verification check status. Verification `passed|failed|not-run|degraded` comes from `verification-run-summary`; readiness degradation can only lower closeout confidence.
 
-   The final response's `Verification:` line must cite structured check statuses from the run summary (`passed`, `failed`, `not-run`, or `degraded`) and include the concrete `reason_code` for every `not-run` check. If no run summary or no structured closeout claim exists, say `degraded` or `not run` with the concrete reason; do not claim verified.
+   The final response's `Verification:` line must cite structured check statuses from the run summary (`passed`, `failed`, `not-run`, or `degraded`) and include the concrete `reason_code` for every `not-run` check. If no run summary or no structured closeout claim exists, say `degraded` or `not run` with the concrete reason; do not claim verified. When resource lens returns `status=advisory`, include the advisory dimensions and reason codes in the closeout evidence or final summary.
 
 2.6. **Evaluate Durable Evidence Triggers**
 

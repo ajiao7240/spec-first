@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-first gate lens taxonomy contract",
+  "description": "Naming taxonomy for governance lens families. This is not a gate executor and never implies blocking behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "families"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "gate-lens-taxonomy.v1"
+    },
+    "families": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "description"],
+        "properties": {
+          "family": {
+            "type": "string",
+            "enum": [
+              "preflight",
+              "exploration",
+              "planning",
+              "execution",
+              "verification",
+              "review",
+              "summary"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_notes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -5,7 +5,9 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { isExactRepoRelativePath, isSecretDeniedPath } = require('./secret-deny-patterns');
 
-const GENERATED_RUNTIME_PREFIXES = ['.claude/', '.codex/', '.agents/skills/'];
+// 冻结:该数组同时作为路径安全校验(validateRepoRelativeField)的 denylist 被多处按引用复用,
+// 冻结可防止下游消费者就地修改而悄悄削弱安全校验。
+const GENERATED_RUNTIME_PREFIXES = Object.freeze(['.claude/', '.codex/', '.agents/skills/']);
 
 function resolveTargetRepoRoot(targetRepo) {
   if (typeof targetRepo !== 'string' || targetRepo.trim() === '') {

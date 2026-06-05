@@ -232,11 +232,24 @@ If true product blockers remain:
 
 #### 0.6 Assess Plan Depth
 
+Before classifying depth, build a compact planning-context input from the user request, origin document summary, Phase 0.4 candidate paths/modules, and any directly read source refs. When the source checkout has the helper available, run:
+
+```bash
+spec-first internal task-governance-signals \
+  --source plan-declared \
+  --input <planning-context.json> \
+  --json
+```
+
+Use the helper's `candidate_level` and `reason_codes` as deterministic advisory facts. The helper prepares signals; the LLM still decides the final plan depth. Do not feed draft Implementation Units or `Files` lists into Phase 0.6 because they do not exist yet. The `<planning-context.json>` input shape (`request`, `origin_text`, `text`, `candidate_paths`, `paths`, `source_refs`, `target_areas`) is documented in `docs/contracts/governance/task-governance-signals.md`; an unreadable input degrades to `reason_code: planning-context-unreadable` rather than a clean lightweight result.
+
 Classify the work into one of these plan depths:
 
 - **Lightweight** - small, well-bounded, low ambiguity
 - **Standard** - normal feature or bounded refactor with some technical decisions to document
 - **Deep** - cross-cutting, strategic, high-risk, or highly ambiguous implementation work
+
+Confirm the helper candidate or explicitly override it with a short reason, for example: "Using Standard despite candidate lightweight because the request touches a public CLI contract." If the helper is unavailable, continue with direct evidence and record `task-governance-signals unavailable` as degraded advisory evidence rather than inventing candidate facts.
 
 If depth is unclear, ask one targeted question and then continue.
 
@@ -393,7 +406,7 @@ If the current classification is **Lightweight** and Phase 1 research found that
 - Shared types or interfaces imported by downstream consumers
 - Documentation referenced by external URLs or linked from other systems
 
-This ensures flow analysis (Phase 1.5) runs and the confidence-first check (Phase 5.3) applies critical-section bonuses. Announce the reclassification briefly: "Reclassifying to Standard — this change touches [environment variables / exported APIs / CI config] with external consumers."
+This ensures flow analysis (Phase 1.5) runs and the confidence-first check (Phase 5.3) applies critical-section bonuses. Announce the reclassification briefly and include whether it confirms or overrides the Phase 0.6 `candidate_level`: "Reclassifying to Standard — this change touches [environment variables / exported APIs / CI config] with external consumers."
 
 #### 1.5 Flow and Edge-Case Analysis (Conditional)
 

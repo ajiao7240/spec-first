@@ -7,6 +7,8 @@ const { runCli: runHonestCloseoutCli } = require('../helpers/honest-closeout');
 const { runCli: runSpecWorkRunArtifactCli } = require('../helpers/spec-work-run-artifact');
 const { runCli: runVerificationProfileCli } = require('../helpers/verification-profile');
 const { runCli: runVerificationRunSummaryCli } = require('../helpers/verification-run-summary');
+const { runCli: runTaskGovernanceSignalsCli } = require('../helpers/task-governance-signals');
+const { runCli: runResourceGovernanceLensCli } = require('../helpers/resource-governance-lens');
 
 function runInternal(argv) {
   const args = Array.isArray(argv) ? [...argv] : [];
@@ -38,6 +40,14 @@ function runInternal(argv) {
 
   if (subcommand === 'verification-run-summary') {
     return runVerificationRunSummaryCli(args.slice(1));
+  }
+
+  if (subcommand === 'task-governance-signals') {
+    return runTaskGovernanceSignalsCli(args.slice(1));
+  }
+
+  if (subcommand === 'resource-governance-lens') {
+    return runResourceGovernanceLensCli(args.slice(1));
   }
 
   if (args.includes('--json')) {

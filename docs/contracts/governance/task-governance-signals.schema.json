@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-first task governance signals contract",
+  "description": "Deterministic task-size and risk signals used as advisory input for workflow-owned plan depth decisions. Candidate level is not final.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "collection_status",
+    "candidate_level",
+    "signals",
+    "risk_domains",
+    "recommended_artifacts",
+    "recommended_gate_lenses",
+    "reason_codes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "task-governance-signals.v1"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "collection_status": {
+      "type": "string",
+      "enum": ["ok", "degraded", "unavailable"],
+      "description": "Trustworthiness of signal collection, a distinct axis from candidate_level. ok=collected; degraded=ran but input/baseline failed (no-diff-base, git-diff-failed, planning-context-unreadable); unavailable=no git substrate (not-a-repo). When degraded/unavailable, candidate_level is not trustworthy low-risk. Exit code stays 0 (advisory, never-blocking)."
+    },
+    "candidate_level": {
+      "type": "string",
+      "enum": ["lightweight", "standard", "deep"]
+    },
+    "signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal_source",
+        "file_count",
+        "line_delta",
+        "declared_path_count",
+        "source_ref_count",
+        "target_area_count",
+        "cross_module",
+        "top_dirs",
+        "critical_path_hits",
+        "keyword_hits"
+      ],
+      "properties": {
+        "signal_source": {
+          "type": "string",
+          "enum": ["plan-declared", "git-diff"]
+        },
+        "file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "line_delta": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "declared_path_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_ref_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "target_area_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cross_module": {
+          "type": "boolean"
+        },
+        "top_dirs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "critical_path_hits": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "keyword_hits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["keyword", "risk_domain"],
+            "properties": {
+              "keyword": {
+                "type": "string",
+                "minLength": 1
+              },
+              "risk_domain": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "risk_domains": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "recommended_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["plan", "tasks", "verification", "review", "changelog", "runtime-regeneration"]
+      }
+    },
+    "recommended_gate_lenses": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "preflight",
+          "exploration",
+          "planning",
+          "execution",
+          "verification",
+          "review",
+          "summary"
+        ]
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    }
+  }
+}

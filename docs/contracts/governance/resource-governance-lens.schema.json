@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-first resource governance lens contract",
+  "description": "Advisory facts for large files, generated output, raw logs, ownership hints, and staging-scope risks. This contract never blocks git operations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "status", "items", "reason_codes", "policy"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "resource-governance-lens.v1"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "advisory", "unavailable"]
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lens_family",
+          "dimension",
+          "severity",
+          "reason_code",
+          "subject_path",
+          "evidence_ref"
+        ],
+        "properties": {
+          "lens_family": {
+            "type": "string",
+            "enum": ["preflight", "exploration", "planning", "execution", "verification", "review", "summary"]
+          },
+          "dimension": {
+            "type": "string",
+            "enum": ["large-file", "generated-output", "raw-log", "staging-scope", "owner-hint"]
+          },
+          "severity": {
+            "type": "string",
+            "const": "advisory"
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "subject_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "details": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxGitFileSizeBytes",
+        "rawLogMaxBytes",
+        "generatedRuntimePrefixes",
+        "retainedRuntimeDirectories"
+      ],
+      "properties": {
+        "maxGitFileSizeBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rawLogMaxBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "generatedRuntimePrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "retainedRuntimeDirectories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

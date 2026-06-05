@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 1 | `spec-first内化集成scale-project-scaffold技术方案.md` | 父方案，定义全局边界、产物归属、版本路线和优先级 |
 | 2 | `project-scaffold依赖安装流程与spec-first-setup优化技术方案.md` | setup / doctor / verification 子方案，细化 v1.11-v1.13 的 dependency readiness、install safety、verification profile 和 honest closeout |
-| 3 | `CodeGraph技术方案.md` | optional provider 子方案，细化 v1.16 下 CodeGraph / Graphify / GBrain 的 readiness、fallback、workflow consumer 和 trust boundary |
+| 3 | `CodeGraph技术方案.md` | optional provider 子方案，以「集成→安装→刷新→可用」全链路为主干，细化 v1.16 下 CodeGraph / Graphify / GBrain 的 lifecycle ladder、安装使用流程（四层 + 三态 mode + install gate）、刷新归属、readiness/fallback、workflow consumer 和 trust boundary；含 spec-kit / scale-engine 业界对标 |
 
 `bak/` 下文件只作为历史分析输入，不作为当前 source-of-truth。
 
@@ -35,12 +35,12 @@
 | v1.11 | Dependency Readiness Baseline | 父方案 + project-scaffold 子方案 | helper/provider registry、`tool-facts.v2` normalizer、configured dependency scan facts producer、install safety、status renderer | 已完成（plan：`docs/plans/2026-06-04-001-feat-dependency-readiness-baseline-plan.md`；与 v1.12 同切片；`npm test` 通过） |
 | v1.12 | Host Projection / Doctor Consumption | 父方案 + project-scaffold 子方案 | `init` generation report、`doctor.decision_input_health`、`decision_input_health_basis`、setup/configured dependency facts consumption | 已完成（同上 plan；`doctor --codex --json` 已从 `tool-facts.json` 计算 `decision_input_health` 并输出 basis） |
 | v1.13 | Verification + Honest Closeout | 父方案 + project-scaffold 子方案 | `verification-profile.v1`、`verification-run-summary.v1`、`honest-closeout.v1`、run artifact ref mapping | 已完成（plan：`docs/plans/2026-06-04-003-feat-verification-honest-closeout-plan.md`；commit `3fc4dbda`；`spec-work-run-artifact` bump v2；`npm test` 通过） |
-| v1.14 | Governance Lens Foundation | 父方案 | task-governance-signals、gate lens、resource governance、RuleMaturity shadow/advisory | 未开始 |
+| v1.14 | Governance Lens Foundation | 父方案 | task-governance-signals、gate lens、resource governance、RuleMaturity shadow/advisory | 已完成（plan：`docs/plans/2026-06-05-001-feat-governance-lens-foundation-plan.md`；focused governance tests + `npm test` 通过） |
 | v1.15 | Knowledge Harness | 父方案 | context budget、artifact-summary、`docs/solutions` promotion、memory recall boundary、skill/tool capability lens | 未开始 |
 | v1.16 | Optional Provider Pack | 父方案 + CodeGraph 子方案 | **收敛交付**：CodeGraph 单点 opt-in pilot（先实测增益再升 recommended）+ Graphify 手动 artifact-doc（移出 readiness loop）+ GBrain 后置；复用已落地 `provider-readiness.v1`，不三者平级铺开 | 未开始 |
 | v1.17 | Governance Maturity | 父方案 | RuleMaturity required-evidence candidate、governance ROI、resource/output hardening | 未开始 |
 
-v1.11+v1.12 已作为同一 P0 producer→consumer 切片完成,v1.13 verification / honest-closeout 已在独立 plan(`docs/plans/2026-06-04-003-...`)中落地并兑现 `spec-work` closeout 的可观察行为变化;下一步开发应推进到 v1.14 Governance Lens Foundation 及后续版本线,不直接从三份方案跳进实现。
+v1.11+v1.12 已作为同一 P0 producer→consumer 切片完成,v1.13 verification / honest-closeout 已在独立 plan(`docs/plans/2026-06-04-003-...`)中落地并兑现 `spec-work` closeout 的可观察行为变化;v1.14 Governance Lens Foundation 已完成;下一步开发应推进到 v1.15 Knowledge Harness 及后续版本线,不直接从三份方案跳进实现。
 
 ### 开发顺序的依赖与验收约束（钉死，避免按版本号机械串行）
 

@@ -467,6 +467,16 @@ Compute and record these facts before choosing the reviewer team:
 - `prior_comments_present`: Stage 1 `hasPriorComments=true`.
 - `plan_explicit`: Stage 2b found an explicit plan.
 
+When the source checkout has the helper available, also run the deterministic resource lens before reviewer selection:
+
+```bash
+spec-first internal resource-governance-lens \
+  --target-repo <repo-root> \
+  --json
+```
+
+Record `resource_lens_status`, advisory dimensions, and `reason_codes` with the preflight facts. Resource lens facts are advisory: they may justify reviewer focus or closeout notes, but they do not block review, do not replace reviewer judgment, and do not treat generated runtime paths as `evidence_ref` values. If the helper is unavailable, keep the existing scale-aware preflight and record `resource-governance-lens unavailable` in Coverage.
+
 Progressive disclosure boundary: low-risk docs-only, simple config, and tiny executable diffs may use a minimum reviewer set; high-risk workflow, contract, release, source/runtime boundary, external-tool evidence, security, or cross-module changes must use the full default core plus applicable conditional reviewers. The goal is to avoid unbounded fan-out on small diffs without hiding risk.
 
 Use the minimum reviewer set only when all of these are true:
@@ -488,7 +498,7 @@ Minimum sets:
 
 If any minimum-set condition is false, use the full default core: `spec-correctness-reviewer`, `spec-testing-reviewer`, `spec-maintainability-reviewer`, `spec-project-standards-reviewer`, `spec-agent-native-reviewer`, and `spec-learnings-researcher`. Always add applicable conditional reviewers after core selection. `mode:headless` and `mode:report-only` keep their structured output contracts while using the same scale-aware reviewer selection. `mode:autofix` may use the minimum set only for `docs_only` or `simple_config_only`; otherwise use the full default core because mutating review needs stronger coverage.
 
-Record the preflight facts, selected core tier (`minimum` or `full`), and reason in Coverage. If the facts are missing, ambiguous, or contradicted by the diff, choose the full default core.
+Record the preflight facts, selected core tier (`minimum` or `full`), and reason in Coverage. Also include resource lens advisory status when available. If the facts are missing, ambiguous, or contradicted by the diff, choose the full default core.
 
 **File-type awareness for conditional selection:** Instruction-prose files (Markdown skill definitions, JSON schemas, config files) are product code but do not benefit from runtime-focused reviewers. The adversarial reviewer's techniques (race conditions, cascade failures, abuse cases) target executable code behavior. For diffs that only change instruction-prose files, skip adversarial unless the prose describes auth, payment, or data-mutation behavior. Count only executable code lines toward line-count thresholds.
 
@@ -815,8 +825,9 @@ Assemble the final report using **pipe-delimited markdown tables for findings** 
 9. **Agent-Native Gaps.** Surface spec-agent-native-reviewer results. Omit section if no gaps found.
 10. **Schema Drift Check.** If spec-schema-drift-detector ran, summarize whether drift was found. If drift exists, list the unrelated schema objects and the required cleanup command. If clean, say so briefly.
 11. **Deployment Notes.** If spec-deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage.
-12. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, direct evidence posture, and any intent uncertainty carried by non-interactive modes. Include `Direct evidence: <source refs/checks/logs used> | limitations: <reason>` when coverage depends on bounded direct evidence; for multi-repo review, report evidence per child repo. External-tool evidence is advisory whenever it is degraded or unconfirmed by source.
-13. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
+12. **Resource Advisory.** If `resource-governance-lens` returned `status=advisory`, list the advisory dimensions and reason codes using `subject_path` for the file under discussion and `evidence_ref` for the proof source. Do not convert resource advisories into blocking findings unless a reviewer independently confirms a concrete code-review issue. A `status=unavailable` result (for example a non-git target) is a non-blocking degraded posture, not a fast-fail signal: note it in Coverage and continue; the helper exit code stays `0` for `ok`, `advisory`, and `unavailable`.
+13. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, resource lens status/reason codes, direct evidence posture, and any intent uncertainty carried by non-interactive modes. Include `Direct evidence: <source refs/checks/logs used> | limitations: <reason>` when coverage depends on bounded direct evidence; for multi-repo review, report evidence per child repo. External-tool evidence is advisory whenever it is degraded or unconfirmed by source.
+14. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
 
 Do not include time estimates.
 

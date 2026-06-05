@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec-first rule maturity contract",
+  "description": "Governance rule maturity record. v1.14 defines the shape for shadow/advisory observations only; required-evidence and blocking stages are reserved for later explicit maturity work.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "rule_id",
+    "stage",
+    "shadow_hits",
+    "defect_evidence_refs",
+    "false_positive_refs",
+    "rollback",
+    "evidence_refs",
+    "reason_code"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "rule-maturity.v1"
+    },
+    "rule_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "stage": {
+      "type": "string",
+      "enum": ["shadow", "advisory", "required-evidence", "blocking"]
+    },
+    "shadow_hits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["observed_at", "workflow", "evidence_ref", "reason_code"],
+        "properties": {
+          "observed_at": {
+            "type": "string"
+          },
+          "workflow": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "defect_evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "false_positive_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "notes"],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "reason_code": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

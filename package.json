@@ -43,6 +43,7 @@
     "docs/contracts/artifact-summary.md",
     "docs/contracts/context-bundle.md",
     "docs/contracts/context-governance.md",
+    "docs/contracts/governance/",
     "docs/contracts/helper-tools-registry.schema.json",
     "docs/contracts/quality-gates/",
     "docs/contracts/provider-readiness.md",

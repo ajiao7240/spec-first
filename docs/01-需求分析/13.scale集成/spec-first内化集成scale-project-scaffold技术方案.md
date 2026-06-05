@@ -146,6 +146,10 @@ Workflow consumption
 | `helper-tools-registry.v1` | 字段 canonical 现为 project-scaffold 子方案 §4.2；落盘到 `docs/contracts/helper-tools-registry.schema.json`（v1.11 实现后按 schema 文件转 canonical、§4.2 转引用） | Setup_Scripts、`check-health`、`verify-tools`（从 registry 派生，不重定义字段） |
 | `tool-facts.v2` | 落盘到 `docs/contracts/tool-facts.schema.json`（v1.11 新增；含 v1 兼容说明） | `write-setup-facts`、Facts_Normalizer、`doctor` decision_input_health rollup |
 | `spec-work-run-artifact/v2` | `docs/contracts/workflows/spec-work-run-artifact.schema.json`（v2 写入；v1 read/prune 兼容） | 父方案 §4.5、project-scaffold 子方案 §4.6 |
+| `task-governance-signals.v1` | `docs/contracts/governance/task-governance-signals.schema.json` | 父方案 §4.1、`spec-plan` Phase 0.6、`spec-work` / `spec-code-review` diff-time advisory |
+| `gate-lens-taxonomy.v1` | `docs/contracts/governance/gate-lens-taxonomy.schema.json` | 父方案 §4.7、task/resource governance advisory 命名 |
+| `rule-maturity.v1` | `docs/contracts/governance/rule-maturity.schema.json` | 父方案 §4.7、v1.17 Governance Maturity |
+| `resource-governance-lens.v1` | `docs/contracts/governance/resource-governance-lens.schema.json` | 父方案 §4.8、`spec-work` closeout、`spec-code-review` resource advisory |
 
 ---
 
@@ -206,7 +210,7 @@ Workflow consumption
 
 | scale-engine 能力 | 本地源码证据 | spec-first 内化方式 | 优先级 | 不照搬项 |
 | --- | --- | --- | --- | --- |
-| Task Level | `src/workflow/TaskLevelDetector.ts` | `task-governance-signals.v1`：输出 signals / candidate_level / confidence / reason_codes | P1 | 不让脚本直接决定最终任务等级 |
+| Task Level | `src/workflow/TaskLevelDetector.ts` | `task-governance-signals.v1`：输出 signals / candidate_level / reason_codes | P1 | 不让脚本直接决定最终任务等级 |
 | Verification Commands/Profile | `src/workflow/VerificationCommands.ts`、`VerificationProfile.ts` | `verification-profile.v1` + `verification-run-summary.v1` | P0 | 不硬编码业务命令，不把 dry-run 写成通过 |
 | Runtime Evidence | `src/runtime/RuntimeEvidenceLedger.ts`、`ExecutionLedger.ts`、`SessionLedger.ts` | 先扩展 `spec-work-run-artifact` 与 verification evidence；缺口明确后再做事件 ledger | P1 | 不建与 run artifact 竞争的 truth |
 | Final Report Guard | `src/runtime/FinalReportGuard.ts`、`RuntimeDoctor.ts` | `honest-closeout.v1`，检查 claim 是否有 evidence refs | P0 | 不用自然语言正则替代 evidence model |
@@ -309,7 +313,7 @@ docs/contracts/
 src/
   governance/
     task-governance-signals.js
-    rule-maturity.js
+    rule-maturity.js        # v1.17+ 才考虑 producer / promotion
     gate-lens.js
     resource-policy.js
 
@@ -373,24 +377,14 @@ CONTEXT.md 默认生成
 
 ### 输出模型
 
-```json
-{
-  "schema_version": "task-governance-signals.v1",
-  "candidate_level": "L",
-  "confidence": 0.74,
-  "signals": {
-    "file_count": 9,
-    "line_delta": 320,
-    "cross_module": true,
-    "critical_path_hits": [],
-    "keyword_hits": ["runtime", "contract"]
-  },
-  "risk_domains": ["workflow", "contract"],
-  "recommended_artifacts": ["plan", "verification", "review"],
-  "recommended_gate_lenses": ["preflight", "plan-boundary", "verification", "resource"],
-  "reason_codes": ["cross_module", "contract_keyword"]
-}
-```
+canonical 字段定义已落盘到 `docs/contracts/governance/task-governance-signals.schema.json`（§0.4.3 登记）；本节只说明消费口径，不重写字段形状。
+
+关键边界：
+
+- `candidate_level` 使用 `spec-plan` depth 语言：`lightweight` / `standard` / `deep`。
+- 不输出 SCALE 的 `S/M/L/CRITICAL` 终局等级，不输出折叠 `score`，不输出伪数值 `confidence`。
+- `plan-declared` 来源只消费 pre-code / pre-plan planning context（用户请求、origin 文档、候选路径/模块和关键词），不得依赖尚未写出的 Implementation Units。
+- `git-diff` 来源只消费 `git diff --numstat` 等确定性 diff facts。
 
 ### 消费规则
 
@@ -633,7 +627,7 @@ provider stale 被说成影响面已确认。
 
 `project-scaffold/scripts/gates/all.sh` 实际调度 G0-G22，且 `--dry-run` 只做 `bash -n`，输出 `schedulable`。部分 gate 明确是 advisory。`scale-engine/src/evolution/RuleMaturity.ts` 提供 shadow、candidate-hook、approved-blocking 的成熟度思路。
 
-`spec-first` 应把 G0-G22 压缩成 lens families：
+`spec-first` 应把 G0-G22 压缩成 lens families。canonical 词表定义见 `docs/contracts/governance/gate-lens-taxonomy.schema.json`；下表只描述来源语义和近期消费口径，不重定义字段：
 
 | Lens | 来自 project-scaffold 的 gate 语义 | spec-first 近期行为 |
 | --- | --- | --- |
@@ -647,29 +641,19 @@ provider stale 被说成影响面已确认。
 
 ### 成熟度
 
-```text
-shadow
-  只记录，不提示。
-
-advisory
-  提示风险，不阻断。
-
-required-evidence
-  缺证据会降低 closeout 信任等级。
-
-blocking
-  仅 CRITICAL、团队显式配置、已有误报/rollback 证据并经人工批准后启用。
-```
+`rule-maturity.v1` 的 canonical 字段定义见 `docs/contracts/governance/rule-maturity.schema.json`。v1.14 只落 schema/docs-only 边界和 shadow/advisory 语义，不注册 producer/helper，不实现自动 promotion；`required-evidence` / `blocking` 留到 v1.17 Governance Maturity，且必须有人审批准、误报证据和 rollback 策略。
 
 ## 4.8 Resource / Output Governance
 
-`project-scaffold/.scale/resource-policy.json` 和 README 的“什么能提交 / 默认不提交”对 `spec-first` 很有价值。应转成 resource lens：
+`resource-governance-lens.v1` 的 canonical 字段定义见 `docs/contracts/governance/resource-governance-lens.schema.json`。`spec-first` 拥有默认 policy；`project-scaffold/.scale/resource-policy.json` 和 README 的“什么能提交 / 默认不提交”只作为参考样例，不成为 spec-first 的 source-of-truth。
+
+resource lens 覆盖：
 
 - 大文件阈值。
 - generated output / screenshots / coverage / Playwright report / logs 的默认提交策略。
 - owner / module path hint。
 - raw log retention 与 redaction status。
-- `git add .` 风险提示。
+- `git add .` 风险提示（只能基于 staged/status facts 推断，不声称观察到用户命令）。
 
 这应接入 `spec-work` closeout、`spec-code-review` project standards reviewer 和 release/PR handoff，而不是作为全局 blocking pre-commit。
 
