@@ -1021,7 +1021,35 @@ docs/contracts/runtime/
 - 外部 memory / project-graph 工具写入（若研发人员自管）都是 optional promotion。
 - `spec-compound` 不变成 raw transcript archive。
 
-## Phase E：Capability-aware 协同（code-graph / project-graph 能力）
+### Phase D 设计依据校准（2025-2026 best-practice 验证，deep-research 对抗核实）
+
+下表是对 v1.15 五支柱的外部最佳实践验证（25 条 claim 经 3 票对抗验证，21 确认 / 4 驳倒）。**结论：整体 sound、无过时或被业界否决的选择，无 blocking design flaw**；但有 2 处 framing 必须收敛、4 条论据不得引用。
+
+| 支柱 | 验证 | 一手依据（已逐字核对的） |
+| --- | --- | --- |
+| context budget（L2） | ✅ 公认最佳实践 | Anthropic「context 是有限资源、有 context rot / attention budget」「context window 是最该管理的资源」；*Lost in the Middle*（TACL 2024, arXiv:2307.03172）U 型位置曲线——大窗口≠用得好 |
+| summary-first / progressive disclosure handoff（L2/L5） | ✅ 业界推荐模式非新发明 | Anthropic「subagent 独立 context、只回传 1000-2000 token 摘要」+「维护轻量标识符(file paths)按需加载」——正是 summary+精确 path |
+| file-first 而非向量库（<500 条，L4） | ✅ 按规模论证成立 | Anthropic 出 file-based memory tool + just-in-time file 引用；Mem0(arXiv:2504.19413)重型向量+图记忆**明确为大规模多会话**，非小库 |
+| recall 当 advisory 必回源（L4） | ✅ grounding 文献强支持 | Self-RAG(ICLR 2024, arXiv:2310.11511) 反对「不加判别纳入检索内容」；CRAG(ICML 2024, arXiv:2401.15884) retrieval evaluator 给 confidence 再用 |
+| verified-only promotion gate（L6） | ⚠️ 威胁模型确认，直接背书弱 | NIST AI 100-2e2025 确认知识库投毒（单篇毒文档即可）→ 验证了「为何要 gate」；但「业界明文推荐 candidate→review→promote」的背书 claim **被驳倒**（见下） |
+
+**两处 framing 必须收敛（否则 overreach）**：
+
+1. **file-first 只按「规模 + 写入摩擦 + 可审计」论证，不得写「embeddings 已过时/被淘汰」**——业界是 **hybrid 立场**（小库/导航用 file，大模糊语料仍用 embedding）。当前 §2.1/§5.3 按规模论证，正确；守住即可。
+2. **promotion gate 的 rationale 靠「投毒威胁模型 + RAG 质量门槛类比」成立，不得声称有 NIST/Anthropic 一手「do this」背书**；落地配显式 provenance / `invalidation_condition` 字段补强。注意：内部策展（人/LLM curated file store）的注入面**低于** NIST 研究的可优化 RAG 对手，故 gate 应定位为**噪声/质量控制**，非反注入防御。
+
+**不得引用的被驳倒 claim（对抗验证 0-3 / 1-2）**：① 「NIST 推荐 sanitize/validate/attest 后才入库、直接背书 promotion gate」(0-3)；② 「Anthropic canonical 持久知识就是 markdown、全程无向量」(0-3，实为 hybrid)；③ 「安全上应假设注入、外部资源不可信」作为 recall 边界依据(1-2)；④ 「Anthropic 命名 trust-then-verify gap 并推 fresh-context 对抗 review」(1-2)。
+
+**v1.15 plan 必答的 4 个 open question（来自 deep-research）**：
+
+- **OQ-1（summary-first）**：expand-on-trigger 的**具体条件**是什么？如何调阈值避免 Cognition 警告的「互依赖任务丢上下文」碎片化？
+- **OQ-2（file-first 规模门槛）**：到多大语料 / 什么查询模式，file + grep 不再够、需转 hybrid 索引？（<500 条是断言，无外部 benchmark）
+- **OQ-3（recall 回源操作化）**：reconfirm 是人工 reviewer / 自动检查 / 模型自评？（Self-RAG 证明模型自评不可靠 → 倾向回源到权威 source，不靠自评）
+- **OQ-4（promotion gate 最小机制）**：是否需显式 provenance / integrity / `invalidation_condition` 控制？达到噪声控制目标的**最小 durable 机制**是什么（防过度设计）？
+
+> 验证环境局限（诚实标注）：多数 live URL 被网络策略挡，靠 `curl` 直取 + 逐字引文核对（claude-code-best-practices / Self-RAG / CRAG / Mem0 / NIST 已逐字确认），少数精确措辞置信度略降但实质成立；grounding 文献(Self-RAG/CRAG)对 v1.15 recall 边界是**外部 RAG→内部 recall 的类比迁移**（原理可泛化，非字面命中）。
+
+
 
 目标：setup 帮用户装好 code-graph / project-graph 能力工具（过 gate + 用户同意），消费侧 capability-aware 不耦合（完整定位见 `CodeGraph技术方案.md`）。
 
