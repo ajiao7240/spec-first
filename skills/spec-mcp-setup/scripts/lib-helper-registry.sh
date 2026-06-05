@@ -38,6 +38,114 @@ helper_registry_profile() {
   jq -r --arg id "$id" '.helpers[] | select(.id == $id) | (.profiles[0] // "minimal")' "$(helper_registry_path)"
 }
 
+# ---- 展示用安装命令生成器(单一真相源)----
+# install-helpers.sh 与 check-health 历史上各维护一份几乎逐行相同的展示命令生成器,
+# 与 registry 的静态 installation.commands 三方漂移。这里收敛为共享函数:
+# 两脚本的 install_command_for / build_install_command 对「非 agent-browser」helper
+# 一律委派到 helper_registry_install_command_display(agent-browser 因 install vs opt-in
+# 语义不同,保留各脚本自有分支)。命令措辞统一为 `A || B` 形式(与历史 install-helpers 一致)。
+# 注意:这是「展示/审批近似命令」,真正执行真相源是 install-helpers.sh 的 run_install_command。
+
+helper_registry_linux_package_install_command() {
+  local apt_pkg="$1"
+  local dnf_pkg="$2"
+  local yum_pkg="$3"
+  local pacman_pkg="$4"
+  local apk_pkg="$5"
+
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "sudo apt-get update && sudo apt-get install -y $apt_pkg"
+  elif command -v dnf >/dev/null 2>&1; then
+    echo "sudo dnf upgrade -y $dnf_pkg || sudo dnf install -y $dnf_pkg"
+  elif command -v yum >/dev/null 2>&1; then
+    echo "sudo yum update -y $yum_pkg || sudo yum install -y $yum_pkg"
+  elif command -v pacman >/dev/null 2>&1; then
+    echo "sudo pacman -Syu --needed $pacman_pkg"
+  elif command -v apk >/dev/null 2>&1; then
+    echo "sudo apk update && sudo apk add --upgrade $apk_pkg"
+  else
+    echo ""
+  fi
+}
+
+helper_registry_brew_latest_install_command() {
+  local pkg="$1"
+  echo "brew update && if brew list --formula $pkg >/dev/null 2>&1; then brew upgrade -q $pkg; else brew install -q $pkg; fi"
+}
+
+helper_registry_winget_latest_install_command() {
+  local package_id="$1"
+  echo "winget upgrade --id $package_id -e --silent --accept-package-agreements --accept-source-agreements || winget install --id $package_id -e --silent --accept-package-agreements --accept-source-agreements"
+}
+
+# 非 agent-browser helper 的展示命令派发。agent-browser 由各脚本自行处理(返回空串)。
+helper_registry_install_command_display() {
+  local name="$1"
+  local os="$2"
+  local linux_cmd
+  case "$name" in
+    gh)
+      if [ "$os" = "windows" ]; then
+        helper_registry_winget_latest_install_command "GitHub.cli"
+      elif [ "$os" = "linux" ]; then
+        linux_cmd="$(helper_registry_linux_package_install_command gh gh gh github-cli github-cli)"
+        echo "${linux_cmd:-Install gh from https://cli.github.com}"
+      else
+        helper_registry_brew_latest_install_command "gh"
+      fi
+      ;;
+    jq)
+      if [ "$os" = "windows" ]; then
+        helper_registry_winget_latest_install_command "jqlang.jq"
+      elif [ "$os" = "linux" ]; then
+        linux_cmd="$(helper_registry_linux_package_install_command jq jq jq jq jq)"
+        echo "${linux_cmd:-Install jq from https://jqlang.github.io/jq/}"
+      else
+        helper_registry_brew_latest_install_command "jq"
+      fi
+      ;;
+    vhs)
+      if [ "$os" = "linux" ] || [ "$os" = "windows" ]; then
+        if command -v go >/dev/null 2>&1; then echo "go install github.com/charmbracelet/vhs@latest"; else echo "Install vhs from https://github.com/charmbracelet/vhs"; fi
+      else
+        helper_registry_brew_latest_install_command "vhs"
+      fi
+      ;;
+    silicon)
+      if [ "$os" = "linux" ] || [ "$os" = "windows" ]; then
+        if command -v cargo >/dev/null 2>&1; then echo "cargo install silicon --force"; else echo "Install silicon from https://github.com/Aloxaf/silicon"; fi
+      else
+        helper_registry_brew_latest_install_command "silicon"
+      fi
+      ;;
+    ffmpeg)
+      if [ "$os" = "windows" ]; then
+        helper_registry_winget_latest_install_command "Gyan.FFmpeg"
+      elif [ "$os" = "linux" ]; then
+        linux_cmd="$(helper_registry_linux_package_install_command ffmpeg ffmpeg ffmpeg ffmpeg ffmpeg)"
+        echo "${linux_cmd:-Install ffmpeg from https://ffmpeg.org/download.html}"
+      else
+        helper_registry_brew_latest_install_command "ffmpeg"
+      fi
+      ;;
+    ast-grep)
+      if [ "$os" = "windows" ]; then
+        echo "npm install -g @ast-grep/cli@latest"
+      elif [ "$os" = "linux" ]; then
+        if command -v cargo >/dev/null 2>&1; then echo "cargo install ast-grep --locked --force"; elif command -v npm >/dev/null 2>&1; then echo "npm install -g @ast-grep/cli@latest"; else echo "Install ast-grep from https://ast-grep.github.io"; fi
+      else
+        helper_registry_brew_latest_install_command "ast-grep"
+      fi
+      ;;
+    ast-grep-skill)
+      echo "npx -y skills@latest add ast-grep/agent-skill -g -y"
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
 # setup-plan-renderer.cjs 一次性算出全部 helper 的 install plan（含 safety_result）。
 # 为避免按 helper 重复 fork node，caller 应在主循环前于父 shell 调用
 # helper_registry_prewarm_install_plan 预热全局 SETUP_INSTALL_PLAN_JSON；

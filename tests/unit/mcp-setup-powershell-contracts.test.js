@@ -266,4 +266,132 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
+
+  // 回归(M1):bash 与 PowerShell 的展示命令生成器收敛到各自 lib 的共享函数后,
+  // 对同一 helper×OS 必须给出一致的展示命令(消除双宿主 + 双脚本三方漂移)。
+  // Test-CommandExists/command -v 都按「全部存在」模拟,确保比较的是同一确定性分支。
+  test('bash and PowerShell share one install-command display generator (no drift)', () => {
+    const scriptsDir = path.join(repoRoot, 'skills/spec-mcp-setup/scripts');
+    const libSh = path.join(scriptsDir, 'lib-helper-registry.sh');
+    const libPs1 = path.join(scriptsDir, 'lib-helper-registry.ps1');
+    const helpers = ['gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep', 'ast-grep-skill'];
+    const platforms = ['macos', 'linux', 'windows'];
+
+    // PowerShell 侧:dot-source lib + 桩 Test-CommandExists=true,逐组合输出。
+    const psScript = [
+      `. '${libPs1}'`,
+      'function Test-CommandExists { param([string]$Name) return $true }',
+      `foreach ($h in @(${helpers.map((h) => `'${h}'`).join(',')})) {`,
+      `  foreach ($p in @(${platforms.map((p) => `'${p}'`).join(',')})) {`,
+      '    Write-Output ("{0}|{1}|{2}" -f $h, $p, (Get-HelperInstallCommandDisplay -Name $h -Platform $p))',
+      '  }',
+      '}',
+    ].join('\n');
+    const psResult = spawnPwsh(['-NoProfile', '-Command', psScript], { encoding: 'utf8' });
+    if (psResult === null) {
+      return; // pwsh 不可用,跳过(与本套件其他 pwsh 测试一致)
+    }
+    expect(psResult.status).toBe(0);
+    const psByKey = {};
+    for (const line of psResult.stdout.split('\n').filter(Boolean)) {
+      const [h, p, ...rest] = line.split('|');
+      psByKey[`${h}|${p}`] = rest.join('|').trim();
+    }
+
+    // bash 侧:source lib + 桩 command(让所有 command -v 命中),逐组合输出比较。
+    for (const h of helpers) {
+      for (const p of platforms) {
+        const bashScript = `command() { return 0; }; source '${libSh}'; helper_registry_install_command_display '${h}' '${p}'`;
+        const shResult = spawnSync('bash', ['-c', bashScript], { encoding: 'utf8' });
+        expect(shResult.status).toBe(0);
+        const bashCmd = shResult.stdout.trim();
+        expect(`${h}|${p}=>${psByKey[`${h}|${p}`]}`).toBe(`${h}|${p}=>${bashCmd}`);
+      }
+    }
+  });
+
+  // 回归(M1 parity 盲区补充):同时校验「工具缺失」分支的双宿主一致性。
+  // 已知 pre-existing 平台差异(非本次 M1 引入,M1 只忠实搬运):vhs/silicon 在 windows
+  // 缺 go/cargo 时,bash 给官网 URL(诚实,因命令会失败),PowerShell 无条件给 go/cargo
+  // install。此处显式登记为 KNOWN_ABSENT_DIVERGENCE,使该差异被测试可见而非静默掩盖;
+  // 其余 helper 在工具缺失时必须双宿主一致。彻底对齐需连带 executor 侧,留待后续切片。
+  test('bash and PowerShell install-command display parity in absent-tools branch (known divergences tracked)', () => {
+    const scriptsDir = path.join(repoRoot, 'skills/spec-mcp-setup/scripts');
+    const libSh = path.join(scriptsDir, 'lib-helper-registry.sh');
+    const libPs1 = path.join(scriptsDir, 'lib-helper-registry.ps1');
+    const helpers = ['gh', 'jq', 'vhs', 'silicon', 'ffmpeg', 'ast-grep', 'ast-grep-skill'];
+    const platforms = ['macos', 'linux', 'windows'];
+    // 已登记的 pre-existing 平台差异(key: `${helper}|${platform}`)。
+    const KNOWN_ABSENT_DIVERGENCE = new Set(['vhs|windows', 'silicon|windows']);
+
+    const psScript = [
+      `. '${libPs1}'`,
+      'function Test-CommandExists { param([string]$Name) return $false }',
+      `foreach ($h in @(${helpers.map((h) => `'${h}'`).join(',')})) {`,
+      `  foreach ($p in @(${platforms.map((p) => `'${p}'`).join(',')})) {`,
+      '    Write-Output ("{0}|{1}|{2}" -f $h, $p, (Get-HelperInstallCommandDisplay -Name $h -Platform $p))',
+      '  }',
+      '}',
+    ].join('\n');
+    const psResult = spawnPwsh(['-NoProfile', '-Command', psScript], { encoding: 'utf8' });
+    if (psResult === null) {
+      return;
+    }
+    expect(psResult.status).toBe(0);
+    const psByKey = {};
+    for (const line of psResult.stdout.split('\n').filter(Boolean)) {
+      const [h, p, ...rest] = line.split('|');
+      psByKey[`${h}|${p}`] = rest.join('|').trim();
+    }
+
+    for (const h of helpers) {
+      for (const p of platforms) {
+        const key = `${h}|${p}`;
+        // bash 桩 command 全失败(command -v 返回非零),触发工具缺失分支。
+        const bashScript = `command() { return 1; }; source '${libSh}'; helper_registry_install_command_display '${h}' '${p}'`;
+        const shResult = spawnSync('bash', ['-c', bashScript], { encoding: 'utf8' });
+        expect(shResult.status).toBe(0);
+        const bashCmd = shResult.stdout.trim();
+        if (KNOWN_ABSENT_DIVERGENCE.has(key)) {
+          // 已登记差异:断言它「仍然不同」,一旦未来对齐(变相同)此处会失败,提醒更新登记。
+          expect(psByKey[key]).not.toBe(bashCmd);
+        } else {
+          expect(`${key}=>${psByKey[key]}`).toBe(`${key}=>${bashCmd}`);
+        }
+      }
+    }
+  });
+
+  // 回归(P2-2):PowerShell install safety 分类必须与 Node setup-plan-renderer.cjs 一致。
+  // 曾因 install-helpers.ps1 的 Get-HelperSafetyResult 用 `$pinStatus -eq 'latest'` 一刀切,
+  // 使 gh/jq/ffmpeg(review_required=false)被判 review-required、safe 分支不可达,与 Node 不一致。
+  test('PowerShell helper safety classification matches the Node install-plan renderer', () => {
+    const installHelpersPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.ps1');
+    const rendererCjs = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/setup-plan-renderer.cjs');
+
+    const psResult = spawnPwsh(['-NoProfile', '-File', installHelpersPs1, '-VerifyOnly'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    if (psResult === null) {
+      return; // pwsh 不可用,跳过
+    }
+    expect(psResult.status).toBe(0);
+    const psHelpers = JSON.parse(psResult.stdout).helper_tools;
+
+    const nodeResult = spawnSync('node', [rendererCjs], { cwd: repoRoot, encoding: 'utf8' });
+    expect(nodeResult.status).toBe(0);
+    const nodeSafety = {};
+    for (const op of JSON.parse(nodeResult.stdout).planned_operations) {
+      nodeSafety[op.id] = op.safety_result;
+    }
+
+    // 每个 helper 的 PS safety 必须等于 Node safety_result;并显式校验关键 case 已脱离 review-required。
+    for (const [id, helper] of Object.entries(psHelpers)) {
+      expect(`${id}=>${helper.safety}`).toBe(`${id}=>${nodeSafety[id]}`);
+    }
+    for (const id of ['gh', 'jq', 'ffmpeg']) {
+      expect(psHelpers[id].safety).toBe('safe');
+    }
+  });
 });

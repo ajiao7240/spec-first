@@ -22,4 +22,4 @@ Red-line mappings:
 
 Trust boundary:
 
-The capture helper is a thin recorder. Its trust level is "workflow step transcribed the real command result"; it is weaker than process-level supervision. The helper scans bounded log content for obvious secret-like text, but callers remain responsible for writing redacted logs before recording the summary.
+The capture helper is a thin recorder. Its trust level is "workflow step transcribed the real command result"; it is weaker than process-level supervision. The helper scans bounded log content (first 64 KB) for obvious secret-like text and rejects the record when it matches, regardless of the check's self-reported `redaction_status` — a `redacted` claim is verified, not trusted. Because the scan is bounded, callers remain responsible for writing redacted logs before recording the summary; the helper does not deep-scan full large logs.

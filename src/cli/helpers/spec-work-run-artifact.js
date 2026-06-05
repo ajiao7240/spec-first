@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { writeFileAtomicIfAbsent } = require('../atomic-write');
 const { validateAgainstSchema } = require('../../contracts/schema-validator');
-const { readVerificationRunSummary } = require('./verification-run-summary');
+const { readVerificationRunSummary, aggregateRunSummaryStatus } = require('./verification-run-summary');
 const {
   resolveTargetRepoRoot,
   validateOutputContainment,
@@ -995,16 +995,6 @@ function validateRunSummaryReference({ payload, targetRepo, workspaceSlug, runId
   }
 
   return { reasonCode: null, errors: [] };
-}
-
-function aggregateRunSummaryStatus(summary) {
-  const statuses = (summary && Array.isArray(summary.checks) ? summary.checks : [])
-    .map((check) => check.status);
-  if (statuses.includes('failed')) return 'failed';
-  if (statuses.includes('not-run')) return 'not-run';
-  if (statuses.includes('degraded')) return 'degraded';
-  if (statuses.length > 0 && statuses.every((status) => status === 'passed')) return 'passed';
-  return 'degraded';
 }
 
 function validateRawLogRef(rawLogRef, errors) {

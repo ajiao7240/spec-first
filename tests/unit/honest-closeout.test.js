@@ -265,6 +265,55 @@ describe('honest closeout contract and validator', () => {
     }
   });
 
+  // 回归:validation claim 不得通过只引用通过的 check 子集来隐藏 run summary 中
+  // 未覆盖的 not-run/failed/degraded check。passed 断言必须反映全部 check 的聚合真相,
+  // 否则降级 degraded,而非静默 verified。
+  test('degrades a passed validation claim that cherry-picks only passing checks', () => {
+    const repo = makeRepo();
+    try {
+      const runSummaryRef = writeRunSummary(repo, 'cherry-pick', [
+        { id: 'typecheck' },
+        { id: 'unit', command: 'npm run test:unit' },
+        {
+          id: 'integration',
+          command: 'npm run test:integration',
+          status: 'not-run',
+          ran: false,
+          exit_code: null,
+          required_tools: ['docker'],
+          missing_tools: ['docker'],
+          log_path: null,
+          reason_code: 'missing_dependency',
+        },
+      ]);
+      const output = validateHonestCloseout({
+        targetRepo: repo,
+        payload: {
+          run_summary_ref: runSummaryRef,
+          claims: [
+            {
+              claim_type: 'validation',
+              asserted_status: 'passed',
+              evidence_refs: [
+                'verification-run-summary:typecheck',
+                'verification-run-summary:unit',
+              ],
+            },
+          ],
+        },
+      });
+
+      expect(output.overall).toBe('degraded');
+      expect(output.claims[0]).toEqual(expect.objectContaining({
+        verdict: 'degraded',
+        reason_code: 'run-summary-checks-uncovered',
+      }));
+      expect(validateHonestCloseoutOutput(output).errors).toEqual([]);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test('rejects validation claims when any referenced run-summary check is missing', () => {
     const repo = makeRepo();
     try {

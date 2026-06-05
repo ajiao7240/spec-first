@@ -25,6 +25,7 @@ const MCP_TOOLS_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'mcp-too
 const HELPER_TOOLS_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'helper-tools.json');
 const MCP_SETUP_SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'SKILL.md');
 const MCP_SETUP_CHECK_HEALTH_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'scripts', 'check-health');
+const MCP_SETUP_LIB_HELPER_REGISTRY_PATH = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'scripts', 'lib-helper-registry.sh');
 const MCP_SETUP_INSTALL_HELPERS_PATH = path.join(
   REPO_ROOT,
   'skills',
@@ -162,7 +163,10 @@ describe('browser helper tool contracts', () => {
     expect(checkHealth).toContain('SPEC_FIRST_BROWSER_HELPER_REQUIRED=1');
     expect(checkHealth).toContain('elif [ "$name" = "agent-browser" ]; then');
     expect(checkHealth).not.toMatch(/installed_skill_names=.*npx --yes skills list/);
-    expect(checkHealth).toContain('npx -y skills@latest add ast-grep/agent-skill -g -y');
+    // ast-grep-skill 的展示命令收敛到共享 lib(check-health 经 helper_registry_install_command_display 委派)。
+    const libHelperRegistry = read(MCP_SETUP_LIB_HELPER_REGISTRY_PATH);
+    expect(libHelperRegistry).toContain('npx -y skills@latest add ast-grep/agent-skill -g -y');
+    expect(checkHealth).toContain('helper_registry_install_command_display');
     expect(helperTools.helpers.find((helper) => helper.id === 'ast-grep')).toMatchObject({
       required: true,
       baseline_blocking: false,

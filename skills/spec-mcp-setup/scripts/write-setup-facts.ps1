@@ -138,6 +138,9 @@ if ((Test-SymlinkPath $specRoot) -or (Test-SymlinkPath $outDir)) {
 $generatedAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $configuredDependencies = @()
+# scan 失败时不静默伪装成空结果:用 configured_scan_status 区分「扫了没有」与「扫描失败」,
+# 与 bash write-setup-facts.sh 的 configured_scan_status 双宿主对等(诚实降级,非漏检美化)。
+$configuredScanStatus = 'ok'
 try {
   $scanRaw = & node (Join-Path $scriptDir 'scan-configured-deps.cjs') --repo-root $repoRoot --facts-file $FactsFile
   $scan = $scanRaw | ConvertFrom-Json
@@ -146,6 +149,7 @@ try {
   }
 } catch {
   $configuredDependencies = @()
+  $configuredScanStatus = 'scan-failed'
 }
 
 function Get-SetupItemResult {
@@ -259,6 +263,7 @@ $toolFactsPayload = [ordered]@{
   provider_readiness = @()
   items = $items
   configured_dependencies = $configuredDependencies
+  configured_scan_status = $configuredScanStatus
   schema_capabilities = @('items', 'configured_dependencies', 'schema_capabilities', 'tool-existence', 'provider-readiness-generic')
   target = Get-JsonPropertyValue -Object $facts -Name 'target'
 }

@@ -78,7 +78,9 @@ trap 'rm -f "${TOOL_FACTS_TMP:-}" "${RUNTIME_TMP:-}"' EXIT
 chmod 600 "$TOOL_FACTS_TMP" "$RUNTIME_TMP"
 
 generated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-CONFIGURED_SCAN="$(bash "$(dirname "$0")/scan-configured-deps.sh" --repo-root "$REPO_ROOT" --facts-file "$FACTS_FILE" 2>/dev/null || jq -n '{configured_dependencies:[]}' )"
+# scan 失败时不静默伪装成空结果:产出带 configured_scan_status=scan-failed 的结构,
+# 让下游能区分「扫了没有 configured deps」与「扫描失败」(诚实降级,非漏检美化)。
+CONFIGURED_SCAN="$(bash "$(dirname "$0")/scan-configured-deps.sh" --repo-root "$REPO_ROOT" --facts-file "$FACTS_FILE" 2>/dev/null || jq -n '{configured_dependencies:[], configured_scan_status:"scan-failed"}' )"
 
 jq -n -S \
   --arg generated_at "$generated_at" \
@@ -178,6 +180,7 @@ jq -n -S \
       }]
     ),
     configured_dependencies: ($configured_scan.configured_dependencies // []),
+    configured_scan_status: ($configured_scan.configured_scan_status // "ok"),
     target: ($facts[0].target // null),
     source:{
       facts_file: ($facts[0].facts_file // null),

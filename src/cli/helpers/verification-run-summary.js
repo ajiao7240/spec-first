@@ -451,11 +451,11 @@ function validateCheckLogPath(check, pointer, context, errors) {
     errors.push(`${pointer}.log_path must be a regular file`);
     return;
   }
-  if (check.redaction_status !== 'redacted') {
-    const secretScan = scanLogForSecretLikeContent(absoluteLogPath);
-    if (!secretScan.ok) {
-      errors.push(`${pointer}.log_path contains secret-like content: ${secretScan.reason_code}`);
-    }
+  // fail-closed:无条件扫描 log 内容,把 check 自报的 redaction_status=redacted
+  // 从「信任」升级为「可验证」——即便声明已脱敏,残留 secret 仍拒绝写入。
+  const secretScan = scanLogForSecretLikeContent(absoluteLogPath);
+  if (!secretScan.ok) {
+    errors.push(`${pointer}.log_path contains secret-like content: ${secretScan.reason_code}`);
   }
 }
 
@@ -562,12 +562,26 @@ function isSafeId(value) {
   return SAFE_ID_PATTERN.test(value || '');
 }
 
+// run summary 全量聚合的唯一真相源:对全部 check 取最严重状态。
+// 所有 consumer(spec-work-run-artifact 写入、honest-closeout 校验)都复用此函数,
+// 不各自实现聚合,避免对同一 run summary 给出矛盾结论。
+function aggregateRunSummaryStatus(summary) {
+  const statuses = (summary && Array.isArray(summary.checks) ? summary.checks : [])
+    .map((check) => check.status);
+  if (statuses.includes('failed')) return 'failed';
+  if (statuses.includes('not-run')) return 'not-run';
+  if (statuses.includes('degraded')) return 'degraded';
+  if (statuses.length > 0 && statuses.every((status) => status === 'passed')) return 'passed';
+  return 'degraded';
+}
+
 function writeJson(payload) {
   process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
 module.exports = {
   RUN_SUMMARY_SCHEMA_VERSION,
+  aggregateRunSummaryStatus,
   readVerificationRunSummary,
   runCli,
   validateRunSummary,

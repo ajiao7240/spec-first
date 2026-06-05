@@ -30,54 +30,22 @@ function Get-PlatformName {
   }
 }
 
-function Get-WingetLatestInstallCommand {
-  param([string]$PackageId)
-  return "if (winget upgrade --id $PackageId -e --silent --accept-package-agreements --accept-source-agreements) { } else { winget install --id $PackageId -e --silent --accept-package-agreements --accept-source-agreements }"
-}
-
 function Get-InstallCommand {
   param(
     [string]$Name,
     [string]$Platform
   )
 
-  switch ($Name) {
-    'agent-browser' {
-      return $browserHelperOptInAction
-    }
-    'gh' {
-      if ($Platform -eq 'windows') { return (Get-WingetLatestInstallCommand -PackageId 'GitHub.cli') }
-      if ($Platform -eq 'macos') { return 'brew install gh' }
-      return 'Install gh from https://cli.github.com'
-    }
-    'jq' {
-      if ($Platform -eq 'windows') { return 'Not required for the native PowerShell setup path; install jqlang.jq only for Git Bash or WSL scripts.' }
-      if ($Platform -eq 'macos') { return 'brew install jq' }
-      return 'Install jq from https://jqlang.github.io/jq/'
-    }
-    'vhs' {
-      if ($Platform -eq 'macos') { return 'brew install vhs' }
-      return 'go install github.com/charmbracelet/vhs@latest'
-    }
-    'silicon' {
-      if ($Platform -eq 'macos') { return 'brew install silicon' }
-      return 'cargo install silicon --force'
-    }
-    'ffmpeg' {
-      if ($Platform -eq 'windows') { return (Get-WingetLatestInstallCommand -PackageId 'Gyan.FFmpeg') }
-      if ($Platform -eq 'macos') { return 'brew install ffmpeg' }
-      return 'Install ffmpeg from https://ffmpeg.org/download.html'
-    }
-    'ast-grep' {
-      return 'npm install -g @ast-grep/cli@latest'
-    }
-    'ast-grep-skill' {
-      return 'npx -y skills@latest add ast-grep/agent-skill -g -y'
-    }
-    default {
-      return ''
-    }
+  # agent-browser 在 check-health 视角是 opt-in 提示;jq/windows 是 native PowerShell 路径
+  # 的有意提示(install-helpers.ps1 无此差异)。这两处保留本脚本自有语义;其余 helper
+  # 委派到 lib-helper-registry.ps1 的共享展示生成器,消除与 install-helpers.ps1 的双份维护漂移。
+  if ($Name -eq 'agent-browser') {
+    return $browserHelperOptInAction
   }
+  if ($Name -eq 'jq' -and $Platform -eq 'windows') {
+    return 'Not required for the native PowerShell setup path; install jqlang.jq only for Git Bash or WSL scripts.'
+  }
+  return (Get-HelperInstallCommandDisplay -Name $Name -Platform $Platform)
 }
 
 function Get-ProjectUrl {

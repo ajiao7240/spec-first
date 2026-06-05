@@ -17,6 +17,8 @@ const repoRoot = path.resolve(__dirname, '../..');
 const helperRegistryPath = path.join(repoRoot, 'skills/spec-mcp-setup/helper-tools.json');
 const providerToolsPath = path.join(repoRoot, 'skills/spec-mcp-setup/provider-tools.json');
 const scanConfiguredDepsPath = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/scan-configured-deps.cjs');
+const installHelpersPath = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.sh');
+const setupPlanRendererPath = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/setup-plan-renderer.cjs');
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -152,6 +154,29 @@ describe('dependency readiness baseline contracts', () => {
       'not-run',
       'unknown',
     ]);
+  });
+
+  test('normalizer surfaces configured scan status so scan failures are not silently empty', () => {
+    const scanFailed = normalizeSetupFacts(toolFactsFixture({ configured_scan_status: 'scan-failed' }));
+    expect(scanFailed.configured_scan_status).toBe('scan-failed');
+
+    const scanOk = normalizeSetupFacts(toolFactsFixture({ configured_scan_status: 'ok' }));
+    expect(scanOk.configured_scan_status).toBe('ok');
+
+    // 旧 facts 缺字段时归为 unknown,不伪装成 ok。
+    const legacy = normalizeSetupFacts(toolFactsFixture());
+    expect(legacy.configured_scan_status).toBe('unknown');
+  });
+
+  test('normalizer provider projection satisfies the provider-readiness.v1 schema it claims', () => {
+    const providerSchema = readJson(path.join(repoRoot, 'docs/contracts/provider-readiness.schema.json'));
+    // 从稀疏输入(仅 provider + readiness_status)归一化,确认默认填充后仍满足自己宣称的 schema。
+    const projection = normalizeSetupFacts(toolFactsFixture({
+      provider_readiness: [{ provider: 'codegraph', readiness_status: 'not-run' }],
+    }));
+    const entry = projection.provider_readiness[0];
+    expect(entry.schema_version).toBe('provider-readiness.v1');
+    expect(validateAgainstSchema(providerSchema, entry).errors).toEqual([]);
   });
 
   test('normalizer keeps v1 compatible and deterministic', () => {
@@ -339,6 +364,21 @@ describe('dependency readiness baseline contracts', () => {
         basis: { reason_code: 'optional-capability-degraded' },
       });
 
+      // configured scan 失败必须降级 health(warn)并在 basis 暴露 configured_scan_status,
+      // 不得静默 pass(否则 M3 的诚实降级信号没有 consumer,等于未交付)。
+      writeJson(factsPath, toolFactsFixture({
+        generated_at: '2026-06-04T00:00:00Z',
+        provider_readiness: [],
+        configured_scan_status: 'scan-failed',
+      }));
+      expect(computeDecisionInputHealth({ projectRoot: tmp, platforms: ['codex'], now })).toMatchObject({
+        status: 'warn',
+        basis: {
+          reason_code: 'configured-scan-degraded',
+          configured_scan_status: 'scan-failed',
+        },
+      });
+
       writeJson(factsPath, toolFactsFixture({
         generated_at: '2026-06-04T00:00:00Z',
         provider_readiness: [],
@@ -350,6 +390,8 @@ describe('dependency readiness baseline contracts', () => {
       });
       expect(ready.basis.artifact_refs).toEqual([factsPath]);
       expect(ready.basis.freshness.max_age_ms).toBe(SETUP_FACTS_MAX_AGE_MS);
+      // 该 fixture 未带 configured_scan_status,归一化为 'unknown'(不伪装 ok),仍 pass。
+      expect(ready.basis.configured_scan_status).toBe('unknown');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -376,7 +418,10 @@ describe('dependency readiness baseline contracts', () => {
             {
               matcher: 'startup',
               hooks: [
-                { type: 'command', command: 'node .claude/hooks/session-start' },
+                // spec-first managed runtime hook:不应被扫成 configured dependency。
+                { type: 'command', command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start' },
+                // 用户配置的真外部 hook 工具:仍必须被扫成 undeclared。
+                { type: 'command', command: 'definitely-missing-hook-tool --run' },
               ],
             },
           ],
@@ -443,7 +488,15 @@ describe('dependency readiness baseline contracts', () => {
         command: 'node',
         declared_status: 'declared',
       });
-      expect(byKind.get('hook')).toMatchObject({ command: 'node', declared_status: 'declared' });
+      // spec-first managed runtime hook(.claude/hooks/)被跳过,不产生 hook 条目;
+      // 但用户配置的真外部 hook 工具仍被扫成 undeclared,证明未过度跳过。
+      const hookEntries = payload.configured_dependencies.filter((entry) => entry.kind === 'hook');
+      expect(hookEntries.every((entry) => !/session-start/.test(entry.command))).toBe(true);
+      expect(hookEntries.find((entry) => entry.command === 'definitely-missing-hook-tool')).toMatchObject({
+        command: 'definitely-missing-hook-tool',
+        result: 'action-required',
+        reason_code: 'configured-dependency-undeclared',
+      });
       expect(byKind.get('permission-allowlist')).toMatchObject({
         command: 'definitely-missing-allow-tool',
         result: 'action-required',
@@ -612,7 +665,11 @@ describe('dependency readiness baseline contracts', () => {
           SessionStart: [
             {
               matcher: 'startup',
-              hooks: [{ type: 'command', command: 'definitely-missing-codex-hook --flag' }],
+              hooks: [
+                // spec-first managed runtime hook(.codex/hooks/):双宿主对等跳过,不报 undeclared。
+                { type: 'command', command: '"$CODEX_PROJECT_DIR"/.codex/hooks/session-start' },
+                { type: 'command', command: 'definitely-missing-codex-hook --flag' },
+              ],
             },
           ],
         },
@@ -623,8 +680,10 @@ describe('dependency readiness baseline contracts', () => {
       });
       expect(result.status).toBe(0);
       const payload = JSON.parse(result.stdout);
-      const codexHook = payload.configured_dependencies.find((entry) => entry.host === 'codex');
-      expect(codexHook).toMatchObject({
+      const codexHooks = payload.configured_dependencies.filter((entry) => entry.host === 'codex');
+      // managed runtime hook 不出现;仅外部 hook 工具被标记。
+      expect(codexHooks.every((entry) => !/session-start/.test(entry.command))).toBe(true);
+      expect(codexHooks.find((entry) => entry.command === 'definitely-missing-codex-hook')).toMatchObject({
         kind: 'hook',
         host: 'codex',
         command: 'definitely-missing-codex-hook',
@@ -649,6 +708,35 @@ describe('dependency readiness baseline contracts', () => {
     expect(item.result).not.toBe('some-custom-state');
   });
 
+  // 回归:items[].result 的未知值不得绕过 required_action 计数。曾因 inferItemResult
+  // 在「依赖非 ready」分支直接透传 source.result(只排除 'ready'),使 result:"bogus"
+  // 这类未知值逃过 isRequiredAction 的 'action-required' 枚举判断,baseline blocker
+  // 缺失却 required_action=0。修复后未知 result 在该分支回落 action-required 并被计数。
+  it('does not let an unknown items[].result value bypass required_action counting', () => {
+    const projection = normalizeSetupFacts({
+      schema_version: 'tool-facts.v2',
+      items: [
+        {
+          id: 'evil',
+          kind: 'cli',
+          profile: 'minimal',
+          required: true,
+          baseline_blocking: true,
+          dependency_status: 'missing',
+          configured_status: 'not-applicable',
+          result: 'bogus',
+          reason_code: 'x',
+          installed: false,
+          next_action: '',
+        },
+      ],
+    });
+    const item = projection.items.find((entry) => entry.id === 'evil');
+    expect(item.result).toBe('action-required');
+    expect(item.result).not.toBe('bogus');
+    expect(projection.counts.required_action).toBe(1);
+  });
+
   it('verify-tools status table defines all 9 required sections (C4/Req7)', () => {
     const verifyTools = fs.readFileSync(
       path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.sh'),
@@ -667,6 +755,85 @@ describe('dependency readiness baseline contracts', () => {
     ];
     for (const title of requiredSections) {
       expect(verifyTools).toContain(`title: "${title}"`);
+    }
+  });
+
+  // 回归:install-helpers.sh 的 global-skill 循环必须真实迭代 registry 中的
+  // skill 条目。曾因循环漏写 `done < <(helper_registry_skill_ids)` 而从空 stdin
+  // 读取、零次执行,导致缺失的 baseline skill(ast-grep-skill)被兜底成 ready,
+  // 这条伪事实会经 setup-facts → doctor.decision_input_health 传播。
+  test('install-helpers verify-only reports missing baseline skill as action-required', () => {
+    const emptyHome = makeTempDir();
+    const result = spawnSync('bash', [installHelpersPath, '--verify-only'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: emptyHome },
+    });
+    expect(result.status).toBe(0);
+
+    const payload = JSON.parse(result.stdout);
+    const skillFacts = Object.values(payload.helper_tools).filter((fact) => fact.kind === 'global-skill');
+    expect(skillFacts).toHaveLength(1);
+    expect(skillFacts[0]).toMatchObject({
+      baseline_blocking: true,
+      dependency_status: 'missing',
+      result: 'action-required',
+    });
+  });
+
+  test('install-helpers verify-only reports installed baseline skill as ready', () => {
+    const installedHome = makeTempDir();
+    const skillDir = path.join(installedHome, '.agents', 'skills', 'ast-grep');
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '# ast-grep skill\n', 'utf8');
+
+    const result = spawnSync('bash', [installHelpersPath, '--verify-only'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: installedHome },
+    });
+    expect(result.status).toBe(0);
+
+    const payload = JSON.parse(result.stdout);
+    const skillFacts = Object.values(payload.helper_tools).filter((fact) => fact.kind === 'global-skill');
+    expect(skillFacts).toHaveLength(1);
+    expect(skillFacts[0]).toMatchObject({
+      dependency_status: 'ready',
+      result: 'ready',
+    });
+  });
+
+  // 回归:install safety lens 必须尊重 registry 显式 review_required,
+  // 并让 package-manager 来源的非高风险 helper 落入 safe 分支(此前 pin_status=latest
+  // 一刀切盖过 review_required,导致 safe 不可达、reason_code 兜底成 global-install)。
+  test('install safety lens honors review_required and derives accurate reason codes', () => {
+    const result = spawnSync('node', [setupPlanRendererPath], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    expect(result.status).toBe(0);
+
+    const plan = JSON.parse(result.stdout);
+    const byId = Object.fromEntries(plan.planned_operations.map((op) => [op.id, op]));
+
+    // package-manager 来源且 review_required=false → safe(safe 分支可达)
+    for (const id of ['gh', 'jq', 'ffmpeg']) {
+      expect(byId[id]).toMatchObject({ safety_result: 'safe', reason_code: 'install-safety-ready' });
+    }
+    expect(plan.planned_operations.some((op) => op.safety_result === 'safe')).toBe(true);
+
+    // 高风险 helper → review-required,reason_code 反映真实 risk flag(机械事实)
+    expect(byId['agent-browser']).toMatchObject({ safety_result: 'review-required', reason_code: 'global-npm-install' });
+    expect(byId['silicon']).toMatchObject({ safety_result: 'review-required', reason_code: 'global-cargo-install' });
+    expect(byId['ast-grep-skill']).toMatchObject({ safety_result: 'review-required', reason_code: 'unpinned-npx' });
+
+    // reason_code 必须是机械事实:当它是某个 risk flag 名时,该 flag 必须真实存在于
+    // 该 helper 的 risk_flags 中,不得兜底成与来源不符的 flag(此前 gh/jq 被错标 global-install)。
+    const syntheticReasons = new Set(['install-safety-ready', 'review-required-by-registry']);
+    for (const op of plan.planned_operations) {
+      if (op.safety_result === 'review-required' && !syntheticReasons.has(op.reason_code)) {
+        expect(op.risk_flags).toContain(op.reason_code);
+      }
     }
   });
 });

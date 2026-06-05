@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { validateAgainstSchema } = require('../../contracts/schema-validator');
-const { readVerificationRunSummary } = require('./verification-run-summary');
+const { readVerificationRunSummary, aggregateRunSummaryStatus } = require('./verification-run-summary');
 const {
   resolveTargetRepoRoot,
   validateOutputContainment,
@@ -210,12 +210,17 @@ function evaluateValidationClaim(claim, context) {
   if (checks.some((check) => check.status !== claim.asserted_status)) {
     return withVerdict(claim, 'unsupported', 'evidence-status-mismatch');
   }
-  if (claim.asserted_status === 'passed' && checks.every((check) => (
-    check.status === 'passed' && check.ran === true && check.exit_code === 0
-  ))) {
-    return withVerdict(claim, 'consistent', 'validation-evidence-consistent');
-  }
   if (claim.asserted_status === 'passed') {
+    // 防 cherry-pick:passed 断言必须反映 run summary 全部 check 的聚合真相,
+    // 不能只引用通过的子集而隐藏未覆盖的 not-run/failed/degraded check。
+    // 复用 run-summary owner 的全量聚合逻辑,与 spec-work-run-artifact 写入侧一致。
+    const aggregate = aggregateRunSummaryStatus(context.runSummary);
+    if (aggregate !== 'passed') {
+      return withVerdict(claim, 'degraded', 'run-summary-checks-uncovered');
+    }
+    if (checks.every((check) => check.status === 'passed' && check.ran === true && check.exit_code === 0)) {
+      return withVerdict(claim, 'consistent', 'validation-evidence-consistent');
+    }
     return withVerdict(claim, 'unsupported', 'evidence-status-mismatch');
   }
   return withVerdict(claim, 'degraded', 'validation-not-verified');

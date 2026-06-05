@@ -294,6 +294,14 @@ describe('verification run summary contract and capture helper', () => {
       expect(validateRunSummaryInput(outsideLogPayload, context).errors).toContain(
         `checks[0].log_path must stay under .spec-first/workflows/spec-work/${slugify(path.basename(repo))}/${runId}/logs/`
       );
+
+      // fail-closed:自报 redaction_status=redacted 不再豁免扫描;残留 secret 仍被拒绝。
+      const claimedRedactedPayload = payload(repo, runId);
+      claimedRedactedPayload.checks[0].redaction_status = 'redacted';
+      claimedRedactedPayload.checks[0].log_path = logRef(repo, runId, 'claimed-redacted.log', 'Authorization: Bearer abc123\n');
+      expect(validateRunSummaryInput(claimedRedactedPayload, context).errors).toContain(
+        'checks[0].log_path contains secret-like content: secret-like-value'
+      );
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }

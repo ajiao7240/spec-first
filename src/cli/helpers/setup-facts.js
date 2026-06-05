@@ -108,6 +108,7 @@ function normalizeSetupFacts(facts, options = {}) {
     platform: facts.platform || null,
     items,
     configured_dependencies: configuredDependencies,
+    configured_scan_status: normalizeConfiguredScanStatus(facts.configured_scan_status),
     provider_readiness: providerReadiness,
     counts,
     configured_dependency_counts: configuredDependencyCounts,
@@ -136,6 +137,7 @@ function buildUnavailableProjection({ status, reasonCode, artifactRefs = [], sch
     platform: null,
     items: [],
     configured_dependencies: [],
+    configured_scan_status: 'unknown',
     provider_readiness: [],
     counts: {
       required_action: 0,
@@ -221,12 +223,15 @@ function inferItemResult({ source, dependencyStatus, configuredStatus, projectSt
   if (ACTION_CONFIGURED_STATUSES.has(configuredStatus)) return 'action-required';
   if (dependencyStatus !== 'ready' && dependencyStatus !== 'ok') {
     if (sourceResult === 'degraded') return 'degraded';
-    if (sourceResult && sourceResult !== 'ready') return sourceResult;
+    // 只透传已知 result 枚举;未知值在「依赖非 ready」语境下回落 action-required,
+    // 不得透传未知字符串绕过 isRequiredAction 的 action-required 计数。
+    if (sourceResult && sourceResult !== 'ready' && RESULT_ENUM.has(sourceResult)) return sourceResult;
     return 'action-required';
   }
   if (DEGRADED_CONFIGURED_STATUSES.has(configuredStatus)) return 'degraded';
   if (projectStatus === 'pending' || projectStatus === 'failed') return 'action-required';
-  if (sourceResult && sourceResult !== 'ready') return sourceResult;
+  // 只透传已知 result 枚举;未知值归 'unknown'(与下方兜底一致),不绕过计数枚举判断。
+  if (sourceResult && sourceResult !== 'ready' && RESULT_ENUM.has(sourceResult)) return sourceResult;
   if (source.status === 'ready' || source.status === 'ok') return 'ready';
   if (sourceResult === 'ready') return 'ready';
   if (READY_CONFIGURED_STATUSES.has(configuredStatus)) return 'ready';
@@ -252,6 +257,10 @@ function inferReasonCode({ sourceReasonCode, dependencyStatus, configuredStatus,
   }
   if (result === 'action-required') return 'required-runtime-action-required';
   return sourceReasonCode || 'unknown';
+}
+
+function normalizeConfiguredScanStatus(value) {
+  return ['ok', 'scan-failed', 'unknown'].includes(value) ? value : 'unknown';
 }
 
 function normalizeConfiguredDependencies(entries) {
@@ -290,7 +299,11 @@ function normalizeProviderReadiness(entries) {
       fallback_used: Boolean(entry.lifecycle && entry.lifecycle.fallback_used),
     },
     repo_aligned: entry.repo_aligned || 'unknown',
+    capabilities: Array.isArray(entry.capabilities) ? entry.capabilities : [],
+    limitations: Array.isArray(entry.limitations) ? entry.limitations : [],
+    source_read_required: entry.source_read_required !== undefined ? Boolean(entry.source_read_required) : true,
     fallback: entry.fallback || { available: true, methods: ['rg', 'direct-source-read'], reason_code: 'provider-not-run' },
+    next_actions: Array.isArray(entry.next_actions) ? entry.next_actions : [],
   }));
 }
 
@@ -413,6 +426,11 @@ function computeDecisionInputHealth({ projectRoot, platforms = [], factsPath, no
   if (projection.counts.required_action > 0 || projection.configured_dependency_counts.action_required > 0) {
     return buildDecisionResult('error', 'required-runtime-action-required', projection);
   }
+  // configured dependency scan 失败是诚实降级(丢失 undeclared 可见性),非确定 blocker:
+  // 映射成 warn,reason_code 专用以与「真有 degraded helper」区分,不静默 pass。
+  if (projection.configured_scan_status === 'scan-failed') {
+    return buildDecisionResult('warn', 'configured-scan-degraded', projection);
+  }
   if (
     projection.counts.degraded > 0
     || projection.counts.skipped > 0
@@ -439,6 +457,7 @@ function buildDecisionResult(status, reasonCode, projection, options = {}) {
       required_action_count: projection.counts.required_action,
       degraded_count: projection.counts.degraded,
       skipped_count: projection.counts.skipped,
+      configured_scan_status: projection.configured_scan_status,
       configured_dependency_counts: projection.configured_dependency_counts,
       provider_counts: projection.provider_counts,
     },

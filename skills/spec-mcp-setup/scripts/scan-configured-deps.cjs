@@ -50,6 +50,16 @@ function commandName(command) {
   return path.basename(first);
 }
 
+// spec-first init 注入的 managed runtime hook 命令(指向 .claude/hooks/ 等 generated
+// runtime 目录下的脚本)。这些不是用户配置的外部工具依赖,扫描器不应报 undeclared。
+// 仅匹配真正指向 managed runtime hooks 目录的路径段,避免误放普通命令。
+function isManagedRuntimeHookCommand(command) {
+  if (!command || typeof command !== 'string') return false;
+  const normalized = command.replace(/\\/g, '/');
+  return /(^|[\s"'/])\.(claude|codex)\/hooks\//.test(normalized)
+    || /(^|[\s"'/])\.agents\/skills\//.test(normalized);
+}
+
 function argsShape(command) {
   if (!command || typeof command !== 'string') return 'none';
   const parts = command.trim().split(/\s+/).filter(Boolean);
@@ -165,6 +175,9 @@ function scanClaudeSettings(repoRoot, lookup) {
       const commands = Array.isArray(hook.hooks) ? hook.hooks : [];
       commands.forEach((candidate, commandIndex) => {
         const command = typeof candidate === 'string' ? candidate : candidate && candidate.command;
+        // spec-first init 注入的 managed runtime hook(指向 .claude/hooks/ 下的脚本)不是
+        // 外部工具依赖,不应报 undeclared;它是 generated runtime,扫描器无权把它当待声明依赖。
+        if (isManagedRuntimeHookCommand(command)) return;
         const entry = makeEntry({
           kind: 'hook',
           sourcePath: settingsPath,
@@ -211,6 +224,9 @@ function scanCodexConfig(repoRoot, lookup) {
       const commands = Array.isArray(hook.hooks) ? hook.hooks : [];
       commands.forEach((candidate, commandIndex) => {
         const command = typeof candidate === 'string' ? candidate : candidate && candidate.command;
+        // 双宿主对等:Codex 侧同样跳过 spec-first managed runtime hook(.codex/hooks/ 等),
+        // 不把自有 generated runtime hook 误报为 undeclared 外部依赖。
+        if (isManagedRuntimeHookCommand(command)) return;
         const entry = makeEntry({
           kind: 'hook',
           sourcePath: hooksPath,

@@ -127,7 +127,12 @@ function Get-HelperSafetyResult {
   if ([string]::IsNullOrWhiteSpace([string]$Helper.safety.source) -or [string]::IsNullOrWhiteSpace($pinStatus)) { return 'blocked' }
   if ($flags -contains 'installer-script' -or $flags -contains 'unknown-source') { return 'blocked' }
   if ($Helper.installation -and [string]$Helper.installation.strategy -eq 'manual') { return 'unsupported' }
-  if ([bool]$Helper.safety.review_required -or $flags -contains 'unpinned-npx' -or $flags -contains 'global-install' -or $flags -contains 'global-npm-install' -or $pinStatus -eq 'latest' -or $pinStatus -eq 'unpinned') {
+  # review-required 由 registry 显式 review_required 或具体高风险 flag 决定;pin_status 的风险
+  # 已由各 helper 的 unpinned-* flag 显式编码,不用 latest 一刀切(否则 safe 分支永不可达,
+  # 与 Node setup-plan-renderer.cjs 不一致)。与 Node 真相源对齐(REVIEW_RISK_FLAGS 同集)。
+  $reviewRiskFlags = @('unpinned-npx', 'global-npm-install', 'global-cargo-install', 'global-install', 'browser-runtime-install', 'unpinned-latest')
+  $matchedFlag = $reviewRiskFlags | Where-Object { $flags -contains $_ } | Select-Object -First 1
+  if ([bool]$Helper.safety.review_required -or $matchedFlag) {
     return 'review-required'
   }
   return 'safe'
@@ -221,101 +226,21 @@ function Get-HelperInstallCommand {
     [string]$Platform
   )
 
-  function Get-LinuxPackageInstallCommand {
-    param(
-      [string]$AptPackage,
-      [string]$DnfPackage,
-      [string]$YumPackage,
-      [string]$PacmanPackage,
-      [string]$ApkPackage
-    )
-
-    if (Test-CommandExists 'apt-get') { return "sudo apt-get update && sudo apt-get install -y $AptPackage" }
-    if (Test-CommandExists 'dnf') { return "sudo dnf upgrade -y $DnfPackage || sudo dnf install -y $DnfPackage" }
-    if (Test-CommandExists 'yum') { return "sudo yum update -y $YumPackage || sudo yum install -y $YumPackage" }
-    if (Test-CommandExists 'pacman') { return "sudo pacman -Syu --needed $PacmanPackage" }
-    if (Test-CommandExists 'apk') { return "sudo apk update && sudo apk add --upgrade $ApkPackage" }
-    return ''
-  }
-
-  function Get-BrewLatestInstallCommand {
-    param([string]$Package)
-    return "brew update && if brew list --formula $Package >/dev/null 2>&1; then brew upgrade -q $Package; else brew install -q $Package; fi"
-  }
-
-function Get-WingetLatestInstallCommand {
-    param([string]$PackageId)
-    return "winget upgrade --id $PackageId -e --silent --accept-package-agreements --accept-source-agreements || winget install --id $PackageId -e --silent --accept-package-agreements --accept-source-agreements"
-  }
-
   function Get-AgentBrowserInstallCommand {
     param([bool]$WithDeps)
     $browserInstall = if ($WithDeps) { 'agent-browser install --with-deps' } else { 'agent-browser install' }
     return '$env:CI=''true''; npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error; if ($LASTEXITCODE -eq 0) { ' + $browserInstall + ' }; if ($LASTEXITCODE -eq 0) { npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y }'
   }
 
-switch ($Name) {
-    'agent-browser' {
-      if ($Platform -eq 'linux') {
-        return (Get-AgentBrowserInstallCommand -WithDeps $true)
-      }
-      return (Get-AgentBrowserInstallCommand -WithDeps $false)
+  # agent-browser 的展示命令是真实安装命令(本脚本是 installer);其余 helper 委派到
+  # lib-helper-registry.ps1 的共享展示生成器,消除与 check-health.ps1 的双份维护漂移。
+  if ($Name -eq 'agent-browser') {
+    if ($Platform -eq 'linux') {
+      return (Get-AgentBrowserInstallCommand -WithDeps $true)
     }
-    'gh' {
-      if ($Platform -eq 'windows') { return (Get-WingetLatestInstallCommand -PackageId 'GitHub.cli') }
-      if ($Platform -eq 'linux') {
-        $linuxCommand = Get-LinuxPackageInstallCommand -AptPackage 'gh' -DnfPackage 'gh' -YumPackage 'gh' -PacmanPackage 'github-cli' -ApkPackage 'github-cli'
-        if (-not [string]::IsNullOrWhiteSpace($linuxCommand)) { return $linuxCommand }
-        return 'Install gh from https://cli.github.com'
-      }
-      return (Get-BrewLatestInstallCommand -Package 'gh')
-    }
-    'jq' {
-      if ($Platform -eq 'windows') { return (Get-WingetLatestInstallCommand -PackageId 'jqlang.jq') }
-      if ($Platform -eq 'linux') {
-        $linuxCommand = Get-LinuxPackageInstallCommand -AptPackage 'jq' -DnfPackage 'jq' -YumPackage 'jq' -PacmanPackage 'jq' -ApkPackage 'jq'
-        if (-not [string]::IsNullOrWhiteSpace($linuxCommand)) { return $linuxCommand }
-        return 'Install jq from https://jqlang.github.io/jq/'
-      }
-      return (Get-BrewLatestInstallCommand -Package 'jq')
-    }
-    'vhs' {
-      if ($Platform -eq 'windows') { return 'go install github.com/charmbracelet/vhs@latest' }
-      if ($Platform -eq 'linux') {
-        if (Test-CommandExists 'go') { return 'go install github.com/charmbracelet/vhs@latest' }
-        return 'Install vhs from https://github.com/charmbracelet/vhs'
-      }
-      return (Get-BrewLatestInstallCommand -Package 'vhs')
-    }
-    'silicon' {
-      if ($Platform -eq 'windows') { return 'cargo install silicon --force' }
-      if ($Platform -eq 'linux') {
-        if (Test-CommandExists 'cargo') { return 'cargo install silicon --force' }
-        return 'Install silicon from https://github.com/Aloxaf/silicon'
-      }
-      return (Get-BrewLatestInstallCommand -Package 'silicon')
-    }
-    'ffmpeg' {
-      if ($Platform -eq 'windows') { return (Get-WingetLatestInstallCommand -PackageId 'Gyan.FFmpeg') }
-      if ($Platform -eq 'linux') {
-        $linuxCommand = Get-LinuxPackageInstallCommand -AptPackage 'ffmpeg' -DnfPackage 'ffmpeg' -YumPackage 'ffmpeg' -PacmanPackage 'ffmpeg' -ApkPackage 'ffmpeg'
-        if (-not [string]::IsNullOrWhiteSpace($linuxCommand)) { return $linuxCommand }
-        return 'Install ffmpeg from https://ffmpeg.org/download.html'
-      }
-      return (Get-BrewLatestInstallCommand -Package 'ffmpeg')
-    }
-    'ast-grep' {
-      if ($Platform -eq 'windows') { return 'npm install -g @ast-grep/cli@latest' }
-      if ($Platform -eq 'linux') {
-        if (Test-CommandExists 'cargo') { return 'cargo install ast-grep --locked --force' }
-        if (Test-CommandExists 'npm') { return 'npm install -g @ast-grep/cli@latest' }
-        return 'Install ast-grep from https://ast-grep.github.io'
-      }
-      return (Get-BrewLatestInstallCommand -Package 'ast-grep')
-    }
-    'ast-grep-skill' { return 'npx -y skills@latest add ast-grep/agent-skill -g -y' }
-    default { return '' }
+    return (Get-AgentBrowserInstallCommand -WithDeps $false)
   }
+  return (Get-HelperInstallCommandDisplay -Name $Name -Platform $Platform)
 }
 
 function Invoke-HelperInstall {

@@ -211,28 +211,6 @@ detect_os() {
   esac
 }
 
-linux_package_install_command() {
-  local apt_pkg="$1"
-  local dnf_pkg="$2"
-  local yum_pkg="$3"
-  local pacman_pkg="$4"
-  local apk_pkg="$5"
-
-  if command -v apt-get >/dev/null 2>&1; then
-    echo "sudo apt-get update && sudo apt-get install -y $apt_pkg"
-  elif command -v dnf >/dev/null 2>&1; then
-    echo "sudo dnf upgrade -y $dnf_pkg || sudo dnf install -y $dnf_pkg"
-  elif command -v yum >/dev/null 2>&1; then
-    echo "sudo yum update -y $yum_pkg || sudo yum install -y $yum_pkg"
-  elif command -v pacman >/dev/null 2>&1; then
-    echo "sudo pacman -Syu --needed $pacman_pkg"
-  elif command -v apk >/dev/null 2>&1; then
-    echo "sudo apk update && sudo apk add --upgrade $apk_pkg"
-  else
-    echo ""
-  fi
-}
-
 run_with_optional_sudo() {
   if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
     "$@"
@@ -285,16 +263,6 @@ run_npm_global_install_with_optional_sudo() {
   run_with_mirror_fallback "${mirror_pairs[@]}" -- run_npm_global_install_attempt "$@"
 }
 
-brew_latest_install_command() {
-  local pkg="$1"
-  echo "brew update && if brew list --formula $pkg >/dev/null 2>&1; then brew upgrade -q $pkg; else brew install -q $pkg; fi"
-}
-
-winget_latest_install_command() {
-  local package_id="$1"
-  echo "winget upgrade --id $package_id -e --silent --accept-package-agreements --accept-source-agreements || winget install --id $package_id -e --silent --accept-package-agreements --accept-source-agreements"
-}
-
 run_brew_latest_install() {
   local pkg="$1"
   brew update >/dev/null 2>&1 || true
@@ -338,75 +306,17 @@ run_linux_package_install() {
 install_command_for() {
   local name="$1"
   local os="$2"
-  local linux_cmd
-  case "$name" in
-    agent-browser)
-      if [ "$os" = "linux" ]; then
-        echo "CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install --with-deps && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y"
-      else
-        echo "CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y"
-      fi
-      ;;
-    gh)
-      if [ "$os" = "windows" ]; then
-        winget_latest_install_command "GitHub.cli"
-      elif [ "$os" = "linux" ]; then
-        linux_cmd="$(linux_package_install_command gh gh gh github-cli github-cli)"
-        echo "${linux_cmd:-Install gh from https://cli.github.com}"
-      else
-        brew_latest_install_command "gh"
-      fi
-      ;;
-    jq)
-      if [ "$os" = "windows" ]; then
-        winget_latest_install_command "jqlang.jq"
-      elif [ "$os" = "linux" ]; then
-        linux_cmd="$(linux_package_install_command jq jq jq jq jq)"
-        echo "${linux_cmd:-Install jq from https://jqlang.github.io/jq/}"
-      else
-        brew_latest_install_command "jq"
-      fi
-      ;;
-    vhs)
-      if [ "$os" = "linux" ] || [ "$os" = "windows" ]; then
-        if command -v go >/dev/null 2>&1; then echo "go install github.com/charmbracelet/vhs@latest"; else echo "Install vhs from https://github.com/charmbracelet/vhs"; fi
-      else
-        brew_latest_install_command "vhs"
-      fi
-      ;;
-    silicon)
-      if [ "$os" = "linux" ] || [ "$os" = "windows" ]; then
-        if command -v cargo >/dev/null 2>&1; then echo "cargo install silicon --force"; else echo "Install silicon from https://github.com/Aloxaf/silicon"; fi
-      else
-        brew_latest_install_command "silicon"
-      fi
-      ;;
-    ffmpeg)
-      if [ "$os" = "windows" ]; then
-        winget_latest_install_command "Gyan.FFmpeg"
-      elif [ "$os" = "linux" ]; then
-        linux_cmd="$(linux_package_install_command ffmpeg ffmpeg ffmpeg ffmpeg ffmpeg)"
-        echo "${linux_cmd:-Install ffmpeg from https://ffmpeg.org/download.html}"
-      else
-        brew_latest_install_command "ffmpeg"
-      fi
-      ;;
-    ast-grep)
-      if [ "$os" = "windows" ]; then
-        echo "npm install -g @ast-grep/cli@latest"
-      elif [ "$os" = "linux" ]; then
-        if command -v cargo >/dev/null 2>&1; then echo "cargo install ast-grep --locked --force"; elif command -v npm >/dev/null 2>&1; then echo "npm install -g @ast-grep/cli@latest"; else echo "Install ast-grep from https://ast-grep.github.io"; fi
-      else
-        brew_latest_install_command "ast-grep"
-      fi
-      ;;
-    ast-grep-skill)
-      echo "npx -y skills@latest add ast-grep/agent-skill -g -y"
-      ;;
-    *)
-      echo ""
-      ;;
-  esac
+  # agent-browser 的展示命令是真实安装命令(本脚本是 installer);其余 helper 委派到
+  # lib-helper-registry.sh 的共享展示生成器,消除与 check-health 的双份维护漂移。
+  if [ "$name" = "agent-browser" ]; then
+    if [ "$os" = "linux" ]; then
+      echo "CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install --with-deps && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y"
+    else
+      echo "CI=true npm install -g agent-browser@latest --no-audit --no-fund --loglevel=error && agent-browser install && npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y"
+    fi
+    return 0
+  fi
+  helper_registry_install_command_display "$name" "$os"
 }
 
 run_install_command() {
@@ -987,11 +897,16 @@ while IFS= read -r helper; do
   baseline_blocking="$(helper_registry_baseline_blocking "$helper")"
   process_cli_helper "$helper" "$OS" "$baseline_blocking"
 done < <(helper_registry_cli_ids)
+# 注意:本机制假定 registry 中恰好一个 global-skill(当前为 ast-grep-skill)。
+# process_global_skill 用单一 AST_GREP_SKILL_* 全局命名空间 + 硬编码 install label,
+# 末尾 finalize_global_skill 也只对 ast-grep-skill 调用一次。若未来 registry 新增第二个
+# kind=global-skill,需把 AST_GREP_SKILL_* 改为按 id 索引并让 finalize 走循环,否则第二个
+# skill 的 fact 会被覆盖/丢失。新增 global-skill 时必须同步改造此处。
 while IFS= read -r helper_id; do
   skill_name="$(helper_registry_skill_name "$helper_id")"
   [ -n "$skill_name" ] || continue
   process_global_skill "$skill_name" "$helper_id"
-done
+done < <(helper_registry_skill_ids)
 wait_for_parallel_tasks
 finalize_agent_browser \
   "$AGENT_BROWSER_OS" \
