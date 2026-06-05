@@ -10,7 +10,7 @@
 | 2 | `project-scaffold依赖安装流程与spec-first-setup优化技术方案.md` | setup / doctor / verification 子方案，细化 v1.11-v1.13 的 dependency readiness、install safety、verification profile 和 honest closeout |
 | 3 | `CodeGraph技术方案.md` | capability-aware 协同子方案，核心边界「install 帮装、消费不耦合」：`spec-runtime-setup` 过 install gate + 用户同意帮装 code-graph / project-graph 能力工具（与帮装 gh/jq 同构），消费侧只认能力类别（不写死工具名、经原生 MCP、advisory 回源）、刷新归工具；含 `gh`/本地源码/`curl` 实测证据与「为何不重蹈 GitNexus」论证 |
 
-`bak/` 下文件只作为历史分析输入，不作为当前 source-of-truth。
+`../bak/`（`docs/01-需求分析/bak/`）下文件只作为历史分析输入，不作为当前 source-of-truth。
 
 ## 三份文档的开发关系
 

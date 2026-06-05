@@ -4,7 +4,7 @@
 > 状态：proposal
 > 目标目录：`docs/01-需求分析/13.scale集成`
 > 关联父方案：`spec-first内化集成scale-project-scaffold技术方案.md`
-> 关联分析：`project-scaffold-依赖安装逻辑分析.md`、`scale-os-config-claude-code-依赖安装面分析.md`、`CodeGraph技术方案.md`
+> 关联分析：`../bak/project-scaffold-依赖安装逻辑分析.md`、`../bak/scale-os-config-claude-code-依赖安装面分析.md`、`CodeGraph技术方案.md`
 
 ---
 
@@ -43,7 +43,7 @@ spec-first doctor
 
 - **安装不是验证**：tool installed 只说明命令可用，不说明 workflow 真的跑过。
 - **配置不是执行**：host config / hook / permission allowlist 只说明 runtime 会或可调用，不说明已成功执行。
-- **provider 不是 truth**：CodeGraph / Graphify / GBrain 只能先给 advisory candidate facts，confirmed truth 仍来自 source/test/log/contract/user evidence。
+- **能力工具不是 truth**：code-graph / project-graph 能力工具（CodeGraph / Graphify）只能先给 advisory candidate facts，confirmed truth 仍来自 source/test/log/contract/user evidence；memory 走 `docs/solutions/`、不集成外部 memory 工具（GBrain 删除）。
 - **default minimal**：默认不安装 GBrain / Graphify / CodeGraph，不自动启动 daemon，不自动刷新图谱，不自动写长期记忆。
 - **explicit apply**：任何 `npm install -g`、`pip install`、`brew install`、`cargo install`、`go install`、`npx skills add`、provider indexing 都必须来自显式安装阶段或用户明确授权。
 - **runtime-setup naming**：主入口 canonical 命名为 `$spec-runtime-setup` / `/spec:runtime-setup`（已在父方案 §0.4.2 登记为 canonical 入口名），因为它治理的是 spec-first required harness runtime readiness，不只是 MCP；`$spec-mcp-setup` / `/spec:mcp-setup` 为迁移期 deprecated alias。本子方案的 `skills/spec-mcp-setup/**` source 实体路径在后续 source 重命名 work 任务落地前保持现状。
@@ -51,7 +51,7 @@ spec-first doctor
 
 ### 0.1 Review follow-up 修复决策
 
-结合 `scale-os-config-claude-code-依赖安装面分析.md` 后，本方案按以下方式逐项修复：
+结合 `../bak/scale-os-config-claude-code-依赖安装面分析.md` 后，本方案按以下方式逐项修复：
 
 | 问题 | 最佳修复 | 落点 |
 | --- | --- | --- |
@@ -137,7 +137,7 @@ spec-first doctor
 | configured dependency 未统一扫描 | host MCP config、hook、allowlist、script command 可能真实调用未声明工具 | 运行时调用失败，但 setup/doctor 仍显示 ready |
 | helper `required` 与 baseline blocking 混用 | `agent-browser` 等场景能力可能显示 required，但实际只在 UI/browser demand 下需要 | 用户误以为 minimal setup 必须安装 browser 工具 |
 | setup facts 版本兼容未定义 | `tool-facts.v1` / `tool-facts.v2` 同时存在演进需求 | `doctor` 和 workflow 消费端可能按不同 schema 解读 |
-| provider 安装/启动/刷新边界未统一 | CodeGraph / Graphify / GBrain 目前在文档方案中讨论，但未纳入 setup contract | 容易出现默认全装、默认刷新、默认信任 provider |
+| provider 安装/启动/刷新边界未统一 | code-graph / project-graph 能力工具（CodeGraph / Graphify）在文档方案中讨论，但未纳入 setup contract（memory 走 docs/solutions、不集成外部 memory 工具） | 容易出现默认全装、默认刷新、默认信任 provider |
 | verification profile 未产品化 | spec-first 有测试命令和 run artifact，但没有 project-level verification profile | final closeout 难以稳定说明 not-run / skipped / missing tool |
 
 ## 2.4 Minimal baseline 必装依赖表
@@ -178,8 +178,8 @@ spec-first doctor
 | `scale-engine` | runtimeChecks / postChecks / postActions / rollbackHints / recommendations 分层报告 | `src/bootstrap/DependencyBootstrap.ts` | `$spec-runtime-setup --plan/--verify-only` 输出、install ledger | P0 直接补入 | post-check 只记录命令与结果；LLM 决定是否建议继续 install/apply |
 | `scale-engine` | bounded dependency audit：只读 lockfile、默认 direct deps、不联系 registry、不运行 install scripts、检测 install script/bin/eval/shell/network 风险 | `docs/DEPENDENCY_AUDIT.md` | install safety lens、provider/helper registry safety metadata、Phase 3 apply guard | P1 推荐补入 | 作为 local supply-chain screening；不引入新的 G7 gate 或 registry 网络审计默认路径 |
 | `scale-engine` / `project-scaffold` | tool policy metadata：`requiredFor`、`recommendedFor`、`destructiveActions`、`evidenceRequired`、allowed domains | `.scale/tools.json` | `helper-tools-registry.v1` / `provider-tools.json` | P0 直接补入 | 这些是工具策略字段，不是安装清单；`requiredFor` 必须继续和 `baseline_blocking` 分离 |
-| `scale-engine` | memory provider routing：`allowExternalWrite=false`、`requireEvidence=true`、`writeMode=disabled/candidate-only` | `.scale/memory-providers.json` | GBrain / memory provider profile、`candidate -> review -> promote` 规则 | P2 optional provider | 只做 recall/candidate 约束；不默认写长期记忆，不把 memory 命中当 confirmed truth |
-| `scale-engine` / `project-scaffold` | adapter-first code intelligence：CodeGraph external CLI、Graphify artifact、fallback `internal-scan/rg/read`、ROI metrics | `docs/CODE_INTELLIGENCE.md`、`.scale/code-intelligence.json` | provider readiness/freshness/fallback、`CodeGraph技术方案.md` implementation alignment | P2 optional provider | provider `not-run`/stale 不能阻塞 minimal；ROI 只能作为是否保留 provider 的 advisory 指标 |
+| `scale-engine` | memory routing 思路（`allowExternalWrite=false`、`requireEvidence=true`）仅作**反面参照** | `.scale/memory-providers.json` | **non-goal**：memory 走 `docs/solutions/`，不集成外部 memory provider（GBrain 已删除，见 `CodeGraph技术方案.md` §4.3） | 不集成 | 只借「不默认写长期记忆、recall 必带 evidence」的纪律,落到 docs/solutions promotion,不引入 provider |
+| `scale-engine` / `project-scaffold` | code intelligence：CodeGraph external CLI、Graphify artifact、fallback `internal-scan/rg/read` | `docs/CODE_INTELLIGENCE.md`、`.scale/code-intelligence.json` | code-graph/project-graph 能力 readiness/freshness/fallback、`CodeGraph技术方案.md` capability-aware 协同 | capability-aware（install 帮装 + 消费不耦合） | 缺失/stale 不阻塞 minimal；消费经原生 MCP/文档,advisory 回源,刷新归工具 |
 | `scale-engine` | Runtime evidence 的 final-check / redaction / runtime doctor 思路 | `docs/RUNTIME_EVIDENCE.md` | `verification-run-summary.v1` 与 `spec-work-run-artifact/v2` 字段映射 | P1 推荐补入 | 不新增 `.scale/evidence` 平行 truth；复用 spec-first 现有 run artifact 与 final closeout |
 | `project-scaffold` | resource policy：ignored dirs、retained runtime dirs、owners/modules | `.scale/resource-policy.json` | context/resource governance lens、future `resource-impact` advisory | P1 推荐补入 | 不作为默认 repo 扫描 source-of-truth；可作为资源分类和保留策略的参考模板 |
 | `project-scaffold` | product smoke：真实业务路径 probe、空 probe block、runtime evidence 要求 | `.scale/product-smoke.json` | `verification-profile.v1` 的 optional `productSmoke` profile | P1 推荐补入 | 只在项目显式声明 probe 后启用；不把示例 health check 当产品验收 |
@@ -451,7 +451,7 @@ Apply 规则：
 
 ## 4.3 Provider registry profile + `provider-readiness.v1`
 
-用于承载 GBrain / Graphify / CodeGraph 等 optional provider。
+用于承载 code-graph / project-graph 能力工具（CodeGraph / Graphify）的 readiness/fallback；memory 走 `docs/solutions/`、不集成外部 memory provider（GBrain 已删除）。
 
 本节只定义 v1.11/v1.12 需要的通用 provider readiness 槽位、profile 命名和 install safety 边界，避免 setup facts 无法表达外部能力的 `not-run` / `stale` / fallback。code-graph / project-graph 能力工具（如 CodeGraph / Graphify）的具体 `provider-tools.json` entry、install-helpers 扩展、消费引导**不属于本子方案的开发范围**；它们在 v1.16 以「install 帮装（过 gate）+ 消费 capability-aware」为定位，实施依据是父方案 + `CodeGraph技术方案.md`。memory 能力默认走 `docs/solutions/`。
 
@@ -1096,27 +1096,26 @@ memory 能力（如 GBrain）与 spec-first 自有的 `docs/solutions/` file-fir
 - `spec-work` closeout 优先复用现有 run artifact，不另造 parallel closeout truth。
 - final response 能引用真实 command/log/status。
 
-## Phase 5: Optional Provider Pack
+## Phase 5: Capability-aware 协同（边界预留）
 
-目标：作为边界预留，说明 setup/readiness facts 如何支撑后续 CodeGraph / Graphify / GBrain 接入；本阶段不作为本子方案的实施范围。v1.16 Optional Provider Pack 的具体实施依据是父方案 + `CodeGraph技术方案.md`。
+目标：作为边界预留，说明 setup/readiness facts 如何支撑后续 code-graph / project-graph 能力工具（CodeGraph / Graphify）的 install 帮装 + capability-aware 消费；本阶段不作为本子方案的实施范围。v1.16 的具体实施依据是父方案 + `CodeGraph技术方案.md`（定位「install 帮装、消费不耦合」，memory 走 `docs/solutions/`、GBrain 删除）。
 
 后续 v1.16 参考改动面（不在本子方案开工）：
 
-- `skills/spec-mcp-setup/provider-tools.json`
+- `skills/spec-mcp-setup/provider-tools.json`（填 CodeGraph / Graphify entry）
 - `docs/contracts/provider-readiness.md`（只引用父方案 canonical，不在本阶段重定义）
 - `CodeGraph技术方案.md` 对齐实施状态
-- memory provider candidate/review/promote write-mode rules
-- optional skills registry metadata import lens
+- workflow prose 的 capability-class 引导 + 分层读取协议（§4.1.2 / §4.2.1）
 - provider readiness tests
 
 后续 v1.16 参考验收边界：
 
-- minimal profile 不安装 provider。
-- provider `not-run` 不阻塞普通 docs/plan/work。
-- stale provider 不产生 confirmed truth。
-- freshness 由 repo HEAD / source fingerprint / provider index marker / query ledger 计算。
+- minimal profile 不安装 capability 工具。
+- 工具 `not-run` 不阻塞普通 docs/plan/work。
+- stale 工具不产生 confirmed truth。
+- freshness 由 repo HEAD / source fingerprint / 工具 index marker / query ledger 计算。
 - explicit refresh 行为可记录 freshness 变化。
-- memory provider 默认 `writeMode=disabled/candidate-only`；只有 verified learning / user confirmed import 才能 promote。
+- memory 走 `docs/solutions/` promotion（verified learning / user confirmed import 才 promote），不集成外部 memory provider。
 - third-party skills registry 只抽取 source/risk/tier/status metadata，不批量安装、不常驻 prompt context。
 
 ---
@@ -1212,7 +1211,7 @@ spec-first doctor --codex --json
 | provider 过度信任 | 用 CodeGraph output 直接写 review finding | provider facts 标 advisory，finding 需 source evidence |
 | silent mutation | `doctor` 或 `init` 顺手安装/修复 | doctor/init read-only 或 runtime projection only |
 | not-run 被美化 | 缺工具后 final 写“验证通过” | verification-run-summary 强制 `ran=false` |
-| optional 变 required | GBrain/Graphify missing 让普通工作流失败 | profile + baseline_blocking |
+| optional 变 required | code-graph/project-graph 能力工具 missing 让普通工作流失败 | profile + baseline_blocking |
 | global install 污染 | 自动 `npm install -g` | explicit apply + install source + version/pin |
 | 状态机入侵 | 复制 `.scale/workflow.json` / G0-G22 作为 spec-first 流程 truth | 只吸收事实字段和风险 lens，workflow 仍由 LLM judgment 驱动 |
 
@@ -1243,9 +1242,9 @@ spec-first doctor --codex --json
    - 优先复用 `spec-work-run-artifact/v2`，不新增 closeout truth。
    - product smoke 和 quality contract 只作为 optional profile / red-line input，不成为状态机。
 
-6. **最后接 optional provider**
-   - CodeGraph / Graphify / GBrain 等能力依赖前面 facts/freshness/fallback contract。
-   - skills registry、memory provider、resource governance 先作为 metadata/advisory lens 接入。
+6. **最后接 capability-aware 协同**
+   - code-graph / project-graph 能力工具（CodeGraph / Graphify）的 install 帮装 + 消费依赖前面 facts/freshness/fallback contract。
+   - skills registry、resource governance 先作为 metadata/advisory lens 接入；memory 走 `docs/solutions/`、不集成外部 memory provider。
 
 ---
 
@@ -1258,7 +1257,7 @@ spec-first doctor --codex --json
 | v1.13 Verification + Honest Closeout | verification-profile、verification-run-summary、**honest-closeout（结构化 claim + not-run disclosure）**（helper registry 属 v1.11 / Phase 1，不在本行重复列入） |
 | v1.14 Governance Lens Foundation | 非本子方案主要实施范围；仅保留与 setup/verification facts 的消费边界 |
 | v1.15 Knowledge Harness | 非本子方案主要实施范围；仅保留 provider-absent / `docs/solutions` promotion 边界 |
-| v1.16 Optional Provider Pack | 非本子方案主要实施范围；具体 CodeGraph / Graphify / GBrain provider readiness、adapter 和 consumer 以父方案 + `CodeGraph技术方案.md` 为准 |
+| v1.16 Capability-aware 协同 | 非本子方案主要实施范围；code-graph / project-graph 能力工具（CodeGraph / Graphify）的 install 帮装 + capability-aware 消费,以父方案 + `CodeGraph技术方案.md` 为准（memory 走 `docs/solutions/`、GBrain 删除） |
 | v1.17 Governance Maturity | 非本子方案主要实施范围；仅保留 RuleMaturity / evidence hardening 的依赖说明 |
 
 时序权威：相位与 P0 归属以父方案 §8 / §10 为准。honest-closeout 的 deterministic 牙齿依赖 verification-run-summary 的真实 exit_code（见父方案 §4.4），因此二者**同相位（父方案 Phase B / P0）**，本表已把 honest-closeout 上移到 v1.13 与 verification-profile 同批，不再拖到治理阶段；v1.14 先交付 governance lens foundation，v1.17 只做 governance maturity / hardening。

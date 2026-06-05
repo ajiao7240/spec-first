@@ -421,7 +421,7 @@ verify
 | `recommended` | 显式选择 | 在 minimal 基础上的额外 helper readiness + install plan（如 gh、vhs 等）；不默认写长期记忆。code-graph / project-graph 能力工具（CodeGraph/Graphify）可经 setup install gate 帮装（用户同意），消费侧 capability-aware（见 `CodeGraph技术方案.md`） | 需要额外 helper 或 code-intelligence 能力的团队 |
 | `platform` | 显式选择 | helper install/apply/verify、host projection report、team policy | 团队级平台化治理 |
 
-GBrain / Graphify / CodeGraph 是研发人员工具箱里的 capability tools，不是 spec-first 依赖。SCALE full pack 还涉及 RTK、UI skills、browser/web tools、skill registry、runtime hooks、memory fallback 等。`spec-first` 只把自管 helper 表达成 readiness facts，不把第三方 code-intelligence 工具变成默认安装项或内置 provider。
+CodeGraph / Graphify 是研发人员工具箱里的 capability tools，可经 setup 帮装但不是 spec-first 依赖（memory 走 `docs/solutions/`、不集成外部 memory 工具，GBrain 删除）。SCALE full pack 还涉及 RTK、UI skills、browser/web tools、skill registry、runtime hooks、memory fallback 等。`spec-first` 只把自管 helper 表达成 readiness facts，不把第三方 code-intelligence 工具变成默认安装项或内置 provider。
 
 ### Scenario overlay（与 profile 正交）
 
@@ -689,7 +689,7 @@ confirmed truth 仍需要 source/test/log/contract/user evidence。
 | 能力工具 | setup 帮装（过 gate） | 启动/生成 | 刷新归属 |
 | --- | --- | --- | --- |
 | CodeGraph（code-graph，MCP） | `npm install -g @colbymchenry/codegraph` + 配 MCP + 首次 `codegraph init -i` | MCP server 由 host 拉起 | 工具自带 file-watcher 自管；spec-first 不代刷 |
-| Graphify（project-graph，文档） | setup 可帮装 `uv tool install graphify` CLI | `graphify .` 生成 `GRAPH_REPORT.md` 是**用户动作**，spec-first 不代生成 | 工具自带 post-commit hook 或用户手动；spec-first 不代刷 |
+| Graphify（project-graph，文档） | setup 可帮装 `uv tool install graphifyy` CLI（包名 `graphifyy`、bin 名 `graphify`） | `graphify .` 生成 `GRAPH_REPORT.md` 是**用户动作**，spec-first 不代生成 | 工具自带 post-commit hook 或用户手动；spec-first 不代刷 |
 
 spec-first 的 `spec-plan`/`spec-work`/`spec-code-review`/`spec-debug` 在工具装好后，按 capability-class 引导利用其 advisory 产出（经原生 MCP / check-in 文档，缺失即 fallback），**不在运行期主动弹装、不把输出当语义证据**。
 
