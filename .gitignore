@@ -74,9 +74,7 @@ __pycache__/
 .claude/hooks/session-start
 .claude/tasks/
 .claude/worktrees/
-.codex/commands/spec/
-.codex/spec-first/
-.codex/agents/
+.codex/
 .agents/skills/
 .context/spec-first/
 

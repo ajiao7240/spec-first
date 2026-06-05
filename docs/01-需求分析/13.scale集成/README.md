@@ -37,7 +37,7 @@
 | v1.13 | Verification + Honest Closeout | 父方案 + project-scaffold 子方案 | `verification-profile.v1`、`verification-run-summary.v1`、`honest-closeout.v1`、run artifact ref mapping | 已完成（plan：`docs/plans/2026-06-04-003-feat-verification-honest-closeout-plan.md`；commit `3fc4dbda`；`spec-work-run-artifact` bump v2；`npm test` 通过） |
 | v1.14 | Governance Lens Foundation | 父方案 | task-governance-signals、gate lens、resource governance、RuleMaturity shadow/advisory | 未开始 |
 | v1.15 | Knowledge Harness | 父方案 | context budget、artifact-summary、`docs/solutions` promotion、memory recall boundary、skill/tool capability lens | 未开始 |
-| v1.16 | Optional Provider Pack | 父方案 + CodeGraph 子方案 | CodeGraph / Graphify / GBrain provider-specific readiness、fallback、adapter candidate、workflow consumer | 未开始 |
+| v1.16 | Optional Provider Pack | 父方案 + CodeGraph 子方案 | **收敛交付**：CodeGraph 单点 opt-in pilot（先实测增益再升 recommended）+ Graphify 手动 artifact-doc（移出 readiness loop）+ GBrain 后置；复用已落地 `provider-readiness.v1`，不三者平级铺开 | 未开始 |
 | v1.17 | Governance Maturity | 父方案 | RuleMaturity required-evidence candidate、governance ROI、resource/output hardening | 未开始 |
 
 v1.11+v1.12 已作为同一 P0 producer→consumer 切片完成,v1.13 verification / honest-closeout 已在独立 plan(`docs/plans/2026-06-04-003-...`)中落地并兑现 `spec-work` closeout 的可观察行为变化;下一步开发应推进到 v1.14 Governance Lens Foundation 及后续版本线,不直接从三份方案跳进实现。
