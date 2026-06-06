@@ -2,15 +2,11 @@
 
 const HOST_COMPARATIVE_RUNTIME_SKILLS = new Set([
   'spec-code-review',
-  'spec-update',
 ]);
 
 const CODEX_ALLOWED_OTHER_HOST_PATHS = {
   'spec-code-review': [
     '.claude/spec-first/workflows/spec-mcp-setup/scripts/detect-tools.sh',
-  ],
-  'spec-update': [
-    '.claude/commands/spec/update.md',
   ],
 };
 

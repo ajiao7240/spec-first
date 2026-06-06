@@ -137,7 +137,6 @@ $spec-brainstorm "改进 onboarding"
 | Intent | Claude Code | Codex | Expected result |
 |---|---|---|---|
 | Runtime setup for required harness readiness | `/spec:mcp-setup` | `$spec-mcp-setup` | 必备 harness runtime facts、MCP/helper readiness 和 setup-owned config artifacts |
-| Update spec-first or runtime assets | `/spec:update` | `$spec-update` | 版本/runtime 刷新指引 |
 | Search agent session history | `/spec:sessions` | `$spec-sessions` | 会话历史答案和恢复上下文 |
 | Research Slack context | `/spec:slack-research` | `$spec-slack-research` | Slack 工具可用时生成组织上下文 digest |
 | Audit source skills | `/spec:skill-audit` | `$spec-skill-audit` | Skill 治理与质量 findings |
@@ -158,6 +157,8 @@ $spec-brainstorm "改进 onboarding"
 | Read release notes | `/spec:release-notes` | `$spec-release-notes` | 指定版本变更摘要 |
 
 想要选项、批判或意外方向，还没确定问题框架时，用 `ideate`。已经有粗略产品问题或功能想法，需要 actors、flows、边界和 acceptance examples 时，用 `brainstorm`。已有系统增量或粗糙 PRD 需要 current-state evidence 和 change delta 时，用 `prd`。已有 requirements、plan 或 task 文档，需要找缺口时，用 `doc-review`。不要把 `brainstorm` 当作所有不清楚请求的默认入口。
+
+检查 spec-first 及其 generated runtime assets 是否最新,在终端运行 `spec-first update` package CLI 命令(check-only,类似 `npm outdated`,绝不自动升级)。它不再是宿主 workflow 入口。
 
 ## 产物与工作方式
 
@@ -291,6 +292,7 @@ spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
 spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]
+spec-first update [--claude|--codex] [--json]
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first clean --workspace-orphans [--confirm]
 spec-first tasks hash <plan-path> [--json]

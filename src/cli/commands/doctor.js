@@ -1031,4 +1031,5 @@ function tryReadRawManagedState(projectRoot, adapter) {
 
 module.exports = {
   runDoctor,
+  detectPlatforms,
 };

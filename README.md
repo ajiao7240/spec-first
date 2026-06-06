@@ -137,7 +137,6 @@ Use this single table as the public entrypoint map. Shared prose should say "cur
 | Intent | Claude Code | Codex | Expected result |
 |---|---|---|---|
 | Runtime setup for required harness readiness | `/spec:mcp-setup` | `$spec-mcp-setup` | Required harness runtime facts, MCP/helper readiness, and setup-owned config artifacts |
-| Update spec-first or runtime assets | `/spec:update` | `$spec-update` | Version/runtime refresh guidance |
 | Search agent session history | `/spec:sessions` | `$spec-sessions` | Session history answers and recovery context |
 | Research Slack context | `/spec:slack-research` | `$spec-slack-research` | Organizational context digest when Slack tools are available |
 | Audit source skills | `/spec:skill-audit` | `$spec-skill-audit` | Skill governance and quality findings |
@@ -158,6 +157,8 @@ Use this single table as the public entrypoint map. Shared prose should say "cur
 | Read release notes | `/spec:release-notes` | `$spec-release-notes` | Version-specific change summary |
 
 Use `ideate` when you want options, critiques, or surprising directions before committing to a problem frame. Use `brainstorm` when you already have a rough problem or feature and need actors, flows, boundaries, and acceptance examples. Use `prd` for existing-system increments or rough PRDs that need current-state evidence and change delta. Use `doc-review` when a requirements, plan, or task document already exists and needs gap-finding. Do not make `brainstorm` the default entrypoint for every unclear request.
+
+To check whether spec-first and its generated runtime assets are up to date, run the `spec-first update` package CLI command in your terminal (check-only, like `npm outdated`; it never auto-upgrades). It is no longer a host workflow entrypoint.
 
 ## Operating Model
 
@@ -291,6 +292,7 @@ spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
 spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]
+spec-first update [--claude|--codex] [--json]
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first clean --workspace-orphans [--confirm]
 spec-first tasks hash <plan-path> [--json]

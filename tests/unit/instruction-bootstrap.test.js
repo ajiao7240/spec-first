@@ -174,7 +174,7 @@ describe('instruction bootstrap', () => {
       '## Workflow Entry Governance',
       '',
       '- This block is the spec-first workflow entry reminder; `using-spec-first` is a standalone meta skill, not a workflow command',
-      '- Common entry anchors: environment/MCP→`/spec:mcp-setup`; update/runtime repair→`/spec:update`; execution→`/spec:work`',
+      '- Common entry anchors: environment/MCP→`/spec:mcp-setup`; version/runtime check→run `spec-first update` in the terminal; execution→`/spec:work`',
       '- Do not expose internal-only skills directly',
       '- CUSTOM DRIFT',
       '',
@@ -280,7 +280,7 @@ describe('instruction bootstrap', () => {
 
     expect(codexZh).toContain('Codex：进入公开 `$spec-*` 前');
     expect(codexZh).toContain('spec-first startup-reminder --codex');
-    expect(codexZh).toContain('$spec-update');
+    expect(codexZh).toContain('只提示在终端运行 `spec-first update`');
     expect(codexZh).toContain('失败/空输出不阻塞');
     expect(codexZh).toContain('bounded subagents、leaf reviewers、worker agents 不运行');
     expect(codexZh).toContain('`$spec-doc-review` 默认多 persona dispatch');

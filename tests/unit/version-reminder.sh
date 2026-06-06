@@ -257,7 +257,7 @@ startup_captured=$(node -e "const data = JSON.parse(process.argv[1]); process.st
 assert_output "codex startup reminder prints when runtime is stale" "true" "$startup_printed"
 assert_contains "codex startup reminder includes current version" "1.6.1" "$startup_captured"
 assert_contains "codex startup reminder includes latest version" "1.6.2" "$startup_captured"
-assert_contains "codex startup reminder points to update workflow" '$spec-update' "$startup_captured"
+assert_contains "codex startup reminder points to update workflow" 'spec-first update' "$startup_captured"
 assert_contains "codex startup reminder states read-only boundary" "will not install, refresh runtime assets, or restart the host" "$startup_captured"
 assert_not_contains "codex startup reminder does not install directly" "npm install -g" "$startup_captured"
 assert_not_contains "codex startup reminder does not call plugin update" "claude plugin update" "$startup_captured"
@@ -301,7 +301,7 @@ EOF
 claude_startup_printed=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.printed));" "$claude_startup_output")
 claude_startup_captured=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.captured);" "$claude_startup_output")
 assert_output "claude startup reminder prints when runtime is stale" "true" "$claude_startup_printed"
-assert_contains "claude startup reminder points to update workflow" "/spec:update" "$claude_startup_captured"
+assert_contains "claude startup reminder points to update workflow" "spec-first update" "$claude_startup_captured"
 assert_contains "claude startup reminder states read-only boundary" "will not install, refresh runtime assets, or restart the host" "$claude_startup_captured"
 assert_not_contains "claude startup reminder does not install directly" "npm install -g" "$claude_startup_captured"
 assert_not_contains "claude startup reminder does not call plugin update" "claude plugin update" "$claude_startup_captured"
@@ -318,7 +318,7 @@ const { maybeShowStartupVersionReminder } = require(path.join(repoRoot, 'src/cli
 (async () => {
   const projectRoot = path.join(tmpDir, 'startup-unknown');
   fs.mkdirSync(path.join(projectRoot, '.codex', 'spec-first'), { recursive: true });
-  fs.mkdirSync(path.join(projectRoot, '.agents', 'skills', 'spec-update'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup'), { recursive: true });
   fs.writeFileSync(path.join(projectRoot, '.codex', 'spec-first', 'state.json'), '{"manifestVersion":', 'utf8');
 
   let captured = '';
@@ -343,7 +343,7 @@ unknown_printed=$(node -e "const data = JSON.parse(process.argv[1]); process.std
 unknown_captured=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.captured);" "$unknown_output")
 assert_output "malformed runtime state still prints unknown-version reminder" "true" "$unknown_printed"
 assert_contains "unknown-version reminder names unknown runtime" "runtime version is unknown" "$unknown_captured"
-assert_contains "unknown-version reminder points to update workflow" '$spec-update' "$unknown_captured"
+assert_contains "unknown-version reminder points to update workflow" 'spec-first update' "$unknown_captured"
 
 cooldown_output="$(
   node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
@@ -481,7 +481,7 @@ EOF
 future_cooldown_printed=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.printed));" "$future_cooldown_output")
 future_cooldown_captured=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.captured);" "$future_cooldown_output")
 assert_output "future-dated cooldown does not suppress stale reminder" "true" "$future_cooldown_printed"
-assert_contains "future-dated cooldown reminder still names update workflow" '$spec-update' "$future_cooldown_captured"
+assert_contains "future-dated cooldown reminder still names update workflow" 'spec-first update' "$future_cooldown_captured"
 
 generic_host_dirs_output="$(
   node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
@@ -623,7 +623,7 @@ startup_cli_stdout=$(node -e "const data = JSON.parse(process.argv[1]); process.
 startup_cli_stderr=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stderr);" "$startup_cli_output")
 startup_cli_state=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.state);" "$startup_cli_output")
 assert_output "hidden startup reminder exits successfully" "0" "$startup_cli_exit"
-assert_contains "hidden startup reminder writes stdout" '$spec-update' "$startup_cli_stdout"
+assert_contains "hidden startup reminder writes stdout" 'spec-first update' "$startup_cli_stdout"
 assert_output "hidden startup reminder writes no stderr" "" "$startup_cli_stderr"
 assert_contains "hidden startup reminder writes cooldown under HOME" '"codex|1.6.1|1.6.2"' "$startup_cli_state"
 assert_not_contains "hidden startup reminder state does not persist project root" "startup-cli" "$startup_cli_state"
@@ -700,8 +700,8 @@ startup_cli_reset_codes=$(node -e "const data = JSON.parse(process.argv[1]); pro
 startup_cli_reset_stdout=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stdout);" "$startup_cli_reset_output")
 startup_cli_reset_stderr=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stderr);" "$startup_cli_reset_output")
 assert_output "hidden startup reminder reset commands exit successfully" "0,0,0,0,0,0,0" "$startup_cli_reset_codes"
-assert_contains "codex reset allows reminder to print again" '$spec-update' "$startup_cli_reset_stdout"
-assert_contains "claude reset allows reminder to print again" "/spec:update" "$startup_cli_reset_stdout"
+assert_contains "codex reset allows reminder to print again" 'spec-first update' "$startup_cli_reset_stdout"
+assert_contains "claude reset allows reminder to print again" "spec-first update" "$startup_cli_reset_stdout"
 assert_output "hidden startup reminder reset writes no stderr" "" "$startup_cli_reset_stderr"
 
 startup_cli_invalid_output="$(

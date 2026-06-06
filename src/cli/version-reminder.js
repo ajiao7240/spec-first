@@ -153,14 +153,13 @@ async function buildStartupVersionReminder(options = {}) {
 
 function formatStartupVersionReminder({ host, currentVersion, latestVersion }) {
   const hostLabel = host === 'claude' ? 'Claude Code' : 'Codex';
-  const updateEntry = host === 'claude' ? '/spec:update' : '$spec-update';
   const statusLine = currentVersion
     ? `[spec-first] Update available for ${hostLabel} runtime: ${currentVersion} -> ${latestVersion}`
     : `[spec-first] ${hostLabel} runtime version is unknown; latest available spec-first is ${latestVersion}.`;
 
   return [
     statusLine,
-    `Run ${updateEntry} when you choose to upgrade. This startup reminder is read-only and will not install, refresh runtime assets, or restart the host.`,
+    'Run `spec-first update` in your terminal to check version and runtime freshness. This startup reminder is read-only and will not install, refresh runtime assets, or restart the host.',
   ].join('\n');
 }
 
@@ -251,12 +250,12 @@ function managedRuntimeExists(projectRoot, adapter) {
 
   if (adapter.hasCommands) {
     candidates.push(
-      path.join(adapter.commandRoot, 'update.md'),
+      path.join(adapter.commandRoot, 'mcp-setup.md'),
       path.join(adapter.skillsRoot, 'using-spec-first', 'SKILL.md'),
     );
   } else {
     candidates.push(
-      path.join(adapter.workflowsRoot, 'spec-update', 'SKILL.md'),
+      path.join(adapter.workflowsRoot, 'spec-mcp-setup', 'SKILL.md'),
       path.join(adapter.skillsRoot, 'using-spec-first', 'SKILL.md'),
     );
   }
@@ -558,12 +557,12 @@ module.exports = {
   DEFAULT_VERSION_REMINDER_TIMEOUT_MS,
   buildStartupVersionReminder,
   clearStartupVersionReminderCooldown,
+  compareVersions,
   defaultLookupLatestVersion,
   formatVersionReminder,
   formatStartupVersionReminder,
   maybeShowVersionReminder,
   maybeShowStartupVersionReminder,
-  resolveCurrentRuntimeVersion,
   resolveVersionReminderTimeoutMs,
   shouldNotifyVersionReminder,
 };

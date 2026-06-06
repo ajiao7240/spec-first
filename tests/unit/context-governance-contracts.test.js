@@ -32,7 +32,7 @@ describe('context governance runtime exclusion contract', () => {
     expect(contract).toContain('禁止把 `.spec-first/audits/**`、`.claude/**`、`.codex/**`、`.agents/skills/**` 纳入默认');
     expect(contract).toContain('repo-relative canonical path');
     expect(contract).toContain('Allowed Exceptions');
-    expect(contract).toContain('`spec-update` / `spec-mcp-setup`');
+    expect(contract).toContain('`spec-mcp-setup` / `spec-first update` CLI');
     expect(contract).toContain('`spec-skill-audit`');
     expect(contract).toContain('changelog author resolution');
     expect(contract).toContain('`~/.spec-first/.developer`');

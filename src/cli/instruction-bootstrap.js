@@ -139,7 +139,7 @@ function buildZhBootstrapBody(hostId) {
     : '- 不要把 `using-spec-first` 写成 `/spec:*` 或 command-backed workflow';
   const codexStartupReminderLines = hostId === 'codex'
     ? [
-      '- Codex：进入公开 `$spec-*` 前可 best-effort 运行 `spec-first startup-reminder --codex`；失败/空输出不阻塞，只提示 `$spec-update`，bounded subagents、leaf reviewers、worker agents 不运行',
+      '- Codex：进入公开 `$spec-*` 前可 best-effort 运行 `spec-first startup-reminder --codex`；失败/空输出不阻塞，只提示在终端运行 `spec-first update`，bounded subagents、leaf reviewers、worker agents 不运行',
       '- Codex：公开 `$spec-*` 调用即授权该 workflow 文档化的只读 reviewer/researcher phase；`$spec-doc-review` 默认多 persona dispatch，仅 report-only/no-agents、dispatch/runtime 缺失或安全边界不满足时降级',
     ].join('\n')
     : '';
@@ -153,7 +153,7 @@ function buildZhBootstrapBody(hostId) {
 - Runtime context 默认排除 \`.spec-first/audits/**\` 和 generated mirrors（\`.claude/**\`、\`.codex/**\`、\`.agents/skills/**\`）；只有 setup/update/runtime-drift/audit 等明确运行时任务按需读取
 ${hostLine}
 ${surfaceLine}；不要直接暴露 internal-only skills，例如 \`git-worktree\`
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；更新/runtime 修复→\`${entry('update')}\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\``;
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；版本/runtime 检查→终端运行 \`spec-first update\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\``;
 }
 
 function buildEnBootstrapBody(hostId) {
@@ -167,7 +167,7 @@ function buildEnBootstrapBody(hostId) {
     : '- Do not write `using-spec-first` as `/spec:*` or as a command-backed workflow';
   const codexStartupReminderLines = hostId === 'codex'
     ? [
-      '- Codex: before entering public `$spec-*`, a top-level orchestrator may best-effort run `spec-first startup-reminder --codex`; failure/empty output must not block routing, only points to `$spec-update`, and bounded subagents, leaf reviewers, and worker agents do not run it',
+      '- Codex: before entering public `$spec-*`, a top-level orchestrator may best-effort run `spec-first startup-reminder --codex`; failure/empty output must not block routing, only points to running `spec-first update` in the terminal, and bounded subagents, leaf reviewers, and worker agents do not run it',
       '- Codex: invoking public `$spec-*` authorizes that workflow\'s documented read-only reviewer/researcher phase; `$spec-doc-review` defaults to multi-persona dispatch and falls back only for report-only/no-agents, missing dispatch/runtime, or unmet safety boundaries',
     ].join('\n')
     : '';
@@ -181,7 +181,7 @@ function buildEnBootstrapBody(hostId) {
 - Runtime context excludes \`.spec-first/audits/**\` and generated mirrors (\`.claude/**\`, \`.codex/**\`, \`.agents/skills/**\`) by default; only setup/update/runtime-drift/audit tasks read them when explicitly needed
 ${hostLine}
 ${surfaceLine}; do not expose internal-only skills directly, for example \`git-worktree\`
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; update/runtime repair→\`${entry('update')}\`; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/tasks/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\``;
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; version/runtime check→run \`spec-first update\` in the terminal; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/tasks/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\``;
 }
 
 function stripStandaloneMarkerLines(content) {

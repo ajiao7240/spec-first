@@ -9,6 +9,7 @@ const { runInternal } = require('./commands/internal');
 const { runRepairWorktree } = require('./commands/repair-worktree');
 const { runSession } = require('./commands/session');
 const { runTasks } = require('./commands/tasks');
+const { runUpdate } = require('./commands/update');
 const {
   clearStartupVersionReminderCooldown,
   maybeShowStartupVersionReminder,
@@ -33,7 +34,7 @@ async function runCli(argv) {
     return Promise.resolve(runStartupReminder(args.slice(1)));
   }
 
-  if (cmd === 'doctor' || cmd === 'init' || cmd === 'clean') {
+  if (cmd === 'doctor' || cmd === 'init' || cmd === 'clean' || cmd === 'update') {
     await maybeShowVersionReminder({
       packageName: pkg.name,
       currentVersion: pkg.version,
@@ -50,6 +51,10 @@ async function runCli(argv) {
 
   if (cmd === 'clean') {
     return Promise.resolve(runClean(args.slice(1)));
+  }
+
+  if (cmd === 'update') {
+    return runUpdate(args.slice(1));
   }
 
   if (cmd === 'tasks') {
@@ -153,6 +158,7 @@ function printHelp(withErrorPrefix = false) {
     '🧩 Commands:',
     '  doctor                 Check environment, runtime asset manifest, and managed runtime assets',
     '  init [--claude] [--codex] [-y] Interactively install workflows, skills, agents, and developer profile',
+    '  update [--claude|--codex] Check version and runtime freshness (check-only; never auto-upgrades)',
     '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
     '  repair-worktree        Preview broken worktree pointer repair guidance',
     '  tasks <subcommand>      Hash and validate derived task packs',

@@ -212,7 +212,7 @@ PRD/readiness tie-break: independent critique of a requirements, plan, task, or 
 | Intent | Claude | Codex |
 | --- | --- | --- |
 | environment setup, host setup, MCP setup, missing tools, host readiness, project-local setup | `/spec:mcp-setup` | `$spec-mcp-setup` |
-| check/update spec-first, refresh generated runtime assets, or repair stale `/spec:*` / `$spec-*` entries | `/spec:update` | `$spec-update` |
+| check/update spec-first, refresh generated runtime assets, or repair stale `/spec:*` / `$spec-*` entries | run `spec-first update` in the terminal | run `spec-first update` in the terminal |
 | retrieve past coding-agent sessions or ask what happened in prior work | `/spec:sessions` | `$spec-sessions` |
 | Slack or organizational discussion context | `/spec:slack-research` | `$spec-slack-research` |
 | existing bug, failure, test failure, stack trace, or abnormal behavior to reproduce or diagnose | `/spec:debug` | `$spec-debug` |
@@ -273,7 +273,7 @@ spec-first startup-reminder --codex
 
 This is a read-only best-effort check. Missing CLI, command failure, network failure, empty output, or malformed local state must be ignored and must not block workflow routing.
 
-If the command prints a reminder, surface that reminder and continue routing. Version reminders point to `$spec-update`, where the user decides whether to upgrade; they must not install packages, refresh runtime assets, or restart Codex.
+If the command prints a reminder, surface that reminder and continue routing. Version reminders point to running `spec-first update` in the terminal, where the user decides whether to upgrade; they must not install packages, refresh runtime assets, or restart Codex.
 
 Bounded subagents, leaf reviewers, and worker agents must not run the startup reminder or write reminder cooldown state. They inherit the parent task scope.
 

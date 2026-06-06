@@ -355,17 +355,6 @@
       }
     },
     {
-      "skill_name": "spec-update",
-      "entry_surface": "workflow_command",
-      "command_name": "update",
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "command",
-        "codex": "skill"
-      }
-    },
-    {
       "skill_name": "spec-write-tasks",
       "entry_surface": "standalone_skill",
       "command_name": null,

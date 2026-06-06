@@ -63,13 +63,11 @@ describe('public workflow contract summary', () => {
     const brainstorm = fs.readFileSync(path.join(ROOT, 'skills', 'spec-brainstorm', 'SKILL.md'), 'utf8');
     const debug = fs.readFileSync(path.join(ROOT, 'skills', 'spec-debug', 'SKILL.md'), 'utf8');
     const setup = fs.readFileSync(path.join(ROOT, 'skills', 'spec-mcp-setup', 'SKILL.md'), 'utf8');
-    const update = fs.readFileSync(path.join(ROOT, 'skills', 'spec-update', 'SKILL.md'), 'utf8');
 
     expect(brainstorm).toContain('planning would otherwise invent WHAT to build');
     expect(debug).toContain('root cause must be established before changing code');
     expect(setup).toContain('Setup must not make semantic code-understanding judgments');
     expect(setup).toContain('Project setup facts');
-    expect(update).toContain('hand-editing generated runtime mirrors as source fixes');
   });
 
   test('Phase 3 batch-2 summaries preserve workflow-specific boundaries', () => {

@@ -570,7 +570,7 @@ describe('init --dry-run', () => {
       expect(codexInstruction).not.toContain('not-evaluated-no-mcp-input');
       expect(codexInstruction).not.toContain('group.status');
       expect(codexInstruction).toContain('spec-first startup-reminder --codex');
-      expect(codexInstruction).toContain('$spec-update');
+      expect(codexInstruction).toContain('只提示在终端运行 `spec-first update`');
       expect(codexInstruction).toContain('失败/空输出不阻塞');
       expect(codexInstruction).toContain('bounded subagents、leaf reviewers、worker agents 不运行');
       expect(codexInstruction).not.toContain('spec-standards` 无参数运行默认为每个 discovered child repo');

@@ -245,7 +245,7 @@ describe('claude settings', () => {
       fs.writeFileSync(fakeCliPath, [
         'if (process.argv[2] === "startup-reminder" && process.argv[3] === "--claude") {',
         '  console.log("[spec-first] Update available for Claude Code runtime: 1.6.1 -> 1.6.2");',
-        '  console.log("Run /spec:update when you choose to upgrade.");',
+        '  console.log("Run `spec-first update` in your terminal to check version and runtime freshness.");',
         '}',
       ].join('\n'), 'utf8');
       fs.writeFileSync(instructionPath, [
@@ -276,7 +276,7 @@ describe('claude settings', () => {
       const payload = JSON.parse(result.stdout);
       expect(payload.hookSpecificOutput.additionalContext).toContain('using-spec-first SessionStart injection');
       expect(payload.hookSpecificOutput.additionalContext).toContain('1.6.1 -> 1.6.2');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('/spec:update');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('spec-first update');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

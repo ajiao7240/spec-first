@@ -41,7 +41,7 @@ Parse filters, fetch filtered spec-first releases through the helper, render a r
 
 ### Downstream Consumers
 
-Humans deciding whether to update, `spec-update`, release triage, and support/debug conversations needing version provenance.
+Humans deciding whether to update, the `spec-first update` CLI command, release triage, and support/debug conversations needing version provenance.
 
 ## Scenario Capability
 

@@ -18,14 +18,14 @@
 
 | 范围 | 当前值 |
 |---|---|
-| Bundled source skills | 38 |
+| Bundled source skills | 37 |
 | Bundled source agents | 51 |
 | Bundled agent support files | 0 |
-| Governance records by entry surface | internal_only: 17, standalone_skill: 2, workflow_command: 19 |
-| Claude runtime delivery | 19 commands, 19 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
-| Codex runtime delivery | 0 commands, 19 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Governance records by entry surface | internal_only: 17, standalone_skill: 2, workflow_command: 18 |
+| Claude runtime delivery | 18 commands, 18 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Codex runtime delivery | 0 commands, 18 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
 | Beta workflow entries | spec-polish-beta |
-| Workflow runtime contracts | 1 |
+| Workflow runtime contracts | 2 |
 | Planned runtime contracts | 0 |
 
 ## Public Workflows
@@ -49,7 +49,6 @@
 | sessions | spec-sessions | /spec:sessions | $spec-sessions | claude=command; codex=skill | no | Search and summarize prior coding agent sessions |
 | skill-audit | spec-skill-audit | /spec:skill-audit | $spec-skill-audit | claude=command; codex=skill | no | Run the Spec-First skill audit workflow |
 | slack-research | spec-slack-research | /spec:slack-research | $spec-slack-research | claude=command; codex=skill | no | Search Slack for interpreted organizational context |
-| update | spec-update | /spec:update | $spec-update | claude=command; codex=skill | no | Run the Spec-First update and runtime repair workflow |
 | work | spec-work | /spec:work | $spec-work | claude=command; codex=skill | no | Run the Spec-First execution workflow |
 
 ## Standalone Skills
@@ -93,6 +92,7 @@ These contracts are docs-side visibility records for workflow artifacts. `produc
 
 | Contract | Status | Producer | Producer available | Workflow integrated | Runtime path | Boundary |
 |---|---|---|---|---|---|---|
+| spec-first honest closeout contract<br>docs/contracts/workflows/honest-closeout.schema.json |  |  | false | false |  |  |
 | spec-first spec-work run artifact producer-available contract<br>docs/contracts/workflows/spec-work-run-artifact.schema.json | producer_available | internal spec-work-run-artifact write | true | true | .spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json | source-owned write-side producer; same workspace/run-id artifacts are immutable and return artifact-already-exists instead of overwriting; workflow_integrated true only when spec-work closeout calls the producer with durable evidence trigger reason_code |
 
 ## Quality Gate Evidence

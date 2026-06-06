@@ -76,7 +76,7 @@ External-tool results and session summaries follow the same rule: pass only comp
 
 | workflow / task | allowed scope |
 | --- | --- |
-| `spec-update` / `spec-mcp-setup` | runtime delivery、host setup、drift repair 所需的 host runtime paths |
+| `spec-mcp-setup` / `spec-first update` CLI | runtime delivery、host setup、drift repair 所需的 host runtime paths |
 | `spec-skill-audit` | `.spec-first/audits/skill-audit/**` 的本轮 summary、scorecard、runtime-drift evidence |
 | `spec-app-consistency-audit` | `.spec-first/app-audit/**` 的 run-scoped evidence |
 | changelog author resolution | 读取全局 developer profile：`~/.spec-first/.developer`，只用于 `CHANGELOG.md` 作者字段，不纳入 broad context bundle |
