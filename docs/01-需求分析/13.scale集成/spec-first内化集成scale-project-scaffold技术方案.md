@@ -1067,6 +1067,8 @@ docs/contracts/runtime/
 
 
 
+## Phase E：Capability-aware 协同（code-intelligence 能力工具）
+
 目标：setup 帮用户装好 code-graph / project-graph 能力工具（过 gate + 用户同意），消费侧 capability-aware 不耦合（完整定位见 `CodeGraph技术方案.md`）。
 
 交付：
@@ -1155,8 +1157,13 @@ docs/contracts/runtime/
 | `[CON-VRUN-001]` | verification-run-summary | `spec-work` closeout | closeout 的验证结论从"自述"变为引用 run-summary 的 `passed/failed/not-run`；`not-run` 必带 reason_code |
 | `[CON-HONEST-001]` | honest-closeout | `spec-work` closeout | 缺结构化 claim 或证据时，closeout 输出从"通过"降级为 `degraded`，而非静默通过 |
 | `[CON-TASK-001]` | task-governance-signals | `spec-plan` | plan 显示 candidate level 与 reason_codes，且 LLM 可记录理由升/降级（candidate 真正进入决策，而非被忽略） |
-| `[CON-PROV-001]` | provider-readiness | `spec-plan`/`spec-debug` | provider `not-run/stale` 时 workflow 明确走 fallback 并继续，而非阻塞或假装已确认 |
+| `[CON-PROV-001]` | provider-readiness | direct consumer：`doctor.decision_input_health`（v1.12 projection）；workflow consuming Phase：v1.16 `spec-plan`/`spec-debug` capability-aware fallback | `doctor --json` 的 `decision_input_health_basis.provider_counts` 从 setup facts 计算；v1.16 前 provider facts 只算 advisory，v1.16 workflow 在 provider `not-run/stale` 时明确走 fallback 并继续，而非阻塞或假装已确认 |
 | `[CON-RES-001]` | resource-governance-lens | `spec-work` closeout / `spec-code-review` | 命中 large file / generated output / raw log 时 closeout 或 review 出现对应 advisory 项 |
+
+登记说明：
+
+- `gate-lens-taxonomy.v1` 是 governance lens family 共享词表，不是独立 capability、gate 执行器或 permission boundary。它由 `task-governance-signals.recommended_gate_lenses` 与 `resource-governance-lens.items[].lens_family` 复用，不单独主张一个 workflow consumer gate。
+- `rule-maturity.v1` 是 v1.14 schema/docs-only shadow 例外：故意无 producer/helper、无自动 promotion，`required-evidence` / `blocking` 留到 v1.17 Governance Maturity。此例外显式豁免 §7.3 的“有 producer+consumer 再创建合同”普通规则；v1.17 前不得把它包装成已消费的 workflow capability。
 
 规则：
 

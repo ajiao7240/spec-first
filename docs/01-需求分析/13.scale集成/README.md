@@ -25,6 +25,7 @@ v2/spike 研究线：SCALE owns deterministic runtime，
 | 5 | `CodeGraph技术方案.md` | v1.x capability-aware 协同子方案，核心边界「install 帮装、消费不耦合」：`spec-runtime-setup` 过 install gate + 用户同意帮装 code-graph / project-graph 能力工具（与帮装 gh/jq 同构），消费侧只认能力类别（不写死工具名、经原生 MCP、advisory 回源）、刷新归工具；含 `gh`/本地源码/`curl` 实测证据与「为何不重蹈 GitNexus」论证 |
 | 6 | `2026-06-05-六层KnowledgeHarness分层合理性深度研究报告.md` | v1.15 Knowledge Harness 分层复盘，确认六层是协同地图，不是六个并行实现栈 |
 | 7 | `2026-06-05-scale-engine架构思想对标spec-first可借鉴性深度研究报告.md` | 早期对标报告，用作历史分析输入；结论以父方案和 2026-06-06 两份新报告校准后的表述为准 |
+| 8 | `2026-06-06-SCALE集成方案优化评审报告.md` | 对上述全部方案的优化评审（10-agent 并行：深读 + 对抗 + 一手 web 证据 + 计划-vs-真实仓库漂移核验）；结论为「方向站得住、需收敛后再推进」，P0 硬前置为 P0-1 Phase E 标题缺失；P0-2 经 v1.16 plan 审查回源码核实后降为 P2（`gate-lens-taxonomy.v1` 是 task/resource governance 的共享词表，不是 gate 执行器或孤儿 schema；`rule-maturity.v1` 是有意 shadow，含更正记录）；含 v1.16/spike 前瞻裂缝与三个高风险架构论点的一手证据裁决 |
 
 `../bak/`（`docs/01-需求分析/bak/`）下文件只作为历史分析输入，不作为当前 source-of-truth。
 
@@ -56,6 +57,12 @@ spec-first owns semantic content:
 
 这条线只有在单独 spike 中验证，不直接进入 v1.11-v1.17 版本表，也不允许把 SCALE hook/FSM 逐步塞进 v1.x 主线。若启动，第一步应是只读 manifest / projection dry-run，而不是删除 `src/cli/**` 或运行 `scale init`。
 
+启动 v2/spike 前必须先有 `spec-first-on-scale-v2-spike.md` 或等价 kill-criteria artifact，并同时满足三道门：
+
+- **Evaluation 指标 gate**：不能只做 capability parity；必须预先定义 closeout 诚实度、review 漏判率、debug 命中率等至少一个可观察增益指标。parity 通过但指标不改善时关闭该线。
+- **零 SCALE source/schema 耦合门禁**：spike 前不得向 `src/`、`docs/contracts/` 或 checked-in source 写入 SCALE-specific schema / pack manifest / evidence mapping；这些只能先停留在隔离 spike artifact。
+- **runtime-without-FSM 能力确认**：必须先确认 SCALE 能提供不绑定 FSM/G0-G22/hook blocking 的 deterministic runtime；拿不到即默认重定义为 OPT-B（SCALE 仅作为 optional provider），而不是 OPT-C 换底座。
+
 ## 开发顺序
 
 当前一致性校准后的推荐版本线：
@@ -67,12 +74,23 @@ spec-first owns semantic content:
 | v1.11 | Dependency Readiness Baseline | 父方案 + project-scaffold 子方案 | helper/provider registry、`tool-facts.v2` normalizer、configured dependency scan facts producer、install safety、status renderer | 已完成（plan：`docs/plans/2026-06-04-001-feat-dependency-readiness-baseline-plan.md`；与 v1.12 同切片；`npm test` 通过） |
 | v1.12 | Host Projection / Doctor Consumption | 父方案 + project-scaffold 子方案 | `init` generation report、`doctor.decision_input_health`、`decision_input_health_basis`、setup/configured dependency facts consumption | 已完成（同上 plan；`doctor --codex --json` 已从 `tool-facts.json` 计算 `decision_input_health` 并输出 basis） |
 | v1.13 | Verification + Honest Closeout | 父方案 + project-scaffold 子方案 | `verification-profile.v1`、`verification-run-summary.v1`、`honest-closeout.v1`、run artifact ref mapping | 已完成（plan：`docs/plans/2026-06-04-003-feat-verification-honest-closeout-plan.md`；commit `3fc4dbda`；`spec-work-run-artifact` bump v2；`npm test` 通过） |
-| v1.14 | Governance Lens Foundation | 父方案 | task-governance-signals、gate lens、resource governance、RuleMaturity shadow/advisory | 已完成（plan：`docs/plans/2026-06-05-001-feat-governance-lens-foundation-plan.md`；focused governance tests + `npm test` 通过） |
+| v1.14 | Governance Lens Foundation | 父方案 | task-governance-signals、resource governance、`gate-lens-taxonomy.v1` 共享词表（被 `task-governance-signals.recommended_gate_lenses` 与 `resource-governance-lens.items[].lens_family` 使用，不是 gate 执行器）、`rule-maturity.v1` schema/docs-only shadow 例外（无 producer/helper，v1.17 前不做 promotion/blocking） | 已完成（plan：`docs/plans/2026-06-05-001-feat-governance-lens-foundation-plan.md`；focused governance tests + `npm test` 通过） |
 | v1.15 | Knowledge Harness | 父方案 | context budget、artifact-summary、`docs/solutions` promotion、memory recall boundary；skill/tool capability lens 降为 advisory follow-up（设计已经 deep-research best-practice 对抗验证：4 支柱有一手背书、整体 sound、无 blocking flaw；plan 已答父方案 Phase D 的 OQ-1~4） | 已完成（plan：`docs/plans/2026-06-05-003-feat-knowledge-harness-plan.md`；新增 `docs/contracts/knowledge/knowledge-harness.md`，铺开 summary-first handoff / recall boundary，扩展 spec-compound schema + verified promote gate，focused tests/typecheck/skill-entrypoint lint 通过，fresh read-only reviewer findings 已修复；L5 不计 completion gate） |
-| v1.16 | Capability-aware 协同 | 父方案 + CodeGraph 子方案 | **「install 帮装、消费不耦合」**：`spec-runtime-setup` 过 gate + 用户同意帮装 CodeGraph（code-graph，配 MCP+首次 index）+ Graphify（project-graph，CLI；生成由用户触发、产物当 doc 读）；消费侧只认能力类别、经原生 MCP、advisory 回源、刷新归工具；memory 走 `docs/solutions/`、**GBrain 删除**；填 `provider-tools.json` + 扩 install-helpers，消费侧不注入编排面/不建 adapter/fusion | 未开始 |
+| v1.16 | Capability-aware 协同 | 父方案 + CodeGraph 子方案 | **「install 帮装、消费不耦合」**：`spec-runtime-setup` 过 gate + 用户同意帮装 CodeGraph（prose capability class：`code-graph`；`provider-readiness.kind`：`code-structure`；配 MCP+首次 index）+ Graphify（`project-graph`，CLI；生成由用户触发、产物当 doc 读）；消费侧只认能力类别、经原生 MCP、advisory 回源、刷新归工具；memory 走 `docs/solutions/`、**GBrain 删除**；填 `provider-tools.json` + 扩 install-helpers，消费侧不注入编排面/不建 adapter/fusion | 未开始 |
 | v1.17 | Governance Maturity | 父方案 | RuleMaturity required-evidence candidate、governance ROI、resource/output hardening | 未开始 |
 
 v1.11+v1.12 已作为同一 P0 producer→consumer 切片完成,v1.13 verification / honest-closeout 已在独立 plan(`docs/plans/2026-06-04-003-...`)中落地并兑现 `spec-work` closeout 的可观察行为变化;v1.14 Governance Lens Foundation 与 v1.15 Knowledge Harness 已完成;下一步开发应推进到 v1.16 capability-aware 协同及后续版本线,不直接从三份方案跳进实现。
+
+### 进入 v1.16 前的评审收敛 gate
+
+v1.16 不能只按版本表进入 `provider-tools.json` 实现。启动第一个 provider entry 前，必须先完成或显式登记以下收敛项：
+
+- **Phase E 标题补齐**：父方案 §8 必须有 `## Phase E：Capability-aware 协同（code-intelligence 能力工具）`，把现有 provider-coupling 孤儿正文收编到正式章节。
+- **code-graph / code-structure 映射**：文档 prose 可继续用 `code-graph` 表示 capability class，但 `provider-readiness.v1.kind` 的 schema 取值是 `code-structure`；v1.16 registry entry 必须按 schema 写 `kind: "code-structure"`。
+- **CON-PROV-001 enabling infra 口径**：provider readiness 已由 `doctor.decision_input_health` 作为 direct rollup 消费，但 named workflow 的行为改变 consuming phase 是 v1.16；v1.16 前只能标 advisory，不得宣称已兑现 workflow 价值。
+- **provider freshness 填值责任**：进入 install 实现前二选一登记：要么引入最小 deterministic 探针写 `fresh/stale`，要么承认 provider 自报新鲜度只作 advisory，不能把自报 `fresh` 当 confirmed 或 deterministic truth。**实现口径以 v1.16 plan R6 为权威**：provider 自报 `fresh`→写 `readiness_status=unknown`（不冒充 deterministic）；自报 `stale`→写 `readiness_status=stale`，进既有 `computeProviderCounts.stale`→doctor warn→CON-PROV-001 fallback 决策链；`repo_aligned`/`limitations` 仅作附带展示（无 decision-path consumer，不可作 stale 唯一落点）。
+- **runtime-setup 实体重命名边界**：`$spec-runtime-setup` 是目标 canonical 入口名，当前 source 实体仍是 `skills/spec-mcp-setup/**` 与 `templates/.../mcp-setup.md`。实体重命名是独立中型 work；未落地前不得把不存在的 source path 写成当前事实。
+- **governance v1.14 例外登记**：`gate-lens-taxonomy.v1` 是共享词表，不需要独立 producer/helper；`rule-maturity.v1` 是有意 shadow/schema-only 例外，producer/helper 与 required-evidence/blocking promotion 留到 v1.17。
 
 ### 开发顺序的依赖与验收约束（钉死，避免按版本号机械串行）
 

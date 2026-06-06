@@ -6,6 +6,7 @@ const path = require('node:path');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SCALE_DOC_ROOT = path.join(REPO_ROOT, 'docs', '01-需求分析', '13.scale集成');
 const CODEGRAPH_DOC = path.join(SCALE_DOC_ROOT, 'CodeGraph技术方案.md');
+const README_DOC = path.join(SCALE_DOC_ROOT, 'README.md');
 const PARENT_DOC = path.join(
   SCALE_DOC_ROOT,
   'spec-first内化集成scale-project-scaffold技术方案.md',
@@ -32,5 +33,25 @@ describe('SCALE provider documentation contracts', () => {
     expect(codegraph).not.toContain('"status": "unavailable|stale|advisory|evidence_candidate"');
     expect(codegraph).not.toContain('"status": "evidence_candidate"');
     expect(codegraph).not.toContain('"status": "advisory"');
+  });
+
+  test('SCALE integration docs keep v1.16 convergence gates explicit', () => {
+    const codegraph = fs.readFileSync(CODEGRAPH_DOC, 'utf8');
+    const parent = fs.readFileSync(PARENT_DOC, 'utf8');
+    const readme = fs.readFileSync(README_DOC, 'utf8');
+
+    expect(parent).toContain('## Phase E：Capability-aware 协同（code-intelligence 能力工具）');
+    expect(parent).toContain('direct consumer：`doctor.decision_input_health`');
+    expect(parent).toContain('workflow consuming Phase：v1.16');
+    expect(parent).toContain('`rule-maturity.v1` 是 v1.14 schema/docs-only shadow 例外');
+
+    expect(codegraph).toContain('prose capability class');
+    expect(codegraph).toContain('CodeGraph entry 的 `kind` 必须写 `code-structure`');
+    expect(codegraph).toContain('不要在 registry 里写 `kind:"code-graph"`');
+
+    expect(readme).toContain('进入 v1.16 前的评审收敛 gate');
+    expect(readme).toContain('provider-readiness.kind`：`code-structure`');
+    expect(readme).toContain('runtime-without-FSM 能力确认');
+    expect(readme).toContain('默认重定义为 OPT-B');
   });
 });
