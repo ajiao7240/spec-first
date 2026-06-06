@@ -16,7 +16,7 @@ created: 2026-06-06
 
 本计划把《2026-06-06-SCALE集成方案优化评审报告》的发现固化为可执行 Requirements：**先做评审报告的治理前置（docs-only,消除会导致 v1.16 schema 校验失败的术语漂移等）+ 裂缝 A（provider-readiness 轴 A 定位拍板），再做 v1.16 install 侧实现主体 + 消费侧 capability-class 引导**。核心边界一句话:**install 帮装、消费不耦合,不重蹈 GitNexus**。
 
-兑现的可观察行为变化：`spec-runtime-setup` 帮装 provider（install 闭环,验收见 Completion Criteria）+ `spec-plan`/`spec-code-review`/`spec-debug` 的 capability-class 消费引导（U10 可观察）。其中消费侧的可观察行为变化由本计划在父方案 §9.0.1 新登记 `CON-CAP-001`(consumer=三 workflow、行为变化=prose 含 capability-class 引导句且经原生 MCP 不耦合,U10 断言捕获),不引用未定义合同。
+兑现的可观察行为变化：`spec-runtime-setup` 帮装 provider（install 闭环；**验收分层:CI 验 registry/gate/lifecycle 结构断言,real-env 以 `query_verified=true` 验真可用——`installed=true` 不充当成功证明,详见 Completion Criteria 与 U9**）+ `spec-plan`/`spec-code-review`/`spec-debug` 的 capability-class 消费引导（U10 可观察）。其中消费侧的可观察行为变化由本计划在父方案 §9.0.1 新登记 `CON-CAP-001`(consumer=三 workflow、行为变化=prose 含 capability-class 引导句且经原生 MCP 不耦合,U10 断言捕获),不引用未定义合同。
 
 ---
 
@@ -79,15 +79,18 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
   - **(S3 供应链)`version_pin` 保留为结构化字段**(有确定性消费:install 取 pinned 版本作默认 install target,如 CodeGraph 0.9.8);**`personal_scope` / `name_bin_mismatch` 降为 `safety.risk_flags` 自由文本项**(对齐过度设计修正:它们是无外部对标的启发式提示、只服务单一个案,既有 helper safety 结构本就有 risk_flags 文本数组可承载,如 `['name-bin-mismatch:graphifyy->graphify','single-maintainer-bus-factor']`),gate 文案照样 surface,但不进 schema 一等字段。
 - **R7b.（provider readiness PRODUCER,P1-A 架构决策:对称复用 helper verify-only)新增 provider_readiness facts 的生产环节——这是 R6 复活的 stale 通路在真实管道里能点火的前提。**
   - **P1-A 实证**:`provider_readiness[]` 全链**只有 passthrough、从无 producer**(`detect-tools.sh` 产=0、`write-setup-facts.sh:131` 是 `($facts[0].provider_readiness // [])` 兜底、全仓零处构造 entry)。所谓「v1.11 既有产出」实际只是 schema+normalize+computeProviderCounts+doctor projection 这套**消费管道**,填充它的 source 从未建造。R6/U6 苦心复活的「stale→`computeProviderCounts.stale`→doctor warn→CON-PROV-001 fallback」在 `provider_readiness[]` 恒为 `[]` 时**全部不点火**——消费侧补齐了,producer 侧对称缺席。
-  - **决策(对称复用 helper verify-only producer 模式)**:provider readiness facts 走与 `helper_tools` 相同的产法——`install-helpers.sh --verify-only`(现产 `helper_tools`,见 install-helpers.sh:926)对称扩展产出 provider readiness 探测结果,`verify-tools.sh`(:534 调 `install-helpers.sh --verify-only` 拿 HELPER_JSON,:627 已 passthrough provider_readiness)按 R6 规则(detect 命中且工具自报 fresh→`readiness_status=unknown`、自报 stale→`readiness_status=stale`、填 lifecycle 布尔位)构造 `provider_readiness[]` entry 写入 readiness ledger / tool-facts。**不新建独立 producer 管线,复用既有 helper verify-only 对称模式。**
-  - **end-to-end 断言(非手喂 fixture)**:补「注册 provider 经 detect/verify 后 `provider_readiness[]` 非空、自报 stale 真能流到 `computeProviderCounts.stale`→doctor warn」的端到端测试。U6 现有「手喂 `readiness_status=stale` fixture 测 computeProviderCounts+1」只测消费者、掩盖 producer 空洞,必须补真实管道断言。
+  - **决策(P1-B 分流后双路 producer,四轮修订)**:P1-B 把 CodeGraph(MCP)与 Graphify(CLI)分流后,readiness 产出也必须分两路,但统一写入同一个 `provider_readiness[]`(消费侧 `computeProviderCounts`/doctor 不区分来源):
+    - **Graphify(CLI)→ helper verify-only 产法**:`install-helpers.sh --verify-only`(现产 `helper_tools`,见 install-helpers.sh:926)对称扩展产出 Graphify readiness 探测结果。
+    - **CodeGraph(MCP)→ install-mcp / MCP verify 产法**:CodeGraph **不经 install-helpers**(该线零 MCP 概念),其 lifecycle(`installed/configured/indexed/server_reachable/query_verified`)由 install-mcp/configure/index/probe 各 rung 探测产出。
+    - **汇聚点**:`verify-tools.sh`(:534 调 `--verify-only` 拿 HELPER_JSON,:627 当前只 passthrough `provider_readiness`)从单纯 passthrough **扩展为合并 helper-source(Graphify)与 MCP-source(CodeGraph)两路** entry,统一按 R6 规则(detect 命中且自报 fresh→`readiness_status=unknown`、自报 stale→`readiness_status=stale`、填 lifecycle 布尔位)写入 readiness ledger / tool-facts。**不新建独立 producer 管线,各自复用 install-helpers / install-mcp 既有 verify 模式。**
+  - **end-to-end 断言(非手喂 fixture,双路覆盖)**:补「注册 provider 经 detect/verify 后 `provider_readiness[]` 非空、自报 stale 真能流到 `computeProviderCounts.stale`→doctor warn」的端到端测试,**Graphify(helper 路)与 CodeGraph(MCP 路)各覆盖一条**。U6 现有「手喂 `readiness_status=stale` fixture 测 computeProviderCounts+1」只测消费者、掩盖 producer 空洞,必须补真实管道断言。
 - **R8.（install 执行,按形态分流)CodeGraph 复用 install-mcp/configure-host/uninstall-mcp,Graphify 扩 install-helpers;index 单独承载。**
   - **CodeGraph(MCP)**:install/configure(host MCP)/uninstall **复用既有 install-mcp 管线**(放宽 :594 开 opt-in 准入后),**不在 install-helpers 里重造** configure/host 探测/scope/回滚。configure 写 host 级(`managed-mcp.json`/`$HOME/.claude.json`/`$HOME/.codex/config.toml`),与 sequential-thinking/context7 同档;回滚走既有 `uninstall-mcp`。**(故障模式)configure 前置保护**:写入前若 host config 已存在同 id 但 command/args 不匹配的 entry(用户手工配过),**不静默覆盖**——gate 提示并要求显式同意覆盖或保留+skip(code-graph 是 power user 最可能已手配的工具,clobber 风险真实);补 contract/smoke 断言「预存不同 args 的同名 entry 在未确认时不被覆盖」。
   - **index(codegraph init -i)**:这步是既有管线没有的新动作,经 `project_bootstrap` 承载。**(故障模式)index 超时/半成品语义**:首次 index 在大仓可合法 >>900s(包安装超时),plan 明确 index 的超时来源(独立 env 或显式沿用并标大仓风险),且定义超时/OOM 后半成品 index 产物处置(标 `indexed=false` + next_action 指引重建/清理,不留模糊状态)。
   - **Graphify(CLI)**:扩 `install-helpers.{sh,ps1}` 读 `provider-tools.json` 执行 install。**(故障模式)`uv` 前置**:`uv tool install graphifyy` 的 `uv` 在 scripts 中零引用(与已知 jq 同类隐含前置)——detect 缺 uv 时 gate 提示先装 uv(给指引)或纳入帮装清单,fallback/next_action 覆盖 uv 缺失态。
   - **(执行模型注入面)** R7 把命令存 registry 数据,但现状 `run_install_command`(install-helpers.sh:322-355)是写死 case、registry 命令仅"展示近似"(lib-helper-registry.sh:47 明示执行真相源是 case)。U8 须**显式选执行模型**:沿用「每 provider 受控 case 分支(命令在脚本内,registry 只存 detect/safety/fallback 元数据)」,**不走 registry 命令串 eval**(避免「执行 JSON 里任意命令串」的注入面);若必须 registry-string 执行则固定 argv 数组/白名单/不做 shell 插值。
 - **R9.（install gate + ladder）detect 缺失 → 过 install gate → 用户同意后装;CodeGraph 经 install-mcp gate、Graphify 经 install-helpers gate。** 触发只在 setup workflow,**不在 plan/work/review 主动弹**（§7 复发信号）。gate 提示说清「装≠配≠用」安装阶梯 + 供应链风险(无 pin / 个人维护 / 包名 bin 不一致,承 R7 risk_flags)。
-  - **(可观测性)gate 状态可见+可重置**:对标 deep-research 指出的 Claude Code `reset-project-choices` + `Pending approval`/`Rejected` 模式,gate 须**下一个决策并写进 Completion**:(a) 记录 gate 选择(approved/rejected)+ 提供 reset 入口,或 (b) 显式声明 gate 为 setup-explicit-mode 下无状态重问并说明为何可接受。当前 silent undecided 是真实决策缺口。
+  - **(可观测性)gate 状态可见+可重置**:对标 deep-research 指出的 Claude Code `reset-project-choices` + `Pending approval`/`Rejected` 模式,gate 须**下一个决策并写进 Completion**:(a) 记录 gate 选择(approved/rejected)+ 提供 reset 入口,或 (b) 显式声明 gate 为 setup-explicit-mode 下无状态重问并说明为何可接受。当前 silent undecided 是真实决策缺口。**(P2)该 reset 机制是 Claude 特有,Codex 侧等价口径见 U9 执行期确认项,不假设其在 Codex 成立。**
   - **(故障模式)ladder 中途断点续跑需持久化状态**:R8/U8「逐 rung 续跑」非既有能力——`install-helpers.sh:567-628` 单阶段、从不写/读 lifecycle 布尔位。U8/R7b 须设计:每 rung 完成后 lifecycle 布尔位写到哪个文件、下次 detect 从哪读回判定续跑起点、谁是 mid-ladder 状态 SoT;补断言「install 后 configure 失败→记 installed=true/configured=false,重跑从 configure rung 起、不重装 CLI」。
   - **双宿主 MCP scope(B2/NEW-3 实证)**:两宿主**都无 project-level MCP scope**——Claude 写 `managed`/`user`、Codex 写 `user`/`system`;gate 与 ladder **不得**出现「MCP 默认项目级」(两宿主都不成立);双宿主 parity 断言为「行为对称、scope 落点按宿主能力差异化」。
   - **ladder 口径与 display-only 定性**:用既有 `provider-readiness.v1` lifecycle 布尔位表达「装≠用」ladder,行使 `installed/configured/indexed/server_reachable/query_verified` 子集(`initialized/artifact_exists/fallback_used` 不参与,见 OQ-4)。**(跨切片对齐 NEW 标准)这 5 个 lifecycle 子集本身只 display/passthrough、无 decision consumer**(`setup-facts.js` 纯归一不据其决策、`verify-tools` 只展示部分、doctor 只看 `readiness_status` 派生的 `provider_counts`)——须像 `repo_aligned` 一样**显式定性为 display-only ladder 可读位、不进 decision path**;capability provider 唯一进决策的状态是 `readiness_status`。**(可观测性)`verify-tools` Provider tools 表当前只列 installed/configured/query_verified,漏 indexed/server_reachable** 两个 U8 显式处理的 CodeGraph 失败态对应 rung——U9 须补这两列,否则「卡在哪个 rung」对 index/server 失败答不出。
@@ -106,18 +109,6 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 
 - **R12.（文档/测试同步）** 父方案 Phase E / README 版本线（v1.16→进行中/已完成）/ CodeGraph 子方案 / project-scaffold 子方案 / CHANGELOG 同步；GBrain 删除表述一致（memory 走 `docs/solutions/`，不写成具名待集成 provider）；focused contract tests + `npm test` 全绿；双宿主 parity 回归。**(G1)新建 schema 加入 `package.json` files + 安装断言。**
 
-### v1.16 消费侧实现主体（CodeGraph 方案 §3.1 消费侧 / §2）
-
-- **R10.（capability-class 引导）`spec-plan` / `spec-code-review` / `spec-debug` 各加一句 capability-class 引导。** 只认能力类别（code-graph / project-graph），**绝不写死工具名或工具内部命令**（`codegraph_callers`/`graphify` 不得出现在 prose——这是 §7 防 GitNexus 复发的承重墙）。装成 MCP 后工具在 Claude Code/Codex 工具层原生可见，LLM 直接调，**不经 instruction block 注入**。引导句句式见 §2：「若工具箱里存在 <能力类别> 能力，可在 <节点> 优先利用其产出作为 advisory candidate；缺失则走 fallback；任何此类输出都是 candidate，结论仍需 source/test/log/contract/user evidence 回源确认」。两处强化:
-  - **(承 R6/B-2)新鲜度确认**:引导句须显式要求「采纳前先确认该能力产出相对当前 worktree 的新鲜度(provider 自报的 fresh 不构成 spec-first 确认)」——在无 spec-first 可信新鲜度位之前,防止把可能 stale 的图当 fresh 用。
-  - **(承 S4 signal-4)never-block 语义**:引导句须含 never-block/缺失走 fallback,且**不得**出现「缺失即 warn/降级/阻断」措辞(advisory→confirmed creep 是 §7 复发信号 4);U10 测试补反向断言。
-  - **(转述差异说明)CodeGraph §3.1 列 4 节点(含 knowledge),本计划只覆盖 spec-plan/code-review/debug 前 3 个**:knowledge 节点的 memory 能力走 `docs/solutions/`(v1.15),不是 code-graph/project-graph 能力,故有意不在此加 code-intelligence 引导,避免把 memory 能力与 code-graph 能力混淆。
-- **R11.（复用 evidence enum）复用既有 `provider_untrusted` 记机械 readiness + 候选，不新建第二套 evidence enum。** 轴 A 复用现有 5 值 readiness enum，轴 B（advisory / evidence_candidate）是 workflow 语义晋升维度、不写进 readiness 字段。`readiness_status=fresh` 永不等于 confirmed（§5.2 两轴模型，与父方案 contract test 锁定一致）。
-
-### 同步
-
-- **R12.（文档/测试同步）** 父方案 Phase E / README 版本线（v1.16→进行中/已完成）/ CodeGraph 子方案 / project-scaffold 子方案 / CHANGELOG 同步；GBrain 删除表述一致（memory 走 `docs/solutions/`，不写成具名待集成 provider）；focused contract tests + `npm test` 全绿；双宿主 parity 回归。
-
 ---
 
 ## Scope Boundaries
@@ -125,6 +116,8 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 **本计划做（v1.16）：** 治理前置（R1-R5）+ 裂缝 A 定位（R6）+ install 侧 registry/helpers/gate/ladder（R7-R9）+ 消费侧 capability-class 引导（R10-R11）+ 同步（R12）。
 
 > **批次拆分:PR 切片建议,非两份独立 plan(plan 审查 S-2 + 二轮澄清)**:纯文档治理(R1/R2/R4/R5)与真实供应链 install(R7-R9,按角色契约 §8 是 provider 协议变更**大任务**)风险档、review 强度、可逆性完全不同,且 R1/R2/R4/R5 与 install **零技术耦合**(Dependencies 均为「无」)。真正的 install 技术硬前置只有 **R3 + R6**。**本计划仍是单一 plan 单批执行**(Implementation Units 按单 plan 列全);批次拆分是**落地时的 PR 切片建议**——若团队偏好,可把 R1/R2/R4/R5 切成轻量 docs-PR 先合(小任务 review),再以 install-PR 承载 R3+R6+R7-R11。**注意批 1(R1/R2/R4/R5)已落地 working tree(见 Direct Evidence),实际「步骤 1」多为核实落盘 + 提交,而非从零起草**。此处不设「执行前必须先拆」的硬 gate,只标明切片优先级。
+
+> **install-PR 内部再切:CodeGraph-MCP 独立 review gate(四轮 P1-B 涟漪)**:install-PR 不应把 Graphify(CLI,中等任务)与 CodeGraph(放宽 `install-mcp.sh:594` MCP 准入口、影响所有 MCP 准入,按角色契约 §8 是 provider 协议变更**大任务**)混在同一 review 焦点。建议把 CodeGraph 的 `mcp-tools.json` opt-in entry / install-mcp 准入口放宽 / configure clobber guard / index lifecycle(U7 的 CodeGraph 分支、U8 的 MCP 分支、U9 的 MCP ladder)从 Graphify CLI 切片中**拆出为独立 review gate**;Graphify 先行验证整条 producer→consumer 通路(对应 RR-6 的 MCP 准入回归面、Deferred 区「先 Graphify 再 CodeGraph」建议)。此处仍不设硬 gate,但 CodeGraph-MCP 的 review 强度须按大任务对待。
 
 **本计划不做：**
 
@@ -154,11 +147,11 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 - `gate-lens-taxonomy.v1` 在 §9.0.1 登记**既有 producer**(task-governance-signals,不豁免);`rule-maturity.v1` 登记为 shadow/§7.3 豁免;不再出现「两者都零 producer」表述（R2,B-1 修正）。
 - `docs/contracts/provider-tools-registry.schema.json` 已创建且**加入 `package.json` files + 安装断言**(G1);**CodeGraph 落 `mcp-tools.json` opt-in MCP entry、Graphify 落 `provider-tools.json` CLI entry**(P1-B 分流);Graphify kind 过 `provider-readiness` enum;schema root 显式含 `generic_provider_readiness`(不被 additionalProperties:false reject)（R3+R7+S2+G1）。
 - `dependency-readiness-baseline.test.js` 的 `providers).toEqual([])` 改写为对 Graphify entry 的结构/kind/risk_flags 断言、保留 generic_provider_readiness:150 断言,填值不致开工即红（R7/S1）。
-- **`provider_readiness[]` 有真实 producer(R7b/U7b):provider 经 `install-helpers --verify-only`→`verify-tools` 构造 entry 写入;end-to-end 断言「自报 stale 真流到 computeProviderCounts.stale→computeDecisionInputHealth warn」(非手喂 fixture),证明 R6 通路活、非死代码。**
+- **`provider_readiness[]` 有真实 producer 双路(R7b/U7b,P1-B 分流):Graphify 经 `install-helpers --verify-only`、CodeGraph 经 install-mcp 各 rung 探测,`verify-tools` 合并两路构造 entry 写入;end-to-end 断言「自报 stale 真流到 computeProviderCounts.stale→computeDecisionInputHealth warn」(非手喂 fixture,双路各覆盖一条),证明 R6 通路活、非死代码。**
 - `CON-PROV-001` 与 `CON-READY-001` 同口径标注 consuming phase=v1.16 + v1.16 前停 advisory（R4）。
 - README 版本线对 `spec-runtime-setup` 重命名有版本条目或「未排期/迁移期 alias」明确标注（R5）。
 - provider-readiness 轴 A 填值责任在合同/代码钉死单一来源:provider 自报 `fresh`→`readiness_status=unknown`(不冒充 deterministic);provider 自报 `stale`→`readiness_status=stale`,进既有 `computeProviderCounts.stale`→doctor warn→CON-PROV-001 fallback 决策链(非死代码);`repo_aligned`/`limitations` 仅附带展示(R6/OQ-2,二轮 NEW-1/NEW-2 修正)。
-- **CodeGraph(MCP)复用 install-mcp/configure-host/uninstall-mcp(放宽 :594 opt-in 准入、configure clobber 保护不覆盖用户手配)、index 经 project_bootstrap(超时/半成品语义明确);Graphify(CLI)扩 install-helpers(uv 前置处理);执行走受控 case 非 registry eval**;ladder rung 可达;双宿主 parity「行为对称、scope 落点差异化」(两宿主都无项目级 MCP);过 install gate（R8/R9,P1-B）。
+- **CodeGraph(MCP)复用 install-mcp/configure-host/uninstall-mcp(放宽 :594 opt-in 准入 + `SKILL.md` L32/L38 source contract 同步重定义为「required baseline + explicit opt-in MCP」、无 `opt_in`/`explicit_consent` 位的 non-required MCP 仍被拒、configure clobber 保护不覆盖用户手配)、index 经 project_bootstrap(超时/半成品语义明确);Graphify(CLI)扩 install-helpers(uv 前置处理);执行走受控 case 非 registry eval**;ladder rung 可达;双宿主 parity「行为对称、scope 落点差异化」(两宿主都无项目级 MCP);过 install gate（R8/R9,P1-B）。
 - **install gate 有状态决策(记录 approved/rejected + reset 入口,或显式声明无状态重问);ladder 续跑有持久化状态(configure 失败→重跑从 configure 起不重装 CLI);verify-tools Provider 表含 indexed/server_reachable 五列;lifecycle 5 子集定性 display-only(唯 readiness_status 进决策);query_verified 真达成验收(probe 成功置 true,或 deferred-to-real-env 标注);doctor 可见性 routing(text check 或 routing 声明)（R9,三轮可观测性）。**
 - `spec-plan`/`spec-code-review`/`spec-debug` prose 含 capability-class 引导句、含新鲜度确认与 never-block 语义、**不含** `codegraph_*`/`graphify` 工具名、**不含**「缺失即 warn/降级/阻断」措辞、**不注入** reminder（R10,含 signal-4 反向断言）。
 - 复用既有 `provider_untrusted`，无第二套 evidence enum;**`fallback_used` 双结构分工写清(never-block 走消费侧 provider_untrusted,setup 侧 lifecycle.fallback_used v1.16 不行使)**（R11）。
@@ -171,7 +164,7 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 
 ### Resolved During Planning（架构决策拍板）
 
-- **OQ-1（R3 取齐方式）→ 决议倾向 prose 加映射注。** 在 CodeGraph 方案 §2 或 §5.1 补「prose capability-class `code-graph` 映射到 provider-readiness `kind=code-structure`」。**理由**：零 source 改动、schema enum 不动、最小风险；schema 改名需 downstream 兼容 + 测试。执行期按「schema 是否已有 consumer 依赖 `code-structure`」最终确认——若无依赖且团队偏好字面统一，可改为 schema 增 `code-graph`，但默认 prose 映射。
+- **OQ-1（R3 取齐方式）→ 决议:v1.16 一律 prose 加映射注,收死分叉（四轮修订）。** 在 CodeGraph 方案 §2 或 §5.1 补「prose capability-class `code-graph` 映射到 provider-readiness `kind=code-structure`」。**理由**：零 source 改动、schema enum 不动、最小风险。**收死分叉(原「执行期可改 schema 增 `code-graph` enum」已撤销)**:schema 增 enum 触及 downstream 兼容 + 测试,属中型变更,**不得混进 install-PR**(违反抗膨胀原则);若未来确需字面统一,作为独立 follow-up work,不在 v1.16 切片内。registry 一律字面写 `code-structure`。
 - **OQ-2（R6 裂缝 A 填值责任）→ 初版「降 advisory」与 B-2 解均自相矛盾,已按二轮 NEW-1/NEW-2 三度重解。** 初版说「provider 自报 fresh/stale 不进 readiness 字段」——但 `readiness_status` **就是**唯一新鲜度 enum、无独立轴 B 字段,「不进字段」无处落。B-2 改为「installed-but-stale 一律写 unknown + 用 repo_aligned=no 表达」——但二轮回源码实证(`computeProviderCounts:385-389` 只数 readiness_status、warn 分支 `:437-439` 不含 unknown、`repo_aligned` 仅 `verify-tools` 展示无 decision consumer)发现这会让 doctor stale 通路对 capability provider 变死代码、把 stale 路由到无人决策的字段、与 CON-PROV-001「stale→fallback」冲突。**三度重解(R6/U6 已写入)**:(1) provider 自报 `fresh` 不可信→`readiness_status=unknown`(不冒充 deterministic);(2) provider 自报 `stale` 可安全采信(夸低可用性、不破 advisory)→写 `readiness_status=stale`,复活既有 `computeProviderCounts.stale`→doctor warn→CON-PROV-001 fallback **deterministic 消费链**;(3) `repo_aligned`/`limitations` 仅作附带展示/说明,非 stale 唯一落点。**理由**:守「消费不耦合」红线 + 给 stale 一个**有 decision consumer** 的落点(非死代码) + 零新增机制。最小只读探针(artifact mtime vs git HEAD)仍是 Deferred,默认不引入,守 80/20。
 - **OQ-3（裂缝 B 是否纳入 v1.16）→ 决议不纳入。** honest-closeout 的 `verified` 牙齿问题属 v1.13 自身诚实度，与 v1.16 capability-aware 主题正交。**理由**：避免 v1.16 范围蔓延；裂缝 B 是真实问题但有独立修复路径（限定 verified 语义 / 加 caller-independent 校验），作为 follow-up 单独处理更清晰。
 
@@ -189,7 +182,7 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 
 > 批 1a = U1/U2/U4/U5（治理 hygiene,docs-only,与 install 零技术耦合,建议独立成轻量 docs-PR 先合,见 Scope 批次拆分）；批 1b = U3（术语对齐,虽形式上是 docs 改动但属 install 的 schema 校验前置,随 install-PR 或紧前于它落）；批 2 = U6（裂缝 A 定位决策落地）；批 3 = U7/U7b/U8/U9（install 侧实现,真实代码增量;**三轮 P1-B 已按形态分流:CodeGraph→install-mcp、Graphify→install-helpers**;U7b 是 P1-A 新增的 provider readiness producer)；批 4 = U10-U11（消费侧引导）；U12 同步贯穿。**install 实现的真实技术硬前置只有 U3(术语对齐防 schema 校验失败)+ U6(readiness 语义)**;U1/U2/U4/U5 是与 install 零技术耦合的治理 hygiene(Dependencies 均为「无」),不是 install 的编译期/校验期前置——初版「批1+U6 是 install 硬前置」措辞已按 plan 审查 SF-2 修正。U3 因此从「批 1 docs-only」析出为「批 1b install 前置」,消除与 Scope PR 切片(R3 归 install-PR)的归属冲突。**U7b(producer)是 R6 stale 通路真实点火的前提——无 producer 则 R6/CON-PROV-001 在真实管道里是死代码(三轮 P1-A)。**
 >
-> **⚠ 批 1 已落地状态(二轮审查实证,执行前必读)**:U1-U5 的 docs 改动**已在 working tree 落盘**(未提交),且 `scale-provider-doc-contracts.test.js` 已加机器守护(green)。各 U 下「Goal/Approach」按「从零写」语气写成,执行时应**先 disk-diff 幂等核对**——批 1 实际剩余工作量多为「核实已落盘表述准确 + 删除评审报告/README/本 plan 残留的『两者都零 producer』等误判表述 + 确认机器断言」,**不要把已落盘内容重写一遍**。
+> **⚠ 批 1 已落地状态(四轮 2026-06-07 `git log` 核实,执行前必读)**:U1-U5 的 docs 改动**已提交**(父方案/评审报告在 `4385a64a`、plan 在 `06041d55`,非「落盘未提交」——二轮「未提交」表述已过期),且 `scale-provider-doc-contracts.test.js` 已加机器守护(green)。各 U 下「Goal/Approach」按「从零写」语气写成,执行时应**先 disk-diff 幂等核对**——批 1 实际剩余工作量多为「核实已提交表述准确 + 删除评审报告/README/本 plan 残留的『两者都零 producer』等误判表述 + 确认机器断言」,**不要把已提交内容重写一遍**。
 
 ### U1. 补父方案 Phase E 标题（批 1，P0-1）
 
@@ -220,8 +213,8 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 - **Goal**：消除 prose 类别词与 schema kind enum 的漂移，防 v1.16 填 registry 时 schema 校验失败。
 - **Requirements**：R3（决议 OQ-1）。
 - **Dependencies**：无（但 U7 填 registry 强依赖本单元先落）。
-- **Files**：`docs/01-需求分析/13.scale集成/CodeGraph技术方案.md`（§2 或 §5.1 加映射注）；按 OQ-1 执行期确认结果可能涉及 `docs/contracts/provider-readiness.schema.json`。
-- **Approach**：默认 prose 映射注——在 CodeGraph 方案补「prose capability-class `code-graph` 映射到 provider-readiness `kind=code-structure`」。执行期先 grep `code-structure` 在 schema/helper 是否已有 consumer 依赖：无依赖且团队偏字面统一→可改 schema 增 `code-graph`（需 downstream 兼容 + 测试）；有依赖→坚持 prose 映射。
+- **Files**：`docs/01-需求分析/13.scale集成/CodeGraph技术方案.md`（§2 或 §5.1 加映射注）。**(OQ-1 收死)不改 `docs/contracts/provider-readiness.schema.json`——schema 字面统一是独立 follow-up,不在本单元。**
+- **Approach**：prose 映射注——在 CodeGraph 方案补「prose capability-class `code-graph` 映射到 provider-readiness `kind=code-structure`」;registry 一律字面写 `code-structure`。**(OQ-1 收死)本单元不动 schema enum**,不再保留「执行期可改 schema 增 `code-graph`」分叉(schema 增 enum 属中型变更,触及 downstream 兼容 + 测试,不得混进 install-PR)。
 - **Test scenarios**：`Covers R3.` 构造一个 `kind:code-structure`（或对齐后取值）的 provider entry 样例，断言能过 `provider-readiness` schema 校验；断言 prose 与 schema enum 无矛盾表述。
 - **Verification**：provider entry 样例过 schema 校验;prose/schema 术语对账一致。
 
@@ -241,9 +234,9 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 - **Requirements**：R5。
 - **Dependencies**：无。
 - **Files**：`docs/01-需求分析/13.scale集成/README.md` 版本线；父方案 §0.4.2（若有 alias 说明段）。
-- **Approach**：README 版本线给该重命名分配版本条目，或显式标注「未排期,迁移期持续用 `spec-mcp-setup` alias,canonical 名 `spec-runtime-setup` 为目标命名」。本计划不做实体 rename。
-- **Test scenarios**：`Test expectation: none -- 治理 prose 标注`；验证 README 含重命名排期或未排期标注。
-- **Verification**：读者不再误以为 `spec-runtime-setup` 实体已存在。
+- **Approach**：README 版本线给该重命名分配版本条目，或显式标注「未排期,迁移期持续用 `spec-mcp-setup` alias,canonical 名 `spec-runtime-setup` 为目标命名」。本计划不做实体 rename。**(P1 命名边界)本 PR 不新增 `skills/spec-runtime-setup/**`、不新增 `templates/.../runtime-setup.md`,所有真实 source path/脚本/测试仍指 `spec-mcp-setup`;除非另起 rename work,prose 的 canonical 名仅为目标命名标注,不得诱导创建实体。**
+- **Test scenarios**：`Covers R5 (machine-guarded).` 验证 README 含重命名排期或未排期标注;**(P1 命名边界反向断言)断言仓内不存在 `skills/spec-runtime-setup/` 目录与 `templates/**/runtime-setup.md` 文件(防 canonical prose 诱导创建实体)**。
+- **Verification**：读者不再误以为 `spec-runtime-setup` 实体已存在;无 `spec-runtime-setup/**` 实体被提前创建。
 
 ### U6. provider-readiness 轴 A 填值责任钉死 + installed-but-stale 走既有 deterministic 通路（批 2，裂缝 A / R6，B-2 + 二轮 NEW-1/NEW-2 修正）
 
@@ -260,24 +253,26 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 - **Goal**：按安装形态把两工具分流到正确 registry,并建缺失的 provider registry schema(含 G1 发布、generic_provider_readiness 纳入)。
 - **Requirements**：R7。
 - **Dependencies**：U3（kind 取值)、U6（readiness 语义)。
-- **Files**：`skills/spec-mcp-setup/mcp-tools.json`(CodeGraph opt-in MCP entry)；**新建 `docs/contracts/provider-tools-registry.schema.json`**(S2)；`skills/spec-mcp-setup/provider-tools.json`(Graphify CLI entry)；**`package.json`**(G1:新 schema 加 files)；**`tests/unit/package-install-contracts.test.js`**(G1:新 schema 安装断言)；**`tests/unit/dependency-readiness-baseline.test.js`**(S1,L149/L150 `providers).toEqual([])` 与 generic 断言)；参考 `skills/spec-mcp-setup/helper-tools.json`、现有 `mcp-tools.json` sequential-thinking entry。
+- **Files**：`skills/spec-mcp-setup/mcp-tools.json`(CodeGraph opt-in MCP entry)；**新建 `docs/contracts/provider-tools-registry.schema.json`**(S2)；`skills/spec-mcp-setup/provider-tools.json`(Graphify CLI entry)；**`skills/spec-mcp-setup/SKILL.md`**(P1#2:L32/L38 source contract 从「required MCP only」重定义,见 Approach)；**`package.json`**(G1:新 schema 加 files)；**`tests/unit/package-install-contracts.test.js`**(G1:新 schema 安装断言)；**`tests/unit/dependency-readiness-baseline.test.js`**(S1,L149/L150 `providers).toEqual([])` 与 generic 断言)；参考 `skills/spec-mcp-setup/helper-tools.json`、现有 `mcp-tools.json` sequential-thinking entry。
 - **Approach**：
   - **CodeGraph→`mcp-tools.json`**:作为 opt-in MCP entry,沿用现有 schema v6 结构(`installation`/`host_config`/`detection`/`project_bootstrap`);index(`codegraph init -i`)落 `project_bootstrap`。需配合 U8 放宽 `install-mcp.sh:594` required-only 拒绝、加 opt-in 准入位。
+  - **(P1#2 source contract 同步)改 `SKILL.md` source-of-truth prose**:当前 L32(registry of **required MCP servers**)、L38(**owns required MCP server definitions only** + Required helper tooling **must not** be added)是声明该契约的 source。加 CodeGraph opt-in MCP 必须把它重定义为「**required baseline MCP + explicit opt-in MCP capability entries**」,否则放宽 `install-mcp.sh:594`(脚本层)与 `SKILL.md`(source 契约层)自相矛盾——这是 source/runtime 边界遗漏,只改脚本不改声明契约的 source 不算闭合。
   - **Graphify→`provider-tools.json`**:CLI entry,`kind` 写 `project-graph`(已在 provider-readiness enum,无漂移);detect=`graphify --version`、install=`uv tool install graphifyy`、fallback=`docs/`/direct read。
   - **(S2)建 `provider-tools-registry.schema.json`**:schema root **显式声明 `generic_provider_readiness`**(否则 `additionalProperties:false` reject 现有文件、撞自身完成标准;`dependency-readiness-baseline.test.js:150` 断言该字段不可删);按 provider 语义裁字段,不照搬 helper 13 required;`kind` 引用 provider-readiness enum。
   - **(G1)** 新 schema 加入 `package.json` files + `package-install-contracts.test.js` 安装断言(helper schema 已在 files 是先例;不加则安装后缺失崩溃,重演 v1.14)。
   - **(S3)** `version_pin` 保留结构化字段(有确定性消费:install 取 pinned 版本);`personal_scope`/`name_bin_mismatch` 降为 `safety.risk_flags` 文本项(无外部对标启发式、helper safety 结构本有 risk_flags 数组可承载)。
-- **Test scenarios**：`Covers R7.` `provider-tools.json` 合法 JSON 且**含 generic_provider_readiness** 过新 schema;Graphify entry kind 过 provider-readiness enum;CodeGraph 在 mcp-tools.json 过 schema v6 + opt-in 位;新 schema 在 `pkg.files`(G1 正断言)+ npm pack 实际打包(G1 实测);`dependency-readiness-baseline.test.js` 的 `providers).toEqual([])` 改为对 Graphify entry 的结构/kind/risk_flags 断言、保留 generic_provider_readiness:150 断言。
+  - **(P1#3 周边 docs 前置,四轮修订)写 install 代码前,先修周边方案 docs 的分流前旧口径**:README:79、父方案 §8 Phase E 交付正文、§8.1 相位表当前仍写「CodeGraph/Graphify 都填 `provider-tools.json` + 扩 install-helpers configure MCP」(P1-B 分流前设计),会诱导执行人按旧路径实现。这部分**从 U12 析出、提前为 U7 前置或并行验收**,并加 doc-contract test(对标 `scale-provider-doc-contracts.test.js`)锁定「CodeGraph→mcp-tools.json、Graphify→provider-tools.json」,不等 U12 末尾兜底。
+- **Test scenarios**：`Covers R7.` `provider-tools.json` 合法 JSON 且**含 generic_provider_readiness** 过新 schema;Graphify entry kind 过 provider-readiness enum;CodeGraph 在 mcp-tools.json 过 schema v6 + opt-in 位;新 schema 在 `pkg.files`(G1 正断言)+ npm pack 实际打包(G1 实测);`dependency-readiness-baseline.test.js` 的 `providers).toEqual([])` 改为对 Graphify entry 的结构/kind/risk_flags 断言、保留 generic_provider_readiness:150 断言;**(P1#2 反向断言)`SKILL.md` prose 含「required baseline + explicit opt-in MCP」重定义、不再是「required only」措辞**。
 - **Verification**：CodeGraph 在 mcp-tools.json、Graphify 在 provider-tools.json;新 schema 存在且随包发布;generic_provider_readiness 不被 schema reject;基线测试不红。
 
-### U7b. provider readiness PRODUCER:对称复用 helper verify-only 产 provider_readiness[]（批 3，R7b，三轮 P1-A）
+### U7b. provider readiness PRODUCER:双路产 provider_readiness[]（Graphify→helper verify-only、CodeGraph→install-mcp verify）（批 3，R7b，三轮 P1-A + 四轮 P1-B 分流）
 
 - **Goal**：建造 `provider_readiness[]` 的 producer(全链现无),让 R6 复活的 stale→doctor warn→CON-PROV-001 fallback 在真实管道里能点火,而非恒空死代码。
 - **Requirements**：R7b。
-- **Dependencies**：U6（R6 填值规则）、U7（registry entry）。
-- **Files**：`skills/spec-mcp-setup/scripts/install-helpers.sh`/`.ps1`(`--verify-only` 对称扩展产 provider readiness,参照 :926 helper_tools 产法)；`skills/spec-mcp-setup/scripts/verify-tools.sh`/`.ps1`(:534 调 --verify-only、:627 现 passthrough provider_readiness→改为构造 entry)；`src/cli/helpers/setup-facts.js`(消费侧已就绪,只读)。
-- **Approach**：`install-helpers.sh --verify-only`(现产 `helper_tools`)对称扩展:对已注册 provider 做 detect + 自报新鲜度探测,产出 provider readiness 探测结果;`verify-tools.sh` 按 R6 规则构造 `provider_readiness[]` entry(detect 命中→填 lifecycle 布尔位;自报 fresh→`readiness_status=unknown`;自报 stale→`readiness_status=stale`)写入 readiness ledger / tool-facts。**不新建独立 producer 管线,复用既有 helper verify-only 对称模式**(与 helper_tools 同产法、同写入点)。
-- **Test scenarios**：`Covers R7b.` **end-to-end(非手喂 fixture)**:注册一个 provider entry → 经 detect/verify → 断言 `provider_readiness[]` 非空;构造「provider 自报 stale」场景 → 断言 `readiness_status=stale` 真流到 `computeProviderCounts.stale` 计数+1 → `computeDecisionInputHealth` warn 分支触发(证明 R6 通路活、非死代码);自报 fresh → 断言写 `unknown` 不写 fresh。**U6 现有手喂 fixture 测试保留但不足以替代此 end-to-end 断言**。
+- **Dependencies**：U6（R6 填值规则）、U7（registry entry）、U8（CodeGraph 的 MCP-source readiness 由 install-mcp 各 rung 产出,与 U8 同源）。
+- **Files**：`skills/spec-mcp-setup/scripts/install-helpers.sh`/`.ps1`(Graphify:`--verify-only` 对称扩展产 provider readiness,参照 :926 helper_tools 产法)；`skills/spec-mcp-setup/scripts/install-mcp.sh`/`.ps1`(CodeGraph:各 rung 探测产 MCP-source readiness)；`skills/spec-mcp-setup/scripts/verify-tools.sh`/`.ps1`(:534 调 --verify-only、:627 现 passthrough provider_readiness→改为**合并两路**构造 entry)；`src/cli/helpers/setup-facts.js`(消费侧已就绪,只读)。
+- **Approach**：**双路产出,统一写入 `provider_readiness[]`**:(a) Graphify(CLI)——`install-helpers.sh --verify-only` 对称扩展,对已注册 provider 做 detect + 自报新鲜度探测;(b) CodeGraph(MCP)——`install-mcp`/configure/index/probe 各 rung 探测 lifecycle,**不经 install-helpers**(该线零 MCP 概念);(c) `verify-tools.sh` 按 R6 规则**合并** helper-source 与 MCP-source 构造 entry(detect 命中→填 lifecycle 布尔位;自报 fresh→`readiness_status=unknown`;自报 stale→`readiness_status=stale`)写入 readiness ledger / tool-facts。**不新建独立 producer 管线,各自复用 install-helpers / install-mcp 既有 verify 模式。**
+- **Test scenarios**：`Covers R7b.` **end-to-end(非手喂 fixture,双路各一条)**:注册 provider entry → 经 detect/verify → 断言 `provider_readiness[]` 非空;构造「自报 stale」→ 断言 `readiness_status=stale` 真流到 `computeProviderCounts.stale` 计数+1 → `computeDecisionInputHealth` warn 分支触发(证明 R6 通路活、非死代码);自报 fresh → 断言写 `unknown` 不写 fresh。**Graphify(helper 路)与 CodeGraph(MCP 路)各覆盖一条端到端**;U6 手喂 fixture 测试保留但不足以替代。
 - **Verification**：provider_readiness[] 有真实 producer;R6 stale 通路 end-to-end 点火;消费侧测试不再靠手喂 fixture 掩盖 producer 空洞。
 
 ### U8. install 执行按形态分流:CodeGraph 复用 install-mcp、Graphify 扩 install-helpers、index 单独承载（批 3，R8，三轮 P1-B）
@@ -293,7 +288,7 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
   - **Graphify(CLI)→ install-helpers**:**(故障模式)uv 前置**——`uv tool install graphifyy` 的 `uv` 在 scripts 零引用(与 jq 同类),detect 缺 uv → gate 提示先装 uv(给指引)或纳入帮装,fallback/next_action 覆盖 uv 缺失。
   - **(执行模型注入面)** 沿用「每 provider 受控 case 分支(命令在脚本内,registry 只存 detect/safety/fallback 元数据)」,**不走 registry 命令串 eval**(避免执行 JSON 任意命令串注入面);现状 `run_install_command`(install-helpers.sh:322-355)正是写死 case、registry 命令仅展示近似(lib-helper-registry.sh:47)。
 - **Execution note**：Start with a failing focused test for「CodeGraph routes through install-mcp opt-in admission (not install-helpers); Graphify routes through install-helpers; configure clobber guard refuses to overwrite mismatched user entry」.
-- **Test scenarios**：`Covers R8.` CodeGraph 经 install-mcp opt-in 准入(断言不走 install-helpers configure);Graphify 经 install-helpers;configure clobber 保护;index 超时→indexed=false + next_action;uv 缺失 gate;sh/ps1 parity;命令来自受控 case 非 registry eval;过 install gate。
+- **Test scenarios**：`Covers R8.` CodeGraph 经 install-mcp opt-in 准入(断言不走 install-helpers configure);Graphify 经 install-helpers;configure clobber 保护;index 超时→indexed=false + next_action;uv 缺失 gate;sh/ps1 parity;命令来自受控 case 非 registry eval;过 install gate;**(P1#2/RR-6 反向断言)无 `opt_in`/`explicit_consent` 位的 non-required MCP 仍被 install-mcp 拒绝(`registry_not_required`),放宽不退化为「所有非 required 自动装」**。
 - **Verification**：CodeGraph 复用 install-mcp(无重造)、Graphify 走 install-helpers;clobber 不静默;index 半成品语义明确;uv 前置处理;双宿主对称。
 
 ### U9. install gate(状态可见/可重置) + ladder 表达(展示补 indexed/server_reachable + display-only 定性 + query_verified 验收)（批 3，R9，三轮多项）
@@ -303,7 +298,7 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 - **Dependencies**：U8。
 - **Files**：`skills/spec-mcp-setup/SKILL.md`(setup prose + gate 文案)、`skills/spec-mcp-setup/scripts/verify-tools.{sh,ps1}`(Provider tools 表补列)、`src/cli/commands/doctor.js`(可见性 routing,二选一)。
 - **Approach**：detect → install gate(CodeGraph 默认拦截、显式确认)→ 同意提示说清「装≠配≠用」阶梯 + 供应链风险(无 pin/个人维护/包名 bin 不一致,承 R7 risk_flags)→ 装。触发只在 setup workflow。
-  - **(可观测性)gate 状态可见+可重置**:下决策并写 Completion——(a) 记录 gate 选择(approved/rejected)+ reset 入口(对标 Claude Code `reset-project-choices`),或 (b) 显式声明 gate 为 setup-explicit 无状态重问并说明为何可接受。不留 silent undecided。
+  - **(可观测性)gate 状态可见+可重置**:下决策并写 Completion——(a) 记录 gate 选择(approved/rejected)+ reset 入口(对标 Claude Code `reset-project-choices`),或 (b) 显式声明 gate 为 setup-explicit 无状态重问并说明为何可接受。不留 silent undecided。**(P2 双宿主 Codex 口径)reset 入口不得只引用 Claude `reset-project-choices`:执行期须确认 Codex 侧等价 reset/forget 机制(若有)或显式声明「Codex 无等价机制→走 (b) 无状态重问」并说明可接受理由;双宿主 gate 状态 parity 与 MCP scope 同理——按宿主能力差异化,不假设 Claude 机制在 Codex 成立。**
   - **(故障模式)ladder 续跑状态**:与 U7b/R7b 联动——每 rung 完成后 lifecycle 布尔位写持久文件、下次 detect 读回判续跑起点、明确 mid-ladder SoT;断言「configure 失败→installed=true/configured=false,重跑从 configure 起不重装 CLI」。
   - **双宿主 MCP scope**:两宿主都无 project-level scope(Claude managed/user、Codex user/system);gate/ladder 不得出现「MCP 默认项目级」;parity 断言「行为对称、scope 落点按宿主差异化」。
   - **ladder 口径 + display-only 定性**:行使 `installed/configured/indexed/server_reachable/query_verified` 子集(`initialized/artifact_exists/fallback_used` 不参与,见 OQ-4)。**这 5 子集只 display/passthrough、无 decision consumer**——像 `repo_aligned` 一样显式定性为 display-only ladder 可读位、不进 decision path;唯一进决策的是 `readiness_status`。
@@ -339,7 +334,7 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 - **Requirements**：R12。
 - **Dependencies**：U1-U11。
 - **Files**：`CHANGELOG.md`、`docs/01-需求分析/13.scale集成/README.md`（v1.16 进展）、父方案 Phase E + **§9.0.1(登记 CON-CAP-001 + gate-lens producer + rule-maturity 豁免)**、CodeGraph 子方案、project-scaffold 子方案、相关 `tests/unit/*`(含 `dependency-readiness-baseline.test.js`、`scale-provider-doc-contracts.test.js`、`governance-contracts.test.js`)。
-- **Approach**：CHANGELOG 按格式追加（作者读 `~/.spec-first/.developer` profile,当前为 leokuang，user-visible）；README v1.16 进展（未开始→进行中→已完成）；父方案 §9.0.1 **登记 `CON-CAP-001`**(consumer=spec-plan/spec-code-review/spec-debug、行为变化由 U10 断言捕获)消除 Summary 幽灵 id;父方案/子方案对齐；GBrain 删除表述一致；新增/更新 contract tests；`npm test` 全绿 + 双宿主 parity 回归。
+- **Approach**：CHANGELOG 按格式追加（作者读 `~/.spec-first/.developer` profile,当前为 leokuang，user-visible）；README v1.16 进展（未开始→进行中→已完成）；父方案 §9.0.1 **登记 `CON-CAP-001`**(consumer=spec-plan/spec-code-review/spec-debug、行为变化由 U10 断言捕获)消除 Summary 幽灵 id;**父方案/子方案对齐——其中分流口径(CodeGraph→mcp-tools.json、Graphify→provider-tools.json)修正已按 P1#3 提前至 U7 前置并由 doc-contract test 锁定,U12 仅做最终一致性回归,不重复修**;GBrain 删除表述一致；新增/更新 contract tests；`npm test` 全绿 + 双宿主 parity 回归。
 - **Test scenarios**：`Covers R12.` `npm test` 全绿;新增 contract tests 通过;双宿主 prose parity 不回归;CHANGELOG 格式校验（若有 changelog-skill-contracts 测试）;**§9.0.1 含 CON-CAP-001 登记行**。
 - **Verification**：四文档一致;全量测试绿;双宿主对称;CON-CAP-001 已登记。
 
@@ -371,8 +366,9 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 | 受影响面 | 影响 | 单元 |
 | --- | --- | --- |
 | 父方案 / 子方案 / README（docs source-of-truth） | 治理 prose 收敛 + v1.16 进展 | U1/U2/U4/U5/U12 |
-| `provider-tools.json` + 新建 registry schema + install-helpers（setup runtime install） | 真实代码增量，双宿主 | U7/U8/U9 |
-| **host 级 MCP 配置**(`managed-mcp.json`/`$HOME/.claude.json`/`$HOME/.codex/config.toml`)+ `uninstall-mcp` | configure 写 host 级(非项目投影)、回滚走 uninstall-mcp;blast-radius host/user 级 | U8 |
+| **Graphify CLI 路径**:`provider-tools.json` + 新建 provider registry schema + `install-helpers`（setup runtime install） | 真实代码增量,双宿主,中等任务 | U7/U7b/U8/U9 |
+| **CodeGraph MCP 路径(主路径源文件,P1-B)**:`mcp-tools.json` opt-in entry + `install-mcp.sh`(放宽 :594 准入) + `configure-host.sh`(clobber guard) + `uninstall-mcp` | provider 协议变更**大任务**;放宽 MCP 准入口影响所有 MCP 准入(RR-6) | U7/U8/U9 |
+| **host 级 MCP 配置写入面**(`managed-mcp.json`/`$HOME/.claude.json`/`$HOME/.codex/config.toml`) | configure 写 host 级(非项目投影)、回滚走 uninstall-mcp;blast-radius host/user 级 | U8 |
 | `spec-plan`/`spec-code-review`/`spec-debug`（workflow source） | 消费 prose +1 句引导，触发 runtime 重生成 | U10/U11 |
 | generated runtime（`.claude`/`.codex`） | source 改动后需 `spec-first init` 重生成 | 合并后动作 |
 | 用户大仓 target repo | install 后影响面分析增强（advisory） | 运行期价值 |
@@ -418,8 +414,8 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 
 - target_repo: spec-first（当前仓）
 - source_refs: `skills/spec-mcp-setup/provider-tools.json`(providers:[]空壳)、`skills/spec-mcp-setup/scripts/install-helpers.{sh,ps1}`、`docs/contracts/provider-readiness.schema.json:21`(kind enum 无 code-graph)、`docs/contracts/workflows/spec-work-run-artifact.schema.json:235`(readiness 5 值 enum)、`src/cli/helpers/setup-facts.js:283`(normalizeProviderReadiness 纯 enum 归一)、`src/cli/helpers/task-governance-signals.js:263/329`(gate-lens **有 producer**)、父方案 §8(Phase E 初评缺失,本轮已补标题)、`docs/contracts/governance/rule-maturity.*`(零消费,有意 shadow)、`CodeGraph技术方案.md`(全文)、评审报告(全文,P0-2 已回源码更正)
-- current_revision: `3c8da872`（v1.15 提交后）；**批 1（U1-U5）已落地到 working tree 但未提交**(见下 worktree_dirty)
-- worktree_dirty: **是**(二轮审查实证)。批 1 的治理 hygiene 已落盘且 `git status` 显示未提交 `M`:父方案 Phase E 标题(L1070)+ CON-PROV-001 v1.16 标注(L1160)+ rule-maturity §7.3 豁免登记(L1166)+ gate-lens producer 登记(L1165)、CodeGraph 方案 code-structure 映射注、README 重命名排期/收敛 gate、`scale-provider-doc-contracts.test.js` 已加 v1.16 收敛 gate 机器断言(green)。**故 U1-U5 执行时应先 disk-diff 幂等核对**(多为「核实已落盘 + 删残留误判表述」,非从零写)。未提交项:`CHANGELOG.md`/CodeGraph/README/父方案/`scale-provider-doc-contracts.test.js`(均 `M`)+ 评审报告/本 plan(`??`)
+- current_revision: `06041d55`(当前 HEAD)；**批 1（U1-U5）+ 本 plan + 评审报告均已提交**(父方案/评审报告在 `4385a64a`,plan 在 `06041d55`;四轮 2026-06-07 `git log` 核实)
+- worktree_dirty: **否**(四轮 2026-06-07 `git log`/`git status --short` 核实,推翻二轮「是」)。批 1 的治理 hygiene(父方案 Phase E 标题 + CON-PROV-001 v1.16 标注 + rule-maturity §7.3 豁免 + gate-lens producer 登记、CodeGraph 方案 code-structure 映射注、README 重命名排期/收敛 gate、`scale-provider-doc-contracts.test.js` v1.16 收敛 gate 机器断言)**已全部提交**;`git status --short` 仅 `M CHANGELOG.md`(本次 plan 四轮修订会另使 plan 文件显示 `M`,属预期)。**故 U1-U5 执行时是对已提交内容做 disk-diff 幂等核对 + 删残留误判表述,而非「未提交待提交」**。
 - discovery_methods: `grep`/`find`/`node -e JSON.parse`/`git log` 直接核验;评审报告 P0-1/P1-3/P1-4/P1-5/§5 论断独立复核属实;**P0-2 经 plan 审查 B-1 回源码复核发现初版 grep 漏扫 `src/cli/helpers/`、gate-lens 实有 producer,已更正并降为 P2**
 - tests_or_logs: 上轮健康审查 1043 unit + E2E + smoke + mcp-setup(28) 全绿(v1.11-v1.13 有 commit;v1.14/v1.15 全绿为 CHANGELOG/commit 声称);本轮未重跑(plan 不执行),U12 起点应重跑锚定
 - confidence: 中-高(治理前置 + Phase E + 术语漂移 + 现状均磁盘证实;B1/B2 边界问题经源码反证已修;裂缝 A/B 与运行期行为属设计判断)
@@ -493,3 +489,21 @@ v1.11–v1.15 基线已闭合（readiness / verification / governance / knowledg
 - **P2 群(已并入相应 U)**:G1 新 schema 加 package.json files+安装断言(v1.14 教训复发)、G2 校验执行点明示 test-time(运行时裸 jq 不校验)、G3+uv 安装器前置、configure clobber 保护(不静默覆盖用户手配 MCP)、index 超时/半成品语义、registry 执行模型注入面(受控 case 非 eval 命令串)、gate 状态可见/可重置(对标 reset-project-choices)、ladder 续跑持久化状态机、verify-tools 表补 indexed/server_reachable、lifecycle 5 子集 display-only 定性(对齐 NEW 标准)、query_verified 真达成验收(区别 installed=true)、doctor text 可见性 routing、generic_provider_readiness schema 纳入(防 additionalProperties:false reject)、fallback_used 双结构分工澄清、name_bin_mismatch/personal_scope 降 risk_flags 文本。
 - **可接受的 deferred(未改决策,记录)**:同批落两工具(建议先 Graphify 验证模式再 CodeGraph,但同批可接受)、detect 版本兼容校验、uninstall 部分回滚结构化状态、Graphify 的 artifact_exists 新鲜度位——均 deferred 到实现期判断。
 - **验证**:两个 P1 经 Bash 源码核实(detect-tools 产=0、install-mcp.sh:594 required-only、install-helpers 零 configure-host、helper verify-only producer 模式存在);本轮为 plan 重构,`status: active` 仍未执行。
+
+### Plan 四轮审查修订记录（2026-06-07,P1-B 涟漪收敛 + 文档一致性,11 项）
+
+三轮拍定 P1-B 形态分流后,本轮聚焦「P1-B 决策的二阶影响是否扫干净」+ plan 文档自洽。用户逐条核到证据后修订 11 项(原列 12 项,GitNexus 负向空间测试经讨论判定为低 ROI 过度防御、撤销;RR-1 维持工具名断言 + 残余风险诚实标注)。统一根因:**P1-B 正文已重写,但 producer 落点、source contract、周边 docs、影响面表的涟漪未同步收敛**。
+
+- **(文档缺陷)删重复块**:R10/R11/R12 连同小标题被粘贴两遍,删简版保完整版。
+- **(P1-B 涟漪 1)producer 双路**:R7b/U7b 原只说 `install-helpers --verify-only`(仅 Graphify 路),CodeGraph(MCP)readiness 无 producer。改为双路——Graphify→helper verify-only、CodeGraph→install-mcp 各 rung,`verify-tools.sh:627` 从 passthrough 扩为合并两路;Completion 同步。
+- **(P1-B 涟漪 2)source contract**:`SKILL.md:32/38` 仍写 `mcp-tools.json` owns required-only,与 CodeGraph opt-in 矛盾。U7/U8 加 SKILL.md 重定义为「required baseline + explicit opt-in MCP」+ 反向断言「无 opt-in 位 non-required MCP 仍被拒」。
+- **(P1-B 涟漪 3)周边 docs 前置**:README:79、父方案 §8 Phase E/§8.1 相位表仍写「都填 provider-tools.json + install-helpers configure MCP」(分流前),从 U12 析出提前为 U7 前置 + doc-contract test 锁定分流。
+- **(P1-B 涟漪 4)影响面表**:System-Wide Impact 拆为 Graphify CLI 路径 + CodeGraph MCP 路径(mcp-tools.json + install-mcp/configure-host/uninstall-mcp)两行,blast radius 对称呈现。
+- **(切片)CodeGraph-MCP 独立 review gate**:Scope 批次拆分增设——CodeGraph MCP(放宽准入口、影响所有 MCP,大任务)从 Graphify CLI PR 拆出独立 review,Graphify 先行验通路。
+- **(验收口径)Summary 收敛**:install 闭环验收明确分层——CI 验结构,real-env 以 `query_verified=true` 验真可用,`installed=true` 不充当成功证明。
+- **(双宿主)Gate Codex 口径**:R9/U9 gate reset 不只引用 Claude `reset-project-choices`,加执行期确认 Codex 等价机制或显式无状态重问。
+- **(命名边界)硬验收**:U5/R5 加反向断言——本 PR 不新增 `skills/spec-runtime-setup/**` 与 `templates/.../runtime-setup.md`,source path 仍指 `spec-mcp-setup`。
+- **(抗膨胀)OQ-1 收死**:撤销「执行期可改 schema 增 `code-graph` enum」分叉,v1.16 一律 prose 映射、registry 字面写 `code-structure`,schema 字面统一作独立 follow-up。
+- **(状态刷新)Direct Evidence 去过期**:`git log` 核实批 1(U1-U5)+ plan + 评审报告均已提交(`4385a64a`/`06041d55`),`worktree_dirty` 从「是」改「否」(仅 CHANGELOG.md modified),Implementation Units 头警示同步从「未提交」改「已提交」。
+- **(撤销,非修订)GitNexus 负向空间测试**:经讨论判定为低 ROI 过度防御(真正死因向量难精确表达、易误报、高维护),不新增全仓结构性负向断言;RR-1 维持 U10 工具名 `not.toContain` 断言 + 残余风险诚实标注。
+- **验证**:5 个证据点(`SKILL.md:32/38`、`verify-tools.sh:627`、`install-mcp.sh:594`、`README:79`、技术方案 `:1076/:1115`)+ git 提交状态均经 Read/Bash 实测核实;本轮为 plan 修订,`status: active` 仍未执行,U12 起点应重跑 `npm test` 锚定。
