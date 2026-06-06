@@ -11,6 +11,10 @@ const PARENT_DOC = path.join(
   SCALE_DOC_ROOT,
   'spec-first内化集成scale-project-scaffold技术方案.md',
 );
+const PROJECT_SCAFFOLD_DOC = path.join(
+  SCALE_DOC_ROOT,
+  'project-scaffold依赖安装流程与spec-first-setup优化技术方案.md',
+);
 
 describe('SCALE provider documentation contracts', () => {
   test('CodeGraph provider examples keep readiness and evidence trust as separate axes', () => {
@@ -53,5 +57,24 @@ describe('SCALE provider documentation contracts', () => {
     expect(readme).toContain('provider-readiness.kind`：`code-structure`');
     expect(readme).toContain('runtime-without-FSM 能力确认');
     expect(readme).toContain('默认重定义为 OPT-B');
+  });
+
+  test('SCALE integration docs lock CodeGraph MCP route and Graphify CLI route', () => {
+    const codegraph = fs.readFileSync(CODEGRAPH_DOC, 'utf8');
+    const parent = fs.readFileSync(PARENT_DOC, 'utf8');
+    const readme = fs.readFileSync(README_DOC, 'utf8');
+    const projectScaffold = fs.readFileSync(PROJECT_SCAFFOLD_DOC, 'utf8');
+    const combined = [codegraph, parent, readme, projectScaffold].join('\n');
+
+    expect(combined).toContain('CodeGraph 这类 MCP provider 走 `mcp-tools.json`');
+    expect(combined).toContain('Graphify 这类 CLI provider 走 `provider-tools.json`');
+    expect(combined).toContain('CodeGraph 走 `mcp-tools.json` + `install-mcp`');
+    expect(combined).toContain('Graphify 走 `provider-tools.json` + `install-helpers`');
+    expect(codegraph).toContain('`codegraph init -i` 已弃用');
+    expect(codegraph).toContain('v0.9.9');
+
+    expect(combined).not.toContain('CodeGraph / Graphify entry');
+    expect(combined).not.toContain('CodeGraph/Graphify）的 install + configure MCP + 首次 index');
+    expect(combined).not.toContain('CLI+配 MCP+首次 index');
   });
 });

@@ -70,6 +70,7 @@ What this buys you:
 
 - Requirements become durable briefs instead of disappearing prompts.
 - Plans and task packs turn vague intent into reviewable execution context.
+- Task-pack handoffs now recommend splitting from source-plan structure and recommend document review for high-risk packs while keeping the engineer in the loop.
 - Work, review, debug, optimize, and compound workflows preserve evidence and learning.
 - Knowledge handoffs stay summary-first, and recalled `docs/solutions/` learnings remain advisory until reconfirmed from source evidence.
 - One source asset set supports Claude Code `/spec:*` entries and Codex `$spec-*` entries without hand-maintaining generated runtime copies.

@@ -553,6 +553,8 @@ $HostPointerReconciliation = Get-HostPointerReconciliation -CurrentHost $reconci
 
 function Test-ToolReady {
   param([object]$Tool)
+  $baselineBlocking = if ($Tool.PSObject.Properties.Name -contains 'baseline_blocking') { [bool]$Tool.baseline_blocking } elseif ($Tool.PSObject.Properties.Name -contains 'required') { [bool]$Tool.required } else { $true }
+  if (-not $baselineBlocking) { return $true }
   $hostReady = (
     ($Tool.PSObject.Properties.Name -contains 'host_config_required' -and -not [bool]$Tool.host_config_required -and $Tool.host_config_status -eq 'not-required') -or
     $Tool.host_config_status -eq 'ready' -or
@@ -618,6 +620,31 @@ if ($null -ne $Facts.PSObject.Properties['target'] -and -not [bool]$Facts.target
   $nextActions.Add('choose a child repo and rerun with --repo <child>')
 }
 
+$providerReadinessById = [ordered]@{}
+if ($HelperFacts.PSObject.Properties.Name -contains 'provider_readiness') {
+  foreach ($provider in @($HelperFacts.provider_readiness)) {
+    if ($null -ne $provider -and $provider.PSObject.Properties.Name -contains 'provider') {
+      $providerReadinessById[[string]$provider.provider] = $provider
+    }
+  }
+}
+$providerFactsTmp = ''
+try {
+  $providerFactsTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("spec-first-provider-facts.{0}.json" -f ([guid]::NewGuid().ToString('N')))
+  $Facts | ConvertTo-Json -Depth 20 | Set-Content -Encoding utf8 $providerFactsTmp
+  $mcpProviderRaw = & node (Join-Path $ScriptDir 'provider-readiness-renderer.cjs') --source mcp --facts-file $providerFactsTmp --repo-root $reconciliationRepoRoot
+  foreach ($provider in @($mcpProviderRaw | ConvertFrom-Json)) {
+    if ($null -ne $provider -and $provider.PSObject.Properties.Name -contains 'provider') {
+      $providerReadinessById[[string]$provider.provider] = $provider
+    }
+  }
+  Remove-Item -Force $providerFactsTmp -ErrorAction SilentlyContinue
+} catch {
+  if (-not [string]::IsNullOrWhiteSpace($providerFactsTmp)) {
+    Remove-Item -Force $providerFactsTmp -ErrorAction SilentlyContinue
+  }
+}
+
 New-Item -ItemType Directory -Force -Path $MarkerDir | Out-Null
 $combined = [ordered]@{
   schema_version = 'v2'
@@ -652,6 +679,7 @@ $combined = [ordered]@{
   completed_at = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
   tools = $Facts.tools
   helper_tools = $helperTools
+  provider_readiness = @($providerReadinessById.Values)
   mirror_endpoints = if ($HelperFacts.PSObject.Properties.Name -contains 'mirror_endpoints') { $HelperFacts.mirror_endpoints } else { $null }
   recommended_environment_variables = if ($HelperFacts.PSObject.Properties.Name -contains 'recommended_environment_variables') { $HelperFacts.recommended_environment_variables } else { $null }
   next_actions = @($nextActions)
@@ -845,6 +873,8 @@ $providerRows = @(
       (Format-Cell (Get-Field -InputObject $provider -Name 'readiness_status' -Default 'unknown')),
       (Format-Cell (Get-NestedValue -InputObject $provider -PathParts @('lifecycle', 'installed'))),
       (Format-Cell (Get-NestedValue -InputObject $provider -PathParts @('lifecycle', 'configured'))),
+      (Format-Cell (Get-NestedValue -InputObject $provider -PathParts @('lifecycle', 'indexed'))),
+      (Format-Cell (Get-NestedValue -InputObject $provider -PathParts @('lifecycle', 'server_reachable'))),
       (Format-Cell (Get-NestedValue -InputObject $provider -PathParts @('lifecycle', 'query_verified'))),
       (Format-Cell (Get-Field -InputObject $provider -Name 'repo_aligned' -Default 'unknown')),
       (Format-Cell (Get-NestedValue -InputObject $provider -PathParts @('fallback', 'reason_code'))),
@@ -906,7 +936,7 @@ $sections = @(
   }
   [ordered]@{
     title = 'Provider tools'
-    headers = @('provider', 'kind', 'profile', 'readiness', 'installed', 'configured', 'query_verified', 'repo_aligned', 'fallback_reason', 'next_actions')
+    headers = @('provider', 'kind', 'profile', 'readiness', 'installed', 'configured', 'indexed', 'server_reachable', 'query_verified', 'repo_aligned', 'fallback_reason', 'next_actions')
     rows = $providerRows
   }
   [ordered]@{

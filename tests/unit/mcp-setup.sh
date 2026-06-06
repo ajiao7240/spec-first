@@ -38,15 +38,21 @@ command -v jq >/dev/null 2>&1 || fail "jq is required"
 command -v node >/dev/null 2>&1 || fail "node is required"
 
 assert_eq "registry schema version" "6" "$(jq -r '.schema_version' "$TOOLS_JSON")"
-assert_eq "tool ids are current" "sequential-thinking,context7" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
+assert_eq "tool ids are current" "sequential-thinking,context7,codegraph" "$(jq -r '[.tools[].id] | join(",")' "$TOOLS_JSON")"
+assert_eq "required baseline tools are current" "sequential-thinking,context7" "$(jq -r '[.tools[] | select(.required == true) | .id] | join(",")' "$TOOLS_JSON")"
 assert_eq "registry categories are mcp only" "true" "$(jq -r 'all(.tools[]; .category == "mcp")' "$TOOLS_JSON")"
-assert_eq "all tools are required" "true" "$(jq -r 'all(.tools[]; .required == true)' "$TOOLS_JSON")"
+assert_eq "optional tools require explicit opt-in" "true" "$(jq -r 'all(.tools[]; (.required == true) or (.opt_in.explicit_consent_required == true))' "$TOOLS_JSON")"
+assert_eq "codegraph is explicit opt-in" "true" "$(jq -r '.tools[] | select(.id == "codegraph") | (.required == false and .opt_in.explicit_consent_required == true and .provider_readiness.kind == "code-structure")' "$TOOLS_JSON")"
 assert_eq "summary includes project bootstrap column" "true" "$(jq -r '.summary_columns | index("project_bootstrap") != null' "$TOOLS_JSON")"
 
 while IFS= read -r script_path; do
   bash -n "$script_path"
 done < <(find "$SCRIPTS_DIR" -name '*.sh' -type f | sort)
 pass_count=$((pass_count + 1))
+
+assert "bash install-mcp gates optional tools" grep -q 'optional_tool_allowed' "$SCRIPTS_DIR/install-mcp.sh"
+assert "bash install-mcp keeps registry_not_required for ungated optional tools" grep -q 'registry_not_required' "$SCRIPTS_DIR/install-mcp.sh"
+assert "bash configure-host guards optional clobber" grep -q 'SPEC_FIRST_MCP_CONFIGURE_OVERWRITE' "$SCRIPTS_DIR/configure-host.sh"
 
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/spec-first-mcp-setup.XXXXXX")"
 trap 'rm -rf "$TMP_ROOT"' EXIT
@@ -162,6 +168,8 @@ assert_eq "@latest drift is non-blocking host status" "registry-args-drift,regis
 assert_eq "@latest drift is reported as degraded" "degraded,degraded" "$(jq -r '[.tools["sequential-thinking"].result, .tools.context7.result] | join(",")' <<<"$drift_output")"
 assert_eq "@latest drift records version reason" "host-config-version-drift,host-config-version-drift" "$(jq -r '[.tools["sequential-thinking"].reason_code, .tools.context7.reason_code] | join(",")' <<<"$drift_output")"
 assert_eq "@latest drift has no configure-host action" "true" "$(jq -r '(.tools["sequential-thinking"].next_action == "") and (.tools.context7.next_action == "")' <<<"$drift_output")"
+assert_eq "optional codegraph does not request setup when unselected" "optional-capability-not-selected" "$(jq -r '.tools.codegraph.reason_code' <<<"$drift_output")"
+assert_eq "optional codegraph is non-baseline-blocking" "false" "$(jq -r '.tools.codegraph.baseline_blocking' <<<"$drift_output")"
 
 REPO_SYMLINK="$TMP_ROOT/repo-symlink"
 OUTSIDE_CONFIG="$TMP_ROOT/outside-config"

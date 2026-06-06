@@ -16,8 +16,10 @@ const {
 const repoRoot = path.resolve(__dirname, '../..');
 const helperRegistryPath = path.join(repoRoot, 'skills/spec-mcp-setup/helper-tools.json');
 const providerToolsPath = path.join(repoRoot, 'skills/spec-mcp-setup/provider-tools.json');
+const providerRendererPath = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/provider-readiness-renderer.cjs');
 const scanConfiguredDepsPath = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/scan-configured-deps.cjs');
 const installHelpersPath = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.sh');
+const installMcpPath = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-mcp.sh');
 const setupPlanRendererPath = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/setup-plan-renderer.cjs');
 
 function readJson(filePath) {
@@ -139,6 +141,7 @@ describe('dependency readiness baseline contracts', () => {
   test('tool facts and provider readiness schemas reject drifted enums', () => {
     const toolFactsSchema = readJson(path.join(repoRoot, 'docs/contracts/tool-facts.schema.json'));
     const providerSchema = readJson(path.join(repoRoot, 'docs/contracts/provider-readiness.schema.json'));
+    const providerToolsSchema = readJson(path.join(repoRoot, 'docs/contracts/provider-tools-registry.schema.json'));
     const providerTools = readJson(providerToolsPath);
 
     expect(validateAgainstSchema(toolFactsSchema, toolFactsFixture()).errors).toEqual([]);
@@ -146,7 +149,27 @@ describe('dependency readiness baseline contracts', () => {
     expect(validateAgainstSchema(providerSchema, providerFixture({ readiness_status: 'unavailable' })).errors).toContain(
       'root.readiness_status: value "unavailable" not in enum',
     );
-    expect(providerTools.providers).toEqual([]);
+    expect(validateAgainstSchema(providerToolsSchema, providerTools).errors).toEqual([]);
+    expect(providerTools.providers).toHaveLength(1);
+    expect(providerTools.providers[0]).toMatchObject({
+      id: 'graphify',
+      kind: 'project-graph',
+      install_route: 'install-helpers',
+      installation: {
+        strategy: 'uv-tool',
+        package: 'graphifyy',
+        version_pin: '0.8.33',
+      },
+      readiness: {
+        fresh_self_report_maps_to: 'unknown',
+        stale_self_report_maps_to: 'stale',
+      },
+    });
+    expect(providerTools.providers[0].safety.risk_flags).toEqual(expect.arrayContaining([
+      'name-bin-mismatch:graphifyy->graphify',
+      'single-maintainer-bus-factor',
+      'global-uv-tool-install',
+    ]));
     expect(providerTools.generic_provider_readiness.readiness_status_values).toEqual([
       'fresh',
       'stale',
@@ -154,6 +177,139 @@ describe('dependency readiness baseline contracts', () => {
       'not-run',
       'unknown',
     ]);
+  });
+
+  test('provider readiness renderer maps helper self-reports conservatively', () => {
+    const tempDir = makeTempDir();
+    const binDir = path.join(tempDir, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    const graphifyBin = path.join(binDir, process.platform === 'win32' ? 'graphify.cmd' : 'graphify');
+    fs.writeFileSync(graphifyBin, process.platform === 'win32' ? '@echo off\r\nexit /b 0\r\n' : '#!/bin/sh\nexit 0\n', 'utf8');
+    fs.chmodSync(graphifyBin, 0o755);
+
+    const baseEnv = {
+      ...process.env,
+      PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+    };
+    const freshResult = spawnSync(process.execPath, [providerRendererPath, '--source', 'helper', '--repo-root', tempDir], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...baseEnv,
+        SPEC_FIRST_PROVIDER_GRAPHIFY_SELF_REPORTED_STATUS: 'fresh',
+      },
+    });
+    expect(freshResult.status).toBe(0);
+    expect(JSON.parse(freshResult.stdout)[0]).toMatchObject({
+      provider: 'graphify',
+      readiness_status: 'unknown',
+      lifecycle: {
+        installed: true,
+      },
+    });
+
+    const staleResult = spawnSync(process.execPath, [providerRendererPath, '--source', 'helper', '--repo-root', tempDir], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...baseEnv,
+        SPEC_FIRST_PROVIDER_GRAPHIFY_SELF_REPORTED_STATUS: 'stale',
+      },
+    });
+    expect(staleResult.status).toBe(0);
+    expect(JSON.parse(staleResult.stdout)[0]).toMatchObject({
+      provider: 'graphify',
+      readiness_status: 'stale',
+    });
+  });
+
+  test('provider readiness renderer derives CodeGraph lifecycle from MCP facts', () => {
+    const tempDir = makeTempDir();
+    const factsPath = path.join(tempDir, 'facts.json');
+    writeJson(factsPath, {
+      tools: {
+        codegraph: {
+          required: false,
+          dependency_status: 'ready',
+          host_config_status: 'ready',
+          project_status: 'ready',
+          configured: true,
+          result: 'ready',
+          reason_code: 'ready',
+        },
+      },
+    });
+
+    const result = spawnSync(process.execPath, [providerRendererPath, '--source', 'mcp', '--facts-file', factsPath, '--repo-root', tempDir], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        SPEC_FIRST_PROVIDER_CODEGRAPH_SELF_REPORTED_STATUS: 'fresh',
+        SPEC_FIRST_PROVIDER_CODEGRAPH_SERVER_REACHABLE: '1',
+        SPEC_FIRST_PROVIDER_CODEGRAPH_QUERY_VERIFIED: '1',
+      },
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)[0]).toMatchObject({
+      provider: 'codegraph',
+      kind: 'code-structure',
+      readiness_status: 'unknown',
+      lifecycle: {
+        installed: true,
+        configured: true,
+        indexed: true,
+        server_reachable: true,
+        query_verified: true,
+      },
+    });
+
+    const configuredOnlyResult = spawnSync(process.execPath, [providerRendererPath, '--source', 'mcp', '--facts-file', factsPath, '--repo-root', tempDir], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        SPEC_FIRST_PROVIDER_CODEGRAPH_SELF_REPORTED_STATUS: 'fresh',
+      },
+    });
+    expect(configuredOnlyResult.status).toBe(0);
+    expect(JSON.parse(configuredOnlyResult.stdout)[0]).toMatchObject({
+      provider: 'codegraph',
+      lifecycle: {
+        installed: true,
+        configured: true,
+        indexed: true,
+        server_reachable: false,
+        query_verified: false,
+      },
+    });
+  });
+
+  test('install-mcp default install skips unselected optional MCP entries', () => {
+    const tempDir = makeTempDir();
+    const binDir = path.join(tempDir, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    const npxPath = path.join(binDir, 'npx');
+    fs.writeFileSync(npxPath, '#!/bin/sh\nexit 0\n', 'utf8');
+    fs.chmodSync(npxPath, 0o755);
+
+    const result = spawnSync('bash', [installMcpPath, '--repo', tempDir], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: tempDir,
+        MCP_SETUP_HOST: 'codex',
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        SPEC_FIRST_STAGE_TIMEOUT_SECONDS: '5',
+        SPEC_FIRST_WARMUP_CACHE_DIR: path.join(tempDir, 'warmup-cache'),
+      },
+    });
+
+    expect(result.status).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.results.map((entry) => entry.tool_id)).toEqual(['sequential-thinking', 'context7']);
+    expect(payload.results.some((entry) => entry.tool_id === 'codegraph')).toBe(false);
   });
 
   test('normalizer surfaces configured scan status so scan failures are not silently empty', () => {

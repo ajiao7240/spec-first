@@ -325,6 +325,13 @@ should_install() {
   return 0
 }
 
+optional_tool_allowed() {
+  local tool_id="$1"
+  local explicit_consent_required
+  explicit_consent_required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .opt_in.explicit_consent_required // false' "$TOOLS_JSON")"
+  [ "$explicit_consent_required" = "true" ] && [ -n "$ONLY_FILTER" ]
+}
+
 check_tool_dependencies() {
   local tool_id="$1"
   local dep
@@ -410,6 +417,27 @@ warmup_cache_hit() {
     [ $((last_success_epoch + ttl_seconds)) -ge "$now" ] || return 1
   fi
   return 0
+}
+
+project_bootstrap_status() {
+  local tool_id="$1"
+  local bootstrap_kind required project_file
+  bootstrap_kind="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.kind // "none"' "$TOOLS_JSON")"
+  required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.required // false' "$TOOLS_JSON")"
+  if [ "$bootstrap_kind" = "none" ] || [ "$required" != "true" ]; then
+    echo not-applicable
+    return
+  fi
+  if [ "$TARGET_STATE_WRITE_ALLOWED" != "true" ]; then
+    echo target-action-required
+    return
+  fi
+  project_file="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.project_file // empty' "$TOOLS_JSON")"
+  if [ -n "$project_file" ] && [ -f "$REPO_ROOT/$project_file" ]; then
+    echo ready
+    return
+  fi
+  echo pending
 }
 
 write_warmup_cache() {
@@ -592,17 +620,20 @@ done < <(jq -r '.tools[].id' "$TOOLS_JSON")
 
 for tool_id in "${TOOL_IDS[@]}"; do
   required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .required' "$TOOLS_JSON")"
-  if [ "$required" != "true" ]; then
-    append_result "$tool_id" "action-required" "failed" "warmup" "registry_not_required" "mcp-tools.json schema v6 只允许 required tools" "" "" false "" "" ""
+  if ! should_install "$tool_id"; then
     continue
   fi
 
   install_kind="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.kind' "$TOOLS_JSON")"
-  host_config_required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | if has("host_config_required") then .host_config_required else true end' "$TOOLS_JSON")"
-
-  if ! should_install "$tool_id"; then
+  if [ "$required" != "true" ] && [ -z "$ONLY_FILTER" ]; then
     continue
   fi
+  if [ "$required" != "true" ] && ! optional_tool_allowed "$tool_id"; then
+    append_result "$tool_id" "action-required" "failed" "$install_kind" "registry_not_required" "optional MCP tools require explicit opt-in metadata and --only <tool-id>" "" "" false "" "" ""
+    continue
+  fi
+
+  host_config_required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | if has("host_config_required") then .host_config_required else true end' "$TOOLS_JSON")"
 
   last_action="installed"
   reason_code=""
@@ -677,6 +708,38 @@ EOF
     last_action="host-config-skipped"
     next_action=""
     diagnostic_summary="host MCP config is not required for this tool"
+  fi
+
+  project_state="$(project_bootstrap_status "$tool_id")"
+  if [ "$status" = "ready" ] && [ "$project_state" = "target-action-required" ]; then
+    status="action-required"
+    last_action="failed"
+    reason_code="project_target_required"
+    next_action="${TARGET_NEXT_ACTION:-选择目标 repo 后重跑 setup}"
+    diagnostic_summary="project bootstrap requires a writable target repo"
+  elif [ "$status" = "ready" ] && [ "$project_state" = "pending" ]; then
+    bootstrap_command="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.unix.command' "$TOOLS_JSON")"
+    bootstrap_args=()
+    while IFS= read -r arg; do
+      bootstrap_args+=("$arg")
+    done <<EOF
+$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'.tools[] | select(.id == $id) as $t | $t.project_bootstrap.unix.args[] | expand_tpl($t)' "$TOOLS_JSON")
+EOF
+    pushd "$REPO_ROOT" >/dev/null
+    if run_and_capture "project-bootstrap:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$bootstrap_command" "${bootstrap_args[@]}"; then
+      popd >/dev/null
+      last_action="project-bootstrapped"
+    else
+      popd >/dev/null
+      status="action-required"
+      last_action="failed"
+      reason_code="project_bootstrap_failed"
+      next_action="检查 project_bootstrap 命令、网络和 repo 写入权限"
+      exit_code="$RUN_EXIT_CODE"
+      diagnostic_summary="$RUN_DIAGNOSTIC"
+    fi
+  elif [ "$status" = "ready" ] && [ "$project_state" = "ready" ]; then
+    last_action="project-bootstrap-cache-hit"
   fi
 
   append_result "$tool_id" "$status" "$last_action" "$install_kind" "$reason_code" "$next_action" "$configured_path" "$selected_scope" "$fallback_applied" "$exit_code" "$diagnostic_summary" "$repair_diagnostic_summary"

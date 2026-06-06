@@ -507,6 +507,7 @@ function Wait-ParallelCommandTasks {
 }
 
 $helperTools = [ordered]@{}
+$providerReadiness = @()
 $parallelTasks = [ordered]@{}
 $platform = Get-PlatformName
 $agentBrowserInstallMarker = Join-Path $HOME '.agent-browser/spec-first-install.json'
@@ -740,8 +741,32 @@ if ($astGrepSkillInstallQueued) {
   Add-HelperFact -HelperTools $helperTools -Id 'ast-grep-skill' -Type 'global-skill' -DependencyStatus $astGrepSkillDependencyStatus -InstallStatus $astGrepSkillInstallStatus -SkillStatus $astGrepSkillStatus -Result $astGrepSkillStatus -NextAction $astGrepSkillNextAction
 }
 
+function Test-ProviderConsentApproved {
+  param([string]$Provider)
+  $value = [Environment]::GetEnvironmentVariable("SPEC_FIRST_PROVIDER_${Provider}_CONSENT")
+  if ([string]::IsNullOrWhiteSpace($value)) { return $false }
+  return @('approved', 'yes', 'true', '1') -contains $value.ToLowerInvariant()
+}
+
+function Invoke-GraphifyProviderInstallIfRequested {
+  if ($mode -ne 'install') { return }
+  if (-not (Test-ProviderConsentApproved -Provider 'GRAPHIFY')) { return }
+  if (Test-CommandExists 'graphify') { return }
+  if (-not (Test-CommandExists 'uv')) { return }
+  Invoke-HelperCommand { uv tool install graphifyy==0.8.33 } | Out-Null
+}
+
+Invoke-GraphifyProviderInstallIfRequested
+try {
+  $providerReadinessRaw = & node (Join-Path $PSScriptRoot 'provider-readiness-renderer.cjs') --source helper --repo-root (Get-Location).Path
+  $providerReadiness = @($providerReadinessRaw | ConvertFrom-Json)
+} catch {
+  $providerReadiness = @()
+}
+
 [pscustomobject]@{
   helper_tools = $helperTools
+  provider_readiness = @($providerReadiness)
   mirror_endpoints = $script:MirrorEndpoints
   recommended_environment_variables = [ordered]@{
     npm = [ordered]@{ npm_config_registry = $script:MirrorEndpoints.npm }

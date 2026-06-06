@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "providers", "generic_provider_readiness"],
+  "properties": {
+    "schema_version": { "const": "provider-tools-registry.v1" },
+    "providers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/provider" }
+    },
+    "generic_provider_readiness": {
+      "type": "object",
+      "required": ["schema_version", "readiness_status_values", "fallback_methods"],
+      "properties": {
+        "schema_version": { "const": "provider-readiness.v1" },
+        "readiness_status_values": {
+          "type": "array",
+          "items": { "enum": ["fresh", "stale", "degraded", "not-run", "unknown"] }
+        },
+        "fallback_methods": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "provider": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "profile",
+        "capability_class",
+        "install_route",
+        "detection",
+        "installation",
+        "safety",
+        "readiness",
+        "fallback"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["code-structure", "project-graph", "memory", "generic"] },
+        "profile": { "enum": ["minimal", "recommended", "platform"] },
+        "capability_class": { "enum": ["code-graph", "project-graph", "memory", "generic"] },
+        "install_route": { "enum": ["install-helpers", "install-mcp", "manual"] },
+        "detection": {
+          "type": "object",
+          "required": ["kind", "command"],
+          "properties": {
+            "kind": { "enum": ["command", "artifact"] },
+            "command": { "type": "string", "minLength": 1 },
+            "version_args": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "artifact_paths": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          },
+          "additionalProperties": false
+        },
+        "installation": {
+          "type": "object",
+          "required": ["strategy", "package", "version_pin", "commands_display", "next_action"],
+          "properties": {
+            "strategy": { "enum": ["uv-tool", "npm-global", "manual"] },
+            "package": { "type": "string", "minLength": 1 },
+            "version_pin": { "type": "string", "minLength": 1 },
+            "commands_display": {
+              "type": "object",
+              "properties": {
+                "macos": { "type": "string" },
+                "linux": { "type": "string" },
+                "windows": { "type": "string" }
+              },
+              "additionalProperties": false
+            },
+            "next_action": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "safety": {
+          "type": "object",
+          "required": ["risk_flags", "source", "source_repo", "version_policy", "review_required", "install_effect"],
+          "properties": {
+            "risk_flags": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "source": { "type": "string" },
+            "source_repo": { "type": "string" },
+            "version_policy": {
+              "type": "object",
+              "required": ["pin_status"],
+              "properties": {
+                "pin_status": { "enum": ["pinned", "unpinned", "latest", "manual", "not-applicable"] }
+              },
+              "additionalProperties": false
+            },
+            "review_required": { "type": "boolean" },
+            "install_effect": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "readiness": {
+          "type": "object",
+          "required": ["producer", "fresh_self_report_maps_to", "stale_self_report_maps_to"],
+          "properties": {
+            "producer": { "enum": ["install-helpers", "install-mcp", "manual"] },
+            "fresh_self_report_maps_to": { "const": "unknown" },
+            "stale_self_report_maps_to": { "const": "stale" }
+          },
+          "additionalProperties": false
+        },
+        "fallback": {
+          "type": "object",
+          "required": ["available", "methods", "reason_code"],
+          "properties": {
+            "available": { "type": "boolean" },
+            "methods": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "reason_code": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

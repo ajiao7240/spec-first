@@ -322,6 +322,18 @@ describe('spec-work task-pack identity contract', () => {
     expect(shipping).toContain('Task-level review focus requests it');
     expect(shipping).toContain('does not force full multi-persona autofix review');
   });
+
+  test('plan-path suitability check recommends task compilation from plan structure', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('recommend the diversion once only when source plan structure shows high execution complexity');
+    expect(text).toContain('many implementation units, declared `Files`, dependency chains, cross-module surfaces, broad verification spread, or `plan_depth: deep`');
+    expect(text).toContain('the reason is to reduce single-run context load, broad review scope, and coupled rollback cost');
+    expect(text).toContain('if the user chooses task compilation, pause plan execution');
+    expect(text).toContain('if the user chooses direct execution, continue with `before-work --plan`');
+    expect(text).not.toContain('offer the diversion once only when the plan has strong signals');
+    expect(text).not.toContain('automatically compile a task pack');
+  });
 });
 
 describe('spec-work subagent isolation contract', () => {

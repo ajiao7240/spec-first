@@ -549,10 +549,12 @@ trap 'rm -f "$combined_tmp" "$final_tmp" "$facts_scan_tmp"' EXIT
 chmod 600 "$combined_tmp" "$final_tmp"
 printf '%s\n' "$FACTS_JSON" > "$facts_scan_tmp"
 CONFIGURED_SCAN="$(bash "$SCRIPT_DIR/scan-configured-deps.sh" --repo-root "$RECONCILIATION_REPO_ROOT" --facts-file "$facts_scan_tmp" 2>/dev/null || jq -n '{configured_dependencies:[]}')"
+MCP_PROVIDER_JSON="$(node "$SCRIPT_DIR/provider-readiness-renderer.cjs" --source mcp --facts-file "$facts_scan_tmp" --repo-root "$RECONCILIATION_REPO_ROOT" 2>/dev/null || printf '[]')"
 
 jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
   --arg marker_path "$MARKER_PATH" \
   --argjson helper "$HELPER_JSON" \
+  --argjson mcp_provider_readiness "$MCP_PROVIDER_JSON" \
   --argjson configured_scan "$CONFIGURED_SCAN" \
   --argjson host_pointer_reconciliation "$HOST_POINTER_RECONCILIATION" \
   '
@@ -562,9 +564,12 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
     or (.host_config_status == "fallback-active")
     or (.host_config_status == "registry-args-drift");
   def tool_ready:
-    (.dependency_status == "ready")
-    and host_ready
-    and ((.project_status == "ready") or (.project_status == "not-applicable") or (.project_status == "workspace-target-required"));
+    ((if has("baseline_blocking") then .baseline_blocking else (.required // true) end) == false)
+    or (
+      (.dependency_status == "ready")
+      and host_ready
+      and ((.project_status == "ready") or (.project_status == "not-applicable") or (.project_status == "workspace-target-required"))
+    );
   def baseline_blocking:
     if has("baseline_blocking") then .baseline_blocking else true end;
   def helper_ready:
@@ -624,7 +629,10 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
       completed_at: $completed_at,
       tools: $facts.tools,
       helper_tools: $helper_tools,
-      provider_readiness: ($facts.provider_readiness // []),
+      provider_readiness: (
+        (($facts.provider_readiness // []) + ($helper.provider_readiness // []) + ($mcp_provider_readiness // []))
+        | unique_by(.provider)
+      ),
       configured_dependencies: ($configured_scan.configured_dependencies // []),
       mirror_endpoints: ($helper.mirror_endpoints // null),
       recommended_environment_variables: ($helper.recommended_environment_variables // null),
@@ -741,6 +749,8 @@ jq -c '
         display(.readiness_status),
         display(.lifecycle.installed),
         display(.lifecycle.configured),
+        display(.lifecycle.indexed),
+        display(.lifecycle.server_reachable),
         display(.lifecycle.query_verified),
         display(.repo_aligned),
         display(.fallback.reason_code),
@@ -789,7 +799,7 @@ jq -c '
       {title: "Execution result", headers: ["Area", "Status", "Evidence", "Next"], rows: summary_rows},
       {title: "MCP servers", headers: ["id", "kind", "profile", "required", "baseline_blocking", "dependency", "configured", "allowed", "install", "safety", "result", "reason_code", "next_action"], rows: mcp_rows},
       {title: "Helper tools", headers: ["id", "kind", "profile", "required", "baseline_blocking", "dependency", "configured", "allowed", "install", "safety", "result", "reason_code", "next_action"], rows: helper_rows},
-      {title: "Provider tools", headers: ["provider", "kind", "profile", "readiness", "installed", "configured", "query_verified", "repo_aligned", "fallback_reason", "next_actions"], rows: provider_rows},
+      {title: "Provider tools", headers: ["provider", "kind", "profile", "readiness", "installed", "configured", "indexed", "server_reachable", "query_verified", "repo_aligned", "fallback_reason", "next_actions"], rows: provider_rows},
       {title: "Host configured dependencies", headers: ["id", "kind", "source_path", "command", "args_shape", "declared_tool_id", "declared_status", "dependency", "configured", "result", "reason_code"], rows: configured_dependency_rows},
       {title: "Install safety", headers: ["id", "safety", "install_source", "mirror_used", "next_action"], rows: install_safety_rows},
       {title: "Project setup facts", headers: ["Artifact", "Project", "Next"], rows: project_rows},

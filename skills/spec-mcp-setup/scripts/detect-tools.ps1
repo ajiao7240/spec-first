@@ -197,7 +197,12 @@ foreach ($tool in @($ToolsJson.tools)) {
   }
 
   $hostConfigStatus = Get-HostConfigStatus -Tool $tool
-  $projectStatus = Get-ProjectStatus -Tool $tool
+  $isRequired = [bool]$tool.required
+  $projectStatus = if ((-not $isRequired) -and $hostConfigStatus -eq 'action-required') {
+    'not-applicable'
+  } else {
+    Get-ProjectStatus -Tool $tool
+  }
   $hostConfigRequired = Test-HostConfigRequired -Tool $tool
   $hostReady = (
     $hostConfigStatus -eq 'ready' -or
@@ -209,7 +214,9 @@ foreach ($tool in @($ToolsJson.tools)) {
   $configured = ($hostConfigStatus -eq 'ready' -or $hostConfigStatus -eq 'fallback-active' -or $hostConfigStatus -eq 'registry-args-drift')
   $nextAction = ''
 
-  if ($dependencyStatus -ne 'ready') {
+  if ((-not $isRequired) -and $hostConfigStatus -eq 'action-required') {
+    $nextAction = ''
+  } elseif ($dependencyStatus -ne 'ready') {
     $nextAction = 'install dependency'
   } elseif ($hostConfigStatus -eq 'action-required') {
     $nextAction = 'configure host'
@@ -225,7 +232,10 @@ foreach ($tool in @($ToolsJson.tools)) {
 
   $result = 'ready'
   $reasonCode = 'ready'
-  if ($dependencyStatus -ne 'ready') {
+  if ((-not $isRequired) -and $hostConfigStatus -eq 'action-required') {
+    $result = 'action-required'
+    $reasonCode = 'optional-capability-not-selected'
+  } elseif ($dependencyStatus -ne 'ready') {
     $result = 'action-required'
     $reasonCode = 'missing_dependency'
   } elseif ($hostConfigStatus -eq 'registry-args-drift') {
@@ -248,7 +258,8 @@ foreach ($tool in @($ToolsJson.tools)) {
   Add-NextAction $nextAction
 
   $toolFact = [ordered]@{
-    required = [bool]$tool.required
+    required = $isRequired
+    baseline_blocking = $isRequired
     type = $type
     host_config_required = [bool]$hostConfigRequired
     dependency_status = $dependencyStatus

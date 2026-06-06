@@ -119,6 +119,31 @@ function Test-ToolConfigured {
   }
 }
 
+function Test-OverwriteApproved {
+  return @('approved', 'yes', 'true', '1') -contains ([string]$env:SPEC_FIRST_MCP_CONFIGURE_OVERWRITE).ToLowerInvariant()
+}
+
+function Test-SelectedConfigConflicts {
+  if ($ToolDef.detection.kind -ne 'host_config_exact') { return $false }
+  if (-not (Test-Path $ConfigPath)) { return $false }
+  if ($DetectedHost -eq 'claude') {
+    $config = Get-Content -Raw $ConfigPath | ConvertFrom-Json
+    $server = Get-ClaudeMcpServer -Config $config -Key $ToolDef.detection.key
+    if ($null -eq $server) { return $false }
+    if ($server.command -ne $ResolvedConfig.command) { return $true }
+    $serverArgs = @($server.args)
+    $expectedArgs = @($ResolvedConfig.args)
+    if ($serverArgs.Count -ne $expectedArgs.Count) { return $true }
+    for ($i = 0; $i -lt $expectedArgs.Count; $i++) {
+      if ($serverArgs[$i] -ne $expectedArgs[$i]) { return $true }
+    }
+    return ($null -ne $server.PSObject.Properties['scope'])
+  }
+  $section = Get-TomlMcpSection -Path $ConfigPath -Key $ToolDef.detection.key
+  if ([string]::IsNullOrWhiteSpace($section)) { return $false }
+  return -not (Test-TomlMcpSectionExact -Path $ConfigPath -Key $ToolDef.detection.key -Command $ResolvedConfig.command -Args @($ResolvedConfig.args))
+}
+
 function Write-ClaudeConfig {
   param([System.Collections.IDictionary]$FinalConfig)
 
@@ -210,6 +235,10 @@ try {
       fallback_applied = [bool]$FallbackApplied
     } | ConvertTo-Json -Compress
     return
+  }
+
+  if (-not [bool]$ToolDef.required -and (Test-SelectedConfigConflicts) -and -not (Test-OverwriteApproved)) {
+    throw "$Tool 已存在同名但不同 command/args 的宿主 MCP 配置；如需覆盖，请设置 SPEC_FIRST_MCP_CONFIGURE_OVERWRITE=approved 后重跑"
   }
 
   $backupPath = if (Test-Path $ConfigPath) {

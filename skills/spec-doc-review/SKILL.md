@@ -130,6 +130,16 @@ For task-pack review, verify that it is derived rather than a second plan:
 - dependency and wave claims are plausible from file ownership and shared surfaces,
 - deterministic identity/freshness issues belong to `spec-first tasks validate --json`, while semantic task quality remains reviewer judgment.
 
+Add a bounded requirements-to-tasks ID coverage pass when the task pack's `source_plan` can be read. Resolve `task-pack -> source_plan -> source plan frontmatter origin` and inspect only structured requirement IDs that affect implementation, such as R/F/AE identifiers. Check whether each applicable ID is referenced by task `requirement_refs`, `source_unit`, or a directly traceable source-plan unit. Missing IDs are coverage gap findings using the existing `references/findings-schema.json` shape (`P0`-`P3`, confidence anchors, evidence array); do not add a new finding schema or category.
+
+Origin reachability is non-blocking:
+
+- if the source plan has a readable origin with structured R/F/AE IDs, run the ID coverage pass and emit coverage gap findings for unreferenced IDs;
+- if the origin is missing or points to an unreadable file, record a Coverage limitation and continue the task-pack review;
+- if the origin exists but does not expose structured R/F/AE IDs, record a Coverage limitation and do not invent content parsing.
+
+This is an ID-level traceability lens inside task-pack review. It does not require reviewing requirements, plan, and tasks as three mandatory documents, and it does not detect semantic drift where an ID remains referenced but its meaning narrowed. Freshness and identity remain owned by `source_plan_hash` and `spec-first tasks validate --json`; semantic drift remains reviewer judgment.
+
 For plan documents with `Origin` set, do not routinely re-review the upstream WHAT/WHY. Review the plan's faithfulness, execution readiness, architectural choices, risk treatment, and whether it introduces new scope or strategic/architecture risks not present in the origin. Re-open WHAT/WHY only when the plan itself adds a new product claim, expands scope, or changes the origin's intent.
 
 ### Select Conditional Personas

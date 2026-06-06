@@ -62,12 +62,25 @@ describe('spec-doc-review best-judgment wording contract', () => {
 
   test('doc review can classify and review derived task packs without making them a second plan', () => {
     const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+    const template = fs.readFileSync(SUBAGENT_TEMPLATE_PATH, 'utf8');
 
     expect(skill).toContain('requirements, plan, or task-pack documents');
     expect(skill).toContain('frontmatter `type: task-pack`');
     expect(skill).toContain('derived rather than a second plan');
     expect(skill).toContain('Task Pack Contract');
     expect(skill).toContain('spec-first tasks validate --json');
+    expect(skill).toContain('bounded requirements-to-tasks ID coverage pass');
+    expect(skill).toContain('Resolve `task-pack -> source_plan -> source plan frontmatter origin`');
+    expect(skill).toContain('structured requirement IDs that affect implementation, such as R/F/AE identifiers');
+    expect(skill).toContain('Missing IDs are coverage gap findings using the existing `references/findings-schema.json` shape');
+    expect(skill).toContain('Origin reachability is non-blocking');
+    expect(skill).toContain('record a Coverage limitation and continue the task-pack review');
+    expect(skill).toContain('does not require reviewing requirements, plan, and tasks as three mandatory documents');
+    expect(skill).toContain('does not detect semantic drift where an ID remains referenced but its meaning narrowed');
+    expect(template).toContain('also apply the bounded ID coverage lens');
+    expect(template).toContain('Emit missing IDs as ordinary `omission` findings using this same findings schema');
+    expect(template).toContain('Do not perform a semantic three-way diff');
+    expect(template).toContain('do not require requirements/plan/tasks as three mandatory inputs');
   });
 
   test('doc review uses direct evidence boundary without optional external-tool readiness', () => {

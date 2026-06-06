@@ -86,6 +86,7 @@ describe('package install contracts', () => {
     expect(pkg.files).toContain('docs/contracts/artifact-summary.md');
     expect(pkg.files).toContain('docs/contracts/context-bundle.md');
     expect(pkg.files).toContain('docs/contracts/context-governance.md');
+    expect(pkg.files).toContain('docs/contracts/provider-tools-registry.schema.json');
     expect(pkg.files).toContain('docs/contracts/knowledge/');
     expect(pkg.files).toContain('docs/contracts/quality-gates/');
     expect(pkg.files).toContain('docs/contracts/release-package-evidence.schema.json');
@@ -176,6 +177,7 @@ describe('package install contracts', () => {
       expect(packedPaths).toContain('docs/contracts/artifact-summary.md');
       expect(packedPaths).toContain('docs/contracts/context-bundle.md');
       expect(packedPaths).toContain('docs/contracts/knowledge/knowledge-harness.md');
+      expect(packedPaths).toContain('docs/contracts/provider-tools-registry.schema.json');
       expect(packedPaths).toContain('docs/contracts/workflows/review-finding.md');
       expect(packedPaths).toContain('docs/contracts/context-governance.md');
       expect(packedPaths).toContain('skills/spec-prd/references/evidence-and-topology.md');

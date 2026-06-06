@@ -70,6 +70,7 @@ AI coding 最大的问题通常不是 agent 不会写代码，而是关键判断
 
 - requirements 变成持久 brief，而不是会话里消失的 prompt。
 - plans 和 task packs 把模糊意图变成可评审、可执行的上下文。
+- task-pack handoff 会基于 source plan 结构推荐是否拆分，并对高风险 task pack 推荐文档审查，同时保持工程师在环确认。
 - work、review、debug、optimize 和 compound workflows 会沉淀证据与经验。
 - knowledge handoff 默认 summary-first，召回的 `docs/solutions/` learning 在回源确认前保持 advisory。
 - 一套 source assets 同时支持 Claude Code 的 `/spec:*` 入口和 Codex 的 `$spec-*` 入口，不需要手工维护生成副本。

@@ -178,6 +178,8 @@ Use `Document type` and `Origin` to calibrate the review:
 - `plan`: review HOW. Check requirements trace, implementation units, dependencies, files, test scenarios, risk treatment, direct/context evidence, and handoff quality. If `Origin` is not `none`, do not routinely re-litigate upstream WHAT/WHY; flag product or strategy concerns only when the plan introduces new scope, contradicts the origin, or adds a new strategic/architectural risk.
 - `task-pack`: review whether the pack remains a derived execution input, not a second plan. Check source-plan fidelity, task boundaries, dependency/wave plausibility, file ownership, stop_if conditions, validation notes, and whether execution context is sufficient without adding scope.
 
+For `task-pack` documents, also apply the bounded ID coverage lens when the review context includes a readable source plan and source-plan origin: check whether structured implementation-impacting R/F/AE requirement IDs are traceable into task `requirement_refs`, `source_unit`, or directly traceable source-plan units. Emit missing IDs as ordinary `omission` findings using this same findings schema. If the origin is missing, unreadable, or lacks structured R/F/AE IDs, record the limitation in `residual_risks` or `deferred_questions` instead of blocking review. Do not perform a semantic three-way diff, do not require requirements/plan/tasks as three mandatory inputs, and do not claim to detect semantic drift when an ID remains present but its meaning changed.
+
 Preserve useful diagrams and visual aids. Do not recommend deleting a diagram only because prose covers similar ground; if a visual is inconsistent, stale, or misleading, recommend updating it to match the authoritative content.
 </document-type-rules>
 

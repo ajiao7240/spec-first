@@ -30,6 +30,8 @@ Source plan is task-ready when it has:
 
 If a missing item is a true implementation-time unknown, keep the task pack derived and record it in `risk_note` and `stop_if`. If it is a planning decision, return to `spec-plan` instead of inventing task scope.
 
+For split recommendations, prefer the source plan's own structure over helper-derived size hints. A written plan's implementation units, declared files, dependency graph, verification spread, and `plan_depth` are task-time evidence. `task-governance-signals.v1` is advisory cross-check input only; `plan-declared` mode was designed for pre-plan collection and may emit an empty-signal `lightweight` candidate when no `--input` planning context is supplied. Do not treat that output as confirmed low risk, and do not make it a gate.
+
 ## Traceability Rules
 
 Every executable task should point back to at least one deterministic source anchor:

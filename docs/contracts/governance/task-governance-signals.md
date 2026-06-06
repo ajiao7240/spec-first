@@ -51,6 +51,13 @@ The JSON schema in `task-governance-signals.schema.json` is the canonical field 
 
 The contract intentionally has no `score` and no numeric `confidence`. Scripts prepare facts; the LLM decides plan depth.
 
+## Consumers
+
+Consumers must treat `candidate_level` and the transparent buckets as advisory facts. `collection_status` must be read alongside `candidate_level`; a `lightweight` candidate without trustworthy collection is not confirmed low risk.
+
+- `spec-plan` Phase 0.6 consumes `plan-declared` output before a plan exists. The workflow LLM confirms or overrides plan depth and records the reason.
+- `spec-write-tasks` may use `plan-declared` output only as optional cross-check evidence after a source plan exists. At task-compilation time, written source-plan structure is the primary evidence: implementation-unit count, declared `Files`, dependency chains, cross-module surfaces, verification spread, and `plan_depth` when present. `spec-write-tasks` must not treat `plan-declared` as a hard gate or a second source of truth, and must fall back to direct plan evidence when collection is degraded, unavailable, absent, or weaker than the written plan structure.
+
 ## Transparent Buckets
 
 The default producer uses simple, visible buckets. The thresholds below are advisory and intentionally visible so the workflow LLM can question or override them; they are candidate facts, not final task classification.

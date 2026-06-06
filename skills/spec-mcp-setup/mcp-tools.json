@@ -166,6 +166,117 @@
         "kind": "none",
         "required": false
       }
+    },
+    {
+      "id": "codegraph",
+      "name": "CodeGraph",
+      "summary_label": "CodeGraph",
+      "required": false,
+      "opt_in": {
+        "explicit_consent_required": true,
+        "consent_surface": "--only codegraph",
+        "state_model": "stateless-explicit-rerun"
+      },
+      "category": "mcp",
+      "host_config_required": true,
+      "description": "可选 code-graph 能力工具。setup 只在显式 opt-in 时帮装和配置；下游消费只把其输出当 advisory candidate。",
+      "package": "@colbymchenry/codegraph",
+      "version": "0.9.9",
+      "dependencies": ["node", "npx"],
+      "installation": {
+        "kind": "warmup",
+        "unix": {
+          "command": "npx",
+          "args": ["-y", "{{package}}@{{version}}", "--help"]
+        },
+        "windows": {
+          "command": "npx",
+          "args": ["-y", "{{package}}@{{version}}", "--help"]
+        }
+      },
+      "host_config": {
+        "claude": {
+          "command": "npx",
+          "args": ["-y", "{{package}}@{{version}}", "serve"],
+          "scope": "managed",
+          "targets": {
+            "managed": {
+              "config_path": {
+                "macos": "/Library/Application Support/ClaudeCode/managed-mcp.json",
+                "linux": "/etc/claude-code/managed-mcp.json",
+                "wsl": "/etc/claude-code/managed-mcp.json",
+                "windows": "C:\\Program Files\\ClaudeCode\\managed-mcp.json"
+              },
+              "config_format": "json",
+              "precedence": 100,
+              "writable_check": "parent-or-file"
+            },
+            "user": {
+              "config_path": "$HOME/.claude.json",
+              "config_format": "json",
+              "precedence": 10,
+              "writable_check": "parent-or-file"
+            }
+          },
+          "fallback_order": ["managed", "user"],
+          "uninstall_targets": ["managed", "user"]
+        },
+        "codex": {
+          "command": "npx",
+          "args": ["-y", "{{package}}@{{version}}", "serve"],
+          "scope": "user",
+          "targets": {
+            "user": {
+              "config_path": "$HOME/.codex/config.toml",
+              "config_format": "toml",
+              "precedence": 50,
+              "writable_check": "parent-or-file"
+            },
+            "system": {
+              "config_path": "/etc/codex/config.toml",
+              "config_format": "toml",
+              "precedence": 100,
+              "writable_check": "file-only"
+            }
+          },
+          "fallback_order": ["user"],
+          "uninstall_targets": ["user", "system"]
+        }
+      },
+      "detection": {
+        "kind": "host_config_exact",
+        "key": "codegraph"
+      },
+      "project_bootstrap": {
+        "kind": "command",
+        "required": true,
+        "project_file": ".codegraph/codegraph.db",
+        "unix": {
+          "command": "npx",
+          "args": ["-y", "{{package}}@{{version}}", "init"]
+        },
+        "windows": {
+          "command": "npx",
+          "args": ["-y", "{{package}}@{{version}}", "init"]
+        }
+      },
+      "provider_readiness": {
+        "provider": "codegraph",
+        "kind": "code-structure",
+        "profile": "recommended",
+        "capabilities": ["code-graph", "impact-candidates", "affected-tests-candidates"],
+        "fallback_methods": ["rg", "ast-grep", "direct-source-read"],
+        "fresh_self_report_maps_to": "unknown",
+        "stale_self_report_maps_to": "stale",
+        "lifecycle_display_only": ["installed", "configured", "indexed", "server_reachable", "query_verified"]
+      },
+      "safety": {
+        "risk_flags": ["pre-1.0", "global-npx-execution", "single-maintainer-bus-factor"],
+        "version_pin": "0.9.9",
+        "source": "npm",
+        "source_repo": "https://www.npmjs.com/package/@colbymchenry/codegraph",
+        "review_required": true
+      }
     }
   ]
 }

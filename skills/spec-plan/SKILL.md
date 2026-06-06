@@ -87,6 +87,10 @@ When producing a plan handoff, provide an `artifact-summary.v1`-style summary wi
 
 Institutional learnings from `docs/solutions/` are recall advisory candidate evidence. Treat a matching learning as a pointer to inspect, not as confirmed truth. Use its `source_refs` or upstream `source_reads_required` to return to current source/test/doc evidence, deterministic checks, or human reviewer confirmation before promoting a planning conclusion to confirmed. Do not rely on model self-evaluation; 不依赖模型自评.
 
+## Capability-Class Evidence Boundary
+
+When setup/runtime facts expose optional `capability-class` candidates such as `code-graph` or `project-graph`, treat them as advisory planning inputs through their native MCP or CLI surface, not as source-of-truth. Check `readiness_status`, lifecycle display bits, and freshness before using the candidates; a provider self-report of freshness is not confirmed evidence. If the capability is absent, stale, unknown, or unverified, continue with bounded direct source reads, `rg`, ast-grep, tests/logs, and user evidence. Record any used candidate as `provider_untrusted`; never-block planning on its availability, and keep setup-side `lifecycle.fallback_used` separate from consumption-side fallback notes.
+
 ## Interaction Method
 
 When asking the user a question, use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
@@ -749,7 +753,7 @@ After document review and final checks, present this menu using the platform's b
 
 **Options:**
 1. **Start work** (recommended) - Begin implementing this plan in the current session using the current host's work entrypoint
-2. **Compile task pack with `spec-write-tasks`** - Use the standalone skill when the plan is large, dependency-heavy, or would benefit from a derived `docs/tasks/*-tasks.md` execution input
+2. **Compile task pack with `spec-write-tasks`** - Recommended when source plan structure shows high execution complexity: many implementation units, declared `Files`, dependency chains, cross-module surfaces, broad verification spread, or `plan_depth: deep`; this reduces single-run context load, broad review scope, and coupled rollback cost
 3. **Create Issue** - Create a tracked issue from this plan in your configured issue tracker (GitHub or Linear)
 4. **Open in Proof (web app) — review and comment to iterate with the agent** - Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others
 5. **Done for now** - Pause; the plan file is saved and can be resumed later

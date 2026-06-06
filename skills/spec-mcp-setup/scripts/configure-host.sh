@@ -44,6 +44,7 @@ EXPECTED_COMMAND="$(jq -r '.command' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
 EXPECTED_ARGS="$(jq -c '.args' <<<"$RESOLVED_TOOL_CONFIG_JSON")"
 DETECT_KIND="$(jq -r --arg id "$TOOL_ID" '.tools[] | select(.id == $id) | .detection.kind' "$TOOLS_JSON")"
 DETECT_KEY="$(jq -r --arg id "$TOOL_ID" '.tools[] | select(.id == $id) | .detection.key' "$TOOLS_JSON")"
+TOOL_REQUIRED="$(jq -r --arg id "$TOOL_ID" '.tools[] | select(.id == $id) | .required // true' "$TOOLS_JSON")"
 FALLBACK_APPLIED=false
 if [ "$HOST" = "claude" ] && [ "$SELECTED_SCOPE" != "managed" ]; then
   FALLBACK_APPLIED=true
@@ -109,6 +110,26 @@ tool_is_configured() {
       return 1
       ;;
   esac
+}
+
+overwrite_approved() {
+  case "${SPEC_FIRST_MCP_CONFIGURE_OVERWRITE:-}" in
+    approved|APPROVED|yes|YES|true|TRUE|1) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+selected_config_conflicts() {
+  [ "$DETECT_KIND" = "host_config_exact" ] || return 1
+  [ -f "$CONFIG_PATH" ] || return 1
+  if [ "$HOST" = "claude" ]; then
+    jq -e --arg key "$DETECT_KEY" '.mcpServers[$key] != null' "$CONFIG_PATH" >/dev/null 2>&1 || return 1
+    jq -e --arg key "$DETECT_KEY" --arg command "$EXPECTED_COMMAND" --argjson expected_args "$EXPECTED_ARGS" '.mcpServers[$key].command == $command and (.mcpServers[$key].args // []) == $expected_args and ((.mcpServers[$key] | has("scope")) | not)' "$CONFIG_PATH" >/dev/null 2>&1 && return 1
+    return 0
+  fi
+  [ -n "$(extract_toml_mcp_section "$CONFIG_PATH" "$DETECT_KEY")" ] || return 1
+  toml_mcp_section_matches_exact "$CONFIG_PATH" "$DETECT_KEY" "$EXPECTED_COMMAND" "$EXPECTED_ARGS" && return 1
+  return 0
 }
 
 acquire_lock() {
@@ -194,6 +215,11 @@ if [ "$configured_status" -eq 0 ]; then
   exit 0
 elif [ "$configured_status" -eq 2 ]; then
   echo "错误：$TOOL_ID 被更高优先级 Codex MCP 配置覆盖：$BLOCKING_SCOPE ($BLOCKING_PATH)" >&2
+  exit 1
+fi
+
+if [ "$TOOL_REQUIRED" != "true" ] && selected_config_conflicts && ! overwrite_approved; then
+  echo "错误：$TOOL_ID 已存在同名但不同 command/args 的宿主 MCP 配置；如需覆盖，请设置 SPEC_FIRST_MCP_CONFIGURE_OVERWRITE=approved 后重跑" >&2
   exit 1
 fi
 

@@ -16,6 +16,13 @@ const EVALS_README_PATH = path.join(EVALS_DIR, 'README.md');
 const OPENAI_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'agents', 'openai.yaml');
 const SPEC_WORK_PATH = path.join(REPO_ROOT, 'skills', 'spec-work', 'SKILL.md');
 const PLAN_HANDOFF_PATH = path.join(REPO_ROOT, 'skills', 'spec-plan', 'references', 'plan-handoff.md');
+const TASK_SIGNALS_CONTRACT_PATH = path.join(
+  REPO_ROOT,
+  'docs',
+  'contracts',
+  'governance',
+  'task-governance-signals.md',
+);
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -112,6 +119,12 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('The deterministic validator only proves frontmatter identity/freshness plus the `Task Pack Contract` machine-readable structure');
     expect(skill).toContain('direct source reads, changed files, tests/logs, and limitations');
     expect(skill).toContain('external-tool facts are advisory context refs');
+    expect(skill).toContain('Use the source plan\'s own structure as the primary complexity evidence');
+    expect(skill).toContain('implementation-unit count, declared `Files`, dependency chains, cross-module surfaces, verification spread, and frontmatter `plan_depth`');
+    expect(skill).toContain('`task-governance-signals.v1` may be used only as optional cross-check evidence');
+    expect(skill).toContain('If `--input` is omitted or unreadable');
+    expect(skill).toContain('do not treat that as proof of low risk');
+    expect(skill).not.toContain('Use `task-governance-signals.v1` as the primary complexity evidence');
   });
 
   test('task pack schema requires executable handoff metadata and quality structures', () => {
@@ -205,6 +218,38 @@ describe('spec-write-tasks contracts', () => {
     expect(guide).toContain('Horizontal all-tests-then-all-implementation slicing');
     expect(guide).toContain('Prefer vertical tracer bullets with one behavior, verification loop, and docs/config evidence closed together');
     expect(guide).toContain('orientation_evidence');
+    expect(guide).toContain('prefer the source plan\'s own structure over helper-derived size hints');
+    expect(guide).toContain('`task-governance-signals.v1` is advisory cross-check input only');
+    expect(guide).toContain('may emit an empty-signal `lightweight` candidate when no `--input` planning context is supplied');
+    expect(guide).toContain('Do not treat that output as confirmed low risk');
+  });
+
+  test('decisive recommendations keep task signals advisory and review handoff user-confirmed', () => {
+    const skill = read(SKILL_PATH);
+    const guide = read(GUIDE_PATH);
+    const contract = read(TASK_SIGNALS_CONTRACT_PATH);
+    const boundaryCases = JSON.parse(read(path.join(EVALS_DIR, 'boundary-cases.json')));
+
+    expect(`${skill}\n${guide}`).toContain('source plan\'s own structure');
+    expect(skill).toContain('Recommend `compile` when those plan facts show material execution risk or context load');
+    expect(skill).toContain('Recommend `skip` when the plan is small and shallow');
+    expect(skill).toContain('Use `next_action: review-task-pack` as the decisive handoff recommendation for high-risk task packs.');
+    expect(skill).toContain('The output must include one concrete reason and a copy-ready current-host document-review invocation');
+    expect(skill).toContain('/spec:doc-review <task-pack-path>');
+    expect(skill).toContain('$spec-doc-review <task-pack-path>');
+    expect(skill).toContain('not an instruction for `spec-write-tasks` to invoke document review');
+    expect(skill).toContain('Autonomous or headless hosts must surface the same recommendation');
+    expect(skill).toContain('instead of silently dispatching `spec-doc-review`');
+    expect(contract).toContain('`spec-write-tasks` may use `plan-declared` output only as optional cross-check evidence');
+    expect(contract).toContain('written source-plan structure is the primary evidence');
+    expect(contract).toContain('must not treat `plan-declared` as a hard gate or a second source of truth');
+
+    const highRiskCase = boundaryCases.cases.find((entry) => entry.id === 'high-risk-review-gate');
+    expect(highRiskCase).toEqual(expect.objectContaining({
+      expected_decision: 'compile',
+    }));
+    expect(highRiskCase.expected_next_action).toContain('next_action: review-task-pack');
+    expect(highRiskCase.expected_next_action).toContain('do not dispatch doc-review automatically');
   });
 
   test('eval cases cover trigger, boundary, failure, and expected behavior posture', () => {
@@ -295,7 +340,9 @@ describe('spec-write-tasks contracts', () => {
       expect(skill).toContain("honor each task's `stop_if`");
       expect(skill).toContain('do not create execution tasks until the task-pack validation checks above have passed');
       expect(skill).toContain('optional task-pack suitability check before `before-work --plan`');
-      expect(skill).toContain('offer the diversion once only when the plan has strong signals');
+      expect(skill).toContain('recommend the diversion once only when source plan structure shows high execution complexity');
+      expect(skill).toContain('many implementation units, declared `Files`, dependency chains, cross-module surfaces, broad verification spread, or `plan_depth: deep`');
+      expect(skill).toContain('the reason is to reduce single-run context load, broad review scope, and coupled rollback cost');
       expect(skill).toContain('load the standalone `spec-write-tasks` skill with the plan path');
       expect(skill).toContain('do not prompt again in this work run');
       expect(skill).not.toContain('run `spec-write-tasks <plan-path>`');

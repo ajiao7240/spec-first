@@ -90,6 +90,10 @@ Code Review does not require external-tool readiness before reviewer dispatch. U
 
 When review runs from a parent workspace containing multiple independent Git repos, group changed files by Git repo and keep file references, suggested fixes, and risk assessments scoped to the repo that owns the file. For read-only review questions without a diff, ask for or infer only bounded candidate repos from the user request and direct file discovery. Autofix review must not edit a child repo unless that repo is explicit in the diff or `target_repo` scope.
 
+## Capability-Class Evidence Boundary
+
+When setup/runtime facts expose optional `capability-class` candidates such as `code-graph` or `project-graph`, use them only as advisory review inputs through their native MCP or CLI surface. Confirm freshness through `readiness_status`, lifecycle display bits, and direct source/test/log evidence before relying on impact, affected-test, or ownership candidates; provider self-reported freshness is not a confirmed review fact. If the capability is absent, stale, unknown, or unverified, continue with bounded diff/source reads, `rg`, ast-grep, package/test facts, and logs. Record any used candidate in Coverage as `provider_untrusted`; never-block review on its availability, and keep setup-side `lifecycle.fallback_used` separate from consumption-side fallback notes.
+
 ## Progress Reporting Boundary
 
 User-visible progress updates are operational evidence, not a reasoning scratchpad. During long reviews, keep updates short and grounded in concrete facts or actions: scope resolution, file counts, selected reviewers, fallback mode, validation status, or the next inspection step. Do not expose private deliberation, tentative inner monologue, or first-person reasoning such as "I'm thinking", "I need to consider", or "I think". If a point is uncertain, state the verified limitation and the next check instead of narrating speculation. Use the session language for new prose unless the user requested otherwise.

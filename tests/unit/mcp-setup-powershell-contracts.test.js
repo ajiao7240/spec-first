@@ -6,6 +6,7 @@ const { spawnSync } = require('node:child_process');
 const repoRoot = path.resolve(__dirname, '../..');
 const configureHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/configure-host.ps1');
 const detectToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-tools.ps1');
+const installMcpPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-mcp.ps1');
 const verifyToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const writeSetupFactsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/write-setup-facts.ps1');
 const mcpToolsJsonPath = path.join(repoRoot, 'skills/spec-mcp-setup/mcp-tools.json');
@@ -34,6 +35,8 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(source).toContain('function Restore-Backup');
     expect(source).toContain('Restore-Backup -BackupPath $backupPath');
     expect(source).toContain('Set-TextFileAtomic -Path $ConfigPath -Value ($config | ConvertTo-Json -Depth 8)');
+    expect(source).toContain('function Test-SelectedConfigConflicts');
+    expect(source).toContain('SPEC_FIRST_MCP_CONFIGURE_OVERWRITE');
   });
 
   test('setup sources use direct setup facts only', () => {
@@ -46,7 +49,17 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     ].join('\n');
 
     expect(toolsJson.schema_version).toBe('6');
-    expect(toolsJson.tools.map((tool) => tool.id)).toEqual(['sequential-thinking', 'context7']);
+    expect(toolsJson.tools.map((tool) => tool.id)).toEqual(['sequential-thinking', 'context7', 'codegraph']);
+    expect(toolsJson.tools.filter((tool) => tool.required).map((tool) => tool.id)).toEqual(['sequential-thinking', 'context7']);
+    expect(toolsJson.tools.find((tool) => tool.id === 'codegraph')).toMatchObject({
+      required: false,
+      opt_in: {
+        explicit_consent_required: true,
+      },
+      provider_readiness: {
+        kind: 'code-structure',
+      },
+    });
     expect(toolsJson.tools.every((tool) => tool.category === 'mcp')).toBe(true);
     expect(toolsJson.tools.every((tool) => !Object.prototype.hasOwnProperty.call(tool, 'provider_config'))).toBe(true);
     expect(toolsJson.tools.every((tool) => !Object.prototype.hasOwnProperty.call(tool, 'provider_role'))).toBe(true);
@@ -57,6 +70,9 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(combined).toContain("reason_code = 'setup-facts-ready'");
     expect(combined).toContain('tool-facts.json');
     expect(combined).toContain('runtime-capabilities.json');
+    expect(read(installMcpPs1)).toContain('function Test-OptionalToolAllowed');
+    expect(read(installMcpPs1)).toContain("reason_code = 'registry_not_required'");
+    expect(read(installMcpPs1)).toContain('optional MCP tools require explicit opt-in metadata');
     for (const section of [
       'Execution result',
       'MCP servers',
@@ -99,6 +115,7 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
       baseline_blocking: true,
       kind: 'global-skill',
     });
+    expect(Array.isArray(payload.provider_readiness)).toBe(true);
     expect(Object.values(payload.helper_tools).every((helper) => helper.profile && helper.kind && helper.safety && helper.reason_code)).toBe(true);
   });
 
@@ -117,6 +134,34 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
         tools: {
           context7: { status: 'ready' },
         },
+        provider_readiness: [
+          {
+            provider: 'graphify',
+            kind: 'project-graph',
+            profile: 'recommended',
+            readiness_status: 'stale',
+            lifecycle: {
+              installed: true,
+              configured: false,
+              initialized: false,
+              indexed: true,
+              server_reachable: false,
+              artifact_exists: true,
+              query_verified: false,
+              fallback_used: false,
+            },
+            repo_aligned: 'unknown',
+            capabilities: ['project-graph'],
+            limitations: ['fixture'],
+            source_read_required: true,
+            fallback: {
+              available: true,
+              methods: ['rg'],
+              reason_code: 'project-graph-provider-unavailable',
+            },
+            next_actions: [],
+          },
+        ],
         target: {
           target_kind: 'child_git_repo',
           target_root: repo,
@@ -147,6 +192,11 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
       expect(Array.isArray(toolFacts.configured_dependencies)).toBe(true);
       expect(toolFacts.schema_capabilities).toContain('items');
       expect(toolFacts.schema_capabilities).toContain('configured_dependencies');
+      expect(toolFacts.provider_readiness).toHaveLength(1);
+      expect(toolFacts.provider_readiness[0]).toMatchObject({
+        provider: 'graphify',
+        readiness_status: 'stale',
+      });
       expect(runtimeCapabilities.schema_version).toBe('runtime-capabilities.v1');
       expect(runtimeCapabilities.direct_evidence.bounded_source_reads).toBe(true);
     } finally {
@@ -259,6 +309,13 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
         host_config_status: 'registry-args-drift',
         result: 'degraded',
         reason_code: 'host-config-version-drift',
+        next_action: '',
+      });
+      expect(payload.tools.codegraph).toMatchObject({
+        required: false,
+        baseline_blocking: false,
+        result: 'action-required',
+        reason_code: 'optional-capability-not-selected',
         next_action: '',
       });
     } finally {

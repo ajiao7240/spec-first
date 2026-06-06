@@ -250,6 +250,10 @@ $helperToolsMap = Get-JsonPropertyValue -Object $facts -Name 'helper_tools'
 $items = @()
 $items += Convert-ToolMapToItems -Map $toolsMap -DefaultKind 'mcp'
 $items += Convert-ToolMapToItems -Map $helperToolsMap -DefaultKind 'helper'
+$providerReadiness = @()
+if (Test-JsonProperty -Object $facts -Name 'provider_readiness') {
+  $providerReadiness = @((Get-JsonPropertyValue -Object $facts -Name 'provider_readiness'))
+}
 
 $toolFactsPayload = [ordered]@{
   schema_version = 'tool-facts.v2'
@@ -260,7 +264,7 @@ $toolFactsPayload = [ordered]@{
   profile = 'minimal'
   tools = $toolsMap
   helper_tools = $helperToolsMap
-  provider_readiness = @()
+  provider_readiness = $providerReadiness
   items = $items
   configured_dependencies = $configuredDependencies
   configured_scan_status = $configuredScanStatus

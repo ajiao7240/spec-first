@@ -87,6 +87,10 @@ Maintain a run-local context ledger for this workflow: paths read, reason, phase
 
 Debug does not require external-tool readiness before investigation. Use reproduction, direct source reads, `rg`, ast-grep, git diff, focused tests, runtime probes, logs, and user-provided artifacts to build and close the causal chain. If a blast-radius or related-test claim cannot be confirmed from direct evidence, record it as residual risk instead of treating it as root-cause proof.
 
+## Capability-Class Evidence Boundary
+
+When setup/runtime facts expose optional `capability-class` candidates such as `code-graph` or `project-graph`, use them only as advisory debugging inputs through their native MCP or CLI surface. Check `readiness_status`, lifecycle display bits, and freshness before using candidate call paths, impact surfaces, or related tests; provider self-reported freshness is not root-cause evidence. If the capability is absent, stale, unknown, or unverified, continue with reproduction, direct source reads, `rg`, ast-grep, focused tests, probes, and logs. Record any used candidate as `provider_untrusted`; never-block debugging on its availability, and keep setup-side `lifecycle.fallback_used` separate from consumption-side fallback notes.
+
 ## Execution Flow
 
 | Phase | Name | Purpose |

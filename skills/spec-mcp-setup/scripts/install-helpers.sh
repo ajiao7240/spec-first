@@ -194,6 +194,7 @@ GLOBAL_AGENT_BROWSER_SKILL="$HOME/.agents/skills/agent-browser/SKILL.md"
 GLOBAL_AST_GREP_SKILL="$HOME/.agents/skills/ast-grep/SKILL.md"
 AGENT_BROWSER_INSTALL_MARKER="$HOME/.agent-browser/spec-first-install.json"
 HELPER_JSON='{}'
+PROVIDER_JSON='[]'
 PARALLEL_TASK_PIDS=()
 PARALLEL_TASK_LABELS=()
 AGENT_BROWSER_BROWSER_INSTALL_EXIT_CODE=""
@@ -855,6 +856,40 @@ process_global_skill() {
   fi
 }
 
+provider_consent_approved() {
+  local provider="$1"
+  local env_name value
+  env_name="SPEC_FIRST_PROVIDER_${provider}_CONSENT"
+  value="${!env_name:-}"
+  case "$value" in
+    approved|APPROVED|yes|YES|true|TRUE|1) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+install_graphify_provider_if_requested() {
+  [ "$MODE" = "install" ] || return 0
+  provider_consent_approved "GRAPHIFY" || return 0
+  command -v graphify >/dev/null 2>&1 && return 0
+
+  if ! command -v uv >/dev/null 2>&1; then
+    stage_log "provider:graphify" "uv missing; skipping Graphify install"
+    return 0
+  fi
+
+  stage_log "provider:graphify" "install start"
+  if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" uv tool install graphifyy==0.8.33 >/dev/null 2>&1; then
+    stage_log "provider:graphify" "install done (exit 0)"
+  else
+    local exit_code="$?"
+    if [ "$exit_code" -eq 124 ]; then
+      stage_log "provider:graphify" "install timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
+    else
+      stage_log "provider:graphify" "install done (exit $exit_code)"
+    fi
+  fi
+}
+
 finalize_global_skill() {
   local helper_id="$1"
   local skill_name="$2"
@@ -922,14 +957,18 @@ finalize_agent_browser \
   "${AGENT_BROWSER_MIRROR_USED:-false}" \
   "${AGENT_BROWSER_DEMAND_SIGNALS_JSON:-[]}"
 finalize_global_skill "ast-grep-skill" "ast-grep"
+install_graphify_provider_if_requested
+PROVIDER_JSON="$(node "$SCRIPT_DIR/provider-readiness-renderer.cjs" --source helper --repo-root "${SPEC_FIRST_PROVIDER_REPO_ROOT:-$PWD}" 2>/dev/null || printf '[]')"
 
 jq -n \
   --argjson helper_tools "$HELPER_JSON" \
+  --argjson provider_readiness "$PROVIDER_JSON" \
   --arg npm_mirror "$NPM_MIRROR_ENDPOINT" \
   --arg uv_mirror "$UV_MIRROR_ENDPOINT" \
   --arg chrome_mirror "$CHROME_MIRROR_ENDPOINT" \
   '{
     helper_tools: $helper_tools,
+    provider_readiness: $provider_readiness,
     mirror_endpoints: {
       npm: $npm_mirror,
       uv: $uv_mirror,

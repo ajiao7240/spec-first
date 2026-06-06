@@ -39,7 +39,7 @@ After spec-doc-review completes, present the options using the platform's blocki
 
 **Options:**
 1. **Start work** (recommended) - Begin implementing this plan in the current session using the current host's work entrypoint
-2. **Compile task pack with `spec-write-tasks`** - Use the standalone skill when the plan is large, dependency-heavy, or would benefit from a derived `docs/tasks/*-tasks.md` execution input
+2. **Compile task pack with `spec-write-tasks`** - Recommended when source plan structure shows high execution complexity: many implementation units, declared `Files`, dependency chains, cross-module surfaces, broad verification spread, or `plan_depth: deep`; this reduces single-run context load, broad review scope, and coupled rollback cost
 3. **Create Issue** - Create a tracked issue from this plan in your configured issue tracker (GitHub or Linear)
 4. **Open in Proof (web app) — review and comment to iterate with the agent** - Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others
 5. **Done for now** - Pause; the plan file is saved and can be resumed later

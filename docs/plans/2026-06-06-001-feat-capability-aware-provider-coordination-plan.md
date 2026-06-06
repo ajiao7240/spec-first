@@ -1,6 +1,6 @@
 ---
 spec_id: 2026-06-06-001-capability-aware-provider-coordination
-status: active
+status: completed
 type: feat
 slice: v1.16（父方案 Phase E / capability-aware 协同）
 origin: docs/01-需求分析/13.scale集成/2026-06-06-SCALE集成方案优化评审报告.md

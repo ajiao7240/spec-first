@@ -21,6 +21,13 @@
       "context": "The plan touches one documentation file and has one verification step.",
       "expected_decision": "skip",
       "expected_next_action": "Explain that direct spec-work execution has lower carrying cost."
+    },
+    {
+      "id": "high-risk-review-gate",
+      "input": "Compile tasks for a deep plan that touches workflow contracts and marks several tasks with review_gate: required.",
+      "context": "The source plan is executable and the derived pack is high-risk because it changes public workflow prose, shared contracts, and source/runtime boundary guidance.",
+      "expected_decision": "compile",
+      "expected_next_action": "Recommend next_action: review-task-pack with one reason and a copy-ready current-host spec-doc-review invocation; do not dispatch doc-review automatically."
     }
   ]
 }

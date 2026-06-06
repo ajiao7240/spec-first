@@ -353,6 +353,23 @@ describe('spec_id planning contract', () => {
     expect(text).not.toContain('`/spec:work` on Claude Code, `$spec-work` on Codex');
   });
 
+  test('task-pack handoff recommendation is decisive while staying user-confirmed', () => {
+    const handoff = fs.readFileSync(PLAN_HANDOFF_PATH, 'utf8');
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const combined = `${handoff}\n${skill}`;
+
+    expect(combined).toContain('**Compile task pack with `spec-write-tasks`** - Recommended when source plan structure shows high execution complexity');
+    expect(combined).toContain('many implementation units, declared `Files`, dependency chains, cross-module surfaces, broad verification spread, or `plan_depth: deep`');
+    expect(combined).toContain('this reduces single-run context load, broad review scope, and coupled rollback cost');
+    expect(handoff).toContain('Load the standalone `spec-write-tasks` skill with the plan path.');
+    expect(handoff).toContain('If it writes an executable task pack with matching `spec_id` and verifiable `source_plan_hash`');
+    expect(handoff).not.toContain('Use the standalone skill when the plan is large, dependency-heavy');
+    expect(skill).not.toContain('Use the standalone skill when the plan is large, dependency-heavy');
+    expect(combined).not.toContain('automatically run `spec-write-tasks`');
+    expect(combined).not.toContain('$spec-write-tasks');
+    expect(combined).not.toContain('/spec:write-tasks');
+  });
+
   test('plan synthesis checkpoints and template naming are in place', () => {
     const skill = fs.readFileSync(SKILL_PATH, 'utf8');
     const planTemplate = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');

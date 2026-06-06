@@ -1102,7 +1102,8 @@ memory 能力（如 GBrain）与 spec-first 自有的 `docs/solutions/` file-fir
 
 后续 v1.16 参考改动面（不在本子方案开工）：
 
-- `skills/spec-mcp-setup/provider-tools.json`（填 CodeGraph / Graphify entry）
+- `skills/spec-mcp-setup/mcp-tools.json`（填 CodeGraph opt-in MCP entry）
+- `skills/spec-mcp-setup/provider-tools.json`（填 Graphify CLI entry）
 - `docs/contracts/provider-readiness.md`（只引用父方案 canonical，不在本阶段重定义）
 - `CodeGraph技术方案.md` 对齐实施状态
 - workflow prose 的 capability-class 引导 + 分层读取协议（§4.1.2 / §4.2.1）

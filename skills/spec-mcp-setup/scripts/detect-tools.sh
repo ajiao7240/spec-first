@@ -255,6 +255,7 @@ while IFS= read -r tool_id; do
   required="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .required' "$TOOLS_JSON")"
   category="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .category // "mcp"' "$TOOLS_JSON")"
   host_required="$(host_config_required "$tool_id")"
+  baseline_blocking="$required"
   dep_status=ready
 
   while IFS= read -r dep; do
@@ -266,7 +267,11 @@ while IFS= read -r tool_id; do
   done < <(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .dependencies[]' "$TOOLS_JSON")
 
   cfg_status="$(host_config_status "$tool_id")"
-  proj_status="$(project_status "$tool_id")"
+  if [ "$required" != "true" ] && [ "$cfg_status" = "action-required" ]; then
+    proj_status="not-applicable"
+  else
+    proj_status="$(project_status "$tool_id")"
+  fi
   tool_extra_json='{}'
   host_ready=false
   if [ "$cfg_status" = "ready" ] || [ "$cfg_status" = "fallback-active" ] || [ "$cfg_status" = "registry-args-drift" ]; then
@@ -281,7 +286,9 @@ while IFS= read -r tool_id; do
   fi
 
   next_action=""
-  if [ "$dep_status" != "ready" ]; then
+  if [ "$required" != "true" ] && [ "$cfg_status" = "action-required" ]; then
+    next_action=""
+  elif [ "$dep_status" != "ready" ]; then
     next_action="install dependency"
   elif [ "$cfg_status" = "action-required" ]; then
     next_action="configure host"
@@ -297,7 +304,10 @@ while IFS= read -r tool_id; do
 
   result="ready"
   reason_code="ready"
-  if [ "$dep_status" != "ready" ]; then
+  if [ "$required" != "true" ] && [ "$cfg_status" = "action-required" ]; then
+    result="action-required"
+    reason_code="optional-capability-not-selected"
+  elif [ "$dep_status" != "ready" ]; then
     result="action-required"
     reason_code="missing_dependency"
   elif [ "$cfg_status" = "registry-args-drift" ]; then
@@ -322,6 +332,7 @@ while IFS= read -r tool_id; do
   tools_json="$(jq \
     --arg id "$tool_id" \
     --argjson required_json "$required" \
+    --argjson baseline_blocking_json "$baseline_blocking" \
     --arg type "$category" \
     --arg dep "$dep_status" \
     --arg cfg "$cfg_status" \
@@ -336,6 +347,7 @@ while IFS= read -r tool_id; do
     '.
       + {($id): ({
         required: $required_json,
+        baseline_blocking: $baseline_blocking_json,
         type: $type,
         host_config_required: ($host_required == "true"),
         dependency_status: $dep,

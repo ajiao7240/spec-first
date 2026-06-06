@@ -272,6 +272,31 @@ function Should-Install {
   return $true
 }
 
+function Test-OptionalToolAllowed {
+  param([object]$Tool)
+  if ([bool]$Tool.required) { return $true }
+  if ($OnlyArray.Count -eq 0) { return $false }
+  if ($null -eq $Tool.PSObject.Properties['opt_in']) { return $false }
+  if ($null -eq $Tool.opt_in.PSObject.Properties['explicit_consent_required']) { return $false }
+  return [bool]$Tool.opt_in.explicit_consent_required
+}
+
+function Get-ProjectBootstrapState {
+  param([object]$Tool)
+  if ($null -eq $Tool.PSObject.Properties['project_bootstrap']) { return 'not-applicable' }
+  if ($Tool.project_bootstrap.kind -eq 'none' -or -not [bool]$Tool.project_bootstrap.required) {
+    return 'not-applicable'
+  }
+  if (-not [bool]$TargetFacts.state_write_allowed) {
+    return 'target-action-required'
+  }
+  $projectFile = [string]$Tool.project_bootstrap.project_file
+  if (-not [string]::IsNullOrWhiteSpace($projectFile) -and (Test-Path -LiteralPath (Join-Path $ResolvedRepoRoot $projectFile) -PathType Leaf)) {
+    return 'ready'
+  }
+  return 'pending'
+}
+
 function Get-Sha256Hex {
   param([string]$Text)
   $sha = [System.Security.Cryptography.SHA256]::Create()
@@ -534,14 +559,20 @@ function Invoke-Warmup {
 
 $results = New-Object System.Collections.Generic.List[object]
 foreach ($tool in @($ToolsJson.tools)) {
-  if (-not [bool]$tool.required) {
+  if (-not (Should-Install $tool)) { continue }
+
+  if (-not [bool]$tool.required -and $OnlyArray.Count -eq 0) {
+    continue
+  }
+
+  if (-not [bool]$tool.required -and -not (Test-OptionalToolAllowed -Tool $tool)) {
     $results.Add([pscustomobject]@{
       tool_id = $tool.id
       status = 'action-required'
       last_action = 'failed'
       install_kind = $tool.installation.kind
       reason_code = 'registry_not_required'
-      next_action = 'mcp-tools.json schema v6 只允许 required tools'
+      next_action = 'optional MCP tools require explicit opt-in metadata and -Only <tool-id>'
       configured_path = ''
       selected_scope = ''
       fallback_applied = $false
@@ -551,8 +582,6 @@ foreach ($tool in @($ToolsJson.tools)) {
     })
     continue
   }
-
-  if (-not (Should-Install $tool)) { continue }
 
   $status = 'ready'
   $lastAction = 'installed'
@@ -636,6 +665,43 @@ foreach ($tool in @($ToolsJson.tools)) {
     $lastAction = 'host-config-skipped'
     $nextAction = ''
     $diagnosticSummary = 'host MCP config is not required for this tool'
+  }
+
+  $projectState = Get-ProjectBootstrapState -Tool $tool
+  if ($status -eq 'ready' -and $projectState -eq 'target-action-required') {
+    $status = 'action-required'
+    $lastAction = 'failed'
+    $reasonCode = 'project_target_required'
+    $nextAction = if ([string]::IsNullOrWhiteSpace([string]$TargetFacts.next_action)) { '选择目标 repo 后重跑 setup' } else { [string]$TargetFacts.next_action }
+    $diagnosticSummary = 'project bootstrap requires a writable target repo'
+  } elseif ($status -eq 'ready' -and $projectState -eq 'pending') {
+    $platformKey = if ($Platform -eq 'windows') { 'windows' } else { 'unix' }
+    $bootstrapStep = $tool.project_bootstrap.$platformKey
+    $bootstrapArgs = @(Expand-ToolArgs -Tool $tool -Args $bootstrapStep.args)
+    $bootstrapRun = Invoke-Captured {
+      Push-Location $ResolvedRepoRoot
+      try {
+        if ($Platform -eq 'windows' -and $bootstrapStep.command -eq 'npx') {
+          & cmd.exe /d /c $bootstrapStep.command @bootstrapArgs
+        } else {
+          & $bootstrapStep.command @bootstrapArgs
+        }
+      } finally {
+        Pop-Location
+      }
+    }
+    if ($bootstrapRun.ok) {
+      $lastAction = 'project-bootstrapped'
+    } else {
+      $status = 'action-required'
+      $lastAction = 'failed'
+      $reasonCode = 'project_bootstrap_failed'
+      $nextAction = '检查 project_bootstrap 命令、网络和 repo 写入权限'
+      $exitCode = $bootstrapRun.exit_code
+      $diagnosticSummary = $bootstrapRun.diagnostic_summary
+    }
+  } elseif ($status -eq 'ready' -and $projectState -eq 'ready') {
+    $lastAction = 'project-bootstrap-cache-hit'
   }
 
   $results.Add([pscustomobject]@{

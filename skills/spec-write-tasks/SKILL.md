@@ -175,6 +175,10 @@ It must have:
 - a source plan `spec_id` when generating an executable task pack,
 - no unresolved product, architecture, or contract decision that would change scope.
 
+Use the source plan's own structure as the primary complexity evidence for the split recommendation. At task-compilation time the plan already exists, so implementation-unit count, declared `Files`, dependency chains, cross-module surfaces, verification spread, and frontmatter `plan_depth` when present are higher-fidelity inputs than a fresh helper guess. Recommend `compile` when those plan facts show material execution risk or context load, such as many units, deep dependencies, broad file ownership, multi-layer verification, or `plan_depth: deep`. Recommend `skip` when the plan is small and shallow, and state that direct `spec-work` is intentional rather than an omission.
+
+`task-governance-signals.v1` may be used only as optional cross-check evidence, not as the task-time source of truth. In `--source plan-declared` mode it is designed for pre-plan Phase 0.6, does not consume written Implementation Units, and only sees non-empty planning facts when the caller builds and passes an `--input <planning-context.json>` file. If `--input` is omitted or unreadable, the helper can fall back to empty signals and still emit a `lightweight` candidate with `collection_status=ok`; do not treat that as proof of low risk. When helper evidence is absent, stale, degraded, or weaker than the written plan structure, fall back to direct plan evidence and let the LLM record the final reason.
+
 Choose exactly one branch:
 
 - `compile`: the plan is clear enough; generate an executable task pack.
@@ -293,6 +297,10 @@ next_action: spec-work-task-pack | review-task-pack | spec-work-plan | revise-pl
 ```
 
 `next_action: spec-work-task-pack` is allowed only when `deterministic_handoff: true` and `semantic_posture` is `generated-this-run` or `reviewed-existing`. `deterministic_handoff` proves identity, freshness, and structure only; it does not prove semantic task quality.
+
+Use `next_action: review-task-pack` as the decisive handoff recommendation for high-risk task packs. Choose it when the pack contains `review_gate: required` tasks, touches shared contracts, public workflow prose, source/runtime boundaries, security/release/CI surfaces, or has enough tasks/dependencies that semantic drift or over-splitting would be costly. The output must include one concrete reason and a copy-ready current-host document-review invocation, such as `/spec:doc-review <task-pack-path>` for Claude or `$spec-doc-review <task-pack-path>` for Codex.
+
+`review-task-pack` is a user-confirmed handoff recommendation, not an instruction for `spec-write-tasks` to invoke document review. Interactive hosts should surface the recommendation and wait for the user. Autonomous or headless hosts must surface the same recommendation in their returned envelope instead of silently dispatching `spec-doc-review`.
 
 ## Required Task Card Semantics
 
