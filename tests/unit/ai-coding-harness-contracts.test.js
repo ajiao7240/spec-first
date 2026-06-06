@@ -39,6 +39,7 @@ describe('AI Coding Harness contract', () => {
       'context-governance.md',
       'context-bundle.md',
       'artifact-summary.md',
+      'knowledge/knowledge-harness.md',
       'workflows/spec-id-traceability.md',
       'workflows/spec-work-run-artifact.schema.json',
       'workflows/review-finding.md',

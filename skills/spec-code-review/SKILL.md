@@ -78,6 +78,12 @@ For docs-only and config-only changes, docs contract checks, schema/help/render 
 
 Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
 
+## Summary-First Handoff
+
+When consuming plan, work, task-pack, debug, or compound artifacts, read an `artifact-summary.v1` summary and precise artifact path first. Open the full artifact only when `full_artifact_read_triggers` apply: the summary is missing requirement/task/finding/evidence detail needed for review, exact prose or line references are required for an actionable finding, or 互依赖任务 need concrete implementation details rather than only upstream conclusions. If no usable summary exists, record `summary_missing` and inspect the smallest explicit source path needed. If full content is opened, record `full_artifact_read_reason` with the matched trigger.
+
+When producing downstream review handoff, provide an `artifact-summary.v1`-style summary with verdict, actionable findings, residual status, evidence paths, reviewer artifact path, limitations, and recommended next action. If handing off a `context-bundle.v1`, keep context budget accounting in the existing `related_paths`, `evidence_paths`, `excluded_context`, `budget`, and `budget_used` fields; do not introduce a second included/omitted schema.
+
 ## Direct Review Evidence Boundary
 
 Code Review does not require external-tool readiness before reviewer dispatch. Use direct diff reads, source reads, `rg`, ast-grep, package/test facts, logs, and user-provided artifacts to build review context and confirm findings. If a claimed impact surface cannot be confirmed from bounded direct evidence, record it as residual risk or a test candidate instead of raising it as a confirmed finding.
@@ -816,7 +822,7 @@ Assemble the final report using **pipe-delimited markdown tables for findings** 
 4. **Applied Fixes.** Include only if a fix phase ran in this invocation.
 5. **Residual Actionable Work.** Include when unresolved actionable findings were handed off or should be handed off.
 6. **Pre-existing.** Separate section, does not count toward verdict.
-7. **Learnings & Past Solutions.** Surface spec-learnings-researcher results: if past solutions are relevant, flag them as "Known Pattern" with links to docs/solutions/ files.
+7. **Learnings & Past Solutions.** Surface spec-learnings-researcher results: if past solutions are relevant, flag them as "Known Pattern" with links to docs/solutions/ files. Recalled learnings are advisory candidate evidence, not confirmed findings — a `legacy_unstructured_advisory` recall in particular must not be promoted to a confirmed finding. Use each hit's `source_refs` / `source_reads_required` to confirm against current diff/source/test/doc evidence before a recalled pattern changes a review verdict; 不依赖模型自评.
 8. **Learning Capture Recommendation.** Decide whether the current review produced a new reusable lesson worth capturing. This recommendation is advisory only: it is not a finding, not residual actionable work, not a verdict input, not an autofix item, and not a merge gate. Use the same three-tier judgment as Work/Debug:
    - **Skip silently** for mechanical fixes, one-off docs edits, formatting-only changes, or review results with no generalizable lesson. If the lesson cannot be stated in one sentence, skip rather than offer.
    - **Offer neutrally** when the lesson can be stated in one sentence, such as a repeated finding pattern, reusable review heuristic, source/runtime or host-entrypoint boundary lesson, external-tool evidence limitation, or known pattern future reviews should remember.

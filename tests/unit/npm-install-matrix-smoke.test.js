@@ -9,6 +9,7 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 const SCRIPT_PATH = path.join(REPO_ROOT, 'scripts', 'npm-install-matrix-smoke.js');
 const WORKFLOW_PATH = path.join(REPO_ROOT, '.github', 'workflows', 'npm-install-matrix.yml');
 const RELEASE_EVIDENCE_SCHEMA_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'release-package-evidence.schema.json');
+const KNOWLEDGE_HARNESS_CONTRACT_PATH = 'docs/contracts/knowledge/knowledge-harness.md';
 
 const {
   buildInitProgrammaticEvidence,
@@ -28,6 +29,7 @@ const VALID_PACK_FILES = [
   'skills/spec-plan/SKILL.md',
   'scripts/npm-install-matrix-smoke.js',
   'templates/claude/commands/spec/work.md',
+  KNOWLEDGE_HARNESS_CONTRACT_PATH,
   'README.md',
 ].map((filePath, index) => ({
   path: filePath,
@@ -138,6 +140,7 @@ describe('npm install matrix smoke script', () => {
     });
     expect(manifest.files.map((file) => file.path)).toEqual([
       'bin/spec-first.js',
+      KNOWLEDGE_HARNESS_CONTRACT_PATH,
       'README.md',
       'scripts/npm-install-matrix-smoke.js',
       'skills/spec-plan/SKILL.md',
@@ -145,13 +148,24 @@ describe('npm install matrix smoke script', () => {
       'src/cli/index.js',
       'templates/claude/commands/spec/work.md',
     ].sort((a, b) => a.localeCompare(b)));
+    // required_paths 顺序无语义(脚本未对其排序),断言用排序对齐避免耦合插入顺序
+    expect(manifest.required_paths.map((item) => item.path).sort((a, b) => a.localeCompare(b))).toEqual([
+      'bin/spec-first.js',
+      'src/cli/index.js',
+      'skills/spec-work/SKILL.md',
+      'skills/spec-plan/SKILL.md',
+      'scripts/npm-install-matrix-smoke.js',
+      'templates/claude/commands/spec/work.md',
+      KNOWLEDGE_HARNESS_CONTRACT_PATH,
+      'README.md',
+    ].sort((a, b) => a.localeCompare(b)));
     expect(manifest.required_paths.every((item) => item.present)).toBe(true);
     expect(manifest.checks.every((check) => check.passed)).toBe(true);
   });
 
   test('package content manifest fails with reason codes for missing required and forbidden paths', () => {
     const files = [
-      ...VALID_PACK_FILES.filter((file) => file.path !== 'README.md'),
+      ...VALID_PACK_FILES.filter((file) => !['README.md', KNOWLEDGE_HARNESS_CONTRACT_PATH].includes(file.path)),
       { path: '.claude/commands/spec/work.md', size: 12, mode: 420 },
       { path: 'skills/spec-work/scripts/__pycache__/tool.pyc', size: 13, mode: 420 },
     ];
@@ -164,6 +178,10 @@ describe('npm install matrix smoke script', () => {
       expect.objectContaining({
         reason_code: 'required-package-path-missing',
         paths: ['README.md'],
+      }),
+      expect.objectContaining({
+        reason_code: 'required-package-path-missing',
+        paths: [KNOWLEDGE_HARNESS_CONTRACT_PATH],
       }),
       expect.objectContaining({
         reason_code: 'forbidden-package-path-present',

@@ -71,6 +71,7 @@ AI coding 最大的问题通常不是 agent 不会写代码，而是关键判断
 - requirements 变成持久 brief，而不是会话里消失的 prompt。
 - plans 和 task packs 把模糊意图变成可评审、可执行的上下文。
 - work、review、debug、optimize 和 compound workflows 会沉淀证据与经验。
+- knowledge handoff 默认 summary-first，召回的 `docs/solutions/` learning 在回源确认前保持 advisory。
 - 一套 source assets 同时支持 Claude Code 的 `/spec:*` 入口和 Codex 的 `$spec-*` 入口，不需要手工维护生成副本。
 
 ## 快速开始
@@ -243,6 +244,7 @@ Source-of-truth assets 位于仓库中。`.claude/`、`.codex/` 和 `.agents/ski
 - [核心概念](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/02-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5.md)
 - [整体架构](https://github.com/sunrain520/spec-first/blob/main/docs/02-%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/01-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84.md)
 - [Source / Runtime / Provider Customization Boundary](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/source-runtime-customization-boundary.md)
+- [Knowledge Harness 合同](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/knowledge/knowledge-harness.md)
 - [Verification Profile Contract](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/verification/verification-profile.md)
 - [Verification Run Summary Contract](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/verification/verification-run-summary.md)
 - [Honest Closeout Contract](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/workflows/honest-closeout.md)

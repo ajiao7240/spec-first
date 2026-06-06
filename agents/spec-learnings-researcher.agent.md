@@ -133,8 +133,16 @@ Extract these fields from the YAML frontmatter:
 - **symptoms** — observable behaviors or friction (present on bug-track entries and sometimes on knowledge-track entries)
 - **root_cause** — underlying cause (present on bug-track entries; optional on knowledge-track entries)
 - **severity** — critical, high, medium, low
+- **domain** — problem or workflow domain used for recall, when present
+- **pattern** — reusable pattern or lesson name, when present
+- **rejected_alternatives** — approaches considered and rejected, when present
+- **applicable_versions** — versions or runtime/host scopes where the learning applies, when present
+- **invalidation_condition** — condition that would make the learning stale or unsafe to reuse
+- **source_refs** — repo-relative source, test, docs, or review paths required to reconfirm the learning
 
 Some non-bug entries may have looser frontmatter shapes (they do not require `symptoms` or `root_cause`). Do not discard these entries for missing bug-shaped fields — use whatever fields are present for matching.
+
+If a candidate has both `source_refs` and `invalidation_condition`, mark it as a structured recall candidate. If either is missing, mark it `legacy_unstructured_advisory`: the learning can still be useful, but callers must not treat it as verified structured knowledge until it is minimally backfilled and reconfirmed from source/test/doc evidence.
 
 ### Step 5: Score and Rank Relevance
 
@@ -143,10 +151,12 @@ Match frontmatter fields against the keywords extracted in Step 1:
 **Strong matches (prioritize):**
 
 - `module` or domain matches the caller's area of work
+- `domain` or `pattern` matches the caller's Concepts, Decisions, Approaches, or Domain hint
 - `tags` contain keywords from the caller's Concepts, Decisions, or Approaches
 - `title` contains keywords from the caller's Activity or Concepts
 - `component` matches the technical area being touched
 - `symptoms` describe similar observable behaviors (when applicable)
+- `source_refs` point at current source/test/doc areas directly relevant to the caller's work
 
 **Moderate matches (include):**
 
@@ -167,6 +177,7 @@ Only for files that pass the filter (strong or moderate matches), read the compl
 - The learning itself (solution, pattern, decision, convention)
 - Prevention guidance or application notes
 - Code examples or illustrative evidence
+- The `source_refs` and `invalidation_condition` needed for the caller's source-confirmation step
 
 When a learning's claim conflicts with what you can observe in the current code or docs, flag the conflict explicitly rather than echoing the claim. Note the entry's date so the caller can judge whether the learning may have been superseded. Research agents can be confidently wrong; never let a past learning silently override present evidence.
 
@@ -211,8 +222,11 @@ Structure findings as follows:
 - **File**: [absolute or repo-relative path]
 - **Module**: [module/domain from frontmatter, or the repo area the learning applies to]
 - **Problem Type**: [raw `problem_type` value from frontmatter, e.g. `architecture_pattern`, `design_pattern`, `tooling_decision`, `runtime_error`. Mark as "inferred" when the entry has no `problem_type`.]
+- **Recall Status**: [structured recall candidate | legacy_unstructured_advisory]
 - **Relevance**: [why this matters for the caller's work]
 - **Key Insight**: [the decision, pattern, or pitfall to carry forward]
+- **Invalidation Condition**: [frontmatter `invalidation_condition`, if present]
+- **Source Refs**: [frontmatter `source_refs`, if present; otherwise note "missing — source confirmation required from current task evidence"]
 - **Severity**: [severity level, when present in frontmatter; omit the line otherwise]
 
 #### 2. [Title]

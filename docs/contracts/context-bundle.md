@@ -107,7 +107,11 @@
 5. 只有列出的 `full_read_triggers` 命中时，consumer 才展开完整文件。
 6. `docs/contracts/context-governance.md` 排除的 runtime/generated paths 仍保持排除，除非任务明确是 setup/update/runtime-drift/audit scope。
 7. Degraded bundle 仍是有用 evidence，但最终判断必须说明 limitation。
-8. `evidence_summaries` 可以携带 compact direct evidence 或 session summary refs；consumer 必须按其中的 `source_reads_required` 精确读取源码，不得把 summary 当 confirmed source fact。
+8. `evidence_summaries` 可以携带 compact direct evidence、session summary refs 或 `artifact-summary.v1` 引用；`context-bundle.v1` 本身只承载 `summary_ref` / paths，不新增 `source_reads_required` 字段。若 referenced summary 或上游 evidence summary 提供 `source_reads_required`，consumer 必须按其精确读取源码；不得把 summary 当 confirmed source fact。
+
+## Context Budget Accounting
+
+v1.15 Knowledge Harness 不新增 context budget 字段。Included context 语义映射到既有 `related_paths` 和 `evidence_paths`；omitted context 语义映射到既有 `excluded_context`，并依赖其中的 `reason_code` / `reason` 说明排除原因；budget 语义映射到既有 `budget` / `budget_used`。Consumer 不应要求第二套 included/omitted schema，也不应把 budget pressure 交给脚本做 semantic relevance 判断。
 
 ## 最小内部 Helper
 

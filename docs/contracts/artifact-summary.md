@@ -46,7 +46,8 @@
   "recommended_next_action": "当前 host work entrypoint",
   "full_artifact_read_triggers": [
     "summary 缺少必需的 requirement、task、finding 或 evidence detail",
-    "下游 reviewer 需要精确 prose 或 line references 才能形成 finding"
+    "下游 reviewer 需要精确 prose 或 line references 才能形成 finding",
+    "互依赖任务需要上游具体实现细节，而不只是结论"
   ]
 }
 ```
@@ -59,6 +60,7 @@
 - Compound artifacts 汇总 reusable lesson delta 与 source evidence paths。
 - Tool-heavy artifacts 汇总 exit code、reason_code、关键字段和 raw log paths，而不是嵌入 raw output。
 - Direct/session evidence summary 可以记录 source reads required、commands used、limitations 和 redaction status，但不得嵌入 raw external-tool output，也不得成为 finding / root cause 的 source of truth。
+- 如果 producer 不能提供 summary，handoff 必须让下游能记录 `summary_missing` 并定位最小 explicit path。
 
 ## Consumer 规则
 
@@ -67,3 +69,4 @@
 3. agent handoff 传递 summary 和 paths，不复制 full artifact body。
 4. 如果缺少 summary，标记 `summary_missing`，并读取最小可用 status、manifest 或 explicit path。
 5. Direct/session evidence summary 是 advisory handoff；consumer 必须回到 `evidence_paths` 或 `source_reads_required` 做 source/test/contract confirmation。
+6. 如果展开 full artifact，记录 `full_artifact_read_reason`，其值应对应 `full_artifact_read_triggers` 中的具体触发原因。

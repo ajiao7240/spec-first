@@ -43,6 +43,60 @@ const COMPOUND_REFRESH_CONCEPTS_REFERENCE_PATH = path.join(
   'references',
   'concepts-vocabulary.md',
 );
+const COMPOUND_RESOLUTION_TEMPLATE_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-compound',
+  'assets',
+  'resolution-template.md',
+);
+const COMPOUND_REFRESH_RESOLUTION_TEMPLATE_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-compound-refresh',
+  'assets',
+  'resolution-template.md',
+);
+const COMPOUND_SCHEMA_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-compound',
+  'references',
+  'schema.yaml',
+);
+const COMPOUND_REFRESH_SCHEMA_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-compound-refresh',
+  'references',
+  'schema.yaml',
+);
+const COMPOUND_YAML_SCHEMA_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-compound',
+  'references',
+  'yaml-schema.md',
+);
+const COMPOUND_REFRESH_YAML_SCHEMA_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-compound-refresh',
+  'references',
+  'yaml-schema.md',
+);
 
 function plannedRuntimeContent(adapter, targetPath) {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-compound-runtime-'));
@@ -196,5 +250,73 @@ describe('spec-compound host entrypoint contract', () => {
     expect(command).toContain('Load `.claude/spec-first/workflows/spec-compound-refresh/references/per-action-flows.md`');
     expect(command).not.toContain('Load `references/per-action-flows.md`');
     expect(command).not.toContain('Load `skills/spec-compound-refresh/references/per-action-flows.md`');
+  });
+
+  test('compound and refresh templates include structured recall promotion fields', () => {
+    const templates = [
+      fs.readFileSync(COMPOUND_RESOLUTION_TEMPLATE_PATH, 'utf8'),
+      fs.readFileSync(COMPOUND_REFRESH_RESOLUTION_TEMPLATE_PATH, 'utf8'),
+    ];
+    const sectionBetween = (text, start, end) => {
+      const startIndex = text.indexOf(start);
+      expect(startIndex).toBeGreaterThanOrEqual(0);
+      const endIndex = end ? text.indexOf(end, startIndex + start.length) : -1;
+      return endIndex === -1 ? text.slice(startIndex) : text.slice(startIndex, endIndex);
+    };
+
+    for (const text of templates) {
+      const bugTemplate = sectionBetween(text, '## Bug Track Template', '## Knowledge Track Template');
+      const knowledgeTemplate = sectionBetween(text, '## Knowledge Track Template');
+
+      for (const block of [bugTemplate, knowledgeTemplate]) {
+        for (const field of [
+          'domain:',
+          'pattern:',
+          'rejected_alternatives:',
+          'applicable_versions:',
+          'invalidation_condition:',
+          'source_refs:',
+        ]) {
+          expect(block).toContain(field);
+        }
+        expect(block).toContain('rejected_alternatives, applicable_versions, source_refs');
+        expect(block).toContain('- [repo-relative source, test, doc, or review path]');
+      }
+    }
+  });
+
+  test('compound-refresh support files stay aligned with structured promotion schema', () => {
+    const schemaTexts = [
+      fs.readFileSync(COMPOUND_SCHEMA_PATH, 'utf8'),
+      fs.readFileSync(COMPOUND_REFRESH_SCHEMA_PATH, 'utf8'),
+    ];
+    const yamlSchemaTexts = [
+      fs.readFileSync(COMPOUND_YAML_SCHEMA_PATH, 'utf8'),
+      fs.readFileSync(COMPOUND_REFRESH_YAML_SCHEMA_PATH, 'utf8'),
+    ];
+
+    for (const text of schemaTexts) {
+      expect(text).toContain('new_promote_required_fields');
+      expect(text).toContain('legacy_unstructured_advisory');
+      expect(text).toContain('New promoted solution docs must include invalidation_condition and source_refs');
+      expect(text).toContain('Existing docs missing the structured recall fields remain legacy_unstructured_advisory');
+      expect(text).toContain('rejected_alternatives, applicable_versions, source_refs');
+    }
+
+    for (const text of yamlSchemaTexts) {
+      expect(text).toContain('New Promote Required Fields');
+      expect(text).toContain('legacy_unstructured_advisory');
+      expect(text).toContain('rejected_alternatives`, `applicable_versions`');
+      expect(text).toContain('source_refs`, or any future array field');
+    }
+  });
+
+  test('compound and compound-refresh keep byte-identical schema copies (no silent drift)', () => {
+    // 两个 skill 各自持有一份 schema.yaml / yaml-schema.md 副本,靠手工同步。
+    // 字节相等断言守住单边改动导致的跨 skill 合同漂移。
+    expect(fs.readFileSync(COMPOUND_REFRESH_SCHEMA_PATH, 'utf8'))
+      .toEqual(fs.readFileSync(COMPOUND_SCHEMA_PATH, 'utf8'));
+    expect(fs.readFileSync(COMPOUND_REFRESH_YAML_SCHEMA_PATH, 'utf8'))
+      .toEqual(fs.readFileSync(COMPOUND_YAML_SCHEMA_PATH, 'utf8'));
   });
 });

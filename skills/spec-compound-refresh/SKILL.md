@@ -51,7 +51,14 @@ Overrides: none
 These files are the durable contract for the workflow. Read them on-demand at the step that needs them — do not bulk-load at skill start.
 
 - `references/per-action-flows.md` — per-action execution rules for Keep, Update, Consolidate, Replace, and Delete (read in Phase 4)
+- `references/schema.yaml` — canonical frontmatter fields, structured recall fields, and new promote required fields (read before replacing or backfilling a learning)
 - `references/concepts-vocabulary.md` — advisory `CONCEPTS.md` inclusion and scoped update rules (read when collecting or reconciling vocabulary signals)
+
+## Structured Promotion Gate
+
+Use `references/schema.yaml` as the canonical `docs/solutions/` frontmatter contract. When Refresh creates a replacement learning or intentionally backfills a legacy learning into the structured recall path, include the new promote required fields `invalidation_condition` and `source_refs`. Only a source-confirmed, verified learning should become a replacement durable doc; raw investigation notes or unconfirmed recall should be reported, not promoted.
+
+Existing docs missing the structured recall fields remain `legacy_unstructured_advisory`: they can be refreshed, stale-marked, consolidated, or deleted based on evidence without treating the missing fields as a hard validation failure. Do not create or reference a separate `solution-promotion.schema.json`; the schema contract lives in `references/schema.yaml`.
 
 ## Mode Detection
 
@@ -227,7 +234,7 @@ Match investigation depth to the learning's specificity — a learning referenci
 The critical distinction is whether the drift is **cosmetic** (references moved but the solution is the same) or **substantive** (the solution itself changed):
 
 - **Update territory** — file paths moved, classes renamed, links broke, metadata drifted, but the core recommended approach is still how the code works. `spec-compound-refresh` fixes these directly.
-- **Replace territory** — the recommended solution conflicts with current code, the architectural approach changed, or the pattern is no longer the preferred way. This means a new learning needs to be written. A replacement subagent writes the successor following `spec-compound`'s document format (frontmatter, problem, root cause, solution, prevention), using the investigation evidence already gathered. The orchestrator does not rewrite learnings inline — it delegates to a subagent for context isolation.
+- **Replace territory** — the recommended solution conflicts with current code, the architectural approach changed, or the pattern is no longer the preferred way. This means a new learning needs to be written. A replacement subagent writes the successor following `spec-compound`'s document format (frontmatter including `invalidation_condition` and `source_refs`, problem, root cause, solution, prevention), using the investigation evidence already gathered. The orchestrator does not rewrite learnings inline — it delegates to a subagent for context isolation.
 
 **The boundary:** if you find yourself rewriting the solution section or changing what the learning recommends, stop — that is Replace, not Update.
 

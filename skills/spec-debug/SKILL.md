@@ -73,6 +73,10 @@ When symptoms involve domain terminology, policy names, workflow-specific concep
 
 For major debugging decisions, carry a lightweight decision note: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when unresolved. Use source tags such as `confirmed`, `advisory`, `session-local`, `stale`, or `user`. Suggest creating an ADR-like artifact only when the fix direction is hard to reverse, would be surprising without context, and reflects a real tradeoff.
 
+## Recall Trust Boundary
+
+Past learnings from `docs/solutions/` are recall advisory candidate evidence. Treat a match as a diagnostic pointer, not as root-cause proof. Use its `source_refs` or upstream `source_reads_required` to return to current source/test/doc evidence, reproduction output, deterministic checks, logs, or human reviewer confirmation before promoting a causal link to confirmed. Do not rely on model self-evaluation; 不依赖模型自评.
+
 ## Runtime Context Exclusion
 
 Follow `docs/contracts/context-governance.md`: ordinary Debug context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Runtime logs are task evidence only when they directly reproduce the symptom or the user points to them; do not scan audit snapshots or generated mirrors as source context unless debugging setup/update/runtime drift/audit behavior.

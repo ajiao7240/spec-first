@@ -90,6 +90,16 @@ Keep workflow invariants, task-pack validation, source/runtime boundaries, and r
 
 Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
 
+## Summary-First Handoff
+
+When consuming upstream plan, task-pack, review, debug, or compound artifacts, read an `artifact-summary.v1` summary and precise artifact path first. Open the full artifact only when `full_artifact_read_triggers` apply: the summary is missing requirement/task/finding/evidence detail needed for implementation, exact prose or line references are required, or 互依赖任务 need concrete implementation details rather than only upstream conclusions. If no usable summary exists, record `summary_missing` and read the smallest explicit source path needed. If full content is opened, record `full_artifact_read_reason` with the matched trigger.
+
+When producing work-to-review or work-to-compound handoff, provide an `artifact-summary.v1`-style summary with changed files, verification commands, review tier, residual status, evidence paths, limitations, and recommended next action. If handing off a `context-bundle.v1`, keep context budget accounting in the existing `related_paths`, `evidence_paths`, `excluded_context`, `budget`, and `budget_used` fields; do not introduce a second included/omitted schema.
+
+## Recall Trust Boundary
+
+Institutional learnings from `docs/solutions/` recalled during execution (directly or carried in from `spec-plan`) are recall advisory candidate evidence. Treat a matching learning as a pointer to inspect, not as confirmed truth. Use its `source_refs` or upstream `source_reads_required` to return to current source/test/doc evidence, deterministic checks, or human reviewer confirmation before letting a past learning shape an implementation decision. Do not rely on model self-evaluation; 不依赖模型自评.
+
 ## Direct Evidence Boundary
 
 Work does not require external-tool readiness before ordinary implementation. Use direct source reads, `rg`, ast-grep, git diff, focused tests, logs, package metadata, and user-provided artifacts as the evidence base. If an external tool is unavailable or outside the current scope, disclose that limitation and continue only with claims that the direct evidence supports.

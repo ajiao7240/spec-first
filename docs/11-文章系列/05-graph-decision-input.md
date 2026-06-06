@@ -299,9 +299,9 @@ group-aware 能力可以跨仓库查询 symbol 关系和影响面。
 
 不能跳过中间的源码确认步骤。
 
-`spec-first` 的 `context-bundle.v1` 里有一个字段叫 `source_reads_required`，就是为了强制这个步骤：
+`spec-first` 的 handoff summary 或上游 evidence summary 可以给出 `source_reads_required`，就是为了强制这个步骤。`context-bundle.v1` 本身只携带 summary/path 引用，不把这个字段做成 bundle 字段：
 
-> consumer 必须按其中的 `source_reads_required` 精确读取源码，不得把 summary 当 confirmed source fact。
+> 若 referenced summary 或上游 evidence summary 提供 `source_reads_required`，consumer 必须按其精确读取源码；不得把 summary 当 confirmed source fact。
 
 ### 06.3 provider 结果与源码冲突时，信源码
 

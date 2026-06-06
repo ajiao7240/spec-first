@@ -77,6 +77,16 @@ Keep role boundaries, plan quality bar, setup/readiness limits, and reference lo
 
 Maintain a run-local context ledger for this workflow: paths read, reason, phase, and compact summary. Reuse loaded summaries within the same workflow run. Re-read only when exact wording is needed, the file changed, prior evidence is insufficient, or the user explicitly asks.
 
+## Summary-First Handoff
+
+When consuming upstream plan, brainstorm, PRD, review, work, or compound artifacts, read an `artifact-summary.v1` summary and precise artifact path first. Open the full artifact only when `full_artifact_read_triggers` apply: the summary is missing requirement/task/finding/evidence detail needed for planning, exact prose or line references are required, or 互依赖任务 need concrete implementation details rather than only upstream conclusions. If no usable summary exists, record `summary_missing` and read the smallest explicit source path needed. If full content is opened, record `full_artifact_read_reason` with the matched trigger.
+
+When producing a plan handoff, provide an `artifact-summary.v1`-style summary with goal, scope, non-goals, implementation units, validation focus, open questions, evidence paths, and recommended next action. If handing off a `context-bundle.v1`, keep context budget accounting in the existing `related_paths`, `evidence_paths`, `excluded_context`, `budget`, and `budget_used` fields; do not introduce a second included/omitted schema.
+
+## Recall Trust Boundary
+
+Institutional learnings from `docs/solutions/` are recall advisory candidate evidence. Treat a matching learning as a pointer to inspect, not as confirmed truth. Use its `source_refs` or upstream `source_reads_required` to return to current source/test/doc evidence, deterministic checks, or human reviewer confirmation before promoting a planning conclusion to confirmed. Do not rely on model self-evaluation; 不依赖模型自评.
+
 ## Interaction Method
 
 When asking the user a question, use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded) or `request_user_input` in Codex. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.

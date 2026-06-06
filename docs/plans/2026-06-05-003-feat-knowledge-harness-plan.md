@@ -1,7 +1,7 @@
 ---
 title: "feat: Knowledge Harness（v1.15，分批落地）"
 type: feat
-status: planned
+status: completed
 date: 2026-06-05
 spec_id: 2026-06-05-003-feat-knowledge-harness
 depth: deep
@@ -10,7 +10,7 @@ origin:
   - docs/01-需求分析/13.scale集成/README.md
 host: claude+codex
 slice: v1.15（父方案 Phase D / P2 六层 Knowledge Harness；本计划覆盖完整设计，执行分两批）
-implements_schemas:
+implements_contracts:
   - docs/contracts/knowledge/knowledge-harness.md（新增：六层 Harness map + recall boundary）
   - skills/spec-compound/references/schema.yaml（扩展既有 canonical frontmatter，不新建第二套 truth）
   - docs/contracts/artifact-summary.md（已落地 v1，本计划只铺 producer/consumer 不重建 schema）
@@ -221,6 +221,26 @@ v1.11–v1.14 已把 readiness / verification / honest-closeout / governance len
 - **双宿主 parity**:Claude / Codex 投影 prose 一致(沿用现有 parity 回归)。
 - **回归**:`npm test` 全绿;`scale-provider-doc-contracts.test.js` 不回归;`npm run lint:skill-entrypoints` 通过。
 - **fresh-source eval**(agent/skill prose 变更):按 `docs/contracts/workflows/fresh-source-eval-checklist.md`,对改动的 SKILL 做 fresh read-only reviewer 评估;host 缺 dispatch primitive 时记录未执行原因。
+
+## Implementation Validation / Review Follow-Up
+
+本计划已标记 `status: completed`，完成依据是当前 source diff、focused tests、语法/入口治理检查，以及 fresh read-only reviewer 复核。未手改 generated runtime mirrors。
+
+已执行验证：
+
+- `npx jest tests/unit/spec-compound-contracts.test.js tests/unit/knowledge-harness-contracts.test.js tests/unit/npm-install-matrix-smoke.test.js tests/unit/package-install-contracts.test.js tests/unit/ai-coding-harness-contracts.test.js --runInBand` → 5 suites / 42 tests passed。
+- `npx jest tests/unit/spec-compound-contracts.test.js tests/unit/knowledge-harness-contracts.test.js tests/unit/npm-install-matrix-smoke.test.js --runInBand` → reviewer follow-up 后 3 suites / 29 tests passed。
+- `npm run typecheck` → 115 files checked, passed。
+- `npm run lint:skill-entrypoints` → 173 files scanned, passed。
+- `git diff --check` → passed。
+
+Fresh-source / read-only reviewer 记录：
+
+- `spec-correctness-reviewer`（agent id `019e9a91-b810-7132-bce4-687d74d78ce9`）读取当前 worktree source 后未发现 P1/P2 correctness findings；指出文章中 `source_reads_required` 归属旧表述，已修正为 referenced summary/evidence summary。
+- `spec-testing-reviewer`（agent id `019e9a92-394a-71f2-a9b2-1162bb5474c4`）指出 3 个 P2 测试覆盖缺口：npm required path 未精确断言、learnings researcher 输出字段未锁住、template 测试未分 Bug/Knowledge block；已补测试并复跑通过。
+- `spec-project-standards-reviewer`（agent id `019e9a92-0f7a-7a02-a276-c7716b2bbd6c`）指出 2 个 P2：新增 scale 架构思想报告缺 CHANGELOG、completed plan 缺 fresh-source/read-only reviewer 结果记录；已补 CHANGELOG 与本节记录。
+
+限制：本轮使用等价 fresh read-only reviewer 复核当前磁盘 source，而非为每个 changed SKILL 单独生成独立 eval artifact；reviewer findings 已逐项修复并由 focused tests / diff check 回归。
 
 ---
 

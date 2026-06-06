@@ -41,6 +41,7 @@ logs/
 .claude/spec-first/
 .claude/agents/
 .claude/hooks/session-start
+.claude/*.lock
 .codex/
 .agents/
 .context/spec-first/

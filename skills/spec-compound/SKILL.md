@@ -86,6 +86,12 @@ Consume upstream `artifact-summary.v1`-style summaries from `docs/contracts/arti
 
 When upstream work/review/debug summaries include external-tool or broad impact evidence, treat it as advisory focus only. Compound may record reusable lessons only after the claim is source-confirmed by changed source, tests, logs, contracts, or review findings; raw tool output and raw diff hunks must not enter durable `docs/solutions/` learning docs. If an external tool helped locate the lesson, cite the compact summary and the confirming source paths, not the raw response.
 
+## Structured Promotion Gate
+
+Use `references/schema.yaml` as the canonical `docs/solutions/` frontmatter contract. For a new promoted solution, include the structured recall fields required by the promotion path: `invalidation_condition` and `source_refs`. Also include `domain`, `pattern`, `rejected_alternatives`, and `applicable_versions` when they improve recall quality. Only a source-confirmed, verified learning may enter durable `docs/solutions/`; session notes, raw tool output, and unresolved hypotheses are not promoted.
+
+Existing learning docs that predate the structured recall fields remain `legacy_unstructured_advisory`: they may be read as advisory candidates, but missing `invalidation_condition` or `source_refs` must not block refresh or ordinary recall. A legacy doc becomes structured only after minimal backfill and source confirmation. Do not create or reference a separate `solution-promotion.schema.json`; the schema contract lives in `references/schema.yaml`.
+
 ## Distilled Replay References
 
 When using session or prior-work evidence, prefer distilled replay refs over full history. A replay ref should name the source session/extract or upstream checkpoint, the accepted or rejected decision, the evidence path, and the relevance to the new learning. Rejected or out-of-scope rationale can be captured when it teaches a reusable boundary, but it must not become workflow status or a task completion claim.
@@ -279,7 +285,7 @@ The orchestrating agent (main conversation) performs these steps:
    - Tag session-sourced content with "(session history)" so its origin is clear to future readers
    - If findings are thin or "no relevant prior sessions," proceed without session context
 4. Assemble complete markdown file from the collected pieces, reading `assets/resolution-template.md` for the section structure of new docs
-5. Validate YAML frontmatter against `references/schema.yaml`, including the YAML-safety quoting rule for array items (see `references/yaml-schema.md` > YAML Safety Rules)
+5. Validate YAML frontmatter against `references/schema.yaml`, including new promote required fields (`invalidation_condition`, `source_refs`) for newly promoted solution docs and the YAML-safety quoting rule for array items (see `references/yaml-schema.md` > YAML Safety Rules)
 6. Create directory if needed: `mkdir -p docs/solutions/[category]/`
 7. Write the file: either the updated existing doc or the new `docs/solutions/[category]/[filename].md`
 8. **Run `python3 scripts/validate-frontmatter.py <output-path>`** from the `skills/spec-compound/` directory to catch parser-safety issues the prose rules can miss: malformed `---` delimiter lines, unquoted ` #` in scalar values, and unquoted `: ` in scalar values. Exit 0 means the doc is parser-safe; exit 1 means stderr names the field(s) to quote or fix. Re-write the doc and re-run until exit 0. Do not declare success while validation fails. The script is pure Python 3 stdlib and does not enforce schema required fields or enum values.
@@ -418,6 +424,7 @@ The orchestrator (main conversation) performs ALL of the following in one sequen
 2. **Classify**: Read `references/schema.yaml` and `references/yaml-schema.md`, then determine track (bug vs knowledge), category, and filename
 3. **Write minimal doc**: Create `docs/solutions/[category]/[filename].md` using the appropriate track template from `assets/resolution-template.md`, with:
    - YAML frontmatter with track-appropriate fields, applying the YAML-safety quoting rule for array items (see `references/yaml-schema.md` > YAML Safety Rules)
+   - New promote required fields: `invalidation_condition` and `source_refs`
    - Bug track: Problem, root cause, solution with key code snippets, one prevention tip
    - Knowledge track: Context, guidance with key examples, one applicability note
 4. **Vocabulary capture (update-only)**: if `CONCEPTS.md` exists at repo root, read `references/concepts-vocabulary.md`, scan the new doc and source-confirming context for qualifying terms, and add or refine entries using the same criteria as Phase 2.4. Do not create or bootstrap `CONCEPTS.md` in lightweight mode. Record the outcome in the output, such as `CONCEPTS.md: updated — 1 refined`, `CONCEPTS.md: scanned, no qualifying terms`, or `CONCEPTS.md: not present; no vocabulary maintenance applied`.
