@@ -160,6 +160,47 @@ spec-first 已覆盖"**能力维度**的渐进引入"(minimal→recommended→pl
 
 ---
 
+## 八、"这个需求值得做吗":两轮 deep-research + 2026-06 趋势裁决
+
+> 对 `docs/brainstorms/2026-06-07-001-brownfield-harness-onboarding-requirements.md` 的价值评估。第二轮 deep-research(98 agent / 16 源 / 25 主张 3 票对抗核验,18 confirmed / 7 killed)+ 2026-06 趋势前瞻。
+
+### 8.1 最终结论
+
+**有条件值得做,但价值重心从"产出导航文档"转移到"渐进 onboarding 方法论 + 治理";做 agent 默认不会自发做、又是 spec-first 边界强项的那部分,砍掉正被模型能力和 AGENTS.md 红海吃掉的部分。**
+
+### 8.2 外部市场证据(核验结论)
+
+| 维度 | 结论 | 关键证据 |
+|---|---|---|
+| 痛点真实性 | 真实但量级间接(medium) | Stack Overflow 2025:41.4% 专业开发者认为 AI 处理复杂任务"差/很差";但问的是泛化复杂任务,非特指大库 cold-start。无直接量化"10 万行库 cold-start 失败率"。"66% 抱怨 almost-right"被驳回。 |
+| 竞品格局 | 明确分两派,轻量派被验证可行(high) | Cursor=开 workspace 全库预建向量索引(precompute);Aider/Cline/Cody=轻量骨架+按需切片(各厂商一手有意设计)。Aider repomap 与本需求"薄骨架+切片深化"机制同构。 |
+| 方法论 vs 索引 | JIT/渐进未被索引证伪(high) | 多厂商一线采用 bounded 探索;"索引必腐化""语义+grep 准确率+12.5%"两条挺索引/挺 JIT 的强论据均被对抗核验驳回——两边都不能用极端论据。 |
+| 抗膨胀 ROI | 强实证背书最小化(high) | arxiv 2602.11988(2026-02):仓库级上下文文件相比无上下文反而降低成功率 + 增 20% 成本,因"不必要需求"诱导过度探索;结论"只写最小必要"。直接背书"薄骨架+不预建全库索引"。 |
+| 差异化空间 | 文件格式红海、过程方法论蓝海(high) | AGENTS.md 跨厂商标准、GitHub 12 万+文件、20+工具。差异化窗口只在"过程化方法论+边界治理",不在文件格式。 |
+
+### 8.3 2026-06 趋势前瞻(已核验证据的延伸 + 1 条推断)
+
+| 趋势 | 对需求的方向 | 性质 |
+|---|---|---|
+| 上下文窗口爆炸(1M 常态) | **强化**抗膨胀治理(窗口越大越要最小上下文),**弱化**持久化文档形态(JIT 更划算) | 证据延伸 |
+| agent 原生探索能力增强 | **削弱** R3 纯 grep 定位价值——正被模型吃掉;价值须落在 agent 不自发做的治理上 | **前瞻推断,无直接量化证据(最大不确定性)** |
+| Harness Engineering 成显学 | **强化**过程方法论战略价值,**但**加速红海化、窗口在关(先发有利) | 证据延伸 |
+| 渐进披露/skills 主流 | 顺风;但"按需=可能不触发"(Vercel 56% skill 未触发)→ 混合形态更稳 | 证据中 |
+
+### 8.4 裁决对 requirements doc 的影响(已回写)
+
+- **提为 v1 核心**:R7 规模分档决策、R9 技术债增量基线、R3 收窄后的嫌疑点治理。
+- **收窄**:R3 砍掉模型已会的静态 grep 定位,只留分档决策 + 动态调用嫌疑点治理。
+- **降级为 open question**:R2/R5/R10 持久化导航文档 → 优先 just-in-time 或并入 AGENTS/CLAUDE 被动上下文(逆转 brainstorm 原"独立 docs"决策)。
+- **先 dogfood**:痛点量级与 bounded 探索成本无硬证据,先在真实存量库验证 R7/R9/R3 再扩。
+
+### 8.5 诚实标注
+
+- 全部基于外部市场证据 + spec-first 内部定位;**趋势②(agent 探索吃掉 onboarding 价值)是前瞻推断,无直接量化证据**——既是"该收窄"的最强理由,也是最大不确定性,故"先 dogfood 再扩"。
+- 痛点量级是本评估最薄环节(无直接数据)。多条强正向 ROI claim(AGENTS.md 100% 通过率、+12.5% 索引增益)已被对抗核验剔除,不作论据。
+
+---
+
 ## 一手来源
 
 - Anthropic. Effective harnesses for long-running agents — https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
@@ -171,3 +212,9 @@ spec-first 已覆盖"**能力维度**的渐进引入"(minimal→recommended→pl
 - Mitchell Hashimoto. My AI adoption journey — https://mitchellh.com/writing/my-ai-adoption-journey
 - METR. Early-2025 AI impact on experienced OSS developers — https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/
 - GitClear. AI assistant code quality 2025 research — https://www.gitclear.com/ai_assistant_code_quality_2025_research
+- Stack Overflow Developer Survey 2025 — AI — https://survey.stackoverflow.co/2025/ai
+- Evaluating AGENTS.md (arXiv 2602.11988, 2026-02) — https://arxiv.org/abs/2602.11988
+- Aider — Repository map — https://aider.chat/docs/repomap.html
+- Cline — Why Cline Doesn't Index Your Codebase — https://cline.bot/blog/why-cline-doesnt-index-your-codebase-and-why-thats-a-good-thing
+- Cursor — Codebase indexing — https://cursor.com/docs/context/codebase-indexing
+- AGENTS.md — https://agents.md/
