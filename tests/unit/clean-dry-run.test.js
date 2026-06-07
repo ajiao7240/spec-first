@@ -140,7 +140,7 @@ describe('clean --dry-run', () => {
     }
   });
 
-  test('Codex clean --dry-run previews legacy runtime cleanup paths and apply removes them', () => {
+  test('Codex clean --dry-run previews legacy cleanup and hook paths, and apply removes them', () => {
     const projectRoot = makeTempDir();
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const legacyPaths = [
@@ -165,6 +165,10 @@ describe('clean --dry-run', () => {
       expect(cleanResult.exitCode).toBe(0);
 
       for (const relativePath of legacyPaths) {
+        expect(dryRun.stdout).toContain(relativePath);
+        expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(false);
+      }
+      for (const relativePath of ['.codex/hooks/session-start', '.codex/hooks/hooks.json']) {
         expect(dryRun.stdout).toContain(relativePath);
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(false);
       }

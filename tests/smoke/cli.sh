@@ -277,8 +277,23 @@ grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/AGENTS.md"
 grep -q 'spec-first startup-reminder --codex' "$TMP_DIR/AGENTS.md"
 grep -q 'must not block routing' "$TMP_DIR/AGENTS.md"
 grep -q 'bounded subagents, leaf reviewers, and worker agents' "$TMP_DIR/AGENTS.md"
+test -f "$TMP_DIR/.codex/hooks/session-start"
+test -f "$TMP_DIR/.codex/hooks/hooks.json"
+grep -q 'startup-reminder' "$TMP_DIR/.codex/hooks/session-start"
+grep -q -- '--codex' "$TMP_DIR/.codex/hooks/session-start"
+node - "$TMP_DIR" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const projectRoot = fs.realpathSync.native(process.argv[2]);
+const hooksPath = path.join(projectRoot, '.codex', 'hooks', 'hooks.json');
+const payload = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+const command = payload.hooks?.session_start?.[0]?.hooks?.[0]?.command;
+if (command !== path.join(projectRoot, '.codex/hooks/session-start')) {
+  throw new Error(`unexpected codex hook command ${command}`);
+}
+NODE
 grep -q '.agents/skills/' "$TMP_DIR/.gitignore"
-echo "✓ Codex init generated skills, agents, and AGENTS.md"
+echo "✓ Codex init generated skills, agents, hooks, and AGENTS.md"
 
 echo "8. Verify clean dry-run and clean removal..."
 clean_dry="$(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" clean --claude --dry-run)"

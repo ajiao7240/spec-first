@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const {
@@ -159,11 +160,21 @@ function checkPackageDeliverySurface() {
 }
 
 function readPackageDryRunFiles() {
-  const result = spawnSync('npm', ['pack', '--dry-run', '--json'], {
-    cwd: REPO_ROOT,
-    encoding: 'utf8',
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  const cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-release-continuity-npm-cache-'));
+  let result;
+  try {
+    result = spawnSync('npm', ['pack', '--dry-run', '--json'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
+      env: {
+        ...process.env,
+        npm_config_cache: cacheRoot,
+      },
+    });
+  } finally {
+    fs.rmSync(cacheRoot, { recursive: true, force: true });
+  }
   if (result.error) {
     return { ok: false, reason: result.error.message, files: new Set() };
   }

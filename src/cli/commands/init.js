@@ -949,6 +949,8 @@ function printInitApplySuccess(plan, result, options = {}) {
   const adapter = getAdapter(plan.platform);
   if (plan.platform === 'claude') {
     console.log('🪝 Installed Claude SessionStart matcher in .claude/settings.json');
+  } else if (plan.platform === 'codex') {
+    console.log('🪝 Installed Codex SessionStart hook in .codex/hooks/');
   }
   const synced = plan.syncedAssets || {
     commands: [],

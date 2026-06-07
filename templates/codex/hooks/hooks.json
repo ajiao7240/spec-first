@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "session_start": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__CODEX_SESSION_START_COMMAND__"
+          }
+        ]
+      }
+    ]
+  }
+}

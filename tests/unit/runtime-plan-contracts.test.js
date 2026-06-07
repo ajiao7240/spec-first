@@ -73,7 +73,7 @@ describe('runtime plan contracts', () => {
     expect(plan.summary).toEqual({ remove_file: 1 });
   });
 
-  test('Codex runtime plans remove the full legacy runtime cleanup set', () => {
+  test('Codex runtime plans retain legacy cleanup while adding SessionStart hook assets', () => {
     const adapter = getAdapter('codex');
     const expectedPaths = [
       '.codex/commands/spec',
@@ -84,14 +84,25 @@ describe('runtime plan contracts', () => {
       'plugins/spec-first',
     ];
 
-    for (const plan of [
-      adapter.planRuntimeFilesSync('/tmp/unused'),
-      adapter.planRuntimeFilesRemoval('/tmp/unused'),
-    ]) {
-      expect(plan.operations.map((entry) => entry.path)).toEqual(expectedPaths);
-      expect(plan.operations.every((entry) => entry.kind === 'remove_dir')).toBe(true);
-      expect(plan.summary).toEqual({ remove_dir: expectedPaths.length });
-    }
+    const syncPlan = adapter.planRuntimeFilesSync('/tmp/unused');
+    expect(syncPlan.operations.map((entry) => entry.path)).toEqual([
+      ...expectedPaths,
+      '.codex/hooks/session-start',
+      '.codex/hooks/hooks.json',
+    ]);
+    expect(syncPlan.operations.slice(0, expectedPaths.length).every((entry) => entry.kind === 'remove_dir')).toBe(true);
+    expect(syncPlan.operations.slice(expectedPaths.length).map((entry) => entry.kind)).toEqual(['write_file', 'write_file']);
+    expect(syncPlan.summary).toEqual({ remove_dir: expectedPaths.length, write_file: 2 });
+
+    const removalPlan = adapter.planRuntimeFilesRemoval('/tmp/unused');
+    expect(removalPlan.operations.map((entry) => entry.path)).toEqual([
+      ...expectedPaths,
+      '.codex/hooks/session-start',
+      '.codex/hooks/hooks.json',
+    ]);
+    expect(removalPlan.operations.slice(0, expectedPaths.length).every((entry) => entry.kind === 'remove_dir')).toBe(true);
+    expect(removalPlan.operations.slice(expectedPaths.length).map((entry) => entry.kind)).toEqual(['remove_file', 'remove_file']);
+    expect(removalPlan.summary).toEqual({ remove_dir: expectedPaths.length, remove_file: 2 });
   });
 
   test('Codex-rendered spec-plan preserves research dispatch semantics', () => {

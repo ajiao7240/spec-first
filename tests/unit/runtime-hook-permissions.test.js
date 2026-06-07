@@ -27,7 +27,7 @@ function isExecutable(mode) {
   return (mode & 0o111) === 0o111;
 }
 
-describe('Claude runtime hook permissions', () => {
+describe('runtime hook permissions', () => {
   test('init writes the managed session-start hook with template content and execute bits', () => {
     const projectRoot = makeTempDir();
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -68,6 +68,38 @@ describe('Claude runtime hook permissions', () => {
       const restoredMode = fs.statSync(hookPath).mode & 0o777;
       expect(restoredMode).toBe(0o755);
       expect(isExecutable(restoredMode)).toBe(true);
+    } finally {
+      logSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('codex init writes the managed session-start hook with template content and execute bits', () => {
+    const projectRoot = makeTempDir();
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      expect(withProject(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
+
+      const normalizedProjectRoot = fs.realpathSync.native(projectRoot);
+      const hookPath = path.join(projectRoot, '.codex', 'hooks', 'session-start');
+      const hooksJsonPath = path.join(projectRoot, '.codex', 'hooks', 'hooks.json');
+      const expectedHook = getAdapter('codex')
+        .planRuntimeFilesSync(normalizedProjectRoot)
+        .operations
+        .find((operation) => operation.path === '.codex/hooks/session-start')
+        .contents;
+      const expectedHooksJson = getAdapter('codex')
+        .planRuntimeFilesSync(normalizedProjectRoot)
+        .operations
+        .find((operation) => operation.path === '.codex/hooks/hooks.json')
+        .contents;
+      const mode = fs.statSync(hookPath).mode & 0o777;
+
+      expect(fs.readFileSync(hookPath, 'utf8')).toBe(expectedHook);
+      expect(fs.readFileSync(hooksJsonPath, 'utf8')).toBe(expectedHooksJson);
+      expect(mode).toBe(0o755);
+      expect(isExecutable(mode)).toBe(true);
     } finally {
       logSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

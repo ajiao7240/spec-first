@@ -16,7 +16,9 @@ spec_id: 2026-06-07-001-brownfield-harness-onboarding
 
 ## Problem Frame
 
-把 AI agent 放进十万行级、技术栈交织的存量库时,核心矛盾是 cold start:库的隐性知识(关键链路、字段约束、高频变更区)没有机器可读形式,agent 的知识边界等于文件边界。现状下 spec-first 已覆盖"**能力维度**的渐进引入"(minimal→recommended→platform),但缺"**代码库语义** onboarding"——开发者接手陌生大库时,要么被迫通读全库,要么让 agent 在零上下文下盲改。文章《Harness Engineering》也把"存量库渐进引入而不被技术债淹没"列为公认开放问题。
+把 AI agent 放进十万行级、技术栈交织的存量库时,直觉上的核心矛盾是 cold start:库的隐性知识(关键链路、字段约束、高频变更区)没有机器可读形式。现状下 spec-first 已覆盖"**能力维度**的渐进引入"(minimal→recommended→platform),但缺"**代码库语义** onboarding"。
+
+**痛点前提诚实基线(三轮 deep-research 后,见 `docs/09` 报告第八/九节)**:本需求的痛点量级目前 **unverified**。两个看似支撑它的强命题在对抗核验中均被 **refuted**——"agent naive 探索不足、需结构化项目表示"(LocAgent 论文相关论断 0-3)、"缺项目级约束是 agent 主要失败源"(GitHub Spec Kit 博客论断 0-3);同时公布的 agent benchmark 分数被证大幅夸大(SWE-Agent+GPT-4 过滤泄漏/弱测试实例后 12.47%→3.97%,arxiv 2410.06992),"agent 已足够好"同样站不住。因此本需求**不把"agent 探索不够好"当作既定前提**,改以 **dogfood-first** 为顶层原则:先在真实存量库实测 v1 核心三件事的增益,用 Evaluation Harness 度量痛点量级,再决定是否扩展。这条原则前置于所有 R,而非藏在 Outstanding 末尾。
 
 约束前提(已核验):仓库 2026-06-03 收敛决策明确"不恢复 graph-bootstrap",此能力必须走 workflow/方法论层,默认不碰 provider 核心路径。详见 `docs/09-业界借鉴/2026-06-07-Harness-Engineering对照-spec-first架构分析.md` 第七节。
 
@@ -70,9 +72,9 @@ spec_id: 2026-06-07-001-brownfield-harness-onboarding
 - R6. onboarding 是 **opt-in 增强**,零 harness 也能正常使用 spec-first;不设为强制 gate。
 
 **v1 核心:治理与分档(agent 默认不自发做)**
-- R3. (收窄)影响面深化只承担 **agent 默认不会做的治理部分**:规模分档决策(何时升级深度)、动态调用/配置驱动**嫌疑点的显式标记与人审提示**。纯定义→引用→测试的静态定位 grep **交给 agent 原生探索**,不包装为本能力的 deliverable。
-- R7. 影响面深度**按项目工程规模分档**(衔接报告 7.5):方法论是所有规模的默认底座;大型/跨仓库才 opt-in graph 作 advisory 托底。规模判断为 script-owned 确定性 facts,LLM 决定深度,graph 不自动装、不成 impact 真相源。
-- R9. 首次 onboarding 记录一个**全库现有告警/技术债快照**作为 baseline,定位为"增量判定基准"数据,供 R7 分档与审查/汇报参考;它**不重造** review 的 diff-scope 机制,而是为"区分 pre-existing 债 vs 本次改动"提供全库基线。baseline 是 advisory 快照,不设强制 gate。
+- R3. (收窄)影响面深化只承担 **agent 默认不会做的治理部分**:规模分档决策(何时升级深度)、动态调用/配置驱动**嫌疑点的显式标记与人审提示**。纯定义→引用→测试的静态定位 grep **交给 agent 原生探索**,不包装为本能力的 deliverable。*外部证据(docs/09 第九节):图/结构化定位已达高水位(LocAgent file-level 92.7%),"naive 探索不足需结构化表示"的论断被 3-0 refuted——静态定位正被模型/工具能力吞掉,收窄方向有据。*
+- R7. 影响面深度**按项目工程规模分档**(衔接报告 7.5):方法论是所有规模的默认底座;大型/跨仓库才 opt-in graph 作 advisory 托底。规模判断为 script-owned 确定性 facts(可挂既有 `ln-signals.v1` / task-governance-signals 产线),LLM 决定深度,graph 不自动装、不成 impact 真相源。*注:"按规模分档"无直接外部成熟先例,是 **spec-first 原创机制**;分档阈值(LOC/文件数/语言数/多仓)**不在 plan 期固化,待 dogfood 校准**。*
+- R9. onboarding 时记录一次**全库现有告警/技术债快照**作为 baseline 数据;"审查只对增量"的判定**复用 `spec-code-review` 既有 `pre_existing` 分离 + diff-scope 机制**,R9 只提供 baseline 数据、**不重造**审查机制。*外部成熟先例(docs/09 第九节):SonarQube New Code / "Clean as You Code" 已产品化 baseline-only review(quality gate 仅对 new code、PR 只报 new code 问题),为本机制提供成熟背书。* baseline 是 advisory 快照,不设强制 gate。
 
 **衔接契约(待依赖)**
 - R8. 定义 onboarding 在 F2 调用 **②(知识 cold-start 召回)的衔接契约**:输入 = 当前切片范围,输出 = 低置信 advisory 候选约束(强制人审、走 candidate→review→promote 落 `docs/solutions`、不预先批量)。**本期只定义契约与调用点;召回管道的实现依赖 v1.15 producer 落地**(见 Dependencies)。
@@ -126,6 +128,8 @@ spec_id: 2026-06-07-001-brownfield-harness-onboarding
 - **产物落点 = 待重审(逆转原决策)**:原定"独立 docs + 入口轻指针";趋势证据(长窗下塞太多反降成功率、持久化文档易腐化、AGENTS.md 已 12 万+文件红海)使其降为 open question——优先 just-in-time 生成或并入既有被动上下文,而非新建持久化 docs。
 - ④ 技术债 baseline **纳入**且提为 v1 核心:agent 不会自发建 baseline,与"审查不被历史债淹没"强相关。
 - ③ 影响面 = 规模分档(R7 保留)+ 治理收窄(R3);② 知识 cold-start = 方向 3:见报告 7.5 / 7.6 决策记录。
+- **抗膨胀 = 多源一手证据支撑的 durable need(非仅内部假设)**:context rot 是 n² 注意力的架构属性、跨所有模型、加一个 distractor 即损性能(Anthropic context-engineering + Chroma context-rot 18 模型实验 + RULER/NoLiMa);长上下文/1M 窗口**强化而非淡化**最小上下文治理,直接支撑 R2 降级 just-in-time 与"够用且不过量"。
+- **方法论顺风 + 治理不被模型吞掉(宏观背书)**:SDD 在 2026 强势上升(GitHub Spec Kit 110k stars、2026-06 仍活跃),支撑 brownfield onboarding 作为"把存量库接入 SDD 链路入口"的定位;DORA 2024 提示"AI 采纳不自动改善交付稳定性/吞吐、工程基本功仍必需"(相关性非因果,作"提示"而非"证明"),为 harness 治理价值提供宏观背书。证据见 `docs/09` 报告第九节。
 
 ---
 
@@ -142,7 +146,7 @@ spec_id: 2026-06-07-001-brownfield-harness-onboarding
 
 ### Resolve Before Planning
 
-- [Affects R2/R5/R10][产品决策] 最小定向的**产物形态与生命周期**(单一决策):(a) 纯 just-in-time、单会话瞬态、不持久化;(b) just-in-time 生成 + run-scoped 缓存,供同一 plan→work 链消费;(c) 增量并入既有 AGENTS.md/CLAUDE.md 被动上下文;(d) 独立持久化 docs。趋势裁决倾向 (a)/(b)/(c),(d) 需额外理由克服红海/腐化/多真相源风险。**注意**:此决策同时决定 Success Criteria 中"下游 `spec-plan`/`spec-work` 能消费导航层"的可行性——(a) 瞬态形态下下游无法消费同一份定向,需改为各自重新生成或选 (b)/(c)/(d)。
+- [Affects R2/R5/R10][产品决策] 最小定向的**产物形态与生命周期**(单一决策,三轮研究后已收敛候选):**优先 (b) just-in-time 生成 + run-scoped 缓存** 或 **(c) 增量并入既有 AGENTS.md/CLAUDE.md 被动上下文**;(a) 纯单会话瞬态**仅作退化态**,(d) 独立持久化 docs 需额外理由克服红海/腐化/多真相源风险。*收敛依据(docs/09 第九节):多 agent/长程编排证据显示跨会话须 durable state(Anthropic 200k 截断须 external Memory、Cognition 须共享完整 trace),纯瞬态 (a) 与 Success Criteria"下游 `spec-plan`/`spec-work` 消费同一份定向"直接冲突,故 (a) 被排除出默认候选。* 此决策仍需用户在 plan 前最终拍板 (b) 还是 (c)。
 
 ### Deferred to Planning
 

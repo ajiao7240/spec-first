@@ -2,10 +2,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PlatformAdapter = require('./base');
+const { formatInitGuidance } = require('../init-guidance');
 const {
   isHostComparativeRuntimeSkill,
 } = require('../host-comparative-workflows');
 const { listBundledAgentNames } = require('../plugin');
+const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'session-start');
+const HOOKS_JSON_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'hooks.json');
+const SESSION_START_RELATIVE_PATH = '.codex/hooks/session-start';
+const HOOKS_JSON_RELATIVE_PATH = '.codex/hooks/hooks.json';
+const SESSION_START_CLI_PLACEHOLDER = '__SPEC_FIRST_CLI_PATH__';
+const SESSION_START_COMMAND_PLACEHOLDER = '__CODEX_SESSION_START_COMMAND__';
+const TRUSTED_SPEC_FIRST_CLI_PATH = path.join(__dirname, '..', '..', '..', 'bin', 'spec-first.js');
 
 /**
  * Codex platform adapter
@@ -116,29 +124,43 @@ class CodexAdapter extends PlatformAdapter {
     };
   }
 
-  planRuntimeFilesSync() {
-    const operations = buildRuntimeCleanupOperations(this);
+  planRuntimeFilesSync(projectRoot) {
+    const operations = [
+      ...buildRuntimeCleanupOperations(this),
+      ...buildRuntimeHookWriteOperations(projectRoot),
+    ];
 
     return {
       operations,
-      summary: {
-        remove_dir: operations.length,
-      },
+      summary: summarizeOperations(operations),
     };
   }
 
   planRuntimeFilesRemoval() {
-    const operations = buildRuntimeCleanupOperations(this);
+    const operations = [
+      ...buildRuntimeCleanupOperations(this),
+      {
+        kind: 'remove_file',
+        path: SESSION_START_RELATIVE_PATH.replace(/\\/g, '/'),
+        reason: 'managed_runtime_hook',
+      },
+      {
+        kind: 'remove_file',
+        path: HOOKS_JSON_RELATIVE_PATH.replace(/\\/g, '/'),
+        reason: 'managed_runtime_hook',
+      },
+    ];
     return {
       operations,
-      summary: {
-        remove_dir: operations.length,
-      },
+      summary: summarizeOperations(operations),
     };
   }
 
-  inspectRuntimeFiles() {
-    return [];
+  inspectRuntimeFiles(projectRoot) {
+    return [
+      inspectSessionStartHook(projectRoot),
+      inspectHooksJson(projectRoot),
+    ];
   }
 
   removeRuntimeFiles(projectRoot) {
@@ -148,6 +170,8 @@ class CodexAdapter extends PlatformAdapter {
     removeManagedDirectory(path.join(projectRoot, this.legacyMarketplaceRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyPluginRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyPluginRootAlt), projectRoot);
+    removeManagedFile(path.join(projectRoot, SESSION_START_RELATIVE_PATH), projectRoot);
+    removeManagedFile(path.join(projectRoot, HOOKS_JSON_RELATIVE_PATH), projectRoot);
   }
 }
 
@@ -257,6 +281,113 @@ function rewriteSourceSkillRuntimePaths(content, skillName, runtimeSkillRoot) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildRuntimeHookWriteOperations(projectRoot) {
+  const sessionStartTarget = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+  const hooksJsonTarget = path.join(projectRoot, HOOKS_JSON_RELATIVE_PATH);
+  return [
+    {
+      kind: fs.existsSync(sessionStartTarget) ? 'update_file' : 'write_file',
+      path: SESSION_START_RELATIVE_PATH.replace(/\\/g, '/'),
+      reason: 'managed_runtime_hook',
+      contents: renderSessionStartHookTemplate(),
+      mode: 0o755,
+    },
+    {
+      kind: fs.existsSync(hooksJsonTarget) ? 'update_file' : 'write_file',
+      path: HOOKS_JSON_RELATIVE_PATH.replace(/\\/g, '/'),
+      reason: 'managed_runtime_hook',
+      contents: renderHooksJsonTemplate(projectRoot),
+    },
+  ];
+}
+
+function inspectSessionStartHook(projectRoot) {
+  const targetPath = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+  if (!fs.existsSync(targetPath)) {
+    return {
+      level: 'WARNING',
+      name: SESSION_START_RELATIVE_PATH,
+      message: 'missing',
+      fix: formatInitGuidance('codex', 'in this project to install the managed SessionStart hook'),
+    };
+  }
+
+  const actual = fs.readFileSync(targetPath, 'utf8');
+  const expected = renderSessionStartHookTemplate();
+  if (actual !== expected) {
+    return {
+      level: 'WARNING',
+      name: SESSION_START_RELATIVE_PATH,
+      message: 'drifted from bundled template',
+      fix: formatInitGuidance('codex', 'in this project to restore the managed SessionStart hook'),
+    };
+  }
+
+  return {
+    level: 'PASS',
+    name: SESSION_START_RELATIVE_PATH,
+    message: 'managed SessionStart hook present',
+  };
+}
+
+function inspectHooksJson(projectRoot) {
+  const targetPath = path.join(projectRoot, HOOKS_JSON_RELATIVE_PATH);
+  if (!fs.existsSync(targetPath)) {
+    return {
+      level: 'WARNING',
+      name: HOOKS_JSON_RELATIVE_PATH,
+      message: 'missing',
+      fix: formatInitGuidance('codex', 'in this project to install the managed SessionStart hook config'),
+    };
+  }
+
+  const actual = fs.readFileSync(targetPath, 'utf8');
+  const expected = renderHooksJsonTemplate(projectRoot);
+  if (actual !== expected) {
+    return {
+      level: 'WARNING',
+      name: HOOKS_JSON_RELATIVE_PATH,
+      message: 'drifted from bundled template',
+      fix: formatInitGuidance('codex', 'in this project to restore the managed SessionStart hook config'),
+    };
+  }
+
+  return {
+    level: 'PASS',
+    name: HOOKS_JSON_RELATIVE_PATH,
+    message: 'managed SessionStart hook config present',
+  };
+}
+
+function renderSessionStartHookTemplate() {
+  const template = fs.readFileSync(SESSION_START_TEMPLATE_PATH, 'utf8');
+  return template.replace(
+    JSON.stringify(SESSION_START_CLI_PLACEHOLDER),
+    JSON.stringify(TRUSTED_SPEC_FIRST_CLI_PATH),
+  );
+}
+
+function renderHooksJsonTemplate(projectRoot) {
+  const template = fs.readFileSync(HOOKS_JSON_TEMPLATE_PATH, 'utf8');
+  const commandPath = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+  return template.replace(
+    JSON.stringify(SESSION_START_COMMAND_PLACEHOLDER),
+    JSON.stringify(commandPath),
+  );
+}
+
+function summarizeOperations(operations) {
+  return operations.reduce((summary, operation) => {
+    summary[operation.kind] = (summary[operation.kind] || 0) + 1;
+    return summary;
+  }, {});
+}
+
+function removeManagedFile(filePath, projectRoot) {
+  fs.rmSync(filePath, { force: true });
+  removeEmptyParents(path.dirname(filePath), projectRoot);
 }
 
 function codexRuntimeSkillName(context = {}) {

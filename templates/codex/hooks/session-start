@@ -1,0 +1,104 @@
+#!/bin/bash
+set -euo pipefail
+
+project_dir="${CODEX_PROJECT_DIR:-$(pwd)}"
+instruction_path="$project_dir/AGENTS.md"
+
+node - "$instruction_path" "$project_dir" <<'EOF'
+const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const instructionPath = process.argv[2];
+const projectDir = process.argv[3];
+const SPEC_FIRST_CLI_PATH = "__SPEC_FIRST_CLI_PATH__";
+const BOOTSTRAP_START = '<!-- spec-first:bootstrap:start -->';
+const BOOTSTRAP_END = '<!-- spec-first:bootstrap:end -->';
+const missingMessage = [
+  '[spec-first] using-spec-first SessionStart injection',
+  'Managed using-spec-first bootstrap is missing from `AGENTS.md`.',
+  'Run `spec-first init` in this project and choose Codex when prompted to restore the managed bootstrap block.',
+].join('\n');
+
+let additionalContext = missingMessage;
+if (fs.existsSync(instructionPath)) {
+  const instructionBody = fs.readFileSync(instructionPath, 'utf8');
+  const startIdx = instructionBody.indexOf(BOOTSTRAP_START);
+  const endIdx = instructionBody.indexOf(BOOTSTRAP_END);
+
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    const bootstrapBlock = instructionBody.slice(startIdx, endIdx + BOOTSTRAP_END.length);
+    additionalContext = [
+      '[spec-first] using-spec-first SessionStart injection',
+      'Use the following managed AGENTS.md bootstrap block as the workflow-entry trigger for this repository.',
+      'For parent multi-repo workspaces, preserve its explicit target_repo write boundary.',
+      '',
+      bootstrapBlock,
+    ].join('\n');
+  }
+}
+
+if (additionalContext === missingMessage && fs.existsSync(instructionPath)) {
+  additionalContext = [
+    '[spec-first] using-spec-first SessionStart injection',
+    'Managed using-spec-first bootstrap markers are missing or incomplete in `AGENTS.md`.',
+    'Run `spec-first init` in this project and choose Codex when prompted to restore the managed bootstrap block.',
+  ].join('\n');
+}
+
+const startupReminder = readStartupReminder(projectDir);
+if (startupReminder) {
+  additionalContext = [
+    additionalContext,
+    '',
+    startupReminder,
+  ].join('\n');
+}
+
+process.stdout.write(JSON.stringify({
+  hookSpecificOutput: {
+    hookEventName: 'SessionStart',
+    additionalContext,
+  },
+}));
+
+function readStartupReminder(cwd) {
+  try {
+    if (!isTrustedSpecFirstCliPath(SPEC_FIRST_CLI_PATH)) {
+      return '';
+    }
+
+    const result = spawnSync(process.execPath, [SPEC_FIRST_CLI_PATH, 'startup-reminder', '--codex'], {
+      cwd,
+      encoding: 'utf8',
+      timeout: 1200,
+    });
+
+    if (result.error || result.status !== 0 || typeof result.stdout !== 'string') {
+      return '';
+    }
+
+    return result.stdout.trim();
+  } catch {
+    return '';
+  }
+}
+
+function isTrustedSpecFirstCliPath(cliPath) {
+  if (
+    typeof cliPath !== 'string'
+    || cliPath.length === 0
+    || cliPath === '__SPEC_FIRST_CLI_PATH__'
+    || !path.isAbsolute(cliPath)
+    || path.basename(cliPath) !== 'spec-first.js'
+  ) {
+    return false;
+  }
+
+  try {
+    return fs.statSync(cliPath).isFile();
+  } catch {
+    return false;
+  }
+}
+EOF

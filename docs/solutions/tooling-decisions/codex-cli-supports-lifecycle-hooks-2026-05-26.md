@@ -27,6 +27,8 @@ spec-first 项目长期假设 Codex CLI 没有与 Claude Code 对等的 hook 系
 
 2026-05-26 校核 `openai/codex` 仓库源码后发现这个假设已经过时：Codex 现行版本（feature flag `CodexHooks` 已标记为 **Stable**，源码注释直接写 "Claude-style lifecycle hooks loaded from `hooks.json` files"）实现了 **10 个 lifecycle hook 事件**，与 Claude Code 高度对齐，且有 3 个 Claude 端没有的事件。
 
+> 2026-06-07 落地更新：`spec-first init --codex` 已写入项目级 `.codex/hooks/session-start` 与 `.codex/hooks/hooks.json`，用于 startup 维度注入 `AGENTS.md` managed bootstrap 并 best-effort 运行 `startup-reminder --codex`。同时经计划核查确认 Codex `pre_compact`/`post_compact` 当前为 `StatelessHookOutcome`，不消费 `additionalContext`；因此 compact 后上下文重注入不能靠 Codex compact hook 实现，仍需保留 `AGENTS.md` 静态 fallback。
+
 ## Guidance
 
 把 dual-host hook parity 当作可以做到的事，而不是不可达目标。具体地：
@@ -61,7 +63,7 @@ spec-first 项目长期假设 Codex CLI 没有与 Claude Code 对等的 hook 系
 
 4. **真正可以新增的 hook 用例**——这些场景以前被"Codex 没有 hook"挡住，现在解禁：
    - **PermissionRequest**（Codex 独有）在 mutation-capable GitNexus 调用前强制 preview-first；Claude 端用 `PreToolUse` matcher 等价兜底。
-   - **PostCompact**（Codex 独有）压缩后重新注入 spec-first bootstrap 提示，避免压缩丢失上下文。
+   - **PreCompact / PostCompact**（Codex 事件存在但当前为 `StatelessHookOutcome`）可做无上下文状态记录或提示类处理；**不能**用于重新注入 spec-first bootstrap context。compact 后恢复仍依赖 `AGENTS.md` 静态 fallback 或未来平台扩展。
    - **SubagentStart**（Codex 独有）在 reviewer / researcher dispatch 前注入 redaction policy 与 utilization 记录开关；Claude 端用主 agent 的 `PreToolUse` matcher=`Agent` 等价拦截。
    - **plugin 化**：Codex 的 Plugin 来源层意味着 spec-first 可作为 Codex plugin 发布，hook + skill 一起 ship。
 
@@ -70,13 +72,13 @@ spec-first 项目长期假设 Codex CLI 没有与 Claude Code 对等的 hook 系
 ## Why This Matters
 
 - **避免基于过时假设做架构决策**。spec-first dual-host governance 中任何"Codex 无 hook 所以..."的推理都需要重新看一遍——结论可能仍正确，但理由必须更新，否则会在后续设计审查中被同样发现并需要再次返工。
-- **打开新的设计空间**。`PermissionRequest` / `PostCompact` / `SubagentStart` 三类事件 Claude Code 当前没有等价；spec-first 在 Codex 端可以做 Claude 端做不到的事（例如严格的 mutation gating、压缩后 bootstrap 注入、subagent 启动前的 redaction）。这些反过来推动 Claude 端用 `PreToolUse` matcher 兜底，倒逼 hook parity matrix 设计。
+- **打开新的设计空间**。`PermissionRequest` / `SubagentStart` 等事件 Claude Code 当前没有等价；spec-first 在 Codex 端可以做 Claude 端做不到的事（例如严格的 mutation gating、subagent 启动前的 redaction）。`PreCompact` / `PostCompact` 虽然存在，但当前 outcome 不消费 context，不能被当成 bootstrap 重注入通道。
 - **影响 Codex 端模板与 init 行为**。如果以为 Codex 没有 hook，就不会有 `templates/codex/hooks/` 也不会让 `spec-first init --codex` 写 hook 配置；这条假设错位会持续阻塞 Codex 端 plugin 化和 dual-host 治理对称化。
 - **训练知识可能仍过时**。截至 2026-05，多数 LLM 训练数据里的"Codex CLI 没有 PreToolUse hook"是历史事实但不是当前事实。任何依赖此事实的回答都应在调用前做一次 `gh api repos/openai/codex/contents/...` 校核（或读 `docs/config.md` 的 `## Lifecycle hooks` 节、`codex-rs/hooks/src/lib.rs`、`codex-rs/features/src/lib.rs` 中 `CodexHooks` 状态）。
 
 ## When to Apply
 
-- 设计跨宿主 hook 注入、SessionStart bootstrap、压缩后上下文恢复或 reviewer dispatch 前注入时。
+- 设计跨宿主 hook 注入、SessionStart bootstrap、compact 降级策略或 reviewer dispatch 前注入时。
 - 评估 spec-first 是否要把 Claude 端的 SessionStart hook 在 Codex 端配齐对称模板。
 - 评估 spec-first 作为 Codex plugin 发布的可行性（plugin 来源层带 hook 一起 ship）。
 - 任何回答、文档或 brainstorm 中出现"Codex 无 hook"、"Codex 不支持 PreToolUse / PostToolUse"等措辞时，先校核当前 `openai/codex` 主分支再下结论。
@@ -136,12 +138,13 @@ gh api repos/openai/codex/contents/codex-rs/features/src/lib.rs \
 | Session 启动注入 spec-first bootstrap | `SessionStart` hook | `session_start` hook 或 `AGENTS.md` managed block |
 | Tool 调用前注入 redaction 校验 | `PreToolUse` matcher | `pre_tool_use` matcher |
 | Mutation 操作前强制 preview-first | `PreToolUse` + 自定义判定 | `permission_request` hook（更精确） |
-| 压缩后恢复 bootstrap 上下文 | （Claude 仅有 `PreCompact`，需 prompt 续接） | `post_compact` hook |
+| 压缩后恢复 bootstrap 上下文 | （Claude 仅有 `PreCompact`，需 prompt 续接） | `pre_compact`/`post_compact` 当前为 `StatelessHookOutcome`，不可注入 context；保留 `AGENTS.md` fallback |
 | Reviewer dispatch 前注入 utilization 记录 | 主 agent `PreToolUse` matcher=`Agent` | `subagent_start` hook（更精确） |
 
 ## Related
 
 - 当前 Claude 端 hook 实现：`templates/claude/hooks/session-start`、`.claude/settings.json`、`spec-first init --claude` 写入路径。
+- 当前 Codex 端 startup hook 实现：`templates/codex/hooks/session-start`、`templates/codex/hooks/hooks.json`、`src/cli/adapters/codex.js`、`spec-first init --codex` 写入 `.codex/hooks/`。
 - spec-first dual-host source-of-truth：`src/cli/contracts/dual-host-governance/skills-governance.json`（建议后续新增 `hook-parity-matrix.json` contract）。
 - 上一份 dual-host 知识沉淀：`docs/solutions/architecture-patterns/workflow-entrypoint-exposure-contract-2026-04-26.md`。
 - 上游来源：[`openai/codex` `docs/config.md` Lifecycle hooks 节](https://github.com/openai/codex/blob/main/docs/config.md)、[`codex-rs/hooks/src/lib.rs` HOOK_EVENT_NAMES](https://github.com/openai/codex/blob/main/codex-rs/hooks/src/lib.rs)、[`codex-rs/features/src/lib.rs` CodexHooks feature flag](https://github.com/openai/codex/blob/main/codex-rs/features/src/lib.rs)。

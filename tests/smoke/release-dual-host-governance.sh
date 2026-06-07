@@ -113,6 +113,21 @@ test -f "$CODEX_PROJECT/.agents/skills/using-spec-first/SKILL.md"
 grep -q 'spec-first startup-reminder --codex' "$CODEX_PROJECT/AGENTS.md"
 grep -q 'must not block routing' "$CODEX_PROJECT/AGENTS.md"
 grep -q 'bounded subagents, leaf reviewers, and worker agents' "$CODEX_PROJECT/AGENTS.md"
+test -f "$CODEX_PROJECT/.codex/hooks/session-start"
+test -f "$CODEX_PROJECT/.codex/hooks/hooks.json"
+grep -q 'startup-reminder' "$CODEX_PROJECT/.codex/hooks/session-start"
+grep -q -- '--codex' "$CODEX_PROJECT/.codex/hooks/session-start"
+node - "$CODEX_PROJECT" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const projectRoot = fs.realpathSync.native(process.argv[2]);
+const hooksPath = path.join(projectRoot, '.codex', 'hooks', 'hooks.json');
+const payload = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+const command = payload.hooks?.session_start?.[0]?.hooks?.[0]?.command;
+if (command !== path.join(projectRoot, '.codex/hooks/session-start')) {
+  throw new Error(`unexpected codex hook command ${command}`);
+}
+NODE
 test ! -e "$CODEX_PROJECT/.agents/skills/claude-permissions-optimizer/SKILL.md"
 test ! -e "$CODEX_PROJECT/.agents/skills/orchestrating-swarms/SKILL.md"
 
@@ -123,10 +138,17 @@ codex_doctor_output="$(
 grep -q '.agents/skills' <<<"$codex_doctor_output"
 grep -q 'workflow skills' <<<"$codex_doctor_output"
 grep -q 'standalone skills' <<<"$codex_doctor_output"
+grep -q '.codex/hooks/session-start' <<<"$codex_doctor_output"
 if grep -q '.codex/commands/spec' <<<"$codex_doctor_output"; then
   echo "✗ Codex doctor 不应再把 .codex/commands/spec 当作正式产品面"
   exit 1
 fi
+(
+  cd "$CODEX_PROJECT"
+  "$SHIM" clean --codex >/dev/null
+)
+test ! -e "$CODEX_PROJECT/.codex/hooks/session-start"
+test ! -e "$CODEX_PROJECT/.codex/hooks/hooks.json"
 echo "   ✓ Codex 安装态闭环通过"
 
 echo "5. 验证 Claude 安装态 init / doctor..."

@@ -201,6 +201,58 @@ spec-first 已覆盖"**能力维度**的渐进引入"(minimal→recommended→pl
 
 ---
 
+## 九、第三轮 deep-research:2026-2027 轨迹裁决(闭合关键缺口)
+
+> 第三轮(102 agent / 20 源 / 25 主张核验,17 confirmed / 8 killed),聚焦闭合第八节"趋势②是前瞻推断"的缺口,前瞻 2026 下半年-2027。
+
+### 9.1 最终结论
+
+**核心三件事偏"更值得",但痛点论证基础被研究反向削弱——dogfood-first 从"克制选择"变为"证据强制"。** 关键反转:第八节那条"agent 探索吃掉 onboarding 价值"的推断**与其反面同时被 refuted**,真相比任一方微妙。
+
+### 9.2 三块核验
+
+**A — agent 探索 vs onboarding(partially)**:无确证 agent cold-start 已足够好;**但两个支撑 onboarding 必要性的强命题被 3-0 refuted**——"naive 探索不足需结构化表示"(LocAgent 相关论断)、"缺项目级约束是主要失败源"(Spec Kit 博客);同时 benchmark 被证大幅夸大(**SWE-Agent+GPT-4 12.47%→3.97%**,arxiv 2410.06992,过滤泄漏/弱测试实例后);图结构对定位确有增益(LocAgent file-level 92.7%)。→ 痛点前提必须诚实降级。
+
+**B — 2026 趋势(全 high,强顺风)**:
+- 长窗**不淡化反而强化**最小上下文治理:context rot 是 n² 架构属性、跨所有模型、加一 distractor 即损性能(Anthropic + Chroma 18 模型 + RULER/NoLiMa)。
+- 多 agent/长程编排让 **durable state + bounded 治理更必要**:Anthropic 200k 截断须 external Memory;Cognition 主张 single-threaded + 共享完整 trace。→ **产物形态须排除纯瞬态**。
+- SDD **强势上升**:GitHub Spec Kit 110k stars、2026-06 活跃。
+- "企业大型遗留库 onboarding 是公认瓶颈"——**无一手确证**(唯一相关命题被 refuted)。
+
+**C — v1 三件事**:
+- **R9 增量基线**:最强外部先例 = SonarQube New Code / Clean as You Code(产品化 baseline-only review)。
+- **R3 收窄**:被证据支持(静态定位被模型/工具吞掉)。
+- **R7 规模分档**:无直接外部先例,**spec-first 原创**,阈值待 dogfood。
+
+### 9.3 内外合并的关键发现(本轮最重要)
+
+内部挂载面核验(本会话直接读源码)+ 外部先例,双向指向:
+
+- **R9 不该是"新审查机制"**:内部 `spec-code-review` 已有 `pre_existing:true` 分离 + diff-scope;外部 SonarQube 是其产品化。R9 真正增量只是"onboarding 记一次全库 baseline 快照",应**复用既有机制 + 只提供 baseline 数据**,否则重造。
+- **R7 底层有现成产线**:`ln-signals.v1`(task-governance-signals)已存在确定性 task-size facts + advisory + 诚实降级。R7 的"规模 facts"可挂它,原创的只是"分档决策逻辑"。
+- **产物形态排除纯瞬态 (a)**:多 agent 须跨会话 durable state,(a) 与"下游消费同一份定向"冲突 → 收敛为 (b) run-scoped 缓存 / (c) 并入被动上下文。
+
+### 9.4 证据加权裁决表
+
+| 能力 | 2026 轨迹裁决 |
+|---|---|
+| 抗膨胀最小上下文治理 | **更值得**(context rot 多源一手) |
+| R9 技术债增量基线 | **更值得,但收敛为"baseline 数据 + 复用既有 `pre_existing`",勿重造** |
+| R3 影响面治理(收窄) | **值得,收窄被证据支持** |
+| R7 规模分档 | **同样值得,原创须 dogfood,底层挂 `ln-signals.v1`** |
+| 持久化导航文档 | **价值下降(确认降级正确)** |
+| 教 agent 静态 grep | **价值下降(确认砍掉正确)** |
+| 产物形态 | **排除纯瞬态 (a),收敛 (b)/(c)** |
+
+### 9.5 诚实标注
+
+- 本轮 WebSearch 多数降级,靠 WebFetch 直取一手 + 学术语料,缺反证横向 fan-out,"未找到反证"≠"反证不存在"。
+- A 块仍最弱:"企业遗留库 onboarding 是公认瓶颈"无一手确证;**痛点前提不能当 confirmed,dogfood-first 是被证据强制而非可选**。
+- benchmark 为 2024-2025 快照,SOTA 持续上升,不可外推 2026 静态结论。
+- 已据本节修订 requirements doc(Problem Frame 痛点降级、R9 引 SonarQube、R3 补脚注、R7 标原创、抗膨胀补一手锚点、产物形态收敛)。
+
+---
+
 ## 一手来源
 
 - Anthropic. Effective harnesses for long-running agents — https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
@@ -218,3 +270,10 @@ spec-first 已覆盖"**能力维度**的渐进引入"(minimal→recommended→pl
 - Cline — Why Cline Doesn't Index Your Codebase — https://cline.bot/blog/why-cline-doesnt-index-your-codebase-and-why-thats-a-good-thing
 - Cursor — Codebase indexing — https://cursor.com/docs/context/codebase-indexing
 - AGENTS.md — https://agents.md/
+- Chroma. Context Rot — https://www.trychroma.com/research/context-rot
+- Anthropic. Building a multi-agent research system — https://www.anthropic.com/engineering/multi-agent-research-system
+- Cognition. Don't build multi-agents — https://cognition.ai/blog/dont-build-multi-agents
+- GitHub. Spec-driven development toolkit (Spec Kit) — https://github.blog/ai-and-ml/generative-ai/spec-driven-development-with-ai-get-started-with-a-new-open-source-toolkit/ · https://github.com/github/spec-kit
+- SonarQube. About New Code (Clean as You Code) — https://docs.sonarsource.com/sonarqube-server/user-guide/about-new-code/
+- DORA 2024 Report — https://dora.dev/research/2024/dora-report/
+- LocAgent (arXiv 2503.09089) · SWE-Bench+ (arXiv 2410.06992) · Agentless (arXiv 2407.01489)
