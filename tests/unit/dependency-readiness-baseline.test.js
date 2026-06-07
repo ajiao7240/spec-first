@@ -200,13 +200,18 @@ describe('dependency readiness baseline contracts', () => {
       },
     });
     expect(freshResult.status).toBe(0);
-    expect(JSON.parse(freshResult.stdout)[0]).toMatchObject({
+    const freshProvider = JSON.parse(freshResult.stdout)[0];
+    expect(freshProvider).toMatchObject({
       provider: 'graphify',
       readiness_status: 'unknown',
       lifecycle: {
         installed: true,
       },
     });
+    expect(freshProvider.next_actions).toContain(
+      'Generate run-scoped project-graph artifacts for the current requirement workspace before using this provider as architecture navigation.',
+    );
+    expect(freshProvider.next_actions.join('\n')).not.toContain('check in project-graph artifacts');
 
     const staleResult = spawnSync(process.execPath, [providerRendererPath, '--source', 'helper', '--repo-root', tempDir], {
       cwd: repoRoot,

@@ -88,7 +88,7 @@ describe('runtime plan contracts', () => {
     expect(syncPlan.operations.map((entry) => entry.path)).toEqual([
       ...expectedPaths,
       '.codex/hooks/session-start',
-      '.codex/hooks/hooks.json',
+      '.codex/hooks.json',
     ]);
     expect(syncPlan.operations.slice(0, expectedPaths.length).every((entry) => entry.kind === 'remove_dir')).toBe(true);
     expect(syncPlan.operations.slice(expectedPaths.length).map((entry) => entry.kind)).toEqual(['write_file', 'write_file']);
@@ -98,7 +98,7 @@ describe('runtime plan contracts', () => {
     expect(removalPlan.operations.map((entry) => entry.path)).toEqual([
       ...expectedPaths,
       '.codex/hooks/session-start',
-      '.codex/hooks/hooks.json',
+      '.codex/hooks.json',
     ]);
     expect(removalPlan.operations.slice(0, expectedPaths.length).every((entry) => entry.kind === 'remove_dir')).toBe(true);
     expect(removalPlan.operations.slice(expectedPaths.length).map((entry) => entry.kind)).toEqual(['remove_file', 'remove_file']);

@@ -83,7 +83,7 @@ describe('runtime hook permissions', () => {
 
       const normalizedProjectRoot = fs.realpathSync.native(projectRoot);
       const hookPath = path.join(projectRoot, '.codex', 'hooks', 'session-start');
-      const hooksJsonPath = path.join(projectRoot, '.codex', 'hooks', 'hooks.json');
+      const hooksJsonPath = path.join(projectRoot, '.codex', 'hooks.json');
       const expectedHook = getAdapter('codex')
         .planRuntimeFilesSync(normalizedProjectRoot)
         .operations
@@ -92,7 +92,7 @@ describe('runtime hook permissions', () => {
       const expectedHooksJson = getAdapter('codex')
         .planRuntimeFilesSync(normalizedProjectRoot)
         .operations
-        .find((operation) => operation.path === '.codex/hooks/hooks.json')
+        .find((operation) => operation.path === '.codex/hooks.json')
         .contents;
       const mode = fs.statSync(hookPath).mode & 0o777;
 

@@ -168,7 +168,7 @@ describe('clean --dry-run', () => {
         expect(dryRun.stdout).toContain(relativePath);
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(false);
       }
-      for (const relativePath of ['.codex/hooks/session-start', '.codex/hooks/hooks.json']) {
+      for (const relativePath of ['.codex/hooks/session-start', '.codex/hooks.json']) {
         expect(dryRun.stdout).toContain(relativePath);
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(false);
       }

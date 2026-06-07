@@ -10,7 +10,10 @@ const { listBundledAgentNames } = require('../plugin');
 const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'session-start');
 const HOOKS_JSON_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'hooks.json');
 const SESSION_START_RELATIVE_PATH = '.codex/hooks/session-start';
-const HOOKS_JSON_RELATIVE_PATH = '.codex/hooks/hooks.json';
+// Codex project 层 hook 配置发现路径为 `<projectRoot>/.codex/hooks.json`
+// (codex-rs hooks discovery 用 config_folder.join("hooks.json"),config_folder = .codex/;
+//  带 hooks/ 子目录的 hooks/hooks.json 仅用于 plugin 层,不适用于 project 层)。
+const HOOKS_JSON_RELATIVE_PATH = '.codex/hooks.json';
 const SESSION_START_CLI_PLACEHOLDER = '__SPEC_FIRST_CLI_PATH__';
 const SESSION_START_COMMAND_PLACEHOLDER = '__CODEX_SESSION_START_COMMAND__';
 const TRUSTED_SPEC_FIRST_CLI_PATH = path.join(__dirname, '..', '..', '..', 'bin', 'spec-first.js');

@@ -62,7 +62,7 @@ describe('Codex SessionStart hook runtime plan', () => {
       expect(plan.operations.map((operation) => operation.path)).toEqual([
         ...LEGACY_CLEANUP_PATHS,
         '.codex/hooks/session-start',
-        '.codex/hooks/hooks.json',
+        '.codex/hooks.json',
       ]);
       expect(plan.operations.slice(0, LEGACY_CLEANUP_PATHS.length).every((operation) => (
         operation.kind === 'remove_dir' && operation.reason === 'managed_runtime_cleanup'
@@ -81,7 +81,7 @@ describe('Codex SessionStart hook runtime plan', () => {
       expect(sessionStart.contents).not.toContain('const SPEC_FIRST_CLI_PATH = "__SPEC_FIRST_CLI_PATH__";');
       expect(sessionStart.contents).not.toContain("spawnSync('spec-first'");
 
-      const hooksJson = plan.operations.find((operation) => operation.path === '.codex/hooks/hooks.json');
+      const hooksJson = plan.operations.find((operation) => operation.path === '.codex/hooks.json');
       expect(hooksJson).toMatchObject({
         kind: 'write_file',
         reason: 'managed_runtime_hook',
@@ -89,7 +89,7 @@ describe('Codex SessionStart hook runtime plan', () => {
       const parsed = JSON.parse(hooksJson.contents);
       expect(parsed).toEqual({
         hooks: {
-          session_start: [
+          SessionStart: [
             {
               hooks: [
                 {
@@ -101,7 +101,7 @@ describe('Codex SessionStart hook runtime plan', () => {
           ],
         },
       });
-      expect(path.isAbsolute(parsed.hooks.session_start[0].hooks[0].command)).toBe(true);
+      expect(path.isAbsolute(parsed.hooks.SessionStart[0].hooks[0].command)).toBe(true);
       expect(hooksJson.contents).not.toContain('__CODEX_SESSION_START_COMMAND__');
       expect(plan.summary).toEqual({ remove_dir: 6, write_file: 2 });
     } finally {
@@ -115,7 +115,7 @@ describe('Codex SessionStart hook runtime plan', () => {
     try {
       fs.mkdirSync(path.join(projectRoot, '.codex', 'hooks'), { recursive: true });
       fs.writeFileSync(path.join(projectRoot, '.codex', 'hooks', 'session-start'), '#!/bin/bash\n', 'utf8');
-      fs.writeFileSync(path.join(projectRoot, '.codex', 'hooks', 'hooks.json'), '{}\n', 'utf8');
+      fs.writeFileSync(path.join(projectRoot, '.codex', 'hooks.json'), '{}\n', 'utf8');
 
       const plan = getAdapter('codex').planRuntimeFilesSync(projectRoot);
       const hookOps = plan.operations.filter((operation) => operation.reason === 'managed_runtime_hook');
@@ -133,7 +133,7 @@ describe('Codex SessionStart hook runtime plan', () => {
     expect(plan.operations.map((operation) => operation.path)).toEqual([
       ...LEGACY_CLEANUP_PATHS,
       '.codex/hooks/session-start',
-      '.codex/hooks/hooks.json',
+      '.codex/hooks.json',
     ]);
     expect(plan.operations.slice(0, LEGACY_CLEANUP_PATHS.length).every((operation) => (
       operation.kind === 'remove_dir' && operation.reason === 'managed_runtime_cleanup'
@@ -146,7 +146,7 @@ describe('Codex SessionStart hook runtime plan', () => {
       },
       {
         kind: 'remove_file',
-        path: '.codex/hooks/hooks.json',
+        path: '.codex/hooks.json',
         reason: 'managed_runtime_hook',
       },
     ]);
@@ -175,17 +175,17 @@ describe('Codex SessionStart hook runtime plan', () => {
         },
         {
           level: 'PASS',
-          name: '.codex/hooks/hooks.json',
+          name: '.codex/hooks.json',
           message: 'managed SessionStart hook config present',
         },
       ]);
 
-      fs.appendFileSync(path.join(projectRoot, '.codex', 'hooks', 'hooks.json'), '\n');
+      fs.appendFileSync(path.join(projectRoot, '.codex', 'hooks.json'), '\n');
       const checks = adapter.inspectRuntimeFiles(projectRoot);
       expect(checks[0].level).toBe('PASS');
       expect(checks[1]).toMatchObject({
         level: 'WARNING',
-        name: '.codex/hooks/hooks.json',
+        name: '.codex/hooks.json',
         message: 'drifted from bundled template',
       });
     } finally {

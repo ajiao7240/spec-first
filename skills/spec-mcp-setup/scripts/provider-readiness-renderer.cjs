@@ -132,7 +132,7 @@ function helperProviderEntries(registry, repoDir) {
         nextActions.push(provider.installation && provider.installation.next_action);
       }
       if (installed && !artifact) {
-        nextActions.push('Generate and check in project-graph artifacts before treating this provider as repo-aligned.');
+        nextActions.push('Generate run-scoped project-graph artifacts for the current requirement workspace before using this provider as architecture navigation.');
       }
       return providerEntry(provider, {
         installed,

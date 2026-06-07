@@ -253,6 +253,45 @@ spec-first 已覆盖"**能力维度**的渐进引入"(minimal→recommended→pl
 
 ---
 
+## 十、第四轮 deep-research:项目负责人视角的 roadmap 优先级裁决
+
+> 第四轮(100 agent / 18 源 / 25 主张核验,15 confirmed / 10 killed),从"评估一个需求"升到"在 spec-first roadmap 里如何排位 + 还缺什么"。WebSearch 全程降级,靠一手页面直取,缺第三方佐证。
+
+### 10.1 最终结论
+
+**brownfield onboarding 排位"持平偏高",但必须以"窄入口适配器 + 编排而非重造"交付——周边格局已被占位,差异化窗口只在过程化方法论 + 边界治理 + 证据留存。**
+
+### 10.2 四个改变落地策略的硬事实(confirmed)
+
+1. **Spec Kit 已在方法论层占 brownfield**:列为三大开发阶段之一、自称 N-to-N+1 是 SDD 最强场景;生态碾压(30 集成/105 扩展/22 preset),核心流程与 spec-first 高度重叠。**但** `specify init` 仍 greenfield 脚手架,无影响面分档、无技术债基线——**spec-first 专门适配器 niche(R7+R9+R3)未被占据**(confirmed)。
+2. **Sonar AC/DC 进场**(Guide→Generate→Verify→Solve,"生成前供上下文"已 ship)→ **R9 必须编排/引用 SonarQube New Code,不自建质量引擎**。
+3. **AWS AI-DLC 已实现"AI 主动提问"回环** → R3 的主动提问非 spec-first 独有,不作差异化卖点。
+4. **多条"harness 2026 必备项"叙事被证伪**:eval harness 多 agent 必备(0-3)、observability 排第一(0-3)、权限治理近乎普遍(0-3)、MCP 已标准故不必投(0-3)——单厂商自述,非普适刚需 → **保护抗膨胀判断,这些不进核心 roadmap**。
+
+### 10.3 roadmap 排位
+
+| 对比 | 排位 | 理由 |
+|---|---|---|
+| vs 知识 Harness v1.15 | 略高,但 R8 反向依赖它 | R7/R9 不依赖、可先行;仅 R8 等 v1.15 producer |
+| vs provider pack v1.16 | 高 | provider 是 opt-in 边缘,onboarding 是入口 |
+| vs 治理成熟度 v1.17 | 持平 | 都是治理,可并行 |
+
+**最强排位理由**:69% 开发者不打算用 AI 做 project planning(planning-heavy 天然"叫好不叫座"),brownfield onboarding 的价值是**降低进入规格闭环门槛、对冲 spec-first 自身采纳阻力**。内部有利事实:R7 地基 `ln-signals.v1` 已落 src/cli。
+
+### 10.4 该拒绝的诱惑(明确非目标)
+
+重建质量引擎(Sonar 占位)、卷上下文文件格式(AGENTS.md 12 万+红海)、原生接入 A2A/企业多 agent 互操作、把 eval harness/observability 当核心、P0-P2 全家桶路线图。
+
+### 10.5 诚实标注
+
+- WebSearch 全程降级,自报数据(Vibe Kanban 日活)不可独立核验。
+- "抗膨胀=OSS 存活关键":本轮 Vibe Kanban 案例实为**货币化失败 + OSS 续命,非膨胀致死**,对该论断仅弱支持;强实证仍来自前几轮 context-rot。
+- 双向追溯"仍空白"仅 1-2 票通过,**未 confirmed**,作差异化方向需先验证。
+- 痛点量级四轮均 unverified——dogfood-first 不变。
+- 已据本节修订 requirements doc(R9 编排-over-Sonar、Scope 加非目标、roadmap 排位说明、R3 主动提问降调、竞争窗口 open question)。
+
+---
+
 ## 一手来源
 
 - Anthropic. Effective harnesses for long-running agents — https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
@@ -277,3 +316,9 @@ spec-first 已覆盖"**能力维度**的渐进引入"(minimal→recommended→pl
 - SonarQube. About New Code (Clean as You Code) — https://docs.sonarsource.com/sonarqube-server/user-guide/about-new-code/
 - DORA 2024 Report — https://dora.dev/research/2024/dora-report/
 - LocAgent (arXiv 2503.09089) · SWE-Bench+ (arXiv 2410.06992) · Agentless (arXiv 2407.01489)
+- GitHub Spec Kit docs — https://github.github.io/spec-kit/
+- Sonar. Agent Centric Development Cycle (AC/DC) — https://docs.sonarsource.com/agent-centric-development-cycle
+- AWS. AI-Driven Development Life Cycle — https://aws.amazon.com/blogs/devops/ai-driven-development-life-cycle/
+- A2A Protocol — https://a2a-protocol.org/latest/ · Google ADK — https://google.github.io/adk-docs/
+- LangChain. State of AI Agents — https://www.langchain.com/stateofaiagents
+- Vibe Kanban shutdown — https://www.vibekanban.com/blog/shutdown

@@ -7,6 +7,13 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 const SCALE_DOC_ROOT = path.join(REPO_ROOT, 'docs', '01-需求分析', '13.scale集成');
 const CODEGRAPH_DOC = path.join(SCALE_DOC_ROOT, 'CodeGraph技术方案.md');
 const README_DOC = path.join(SCALE_DOC_ROOT, 'README.md');
+const RUNTIME_SETUP_TARGET_DOC = path.join(SCALE_DOC_ROOT, 'Runtime-Setup目标.md');
+const RUNTIME_SETUP_PLAN_DOC = path.join(
+  REPO_ROOT,
+  'docs',
+  'plans',
+  '2026-06-07-003-refactor-runtime-setup-lifecycle-plan.md',
+);
 const PARENT_DOC = path.join(
   SCALE_DOC_ROOT,
   'spec-first内化集成scale-project-scaffold技术方案.md',
@@ -63,18 +70,94 @@ describe('SCALE provider documentation contracts', () => {
     const codegraph = fs.readFileSync(CODEGRAPH_DOC, 'utf8');
     const parent = fs.readFileSync(PARENT_DOC, 'utf8');
     const readme = fs.readFileSync(README_DOC, 'utf8');
+    const runtimeSetupTarget = fs.readFileSync(RUNTIME_SETUP_TARGET_DOC, 'utf8');
+    const runtimeSetupPlan = fs.readFileSync(RUNTIME_SETUP_PLAN_DOC, 'utf8');
     const projectScaffold = fs.readFileSync(PROJECT_SCAFFOLD_DOC, 'utf8');
-    const combined = [codegraph, parent, readme, projectScaffold].join('\n');
+    const combined = [codegraph, parent, readme, runtimeSetupTarget, runtimeSetupPlan, projectScaffold].join('\n');
 
     expect(combined).toContain('CodeGraph 这类 MCP provider 走 `mcp-tools.json`');
     expect(combined).toContain('Graphify 这类 CLI provider 走 `provider-tools.json`');
     expect(combined).toContain('CodeGraph 走 `mcp-tools.json` + `install-mcp`');
     expect(combined).toContain('Graphify 走 `provider-tools.json` + `install-helpers`');
+    expect(readme).toContain('| v1.16 | Capability-aware 协同');
+    expect(readme).toContain('| 已完成（plan：`docs/plans/2026-06-06-001-feat-capability-aware-provider-coordination-plan.md`');
+    expect(codegraph).toContain('最佳版本不是 `源码 -> CodeGraph -> Graphify` 的硬线性 pipeline');
+    expect(codegraph).toContain('直接 source read / rg / ast-grep = confirmed evidence lane');
+    expect(codegraph).toContain('CodeGraph = tactical index，用来缩小源码读取面、给出调用链/影响面/受影响测试/ownership 候选');
+    expect(codegraph).toContain('Graphify  = strategic project map，综合源码证据 + 可选 CodeGraph candidates');
+    expect(codegraph).toContain('CodeGraph 服务于更快找到该读的源码');
+    expect(codegraph).toContain('源码始终服务于验证结论是否成立');
+    expect(codegraph).toContain('workflow 优先调用 Graphify MCP/CLI 工具接口获取结果');
+    expect(codegraph).toContain('只有无工具接口但已有 run-scoped `GRAPH_REPORT.md` 时，才有界读取这三段作 fallback');
+    expect(codegraph).toContain('workflow 通过 provider-native MCP/CLI 工具接口获取 advisory candidates');
+    expect(codegraph).toContain('Graphify = setup 帮装 CLI 并执行 provider-native 首次生成');
+    expect(runtimeSetupTarget).toContain('Runtime Setup = 安装 + 配置 + 首次初始化/首次生成 + 输出工具说明');
+    expect(runtimeSetupTarget).toContain('外部 agent、skill、MCP 工具、CLI helper、provider 等能力应该集中到少数 registry/config 文件中');
+    expect(runtimeSetupTarget).toContain('脚本只能执行受控 case，不执行 registry 内的任意 shell 字符串');
+    expect(runtimeSetupTarget).toContain('新增工具的理想路径是 **configuration-first**，但不是所有工具都能只改配置');
+    expect(runtimeSetupTarget).toContain('如果不是，必须补最小脚本 case 和验证');
+    expect(runtimeSetupTarget).toContain('下游 `spec-plan` / `spec-work` / `spec-review` / `spec-debug` 只能读取说明并调用已有工具接口');
+    expect(runtimeSetupTarget).toContain('canonical consumer surface 是 `.spec-first/config/runtime-tooling-summary.md`');
+    expect(runtimeSetupTarget).toContain('summary 缺失时，下游不得从 registry 或 provider artifact 推断能力可用');
+    expect(runtimeSetupTarget).toContain('`team` / `user` 不是当前 registry enum');
+    expect(runtimeSetupTarget).toContain('若要把它们做成 registry enum，必须同步改 schema、loader、fixtures 和 tests');
+    expect(runtimeSetupTarget).toContain('.spec-first/workspace/requirements/<slug-or-run-id>/graphify-out');
+    expect(runtimeSetupPlan).toContain('registry profiles(minimal / recommended / platform) + policy overlays(team / user)');
+    expect(runtimeSetupPlan).toContain('team/user 是外层 policy，解析后映射为现有 profile 或显式 item allowlist');
+    expect(runtimeSetupPlan).toContain('install-init mode');
+    expect(runtimeSetupPlan).toContain('不在本单元新增 `--init` flag');
+    expect(runtimeSetupPlan).toContain('canonical consumer surface 是 human-readable `runtime-tooling-summary.md`');
+    expect(runtimeSetupPlan).toContain('summary 缺失时，下游不得推断 provider 可用');
+    expect(runtimeSetupPlan).toContain('requirement_workspace_path');
+    expect(runtimeSetupPlan).toContain('artifact_root');
+    expect(runtimeSetupPlan).toContain('缺少 workspace scope 时拒绝 first generation');
+    expect(runtimeSetupPlan).toContain('command_aliases');
+    expect(runtimeSetupPlan).toContain('当前 governance/manifest 是一个 `skill_name` 对一个 `command_name` 的精确匹配模型');
+    expect(runtimeSetupPlan).toContain('alias 与 primary command 指向同一 source contract');
+    expect(runtimeSetupPlan).toContain('refresh_mode');
+    expect(runtimeSetupPlan).toContain('cli-mcp-hook-on-demand');
+    expect(runtimeSetupPlan).toContain('hook_default');
+    expect(runtimeSetupPlan).toContain('CLI/MCP/hook refresh/use surface');
+    expect(runtimeSetupTarget).toContain('后续 refresh/use 交给 Graphify CLI/MCP/hook');
+    expect(runtimeSetupTarget).toContain('hook 必须 opt-in');
+    expect(runtimeSetupTarget).toContain('requirement workspace resolver');
+    expect(runtimeSetupTarget).toContain('不能退回 repo-root `graphify-out/`');
+    expect(runtimeSetupPlan).toContain('`--requirement-workspace <repo-relative-path>`');
+    expect(runtimeSetupPlan).toContain('next_action=requirement-workspace-required');
+    expect(runtimeSetupPlan).toContain('U6 downstream workflow consumption 与 U8 alias migration 可作为第二批；U9 physical rename');
+    expect(combined).toContain('run-scoped');
     expect(codegraph).toContain('`codegraph init -i` 已弃用');
     expect(codegraph).toContain('v0.9.9');
+
+    // 2026-06-08 deep-research 收敛:刷新归属按 provider 形态分档(daemon 代管 / 快照按需重跑)
+    expect(runtimeSetupTarget).toContain('### 2.1 刷新归属按 provider 形态分档');
+    expect(runtimeSetupTarget).toContain('“后续刷新交还 provider” 不是一刀切，必须按 provider 形态分档');
+    expect(runtimeSetupTarget).toContain('不要用“provider watcher 代管刷新”框架硬套快照式工具');
+    expect(runtimeSetupPlan).toContain('「后续刷新交还 provider」按形态分档');
+    // manifest 是 application-layer,不宣称 MCP 协议原生
+    expect(runtimeSetupTarget).toContain('不对标也不宣称等同 MCP 原生 capability negotiation');
+    expect(runtimeSetupTarget).toContain('不得包装成协议原生能力');
+    // Provider 准入门槛(抗膨胀)
+    expect(runtimeSetupTarget).toContain('### 5.1 Provider 准入门槛');
+    expect(runtimeSetupTarget).toContain('“快速集成优秀能力”会退化成“快速膨胀”');
+    expect(runtimeSetupTarget).toContain('不进 `recommended` baseline');
+    // 证据基线:外部一手来源钉入文档
+    expect(runtimeSetupTarget).toContain('## 10. 证据基线');
+    expect(runtimeSetupTarget).toContain('https://sourcegraph.com/docs/code-search/code-navigation/auto_indexing');
+    expect(runtimeSetupTarget).toContain('https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/');
+    expect(runtimeSetupPlan).toContain('2026-06-08 deep-research 三处收敛');
 
     expect(combined).not.toContain('CodeGraph / Graphify entry');
     expect(combined).not.toContain('CodeGraph/Graphify）的 install + configure MCP + 首次 index');
     expect(combined).not.toContain('CLI+配 MCP+首次 index');
+    expect(codegraph).not.toContain('产物当普通 doc 读');
+    expect(codegraph).not.toContain('并 check-in');
+    expect(codegraph).not.toContain('workflow 只消费已有 advisory capability/artifact');
+    expect(runtimeSetupTarget).not.toContain('Runtime Setup 只安装不初始化');
+    expect(runtimeSetupPlan).not.toContain('--install / --init');
+    expect(runtimeSetupPlan).not.toContain('--profile team --confirm-profile` 只安装');
+    expect(runtimeSetupPlan).not.toContain('U5 downstream workflow consumption');
+    expect(runtimeSetupPlan).not.toContain('U7 alias migration');
+    expect(runtimeSetupPlan).not.toContain('U8 physical rename');
   });
 });
