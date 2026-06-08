@@ -100,10 +100,10 @@ describe('SCALE provider documentation contracts', () => {
     expect(runtimeSetupTarget).toContain('canonical consumer surface 是 `.spec-first/config/runtime-tooling-summary.md`');
     expect(runtimeSetupTarget).toContain('summary 缺失时，下游不得从 registry 或 provider artifact 推断能力可用');
     expect(runtimeSetupTarget).toContain('`team` / `user` 不是当前 registry enum');
-    expect(runtimeSetupTarget).toContain('若要把它们做成 registry enum，必须同步改 schema、loader、fixtures 和 tests');
+    expect(runtimeSetupTarget).toContain('也不在本批实现');
     expect(runtimeSetupTarget).toContain('.spec-first/workspace/requirements/<slug-or-run-id>/graphify-out');
-    expect(runtimeSetupPlan).toContain('registry profiles(minimal / recommended / platform) + policy overlays(team / user)');
-    expect(runtimeSetupPlan).toContain('team/user 是外层 policy，解析后映射为现有 profile 或显式 item allowlist');
+    expect(runtimeSetupPlan).toContain('team/user overlay 本批不实现');
+    expect(runtimeSetupPlan).toContain('本批砍 team/user overlay');
     expect(runtimeSetupPlan).toContain('install-init mode');
     expect(runtimeSetupPlan).toContain('不在本单元新增 `--init` flag');
     expect(runtimeSetupPlan).toContain('canonical consumer surface 是 human-readable `runtime-tooling-summary.md`');
@@ -124,10 +124,23 @@ describe('SCALE provider documentation contracts', () => {
     expect(runtimeSetupTarget).toContain('不能退回 repo-root `graphify-out/`');
     expect(runtimeSetupPlan).toContain('`--requirement-workspace <repo-relative-path>`');
     expect(runtimeSetupPlan).toContain('next_action=requirement-workspace-required');
-    expect(runtimeSetupPlan).toContain('U6 downstream workflow consumption 与 U8 alias migration 可作为第二批；U9 physical rename');
     expect(combined).toContain('run-scoped');
     expect(codegraph).toContain('`codegraph init -i` 已弃用');
     expect(codegraph).toContain('v0.9.9');
+
+    // 2026-06-08 第二轮 doc-review 收敛(B1-B6):防止 over-build 回退
+    expect(runtimeSetupPlan).toContain('2026-06-08 第二轮 doc-review 收敛');
+    expect(runtimeSetupPlan).toContain('U8/U9 整体 defer 为独立 cosmetic 切片');
+    expect(runtimeSetupPlan).toContain('U8/U9 命名迁移为独立 cosmetic 切片');
+    // B1: manifest 并入既有 provider_readiness,不新建独立 manifest
+    expect(runtimeSetupPlan).toContain('并入既有 `provider_readiness[]`');
+    // B3: §5.1 准入门槛回溯校验存量 recommended
+    expect(runtimeSetupTarget).toContain('这道门槛也必须回溯校验存量');
+    expect(runtimeSetupTarget).toContain('不生成校验脚本、不进 CI gate');
+    // 形态分档主轴 + setup-only 不变量(A2/A3)
+    expect(runtimeSetupTarget).toContain('主轴是「steady-state 刷新由谁拥有」');
+    expect(runtimeSetupTarget).toContain('绝不下放成下游分支键');
+    expect(runtimeSetupTarget).toContain('不新增 `provider_form` registry enum');
 
     // 2026-06-08 deep-research 收敛:刷新归属按 provider 形态分档(daemon 代管 / 快照按需重跑)
     expect(runtimeSetupTarget).toContain('### 2.1 刷新归属按 provider 形态分档');
