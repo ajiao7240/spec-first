@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
-const SCALE_DOC_ROOT = path.join(REPO_ROOT, 'docs', '01-需求分析', '13.scale集成');
+const SCALE_DOC_ROOT = path.join(REPO_ROOT, 'docs', '01-需求分析', '13.scale-integration');
 const CODEGRAPH_DOC = path.join(SCALE_DOC_ROOT, 'CodeGraph技术方案.md');
 const README_DOC = path.join(SCALE_DOC_ROOT, 'README.md');
 const RUNTIME_SETUP_TARGET_DOC = path.join(SCALE_DOC_ROOT, 'Runtime-Setup目标.md');
@@ -106,8 +106,6 @@ describe('SCALE provider documentation contracts', () => {
     expect(runtimeSetupPlan).toContain('本批砍 team/user overlay');
     expect(runtimeSetupPlan).toContain('install-init mode');
     expect(runtimeSetupPlan).toContain('不在本单元新增 `--init` flag');
-    expect(runtimeSetupPlan).toContain('canonical consumer surface 是 human-readable `runtime-tooling-summary.md`');
-    expect(runtimeSetupPlan).toContain('summary 缺失时，下游不得推断 provider 可用');
     expect(runtimeSetupPlan).toContain('requirement_workspace_path');
     expect(runtimeSetupPlan).toContain('artifact_root');
     expect(runtimeSetupPlan).toContain('缺少 workspace scope 时拒绝 first generation');
@@ -118,15 +116,35 @@ describe('SCALE provider documentation contracts', () => {
     expect(runtimeSetupPlan).toContain('cli-mcp-hook-on-demand');
     expect(runtimeSetupPlan).toContain('hook_default');
     expect(runtimeSetupPlan).toContain('CLI/MCP/hook refresh/use surface');
-    expect(runtimeSetupTarget).toContain('后续 refresh/use 交给 Graphify CLI/MCP/hook');
+    expect(runtimeSetupTarget).toContain('后续刷新走 `graphify update`（增量、无 LLM）');
     expect(runtimeSetupTarget).toContain('hook 必须 opt-in');
     expect(runtimeSetupTarget).toContain('requirement workspace resolver');
     expect(runtimeSetupTarget).toContain('不能退回 repo-root `graphify-out/`');
     expect(runtimeSetupPlan).toContain('`--requirement-workspace <repo-relative-path>`');
     expect(runtimeSetupPlan).toContain('next_action=requirement-workspace-required');
     expect(combined).toContain('run-scoped');
-    expect(codegraph).toContain('`codegraph init -i` 已弃用');
+    expect(codegraph).toContain('已源码核实（本地 `src/bin/codegraph.ts:420-448`）');
+    expect(codegraph).toContain('`-i/--index` 为 deprecated no-op');
     expect(codegraph).toContain('v0.9.9');
+
+    // 2026-06-08 Graphify 本地源码校准(graphify extract headless / 无 LLM / --out|GRAPHIFY_OUT 定向)
+    expect(runtimeSetupTarget).toContain('graphify extract <path> --out <workspace>');
+    expect(runtimeSetupTarget).toContain('GRAPHIFY_OUT');
+    expect(runtimeSetupPlan).toContain('B2 Graphify first-generation 可行性(已源码核实');
+    expect(runtimeSetupPlan).toContain('graphify extract');
+    expect(runtimeSetupPlan).toContain('no LLM');
+    expect(runtimeSetupPlan).toContain('不得用 `graphify .`');
+
+    // 2026-06-08 终审:B 组收敛回写正文/单元防回退(摘要 vs 正文同步)
+    // 矛盾1 B1:summary 非 canonical、缺失非 degraded;canonical machine surface 是 provider_readiness[]
+    expect(runtimeSetupPlan).toContain('canonical machine consumer surface 是既有 `provider_readiness[]`');
+    expect(runtimeSetupPlan).toContain('summary 文件本身缺失');
+    // 矛盾2 B6:checkbox/--profile team defer
+    expect(runtimeSetupPlan).toContain('defer 到未来切片');
+    // 矛盾3 B2:§7 Graphify 已同步源码校准
+    expect(runtimeSetupPlan).toContain('pip index versions graphifyy');
+    // 矛盾4 B5:命名迁移 U8/U9 defer 标注
+    expect(runtimeSetupPlan).toContain('本批 defer（按 B5）');
 
     // 2026-06-08 第二轮 doc-review 收敛(B1-B6):防止 over-build 回退
     expect(runtimeSetupPlan).toContain('2026-06-08 第二轮 doc-review 收敛');

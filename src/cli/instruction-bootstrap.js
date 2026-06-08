@@ -130,7 +130,7 @@ function buildBootstrapBlock(adapterOrId, lang = 'zh') {
 
 function buildZhBootstrapBody(hostId) {
   const prefix = hostId === 'claude' ? '/spec:' : '$spec-';
-  const entry = (name) => hostId === 'claude' ? `${prefix}${name}` : `${prefix}${name}`;
+  const entry = (name) => `${prefix}${name}`;
   const hostLine = hostId === 'claude'
     ? '- Claude workflow 入口使用 `/spec:*`'
     : '- Codex workflow 入口使用 `$spec-*`';
@@ -146,19 +146,23 @@ function buildZhBootstrapBody(hostId) {
 
   return `## Workflow 入口治理
 
-- 本 block 只做轻量 workflow entry context router；完整路由策略在 \`skills/using-spec-first/SKILL.md\`
-- substantial work 前先判断是否进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答；已在 workflow 或 bounded subagent 中时不重新分流
-- 按当前意图选择一个入口；不要默认进入 \`spec-brainstorm\`，不要自动串联多个 workflow；用户询问下一步时，用 \`using-spec-first\` guide mode 推荐一个入口、一个理由、一个动作
+- 本 block 是 using-spec-first 的核心决策集(随会话启动注入,启动即在场);完整路由策略与细节仍在 \`skills/using-spec-first/SKILL.md\`
+- **何时进入 workflow**:substantial work（改代码/docs/config/runtime asset、启动 implementation/debug/review/plan/setup/update/optimization/知识沉淀、运行改状态命令、架构/prompt/workflow/contract 决策、durable knowledge 增删）前先判断是否进入公开 spec-first workflow
+- **何时直接做**:轻量事实问答、窄定位查询（where is X used）、无 workflow 增益的简短解释可直接回答;workflow-first 不等于 brainstorming-first,不强制每个任务走 workflow
+- **何时不重新分流**:已在公开 workflow 内（按其 SKILL 继续,仅在用户改目标/显式 handoff/明显越界时重路由）或作为 bounded subagent/worker 被派遣（完成 bounded 任务即可,不重启路由)
+- **如何路由**:意图优先于关键词与主题域;选一个入口并说明一个理由,不默认进入 \`spec-brainstorm\`,不自动串联多个 workflow;用户显式调用某 workflow 时优先尊重;用户询问下一步时用 \`using-spec-first\` guide mode 给一个入口、一个理由、一个动作
+- **优先级(高→低)**:显式 route > 安全/修复(setup/update/缺 runtime) > 诊断(debug 先于 work,针对失败) > 评审(code/doc review 先于实现) > 定义(brainstorm/ideate/prd 先于 plan/work,WHAT 不清时) > 优化(可度量实验) > 执行(plan 先于 work) > 知识(compound/compound-refresh)
 - 父级多仓 workspace：写入、修复、测试、review autofix 或 commit 前必须有明确 \`target_repo\` / per-child scope；只读定位也应使用 bounded direct reads 并说明目标 repo 假设
-- Runtime context 默认排除 \`.spec-first/audits/**\` 和 generated mirrors（\`.claude/**\`、\`.codex/**\`、\`.agents/skills/**\`）；只有 setup/update/runtime-drift/audit 等明确运行时任务按需读取
+- Runtime context 默认排除 \`.spec-first/audits/**\` 和 generated mirrors（\`.claude/**\`、\`.codex/**\`、\`.agents/skills/**\`）;只有 setup/update/runtime-drift/audit 等明确运行时任务按需读取
+- **反合理化红旗**(出现这些念头即停):「先改个文件就好」→ 先判断是否 work/debug/update/compound-refresh;「只是个快速架构/prompt 改动」→ 架构/prompt/workflow/contract 改动算 substantial;「得先看一堆文件再决定」→ 只做最小事实核查,已清晰则直接路由;「该评审但我口头答就行」→ 评审目标具体时用 code-review/doc-review;「helper skill 存在所以该暴露」→ 只有公开 workflow 是用户入口,internal helper 隐藏
 ${hostLine}
-${surfaceLine}；不要直接暴露 internal-only skills，例如 \`git-worktree\`
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 常见入口锚点：环境/MCP→\`${entry('mcp-setup')}\`；版本/runtime 检查→终端运行 \`spec-first update\`；bug/失败→\`${entry('debug')}\`；代码/文档评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`；需求/计划/任务/执行→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`；可度量优化→\`${entry('optimize')}\``;
+${surfaceLine}；不要直接暴露 internal-only skills,例如 \`git-worktree\`
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- 入口映射(意图→入口):环境/MCP/host readiness→\`${entry('mcp-setup')}\`;版本检查/刷新 runtime→终端运行 \`spec-first update\`;bug/失败/栈→\`${entry('debug')}\`;代码/PR/diff 评审→\`${entry('code-review')}\`;需求/计划/markdown 文档评审→\`${entry('doc-review')}\`;skill/agent 资产审计→\`${entry('skill-audit')}\`;app/PRD 一致性审计→\`${entry('app-consistency-audit')}\`;0-1 产品想法/要选项→\`${entry('ideate')}\`;定义 WHAT/问题框定→\`${entry('brainstorm')}\`;存量系统 PRD 撰写/校验→\`${entry('prd')}\`;可度量优化实验→\`${entry('optimize')}\`;目标清晰需执行计划→\`${entry('plan')}\`;计划拆任务→\`spec-write-tasks\`;计划/任务就绪可执行→\`${entry('work')}\`;沉淀已解决问题→\`${entry('compound')}\`;刷新/订正既有 docs/learnings→\`${entry('compound-refresh')}\`;过往 session 检索→\`${entry('sessions')}\`;发布说明→\`${entry('release-notes')}\``;
 }
 
 function buildEnBootstrapBody(hostId) {
   const prefix = hostId === 'claude' ? '/spec:' : '$spec-';
-  const entry = (name) => hostId === 'claude' ? `${prefix}${name}` : `${prefix}${name}`;
+  const entry = (name) => `${prefix}${name}`;
   const hostLine = hostId === 'claude'
     ? '- Claude workflow entrypoints use `/spec:*`'
     : '- Codex workflow entrypoints use `$spec-*`';
@@ -174,14 +178,18 @@ function buildEnBootstrapBody(hostId) {
 
   return `## Workflow Entry Governance
 
-- This block is only a thin workflow entry context router; the full routing policy lives in \`skills/using-spec-first/SKILL.md\`
-- Before substantial work, decide whether to enter a public spec-first workflow; lightweight Q&A and narrow factual lookups may be answered directly; if already inside a workflow or bounded subagent, do not reroute
-- Pick one entrypoint by current intent; do not default to \`spec-brainstorm\` or automatically chain workflows; when the user asks what to run next, use \`using-spec-first\` guide mode to recommend one entrypoint, one reason, and one action
+- This block is the using-spec-first core decision set (injected at session start, present from the start); the full routing policy and details still live in \`skills/using-spec-first/SKILL.md\`
+- **When to enter a workflow**: before substantial work (editing code/docs/config/runtime assets; starting implementation/debug/review/plan/setup/update/optimization/knowledge capture; running state-changing commands; architecture/prompt/workflow/contract decisions; adding/removing durable knowledge), decide whether to enter a public spec-first workflow
+- **When to just answer**: lightweight factual Q&A, narrow lookups (where is X used), and brief explanations with no workflow leverage may be answered directly; workflow-first does NOT mean brainstorming-first, and you do not force every task through a workflow
+- **When NOT to reroute**: if already inside a public workflow (follow its SKILL; reroute only when the user changes the goal, the workflow explicitly hands off, or the request is clearly out of scope) or dispatched as a bounded subagent/worker (complete the bounded task; do not restart routing)
+- **How to route**: immediate intent beats keywords and broad subject area; pick one entrypoint and state one reason; do not default to \`spec-brainstorm\` or chain workflows automatically; honor an explicitly invoked workflow; when the user asks what's next, use \`using-spec-first\` guide mode for one entrypoint, one reason, one action
+- **Priority (high→low)**: explicit route > safety/repair (setup/update/missing runtime) > diagnostic (debug before work, for failures) > evaluation (code/doc review before implementation) > definition (brainstorm/ideate/prd before plan/work, when WHAT is unclear) > optimization (measurable experiments) > execution (plan before work) > knowledge (compound/compound-refresh)
 - Parent multi-repo workspace: writes, fixes, tests, review autofix, or commits require explicit \`target_repo\` / per-child scope; read-only orientation should use bounded direct reads and state target-repo assumptions
 - Runtime context excludes \`.spec-first/audits/**\` and generated mirrors (\`.claude/**\`, \`.codex/**\`, \`.agents/skills/**\`) by default; only setup/update/runtime-drift/audit tasks read them when explicitly needed
+- **Anti-rationalization red flags** (stop when these thoughts appear): "I'll just edit the file first" → first check whether this is work/debug/update/compound-refresh; "just a quick architecture/prompt change" → architecture/prompt/workflow/contract changes ARE substantial; "I need to inspect a bunch of files first" → do a minimal fact check only, route if already clear; "review needed but I'll answer informally" → use code-review/doc-review when the target is concrete; "a helper skill exists so I should expose it" → only public workflows are user entrypoints, internal helpers stay hidden
 ${hostLine}
 ${surfaceLine}; do not expose internal-only skills directly, for example \`git-worktree\`
-${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Common entry anchors: environment/MCP→\`${entry('mcp-setup')}\`; version/runtime check→run \`spec-first update\` in the terminal; bug/failure→\`${entry('debug')}\`; code/document review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; requirements/planning/tasks/execution→\`${entry('brainstorm')}\`/\`${entry('plan')}\`/\`spec-write-tasks\`/\`${entry('work')}\`; measurable optimization→\`${entry('optimize')}\``;
+${codexStartupReminderLines ? `${codexStartupReminderLines}\n` : ''}- Entry map (intent→entrypoint): environment/MCP/host readiness→\`${entry('mcp-setup')}\`; version check/refresh runtime→run \`spec-first update\` in the terminal; bug/failure/stack→\`${entry('debug')}\`; code/PR/diff review→\`${entry('code-review')}\`; requirements/plan/markdown doc review→\`${entry('doc-review')}\`; skill/agent asset audit→\`${entry('skill-audit')}\`; app/PRD consistency audit→\`${entry('app-consistency-audit')}\`; 0-1 product idea/options→\`${entry('ideate')}\`; define WHAT/problem framing→\`${entry('brainstorm')}\`; brownfield PRD authoring/validation→\`${entry('prd')}\`; measurable optimization→\`${entry('optimize')}\`; clear outcome needs a plan→\`${entry('plan')}\`; split plan into tasks→\`spec-write-tasks\`; plan/tasks ready to execute→\`${entry('work')}\`; capture a solved problem→\`${entry('compound')}\`; refresh/correct existing docs/learnings→\`${entry('compound-refresh')}\`; retrieve past sessions→\`${entry('sessions')}\`; release notes→\`${entry('release-notes')}\``;
 }
 
 function stripStandaloneMarkerLines(content) {

@@ -53,7 +53,7 @@ Runtime Setup 可以负责首次初始化或首次生成，但必须满足这些
 例子：
 
 - CodeGraph（daemon 式）：Runtime Setup 可安装 CLI、配置 MCP、执行首次 `codegraph init`、验证 query；之后索引同步与查询走 CodeGraph 原生 MCP / watcher 代管刷新。
-- Graphify（快照式 CLI）：Runtime Setup 可安装 CLI，并在用户 opt-in 后为当前需求 workspace 执行 Graphify 原生首次 project-graph 生成；它没有默认 steady-state daemon，后续 refresh/use 交给 Graphify CLI/MCP/hook，不由 Runtime Setup 代管，下游缺/旧时 fallback 或提示用 Graphify 原生能力重跑。
+- Graphify（快照式 CLI）：Runtime Setup 可安装 CLI（PyPI 包 `graphifyy`，bin `graphify`），并在用户 opt-in 后为当前需求 workspace 执行首次 project-graph 生成。生成命令按场景分层（源码核实 `graphify` v0.8.x）：脚本/CI 用 headless `graphify extract <path> --out <workspace>`（代码 AST 确定性、无 LLM；语义聚类需 backend API key，可 `--no-cluster` 跳过），交互富媒体场景用 AI assistant 内 `/graphify .`（LLM/vision 驱动）。输出目录可经 `--out` 或 `GRAPHIFY_OUT` 环境变量（支持绝对路径）定向到 requirement workspace。它没有默认 steady-state daemon，后续刷新走 `graphify update`（增量、无 LLM）/ `--watch` / post-commit `graphify hook install`，不由 Runtime Setup 代管，下游缺/旧时 fallback 或提示用户用 Graphify 原生能力重跑。
 - 其他 helper / MCP / provider：按 §2.1 形态分档声明 install、configure、first generation、query surface、refresh owner（daemon 式才有 refresh owner，快照式标注“按需重跑”）。
 
 ## 4. 工具说明产物

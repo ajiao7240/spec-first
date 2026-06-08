@@ -417,9 +417,9 @@ describe('init --dry-run', () => {
       expect(gitignore).not.toContain('.spec-first/standards/');
 
       const claudeInstruction = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
-      expect(claudeInstruction).toContain('不要默认进入 `spec-brainstorm`');
+      expect(claudeInstruction).toContain('不默认进入 `spec-brainstorm`');
       expect(claudeInstruction).toContain('只读定位也应使用 bounded direct reads 并说明目标 repo 假设');
-      expect(claudeInstruction).toContain('完整路由策略在 `skills/using-spec-first/SKILL.md`');
+      expect(claudeInstruction).toContain('完整路由策略与细节仍在 `skills/using-spec-first/SKILL.md`');
       expect(claudeInstruction).toContain('target_repo');
       expect(claudeInstruction).toContain('/spec:optimize');
       expect(claudeInstruction).not.toContain('not-evaluated-no-mcp-input');
@@ -562,9 +562,9 @@ describe('init --dry-run', () => {
       expect(gitignore).toContain('.codex/');
       expect(gitignore).toContain('.agents/skills/');
       expect(gitignore).not.toContain('.agents/\n');
-      expect(codexInstruction).toContain('不要默认进入 `spec-brainstorm`');
+      expect(codexInstruction).toContain('不默认进入 `spec-brainstorm`');
       expect(codexInstruction).toContain('只读定位也应使用 bounded direct reads 并说明目标 repo 假设');
-      expect(codexInstruction).toContain('完整路由策略在 `skills/using-spec-first/SKILL.md`');
+      expect(codexInstruction).toContain('完整路由策略与细节仍在 `skills/using-spec-first/SKILL.md`');
       expect(codexInstruction).toContain('target_repo');
       expect(codexInstruction).toContain('$spec-optimize');
       expect(codexInstruction).not.toContain('not-evaluated-no-mcp-input');

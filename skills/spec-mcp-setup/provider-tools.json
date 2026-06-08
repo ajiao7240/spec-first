@@ -23,7 +23,7 @@
           "linux": "uv tool install graphifyy==0.8.33",
           "windows": "uv tool install graphifyy==0.8.33"
         },
-        "next_action": "Install uv, then run SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT=approved spec-mcp-setup install to install Graphify."
+        "next_action": "Install uv, then run SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT=approved spec-mcp-setup install to install Graphify. 落地前用 `pip index versions graphifyy` 或 PyPI 实测当前可装版本再确认 version_pin（本地源码 pyproject 已到 0.8.35，PyPI 发布版本可能不同）。"
       },
       "safety": {
         "risk_flags": [
@@ -37,7 +37,7 @@
           "pin_status": "pinned"
         },
         "review_required": true,
-        "install_effect": "Installs the graphify CLI into the user's uv tool environment; project graph generation remains a user action."
+        "install_effect": "Installs the graphify CLI (PyPI package graphifyy; the graphifyy->graphify name mismatch is the maintainer's temporary naming while the graphify name is reclaimed, not a typosquat — still verify the bin matches). `graphify install` additionally registers an AI-assistant skill; spec-first installs only the CLI. Project graph generation defaults to a user action: `/graphify .` (skill, LLM-driven, multimodal) or, for scripts/CI, the headless `graphify extract <path> --out <dir>` (AST is deterministic/no-LLM; semantic clustering needs a backend API key, skip with --no-cluster). Code-graph refresh is `graphify update <path>` (no LLM needed); steady-state also via `--watch` or post-commit `graphify hook install`. Output dir is overridable via `--out` or the GRAPHIFY_OUT env var (absolute path supported), so a requirement-scoped workspace can be targeted without cd."
       },
       "readiness": {
         "producer": "install-helpers",
