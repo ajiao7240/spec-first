@@ -705,7 +705,7 @@ confirmed truth 仍需要 source/test/log/contract/user evidence。
 | 能力工具 | setup 帮装（过 gate） | 启动/生成 | 刷新归属 |
 | --- | --- | --- | --- |
 | CodeGraph（code-graph，MCP） | `mcp-tools.json` opt-in entry 经 `install-mcp` warmup + host MCP config + 首次 `codegraph init` | MCP server 由 host 拉起 | 工具自带 file-watcher 自管；spec-first 不代刷 |
-| Graphify（project-graph，run-scoped 上下文） | setup 可帮装 `uv tool install graphifyy` CLI（包名 `graphifyy`、bin 名 `graphify`） | `graphify .` 生成 `GRAPH_REPORT.md` 是**用户动作**，默认作为当前需求 workspace 的临时架构导航，spec-first 不代生成 | 工具自带 post-commit hook 或用户手动；spec-first 不代刷、不自动沉淀 |
+| Graphify（project-graph，run-scoped 上下文） | setup 可帮装 pinned `graphifyy==0.8.35` 的 workspace-local CLI wrapper（包名 `graphifyy`、bin 名 `graphify`，落点 `.spec-first/tools/` + `.spec-first/cache/uv`） | Runtime Setup 在 guided confirmation 或 `--only graphify` 后可运行 headless `graphify extract <path> --out .spec-first/workspace/providers/graphify/graphify-out --no-cluster` 做首次生成；缺少 `--requirement-workspace` 时 input scope 默认 project workspace，富媒体 `/graphify .` 仍是**用户动作** | `graphify update`、`--watch`、post-commit hook 或用户手动；spec-first 不代刷、不自动沉淀 |
 
 spec-first 的 `spec-plan`/`spec-work`/`spec-code-review`/`spec-debug` 在工具装好后，按 capability-class 引导利用其 advisory 产出（经原生 MCP / run-scoped project-graph 上下文，缺失即 fallback），**不在运行期主动弹装、不把输出当语义证据**。
 
@@ -971,7 +971,7 @@ docs/contracts/runtime/
 
 交付：
 
-- `minimal/recommended/platform` profile。
+- `minimal/optional/recommended/platform` profile。
 - required harness runtime 与 optional provider readiness。
 - 通用 provider install-plan shape / explicit-apply boundary / post-check result shape。
 - configured dependency scan facts：host hooks、MCP、helper、provider command、project artifact（v1.11 producer；v1.12 doctor/host projection consumer）。

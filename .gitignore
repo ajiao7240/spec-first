@@ -57,6 +57,11 @@ logs/
 .spec-first/workspace/
 .spec-first/sessions/
 .spec-first/ci/
+.spec-first/cache/
+.spec-first/tools/
+
+# Provider runtime data (CodeGraph daemon db/log) — runtime facts, not source
+.codegraph/
 
 # Published/package artifacts
 *.tgz

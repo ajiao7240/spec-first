@@ -283,10 +283,10 @@ function normalizeConfiguredDependencies(entries) {
 function normalizeProviderReadiness(entries) {
   if (!Array.isArray(entries)) return [];
   return entries.map((entry) => ({
-    schema_version: 'provider-readiness.v1',
+    schema_version: 'provider-readiness.v2',
     provider: entry.provider || 'unknown',
-    kind: entry.kind || 'generic',
-    profile: normalizeProfile(entry.profile),
+    kind: normalizeProviderKind(entry.kind),
+    profile: normalizeProviderProfile(entry.profile),
     readiness_status: normalizeProviderStatus(entry.readiness_status),
     lifecycle: {
       installed: Boolean(entry.lifecycle && entry.lifecycle.installed),
@@ -298,12 +298,16 @@ function normalizeProviderReadiness(entries) {
       query_verified: Boolean(entry.lifecycle && entry.lifecycle.query_verified),
       fallback_used: Boolean(entry.lifecycle && entry.lifecycle.fallback_used),
     },
-    repo_aligned: entry.repo_aligned || 'unknown',
+    repo_aligned: normalizeRepoAligned(entry.repo_aligned),
     capabilities: Array.isArray(entry.capabilities) ? entry.capabilities : [],
     limitations: Array.isArray(entry.limitations) ? entry.limitations : [],
     source_read_required: entry.source_read_required !== undefined ? Boolean(entry.source_read_required) : true,
     fallback: entry.fallback || { available: true, methods: ['rg', 'direct-source-read'], reason_code: 'provider-not-run' },
     next_actions: Array.isArray(entry.next_actions) ? entry.next_actions : [],
+    native_interfaces: normalizeStringList(entry.native_interfaces),
+    first_generation: normalizeFirstGeneration(entry.first_generation),
+    steady_state: normalizeSteadyState(entry.steady_state),
+    usage_note: typeof entry.usage_note === 'string' ? entry.usage_note : '',
   }));
 }
 
@@ -311,8 +315,72 @@ function normalizeProfile(value) {
   return ['minimal', 'recommended', 'platform'].includes(value) ? value : 'minimal';
 }
 
+function normalizeProviderProfile(value) {
+  return ['minimal', 'optional', 'recommended', 'platform'].includes(value) ? value : 'optional';
+}
+
+function normalizeProviderKind(value) {
+  return ['code-structure', 'project-graph', 'memory', 'generic'].includes(value) ? value : 'generic';
+}
+
+function normalizeRepoAligned(value) {
+  return ['yes', 'no', 'unknown', 'not-applicable'].includes(value) ? value : 'unknown';
+}
+
 function normalizeProviderStatus(value) {
   return ['fresh', 'stale', 'degraded', 'not-run', 'unknown'].includes(value) ? value : 'unknown';
+}
+
+function normalizeStringList(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === 'string' && item.length > 0) : [];
+}
+
+function normalizeNullableString(value) {
+  return typeof value === 'string' ? value : null;
+}
+
+function normalizeFirstGeneration(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const owner = ['runtime-setup', 'provider-native', 'user', 'none', 'unknown'].includes(source.owner)
+    ? source.owner
+    : 'unknown';
+  const status = ['completed', 'not-run', 'failed', 'skipped', 'unknown'].includes(source.status)
+    ? source.status
+    : 'unknown';
+  const scope = ['project', 'run-scoped-workspace', 'user-specified', 'not-applicable', 'unknown'].includes(source.scope)
+    ? source.scope
+    : 'unknown';
+  return {
+    owner,
+    status,
+    scope,
+    requires_explicit_gate: source.requires_explicit_gate !== undefined
+      ? Boolean(source.requires_explicit_gate)
+      : false,
+    requirement_workspace_path: normalizeNullableString(source.requirement_workspace_path),
+    artifact_root: normalizeNullableString(source.artifact_root),
+    artifact_refs: normalizeStringList(source.artifact_refs),
+    next_action: normalizeNullableString(source.next_action),
+  };
+}
+
+function normalizeSteadyState(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const refreshOwner = ['provider-native', 'runtime-setup', 'user', 'none', 'unknown'].includes(source.refresh_owner)
+    ? source.refresh_owner
+    : 'unknown';
+  const refreshMode = ['watcher', 'cli-mcp-hook-on-demand', 'manual-only', 'none', 'unknown'].includes(source.refresh_mode)
+    ? source.refresh_mode
+    : 'unknown';
+  const usageOwner = ['downstream-skill', 'provider-native', 'user', 'none', 'unknown'].includes(source.usage_owner)
+    ? source.usage_owner
+    : 'unknown';
+  return {
+    refresh_owner: refreshOwner,
+    refresh_mode: refreshMode,
+    hook_default: source.hook_default !== undefined ? Boolean(source.hook_default) : false,
+    usage_owner: usageOwner,
+  };
 }
 
 function computeFreshness(generatedAt, now, maxAgeMs) {

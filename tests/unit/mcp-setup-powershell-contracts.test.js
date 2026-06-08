@@ -6,6 +6,7 @@ const { spawnSync } = require('node:child_process');
 const repoRoot = path.resolve(__dirname, '../..');
 const configureHostPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/configure-host.ps1');
 const detectToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/detect-tools.ps1');
+const installHelpersPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-helpers.ps1');
 const installMcpPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install-mcp.ps1');
 const verifyToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const writeSetupFactsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/write-setup-facts.ps1');
@@ -56,8 +57,23 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
       opt_in: {
         explicit_consent_required: true,
       },
+      project_bootstrap: {
+        kind: 'command',
+        required: true,
+        project_file: '.codegraph/codegraph.db',
+        unix: {
+          command: 'npx',
+          args: ['-y', '{{package}}@{{version}}', 'init'],
+        },
+      },
       provider_readiness: {
         kind: 'code-structure',
+        profile: 'optional',
+        first_generation: {
+          owner: 'runtime-setup',
+          scope: 'project',
+          requires_explicit_gate: true,
+        },
       },
     });
     expect(toolsJson.tools.every((tool) => tool.category === 'mcp')).toBe(true);
@@ -71,8 +87,20 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(combined).toContain('tool-facts.json');
     expect(combined).toContain('runtime-capabilities.json');
     expect(read(installMcpPs1)).toContain('function Test-OptionalToolAllowed');
+    expect(read(installMcpPs1)).toContain('[switch]$Plan');
+    expect(read(installMcpPs1)).toContain('[string]$RequirementWorkspace');
+    expect(read(installMcpPs1)).toContain('SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT');
+    expect(read(installMcpPs1)).toContain('setup-plan-renderer.cjs');
     expect(read(installMcpPs1)).toContain("reason_code = 'registry_not_required'");
     expect(read(installMcpPs1)).toContain('optional MCP tools require explicit opt-in metadata');
+    expect(read(installHelpersPs1)).toContain('[string]$RequirementWorkspace');
+    expect(read(installHelpersPs1)).toContain('Resolve-RequirementWorkspace');
+    expect(read(installHelpersPs1)).toContain('graphify extract');
+    expect(read(installHelpersPs1)).toContain('--no-cluster');
+    expect(read(installHelpersPs1)).toContain('.spec-first/workspace/providers/graphify/graphify-out');
+    expect(read(installHelpersPs1)).toContain('uvx --from graphifyy==0.8.35 graphify');
+    expect(read(installHelpersPs1)).not.toContain('uv tool install graphifyy==0.8.35');
+    expect(read(installHelpersPs1)).not.toContain('graphify .');
     for (const section of [
       'Execution result',
       'MCP servers',
@@ -138,7 +166,7 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
           {
             provider: 'graphify',
             kind: 'project-graph',
-            profile: 'recommended',
+            profile: 'optional',
             readiness_status: 'stale',
             lifecycle: {
               installed: true,
@@ -160,6 +188,24 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
               reason_code: 'project-graph-provider-unavailable',
             },
             next_actions: [],
+            native_interfaces: ['cli'],
+            first_generation: {
+              owner: 'runtime-setup',
+              status: 'completed',
+              scope: 'run-scoped-workspace',
+              requires_explicit_gate: true,
+              requirement_workspace_path: '.spec-first/workspace/requirements/demo',
+              artifact_root: '.spec-first/workspace/requirements/demo/graphify-out',
+              artifact_refs: ['.spec-first/workspace/requirements/demo/graphify-out/GRAPH_REPORT.md'],
+              next_action: null,
+            },
+            steady_state: {
+              refresh_owner: 'provider-native',
+              refresh_mode: 'cli-mcp-hook-on-demand',
+              hook_default: false,
+              usage_owner: 'downstream-skill',
+            },
+            usage_note: 'Use Graphify CLI query/path/explain for project-graph candidates.',
           },
         ],
         target: {
@@ -195,7 +241,13 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
       expect(toolFacts.provider_readiness).toHaveLength(1);
       expect(toolFacts.provider_readiness[0]).toMatchObject({
         provider: 'graphify',
+        profile: 'optional',
         readiness_status: 'stale',
+        native_interfaces: ['cli'],
+        first_generation: {
+          owner: 'runtime-setup',
+          status: 'completed',
+        },
       });
       expect(runtimeCapabilities.schema_version).toBe('runtime-capabilities.v1');
       expect(runtimeCapabilities.direct_evidence.bounded_source_reads).toBe(true);

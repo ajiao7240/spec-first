@@ -6,12 +6,58 @@ const { loadHelperRegistry } = require('../../../src/cli/helpers/setup-facts');
 
 const REVIEW_RISK_FLAGS = [
   'unpinned-npx',
+  'global-npx-execution',
   'global-npm-install',
   'global-cargo-install',
   'global-install',
   'browser-runtime-install',
   'unpinned-latest',
 ];
+
+const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
+const MCP_TOOLS_JSON = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'mcp-tools.json');
+const PROVIDER_TOOLS_JSON = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'provider-tools.json');
+
+function readJson(filePath, fallback) {
+  try {
+    return JSON.parse(require('node:fs').readFileSync(filePath, 'utf8'));
+  } catch (_error) {
+    return fallback;
+  }
+}
+
+function parseArgs(argv) {
+  const args = {
+    mode: 'plan',
+    only: '',
+    repoRoot: process.cwd(),
+    requirementWorkspace: '',
+  };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--mode') {
+      args.mode = argv[index + 1] || args.mode;
+      index += 1;
+    } else if (arg === '--only') {
+      args.only = argv[index + 1] || '';
+      index += 1;
+    } else if (arg === '--repo-root') {
+      args.repoRoot = argv[index + 1] || args.repoRoot;
+      index += 1;
+    } else if (arg === '--requirement-workspace') {
+      args.requirementWorkspace = argv[index + 1] || '';
+      index += 1;
+    }
+  }
+  return args;
+}
+
+function splitCsv(value) {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 function safetyResult(helper) {
   const flags = helper.safety && Array.isArray(helper.safety.risk_flags) ? helper.safety.risk_flags : [];
@@ -39,7 +85,239 @@ function safetyResult(helper) {
   return { safety_result: 'safe', reason_code: 'install-safety-ready' };
 }
 
+function providerSafetyResult(safety = {}) {
+  const flags = Array.isArray(safety.risk_flags) ? safety.risk_flags : [];
+  if (!safety.source) {
+    return { safety_result: 'blocked', reason_code: 'missing-install-safety-metadata' };
+  }
+  if (flags.includes('installer-script') || flags.includes('unknown-source')) {
+    return { safety_result: 'blocked', reason_code: flags.includes('installer-script') ? 'installer-script' : 'unknown-source' };
+  }
+  const matchedFlag = REVIEW_RISK_FLAGS.find((flag) => flags.includes(flag));
+  if (safety.review_required || matchedFlag) {
+    return { safety_result: 'review-required', reason_code: matchedFlag || 'review-required-by-registry' };
+  }
+  return { safety_result: 'safe', reason_code: 'install-safety-ready' };
+}
+
+function toPosix(value) {
+  return String(value || '').replace(/\\/g, '/');
+}
+
+function resolveGraphifyScope(repoRoot, requirementWorkspace) {
+  const raw = toPosix(requirementWorkspace).trim();
+  const artifactRoot = '.spec-first/workspace/providers/graphify/graphify-out';
+  if (!raw) {
+    return {
+      ok: true,
+      input_scope: '.',
+      requirement_workspace_path: '.',
+      artifact_root: artifactRoot,
+      first_generation_next_action: null,
+    };
+  }
+  if (raw.startsWith('/')) {
+    return {
+      ok: false,
+      input_scope: raw,
+      requirement_workspace_path: null,
+      artifact_root: artifactRoot,
+      first_generation_next_action: 'requirement-workspace-absolute',
+    };
+  }
+  if (raw.split('/').includes('..')) {
+    return {
+      ok: false,
+      input_scope: raw,
+      requirement_workspace_path: null,
+      artifact_root: artifactRoot,
+      first_generation_next_action: 'requirement-workspace-escape',
+    };
+  }
+  const workspaceAbs = path.resolve(repoRoot, raw);
+  const repoAbs = path.resolve(repoRoot);
+  if (!workspaceAbs.startsWith(`${repoAbs}${path.sep}`) && workspaceAbs !== repoAbs) {
+    return {
+      ok: false,
+      input_scope: raw,
+      requirement_workspace_path: null,
+      artifact_root: artifactRoot,
+      first_generation_next_action: 'requirement-workspace-escape',
+    };
+  }
+  if (!require('node:fs').existsSync(workspaceAbs)) {
+    return {
+      ok: false,
+      input_scope: raw,
+      requirement_workspace_path: raw,
+      artifact_root: artifactRoot,
+      first_generation_next_action: 'requirement-workspace-missing',
+    };
+  }
+  return {
+    ok: true,
+    input_scope: raw,
+    requirement_workspace_path: raw,
+    artifact_root: artifactRoot,
+    first_generation_next_action: null,
+  };
+}
+
+function optionalMcpProviders(mcpRegistry, repoRoot) {
+  return (mcpRegistry.tools || [])
+    .filter((tool) => tool.required !== true)
+    .filter((tool) => tool.opt_in && tool.opt_in.explicit_consent_required === true)
+    .map((tool) => {
+      const safety = providerSafetyResult(tool.safety || {});
+      const packageSpec = tool.package && tool.version ? `${tool.package}@${tool.version}` : tool.package || tool.id;
+      return {
+        provider: tool.id,
+        name: tool.name || tool.summary_label || tool.id,
+        kind: tool.provider_readiness && tool.provider_readiness.kind ? tool.provider_readiness.kind : 'generic',
+        profile: tool.provider_readiness && tool.provider_readiness.profile ? tool.provider_readiness.profile : 'optional',
+        route: 'install-mcp',
+        install_route: 'install-mcp',
+        native_interfaces: (tool.provider_readiness && tool.provider_readiness.native_interfaces) || ['mcp'],
+        install_commands_display: [
+          `npx -y ${packageSpec} --help`,
+          `host config: npx -y ${packageSpec} serve`,
+          `project bootstrap: npx -y ${packageSpec} init`,
+        ],
+        writes_display: {
+          host_config: true,
+          project_artifacts: ['.codegraph/'],
+          tool_install_root: null,
+          cache_root: '.spec-first/cache',
+          artifact_root: '.codegraph',
+        },
+        workspace_root: repoRoot,
+        tool_install_root: null,
+        cache_root: path.join(repoRoot, '.spec-first', 'cache'),
+        artifact_root: path.join(repoRoot, '.codegraph'),
+        first_generation_display: `cd ${repoRoot} && npx -y ${packageSpec} init`,
+        will_not_do: [
+          'will not treat CodeGraph output as confirmed source truth',
+        ],
+        risk_flags: (tool.safety && tool.safety.risk_flags) || [],
+        source: tool.safety && tool.safety.source,
+        pin_status: tool.safety && tool.safety.version_pin ? 'pinned' : 'unknown',
+        review_required: Boolean(tool.safety && tool.safety.review_required),
+        ...safety,
+      };
+    });
+}
+
+function helperProviders(providerRegistry, repoRoot, requirementWorkspace) {
+  return (providerRegistry.providers || [])
+    .filter((provider) => provider.install_route === 'install-helpers')
+    .map((provider) => {
+      const scope = provider.id === 'graphify'
+        ? resolveGraphifyScope(repoRoot, requirementWorkspace)
+        : {
+            ok: true,
+            input_scope: requirementWorkspace || '.',
+            requirement_workspace_path: requirementWorkspace || '.',
+            artifact_root: null,
+            first_generation_next_action: null,
+          };
+      const safety = providerSafetyResult(provider.safety || {});
+      const packageSpec = provider.installation && provider.installation.package && provider.installation.version_pin
+        ? `${provider.installation.package}==${provider.installation.version_pin}`
+        : provider.id;
+      return {
+        provider: provider.id,
+        name: provider.name || provider.id,
+        kind: provider.kind || 'generic',
+        profile: provider.profile || 'optional',
+        route: provider.install_route,
+        install_route: provider.install_route,
+        native_interfaces: provider.native_interfaces || [],
+        install_commands_display: provider.installation && provider.installation.commands_display
+          ? provider.installation.commands_display
+          : {},
+        writes_display: {
+          host_config: false,
+          project_artifacts: [scope.artifact_root].filter(Boolean),
+          tool_install_root: '.spec-first/tools',
+          cache_root: '.spec-first/cache/uv',
+          artifact_root: scope.artifact_root,
+        },
+        workspace_root: repoRoot,
+        tool_install_root: path.join(repoRoot, '.spec-first', 'tools'),
+        cache_root: path.join(repoRoot, '.spec-first', 'cache', 'uv'),
+        artifact_root: scope.artifact_root ? path.join(repoRoot, scope.artifact_root) : null,
+        requirement_workspace_path: scope.requirement_workspace_path,
+        first_generation_display: scope.ok
+          ? `graphify extract ${scope.input_scope} --out ${scope.artifact_root} --no-cluster`
+          : `skipped: ${scope.first_generation_next_action}`,
+        auto_refresh_display: scope.ok
+          ? 'graphify hook install (project-level provider-native auto-refresh; no graphify watch)'
+          : `skipped: ${scope.first_generation_next_action}`,
+        first_generation_next_action: scope.first_generation_next_action,
+        package_spec: packageSpec,
+        will_not_do: [
+          'will not install Graphify SKILL/MCP',
+          'will not start graphify watch',
+          'will not run graphify .',
+          'will not promote generated artifacts to docs or source truth',
+        ],
+        risk_flags: (provider.safety && provider.safety.risk_flags) || [],
+        source: provider.safety && provider.safety.source,
+        pin_status: provider.safety && provider.safety.version_policy && provider.safety.version_policy.pin_status,
+        review_required: Boolean(provider.safety && provider.safety.review_required),
+        install_effect: provider.safety && provider.safety.install_effect,
+        ...safety,
+      };
+    });
+}
+
+function selectionSource(args) {
+  if (args.only) return 'explicit-only';
+  if (args.mode === 'guided-confirm') return 'guided-default-provider-pack';
+  return 'plan-default-provider-pack';
+}
+
+function buildProviderSelection(args) {
+  const repoRoot = path.resolve(args.repoRoot || process.cwd());
+  const mcpRegistry = readJson(MCP_TOOLS_JSON, { tools: [] });
+  const providerRegistry = readJson(PROVIDER_TOOLS_JSON, { providers: [] });
+  const providers = [
+    ...optionalMcpProviders(mcpRegistry, repoRoot),
+    ...helperProviders(providerRegistry, repoRoot, args.requirementWorkspace),
+  ];
+  const validIds = new Set([
+    ...(mcpRegistry.tools || []).map((tool) => tool.id),
+    ...providers.map((provider) => provider.provider),
+  ]);
+  const selectedIds = splitCsv(args.only);
+  const unknown = selectedIds.filter((id) => !validIds.has(id));
+  const selectedSet = new Set(selectedIds.length > 0 ? selectedIds : providers.map((provider) => provider.provider));
+  const source = selectionSource(args);
+  return {
+    selection_source: source,
+    selected_ids: providers.filter((provider) => selectedSet.has(provider.provider)).map((provider) => provider.provider),
+    unknown_ids: unknown,
+    requires_confirmation: !args.only && args.mode !== 'headless',
+    confirmation_prompt: !args.only
+      ? 'Confirm Runtime Setup provider pack install-init for CodeGraph and Graphify in the current workspace?'
+      : null,
+    workspace_root: repoRoot,
+    provider_selection: providers.map((provider) => ({
+      ...provider,
+      selected: selectedSet.has(provider.provider),
+      selection_source: selectedSet.has(provider.provider) ? source : 'not-selected',
+      requires_confirmation: selectedSet.has(provider.provider) && !args.only,
+    })),
+    blocked: unknown.map((id) => ({
+      id,
+      reason_code: 'unknown-optional-provider-selection',
+      next_action: 'Use one of: codegraph,graphify',
+    })),
+  };
+}
+
 function main() {
+  const args = parseArgs(process.argv.slice(2));
   const { registry } = loadHelperRegistry(path.resolve(__dirname, '..', '..', '..'));
   const planned_operations = registry.helpers.map((helper) => {
     const safety = safetyResult(helper);
@@ -58,10 +336,28 @@ function main() {
       ...safety,
     };
   });
+  const providerPlan = buildProviderSelection(args);
   process.stdout.write(`${JSON.stringify({
     schema_version: 'setup-install-plan.v1',
+    mode: args.mode,
+    mutation: args.mode === 'plan' ? false : null,
+    overall_status: providerPlan.blocked.length > 0 ? 'action-required' : 'ready',
+    reason_code: providerPlan.blocked.length > 0 ? 'unknown-optional-provider-selection' : 'setup-install-plan-ready',
+    optional_provider_selection: {
+      selection_source: providerPlan.selection_source,
+      selected_ids: providerPlan.selected_ids,
+      unknown_ids: providerPlan.unknown_ids,
+      requires_confirmation: providerPlan.requires_confirmation,
+      confirmation_prompt: providerPlan.confirmation_prompt,
+      workspace_root: providerPlan.workspace_root,
+      blocked: providerPlan.blocked,
+    },
+    provider_selection: providerPlan.provider_selection,
     planned_operations,
   }, null, 2)}\n`);
+  if (providerPlan.blocked.length > 0) {
+    process.exitCode = 1;
+  }
 }
 
 main();

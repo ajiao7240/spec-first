@@ -13,13 +13,17 @@
     "limitations",
     "source_read_required",
     "fallback",
-    "next_actions"
+    "next_actions",
+    "native_interfaces",
+    "first_generation",
+    "steady_state",
+    "usage_note"
   ],
   "properties": {
-    "schema_version": { "const": "provider-readiness.v1" },
+    "schema_version": { "const": "provider-readiness.v2" },
     "provider": { "type": "string" },
     "kind": { "enum": ["code-structure", "project-graph", "memory", "generic"] },
-    "profile": { "enum": ["minimal", "recommended", "platform"] },
+    "profile": { "enum": ["minimal", "optional", "recommended", "platform"] },
     "readiness_status": { "enum": ["fresh", "stale", "degraded", "not-run", "unknown"] },
     "lifecycle": {
       "type": "object",
@@ -71,6 +75,49 @@
     "next_actions": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "native_interfaces": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "first_generation": {
+      "type": "object",
+      "required": [
+        "owner",
+        "status",
+        "scope",
+        "requires_explicit_gate",
+        "requirement_workspace_path",
+        "artifact_root"
+      ],
+      "properties": {
+        "owner": { "enum": ["runtime-setup", "provider-native", "user", "none", "unknown"] },
+        "status": { "enum": ["completed", "not-run", "failed", "skipped", "unknown"] },
+        "scope": { "enum": ["project", "run-scoped-workspace", "user-specified", "not-applicable", "unknown"] },
+        "requires_explicit_gate": { "type": "boolean" },
+        "requirement_workspace_path": { "type": ["string", "null"] },
+        "artifact_root": { "type": ["string", "null"] },
+        "artifact_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "next_action": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "steady_state": {
+      "type": "object",
+      "required": ["refresh_owner", "refresh_mode", "hook_default", "usage_owner"],
+      "properties": {
+        "refresh_owner": { "enum": ["provider-native", "runtime-setup", "user", "none", "unknown"] },
+        "refresh_mode": { "enum": ["watcher", "cli-mcp-hook-on-demand", "manual-only", "none", "unknown"] },
+        "hook_default": { "type": "boolean" },
+        "usage_owner": { "enum": ["downstream-skill", "provider-native", "user", "none", "unknown"] }
+      },
+      "additionalProperties": false
+    },
+    "usage_note": {
+      "type": "string"
     }
   },
   "additionalProperties": false

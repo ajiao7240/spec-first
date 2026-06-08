@@ -283,7 +283,7 @@ Use deeper runtime details only when you need setup or workspace evidence:
 
 - `spec-first doctor` checks CLI/runtime health. When a host is selected and setup facts exist, `doctor --json` also reports `decision_input_health` and `decision_input_health_basis` from `.spec-first/config/tool-facts.json`.
 - The current host's setup workflow writes setup-owned facts for required harness tools, configured dependencies, provider readiness slots, and local runtime capabilities. Downstream workflows treat those facts as advisory setup evidence, then use direct source reads, `rg`, ast-grep, git diff, tests, logs, and user-provided artifacts for task-specific claims.
-- Runtime setup modes separate side effects: `--check` is read-only, `--verify-only` / `--refresh-facts` refresh setup facts only, `--plan` previews install/config operations, and `--install` is the explicit apply path.
+- Runtime setup modes separate side effects: bare `$spec-mcp-setup` / `/spec:mcp-setup` is the guided setup path that asks once before install-init, `--only codegraph,graphify` is the headless/subset apply path, `--check` is read-only, `--verify-only` / `--refresh-facts` refresh setup facts only, and `--plan` previews install/config operations without mutation.
 - Branch switches, pulls, rebases, merges, and dirty worktree changes can make prior local evidence stale. Workflows disclose those limitations instead of running hidden external-tool refresh, hooks, watchers, or daemons.
 
 CLI reference:

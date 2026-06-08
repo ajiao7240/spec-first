@@ -14,6 +14,12 @@ const RUNTIME_SETUP_PLAN_DOC = path.join(
   'plans',
   '2026-06-07-003-refactor-runtime-setup-lifecycle-plan.md',
 );
+const RUNTIME_SETUP_U25_PLAN_DOC = path.join(
+  REPO_ROOT,
+  'docs',
+  'plans',
+  '2026-06-08-002-feat-runtime-setup-provider-selection-plan.md',
+);
 const PARENT_DOC = path.join(
   SCALE_DOC_ROOT,
   'spec-first内化集成scale-project-scaffold技术方案.md',
@@ -72,8 +78,9 @@ describe('SCALE provider documentation contracts', () => {
     const readme = fs.readFileSync(README_DOC, 'utf8');
     const runtimeSetupTarget = fs.readFileSync(RUNTIME_SETUP_TARGET_DOC, 'utf8');
     const runtimeSetupPlan = fs.readFileSync(RUNTIME_SETUP_PLAN_DOC, 'utf8');
+    const runtimeSetupU25Plan = fs.readFileSync(RUNTIME_SETUP_U25_PLAN_DOC, 'utf8');
     const projectScaffold = fs.readFileSync(PROJECT_SCAFFOLD_DOC, 'utf8');
-    const combined = [codegraph, parent, readme, runtimeSetupTarget, runtimeSetupPlan, projectScaffold].join('\n');
+    const combined = [codegraph, parent, readme, runtimeSetupTarget, runtimeSetupPlan, runtimeSetupU25Plan, projectScaffold].join('\n');
 
     expect(combined).toContain('CodeGraph 这类 MCP provider 走 `mcp-tools.json`');
     expect(combined).toContain('Graphify 这类 CLI provider 走 `provider-tools.json`');
@@ -97,18 +104,20 @@ describe('SCALE provider documentation contracts', () => {
     expect(runtimeSetupTarget).toContain('新增工具的理想路径是 **configuration-first**，但不是所有工具都能只改配置');
     expect(runtimeSetupTarget).toContain('如果不是，必须补最小脚本 case 和验证');
     expect(runtimeSetupTarget).toContain('下游 `spec-plan` / `spec-work` / `spec-review` / `spec-debug` 只能读取说明并调用已有工具接口');
-    expect(runtimeSetupTarget).toContain('canonical consumer surface 是 `.spec-first/config/runtime-tooling-summary.md`');
-    expect(runtimeSetupTarget).toContain('summary 缺失时，下游不得从 registry 或 provider artifact 推断能力可用');
+    expect(runtimeSetupTarget).toContain('canonical machine consumer surface 是既有 `.spec-first/config/tool-facts.json` 内的 `provider_readiness[]`');
+    expect(runtimeSetupTarget).toContain('`runtime-tooling-summary.md` 只是从同一组 deterministic facts 派生的人类可读视图');
+    expect(runtimeSetupTarget).toContain('缺失本身不触发 degraded');
     expect(runtimeSetupTarget).toContain('`team` / `user` 不是当前 registry enum');
     expect(runtimeSetupTarget).toContain('也不在本批实现');
-    expect(runtimeSetupTarget).toContain('.spec-first/workspace/requirements/<slug-or-run-id>/graphify-out');
+    expect(runtimeSetupTarget).toContain('registry 将两者降为 `profile: optional`');
+    expect(runtimeSetupTarget).toContain('.spec-first/workspace/providers/graphify/graphify-out');
     expect(runtimeSetupPlan).toContain('team/user overlay 本批不实现');
     expect(runtimeSetupPlan).toContain('本批砍 team/user overlay');
     expect(runtimeSetupPlan).toContain('install-init mode');
     expect(runtimeSetupPlan).toContain('不在本单元新增 `--init` flag');
     expect(runtimeSetupPlan).toContain('requirement_workspace_path');
     expect(runtimeSetupPlan).toContain('artifact_root');
-    expect(runtimeSetupPlan).toContain('缺少 workspace scope 时拒绝 first generation');
+    expect(runtimeSetupU25Plan).toContain('普通 setup 不应要求用户额外提供 requirement workspace');
     expect(runtimeSetupPlan).toContain('command_aliases');
     expect(runtimeSetupPlan).toContain('当前 governance/manifest 是一个 `skill_name` 对一个 `command_name` 的精确匹配模型');
     expect(runtimeSetupPlan).toContain('alias 与 primary command 指向同一 source contract');
@@ -116,12 +125,16 @@ describe('SCALE provider documentation contracts', () => {
     expect(runtimeSetupPlan).toContain('cli-mcp-hook-on-demand');
     expect(runtimeSetupPlan).toContain('hook_default');
     expect(runtimeSetupPlan).toContain('CLI/MCP/hook refresh/use surface');
-    expect(runtimeSetupTarget).toContain('后续刷新走 `graphify update`（增量、无 LLM）');
-    expect(runtimeSetupTarget).toContain('hook 必须 opt-in');
+    expect(runtimeSetupTarget).toContain('让后续 `graphify update` 增量刷新由 provider hook 触发');
+    expect(runtimeSetupTarget).toContain('执行项目级 `graphify hook install`');
+    expect(runtimeSetupTarget).toContain('Graphify SKILL/MCP 仍是用户宿主便利层，不默认安装');
+    expect(runtimeSetupTarget).toContain('`--watch` 是长运行进程，不作为默认 setup 动作');
+    expect(runtimeSetupPlan).toContain('项目级 `graphify hook install` 属于确认后的 provider pack auto-refresh setup 目标');
     expect(runtimeSetupTarget).toContain('requirement workspace resolver');
     expect(runtimeSetupTarget).toContain('不能退回 repo-root `graphify-out/`');
-    expect(runtimeSetupPlan).toContain('`--requirement-workspace <repo-relative-path>`');
-    expect(runtimeSetupPlan).toContain('next_action=requirement-workspace-required');
+    expect(runtimeSetupU25Plan).toContain('`--requirement-workspace <repo-relative-path>`');
+    expect(runtimeSetupU25Plan).toContain('helper 默认把 input scope 设为 project workspace');
+    expect(runtimeSetupU25Plan).toContain('invalid explicit override skips first generation with resolver reason_code');
     expect(combined).toContain('run-scoped');
     expect(codegraph).toContain('已源码核实（本地 `src/bin/codegraph.ts:420-448`）');
     expect(codegraph).toContain('`-i/--index` 为 deprecated no-op');
@@ -138,6 +151,8 @@ describe('SCALE provider documentation contracts', () => {
     // 2026-06-08 终审:B 组收敛回写正文/单元防回退(摘要 vs 正文同步)
     // 矛盾1 B1:summary 非 canonical、缺失非 degraded;canonical machine surface 是 provider_readiness[]
     expect(runtimeSetupPlan).toContain('canonical machine consumer surface 是既有 `provider_readiness[]`');
+    expect(runtimeSetupPlan).toContain('"schema_version": "provider-readiness.v2"');
+    expect(runtimeSetupPlan).toContain('"profile": "optional"');
     expect(runtimeSetupPlan).toContain('summary 文件本身缺失');
     // 矛盾2 B6:checkbox/--profile team defer
     expect(runtimeSetupPlan).toContain('defer 到未来切片');
@@ -154,6 +169,7 @@ describe('SCALE provider documentation contracts', () => {
     expect(runtimeSetupPlan).toContain('并入既有 `provider_readiness[]`');
     // B3: §5.1 准入门槛回溯校验存量 recommended
     expect(runtimeSetupTarget).toContain('这道门槛也必须回溯校验存量');
+    expect(runtimeSetupTarget).toContain('不进 `recommended` baseline');
     expect(runtimeSetupTarget).toContain('不生成校验脚本、不进 CI gate');
     // 形态分档主轴 + setup-only 不变量(A2/A3)
     expect(runtimeSetupTarget).toContain('主轴是「steady-state 刷新由谁拥有」');

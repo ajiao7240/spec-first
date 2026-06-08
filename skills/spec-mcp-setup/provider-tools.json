@@ -5,31 +5,47 @@
       "id": "graphify",
       "name": "Graphify",
       "kind": "project-graph",
-      "profile": "recommended",
+      "profile": "optional",
       "capability_class": "project-graph",
+      "native_interfaces": ["cli"],
+      "first_generation": {
+        "owner": "runtime-setup",
+        "status": "not-run",
+        "scope": "run-scoped-workspace",
+        "requires_explicit_gate": true,
+        "requirement_workspace_path": null,
+        "artifact_root": null
+      },
+      "steady_state": {
+        "refresh_owner": "provider-native",
+        "refresh_mode": "cli-mcp-hook-on-demand",
+        "hook_default": false,
+        "usage_owner": "downstream-skill"
+      },
+      "usage_note": "Use Graphify CLI query/path/explain for project-graph candidates. Confirmed setup should keep the generated graph usable with project-level `graphify hook install`; treat hook refresh as provider-native. Treat SKILL/MCP install as user-owned host convenience and GRAPH_REPORT.md as provider-owned backing store or bounded fallback.",
       "install_route": "install-helpers",
       "detection": {
         "kind": "command",
         "command": "graphify",
         "version_args": ["--version"],
-        "artifact_paths": ["GRAPH_REPORT.md", "graphify-out/GRAPH_REPORT.md"]
+        "artifact_paths": [".spec-first/workspace/providers/graphify/graphify-out/GRAPH_REPORT.md", "GRAPH_REPORT.md", "graphify-out/GRAPH_REPORT.md"]
       },
       "installation": {
         "strategy": "uv-tool",
         "package": "graphifyy",
-        "version_pin": "0.8.33",
+        "version_pin": "0.8.35",
         "commands_display": {
-          "macos": "uv tool install graphifyy==0.8.33",
-          "linux": "uv tool install graphifyy==0.8.33",
-          "windows": "uv tool install graphifyy==0.8.33"
+          "macos": "create .spec-first/tools/graphify wrapper that runs UV_CACHE_DIR=.spec-first/cache/uv uvx --from graphifyy==0.8.35 graphify",
+          "linux": "create .spec-first/tools/graphify wrapper that runs UV_CACHE_DIR=.spec-first/cache/uv uvx --from graphifyy==0.8.35 graphify",
+          "windows": "create .spec-first/tools/graphify.ps1/.cmd wrapper that runs UV_CACHE_DIR=.spec-first/cache/uv uvx --from graphifyy==0.8.35 graphify"
         },
-        "next_action": "Install uv, then run SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT=approved spec-mcp-setup install to install Graphify. 落地前用 `pip index versions graphifyy` 或 PyPI 实测当前可装版本再确认 version_pin（本地源码 pyproject 已到 0.8.35，PyPI 发布版本可能不同）。"
+        "next_action": "Run `$spec-mcp-setup` and confirm the CodeGraph/Graphify provider pack, or use `$spec-mcp-setup --only graphify` for headless/subset install-init. Add `--requirement-workspace <repo-relative-path>` only when Graphify input scope should be narrower than the project workspace. version_pin 已用 `pip index versions graphifyy` 实测到 PyPI 当前发布版本 0.8.35。"
       },
       "safety": {
         "risk_flags": [
           "name-bin-mismatch:graphifyy->graphify",
           "single-maintainer-bus-factor",
-          "global-uv-tool-install"
+          "workspace-local-uvx-wrapper"
         ],
         "source": "pypi",
         "source_repo": "https://pypi.org/project/graphifyy/",
@@ -37,7 +53,7 @@
           "pin_status": "pinned"
         },
         "review_required": true,
-        "install_effect": "Installs the graphify CLI (PyPI package graphifyy; the graphifyy->graphify name mismatch is the maintainer's temporary naming while the graphify name is reclaimed, not a typosquat — still verify the bin matches). `graphify install` additionally registers an AI-assistant skill; spec-first installs only the CLI. Project graph generation defaults to a user action: `/graphify .` (skill, LLM-driven, multimodal) or, for scripts/CI, the headless `graphify extract <path> --out <dir>` (AST is deterministic/no-LLM; semantic clustering needs a backend API key, skip with --no-cluster). Code-graph refresh is `graphify update <path>` (no LLM needed); steady-state also via `--watch` or post-commit `graphify hook install`. Output dir is overridable via `--out` or the GRAPHIFY_OUT env var (absolute path supported), so a requirement-scoped workspace can be targeted without cd."
+        "install_effect": "Creates a workspace-local graphify CLI wrapper under `.spec-first/tools/` (PyPI package graphifyy; the graphifyy->graphify name mismatch is the maintainer's temporary naming while the graphify name is reclaimed, not a typosquat — still verify the bin matches). The wrapper uses workspace-local uv cache under `.spec-first/cache/uv`; Graphify SKILL/MCP install writes host runtime surfaces and remains a user-owned convenience layer. Project graph generation uses the headless `graphify extract <path> --out .spec-first/workspace/providers/graphify/graphify-out --no-cluster` path (AST is deterministic/no-LLM; semantic clustering skipped). Confirmed provider-pack setup also targets project-level `graphify hook install` so later `graphify update <path>` refresh is triggered by provider-native hooks; `--watch` is long-running and is not started by setup."
       },
       "readiness": {
         "producer": "install-helpers",
@@ -52,7 +68,7 @@
     }
   ],
   "generic_provider_readiness": {
-    "schema_version": "provider-readiness.v1",
+    "schema_version": "provider-readiness.v2",
     "readiness_status_values": ["fresh", "stale", "degraded", "not-run", "unknown"],
     "fallback_methods": ["rg", "direct-source-read"]
   }

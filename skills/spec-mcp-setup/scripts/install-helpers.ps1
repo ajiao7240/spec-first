@@ -1,6 +1,7 @@
 param(
   [switch]$Install,
-  [switch]$VerifyOnly
+  [switch]$VerifyOnly,
+  [string]$RequirementWorkspace = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -8,6 +9,22 @@ Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'lib-helper-registry.ps1')
 
 $mode = if ($VerifyOnly) { 'verify-only' } else { 'install' }
+if ([string]::IsNullOrWhiteSpace($RequirementWorkspace)) {
+  $RequirementWorkspace = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_REQUIREMENT_WORKSPACE')
+}
+if ([string]::IsNullOrWhiteSpace($RequirementWorkspace)) {
+  $RequirementWorkspace = [Environment]::GetEnvironmentVariable('SPEC_FIRST_REQUIREMENT_WORKSPACE')
+}
+
+$providerRepoRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_REPO_ROOT')
+if ([string]::IsNullOrWhiteSpace($providerRepoRoot)) { $providerRepoRoot = (Get-Location).Path }
+$providerToolRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_TOOL_ROOT')
+if ([string]::IsNullOrWhiteSpace($providerToolRoot)) { $providerToolRoot = Join-Path $providerRepoRoot '.spec-first/tools' }
+$providerCacheRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_CACHE_ROOT')
+if ([string]::IsNullOrWhiteSpace($providerCacheRoot)) { $providerCacheRoot = Join-Path $providerRepoRoot '.spec-first/cache' }
+$graphifyArtifactRootDefault = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT')
+if ([string]::IsNullOrWhiteSpace($graphifyArtifactRootDefault)) { $graphifyArtifactRootDefault = '.spec-first/workspace/providers/graphify/graphify-out' }
+$env:PATH = "$providerToolRoot$([System.IO.Path]::PathSeparator)$env:PATH"
 
 $script:MirrorEndpoints = [ordered]@{
   npm    = 'https://registry.npmmirror.com'
@@ -16,7 +33,7 @@ $script:MirrorEndpoints = [ordered]@{
 }
 
 $script:LastInstallProvenance = $null
-$browserHelperOptInAction = 'set SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 and rerun spec-mcp-setup install'
+$browserHelperOptInAction = 'set SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 and rerun the host setup workflow (`$spec-mcp-setup` or `/spec:mcp-setup`)'
 $helperRegistry = Get-HelperRegistry
 
 function Get-NonNegativeIntEnv {
@@ -748,17 +765,138 @@ function Test-ProviderConsentApproved {
   return @('approved', 'yes', 'true', '1') -contains $value.ToLowerInvariant()
 }
 
+function Set-GraphifyFirstGenerationFact {
+  param(
+    [string]$Status,
+    [string]$WorkspacePath = '',
+    [string]$ArtifactRoot = '',
+    [string]$ArtifactRef = '',
+    [string]$NextAction = ''
+  )
+
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_STATUS -Value $Status
+  if (-not [string]::IsNullOrWhiteSpace($WorkspacePath)) {
+    Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_REQUIREMENT_WORKSPACE_PATH -Value $WorkspacePath
+  }
+  if (-not [string]::IsNullOrWhiteSpace($ArtifactRoot)) {
+    Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT -Value $ArtifactRoot
+  }
+  if (-not [string]::IsNullOrWhiteSpace($ArtifactRef)) {
+    Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_REF -Value $ArtifactRef
+  }
+  if (-not [string]::IsNullOrWhiteSpace($NextAction)) {
+    Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_NEXT_ACTION -Value $NextAction
+  }
+}
+
+function Resolve-RequirementWorkspace {
+  param(
+    [string]$RepoRoot,
+    [string]$Candidate,
+    [string]$ArtifactRoot
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Candidate)) {
+    $Candidate = '.'
+  } else {
+    if ([System.IO.Path]::IsPathRooted($Candidate)) {
+      return [ordered]@{ ok = $false; reason_code = 'requirement-workspace-absolute' }
+    }
+    $parts = $Candidate -split '[\\/]+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    if ($parts -contains '..') {
+      return [ordered]@{ ok = $false; reason_code = 'requirement-workspace-escape' }
+    }
+  }
+
+  $repoFull = [System.IO.Path]::GetFullPath($RepoRoot)
+  $workspaceFull = [System.IO.Path]::GetFullPath((Join-Path $repoFull $Candidate))
+  if (-not $workspaceFull.StartsWith($repoFull, [System.StringComparison]::Ordinal)) {
+    return [ordered]@{ ok = $false; reason_code = 'requirement-workspace-escape' }
+  }
+  if (-not (Test-Path -LiteralPath $workspaceFull -PathType Container)) {
+    return [ordered]@{ ok = $false; reason_code = 'requirement-workspace-missing' }
+  }
+  $resolvedWorkspace = (Resolve-Path -LiteralPath $workspaceFull).Path
+  if (-not $resolvedWorkspace.StartsWith($repoFull, [System.StringComparison]::Ordinal)) {
+    return [ordered]@{ ok = $false; reason_code = 'requirement-workspace-escape' }
+  }
+
+  if ([string]::IsNullOrWhiteSpace($ArtifactRoot)) {
+    $ArtifactRoot = '.spec-first/workspace/providers/graphify/graphify-out'
+  }
+  if ([System.IO.Path]::IsPathRooted($ArtifactRoot)) {
+    return [ordered]@{ ok = $false; reason_code = 'graphify-artifact-root-absolute' }
+  }
+  $artifactParts = $ArtifactRoot -split '[\\/]+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+  if ($artifactParts -contains '..') {
+    return [ordered]@{ ok = $false; reason_code = 'graphify-artifact-root-escape' }
+  }
+
+  $artifactFull = [System.IO.Path]::GetFullPath((Join-Path $repoFull $ArtifactRoot))
+  if (-not $artifactFull.StartsWith($repoFull, [System.StringComparison]::Ordinal)) {
+    return [ordered]@{ ok = $false; reason_code = 'graphify-artifact-root-escape' }
+  }
+  $workspaceRel = [System.IO.Path]::GetRelativePath($repoFull, $resolvedWorkspace).Replace('\', '/')
+  $artifactRel = [System.IO.Path]::GetRelativePath($repoFull, $artifactFull).Replace('\', '/')
+  return [ordered]@{
+    ok = $true
+    workspace_abs = $resolvedWorkspace
+    workspace_rel = $workspaceRel
+    artifact_abs = $artifactFull
+    artifact_rel = $artifactRel
+  }
+}
+
+function Invoke-GraphifyFirstGenerationIfRequested {
+  if (-not (Test-ProviderConsentApproved -Provider 'GRAPHIFY')) { return }
+  $repoRoot = $providerRepoRoot
+
+  $resolved = Resolve-RequirementWorkspace -RepoRoot $repoRoot -Candidate $RequirementWorkspace -ArtifactRoot $graphifyArtifactRootDefault
+  if (-not [bool]$resolved.ok) {
+    Set-GraphifyFirstGenerationFact -Status 'skipped' -NextAction ([string]$resolved.reason_code)
+    return
+  }
+
+  if (-not (Test-CommandExists 'graphify')) {
+    Set-GraphifyFirstGenerationFact -Status 'skipped' -NextAction 'graphify-cli-required'
+    return
+  }
+
+  New-Item -ItemType Directory -Force -Path ([string]$resolved.artifact_abs) | Out-Null
+  if (Invoke-HelperCommand { graphify extract ([string]$resolved.workspace_abs) --out ([string]$resolved.artifact_abs) --no-cluster }) {
+    $artifactRef = ([string]$resolved.artifact_rel) + '/GRAPH_REPORT.md'
+    if (-not (Test-Path -LiteralPath (Join-Path $repoRoot $artifactRef) -PathType Leaf)) {
+      $artifactRef = ''
+    }
+    Set-GraphifyFirstGenerationFact -Status 'completed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -ArtifactRef $artifactRef
+  } else {
+    Set-GraphifyFirstGenerationFact -Status 'failed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -NextAction 'graphify-first-generation-failed'
+  }
+}
+
+function Write-GraphifyWrapper {
+  if (-not (Test-CommandExists 'uv')) { return $false }
+  New-Item -ItemType Directory -Force -Path $providerToolRoot | Out-Null
+  New-Item -ItemType Directory -Force -Path (Join-Path $providerCacheRoot 'uv') | Out-Null
+  $wrapperPath = Join-Path $providerToolRoot 'graphify.cmd'
+  $wrapperPs1 = Join-Path $providerToolRoot 'graphify.ps1'
+  "@echo off`r`nset UV_CACHE_DIR=$providerCacheRoot\uv`r`nuvx --from graphifyy==0.8.35 graphify %*`r`n" | Set-Content -Encoding ascii -LiteralPath $wrapperPath
+  "`$env:UV_CACHE_DIR = '$($providerCacheRoot.Replace("'", "''"))/uv'`nuvx --from graphifyy==0.8.35 graphify @args`n" | Set-Content -Encoding utf8 -LiteralPath $wrapperPs1
+  return $true
+}
+
 function Invoke-GraphifyProviderInstallIfRequested {
   if ($mode -ne 'install') { return }
   if (-not (Test-ProviderConsentApproved -Provider 'GRAPHIFY')) { return }
-  if (Test-CommandExists 'graphify') { return }
-  if (-not (Test-CommandExists 'uv')) { return }
-  Invoke-HelperCommand { uv tool install graphifyy==0.8.33 } | Out-Null
+  if (-not (Test-CommandExists 'graphify')) {
+    Write-GraphifyWrapper | Out-Null
+  }
+  Invoke-GraphifyFirstGenerationIfRequested
 }
 
 Invoke-GraphifyProviderInstallIfRequested
 try {
-  $providerReadinessRaw = & node (Join-Path $PSScriptRoot 'provider-readiness-renderer.cjs') --source helper --repo-root (Get-Location).Path
+  $providerReadinessRaw = & node (Join-Path $PSScriptRoot 'provider-readiness-renderer.cjs') --source helper --repo-root $providerRepoRoot
   $providerReadiness = @($providerReadinessRaw | ConvertFrom-Json)
 } catch {
   $providerReadiness = @()

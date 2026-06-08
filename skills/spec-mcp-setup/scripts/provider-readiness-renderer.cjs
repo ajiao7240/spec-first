@@ -66,12 +66,78 @@ function selfReportedStatus(providerId) {
   return 'unknown';
 }
 
+function envValue(providerId, suffix) {
+  const envName = `SPEC_FIRST_PROVIDER_${providerId.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_${suffix}`;
+  return process.env[envName];
+}
+
+function envFirstGenerationOverrides(providerId) {
+  const status = envValue(providerId, 'FIRST_GENERATION_STATUS');
+  const requirementWorkspacePath = envValue(providerId, 'REQUIREMENT_WORKSPACE_PATH');
+  const artifactRoot = envValue(providerId, 'ARTIFACT_ROOT');
+  const artifactRef = envValue(providerId, 'ARTIFACT_REF');
+  const nextAction = envValue(providerId, 'FIRST_GENERATION_NEXT_ACTION');
+  const overrides = {};
+  if (status) overrides.firstGenerationStatus = status;
+  if (requirementWorkspacePath) overrides.requirementWorkspacePath = requirementWorkspacePath;
+  if (artifactRoot) overrides.artifactRoot = artifactRoot;
+  if (artifactRef) overrides.artifactRefs = [artifactRef];
+  if (nextAction) overrides.firstGenerationNextAction = nextAction;
+  return overrides;
+}
+
 function artifactExists(repoDir, artifactPaths = []) {
   return artifactPaths.some((candidate) => (
     typeof candidate === 'string'
     && candidate.length > 0
     && fs.existsSync(path.join(repoDir, candidate))
   ));
+}
+
+function existingArtifactRefs(repoDir, artifactPaths = []) {
+  return artifactPaths.filter((candidate) => (
+    typeof candidate === 'string'
+    && candidate.length > 0
+    && fs.existsSync(path.join(repoDir, candidate))
+  ));
+}
+
+function stringList(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === 'string' && item.length > 0) : [];
+}
+
+function firstGenerationFor(provider, options = {}) {
+  const source = provider.first_generation && typeof provider.first_generation === 'object'
+    ? provider.first_generation
+    : {};
+  return {
+    owner: source.owner || 'unknown',
+    status: options.firstGenerationStatus || source.status || 'unknown',
+    scope: source.scope || 'unknown',
+    requires_explicit_gate: source.requires_explicit_gate !== undefined
+      ? Boolean(source.requires_explicit_gate)
+      : false,
+    requirement_workspace_path: options.requirementWorkspacePath !== undefined
+      ? options.requirementWorkspacePath
+      : (source.requirement_workspace_path || null),
+    artifact_root: options.artifactRoot !== undefined
+      ? options.artifactRoot
+      : (source.artifact_root || null),
+    artifact_refs: stringList(options.artifactRefs || source.artifact_refs),
+    next_action: options.firstGenerationNextAction || source.next_action || null,
+  };
+}
+
+function steadyStateFor(provider) {
+  const source = provider.steady_state && typeof provider.steady_state === 'object'
+    ? provider.steady_state
+    : {};
+  return {
+    refresh_owner: source.refresh_owner || 'unknown',
+    refresh_mode: source.refresh_mode || 'unknown',
+    hook_default: source.hook_default !== undefined ? Boolean(source.hook_default) : false,
+    usage_owner: source.usage_owner || 'unknown',
+  };
 }
 
 function fallbackFor(provider) {
@@ -93,10 +159,10 @@ function providerEntry(provider, options = {}) {
   const nextActions = Array.isArray(options.nextActions) ? options.nextActions.filter(Boolean) : [];
 
   return {
-    schema_version: 'provider-readiness.v1',
+    schema_version: 'provider-readiness.v2',
     provider: provider.id,
     kind: provider.kind || 'generic',
-    profile: provider.profile || 'minimal',
+    profile: provider.profile || 'optional',
     readiness_status: readinessStatus,
     lifecycle: {
       installed,
@@ -116,6 +182,10 @@ function providerEntry(provider, options = {}) {
     source_read_required: true,
     fallback: fallbackFor(provider),
     next_actions: nextActions,
+    native_interfaces: stringList(provider.native_interfaces),
+    first_generation: firstGenerationFor(provider, options),
+    steady_state: steadyStateFor(provider),
+    usage_note: provider.usage_note || 'Use provider-native interfaces for advisory candidates; confirm conclusions from source/test/log/contract/user evidence.',
   };
 }
 
@@ -125,14 +195,16 @@ function helperProviderEntries(registry, repoDir) {
     .map((provider) => {
       const command = provider.detection && provider.detection.command;
       const installed = commandExists(command);
-      const artifact = artifactExists(repoDir, provider.detection && provider.detection.artifact_paths);
+      const artifactPaths = provider.detection && provider.detection.artifact_paths;
+      const artifact = artifactExists(repoDir, artifactPaths);
+      const artifactRefs = existingArtifactRefs(repoDir, artifactPaths);
       const readinessStatus = installed ? selfReportedStatus(provider.id) : 'not-run';
       const nextActions = [];
       if (!installed) {
         nextActions.push(provider.installation && provider.installation.next_action);
       }
       if (installed && !artifact) {
-        nextActions.push('Generate run-scoped project-graph artifacts for the current requirement workspace before using this provider as architecture navigation.');
+        nextActions.push('Generate run-scoped project-graph artifacts for the project workspace or an explicit scoped workspace before using this provider as architecture navigation.');
       }
       return providerEntry(provider, {
         installed,
@@ -144,6 +216,10 @@ function helperProviderEntries(registry, repoDir) {
         readinessStatus,
         repoAligned: artifact ? 'unknown' : 'unknown',
         nextActions,
+        firstGenerationStatus: artifact ? 'completed' : 'not-run',
+        artifactRefs,
+        firstGenerationNextAction: installed && !artifact ? 'graphify-first-generation-required' : null,
+        ...envFirstGenerationOverrides(provider.id),
       });
     });
 }
@@ -160,9 +236,25 @@ function mcpProviderEntries(facts) {
   const metadata = {
     id: 'codegraph',
     kind: 'code-structure',
-    profile: 'recommended',
+    profile: 'optional',
     capability_class: 'code-graph',
     capabilities: ['code-graph', 'impact-candidates', 'affected-tests-candidates'],
+    native_interfaces: ['mcp', 'cli'],
+    first_generation: {
+      owner: 'runtime-setup',
+      status: 'not-run',
+      scope: 'project',
+      requires_explicit_gate: true,
+      requirement_workspace_path: null,
+      artifact_root: '.codegraph',
+    },
+    steady_state: {
+      refresh_owner: 'provider-native',
+      refresh_mode: 'watcher',
+      hook_default: false,
+      usage_owner: 'downstream-skill',
+    },
+    usage_note: 'Use CodeGraph MCP tools for impact/call graph candidates; confirm conclusions from source/test/log/contract/user evidence.',
     fallback: {
       available: true,
       methods: ['rg', 'ast-grep', 'direct-source-read'],
@@ -207,6 +299,8 @@ function mcpProviderEntries(facts) {
     readinessStatus,
     repoAligned: indexed ? 'unknown' : 'unknown',
     nextActions,
+    firstGenerationStatus: projectStatus === 'failed' ? 'failed' : (indexed ? 'completed' : 'not-run'),
+    artifactRefs: indexed ? ['.codegraph/codegraph.db'] : [],
   })];
 }
 

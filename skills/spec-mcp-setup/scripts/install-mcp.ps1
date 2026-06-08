@@ -2,7 +2,9 @@ param(
   [string]$Only,
   [string]$Repo = '',
   [string]$Folder = '',
-  [switch]$AllRepos
+  [switch]$AllRepos,
+  [switch]$Plan,
+  [string]$RequirementWorkspace = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,7 +14,9 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
 . (Join-Path $ScriptDir 'lib-template.ps1')
 $ToolsJsonPath = Join-Path $SkillDir 'mcp-tools.json'
+$ProviderToolsJsonPath = Join-Path $SkillDir 'provider-tools.json'
 $ToolsJson = Read-McpToolsJson -Path $ToolsJsonPath
+$ProviderToolsJson = Get-Content -Raw -LiteralPath $ProviderToolsJsonPath | ConvertFrom-Json
 Assert-McpToolsSchemaVersion -ToolsJson $ToolsJson
 $HostInfo = & (Join-Path $ScriptDir 'detect-host.ps1') | ConvertFrom-Json
 $DetectedHost = $HostInfo.host
@@ -31,7 +35,7 @@ function Get-NonNegativeIntEnv {
 }
 
 $script:StageTimeoutSeconds = Get-NonNegativeIntEnv -Name 'SPEC_FIRST_STAGE_TIMEOUT_SECONDS' -Default 900
-$script:WarmupCacheRoot = if (-not [string]::IsNullOrWhiteSpace($env:SPEC_FIRST_WARMUP_CACHE_DIR)) { $env:SPEC_FIRST_WARMUP_CACHE_DIR } else { [System.IO.Path]::Combine($HOME, '.spec-first', 'cache', 'mcp-warmup') }
+$script:WarmupCacheRoot = if (-not [string]::IsNullOrWhiteSpace($env:SPEC_FIRST_WARMUP_CACHE_DIR)) { $env:SPEC_FIRST_WARMUP_CACHE_DIR } else { '' }
 $script:WarmupLatestTtlSeconds = Get-NonNegativeIntEnv -Name 'SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS' -Default 86400
 $resolverParams = @{ Format = 'json' }
 if (-not $AllRepos -and -not [string]::IsNullOrWhiteSpace($Repo)) { $resolverParams.Repo = $Repo }
@@ -51,6 +55,22 @@ $ResolvedRepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$TargetFacts.t
   [string]$TargetFacts.selected_folder_root
 } else {
   [string]$TargetFacts.workspace_root
+}
+if ([string]::IsNullOrWhiteSpace($script:WarmupCacheRoot)) {
+  $script:WarmupCacheRoot = [System.IO.Path]::Combine($ResolvedRepoRoot, '.spec-first', 'cache', 'mcp-warmup')
+}
+if ([string]::IsNullOrWhiteSpace($env:NPM_CONFIG_CACHE) -and [string]::IsNullOrWhiteSpace($env:npm_config_cache)) {
+  $workspaceNpmCache = [System.IO.Path]::Combine($ResolvedRepoRoot, '.spec-first', 'cache', 'npm')
+  $env:NPM_CONFIG_CACHE = $workspaceNpmCache
+  $env:npm_config_cache = $workspaceNpmCache
+}
+
+if ($Plan) {
+  $planArgs = @('--mode', 'plan', '--repo-root', $ResolvedRepoRoot)
+  if (-not [string]::IsNullOrWhiteSpace($Only)) { $planArgs += @('--only', $Only) }
+  if (-not [string]::IsNullOrWhiteSpace($RequirementWorkspace)) { $planArgs += @('--requirement-workspace', $RequirementWorkspace) }
+  & node (Join-Path $ScriptDir 'setup-plan-renderer.cjs') @planArgs
+  exit $LASTEXITCODE
 }
 
 function Parse-List {
@@ -182,6 +202,7 @@ function Write-WorkspaceMcpSetupSummaryAndExit {
   foreach ($child in $children) {
     $childParams = @{ Repo = [string]$child.workspace_relative_path }
     if (-not [string]::IsNullOrWhiteSpace($Only)) { $childParams.Only = $Only }
+    if (-not [string]::IsNullOrWhiteSpace($RequirementWorkspace)) { $childParams.RequirementWorkspace = $RequirementWorkspace }
     $childRun = Invoke-ChildJsonScript -ScriptPath $PSCommandPath -Arguments $childParams
     $childStatus = [int]$childRun.exit_code
     $childText = [string]$childRun.stdout
@@ -256,6 +277,31 @@ function Write-WorkspaceMcpSetupSummaryAndExit {
 }
 
 $OnlyArray = @(Parse-List $Only)
+
+function Test-SelectionContains {
+  param([string]$Id)
+  return ($OnlyArray -contains $Id)
+}
+
+function Assert-OnlyFilterKnown {
+  if ($OnlyArray.Count -eq 0) { return }
+  $validIds = @($ToolsJson.tools | ForEach-Object { [string]$_.id }) + @($ProviderToolsJson.providers | ForEach-Object { [string]$_.id })
+  $unknown = @($OnlyArray | Where-Object { $validIds -notcontains $_ })
+  if ($unknown.Count -eq 0) { return }
+  [pscustomobject]@{
+    host = $DetectedHost
+    display_name = $HostDisplayName
+    platform = $Platform
+    results = @()
+    overall_status = 'action-required'
+    reason_code = 'unknown-optional-provider-selection'
+    unknown_ids = @($unknown)
+    next_action = 'Use one of: codegraph,graphify'
+  } | ConvertTo-Json -Compress
+  exit 1
+}
+
+Assert-OnlyFilterKnown
 
 if ($AllRepos) {
   Write-WorkspaceMcpSetupSummaryAndExit -TargetFacts $TargetFacts -SelectionSource 'explicit-all-repos'
@@ -720,9 +766,55 @@ foreach ($tool in @($ToolsJson.tools)) {
   })
 }
 
-[pscustomobject]@{
+$output = [ordered]@{
   host = $DetectedHost
   display_name = $HostDisplayName
   platform = $Platform
   results = @($results.ToArray())
-} | ConvertTo-Json -Depth 6 -Compress
+}
+
+if ($OnlyArray.Count -gt 0 -and (Test-SelectionContains -Id 'graphify')) {
+  $previousConsent = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT')
+  $previousRepoRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_REPO_ROOT')
+  $previousToolRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_TOOL_ROOT')
+  $previousCacheRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_CACHE_ROOT')
+  $previousArtifactRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT')
+  try {
+    $env:SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT = 'approved'
+    $env:SPEC_FIRST_PROVIDER_REPO_ROOT = $ResolvedRepoRoot
+    $env:SPEC_FIRST_PROVIDER_TOOL_ROOT = [System.IO.Path]::Combine($ResolvedRepoRoot, '.spec-first', 'tools')
+    $env:SPEC_FIRST_PROVIDER_CACHE_ROOT = [System.IO.Path]::Combine($ResolvedRepoRoot, '.spec-first', 'cache')
+    $env:SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT = '.spec-first/workspace/providers/graphify/graphify-out'
+    $helperParams = @{ Install = $true }
+    if (-not [string]::IsNullOrWhiteSpace($RequirementWorkspace)) { $helperParams.RequirementWorkspace = $RequirementWorkspace }
+    $helperRun = Invoke-ChildJsonScript -ScriptPath (Join-Path $ScriptDir 'install-helpers.ps1') -Arguments $helperParams
+    try {
+      $helperPayload = [string]$helperRun.stdout | ConvertFrom-Json
+      $output.helper_tools = $helperPayload.helper_tools
+      $output.provider_readiness = @($helperPayload.provider_readiness)
+      $output.provider_apply = [ordered]@{
+        selected = @('graphify')
+        route = 'install-helpers'
+        status = if ([int]$helperRun.exit_code -eq 0) { 'ready' } else { 'action-required' }
+        exit_code = [int]$helperRun.exit_code
+      }
+    } catch {
+      $output.provider_apply = [ordered]@{
+        selected = @('graphify')
+        route = 'install-helpers'
+        status = 'action-required'
+        exit_code = [int]$helperRun.exit_code
+        reason_code = 'graphify-helper-output-invalid'
+        diagnostic_summary = [string]$helperRun.stdout
+      }
+    }
+  } finally {
+    if ($null -eq $previousConsent) { Remove-Item env:SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT = $previousConsent }
+    if ($null -eq $previousRepoRoot) { Remove-Item env:SPEC_FIRST_PROVIDER_REPO_ROOT -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_REPO_ROOT = $previousRepoRoot }
+    if ($null -eq $previousToolRoot) { Remove-Item env:SPEC_FIRST_PROVIDER_TOOL_ROOT -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_TOOL_ROOT = $previousToolRoot }
+    if ($null -eq $previousCacheRoot) { Remove-Item env:SPEC_FIRST_PROVIDER_CACHE_ROOT -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_CACHE_ROOT = $previousCacheRoot }
+    if ($null -eq $previousArtifactRoot) { Remove-Item env:SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT = $previousArtifactRoot }
+  }
+}
+
+[pscustomobject]$output | ConvertTo-Json -Depth 8 -Compress

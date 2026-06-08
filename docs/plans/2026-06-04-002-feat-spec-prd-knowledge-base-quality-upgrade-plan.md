@@ -2,8 +2,10 @@
 title: "feat: spec-prd 知识库辅助需求分析质量升级方案"
 type: feat
 artifact_kind: implementation-plan
-status: active
+status: superseded
 date: 2026-06-04
+superseded_at: 2026-06-08
+superseded_by: docs/plans/2026-06-05-002-feat-spec-prd-sanitization-feature-slices-plan.md
 spec_id: 2026-06-04-002-spec-prd-knowledge-base-quality-upgrade
 target_repo: spec-first
 source_refs:
@@ -25,6 +27,19 @@ external_refs:
 ---
 
 # feat: spec-prd 知识库辅助需求分析质量升级方案
+
+## 收口记录
+
+**状态:`superseded`(2026-06-08 退役)。本方案未执行完,也从未被评审否决;其意图已被另一条更轻的演化路线实质实现,机制(5 个新 reference 文件 + securities-pm/credit-pm 等显式角色枚举)自然搁置。**
+
+意图 → 接管映射:
+
+- **G1 多源输入 / untrusted content 边界 / 知识库证据指针** → 由 `6a93ab0d`(无独立 plan,直接小切片)内联进 `skills/spec-prd/SKILL.md` 与 `references/current-state-analysis.md`。
+- **G2 行业/产品角色 lens + G6 产品质量门** → 由 `e8028720`「自适应产品专家质量闭环」(无独立 plan,直接改源)用 **Adaptive Product Expert Lens + `quality_diagnosis` posture** 实现。该提交同时确立 `SKILL.md` 原则 5「推断 lens,不新建 agent type 或 role taxonomy」,客观上取代了本方案 U2 的显式角色枚举设计——这是平行演化得出的不同结论,不是针对本方案的裁决。
+- **G3 知识库证据纪律 + G4 逐需求结构 + G6 readiness 多维门** → 由 `docs/plans/2026-06-05-002-feat-spec-prd-sanitization-feature-slices-plan.md`(`status: completed`)的 PRD Sanitization + Feature Slices + `prd-readiness-lens.md` 多维门承接。这是唯一有正式 plan 文档背书、且已完成的接管者,故列为 `superseded_by`。
+- **G7 行为 eval** → `skills/spec-prd/evals/examples.json` 已扩到约 47 条场景,覆盖本方案 U6 设想的多源/知识库/矛盾/readiness 行为面。
+
+治理 drift 备注:接管本方案最核心的两步(`6a93ab0d`、`e8028720`)均无独立 plan 背书,直接改源;本方案的退役在此前也未被任何文档记录。本「收口记录」即为补账。后续若仍要推进「知识库真实接入」(本方案 Risk Register 末行已 defer 为独立 PRD/plan),应另开窄切片,不在本退役方案上复活。
 
 ## Summary
 

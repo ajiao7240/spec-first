@@ -1,7 +1,7 @@
 ---
 title: "feat: spec-first init 品牌视觉第二轮深化（厚重字形 + 细分隔线排版）"
 type: feat
-status: active
+status: completed
 date: 2026-05-30
 spec_id: 2026-05-29-002-spec-first-init-ux-brand
 origin: docs/brainstorms/2026-05-29-002-spec-first-init-ux-brand-requirements.md
@@ -305,6 +305,16 @@ wordmark（重复运行，单行，方向示意）：
 - CHANGELOG 由 U4 处理（user-visible）。
 - README / README_CN 当前未内嵌该 art 截图，无需改；若后续补品牌截图属独立任务。
 - 无 rollout / 监控 / 迁移影响——纯展示层、无状态、无依赖变更。
+
+## Completion Evidence
+
+- completed_at: 2026-06-08
+- implementation_scope: `src/cli/brand.js` 已使用 6 行厚重 block art、上下 `─` 分隔线、计算式宽度和单行 `renderWordmark` 前缀；`tests/unit/brand.test.js` 已覆盖分隔线稳定、无 ANSI 泄漏、wordmark 单行前缀与颜色降级。
+- changelog_ref: `CHANGELOG.md` 已有 2026-05-30 `feat(brand)` 用户可见实现记录；本次补 2026-06-08 `docs(plan)` 状态收尾记录。
+- verification:
+  - `npx jest tests/unit/brand.test.js --runInBand`：passed（7 tests）
+  - `bash tests/smoke/cli.sh`：passed（help/version、init、doctor、clean 等 smoke checks）
+- generated_runtime_status: not touched；本计划为 source plan 状态收尾，不手改 `.claude/`、`.codex/`、`.agents/skills/` runtime mirrors。
 
 ---
 

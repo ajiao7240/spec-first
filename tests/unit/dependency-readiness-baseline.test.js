@@ -37,10 +37,10 @@ function writeJson(filePath, value) {
 
 function providerFixture(overrides = {}) {
   return {
-    schema_version: 'provider-readiness.v1',
+    schema_version: 'provider-readiness.v2',
     provider: 'generic',
     kind: 'generic',
-    profile: 'minimal',
+    profile: 'optional',
     readiness_status: 'not-run',
     lifecycle: {
       installed: false,
@@ -62,6 +62,24 @@ function providerFixture(overrides = {}) {
       reason_code: 'provider-not-run',
     },
     next_actions: [],
+    native_interfaces: [],
+    first_generation: {
+      owner: 'unknown',
+      status: 'unknown',
+      scope: 'unknown',
+      requires_explicit_gate: false,
+      requirement_workspace_path: null,
+      artifact_root: null,
+      artifact_refs: [],
+      next_action: null,
+    },
+    steady_state: {
+      refresh_owner: 'unknown',
+      refresh_mode: 'unknown',
+      hook_default: false,
+      usage_owner: 'unknown',
+    },
+    usage_note: '',
     ...overrides,
   };
 }
@@ -154,11 +172,25 @@ describe('dependency readiness baseline contracts', () => {
     expect(providerTools.providers[0]).toMatchObject({
       id: 'graphify',
       kind: 'project-graph',
+      profile: 'optional',
+      native_interfaces: ['cli'],
       install_route: 'install-helpers',
+      first_generation: {
+        owner: 'runtime-setup',
+        status: 'not-run',
+        scope: 'run-scoped-workspace',
+        requires_explicit_gate: true,
+      },
+      steady_state: {
+        refresh_owner: 'provider-native',
+        refresh_mode: 'cli-mcp-hook-on-demand',
+        hook_default: false,
+        usage_owner: 'downstream-skill',
+      },
       installation: {
         strategy: 'uv-tool',
         package: 'graphifyy',
-        version_pin: '0.8.33',
+        version_pin: '0.8.35',
       },
       readiness: {
         fresh_self_report_maps_to: 'unknown',
@@ -168,8 +200,12 @@ describe('dependency readiness baseline contracts', () => {
     expect(providerTools.providers[0].safety.risk_flags).toEqual(expect.arrayContaining([
       'name-bin-mismatch:graphifyy->graphify',
       'single-maintainer-bus-factor',
-      'global-uv-tool-install',
+      'workspace-local-uvx-wrapper',
     ]));
+    expect(providerTools.providers[0].usage_note).toContain('Graphify CLI query/path/explain');
+    expect(providerTools.providers[0].usage_note).toContain('project-level `graphify hook install`');
+    expect(providerTools.providers[0].safety.install_effect).toContain('project-level `graphify hook install`');
+    expect(providerTools.generic_provider_readiness.schema_version).toBe('provider-readiness.v2');
     expect(providerTools.generic_provider_readiness.readiness_status_values).toEqual([
       'fresh',
       'stale',
@@ -202,14 +238,28 @@ describe('dependency readiness baseline contracts', () => {
     expect(freshResult.status).toBe(0);
     const freshProvider = JSON.parse(freshResult.stdout)[0];
     expect(freshProvider).toMatchObject({
+      schema_version: 'provider-readiness.v2',
       provider: 'graphify',
+      profile: 'optional',
       readiness_status: 'unknown',
       lifecycle: {
         installed: true,
       },
+      native_interfaces: ['cli'],
+      first_generation: {
+        owner: 'runtime-setup',
+        status: 'not-run',
+        scope: 'run-scoped-workspace',
+        requires_explicit_gate: true,
+        next_action: 'graphify-first-generation-required',
+      },
+      steady_state: {
+        refresh_owner: 'provider-native',
+        refresh_mode: 'cli-mcp-hook-on-demand',
+      },
     });
     expect(freshProvider.next_actions).toContain(
-      'Generate run-scoped project-graph artifacts for the current requirement workspace before using this provider as architecture navigation.',
+      'Generate run-scoped project-graph artifacts for the project workspace or an explicit scoped workspace before using this provider as architecture navigation.',
     );
     expect(freshProvider.next_actions.join('\n')).not.toContain('check in project-graph artifacts');
 
@@ -225,6 +275,116 @@ describe('dependency readiness baseline contracts', () => {
     expect(JSON.parse(staleResult.stdout)[0]).toMatchObject({
       provider: 'graphify',
       readiness_status: 'stale',
+    });
+  });
+
+  test('install-helpers runs gated Graphify first generation from the selected workspace into provider artifact root', () => {
+    const tempDir = makeTempDir();
+    const homeDir = path.join(tempDir, 'home');
+    const binDir = path.join(tempDir, 'bin');
+    const workspace = path.join(tempDir, '.spec-first/workspace/requirements/demo');
+    const capturePath = path.join(tempDir, 'graphify-args.txt');
+    fs.mkdirSync(path.join(homeDir, '.agents/skills/ast-grep'), { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.mkdirSync(workspace, { recursive: true });
+    fs.writeFileSync(path.join(homeDir, '.agents/skills/ast-grep/SKILL.md'), '# ast-grep\n', 'utf8');
+
+    for (const command of ['gh', 'vhs', 'silicon', 'ffmpeg', 'ast-grep']) {
+      const commandPath = path.join(binDir, command);
+      fs.writeFileSync(commandPath, '#!/bin/sh\nexit 0\n', 'utf8');
+      fs.chmodSync(commandPath, 0o755);
+    }
+    const graphifyPath = path.join(binDir, 'graphify');
+    fs.writeFileSync(graphifyPath, `#!/bin/sh
+printf '%s\\n' "$*" > "$GRAPHIFY_CAPTURE"
+out=''
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--out" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$out"
+printf '# report\\n' > "$out/GRAPH_REPORT.md"
+exit 0
+`, 'utf8');
+    fs.chmodSync(graphifyPath, 0o755);
+
+    const result = spawnSync('bash', [installHelpersPath, '--install', '--requirement-workspace', '.spec-first/workspace/requirements/demo'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: homeDir,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        GRAPHIFY_CAPTURE: capturePath,
+        SPEC_FIRST_PROVIDER_REPO_ROOT: tempDir,
+        SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT: 'approved',
+        SPEC_FIRST_STAGE_TIMEOUT_SECONDS: '5',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(fs.readFileSync(capturePath, 'utf8')).toContain('extract');
+    expect(fs.readFileSync(capturePath, 'utf8')).toContain('--no-cluster');
+    const payload = JSON.parse(result.stdout);
+    const graphify = payload.provider_readiness.find((entry) => entry.provider === 'graphify');
+    expect(graphify).toMatchObject({
+      first_generation: {
+        status: 'completed',
+        requirement_workspace_path: '.spec-first/workspace/requirements/demo',
+        artifact_root: '.spec-first/workspace/providers/graphify/graphify-out',
+        artifact_refs: ['.spec-first/workspace/providers/graphify/graphify-out/GRAPH_REPORT.md'],
+      },
+    });
+  });
+
+  test('install-helpers rejects escaped Graphify requirement workspace without running first generation', () => {
+    const tempDir = makeTempDir();
+    const homeDir = path.join(tempDir, 'home');
+    const binDir = path.join(tempDir, 'bin');
+    const capturePath = path.join(tempDir, 'graphify-args.txt');
+    fs.mkdirSync(path.join(homeDir, '.agents/skills/ast-grep'), { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.writeFileSync(path.join(homeDir, '.agents/skills/ast-grep/SKILL.md'), '# ast-grep\n', 'utf8');
+
+    for (const command of ['gh', 'vhs', 'silicon', 'ffmpeg', 'ast-grep']) {
+      const commandPath = path.join(binDir, command);
+      fs.writeFileSync(commandPath, '#!/bin/sh\nexit 0\n', 'utf8');
+      fs.chmodSync(commandPath, 0o755);
+    }
+    const graphifyPath = path.join(binDir, 'graphify');
+    fs.writeFileSync(graphifyPath, `#!/bin/sh
+printf '%s\\n' "$*" > "$GRAPHIFY_CAPTURE"
+exit 0
+`, 'utf8');
+    fs.chmodSync(graphifyPath, 0o755);
+
+    const result = spawnSync('bash', [installHelpersPath, '--install', '--requirement-workspace', '../outside'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: homeDir,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        GRAPHIFY_CAPTURE: capturePath,
+        SPEC_FIRST_PROVIDER_REPO_ROOT: tempDir,
+        SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT: 'approved',
+        SPEC_FIRST_STAGE_TIMEOUT_SECONDS: '5',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(capturePath)).toBe(false);
+    const payload = JSON.parse(result.stdout);
+    const graphify = payload.provider_readiness.find((entry) => entry.provider === 'graphify');
+    expect(graphify).toMatchObject({
+      first_generation: {
+        status: 'skipped',
+        next_action: 'requirement-workspace-escape',
+      },
     });
   });
 
@@ -257,8 +417,10 @@ describe('dependency readiness baseline contracts', () => {
     });
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)[0]).toMatchObject({
+      schema_version: 'provider-readiness.v2',
       provider: 'codegraph',
       kind: 'code-structure',
+      profile: 'optional',
       readiness_status: 'unknown',
       lifecycle: {
         installed: true,
@@ -266,6 +428,18 @@ describe('dependency readiness baseline contracts', () => {
         indexed: true,
         server_reachable: true,
         query_verified: true,
+      },
+      native_interfaces: ['mcp', 'cli'],
+      first_generation: {
+        owner: 'runtime-setup',
+        status: 'completed',
+        scope: 'project',
+        requires_explicit_gate: true,
+        artifact_root: '.codegraph',
+      },
+      steady_state: {
+        refresh_owner: 'provider-native',
+        refresh_mode: 'watcher',
       },
     });
 
@@ -317,6 +491,75 @@ describe('dependency readiness baseline contracts', () => {
     expect(payload.results.some((entry) => entry.tool_id === 'codegraph')).toBe(false);
   });
 
+  test('install-mcp --only graphify internally approves Graphify and defaults to project workspace', () => {
+    const tempDir = makeTempDir();
+    const homeDir = path.join(tempDir, 'home');
+    const binDir = path.join(tempDir, 'bin');
+    const capturePath = path.join(tempDir, 'graphify-args.txt');
+    fs.mkdirSync(path.join(homeDir, '.agents/skills/ast-grep'), { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'package.json'), '{"name":"fixture"}\n', 'utf8');
+    fs.writeFileSync(path.join(homeDir, '.agents/skills/ast-grep/SKILL.md'), '# ast-grep\n', 'utf8');
+    spawnSync('git', ['init'], { cwd: tempDir, encoding: 'utf8' });
+
+    for (const command of ['gh', 'vhs', 'silicon', 'ffmpeg', 'ast-grep']) {
+      const commandPath = path.join(binDir, command);
+      fs.writeFileSync(commandPath, '#!/bin/sh\nexit 0\n', 'utf8');
+      fs.chmodSync(commandPath, 0o755);
+    }
+    const graphifyPath = path.join(binDir, 'graphify');
+    fs.writeFileSync(graphifyPath, `#!/bin/sh
+printf '%s\\n' "$*" > "$GRAPHIFY_CAPTURE"
+out=''
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--out" ]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+mkdir -p "$out"
+printf '# report\\n' > "$out/GRAPH_REPORT.md"
+exit 0
+`, 'utf8');
+    fs.chmodSync(graphifyPath, 0o755);
+
+    const result = spawnSync('bash', [installMcpPath, '--only', 'graphify'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: homeDir,
+        MCP_SETUP_HOST: 'codex',
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        GRAPHIFY_CAPTURE: capturePath,
+        SPEC_FIRST_STAGE_TIMEOUT_SECONDS: '5',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    const capturedGraphifyArgs = fs.readFileSync(capturePath, 'utf8');
+    expect(capturedGraphifyArgs).toContain('extract');
+    expect(capturedGraphifyArgs).toContain('.spec-first/workspace/providers/graphify/graphify-out');
+    const payload = JSON.parse(result.stdout);
+    expect(payload.results).toEqual([]);
+    expect(payload.provider_apply).toMatchObject({
+      selected: ['graphify'],
+      route: 'install-helpers',
+      status: 'ready',
+    });
+    const graphify = payload.provider_readiness.find((entry) => entry.provider === 'graphify');
+    expect(graphify).toMatchObject({
+      first_generation: {
+        status: 'completed',
+        requirement_workspace_path: '.',
+        artifact_root: '.spec-first/workspace/providers/graphify/graphify-out',
+        artifact_refs: ['.spec-first/workspace/providers/graphify/graphify-out/GRAPH_REPORT.md'],
+      },
+    });
+  });
+
   test('normalizer surfaces configured scan status so scan failures are not silently empty', () => {
     const scanFailed = normalizeSetupFacts(toolFactsFixture({ configured_scan_status: 'scan-failed' }));
     expect(scanFailed.configured_scan_status).toBe('scan-failed');
@@ -329,14 +572,24 @@ describe('dependency readiness baseline contracts', () => {
     expect(legacy.configured_scan_status).toBe('unknown');
   });
 
-  test('normalizer provider projection satisfies the provider-readiness.v1 schema it claims', () => {
+  test('normalizer provider projection satisfies the provider-readiness.v2 schema it claims', () => {
     const providerSchema = readJson(path.join(repoRoot, 'docs/contracts/provider-readiness.schema.json'));
     // 从稀疏输入(仅 provider + readiness_status)归一化,确认默认填充后仍满足自己宣称的 schema。
     const projection = normalizeSetupFacts(toolFactsFixture({
       provider_readiness: [{ provider: 'codegraph', readiness_status: 'not-run' }],
     }));
     const entry = projection.provider_readiness[0];
-    expect(entry.schema_version).toBe('provider-readiness.v1');
+    expect(entry.schema_version).toBe('provider-readiness.v2');
+    expect(entry.profile).toBe('optional');
+    expect(entry.first_generation).toMatchObject({
+      owner: 'unknown',
+      status: 'unknown',
+      scope: 'unknown',
+    });
+    expect(entry.steady_state).toMatchObject({
+      refresh_owner: 'unknown',
+      refresh_mode: 'unknown',
+    });
     expect(validateAgainstSchema(providerSchema, entry).errors).toEqual([]);
   });
 
@@ -996,5 +1249,46 @@ describe('dependency readiness baseline contracts', () => {
         expect(op.risk_flags).toContain(op.reason_code);
       }
     }
+  });
+
+  test('setup plan renderer exposes guided provider pack and headless selection gates', () => {
+    const tempDir = makeTempDir();
+    const guided = spawnSync('node', [setupPlanRendererPath, '--mode', 'guided-confirm', '--repo-root', tempDir], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    expect(guided.status).toBe(0);
+    const guidedPlan = JSON.parse(guided.stdout);
+    expect(guidedPlan.optional_provider_selection).toMatchObject({
+      selection_source: 'guided-default-provider-pack',
+      selected_ids: ['codegraph', 'graphify'],
+      requires_confirmation: true,
+    });
+    const graphify = guidedPlan.provider_selection.find((entry) => entry.provider === 'graphify');
+    expect(graphify).toMatchObject({
+      selected: true,
+      tool_install_root: path.join(tempDir, '.spec-first/tools'),
+      artifact_root: path.join(tempDir, '.spec-first/workspace/providers/graphify/graphify-out'),
+      first_generation_display: 'graphify extract . --out .spec-first/workspace/providers/graphify/graphify-out --no-cluster',
+      auto_refresh_display: 'graphify hook install (project-level provider-native auto-refresh; no graphify watch)',
+    });
+    expect(graphify.will_not_do).toEqual(expect.arrayContaining([
+      'will not install Graphify SKILL/MCP',
+      'will not start graphify watch',
+      'will not run graphify .',
+    ]));
+
+    const unknown = spawnSync('node', [setupPlanRendererPath, '--mode', 'plan', '--repo-root', tempDir, '--only', 'unknown'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    expect(unknown.status).toBe(1);
+    expect(JSON.parse(unknown.stdout)).toMatchObject({
+      overall_status: 'action-required',
+      reason_code: 'unknown-optional-provider-selection',
+      optional_provider_selection: {
+        unknown_ids: ['unknown'],
+      },
+    });
   });
 });

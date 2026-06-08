@@ -11,6 +11,7 @@ source "$SCRIPT_DIR/lib-template.sh"
 
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
+PROVIDER_TOOLS_JSON="$SKILL_DIR/provider-tools.json"
 require_mcp_tools_schema_version 6 "$TOOLS_JSON"
 HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
@@ -23,8 +24,10 @@ ONLY_FILTER=""
 REPO_ARG=""
 FOLDER_ARG=""
 ALL_REPOS=false
+PLAN_MODE=false
+REQUIREMENT_WORKSPACE="${SPEC_FIRST_PROVIDER_GRAPHIFY_REQUIREMENT_WORKSPACE:-${SPEC_FIRST_REQUIREMENT_WORKSPACE:-}}"
 DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
-WARMUP_CACHE_ROOT="${SPEC_FIRST_WARMUP_CACHE_DIR:-$HOME/.spec-first/cache/mcp-warmup}"
+WARMUP_CACHE_ROOT="${SPEC_FIRST_WARMUP_CACHE_DIR:-}"
 WARMUP_LATEST_TTL_SECONDS="${SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS:-86400}"
 case "$DEFAULT_STAGE_TIMEOUT_SECONDS" in ''|*[!0-9]*) DEFAULT_STAGE_TIMEOUT_SECONDS=900 ;; esac
 case "$WARMUP_LATEST_TTL_SECONDS" in ''|*[!0-9]*) WARMUP_LATEST_TTL_SECONDS=86400 ;; esac
@@ -121,6 +124,9 @@ write_all_repos_install_summary_and_exit() {
     child_args=(--repo "$child_path")
     if [ -n "$ONLY_FILTER" ]; then
       child_args+=(--only "$ONLY_FILTER")
+    fi
+    if [ -n "$REQUIREMENT_WORKSPACE" ]; then
+      child_args+=(--requirement-workspace "$REQUIREMENT_WORKSPACE")
     fi
     set +e
     child_output="$(bash "$0" ${child_args[@]+"${child_args[@]}"})"
@@ -238,6 +244,14 @@ while [[ $# -gt 0 ]]; do
       ALL_REPOS=true
       shift
       ;;
+    --plan)
+      PLAN_MODE=true
+      shift
+      ;;
+    --requirement-workspace)
+      REQUIREMENT_WORKSPACE="${2:-}"
+      shift 2
+      ;;
     *)
       echo "未知参数: $1" >&2
       exit 1
@@ -292,8 +306,27 @@ elif [ -n "$TARGET_SELECTED_FOLDER_ROOT" ]; then
 else
   REPO_ROOT="$TARGET_WORKSPACE_ROOT"
 fi
+if [ -z "$WARMUP_CACHE_ROOT" ]; then
+  WARMUP_CACHE_ROOT="$REPO_ROOT/.spec-first/cache/mcp-warmup"
+fi
+if [ -z "${NPM_CONFIG_CACHE:-}" ] && [ -z "${npm_config_cache:-}" ]; then
+  export NPM_CONFIG_CACHE="$REPO_ROOT/.spec-first/cache/npm"
+  export npm_config_cache="$REPO_ROOT/.spec-first/cache/npm"
+fi
 if [ "$TARGET_STATUS" -ne 0 ] || [ "$TARGET_JSON_STATUS" -ne 0 ]; then
   TARGET_STATE_WRITE_ALLOWED="false"
+fi
+
+if [ "$PLAN_MODE" = "true" ]; then
+  plan_args=(--mode plan --repo-root "$REPO_ROOT")
+  if [ -n "$ONLY_FILTER" ]; then
+    plan_args+=(--only "$ONLY_FILTER")
+  fi
+  if [ -n "$REQUIREMENT_WORKSPACE" ]; then
+    plan_args+=(--requirement-workspace "$REQUIREMENT_WORKSPACE")
+  fi
+  node "$SCRIPT_DIR/setup-plan-renderer.cjs" "${plan_args[@]}"
+  exit $?
 fi
 
 if [ "$ALL_REPOS" = "true" ]; then
@@ -309,6 +342,43 @@ if [ -n "$ONLY_FILTER" ]; then
 else
   ONLY_ARRAY=()
 fi
+
+selection_contains() {
+  local wanted="$1"
+  local only
+  for only in ${ONLY_ARRAY[@]+"${ONLY_ARRAY[@]}"}; do
+    if [ "$only" = "$wanted" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+validate_only_filter() {
+  [ -n "$ONLY_FILTER" ] || return 0
+  local valid_ids unknown_ids only
+  valid_ids="$(
+    jq -r '.tools[].id' "$TOOLS_JSON"
+    jq -r '.providers[].id' "$PROVIDER_TOOLS_JSON"
+  )"
+  unknown_ids=()
+  for only in ${ONLY_ARRAY[@]+"${ONLY_ARRAY[@]}"}; do
+    if ! grep -Fxq "$only" <<<"$valid_ids"; then
+      unknown_ids+=("$only")
+    fi
+  done
+  if [ "${#unknown_ids[@]}" -eq 0 ]; then
+    return 0
+  fi
+  printf '%s\n' "${unknown_ids[@]}" | jq -R . | jq -s \
+    --arg host "$HOST" \
+    --arg display "$HOST_DISPLAY_NAME" \
+    --arg platform "$PLATFORM" \
+    '{host:$host,display_name:$display,platform:$platform,results:[],overall_status:"action-required",reason_code:"unknown-optional-provider-selection",unknown_ids:.,next_action:"Use one of: codegraph,graphify"}'
+  exit 1
+}
+
+validate_only_filter
 
 should_install() {
   local tool_id="$1"
@@ -744,5 +814,50 @@ EOF
 
   append_result "$tool_id" "$status" "$last_action" "$install_kind" "$reason_code" "$next_action" "$configured_path" "$selected_scope" "$fallback_applied" "$exit_code" "$diagnostic_summary" "$repair_diagnostic_summary"
 done
+
+if [ -n "$ONLY_FILTER" ] && selection_contains "graphify"; then
+  helper_args=(--install)
+  if [ -n "$REQUIREMENT_WORKSPACE" ]; then
+    helper_args+=(--requirement-workspace "$REQUIREMENT_WORKSPACE")
+  fi
+  set +e
+  helper_output="$(
+    SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT=approved \
+    SPEC_FIRST_PROVIDER_REPO_ROOT="$REPO_ROOT" \
+    SPEC_FIRST_PROVIDER_TOOL_ROOT="$REPO_ROOT/.spec-first/tools" \
+    SPEC_FIRST_PROVIDER_CACHE_ROOT="$REPO_ROOT/.spec-first/cache" \
+    SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT=".spec-first/workspace/providers/graphify/graphify-out" \
+    bash "$SCRIPT_DIR/install-helpers.sh" "${helper_args[@]}"
+  )"
+  helper_status=$?
+  set -e
+  if jq -e . >/dev/null 2>&1 <<<"$helper_output"; then
+    jq \
+      --argjson helper "$helper_output" \
+      --argjson exit_code "$helper_status" \
+      '.helper_tools = ($helper.helper_tools // {})
+       | .provider_readiness = ($helper.provider_readiness // [])
+       | .provider_apply = {
+          selected:["graphify"],
+          route:"install-helpers",
+          status:(if $exit_code == 0 then "ready" else "action-required" end),
+          exit_code:$exit_code
+        }' "$ledger_tmp" > "$ledger_tmp.next"
+    mv "$ledger_tmp.next" "$ledger_tmp"
+  else
+    jq \
+      --arg diagnostic "$helper_output" \
+      --argjson exit_code "$helper_status" \
+      '.provider_apply = {
+          selected:["graphify"],
+          route:"install-helpers",
+          status:"action-required",
+          exit_code:$exit_code,
+          reason_code:"graphify-helper-output-invalid",
+          diagnostic_summary:$diagnostic
+        }' "$ledger_tmp" > "$ledger_tmp.next"
+    mv "$ledger_tmp.next" "$ledger_tmp"
+  fi
+fi
 
 cat "$ledger_tmp"

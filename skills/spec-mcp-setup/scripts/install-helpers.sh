@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib-helper-registry.sh"
 
 MODE="install"
+REQUIREMENT_WORKSPACE="${SPEC_FIRST_PROVIDER_GRAPHIFY_REQUIREMENT_WORKSPACE:-${SPEC_FIRST_REQUIREMENT_WORKSPACE:-}}"
 DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
 
 NPM_MIRROR_ENDPOINT="https://registry.npmmirror.com"
@@ -16,7 +17,7 @@ UV_MIRROR_ENDPOINT="https://mirrors.tuna.tsinghua.edu.cn/pypi/simple"
 CHROME_MIRROR_ENDPOINT="https://npmmirror.com/mirrors/chrome-for-testing"
 LAST_INSTALL_SOURCE="official"
 LAST_INSTALL_MIRROR_USED="false"
-BROWSER_HELPER_OPT_IN_ACTION="set SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 and rerun spec-mcp-setup install"
+BROWSER_HELPER_OPT_IN_ACTION='set SPEC_FIRST_BROWSER_HELPER_REQUIRED=1 and rerun the host setup workflow (`$spec-mcp-setup` or `/spec:mcp-setup`)'
 export NPM_MIRROR_ENDPOINT UV_MIRROR_ENDPOINT CHROME_MIRROR_ENDPOINT
 
 reset_install_provenance() {
@@ -120,6 +121,10 @@ while [[ $# -gt 0 ]]; do
       MODE="verify-only"
       shift
       ;;
+    --requirement-workspace)
+      REQUIREMENT_WORKSPACE="${2:-}"
+      shift 2
+      ;;
     *)
       shift
       ;;
@@ -200,6 +205,11 @@ PARALLEL_TASK_LABELS=()
 AGENT_BROWSER_BROWSER_INSTALL_EXIT_CODE=""
 AGENT_BROWSER_SKILL_INSTALL_EXIT_CODE=""
 AST_GREP_SKILL_INSTALL_EXIT_CODE=""
+PROVIDER_REPO_ROOT="${SPEC_FIRST_PROVIDER_REPO_ROOT:-$PWD}"
+PROVIDER_TOOL_ROOT="${SPEC_FIRST_PROVIDER_TOOL_ROOT:-$PROVIDER_REPO_ROOT/.spec-first/tools}"
+PROVIDER_CACHE_ROOT="${SPEC_FIRST_PROVIDER_CACHE_ROOT:-$PROVIDER_REPO_ROOT/.spec-first/cache}"
+GRAPHIFY_ARTIFACT_ROOT_DEFAULT="${SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT:-.spec-first/workspace/providers/graphify/graphify-out}"
+export PATH="$PROVIDER_TOOL_ROOT:$PATH"
 
 detect_os() {
   local os
@@ -867,27 +877,163 @@ provider_consent_approved() {
   esac
 }
 
-install_graphify_provider_if_requested() {
-  [ "$MODE" = "install" ] || return 0
-  provider_consent_approved "GRAPHIFY" || return 0
-  command -v graphify >/dev/null 2>&1 && return 0
+set_graphify_first_generation_fact() {
+  local status="$1"
+  local workspace_path="${2:-}"
+  local artifact_root="${3:-}"
+  local artifact_ref="${4:-}"
+  local next_action="${5:-}"
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_STATUS="$status"
+  if [ -n "$workspace_path" ]; then
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_REQUIREMENT_WORKSPACE_PATH="$workspace_path"
+  fi
+  if [ -n "$artifact_root" ]; then
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT="$artifact_root"
+  fi
+  if [ -n "$artifact_ref" ]; then
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_REF="$artifact_ref"
+  fi
+  if [ -n "$next_action" ]; then
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_NEXT_ACTION="$next_action"
+  fi
+}
 
-  if ! command -v uv >/dev/null 2>&1; then
-    stage_log "provider:graphify" "uv missing; skipping Graphify install"
+resolve_requirement_workspace_json() {
+  local repo_root="$1"
+  local candidate="$2"
+  local artifact_candidate="$3"
+  python3 - "$repo_root" "$candidate" "$artifact_candidate" <<'PY'
+import json
+import os
+import pathlib
+import sys
+
+repo = pathlib.Path(sys.argv[1]).resolve()
+raw = sys.argv[2]
+artifact_raw = sys.argv[3]
+
+def fail(reason):
+    print(json.dumps({"ok": False, "reason_code": reason}))
+    sys.exit(0)
+
+if not raw or raw.strip() == "":
+    candidate = pathlib.PurePosixPath(".")
+else:
+    candidate = pathlib.PurePosixPath(raw.replace("\\", "/"))
+    if candidate.is_absolute():
+        fail("requirement-workspace-absolute")
+    if any(part == ".." for part in candidate.parts):
+        fail("requirement-workspace-escape")
+
+workspace = (repo / pathlib.Path(*candidate.parts)).resolve(strict=False)
+try:
+    workspace.relative_to(repo)
+except ValueError:
+    fail("requirement-workspace-escape")
+
+if not workspace.exists() or not workspace.is_dir():
+    fail("requirement-workspace-missing")
+
+artifact_candidate = pathlib.PurePosixPath((artifact_raw or ".spec-first/workspace/providers/graphify/graphify-out").replace("\\", "/"))
+if artifact_candidate.is_absolute():
+    fail("graphify-artifact-root-absolute")
+if any(part == ".." for part in artifact_candidate.parts):
+    fail("graphify-artifact-root-escape")
+
+artifact_root = (repo / pathlib.Path(*artifact_candidate.parts)).resolve(strict=False)
+try:
+    artifact_root.relative_to(repo)
+except ValueError:
+    fail("graphify-artifact-root-escape")
+
+rel = pathlib.PurePosixPath(os.path.relpath(workspace, repo).replace(os.sep, "/")).as_posix()
+artifact_rel = pathlib.PurePosixPath(os.path.relpath(artifact_root, repo).replace(os.sep, "/")).as_posix()
+print(json.dumps({
+    "ok": True,
+    "workspace_abs": str(workspace),
+    "workspace_rel": rel,
+    "artifact_abs": str(artifact_root),
+    "artifact_rel": artifact_rel,
+}))
+PY
+}
+
+write_graphify_wrapper() {
+  command -v uv >/dev/null 2>&1 || return 1
+  mkdir -p "$PROVIDER_TOOL_ROOT" "$PROVIDER_CACHE_ROOT/uv"
+  local wrapper="$PROVIDER_TOOL_ROOT/graphify"
+  local tmp
+  tmp="$(mktemp "${wrapper}.XXXXXX")" || return 1
+  cat > "$tmp" <<EOF
+#!/bin/sh
+UV_CACHE_DIR="${PROVIDER_CACHE_ROOT}/uv" exec uvx --from graphifyy==0.8.35 graphify "\$@"
+EOF
+  chmod 755 "$tmp"
+  mv "$tmp" "$wrapper"
+}
+
+run_graphify_first_generation_if_requested() {
+  provider_consent_approved "GRAPHIFY" || return 0
+
+  local repo_root="$PROVIDER_REPO_ROOT"
+  local resolved_json reason workspace_abs workspace_rel artifact_abs artifact_rel artifact_ref_rel
+
+  resolved_json="$(resolve_requirement_workspace_json "$repo_root" "$REQUIREMENT_WORKSPACE" "$GRAPHIFY_ARTIFACT_ROOT_DEFAULT")"
+  if [ "$(jq -r '.ok' <<<"$resolved_json")" != "true" ]; then
+    reason="$(jq -r '.reason_code' <<<"$resolved_json")"
+    set_graphify_first_generation_fact "skipped" "" "" "" "$reason"
+    stage_log "provider:graphify" "first generation skipped ($reason)"
     return 0
   fi
 
-  stage_log "provider:graphify" "install start"
-  if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" uv tool install graphifyy==0.8.33 >/dev/null 2>&1; then
-    stage_log "provider:graphify" "install done (exit 0)"
-  else
-    local exit_code="$?"
-    if [ "$exit_code" -eq 124 ]; then
-      stage_log "provider:graphify" "install timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
-    else
-      stage_log "provider:graphify" "install done (exit $exit_code)"
-    fi
+  if ! command -v graphify >/dev/null 2>&1; then
+    set_graphify_first_generation_fact "skipped" "" "" "" "graphify-cli-required"
+    stage_log "provider:graphify" "first generation skipped (graphify-cli-required)"
+    return 0
   fi
+
+  workspace_abs="$(jq -r '.workspace_abs' <<<"$resolved_json")"
+  workspace_rel="$(jq -r '.workspace_rel' <<<"$resolved_json")"
+  artifact_abs="$(jq -r '.artifact_abs' <<<"$resolved_json")"
+  artifact_rel="$(jq -r '.artifact_rel' <<<"$resolved_json")"
+  mkdir -p "$artifact_abs"
+
+  stage_log "provider:graphify" "first generation start"
+  if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify extract "$workspace_abs" --out "$artifact_abs" --no-cluster >/dev/null 2>&1; then
+    artifact_ref_rel="$artifact_rel/GRAPH_REPORT.md"
+    if [ ! -f "$repo_root/$artifact_ref_rel" ]; then
+      artifact_ref_rel=""
+    fi
+    set_graphify_first_generation_fact "completed" "$workspace_rel" "$artifact_rel" "$artifact_ref_rel" ""
+    stage_log "provider:graphify" "first generation done (exit 0)"
+    return 0
+  fi
+
+  local exit_code="$?"
+  set_graphify_first_generation_fact "failed" "$workspace_rel" "$artifact_rel" "" "graphify-first-generation-failed"
+  if [ "$exit_code" -eq 124 ]; then
+    stage_log "provider:graphify" "first generation timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
+  else
+    stage_log "provider:graphify" "first generation done (exit $exit_code)"
+  fi
+  return 0
+}
+
+install_graphify_provider_if_requested() {
+  [ "$MODE" = "install" ] || return 0
+  provider_consent_approved "GRAPHIFY" || return 0
+
+  if ! command -v graphify >/dev/null 2>&1; then
+    if ! write_graphify_wrapper; then
+      stage_log "provider:graphify" "uv missing or wrapper write failed; skipping Graphify install"
+      run_graphify_first_generation_if_requested
+      return 0
+    fi
+
+    stage_log "provider:graphify" "workspace-local wrapper ready"
+  fi
+
+  run_graphify_first_generation_if_requested
 }
 
 finalize_global_skill() {

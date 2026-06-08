@@ -1,7 +1,7 @@
 ---
 name: spec-mcp-setup
 description: Install, configure, verify, and refresh required harness runtime readiness facts for spec-first workflows on Claude Code or Codex.
-argument-hint: "[--claude|--codex] [--repo <path>] [--check|--verify-only|--plan|--install]"
+argument-hint: "[bare guided setup] [--check|--verify-only|--plan] [--only codegraph,graphify] [--repo <path>] [--requirement-workspace <repo-relative-path>]"
 ---
 
 # Runtime Setup
@@ -15,7 +15,7 @@ argument-hint: "[--claude|--codex] [--repo <path>] [--check|--verify-only|--plan
 | When to use | Host runtime setup, MCP setup, helper-tool readiness, missing runtime assets, or project-local setup fact refresh. |
 | When not to use | Ordinary planning, implementation, review, debugging, or code impact questions that can proceed from direct source evidence. |
 | Inputs | Current host, repo target, `skills/spec-mcp-setup/mcp-tools.json`, helper installer facts, host config state, git/workspace target facts, and project instructions. |
-| Outputs | Readiness ledger v2, setup scenario fingerprint, optional project setup facts under `.spec-first/config/`, and a grouped status block. |
+| Outputs | Readiness ledger v2, provider readiness v2 facts, setup scenario fingerprint, optional project setup facts under `.spec-first/config/`, and a grouped status block. |
 | Artifacts | `.spec-first/config/tool-facts.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/workspace/scenario-fingerprint-setup.json` when applicable. |
 | Failure modes | Missing dependencies, host config write failure, ambiguous parent workspace target, symlink escape, invalid registry schema, helper install failure, or unsupported host. |
 | Downstream consumers | `using-spec-first`, plan/work/review/debug workflows, doctor/update guidance, and humans repairing setup. |
@@ -39,7 +39,7 @@ Generated runtime mirrors under `.claude/`, `.codex/`, and `.agents/skills/` are
 
 Required helper tooling must not be added to `mcp-tools.json`. Current helper checks include `agent-browser` and ast-grep capability detection. Use `install-helpers.* --verify-only` for read-only verification, and use the install path only when setup explicitly needs repair. The agent-browser repair path may run `npx -y skills@latest add https://github.com/vercel-labs/agent-browser --skill agent-browser -g -y`, should respect `NPM_CONFIG_REGISTRY`, and may run `agent-browser install --with-deps` when browser automation support is required.
 
-Optional provider readiness is reported through `provider_readiness[]`. Setup may populate lifecycle display bits such as `installed`, `configured`, `indexed`, `server_reachable`, and `query_verified`, but downstream decision health is driven by `readiness_status`. Provider self-reported `fresh` maps to `unknown`; provider self-reported `stale` may map to `stale` because it is conservative. `query_verified=true` is reserved for a real probe or explicit real-environment signal, not for package installation alone.
+Optional provider readiness is reported through `provider_readiness[]` (`provider-readiness.v2`). Setup may populate lifecycle display bits such as `installed`, `configured`, `indexed`, `server_reachable`, and `query_verified`, plus setup-owned runtime metadata such as `native_interfaces`, `first_generation`, `steady_state`, and `usage_note`. Downstream decision health is still driven by `readiness_status`; lifecycle and first-generation fields explain boundaries and next actions, not semantic truth. Provider self-reported `fresh` maps to `unknown`; provider self-reported `stale` may map to `stale` because it is conservative. `query_verified=true` is reserved for a real probe or explicit real-environment signal, not for package installation alone.
 
 ## Project Preflight / Local Setup
 
@@ -50,7 +50,25 @@ Project-local setup writes `.spec-first/config/tool-facts.json`, `.spec-first/co
 - `--check`: inspect current dependency/runtime status only; do not write setup facts, host config, or install tools.
 - `--verify-only` / `--refresh-facts`: verify readiness and refresh setup-owned facts; do not install tools or edit host config.
 - `--plan`: render install/config operations and safety results; do not write setup facts, host config, or install tools.
-- `--install`: apply required setup actions, write host config, and install required helper tooling; optional MCP/provider capability tools run only after explicit opt-in. Skip `blocked` install safety results and surface `review-required` risks before action.
+- Bare invocation (`$spec-mcp-setup` on Codex or `/spec:mcp-setup` on Claude): primary guided setup path. Show the current CodeGraph/Graphify provider pack, workspace-local writes, host config writes, first-generation commands, and explicit non-actions; ask for one confirmation; after approval, run install-init and verification to completion. Do not ask the user to run internal scripts directly.
+- `--only <ids>`: headless/subset apply path. `--only codegraph`, `--only graphify`, or `--only codegraph,graphify` is explicit opt-in and does not require a second confirmation prompt.
+- `--requirement-workspace <repo-relative-path>`: optional Graphify input-scope override. Omit it for normal project-workspace setup; default input scope is the resolved project workspace.
+
+Graphify first generation uses the controlled helper/provider route. Public setup does not ask users to set provider consent environment variables; guided confirmation or `--only graphify` is the public opt-in, and the orchestration internally applies helper consent. Direct env consent remains only an advanced/CI escape hatch for invoking `install-helpers.*` directly. Missing `--requirement-workspace` defaults to the resolved project workspace and writes artifacts under `.spec-first/workspace/providers/graphify/graphify-out`; absolute, escaping, symlink-escaping, or nonexistent explicit overrides skip first generation with a structured next action. When accepted, setup runs headless `graphify extract <workspace> --out .spec-first/workspace/providers/graphify/graphify-out --no-cluster` and targets project-level `graphify hook install` so provider-native refresh keeps the graph usable after setup. It must not run `graphify .` or start `graphify watch`; Graphify SKILL/MCP install is user-owned host convenience, while the CLI query/path/explain surface is sufficient for downstream advisory project-graph consumption.
+
+## Guided Setup Flow
+
+For bare `$spec-mcp-setup`, do this inside the skill:
+
+1. Resolve the project target and render the provider plan with `setup-plan-renderer.cjs --mode guided-confirm --repo-root <resolved-project-root>`.
+2. Present a compact confirmation block naming:
+   - selected optional providers: `codegraph`, `graphify`;
+   - workspace-local writes: `.spec-first/tools/`, `.spec-first/cache/`, `.spec-first/workspace/providers/graphify/graphify-out`, `.codegraph/`;
+   - project hook writes: `.git/hooks/` for Graphify provider-native auto-refresh when Graphify is selected;
+   - host-owned writes: Claude/Codex MCP config for CodeGraph when selected;
+   - non-actions: no Graphify SKILL/MCP install, no `graphify .`, no `graphify watch`/long-running daemon, no generated artifact promotion to `docs/` or source truth.
+3. If the user confirms, run the internal apply path with `--only codegraph,graphify` plus any `--repo`/`--folder`/`--requirement-workspace` args already supplied, then run verification/fact refresh and render the final grouped status block.
+4. If the user declines, skip optional providers, still report required baseline readiness, and name `--only codegraph,graphify` as the headless follow-up if they want to apply later.
 
 ## Workflow
 
@@ -58,7 +76,7 @@ Project-local setup writes `.spec-first/config/tool-facts.json`, `.spec-first/co
 2. If invoked from a parent workspace, select an explicit child repo or intentionally run setup for all supported child repos. Writes must stay within the selected target.
 3. Read `mcp-tools.json`, validate schema version, and verify every required baseline tool plus explicit opt-in MCP entry has deterministic install, host-config, detection, and summary metadata.
 4. Run `detect-tools.*` or `install-mcp.*` as appropriate. Warm required package-backed MCP tools, admit optional MCP entries only through explicit selection, write host config only through documented host targets, and record structured status.
-5. Run `install-helpers.*` for required helper tooling and explicitly approved non-MCP provider helpers, then collect helper and provider readiness facts.
+5. Run `install-helpers.*` for required helper tooling and explicitly approved non-MCP provider helpers. Guided confirmation or `--only graphify` is enough public consent for Graphify; the script layer may translate that to helper env consent internally. Approved provider first generation and project-local auto-refresh setup may run only through controlled script cases or provider-native bounded CLI commands, then helper/provider readiness facts are collected. If Graphify hook install fails, report action-required readiness instead of marking the project graph ready.
 6. Run `verify-tools.*` to write the readiness ledger, reconcile host pointer facts, write project setup facts, and render the grouped status block.
 7. Report the status exactly enough for the user to act: ready rows need no action; action-required rows name the missing dependency/config/target step.
 
@@ -120,11 +138,15 @@ Setup does:
 - warm package-backed MCP servers when configured by `mcp-tools.json`;
 - write host MCP config through managed/user host targets;
 - write project-local setup facts;
+- perform explicit provider-native first generation for approved providers when the target workspace is resolved;
+- perform provider-native project-local auto-refresh setup for approved providers when available, such as Graphify `graphify hook install`;
 - classify parent workspace target ambiguity and foreign residual indicators as advisory facts.
 
 Setup does not:
 
-- start watchers, default hooks, or long-running daemons;
+- start watchers or long-running daemons;
+- install Graphify SKILL/MCP host convenience layers;
+- run provider first generation from `--check`, `--plan`, `--verify-only`, or invalid explicit workspace override paths;
 - treat provider indexes or query probes as semantic code evidence;
 - treat setup facts as semantic code evidence;
 - hand-edit generated runtime mirrors as source;

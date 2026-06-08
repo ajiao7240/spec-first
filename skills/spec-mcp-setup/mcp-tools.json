@@ -263,8 +263,24 @@
       "provider_readiness": {
         "provider": "codegraph",
         "kind": "code-structure",
-        "profile": "recommended",
+        "profile": "optional",
         "capabilities": ["code-graph", "impact-candidates", "affected-tests-candidates"],
+        "native_interfaces": ["mcp", "cli"],
+        "first_generation": {
+          "owner": "runtime-setup",
+          "status": "not-run",
+          "scope": "project",
+          "requires_explicit_gate": true,
+          "requirement_workspace_path": null,
+          "artifact_root": ".codegraph"
+        },
+        "steady_state": {
+          "refresh_owner": "provider-native",
+          "refresh_mode": "watcher",
+          "hook_default": false,
+          "usage_owner": "downstream-skill"
+        },
+        "usage_note": "Use CodeGraph MCP tools for impact/call graph candidates; confirm conclusions from source/test/log/contract/user evidence.",
         "fallback_methods": ["rg", "ast-grep", "direct-source-read"],
         "fresh_self_report_maps_to": "unknown",
         "stale_self_report_maps_to": "stale",

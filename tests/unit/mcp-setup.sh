@@ -43,6 +43,7 @@ assert_eq "required baseline tools are current" "sequential-thinking,context7" "
 assert_eq "registry categories are mcp only" "true" "$(jq -r 'all(.tools[]; .category == "mcp")' "$TOOLS_JSON")"
 assert_eq "optional tools require explicit opt-in" "true" "$(jq -r 'all(.tools[]; (.required == true) or (.opt_in.explicit_consent_required == true))' "$TOOLS_JSON")"
 assert_eq "codegraph is explicit opt-in" "true" "$(jq -r '.tools[] | select(.id == "codegraph") | (.required == false and .opt_in.explicit_consent_required == true and .provider_readiness.kind == "code-structure")' "$TOOLS_JSON")"
+assert_eq "codegraph project bootstrap runs init" "true" "$(jq -r '.tools[] | select(.id == "codegraph") | (.project_bootstrap.required == true and .project_bootstrap.unix.command == "npx" and (.project_bootstrap.unix.args | index("init") != null))' "$TOOLS_JSON")"
 assert_eq "summary includes project bootstrap column" "true" "$(jq -r '.summary_columns | index("project_bootstrap") != null' "$TOOLS_JSON")"
 
 while IFS= read -r script_path; do
@@ -53,6 +54,15 @@ pass_count=$((pass_count + 1))
 assert "bash install-mcp gates optional tools" grep -q 'optional_tool_allowed' "$SCRIPTS_DIR/install-mcp.sh"
 assert "bash install-mcp keeps registry_not_required for ungated optional tools" grep -q 'registry_not_required' "$SCRIPTS_DIR/install-mcp.sh"
 assert "bash configure-host guards optional clobber" grep -q 'SPEC_FIRST_MCP_CONFIGURE_OVERWRITE' "$SCRIPTS_DIR/configure-host.sh"
+assert "bash install-helpers accepts requirement workspace" grep -q -- '--requirement-workspace' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers uses Graphify headless extract" grep -q -- 'graphify extract "$workspace_abs" --out "$artifact_abs" --no-cluster' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers writes Graphify provider artifact root" grep -q -- '.spec-first/workspace/providers/graphify/graphify-out' "$SCRIPTS_DIR/install-helpers.sh"
+if grep -q 'uv tool install graphifyy==0.8.35' "$SCRIPTS_DIR/install-helpers.sh"; then
+  fail "install-helpers must not run user-global uv tool install for Graphify"
+fi
+if grep -q 'graphify \.' "$SCRIPTS_DIR/install-helpers.sh"; then
+  fail "install-helpers must not invoke graphify ."
+fi
 
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/spec-first-mcp-setup.XXXXXX")"
 trap 'rm -rf "$TMP_ROOT"' EXIT
