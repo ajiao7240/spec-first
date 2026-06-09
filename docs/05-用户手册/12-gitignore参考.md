@@ -10,6 +10,9 @@
 - `.spec-first/config/` 和 `.spec-first/workspace/` 是本地 setup/control-plane facts，默认不提交。
 - `.spec-first/audits/**` 和 generated runtime mirrors 也不应作为普通 LLM 上下文扫描源；只有 setup/update/runtime-drift/audit 任务或用户明确点名路径时才按需读取。
 - `.spec-first/sessions/` 是 multi-actor 治理协议的 opt-in advisory 记录目录，由 `spec-first session register` 等命令写入；属于 runtime state，默认不提交。
+- `.codegraph/` 是 CodeGraph 项目级 SQLite 索引，默认不提交。
+- `graphify-out/` 是 Graphify provider 的项目图谱目录，Graphify 官方实践允许团队提交它以共享 map；`spec-first init` 只默认忽略其中本地成本文件 `graphify-out/cost.json` 和本机解释器路径 `graphify-out/.graphify_python`，不忽略整个目录。
+- `$spec-mcp-setup` 确认 provider pack 后还可能安装 Graphify provider runtime（`.codex/skills/graphify/` 或 `.claude/skills/graphify/`）和 `.git/hooks/post-commit` / `.git/hooks/post-checkout`。前者落在已忽略的 generated/runtime 目录；后者是 Git 本地 hook，不进入仓库提交面。
 - `AGENTS.md`、`CLAUDE.md`、`docs/`、项目源码、测试和 confirmed standards source 应按团队正常协作策略提交。
 
 ## init 默认写入的 `.gitignore` block
@@ -39,6 +42,11 @@
 .spec-first/workflows/
 .spec-first/workspace/
 .spec-first/sessions/
+
+# optional provider local artifacts
+.codegraph/
+graphify-out/cost.json
+graphify-out/.graphify_python
 # spec-first:end
 ```
 
@@ -87,6 +95,20 @@
     workspace/
       *.json                        # 父级多仓 advisory summaries，忽略
 
+  .codegraph/                       # CodeGraph SQLite index，忽略
+
+  graphify-out/                     # Graphify project graph，按团队策略提交或忽略
+    graph.json                      # 团队共享 map 时可提交
+    GRAPH_REPORT.md                 # 团队共享 map 时可提交
+    graph.html                      # 可视化输出，是否提交按团队策略
+    .graphify_root                  # provider refresh metadata，通常不需要人工编辑
+    .graphify_python                # provider hook 使用的本地解释器路径，通常不提交
+    .graphify_labels.json           # 社区标签缓存，是否提交按团队策略
+    cost.json                       # 本地成本文件，忽略
+
+  .git/hooks/post-commit            # Graphify provider-native refresh hook，本地 Git hook
+  .git/hooks/post-checkout          # Graphify provider-native refresh hook，本地 Git hook
+
 ```
 
 ## 需要提交的内容
@@ -101,6 +123,7 @@
 | `.spec-first/config.local.example.yaml` | 本地配置模板，不包含个人密钥时可作为 onboarding 模板提交 |
 | `docs/brainstorms/`、`docs/plans/`、`docs/tasks/`、`docs/solutions/` | durable workflow artifacts 和工程知识 |
 | `.spec-first/specs/repo-profile.yaml` | 如果团队明确使用它承载 confirmed project profile，应作为项目知识 source 提交 |
+| `graphify-out/graph.json`、`graphify-out/GRAPH_REPORT.md` | 只有团队决定共享 Graphify map 时提交；`$spec-mcp-setup` 不会自动 add/commit |
 
 `AGENTS.md` 和 `CLAUDE.md` 是 checked-in host entry docs，不等同于 `.agents/skills/`、`.codex/agents/` 或 `.claude/skills/` 里的 runtime mirror。
 
@@ -109,6 +132,8 @@
 | 路径 | 建议 |
 | --- | --- |
 | `.claude/settings.json` | Claude Code 项目配置；`init --claude` 会写入 spec-first 受管 SessionStart matcher。团队希望共享 Claude hooks、permissions 或 MCP 配置时可提交；仅个人使用的配置应放到 `.claude/settings.local.json` 并在 managed block 外自行忽略。 |
+| `graphify-out/cache/` | Graphify 官方建议按仓库体积和速度取舍：提交可加速，忽略可保持仓库更小。 |
+| `graphify-out/graph.html`、`graphify-out/.graphify_labels.json` | 可视化和标签缓存是否提交取决于团队是否把 Graphify map 当共享导航资产；`$spec-mcp-setup` 不会替团队决定。 |
 
 ## 默认不提交的内容
 
@@ -124,6 +149,8 @@
 | `.spec-first/workspace/` | 父级多仓 advisory summaries，不是 child repo canonical truth |
 | `.spec-first/audits/`、`.spec-first/app-audit/`、`.spec-first/workflows/` | workflow execution evidence，默认本地留存 |
 | `.spec-first/sessions/` | multi-actor 治理协议的 opt-in advisory 记录目录，由 `spec-first session register` 写入；不启用时为空 |
+| `.codegraph/` | CodeGraph 本地 SQLite index，可由 `codegraph init` 重建 |
+| `graphify-out/cost.json`、`graphify-out/.graphify_python` | Graphify 本地成本记录和 hook 使用的本机解释器路径，不应作为团队 source |
 
 旧版本可能留下 `.direct-source-evidence/`、`.code-review-graph/`、`.spec-first-graph/`、`.spec-first/graph/`、`.spec-first/providers/`、`.spec-first/impact/` 或 `.gitnexus/` 等 retired provider / graph 残留。它们不属于当前 `init` managed block；如果这些路径出现在 `git status` 中，先按 setup/update/clean 指引确认是否为历史残留，不要为了隐藏噪声把 retired provider 路径重新加入当前默认规则。
 

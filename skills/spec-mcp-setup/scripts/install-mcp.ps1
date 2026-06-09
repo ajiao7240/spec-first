@@ -497,6 +497,15 @@ function Invoke-Captured {
   [pscustomobject]@{ ok = $true; exit_code = 0; stdout = ($captured -join "`n"); diagnostic_summary = $summary }
 }
 
+function Test-VersionOutputMatchesExpected {
+  param(
+    [string]$Expected,
+    [string]$Output
+  )
+  if ([string]::IsNullOrWhiteSpace($Expected)) { return $true }
+  return ([string]$Output -match "(^|[^0-9A-Za-z.])$([regex]::Escape($Expected))([^0-9A-Za-z.]|$)")
+}
+
 function Join-WindowsProcessArguments {
   param([object[]]$Arguments)
 
@@ -678,6 +687,60 @@ foreach ($tool in @($ToolsJson.tools)) {
       $reasonCode = 'warmup_failed'
       $nextAction = '检查工具 warmup 命令与网络可达性'
     }
+  } elseif ($status -eq 'ready' -and $tool.installation.kind -eq 'global-npm') {
+    $platformKey = if ($Platform -eq 'windows') { 'windows' } else { 'unix' }
+    $installStep = $tool.installation.$platformKey
+    $installArgs = @(Expand-ToolArgs -Tool $tool -Args $installStep.args)
+    $verifyCommand = ''
+    $verifyArgs = @()
+    if ($null -ne $tool.installation.PSObject.Properties['verify_command']) {
+      $verifyCommand = [string]$tool.installation.verify_command.command
+      $verifyArgs = @(Expand-ToolArgs -Tool $tool -Args @($tool.installation.verify_command.args))
+    }
+    $expectedVersion = [string]$tool.version
+    $verifyBefore = $null
+    if (-not [string]::IsNullOrWhiteSpace($verifyCommand)) {
+      $verifyBefore = Invoke-Captured { & $verifyCommand @verifyArgs }
+    }
+    if ($null -ne $verifyBefore -and $verifyBefore.ok -and (Test-VersionOutputMatchesExpected -Expected $expectedVersion -Output "$($verifyBefore.stdout) $($verifyBefore.diagnostic_summary)")) {
+      $lastAction = 'global-install-cache-hit'
+    } else {
+      $installRun = Invoke-Captured {
+        if ($Platform -eq 'windows' -and $installStep.command -eq 'npm') {
+          & cmd.exe /d /c $installStep.command @installArgs
+        } else {
+          & $installStep.command @installArgs
+        }
+      }
+      if (-not $installRun.ok) {
+        $status = 'action-required'
+        $lastAction = 'failed'
+        $reasonCode = 'install_failed'
+        $nextAction = '检查 npm 全局安装权限、网络和 registry 配置'
+        $exitCode = $installRun.exit_code
+        $diagnosticSummary = $installRun.diagnostic_summary
+      } elseif (-not [string]::IsNullOrWhiteSpace($verifyCommand)) {
+        $verifyAfter = Invoke-Captured { & $verifyCommand @verifyArgs }
+        if (-not $verifyAfter.ok) {
+          $status = 'action-required'
+          $lastAction = 'failed'
+          $reasonCode = 'install_verify_failed'
+          $nextAction = "确认安装后的 CLI 在 PATH 上可用: $verifyCommand"
+          $exitCode = $verifyAfter.exit_code
+          $diagnosticSummary = $verifyAfter.diagnostic_summary
+        } elseif (-not (Test-VersionOutputMatchesExpected -Expected $expectedVersion -Output "$($verifyAfter.stdout) $($verifyAfter.diagnostic_summary)")) {
+          $status = 'action-required'
+          $lastAction = 'failed'
+          $reasonCode = 'install_verify_version_mismatch'
+          $nextAction = "确认 PATH 上的 $verifyCommand 来自 pinned package version $expectedVersion，而不是其他同名 CLI"
+          $diagnosticSummary = $verifyAfter.diagnostic_summary
+        } else {
+          $lastAction = 'global-installed'
+        }
+      } else {
+        $lastAction = 'global-installed'
+      }
+    }
   }
 
   $hostConfigRequired = if ($null -ne $tool.PSObject.Properties['host_config_required']) { [bool]$tool.host_config_required } else { $true }
@@ -750,6 +813,82 @@ foreach ($tool in @($ToolsJson.tools)) {
     $lastAction = 'project-bootstrap-cache-hit'
   }
 
+  if ($status -eq 'ready' -and $null -ne $tool.PSObject.Properties['project_bootstrap'] -and $null -ne $tool.project_bootstrap.PSObject.Properties['status_probe']) {
+    $probeStep = $tool.project_bootstrap.status_probe
+    $probeArgs = @(Expand-ToolArgs -Tool $tool -Args @($probeStep.args))
+    $probeRun = Invoke-Captured {
+      Push-Location $ResolvedRepoRoot
+      try {
+        & $probeStep.command @probeArgs
+      } finally {
+        Pop-Location
+      }
+    }
+    if ($probeRun.ok) {
+      $probeOutput = "$($probeRun.stdout) $($probeRun.diagnostic_summary)"
+      if ($tool.id -eq 'codegraph' -and $probeOutput -match 'Pending Changes') {
+        $syncRun = Invoke-Captured {
+          Push-Location $ResolvedRepoRoot
+          try {
+            & codegraph sync
+          } finally {
+            Pop-Location
+          }
+        }
+        if ($syncRun.ok) {
+          $probeAfterSync = Invoke-Captured {
+            Push-Location $ResolvedRepoRoot
+            try {
+              & $probeStep.command @probeArgs
+            } finally {
+              Pop-Location
+            }
+          }
+          if ($probeAfterSync.ok) {
+            $probeAfterOutput = "$($probeAfterSync.stdout) $($probeAfterSync.diagnostic_summary)"
+            if ($probeAfterOutput -match 'Pending Changes') {
+              $status = 'action-required'
+              $lastAction = 'failed'
+              $reasonCode = 'project_status_pending_changes'
+              $nextAction = 'Run codegraph sync from the project root and inspect pending changes.'
+              $diagnosticSummary = $probeAfterSync.diagnostic_summary
+            } elseif ($lastAction -eq 'project-bootstrap-cache-hit') {
+              $lastAction = 'project-status-synced'
+            } elseif ($lastAction -eq 'project-bootstrapped') {
+              $lastAction = 'project-bootstrapped-status-synced'
+            }
+          } else {
+            $status = 'action-required'
+            $lastAction = 'failed'
+            $reasonCode = 'project_status_failed_after_sync'
+            $nextAction = 'Run codegraph status from the project root and inspect local index state.'
+            $exitCode = $probeAfterSync.exit_code
+            $diagnosticSummary = $probeAfterSync.diagnostic_summary
+          }
+        } else {
+          $status = 'action-required'
+          $lastAction = 'failed'
+          $reasonCode = 'project_sync_failed'
+          $nextAction = 'Run codegraph sync from the project root and inspect sync errors.'
+          $exitCode = $syncRun.exit_code
+          $diagnosticSummary = $syncRun.diagnostic_summary
+        }
+      }
+      if ($lastAction -eq 'project-bootstrap-cache-hit') {
+        $lastAction = 'project-status-cache-hit'
+      } elseif ($lastAction -eq 'project-bootstrapped') {
+        $lastAction = 'project-bootstrapped-status-checked'
+      }
+    } else {
+      $status = 'action-required'
+      $lastAction = 'failed'
+      $reasonCode = 'project_status_failed'
+      $nextAction = '检查 provider-native project status 命令和本地索引产物'
+      $exitCode = $probeRun.exit_code
+      $diagnosticSummary = $probeRun.diagnostic_summary
+    }
+  }
+
   $results.Add([pscustomobject]@{
     tool_id = $tool.id
     status = $status
@@ -775,16 +914,16 @@ $output = [ordered]@{
 
 if ($OnlyArray.Count -gt 0 -and (Test-SelectionContains -Id 'graphify')) {
   $previousConsent = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT')
+  $previousProviderHost = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_HOST')
   $previousRepoRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_REPO_ROOT')
   $previousToolRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_TOOL_ROOT')
   $previousCacheRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_CACHE_ROOT')
   $previousArtifactRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT')
   try {
     $env:SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT = 'approved'
+    $env:SPEC_FIRST_PROVIDER_HOST = $DetectedHost
     $env:SPEC_FIRST_PROVIDER_REPO_ROOT = $ResolvedRepoRoot
-    $env:SPEC_FIRST_PROVIDER_TOOL_ROOT = [System.IO.Path]::Combine($ResolvedRepoRoot, '.spec-first', 'tools')
-    $env:SPEC_FIRST_PROVIDER_CACHE_ROOT = [System.IO.Path]::Combine($ResolvedRepoRoot, '.spec-first', 'cache')
-    $env:SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT = '.spec-first/workspace/providers/graphify/graphify-out'
+    $env:SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT = 'graphify-out'
     $helperParams = @{ Install = $true }
     if (-not [string]::IsNullOrWhiteSpace($RequirementWorkspace)) { $helperParams.RequirementWorkspace = $RequirementWorkspace }
     $helperRun = Invoke-ChildJsonScript -ScriptPath (Join-Path $ScriptDir 'install-helpers.ps1') -Arguments $helperParams
@@ -810,6 +949,7 @@ if ($OnlyArray.Count -gt 0 -and (Test-SelectionContains -Id 'graphify')) {
     }
   } finally {
     if ($null -eq $previousConsent) { Remove-Item env:SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT = $previousConsent }
+    if ($null -eq $previousProviderHost) { Remove-Item env:SPEC_FIRST_PROVIDER_HOST -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_HOST = $previousProviderHost }
     if ($null -eq $previousRepoRoot) { Remove-Item env:SPEC_FIRST_PROVIDER_REPO_ROOT -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_REPO_ROOT = $previousRepoRoot }
     if ($null -eq $previousToolRoot) { Remove-Item env:SPEC_FIRST_PROVIDER_TOOL_ROOT -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_TOOL_ROOT = $previousToolRoot }
     if ($null -eq $previousCacheRoot) { Remove-Item env:SPEC_FIRST_PROVIDER_CACHE_ROOT -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_CACHE_ROOT = $previousCacheRoot }

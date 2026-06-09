@@ -139,6 +139,7 @@ Default outputs are local audit artifacts under:
 The full self-audit run may write:
 
 - `skill-source-inventory.json`
+- `reviewer-guard-coverage-report.json`
 - `expert-scorecard.json`
 - `skill-audit-report.json`
 - `trigger-routing-report.json`
@@ -188,8 +189,8 @@ This workflow is an explicit exception to the ordinary runtime context exclusion
    node skills/spec-skill-audit/scripts/write-audit-artifacts.js --repo . --target skills/<skill-name>
    ```
 
-6. Read `skill-audit-summary.md`, `skill-improvement-plan.md`, and the JSON reports relevant to the user's question.
-7. Review the deterministic findings using `references/expert-audit-rubric.md`.
+6. Read `skill-audit-summary.md`, `skill-improvement-plan.md`, and the JSON reports relevant to the user's question. For repo-wide spec-first source audits, read `reviewer-guard-coverage-report.json` before judging reviewer-agent guard completeness.
+7. Review the deterministic findings and reviewer guard coverage facts using `references/expert-audit-rubric.md`.
 8. Treat scorecards as signals, not gates.
 9. For each P0/P1 finding you surface to the user, include signal, file/section evidence, counter-evidence status, decision, reason, recommendation, and confidence.
 10. Do not modify source files unless the user separately asks to apply a specific fix.

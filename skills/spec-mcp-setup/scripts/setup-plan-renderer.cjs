@@ -2,7 +2,7 @@
 'use strict';
 
 const path = require('node:path');
-const { loadHelperRegistry } = require('../../../src/cli/helpers/setup-facts');
+const fs = require('node:fs');
 
 const REVIEW_RISK_FLAGS = [
   'unpinned-npx',
@@ -14,16 +14,23 @@ const REVIEW_RISK_FLAGS = [
   'unpinned-latest',
 ];
 
-const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
-const MCP_TOOLS_JSON = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'mcp-tools.json');
-const PROVIDER_TOOLS_JSON = path.join(REPO_ROOT, 'skills', 'spec-mcp-setup', 'provider-tools.json');
+const SKILL_DIR = path.resolve(__dirname, '..');
+const MCP_TOOLS_JSON = path.join(SKILL_DIR, 'mcp-tools.json');
+const PROVIDER_TOOLS_JSON = path.join(SKILL_DIR, 'provider-tools.json');
+const HELPER_TOOLS_JSON = path.join(SKILL_DIR, 'helper-tools.json');
 
 function readJson(filePath, fallback) {
   try {
-    return JSON.parse(require('node:fs').readFileSync(filePath, 'utf8'));
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
   } catch (_error) {
     return fallback;
   }
+}
+
+function loadHelperRegistry() {
+  return {
+    registry: readJson(HELPER_TOOLS_JSON, { helpers: [] }),
+  };
 }
 
 function parseArgs(argv) {
@@ -106,7 +113,7 @@ function toPosix(value) {
 
 function resolveGraphifyScope(repoRoot, requirementWorkspace) {
   const raw = toPosix(requirementWorkspace).trim();
-  const artifactRoot = '.spec-first/workspace/providers/graphify/graphify-out';
+  const artifactRoot = 'graphify-out';
   if (!raw) {
     return {
       ok: true,
@@ -178,10 +185,12 @@ function optionalMcpProviders(mcpRegistry, repoRoot) {
         route: 'install-mcp',
         install_route: 'install-mcp',
         native_interfaces: (tool.provider_readiness && tool.provider_readiness.native_interfaces) || ['mcp'],
+        package_spec: packageSpec,
         install_commands_display: [
-          `npx -y ${packageSpec} --help`,
-          `host config: npx -y ${packageSpec} serve`,
-          `project bootstrap: npx -y ${packageSpec} init`,
+          `npm install -g ${packageSpec}`,
+          'host config: codegraph serve --mcp',
+          'project bootstrap: codegraph init',
+          'project status: codegraph status',
         ],
         writes_display: {
           host_config: true,
@@ -194,7 +203,8 @@ function optionalMcpProviders(mcpRegistry, repoRoot) {
         tool_install_root: null,
         cache_root: path.join(repoRoot, '.spec-first', 'cache'),
         artifact_root: path.join(repoRoot, '.codegraph'),
-        first_generation_display: `cd ${repoRoot} && npx -y ${packageSpec} init`,
+        first_generation_display: `cd ${repoRoot} && codegraph init && codegraph status`,
+        auto_refresh_display: 'codegraph serve --mcp Auto-Sync watcher (provider-owned; default debounce about 2s)',
         will_not_do: [
           'will not treat CodeGraph output as confirmed source truth',
         ],
@@ -237,28 +247,37 @@ function helperProviders(providerRegistry, repoRoot, requirementWorkspace) {
           : {},
         writes_display: {
           host_config: false,
-          project_artifacts: [scope.artifact_root].filter(Boolean),
-          tool_install_root: '.spec-first/tools',
-          cache_root: '.spec-first/cache/uv',
+          provider_runtime: [
+            '.codex/skills/graphify/',
+            '.codex/hooks.json',
+            'AGENTS.md',
+            '.claude/skills/graphify/',
+            'CLAUDE.md',
+            '.graphify_version',
+          ],
+          project_artifacts: [scope.artifact_root, '.git/hooks/post-commit', '.git/hooks/post-checkout'].filter(Boolean),
+          tool_install_root: null,
+          cache_root: null,
           artifact_root: scope.artifact_root,
         },
         workspace_root: repoRoot,
-        tool_install_root: path.join(repoRoot, '.spec-first', 'tools'),
-        cache_root: path.join(repoRoot, '.spec-first', 'cache', 'uv'),
+        tool_install_root: null,
+        cache_root: null,
         artifact_root: scope.artifact_root ? path.join(repoRoot, scope.artifact_root) : null,
         requirement_workspace_path: scope.requirement_workspace_path,
         first_generation_display: scope.ok
-          ? `graphify extract ${scope.input_scope} --out ${scope.artifact_root} --no-cluster`
+          ? 'graphify install --project --platform <current-host>; graphify extract . (fallback: graphify update . code-only when extract fails)'
           : `skipped: ${scope.first_generation_next_action}`,
         auto_refresh_display: scope.ok
-          ? 'graphify hook install (project-level provider-native auto-refresh; no graphify watch)'
+          ? 'graphify hook install (git repo only; provider-owned post-commit/post-checkout refresh)'
           : `skipped: ${scope.first_generation_next_action}`,
         first_generation_next_action: scope.first_generation_next_action,
         package_spec: packageSpec,
         will_not_do: [
-          'will not install Graphify SKILL/MCP',
+          'will not install Graphify MCP server',
           'will not start graphify watch',
-          'will not run graphify .',
+          'setup uses scriptable graphify extract for first generation instead of assistant command syntax',
+          'will not auto-add or auto-commit graphify-out',
           'will not promote generated artifacts to docs or source truth',
         ],
         risk_flags: (provider.safety && provider.safety.risk_flags) || [],
@@ -266,6 +285,8 @@ function helperProviders(providerRegistry, repoRoot, requirementWorkspace) {
         pin_status: provider.safety && provider.safety.version_policy && provider.safety.version_policy.pin_status,
         review_required: Boolean(provider.safety && provider.safety.review_required),
         install_effect: provider.safety && provider.safety.install_effect,
+        usage_display: '$graphify . / /graphify . after the provider project skill is installed; setup uses CLI extract with code-only update fallback for first generation.',
+        gitignore_policy: 'spec-first init managed block ignores .codegraph/, graphify-out/cost.json, and graphify-out/.graphify_python; setup does not auto-add, auto-commit, or auto-ignore the whole graphify-out/ directory.',
         ...safety,
       };
     });

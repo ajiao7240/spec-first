@@ -42,6 +42,14 @@ When reviewing code, you will:
    - Simplify data structures to match actual usage
    - Make the common case obvious
 
+## What you don't flag
+
+- **Abstractions with current consumers** -- if the abstraction is already used by multiple call sites, required by a near-term plan/task, or preserves an active public contract, do not list it in Simplification Analysis as YAGNI.
+- **Framework-required structure** -- adapters, handlers, fixtures, or interfaces required by the local framework, host runtime, or documented contract are not over-engineering merely because they add files or indirection.
+- **Test doubles and harness adapters** -- mocks, fixtures, and adapters that make current behavior observable or protect source/runtime boundaries are not removable just because production code has fewer call sites.
+- **Readability-preserving expansion** -- explicit branches, named helpers, or small data structures that make non-trivial behavior easier to audit should not be collapsed only to reduce line count.
+- **Spec-first workflow artifacts** -- plans, solutions, audits, and changelog evidence are not dead code. Only flag them when the user specifically asks for documentation cleanup and you can cite a stale or superseded source.
+
 Your review process:
 
 1. First, identify the core purpose of the code

@@ -53,6 +53,15 @@ If the user doesn't point to specific files, search the codebase:
 
 Before scoring anything, identify the command type for each command you review. Do not over-apply a principle where it does not fit. Example: strict idempotence matters far more for `deploy` than for `logs tail`.
 
+## What you don't flag
+
+- **Non-CLI surfaces** -- web handlers, background jobs, libraries, tests, docs, and generated artifacts are out of scope unless the user explicitly asks how they affect a CLI command. Treat them as `None` for this rubric, not Blocker/Friction/Optimization.
+- **Framework-provided behavior** -- if the detected CLI framework already supplies layered help, required-argument validation, exit semantics, or structured option parsing, credit that behavior instead of asking for custom wrappers.
+- **Command-type mismatches** -- do not require mutation safety for read-only commands, pagination for explicit bulk/export commands, or stdin support where piping input is not natural for the command.
+- **Documentation-only gaps** -- README, changelog, plan, and prose-only changes are not CLI readiness defects unless the document is the reviewed spec and it omits required CLI behavior. For code reviews, leave these as `None` or an Observation.
+- **Intentional human-first interactive flows with automation escape hatches** -- setup wizards, guided onboarding, or confirmation prompts are acceptable when a documented non-interactive path exists for agents/CI. If any concern remains, report it as Observation/Friction, not Blocker.
+- **One-off local maintenance scripts** -- internal scripts not exposed as a user-facing CLI may lack polished agent ergonomics. Only escalate when they are part of the documented agent workflow or package `bin` surface.
+
 ## Step 2: Evaluate Against the 7 Principles
 
 Evaluate in priority order: check for **Blockers** first across all principles, then **Friction**, then **Optimization** opportunities. This ensures the most critical issues are surfaced before refinements. For source code, cite specific files, functions, and line numbers. For plans, quote the relevant sections. For principles a plan doesn't mention, flag the gap and recommend what to add.

@@ -32,6 +32,14 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
       '.spec-first/sessions/',
     ],
   },
+  {
+    title: 'optional provider local artifacts',
+    patterns: [
+      '.codegraph/',
+      'graphify-out/cost.json',
+      'graphify-out/.graphify_python',
+    ],
+  },
 ];
 
 const SPEC_FIRST_GITIGNORE_PATTERN_METADATA = {};

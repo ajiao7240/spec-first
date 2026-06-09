@@ -62,8 +62,12 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
         required: true,
         project_file: '.codegraph/codegraph.db',
         unix: {
-          command: 'npx',
-          args: ['-y', '{{package}}@{{version}}', 'init'],
+          command: 'codegraph',
+          args: ['init'],
+        },
+        status_probe: {
+          command: 'codegraph',
+          args: ['status'],
         },
       },
       provider_readiness: {
@@ -73,6 +77,25 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
           owner: 'runtime-setup',
           scope: 'project',
           requires_explicit_gate: true,
+        },
+      },
+    });
+    expect(toolsJson.tools.find((tool) => tool.id === 'codegraph')).toMatchObject({
+      package: '@colbymchenry/codegraph',
+      version: '0.9.9',
+      installation: {
+        kind: 'global-npm',
+        unix: {
+          command: 'npm',
+        },
+        verify_command: {
+          command: 'codegraph',
+        },
+      },
+      host_config: {
+        codex: {
+          command: 'codegraph',
+          args: ['serve', '--mcp'],
         },
       },
     });
@@ -96,11 +119,21 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(read(installHelpersPs1)).toContain('[string]$RequirementWorkspace');
     expect(read(installHelpersPs1)).toContain('Resolve-RequirementWorkspace');
     expect(read(installHelpersPs1)).toContain('graphify extract');
-    expect(read(installHelpersPs1)).toContain('--no-cluster');
-    expect(read(installHelpersPs1)).toContain('.spec-first/workspace/providers/graphify/graphify-out');
-    expect(read(installHelpersPs1)).toContain('uvx --from graphifyy==0.8.35 graphify');
-    expect(read(installHelpersPs1)).not.toContain('uv tool install graphifyy==0.8.35');
+    expect(read(installHelpersPs1)).toContain('graphify update .');
+    expect(read(installHelpersPs1)).toContain("$graphifyVersionPin = '0.8.36'");
+    expect(read(installHelpersPs1)).toContain('uv tool install --force "graphifyy==$graphifyVersionPin"');
+    expect(read(installHelpersPs1)).toContain('pipx install --force "graphifyy==$graphifyVersionPin"');
+    expect(read(installHelpersPs1)).toContain('graphify install --project --platform $platformName');
+    expect(read(installHelpersPs1)).toContain('graphify hook install');
+    expect(read(installHelpersPs1)).toContain('graphify hook status');
+    expect(read(installHelpersPs1)).toContain('Test-GraphifyFirstGenerationReadyForHook');
+    expect(read(installHelpersPs1)).toContain('Set-GraphifyHookSkipped');
+    expect(read(installHelpersPs1)).toContain('graphify query');
+    expect(read(installHelpersPs1)).not.toContain('--no-cluster');
+    expect(read(installHelpersPs1)).not.toContain('.spec-first/workspace/providers/graphify/graphify-out');
+    expect(read(installHelpersPs1)).not.toContain('uvx --from graphifyy==0.8.36 graphify');
     expect(read(installHelpersPs1)).not.toContain('graphify .');
+    expect(read(installMcpPs1)).toContain('codegraph sync');
     for (const section of [
       'Execution result',
       'MCP servers',
@@ -192,18 +225,22 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
             first_generation: {
               owner: 'runtime-setup',
               status: 'completed',
-              scope: 'run-scoped-workspace',
+              scope: 'project',
               requires_explicit_gate: true,
               requirement_workspace_path: '.spec-first/workspace/requirements/demo',
-              artifact_root: '.spec-first/workspace/requirements/demo/graphify-out',
-              artifact_refs: ['.spec-first/workspace/requirements/demo/graphify-out/GRAPH_REPORT.md'],
+              artifact_root: 'graphify-out',
+              artifact_refs: ['graphify-out/graph.json'],
               next_action: null,
             },
             steady_state: {
               refresh_owner: 'provider-native',
-              refresh_mode: 'cli-mcp-hook-on-demand',
-              hook_default: false,
+              refresh_mode: 'skill-cli-hook-on-demand',
+              hook_default: true,
               usage_owner: 'downstream-skill',
+              hook_installed: true,
+              hook_verified: true,
+              hook_status: 'verified',
+              hook_skipped_reason: null,
             },
             usage_note: 'Use Graphify CLI query/path/explain for project-graph candidates.',
           },
@@ -247,6 +284,12 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
         first_generation: {
           owner: 'runtime-setup',
           status: 'completed',
+        },
+        steady_state: {
+          refresh_mode: 'skill-cli-hook-on-demand',
+          hook_installed: true,
+          hook_verified: true,
+          hook_status: 'verified',
         },
       });
       expect(runtimeCapabilities.schema_version).toBe('runtime-capabilities.v1');

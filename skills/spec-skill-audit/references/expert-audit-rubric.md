@@ -40,6 +40,7 @@ Treat as P2 when evidence shows:
 - progressive disclosure is weak but not dangerous
 - references are stale or broken
 - scoring or reporting is present but lacks human review guidance
+- a review-style agent declares what it is hunting for but lacks a corresponding `What you don't flag` guard section or the guard does not cover its highest false-positive-risk dimensions; use `reviewer-guard-coverage-report.json` as section-presence evidence, then check counter-evidence before deciding. Agents whose role is explicitly adversarial or challenge-only may be N/A rather than findings.
 
 ## Scorecard Rule
 

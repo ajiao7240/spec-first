@@ -23,8 +23,12 @@ if ([string]::IsNullOrWhiteSpace($providerToolRoot)) { $providerToolRoot = Join-
 $providerCacheRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_CACHE_ROOT')
 if ([string]::IsNullOrWhiteSpace($providerCacheRoot)) { $providerCacheRoot = Join-Path $providerRepoRoot '.spec-first/cache' }
 $graphifyArtifactRootDefault = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT')
-if ([string]::IsNullOrWhiteSpace($graphifyArtifactRootDefault)) { $graphifyArtifactRootDefault = '.spec-first/workspace/providers/graphify/graphify-out' }
-$env:PATH = "$providerToolRoot$([System.IO.Path]::PathSeparator)$env:PATH"
+if ([string]::IsNullOrWhiteSpace($graphifyArtifactRootDefault)) { $graphifyArtifactRootDefault = 'graphify-out' }
+$graphifyVersionPin = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_VERSION_PIN')
+if ([string]::IsNullOrWhiteSpace($graphifyVersionPin)) { $graphifyVersionPin = '0.8.36' }
+$homeLocalBin = Join-Path $HOME '.local/bin'
+$homeCargoBin = Join-Path $HOME '.cargo/bin'
+$env:PATH = "$homeLocalBin$([System.IO.Path]::PathSeparator)$homeCargoBin$([System.IO.Path]::PathSeparator)$providerToolRoot$([System.IO.Path]::PathSeparator)$env:PATH"
 
 $script:MirrorEndpoints = [ordered]@{
   npm    = 'https://registry.npmmirror.com'
@@ -822,7 +826,7 @@ function Resolve-RequirementWorkspace {
   }
 
   if ([string]::IsNullOrWhiteSpace($ArtifactRoot)) {
-    $ArtifactRoot = '.spec-first/workspace/providers/graphify/graphify-out'
+    $ArtifactRoot = 'graphify-out'
   }
   if ([System.IO.Path]::IsPathRooted($ArtifactRoot)) {
     return [ordered]@{ ok = $false; reason_code = 'graphify-artifact-root-absolute' }
@@ -862,36 +866,204 @@ function Invoke-GraphifyFirstGenerationIfRequested {
     return
   }
 
-  New-Item -ItemType Directory -Force -Path ([string]$resolved.artifact_abs) | Out-Null
-  if (Invoke-HelperCommand { graphify extract ([string]$resolved.workspace_abs) --out ([string]$resolved.artifact_abs) --no-cluster }) {
-    $artifactRef = ([string]$resolved.artifact_rel) + '/GRAPH_REPORT.md'
-    if (-not (Test-Path -LiteralPath (Join-Path $repoRoot $artifactRef) -PathType Leaf)) {
-      $artifactRef = ''
+  if ([string]$resolved.workspace_rel -eq '.') {
+    Push-Location $repoRoot
+    try {
+      $extractOk = Invoke-HelperCommand { graphify extract . }
+    } finally {
+      Pop-Location
     }
+  } else {
+    $extractOk = Invoke-HelperCommand { graphify extract ([string]$resolved.workspace_abs) --out $repoRoot }
+  }
+  if ($extractOk) {
+    $artifactRef = Get-GraphifyArtifactRef -RepoRoot $repoRoot -ArtifactRoot ([string]$resolved.artifact_rel)
+    Invoke-GraphifyQueryProbe -RepoRoot $repoRoot -ArtifactRoot ([string]$resolved.artifact_abs)
     Set-GraphifyFirstGenerationFact -Status 'completed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -ArtifactRef $artifactRef
   } else {
+    if ([string]$resolved.workspace_rel -eq '.') {
+      $fallbackOk = Invoke-GraphifyCodeOnlyFallback -RepoRoot $repoRoot -WorkspacePath ([string]$resolved.workspace_rel)
+      if ($fallbackOk) {
+        $artifactRef = Get-GraphifyArtifactRef -RepoRoot $repoRoot -ArtifactRoot ([string]$resolved.artifact_rel)
+        if (-not [string]::IsNullOrWhiteSpace($artifactRef)) {
+          Invoke-GraphifyQueryProbe -RepoRoot $repoRoot -ArtifactRoot ([string]$resolved.artifact_abs)
+          Set-GraphifyFirstGenerationFact -Status 'completed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -ArtifactRef $artifactRef -NextAction 'graphify-code-only-fallback-used'
+          return
+        }
+      }
+    }
     Set-GraphifyFirstGenerationFact -Status 'failed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -NextAction 'graphify-first-generation-failed'
   }
 }
 
-function Write-GraphifyWrapper {
-  if (-not (Test-CommandExists 'uv')) { return $false }
-  New-Item -ItemType Directory -Force -Path $providerToolRoot | Out-Null
-  New-Item -ItemType Directory -Force -Path (Join-Path $providerCacheRoot 'uv') | Out-Null
-  $wrapperPath = Join-Path $providerToolRoot 'graphify.cmd'
-  $wrapperPs1 = Join-Path $providerToolRoot 'graphify.ps1'
-  "@echo off`r`nset UV_CACHE_DIR=$providerCacheRoot\uv`r`nuvx --from graphifyy==0.8.35 graphify %*`r`n" | Set-Content -Encoding ascii -LiteralPath $wrapperPath
-  "`$env:UV_CACHE_DIR = '$($providerCacheRoot.Replace("'", "''"))/uv'`nuvx --from graphifyy==0.8.35 graphify @args`n" | Set-Content -Encoding utf8 -LiteralPath $wrapperPs1
+function Get-GraphifyArtifactRef {
+  param(
+    [string]$RepoRoot,
+    [string]$ArtifactRoot
+  )
+  foreach ($candidate in @('graph.json', 'GRAPH_REPORT.md')) {
+    $relative = ($ArtifactRoot.TrimEnd('/')) + '/' + $candidate
+    if (Test-Path -LiteralPath (Join-Path $RepoRoot $relative) -PathType Leaf) {
+      return $relative
+    }
+  }
+  return ''
+}
+
+function Invoke-GraphifyCodeOnlyFallback {
+  param(
+    [string]$RepoRoot,
+    [string]$WorkspacePath
+  )
+  if ($WorkspacePath -ne '.') { return $false }
+  Push-Location $RepoRoot
+  try {
+    return (Invoke-HelperCommand { graphify update . })
+  } finally {
+    Pop-Location
+  }
+}
+
+function Test-GraphifyCliVersionMatchesPin {
+  if (-not (Test-CommandExists 'graphify')) { return $false }
+  try {
+    $output = (& graphify --version 2>$null) -join "`n"
+    return ($output -match "(^|[^0-9A-Za-z.])$([regex]::Escape($graphifyVersionPin))([^0-9A-Za-z.]|$)")
+  } catch {
+    return $false
+  }
+}
+
+function Install-GraphifyCli {
+  if ((Test-CommandExists 'graphify') -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
+  if (Test-CommandExists 'uv') {
+    if (Invoke-HelperCommand { uv tool install --force "graphifyy==$graphifyVersionPin" }) {
+      if ((Test-CommandExists 'graphify') -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
+    }
+  }
+  if (Test-CommandExists 'pipx') {
+    if (Invoke-HelperCommand { pipx install --force "graphifyy==$graphifyVersionPin" }) {
+      if ((Test-CommandExists 'graphify') -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
+    }
+  }
+  return $false
+}
+
+function Get-GraphifyProjectPlatform {
+  $hostValue = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_HOST')
+  if (@('claude', 'codex') -contains $hostValue) { return $hostValue }
+  return 'codex'
+}
+
+function Install-GraphifyProjectSkill {
+  param([string]$RepoRoot)
+  $platformName = Get-GraphifyProjectPlatform
+  Push-Location $RepoRoot
+  try {
+    if (Invoke-HelperCommand { graphify install --project --platform $platformName }) {
+      Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_CONFIGURED -Value 'true'
+      return $true
+    }
+  } finally {
+    Pop-Location
+  }
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_CONFIGURED -Value 'false'
+  Set-GraphifyFirstGenerationFact -Status 'skipped' -NextAction 'graphify-project-skill-install-failed'
+  return $false
+}
+
+function Install-GraphifyHookIfAvailable {
+  param([string]$RepoRoot)
+  Push-Location $RepoRoot
+  try {
+    git rev-parse --is-inside-work-tree *> $null
+    if ($LASTEXITCODE -eq 0) {
+      if (Invoke-HelperCommand { graphify hook install }) {
+        Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED -Value 'true'
+        if (Invoke-HelperCommand { graphify hook status }) {
+          Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED -Value 'true'
+          Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS -Value 'verified'
+          return $true
+        }
+        Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED -Value 'false'
+        Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS -Value 'failed'
+        Set-GraphifyFirstGenerationFact -Status ([Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_STATUS')) -NextAction 'graphify-hook-status-failed'
+        return $false
+      } else {
+        Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED -Value 'false'
+        Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED -Value 'false'
+        Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS -Value 'failed'
+        Set-GraphifyFirstGenerationFact -Status ([Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_STATUS')) -NextAction 'graphify-hook-install-failed'
+        return $false
+      }
+    }
+  } finally {
+    Pop-Location
+  }
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED -Value 'false'
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED -Value 'false'
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS -Value 'skipped'
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_SKIPPED_REASON -Value 'not-a-git-repo'
   return $true
+}
+
+function Test-GraphifyFirstGenerationReadyForHook {
+  if ([Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_STATUS') -ne 'completed') {
+    return $false
+  }
+  $artifactRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT')
+  if ([string]::IsNullOrWhiteSpace($artifactRoot)) { $artifactRoot = 'graphify-out' }
+  $artifactRef = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_REF')
+  if (-not [string]::IsNullOrWhiteSpace($artifactRef) -and (Test-Path -LiteralPath (Join-Path $providerRepoRoot $artifactRef) -PathType Leaf)) {
+    return $true
+  }
+  return (
+    (Test-Path -LiteralPath (Join-Path $providerRepoRoot (Join-Path $artifactRoot 'graph.json')) -PathType Leaf) -or
+    (Test-Path -LiteralPath (Join-Path $providerRepoRoot (Join-Path $artifactRoot 'GRAPH_REPORT.md')) -PathType Leaf)
+  )
+}
+
+function Set-GraphifyHookSkipped {
+  param([string]$Reason)
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED -Value 'false'
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED -Value 'false'
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS -Value 'skipped'
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_SKIPPED_REASON -Value $Reason
+}
+
+function Invoke-GraphifyQueryProbe {
+  param(
+    [string]$RepoRoot,
+    [string]$ArtifactRoot
+  )
+  $graphJson = Join-Path $ArtifactRoot 'graph.json'
+  if (-not (Test-Path -LiteralPath $graphJson -PathType Leaf)) { return }
+  Push-Location $RepoRoot
+  try {
+    if (Invoke-HelperCommand { graphify query 'spec-first setup readiness' --graph $graphJson }) {
+      Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED -Value 'true'
+    } else {
+      Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED -Value 'false'
+    }
+  } finally {
+    Pop-Location
+  }
 }
 
 function Invoke-GraphifyProviderInstallIfRequested {
   if ($mode -ne 'install') { return }
   if (-not (Test-ProviderConsentApproved -Provider 'GRAPHIFY')) { return }
-  if (-not (Test-CommandExists 'graphify')) {
-    Write-GraphifyWrapper | Out-Null
+  if (-not (Install-GraphifyCli)) {
+    Set-GraphifyFirstGenerationFact -Status 'skipped' -NextAction 'graphify-cli-install-failed'
+    return
   }
+  if (-not (Install-GraphifyProjectSkill -RepoRoot $providerRepoRoot)) { return }
   Invoke-GraphifyFirstGenerationIfRequested
+  if (Test-GraphifyFirstGenerationReadyForHook) {
+    Install-GraphifyHookIfAvailable -RepoRoot $providerRepoRoot | Out-Null
+  } else {
+    Set-GraphifyHookSkipped -Reason 'first-generation-not-completed'
+  }
 }
 
 Invoke-GraphifyProviderInstallIfRequested

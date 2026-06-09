@@ -43,7 +43,9 @@ assert_eq "required baseline tools are current" "sequential-thinking,context7" "
 assert_eq "registry categories are mcp only" "true" "$(jq -r 'all(.tools[]; .category == "mcp")' "$TOOLS_JSON")"
 assert_eq "optional tools require explicit opt-in" "true" "$(jq -r 'all(.tools[]; (.required == true) or (.opt_in.explicit_consent_required == true))' "$TOOLS_JSON")"
 assert_eq "codegraph is explicit opt-in" "true" "$(jq -r '.tools[] | select(.id == "codegraph") | (.required == false and .opt_in.explicit_consent_required == true and .provider_readiness.kind == "code-structure")' "$TOOLS_JSON")"
-assert_eq "codegraph project bootstrap runs init" "true" "$(jq -r '.tools[] | select(.id == "codegraph") | (.project_bootstrap.required == true and .project_bootstrap.unix.command == "npx" and (.project_bootstrap.unix.args | index("init") != null))' "$TOOLS_JSON")"
+assert_eq "codegraph installs scoped package with codegraph CLI" "true" "$(jq -r '.tools[] | select(.id == "codegraph") | (.package == "@colbymchenry/codegraph" and .version == "0.9.9" and .installation.kind == "global-npm" and .installation.unix.command == "npm" and (.installation.unix.args | index("{{package}}@{{version}}") != null) and .installation.verify_command.command == "codegraph")' "$TOOLS_JSON")"
+assert_eq "codegraph host config uses mcp server command" "true" "$(jq -r '.tools[] | select(.id == "codegraph") | (.host_config.codex.command == "codegraph" and (.host_config.codex.args | join(" ") == "serve --mcp"))' "$TOOLS_JSON")"
+assert_eq "codegraph project bootstrap runs init and status" "true" "$(jq -r '.tools[] | select(.id == "codegraph") | (.project_bootstrap.required == true and .project_bootstrap.unix.command == "codegraph" and (.project_bootstrap.unix.args | index("init") != null) and .project_bootstrap.status_probe.command == "codegraph" and (.project_bootstrap.status_probe.args | index("status") != null))' "$TOOLS_JSON")"
 assert_eq "summary includes project bootstrap column" "true" "$(jq -r '.summary_columns | index("project_bootstrap") != null' "$TOOLS_JSON")"
 
 while IFS= read -r script_path; do
@@ -55,13 +57,21 @@ assert "bash install-mcp gates optional tools" grep -q 'optional_tool_allowed' "
 assert "bash install-mcp keeps registry_not_required for ungated optional tools" grep -q 'registry_not_required' "$SCRIPTS_DIR/install-mcp.sh"
 assert "bash configure-host guards optional clobber" grep -q 'SPEC_FIRST_MCP_CONFIGURE_OVERWRITE' "$SCRIPTS_DIR/configure-host.sh"
 assert "bash install-helpers accepts requirement workspace" grep -q -- '--requirement-workspace' "$SCRIPTS_DIR/install-helpers.sh"
-assert "bash install-helpers uses Graphify headless extract" grep -q -- 'graphify extract "$workspace_abs" --out "$artifact_abs" --no-cluster' "$SCRIPTS_DIR/install-helpers.sh"
-assert "bash install-helpers writes Graphify provider artifact root" grep -q -- '.spec-first/workspace/providers/graphify/graphify-out' "$SCRIPTS_DIR/install-helpers.sh"
-if grep -q 'uv tool install graphifyy==0.8.35' "$SCRIPTS_DIR/install-helpers.sh"; then
-  fail "install-helpers must not run user-global uv tool install for Graphify"
+assert "bash install-helpers pins Graphify version" grep -q -- 'GRAPHIFY_VERSION_PIN="${SPEC_FIRST_PROVIDER_GRAPHIFY_VERSION_PIN:-0.8.36}"' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers installs Graphify CLI with uv tool force pin" grep -q -- 'uv tool install --force "graphifyy==$GRAPHIFY_VERSION_PIN"' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers installs Graphify project skill" grep -q -- 'graphify install --project --platform "$platform"' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers generates project-root graphify-out" grep -q -- 'graphify extract .' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers falls back to code-only Graphify update" grep -q -- 'graphify update .' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers installs Graphify hook" grep -q -- 'graphify hook install' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers verifies Graphify hook" grep -q -- 'graphify hook status' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers gates hook on first generation" grep -q -- 'graphify_first_generation_ready_for_hook' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-mcp syncs pending CodeGraph status" grep -q -- 'codegraph sync' "$SCRIPTS_DIR/install-mcp.sh"
+assert "setup plan renderer reads registry from skill mirror" grep -q -- "const SKILL_DIR = path.resolve(__dirname, '..')" "$SCRIPTS_DIR/setup-plan-renderer.cjs"
+if grep -q '.spec-first/workspace/providers/graphify/graphify-out' "$SCRIPTS_DIR/install-helpers.sh"; then
+  fail "install-helpers must not use old .spec-first Graphify artifact root"
 fi
-if grep -q 'graphify \.' "$SCRIPTS_DIR/install-helpers.sh"; then
-  fail "install-helpers must not invoke graphify ."
+if grep -q 'uvx --from graphifyy==0.8.36 graphify' "$SCRIPTS_DIR/install-helpers.sh"; then
+  fail "install-helpers must not create workspace-local uvx wrapper for Graphify"
 fi
 
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/spec-first-mcp-setup.XXXXXX")"

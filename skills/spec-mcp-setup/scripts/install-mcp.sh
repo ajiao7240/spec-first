@@ -597,6 +597,16 @@ append_result() {
 RUN_STDOUT=""
 RUN_DIAGNOSTIC=""
 RUN_EXIT_CODE=0
+
+version_output_matches_expected() {
+  local expected="$1"
+  local output="$2"
+  if [ -z "$expected" ]; then
+    return 0
+  fi
+  grep -Eq "(^|[^0-9A-Za-z.])${expected//./\\.}([^0-9A-Za-z.]|$)" <<<"$output"
+}
+
 run_and_capture() {
   local stage="$1"
   local timeout_seconds="$2"
@@ -748,6 +758,51 @@ EOF
       package_spec="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | if ((.package // "") != "" and (.version // "") != "") then "\(.package)@\(.version)" else "" end' "$TOOLS_JSON")"
       write_warmup_cache "$tool_id" "$install_command" "$warmup_hash" "$package_spec" "${install_args[@]}"
     fi
+  elif [ "$status" = "ready" ] && [ "$install_kind" = "global-npm" ]; then
+    install_command="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.unix.command' "$TOOLS_JSON")"
+    install_args=()
+    while IFS= read -r arg; do
+      install_args+=("$arg")
+    done <<EOF
+$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'.tools[] | select(.id == $id) as $t | $t.installation.unix.args[] | expand_tpl($t)' "$TOOLS_JSON")
+EOF
+    verify_command="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.verify_command.command // empty' "$TOOLS_JSON")"
+    verify_args=()
+    if [ -n "$verify_command" ]; then
+      while IFS= read -r arg; do
+        verify_args+=("$arg")
+      done <<EOF
+$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'.tools[] | select(.id == $id) as $t | ($t.installation.verify_command.args // [])[] | expand_tpl($t)' "$TOOLS_JSON")
+EOF
+    fi
+    expected_version="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .version // empty' "$TOOLS_JSON")"
+    if [ -n "$verify_command" ] \
+      && run_and_capture "verify-before-install:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$verify_command" "${verify_args[@]}" \
+      && version_output_matches_expected "$expected_version" "$RUN_STDOUT $RUN_DIAGNOSTIC"; then
+      last_action="global-install-cache-hit"
+    elif ! run_and_capture "install:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$install_command" "${install_args[@]}"; then
+      status="action-required"
+      last_action="failed"
+      reason_code="install_failed"
+      next_action="检查 npm 全局安装权限、网络和 registry 配置"
+      exit_code="$RUN_EXIT_CODE"
+      diagnostic_summary="$RUN_DIAGNOSTIC"
+    elif [ -n "$verify_command" ] && ! run_and_capture "verify-after-install:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$verify_command" "${verify_args[@]}"; then
+      status="action-required"
+      last_action="failed"
+      reason_code="install_verify_failed"
+      next_action="确认安装后的 CLI 在 PATH 上可用: $verify_command"
+      exit_code="$RUN_EXIT_CODE"
+      diagnostic_summary="$RUN_DIAGNOSTIC"
+    elif ! version_output_matches_expected "$expected_version" "$RUN_STDOUT $RUN_DIAGNOSTIC"; then
+      status="action-required"
+      last_action="failed"
+      reason_code="install_verify_version_mismatch"
+      next_action="确认 PATH 上的 $verify_command 来自 pinned package version $expected_version，而不是其他同名 CLI"
+      diagnostic_summary="$RUN_DIAGNOSTIC"
+    else
+      last_action="global-installed"
+    fi
   fi
 
   if [ "$status" = "ready" ] && [ "$host_config_required" = "true" ]; then
@@ -812,6 +867,68 @@ EOF
     last_action="project-bootstrap-cache-hit"
   fi
 
+  if [ "$status" = "ready" ]; then
+    status_probe_command="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .project_bootstrap.status_probe.command // empty' "$TOOLS_JSON")"
+    if [ -n "$status_probe_command" ]; then
+      status_probe_args=()
+      while IFS= read -r arg; do
+        status_probe_args+=("$arg")
+      done <<EOF
+$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'.tools[] | select(.id == $id) as $t | ($t.project_bootstrap.status_probe.args // [])[] | expand_tpl($t)' "$TOOLS_JSON")
+EOF
+      pushd "$REPO_ROOT" >/dev/null
+      if run_and_capture "project-status:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$status_probe_command" "${status_probe_args[@]}"; then
+        status_probe_output="$RUN_STDOUT $RUN_DIAGNOSTIC"
+        if [ "$tool_id" = "codegraph" ] && grep -q "Pending Changes" <<<"$status_probe_output"; then
+          if run_and_capture "project-sync:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" codegraph sync; then
+            if run_and_capture "project-status-after-sync:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$status_probe_command" "${status_probe_args[@]}"; then
+              status_probe_output="$RUN_STDOUT $RUN_DIAGNOSTIC"
+              if grep -q "Pending Changes" <<<"$status_probe_output"; then
+                status="action-required"
+                last_action="failed"
+                reason_code="project_status_pending_changes"
+                next_action="Run codegraph sync from the project root and inspect pending changes."
+                diagnostic_summary="$RUN_DIAGNOSTIC"
+              elif [ "$last_action" = "project-bootstrap-cache-hit" ]; then
+                last_action="project-status-synced"
+              elif [ "$last_action" = "project-bootstrapped" ]; then
+                last_action="project-bootstrapped-status-synced"
+              fi
+            else
+              status="action-required"
+              last_action="failed"
+              reason_code="project_status_failed_after_sync"
+              next_action="Run codegraph status from the project root and inspect local index state."
+              exit_code="$RUN_EXIT_CODE"
+              diagnostic_summary="$RUN_DIAGNOSTIC"
+            fi
+          else
+            status="action-required"
+            last_action="failed"
+            reason_code="project_sync_failed"
+            next_action="Run codegraph sync from the project root and inspect sync errors."
+            exit_code="$RUN_EXIT_CODE"
+            diagnostic_summary="$RUN_DIAGNOSTIC"
+          fi
+        fi
+        popd >/dev/null
+        if [ "$status" = "ready" ] && [ "$last_action" = "project-bootstrap-cache-hit" ]; then
+          last_action="project-status-cache-hit"
+        elif [ "$status" = "ready" ] && [ "$last_action" = "project-bootstrapped" ]; then
+          last_action="project-bootstrapped-status-checked"
+        fi
+      else
+        popd >/dev/null
+        status="action-required"
+        last_action="failed"
+        reason_code="project_status_failed"
+        next_action="检查 provider-native project status 命令和本地索引产物"
+        exit_code="$RUN_EXIT_CODE"
+        diagnostic_summary="$RUN_DIAGNOSTIC"
+      fi
+    fi
+  fi
+
   append_result "$tool_id" "$status" "$last_action" "$install_kind" "$reason_code" "$next_action" "$configured_path" "$selected_scope" "$fallback_applied" "$exit_code" "$diagnostic_summary" "$repair_diagnostic_summary"
 done
 
@@ -823,10 +940,9 @@ if [ -n "$ONLY_FILTER" ] && selection_contains "graphify"; then
   set +e
   helper_output="$(
     SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT=approved \
+    SPEC_FIRST_PROVIDER_HOST="$HOST" \
     SPEC_FIRST_PROVIDER_REPO_ROOT="$REPO_ROOT" \
-    SPEC_FIRST_PROVIDER_TOOL_ROOT="$REPO_ROOT/.spec-first/tools" \
-    SPEC_FIRST_PROVIDER_CACHE_ROOT="$REPO_ROOT/.spec-first/cache" \
-    SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT=".spec-first/workspace/providers/graphify/graphify-out" \
+    SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT="graphify-out" \
     bash "$SCRIPT_DIR/install-helpers.sh" "${helper_args[@]}"
   )"
   helper_status=$?

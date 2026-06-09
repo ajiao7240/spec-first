@@ -1,6 +1,6 @@
 ---
 spec_id: 2026-06-08-003-reviewer-guard-coverage-audit
-status: active
+status: completed
 plan_depth: standard
 origin: docs/brainstorms/2026-06-08-002-brooks-lint-integration-two-skills-requirements.md
 origin_identity: not-inherited（origin 为 legacy 无 spec_id 文档;本 plan 经多轮辩证 + deep-research 证据裁决已显著重构,requirements↔plan 为弱 trace）

@@ -28,6 +28,11 @@ describe('spec-first gitignore policy', () => {
     expect(patterns).toContain('.agents/skills/');
     expect(getSpecFirstGitignorePatternMetadata()).toEqual({});
     expect(patterns).toContain('.spec-first/config/*.json');
+    expect(patterns).toContain('.codegraph/');
+    expect(patterns).toContain('graphify-out/cost.json');
+    expect(patterns).toContain('graphify-out/.graphify_python');
+    expect(patterns).not.toContain('graphify-out/');
+    expect(patterns).not.toContain('graphify-out/cache/');
     expect(patterns).not.toContain('.spec-first/standards/');
     expect(patterns).toContain('.spec-first/sessions/');
     expect(patterns).not.toContain('.claude/');
@@ -103,6 +108,8 @@ describe('spec-first gitignore policy', () => {
     const block = buildSpecFirstGitignoreBlock();
 
     expect(manual).toContain(`\`\`\`gitignore\n${block}\n\`\`\``);
+    expect(manual).toContain('Graphify 官方实践允许团队提交它以共享 map');
+    expect(manual).toContain('不忽略整个目录');
     expect(block).not.toContain('.direct-source-evidence/');
     expect(block).not.toContain('.code-review-graph/');
     expect(block).not.toContain('.spec-first-graph/');

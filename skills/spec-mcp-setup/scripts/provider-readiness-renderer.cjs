@@ -2,11 +2,12 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const repoRoot = path.resolve(__dirname, '..', '..', '..');
-const providerRegistryPath = path.join(repoRoot, 'skills', 'spec-mcp-setup', 'provider-tools.json');
+const skillDir = path.resolve(__dirname, '..');
+const providerRegistryPath = path.join(skillDir, 'provider-tools.json');
 
 function readJson(filePath, fallback = null) {
   if (!filePath) return fallback;
@@ -39,22 +40,82 @@ function parseArgs(argv) {
   return args;
 }
 
-function commandExists(command) {
-  if (!command) return false;
-  if (process.platform === 'win32') {
-    const result = spawnSync('where.exe', [command], { stdio: 'ignore' });
-    return result.status === 0;
-  }
-  const result = spawnSync('/bin/sh', ['-lc', `command -v ${shellQuote(command)} >/dev/null 2>&1`], { stdio: 'ignore' });
-  return result.status === 0;
-}
-
 function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
+function isExecutable(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return false;
+  try {
+    fs.accessSync(filePath, fs.constants.X_OK);
+    return true;
+  } catch (_error) {
+    return process.platform === 'win32';
+  }
+}
+
+function commandFromPath(command) {
+  if (!command) return false;
+  if (process.platform === 'win32') {
+    const result = spawnSync('where.exe', [command], { encoding: 'utf8' });
+    if (result.status === 0) {
+      return String(result.stdout || '').split(/\r?\n/).find(Boolean) || command;
+    }
+    return null;
+  }
+  const result = spawnSync('/bin/sh', ['-lc', `command -v ${shellQuote(command)}`], { encoding: 'utf8' });
+  if (result.status !== 0) return null;
+  return String(result.stdout || '').trim().split(/\r?\n/).find(Boolean) || command;
+}
+
+function knownCommandCandidates(command) {
+  if (command !== 'graphify') return [];
+  const home = process.env.HOME || process.env.USERPROFILE || os.homedir();
+  const candidates = [];
+  if (home) {
+    candidates.push(path.join(home, '.local', 'bin', command));
+    candidates.push(path.join(home, '.local', 'bin', `${command}.exe`));
+    candidates.push(path.join(home, '.local', 'bin', `${command}.cmd`));
+  }
+  return candidates;
+}
+
+function resolveCommand(command) {
+  const pathCommand = commandFromPath(command);
+  if (pathCommand) {
+    return { found: true, command: pathCommand, onPath: true };
+  }
+  for (const candidate of knownCommandCandidates(command)) {
+    if (isExecutable(candidate)) {
+      return { found: true, command: candidate, onPath: false };
+    }
+  }
+  return { found: false, command: command || '', onPath: false };
+}
+
+function commandExists(command) {
+  return resolveCommand(command).found;
+}
+
+function runResolved(commandInfo, args = [], options = {}) {
+  if (!commandInfo || !commandInfo.found) {
+    return { status: 127, stdout: '', stderr: '' };
+  }
+  return spawnSync(commandInfo.command, args, {
+    cwd: options.cwd,
+    env: process.env,
+    encoding: 'utf8',
+  });
+}
+
 function envFlag(name) {
   return ['1', 'true', 'yes', 'ready'].includes(String(process.env[name] || '').toLowerCase());
+}
+
+function versionOutputMatchesExpected(expected, output) {
+  if (!expected) return true;
+  const escaped = String(expected).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^0-9A-Za-z.])${escaped}([^0-9A-Za-z.]|$)`).test(String(output || ''));
 }
 
 function selfReportedStatus(providerId) {
@@ -84,6 +145,77 @@ function envFirstGenerationOverrides(providerId) {
   if (artifactRef) overrides.artifactRefs = [artifactRef];
   if (nextAction) overrides.firstGenerationNextAction = nextAction;
   return overrides;
+}
+
+function envHookOverrides(providerId) {
+  const installed = envValue(providerId, 'HOOK_INSTALLED');
+  const verified = envValue(providerId, 'HOOK_VERIFIED');
+  const status = envValue(providerId, 'HOOK_STATUS');
+  const skippedReason = envValue(providerId, 'HOOK_SKIPPED_REASON');
+  const overrides = {};
+  if (installed !== undefined) overrides.hookInstalled = envFlag(`SPEC_FIRST_PROVIDER_${providerId.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_HOOK_INSTALLED`);
+  if (verified !== undefined) overrides.hookVerified = envFlag(`SPEC_FIRST_PROVIDER_${providerId.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_HOOK_VERIFIED`);
+  if (status) overrides.hookStatus = normalizeHookStatus(status);
+  if (skippedReason !== undefined) overrides.hookSkippedReason = skippedReason || null;
+  return overrides;
+}
+
+function projectSkillConfigured(repoDir, providerId) {
+  return [
+    path.join(repoDir, '.codex', 'skills', providerId, 'SKILL.md'),
+    path.join(repoDir, '.agents', 'skills', providerId, 'SKILL.md'),
+    path.join(repoDir, '.claude', 'skills', providerId, 'SKILL.md'),
+  ].some((candidate) => fs.existsSync(candidate));
+}
+
+function gitHookPath(repoDir, hookName) {
+  const result = spawnSync('git', ['rev-parse', '--git-path', `hooks/${hookName}`], {
+    cwd: repoDir,
+    encoding: 'utf8',
+  });
+  if (result.status === 0) {
+    const raw = String(result.stdout || '').trim();
+    if (raw) {
+      return path.isAbsolute(raw) ? raw : path.join(repoDir, raw);
+    }
+  }
+  return path.join(repoDir, '.git', 'hooks', hookName);
+}
+
+function hookMentionsGraphify(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8').toLowerCase().includes('graphify');
+  } catch (_error) {
+    return false;
+  }
+}
+
+function detectGraphifyHook(repoDir, commandInfo) {
+  if (commandInfo && commandInfo.found) {
+    const result = runResolved(commandInfo, ['hook', 'status'], { cwd: repoDir });
+    const output = `${result.stdout || ''}\n${result.stderr || ''}`.toLowerCase();
+    if (result.status === 0 && output.includes('post-commit') && output.includes('post-checkout')) {
+      const installed = output.includes('post-commit: installed') && output.includes('post-checkout: installed');
+      return {
+        hookInstalled: installed,
+        hookVerified: installed,
+        hookStatus: installed ? 'verified' : 'unknown',
+        hookSkippedReason: null,
+      };
+    }
+  }
+
+  const postCommit = hookMentionsGraphify(gitHookPath(repoDir, 'post-commit'));
+  const postCheckout = hookMentionsGraphify(gitHookPath(repoDir, 'post-checkout'));
+  if (postCommit && postCheckout) {
+    return {
+      hookInstalled: true,
+      hookVerified: false,
+      hookStatus: 'installed',
+      hookSkippedReason: null,
+    };
+  }
+  return {};
 }
 
 function artifactExists(repoDir, artifactPaths = []) {
@@ -128,15 +260,36 @@ function firstGenerationFor(provider, options = {}) {
   };
 }
 
-function steadyStateFor(provider) {
+function normalizeHookStatus(value) {
+  return ['verified', 'installed', 'failed', 'skipped', 'unknown'].includes(value) ? value : 'unknown';
+}
+
+function steadyStateFor(provider, options = {}) {
   const source = provider.steady_state && typeof provider.steady_state === 'object'
     ? provider.steady_state
     : {};
+  const hookInstalled = options.hookInstalled !== undefined
+    ? Boolean(options.hookInstalled)
+    : (source.hook_installed !== undefined ? Boolean(source.hook_installed) : false);
+  const hookVerified = options.hookVerified !== undefined
+    ? Boolean(options.hookVerified)
+    : (source.hook_verified !== undefined ? Boolean(source.hook_verified) : false);
+  const hookStatus = normalizeHookStatus(
+    options.hookStatus
+      || source.hook_status
+      || (hookVerified ? 'verified' : (hookInstalled ? 'installed' : 'unknown')),
+  );
   return {
     refresh_owner: source.refresh_owner || 'unknown',
     refresh_mode: source.refresh_mode || 'unknown',
     hook_default: source.hook_default !== undefined ? Boolean(source.hook_default) : false,
     usage_owner: source.usage_owner || 'unknown',
+    hook_installed: hookInstalled,
+    hook_verified: hookVerified,
+    hook_status: hookStatus,
+    hook_skipped_reason: options.hookSkippedReason !== undefined
+      ? options.hookSkippedReason
+      : (source.hook_skipped_reason || null),
   };
 }
 
@@ -151,6 +304,7 @@ function fallbackFor(provider) {
 function providerEntry(provider, options = {}) {
   const installed = Boolean(options.installed);
   const configured = Boolean(options.configured);
+  const initialized = Boolean(options.initialized);
   const indexed = Boolean(options.indexed);
   const artifact = Boolean(options.artifactExists);
   const serverReachable = Boolean(options.serverReachable);
@@ -167,7 +321,7 @@ function providerEntry(provider, options = {}) {
     lifecycle: {
       installed,
       configured,
-      initialized: false,
+      initialized,
       indexed,
       server_reachable: serverReachable,
       artifact_exists: artifact,
@@ -184,7 +338,7 @@ function providerEntry(provider, options = {}) {
     next_actions: nextActions,
     native_interfaces: stringList(provider.native_interfaces),
     first_generation: firstGenerationFor(provider, options),
-    steady_state: steadyStateFor(provider),
+    steady_state: steadyStateFor(provider, options),
     usage_note: provider.usage_note || 'Use provider-native interfaces for advisory candidates; confirm conclusions from source/test/log/contract/user evidence.',
   };
 }
@@ -194,32 +348,71 @@ function helperProviderEntries(registry, repoDir) {
     .filter((provider) => provider.install_route === 'install-helpers')
     .map((provider) => {
       const command = provider.detection && provider.detection.command;
-      const installed = commandExists(command);
+      const commandInfo = resolveCommand(command);
+      const installed = commandInfo.found;
+      const expectedVersion = provider.installation && provider.installation.version_pin;
+      const versionArgs = provider.detection && Array.isArray(provider.detection.version_args)
+        ? provider.detection.version_args
+        : [];
+      const versionResult = installed && versionArgs.length > 0
+        ? runResolved(commandInfo, versionArgs, { cwd: repoDir })
+        : null;
+      const versionMatches = versionResult
+        ? (versionResult.status === 0 && versionOutputMatchesExpected(expectedVersion, `${versionResult.stdout || ''}\n${versionResult.stderr || ''}`))
+        : true;
       const artifactPaths = provider.detection && provider.detection.artifact_paths;
       const artifact = artifactExists(repoDir, artifactPaths);
       const artifactRefs = existingArtifactRefs(repoDir, artifactPaths);
-      const readinessStatus = installed ? selfReportedStatus(provider.id) : 'not-run';
+      const configured = envFlag(`SPEC_FIRST_PROVIDER_${provider.id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_CONFIGURED`)
+        || projectSkillConfigured(repoDir, provider.id);
+      const queryVerified = envFlag(`SPEC_FIRST_PROVIDER_${provider.id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_QUERY_VERIFIED`);
+      const firstGenerationOverrides = envFirstGenerationOverrides(provider.id);
+      const hookOverrides = {
+        ...(provider.id === 'graphify' ? detectGraphifyHook(repoDir, commandInfo) : {}),
+        ...envHookOverrides(provider.id),
+      };
+      let readinessStatus = installed ? selfReportedStatus(provider.id) : 'not-run';
       const nextActions = [];
       if (!installed) {
         nextActions.push(provider.installation && provider.installation.next_action);
       }
+      if (installed && !commandInfo.onPath && provider.id === 'graphify') {
+        nextActions.push(`Graphify CLI is installed at ${commandInfo.command} but not on PATH; add ${path.dirname(commandInfo.command)} to PATH or use the absolute command path for manual graphify CLI calls.`);
+      }
+      if (installed && !versionMatches && expectedVersion && provider.id === 'graphify') {
+        readinessStatus = 'degraded';
+        nextActions.push(`Graphify CLI version does not match pinned graphifyy==${expectedVersion}; rerun \`$spec-mcp-setup --only graphify\` to reinstall the pinned provider version.`);
+      }
       if (installed && !artifact) {
-        nextActions.push('Generate run-scoped project-graph artifacts for the project workspace or an explicit scoped workspace before using this provider as architecture navigation.');
+        nextActions.push('Generate project-root graphify-out/ with graphify extract or graphify update . before using this provider as architecture navigation.');
+      }
+      if (hookOverrides.hookStatus === 'failed') {
+        readinessStatus = 'degraded';
+        nextActions.push('Graphify hook setup failed; rerun `$spec-mcp-setup --only graphify` or run `graphify hook install` and `graphify hook status` from the project root.');
+      } else if (hookOverrides.hookStatus === 'skipped' && hookOverrides.hookSkippedReason === 'first-generation-not-completed') {
+        nextActions.push('Complete Graphify first generation before enabling provider-native hook refresh.');
+      } else if (installed && artifact && provider.steady_state && provider.steady_state.hook_default && hookOverrides.hookStatus === undefined) {
+        nextActions.push('Run `graphify hook status` before treating Graphify auto-refresh as verified.');
+      }
+      if (firstGenerationOverrides.firstGenerationStatus === 'failed') {
+        readinessStatus = 'degraded';
       }
       return providerEntry(provider, {
         installed,
-        configured: false,
+        configured,
+        initialized: artifact,
         indexed: artifact,
         artifactExists: artifact,
         serverReachable: false,
-        queryVerified: false,
+        queryVerified,
         readinessStatus,
         repoAligned: artifact ? 'unknown' : 'unknown',
         nextActions,
         firstGenerationStatus: artifact ? 'completed' : 'not-run',
         artifactRefs,
         firstGenerationNextAction: installed && !artifact ? 'graphify-first-generation-required' : null,
-        ...envFirstGenerationOverrides(provider.id),
+        ...firstGenerationOverrides,
+        ...hookOverrides,
       });
     });
 }
@@ -254,7 +447,7 @@ function mcpProviderEntries(facts) {
       hook_default: false,
       usage_owner: 'downstream-skill',
     },
-    usage_note: 'Use CodeGraph MCP tools for impact/call graph candidates; confirm conclusions from source/test/log/contract/user evidence.',
+    usage_note: 'Use CodeGraph MCP tools for impact/call graph candidates. `codegraph serve --mcp` owns provider-native Auto-Sync freshness; confirm conclusions from source/test/log/contract/user evidence.',
     fallback: {
       available: true,
       methods: ['rg', 'ast-grep', 'direct-source-read'],
@@ -292,6 +485,7 @@ function mcpProviderEntries(facts) {
   return [providerEntry(metadata, {
     installed,
     configured,
+    initialized: indexed,
     indexed,
     artifactExists: indexed,
     serverReachable,

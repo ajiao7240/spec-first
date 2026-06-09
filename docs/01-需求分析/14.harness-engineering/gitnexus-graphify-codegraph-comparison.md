@@ -160,6 +160,18 @@ MCP Tool Layer（16 个工具：impact/context/query/change_plan/test_suggestion
 | 企业级项目、Agent 深度开发 | GitNexus | 预计算推理、影响分析、MCP 原生 |
 | 三位一体 | 三者组合 | CodeGraph 做实时索引 + Graphify 做知识融合 + GitNexus 做深度推理 |
 
+### 3.4 对 `$spec-mcp-setup` 的落地含义（2026-06-09 校准）
+
+三引擎对比只回答“为什么接入”，不直接决定 setup 命令。当前 `spec-first` 的落地口径是：
+
+| Provider | Runtime Setup 默认动作 | 后续刷新 | 不默认做 |
+| --- | --- | --- | --- |
+| CodeGraph | 用户确认 provider pack 后安装 `@colbymchenry/codegraph@0.9.9`，配置 host MCP 为 `codegraph serve --mcp`，执行 `codegraph init` / `codegraph status`；若 status 报 `Pending Changes`，有界执行一次 `codegraph sync` 并复查 | `codegraph serve --mcp` 的 provider-native Auto-Sync watcher；setup 不创建自有 watcher | 不把 CodeGraph 输出当 confirmed truth，不安装未验证的 unscoped `codegraph` npm 包 |
+| Graphify | 用户确认 provider pack 后安装 `graphifyy==0.8.36`，执行 `graphify install --project --platform <host>`，先跑 `graphify extract .`；mixed docs/images + 无 API key 导致 extract 失败时，默认项目根 fallback 到 AST-only `graphify update .`，产出 `graphify-out/` 后安装 `graphify hook install` | post-commit / post-checkout hook 自动刷新代码 AST 图；docs/images/papers 仍需 `$graphify --update` 或等价用户动作 | 不默认启动 `graphify watch`，不默认安装 Graphify MCP server，不把 `graphify-out/` 自动 add/commit 或晋升为 docs/source truth |
+| GitNexus | 当前不进入 `$spec-mcp-setup` 默认 provider pack | 作为对标能力和未来可选 provider 研究输入 | 不在本轮恢复 active GitNexus graph truth 或强依赖 MCP evidence |
+
+关键边界：CodeGraph 和 Graphify 都只给下游 workflow 提供 advisory candidates。`provider_readiness[]` 说明“是否安装、是否初始化、如何调用、刷新状态如何”；结论级 review/debug/plan 判断仍必须回源到 source/test/log/用户确认。
+
 ---
 
 ## 四、与 spec-first 的对照映射
@@ -267,11 +279,11 @@ GitNexus + Graphify + CodeGraph 三引擎（本文）
 
 ## 附录：三引擎速查
 
-> spec-first Runtime Setup 目标修正（2026-06-08）：下表是外部工具原生命令速查，不是 `$spec-mcp-setup` 的执行真相源。当前 spec-first 目标是裸 `$spec-mcp-setup` 引导确认后安装并初始化 CodeGraph/Graphify provider pack：CodeGraph 使用 `codegraph init`；Graphify 使用 workspace-local CLI wrapper、`graphify extract <workspace> --out .spec-first/workspace/providers/graphify/graphify-out --no-cluster` 首次生成，并执行项目级 `graphify hook install` 让后续刷新由 provider hook 触发。Graphify SKILL/MCP 与 `graphify watch` 仍不默认安装/启动。
+> spec-first Runtime Setup 目标修正（2026-06-08）：下表是外部工具原生命令速查，不是 `$spec-mcp-setup` 的执行真相源。当前 spec-first 目标是裸 `$spec-mcp-setup` 引导确认后安装并初始化 CodeGraph/Graphify provider pack：CodeGraph 安装 verified package `@colbymchenry/codegraph@0.9.9`，使用 `codegraph init` / `codegraph status`，并由 `codegraph serve --mcp` 的 Auto-Sync watcher 负责后续刷新；Graphify 安装 `graphifyy==0.8.36`，执行 project-scoped `graphify install --project --platform <host>`，用 `graphify extract .` 生成项目根 `graphify-out/`，并执行项目级 `graphify hook install` 让代码 AST 后续刷新由 provider hook 触发。Graphify MCP server 与 `graphify watch` 仍是可选/非默认动作。
 
 | 工具 | 安装 | 初始化 | 启动 MCP | 核心技术栈 |
 |------|------|--------|---------|-----------|
-| CodeGraph | `npm i -g @colbymchenry/codegraph` 或 spec-first pinned `npx -y @colbymchenry/codegraph@0.9.9` | `codegraph init` | `codegraph serve --mcp` | tree-sitter + SQLite/FTS5 |
-| Graphify | `pip install graphifyy` 或 spec-first workspace-local wrapper | `graphify extract <workspace> --out <artifact-root> --no-cluster` + `graphify hook install` | 可选 extra / 用户自管 | AST + NetworkX + 可选 LLM 聚类 |
+| CodeGraph | `npm install -g @colbymchenry/codegraph@0.9.9` | `codegraph init` + `codegraph status`，产物 `.codegraph/codegraph.db` | `codegraph serve --mcp` | tree-sitter + SQLite/FTS5 |
+| Graphify | `uv tool install graphifyy==0.8.36` 或 `pipx install graphifyy==0.8.36` | `graphify install --project --platform <host>` + `graphify extract .` + `graphify hook install`，产物 `graphify-out/` | 可选 extra / 用户自管 | AST + NetworkX + 可选 LLM 聚类 |
 | GitNexus | `npm install -g gitnexus` | `gitnexus analyze` | `gitnexus serve` | tree-sitter + KuzuDB + MCP |
 *（内容由AI生成，仅供参考）*

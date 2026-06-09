@@ -7,7 +7,10 @@ const path = require('node:path');
 const { auditRuntimeDrift } = require('./audit-runtime-drift');
 const { auditSpecFirstGovernance } = require('./audit-spec-first-governance');
 const { buildPromiseImplementationReport } = require('./check-promise-implementation');
-const { collectSkillFacts } = require('./collect-skill-facts');
+const {
+  collectReviewerGuardCoverage,
+  collectSkillFacts,
+} = require('./collect-skill-facts');
 const { detectBoundaryOverlap } = require('./detect-boundary-overlap');
 const { extractTriggerSignals } = require('./extract-trigger-signals');
 const { assignFindingIds, compareFindings, countBySeverity } = require('./lib/finding');
@@ -31,6 +34,7 @@ function runSelfAudit(options = {}) {
     scriptPath: options.executorScriptPath,
   });
   const inventory = collectSkillFacts({ repoRoot, targetPath });
+  const reviewerGuardCoverageReport = collectReviewerGuardCoverage({ repoRoot });
   if (inventory.layout.mode === 'no_skills') {
     throw new Error(`NO_SKILLS_FOUND: no SKILL.md found for target "${targetPath}". Searched the target directory and its direct child skill directories.`);
   }
@@ -95,6 +99,7 @@ function runSelfAudit(options = {}) {
 
   return {
     inventory,
+    reviewerGuardCoverageReport,
     auditReport,
     scorecard,
     triggerReport,
@@ -116,6 +121,7 @@ function writeAuditArtifacts(options = {}) {
   const dirs = createRunDirectories(repoRoot, { runId: options.runId });
 
   writeJson(path.join(dirs.runDir, 'skill-source-inventory.json'), reports.inventory);
+  writeJson(path.join(dirs.runDir, 'reviewer-guard-coverage-report.json'), reports.reviewerGuardCoverageReport);
   writeJson(path.join(dirs.runDir, 'expert-scorecard.json'), reports.scorecard);
   writeJson(path.join(dirs.runDir, 'skill-audit-report.json'), reports.auditReport);
   writeJson(path.join(dirs.runDir, 'trigger-routing-report.json'), reports.triggerReport);

@@ -5,6 +5,7 @@ The audit writes local run artifacts under `.spec-first/audits/skill-audit/`.
 ## Required Files
 
 - `skill-source-inventory.json`: deterministic source inventory
+- `reviewer-guard-coverage-report.json`: deterministic reviewer-agent guard section coverage facts
 - `skill-audit-report.json`: normalized findings with severity and evidence
 - `expert-scorecard.json`: score signals, never gates
 - `promise-implementation-report.json`: documented promises compared with implementation facts

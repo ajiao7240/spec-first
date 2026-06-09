@@ -9,6 +9,24 @@ const { parseSkillMarkdownFile } = require('./parse-skill-md');
 const { repoRelative, toPosixPath } = require('./lib/path-rules');
 
 const RESOURCE_DIRS = ['scripts', 'references', 'examples', 'assets', 'evals'];
+const REVIEWER_AGENT_PATTERN = /^spec-.*-reviewer\.agent\.md$/;
+const CODE_REVIEW_CATALOG_PATH = path.join('skills', 'spec-code-review', 'SKILL.md');
+const DOC_REVIEW_CATALOG_PATH = path.join('skills', 'spec-doc-review', 'SKILL.md');
+const REVIEW_SCOPE_PATTERNS = [
+  ['what-youre-hunting-for', /^##\s+What you're hunting for\s*$/im],
+  ['what-you-check', /^##\s+What you check\s*$/im],
+  ['core-principles', /^##\s+Core Principles\s*$/im],
+  ['analysis-protocol', /^##\s+Analysis protocol\s*$/im],
+  ['review-process', /^##\s+Review Process\s*$/im],
+  ['dimensional-rating', /^##\s+Dimensional rating\s*$/im],
+  ['your-workflow', /^##\s+Your Workflow\s*$/im],
+  ['step-evaluate', /^##\s+Step \d+:\s+Evaluate/im],
+  ['reviewing-code-list', /When reviewing code, you will:/i],
+  ['primary-responsibility', /Your primary responsibility is/i],
+  ['you-review-scope', /\bYou review (?:code|plans|planning documents|CLI|source code|requirements)/i],
+  ['you-evaluate-scope', /\bYou evaluate (?:CLI|planning documents|plans|code)/i],
+  ['you-challenge-scope', /\bYou challenge plans/i],
+];
 
 function collectSkillFacts(options = {}) {
   const repoRoot = path.resolve(options.repoRoot || process.cwd());
@@ -68,6 +86,91 @@ function collectSingleSkill(repoRoot, skillDir) {
     parser_warnings: parsed.parser_warnings,
     body_excerpt: hasSkillMd ? fs.readFileSync(skillFile, 'utf8').slice(0, 1200) : '',
   };
+}
+
+function collectReviewerGuardCoverage(options = {}) {
+  const repoRoot = path.resolve(options.repoRoot || process.cwd());
+  const agentsRoot = path.join(repoRoot, 'agents');
+  const codeReviewCatalog = readTextIfExists(path.join(repoRoot, CODE_REVIEW_CATALOG_PATH));
+  const docReviewCatalog = readTextIfExists(path.join(repoRoot, DOC_REVIEW_CATALOG_PATH));
+  const reviewers = fs.existsSync(agentsRoot)
+    ? fs
+      .readdirSync(agentsRoot, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && REVIEWER_AGENT_PATTERN.test(entry.name))
+      .map((entry) => collectSingleReviewer(repoRoot, path.join(agentsRoot, entry.name), {
+        codeReviewCatalog,
+        docReviewCatalog,
+      }))
+      .sort((left, right) => left.agent_id.localeCompare(right.agent_id))
+    : [];
+
+  return {
+    schema_version: 'spec-first.reviewer-guard-coverage-report.v1',
+    generated_at: new Date().toISOString(),
+    producer: 'skills/spec-skill-audit/scripts/collect-skill-facts.js',
+    consumer: 'skills/spec-skill-audit/references/expert-audit-rubric.md',
+    authority_level: 'deterministic-facts',
+    note: 'Reports section-presence facts only. LLM review decides whether missing or mismatched guard coverage is a real issue or N/A.',
+    catalog_sources: {
+      code_review: CODE_REVIEW_CATALOG_PATH,
+      doc_review: DOC_REVIEW_CATALOG_PATH,
+    },
+    totals: {
+      reviewers: reviewers.length,
+      with_hunting_section: reviewers.filter((reviewer) => reviewer.has_hunting_section).length,
+      with_guard_section: reviewers.filter((reviewer) => reviewer.has_guard_section).length,
+      in_code_review_catalog: reviewers.filter((reviewer) => reviewer.in_code_review_catalog).length,
+      in_doc_review_catalog: reviewers.filter((reviewer) => reviewer.in_doc_review_catalog).length,
+    },
+    reviewers,
+  };
+}
+
+function collectSingleReviewer(repoRoot, agentFile, catalogs) {
+  const content = fs.readFileSync(agentFile, 'utf8');
+  const agentId = path.basename(agentFile, '.agent.md');
+  const frontmatterName = extractFrontmatterName(content) || agentId;
+  const huntingSectionSignal = detectReviewScopeSignal(content);
+  const aliases = new Set([
+    agentId,
+    frontmatterName,
+    agentId.replace(/^spec-/, ''),
+    frontmatterName.replace(/^spec-/, ''),
+  ].filter(Boolean));
+
+  return {
+    agent_id: agentId,
+    frontmatter_name: frontmatterName,
+    source_path: repoRelative(repoRoot, agentFile),
+    has_hunting_section: Boolean(huntingSectionSignal),
+    hunting_section_signal: huntingSectionSignal,
+    has_guard_section: /^##\s+What you don't flag\s*$/im.test(content),
+    in_code_review_catalog: catalogIncludesAny(catalogs.codeReviewCatalog, aliases),
+    in_doc_review_catalog: catalogIncludesAny(catalogs.docReviewCatalog, aliases),
+  };
+}
+
+function detectReviewScopeSignal(content) {
+  for (const [signal, pattern] of REVIEW_SCOPE_PATTERNS) {
+    if (pattern.test(content)) return signal;
+  }
+  return null;
+}
+
+function extractFrontmatterName(content) {
+  const match = /^---\s*[\s\S]*?^name:\s*"?([^"\n]+)"?\s*$/m.exec(content);
+  return match ? match[1].trim() : '';
+}
+
+function catalogIncludesAny(content, aliases) {
+  for (const alias of aliases) {
+    if (alias && content.includes(alias)) return true;
+  }
+  return false;
+}
+
+function readTextIfExists(filePath) {
+  return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
 }
 
 function resolveSkillDirs(repoRoot, layout) {
@@ -149,5 +252,6 @@ if (require.main === module) {
 
 module.exports = {
   collectSkillFacts,
+  collectReviewerGuardCoverage,
   collectSingleSkill,
 };

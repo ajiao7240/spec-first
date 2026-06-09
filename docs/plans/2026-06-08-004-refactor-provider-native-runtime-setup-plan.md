@@ -1,7 +1,7 @@
 ---
 title: refactor: Rebuild Runtime Setup provider-native CodeGraph and Graphify flow
 type: refactor
-status: active
+status: completed
 date: 2026-06-08
 spec_id: 2026-06-08-004-provider-native-runtime-setup
 origin: docs/plans/2026-06-08-002-feat-runtime-setup-provider-selection-plan.md
@@ -12,6 +12,17 @@ origin: docs/plans/2026-06-08-002-feat-runtime-setup-provider-selection-plan.md
 ## Summary
 
 This plan replaces the rejected workspace-local Graphify wrapper/artifact design with a provider-native Runtime Setup flow. A bare `$spec-mcp-setup` should preview the CodeGraph and Graphify writes, ask for one confirmation, then install, configure, initialize, verify, and record readiness facts so downstream nodes can use the providers naturally.
+
+### 2026-06-09 Execution Review Correction
+
+Reviewing the real `$spec-mcp-setup` execution log `2026-06-09-134039-command-messagespecmcp-setupcommand-message.txt` exposed four implementation gaps that are now part of the plan contract:
+
+- Runtime mirror compatibility is required. `setup-plan-renderer.cjs` and `provider-readiness-renderer.cjs` must run from generated skill mirrors such as `.agents/skills/spec-mcp-setup/scripts/` without requiring `../../../src/...`; registry reads must resolve from the current skill directory.
+- Graphify first generation must be best-effort provider-native, not manual LLM repair. Setup first tries `graphify extract .`; when semantic extraction fails in a mixed docs/images repo without API keys, default project-root setup falls back to code-only `graphify update .`, then continues query probe and hook install if `graphify-out/graph.json` or `GRAPH_REPORT.md` exists.
+- Graphify readiness must detect disk truth, not only current shell PATH/env overrides. A CLI installed at the provider-standard `~/.local/bin/graphify`, project skill runtime under `.claude/skills/graphify/` / `.codex/skills/graphify/` / `.agents/skills/graphify/`, and provider hooks under `.git/hooks/` must be reflected in `provider_readiness[]`.
+- CodeGraph status freshness must get one bounded repair attempt. If `codegraph status` reports `Pending Changes`, Runtime Setup should run `codegraph sync` once and then re-run `codegraph status`; only remaining pending changes or sync failure becomes action-required.
+
+This correction does not change the trust boundary: provider outputs remain advisory, scripts emit deterministic facts/diagnostics, and the LLM explains or repairs degraded cases within `$spec-mcp-setup` instead of pretending readiness.
 
 ---
 
@@ -44,7 +55,7 @@ $spec-mcp-setup
 - R4. CodeGraph project initialization must run in the target workspace with `codegraph init`, verify with `codegraph status`, and record `.codegraph/codegraph.db` as the project-local SQLite index artifact.
 - R5. CodeGraph MCP host config must launch `codegraph serve --mcp`, not an unscoped or repeated `npx` server command.
 - R5a. CodeGraph steady-state freshness must be delegated to the provider's native Auto-Sync watcher when the MCP server is active; setup should report watcher/freshness status or fallback guidance instead of creating a spec-first sync loop.
-- R6. Graphify install must use the official PyPI package `graphifyy==0.8.35` and expose the `graphify` CLI, preferring `uv tool install` and falling back only when necessary.
+- R6. Graphify install must use the official PyPI package `graphifyy==0.8.36` and expose the `graphify` CLI, preferring `uv tool install` and falling back only when necessary.
 - R7. Graphify setup must install the provider's assistant skill project-scoped for the current host, for example `graphify install --project --platform codex` on Codex.
 - R8. Graphify initialization must produce project-root `graphify-out/` with `graphify-out/graph.json` and `graphify-out/GRAPH_REPORT.md`; `.spec-first/workspace/providers/graphify/...` is no longer the primary artifact path.
 - R9. Graphify refresh must be provider-owned after setup: install `graphify hook install` when a git repo is available and report hook status/readiness.
@@ -52,6 +63,10 @@ $spec-mcp-setup
 - R11. Provider readiness remains advisory: CodeGraph and Graphify outputs can guide exploration, but conclusion-level findings still need source/test/log/user evidence.
 - R12. Bash and PowerShell setup paths must stay behaviorally aligned.
 - R13. All source changes must update `CHANGELOG.md`, and generated mirrors must not be hand-edited.
+- R14. Runtime Setup renderers must be source/runtime-layout safe and runnable from generated skill mirrors.
+- R15. Graphify first generation must use `graphify update .` as a project-root code-only fallback when `graphify extract .` fails before producing a usable artifact.
+- R16. Graphify readiness detection must recognize provider-standard CLI paths, project skill runtime, and installed hooks from disk.
+- R17. CodeGraph setup must run a bounded `codegraph sync` repair when `codegraph status` reports pending changes after init or cache-hit bootstrap.
 
 ---
 
@@ -62,7 +77,9 @@ $spec-mcp-setup
 - Do not make CodeGraph or Graphify required baseline dependencies; they remain optional providers selected by guided confirmation or `--only`.
 - Do not add a new provider state machine, independent manifest, or semantic trust enum.
 - Do not add a spec-first CodeGraph watcher. Auto-Sync belongs to `codegraph serve --mcp`; when the provider disables watching for the environment, report degraded readiness and point to provider-native `codegraph sync` or hook guidance.
+- Do not add a recurring spec-first CodeGraph sync loop. A single setup-time `codegraph sync` after `Pending Changes` is a bounded install-init repair, not steady-state ownership.
 - Do not run `graphify watch` by default; it is long-running and not needed for the default setup goal.
+- Do not require LLM API keys for Runtime Setup to leave Graphify code navigation usable. Semantic docs/images extraction may remain incomplete and be reported as a limitation; code-only graph bootstrap should still complete when provider-native `graphify update .` succeeds.
 - Do not use the unscoped `npm install -g codegraph` unless future one-source evidence proves it is the official package or alias with a working `bin.codegraph`.
 - Do not edit provider-generated skill content by hand. If Graphify writes `.codex/skills/graphify/`, `.claude/skills/graphify/`, `AGENTS.md`, `.codex/hooks.json`, or adjacent `references/` sidecars, treat them as user-confirmed provider runtime output and record them as such.
 
@@ -111,7 +128,7 @@ $spec-mcp-setup
   - Graphify hook source installs post-commit and post-checkout hooks. They rebuild code AST output in the background and ignore doc/image semantic refresh, which still requires `$graphify --update` or equivalent.
   - `npm view @colbymchenry/codegraph` reports `bin.codegraph`; `npm view codegraph` does not provide equivalent bin/repository metadata.
   - Local CodeGraph source/README says MCP Auto-Sync uses native file events with a default `2000ms` debounce; manual `codegraph sync` is mainly for watcher-disabled or scripted preflight cases.
-  - `python3 -m pip index versions graphifyy` reports latest `0.8.35`.
+  - `python3 -m pip index versions graphifyy` reports latest `0.8.36`.
 - source_reads_required during implementation:
   - Inspect `install-mcp.ps1` and `install-helpers.ps1` before patching PowerShell parity.
   - Inspect host config writer behavior for Codex TOML and Claude config/CLI path.
@@ -153,7 +170,7 @@ $spec-mcp-setup
 
 - User-supplied practice article: `https://gitcode.csdn.net/6a1b824110ee7a33f2767bd9.html`
 - NPM metadata: `@colbymchenry/codegraph@0.9.9` exposes `bin.codegraph`.
-- PyPI metadata: `graphifyy==0.8.35` is the latest version observed during planning.
+- PyPI metadata: `graphifyy==0.8.36` is the latest version observed during planning.
 
 ---
 
@@ -162,9 +179,11 @@ $spec-mcp-setup
 - KTD1. Install CodeGraph by verified package identity, not by command name. Use `npm install -g @colbymchenry/codegraph@0.9.9`; run the `codegraph` command afterwards.
 - KTD2. CodeGraph host config should run `codegraph serve --mcp`. This matches provider-native operation and lets the MCP server own watcher refresh and connect-time catch-up. Its Auto-Sync watcher is the default steady-state path, with a documented 2-second debounce.
 - KTD3. CodeGraph initialization should run `codegraph init`, then `codegraph status`. `init -i` is compatible in some documentation, but the current plan should not depend on deprecated or unnecessary flags.
+- KTD3a. If `codegraph status` reports `Pending Changes`, run `codegraph sync` once and re-check status. This closes install-init freshness without turning spec-first into CodeGraph's steady-state watcher.
 - KTD4. Graphify setup should install both CLI and assistant skill. The old “CLI only, no skill” design leaves the user without the natural `$graphify` / `/graphify` workflow.
 - KTD5. Graphify canonical artifact root for normal project setup is `graphify-out/` at the target workspace root.
 - KTD6. `$graphify .` and `/graphify .` are provider assistant commands, not shell commands. Setup implementation can install them and document them, but its internal first generation needs a scriptable provider-native CLI path such as `graphify extract .` run from the workspace root, with `--out .` only as an explicit equivalent when needed.
+- KTD6a. `graphify extract .` is full-pipeline and may fail in mixed docs/images repos without a semantic backend key. Default project-root setup should then fall back to `graphify update .`, which is AST-only/no-LLM and writes the same project-root `graphify-out/` used by the skill/query fast path.
 - KTD7. Graphify hooks are part of the confirmed provider pack, not silent baseline setup. After confirmation and successful graph initialization, run `graphify hook install` in git repos and verify with `graphify hook status` when available.
 - KTD8. Graphify provider runtime writes under `.codex/skills/graphify`, `.claude/skills/graphify`, `AGENTS.md`, `.codex/hooks.json`, `CLAUDE.md`, and adjacent `references/` sidecars are allowed only after user confirmation and must be reported as provider-owned runtime writes, not spec-first source edits.
 - KTD9. `provider_readiness[]` remains the canonical machine surface. Any install/apply summary is derived output for the user and should not become a second durable truth source.
@@ -183,7 +202,7 @@ $spec-mcp-setup
 ### Deferred to Implementation
 
 - Whether `graphify install --project --platform claude` or `graphify claude install --project` is the most reliable Claude project-scoped command: check current CLI help and implement the provider-preferred path.
-- Whether `graphify extract .` succeeds without semantic backend keys on this repo: implementation should run it and, on failure, retry a deterministic/degraded path only after recording the reason.
+- Whether `graphify extract .` succeeds without semantic backend keys on this repo: resolved by execution review. It can fail in mixed docs/images repos; setup now retries provider-native code-only `graphify update .` for the default project-root scope and records `graphify-code-only-fallback-used`.
 - Whether Codex `[features].multi_agent = true` is already enabled: setup should detect it and include it in the confirmation/apply summary before writing host config.
 - Whether `claude mcp add` is available on the target machine: use it when present; otherwise fall back to the existing config writer with a clear diagnostic.
 
@@ -202,9 +221,13 @@ flowchart TB
   D -- "yes / --only" --> F["Install CodeGraph package"]
   F --> G["Configure CodeGraph MCP: codegraph serve --mcp"]
   G --> H["Run codegraph init + status"]
-  H --> I["Install Graphify package graphifyy"]
+  H --> H2{"Pending changes?"}
+  H2 -- "yes" --> H3["Run codegraph sync once + re-check status"]
+  H2 -- "no" --> I
+  H3 --> I
+  I["Install Graphify package graphifyy"]
   I --> J["Install Graphify project skill for current host"]
-  J --> K["Generate graphify-out/"]
+  J --> K["Generate graphify-out/ with extract or code-only update fallback"]
   K --> L["Install graphify hook"]
   L --> M["Probe readiness + write setup facts"]
   M --> N["Grouped final status"]
@@ -236,7 +259,7 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
 - Set CodeGraph install metadata to global npm install for `@colbymchenry/codegraph@0.9.9`, with command `codegraph`.
 - Set CodeGraph host config command to `codegraph serve --mcp`.
 - Set CodeGraph project bootstrap command to `codegraph init` and verification/status expectation to `codegraph status`.
-- Set Graphify install metadata to `graphifyy==0.8.35`, with command `graphify`.
+- Set Graphify install metadata to `graphifyy==0.8.36`, with command `graphify`.
 - Set Graphify artifact paths to `graphify-out/graph.json` and `graphify-out/GRAPH_REPORT.md`.
 - Represent Graphify skill install and hook install as lifecycle/configuration display fields or setup-owned details without creating a separate source-of-truth manifest.
 - Update safety risk flags from `workspace-local-uvx-wrapper` to provider-native risks such as `pypi-name-bin-mismatch`, `project-runtime-skill-write`, and `git-hook-write`.
@@ -262,7 +285,7 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
 
 **Goal:** Make CodeGraph setup perform the provider-native install/config/init path to a usable `.codegraph/` index.
 
-**Requirements:** R1, R2, R3, R4, R5, R11, R12
+**Requirements:** R1, R2, R3, R4, R5, R11, R12, R17
 
 **Dependencies:** U1
 
@@ -284,6 +307,7 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
   - Claude: prefer `claude mcp add codegraph -- codegraph serve --mcp` when `claude` is present and succeeds; otherwise use the existing managed/user config fallback.
 - Run `codegraph init` in the target workspace and verify `.codegraph/codegraph.db` as the SQLite-backed local index.
 - Run `codegraph status` as a readiness probe; capture failure as `action-required` or `degraded` with diagnostics.
+- If `codegraph status` reports `Pending Changes`, run one bounded provider-native `codegraph sync`, then re-run `codegraph status`. Remaining pending changes or sync failure becomes action-required with diagnostics.
 - Let CodeGraph own steady-state refresh via `codegraph serve --mcp`; setup should not create its own file watcher or sync loop.
 - Represent Auto-Sync as provider-owned readiness: watcher active/freshness known when the MCP server reports it, degraded with `codegraph sync` guidance when watching is disabled or unverified.
 
@@ -293,6 +317,7 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
 
 **Test scenarios:**
 - Happy path: fake `npm` global install plus fake `codegraph init/status` creates `.codegraph/codegraph.db` and marks CodeGraph initialized/indexed.
+- Happy path: fake `codegraph status` reports `Pending Changes`, setup invokes `codegraph sync`, re-checks status, and still exits ready when pending changes clear.
 - Happy path: final setup output describes `.codegraph/codegraph.db` as the SQLite index and CodeGraph Auto-Sync as provider-owned.
 - Error path: if global install succeeds but `codegraph` is not on PATH, readiness is action-required.
 - Error path: if `codegraph init` fails, host config may be present but project index is not ready.
@@ -311,7 +336,7 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
 
 **Goal:** Make Graphify setup install the provider CLI and project skill, initialize project-root `graphify-out/`, and enable provider-native hook refresh.
 
-**Requirements:** R1, R2, R6, R7, R8, R9, R10, R11, R12
+**Requirements:** R1, R2, R6, R7, R8, R9, R10, R11, R12, R15, R16
 
 **Dependencies:** U1
 
@@ -323,8 +348,8 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
 - Modify: `tests/unit/mcp-setup-powershell-contracts.test.js`
 
 **Approach:**
-- Install Graphify via `uv tool install graphifyy==0.8.35` when `uv` is available.
-- Fallback in order: `pipx install graphifyy==0.8.35`, then explicit action-required or last-resort pip path with warnings. Avoid silently defaulting to plain pip on Mac/Windows because Graphify documents interpreter mismatch risk.
+- Install Graphify via `uv tool install graphifyy==0.8.36` when `uv` is available.
+- Fallback in order: `pipx install graphifyy==0.8.36`, then explicit action-required or last-resort pip path with warnings. Avoid silently defaulting to plain pip on Mac/Windows because Graphify documents interpreter mismatch risk.
 - After CLI install, verify `graphify` on PATH and package import if possible.
 - Install project-scoped Graphify skill:
   - Codex: `graphify install --project --platform codex`.
@@ -332,10 +357,12 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
 - For Codex, detect whether `[features].multi_agent = true` is present in `~/.codex/config.toml`; include it in guided confirmation if setup will write or ask the user to enable it.
 - Initialize graph:
   - Prefer a scriptable provider-native equivalent that writes `graphify-out/` under the workspace root, for example `graphify extract .`; `graphify extract . --out .` is the explicit equivalent if the implementation wants to make the output root obvious.
-  - If the full path fails because semantic backend keys are missing, the LLM orchestration may choose a deterministic code-only fallback such as `--no-cluster`, but it must record degraded/partial initialization and next action.
+  - If the default project-root `graphify extract .` path fails because semantic backend keys are missing or mixed docs/images cannot be processed, the script must retry provider-native `graphify update .` as an AST-only/no-LLM fallback. If this produces `graphify-out/graph.json` or `GRAPH_REPORT.md`, first generation is `completed` with `next_action=graphify-code-only-fallback-used`.
+  - For explicit non-root `--requirement-workspace`, do not use `graphify update <path>` as the project-root fallback because Graphify writes `graphify-out/` under the watched path; keep failure structured unless `extract <workspace> --out <repo>` succeeds.
   - Do not write to `.spec-first/workspace/providers/graphify/...` as the normal path.
 - Install hook only after `graphify-out/` exists and the target is a git repo: `graphify hook install`.
 - Verify hook readiness with `graphify hook status` when available.
+- Readiness rendering should independently detect `~/.local/bin/graphify`, project skill runtime on disk, and hook installation via `graphify hook status` or hook file inspection, so setup facts do not go stale just because the current shell PATH omits `~/.local/bin`.
 - Report the hook's real refresh boundary: post-commit/post-checkout rebuilds code AST graph output in the background; docs, images, papers, and other semantic content still need `$graphify --update` or equivalent user-triggered refresh.
 - Run a lightweight `graphify query` probe only when `graphify-out/graph.json` exists; keep `query_verified=false` if the probe is not run.
 
@@ -346,6 +373,8 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
 
 **Test scenarios:**
 - Happy path: fake `graphify install --project --platform codex`, fake `graphify extract .`, fake `graphify hook install`, and fake `graphify query` result in ready lifecycle bits.
+- Happy path: fake `graphify extract .` fails, fake `graphify update .` writes `graphify-out/graph.json`, then hook install/status and query probe still run.
+- Happy path: fake `graphify` exists only under `$HOME/.local/bin`, project skill/hook files exist on disk, and `provider-readiness-renderer.cjs` reports installed/configured/hook state without relying on current PATH.
 - Happy path: Codex project install summary lists `.codex/skills/graphify/`, `AGENTS.md`, `.codex/hooks.json`, and `references/`.
 - Error path: if Graphify CLI installs but skill install fails, setup reports configured/action-required without marking the provider fully ready.
 - Error path: if graph generation fails, no `query_verified` and readiness includes next action.
@@ -386,7 +415,7 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
   - CodeGraph project artifact: `.codegraph/codegraph.db` SQLite index.
   - CodeGraph host MCP command: `codegraph serve --mcp`.
   - CodeGraph Auto-Sync: provider MCP watcher with default 2-second debounce; no spec-first watcher.
-  - Graphify package install: `uv tool install graphifyy==0.8.35`.
+  - Graphify package install: `uv tool install graphifyy==0.8.36`.
   - Graphify project skill install for current host.
   - Graphify initialization artifact: `graphify-out/`.
   - Graphify hook install and hook status.
@@ -405,6 +434,7 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
 - Regression: guided summary does not claim `.spec-first/workspace/providers/graphify` is the default artifact.
 - Regression: guided summary distinguishes `@colbymchenry/codegraph` package from `codegraph` command.
 - Edge case: `--plan` has `mutation=false` and no apply status.
+- Regression: runtime mirror copy of `setup-plan-renderer.cjs` runs with colocated registry JSON and no source-relative `../../../src` require.
 
 **Verification:**
 - Focused tests assert the new user-facing flow.
@@ -431,10 +461,11 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
 
 **Approach:**
 - Scripts should return structured `reason_code`, `exit_code`, and short diagnostics for each failed stage.
+- Scripts should implement known deterministic best-effort repairs directly when they are provider-native and bounded: `graphify update .` after project-root `extract` failure, and one `codegraph sync` after pending status.
 - `$spec-mcp-setup` prose should instruct the LLM to:
   - inspect the failing command output;
   - distinguish package install, PATH, host config, project init, graph generation, hook, and query-probe failures;
-  - retry only a bounded, defensible repair path;
+  - retry only a bounded, defensible repair path beyond the scripted best-effort fallbacks;
   - record degraded readiness if repair is not safe or still fails;
   - never mark a provider ready from package install alone.
 - Use existing mirror fallback patterns for npm/PyPI where applicable.
@@ -494,7 +525,7 @@ The flow keeps provider-owned behavior with providers: CodeGraph owns MCP watche
 
 **Test scenarios:**
 - Docs contain CodeGraph `@colbymchenry/codegraph@0.9.9`, `codegraph init`, `codegraph status`, `.codegraph/codegraph.db`, Auto-Sync watcher guidance, and `codegraph serve --mcp`.
-- Docs contain Graphify `graphifyy==0.8.35`, `graphify install --project --platform codex`, `graphify-out/`, and `graphify hook install`.
+- Docs contain Graphify `graphifyy==0.8.36`, `graphify install --project --platform codex`, `graphify-out/`, and `graphify hook install`.
 - Docs do not contain old Graphify default artifact path as a current target.
 - Docs keep provider advisory/trust-boundary wording.
 

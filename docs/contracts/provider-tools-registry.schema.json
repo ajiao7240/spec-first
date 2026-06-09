@@ -81,7 +81,7 @@
           "required": ["refresh_owner", "refresh_mode", "hook_default", "usage_owner"],
           "properties": {
             "refresh_owner": { "enum": ["provider-native", "runtime-setup", "user", "none", "unknown"] },
-            "refresh_mode": { "enum": ["watcher", "cli-mcp-hook-on-demand", "manual-only", "none", "unknown"] },
+            "refresh_mode": { "enum": ["watcher", "skill-cli-hook-on-demand", "cli-mcp-hook-on-demand", "manual-only", "none", "unknown"] },
             "hook_default": { "type": "boolean" },
             "usage_owner": { "enum": ["downstream-skill", "provider-native", "user", "none", "unknown"] }
           },

@@ -7,7 +7,10 @@ const path = require('node:path');
 const { auditSpecFirstGovernance } = require('../../skills/spec-skill-audit/scripts/audit-spec-first-governance');
 const { buildPromiseImplementationReport } = require('../../skills/spec-skill-audit/scripts/check-promise-implementation');
 const { inspectHostRuntime } = require('../../skills/spec-skill-audit/scripts/audit-runtime-drift');
-const { collectSkillFacts } = require('../../skills/spec-skill-audit/scripts/collect-skill-facts');
+const {
+  collectReviewerGuardCoverage,
+  collectSkillFacts,
+} = require('../../skills/spec-skill-audit/scripts/collect-skill-facts');
 const { detectBoundaryOverlap } = require('../../skills/spec-skill-audit/scripts/detect-boundary-overlap');
 const { detectSkillLayout } = require('../../skills/spec-skill-audit/scripts/detect-skill-layout');
 const { extractTriggerSignals } = require('../../skills/spec-skill-audit/scripts/extract-trigger-signals');
@@ -93,6 +96,32 @@ function createFixtureRepo() {
   return repoRoot;
 }
 
+function writeReviewerAgent(repoRoot, fileName, options = {}) {
+  const heading = options.hunting === false ? '' : [
+    '## What you\'re hunting for',
+    '',
+    '- Risky review target',
+    '',
+  ].join('\n');
+  const guard = options.guard ? [
+    '## What you don\'t flag',
+    '',
+    '- Legitimate counter-example',
+    '',
+  ].join('\n') : '';
+  write(path.join(repoRoot, 'agents', fileName), [
+    '---',
+    `name: ${fileName.replace(/\.agent\.md$/, '')}`,
+    'description: Fixture reviewer.',
+    '---',
+    '',
+    '# Fixture Reviewer',
+    '',
+    heading,
+    guard,
+  ].join('\n'));
+}
+
 function writeGovernance(repoRoot, records) {
   write(path.join(
     repoRoot,
@@ -167,6 +196,48 @@ describe('spec-skill-audit scripts', () => {
     expect(inventory.skills.find((skill) => skill.skill_id === 'good-skill').declared_outputs).toContain(
       '.spec-first/audits/skill-audit/latest/skill-source-inventory.json',
     );
+  });
+
+  test('collects reviewer guard coverage facts without semantic N/A judgment', () => {
+    write(path.join(repoRoot, 'skills', 'spec-code-review', 'SKILL.md'), [
+      '# Code Review',
+      '',
+      '- `spec-existing-guard-reviewer`',
+      '- `spec-missing-guard-reviewer`',
+    ].join('\n'));
+    write(path.join(repoRoot, 'skills', 'spec-doc-review', 'SKILL.md'), [
+      '# Doc Review',
+      '',
+      '- `spec-adversarial-reviewer`',
+    ].join('\n'));
+    writeReviewerAgent(repoRoot, 'spec-missing-guard-reviewer.agent.md', { guard: false });
+    writeReviewerAgent(repoRoot, 'spec-existing-guard-reviewer.agent.md', { guard: true });
+    writeReviewerAgent(repoRoot, 'spec-adversarial-reviewer.agent.md', { guard: false });
+
+    const report = collectReviewerGuardCoverage({ repoRoot });
+    const byId = Object.fromEntries(report.reviewers.map((reviewer) => [reviewer.agent_id, reviewer]));
+
+    expect(report.schema_version).toBe('spec-first.reviewer-guard-coverage-report.v1');
+    expect(report.totals.reviewers).toBe(3);
+    expect(report.totals.with_guard_section).toBe(1);
+    expect(byId['spec-missing-guard-reviewer']).toEqual(expect.objectContaining({
+      has_hunting_section: true,
+      has_guard_section: false,
+      in_code_review_catalog: true,
+      in_doc_review_catalog: false,
+    }));
+    expect(byId['spec-existing-guard-reviewer']).toEqual(expect.objectContaining({
+      has_hunting_section: true,
+      has_guard_section: true,
+      in_code_review_catalog: true,
+    }));
+    expect(byId['spec-adversarial-reviewer']).toEqual(expect.objectContaining({
+      has_hunting_section: true,
+      has_guard_section: false,
+      in_doc_review_catalog: true,
+    }));
+    expect(byId['spec-adversarial-reviewer']).not.toHaveProperty('is_na');
+    expect(report.note).toContain('LLM review decides');
   });
 
   test('supports CRLF frontmatter and preserves duplicate sections', () => {
@@ -509,9 +580,12 @@ describe('spec-skill-audit scripts', () => {
     const report = buildPromiseImplementationReport({ repoRoot: REPO_ROOT });
 
     expect(report.implemented_files).toContain('promise-implementation-report.json');
+    expect(report.implemented_files).toContain('reviewer-guard-coverage-report.json');
     expect(report.implemented_files).toContain('executor-context.json');
     expect(report.documented_files.required).toContain('promise-implementation-report.json');
+    expect(report.documented_files.required).toContain('reviewer-guard-coverage-report.json');
     expect(report.documented_files.required).toContain('executor-context.json');
+    expect(report.documented_files.skill_outputs).toContain('reviewer-guard-coverage-report.json');
     expect(report.documented_files.skill_outputs).toContain('executor-context.json');
     expect(report.documented_options).toEqual(expect.arrayContaining(['--repo', '--runtime', '--target', '--patch-preview']));
     expect(report.implemented_options).toEqual(expect.arrayContaining(['--repo', '--runtime', '--target', '--patch-preview']));
@@ -565,6 +639,7 @@ describe('spec-skill-audit scripts', () => {
 
     expect(after).toBe(before);
     expect(result.files).toContain('skill-source-inventory.json');
+    expect(result.files).toContain('reviewer-guard-coverage-report.json');
     expect(result.files).toContain('skill-audit-summary.md');
     expect(result.files).toContain('promise-implementation-report.json');
     expect(result.files).toContain('executor-context.json');
@@ -574,6 +649,7 @@ describe('spec-skill-audit scripts', () => {
 
     const latestDir = path.join(repoRoot, '.spec-first', 'audits', 'skill-audit', 'latest');
     const auditReport = JSON.parse(fs.readFileSync(path.join(latestDir, 'skill-audit-report.json'), 'utf8'));
+    const reviewerGuardReport = JSON.parse(fs.readFileSync(path.join(latestDir, 'reviewer-guard-coverage-report.json'), 'utf8'));
     const scorecard = JSON.parse(fs.readFileSync(path.join(latestDir, 'expert-scorecard.json'), 'utf8'));
     const executorContext = JSON.parse(fs.readFileSync(path.join(latestDir, 'executor-context.json'), 'utf8'));
     const promiseReport = JSON.parse(fs.readFileSync(path.join(latestDir, 'promise-implementation-report.json'), 'utf8'));
@@ -581,6 +657,8 @@ describe('spec-skill-audit scripts', () => {
     const improvementPlan = fs.readFileSync(path.join(latestDir, 'skill-improvement-plan.md'), 'utf8');
 
     expect(Object.keys(scorecard.weights)).toHaveLength(12);
+    expect(reviewerGuardReport.schema_version).toBe('spec-first.reviewer-guard-coverage-report.v1');
+    expect(reviewerGuardReport.reviewers).toEqual([]);
     expect(scorecard.score_is_signal_not_gate).toBe(true);
     expect(scorecard.requires_llm_review).toBe(true);
     expect(scorecard.skills[0].dimension_reasons.input_contract.why_not_5).toContain('semantic completeness');

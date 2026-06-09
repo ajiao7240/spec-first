@@ -208,8 +208,9 @@ AST_GREP_SKILL_INSTALL_EXIT_CODE=""
 PROVIDER_REPO_ROOT="${SPEC_FIRST_PROVIDER_REPO_ROOT:-$PWD}"
 PROVIDER_TOOL_ROOT="${SPEC_FIRST_PROVIDER_TOOL_ROOT:-$PROVIDER_REPO_ROOT/.spec-first/tools}"
 PROVIDER_CACHE_ROOT="${SPEC_FIRST_PROVIDER_CACHE_ROOT:-$PROVIDER_REPO_ROOT/.spec-first/cache}"
-GRAPHIFY_ARTIFACT_ROOT_DEFAULT="${SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT:-.spec-first/workspace/providers/graphify/graphify-out}"
-export PATH="$PROVIDER_TOOL_ROOT:$PATH"
+GRAPHIFY_ARTIFACT_ROOT_DEFAULT="${SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT:-graphify-out}"
+GRAPHIFY_VERSION_PIN="${SPEC_FIRST_PROVIDER_GRAPHIFY_VERSION_PIN:-0.8.36}"
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PROVIDER_TOOL_ROOT:$PATH"
 
 detect_os() {
   local os
@@ -934,7 +935,7 @@ except ValueError:
 if not workspace.exists() or not workspace.is_dir():
     fail("requirement-workspace-missing")
 
-artifact_candidate = pathlib.PurePosixPath((artifact_raw or ".spec-first/workspace/providers/graphify/graphify-out").replace("\\", "/"))
+artifact_candidate = pathlib.PurePosixPath((artifact_raw or "graphify-out").replace("\\", "/"))
 if artifact_candidate.is_absolute():
     fail("graphify-artifact-root-absolute")
 if any(part == ".." for part in artifact_candidate.parts):
@@ -958,18 +959,139 @@ print(json.dumps({
 PY
 }
 
-write_graphify_wrapper() {
-  command -v uv >/dev/null 2>&1 || return 1
-  mkdir -p "$PROVIDER_TOOL_ROOT" "$PROVIDER_CACHE_ROOT/uv"
-  local wrapper="$PROVIDER_TOOL_ROOT/graphify"
-  local tmp
-  tmp="$(mktemp "${wrapper}.XXXXXX")" || return 1
-  cat > "$tmp" <<EOF
-#!/bin/sh
-UV_CACHE_DIR="${PROVIDER_CACHE_ROOT}/uv" exec uvx --from graphifyy==0.8.35 graphify "\$@"
-EOF
-  chmod 755 "$tmp"
-  mv "$tmp" "$wrapper"
+install_graphify_cli() {
+  if command -v graphify >/dev/null 2>&1 && graphify_cli_version_matches_pin; then
+    return 0
+  fi
+
+  if command -v uv >/dev/null 2>&1; then
+    if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" uv tool install --force "graphifyy==$GRAPHIFY_VERSION_PIN" >/dev/null 2>&1; then
+      hash -r 2>/dev/null || true
+      command -v graphify >/dev/null 2>&1 && graphify_cli_version_matches_pin && return 0
+    fi
+  fi
+
+  if command -v pipx >/dev/null 2>&1; then
+    if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" pipx install --force "graphifyy==$GRAPHIFY_VERSION_PIN" >/dev/null 2>&1; then
+      hash -r 2>/dev/null || true
+      command -v graphify >/dev/null 2>&1 && graphify_cli_version_matches_pin && return 0
+    fi
+  fi
+
+  return 1
+}
+
+graphify_cli_version_matches_pin() {
+  local output
+  output="$(run_with_timeout 30 graphify --version 2>/dev/null || true)"
+  grep -Eq "(^|[^0-9A-Za-z.])${GRAPHIFY_VERSION_PIN//./\\.}([^0-9A-Za-z.]|$)" <<<"$output"
+}
+
+graphify_project_platform() {
+  case "${SPEC_FIRST_PROVIDER_HOST:-}" in
+    claude|codex) printf '%s' "$SPEC_FIRST_PROVIDER_HOST" ;;
+    *) printf 'codex' ;;
+  esac
+}
+
+install_graphify_project_skill() {
+  local repo_root="$1"
+  local platform
+  platform="$(graphify_project_platform)"
+  pushd "$repo_root" >/dev/null
+  if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify install --project --platform "$platform" >/dev/null 2>&1; then
+    popd >/dev/null
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_CONFIGURED=true
+    return 0
+  fi
+  popd >/dev/null
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_CONFIGURED=false
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_NEXT_ACTION="graphify-project-skill-install-failed"
+  return 1
+}
+
+install_graphify_hook_if_available() {
+  local repo_root="$1"
+  pushd "$repo_root" >/dev/null
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify hook install >/dev/null 2>&1; then
+      export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED=true
+      if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify hook status >/dev/null 2>&1; then
+        export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED=true
+        export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS="verified"
+      else
+        export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED=false
+        export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS="failed"
+        export SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_NEXT_ACTION="${SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_NEXT_ACTION:-graphify-hook-status-failed}"
+        popd >/dev/null
+        return 1
+      fi
+      popd >/dev/null
+      return 0
+    fi
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED=false
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED=false
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS="failed"
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_NEXT_ACTION="${SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_NEXT_ACTION:-graphify-hook-install-failed}"
+    popd >/dev/null
+    return 1
+  fi
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED=false
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED=false
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS="skipped"
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_SKIPPED_REASON="not-a-git-repo"
+  popd >/dev/null
+  return 0
+}
+
+graphify_first_generation_ready_for_hook() {
+  [ "${SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_STATUS:-}" = "completed" ] || return 1
+  local repo_root="$PROVIDER_REPO_ROOT"
+  local artifact_root="${SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT:-graphify-out}"
+  local artifact_ref="${SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_REF:-}"
+  if [ -n "$artifact_ref" ] && [ -f "$repo_root/$artifact_ref" ]; then
+    return 0
+  fi
+  [ -f "$repo_root/$artifact_root/graph.json" ] || [ -f "$repo_root/$artifact_root/GRAPH_REPORT.md" ]
+}
+
+probe_graphify_query_if_available() {
+  local repo_root="$1"
+  local artifact_abs="$2"
+  local graph_json="$artifact_abs/graph.json"
+  [ -f "$graph_json" ] || return 0
+  pushd "$repo_root" >/dev/null
+  if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify query "spec-first setup readiness" --graph "$graph_json" >/dev/null 2>&1; then
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED=true
+  else
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED=false
+  fi
+  popd >/dev/null
+}
+
+graphify_artifact_ref() {
+  local repo_root="$1"
+  local artifact_rel="$2"
+  if [ -f "$repo_root/$artifact_rel/graph.json" ]; then
+    printf '%s' "$artifact_rel/graph.json"
+    return 0
+  fi
+  if [ -f "$repo_root/$artifact_rel/GRAPH_REPORT.md" ]; then
+    printf '%s' "$artifact_rel/GRAPH_REPORT.md"
+    return 0
+  fi
+  return 1
+}
+
+run_graphify_code_only_fallback() {
+  local repo_root="$1"
+  local workspace_rel="$2"
+  [ "$workspace_rel" = "." ] || return 1
+  pushd "$repo_root" >/dev/null
+  run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify update . >/dev/null 2>&1
+  local update_status=$?
+  popd >/dev/null
+  return "$update_status"
 }
 
 run_graphify_first_generation_if_requested() {
@@ -996,20 +1118,44 @@ run_graphify_first_generation_if_requested() {
   workspace_rel="$(jq -r '.workspace_rel' <<<"$resolved_json")"
   artifact_abs="$(jq -r '.artifact_abs' <<<"$resolved_json")"
   artifact_rel="$(jq -r '.artifact_rel' <<<"$resolved_json")"
-  mkdir -p "$artifact_abs"
-
   stage_log "provider:graphify" "first generation start"
-  if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify extract "$workspace_abs" --out "$artifact_abs" --no-cluster >/dev/null 2>&1; then
-    artifact_ref_rel="$artifact_rel/GRAPH_REPORT.md"
-    if [ ! -f "$repo_root/$artifact_ref_rel" ]; then
-      artifact_ref_rel=""
-    fi
+  set +e
+  if [ "$workspace_rel" = "." ]; then
+    pushd "$repo_root" >/dev/null
+    run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify extract . >/dev/null 2>&1
+    extract_status=$?
+    popd >/dev/null
+  else
+    run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify extract "$workspace_abs" --out "$repo_root" >/dev/null 2>&1
+    extract_status=$?
+  fi
+  set -e
+  if [ "$extract_status" -eq 0 ]; then
+    artifact_ref_rel="$(graphify_artifact_ref "$repo_root" "$artifact_rel" || true)"
+    probe_graphify_query_if_available "$repo_root" "$artifact_abs"
     set_graphify_first_generation_fact "completed" "$workspace_rel" "$artifact_rel" "$artifact_ref_rel" ""
     stage_log "provider:graphify" "first generation done (exit 0)"
     return 0
   fi
 
-  local exit_code="$?"
+  local exit_code="$extract_status"
+  if [ "$workspace_rel" = "." ]; then
+    stage_log "provider:graphify" "extract failed; trying code-only fallback via graphify update ."
+    set +e
+    run_graphify_code_only_fallback "$repo_root" "$workspace_rel"
+    local fallback_status=$?
+    set -e
+    if [ "$fallback_status" -eq 0 ]; then
+      artifact_ref_rel="$(graphify_artifact_ref "$repo_root" "$artifact_rel" || true)"
+      if [ -n "$artifact_ref_rel" ]; then
+        probe_graphify_query_if_available "$repo_root" "$artifact_abs"
+        set_graphify_first_generation_fact "completed" "$workspace_rel" "$artifact_rel" "$artifact_ref_rel" "graphify-code-only-fallback-used"
+        stage_log "provider:graphify" "code-only first generation fallback done (exit 0)"
+        return 0
+      fi
+    fi
+  fi
+
   set_graphify_first_generation_fact "failed" "$workspace_rel" "$artifact_rel" "" "graphify-first-generation-failed"
   if [ "$exit_code" -eq 124 ]; then
     stage_log "provider:graphify" "first generation timed out after ${DEFAULT_STAGE_TIMEOUT_SECONDS}s"
@@ -1023,17 +1169,29 @@ install_graphify_provider_if_requested() {
   [ "$MODE" = "install" ] || return 0
   provider_consent_approved "GRAPHIFY" || return 0
 
-  if ! command -v graphify >/dev/null 2>&1; then
-    if ! write_graphify_wrapper; then
-      stage_log "provider:graphify" "uv missing or wrapper write failed; skipping Graphify install"
-      run_graphify_first_generation_if_requested
-      return 0
-    fi
+  if ! install_graphify_cli; then
+    stage_log "provider:graphify" "CLI install failed; skipping Graphify project setup"
+    set_graphify_first_generation_fact "skipped" "" "" "" "graphify-cli-install-failed"
+    return 0
+  fi
 
-    stage_log "provider:graphify" "workspace-local wrapper ready"
+  stage_log "provider:graphify" "CLI ready"
+  if ! install_graphify_project_skill "$PROVIDER_REPO_ROOT"; then
+    stage_log "provider:graphify" "project skill install failed"
+    set_graphify_first_generation_fact "skipped" "" "" "" "graphify-project-skill-install-failed"
+    return 0
   fi
 
   run_graphify_first_generation_if_requested
+  if graphify_first_generation_ready_for_hook; then
+    install_graphify_hook_if_available "$PROVIDER_REPO_ROOT" || true
+  else
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED=false
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED=false
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS="skipped"
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_SKIPPED_REASON="first-generation-not-completed"
+    stage_log "provider:graphify" "hook install skipped (first-generation-not-completed)"
+  fi
 }
 
 finalize_global_skill() {

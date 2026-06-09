@@ -182,22 +182,26 @@
       "description": "可选 code-graph 能力工具。setup 只在显式 opt-in 时帮装和配置；下游消费只把其输出当 advisory candidate。",
       "package": "@colbymchenry/codegraph",
       "version": "0.9.9",
-      "dependencies": ["node", "npx"],
+      "dependencies": ["node", "npm"],
       "installation": {
-        "kind": "warmup",
+        "kind": "global-npm",
         "unix": {
-          "command": "npx",
-          "args": ["-y", "{{package}}@{{version}}", "--help"]
+          "command": "npm",
+          "args": ["install", "-g", "{{package}}@{{version}}", "--no-audit", "--no-fund", "--loglevel=error"]
         },
         "windows": {
-          "command": "npx",
-          "args": ["-y", "{{package}}@{{version}}", "--help"]
+          "command": "npm",
+          "args": ["install", "-g", "{{package}}@{{version}}", "--no-audit", "--no-fund", "--loglevel=error"]
+        },
+        "verify_command": {
+          "command": "codegraph",
+          "args": ["--version"]
         }
       },
       "host_config": {
         "claude": {
-          "command": "npx",
-          "args": ["-y", "{{package}}@{{version}}", "serve"],
+          "command": "codegraph",
+          "args": ["serve", "--mcp"],
           "scope": "managed",
           "targets": {
             "managed": {
@@ -222,8 +226,8 @@
           "uninstall_targets": ["managed", "user"]
         },
         "codex": {
-          "command": "npx",
-          "args": ["-y", "{{package}}@{{version}}", "serve"],
+          "command": "codegraph",
+          "args": ["serve", "--mcp"],
           "scope": "user",
           "targets": {
             "user": {
@@ -252,12 +256,16 @@
         "required": true,
         "project_file": ".codegraph/codegraph.db",
         "unix": {
-          "command": "npx",
-          "args": ["-y", "{{package}}@{{version}}", "init"]
+          "command": "codegraph",
+          "args": ["init"]
         },
         "windows": {
-          "command": "npx",
-          "args": ["-y", "{{package}}@{{version}}", "init"]
+          "command": "codegraph",
+          "args": ["init"]
+        },
+        "status_probe": {
+          "command": "codegraph",
+          "args": ["status"]
         }
       },
       "provider_readiness": {
@@ -280,14 +288,14 @@
           "hook_default": false,
           "usage_owner": "downstream-skill"
         },
-        "usage_note": "Use CodeGraph MCP tools for impact/call graph candidates; confirm conclusions from source/test/log/contract/user evidence.",
+        "usage_note": "Install package `@colbymchenry/codegraph@0.9.9`, run the `codegraph` CLI, and use CodeGraph MCP tools for impact/call graph candidates. `codegraph serve --mcp` owns provider-native Auto-Sync freshness; confirm conclusions from source/test/log/contract/user evidence.",
         "fallback_methods": ["rg", "ast-grep", "direct-source-read"],
         "fresh_self_report_maps_to": "unknown",
         "stale_self_report_maps_to": "stale",
         "lifecycle_display_only": ["installed", "configured", "indexed", "server_reachable", "query_verified"]
       },
       "safety": {
-        "risk_flags": ["pre-1.0", "global-npx-execution", "single-maintainer-bus-factor"],
+        "risk_flags": ["pre-1.0", "global-npm-install", "single-maintainer-bus-factor"],
         "version_pin": "0.9.9",
         "source": "npm",
         "source_repo": "https://www.npmjs.com/package/@colbymchenry/codegraph",

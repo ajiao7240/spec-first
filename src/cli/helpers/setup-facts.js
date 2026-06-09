@@ -369,17 +369,24 @@ function normalizeSteadyState(value) {
   const refreshOwner = ['provider-native', 'runtime-setup', 'user', 'none', 'unknown'].includes(source.refresh_owner)
     ? source.refresh_owner
     : 'unknown';
-  const refreshMode = ['watcher', 'cli-mcp-hook-on-demand', 'manual-only', 'none', 'unknown'].includes(source.refresh_mode)
+  const refreshMode = ['watcher', 'skill-cli-hook-on-demand', 'cli-mcp-hook-on-demand', 'manual-only', 'none', 'unknown'].includes(source.refresh_mode)
     ? source.refresh_mode
     : 'unknown';
   const usageOwner = ['downstream-skill', 'provider-native', 'user', 'none', 'unknown'].includes(source.usage_owner)
     ? source.usage_owner
+    : 'unknown';
+  const hookStatus = ['verified', 'installed', 'failed', 'skipped', 'unknown'].includes(source.hook_status)
+    ? source.hook_status
     : 'unknown';
   return {
     refresh_owner: refreshOwner,
     refresh_mode: refreshMode,
     hook_default: source.hook_default !== undefined ? Boolean(source.hook_default) : false,
     usage_owner: usageOwner,
+    hook_installed: source.hook_installed !== undefined ? Boolean(source.hook_installed) : false,
+    hook_verified: source.hook_verified !== undefined ? Boolean(source.hook_verified) : false,
+    hook_status: hookStatus,
+    hook_skipped_reason: normalizeNullableString(source.hook_skipped_reason),
   };
 }
 
