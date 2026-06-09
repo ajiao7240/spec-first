@@ -279,10 +279,22 @@
       "expected": ["generic core/lens drift exposed", "industry overlay not locked as universal truth"]
     },
     {
-      "id": "public-agent-boundary",
+      "id": "ratified-decisions-vs-raw-discussion",
+      "intent": "create",
+      "input_shape": "brownfield increment given as a ratified review-conclusions record plus a verbatim meeting transcript and an older draft, where the transcript contains rejected ideas and the draft contains claims contradicted by source",
+      "expected": ["separate ratified owner decisions from proposals/rejected-ideas/thinking-aloud/superseded-draft-text by decision status not document type", "ratified decisions set scope/acceptance/non-goals as user-stated", "rejected ideas and superseded draft claims stay reference-claims and do not enter requirements", "ratified-vs-discussion conflict recorded as contradiction with one owner question, not silently ranked"]
+    },
+    {
+      "id": "converging-ratified-decisions-grill",
+      "intent": "create",
+      "input_shape": "two separately ratified owner decisions whose intersection behavior in one flow is unadjudicated",
+      "expected": ["bounded scenario grill triggered on the convergence", "recommended default given", "labeled assumption recorded in Outstanding Questions", "not left only to readiness handoff entropy check"]
+    },
+    {
+      "id": "glossary-drift-expected-noise",
       "intent": "validate",
-      "input_shape": "request to call readiness reviewer directly",
-      "expected": ["no public helper reviewer entrypoint"]
+      "input_shape": "PRD whose Glossary avoid column and Evidence provenance references literally contain avoid terms, so check-glossary-drift.js reports avoid_term_used on those lines",
+      "expected": ["findings treated as advisory", "hits in own Glossary avoid/alias column or provenance references recognized as expected noise", "record rationale not delete avoid declaration or drift trace", "canonical terms still used in requirement prose"]
     }
   ]
 }

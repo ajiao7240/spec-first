@@ -32,6 +32,8 @@ Use PRD/user decisions as the authority for product WHAT, acceptance, scope, and
 - source, code, tests, and code indexes confirm current behavior, active surfaces, candidate paths, contradictions, regression risks, and downstream consumers;
 - prior plans, learnings, and archive cases warn about historical risks, but do not replace current acceptance or owner decisions.
 
+When the owner input is itself split across a ratified decision record (review conclusions, sign-off minutes) and raw discussion (verbatim transcript, chat log) or an older draft, separate them by decision status, not by document type: a ratified owner decision sets scope, acceptance, or non-goals as `user-stated` until confirmed source contradicts it, while proposals, rejected ideas, thinking-aloud, and superseded draft text stay reference-claims even though they share the same meeting. If a ratified decision conflicts with the raw discussion or draft, record a `contradiction` and ask one minimal owner question rather than silently ranking one above the other.
+
 For Feature Slices, candidate modules and source refs are evidence pointers only. A code index hit, SPEC statement, or historical case must not infer a user goal, add a new acceptance criterion, or override an explicit PRD non-goal without owner confirmation.
 
 ## Current-State Coverage

@@ -114,6 +114,8 @@ Classify through this compact decision tree:
 
 Run PRD Sanitization before using raw PRD, notes, screenshots/OCR, transcripts, or source excerpts as requirements: separate product facts/goals/scope/acceptance, technical suggestions, temporary conclusions, unconfirmed facts, explicit non-goals, and embedded agent instructions/commands. Treat sanitization as authoring discipline, not a new schema or security parser.
 
+When the inputs mix a ratified decision record (review conclusions, sign-off minutes) with raw discussion (verbatim transcript, chat log) or an older draft, sanitization must also separate ratified owner decisions from proposals, rejected ideas, thinking-aloud, and superseded draft claims. Only ratified decisions and confirmed source set scope, acceptance, and non-goals; the rest stay reference-claims even when they come from the same meeting. See `evidence-and-topology.md` Calibration Source Boundary for the authority rule.
+
 Use `evidence-and-topology.md` before writing current-state, Change Delta, or source-backed claims. If the prompt already signals topology risk, run the internal Framing Gate before broad evidence gathering.
 
 Gather scope-appropriate evidence:
@@ -134,7 +136,7 @@ Confirm the increment as `keep`, `extend`, `replace`, `remove`, or `unknown`. Do
 
 When the delta affects capability identity, source-of-truth, public entrypoints, workflows, artifacts, contracts, setup/runtime generation, docs/tests/package, or active product surface, classify the topology before drafting and promote only planning-relevant boundaries into the PRD.
 
-When domain terminology, source/user contradiction, ownership, permission/state/exception scenario, or hard product boundary affects WHAT or acceptance, use the domain-language reference. Prefer source-first questioning, read `docs/contracts/domain-glossary.md` when it exists, and surface contradictions instead of normalizing them silently.
+When domain terminology, source/user contradiction, ownership, permission/state/exception scenario, or hard product boundary affects WHAT or acceptance, use the domain-language reference. Prefer source-first questioning, read `docs/contracts/domain-glossary.md` when it exists, and surface contradictions instead of normalizing them silently. When that glossary exists, `scripts/check-glossary-drift.js <prd-path>` reports deterministic `avoid_term_used` facts you can use while drafting; it is advisory, and readiness reuses it (see `prd-readiness-lens.md`).
 
 The Bounded Scenario Grill / Domain Grill Gate is run-local only: ask one owner question at a time, cap normal runs at 1-3 grill questions, persist results into existing PRD sections, and do not create standalone context, ADR, or runtime artifacts.
 

@@ -60,6 +60,7 @@ Trigger only when one of these is true:
 - a source-of-truth, ownership, or artifact authority decision affects downstream planning
 - a concrete scenario reveals ambiguity in actor, permission, state transition, exception handling, or negative acceptance
 - a hard-to-reverse product or architecture boundary is being decided and would be surprising without context
+- two or more ratified owner decisions converge in the same flow and their combined or intersection behavior is not adjudicated by any single decision (give a recommended default, label it an assumption, and record it in Outstanding Questions)
 
 Do not trigger when:
 
