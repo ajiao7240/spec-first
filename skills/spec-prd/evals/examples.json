@@ -279,6 +279,12 @@
       "expected": ["generic core/lens drift exposed", "industry overlay not locked as universal truth"]
     },
     {
+      "id": "public-agent-boundary",
+      "intent": "validate",
+      "input_shape": "owner asks whether PRD readiness reviewer should become a public /spec entry or standalone agent",
+      "expected": ["public workflow boundary preserved", "readiness reviewer remains internal/helper unless eval proves a durable public workflow need", "do not expose helper agents as user entrypoints"]
+    },
+    {
       "id": "ratified-decisions-vs-raw-discussion",
       "intent": "create",
       "input_shape": "brownfield increment given as a ratified review-conclusions record plus a verbatim meeting transcript and an older draft, where the transcript contains rejected ideas and the draft contains claims contradicted by source",

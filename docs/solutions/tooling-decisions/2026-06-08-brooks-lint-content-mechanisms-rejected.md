@@ -1,3 +1,16 @@
+---
+title: brooks-lint 内容机制借鉴否决
+date: 2026-06-08
+category: docs/solutions/tooling-decisions
+module: spec-first
+problem_type: tooling_decision
+component: review-agent-governance
+severity: medium
+applies_when:
+  - 评估是否把出处引用、数值健康分、命名 smell 词表加入 spec-first reviewer 或 review workflow
+tags: [review, tooling-decision, brooks-lint, false-positive-control]
+---
+
 # brooks-lint 内容机制借鉴:①出处引用 / ③健康分 / ⑤命名词表 的带证据否决
 
 > 日期:2026-06-08
@@ -6,6 +19,29 @@
 > 证据来源:deep-research workflow(103 agents、5 角度、3 票对抗验证),run `wf_12fb0d5f-900`
 
 ---
+
+## Context
+
+多轮讨论评估过是否借鉴 brooks-lint 的 review 内容机制来提升 spec-first reviewer 质量,重点是出处引用、数值健康分和命名 smell 词表。
+
+## Guidance
+
+默认不要把这三类内容机制加入 spec-first reviewer 主路径。可以借鉴的是降低误报的聚焦/护栏机制,而不是让 reviewer 通过权威引用、心算分数或 smell 词表来制造额外判断面。
+
+## Why This Matters
+
+这条决策避免后续 plan/review 反复重新论证同一问题,也避免把无直接增益甚至可能带来 authority bias/gaming 的机制加入核心 workflow。
+
+## When to Apply
+
+当有人提议把外部 review/lint 工具的引用机制、健康分或命名 smell 分类搬进 spec-first reviewer 时,先引用本文作为默认否决依据;除非出现新的直接实验或明确 eval 增益,否则不进入主路径。
+
+## Examples
+
+- 不做:在 review findings 中强制引用 Fowler/Brooks 作为权威背书。
+- 不做:让 reviewer 输出 0-100 health score。
+- 不做:把 smell 名称词表变成 schema 枚举或必须分类字段。
+- 可做:补 reviewer 的 `What Not to Flag` 和 false-positive guard。
 
 ## 结论先行
 
