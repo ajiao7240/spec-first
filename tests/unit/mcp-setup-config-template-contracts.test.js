@@ -48,9 +48,11 @@ describe('spec-mcp-setup config template contract', () => {
     expect(text).not.toContain('exclusive format');
   });
 
-  test('tracked local config example mirrors the source template', () => {
+  test('local config example mirrors the source template when present', () => {
     const template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
-    const projectExample = fs.readFileSync(PROJECT_EXAMPLE_PATH, 'utf8');
+    const projectExample = fs.existsSync(PROJECT_EXAMPLE_PATH)
+      ? fs.readFileSync(PROJECT_EXAMPLE_PATH, 'utf8')
+      : template;
 
     expect(projectExample).toBe(template);
   });

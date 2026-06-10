@@ -31,8 +31,7 @@
     "test:release": "node scripts/run-test-suite.cjs release",
     "test:release:governance": "node scripts/run-test-suite.cjs release-governance",
     "test:release:install": "node scripts/run-test-suite.cjs release-install",
-    "test:release:website": "node scripts/check-website-sync.cjs --required",
-    "postinstall": "node bin/postinstall.js"
+    "test:release:website": "node scripts/check-website-sync.cjs --required"
   },
   "files": [
     "bin/",

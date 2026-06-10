@@ -1,6 +1,6 @@
 #!/bin/bash
 # install-tarball.sh — 真实 tarball 安装体验回归
-# 职责：npm pack → npm install -g → postinstall 输出 → 全局 shim → 安装日志 warning 计数
+# 职责：npm pack → npm install -g → allowScripts clean install log → 全局 shim → 包内容校验
 # 运行方式：bash tests/smoke/install-tarball.sh（不纳入默认 npm test）
 # 前置：需要 npm registry 和外网可用
 
@@ -13,7 +13,8 @@ TARBALL_DIR="$(mktemp -d)"
 
 export npm_config_prefix="$TMP_PREFIX"
 export npm_config_cache="$TMP_CACHE"
-export npm_config_foreground_scripts=true
+unset npm_config_allow_scripts
+unset NPM_CONFIG_ALLOW_SCRIPTS
 
 cleanup() {
   rm -rf "$TMP_PREFIX" "$TMP_CACHE" "$TARBALL_DIR"
@@ -88,35 +89,27 @@ else
   tail -80 "$INSTALL_LOG" >&2 || true
 fi
 echo "   install exit code: $install_rc"
-test "$install_rc" -eq 0
+if [ "$install_rc" -ne 0 ]; then
+  exit "$install_rc"
+fi
 
 # -------------------------------------------------------------------------
 # 3. 验证安装日志
 # -------------------------------------------------------------------------
 echo "3. 验证安装日志..."
 
+if grep -q "npm warn allow-scripts" "$INSTALL_LOG"; then
+  echo "✗ 安装日志不应出现 npm allow-scripts 警告"
+  tail -80 "$INSTALL_LOG" >&2 || true
+  exit 1
+fi
+echo "   ✓ 安装日志未出现 npm allow-scripts 警告"
+
 if grep -E "$parser_dep|$sqlite_dep" "$INSTALL_LOG"; then
   echo "✗ 安装日志包含不应出现的 native parser 依赖"
   exit 1
 fi
 echo "   ✓ 安装日志未包含 native parser 依赖"
-
-# 3a. postinstall 输出断言（依赖 foreground_scripts）
-if grep -q "安装完成" "$INSTALL_LOG"; then
-  echo "   ✓ postinstall 输出包含安装完成"
-  if grep -q "spec-first doctor" "$INSTALL_LOG"; then
-    echo "   ✓ postinstall 输出包含 spec-first doctor"
-  else
-    echo "   ⚠ postinstall 输出未包含 spec-first doctor（可能被 npm 吞掉）"
-  fi
-  if grep -q "registry.npmjs.org" "$INSTALL_LOG"; then
-    echo "   ✓ postinstall 输出包含官方 registry 安装引导"
-  else
-    echo "   ⚠ postinstall 输出未包含官方 registry 引导（可能被 npm 吞掉）"
-  fi
-else
-  echo "   ⚠ postinstall 输出不可见（foreground_scripts 行为差异）"
-fi
 
 # -------------------------------------------------------------------------
 # 4. 验证全局 shim

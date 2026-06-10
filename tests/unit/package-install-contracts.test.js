@@ -9,7 +9,6 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const PACKAGE_LOCK_PATH = path.join(REPO_ROOT, 'package-lock.json');
 const NPM_IGNORE_PATH = path.join(REPO_ROOT, '.npmignore');
-const POSTINSTALL_PATH = path.join(REPO_ROOT, 'bin/postinstall.js');
 const BIN_PATH = path.join(REPO_ROOT, 'bin/spec-first.js');
 const NODE_VERSION_PATH = path.join(REPO_ROOT, 'src/cli/node-version.js');
 const TYPECHECK_SCRIPT_PATH = path.join(REPO_ROOT, 'scripts/typecheck-js.js');
@@ -110,6 +109,17 @@ describe('package install contracts', () => {
     expect(pkg.files).toContain('!skills/**/*.pyo');
     expect(pkg.overrides).toBeUndefined();
 
+  });
+
+  test('package manifest does not declare install-time lifecycle scripts', () => {
+    const pkg = readJson(PACKAGE_JSON_PATH);
+    const lock = readJson(PACKAGE_LOCK_PATH);
+    const installLifecycleScripts = ['preinstall', 'install', 'postinstall', 'prepare'];
+
+    for (const scriptName of installLifecycleScripts) {
+      expect(pkg.scripts[scriptName]).toBeUndefined();
+    }
+    expect(lock.packages[''].hasInstallScript).toBeUndefined();
   });
 
   test('published package includes package-script entrypoint files', () => {
@@ -222,17 +232,8 @@ describe('package install contracts', () => {
     expect(executableWithoutShebang).toEqual([]);
   });
 
-  test('postinstall keeps setup summary focused on init guidance', () => {
-    const postinstall = fs.readFileSync(POSTINSTALL_PATH, 'utf8');
-
-    expect(postinstall).toMatch(/spec-first init/);
-    expect(postinstall).toMatch(/managed assets/);
-    expect(postinstall).toMatch(/Claude|Codex/);
-  });
-
-  test('bin and postinstall enforce Node 20 runtime before loading CLI code', () => {
+  test('bin enforces Node 20 runtime before loading CLI code', () => {
     const bin = fs.readFileSync(BIN_PATH, 'utf8');
-    const postinstall = fs.readFileSync(POSTINSTALL_PATH, 'utf8');
     const nodeVersion = require(NODE_VERSION_PATH);
 
     expect(nodeVersion.MINIMUM_NODE_MAJOR).toBe(20);
@@ -241,8 +242,6 @@ describe('package install contracts', () => {
     expect(nodeVersion.isSupportedNodeVersion('v24.1.0')).toBe(true);
     expect(nodeVersion.formatUnsupportedNodeMessage('v18.19.0')).toContain('Node.js >=20.0.0');
     expect(bin.indexOf("require('../src/cli/node-version')")).toBeLessThan(bin.indexOf("require('../src/cli')"));
-    expect(postinstall).toContain("require('../src/cli/node-version')");
-    expect(postinstall).toContain('process.exitCode = 1');
   });
 
   test('typecheck script covers packaged JavaScript source directories', () => {
