@@ -107,7 +107,7 @@ Parse `$ARGUMENTS` for the following optional tokens. Strip each recognized toke
 | `mode:autofix` | `mode:autofix` | Select autofix mode (see Mode Detection below) |
 | `mode:report-only` | `mode:report-only` | Select report-only mode |
 | `mode:headless` | `mode:headless` | Select headless mode for programmatic callers (see Mode Detection below) |
-| `base:<sha-or-ref>` | `base:abc1234` or `base:origin/main` | Skip scope detection — use this as the diff base directly |
+| `base:<sha-or-ref>` | `base:abc1234` or `base:origin/main` | Skip scope detection — use this as the diff base directly. For manual re-review of the same branch, pass the last reviewed HEAD SHA to review only newer changes. |
 | `plan:<path>` | `plan:docs/plans/2026-03-25-001-feat-foo-plan.md` | Load this plan for requirements verification |
 
 All tokens are optional. Each one present means one less thing to infer. When absent, fall back to existing behavior for that stage.
@@ -289,7 +289,7 @@ Then produce the same output as the other paths:
 echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:" && git diff -U10 $BASE && echo "UNTRACKED:" && git ls-files --others --exclude-standard
 ```
 
-This path works with any ref — a SHA, `origin/main`, a branch name. Automated callers (spec-work, best-judgment, sbest-judgment) should prefer this to avoid the detection overhead. **Do not combine `base:` with a PR number or branch target.** If both are present, stop with an error: "Cannot use `base:` with a PR number or branch target — `base:` implies the current checkout is already the correct branch. Pass `base:` alone, or pass the target alone and let scope detection resolve the base." This avoids scope/intent mismatches where the diff base comes from one source but the code and metadata come from another.
+This path works with any ref — a SHA, `origin/main`, a branch name. Automated callers (spec-work, best-judgment, sbest-judgment) should prefer this to avoid the detection overhead. Interactive users can also use it for manual incremental re-review: record the HEAD SHA from the last completed review, then rerun review with `base:<that-sha>` so only changes since that point are in scope. This only narrows the diff range; reviewers still analyze the new range independently and no cross-run finding deduplication is implied. **Do not combine `base:` with a PR number or branch target.** If both are present, stop with an error: "Cannot use `base:` with a PR number or branch target — `base:` implies the current checkout is already the correct branch. Pass `base:` alone, or pass the target alone and let scope detection resolve the base." This avoids scope/intent mismatches where the diff base comes from one source but the code and metadata come from another.
 
 **If a PR number or GitHub URL is provided as an argument:**
 

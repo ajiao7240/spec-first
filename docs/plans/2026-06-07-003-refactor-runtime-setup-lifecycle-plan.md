@@ -1,14 +1,31 @@
 ---
 spec_id: 2026-06-07-003-runtime-setup-lifecycle
-status: active
+status: superseded
 type: refactor
 slice: Runtime Setup 命名迁移 + provider 接入生命周期
 origin: 用户对话决策（2026-06-07，基于 Runtime Setup 目标模型）
 depth: large
 created: 2026-06-07
+superseded_at: 2026-06-10
+superseded_by: docs/plans/2026-06-08-004-refactor-provider-native-runtime-setup-plan.md
 ---
 
 # refactor: Runtime Setup 命名迁移与 provider 接入生命周期重梳理
+
+## 收口记录
+
+**状态:`superseded`(2026-06-10 收口)。本方案已不再作为 active 开发入口。**
+
+本方案完成了 Runtime Setup lifecycle 的目标模型、provider ownership、`provider_readiness[]` canonical machine surface、CodeGraph/Graphify optional provider 边界和下游消费纪律的定义。后续执行阶段根据真实 provider 行为继续收敛为 provider-native 路线,并由 `docs/plans/2026-06-08-004-refactor-provider-native-runtime-setup-plan.md` 接管实现与验证。
+
+接管后的完成证据:
+
+- `docs/plans/2026-06-08-004-refactor-provider-native-runtime-setup-plan.md` 已标记 `status: completed`。
+- `docs/01-需求分析/13.scale-integration/README.md` 已将 v1.16 Capability-aware 协同标记为已完成,并区分本方案为历史 lifecycle plan、`2026-06-08-004` 为当前 provider-native Runtime Setup 开发主方案。
+- `$spec-mcp-setup` 实测完成:baseline ready;CodeGraph first generation completed;Graphify first generation completed,并通过 code-only fallback 产出 project-root `graphify-out/graph.json`;Graphify hook verified。
+- Focused verification 已通过:`npm run test:mcp-setup` 与 Runtime Setup/provider 相关 Jest contract tests。
+
+本方案中的 U7 provider uninstall 对称性、U8 alias migration、U9 physical source rename 均按原 B5/B6 决策保留为独立后续切片,不作为本方案未完成开发项继续挂 active。
 
 ## 摘要
 
