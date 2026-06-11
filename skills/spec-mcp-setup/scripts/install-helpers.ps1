@@ -28,6 +28,12 @@ $graphifyVersionPin = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER
 if ([string]::IsNullOrWhiteSpace($graphifyVersionPin)) { $graphifyVersionPin = '0.8.36' }
 $homeLocalBin = Join-Path $HOME '.local/bin'
 $homeCargoBin = Join-Path $HOME '.cargo/bin'
+$graphifyOriginalPath = $env:PATH
+if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_ORIGINAL_PATH'))) {
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_ORIGINAL_PATH -Value $graphifyOriginalPath
+}
+$script:GraphifyResolvedCommand = ''
+$script:GraphifyResolvedOnPath = ''
 $env:PATH = "$homeLocalBin$([System.IO.Path]::PathSeparator)$homeCargoBin$([System.IO.Path]::PathSeparator)$providerToolRoot$([System.IO.Path]::PathSeparator)$env:PATH"
 
 $script:MirrorEndpoints = [ordered]@{
@@ -793,6 +799,74 @@ function Set-GraphifyFirstGenerationFact {
   }
 }
 
+function Reset-GraphifyResolver {
+  $script:GraphifyResolvedCommand = ''
+  $script:GraphifyResolvedOnPath = ''
+  Remove-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_COMMAND -ErrorAction SilentlyContinue
+  Remove-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_ON_PATH -ErrorAction SilentlyContinue
+}
+
+function Resolve-GraphifyOnOriginalPath {
+  $originalPath = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_ORIGINAL_PATH')
+  if ([string]::IsNullOrWhiteSpace($originalPath)) {
+    $originalPath = $graphifyOriginalPath
+  }
+
+  $previousPath = $env:PATH
+  try {
+    $env:PATH = $originalPath
+    $command = Get-Command -Name 'graphify' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -ne $command -and -not [string]::IsNullOrWhiteSpace([string]$command.Source)) {
+      return [string]$command.Source
+    }
+  } finally {
+    $env:PATH = $previousPath
+  }
+  return ''
+}
+
+function Set-GraphifyResolvedCommand {
+  param(
+    [string]$Command,
+    [bool]$OnPath
+  )
+  $script:GraphifyResolvedCommand = $Command
+  $script:GraphifyResolvedOnPath = if ($OnPath) { 'true' } else { 'false' }
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_COMMAND -Value $script:GraphifyResolvedCommand
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_ON_PATH -Value $script:GraphifyResolvedOnPath
+}
+
+function Resolve-GraphifyCli {
+  if (-not [string]::IsNullOrWhiteSpace($script:GraphifyResolvedCommand)) {
+    return $script:GraphifyResolvedCommand
+  }
+
+  $pathCommand = Resolve-GraphifyOnOriginalPath
+  if (-not [string]::IsNullOrWhiteSpace($pathCommand)) {
+    Set-GraphifyResolvedCommand -Command $pathCommand -OnPath $true
+    return $script:GraphifyResolvedCommand
+  }
+
+  foreach ($name in @('graphify', 'graphify.exe', 'graphify.cmd')) {
+    $candidate = Join-Path $homeLocalBin $name
+    $command = Get-Command -Name $candidate -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -ne $command -and -not [string]::IsNullOrWhiteSpace([string]$command.Source)) {
+      Set-GraphifyResolvedCommand -Command ([string]$command.Source) -OnPath $false
+      return $script:GraphifyResolvedCommand
+    }
+  }
+
+  return ''
+}
+
+function Invoke-GraphifyCommand {
+  param([string[]]$Arguments)
+  $graphifyCommand = Resolve-GraphifyCli
+  if ([string]::IsNullOrWhiteSpace($graphifyCommand)) { return $false }
+  $graphifyArguments = @($Arguments)
+  return (Invoke-HelperCommand { & $graphifyCommand @graphifyArguments })
+}
+
 function Resolve-RequirementWorkspace {
   param(
     [string]$RepoRoot,
@@ -861,7 +935,7 @@ function Invoke-GraphifyFirstGenerationIfRequested {
     return
   }
 
-  if (-not (Test-CommandExists 'graphify')) {
+  if ([string]::IsNullOrWhiteSpace((Resolve-GraphifyCli))) {
     Set-GraphifyFirstGenerationFact -Status 'skipped' -NextAction 'graphify-cli-required'
     return
   }
@@ -869,12 +943,12 @@ function Invoke-GraphifyFirstGenerationIfRequested {
   if ([string]$resolved.workspace_rel -eq '.') {
     Push-Location $repoRoot
     try {
-      $extractOk = Invoke-HelperCommand { graphify extract . }
+      $extractOk = Invoke-GraphifyCommand @('extract', '.')
     } finally {
       Pop-Location
     }
   } else {
-    $extractOk = Invoke-HelperCommand { graphify extract ([string]$resolved.workspace_abs) --out $repoRoot }
+    $extractOk = Invoke-GraphifyCommand @('extract', ([string]$resolved.workspace_abs), '--out', $repoRoot)
   }
   if ($extractOk) {
     $artifactRef = Get-GraphifyArtifactRef -RepoRoot $repoRoot -ArtifactRoot ([string]$resolved.artifact_rel)
@@ -918,16 +992,17 @@ function Invoke-GraphifyCodeOnlyFallback {
   if ($WorkspacePath -ne '.') { return $false }
   Push-Location $RepoRoot
   try {
-    return (Invoke-HelperCommand { graphify update . })
+    return (Invoke-GraphifyCommand @('update', '.'))
   } finally {
     Pop-Location
   }
 }
 
 function Test-GraphifyCliVersionMatchesPin {
-  if (-not (Test-CommandExists 'graphify')) { return $false }
+  $graphifyCommand = Resolve-GraphifyCli
+  if ([string]::IsNullOrWhiteSpace($graphifyCommand)) { return $false }
   try {
-    $output = (& graphify --version 2>$null) -join "`n"
+    $output = (& $graphifyCommand --version 2>$null) -join "`n"
     return ($output -match "(^|[^0-9A-Za-z.])$([regex]::Escape($graphifyVersionPin))([^0-9A-Za-z.]|$)")
   } catch {
     return $false
@@ -935,15 +1010,17 @@ function Test-GraphifyCliVersionMatchesPin {
 }
 
 function Install-GraphifyCli {
-  if ((Test-CommandExists 'graphify') -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
+  if ((-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCli))) -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
   if (Test-CommandExists 'uv') {
     if (Invoke-HelperCommand { uv tool install --force "graphifyy==$graphifyVersionPin" }) {
-      if ((Test-CommandExists 'graphify') -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
+      Reset-GraphifyResolver
+      if ((-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCli))) -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
     }
   }
   if (Test-CommandExists 'pipx') {
     if (Invoke-HelperCommand { pipx install --force "graphifyy==$graphifyVersionPin" }) {
-      if ((Test-CommandExists 'graphify') -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
+      Reset-GraphifyResolver
+      if ((-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCli))) -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
     }
   }
   return $false
@@ -955,12 +1032,88 @@ function Get-GraphifyProjectPlatform {
   return 'codex'
 }
 
+function Get-GraphifyInstructionFileName {
+  param([string]$PlatformName)
+  if (@('claude', 'windows') -contains $PlatformName) { return 'CLAUDE.md' }
+  return 'AGENTS.md'
+}
+
+function Get-GraphifyInstructionSection {
+  param([string]$PlatformName)
+  if (@('claude', 'windows') -contains $PlatformName) {
+    return @'
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first use Graphify when `graphify-out/graph.json` exists and a Graphify CLI is runtime-visible. Resolve the command as `graphify` from `PATH`, or `$HOME/.local/bin/graphify` (`.exe`/`.cmd` on Windows) when that executable exists. Then run `"<resolved-graphify>" query "<question>"`; use `path "<A>" "<B>"` for relationships and `explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If `graphify-out/graph.json` exists but no Graphify CLI is visible, do not treat the artifact as runtime readiness. Use bounded direct source reads and mention `$spec-mcp-setup --only graphify` as the setup repair path when Graphify would help.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `"<resolved-graphify>" update .` when a Graphify CLI is runtime-visible to keep the graph current (AST-only, no API cost). If no CLI is visible, do not repair generated runtime from ordinary workflows; disclose the skipped graph refresh and rely on direct source evidence.
+'@
+  }
+  return @'
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+When the user types `/graphify`, invoke the `skill` tool with `skill: "graphify"` before doing anything else.
+
+Rules:
+- For codebase questions, first use Graphify when `graphify-out/graph.json` exists and a Graphify CLI is runtime-visible. Resolve the command as `graphify` from `PATH`, or `$HOME/.local/bin/graphify` (`.exe`/`.cmd` on Windows) when that executable exists. Then run `"<resolved-graphify>" query "<question>"`; use `path "<A>" "<B>"` for relationships and `explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If `graphify-out/graph.json` exists but no Graphify CLI is visible, do not treat the artifact as runtime readiness. Use bounded direct source reads and mention `$spec-mcp-setup --only graphify` as the setup repair path when Graphify would help.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `"<resolved-graphify>" update .` when a Graphify CLI is runtime-visible to keep the graph current (AST-only, no API cost). If no CLI is visible, do not repair generated runtime from ordinary workflows; disclose the skipped graph refresh and rely on direct source evidence.
+'@
+}
+
+function Normalize-GraphifyInstructionSection {
+  param(
+    [string]$RepoRoot,
+    [string]$PlatformName
+  )
+  $instructionFile = Get-GraphifyInstructionFileName -PlatformName $PlatformName
+  $target = Join-Path $RepoRoot $instructionFile
+  if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { return }
+  $content = [System.IO.File]::ReadAllText($target)
+  $section = (Get-GraphifyInstructionSection -PlatformName $PlatformName).TrimEnd() + "`n"
+  $pattern = '(?s)\n*## graphify\n.*?(?=\n## |\n<!-- spec-first:lang:start -->|\z)'
+  if ($content.Contains('## graphify')) {
+    $regex = [regex]$pattern
+    $newContent = $regex.Replace(
+      $content,
+      [System.Text.RegularExpressions.MatchEvaluator]{
+        param($match)
+        if ($match.Index -eq 0) { return $section }
+        return "`n`n$section"
+      },
+      1
+    )
+  } else {
+    $separator = if ($content.EndsWith("`n")) { '' } else { "`n" }
+    $newContent = "$content$separator`n$section"
+  }
+  if ($newContent -ne $content) {
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($target, $newContent, $utf8NoBom)
+  }
+}
+
 function Install-GraphifyProjectSkill {
   param([string]$RepoRoot)
   $platformName = Get-GraphifyProjectPlatform
   Push-Location $RepoRoot
   try {
-    if (Invoke-HelperCommand { graphify install --project --platform $platformName }) {
+    if (Invoke-GraphifyCommand @('install', '--project', '--platform', $platformName)) {
+      try {
+        Normalize-GraphifyInstructionSection -RepoRoot $RepoRoot -PlatformName $platformName
+      } catch {
+      }
       Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_CONFIGURED -Value 'true'
       return $true
     }
@@ -978,9 +1131,9 @@ function Install-GraphifyHookIfAvailable {
   try {
     git rev-parse --is-inside-work-tree *> $null
     if ($LASTEXITCODE -eq 0) {
-      if (Invoke-HelperCommand { graphify hook install }) {
+      if (Invoke-GraphifyCommand @('hook', 'install')) {
         Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED -Value 'true'
-        if (Invoke-HelperCommand { graphify hook status }) {
+        if (Invoke-GraphifyCommand @('hook', 'status')) {
           Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED -Value 'true'
           Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS -Value 'verified'
           return $true
@@ -1040,7 +1193,7 @@ function Invoke-GraphifyQueryProbe {
   if (-not (Test-Path -LiteralPath $graphJson -PathType Leaf)) { return }
   Push-Location $RepoRoot
   try {
-    if (Invoke-HelperCommand { graphify query 'spec-first setup readiness' --graph $graphJson }) {
+    if (Invoke-GraphifyCommand @('query', 'spec-first setup readiness', '--graph', $graphJson)) {
       Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED -Value 'true'
     } else {
       Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED -Value 'false'

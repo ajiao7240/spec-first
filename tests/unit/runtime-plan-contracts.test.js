@@ -98,7 +98,6 @@ describe('runtime plan contracts', () => {
     const expectedPaths = [
       '.codex/commands/spec',
       '.codex/spec-first/commands',
-      '.codex/skills',
       '.agents/plugins',
       'plugins/spec',
       'plugins/spec-first',

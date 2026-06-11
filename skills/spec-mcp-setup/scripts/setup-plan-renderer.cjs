@@ -266,11 +266,13 @@ function helperProviders(providerRegistry, repoRoot, requirementWorkspace) {
         artifact_root: scope.artifact_root ? path.join(repoRoot, scope.artifact_root) : null,
         requirement_workspace_path: scope.requirement_workspace_path,
         first_generation_display: scope.ok
-          ? 'graphify install --project --platform <current-host>; graphify extract . (fallback: graphify update . code-only when extract fails)'
+          ? 'resolved graphify CLI -> graphify install --project --platform <current-host>; graphify extract . (fallback: graphify update . code-only when extract fails)'
           : `skipped: ${scope.first_generation_next_action}`,
         auto_refresh_display: scope.ok
-          ? 'graphify hook install (git repo only; provider-owned post-commit/post-checkout refresh)'
+          ? 'resolved graphify CLI -> graphify hook install (git repo only; provider-owned post-commit/post-checkout refresh)'
           : `skipped: ${scope.first_generation_next_action}`,
+        command_visibility_display: 'setup resolves graphify from the original PATH or provider-standard $HOME/.local/bin/graphify; off-PATH installs remain usable by setup but are reported as a manual PATH visibility action.',
+        instruction_section_display: 'after provider project install, setup normalizes the AGENTS.md/CLAUDE.md ## graphify section to resolved CLI/manual-visibility/direct-source-fallback wording.',
         first_generation_next_action: scope.first_generation_next_action,
         package_spec: packageSpec,
         will_not_do: [
@@ -285,7 +287,7 @@ function helperProviders(providerRegistry, repoRoot, requirementWorkspace) {
         pin_status: provider.safety && provider.safety.version_policy && provider.safety.version_policy.pin_status,
         review_required: Boolean(provider.safety && provider.safety.review_required),
         install_effect: provider.safety && provider.safety.install_effect,
-        usage_display: '$graphify . / /graphify . after the provider project skill is installed; setup uses CLI extract with code-only update fallback for first generation.',
+        usage_display: '$graphify . / /graphify . after the provider project skill is installed; setup uses the resolved CLI path for extract/update/query/hook operations and reports when bare graphify is not on PATH.',
         gitignore_policy: 'spec-first init managed block ignores .codegraph/, graphify-out/cost.json, and graphify-out/.graphify_python; setup does not auto-add, auto-commit, or auto-ignore the whole graphify-out/ directory.',
         ...safety,
       };

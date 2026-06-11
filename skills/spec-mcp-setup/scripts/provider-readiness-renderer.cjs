@@ -54,16 +54,32 @@ function isExecutable(filePath) {
   }
 }
 
-function commandFromPath(command) {
+function commandFromPath(command, pathValue = process.env.PATH) {
   if (!command) return false;
   if (process.platform === 'win32') {
-    const result = spawnSync('where.exe', [command], { encoding: 'utf8' });
-    if (result.status === 0) {
-      return String(result.stdout || '').split(/\r?\n/).find(Boolean) || command;
+    const pathEntries = String(pathValue || '').split(path.delimiter).filter(Boolean);
+    const hasExtension = Boolean(path.extname(command));
+    const extensions = hasExtension
+      ? ['']
+      : String(process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD')
+        .split(';')
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    for (const entry of pathEntries) {
+      for (const extension of extensions) {
+        const candidate = path.join(entry, `${command}${extension}`);
+        if (isExecutable(candidate)) return candidate;
+      }
     }
     return null;
   }
-  const result = spawnSync('/bin/sh', ['-lc', `command -v ${shellQuote(command)}`], { encoding: 'utf8' });
+  const result = spawnSync('/bin/sh', ['-lc', `command -v ${shellQuote(command)}`], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: pathValue || '',
+    },
+  });
   if (result.status !== 0) return null;
   return String(result.stdout || '').trim().split(/\r?\n/).find(Boolean) || command;
 }
@@ -81,7 +97,8 @@ function knownCommandCandidates(command) {
 }
 
 function resolveCommand(command) {
-  const pathCommand = commandFromPath(command);
+  const originalPath = process.env.SPEC_FIRST_PROVIDER_ORIGINAL_PATH || process.env.PATH || '';
+  const pathCommand = commandFromPath(command, originalPath);
   if (pathCommand) {
     return { found: true, command: pathCommand, onPath: true };
   }
@@ -110,6 +127,12 @@ function runResolved(commandInfo, args = [], options = {}) {
 
 function envFlag(name) {
   return ['1', 'true', 'yes', 'ready'].includes(String(process.env[name] || '').toLowerCase());
+}
+
+function currentProviderHost() {
+  const value = String(process.env.SPEC_FIRST_PROVIDER_HOST || '').toLowerCase();
+  if (value === 'claude' || value === 'codex') return value;
+  return 'codex';
 }
 
 function versionOutputMatchesExpected(expected, output) {
@@ -160,12 +183,20 @@ function envHookOverrides(providerId) {
   return overrides;
 }
 
-function projectSkillConfigured(repoDir, providerId) {
+function projectSkillCandidates(repoDir, providerId, host = currentProviderHost()) {
+  if (host === 'claude') {
+    return [
+      path.join(repoDir, '.claude', 'skills', providerId, 'SKILL.md'),
+    ];
+  }
   return [
     path.join(repoDir, '.codex', 'skills', providerId, 'SKILL.md'),
     path.join(repoDir, '.agents', 'skills', providerId, 'SKILL.md'),
-    path.join(repoDir, '.claude', 'skills', providerId, 'SKILL.md'),
-  ].some((candidate) => fs.existsSync(candidate));
+  ];
+}
+
+function projectSkillConfigured(repoDir, providerId, host = currentProviderHost()) {
+  return projectSkillCandidates(repoDir, providerId, host).some((candidate) => fs.existsSync(candidate));
 }
 
 function gitHookPath(repoDir, hookName) {
@@ -363,8 +394,8 @@ function helperProviderEntries(registry, repoDir) {
       const artifactPaths = provider.detection && provider.detection.artifact_paths;
       const artifact = artifactExists(repoDir, artifactPaths);
       const artifactRefs = existingArtifactRefs(repoDir, artifactPaths);
-      const configured = envFlag(`SPEC_FIRST_PROVIDER_${provider.id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_CONFIGURED`)
-        || projectSkillConfigured(repoDir, provider.id);
+      const currentHost = currentProviderHost();
+      const configured = projectSkillConfigured(repoDir, provider.id, currentHost);
       const queryVerified = envFlag(`SPEC_FIRST_PROVIDER_${provider.id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_QUERY_VERIFIED`);
       const firstGenerationOverrides = envFirstGenerationOverrides(provider.id);
       const hookOverrides = {
@@ -378,6 +409,9 @@ function helperProviderEntries(registry, repoDir) {
       }
       if (installed && !commandInfo.onPath && provider.id === 'graphify') {
         nextActions.push(`Graphify CLI is installed at ${commandInfo.command} but not on PATH; add ${path.dirname(commandInfo.command)} to PATH or use the absolute command path for manual graphify CLI calls.`);
+      }
+      if (installed && !configured && provider.id === 'graphify') {
+        nextActions.push(`Install the current-host Graphify project skill with \`$spec-mcp-setup --only graphify\` for ${currentHost}.`);
       }
       if (installed && !versionMatches && expectedVersion && provider.id === 'graphify') {
         readinessStatus = 'degraded';

@@ -148,17 +148,19 @@ describe('clean --dry-run', () => {
     const legacyPaths = [
       '.codex/commands/spec',
       '.codex/spec-first/commands',
-      '.codex/skills',
       '.agents/plugins',
       'plugins/spec',
       'plugins/spec-first',
     ];
+    const providerOwnedGraphifySkill = '.codex/skills/graphify/SKILL.md';
 
     try {
       expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
       for (const relativePath of legacyPaths) {
         fs.mkdirSync(path.join(projectRoot, relativePath), { recursive: true });
       }
+      fs.mkdirSync(path.dirname(path.join(projectRoot, providerOwnedGraphifySkill)), { recursive: true });
+      fs.writeFileSync(path.join(projectRoot, providerOwnedGraphifySkill), '# graphify\n', 'utf8');
 
       const dryRun = captureCommand(projectRoot, runClean, ['--codex', '--dry-run']);
       expect(dryRun.exitCode).toBe(0);
@@ -174,6 +176,8 @@ describe('clean --dry-run', () => {
         expect(dryRun.stdout).toContain(relativePath);
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(false);
       }
+      expect(dryRun.stdout).not.toContain('.codex/skills');
+      expect(fs.readFileSync(path.join(projectRoot, providerOwnedGraphifySkill), 'utf8')).toBe('# graphify\n');
 
     } finally {
       initLogSpy.mockRestore();

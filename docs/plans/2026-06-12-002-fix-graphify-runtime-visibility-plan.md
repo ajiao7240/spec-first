@@ -1,7 +1,7 @@
 ---
 title: "fix: Make Graphify setup runtime-visible"
 type: fix
-status: active
+status: completed
 date: 2026-06-12
 spec_id: 2026-06-12-002-graphify-runtime-visibility
 plan_depth: deep

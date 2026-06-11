@@ -210,6 +210,10 @@ PROVIDER_TOOL_ROOT="${SPEC_FIRST_PROVIDER_TOOL_ROOT:-$PROVIDER_REPO_ROOT/.spec-f
 PROVIDER_CACHE_ROOT="${SPEC_FIRST_PROVIDER_CACHE_ROOT:-$PROVIDER_REPO_ROOT/.spec-first/cache}"
 GRAPHIFY_ARTIFACT_ROOT_DEFAULT="${SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT:-graphify-out}"
 GRAPHIFY_VERSION_PIN="${SPEC_FIRST_PROVIDER_GRAPHIFY_VERSION_PIN:-0.8.36}"
+GRAPHIFY_ORIGINAL_PATH="${PATH:-}"
+GRAPHIFY_RESOLVED_COMMAND=""
+GRAPHIFY_RESOLVED_ON_PATH=""
+export SPEC_FIRST_PROVIDER_ORIGINAL_PATH="${SPEC_FIRST_PROVIDER_ORIGINAL_PATH:-$GRAPHIFY_ORIGINAL_PATH}"
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PROVIDER_TOOL_ROOT:$PATH"
 
 detect_os() {
@@ -960,30 +964,88 @@ PY
 }
 
 install_graphify_cli() {
-  if command -v graphify >/dev/null 2>&1 && graphify_cli_version_matches_pin; then
+  if resolve_graphify_cli >/dev/null 2>&1 && graphify_cli_version_matches_pin; then
     return 0
   fi
 
   if command -v uv >/dev/null 2>&1; then
     if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" uv tool install --force "graphifyy==$GRAPHIFY_VERSION_PIN" >/dev/null 2>&1; then
       hash -r 2>/dev/null || true
-      command -v graphify >/dev/null 2>&1 && graphify_cli_version_matches_pin && return 0
+      reset_graphify_resolver
+      resolve_graphify_cli >/dev/null 2>&1 && graphify_cli_version_matches_pin && return 0
     fi
   fi
 
   if command -v pipx >/dev/null 2>&1; then
     if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" pipx install --force "graphifyy==$GRAPHIFY_VERSION_PIN" >/dev/null 2>&1; then
       hash -r 2>/dev/null || true
-      command -v graphify >/dev/null 2>&1 && graphify_cli_version_matches_pin && return 0
+      reset_graphify_resolver
+      resolve_graphify_cli >/dev/null 2>&1 && graphify_cli_version_matches_pin && return 0
     fi
   fi
 
   return 1
 }
 
+reset_graphify_resolver() {
+  GRAPHIFY_RESOLVED_COMMAND=""
+  GRAPHIFY_RESOLVED_ON_PATH=""
+  unset SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_COMMAND
+  unset SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_ON_PATH
+}
+
+resolve_graphify_on_original_path() {
+  local found=""
+  found="$(PATH="${SPEC_FIRST_PROVIDER_ORIGINAL_PATH:-$GRAPHIFY_ORIGINAL_PATH}" command -v graphify 2>/dev/null || true)"
+  if [ -n "$found" ]; then
+    printf '%s' "$found"
+    return 0
+  fi
+  return 1
+}
+
+resolve_graphify_cli() {
+  if [ -n "$GRAPHIFY_RESOLVED_COMMAND" ]; then
+    printf '%s' "$GRAPHIFY_RESOLVED_COMMAND"
+    return 0
+  fi
+
+  local candidate
+  candidate="$(resolve_graphify_on_original_path || true)"
+  if [ -n "$candidate" ]; then
+    GRAPHIFY_RESOLVED_COMMAND="$candidate"
+    GRAPHIFY_RESOLVED_ON_PATH="true"
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_COMMAND="$GRAPHIFY_RESOLVED_COMMAND"
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_ON_PATH="$GRAPHIFY_RESOLVED_ON_PATH"
+    printf '%s' "$GRAPHIFY_RESOLVED_COMMAND"
+    return 0
+  fi
+
+  for candidate in "$HOME/.local/bin/graphify" "$HOME/.local/bin/graphify.exe" "$HOME/.local/bin/graphify.cmd"; do
+    if [ -f "$candidate" ] && [ -x "$candidate" ]; then
+      GRAPHIFY_RESOLVED_COMMAND="$candidate"
+      GRAPHIFY_RESOLVED_ON_PATH="false"
+      export SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_COMMAND="$GRAPHIFY_RESOLVED_COMMAND"
+      export SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_ON_PATH="$GRAPHIFY_RESOLVED_ON_PATH"
+      printf '%s' "$GRAPHIFY_RESOLVED_COMMAND"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+run_graphify_with_timeout() {
+  local timeout_seconds="$1"
+  shift
+  local graphify_command
+  graphify_command="$(resolve_graphify_cli)" || return 127
+  run_with_timeout "$timeout_seconds" "$graphify_command" "$@"
+}
+
 graphify_cli_version_matches_pin() {
   local output
-  output="$(run_with_timeout 30 graphify --version 2>/dev/null || true)"
+  output="$(run_graphify_with_timeout 30 --version 2>/dev/null || true)"
   grep -Eq "(^|[^0-9A-Za-z.])${GRAPHIFY_VERSION_PIN//./\\.}([^0-9A-Za-z.]|$)" <<<"$output"
 }
 
@@ -994,13 +1056,92 @@ graphify_project_platform() {
   esac
 }
 
+graphify_instruction_file_for_platform() {
+  case "$1" in
+    claude|windows) printf 'CLAUDE.md' ;;
+    *) printf 'AGENTS.md' ;;
+  esac
+}
+
+render_graphify_instruction_section() {
+  case "$1" in
+    claude|windows)
+      cat <<'EOF'
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first use Graphify when `graphify-out/graph.json` exists and a Graphify CLI is runtime-visible. Resolve the command as `graphify` from `PATH`, or `$HOME/.local/bin/graphify` (`.exe`/`.cmd` on Windows) when that executable exists. Then run `"<resolved-graphify>" query "<question>"`; use `path "<A>" "<B>"` for relationships and `explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If `graphify-out/graph.json` exists but no Graphify CLI is visible, do not treat the artifact as runtime readiness. Use bounded direct source reads and mention `$spec-mcp-setup --only graphify` as the setup repair path when Graphify would help.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `"<resolved-graphify>" update .` when a Graphify CLI is runtime-visible to keep the graph current (AST-only, no API cost). If no CLI is visible, do not repair generated runtime from ordinary workflows; disclose the skipped graph refresh and rely on direct source evidence.
+EOF
+      ;;
+    *)
+      cat <<'EOF'
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+When the user types `/graphify`, invoke the `skill` tool with `skill: "graphify"` before doing anything else.
+
+Rules:
+- For codebase questions, first use Graphify when `graphify-out/graph.json` exists and a Graphify CLI is runtime-visible. Resolve the command as `graphify` from `PATH`, or `$HOME/.local/bin/graphify` (`.exe`/`.cmd` on Windows) when that executable exists. Then run `"<resolved-graphify>" query "<question>"`; use `path "<A>" "<B>"` for relationships and `explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If `graphify-out/graph.json` exists but no Graphify CLI is visible, do not treat the artifact as runtime readiness. Use bounded direct source reads and mention `$spec-mcp-setup --only graphify` as the setup repair path when Graphify would help.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `"<resolved-graphify>" update .` when a Graphify CLI is runtime-visible to keep the graph current (AST-only, no API cost). If no CLI is visible, do not repair generated runtime from ordinary workflows; disclose the skipped graph refresh and rely on direct source evidence.
+EOF
+      ;;
+  esac
+}
+
+normalize_graphify_instruction_section() {
+  local repo_root="$1"
+  local platform="$2"
+  local instruction_file target section
+  instruction_file="$(graphify_instruction_file_for_platform "$platform")"
+  target="$repo_root/$instruction_file"
+  [ -f "$target" ] || return 0
+  section="$(render_graphify_instruction_section "$platform")"
+  GRAPHIFY_SECTION="$section" python3 - "$target" <<'PY'
+import os
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+section = os.environ["GRAPHIFY_SECTION"].rstrip() + "\n"
+content = path.read_text(encoding="utf-8")
+pattern = re.compile(r"\n*## graphify\n.*?(?=\n## |\n<!-- spec-first:lang:start -->|\Z)", re.DOTALL)
+
+if "## graphify" in content:
+    def replace(match):
+        prefix = "" if match.start() == 0 else "\n\n"
+        return prefix + section
+    new_content = pattern.sub(replace, content, count=1)
+else:
+    separator = "" if content.endswith("\n") else "\n"
+    new_content = f"{content}{separator}\n{section}"
+
+if new_content != content:
+    path.write_text(new_content, encoding="utf-8")
+PY
+}
+
 install_graphify_project_skill() {
   local repo_root="$1"
   local platform
   platform="$(graphify_project_platform)"
   pushd "$repo_root" >/dev/null
-  if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify install --project --platform "$platform" >/dev/null 2>&1; then
+  if run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" install --project --platform "$platform" >/dev/null 2>&1; then
     popd >/dev/null
+    normalize_graphify_instruction_section "$repo_root" "$platform" \
+      || stage_log "provider:graphify" "instruction normalization skipped"
     export SPEC_FIRST_PROVIDER_GRAPHIFY_CONFIGURED=true
     return 0
   fi
@@ -1014,9 +1155,9 @@ install_graphify_hook_if_available() {
   local repo_root="$1"
   pushd "$repo_root" >/dev/null
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify hook install >/dev/null 2>&1; then
+    if run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" hook install >/dev/null 2>&1; then
       export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED=true
-      if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify hook status >/dev/null 2>&1; then
+      if run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" hook status >/dev/null 2>&1; then
         export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED=true
         export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS="verified"
       else
@@ -1061,7 +1202,7 @@ probe_graphify_query_if_available() {
   local graph_json="$artifact_abs/graph.json"
   [ -f "$graph_json" ] || return 0
   pushd "$repo_root" >/dev/null
-  if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify query "spec-first setup readiness" --graph "$graph_json" >/dev/null 2>&1; then
+  if run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" query "spec-first setup readiness" --graph "$graph_json" >/dev/null 2>&1; then
     export SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED=true
   else
     export SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED=false
@@ -1088,7 +1229,7 @@ run_graphify_code_only_fallback() {
   local workspace_rel="$2"
   [ "$workspace_rel" = "." ] || return 1
   pushd "$repo_root" >/dev/null
-  run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify update . >/dev/null 2>&1
+  run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" update . >/dev/null 2>&1
   local update_status=$?
   popd >/dev/null
   return "$update_status"
@@ -1108,7 +1249,7 @@ run_graphify_first_generation_if_requested() {
     return 0
   fi
 
-  if ! command -v graphify >/dev/null 2>&1; then
+  if ! resolve_graphify_cli >/dev/null 2>&1; then
     set_graphify_first_generation_fact "skipped" "" "" "" "graphify-cli-required"
     stage_log "provider:graphify" "first generation skipped (graphify-cli-required)"
     return 0
@@ -1122,11 +1263,11 @@ run_graphify_first_generation_if_requested() {
   set +e
   if [ "$workspace_rel" = "." ]; then
     pushd "$repo_root" >/dev/null
-    run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify extract . >/dev/null 2>&1
+    run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" extract . >/dev/null 2>&1
     extract_status=$?
     popd >/dev/null
   else
-    run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" graphify extract "$workspace_abs" --out "$repo_root" >/dev/null 2>&1
+    run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" extract "$workspace_abs" --out "$repo_root" >/dev/null 2>&1
     extract_status=$?
   fi
   set -e

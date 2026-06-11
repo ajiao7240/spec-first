@@ -169,7 +169,6 @@ class CodexAdapter extends PlatformAdapter {
   removeRuntimeFiles(projectRoot) {
     removeManagedDirectory(path.join(projectRoot, this.commandRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyCommandRoot), projectRoot);
-    removeManagedDirectory(path.join(projectRoot, this.legacyCodexSkillsRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyMarketplaceRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyPluginRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyPluginRootAlt), projectRoot);
@@ -346,13 +345,21 @@ function inspectHooksJson(projectRoot) {
     };
   }
 
-  const actual = fs.readFileSync(targetPath, 'utf8');
-  const expected = renderHooksJsonTemplate(projectRoot);
-  if (actual !== expected) {
+  const actual = readJsonFile(targetPath);
+  if (!actual.ok) {
     return {
       level: 'WARNING',
       name: HOOKS_JSON_RELATIVE_PATH,
-      message: 'drifted from bundled template',
+      message: 'invalid JSON',
+      fix: formatInitGuidance('codex', 'in this project to restore the managed SessionStart hook config'),
+    };
+  }
+
+  if (!hasManagedSessionStartHook(actual.value, projectRoot)) {
+    return {
+      level: 'WARNING',
+      name: HOOKS_JSON_RELATIVE_PATH,
+      message: 'missing managed SessionStart hook config',
       fix: formatInitGuidance('codex', 'in this project to restore the managed SessionStart hook config'),
     };
   }
@@ -373,12 +380,14 @@ function renderSessionStartHookTemplate() {
 }
 
 function renderHooksJsonTemplate(projectRoot) {
-  const template = fs.readFileSync(HOOKS_JSON_TEMPLATE_PATH, 'utf8');
   const commandPath = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
-  return template.replace(
+  const managed = JSON.parse(fs.readFileSync(HOOKS_JSON_TEMPLATE_PATH, 'utf8').replace(
     JSON.stringify(SESSION_START_COMMAND_PLACEHOLDER),
     JSON.stringify(commandPath),
-  );
+  ));
+  const existingPath = path.join(projectRoot, HOOKS_JSON_RELATIVE_PATH);
+  const existing = readJsonFile(existingPath);
+  return `${JSON.stringify(mergeHooksJson(existing.ok ? existing.value : null, managed, projectRoot), null, 2)}\n`;
 }
 
 function summarizeOperations(operations) {
@@ -406,7 +415,6 @@ function buildRuntimeCleanupOperations(adapter) {
   return [
     adapter.commandRoot,
     adapter.legacyCommandRoot,
-    adapter.legacyCodexSkillsRoot,
     adapter.legacyMarketplaceRoot,
     adapter.legacyPluginRoot,
     adapter.legacyPluginRootAlt,
@@ -415,6 +423,63 @@ function buildRuntimeCleanupOperations(adapter) {
     path: relativePath,
     reason: 'managed_runtime_cleanup',
   }));
+}
+
+function readJsonFile(filePath) {
+  try {
+    return { ok: true, value: JSON.parse(fs.readFileSync(filePath, 'utf8')) };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+function mergeHooksJson(existing, managed, projectRoot) {
+  const merged = isPlainObject(existing) ? { ...existing } : {};
+  const existingHooks = isPlainObject(existing && existing.hooks) ? existing.hooks : {};
+  const managedHooks = isPlainObject(managed && managed.hooks) ? managed.hooks : {};
+  merged.hooks = { ...existingHooks };
+
+  for (const [eventName, managedEntries] of Object.entries(managedHooks)) {
+    const existingEntries = Array.isArray(existingHooks[eventName]) ? existingHooks[eventName] : [];
+    merged.hooks[eventName] = [
+      ...existingEntries.filter((entry) => !isManagedSessionStartEntry(entry, projectRoot)),
+      ...managedEntries,
+    ];
+  }
+
+  return merged;
+}
+
+function hasManagedSessionStartHook(hooksJson, projectRoot) {
+  const sessionStart = hooksJson
+    && hooksJson.hooks
+    && Array.isArray(hooksJson.hooks.SessionStart)
+    ? hooksJson.hooks.SessionStart
+    : [];
+  return sessionStart.some((entry) => isCurrentManagedSessionStartEntry(entry, projectRoot));
+}
+
+function isManagedSessionStartEntry(entry, projectRoot) {
+  const expectedCommand = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+  return Boolean(entry && Array.isArray(entry.hooks) && entry.hooks.some((hook) => (
+    hook
+      && hook.type === 'command'
+      && typeof hook.command === 'string'
+      && (hook.command === expectedCommand || hook.command.includes(SESSION_START_RELATIVE_PATH))
+  )));
+}
+
+function isCurrentManagedSessionStartEntry(entry, projectRoot) {
+  const expectedCommand = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+  return Boolean(entry && Array.isArray(entry.hooks) && entry.hooks.some((hook) => (
+    hook
+      && hook.type === 'command'
+      && hook.command === expectedCommand
+  )));
+}
+
+function isPlainObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function removeManagedDirectory(directoryPath, projectRoot) {

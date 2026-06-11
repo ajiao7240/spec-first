@@ -535,9 +535,32 @@ function buildDecisionResult(status, reasonCode, projection, options = {}) {
       configured_scan_status: projection.configured_scan_status,
       configured_dependency_counts: projection.configured_dependency_counts,
       provider_counts: projection.provider_counts,
+      next_action: decisionInputNextAction(reasonCode, options.requestedPlatforms),
     },
     normalized: projection,
   };
+}
+
+function decisionInputNextAction(reasonCode, requestedPlatforms = []) {
+  const hostLabel = Array.isArray(requestedPlatforms) && requestedPlatforms.length > 0
+    ? requestedPlatforms.map(String).join('/')
+    : 'the current host';
+  if (reasonCode === 'setup-facts-host-mismatch') {
+    return `Run \`$spec-mcp-setup\` from ${hostLabel} to refresh host-aligned setup facts.`;
+  }
+  if (reasonCode === 'setup-facts-missing') {
+    return `Run \`$spec-mcp-setup\` from ${hostLabel} to create setup facts.`;
+  }
+  if (reasonCode === 'setup-facts-stale') {
+    return `Rerun \`$spec-mcp-setup\` from ${hostLabel} to refresh stale setup facts.`;
+  }
+  if (reasonCode === 'required-runtime-action-required') {
+    return `Rerun \`$spec-mcp-setup\` from ${hostLabel} and resolve required runtime actions.`;
+  }
+  if (reasonCode === 'configured-scan-degraded') {
+    return `Rerun \`$spec-mcp-setup\` from ${hostLabel} to refresh configured dependency scan evidence.`;
+  }
+  return '';
 }
 
 function toBoolean(value, fallback) {

@@ -107,6 +107,49 @@ describe('init plan API', () => {
     }
   });
 
+  test('applyInitPlan preserves provider-owned Graphify Codex runtime', () => {
+    const projectRoot = makeTempDir();
+    const graphifyHook = {
+      matcher: 'Bash',
+      hooks: [
+        {
+          type: 'command',
+          command: 'graphify hook status --refresh',
+        },
+      ],
+    };
+
+    try {
+      fs.mkdirSync(path.join(projectRoot, '.codex', 'skills', 'graphify'), { recursive: true });
+      fs.mkdirSync(path.join(projectRoot, '.codex'), { recursive: true });
+      fs.writeFileSync(path.join(projectRoot, '.codex', 'skills', 'graphify', 'SKILL.md'), '# graphify\n', 'utf8');
+      fs.writeFileSync(path.join(projectRoot, '.codex', 'hooks.json'), JSON.stringify({
+        hooks: {
+          PreToolUse: [graphifyHook],
+        },
+      }, null, 2), 'utf8');
+
+      const plan = buildInitPlan({
+        projectRoot,
+        platform: 'codex',
+        name: 'reviewer',
+        lang: 'zh',
+      });
+      const result = applyInitPlan(projectRoot, plan);
+      const hooksJson = JSON.parse(fs.readFileSync(path.join(projectRoot, '.codex', 'hooks.json'), 'utf8'));
+
+      expect(result.exit_code).toBe(0);
+      expect(fs.readFileSync(path.join(projectRoot, '.codex', 'skills', 'graphify', 'SKILL.md'), 'utf8')).toBe('# graphify\n');
+      expect(hooksJson.hooks.PreToolUse).toEqual([graphifyHook]);
+      expect(hooksJson.hooks.SessionStart[0].hooks[0]).toEqual({
+        type: 'command',
+        command: path.join(fs.realpathSync.native(projectRoot), '.codex/hooks/session-start'),
+      });
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('legacy managed state is represented as destructive plan diagnostics before apply', () => {
     const projectRoot = makeTempDir();
 

@@ -12,7 +12,6 @@ const TRUSTED_CLI_PATH = path.join(REPO_ROOT, 'bin', 'spec-first.js');
 const LEGACY_CLEANUP_PATHS = [
   '.codex/commands/spec',
   '.codex/spec-first/commands',
-  '.codex/skills',
   '.agents/plugins',
   'plugins/spec',
   'plugins/spec-first',
@@ -103,7 +102,72 @@ describe('Codex SessionStart hook runtime plan', () => {
       });
       expect(path.isAbsolute(parsed.hooks.SessionStart[0].hooks[0].command)).toBe(true);
       expect(hooksJson.contents).not.toContain('__CODEX_SESSION_START_COMMAND__');
-      expect(plan.summary).toEqual({ remove_dir: 6, write_file: 2 });
+      expect(plan.summary).toEqual({ remove_dir: LEGACY_CLEANUP_PATHS.length, write_file: 2 });
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('sync plan preserves provider-owned hooks while refreshing managed SessionStart', () => {
+    const projectRoot = makeTempDir();
+    const graphifyHook = {
+      matcher: 'Bash',
+      hooks: [
+        {
+          type: 'command',
+          command: 'graphify hook status --refresh',
+        },
+      ],
+    };
+    const customSessionStart = {
+      hooks: [
+        {
+          type: 'command',
+          command: 'echo custom-session-start',
+        },
+      ],
+    };
+
+    try {
+      fs.mkdirSync(path.join(projectRoot, '.codex'), { recursive: true });
+      fs.writeFileSync(path.join(projectRoot, '.codex', 'hooks.json'), JSON.stringify({
+        hooks: {
+          PreToolUse: [graphifyHook],
+          SessionStart: [
+            customSessionStart,
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: path.join(os.tmpdir(), 'old-project', '.codex/hooks/session-start'),
+                },
+              ],
+            },
+          ],
+        },
+      }, null, 2), 'utf8');
+
+      const plan = getAdapter('codex').planRuntimeFilesSync(projectRoot);
+      const hooksJson = plan.operations.find((operation) => operation.path === '.codex/hooks.json');
+      const parsed = JSON.parse(hooksJson.contents);
+
+      expect(hooksJson.kind).toBe('update_file');
+      expect(parsed.hooks.PreToolUse).toEqual([graphifyHook]);
+      expect(parsed.hooks.SessionStart).toHaveLength(2);
+      expect(parsed.hooks.SessionStart).toContainEqual(customSessionStart);
+      expect(parsed.hooks.SessionStart).toContainEqual({
+        hooks: [
+          {
+            type: 'command',
+            command: path.join(projectRoot, '.codex/hooks/session-start'),
+          },
+        ],
+      });
+      expect(JSON.stringify(parsed)).not.toContain('old-project');
+      expect(getAdapter('codex').inspectRuntimeFiles(projectRoot)[1]).toMatchObject({
+        level: 'WARNING',
+        message: 'missing managed SessionStart hook config',
+      });
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -121,7 +185,7 @@ describe('Codex SessionStart hook runtime plan', () => {
       const hookOps = plan.operations.filter((operation) => operation.reason === 'managed_runtime_hook');
 
       expect(hookOps.map((operation) => operation.kind)).toEqual(['update_file', 'update_file']);
-      expect(plan.summary).toEqual({ remove_dir: 6, update_file: 2 });
+      expect(plan.summary).toEqual({ remove_dir: LEGACY_CLEANUP_PATHS.length, update_file: 2 });
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -150,7 +214,7 @@ describe('Codex SessionStart hook runtime plan', () => {
         reason: 'managed_runtime_hook',
       },
     ]);
-    expect(plan.summary).toEqual({ remove_dir: 6, remove_file: 2 });
+    expect(plan.summary).toEqual({ remove_dir: LEGACY_CLEANUP_PATHS.length, remove_file: 2 });
   });
 
   test('runtime file inspection reports missing, present, and drifted hook assets', () => {
@@ -180,13 +244,23 @@ describe('Codex SessionStart hook runtime plan', () => {
         },
       ]);
 
-      fs.appendFileSync(path.join(projectRoot, '.codex', 'hooks.json'), '\n');
+      const hooksPath = path.join(projectRoot, '.codex', 'hooks.json');
+      const hooksJson = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      hooksJson.hooks.SessionStart[0].hooks[0].command = path.join(os.tmpdir(), 'old-project', '.codex/hooks/session-start');
+      fs.writeFileSync(hooksPath, JSON.stringify(hooksJson, null, 2), 'utf8');
       const checks = adapter.inspectRuntimeFiles(projectRoot);
       expect(checks[0].level).toBe('PASS');
       expect(checks[1]).toMatchObject({
         level: 'WARNING',
         name: '.codex/hooks.json',
-        message: 'drifted from bundled template',
+        message: 'missing managed SessionStart hook config',
+      });
+
+      fs.writeFileSync(hooksPath, '{', 'utf8');
+      expect(adapter.inspectRuntimeFiles(projectRoot)[1]).toMatchObject({
+        level: 'WARNING',
+        name: '.codex/hooks.json',
+        message: 'invalid JSON',
       });
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });

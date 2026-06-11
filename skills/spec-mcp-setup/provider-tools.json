@@ -22,7 +22,7 @@
         "hook_default": true,
         "usage_owner": "downstream-skill"
       },
-      "usage_note": "Confirmed setup installs the Graphify CLI and current-host project skill, generates project-root `graphify-out/` by trying `graphify extract .` and falling back to code-only `graphify update .` when semantic extract cannot run, then enables provider-native `graphify hook install` when the target is a git repo. Only the CLI/project skill/hooks are required downstream; Graphify MCP/watch stay opt-in outside Runtime Setup. Use `$graphify .`/`/graphify .` or Graphify CLI query/path/explain for project-graph candidates, then confirm conclusions from source/test/log evidence.",
+      "usage_note": "Confirmed setup installs the Graphify CLI and current-host project skill, resolves `graphify` from the original PATH or provider-standard user tool path, generates project-root `graphify-out/` by trying `graphify extract .` and falling back to code-only `graphify update .` when semantic extract cannot run, then enables provider-native `graphify hook install` when the target is a git repo. Only the CLI/project skill/hooks are required downstream; Graphify MCP/watch stay opt-in outside Runtime Setup. Use `$graphify .`/`/graphify .` or the resolved Graphify CLI query/path/explain for project-graph candidates, then confirm conclusions from source/test/log evidence.",
       "install_route": "install-helpers",
       "detection": {
         "kind": "command",
@@ -35,9 +35,9 @@
         "package": "graphifyy",
         "version_pin": "0.8.36",
         "commands_display": {
-          "macos": "uv tool install graphifyy==0.8.36; graphify install --project --platform <current-host>; graphify extract . || graphify update .; graphify hook install",
-          "linux": "uv tool install graphifyy==0.8.36; graphify install --project --platform <current-host>; graphify extract . || graphify update .; graphify hook install",
-          "windows": "uv tool install graphifyy==0.8.36; graphify install --project --platform <current-host>; graphify extract . || graphify update .; graphify hook install"
+          "macos": "uv tool install graphifyy==0.8.36; resolve graphify from PATH or $HOME/.local/bin/graphify; graphify install --project --platform <current-host>; graphify extract . || graphify update .; graphify hook install",
+          "linux": "uv tool install graphifyy==0.8.36; resolve graphify from PATH or $HOME/.local/bin/graphify; graphify install --project --platform <current-host>; graphify extract . || graphify update .; graphify hook install",
+          "windows": "uv tool install graphifyy==0.8.36; resolve graphify from PATH or $HOME/.local/bin/graphify(.exe/.cmd); graphify install --project --platform <current-host>; graphify extract . || graphify update .; graphify hook install"
         },
         "next_action": "Run bare `$spec-mcp-setup` and confirm the CodeGraph/Graphify provider pack, or use `$spec-mcp-setup --only graphify` for explicit subset install-init. version_pin 已用 `pip index versions graphifyy` 实测到 PyPI 当前发布版本 0.8.36。"
       },
@@ -54,7 +54,7 @@
           "pin_status": "pinned"
         },
         "review_required": true,
-        "install_effect": "Installs PyPI package `graphifyy==0.8.36` and verifies the `graphify` CLI. Confirmed provider-pack setup runs current-host project skill install such as `graphify install --project --platform codex`, generates project-root `graphify-out/` via `graphify extract .` with a provider-native `graphify update .` code-only fallback, and installs project-level `graphify hook install` in git repos. Provider writes may include `.codex/skills/graphify/`, `.codex/hooks.json`, `AGENTS.md`, `.claude/skills/graphify/`, `CLAUDE.md`, `graphify-out/`, and `.git/hooks/*`; setup reports them as provider-owned runtime/project output and does not auto-add, auto-commit, or promote them to spec-first source."
+        "install_effect": "Installs PyPI package `graphifyy==0.8.36`, resolves `graphify` from the user's original PATH or provider-standard user tool path, and verifies the resolved CLI. Confirmed provider-pack setup runs current-host project skill install such as `graphify install --project --platform codex`, normalizes the provider-written `AGENTS.md`/`CLAUDE.md` `## graphify` instruction section to resolved CLI/manual-visibility/direct-source-fallback wording, generates project-root `graphify-out/` via `graphify extract .` with a provider-native `graphify update .` code-only fallback, probes query/hook commands through the resolved CLI, and installs project-level `graphify hook install` in git repos. Provider writes may include `.codex/skills/graphify/`, `.codex/hooks.json`, `AGENTS.md`, `.claude/skills/graphify/`, `CLAUDE.md`, `graphify-out/`, and `.git/hooks/*`; setup reports them as provider-owned runtime/project output, does not edit shell profiles, does not vendor the Graphify skill, and does not auto-add, auto-commit, or promote provider output to spec-first source."
       },
       "readiness": {
         "producer": "install-helpers",

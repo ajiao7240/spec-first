@@ -537,7 +537,6 @@ $detectParams = @{}
 if (-not [string]::IsNullOrWhiteSpace($Repo)) { $detectParams.Repo = $Repo }
 if (-not [string]::IsNullOrWhiteSpace($Folder)) { $detectParams.Folder = $Folder }
 $Facts = & (Join-Path $ScriptDir 'detect-tools.ps1') @detectParams | ConvertFrom-Json
-$HelperFacts = & (Join-Path $ScriptDir 'install-helpers.ps1') -VerifyOnly | ConvertFrom-Json
 
 $reconciliationHost = $Facts.host
 $reconciliationRepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$Facts.selected_repo_root)) {
@@ -549,6 +548,18 @@ $reconciliationRepoRoot = if (-not [string]::IsNullOrWhiteSpace([string]$Facts.s
 } else {
   [string]$Facts.repo_root
 }
+
+$previousProviderHostForHelper = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_HOST')
+$previousRepoRootForHelper = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_REPO_ROOT')
+try {
+  $env:SPEC_FIRST_PROVIDER_HOST = $reconciliationHost
+  $env:SPEC_FIRST_PROVIDER_REPO_ROOT = $reconciliationRepoRoot
+  $HelperFacts = & (Join-Path $ScriptDir 'install-helpers.ps1') -VerifyOnly | ConvertFrom-Json
+} finally {
+  if ($null -eq $previousProviderHostForHelper) { Remove-Item env:SPEC_FIRST_PROVIDER_HOST -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_HOST = $previousProviderHostForHelper }
+  if ($null -eq $previousRepoRootForHelper) { Remove-Item env:SPEC_FIRST_PROVIDER_REPO_ROOT -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_REPO_ROOT = $previousRepoRootForHelper }
+}
+
 $HostPointerReconciliation = Get-HostPointerReconciliation -CurrentHost $reconciliationHost -RepoRoot $reconciliationRepoRoot -MarkerPathArg $MarkerPath
 
 function Test-ToolReady {
@@ -629,10 +640,13 @@ if ($HelperFacts.PSObject.Properties.Name -contains 'provider_readiness') {
   }
 }
 $providerFactsTmp = ''
+$previousProviderHostForMcp = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_HOST')
 try {
   $providerFactsTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("spec-first-provider-facts.{0}.json" -f ([guid]::NewGuid().ToString('N')))
   $Facts | ConvertTo-Json -Depth 20 | Set-Content -Encoding utf8 $providerFactsTmp
+  $env:SPEC_FIRST_PROVIDER_HOST = $reconciliationHost
   $mcpProviderRaw = & node (Join-Path $ScriptDir 'provider-readiness-renderer.cjs') --source mcp --facts-file $providerFactsTmp --repo-root $reconciliationRepoRoot
+  if ($null -eq $previousProviderHostForMcp) { Remove-Item env:SPEC_FIRST_PROVIDER_HOST -ErrorAction SilentlyContinue } else { $env:SPEC_FIRST_PROVIDER_HOST = $previousProviderHostForMcp }
   foreach ($provider in @($mcpProviderRaw | ConvertFrom-Json)) {
     if ($null -ne $provider -and $provider.PSObject.Properties.Name -contains 'provider') {
       $providerReadinessById[[string]$provider.provider] = $provider
@@ -640,6 +654,7 @@ try {
   }
   Remove-Item -Force $providerFactsTmp -ErrorAction SilentlyContinue
 } catch {
+  if ($null -ne $previousProviderHostForMcp) { $env:SPEC_FIRST_PROVIDER_HOST = $previousProviderHostForMcp } else { Remove-Item env:SPEC_FIRST_PROVIDER_HOST -ErrorAction SilentlyContinue }
   if (-not [string]::IsNullOrWhiteSpace($providerFactsTmp)) {
     Remove-Item -Force $providerFactsTmp -ErrorAction SilentlyContinue
   }

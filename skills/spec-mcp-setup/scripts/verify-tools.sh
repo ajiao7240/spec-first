@@ -531,13 +531,17 @@ if [ -z "$REPO_ARG" ] && [ -z "$FOLDER_ARG" ]; then
 fi
 
 FACTS_JSON="$(bash "$SCRIPT_DIR/detect-tools.sh" ${DETECT_ARGS[@]+"${DETECT_ARGS[@]}"})"
-HELPER_JSON="$(bash "$SCRIPT_DIR/install-helpers.sh" --verify-only)"
 
 # U2: facts 给出 child repo root 后再做 reconciliation,
 # 让 --repo <child> 在 parent workspace 下也能正确比对 runtime-capabilities.json。
 RECONCILIATION_HOST="$(jq -r '.host // empty' <<<"$FACTS_JSON")"
 RECONCILIATION_REPO_ROOT="$(jq -r '.selected_repo_root // .selected_folder_root // .target.target_root // .repo_root // empty' <<<"$FACTS_JSON")"
 HOST_POINTER_RECONCILIATION="$(compute_host_pointer_reconciliation "$RECONCILIATION_HOST" "$RECONCILIATION_REPO_ROOT" "$MARKER_PATH")"
+HELPER_JSON="$(
+  SPEC_FIRST_PROVIDER_HOST="$RECONCILIATION_HOST" \
+  SPEC_FIRST_PROVIDER_REPO_ROOT="$RECONCILIATION_REPO_ROOT" \
+  bash "$SCRIPT_DIR/install-helpers.sh" --verify-only
+)"
 
 mkdir -p "$MARKER_DIR"
 [ -w "$MARKER_DIR" ] || { echo "verify-tools.sh: 无法写入 ${MARKER_DIR}" >&2; exit 1; }
@@ -549,7 +553,7 @@ trap 'rm -f "$combined_tmp" "$final_tmp" "$facts_scan_tmp"' EXIT
 chmod 600 "$combined_tmp" "$final_tmp"
 printf '%s\n' "$FACTS_JSON" > "$facts_scan_tmp"
 CONFIGURED_SCAN="$(bash "$SCRIPT_DIR/scan-configured-deps.sh" --repo-root "$RECONCILIATION_REPO_ROOT" --facts-file "$facts_scan_tmp" 2>/dev/null || jq -n '{configured_dependencies:[]}')"
-MCP_PROVIDER_JSON="$(node "$SCRIPT_DIR/provider-readiness-renderer.cjs" --source mcp --facts-file "$facts_scan_tmp" --repo-root "$RECONCILIATION_REPO_ROOT" 2>/dev/null || printf '[]')"
+MCP_PROVIDER_JSON="$(SPEC_FIRST_PROVIDER_HOST="$RECONCILIATION_HOST" node "$SCRIPT_DIR/provider-readiness-renderer.cjs" --source mcp --facts-file "$facts_scan_tmp" --repo-root "$RECONCILIATION_REPO_ROOT" 2>/dev/null || printf '[]')"
 
 jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
   --arg marker_path "$MARKER_PATH" \
