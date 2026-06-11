@@ -9,6 +9,10 @@ plan_depth: deep
 
 # refactor: Improve spec-plan decision brief and surface coverage
 
+> **Sequencing note (2026-06-11): PAUSED — recalibrate after `2026-06-11-004` (governance-header keep/extract/remove) lands.**
+> 001 与 004 同改 `spec-plan` 的 `SKILL.md` / `plan-sections.md` / `plan-template.md` / `markdown-rendering.md` / `tests/unit/spec-plan-contracts.test.js`,且方向相反(001 加内容、004 收束 spine)。004 是 enabler,提供 001 缺的四样基础:① capability-binding 测试规范(001/U2 的新 `toContain('## Decision Brief')` 类断言必须改写为绑能力,否则正是 004 要消灭的反模式)② ablation evidence gate(001 自身 review L667 承认 surface-coverage lens 缺此 gate——"the gap is asserted, not observed";用 004 的 harness 给 001 的 9-surface/17-module 做 evidence gate)③ 收缩后的更小 spine + 约束预算(ComplexBench 实证:spine 约束总量有上界,001 的新增会稀释 003 的 handoff gate 与 001 自己的 Decision Brief)④ extract-to-shared-reference 机制(001 的 conditional 内容应复用,不另造)。
+> **校准方向**:004 完成后,001 不是简单 rebase,而是在 004 纪律下重推——多数 conditional 模块/矩阵应进渐进披露 reference 而非 spine 常驻;每项 spine 新增需先过 ablation。详见 `docs/plans/2026-06-11-004-refactor-spec-plan-skill-slimming-plan.md`。
+
 ## Summary
 
 Improve `spec-plan` output with a front-loaded decision brief, conditional multi-surface/module coverage lens, and professional technical-plan module guidance so a human reviewer can understand the proposed direction, decisions, risks, validation focus, and implementation shape in the first pass, while preserving canonical Markdown as the durable source artifact consumed by `spec-work`, `spec-write-tasks`, and `spec-doc-review`.

@@ -1,0 +1,69 @@
+---
+title: spec-plan 治理头部 capability 清单与 keep/extract/remove 矩阵
+date: 2026-06-11
+type: architecture-pattern
+spec_id: 2026-06-11-004-spec-plan-skill-slimming
+plan: docs/plans/2026-06-11-004-refactor-spec-plan-skill-slimming-plan.md
+status: U1 deliverable
+---
+
+# spec-plan 治理头部 capability 清单(U1)
+
+范围:`skills/spec-plan/SKILL.md` 治理头部 **L17-101(85 行 / 10.6KB)**。本清单是 U3(绑能力测试)与 U4/U5(抽取/删除)的事实底座。
+
+判定规则:
+- **KEEP** = 有可验证消费者(lint / hook / audit / router 机读其内容)。
+- **EXTRACT** = 无消费者 + 跨 skill 重复 + 非全局层冗余(语义须随共享载体投影到终端)。
+- **REMOVE** = 无消费者 + 全局层冗余 + clean-room 证明模型先验在终端运行时仍可复现(本轮无一满足——见下方"收敛结论")。
+
+## 裁决矩阵
+
+| 节 | 行号 | 行数 | owner_consumer | cross_skill | global_dup | ablation | 裁决 |
+|---|---|---|---|---|---|---|---|
+| Plan-Only Safety Contract | 17-24 | 8 | **`spec-plan-guard` hook**(运行时强制) | 1/37(独有) | 否(003 owns) | — | **KEEP** |
+| Workflow Contract Summary | 25-57 | 34 | **`lint-skill-structure.js` REQUIRED_SECTIONS**(When To Use/When Not To Use/Outputs/Workflow=P1;Inputs/Failure Modes=P2)+ spec-skill-audit | 18/37 | 否 | — | **KEEP**(内联;各 skill 内容不同) |
+| Scenario Capability | 59-62 | 5 | spec-skill-audit + 指向 `scenario-capability-matrix.md` | 18/37 | 否 | — | **KEEP**(已是引用范式) |
+| Context Orientation Anchor | 64-70 | 8 | 无 | 4/37 | 否(intake 顺序不在全局) | 未测 | **EXTRACT** |
+| Domain Language And Decision Ledger | 72-76 | 6 | 无 | 6/37 | 否(决策账本不在全局) | 未测 | **EXTRACT** |
+| Runtime Context Exclusion | 78-80 | 4 | 无 | 7/37 | **是**(CLAUDE.md L234 逐字) | 仓内 NULL(全局泄漏;待 clean-room) | **EXTRACT**(收敛,见下) |
+| Cache-Friendly Context Layout | 82-86 | 6 | 无 | 3/37 | 否(context-bundle/稳定前缀不在全局) | 未测 | **EXTRACT** |
+| Summary-First Handoff | 88-92 | 6 | 无 | 4/37 | 否(artifact-summary 先读不在全局) | 未测 | **EXTRACT** |
+| Recall Trust Boundary | 94-96 | 4 | 无 | 3/37 | **是**(CLAUDE.md L63 核心同款) | 弱效果(非 null) | **EXTRACT** |
+| Capability-Class Evidence Boundary | 98-100 | 4 | 无 | 3/37 | 部分(advisory 同族,provider 特化不在全局) | 判定未决(任务混淆) | **EXTRACT**(特化语义须载体) |
+
+合计:**KEEP 3 节(47 行)/ EXTRACT 7 节(38 行 ≈ ~4KB)/ 确认 REMOVE 0 节。**
+
+## 收敛结论:remove 档基本塌缩为 extract
+
+「REMOVE」三候选(Runtime Context Exclusion / Recall Trust Boundary / Capability-Class)经实测与运行时约束分析,**均不裸删安全**:
+
+1. **终端运行时无其他载体**:终端用户 repo 无 spec-first `CLAUDE.md`,注入的 bootstrap 只含路由、无治理语义。一旦从 per-skill 删掉,终端运行时无人接住——除非模型通用先验可靠复现。
+2. **spec-first 特化语义模型先验覆盖不到**:Runtime Context Exclusion(哪些目录是 generated mirror)、Capability-Class(`provider-untrusted`/readiness)是 spec-first 特化,clean-room 下通用先验大概率覆盖不了 → 必须由载体承载 = EXTRACT。
+3. **通用语义 section 仍有锐化作用**:Recall Trust Boundary 首轮 ablation 显示弱效果(有节臂 skepticism-first vs 无节臂"先采纳再核")→ 仍值得 EXTRACT,不删。
+
+故正确架构是:**7 个无消费者节全部 EXTRACT 到一个能投影到终端的渐进披露共享 reference,各重型节点(plan/work/code-review/debug)引用一次;3 个有消费者节保留内联。** 「裸删」仅在 clean-room 证明某节模型先验在终端可靠复现 *且* 全局冗余时才成立——本轮无一满足。
+
+## KEEP 三节的消费链路(R6 守护对象,不得断)
+
+- **Plan-Only Safety Contract** → `templates/claude/hooks/spec-plan-guard`(运行时拦截 plan 偷跑改代码)。
+- **Workflow Contract Summary** → `skills/spec-skill-audit/scripts/lint-skill-structure.js` 的 `REQUIRED_SECTIONS`(P1/P2 机读校验);删任一子节产 audit finding。
+- **Scenario Capability** → `docs/contracts/workflows/scenario-capability-matrix.md`(audit 据此判 capability)。
+
+## 共享载体设计要求(U4 输入 + 001 复用接口)
+
+- 目标:`docs/contracts/workflows/governance-boundaries.md`(或同类可投影路径),渐进披露,各重型节点 `STOP. read ...` 引用一次。
+- **必须随 command projection / `spec-first init` 投影到终端 runtime**(R4/R5);否则 EXTRACT 等于在终端丢治理。
+- **必须设计得足够通用**,能承载 001(decision-surface-coverage)之后的 conditional 内容(surface-coverage lens / module model),不得做成只装治理 prose 的私有形态。
+
+## 跨节点推广候选(follow-up,非本计划)
+
+| 节 | 重型节点覆盖 | 推广形态 |
+|---|---|---|
+| Workflow Contract Summary / Scenario Capability | 18/37(plan/work/code-review/debug + 14) | 18-skill 一致性收束(各 skill 内容不同,统一结构与 lint) |
+| 7 个 EXTRACT 节 | 主要在 plan(10)/work(8)/code-review(8)/debug(7) | 同一 governance-boundaries.md 被 4 节点共引 |
+
+## orphan 检查
+
+- 无 orphan capability:KEEP 3 节均有 consumer;EXTRACT 7 节均有迁移去向(共享 reference)。
+- 无 orphan prose:L17-101 全部 85 行已归类(47 keep + 38 extract);无"待删但无归属"内容。
+- 注:Phase 0.7 / 5.1.5 / 5.3 等对治理概念的 in-spine 引用不在本清单范围(它们是 workflow 步骤,非治理头部节);U4 抽取时若 spine 引用了被外置概念,须保留自包含定义避免孤儿引用。
