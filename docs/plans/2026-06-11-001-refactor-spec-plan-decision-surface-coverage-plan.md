@@ -3,15 +3,22 @@ title: refactor: Improve spec-plan decision brief and surface coverage
 type: refactor
 status: active
 date: 2026-06-11
+recalibrated: 2026-06-12
 spec_id: 2026-06-11-001-spec-plan-decision-surface-coverage
 plan_depth: deep
 ---
 
 # refactor: Improve spec-plan decision brief and surface coverage
 
-> **Sequencing note (2026-06-11): PAUSED — recalibrate after `2026-06-11-004` (governance-header keep/extract/remove) lands.**
-> 001 与 004 同改 `spec-plan` 的 `SKILL.md` / `plan-sections.md` / `plan-template.md` / `markdown-rendering.md` / `tests/unit/spec-plan-contracts.test.js`,且方向相反(001 加内容、004 收束 spine)。004 是 enabler,提供 001 缺的四样基础:① capability-binding 测试规范(001/U2 的新 `toContain('## Decision Brief')` 类断言必须改写为绑能力,否则正是 004 要消灭的反模式)② ablation evidence gate(001 自身 review L667 承认 surface-coverage lens 缺此 gate——"the gap is asserted, not observed";用 004 的 harness 给 001 的 9-surface/17-module 做 evidence gate)③ 收缩后的更小 spine + 约束预算(ComplexBench 实证:spine 约束总量有上界,001 的新增会稀释 003 的 handoff gate 与 001 自己的 Decision Brief)④ extract-to-shared-reference 机制(001 的 conditional 内容应复用,不另造)。
-> **校准方向**:004 完成后,001 不是简单 rebase,而是在 004 纪律下重推——多数 conditional 模块/矩阵应进渐进披露 reference 而非 spine 常驻;每项 spine 新增需先过 ablation。详见 `docs/plans/2026-06-11-004-refactor-spec-plan-skill-slimming-plan.md`。
+> **Sequencing note (recalibrated 2026-06-12): 004 已 `completed`,PAUSED 解除。本计划在 004 纪律下重推,并拆成两条不同成熟度的轨道。**
+>
+> 前置事实(读 source 确认):`2026-06-11-004`(governance-header keep/extract/remove)已落地——`skills/spec-plan/SKILL.md:64` 已是 `STOP. read references/governance-boundaries.md` 指针,7 个无消费者治理节已抽取到 `skills/spec-plan/references/governance-boundaries.md`,`tests/unit/spec-plan-contracts.test.js` 已用 `combined = spine + governance reference` 改绑能力(见 L177-195)。治理头由 775→739 行、10.6KB→4.1KB(见 `docs/validation/spec-plan/governance-header-slimming-verification-2026-06-11.md`)。
+>
+> **两条轨道(R1 与新增承载方向相反,故分级):**
+> - **Track A —— Decision Brief(U1-U6,本计划 active 核心)**:前置的人类第一屏决策层。004 完全没碰这个问题,用户最初的问题("plan 输出更适合 AI 读还是人读")仍未回答。A 推进 R1、风险低、不依赖 Track B,现在就可做。
+> - **Track B —— surface/module coverage lens(U7-U8,GATED,不随 A 一起落地)**:001 自身 review(见末尾 Deferred / Open Questions)已定罪"the gap is asserted, not observed"。B 增大 Standard/Deep plan 承载、与 R1 反向,必须先过 004 的 ablation 证据门(见新增 `## Track 分级与 Track B 证据门` 一节)。
+>
+> **004 纪律的四项落点:**① capability-binding 测试:U2 绑"可读性层能力(可省略)",不硬断言某标题永远在场;heading-order / lint / projection 这类 phrase-即-contract 断言不 rebind(见 U2)。② ablation 证据门:Track B 复用 004 的 harness 与 `docs/validation/spec-plan/`,把 U7 九面场景作为**落地前 baseline gate**(见 U7、U8)。③ spine 约束预算(ComplexBench):Track B 的 module 模型/surface 矩阵 guidance **全部进渐进披露 reference,零 spine 常驻**,不稀释 004 已释放的预算与 003 的 handoff gate(见 U7)。④ extract-to-shared-reference:Track B 的 conditional guidance 落 `plan-sections.md` + `plan-template.md` + 新建 reference;**不**塞进 `governance-boundaries.md`——该载体是上下文摄取治理,非 plan 输出结构(见 U7 Files)。详见 `docs/plans/2026-06-11-004-refactor-spec-plan-skill-slimming-plan.md`。
 
 ## Summary
 
@@ -58,6 +65,27 @@ The planned change should not split the artifact into a human document and an AI
 
 - A richer HTML/Proof presentation layer can be explored after Markdown-first readability is improved and downstream parity tests exist.
 - Plan-quality eval fixtures for human readability can become a later optimization track if this first prose/template pass is not enough.
+
+---
+
+## Track 分级与 Track B 证据门
+
+本计划拆成两条成熟度不同的轨道。Track A 现在可交付;Track B 受 004 ablation 证据门约束,**不随 A 一起 ship**。
+
+| Track | 单元 | 状态 | 推进条件 |
+|---|---|---|---|
+| A — Decision Brief | U1, U2, U3, U4, U5, U6 | active 核心 | 无外部门;004 已解锁,可直接进 `spec-work` |
+| B — surface/module coverage lens | U7, U8 | gated | 必须先过下方 baseline ablation gate |
+
+**为什么分级(R1 与 B 方向相反):** R1 要更短、更快的人类第一屏;Track B 的 17-module 模型 + 9-surface 矩阵增大 Standard/Deep plan 承载。二者方向相反。Track A 单独推进即可回答用户最初的问题且推进 R1,不被 B 拖累。
+
+**Track B baseline ablation gate(落地前,非事后验证):**
+
+- **复用而非新建仪器**:Track B 直接复用 004 落地的 ablation harness 与 `docs/validation/spec-plan/` 沉淀路径(见 `docs/validation/spec-plan/governance-header-ablation-2026-06-11.md` 的方法学与 confound 控制)。不新建独立 eval 体系。
+- **gate 判据**:对 U7 的九面代表性场景(native App deep links / H5 share / PC web settings / Admin approval tables / backend APIs / data migration+backfill / async notification jobs / observability / rollback),以 fresh-source A/B 实测「现有 `## Summary` + 现有 deepening specialists(`spec-spec-flow-analyzer` / `spec-design-lens-reviewer` 等) **不带** surface 矩阵 guidance」是否**确实漏过**某个 in-scope surface 的覆盖决策。
+- **通过条件**:只有当 baseline 实测显示「现有原语 + Summary 确实漏面」时,Track B 的 guidance 才获授权落地。若 baseline 显示现有原语已覆盖,Track B 降级为 Deferred,不落地——这正是把 001 强加于新 agent(U8)的证据门,对称地强加于 001 自己的 inline lens。
+- **confound 边界(沿用 004 实测纪律)**:测试任务不得自带 surface 线索(不能在 prompt 里点名"别忘了 Admin");全局层会泄漏进 subagent,故仓内结果是「矩阵 vs (ambient 全局层 + 模型先验)」,baseline null 只说明"现有原语够用",不等于"矩阵无价值"。每场景 A/B 各跑 ≥3 次估方差。
+- **dispatch 不可用时**:记录原因,Track B 保持 gated,不得假称 baseline 已过、也不得绕过门直接落地。
 
 ---
 
@@ -283,7 +311,10 @@ flowchart TB
 
 ## Implementation Units
 
-Execution order follows the `Dependencies` fields, not numeric U-ID order. Preserve U-IDs for review traceability; execute U7 before U4, execute U8 after U7, and execute U6 last.
+Execution order follows the `Dependencies` fields, not numeric U-ID order. Preserve U-IDs for review traceability.
+
+- **Track A (active, ships now):** U1 → U2 → U3 → {U4, U5} → U6. U6 is Track A's closeout and does **not** wait on U7/U8.
+- **Track B (gated on the baseline ablation gate; see `## Track 分级与 Track B 证据门`):** U7 → U8, each with its own closeout. Do not start U7 until the baseline ablation shows existing primitives miss surfaces.
 
 ### U1. Define the canonical human readability layer
 
@@ -335,16 +366,21 @@ Execution order follows the `Dependencies` fields, not numeric U-ID order. Prese
 - Keep Direct Evidence before `Context & Research`, but avoid making evidence inventory dominate the first human decision pass.
 - Ensure the new section uses visible plain Markdown, no HTML, no hidden metadata, and no generated layout syntax.
 - Preserve implementation-unit heading format `### U1. [Name]` and existing required metadata.
-- Choose the final heading name before extending contract tests: generate at least one representative plan output using the candidate heading, confirm the heading survives a raw-text diff and is readable at the top of the document, then commit to the name before adding the `expect(planTemplate).toContain('## <chosen-name>')` assertion. Record the chosen name in closeout evidence.
+- Choose the final heading name, then bind the **capability** (per 004's R3 two-class rule), not a literal always-present heading. The Decision Brief is conditional/omittable for lightweight plans (see U1 omission rules), so a hard `expect(...).toContain('## <chosen-name>')` on the template would wrongly freeze conditional content and re-introduce the brittle phrase-binding 004 just removed. Instead:
+  - **Rebind to capability (the readability-layer prose):** assert that `plan-sections.md` describes the human readability layer and that `plan-template.md` offers it, while allowing lightweight plans to omit it. Mirror the post-004 `combined`-style binding (a capability is satisfied if its semantic constraint is present in the spine or a reachable reference), not a single literal-heading match.
+  - **Keep non-rebindable contract assertions as exact matches:** heading-order invariants, the `### U1.` implementation-unit format, lint REQUIRED_SECTIONS, and runtime projection paths stay as phrase-as-contract assertions — these are generated-artifact structure, not advisory prose, and must not be loosened.
+  - Generate at least one representative plan output using the chosen heading, confirm it survives a raw-text diff and reads well at the top, then record the chosen name in closeout evidence.
 
 **Patterns to follow:**
 - `skills/spec-plan/references/markdown-rendering.md` hard invariants.
 - Existing top-level horizontal-rule convention for Standard and Deep plans.
 
 **Test scenarios:**
-- Happy path: the template includes the human layer near the top and still includes `## Summary`, `## Requirements`, `## Assumptions`, `## Scope Boundaries`, `## Completion Criteria`, `## Direct Evidence Readiness`, `## Direct Evidence`, and `## Implementation Units`.
+- Happy path: the readability-layer capability is described in `plan-sections.md` and offered by `plan-template.md`, and the template still includes `## Summary`, `## Requirements`, `## Assumptions`, `## Scope Boundaries`, `## Completion Criteria`, `## Direct Evidence Readiness`, `## Direct Evidence`, and `## Implementation Units` (the latter set stay exact phrase-as-contract assertions).
+- Edge case: a lightweight plan that compresses or omits the Decision Brief still passes the capability binding — the assertion checks the layer is *offered and described*, not that the heading is literally present in every plan.
 - Edge case: the new layer does not introduce bolded stable-ID prefixes or hidden machine metadata.
 - Error path: tests fail if the template includes HTML container tags, inline styles, or HTML-only layout guidance.
+- Error path: tests fail if a non-rebindable contract assertion (heading order, `### U1.` format, projection path) is loosened into a soft capability check.
 
 **Verification:**
 - A newly generated standard/deep plan can be read top-down by a human without losing the downstream contract fields.
@@ -385,11 +421,11 @@ Execution order follows the `Dependencies` fields, not numeric U-ID order. Prese
 
 ### U4. Preserve downstream consumer compatibility
 
-**Goal:** Ensure `spec-work`, `spec-write-tasks`, and `spec-doc-review` continue to consume plans safely after the new top-level section and conditional surface coverage lens are added.
+**Goal:** Ensure `spec-work`, `spec-write-tasks`, and `spec-doc-review` continue to consume plans safely after the new top-level Decision Brief is added. (Consumer impact of the Track B surface-coverage lens is re-checked inside U7, gated, so this unit can close with Track A.)
 
 **Requirements:** R3, R4, R8
 
-**Dependencies:** U2, U3, U7
+**Dependencies:** U2, U3
 
 **Files:**
 - Inspect: `skills/spec-work/SKILL.md`
@@ -457,11 +493,13 @@ Execution order follows the `Dependencies` fields, not numeric U-ID order. Prese
 
 ### U6. Update changelog, validate, and refresh runtime deliberately
 
-**Goal:** Finish the implementation after all plan-shape, surface-coverage, consumer-compatibility, and agent-gate changes land, with traceable user-visible documentation, focused validation, and honest runtime handling.
+**Goal:** Close out Track A (Decision Brief) with traceable user-visible documentation, focused validation, and honest runtime handling. Track B (U7/U8) carries its own closeout gate and is **not** required for U6 to complete — U6 ships when the Track A units land.
 
 **Requirements:** R6, R7, R8
 
-**Dependencies:** U1, U2, U3, U4, U5, U7, U8
+**Dependencies:** U1, U2, U3, U4, U5
+
+> **Track B closeout (separate, gated):** when U7/U8 later land behind the baseline ablation gate, repeat the CHANGELOG entry, focused tests, `spec-first init`, and fresh-source eval for those units. Do not block Track A's U6 on Track B; do not claim Track B shipped under Track A's closeout.
 
 **Files:**
 - Modify: `CHANGELOG.md`
@@ -495,19 +533,23 @@ Execution order follows the `Dependencies` fields, not numeric U-ID order. Prese
 
 **Goal:** Let `spec-plan` produce professional technical-plan modules for App/H5/PC/Admin/backend/data/API/ops work without forcing boilerplate into small plans.
 
+**Track:** B — **GATED.** Do not begin U7 until the baseline ablation gate (see `## Track 分级与 Track B 证据门`) shows existing `## Summary` + current deepening specialists actually miss surfaces on the nine-surface scenario. If the baseline shows existing primitives already cover, U7 stays Deferred and does not land.
+
 **Requirements:** R1, R9, R10, R11
 
-**Dependencies:** U1, U2, U3
+**Dependencies:** U1, U2, U3, and a **passed baseline ablation gate**
 
 **Files:**
-- Modify: `skills/spec-plan/references/plan-sections.md`
-- Modify: `skills/spec-plan/references/plan-template.md`
-- Modify: `skills/spec-plan/references/markdown-rendering.md`
-- Modify: `skills/spec-plan/SKILL.md`
-- Create (if the coverage eval runs): `docs/plans/fixtures/spec-plan-surface-coverage-eval-example.md` — a representative fixture plan showing per-surface scope decisions, kept as a non-durable eval artifact
+- Modify: `skills/spec-plan/references/plan-sections.md` (the conditional lens lives here — `Include When Material`)
+- Modify: `skills/spec-plan/references/plan-template.md` (optional, conditional section in the skeleton)
+- Modify: `skills/spec-plan/references/markdown-rendering.md` (only if the matrix needs a rendering-boundary clarification)
+- Create (if guidance volume warrants its own progressive-disclosure file): `skills/spec-plan/references/surface-coverage.md` — loaded on demand only when multi-surface, never spine-resident
+- Spine pointer only (no guidance body): `skills/spec-plan/SKILL.md` — at most one conditional `read references/...` line near Phase 4, mirroring the existing `STOP. read ...` pattern. **Do not add the module model or surface matrix prose to the spine** (004 constraint-budget discipline; ComplexBench).
 - Test: `tests/unit/spec-plan-contracts.test.js`
 
 **Approach:**
+- **Reference-resident, not spine-resident:** all module-model and surface-matrix guidance goes into `plan-sections.md` (and optionally a dedicated `references/surface-coverage.md`), consumed conditionally. The spine carries at most a one-line conditional pointer. This honors 004's finding that spine constraint budget is finite and was just reduced; do not dilute it or 003's handoff gate.
+- **Do not use `governance-boundaries.md`:** that 004 carrier is context-intake governance (what to read, runtime exclusion, recall trust), not plan output structure. The surface/module lens belongs with the section/template contract.
 - Add a conditional `Surface Coverage Matrix` or equivalent section to the plan section contract.
 - Define trigger rules: include the matrix when the plan touches more than one client, backend surface, API/schema/event contract, data lifecycle, operational concern, or rollout path.
 - Treat the listed surface rows (App, H5, PC Web, Admin, backend, data/API, events/jobs, observability, testing) as representative examples, not a closed set. State the derivation rule: the plan writer enumerates the surfaces that actually exist in the target repo/product (clients, contracts, runtimes, operational concerns) and extends or replaces the listed rows as needed.
@@ -525,12 +567,14 @@ Execution order follows the `Dependencies` fields, not numeric U-ID order. Prese
 - Happy path: source references describe a conditional multi-surface/module coverage lens for Standard/Deep plans.
 - Edge case: lightweight and single-surface plans are allowed to omit the matrix cleanly.
 - Error path: tests fail if the guidance implies every plan must include App/H5/Admin/backend sections regardless of relevance.
+- Error path: tests fail if the module-model or surface-matrix guidance body lands in the `SKILL.md` spine instead of a reference (spine may carry only a conditional pointer).
 - Integration path: tests confirm `spec-plan` still preserves `Summary`, `Direct Evidence`, `Requirements`, and implementation-unit contracts.
-- Coverage eval path: verify via a fresh spec-plan run (record the result in closeout) for a feature spanning native App deep links, H5 share pages, PC web settings, Admin approval tables, backend APIs, a data migration/backfill, async notification jobs, observability, and rollback. The generated plan should mark relevant surfaces as in scope, out of scope, deferred, or not applicable, and should select only material technical-plan modules. If the eval produces a fixture plan, store it at `docs/plans/fixtures/spec-plan-surface-coverage-eval-example.md` as a non-durable eval artifact.
+- Coverage eval path: the baseline ablation gate (see `## Track 分级与 Track B 证据门`) has already exercised the nine-surface scenario before U7 begins; its result is recorded under `docs/validation/spec-plan/`. Re-run the same scenario after the guidance lands to confirm the matrix now drives correct in-scope/out-of-scope/deferred/not-applicable designations.
 
 **Verification:**
 - A plan involving App + H5 + backend + Admin can be generated with explicit coverage decisions, while a narrow backend-only plan remains compact.
-- If a live plan-generation eval is unavailable (dispatch capacity or tool path unavailable), the implementer may substitute a direct prose review: manually apply the Surface Coverage Matrix guidance to the nine-surface scenario and confirm the matrix selects the correct in-scope/out-of-scope/deferred/not-applicable designations. Document this as a prose-review substitute in closeout, not as a passed eval.
+- The guidance body is reference-resident; the spine carries at most a conditional pointer (verified by the spine error-path test above).
+- If a live plan-generation eval is unavailable (dispatch capacity or tool path unavailable), the implementer may substitute a direct prose review: manually apply the Surface Coverage Matrix guidance to the nine-surface scenario and confirm the matrix selects the correct designations. Document this as a prose-review substitute in closeout, not as a passed eval — and note that a prose substitute does **not** satisfy the baseline gate, which must still be a real ablation result before U7 lands.
 
 ---
 
@@ -539,6 +583,8 @@ Execution order follows the `Dependencies` fields, not numeric U-ID order. Prese
 **Goal:** Decide whether new agent assets are necessary only after the improved decision lens is tested against real multi-surface planning gaps.
 
 **Requirements:** R4, R8, R11
+
+**Track:** B — **GATED.** Only relevant once U7 has landed (which itself requires the passed baseline ablation gate). The new-agent decision reuses the same ablation evidence; it does not introduce a second eval regime.
 
 **Dependencies:** U7
 
@@ -617,14 +663,22 @@ Execution order follows the `Dependencies` fields, not numeric U-ID order. Prese
 
 ## Success Metrics
 
+**Track A (Decision Brief):**
+
 - A human reviewer can read the top of a newly generated Standard/Deep plan and identify the recommended approach, key decisions, validation focus, and biggest risks without first scanning every implementation unit.
 - `spec-work`, `spec-write-tasks`, and `spec-doc-review` can still consume existing fields and U-IDs without special casing a second artifact.
-- Focused contract tests fail if canonical Markdown is replaced, HTML becomes load-bearing, or the human layer disappears from the template/guidance.
+- Focused contract tests fail if canonical Markdown is replaced, HTML becomes load-bearing, or the human layer disappears from the template/guidance — while the layer stays omittable for lightweight plans (capability binding, not literal-heading binding).
+
+**Track B (surface/module lens — only if the gate opens):**
+
+- The baseline ablation gate ran on the nine-surface scenario and its result (existing primitives miss surfaces, or already cover) is recorded under `docs/validation/spec-plan/` before any U7 guidance lands.
+- All Track B guidance is reference-resident; no module-model or surface-matrix prose is added to the `SKILL.md` spine (constraint-budget preserved).
 - A multi-end plan can explicitly show which of App, H5, PC Web, Admin, backend, data/API, events/jobs, observability, and testing are in scope, out of scope, deferred, or not applicable.
-- A representative App + H5 + PC Web + Admin + backend + data + jobs + observability scenario exercises the coverage lens before any new agent is considered.
-- Deepening uses existing specialist agents before any new agent asset is introduced.
-- Any future `spec-surface-coverage-reviewer` decision is backed by fresh-source eval or repeated real-plan misses, not by generic desire for more agents.
-- Implementation closeout honestly reports validation and runtime refresh status.
+- Deepening uses existing specialist agents before any new agent asset is introduced; any future `spec-surface-coverage-reviewer` decision is backed by ablation evidence or repeated real-plan misses, not a generic desire for more agents.
+
+**Both tracks:**
+
+- Implementation closeout honestly reports, per track, validation and runtime refresh status.
 
 ---
 

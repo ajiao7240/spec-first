@@ -59,7 +59,7 @@ const HIGH_VALUE_SKILL_ANCHORS = {
     'Implementation Units',
     'Concrete requirements traceability',
     'Test scenarios',
-    'Context Orientation Anchor',
+    'governance-boundaries.md',
     'universal-planning.md',
   ],
   'spec-work': [
@@ -83,7 +83,7 @@ const HIGH_VALUE_COMMAND_ANCHORS = {
     'Implementation Units',
     'Concrete requirements traceability',
     'Test scenarios',
-    'Context Orientation Anchor',
+    'governance-boundaries.md',
     'universal-planning.md',
   ],
   'spec-work': [
@@ -1169,16 +1169,24 @@ function inspectSkillIntegrity({
   workflowRoot,
 }) {
   const runtimeRoot = isWorkflowSkill ? workflowRoot : standaloneRoot;
-  const targetPath = path.join(runtimeRoot, skillName, 'SKILL.md');
-  const sourcePath = path.join(getBundledPath('skills'), skillName, 'SKILL.md');
+  const targetDir = path.join(runtimeRoot, skillName);
+  const targetPath = path.join(targetDir, 'SKILL.md');
+  const sourceDir = path.join(getBundledPath('skills'), skillName);
+  const sourcePath = path.join(sourceDir, 'SKILL.md');
+  const transformContext = buildSkillTransformContext(projectRoot, skillName, isWorkflowSkill, targetDir);
   const expectedContent = adapter.transformSkillContent(
     fs.readFileSync(sourcePath, 'utf8'),
-    buildSkillTransformContext(projectRoot, skillName, isWorkflowSkill, path.dirname(targetPath)),
+    transformContext,
   );
   const actualContent = fs.readFileSync(targetPath, 'utf8');
   const issues = unique([
     ...skillIntegrityIssues(actualContent, skillName, adapter, { isWorkflowSkill }),
     ...(actualContent === expectedContent ? [] : ['content_mismatch']),
+    ...skillSupportFileIntegrityIssues({
+      sourceDir,
+      targetDir,
+      transformText: (content) => adapter.transformSkillContent(content, transformContext),
+    }),
   ]);
 
   if (issues.length === 0) return null;
@@ -1186,6 +1194,46 @@ function inspectSkillIntegrity({
     skillName,
     issues,
   };
+}
+
+function skillSupportFileIntegrityIssues({ sourceDir, targetDir, transformText }) {
+  return listDirectoryFiles(sourceDir)
+    .filter((relativePath) => relativePath !== 'SKILL.md')
+    .flatMap((relativePath) => {
+      const sourcePath = path.join(sourceDir, relativePath);
+      const targetPath = path.join(targetDir, relativePath);
+      if (!fs.existsSync(targetPath) || !fs.statSync(targetPath).isFile()) {
+        return [`missing_file:${relativePath}`];
+      }
+
+      if (!isTextFile(sourcePath)) {
+        const sourceBuffer = fs.readFileSync(sourcePath);
+        const targetBuffer = fs.readFileSync(targetPath);
+        return Buffer.compare(sourceBuffer, targetBuffer) === 0
+          ? []
+          : [`content_mismatch:${relativePath}`];
+      }
+
+      const expectedContent = transformText(fs.readFileSync(sourcePath, 'utf8'));
+      const actualContent = fs.readFileSync(targetPath, 'utf8');
+      return actualContent === expectedContent
+        ? []
+        : [`content_mismatch:${relativePath}`];
+    });
+}
+
+function listDirectoryFiles(rootDir, relativeRoot = '') {
+  return fs
+    .readdirSync(path.join(rootDir, relativeRoot), { withFileTypes: true })
+    .flatMap((entry) => {
+      const relativePath = path.join(relativeRoot, entry.name);
+      if (entry.isDirectory()) {
+        return listDirectoryFiles(rootDir, relativePath);
+      }
+
+      return entry.isFile() ? [normalizePathForContent(relativePath)] : [];
+    })
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function inspectAgentIntegrity(projectRoot, agentPath, adapter) {

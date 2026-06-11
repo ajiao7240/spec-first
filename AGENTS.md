@@ -208,102 +208,106 @@ Agent / skill prose 变更不同于普通代码，因为宿主可能在会话启
 PR 应说明变更的 command、skill、agent 或文档面，列出实际执行过的验证命令，并说明是否影响 generated runtime assets。只有视觉文档或 UI 资产变更时才附截图。
 
 <!-- spec-first:lang:start -->
-## 语言与治理策略
+## Language and Governance Policy
 
-**语言设置：** `Chinese / 中文`
+**Language setting:** `English / 英文`
 
-- 默认用中文生成回复、状态更新、澄清、生成文档、需求/计划/任务、评审、总结、变更说明和 commit/PR 文案；用户明确要求翻译、双语或其他语言时例外。
-- 输入、工具输出或引用材料可保留原文；新生成的说明和结论仍按语言设置输出。
-- 代码标识符、命令、路径、配置键、环境变量、API/协议名保持原文；常见英文技术术语可混用。
-- 新增代码注释使用中文，只说明非显然意图。
+- Generate responses, status updates, clarifications, documentation, requirements/plans/tasks, reviews, summaries, change notes, and commit/PR text in English unless the user explicitly asks for translation, bilingual output, or another language.
+- Input, tool output, and quoted material may keep their original language; new explanations and conclusions still follow the language setting.
+- Keep code identifiers, commands, paths, config keys, env vars, API/protocol names, and common technical terms unchanged.
+- New code comments use English and explain only non-obvious intent.
 
 ### Changelog
-- 任何项目 source 新增、删除或修改，都必须同步更新根目录 `CHANGELOG.md`；记录格式以仓库现行格式为准。
-- `作者` 使用全局 developer profile：统一读 `~/.spec-first/.developer`；缺失时先运行 `spec-first init` 并按引导选择开发者姓名与语言。
-- 用户可见变更追加 `(user-visible)`；缺少对应记录时，拒绝生成 source 变更。
+- Any project source addition, deletion, or modification must update the repo-root `CHANGELOG.md`; follow the repository's existing format.
+- `author` uses the global developer profile: always read `~/.spec-first/.developer`; if missing, run `spec-first init` first and choose the developer name and language when prompted.
+- Append `(user-visible)` for user-visible changes; if the matching entry is missing, refuse to generate the source change.
 <!-- spec-first:lang:end -->
 
 <!-- spec-first:bootstrap:start -->
-## Workflow 入口治理
+## Workflow Entry Governance
 
-- 本 block 是 using-spec-first 的核心决策集(随会话启动注入,启动即在场);完整路由策略与细节仍在 `skills/using-spec-first/SKILL.md`
-- **何时进入 workflow**:substantial work（改代码/docs/config/runtime asset、启动 implementation/debug/review/plan/setup/update/optimization/知识沉淀、运行改状态命令、架构/prompt/workflow/contract 决策、durable knowledge 增删）前先判断是否进入公开 spec-first workflow
-- **何时直接做**:轻量事实问答、窄定位查询（where is X used）、无 workflow 增益的简短解释可直接回答;workflow-first 不等于 brainstorming-first,不强制每个任务走 workflow
-- **何时不重新分流**:已在公开 workflow 内（按其 SKILL 继续,仅在用户改目标/显式 handoff/明显越界时重路由）或作为 bounded subagent/worker 被派遣（完成 bounded 任务即可,不重启路由)
-- **如何路由**:意图优先于关键词与主题域;选一个入口并说明一个理由,不默认进入 `spec-brainstorm`,不自动串联多个 workflow;用户显式调用某 workflow 时优先尊重;用户询问下一步时用 `using-spec-first` guide mode 给一个入口、一个理由、一个动作
-- **优先级(高→低)**:显式 route > 安全/修复(setup/update/缺 runtime) > 诊断(debug 先于 work,针对失败) > 评审(code/doc review 先于实现) > 定义(brainstorm/ideate/prd 先于 plan/work,WHAT 不清时) > 优化(可度量实验) > 执行(plan 先于 work) > 知识(compound/compound-refresh)
-- 父级多仓 workspace：写入、修复、测试、review autofix 或 commit 前必须有明确 `target_repo` / per-child scope；只读定位也应使用 bounded direct reads 并说明目标 repo 假设
-- Runtime context 默认排除 `.spec-first/audits/**` 和 generated mirrors（`.claude/**`、`.codex/**`、`.agents/skills/**`）;只有 setup/update/runtime-drift/audit 等明确运行时任务按需读取
-- **反合理化红旗**(出现这些念头即停):「先改个文件就好」→ 先判断是否 work/debug/update/compound-refresh;「只是个快速架构/prompt 改动」→ 架构/prompt/workflow/contract 改动算 substantial;「得先看一堆文件再决定」→ 只做最小事实核查,已清晰则直接路由;「该评审但我口头答就行」→ 评审目标具体时用 code-review/doc-review;「helper skill 存在所以该暴露」→ 只有公开 workflow 是用户入口,internal helper 隐藏
-- Codex workflow 入口使用 `$spec-*`
-- 不要把 `using-spec-first` 写成 `/spec:*` 或 command-backed workflow；不要直接暴露 internal-only skills,例如 `git-worktree`
-- Codex：进入公开 `$spec-*` 前可 best-effort 运行 `spec-first startup-reminder --codex`；失败/空输出不阻塞，只提示在终端运行 `spec-first update`，bounded subagents、leaf reviewers、worker agents 不运行
-- Codex：公开 `$spec-*` 调用即授权该 workflow 文档化的只读 reviewer/researcher phase；`$spec-doc-review` 默认多 persona dispatch，仅 report-only/no-agents、dispatch/runtime 缺失或安全边界不满足时降级
-- 入口映射(意图→入口):环境/MCP/host readiness→`$spec-mcp-setup`;版本检查/刷新 runtime→终端运行 `spec-first update`;bug/失败/栈→`$spec-debug`;代码/PR/diff 评审→`$spec-code-review`;需求/计划/markdown 文档评审→`$spec-doc-review`;skill/agent 资产审计→`$spec-skill-audit`;app/PRD 一致性审计→`$spec-app-consistency-audit`;0-1 产品想法/要选项→`$spec-ideate`;定义 WHAT/问题框定→`$spec-brainstorm`;存量系统 PRD 撰写/校验→`$spec-prd`;可度量优化实验→`$spec-optimize`;目标清晰需执行计划→`$spec-plan`;计划拆任务→`spec-write-tasks`;计划/任务就绪可执行→`$spec-work`;沉淀已解决问题→`$spec-compound`;刷新/订正既有 docs/learnings→`$spec-compound-refresh`;过往 session 检索→`$spec-sessions`;发布说明→`$spec-release-notes`
+- This block is the using-spec-first core decision set (injected at session start, present from the start); the full routing policy and details still live in `skills/using-spec-first/SKILL.md`
+- **When to enter a workflow**: before substantial work (editing code/docs/config/runtime assets; starting implementation/debug/review/plan/setup/update/optimization/knowledge capture; running state-changing commands; architecture/prompt/workflow/contract decisions; adding/removing durable knowledge), decide whether to enter a public spec-first workflow
+- **When to just answer**: lightweight factual Q&A, narrow lookups (where is X used), and brief explanations with no workflow leverage may be answered directly; workflow-first does NOT mean brainstorming-first, and you do not force every task through a workflow
+- **When NOT to reroute**: if already inside a public workflow (follow its SKILL; reroute only when the user changes the goal, the workflow explicitly hands off, or the request is clearly out of scope) or dispatched as a bounded subagent/worker (complete the bounded task; do not restart routing)
+- **How to route**: immediate intent beats keywords and broad subject area; pick one entrypoint and state one reason; do not default to `spec-brainstorm` or chain workflows automatically; honor an explicitly invoked workflow; when the user asks what's next, use `using-spec-first` guide mode for one entrypoint, one reason, one action
+- **Priority (high→low)**: explicit route > safety/repair (setup/update/missing runtime) > diagnostic (debug before work, for failures) > evaluation (code/doc review before implementation) > definition (brainstorm/ideate/prd before plan/work, when WHAT is unclear) > optimization (measurable experiments) > execution (plan before work) > knowledge (compound/compound-refresh)
+- Parent multi-repo workspace: writes, fixes, tests, review autofix, or commits require explicit `target_repo` / per-child scope; read-only orientation should use bounded direct reads and state target-repo assumptions
+- Runtime context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default; only setup/update/runtime-drift/audit tasks read them when explicitly needed
+- **Anti-rationalization red flags** (stop when these thoughts appear): "I'll just edit the file first" → first check whether this is work/debug/update/compound-refresh; "just a quick architecture/prompt change" → architecture/prompt/workflow/contract changes ARE substantial; "I need to inspect a bunch of files first" → do a minimal fact check only, route if already clear; "review needed but I'll answer informally" → use code-review/doc-review when the target is concrete; "a helper skill exists so I should expose it" → only public workflows are user entrypoints, internal helpers stay hidden
+- Codex workflow entrypoints use `$spec-*`
+- Do not write `using-spec-first` as `/spec:*` or as a command-backed workflow; do not expose internal-only skills directly, for example `git-worktree`
+- Codex: before entering public `$spec-*`, a top-level orchestrator may best-effort run `spec-first startup-reminder --codex`; failure/empty output must not block routing, only points to running `spec-first update` in the terminal, and bounded subagents, leaf reviewers, and worker agents do not run it
+- Codex: invoking public `$spec-*` authorizes that workflow's documented read-only reviewer/researcher phase; `$spec-doc-review` defaults to multi-persona dispatch and falls back only for report-only/no-agents, missing dispatch/runtime, or unmet safety boundaries
+- Entry map (intent→entrypoint): environment/MCP/host readiness→`$spec-mcp-setup`; version check/refresh runtime→run `spec-first update` in the terminal; bug/failure/stack→`$spec-debug`; code/PR/diff review→`$spec-code-review`; requirements/plan/markdown doc review→`$spec-doc-review`; skill/agent asset audit→`$spec-skill-audit`; app/PRD consistency audit→`$spec-app-consistency-audit`; 0-1 product idea/options→`$spec-ideate`; define WHAT/problem framing→`$spec-brainstorm`; brownfield PRD authoring/validation→`$spec-prd`; measurable optimization→`$spec-optimize`; clear outcome needs a plan→`$spec-plan`; split plan into tasks→`spec-write-tasks`; plan/tasks ready to execute→`$spec-work`; capture a solved problem→`$spec-compound`; refresh/correct existing docs/learnings→`$spec-compound-refresh`; retrieve past sessions→`$spec-sessions`; release notes→`$spec-release-notes`
 <!-- spec-first:bootstrap:end -->
 
 <!-- spec-first:coding-guidelines:start -->
-## 编码执行准则
+## Coding Execution Guidelines
 
-### 1. 编码前思考
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
-**不要假设。不要隐藏困惑。呈现权衡。**
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
-LLM 经常默默选择一种解释然后执行。这个原则强制明确推理：
+### 1. Think Before Coding
 
-- 明确说明假设：如果不确定，询问而不是猜测。
-- 呈现多种解释：当存在歧义时，不要默默选择。
-- 适时提出异议：如果存在更简单的方法，说出来。
-- 困惑时停下来：指出不清楚的地方并要求澄清。
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
 
-### 2. 简洁优先
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
 
-**用最少的代码解决问题。不要过度推测。**
+### 2. Simplicity First
 
-对抗过度工程的倾向：
+**Minimum code that solves the problem. Nothing speculative.**
 
-- 不要添加要求之外的功能。
-- 不要为一次性代码创建抽象。
-- 不要添加未要求的“灵活性”或“可配置性”。
-- 不要为不可能发生的场景做错误处理。
-- 如果 200 行代码可以写成 50 行，重写它。
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
 
-检验标准：资深工程师会觉得这过于复杂吗？如果是，简化。
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
-### 3. 精准修改
+### 3. Surgical Changes
 
-**只碰必须碰的。只清理自己造成的混乱。**
+**Touch only what you must. Clean up only your own mess.**
 
-编辑已有代码时：
-- 不要“改进”相邻的代码、注释或格式。
-- 不要重构没坏的东西。
-- 匹配现有风格，即使你更倾向于不同的写法。
-- 如果注意到无关的死代码，提一下，不要删除它。
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
 
-当你的改动产生孤儿代码时：
-- 删除因你的改动而变得无用的导入 / 变量 / 函数。
-- 不要删除预先存在的死代码，除非被要求。
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
 
-检验标准：每一行修改都应该能直接追溯到用户的请求。
+The test: Every changed line should trace directly to the user's request.
 
-### 4. 目标驱动执行
+### 4. Goal-Driven Execution
 
-**定义成功标准。循环直到验证通过。**
+**Define success criteria. Loop until verified.**
 
-将指令式任务转化为可验证的目标：
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
 
-- “添加验证” → “为无效输入编写测试，然后让它们通过”
-- “修复 bug” → “编写重现 bug 的测试，然后让它通过”
-- “重构 X” → “确保重构前后测试都能通过”
-
-对于多步骤任务，说明一个简短的计划：
+For multi-step tasks, state a brief plan:
 ```
-1. [步骤] → 验证: [检查]
-2. [步骤] → 验证: [检查]
-3. [步骤] → 验证: [检查]
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
 ```
 
-强有力的成功标准让 LLM 能够独立循环执行。弱标准（“让它工作”）需要不断澄清。
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 <!-- spec-first:coding-guidelines:end -->
 
 ## graphify

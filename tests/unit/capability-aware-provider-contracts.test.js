@@ -15,9 +15,20 @@ function readRepo(relativePath) {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
 }
 
+function readWorkflowSurface(relativePath) {
+  if (relativePath === 'skills/spec-plan/SKILL.md') {
+    return [
+      readRepo(relativePath),
+      readRepo('skills/spec-plan/references/governance-boundaries.md'),
+    ].join('\n');
+  }
+
+  return readRepo(relativePath);
+}
+
 describe('capability-aware provider contracts', () => {
   test.each(WORKFLOW_SKILLS)('%s consumes provider evidence by capability class only', (relativePath) => {
-    const source = readRepo(relativePath);
+    const source = readWorkflowSurface(relativePath);
     const lower = source.toLowerCase();
 
     expect(source).toContain('Capability-Class Evidence Boundary');

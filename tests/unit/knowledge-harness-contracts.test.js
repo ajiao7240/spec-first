@@ -9,6 +9,13 @@ function read(relativePath) {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
 }
 
+function readPlanSurface() {
+  return [
+    read('skills/spec-plan/SKILL.md'),
+    read('skills/spec-plan/references/governance-boundaries.md'),
+  ].join('\n');
+}
+
 describe('knowledge harness contract', () => {
   test('defines six layers, v1.15 scope, and recall trust boundaries', () => {
     const contract = read('docs/contracts/knowledge/knowledge-harness.md');
@@ -59,7 +66,7 @@ describe('knowledge harness contract', () => {
 describe('knowledge harness workflow consumers', () => {
   test('plan work and review expose summary-first producer and consumer signals', () => {
     const workflowTexts = [
-      read('skills/spec-plan/SKILL.md'),
+      readPlanSurface(),
       read('skills/spec-work/SKILL.md'),
       read('skills/spec-code-review/SKILL.md'),
     ];
@@ -96,7 +103,7 @@ describe('knowledge harness workflow consumers', () => {
   });
 
   test('plan and debug treat solution recall as advisory until source-confirmed', () => {
-    const plan = read('skills/spec-plan/SKILL.md');
+    const plan = readPlanSurface();
     const debug = read('skills/spec-debug/SKILL.md');
 
     for (const text of [plan, debug]) {

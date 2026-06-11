@@ -5,7 +5,12 @@ const os = require('node:os');
 const path = require('node:path');
 
 const ClaudeAdapter = require('../../src/cli/adapters/claude');
-const { planBundledAssetSync } = require('../../src/cli/plugin');
+const CodexAdapter = require('../../src/cli/adapters/codex');
+const {
+  inspectInstalledAssets,
+  planBundledAssetSync,
+  syncBundledAssets,
+} = require('../../src/cli/plugin');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-plan', 'SKILL.md');
 const REQUIREMENTS_CAPTURE_PATH = path.join(
@@ -89,6 +94,15 @@ const VISUAL_COMMUNICATION_PATH = path.join(
   'references',
   'visual-communication.md',
 );
+const GOVERNANCE_BOUNDARIES_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-plan',
+  'references',
+  'governance-boundaries.md',
+);
 
 function plannedRuntimeContent(adapter, targetPath) {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-plan-runtime-'));
@@ -103,6 +117,49 @@ function plannedRuntimeContent(adapter, targetPath) {
   } finally {
     fs.rmSync(projectRoot, { recursive: true, force: true });
   }
+}
+
+function syncedRuntimeInspection(adapter) {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-plan-inspect-'));
+
+  try {
+    syncBundledAssets(projectRoot, adapter);
+    return inspectInstalledAssets(projectRoot, adapter);
+  } finally {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  }
+}
+
+function syncedRuntimeInspectionAfter(adapter, mutate) {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-plan-inspect-'));
+
+  try {
+    syncBundledAssets(projectRoot, adapter);
+    mutate(projectRoot);
+    return inspectInstalledAssets(projectRoot, adapter);
+  } finally {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  }
+}
+
+function runtimeGovernanceBoundariesPath(adapter) {
+  if (adapter.id === 'claude') {
+    return '.claude/spec-first/workflows/spec-plan/references/governance-boundaries.md';
+  }
+
+  return '.agents/skills/spec-plan/references/governance-boundaries.md';
+}
+
+function specPlanDriftIssues(inspection) {
+  const entry = inspection.skills.drifted.find((item) => item.skillName === 'spec-plan');
+  return entry ? entry.issues : [];
+}
+
+function readPlanningGovernanceSurface() {
+  return [
+    fs.readFileSync(SKILL_PATH, 'utf8'),
+    fs.readFileSync(GOVERNANCE_BOUNDARIES_PATH, 'utf8'),
+  ].join('\n');
 }
 const UNIVERSAL_PLANNING_PATH = path.join(
   __dirname,
@@ -139,33 +196,38 @@ describe('spec-plan context orientation contract', () => {
 
   test('uses direct repo context and preserves LLM decision boundary', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
-    expect(text).toContain('Context Orientation Anchor');
-    expect(text).toContain('current user request or requirement');
-    expect(text).toContain('package manifests and command registries');
-    expect(text).toContain('nearby implementation files');
-    expect(text).toContain('nearby tests');
-    expect(text).toContain('External tools may prioritize inspection, but they do not define scope authority');
-    expect(text).toContain('The LLM still chooses the candidate change surface');
-    expect(text).toContain('explicit repo context and source-plan constraints');
-    expect(text).toContain('already-loaded host/project instructions');
-    expect(text).toContain('`docs/contracts/`, existing brainstorms/plans/solutions');
-    expect(text).toContain('not automatic re-read targets for every planning run');
-    expect(text).toContain('Written project standards from loaded host instructions, directory-scoped equivalents, or precisely read source files');
-    expect(text).toContain('Host Instruction Reuse Policy allows it');
-    expect(text).toContain('Maintain a run-local context ledger for this workflow');
-    expect(text).toContain('Reuse loaded summaries within the same workflow run');
-    expect(text).toContain('Re-read only when exact wording is needed');
-    expect(text).not.toContain('`AGENTS.md` / `CLAUDE.md` / project role docs');
-    expect(text).not.toContain('docs/examples/standards-glue-consumption-examples.md');
-    expect(text).not.toContain('.spec-first/standards/');
-    expect(text).not.toContain('glue-map.json');
+    const governance = fs.readFileSync(GOVERNANCE_BOUNDARIES_PATH, 'utf8');
+    const combined = `${text}\n${governance}`;
+
+    expect(text).toContain('read `skills/spec-plan/references/governance-boundaries.md`');
+    expect(text).not.toContain('## Context Orientation Anchor');
+    expect(governance).toContain('## Context Orientation Anchor');
+    expect(combined).toContain('current user request or requirement');
+    expect(combined).toContain('package manifests and command registries');
+    expect(combined).toContain('nearby implementation files');
+    expect(combined).toContain('nearby tests');
+    expect(combined).toContain('External tools may prioritize inspection, but they do not define scope authority');
+    expect(combined).toContain('The LLM still chooses the candidate change surface');
+    expect(combined).toContain('explicit repo context and source-plan constraints');
+    expect(combined).toContain('already-loaded host/project instructions');
+    expect(combined).toContain('`docs/contracts/`, existing brainstorms/plans/solutions');
+    expect(combined).toContain('not automatic re-read targets for every planning run');
+    expect(combined).toContain('Written project standards from loaded host instructions, directory-scoped equivalents, or precisely read source files');
+    expect(combined).toContain('Host Instruction Reuse Policy allows it');
+    expect(combined).toContain('Maintain a run-local context ledger for this workflow');
+    expect(combined).toContain('Reuse loaded summaries within the same workflow run');
+    expect(combined).toContain('Re-read only when exact wording is needed');
+    expect(combined).not.toContain('`AGENTS.md` / `CLAUDE.md` / project role docs');
+    expect(combined).not.toContain('docs/examples/standards-glue-consumption-examples.md');
+    expect(combined).not.toContain('.spec-first/standards/');
+    expect(combined).not.toContain('glue-map.json');
     expect(text).toContain('target_repo');
-    expect(text).toContain('bounded direct reads');
-    expect(text).toContain('use bounded direct reads, `rg`, ast-grep, git diff, tests/logs, and user evidence');
+    expect(combined).toContain('bounded direct reads');
+    expect(combined).toContain('use bounded direct reads, `rg`, ast-grep, git diff, tests/logs, and user evidence');
     expect(text).toContain('do not let scripts or setup facts choose semantically between child repos');
     expect(text).toContain('A cross-repo plan must name `target_repo` per implementation unit');
-    expect(text).not.toContain('stage0-context');
-    expect(text).not.toContain('selected_assets');
+    expect(combined).not.toContain('stage0-context');
+    expect(combined).not.toContain('selected_assets');
   });
 
   test('research and handoff tracker detection avoid full instruction-file reloads', () => {
@@ -182,7 +244,7 @@ describe('spec-plan context orientation contract', () => {
   });
 
   test('consumes domain context before planning questions without fixed ADR directory mandates', () => {
-    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const text = readPlanningGovernanceSurface();
 
     expect(text).toContain('Domain Language And Decision Ledger');
     expect(text).toContain('consume existing context before asking questions that repo/docs can answer');
@@ -228,8 +290,9 @@ describe('spec-plan context orientation contract', () => {
 
   test('uses Direct Evidence Readiness without hidden evidence gates', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const governance = fs.readFileSync(GOVERNANCE_BOUNDARIES_PATH, 'utf8');
     const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
-    const combined = `${text}\n${template}`;
+    const combined = `${text}\n${governance}\n${template}`;
 
     expect(text).toContain('#### 1.1a Direct Evidence Readiness');
     expect(text).toContain('collect bounded direct evidence');
@@ -263,9 +326,9 @@ describe('spec-plan context orientation contract', () => {
     ]) {
       expect(combined).toContain(field);
     }
-    expect(text).toContain('Do not create a hidden reviewer facts pipeline');
-    expect(text).toContain('use bounded direct reads, `rg`, ast-grep, git diff, tests/logs, and user evidence');
-    expect(text).toContain('do not turn rejected rationale into active workflow state');
+    expect(combined).toContain('Do not create a hidden reviewer facts pipeline');
+    expect(combined).toContain('use bounded direct reads, `rg`, ast-grep, git diff, tests/logs, and user evidence');
+    expect(combined).toContain('do not turn rejected rationale into active workflow state');
   });
   test('planning research dispatch is host-neutral with explicit inline fallback', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
@@ -481,6 +544,71 @@ describe('spec_id planning contract', () => {
     expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/html-rendering.md')).toContain('optional HTML sidecar');
     expect(command).not.toContain('Read `references/plan-template.md` before writing the plan.');
     expect(command).not.toContain('Read `skills/spec-plan/references/plan-template.md` before writing the plan.');
+  });
+
+  test('governance boundary reference is runtime-copied for both hosts', () => {
+    const sourceSkill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const sourceReference = fs.readFileSync(GOVERNANCE_BOUNDARIES_PATH, 'utf8');
+    const claudeRuntimeSkill = plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/SKILL.md');
+    const codexRuntimeSkill = plannedRuntimeContent(new CodexAdapter(), '.agents/skills/spec-plan/SKILL.md');
+    const claudeRuntimeReference = plannedRuntimeContent(
+      new ClaudeAdapter(),
+      '.claude/spec-first/workflows/spec-plan/references/governance-boundaries.md',
+    );
+    const codexRuntimeReference = plannedRuntimeContent(
+      new CodexAdapter(),
+      '.agents/skills/spec-plan/references/governance-boundaries.md',
+    );
+
+    expect(sourceSkill).toContain('read `skills/spec-plan/references/governance-boundaries.md`');
+    expect(claudeRuntimeSkill).toContain('read `.claude/spec-first/workflows/spec-plan/references/governance-boundaries.md`');
+    expect(codexRuntimeSkill).toContain('read `.agents/skills/spec-plan/references/governance-boundaries.md`');
+    expect(sourceReference).toContain('## Capability-Class Evidence Boundary');
+    expect(claudeRuntimeReference).toContain('## Capability-Class Evidence Boundary');
+    expect(codexRuntimeReference).toContain('## Capability-Class Evidence Boundary');
+    expect(claudeRuntimeReference).toContain('provider_untrusted');
+    expect(codexRuntimeReference).toContain('provider_untrusted');
+  });
+
+  test('runtime integrity anchors track the extracted governance boundary reference', () => {
+    const claudeInspection = syncedRuntimeInspection(new ClaudeAdapter());
+    const codexInspection = syncedRuntimeInspection(new CodexAdapter());
+
+    expect(
+      claudeInspection.commands.drifted.find((entry) => entry.commandName === 'plan'),
+    ).toBeUndefined();
+    expect(
+      claudeInspection.skills.drifted.find((entry) => entry.skillName === 'spec-plan'),
+    ).toBeUndefined();
+    expect(
+      codexInspection.skills.drifted.find((entry) => entry.skillName === 'spec-plan'),
+    ).toBeUndefined();
+  });
+
+  test.each([
+    ['claude', new ClaudeAdapter()],
+    ['codex', new CodexAdapter()],
+  ])('runtime integrity detects missing governance boundary reference for %s', (_platform, adapter) => {
+    const inspection = syncedRuntimeInspectionAfter(adapter, (projectRoot) => {
+      fs.rmSync(path.join(projectRoot, runtimeGovernanceBoundariesPath(adapter)));
+    });
+
+    expect(specPlanDriftIssues(inspection)).toContain('missing_file:references/governance-boundaries.md');
+  });
+
+  test.each([
+    ['claude', new ClaudeAdapter()],
+    ['codex', new CodexAdapter()],
+  ])('runtime integrity detects drifted governance boundary reference for %s', (_platform, adapter) => {
+    const inspection = syncedRuntimeInspectionAfter(adapter, (projectRoot) => {
+      fs.writeFileSync(
+        path.join(projectRoot, runtimeGovernanceBoundariesPath(adapter)),
+        '# Drifted Governance Boundaries\n',
+        'utf8',
+      );
+    });
+
+    expect(specPlanDriftIssues(inspection)).toContain('content_mismatch:references/governance-boundaries.md');
   });
 
   test('universal planning avoids slash-only handoff wording', () => {

@@ -13,6 +13,13 @@ function read(relativePath) {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
 }
 
+function readPlanSurface() {
+  return [
+    read('skills/spec-plan/SKILL.md'),
+    read('skills/spec-plan/references/governance-boundaries.md'),
+  ].join('\n');
+}
+
 function jsonBlocks(markdown) {
   const blocks = [];
   const pattern = /```json\n([\s\S]*?)\n```/g;
@@ -94,7 +101,7 @@ describe('context bundle and summary contracts', () => {
   test('high-frequency workflows consume compact context contracts instead of full broadcast by default', () => {
     const codeReview = read('skills/spec-code-review/SKILL.md');
     const work = read('skills/spec-work/SKILL.md');
-    const plan = read('skills/spec-plan/SKILL.md');
+    const plan = readPlanSurface();
     const docReview = read('skills/spec-doc-review/SKILL.md');
     const compound = read('skills/spec-compound/SKILL.md');
 

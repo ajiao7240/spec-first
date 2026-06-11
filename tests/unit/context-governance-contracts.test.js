@@ -12,6 +12,17 @@ function read(relativePath) {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
 }
 
+function readWorkflowSurface(relativePath) {
+  if (relativePath === 'skills/spec-plan/SKILL.md') {
+    return [
+      read(relativePath),
+      read('skills/spec-plan/references/governance-boundaries.md'),
+    ].join('\n');
+  }
+
+  return read(relativePath);
+}
+
 describe('context governance runtime exclusion contract', () => {
   test('defines default runtime and generated mirror exclusions without becoming a router engine', () => {
     const contract = read('docs/contracts/context-governance.md');
@@ -55,8 +66,8 @@ describe('context governance runtime exclusion contract', () => {
       expect(block).toContain('.agents/skills/**');
     }
 
-    expect(read('AGENTS.md')).toContain('Runtime context 默认排除 `.spec-first/audits/**`');
-    expect(read('CLAUDE.md')).toContain('Runtime context 默认排除 `.spec-first/audits/**`');
+    expect(read('AGENTS.md')).toContain('Runtime context excludes `.spec-first/audits/**`');
+    expect(read('CLAUDE.md')).toContain('Runtime context excludes `.spec-first/audits/**`');
   });
 
   test('high-frequency ordinary workflows carry the runtime exclusion rule', () => {
@@ -73,7 +84,7 @@ describe('context governance runtime exclusion contract', () => {
     ];
 
     for (const relativePath of workflowPaths) {
-      const content = read(relativePath);
+      const content = readWorkflowSurface(relativePath);
       expect(content).toContain('docs/contracts/context-governance.md');
       if (relativePath.includes('spec-plan') || relativePath.includes('spec-work') || relativePath.includes('spec-debug') || relativePath.includes('spec-code-review')) {
         expect(content).toContain('already-loaded host/project instructions');

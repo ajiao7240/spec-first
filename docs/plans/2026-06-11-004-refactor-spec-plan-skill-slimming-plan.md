@@ -1,7 +1,7 @@
 ---
 title: "refactor: 治理头部 prose 的 keep/extract/remove —— ablation-first 收束(spec-plan 试点 → 重型节点推广)"
 type: refactor
-status: active
+status: completed
 date: 2026-06-11
 deepened: 2026-06-11
 spec_id: 2026-06-11-004-spec-plan-skill-slimming
@@ -39,7 +39,7 @@ v1 方案(同 spec_id 旧版)主路线是「按 rebar 把 Phase 0.1 resume/deepe
 
 治理头部 10 节按「是否有可验证消费者」截然两类:
 
-- **有消费者(必须保留,3 节)**:`Workflow Contract Summary`(其 `When To Use` / `When Not To Use` / `Outputs` / `Workflow` 是 `skills/spec-skill-audit/scripts/lint-skill-structure.js` 的 **P1 REQUIRED_SECTIONS**,机器校验);`Plan-Only Safety Contract`(由 `templates/claude/hooks/spec-plan-guard` 运行时强制);`Scenario Capability`(5 行指针,指向共享 matrix,audit 消费)。
+- **有消费者/运行时对应面(必须保留,3 节)**:`Workflow Contract Summary`(其 `When To Use` / `When Not To Use` / `Outputs` / `Workflow` 是 `skills/spec-skill-audit/scripts/lint-skill-structure.js` 的 **P1 REQUIRED_SECTIONS**,机器校验);`Plan-Only Safety Contract`(与 `templates/claude/hooks/spec-plan-guard` 的 planning-only attention guard 对应,非硬阻断);`Scenario Capability`(5 行指针,指向共享 matrix,audit 消费)。
 - **无消费者的纯劝导(7 节 ≈ 38 行 ≈ ~4KB)**:`Context Orientation Anchor`、`Domain Language And Decision Ledger`、`Cache-Friendly Context Layout`、`Summary-First Handoff`、`Runtime Context Exclusion`、`Recall Trust Boundary`、`Capability-Class Evidence Boundary`。测试只断言其 prose **存在**(`toContain`),**不验证其生效**;无脚本/hook/路由消费;采纳稀疏(3-7/37);其中 `Runtime Context Exclusion` 与 `Recall Trust Boundary` 的语义**逐字**已在始终加载的 `CLAUDE.md`(L234 / L63)与 `AGENTS.md` 中。
 
 **三类成本必须区分:**
@@ -59,7 +59,7 @@ v1 方案(同 spec_id 旧版)主路线是「按 rebar 把 Phase 0.1 resume/deepe
 - R3. 把 `tests/unit/spec-plan-contracts.test.js` 中绑定治理节**精确短语**的断言,改造为绑定**语义能力 + 其 owner surface**(spine / runtime-copied-reference / global-layer)的断言:能力仍被某可达载体约束时通过,能力丢失时失败。保留并新增 lint/projection 等**不可 rebind 的契约断言**。
 - R4. 对 formal ablation 证明有可观测效果、且跨节点重复的治理节(Context Orientation / Domain Language / Cache-Friendly Layout / Summary-First Handoff 等),抽取为**渐进式披露 runtime-copied reference**,spine 仅留一行按需加载指针;本试点默认载体为 `skills/spec-plan/references/governance-boundaries.md`,因为现有 `spec-first init` 会递归投影 `skills/spec-plan/**` 到 Claude/Codex runtime。若实现期改选 `docs/contracts/**` 作为载体,必须先新增 generator/projection 机制并补双宿主测试,不得假设它会自动进入 runtime。
 - R5. 对 formal ablation 证明效果为 null、且与全局层重复的治理节(Runtime Context Exclusion / Recall Trust Boundary / Capability-Class 的通用部分),在**确认其语义有到达终端运行时的载体**(runtime-copied reference 或扩展后的 bootstrap block)后删除;无法确认运行时载体的不得直接删,降级为 extract。
-- R6. 必须保留有可验证消费者的 3 节(`Workflow Contract Summary` / `Plan-Only Safety Contract` / `Scenario Capability`)的契约面与其 lint/hook/audit 消费链路不受损。
+- R6. 必须保留 3 个 keep 节(`Workflow Contract Summary` / `Plan-Only Safety Contract` / `Scenario Capability`)的契约面与其 lint / attention-guard / audit 对应链路不受损;其中 `spec-plan-guard` 只提供 planning-only additionalContext,不得表述为硬阻断。
 - R7. 保持 source/runtime 边界:只改 `skills/spec-plan/**`、新建 runtime-copied reference、必要时改 `templates/` bootstrap 注入与 `tests/`;不手改 `.claude/`、`.codex/`、`.agents/skills/` 镜像;runtime drift 用 `spec-first init` 修复。
 - R8. command projection 与双宿主(Claude / Codex)投影在新增/重命名 runtime-copied reference 后仍正确,且新 reference 的 projection 路径断言**同时覆盖两宿主**。
 - R9. user-visible 行为变化按仓库格式更新 `CHANGELOG.md`(含 `(user-visible)` 与配置的 developer author)。
@@ -96,7 +96,7 @@ v1 方案(同 spec_id 旧版)主路线是「按 rebar 把 Phase 0.1 resume/deepe
 
 - 标记 `completed` 前必须满足:R1 capability 清单已沉淀;R2 formal ablation 已运行且每个候选节有「有效 / null / 未决降 extract」实测结论(无法 dispatch 时记录原因,不得假称);R3 test 改造合入且通过(绑能力到位、旧绑短语断言已替换、lint/projection 不可 rebind 断言保留并为新 reference 新增双宿主断言);R4 抽取已落地且 runtime-copied reference 经投影到达 runtime;R5 删除仅在确认运行时载体后执行,否则降级 extract 并说明;`spec-first init` 已运行且记录 runtime 是否变化。
 - **R5 删除门槛(行为门槛非审美门槛)**:任何"删除"的节,closeout 必须证明其语义在**终端运行时**仍有可达载体(指明是 runtime-copied reference 还是 bootstrap),并附 formal ablation 的 null 结论;无证据则不得删。
-- **R6 保留门槛**:closeout 必须确认 `Workflow Contract Summary` 的 P1/P2 节仍通过 `lint-skill-structure.js`、`Plan-Only Safety Contract` 仍被 `spec-plan-guard` 消费、`Scenario Capability` 仍指向 matrix。
+- **R6 保留门槛**:closeout 必须确认 `Workflow Contract Summary` 的 P1/P2 节仍通过 `lint-skill-structure.js`、`Plan-Only Safety Contract` 仍与 `spec-plan-guard` attention guard 保持一致且不伪造硬阻断、`Scenario Capability` 仍指向 matrix。
 - **R10 行为门槛**:closeout 必须用两轮 fresh-source eval 证明——`spine-only scannability eval` 验证仅凭收束后 spine 能识别强制 doc-review、blocking question、handoff reference load、completion check;`spine + plan-handoff behavioral trace` 验证 fresh run 能到达并触发 Phase 5 routed handoff action。
 - closeout 必须附 before/after 度量表:`SKILL.md bytes/lines`、`治理头部 bytes/lines`、`cross-node 重复节数`、`未验证劝导节数(ablation 前/后)`、`always-load reference count`、`有消费者契约节数(应不变)`。这些是观测口径非硬 KPI,要求趋势解释与不变量保持证据。
 
@@ -132,7 +132,7 @@ v1 方案(同 spec_id 旧版)主路线是「按 rebar 把 Phase 0.1 resume/deepe
 
 - `skills/spec-plan/SKILL.md` L17-101 — 治理头部,收束目标。
 - `skills/spec-skill-audit/scripts/lint-skill-structure.js` — `Workflow Contract Summary` 子节的 P1/P2 REQUIRED 校验者(keep 依据)。
-- `templates/claude/hooks/spec-plan-guard` — `Plan-Only Safety Contract` 的运行时强制者(keep 依据)。
+- `templates/claude/hooks/spec-plan-guard` — `Plan-Only Safety Contract` 的 Claude runtime attention guard 对应面(非硬阻断;keep 依据)。
 - `tests/unit/spec-plan-contracts.test.js` — 当前仅断言治理节 prose 存在;R3 改造对象。
 - `CLAUDE.md` L63 / L234、`AGENTS.md` — `Recall Trust Boundary` / `Runtime Context Exclusion` 的全局层同款语义(remove 候选依据)。
 - `skills/{spec-work,spec-code-review,spec-debug}/SKILL.md` — 同款治理节的其余重型 owner(推广目标,follow-up)。
@@ -203,7 +203,7 @@ v1 方案(同 spec_id 旧版)主路线是「按 rebar 把 Phase 0.1 resume/deepe
 治理头 10 节裁决矩阵(U1 待确认细节,当前基于实测):
   KEEP(有可验证消费者):
     Workflow Contract Summary   —— lint P1/P2 REQUIRED(skill-audit 机读)
-    Plan-Only Safety Contract   —— spec-plan-guard hook 强制
+    Plan-Only Safety Contract   —— spec-plan-guard attention guard 对应面(非硬阻断)
     Scenario Capability         —— 指向共享 matrix,audit 消费(已是抽取范式)
   EXTRACT(无消费者 + 跨节点重复;ablation 证有效则抽取):
     Context Orientation Anchor / Domain Language & Decision Ledger /
