@@ -64,6 +64,11 @@ spec-first owns semantic content:
 - **零 SCALE source/schema 耦合门禁**：spike 前不得向 `src/`、`docs/contracts/` 或 checked-in source 写入 SCALE-specific schema / pack manifest / evidence mapping；这些只能先停留在隔离 spike artifact。
 - **runtime-without-FSM 能力确认**：必须先确认 SCALE 能提供不绑定 FSM/G0-G22/hook blocking 的 deterministic runtime；拿不到即默认重定义为 OPT-B（SCALE 仅作为 optional provider），而不是 OPT-C 换底座。
 
+2026-06-11 复判（基于对 `scale-engine` 上游源码的 11 路深度分析）：**维持冻结**。三道门均未被新证据触发，且新增两个 kill-criteria 输入：
+
+- **单维护者供应链风险**：观察窗口内上游连续 5 日仅 1 个 bot commit，无人类维护活动；把 deterministic runtime 押在单维护者、低活跃上游上，本身就是 v2 换底座的反向证据。
+- **minimal profile 实为 config 层禁用**：上游「轻量模式」是在完整 runtime 上通过配置关闭 gate/hook，不是独立的轻量产品形态；「SCALE 能按需提供 runtime-without-FSM」这一第三道门假设在当前上游形态下不成立。
+
 ## 开发顺序
 
 当前一致性校准后的推荐版本线：
