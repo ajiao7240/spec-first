@@ -99,6 +99,7 @@ describe('init plan API', () => {
       expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.claude', 'commands', 'spec', 'work.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.claude', 'hooks', 'session-start'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.claude', 'hooks', 'spec-plan-guard'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.claude', 'spec-first', 'state.json'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.claude', 'spec-first', '.developer'))).toBe(false);
     } finally {

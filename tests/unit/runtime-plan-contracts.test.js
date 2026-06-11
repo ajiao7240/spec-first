@@ -12,29 +12,43 @@ function makeTempDir() {
 }
 
 describe('runtime plan contracts', () => {
-  test('Claude runtime sync plan writes the managed session-start hook with executable mode', () => {
+  test('Claude runtime sync plan writes managed hook scripts with executable mode', () => {
     const projectRoot = makeTempDir();
 
     try {
       const adapter = getAdapter('claude');
       const plan = adapter.planRuntimeFilesSync(projectRoot);
+      const sessionStart = plan.operations.find((operation) => operation.path === '.claude/hooks/session-start');
+      const specPlanGuard = plan.operations.find((operation) => operation.path === '.claude/hooks/spec-plan-guard');
 
-      expect(plan.operations).toHaveLength(1);
-      expect(plan.operations[0]).toMatchObject({
+      expect(plan.operations).toHaveLength(2);
+      expect(sessionStart).toMatchObject({
         kind: 'write_file',
         path: '.claude/hooks/session-start',
         reason: 'managed_runtime_hook',
         mode: 0o755,
       });
-      expect(typeof plan.operations[0].contents).toBe('string');
-      expect(plan.operations[0].contents).toContain('using-spec-first SessionStart injection');
-      expect(plan.operations[0].contents).toContain('startup-reminder');
-      expect(plan.operations[0].contents).toContain('--claude');
-      expect(plan.operations[0].contents).toContain('process.execPath');
-      expect(plan.operations[0].contents).toContain(path.join(__dirname, '..', '..', 'bin', 'spec-first.js'));
-      expect(plan.operations[0].contents).not.toContain("spawnSync('spec-first'");
-      expect(plan.operations[0].contents).not.toContain('const SPEC_FIRST_CLI_PATH = "__SPEC_FIRST_CLI_PATH__";');
-      expect(plan.summary).toEqual({ write_file: 1 });
+      expect(specPlanGuard).toMatchObject({
+        kind: 'write_file',
+        path: '.claude/hooks/spec-plan-guard',
+        reason: 'managed_runtime_hook',
+        mode: 0o755,
+      });
+      expect(typeof sessionStart.contents).toBe('string');
+      expect(sessionStart.contents).toContain('using-spec-first SessionStart injection');
+      expect(sessionStart.contents).toContain('startup-reminder');
+      expect(sessionStart.contents).toContain('--claude');
+      expect(sessionStart.contents).toContain('process.execPath');
+      expect(sessionStart.contents).toContain(path.join(__dirname, '..', '..', 'bin', 'spec-first.js'));
+      expect(sessionStart.contents).not.toContain("spawnSync('spec-first'");
+      expect(sessionStart.contents).not.toContain('const SPEC_FIRST_CLI_PATH = "__SPEC_FIRST_CLI_PATH__";');
+      expect(specPlanGuard.contents).toContain('UserPromptExpansion');
+      expect(specPlanGuard.contents).toContain('additionalContext');
+      expect(specPlanGuard.contents).toContain('planning-only attention guard');
+      expect(specPlanGuard.contents).toContain("fs.readFileSync(0, 'utf8')");
+      expect(specPlanGuard.contents).not.toContain('SPEC_FIRST_HOOK_INPUT');
+      expect(specPlanGuard.contents).not.toContain('"decision"');
+      expect(plan.summary).toEqual({ write_file: 2 });
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -51,15 +65,16 @@ describe('runtime plan contracts', () => {
       const adapter = getAdapter('claude');
       const plan = adapter.planRuntimeFilesSync(projectRoot);
 
-      expect(plan.operations).toHaveLength(1);
-      expect(plan.operations[0].kind).toBe('update_file');
-      expect(plan.summary).toEqual({ update_file: 1 });
+      expect(plan.operations).toHaveLength(2);
+      expect(plan.operations.find((operation) => operation.path === '.claude/hooks/session-start').kind).toBe('update_file');
+      expect(plan.operations.find((operation) => operation.path === '.claude/hooks/spec-plan-guard').kind).toBe('write_file');
+      expect(plan.summary).toEqual({ update_file: 1, write_file: 1 });
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 
-  test('Claude runtime removal plan removes only the managed session-start hook', () => {
+  test('Claude runtime removal plan removes managed hook scripts', () => {
     const adapter = getAdapter('claude');
     const plan = adapter.planRuntimeFilesRemoval('/tmp/unused');
 
@@ -69,8 +84,13 @@ describe('runtime plan contracts', () => {
         path: '.claude/hooks/session-start',
         reason: 'managed_runtime_hook',
       },
+      {
+        kind: 'remove_file',
+        path: '.claude/hooks/spec-plan-guard',
+        reason: 'managed_runtime_hook',
+      },
     ]);
-    expect(plan.summary).toEqual({ remove_file: 1 });
+    expect(plan.summary).toEqual({ remove_file: 2 });
   });
 
   test('Codex runtime plans retain legacy cleanup while adding SessionStart hook assets', () => {

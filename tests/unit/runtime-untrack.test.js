@@ -155,27 +155,34 @@ describe('runtime untrack helper', () => {
     }
   });
 
-  test('untracks tracked Claude session start hook while preserving worktree file', () => {
+  test('untracks tracked Claude hook runtime files while preserving worktree files', () => {
     const repoRoot = makeTempDir();
 
     try {
       initRepo(repoRoot);
       writeFile(repoRoot, '.claude/hooks/session-start', '#!/bin/bash\n');
+      writeFile(repoRoot, '.claude/hooks/spec-plan-guard', '#!/bin/bash\n');
       commitAll(repoRoot);
 
       const plan = planRuntimeUntrack({ projectRoot: repoRoot });
       expect(plan.reason_code).toBe('untracked-runtime');
-      expect(plan.operations).toEqual([
+      expect(plan.operations).toEqual(expect.arrayContaining([
         expect.objectContaining({
           kind: 'untrack_index',
           path: '.claude/hooks/session-start',
         }),
-      ]);
+        expect.objectContaining({
+          kind: 'untrack_index',
+          path: '.claude/hooks/spec-plan-guard',
+        }),
+      ]));
 
       const result = applyRuntimeUntrack({ projectRoot: repoRoot, operations: plan.operations });
-      expect(result.applied_count).toBe(1);
+      expect(result.applied_count).toBe(2);
       expect(tracked(repoRoot, '.claude/hooks/session-start')).toBe('');
+      expect(tracked(repoRoot, '.claude/hooks/spec-plan-guard')).toBe('');
       expect(fs.existsSync(path.join(repoRoot, '.claude/hooks/session-start'))).toBe(true);
+      expect(fs.existsSync(path.join(repoRoot, '.claude/hooks/spec-plan-guard'))).toBe(true);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }

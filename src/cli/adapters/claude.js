@@ -5,8 +5,22 @@ const PlatformAdapter = require('./base');
 const { formatInitGuidance } = require('../init-guidance');
 const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'claude', 'hooks', 'session-start');
 const SESSION_START_RELATIVE_PATH = '.claude/hooks/session-start';
+const SPEC_PLAN_GUARD_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'claude', 'hooks', 'spec-plan-guard');
+const SPEC_PLAN_GUARD_RELATIVE_PATH = '.claude/hooks/spec-plan-guard';
 const SESSION_START_CLI_PLACEHOLDER = '__SPEC_FIRST_CLI_PATH__';
 const TRUSTED_SPEC_FIRST_CLI_PATH = path.join(__dirname, '..', '..', '..', 'bin', 'spec-first.js');
+const MANAGED_HOOK_FILES = [
+  {
+    relativePath: SESSION_START_RELATIVE_PATH,
+    displayName: 'SessionStart',
+    render: renderSessionStartHookTemplate,
+  },
+  {
+    relativePath: SPEC_PLAN_GUARD_RELATIVE_PATH,
+    displayName: 'UserPromptExpansion spec-plan guard',
+    render: renderSpecPlanGuardHookTemplate,
+  },
+];
 
 /**
  * Claude platform adapter
@@ -101,9 +115,8 @@ class ClaudeAdapter extends PlatformAdapter {
     const skillsRoot = path.join(projectRoot, this.skillsRoot);
     const workflowsRoot = path.join(projectRoot, this.workflowsRoot);
     const agentsRoot = path.join(projectRoot, this.agentsRoot);
-    const hookCheck = inspectSessionStartHook(projectRoot);
 
-    const checks = [hookCheck];
+    const checks = inspectManagedHookFiles(projectRoot);
 
     if (!fs.existsSync(runtimeRoot) || !fs.existsSync(skillsRoot) || !fs.existsSync(agentsRoot)) {
       return checks;
@@ -150,40 +163,40 @@ class ClaudeAdapter extends PlatformAdapter {
   }
 
   planRuntimeFilesSync(projectRoot) {
-    const targetPath = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+    const operations = MANAGED_HOOK_FILES.map((hook) => {
+      const targetPath = path.join(projectRoot, hook.relativePath);
+      return {
+        kind: fs.existsSync(targetPath) ? 'update_file' : 'write_file',
+        path: hook.relativePath.replace(/\\/g, '/'),
+        reason: 'managed_runtime_hook',
+        contents: hook.render(),
+        mode: 0o755,
+      };
+    });
+
     return {
-      operations: [
-        {
-          kind: fs.existsSync(targetPath) ? 'update_file' : 'write_file',
-          path: SESSION_START_RELATIVE_PATH.replace(/\\/g, '/'),
-          reason: 'managed_runtime_hook',
-          contents: renderSessionStartHookTemplate(),
-          mode: 0o755,
-        },
-      ],
-      summary: {
-        [fs.existsSync(targetPath) ? 'update_file' : 'write_file']: 1,
-      },
+      operations,
+      summary: summarizeOperations(operations),
     };
   }
 
   planRuntimeFilesRemoval() {
+    const operations = MANAGED_HOOK_FILES.map((hook) => ({
+      kind: 'remove_file',
+      path: hook.relativePath.replace(/\\/g, '/'),
+      reason: 'managed_runtime_hook',
+    }));
+
     return {
-      operations: [
-        {
-          kind: 'remove_file',
-          path: SESSION_START_RELATIVE_PATH.replace(/\\/g, '/'),
-          reason: 'managed_runtime_hook',
-        },
-      ],
-      summary: {
-        remove_file: 1,
-      },
+      operations,
+      summary: summarizeOperations(operations),
     };
   }
 
   removeRuntimeFiles(projectRoot) {
-    removeManagedFile(path.join(projectRoot, SESSION_START_RELATIVE_PATH), projectRoot);
+    for (const hook of MANAGED_HOOK_FILES) {
+      removeManagedFile(path.join(projectRoot, hook.relativePath), projectRoot);
+    }
   }
 }
 
@@ -273,32 +286,46 @@ function findTaskAgentRefs(filePaths) {
   return refs;
 }
 
-function inspectSessionStartHook(projectRoot) {
-  const targetPath = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+function inspectManagedHookFiles(projectRoot) {
+  return MANAGED_HOOK_FILES.map((hook) => inspectManagedHookFile(projectRoot, hook));
+}
+
+function inspectManagedHookFile(projectRoot, hook) {
+  const targetPath = path.join(projectRoot, hook.relativePath);
   if (!fs.existsSync(targetPath)) {
     return {
       level: 'WARNING',
-      name: SESSION_START_RELATIVE_PATH,
+      name: hook.relativePath,
       message: 'missing',
-      fix: formatInitGuidance('claude', 'in this project to install the managed SessionStart hook'),
+      fix: formatInitGuidance('claude', `in this project to install the managed ${hook.displayName} hook`),
     };
   }
 
   const actual = fs.readFileSync(targetPath, 'utf8');
-  const expected = renderSessionStartHookTemplate();
+  const expected = hook.render();
   if (actual !== expected) {
     return {
       level: 'WARNING',
-      name: SESSION_START_RELATIVE_PATH,
+      name: hook.relativePath,
       message: 'drifted from bundled template',
-      fix: formatInitGuidance('claude', 'in this project to restore the managed SessionStart hook'),
+      fix: formatInitGuidance('claude', `in this project to restore the managed ${hook.displayName} hook`),
+    };
+  }
+
+  const mode = fs.statSync(targetPath).mode & 0o777;
+  if ((mode & 0o111) !== 0o111) {
+    return {
+      level: 'WARNING',
+      name: hook.relativePath,
+      message: `managed ${hook.displayName} hook is not executable`,
+      fix: formatInitGuidance('claude', `in this project to restore executable permissions for the managed ${hook.displayName} hook`),
     };
   }
 
   return {
     level: 'PASS',
-    name: SESSION_START_RELATIVE_PATH,
-    message: 'managed SessionStart hook present',
+    name: hook.relativePath,
+    message: `managed ${hook.displayName} hook present`,
   };
 }
 
@@ -308,6 +335,18 @@ function renderSessionStartHookTemplate() {
     JSON.stringify(SESSION_START_CLI_PLACEHOLDER),
     JSON.stringify(TRUSTED_SPEC_FIRST_CLI_PATH),
   );
+}
+
+function renderSpecPlanGuardHookTemplate() {
+  return fs.readFileSync(SPEC_PLAN_GUARD_TEMPLATE_PATH, 'utf8');
+}
+
+function summarizeOperations(operations) {
+  const summary = {};
+  for (const operation of operations) {
+    summary[operation.kind] = (summary[operation.kind] || 0) + 1;
+  }
+  return summary;
 }
 
 function removeManagedFile(filePath, projectRoot) {

@@ -7,9 +7,13 @@ const { spawnSync } = require('node:child_process');
 
 const {
   SESSION_START_COMMAND,
+  SPEC_PLAN_GUARD_COMMAND,
   buildManagedSessionStartMatcher,
+  buildManagedSpecPlanGuardMatcher,
   getClaudeSettingsPath,
+  inspectManagedClaudeHooks,
   inspectManagedSessionStartHook,
+  inspectManagedSpecPlanGuardHook,
   removeManagedSessionStartHook,
   upsertManagedSessionStartHook,
   validateClaudeSettingsFile,
@@ -26,19 +30,27 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-function writeRenderedSessionStartHook(projectRoot, transform = (content) => content) {
+function writeRenderedHook(projectRoot, targetPath, transform = (content) => content) {
   const adapter = getAdapter('claude');
   const plan = adapter.planRuntimeFilesSync(projectRoot);
-  const hook = plan.operations.find((operation) => operation.path === '.claude/hooks/session-start');
-  const hookPath = path.join(projectRoot, '.claude', 'hooks', 'session-start');
+  const hook = plan.operations.find((operation) => operation.path === targetPath);
+  const hookPath = path.join(projectRoot, targetPath);
   fs.mkdirSync(path.dirname(hookPath), { recursive: true });
   fs.writeFileSync(hookPath, transform(hook.contents), 'utf8');
   fs.chmodSync(hookPath, 0o755);
   return hookPath;
 }
 
+function writeRenderedSessionStartHook(projectRoot, transform = (content) => content) {
+  return writeRenderedHook(projectRoot, '.claude/hooks/session-start', transform);
+}
+
+function writeRenderedSpecPlanGuardHook(projectRoot, transform = (content) => content) {
+  return writeRenderedHook(projectRoot, '.claude/hooks/spec-plan-guard', transform);
+}
+
 describe('claude settings', () => {
-  test('creates the managed SessionStart matcher in an empty settings file', () => {
+  test('creates managed Claude hook matchers in an empty settings file', () => {
     const projectRoot = makeTempDir();
 
     try {
@@ -48,6 +60,9 @@ describe('claude settings', () => {
         hooks: {
           SessionStart: [
             buildManagedSessionStartMatcher(),
+          ],
+          UserPromptExpansion: [
+            buildManagedSpecPlanGuardMatcher(),
           ],
         },
       });
@@ -99,6 +114,9 @@ describe('claude settings', () => {
       expect(settings.hooks.Stop).toHaveLength(1);
       expect(settings.hooks.SessionStart).toHaveLength(2);
       expect(settings.hooks.SessionStart[1]).toEqual(buildManagedSessionStartMatcher());
+      expect(settings.hooks.UserPromptExpansion).toEqual([
+        buildManagedSpecPlanGuardMatcher(),
+      ]);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -114,12 +132,14 @@ describe('claude settings', () => {
       const settings = readJson(getClaudeSettingsPath(projectRoot));
       expect(settings.hooks.SessionStart).toHaveLength(1);
       expect(settings.hooks.SessionStart[0].hooks[0].command).toBe(SESSION_START_COMMAND);
+      expect(settings.hooks.UserPromptExpansion).toHaveLength(1);
+      expect(settings.hooks.UserPromptExpansion[0].hooks[0].command).toBe(SPEC_PLAN_GUARD_COMMAND);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 
-  test('remove only deletes the managed matcher and preserves custom entries', () => {
+  test('remove only deletes managed matchers and preserves custom entries', () => {
     const projectRoot = makeTempDir();
     const settingsPath = getClaudeSettingsPath(projectRoot);
 
@@ -139,6 +159,18 @@ describe('claude settings', () => {
               ],
             },
           ],
+          UserPromptExpansion: [
+            buildManagedSpecPlanGuardMatcher(),
+            {
+              matcher: 'custom:prompt',
+              hooks: [
+                {
+                  type: 'command',
+                  command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/custom-prompt',
+                },
+              ],
+            },
+          ],
         },
       }, null, 2)}\n`, 'utf8');
 
@@ -153,6 +185,17 @@ describe('claude settings', () => {
                 {
                   type: 'command',
                   command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/custom-start',
+                },
+              ],
+            },
+          ],
+          UserPromptExpansion: [
+            {
+              matcher: 'custom:prompt',
+              hooks: [
+                {
+                  type: 'command',
+                  command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/custom-prompt',
                 },
               ],
             },
@@ -189,6 +232,39 @@ describe('claude settings', () => {
       expect(inspectManagedSessionStartHook(projectRoot)).toEqual({
         status: 'drifted',
         message: 'managed SessionStart matcher drifted from the bundled template',
+      });
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('inspect reports independent status for every managed Claude hook matcher', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      upsertManagedSessionStartHook(projectRoot);
+      const settingsPath = getClaudeSettingsPath(projectRoot);
+      const settings = readJson(settingsPath);
+      delete settings.hooks.UserPromptExpansion;
+      fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
+
+      expect(inspectManagedClaudeHooks(projectRoot)).toEqual([
+        {
+          status: 'installed',
+          message: 'managed SessionStart matcher present',
+          eventName: 'SessionStart',
+          displayName: 'SessionStart',
+        },
+        {
+          status: 'missing',
+          message: '`hooks.UserPromptExpansion` array missing',
+          eventName: 'UserPromptExpansion',
+          displayName: 'UserPromptExpansion spec-plan guard',
+        },
+      ]);
+      expect(inspectManagedSpecPlanGuardHook(projectRoot)).toEqual({
+        status: 'missing',
+        message: '`hooks.UserPromptExpansion` array missing',
       });
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -369,6 +445,117 @@ describe('claude settings', () => {
       expect(payload.hookSpecificOutput.additionalContext).toContain('Managed using-spec-first bootstrap is missing');
       expect(payload.hookSpecificOutput.additionalContext).toContain('spec-first init');
       expect(payload.hookSpecificOutput.additionalContext).toContain('choose Claude Code');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('spec-plan guard hook emits UserPromptExpansion context for native Plan Mode', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      const hookPath = writeRenderedSpecPlanGuardHook(projectRoot);
+      const result = spawnSync('bash', [hookPath], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        input: JSON.stringify({
+          hook_event_name: 'UserPromptExpansion',
+          command_name: 'spec:plan',
+          permission_mode: 'plan',
+        }),
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      const payload = JSON.parse(result.stdout);
+      expect(payload.hookSpecificOutput.hookEventName).toBe('UserPromptExpansion');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('/spec:plan planning-only attention guard');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('planning-only');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('wait for the user handoff choice');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('Claude native Plan Mode write protection is active');
+      expect(payload.hookSpecificOutput).not.toHaveProperty('decision');
+      expect(payload.hookSpecificOutput.additionalContext).not.toContain('deny');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('spec-plan guard hook reads large UserPromptExpansion payloads from stdin', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      const hookPath = writeRenderedSpecPlanGuardHook(projectRoot);
+      const result = spawnSync('bash', [hookPath], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        input: JSON.stringify({
+          hook_event_name: 'UserPromptExpansion',
+          command_name: 'spec:plan',
+          permission_mode: 'default',
+          prompt: 'x'.repeat(1024 * 1024),
+        }),
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      const payload = JSON.parse(result.stdout);
+      expect(payload.hookSpecificOutput.hookEventName).toBe('UserPromptExpansion');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('best-effort attention reminder only');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test.each(['default', 'acceptEdits', 'bypassPermissions', 'auto', 'dontAsk', undefined])(
+    'spec-plan guard hook marks %s permission mode as best-effort',
+    (permissionMode) => {
+      const projectRoot = makeTempDir();
+
+      try {
+        const hookPath = writeRenderedSpecPlanGuardHook(projectRoot);
+        const input = {
+          hook_event_name: 'UserPromptExpansion',
+          command_name: '/spec:plan',
+        };
+        if (permissionMode !== undefined) {
+          input.permission_mode = permissionMode;
+        }
+
+        const result = spawnSync('bash', [hookPath], {
+          cwd: projectRoot,
+          encoding: 'utf8',
+          input: JSON.stringify(input),
+        });
+
+        expect(result.status).toBe(0);
+        expect(result.stderr).toBe('');
+        const payload = JSON.parse(result.stdout);
+        expect(payload.hookSpecificOutput.additionalContext).toContain('best-effort attention reminder only');
+        expect(payload.hookSpecificOutput.additionalContext).toContain('no hard write protection');
+      } finally {
+        fs.rmSync(projectRoot, { recursive: true, force: true });
+      }
+    },
+  );
+
+  test('spec-plan guard hook ignores non spec-plan commands', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      const hookPath = writeRenderedSpecPlanGuardHook(projectRoot);
+      const result = spawnSync('bash', [hookPath], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        input: JSON.stringify({
+          hook_event_name: 'UserPromptExpansion',
+          command_name: 'spec:work',
+          permission_mode: 'bypassPermissions',
+        }),
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toBe('');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

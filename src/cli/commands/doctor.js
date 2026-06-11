@@ -8,7 +8,7 @@ const { isLegacyManagedState, readState, readStateFileRaw } = require('../state'
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
 const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
 const { formatInitGuidance } = require('../init-guidance');
-const { inspectManagedSessionStartHook } = require('../claude-settings');
+const { inspectManagedClaudeHooks } = require('../claude-settings');
 const { resolveWorkflowArtifactDir } = require('../../verification/artifact-paths');
 const { validateAgainstSchema } = require('../../contracts/schema-validator');
 const { computeDecisionInputHealth } = require('../helpers/setup-facts');
@@ -941,21 +941,17 @@ function buildHostSpecificChecks(projectRoot, adapter) {
     return [];
   }
 
-  const status = inspectManagedSessionStartHook(projectRoot);
-  if (status.status === 'installed') {
-    return [{
-      level: 'PASS',
-      name: '.claude/settings.json SessionStart',
+  return inspectManagedClaudeHooks(projectRoot).map((status) => {
+    const check = {
+      level: status.status === 'installed' ? 'PASS' : 'WARNING',
+      name: `.claude/settings.json ${status.displayName}`,
       message: status.message,
-    }];
-  }
-
-  return [{
-    level: 'WARNING',
-    name: '.claude/settings.json SessionStart',
-    message: status.message,
-    fix: formatInitGuidance('claude', 'in this project to restore the managed SessionStart matcher'),
-  }];
+    };
+    if (status.status !== 'installed') {
+      check.fix = formatInitGuidance('claude', `in this project to restore the managed ${status.displayName} matcher`);
+    }
+    return check;
+  });
 }
 
 function printHelp() {

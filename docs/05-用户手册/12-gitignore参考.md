@@ -27,6 +27,7 @@
 .claude/spec-first/
 .claude/agents/
 .claude/hooks/session-start
+.claude/hooks/spec-plan-guard
 .claude/tasks/
 .claude/worktrees/
 .codex/
@@ -131,7 +132,7 @@ graphify-out/.graphify_python
 
 | 路径 | 建议 |
 | --- | --- |
-| `.claude/settings.json` | Claude Code 项目配置；`init --claude` 会写入 spec-first 受管 SessionStart matcher。团队希望共享 Claude hooks、permissions 或 MCP 配置时可提交；仅个人使用的配置应放到 `.claude/settings.local.json` 并在 managed block 外自行忽略。 |
+| `.claude/settings.json` | Claude Code 项目配置；`init --claude` 会写入 spec-first 受管 hook matchers。团队希望共享 Claude hooks、permissions 或 MCP 配置时可提交；仅个人使用的配置应放到 `.claude/settings.local.json` 并在 managed block 外自行忽略。 |
 | `graphify-out/cache/` | Graphify 官方建议按仓库体积和速度取舍：提交可加速，忽略可保持仓库更小。 |
 | `graphify-out/graph.html`、`graphify-out/.graphify_labels.json` | 可视化和标签缓存是否提交取决于团队是否把 Graphify map 当共享导航资产；`$spec-mcp-setup` 不会替团队决定。 |
 

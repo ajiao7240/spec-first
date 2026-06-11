@@ -114,6 +114,29 @@ const UNIVERSAL_PLANNING_PATH = path.join(
   'universal-planning.md',
 );
 describe('spec-plan context orientation contract', () => {
+  test('has a hot-path plan-only safety contract and strict question-tool fallback rules', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    const safetyIndex = text.indexOf('## Plan-Only Safety Contract');
+    expect(safetyIndex).toBeGreaterThan(-1);
+    expect(safetyIndex).toBeLessThan(text.indexOf('## Workflow Contract Summary'));
+    expect(safetyIndex).toBeLessThan(text.indexOf('### Phase 0'));
+    expect(text).toContain('Planning only until handoff.');
+    expect(text).toContain('Do not call implementation tools');
+    expect(text).toContain('write or update only the plan artifact');
+    expect(text).toContain('Handoff is blocking.');
+    expect(text).toContain('wait for the user\'s explicit selection');
+    expect(text).toContain('preload `AskUserQuestion` at the start of the interactive flow');
+    expect(text).toContain('`ToolSearch` with query `select:AskUserQuestion`');
+    expect(text).toContain('A pending schema load, tool inconvenience, report-formatting mode, or this instruction being buried in a long skill is not a fallback trigger.');
+    expect(text).toContain('A pending schema load is not a fallback trigger; call `ToolSearch` first.');
+    expect(text).toContain('fall back loudly, then wait for the user\'s reply');
+    expect(text).toContain('best-effort attention hardening');
+    expect(text).toContain('Claude native Plan Mode');
+    expect(text).toContain('do not claim non-Plan Mode has hard write protection');
+    expect(text).toContain('**NEVER CODE during this skill.**');
+  });
+
   test('uses direct repo context and preserves LLM decision boundary', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     expect(text).toContain('Context Orientation Anchor');

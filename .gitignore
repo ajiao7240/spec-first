@@ -41,6 +41,7 @@ logs/
 .claude/spec-first/
 .claude/agents/
 .claude/hooks/session-start
+.claude/hooks/spec-plan-guard
 .claude/*.lock
 .codex/
 .agents/
@@ -78,6 +79,7 @@ __pycache__/
 .claude/spec-first/
 .claude/agents/
 .claude/hooks/session-start
+.claude/hooks/spec-plan-guard
 .claude/tasks/
 .claude/worktrees/
 .codex/

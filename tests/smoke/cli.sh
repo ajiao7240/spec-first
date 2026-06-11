@@ -213,6 +213,22 @@ grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md"
 test -f "$TMP_DIR/.claude/hooks/session-start"
 grep -q 'startup-reminder' "$TMP_DIR/.claude/hooks/session-start"
 grep -q -- '--claude' "$TMP_DIR/.claude/hooks/session-start"
+test -f "$TMP_DIR/.claude/hooks/spec-plan-guard"
+grep -q 'UserPromptExpansion' "$TMP_DIR/.claude/hooks/spec-plan-guard"
+grep -q 'planning-only attention guard' "$TMP_DIR/.claude/hooks/spec-plan-guard"
+node - "$TMP_DIR/.claude/settings.json" <<'NODE'
+const fs = require('node:fs');
+const settingsPath = process.argv[2];
+const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+const matchers = settings.hooks?.UserPromptExpansion;
+if (!Array.isArray(matchers)) throw new Error('missing UserPromptExpansion hook matchers');
+const matcher = matchers.find((entry) => entry.matcher === 'spec:plan');
+if (!matcher) throw new Error('missing spec:plan UserPromptExpansion matcher');
+const command = matcher.hooks?.find((hook) => hook.type === 'command')?.command || '';
+if (!command.includes('.claude/hooks/spec-plan-guard')) {
+  throw new Error('spec-plan guard matcher does not invoke managed hook');
+}
+NODE
 test -f "$TMP_DIR/.gitignore"
 grep -q '# spec-first:start' "$TMP_DIR/.gitignore"
 grep -q '.claude/commands/spec/' "$TMP_DIR/.gitignore"
@@ -243,6 +259,14 @@ if (!['pass', 'warn', 'error'].includes(payload.runtime_asset_health)) {
   throw new Error(`unexpected asset health ${payload.runtime_asset_health}`);
 }
 if (!payload.platform_checks?.claude?.length) throw new Error('missing claude checks');
+const checks = payload.platform_checks.claude;
+function requireCheck(name, messageFragment) {
+  const check = checks.find((entry) => entry.name === name && entry.message.includes(messageFragment));
+  if (!check) throw new Error(`missing claude check ${name}: ${messageFragment}`);
+  if (check.level !== 'PASS') throw new Error(`expected ${name} to pass, got ${check.level}`);
+}
+requireCheck('.claude/hooks/spec-plan-guard', 'managed UserPromptExpansion spec-plan guard hook present');
+requireCheck('.claude/settings.json UserPromptExpansion spec-plan guard', 'managed UserPromptExpansion spec-plan guard matcher present');
 NODE
 echo "✓ doctor reports Claude runtime facts"
 

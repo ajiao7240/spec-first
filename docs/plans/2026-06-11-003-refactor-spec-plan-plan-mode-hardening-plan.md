@@ -1,7 +1,7 @@
 ---
 title: "refactor: Reinforce spec-plan plan-only discipline via harness attention"
 type: refactor
-status: active
+status: completed
 date: 2026-06-11
 spec_id: 2026-06-11-003-spec-plan-plan-mode-hardening
 plan_depth: medium
@@ -471,6 +471,18 @@ flowchart TB
 - Claude SessionStart hook template: `templates/claude/hooks/session-start`
 - Codex hook parity learning: `docs/solutions/tooling-decisions/codex-cli-supports-lifecycle-hooks-2026-05-26.md`
 - UserPromptExpansion hook 契约：Claude Code 2.1.173 本地二进制 schema 实证（见 Direct Evidence）。
+
+---
+
+## Completion Evidence
+
+Implemented U1-U4: Claude `UserPromptExpansion` spec-plan attention guard, managed settings/runtime lifecycle for both Claude hooks, `spec-plan` hot-path safety/question-tool contract, changelog/docs/gitignore updates, and source-driven runtime refresh via `spec-first init`.
+
+Post-review closeout: `$spec-code-review` multi-agent review found 3 actionable issues and they were fixed: the Claude `spec-plan-guard` hook now reads the full `UserPromptExpansion` payload from stdin instead of passing large prompts through an environment variable; Claude runtime inspection now warns on managed hook executable-bit drift; smoke coverage now asserts the `UserPromptExpansion` settings matcher and doctor entries.
+
+Verification completed for this closeout: `npm run test:unit -- --runTestsByPath tests/unit/runtime-plan-contracts.test.js tests/unit/claude-settings.test.js tests/unit/runtime-hook-permissions.test.js` (runner executed the full unit suite: 140 suites / 1091 tests passed), `npm run typecheck`, `npm run test:smoke`, `./bin/spec-first.js doctor --claude --json`, `git diff --check`, and `/Users/kuang/.local/bin/graphify update .`. The earlier broad `npm test`, Codex doctor, and fresh-source eval claims were not rerun in this follow-up closeout and are not used as the post-review evidence.
+
+Generated runtime status: `.claude/settings.json` was refreshed by `spec-first init`; ignored runtime mirrors such as `.claude/hooks/spec-plan-guard`, `.claude/spec-first/**`, and `.agents/skills/**` were regenerated from source and intentionally not hand-edited as source.
 
 ---
 

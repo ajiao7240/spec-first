@@ -163,6 +163,8 @@ test -f "$CLAUDE_PROJECT/.claude/skills/using-spec-first/SKILL.md"
 test -f "$CLAUDE_PROJECT/.claude/hooks/session-start"
 grep -q 'startup-reminder' "$CLAUDE_PROJECT/.claude/hooks/session-start"
 grep -q -- '--claude' "$CLAUDE_PROJECT/.claude/hooks/session-start"
+test -f "$CLAUDE_PROJECT/.claude/hooks/spec-plan-guard"
+grep -q 'UserPromptExpansion' "$CLAUDE_PROJECT/.claude/hooks/spec-plan-guard"
 test -f "$CLAUDE_PROJECT/.claude/spec-first/workflows/spec-work/SKILL.md"
 test ! -e "$CLAUDE_PROJECT/.claude/spec-first/workflows/spec-"standards"/SKILL.md"
 

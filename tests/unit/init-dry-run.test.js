@@ -379,6 +379,7 @@ describe('init --dry-run', () => {
       expect(result.stdout).toContain('CLAUDE.md');
       expect(result.stdout).toContain('.gitignore');
       expect(result.stdout).toContain('.claude/hooks/session-start');
+      expect(result.stdout).toContain('.claude/hooks/spec-plan-guard');
       expect(result.stdout).toContain('.claude/spec-first/state.json');
       expect(result.stdout).toContain('No files were changed.');
       expect(fs.existsSync(path.join(projectRoot, '.gitignore'))).toBe(false);
@@ -401,6 +402,7 @@ describe('init --dry-run', () => {
         '.claude/commands/spec/work.md',
         '.claude/agents/spec-security-reviewer.agent.md',
         '.claude/hooks/session-start',
+        '.claude/hooks/spec-plan-guard',
         '.claude/spec-first/workflows/spec-mcp-setup/scripts/check-health',
         '.claude/settings.json',
         '.claude/spec-first/state.json',

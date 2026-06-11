@@ -1,106 +1,127 @@
 ---
-title: "refactor: Slim the spec-plan SKILL spine via rebar structure"
+title: "refactor: 治理头部 prose 的 keep/extract/remove —— ablation-first 收束(spec-plan 试点 → 重型节点推广)"
 type: refactor
 status: active
 date: 2026-06-11
+deepened: 2026-06-11
 spec_id: 2026-06-11-004-spec-plan-skill-slimming
 plan_depth: deep
+supersedes_strategy: "v1「按 rebar 外置 Phase 0 resume/deepen fast-path」"
 ---
 
-# refactor: Slim the spec-plan SKILL spine via rebar structure
+# refactor: 治理头部 prose 的 keep/extract/remove —— ablation-first 收束
 
 ## Summary
 
-把 68KB / 765 行的 `skills/spec-plan/SKILL.md` 按既有「钢筋结构」方法论收束为一个更可扫描的 workflow spine：先显式化承重判断轴并做删除前的边界迁移映射，再把 fresh-run 多数不走的 resume / deepen fast-path 分支外置为按需加载的 reference，最后按承重轴收束 references。核心约束是先把 contract test 从「绑头部精确短语」改造为「绑语义能力」，再动任何内容——否则外置会撞断言、且无法证明「少字节 ≠ 少能力」。本计划不做跨 37 个 skill 的治理头部去重（横切，单独立项），也不做逐句 prose 压缩（高漂移、低收益）。
+把 `skills/spec-plan/SKILL.md` 收束的**真实靶子**从 v1 误定的「Phase 0.1 resume/deepen fast-path 外置」(2.5KB、上游内联保留、低价值)纠正为**治理头部 prose**:L17-101 的 10 节治理小节中,有约 38 行 / ~4KB 是**跨重型 skill 逐字重复、无机器消费者、未经 ablation 验证、且部分与全局 `CLAUDE.md` 语义重复**的纯劝导 prose。本计划用 **keep / extract / remove** 三分框架处理它们,且以 **ablation eval 先行**——不预设这些 prose 有效,先实测「注入 vs 不注入是否改变 agent 行为」,再据结果决定抽取或删除。抽取目标形态是 Anthropic 官方推荐的**渐进式披露共享 reference**(每 skill 留一行指针,内容按需加载一次),消除 4× 重复。
+
+本计划是**跨节点工作的试点**:治理头部是 4 个重型 workflow 节点(`spec-plan` 10 节、`spec-work` 8 节、`spec-code-review` 8 节、`spec-debug` 7 节)的共性问题,以及 `Workflow Contract Summary` / `Scenario Capability` 跨 18/37 skill 的共性问题。本计划在 spec-plan 上验证 keep/extract/remove 范式 + ablation harness,推广为独立 follow-up。
+
+本计划**放弃** v1 的「按字节外置 Phase 0 分支」主路线:外部对照(上游 ce-plan 更大却内联保留同款 fast-path)与机制证据(L748 handoff 被跳过的真因是约束容量超支,非位置埋没)都证明那是错误靶子。
+
+---
+
+## Strategy Revision —— 与 v1 的差异及理由
+
+v1 方案(同 spec_id 旧版)主路线是「按 rebar 把 Phase 0.1 resume/deepen fast-path 外置成 reference,降低无条件上下文成本」。经上游对照与外部实证,该路线被否决,核心修正如下:
+
+1. **靶子错位**:Phase 0.1 fast-path 仅 2.5KB,且上游母版 `ce-plan`(83.2KB,比 spec-plan 大 12.5KB)**内联保留**同款 fast-path、甚至额外内联 approach-altitude。写 rebar 方法论的上游有充分机会外置却没做——无外部信号表明这是该切的肉。
+2. **大头已被吃掉**:spec-plan 比上游小,正因它**已外置** synthesis(~9KB)与 handoff 菜单(~7KB)。便宜的外置红利**已基本吃光**,v1 把"红利部分吃掉"低估了现状。
+3. **真实剩余靶子**:spec-plan 相对上游唯一仍大块内联的独有内容,是治理头部(上游 0 节、本仓 10 节)。其中 ~4KB 是跨 skill 重复的未验证 prose。
+4. **机制纠正**:v1 的 L748「handoff 被跳过」证据,真因不是"长 spine 埋没"(L748 在文件末尾,U 曲线强区),而是 **ComplexBench 证实的约束容量上界**——约束总量超过模型可靠满足预算,部分被丢弃。降低 spine 的**约束总量**才对症,这正好是抽取治理 prose 的收益,而非外置 fast-path。
+5. **保留 v1 的好骨架**:capability-binding test 改造(v1 的 R2/U2)外部独立验证为正确(prompt-as-contract / 用 verifier 度量),予以保留并强化。before/after 度量、fresh-source eval、source/runtime 边界、双宿主 projection 检查全部保留。
 
 ---
 
 ## Problem Frame
 
-`spec-plan` 的入口 `SKILL.md` 已膨胀到 68449 字节 / 765 行，是全仓 37 个 SKILL.md 中第二大（仅次于 spec-code-review 的 114KB）。膨胀本身不是病——真正的症状是 load-bearing 步骤被埋没导致执行不全：SKILL.md L748 自己写着 "agents can render the menu, capture a selection, and **stop without firing the routed action**"，这是作者在为「spine 太长、关键步骤被跳过」打补丁。
+`spec-plan/SKILL.md` 当前 775 行 / 70.7KB。逐节实测后,体量可治理空间集中在**治理头部 L17-101(85 行 / 10.6KB)**,而非 v1 认定的 Phase 0。
 
-**必须区分两类成本，避免把动机与机制混为一谈：**
+治理头部 10 节按「是否有可验证消费者」截然两类:
 
-- **(a) 无条件上下文成本** —— 每次运行都加载、但 fresh run 多数不走的分支（Phase 0 的 resume/deepen fast-path）。这是 R3/U3 externalize 的**直接目标**。
-- **(b) load-bearing 步骤被埋没** —— L748 那类位于 **Phase 5 后段**、必经却易被跳过的 routed action。这是 R8 要守住的**不变量**，不是 R3 能直接改善的产出。
+- **有消费者(必须保留,3 节)**:`Workflow Contract Summary`(其 `When To Use` / `When Not To Use` / `Outputs` / `Workflow` 是 `skills/spec-skill-audit/scripts/lint-skill-structure.js` 的 **P1 REQUIRED_SECTIONS**,机器校验);`Plan-Only Safety Contract`(由 `templates/claude/hooks/spec-plan-guard` 运行时强制);`Scenario Capability`(5 行指针,指向共享 matrix,audit 消费)。
+- **无消费者的纯劝导(7 节 ≈ 38 行 ≈ ~4KB)**:`Context Orientation Anchor`、`Domain Language And Decision Ledger`、`Cache-Friendly Context Layout`、`Summary-First Handoff`、`Runtime Context Exclusion`、`Recall Trust Boundary`、`Capability-Class Evidence Boundary`。测试只断言其 prose **存在**(`toContain`),**不验证其生效**;无脚本/hook/路由消费;采纳稀疏(3-7/37);其中 `Runtime Context Exclusion` 与 `Recall Trust Boundary` 的语义**逐字**已在始终加载的 `CLAUDE.md`(L234 / L63)与 `AGENTS.md` 中。
 
-本计划主攻 (a)，把 (b) 作为外置时不得削弱的约束。L748 证据用于说明「长 spine 会埋没关键步骤」这一普遍风险，论证收束的价值；它**不**意味着 externalize Phase 0.1 就能消除 Phase 5 那处具体埋没。若未来要直接改善 (b)，应是针对 Phase 5 handoff 区域的单独工作（与 003 的执行 gate 加固相邻），不在本计划范围。
+**三类成本必须区分:**
 
-实测字节分布显示，每次运行无条件支付的成本集中在两块：
+- **(a) 跨节点重复成本** —— 同段治理 prose 在 4 个重型节点各抄一份(且已手抄漂移:plan 10 节 vs work/code-review 8 节)。**抽取一次加载**的直接目标。
+- **(b) 约束容量挤占** —— spine 治理约束总量计入模型「可靠满足所有约束」的有限预算;超支会导致**任意位置**的 load-bearing 步骤(如 Phase 5 handoff)被概率性丢弃。**降低约束总量**的直接目标。
+- **(c) 未验证劝导税** —— 7 节是否真改变 agent 行为,从未实测;可能为 null。**ablation 度量**的对象。
 
-- 头部治理小节（L17-135，约 13KB）：其中多数是跨 skill 复制的同款 prose（`## Scenario Capability` 出现在 18/37 个 skill，`## Runtime Context Exclusion` 7 个，`## Domain Language And Decision Ledger` 6 个）。
-- Phase 0（L137-285，约 13KB / 147 行）：最大的单节，其中 resume / deepen-intent fast-path 分支逻辑多数 fresh run 根本不走，却每次装进上下文。
-
-references 外置机制已经成熟（9 个 reference、11 处 `STOP. read references/...`），便宜的外置红利已部分吃掉。剩余可治理空间需要按 `docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md`（spec-prd 已实操过的同类方法论）来做，而不是另起一套简化哲学或机械按字节切。
-
-一个关键风险已在证据中确认：`tests/unit/spec-plan-contracts.test.js` 大量使用 `toContain('Context Orientation Anchor')` 这类**头部精确短语**断言（rebar 原则 7 明确警告的「绑文件形状而非能力」反模式）。任何外置或合并都会撞这些断言，因此 test 改造必须前置。
+外部实证支撑(均经 3-0 对抗验证,见 Context & Research):更多 prose 不单调提升指令遵循、反降稳定性(LIFBench / LongICLBench / LooGLE);约束容量有上界、越 compose 越丢弃(ComplexBench);未验证的 role/劝导 prose 无可靠增益、须用 verifier 度量(persona 研究 / IFEval);Anthropic 自家架构即「抽取引用一次 + 渐进披露 + 移 prose 到单独文件」,subagent 不重灌完整 harness prompt。
 
 ---
 
 ## Requirements
 
-- R1. 在删除或迁移任何 SKILL.md 内容前，产出一份 spec-plan 承重判断轴清单与「旧内容 → 新承重结构」的边界迁移映射；找不到迁移位置的内容不得删除（rebar 原则 1、6）。
-- R2. 把 `tests/unit/spec-plan-contracts.test.js` 中绑定头部精确短语的断言改造为绑定语义能力的断言，使「内容位置变化但能力仍在」时测试仍通过，「能力丢失」时测试失败（rebar 原则 7）。
-- R3. 把 fresh-run 多数不走的 resume / deepen fast-path 分支逻辑外置为按需加载的 reference，spine 只保留「判断是否进入该分支 → 是则加载该 reference」的路由骨架，使无条件上下文成本变为条件成本。
-- R4. 仅在 U1 承重轴分析证明 references 之间存在同类边界重复时，才按承重轴收束 references；不为「减文件数」而合并面向不同 consumer 的边界。
-- R5. 保持 source/runtime 边界：source 改 `skills/spec-plan/**` 与 `templates/claude/commands/spec/plan.md`，不手改 `.claude/`、`.codex/`、`.agents/skills/` 镜像；runtime 漂移用 `spec-first init` 修复。
-- R6. command projection（`skills/spec-plan/references/*` → `.claude/spec-first/workflows/spec-plan/references/*` 的路径重写）与双宿主（Claude / Codex）投影在任何新增/重命名 reference 后仍正确。
-- R7. 任何 user-visible 行为变化按仓库格式更新 `CHANGELOG.md`（含 `(user-visible)` 标注与配置的 developer author）。
-- R8. spine 收束后，原有的 load-bearing 执行步骤（post-plan handoff menu 必须触发 routed action、document review 强制、blocking question 规则）不得因外置而更易被跳过——外置应降低埋没风险，不得制造新的「读不到关键步骤」缺口。
+- R1. 在动任何治理 prose 前,产出**治理头部 capability 清单**,逐节标注:`owner_consumer`(lint / hook / router / 无)、`cross_skill_count`(在 37 skill 的出现数)、`global_layer_duplicate`(是否与 `CLAUDE.md`/`AGENTS.md` 语义重复)、`verdict`(keep / extract / remove-pending)。无消费者且未 ablation 的节不得直接删。
+- R2. 产出 **ablation eval harness**:对每个 extract/remove 候选节,以 fresh-source 方式实测「注入该节 vs 不注入」在一组代表性 planning 任务上是否改变可观测 agent 行为(是否排除 generated mirror、是否回 source 验证 advisory、handoff 是否触发)。结果作为 R4/R5 的前置判据。
+- R3. 把 `tests/unit/spec-plan-contracts.test.js` 中绑定治理节**精确短语**的断言,改造为绑定**语义能力 + 其 owner surface**(spine / shared-reference / global-layer)的断言:能力仍被某可达载体约束时通过,能力丢失时失败。保留并新增 lint/projection 等**不可 rebind 的契约断言**。
+- R4. 对 ablation 证明有可观测效果、且跨节点重复的治理节(Context Orientation / Domain Language / Cache-Friendly Layout / Summary-First Handoff 等),抽取为**渐进式披露共享 reference**,spine 仅留一行按需加载指针;该 reference 必须随 runtime mirror 投影到终端用户 repo(不可只靠开发本仓的 `CLAUDE.md`)。
+- R5. 对 ablation 证明效果为 null、且与全局层重复的治理节(Runtime Context Exclusion / Recall Trust Boundary / Capability-Class 的通用部分),在**确认其语义有到达终端运行时的载体**(共享 reference 或扩展后的 bootstrap block)后删除;无法确认运行时载体的不得直接删,降级为 extract。
+- R6. 必须保留有可验证消费者的 3 节(`Workflow Contract Summary` / `Plan-Only Safety Contract` / `Scenario Capability`)的契约面与其 lint/hook/audit 消费链路不受损。
+- R7. 保持 source/runtime 边界:只改 `skills/spec-plan/**`、新建共享 reference、必要时改 `templates/` bootstrap 注入与 `tests/`;不手改 `.claude/`、`.codex/`、`.agents/skills/` 镜像;runtime drift 用 `spec-first init` 修复。
+- R8. command projection 与双宿主(Claude / Codex)投影在新增/重命名共享 reference 后仍正确,且新 reference 的 projection 路径断言**同时覆盖两宿主**。
+- R9. user-visible 行为变化按仓库格式更新 `CHANGELOG.md`(含 `(user-visible)` 与配置的 developer author)。
+- R10. 收束后,有消费者的 3 节及 load-bearing 执行步骤(handoff 必须触发 routed action、document review 强制、blocking question 规则)不得因抽取/删除而更易被跳过或丢失消费链路。
 
 ---
 
 ## Assumptions
 
-- A1. 收束目标是「可扫描的 spine + 更强的 references」，不是某个具体行数/字节 KPI。行数断言（若加入 test）应是宽松上界防回膨胀，而非精确目标。
-- A2. fresh-run 上下文节省主要来自分支外置（R3）；头部治理小节去重收益更大但属横切，本计划不认领。
-- A3. 现有 9 个 reference 中是否存在可合并的同类边界，需 U1 实证后才能确定；R4/U4 是条件性的，可能结论为「不合并」。
+- A1. 收束目标是「降低重复 + 降低约束总量 + 删除未验证税」,不是某个字节/行数 KPI。行数断言若加入 test,是宽松上界防回膨胀。
+- A2. 治理头部是**跨 4 个重型节点 + 18 skill** 的共性问题;本计划在 spec-plan 上验证范式,推广为独立 follow-up(见 Deferred)。
+- A3. 外部证据建立的是**机制 / 风险 + Anthropic 规范推荐**,**不存在**「内联 vs 共享治理 prose」的受控 A/B 实验;因此本计划用**仓内 ablation**(R2)补上这一缺失的直接证据,而非照搬外部结论。
+- A4. 终端用户 repo 不含 spec-first 的 `CLAUDE.md`;注入用户 repo 的 bootstrap block 当前**只含路由决策集,不含 advisory/context 治理语义**。任何「删除依赖全局层兜底」的判断都必须先解决运行时载体问题(R5)。
+- A5. ablation 可能结论为「某节确有效果」→ 该节转 extract 而非 remove;R5 是条件性的。
 
 ---
 
 ## Scope Boundaries
 
-- 不做跨 37 个 skill 的治理头部去重（`## Scenario Capability` 等共享样板抽取到 `docs/contracts/`）。这是横切重构，blast radius 覆盖十几个 skill，会把聚焦优化变成大重构。
-- 不做逐句 prose 压缩。rebar 方法论明确反对，收益低且语义漂移风险高，违反 CLAUDE.md「避免无关重构、精准修改」。
-- 不改变 `spec-plan` 的任何对外行为契约：Phase 顺序的语义、handoff menu 选项、Direct Evidence 块、U-ID 规则、blocking question 规则均保持。
-- 不触碰 `docs/plans/2026-06-11-003-*-plan-mode-hardening-plan.md` 认领的 plan-only 执行 gate / hook 加固工作；本计划是文档结构收束，与其 harness 加固正交。
+- 不动有可验证消费者的 3 节的契约内容(只在 R3 里改"测试如何断言它们",不改 prose 本身)。
+- 不做逐句 prose 压缩(rebar 与 CLAUDE.md 精准修改原则反对)。
+- 不外置 fresh-run 必经的 Phase 0.2-0.7 与 Phase 1-5 workflow 主体(v1 误判的 fast-path 外置已放弃)。
+- 不改 `spec-plan` 对外行为契约:Phase 语义顺序、handoff menu 选项、Direct Evidence 块、U-ID 规则、blocking question 规则、markdown canonical / HTML sidecar 边界均保持。
+- 不触碰 `docs/plans/2026-06-11-003-*-plan-mode-hardening-plan.md` 的 plan-only 执行 gate / hook 加固(正交;且 `Plan-Only Safety Contract` 属其 owner,本计划只保留不改)。
 
 ### Deferred to Follow-Up Work
 
-- 跨 skill 治理头部去重：单独立项的横切任务，需先盘点 37 个 SKILL.md 的共享小节、设计 `docs/contracts/` 共享 contract 与引用机制、评估对每个 skill 的 test 影响。本计划在 U1 输出中标注哪些头部小节是横切候选，作为后续立项的输入。
+- **跨节点推广**:把本计划验证过的 keep/extract/remove 范式 + 共享 reference 应用到 `spec-work` / `spec-code-review` / `spec-debug` 的同款治理节,以及 `Workflow Contract Summary` / `Scenario Capability` 的 18-skill 一致性收束。需先有本计划的 ablation 结论与共享 reference 形态作为输入。
+- **bootstrap block 扩展**:若 R5 需要把 advisory/context 治理语义送达终端运行时,评估扩展 SessionStart 注入的 bootstrap block(影响所有用户 repo,属横切),作为独立工作。
 
 ---
 
 ## Completion Criteria
 
-- 本计划标记为 `completed` 前必须满足：R2 的 test 改造已合入且通过（绑能力断言到位、旧绑短语断言已替换、projection 路径断言保留并为新 reference 新增）；R3 的分支外置已落地且 spine 路由骨架可独立读懂；U1 迁移映射文档已沉淀；command/双宿主 projection 经 `npm run test:mcp-setup` 或等价 contract test 验证；`spec-first init` 已运行且记录 runtime 是否变化。
-- **R8 行为门槛（非审美门槛）**：closeout 必须确认改造后 spine 中每个 load-bearing 步骤（handoff menu 必须触发 routed action、document review 强制、blocking question 规则）在不进入任何外置 reference 的前提下仍可定位到；U5 必须拆成两类 fresh-source eval：`spine-only scannability eval` 验证仅凭 spine 能识别强制 doc-review、blocking question、handoff reference load 和 completion check；`spine + plan-handoff behavioral trace` 验证加载 `plan-handoff.md` 后 fresh run 能到达并触发 Phase 5 routed handoff action。仅"路由骨架可独立读懂"不足以判定 R8 通过。
-- 若 U4（references 收束）经 U1 分析判定不执行，closeout 必须显式说明「无可合并的同类边界」，而非静默跳过。
-- closeout 必须附 before/after 质量度量表：`SKILL.md bytes/lines`、`fresh-run unconditional bytes`、`conditional resume/deepen bytes`、`always-load reference count`、`load-bearing spine gates count`。这些是观测口径，不是硬 KPI；要求趋势解释和不变量保持证据。
+- 标记 `completed` 前必须满足:R1 capability 清单已沉淀;R2 ablation harness 已运行且每个候选节有「有效 / null」实测结论(无法 dispatch 时记录原因,不得假称);R3 test 改造合入且通过(绑能力到位、旧绑短语断言已替换、lint/projection 不可 rebind 断言保留并为新 reference 新增双宿主断言);R4 抽取已落地且共享 reference 经投影到达 runtime;R5 删除仅在确认运行时载体后执行,否则降级 extract 并说明;`spec-first init` 已运行且记录 runtime 是否变化。
+- **R5 删除门槛(行为门槛非审美门槛)**:任何"删除"的节,closeout 必须证明其语义在**终端运行时**仍有可达载体(指明是共享 reference 还是 bootstrap),并附 ablation 的 null 结论;无证据则不得删。
+- **R6 保留门槛**:closeout 必须确认 `Workflow Contract Summary` 的 P1/P2 节仍通过 `lint-skill-structure.js`、`Plan-Only Safety Contract` 仍被 `spec-plan-guard` 消费、`Scenario Capability` 仍指向 matrix。
+- **R10 行为门槛**:closeout 必须用两轮 fresh-source eval 证明——`spine-only scannability eval` 验证仅凭收束后 spine 能识别强制 doc-review、blocking question、handoff reference load、completion check;`spine + plan-handoff behavioral trace` 验证 fresh run 能到达并触发 Phase 5 routed handoff action。
+- closeout 必须附 before/after 度量表:`SKILL.md bytes/lines`、`治理头部 bytes/lines`、`cross-node 重复节数`、`未验证劝导节数(ablation 前/后)`、`always-load reference count`、`有消费者契约节数(应不变)`。这些是观测口径非硬 KPI,要求趋势解释与不变量保持证据。
 
 ---
 
 ## Direct Evidence Readiness
 
-- target_repo: spec-first（当前仓库根）
-- evidence_sources: bounded direct reads、`wc`、`grep -rl` 跨 skill 计数、本会话已读 rebar solution / plan-template / contract test 全文
-- source_refs: skills/spec-plan/SKILL.md、tests/unit/spec-plan-contracts.test.js、docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md、templates/claude/commands/spec/plan.md
-- current_revision: 387abe4a
-- worktree_status: dirty（CHANGELOG.md 等既有改动，与本计划无关）
-- confidence: high（体量、重复度、test 断言面、runtime 路径均已实测）
-- limitations: 未 dispatch research agent，用 inline bounded reads 等价替代；未实测 `spec-first init` 投影 diff（属实现期 U5 工作）
+- target_repo: spec-first(当前仓库根);对照仓 compound-engineering-plugin(上游 ce-plan,只读对照)
+- evidence_sources: bounded direct reads、`wc`/`grep -rl`/`awk` 跨 skill 计数、本会话已读 SKILL.md / ce-plan 全文 / contract test / lint-skill-structure.js / CLAUDE.md / AGENTS.md、deep-research 外部报告(19 条 3-0 验证)
+- source_refs: skills/spec-plan/SKILL.md、tests/unit/spec-plan-contracts.test.js、skills/spec-skill-audit/scripts/lint-skill-structure.js、CLAUDE.md、AGENTS.md、templates/claude/hooks/spec-plan-guard、compound-engineering-plugin/plugins/compound-engineering/skills/ce-plan/SKILL.md
+- current_revision: 387abe4a(工作树含无关既有改动)
+- confidence: high(体量、消费者归属、跨 skill 计数、全局层重复、上游对照、外部实证均已实测)
+- limitations: ablation harness 本身属本计划 U2 产出,尚未运行;未实测 `spec-first init` 投影 diff(实现期工作);外部证据缺「内联 vs 共享」直接 A/B(由 U2 ablation 补)
 
 ---
 
 ## Direct Evidence
 
-- repo_scope: skills/spec-plan/、tests/unit/、templates/claude/commands/spec/、docs/solutions/architecture-patterns/
-- source_reads_completed: SKILL.md 标题结构与逐节字节、references/* 体量、spec-plan-contracts.test.js 断言面（含 heading-order `toBeLessThan` 与头部短语 `toContain`）、rebar solution 全文、plan-template.md 全文、command stub（12 行 / 399 字节）
-- source_reads_required: U1 期需逐节精读 SKILL.md Phase 0-5 以产出迁移映射；U5 期需读 command projection 生成逻辑与 codex 投影
-- commands_or_tools_used: `wc -c -l`、`grep -n/-rl`、`awk` 分节字节统计、`git rev-parse`
-- impact_on_plan: 实测把策略从「按字节切」修正为「rebar 承重轴优先 + test 前置」；确认头部去重必须剥离为横切；确认分支外置是低风险首选
-- key_findings: SKILL.md 68KB/765 行；头部小节跨 skill 高重复（Scenario Capability 18/37）；Phase 0 是最大单节且含 fresh-run 不走的 fast-path 分支；test 大量绑头部短语（反模式）；command projection 做 `skills/ → .claude/spec-first/workflows/` 路径重写
-- limitations: 同上 Readiness 的 limitations
+- repo_scope: skills/spec-plan/、skills/spec-skill-audit/scripts/、tests/unit/、templates/claude/hooks/、CLAUDE.md、AGENTS.md;对照 compound-engineering-plugin/.../ce-plan/
+- source_reads_completed: SKILL.md 逐节字节(L17-101 治理头 85行/10.6KB;候选 7 节 ≈38行/~4KB)、跨 skill 治理节计数(Workflow Contract Summary 18/37、Scenario Capability 18/37、其余 3-7/37)、每 skill 治理节命中数(plan10/work8/code-review8/debug7,17 个 helper 为 0)、lint-skill-structure.js 的 REQUIRED_SECTIONS、spec-plan-guard hook 存在性、contract test 仅 `toContain`/`indexOf` 断言存在、CLAUDE.md L63/L234 与 AGENTS.md 同款语义、上游 ce-plan 791行/83.2KB 且内联 fast-path
+- source_reads_required: U1 期逐节精读 L17-101 产出 capability 清单;U2 期需 fresh-source dispatch 能力;U5 期读 command projection 生成逻辑与 codex 投影
+- commands_or_tools_used: `wc -c -l`、`grep -n/-rl/-c`、`awk` 分节、`git rev-parse`、deep-research workflow(98 agent)
+- impact_on_plan: 把策略从「外置 Phase 0 fast-path」整体改为「治理头 keep/extract/remove + ablation-first」;确认真实靶子是 ~4KB 跨节点未验证 prose;确认删除受终端运行时载体约束;确认这是跨节点试点
+- key_findings: 见 Problem Frame 与 Context & Research
+- limitations: 同 Readiness
 
 ---
 
@@ -108,29 +129,44 @@ references 外置机制已经成熟（9 个 reference、11 处 `STOP. read refer
 
 ### Relevant Code and Patterns
 
-- `skills/spec-plan/SKILL.md` — 收束目标，当前 workflow spine。
-- `skills/spec-plan/references/` — 已外置的 9 个 reference（deepening-workflow 17KB、plan-handoff 10KB、universal-planning 12KB、synthesis-summary 9KB 等）。
-- `tests/unit/spec-plan-contracts.test.js` — 493 行，承重 contract 测试网；含路径常量、heading-order 断言、头部短语断言。
-- `templates/claude/commands/spec/plan.md` — 12 行薄 command stub；实际内容在 SKILL，投影时做 reference 路径重写。
+- `skills/spec-plan/SKILL.md` L17-101 — 治理头部,收束目标。
+- `skills/spec-skill-audit/scripts/lint-skill-structure.js` — `Workflow Contract Summary` 子节的 P1/P2 REQUIRED 校验者(keep 依据)。
+- `templates/claude/hooks/spec-plan-guard` — `Plan-Only Safety Contract` 的运行时强制者(keep 依据)。
+- `tests/unit/spec-plan-contracts.test.js` — 当前仅断言治理节 prose 存在;R3 改造对象。
+- `CLAUDE.md` L63 / L234、`AGENTS.md` — `Recall Trust Boundary` / `Runtime Context Exclusion` 的全局层同款语义(remove 候选依据)。
+- `skills/{spec-work,spec-code-review,spec-debug}/SKILL.md` — 同款治理节的其余重型 owner(推广目标,follow-up)。
+- 上游 `compound-engineering-plugin/.../ce-plan/SKILL.md` — 无治理头、内联 fast-path 的对照基线。
 
 ### Institutional Learnings
 
-- `docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md` — 本计划的主方法论。spec-prd 已实操：300 行 + 多 reference 收束为可扫描 spine + 主钢筋 reference，并用 contract test 绑能力。七条原则直接对应本计划 U1-U5。
-- `docs/solutions/architecture-patterns/competitor-skill-borrowing-judgment-2026-06-01.md` — 借功底不借形态（rebar Related 引用）。
+- `docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md` — 收束方法论;本计划取其「test 绑能力先行、删除前迁移映射」,但**不取**其"按承重轴外置 workflow 分支"用于 Phase 0(已证错位)。
+- `docs/solutions/architecture-patterns/competitor-skill-borrowing-judgment-2026-06-01.md` — 借功底不借形态;对照上游的依据。
 
-### External References
+### External References(deep-research,均经 3-0 对抗验证;诚实边界见下)
 
-- 无需外部研究：这是仓库内 prompt 架构收束，本地已有成熟方法论与可对照的 spec-prd 实操先例。
+- 更多 prose 不单调提升、反降指令遵循稳定性:[LIFBench](https://arxiv.org/abs/2411.07037)、[LongICLBench](https://arxiv.org/abs/2404.02060)、[LooGLE](https://arxiv.org/abs/2311.04939)
+- 约束容量有上界、越 compose 越丢弃约束(L748 被跳过的真机制):[ComplexBench, NeurIPS 2024](https://arxiv.org/abs/2407.03978)
+- 位置偏置 U 曲线(次要机制,见诚实边界):[Lost in the Middle, TACL 2023](https://arxiv.org/abs/2307.03172)
+- 未验证 role/劝导 prose 无可靠增益、须用 verifier 度量:[Persona 研究, EMNLP 2024 Findings](https://arxiv.org/abs/2311.10054)、[IFEval](https://arxiv.org/abs/2311.07911)
+- 抽取引用一次 / 渐进披露 / 移 prose 到单独文件 / subagent 不重灌 harness prompt / guardrail 作独立调用:[Anthropic Subagents](https://docs.anthropic.com/en/docs/claude-code/sub-agents)、[Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills)、[Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)
+
+**外部证据诚实边界(不可越界引用):**
+- 长上下文/位置偏置论文测的是 QA/ICL 的**检索与指令遵循**,非"治理 prose vs workflow step 遵循";它们建立**机制与风险**,不直接证明稳定**前缀**会损害末尾步骤。
+- 位置偏置弱区是**中段**;治理头在**开头**、handoff 在**末尾**(均强区)。故 L748 被跳过应归因 **ComplexBench 约束容量**,不归因位置埋没。
+- persona 研究是事实 QA,类推治理 prose 是合理外推、非同构。
+- **被否决、不得引用**:"单指令效果完全随机"(0-3)、"指令遵循在 16-32k 后急剧下降"(0-3)、"Anthropic 明说不可证明改善就别加"(1-2,非逐字)。
+- 无「内联 vs 共享治理 prose」直接 A/B;由 U2 仓内 ablation 补这一缺口。
 
 ---
 
 ## Key Technical Decisions
 
-- **test 改造前置于内容外置**：rebar 原则 7 的硬约束。先让测试绑能力，再动内容，否则外置必撞头部短语断言，且无法证明能力守恒。这决定了 U2 必须在 U3/U4 之前。
-- **承重轴分析驱动收束，而非字节目标**：rebar 原则 1「先找承重轴，不先删文件」。U1 的迁移映射是 U3/U4 的前置依据，没有它就删/合并等于盲切。
-- **头部去重剥离为横切**：实测它是 37-skill 系统性问题；在 spec-plan 单点动它既治不了根，又会让 spec-plan 头部与其余 36 个不一致。
-- **分支外置沿用既有 `STOP. read references/...` 模式**：不发明新机制；只把 fresh-run 不走的分支从 spine 移到按需 reference，使无条件成本变条件成本。
-- **只有分支专属内容才外置**：fresh run 必经的 Phase 0.2/0.3/0.4/0.7 不外置，避免「外置但每次都读回」导致总 token 不降反升。
+- **ablation 先行,不预设有效**:外部一致结论是未验证 prose 边际效果不可靠、须用 verifier/ablation 度量。这把"删/抽取"从拍脑袋变为数据驱动,符合 CLAUDE.md「可验证事实优先于模型猜测」。U2 必须在 U4/U5 之前。
+- **keep 依据是"有可验证消费者",非体量**:有 lint/hook/audit 消费的节即使最大(Workflow Contract Summary 34 行)也保留;无消费者的小节才是靶子。
+- **抽取形态用渐进式披露共享 reference**:Anthropic 官方对 Skills 的推荐(name+desc 预载、body 按需);消除 4× 重复、降低 spine 约束总量,同时内容仍可达。
+- **删除受终端运行时载体约束**:全局 `CLAUDE.md` 只在开发本仓在场;终端 repo 不在。"与全局重复故可删"只在确认语义有运行时载体后成立,否则降级 extract。
+- **机制纠正为约束容量**:降低 spine 约束总量(抽取治理 prose)比外置某条分支更对症 L748 类丢弃;放弃 v1 的 fast-path 外置。
+- **test 绑能力 + 保留契约断言**:lint/projection/heading-order 这类"phrase 即 contract"的断言不可 rebind;劝导节的断言改绑"能力在某可达载体中"。
 
 ---
 
@@ -138,233 +174,205 @@ references 外置机制已经成熟（9 个 reference、11 处 `STOP. read refer
 
 ### Resolved During Planning
 
-- 是否做头部治理去重：不在本计划，剥离为横切 follow-up（已记入 Scope Boundaries / Deferred）。
-- 是否逐句压 prose：否（rebar 反对，已记入 Scope Boundaries）。
+- 是否外置 Phase 0 fast-path:否(上游内联、低价值、错误机制)。已改为治理头 keep/extract/remove。
+- 是否在 spec-plan 单点做头部去重:本计划作为试点做 spec-plan,跨节点推广剥离为 follow-up(Deferred)。
+- 是否逐句压 prose:否。
 
 ### Deferred to Implementation
 
-- references 是否真有可合并同类边界（U4 是否执行）：取决于 U1 承重轴分析结论。
-- test 是否加入行数上界断言防回膨胀：U2 期决定；若加，是宽松上界而非精确 KPI（见 A1）。
-- 外置后 spine 是否仍可能埋没 handoff 步骤（R8）：U3 期需验证路由骨架本身不被新分支稀释。
+- 各候选节 ablation 结论(有效→extract / null→remove):U2 实测后定。
+- 删除节的运行时载体选哪种(共享 reference vs 扩展 bootstrap):U5 期据 R5 定;倾向共享 reference(渐进披露、零横切)。
+- test 是否加宽松行数上界防回膨胀:U3 期决定。
 
 ---
 
 ## High-Level Technical Design
 
-> *This illustrates the intended approach and is directional guidance for review, not implementation specification. The implementing agent should treat it as context, not code to reproduce.*
+> *方向性指引,供 review,非实现规范。*
 
 ```text
-执行依赖（非数字顺序，以各单元 Dependencies 字段为准）：
-  U1 承重轴 + 迁移映射 + capability matrix
-    └─► U2 test 绑能力改造
-          └─► U3 分支外置
-                └─► U4 references 收束（条件性；若执行，基于 U3 后的实际结构）
-                      └─► U5 projection 同步 + 验证 + CHANGELOG（最后）
+执行依赖(以各单元 Dependencies 为准):
+  U1 治理头 capability 清单(keep/extract/remove-pending 标注 + 跨 skill 计数 + 全局重复标注)
+    └─► U2 ablation harness(逐候选节:注入 vs 不注入,实测行为差;补外部缺失的直接证据)
+          └─► U3 test 绑能力改造(含 lint/projection 不可 rebind 断言保留 + 新 reference 双宿主断言)
+                └─► U4 抽取(ablation 有效 + 跨节点重复的节 → 渐进披露共享 reference,spine 留指针)
+                      └─► U5 删除/降级(ablation null + 全局重复 + 确认运行时载体的节 → 删;否则降 extract)
+                            └─► U6 projection 同步 + 双宿主 + 验证 + CHANGELOG(最后)
 
-承重轴（U1 待确认的候选，源自 rebar 对 spec-prd 的轴划分）：
-  入口路由（直接计划 / resume / deepen / universal / 路由出去）
-  source 解析（origin requirements 继承、spec_id 身份）
-  depth 判定（lightweight/standard/deep + governance-signals）
-  证据契约（Direct Evidence 块）
-  结构化（implementation units / U-ID 稳定性）
-  产物契约（plan-template / markdown 为 canonical / HTML sidecar）
-  深化与 handoff（confidence-first / doc-review / post-plan menu）
-
-外置候选（R3，fresh run 多数不走）：
-  Phase 0.1  Resume Existing Plan Work
-  Phase 0.1  Deepen intent fast-path
-  → references/resume-and-fast-paths.md（新建，spine 留路由骨架）
+治理头 10 节裁决矩阵(U1 待确认细节,当前基于实测):
+  KEEP(有可验证消费者):
+    Workflow Contract Summary   —— lint P1/P2 REQUIRED(skill-audit 机读)
+    Plan-Only Safety Contract   —— spec-plan-guard hook 强制
+    Scenario Capability         —— 指向共享 matrix,audit 消费(已是抽取范式)
+  EXTRACT(无消费者 + 跨节点重复;ablation 证有效则抽取):
+    Context Orientation Anchor / Domain Language & Decision Ledger /
+    Cache-Friendly Context Layout / Summary-First Handoff
+    → docs/contracts/workflows/governance-boundaries.md(新建,渐进披露)
+  REMOVE-pending(无消费者 + 全局层重复;ablation null + 有运行时载体则删,否则降 extract):
+    Runtime Context Exclusion(≈CLAUDE.md L234)/ Recall Trust Boundary(≈CLAUDE.md L63)/
+    Capability-Class Evidence Boundary(通用部分删,code-graph/project-graph 特化部分抽取)
 ```
 
 ---
 
 ## Implementation Units
 
-执行顺序遵循各单元 `Dependencies`，非 U-ID 数字序：先 U1，再 U2，再 U3，然后 U4（条件性）基于 U3 后的实际结构判断是否执行，U5 最后。U3/U4 不并行修改同一批 source/test 文件，避免迁移映射与能力断言互相覆盖。
+执行顺序遵循各单元 `Dependencies`。U4/U5 不并行改同一批 source/test。
 
-### U1. 显式化承重轴并产出删除前迁移映射
+### U1. 治理头 capability 清单与裁决矩阵
 
-**Goal:** 在动任何内容前，确定 spec-plan 不可丢失的判断轴，并为每一类待外置/待合并内容建立「迁移到哪」的映射，作为 U3/U4 的前置依据。
+**Goal:** 动任何 prose 前,确定每节的消费者、跨 skill 重复度、全局层重复、初步裁决,作为 U2-U5 前置。
 
-**Requirements:** R1
+**Requirements:** R1, R6
 
 **Dependencies:** None
 
 **Files:**
-- Create: `docs/solutions/architecture-patterns/spec-plan-skill-slimming-load-bearing-axes-2026-06-11.md`
-- Test: 无（分析产物，非代码改动）
+- Create: `docs/solutions/architecture-patterns/spec-plan-governance-header-capability-inventory-2026-06-11.md`
+- Test: 无(分析产物)
 
 **Approach:**
-- 逐节精读 SKILL.md Phase 0-5，参照 rebar 对 spec-prd 的轴划分，列出 spec-plan 的承重判断轴。
-- 对头部治理小节逐条标注：是 spec-plan 专属，还是跨 skill 横切候选（用已测的跨 skill 出现计数支撑）。
-- 对 Phase 0 的 resume / deepen fast-path 分支，给出「迁到 references/resume-and-fast-paths.md」的映射；对 fresh-run 必经节标注「保留在 spine」。
-- **枚举所有 in-spine 对 Phase 0.1 fast-path 概念的交叉引用**（已知至少 Phase 0.7 guard `The run is not on a Phase 0.1 fast path...`、Phase 5.1.5 guard、Phase 5.3 interactive mode `activated by the re-deepen fast path in Phase 0.1`）。这些段是 fresh-run 必经或路由关键、不外置。迁移映射必须要求 spine 保留一处**自包含的 fast-path / resume-normal / deepen-intent 状态定义**，使被保留的 guard 不必加载外置 reference 也能被读懂；否则外置会制造孤儿引用。
-- 划清新建 `resume-and-fast-paths.md`（入口触发 / 路由）与既有 `deepening-workflow.md`（深化执行）之间的 deepen 内容边界，避免 U2 的 deepen 断言指向错误文件。
-- 对 9 个现有 reference 做同类边界分析：是否存在多个 reference 承担同一组判断（rebar 原则 3 的合并信号）。
-- 输出一张 `capability matrix`，作为 U2 test 改造的 source of truth。每行至少包含：`capability_id`、`owner_surface`（spine / reference / projection / template）、`must_remain_in_spine`、`positive_invariants`、`forbidden_regressions`、`consumer`、`test_name`。projection 精确路径、heading order 这类「phrase 即 contract」的能力必须显式标成不可 rebind。
-- 输出格式参照 rebar solution 的「旧文件 → 新承重结构」迁移映射块。
+- 逐节精读 L17-101,产出表:`section`、`lines`、`owner_consumer`(lint / hook / router / 无)、`cross_skill_count`、`global_layer_duplicate`、`verdict`(keep / extract / remove-pending)。
+- keep 的 3 节标注其消费链路(lint REQUIRED_SECTIONS 行号、spec-plan-guard、matrix 路径),供 R6 守护。
+- extract/remove 候选标注「迁到哪」(共享 reference)与「全局是否已有同款」(CLAUDE.md/AGENTS.md 行号)。
+- 标注 `Capability-Class Evidence Boundary` 的通用 vs 特化拆分边界。
+- 列出跨节点推广候选(work/code-review/debug 同款节、18-skill 共享节)供 follow-up。
 
-**Patterns to follow:**
-- `docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md` 的迁移映射与轴划分。
-
-**Test scenarios:**
-- Test expectation: none — 本单元产出分析文档，无行为变化。
-
-**Verification:**
-- 每一类计划外置/合并的内容都有明确迁移目标；找不到目标的内容被标注为「不可删除，保留」。横切候选小节被单独列出供 follow-up。`capability matrix` 覆盖 R1/R2/R6/R8 的所有承重能力，且没有 orphan capability（无 owner/test）或 orphan prose（有待删除/迁移内容但无 capability 归属）。
+**Verification:** 每节有明确 verdict 与依据;keep 节有消费链路证据;无 orphan(有待迁移内容但无去向)。
 
 ---
 
-### U2. 把 contract test 从绑短语改造为绑能力
+### U2. ablation eval harness(补外部缺失的直接证据)
 
-**Goal:** 让 `spec-plan-contracts.test.js` 在「内容位置变化但能力仍在」时通过、在「能力丢失」时失败，为 U3/U4 的内容移动提供安全网。
+**Goal:** 实测每个 extract/remove 候选节「注入 vs 不注入」是否改变可观测 agent 行为,作为 U4/U5 判据;不预设有效。
 
-**Requirements:** R2, R8
+**Requirements:** R2
 
 **Dependencies:** U1
 
 **Files:**
-- Modify: `tests/unit/spec-plan-contracts.test.js`
-- Test: 同上（自验证）
+- Create: `docs/validation/spec-plan/governance-header-ablation-2026-06-11.md`
+- Create: `skills/spec-plan/evals/governance-ablation/`(若需固定任务集与判分锚点)
+- Test: 无(eval 产物)
 
 **Approach:**
-- 识别绑头部精确短语的断言（如 `toContain('Context Orientation Anchor')`、`toContain('Cache-Friendly Context Layout')` 等），改为断言「该能力的语义约束存在于 spine 或其指定 reference 之中」——允许内容落在 spine 或被外置的 reference。
-- 按 U1 的 `capability matrix` 改造测试，不凭实现者临场判断随意放宽断言。每个改造后的测试应能追溯到一个 `capability_id`；测试名或注释标明其保护的 consumer 与 owner surface。
-- 对 R8 涉及的 load-bearing 步骤（handoff menu 必须触发 routed action、document review 强制、blocking question 规则）补「能力仍被某文件约束」的断言，确保外置不削弱它们。
-- 保留 heading-order 等真正反映产物契约的断言（如 plan-template 的 `## Requirements` < `## Assumptions`）。
-- **把 command/projection 路径断言显式划为「不可 rebind」类**，与 heading-order 并列。这类断言（如 `toContain('.claude/spec-first/workflows/spec-plan/references/plan-sections.md')` 及对应负向 `not.toContain` 断言）保护的正是下游 projection 重写依赖的精确路径——此处 capability 就是 phrase，松绑会丢掉它要保护的契约。对新建 `resume-and-fast-paths.md`，应**新增** projection 路径断言验证它被正确重写；且必须**同时覆盖 Claude 与 Codex 两宿主**（Claude 侧 `.claude/spec-first/workflows/spec-plan/references/`，Codex 侧用 `CodexAdapter` 与对应 workflowsRoot 路径），而非只断言 Claude 侧——现有 test 只断言 Claude 侧，仅按 Claude 写会留下 Codex projection drift 不被捕获（R6 要求双宿主）。
-- 决定是否加入宽松行数上界断言防回膨胀（A1）；若加，注释说明它是上界非 KPI。
-- 改造遵循 rebar 原则 7：测试判断「能力是否仍在」，不是「短语/文件名是否还在」。
+- 设计一组代表性 planning 任务,每个绑定可观测行为锚点:是否排除 generated mirror、是否把 advisory(solutions/code-graph)当 advisory 回 source 验证、handoff 是否触发、context intake 是否按序。
+- 对每候选节做 fresh-source A/B:同一任务,注入完整治理头 vs 移除该节,比较行为锚点。遵循 `docs/contracts/workflows/fresh-source-eval-checklist.md`。
+- 记录每节结论:`有可观测效果`(→ extract)/ `null`(→ remove,前提运行时载体)。
+- host dispatch 不可用则记录原因,不得假称已测。
 
-**Patterns to follow:**
-- `tests/unit/spec-prd-contracts.test.js` 的「绑能力不绑文件形状」断言风格（rebar solution 记录其形态）。
-- 现有 `spec-plan-contracts.test.js` 的路径常量与 `readFileSync` 跨文件断言模式（允许断言指向 reference）。
-
-**Test scenarios:**
-- Happy path: 当前 SKILL.md/references 内容下，改造后的 test 全绿。
-- Edge case: 把某能力的 prose 从 spine 挪到 reference（模拟 U3 外置），test 仍通过。
-- Error path: 删除某 load-bearing 能力的约束 prose，test 失败并指出缺失能力。
-- Integration path: 与 command projection 断言（指向 `.claude/spec-first/workflows/...` 路径）共存，不破坏既有 projection 测试。
-
-**Verification:**
-- `npx jest tests/unit/spec-plan-contracts.test.js` 全绿；人为移除一条能力 prose 能触发预期失败（手工反向验证一次并在 closeout 记录）。抽查至少一个 rebind-allowed 能力（spine → reference 后仍通过）和一个不可 rebind 能力（projection 精确路径或 heading order 被改动必须失败）。
+**Verification:** 每候选节有 A/B 结论与证据;harness 可复跑;结论写入 validation 文档,供 U4/U5 引用。
 
 ---
 
-### U3. 外置 resume / deepen fast-path 分支，spine 留路由骨架
+### U3. contract test 从绑短语改为绑能力
 
-**Goal:** 把 fresh-run 多数不走的分支逻辑从 SKILL.md 移到按需加载的 reference，降低无条件上下文成本；并作为 R8 的主 owner，保证外置不让 load-bearing 步骤更易被跳过。
+**Goal:** 让 test 在「内容位置/载体变化但能力仍在」时通过、「能力丢失」时失败;保留不可 rebind 契约断言。
 
-**Requirements:** R3, R5, R8（R8 主 owner——U3 是实际移动内容的单元，承担 R8 的行为验证；U2 只提供 R8 的 test 安全网）
+**Requirements:** R3, R6, R10
 
 **Dependencies:** U1, U2
 
 **Files:**
-- Create: `skills/spec-plan/references/resume-and-fast-paths.md`
-- Modify: `skills/spec-plan/SKILL.md`
-- Test: `tests/unit/spec-plan-contracts.test.js`
+- Modify: `tests/unit/spec-plan-contracts.test.js`
 
 **Approach:**
-- 按 U1 迁移映射，把 Phase 0.1 Resume Existing Plan Work、Deepen intent fast-path、相关 short-circuit 规则移入新 reference。
-- spine 的 Phase 0.1 收为路由骨架：判断是否 resume/deepen → 是则 `STOP. read references/resume-and-fast-paths.md`，否则继续 Phase 0.1b。
-- 沿用既有 `STOP. read references/...` 措辞与强加载语气（参照 L273/L748 的 STOP 模式），确保外置不让分支步骤更易被跳过（R8）。
-- 不外置 fresh-run 必经的 0.2/0.3/0.4/0.5/0.7。
-- 保持 source/runtime 边界（R5）：只改 source，不碰 mirror。
-
-**Patterns to follow:**
-- SKILL.md 现有 11 处 `STOP. read references/` 外置模式（如 synthesis-summary、plan-handoff 的强加载）。
+- 识别绑治理节精确短语的 `toContain`/`indexOf` 断言,改为「该能力的语义约束存在于 spine 或其指定共享 reference 之中」,允许内容落在 spine 或共享 reference。
+- 每个改造测试追溯到 U1 的一行 capability,注明 owner surface 与 consumer。
+- 对 R6 的 3 个 keep 节:`Workflow Contract Summary` 保留/强化 lint REQUIRED 对应断言;`Plan-Only Safety Contract` 保留;`Scenario Capability` 保留 matrix 指针断言——这些是不可 rebind 契约。
+- 对 R10 load-bearing 步骤(handoff 触发、doc-review 强制、blocking question)补「能力仍被某可达载体约束」断言。
+- 为新建共享 reference 新增 **projection 路径断言,同时覆盖 Claude 与 Codex 两宿主**(现有 test 只断言 Claude 侧,会漏 Codex drift)。
+- 保留 heading-order 等产物契约断言。
 
 **Test scenarios:**
-- Happy path: spine 含 resume/deepen 的路由骨架与对新 reference 的强加载指令；新 reference 含完整分支逻辑。
-- Edge case: 普通编辑请求（非 deepen）仍走标准 resume 流，不误触发 fast-path（语义保留）。
-- Error path: test 失败若 resume/deepen 能力既不在 spine 也不在 reference（能力丢失）。
-- Integration path: 新 reference 纳入 command projection 路径重写，`.claude` 投影路径正确。
+- Happy: 当前内容下改造后全绿。
+- Edge: 把某劝导节 prose 从 spine 挪到共享 reference(模拟 U4),test 仍通过。
+- Error: 删除某 load-bearing 能力约束,test 失败并指出缺失能力。
+- Integration: 与 lint/projection 断言共存,不破坏既有契约测试。
 
-**Verification:**
-- spine 的 Phase 0.1 可独立读懂为路由骨架；resume/deepen 能力经 U2 改造后的 test 验证仍在；SKILL.md 字节较改造前下降且分支成本变为条件加载。
-- **R8 行为验证**：通读改造后 spine，确认 handoff-must-fire、document-review 强制、blocking-question 三个 load-bearing 步骤无需进入任何外置 reference 即可读到；被保留的 Phase 0.7 / 5.1.5 / 5.3 guard 对 fast-path 概念的引用仍可在 spine 内被理解（不产生孤儿引用）。最终行为由 U5 fresh-source eval 实测。
+**Verification:** `npx jest tests/unit/spec-plan-contracts.test.js` 全绿;人为移除一条能力触发预期失败(反向验证一次并记录);抽查一个 rebind-allowed 能力(spine→reference 仍过)和一个不可 rebind 能力(lint/projection 改动必失败)。
 
 ---
 
-### U4. 按承重轴收束 references（条件性）
+### U4. 抽取有效且重复的治理节为渐进披露共享 reference
 
-**Goal:** 仅当 U1 证明存在同类边界重复时，把多个承担同一组判断的 reference 收束为更少更强的承重 reference。
+**Goal:** 把 ablation 证有效、且跨节点重复的劝导节移入按需加载共享 reference,spine 留指针;消除 4× 重复、降约束总量。
 
-**Requirements:** R4, R5
+**Requirements:** R4, R7, R10
 
-**Dependencies:** U1, U2, U3（U4 与 U3 同改 `SKILL.md`、references 与 `spec-plan-contracts.test.js`，不得并行；必须基于 U3 后的实际 spine/reference 结构重新判断是否存在同类边界重复）
+**Dependencies:** U1, U2, U3
 
 **Files:**
-- Modify: `skills/spec-plan/references/*`（具体文件由 U1 结论确定）
-- Modify: `skills/spec-plan/SKILL.md`（更新 reference trigger map）
+- Create: `docs/contracts/workflows/governance-boundaries.md`(或同类共享路径,经 U1 确认)
+- Modify: `skills/spec-plan/SKILL.md`(被抽取节收为一行 `STOP. read ...` 指针)
 - Test: `tests/unit/spec-plan-contracts.test.js`
 
 **Approach:**
-- 若 U1 结论为「无可合并同类边界」，本单元不执行，closeout 显式说明（见 Completion Criteria）。若 U3 外置后改变 reference 边界，先复核 U1 的同类边界判断是否仍成立。
-- 若存在重复，按 rebar 原则 3 合并为主承重 reference，并更新 SKILL.md 的 reference 加载点与 test 路径常量。
-- 不合并面向不同 consumer 的边界（rebar「When to Apply」反例）。
-- 删除任何旧 reference 前，确认 U1 迁移映射已覆盖其语义边界。
-- 若执行合并，必须重跑 orphan 检查：所有被删除/重命名 reference 的旧能力都能在 `capability matrix` 中找到新 owner，并由测试覆盖。
+- 按 U1 迁移映射 + U2 「有效」结论,把 Context Orientation / Domain Language / Cache-Friendly Layout / Summary-First Handoff 中**经 ablation 证有效**者移入共享 reference。
+- spine 沿用既有 `STOP. read references/...` 强加载措辞留指针(参照现有 11 处模式),确保抽取不让步骤更易跳过(R10)。
+- 共享 reference 必须能投影到终端 runtime(不只靠开发本仓 CLAUDE.md)——确认它在 command projection / `spec-first init` 投影范围内。
+- 只改 source,不碰 mirror(R7)。
 
-**Patterns to follow:**
-- rebar solution 的 `evidence-and-topology.md` 主钢筋合并范例与删除前迁移检查。
-
-**Test scenarios:**
-- Happy path（若执行）: 合并后 test 路径常量与能力断言更新且全绿。
-- Edge case（若不执行）: 无文件变化，closeout 记录「无可合并边界」。
-- Error path: test 失败若某 reference 的能力在合并中丢失。
-
-**Verification:**
-- 执行则：reference 数下降且每条能力仍被 test 约束，并记录 U1 orphan 检查结果；不执行则：closeout 显式说明判定理由。
+**Verification:** spine 指针可独立读懂;被抽取能力经 U3 test 验证仍在;治理头字节下降且重复消除;R10 通读确认 handoff/doc-review/blocking-question 三步无需进任何 reference 即可在 spine 读到。
 
 ---
 
-### U5. 同步 projection、双宿主、验证与 CHANGELOG
+### U5. 删除/降级与全局重复的未验证节
 
-**Goal:** 在所有 source 改动落地后，确保 command/双宿主 runtime 投影正确，跑聚焦验证，并留痕 user-visible 文档。
+**Goal:** 对 ablation null + 全局重复的节,在确认运行时载体后删除;否则降级为 extract。
 
-**Requirements:** R5, R6, R7
+**Requirements:** R5, R7
 
-**Dependencies:** U1, U2, U3, U4（若 U4 经 U1/U3 后复核判定不执行，U5 在 U3 完成并记录 U4 缺席理由后即可开始）
+**Dependencies:** U1, U2, U3, U4
+
+**Files:**
+- Modify: `skills/spec-plan/SKILL.md`
+- Possibly Modify: 共享 reference 或 bootstrap 注入(若需补运行时载体)
+- Test: `tests/unit/spec-plan-contracts.test.js`
+
+**Approach:**
+- 对 Runtime Context Exclusion / Recall Trust Boundary / Capability-Class 通用部分:若 U2 为 null 且 U1 标注全局重复——**先确认终端运行时载体**(已抽到 U4 共享 reference,或扩展 bootstrap;后者属横切,优先共享 reference)。
+- 载体确认后删除 spine 该节;无法确认载体则降级为 extract 并记录理由(R5 门槛)。
+- Capability-Class 的 code-graph/project-graph 特化部分随 U4 抽取,不随通用部分删。
+- 删除前确认 U1 迁移映射覆盖其语义边界;删除后跑 orphan 检查。
+
+**Verification:** 删除节均有 ablation null 证据 + 运行时载体证据;无法满足者降级为 extract 并说明;test 全绿。
+
+---
+
+### U6. projection 同步、双宿主、验证与 CHANGELOG
+
+**Goal:** source 改动落地后确保 command/双宿主投影正确,跑聚焦验证,留痕 user-visible 文档。
+
+**Requirements:** R7, R8, R9, R10
+
+**Dependencies:** U1-U5
 
 **Files:**
 - Modify: `CHANGELOG.md`
-- Inspect: `templates/claude/commands/spec/plan.md`
-- Test: `tests/unit/spec-plan-contracts.test.js`
-- Test: command/projection 与 mcp-setup contract（经 `npm run test:mcp-setup`）
+- Inspect: `templates/claude/commands/spec/plan.md`、`src/cli/plugin.js`(投影 generator)
+- Test: `tests/unit/spec-plan-contracts.test.js`、command/projection 与 mcp-setup contract
 
 **Approach:**
-- 确认新增/重命名的 reference 在 command projection 中被正确重写为 `.claude/spec-first/workflows/spec-plan/references/*`，必要时更新 test 中的 projection 路径断言。无需注册 projection manifest：generator（`src/cli/plugin.js` 的 `copyDirectoryWithTransform`/`planDirectoryWithTransform`）递归遍历 `skills/spec-plan/`，新 reference 文件自动被发现并由 `rewriteSourceSkillRuntimePaths` 重写路径；U5 的 `spec-first init` 是修 runtime drift，不是注册新文件。但 test 断言不会自动生成——为新 reference 加双宿主 projection 断言（见 U2）仍是必须的手工步骤。
-- 运行 `spec-first init` 重新生成 runtime mirror（不手改），记录 Claude 与 Codex 两侧生成产物是否变化。
-- 验证顺序由窄到宽：先 `npx jest tests/unit/spec-plan-contracts.test.js`，再 `npm run lint:skill-entrypoints`（改了 workflow prose/references），再 `npm run test:mcp-setup`，按影响面决定是否 `npm run test:unit`。
-- 加 `CHANGELOG.md` 条目，标 `(user-visible)`（spine 结构变化影响调用者阅读路径），用配置的 developer author。
-- **before/after 质量度量为必需证据**：用同一脚本或同一组 shell 统计改造前后 `SKILL.md bytes/lines`、`fresh-run unconditional bytes`、`conditional resume/deepen bytes`、`always-load reference count`、`load-bearing spine gates count`。结果写入 closeout；若某项不降或上升，必须解释为什么没有降低质量或上下文经济性。
-- **fresh-source eval 为必需行为门槛（非 optional）**：拆成两轮并沉淀到 `docs/validation/spec-plan/fresh-source-eval-2026-06-11-skill-slimming.md` 或同类路径。第一轮 `spine-only scannability eval` 只注入改造后的 `SKILL.md`，验证 fresh 通用 reviewer 能正确指出强制 doc-review、blocking question、handoff reference load、completion check，并识别具体 routed action 需要继续加载 `plan-handoff.md`；第二轮 `spine + plan-handoff behavioral trace` 同时注入 `SKILL.md` 与 `references/plan-handoff.md`，模拟 fresh run 能到达并触发 Phase 5 routed handoff action。仅当 host dispatch 确实不可用时才允许跳过，且必须记录未执行原因——不可因为 eval 不便而默认跳过，也不得在未实测时声称 R8 / scannability 通过。
-- **003 sequencing**：U1 迁移映射基于 `current_revision: 387abe4a` 的行号/结构。若 003（plan-mode-hardening，同改 SKILL.md 且触及 Phase 5 handoff 区域）先合入，必须对 HEAD 重跑 U1 迁移映射再继续 U3，而非依赖末端手检发现冲突。
+- 确认新建共享 reference 被 generator(`copyDirectoryWithTransform`/`planDirectoryWithTransform` + `rewriteSourceSkillRuntimePaths`)递归发现并重写路径;无需注册 manifest,但 test 断言为手工步骤(已在 U3 加双宿主断言)。
+- 运行 `spec-first init` 重生成 runtime mirror(不手改),记录 Claude/Codex 两侧产物是否变化。
+- 验证由窄到宽:`npx jest tests/unit/spec-plan-contracts.test.js` → `npm run lint:skill-entrypoints` → `npm run test:mcp-setup` → 按影响面决定 `npm run test:unit`。
+- `CHANGELOG.md` 加 `(user-visible)` 条目(治理头结构变化影响调用者运行时阅读路径),用配置的 developer author。
+- **before/after 度量为必需证据**:同口径统计 `SKILL.md bytes/lines`、`治理头 bytes/lines`、`cross-node 重复节数`、`未验证劝导节数(ablation 前/后)`、`always-load reference count`、`有消费者契约节数(应不变)`。写入 closeout。
+- **两轮 fresh-source eval 为必需行为门槛**:`spine-only scannability eval` + `spine + plan-handoff behavioral trace`,沉淀到 `docs/validation/spec-plan/`。host dispatch 不可用才允许跳过并记录原因。
+- **003 sequencing**:U1 基于 `current_revision: 387abe4a`。若 003(同改 SKILL.md / Phase 5 区域)先合入,对 HEAD 重跑 U1 清单与 U4/U5 再继续。
 
-**Patterns to follow:**
-- `docs/contracts/source-runtime-customization-boundary.md` 的 source-first / runtime-generated 边界。
-- rebar solution 记录的验证链路（jest → typecheck → lint:skill-entrypoints → build → test:unit）。
-
-**Test scenarios:**
-- Happy path: 聚焦 spec-plan contract test 与 projection/mcp-setup test 全绿。
-- Integration path: `spec-first init` 后 runtime mirror 与 source 一致，无漂移。
-- Error path: closeout 捕获任何「声称已验证但实际未跑」的缺口，未跑项显式标注。
-- Regression path: fresh-source eval 若只能在加载 `plan-handoff.md` 后识别具体 routed action，属于预期；若仅凭 spine 不能识别必须加载 handoff reference、强制 doc-review 或 completion check，则 R8 失败。
-
-**Verification:**
-- closeout 列出实际跑过的命令、是否运行 `spec-first init`、生成产物是否变化、before/after 质量度量、两轮 fresh-source eval 是否执行及结论，以及残余 limitation。
+**Verification:** closeout 列出实跑命令、是否运行 init、产物是否变化、before/after 度量、两轮 fresh-source eval 结论、残余 limitation。
 
 ---
 
 ## System-Wide Impact
 
-- **Interaction graph:** SKILL.md 是 source，经 command projection 与 `spec-first init` 投影到 `.claude/`、`.codex/`。downstream（spec-work / spec-write-tasks / spec-doc-review）消费的是生成的 plan 产物，不直接消费 SKILL spine，故 spine 收束不改下游产物契约——但调用 `/spec:plan` 的运行时阅读路径会变。
-- **Error propagation:** 外置若让 load-bearing 步骤更易跳过（R8 风险），表现为 handoff menu 不触发 routed action 之类回归。U2 的能力断言 + U3 的强加载措辞共同兜底。
-- **State lifecycle risks:** 无新状态。plan 仍是决策产物，进度仍由 git/spec-work 派生。
-- **API surface parity:** Claude 与 Codex 双宿主投影必须同步（R6），source 改动须 host-neutral。
-- **Integration coverage:** projection 路径重写、mcp-setup contract、skill-entrypoints lint 是单测之外必须覆盖的集成面。
-- **Unchanged invariants:** Phase 语义顺序、handoff menu 选项、Direct Evidence 块、U-ID 规则、blocking question 规则、markdown canonical / HTML sidecar 边界均不变。
+- **Interaction graph:** SKILL.md 是 source,经 command projection 与 `spec-first init` 投影到 `.claude/`/`.codex/`。新建共享 reference 必须同样被投影到终端 runtime,否则删除节的语义在用户 repo 丢失。downstream(spec-work/spec-write-tasks/spec-doc-review)消费生成 plan 产物,不直接消费 spine,故治理头收束不改下游产物契约。
+- **Error propagation:** 删除/抽取若让 advisory-vs-confirmed 或 context 排除语义在运行时丢失,表现为 agent 误把 advisory 当 confirmed、或扫描 generated mirror。U2 ablation + U5 运行时载体证据 + U3 能力断言三重兜底。
+- **Cross-node consistency:** 本计划只改 spec-plan;work/code-review/debug 的同款节暂不一致,follow-up 推广统一。closeout 须标注此暂时不一致为已知、有 follow-up。
+- **API surface parity:** Claude/Codex 双宿主投影必须同步(R8);共享 reference 须 host-neutral。
+- **Unchanged invariants:** keep 的 3 节契约面、Phase 语义顺序、handoff menu、Direct Evidence 块、U-ID、blocking question、markdown canonical/HTML sidecar 均不变。
 
 ---
 
@@ -372,53 +380,71 @@ references 外置机制已经成熟（9 个 reference、11 处 `STOP. read refer
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| 外置后 spine 把 load-bearing 步骤埋得更深，handoff 步骤被跳过 | Medium | High | U2 先补能力断言；U3 沿用强加载 STOP 措辞；R8 显式为验收项 |
-| test 改造把绑短语换成过松断言，失去回归保护 | Medium | High | U1 先产出 `capability matrix`；U2 每个测试追溯到 `capability_id`；反向验证（删能力须触发失败）；保留 heading-order / projection path 等不可 rebind 契约断言 |
-| 为减文件数强行合并不同 consumer 的 reference | Low | Medium | U4 条件性执行，遵守 rebar「不合并不同 consumer 边界」 |
-| 外置但 fresh run 仍每次读回，总 token 不降反升 | Medium | Medium | 只外置 fresh-run 不走的分支；必经节保留在 spine |
-| runtime mirror 与 source 漂移 | Low | Medium | 只改 source，`spec-first init` 重生成，projection test 验证 |
-| 与 003 plan-mode-hardening 改动冲突 | Low | Medium | 两者正交（结构收束 vs 执行 gate）；若 003 先合入，对 HEAD 重跑 U1 迁移映射；U4 不与 U3 并行，避免同文件结构变更互相覆盖 |
+| 删除节后语义在终端运行时丢失(全局层在用户 repo 不在场) | Medium | High | R5 删除门槛:必须先确认共享 reference/bootstrap 运行时载体;无载体降级 extract |
+| ablation harness 设计不当,把"有效"测成"null"误删有用约束 | Medium | High | 行为锚点具体可观测;反向验证;keep 节不参与 ablation;结论存疑则保守降 extract |
+| test 改造把绑短语换成过松断言,失去回归保护 | Medium | High | U1 capability 清单先行;每断言追溯 capability;反向验证;保留 lint/projection/heading-order 不可 rebind 断言 |
+| 抽取后 spine 把 load-bearing 步骤埋得更易跳过 | Low | High | 沿用强加载 STOP 措辞;R10 显式验收;两轮 fresh-source eval |
+| 抽取但 fresh run 仍每次读回,总 token 不降反升 | Low | Medium | 只抽取 fresh-run 非必经的劝导节;keep 节与必经步骤留 spine |
+| 误引用被否决的外部结论(随机性/16-32k 急降/简最方案) | Low | Medium | Context & Research 明列禁引项;裁决只建立在 3-0 确认机制上 |
+| runtime mirror 与 source 漂移 | Low | Medium | 只改 source,`spec-first init` 重生成,projection test 验证 |
+| 与 003 plan-mode-hardening 冲突 | Low | Medium | 正交(治理 prose vs 执行 gate;Plan-Only Safety Contract 只保留不改);003 先合则对 HEAD 重跑 U1 |
 
 ---
 
 ## Alternative Approaches Considered
 
-- **按字节直接切大节到 references**：拒绝。rebar 原则 1 明确「不先删文件、先找承重轴」；盲切会把不同判断轴混进一个 reference，降低 LLM 判断质量。
-- **先做跨 skill 头部去重再收 spec-plan**：拒绝作为本计划范围。收益更大但 blast radius 覆盖 37 个 skill，应独立立项；混入会让聚焦优化变大重构。
-- **逐句压缩 prose**：拒绝。低收益、高漂移，违反 rebar 与 CLAUDE.md 精准修改原则。
-- **不动 test、直接外置**：拒绝。会撞头部短语断言，且无法证明能力守恒；rebar 原则 7 要求 test 绑能力先行。
+- **v1:按 rebar 外置 Phase 0.1 resume/deepen fast-path**:拒绝。上游 ce-plan 更大却内联保留同款 fast-path;靶子仅 2.5KB;L748 真因是约束容量非位置埋没。详见 Strategy Revision。
+- **整块删除治理头部以对齐上游 ce-plan**:拒绝。治理头是 spec-first 的产品本体(Light contract + 证据边界);keep 的 3 节有真消费者;删了退回成裸 workflow。
+- **不做 ablation,直接按"无消费者就删"删 7 节**:拒绝。外部一致要求 verifier/ablation 度量;且终端运行时载体问题会导致静默丢治理。
+- **整块抽取 7 节为始终加载的共享前缀**:拒绝。会重建 always-load 成本(虽一次非 4×),违背渐进披露;应按需加载。
+- **先做跨 37 skill 头部去重再收 spec-plan**:拒绝作为本计划范围。blast radius 大,应以 spec-plan 试点验证范式后独立立项。
 
 ---
 
 ## Success Metrics
 
-- 改造后 SKILL.md 可被一次性扫描理解为 workflow spine（入口路由 + Phase 高层顺序 + reference 加载点），无需读完 765 行才知道关键步骤。
-- fresh run（无 resume/deepen）的无条件上下文成本下降（分支移入按需 reference）。
-- contract test 在内容位置变化时不误报、在能力丢失时必报。
-- 双宿主与 command projection 在新增/重命名 reference 后仍正确，无 source/runtime 漂移。
-- U1 迁移映射可作为后续头部去重横切立项的直接输入。
-- closeout 用同一口径给出 before/after 表，而不是只用主观描述证明提升：`SKILL.md bytes/lines` 下降或有合理解释；`fresh-run unconditional bytes` 下降；`conditional resume/deepen bytes` 转为按需加载；`always-load reference count` 不增加或有明确收益；`load-bearing spine gates count` 保持且测试/fresh-source eval 覆盖。
+- 治理头部 `cross-node 重复节数` 下降(抽取为共享 reference 一次加载)。
+- `未验证劝导节数` 在 ablation 后下降(有效→抽取,null→删/降级),且每节有实测依据而非主观判断。
+- keep 的 3 节消费链路(lint / hook / audit)在收束后全部仍通过——`有消费者契约节数` 不变。
+- 删除节的语义在终端运行时仍有可达载体(closeout 证据)。
+- contract test 在内容/载体变化时不误报、能力丢失时必报;lint/projection 不可 rebind 断言保留。
+- 双宿主与 command projection 在新增共享 reference 后仍正确,无 source/runtime 漂移。
+- before/after 表用同一口径给出趋势解释与不变量证据,而非主观描述。
+- 产出可作为跨节点推广 follow-up 直接输入的:capability 清单、ablation harness、共享 reference 形态。
 
 ---
 
 ## Documentation / Operational Notes
 
-- `CHANGELOG.md` 必须有 `(user-visible)` 条目（调用者运行时阅读路径变化）。
-- README 大概率无需改（不改对外 workflow 指令，只改 spine 内部结构）。
-- U1 产出的承重轴/迁移映射文档沉淀在 `docs/solutions/architecture-patterns/`，并在 closeout 指向它。
-- U5 的 fresh-source eval 结果沉淀在 `docs/validation/spec-plan/`，并在 closeout 指向它；若无法执行，记录具体 runtime/dispatch 原因，不把未执行写成通过。
-- 若 `spec-first init` 刷新了 mirror，closeout 须说明用了 init 且生成产物是否变化。
-- 头部去重横切 follow-up 的盘点结论附在 U1 文档，供单独立项引用。
+- `CHANGELOG.md` 必须有 `(user-visible)` 条目(运行时阅读路径变化)。
+- README 大概率无需改(不改对外 workflow 指令)。
+- U1 capability 清单沉淀在 `docs/solutions/architecture-patterns/`,closeout 指向它,并附跨节点推广候选供 follow-up。
+- U2 ablation 结果与 U6 两轮 fresh-source eval 沉淀在 `docs/validation/spec-plan/`,closeout 指向;无法执行须记录具体 runtime/dispatch 原因,不把未执行写成通过。
+- 若 `spec-first init` 刷新 mirror,closeout 说明用了 init 及产物是否变化。
+- 删除任何与全局重复的节,closeout 必须同时给出 ablation null 证据与运行时载体证据。
 
 ---
 
 ## Sources & References
 
 - Project role contract: `docs/10-prompt/结构化项目角色契约.md`
-- 主方法论: `docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md`
-- 收束目标: `skills/spec-plan/SKILL.md`
+- 收束目标: `skills/spec-plan/SKILL.md`(L17-101 治理头)
+- keep 依据(消费者): `skills/spec-skill-audit/scripts/lint-skill-structure.js`、`templates/claude/hooks/spec-plan-guard`、`docs/contracts/workflows/scenario-capability-matrix.md`
+- 全局层同款语义: `CLAUDE.md` L63/L234、`AGENTS.md`
 - contract 测试网: `tests/unit/spec-plan-contracts.test.js`
-- command stub: `templates/claude/commands/spec/plan.md`
-- source/runtime 边界: `docs/contracts/source-runtime-customization-boundary.md`
-- 既有 references: `skills/spec-plan/references/`（deepening-workflow、plan-handoff、universal-planning、synthesis-summary、plan-sections、plan-template、markdown-rendering、html-rendering、visual-communication）
+- source/runtime 边界: `docs/contracts/source-runtime-customization-boundary.md`、`docs/contracts/context-governance.md`
+- fresh-source eval: `docs/contracts/workflows/fresh-source-eval-checklist.md`
+- 方法论(部分采用): `docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md`
+- 上游对照基线: `compound-engineering-plugin/plugins/compound-engineering/skills/ce-plan/SKILL.md`
 - 正交计划: `docs/plans/2026-06-11-003-refactor-spec-plan-plan-mode-hardening-plan.md`
+- 外部实证(deep-research,3-0 验证;禁引项见 Context & Research):
+  - [Lost in the Middle (TACL 2023)](https://arxiv.org/abs/2307.03172)
+  - [LIFBench](https://arxiv.org/abs/2411.07037)
+  - [LongICLBench](https://arxiv.org/abs/2404.02060)
+  - [LooGLE](https://arxiv.org/abs/2311.04939)
+  - [ComplexBench (NeurIPS 2024)](https://arxiv.org/abs/2407.03978)
+  - [Persona 研究 (EMNLP 2024 Findings)](https://arxiv.org/abs/2311.10054)
+  - [IFEval](https://arxiv.org/abs/2311.07911)
+  - [Anthropic Subagents](https://docs.anthropic.com/en/docs/claude-code/sub-agents)
+  - [Anthropic Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills)
+  - [Anthropic Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)

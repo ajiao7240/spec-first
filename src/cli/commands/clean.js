@@ -18,7 +18,7 @@ const { removeManagedCodingGuidelinesBlock } = require('../coding-guidelines');
 const { removeManagedBootstrapBlock } = require('../instruction-bootstrap');
 const { removeManagedRuntimeToolsBlock } = require('../runtime-tools-index');
 const {
-  renderManagedSessionStartHookRemoval,
+  renderManagedClaudeHooksRemoval,
   validateClaudeSettingsFile,
 } = require('../claude-settings');
 
@@ -397,19 +397,19 @@ function buildRuntimeCleanupPreview(projectRoot, adapter) {
   }
 
   if (adapter.id === 'claude') {
-    const rendered = renderManagedSessionStartHookRemoval(projectRoot);
+    const rendered = renderManagedClaudeHooksRemoval(projectRoot);
     operations.push(
       rendered && rendered.existsAfter
         ? buildRelativeOperation(
           'update_file',
           '.claude/settings.json',
-          'managed_session_start_matcher_cleanup',
+          'managed_claude_hook_matcher_cleanup',
           { contents: rendered.contents },
         )
         : buildRelativeOperation(
           'remove_file',
           '.claude/settings.json',
-          'managed_session_start_matcher_cleanup',
+          'managed_claude_hook_matcher_cleanup',
         ),
     );
   }

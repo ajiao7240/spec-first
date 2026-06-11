@@ -52,8 +52,8 @@ const {
 const { removeManagedRuntimeToolsBlock } = require('../runtime-tools-index');
 const {
   getClaudeSettingsPath,
-  inspectManagedSessionStartHook,
-  renderManagedSessionStartHookUpsert,
+  inspectManagedClaudeHooks,
+  renderManagedClaudeHooksUpsert,
   validateClaudeSettingsFile,
 } = require('../claude-settings');
 const {
@@ -948,7 +948,7 @@ function applyGlobalDeveloperProfileWrite(globalWrite) {
 function printInitApplySuccess(plan, result, options = {}) {
   const adapter = getAdapter(plan.platform);
   if (plan.platform === 'claude') {
-    console.log('🪝 Installed Claude SessionStart matcher in .claude/settings.json');
+    console.log('🪝 Installed Claude managed hook matchers in .claude/settings.json');
   } else if (plan.platform === 'codex') {
     console.log('🪝 Installed Codex SessionStart hook in .codex/hooks/');
   }
@@ -1750,9 +1750,13 @@ function inspectCurrentRuntimeDrift(projectRoot, adapter) {
   }
 
   if (adapter.id === 'claude') {
-    const sessionStartStatus = inspectManagedSessionStartHook(projectRoot);
-    if (sessionStartStatus.status !== 'installed') {
-      reasons.push(`session_start_${sessionStartStatus.status}`);
+    for (const settingsStatus of inspectManagedClaudeHooks(projectRoot)) {
+      if (settingsStatus.status !== 'installed') {
+        const eventName = String(settingsStatus.eventName || 'unknown')
+          .replace(/[^a-z0-9]+/gi, '_')
+          .toLowerCase();
+        reasons.push(`claude_settings_${eventName}_${settingsStatus.status}`);
+      }
     }
   }
 
@@ -2103,12 +2107,12 @@ function buildInitMetadataPlan({
   }
 
   if (platform === 'claude') {
-    const rendered = renderManagedSessionStartHookUpsert(projectRoot);
+    const rendered = renderManagedClaudeHooksUpsert(projectRoot);
     operations.push(buildPlanFileOperation(
       projectRoot,
       path.relative(projectRoot, getClaudeSettingsPath(projectRoot)),
       rendered.contents,
-      'managed_session_start_matcher',
+      'managed_claude_hook_matchers',
     ));
   }
 
