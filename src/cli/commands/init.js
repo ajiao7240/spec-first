@@ -325,6 +325,8 @@ async function collectInitInput({
     onLangSelected(lang);
   }
   let activeMessages = getInitMessages(lang);
+  // 交互多选框按上次记录预勾选(R3/R4/R5);--yes 与显式 flag 路径不经过多选框,天然不受影响(R6/R7)。
+  const rememberedHosts = resolveRememberedHosts(existingGlobal);
   const platforms = parsed.platforms.length > 0
     ? parsed.platforms
     : parsed.yes
@@ -332,7 +334,7 @@ async function collectInitInput({
       : await promptApi.checkbox(activeMessages.selectHosts, INIT_PLATFORM_CHOICES.map((choice) => ({
         label: choice.label,
         value: choice.id,
-        checked: choice.defaultChecked,
+        checked: choice.defaultChecked || rememberedHosts.includes(choice.id),
       })), {
         minSelected: 1,
         hint: activeMessages.checkboxHint,
@@ -426,6 +428,26 @@ function defaultInitPlatforms() {
   return INIT_PLATFORM_CHOICES
     .filter((choice) => choice.defaultForYes)
     .map((choice) => choice.id);
+}
+
+// 受支持 host id 的单一事实源,供读/写两侧过滤未知/已停用标识(R5)。
+const SUPPORTED_HOST_IDS = new Set(INIT_PLATFORM_CHOICES.map((choice) => choice.id));
+
+// 上次记录的 host 选择,过滤到当前受支持的 host id(忽略未知/已停用标识,R5)。
+function resolveRememberedHosts(existingGlobal) {
+  const recorded = Array.isArray(existingGlobal && existingGlobal.hosts)
+    ? existingGlobal.hosts
+    : [];
+  return recorded.filter((host) => SUPPORTED_HOST_IDS.has(host));
+}
+
+// 本次勾选要持久化的 host 列表,过滤到受支持 host id,并规范化为
+// 与持久化文件一致的 canonical 形式(去重 + 排序)。排序是为了让 sameHosts
+// 与文件读回的 existing.hosts(同样排序)做位置比较,避免误判与无谓覆写。
+function resolveSelectedHosts(platforms) {
+  const selected = Array.isArray(platforms) ? platforms : [];
+  const filtered = selected.filter((host) => SUPPORTED_HOST_IDS.has(host));
+  return [...new Set(filtered)].sort((a, b) => a.localeCompare(b));
 }
 
 function buildInitPlans(input) {
@@ -703,6 +725,7 @@ function buildProjectInitPlan({
   name = '',
   user = '',
   lang = '',
+  platforms = [],
   gitRootTopology = 'single-repo',
   dryRun = false,
   globalProfileConfirmed = false,
@@ -766,6 +789,8 @@ function buildProjectInitPlan({
       user: user || name,
       lang,
     });
+    // 持久化用户本次勾选的 host 列表(数据源是勾选列表,非磁盘 runtime 状态,R2)。
+    developer = { ...developer, hosts: resolveSelectedHosts(platforms) };
   } catch (error) {
     errors.push({
       code: 'developer_identity_unresolved',
@@ -1179,6 +1204,7 @@ function buildWorkspaceInitPlan({
   name = '',
   user = '',
   lang = '',
+  platforms = [],
   dryRun = false,
 }) {
   const normalizedWorkspaceRoot = canonicalizeExistingPath(workspaceRoot);
@@ -1189,6 +1215,7 @@ function buildWorkspaceInitPlan({
     name,
     user,
     lang,
+    platforms,
     dryRun,
     gitRootTopology: 'multi-repo-workspace',
   });
@@ -1201,6 +1228,7 @@ function buildWorkspaceInitPlan({
       name,
       user,
       lang,
+      platforms,
       dryRun,
       gitRootTopology: 'single-repo',
     }),
@@ -1947,10 +1975,29 @@ function resolveGlobalDeveloperWriteAction(developer, options = {}) {
       globalPath: normalizeOperationPathLike(GLOBAL_DEVELOPER_RELATIVE_DISPLAY),
     };
   }
+  // 空列表视为"本次未表达 host 选择",不应抹掉既有记录(例如 dryRun、
+  // 异常路径或编程式调用未传 platforms);此时沿用既有 hosts。
+  const nextHosts = Array.isArray(developer.hosts) ? developer.hosts : [];
+  const effectiveHosts = nextHosts.length > 0 ? nextHosts : existing.hosts;
   if (options.confirmedOverwrite || options.explicitName || options.explicitLang) {
+    // profile 已存在(上方已排除 create),initialized_at 语义是"首次初始化时间",
+    // re-install 改名/改语言不应刷新它;与下方 host-change 分支保持一致,只刷新
+    // name/lang/version 与 hosts,保留既有 initialized_at。
     return {
       action: 'overwrite',
-      developer,
+      developer: { ...developer, initializedAt: existing.initializedAt, hosts: effectiveHosts },
+      globalPath: normalizeOperationPathLike(GLOBAL_DEVELOPER_RELATIVE_DISPLAY),
+    };
+  }
+  // name/lang 未变是最常见的重装路径。此处若 host 选择变化仍需落盘,
+  // 否则用户改动的 host 选择会被静默丢弃。仅更新 hosts,保留既有
+  // name/lang/initialized_at/version,避免无谓抖动。
+  // 此处用 nextHosts 而非 effectiveHosts:仅当本次有实际勾选才覆写,
+  // 空选择走下方 preserve,不应借 fallback 误触发覆写。
+  if (nextHosts.length > 0 && !sameHosts(existing.hosts, nextHosts)) {
+    return {
+      action: 'overwrite',
+      developer: { ...existing, hosts: nextHosts },
       globalPath: normalizeOperationPathLike(GLOBAL_DEVELOPER_RELATIVE_DISPLAY),
     };
   }
@@ -1959,6 +2006,17 @@ function resolveGlobalDeveloperWriteAction(developer, options = {}) {
     developer: existing,
     globalPath: normalizeOperationPathLike(GLOBAL_DEVELOPER_RELATIVE_DISPLAY),
   };
+}
+
+// 比较两个 host 集合是否相同。内部各自排序,不依赖调用方传入已排序数组,
+// 使比较对输入顺序鲁棒(集合语义,而非序列语义)。
+function sameHosts(left, right) {
+  const a = (Array.isArray(left) ? [...left] : []).sort((x, y) => x.localeCompare(y));
+  const b = (Array.isArray(right) ? [...right] : []).sort((x, y) => x.localeCompare(y));
+  if (a.length !== b.length) {
+    return false;
+  }
+  return a.every((value, index) => value === b[index]);
 }
 
 function normalizeOperationPathLike(value) {

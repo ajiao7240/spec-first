@@ -33,12 +33,13 @@ afterEach(() => {
   }
 });
 
-function writeGlobalDeveloperProfile({ name = 'leokuang', lang = 'zh' } = {}) {
+function writeGlobalDeveloperProfile({ name = 'leokuang', lang = 'zh', hosts = null } = {}) {
   const dir = path.join(isolatedHome, '.spec-first');
   fs.mkdirSync(dir, { recursive: true });
+  const hostsLine = Array.isArray(hosts) && hosts.length > 0 ? `hosts=${hosts.join(',')}\n` : '';
   fs.writeFileSync(
     path.join(dir, '.developer'),
-    `name=${name}\nlang=${lang}\ninitialized_at=2026-06-04T00:00:00.000Z\nversion=test\n`,
+    `name=${name}\nlang=${lang}\ninitialized_at=2026-06-04T00:00:00.000Z\nversion=test\n${hostsLine}`,
     'utf8',
   );
 }
@@ -221,6 +222,81 @@ describe('interactive init command', () => {
       expect(result.exitCode).toBe(0);
       expect(hostChoices).toHaveLength(2);
       expect(hostChoices.every((choice) => choice.checked === false)).toBe(true);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('interactive host checkbox pre-checks the remembered selection', async () => {
+    const projectRoot = makeTempDir();
+    writeGlobalDeveloperProfile({ name: 'leokuang', lang: 'zh', hosts: ['claude'] });
+    let hostChoices = [];
+    const prompts = interactivePrompts({ platforms: ['claude'], confirmed: false });
+    prompts.checkbox = jest.fn((_question, options) => {
+      hostChoices = options;
+      return Promise.resolve(['claude']);
+    });
+
+    try {
+      const result = await captureInit(projectRoot, [], prompts);
+
+      expect(result.exitCode).toBe(0);
+      const checkedById = Object.fromEntries(hostChoices.map((choice) => [choice.value, choice.checked]));
+      expect(checkedById.claude).toBe(true);
+      expect(checkedById.codex).toBe(false);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('remembered unsupported host ids are ignored when pre-checking', async () => {
+    const projectRoot = makeTempDir();
+    writeGlobalDeveloperProfile({ name: 'leokuang', lang: 'zh', hosts: ['claude', 'jetbrains'] });
+    let hostChoices = [];
+    const prompts = interactivePrompts({ platforms: ['claude'], confirmed: false });
+    prompts.checkbox = jest.fn((_question, options) => {
+      hostChoices = options;
+      return Promise.resolve(['claude']);
+    });
+
+    try {
+      const result = await captureInit(projectRoot, [], prompts);
+
+      expect(result.exitCode).toBe(0);
+      expect(hostChoices).toHaveLength(2);
+      const checkedById = Object.fromEntries(hostChoices.map((choice) => [choice.value, choice.checked]));
+      expect(checkedById.claude).toBe(true);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('interactive install persists the selected hosts to the global profile', async () => {
+    const projectRoot = makeTempDir();
+    const prompts = interactivePrompts({ platforms: ['claude'], confirmed: true });
+
+    try {
+      const result = await captureInit(projectRoot, ['--lang', 'zh', '--user', 'reviewer'], prompts);
+
+      expect(result.exitCode).toBe(0);
+      expect(readGlobalDeveloperProfile()).toContain('hosts=claude');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('host selection change persists even when name and lang are unchanged', async () => {
+    const projectRoot = makeTempDir();
+    // 既有全局 profile:name/lang 不变,上次只选 claude。这是最常见的重装路径。
+    writeGlobalDeveloperProfile({ name: 'leokuang', lang: 'zh', hosts: ['claude'] });
+    const prompts = interactivePrompts({ platforms: ['claude', 'codex'], confirmed: true });
+
+    try {
+      // 纯交互(无 --user/--lang),走"沿用全局 profile"分支,name/lang 不变。
+      const result = await captureInit(projectRoot, [], prompts);
+
+      expect(result.exitCode).toBe(0);
+      expect(readGlobalDeveloperProfile()).toContain('hosts=claude,codex');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -509,6 +585,129 @@ describe('interactive init command', () => {
       expect(fs.existsSync(path.join(childB, 'CLAUDE.md'))).toBe(true);
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('all-repos workspace init persists the selected hosts to the global profile', async () => {
+    const workspaceRoot = makeTempDir();
+    const childA = path.join(workspaceRoot, 'child-a');
+    const childB = path.join(workspaceRoot, 'child-b');
+
+    try {
+      fs.mkdirSync(path.join(childA, '.git'), { recursive: true });
+      fs.mkdirSync(path.join(childB, '.git'), { recursive: true });
+
+      const result = await captureInit(workspaceRoot, [], interactivePrompts({ platforms: ['claude'] }));
+
+      expect(result.exitCode).toBe(0);
+      // 回归:workspace 路径必须把所选 host 持久化(此前 platforms 未透传导致 hosts 丢失)。
+      expect(readGlobalDeveloperProfile()).toContain('hosts=claude');
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('-y install persists the default host runtimes to the global profile', async () => {
+    const projectRoot = makeTempDir();
+    const prompts = interactivePrompts();
+    prompts.requireTty = jest.fn(() => ({ ok: false, reason: 'no-stdin-tty' }));
+
+    try {
+      const result = await captureInit(projectRoot, ['-y', '-u', 'reviewer', '--lang', 'zh'], prompts);
+
+      expect(result.exitCode).toBe(0);
+      // AE5:--yes 路径持久化 defaultForYes(claude+codex),不经过多选框。
+      expect(readGlobalDeveloperProfile()).toMatch(/hosts=claude,codex/);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('an empty host selection does not erase a previously remembered selection', async () => {
+    const projectRoot = makeTempDir();
+    // 既有记录 hosts=claude,codex;dry-run 不应抹掉(本次未表达 host 选择)。
+    writeGlobalDeveloperProfile({ name: 'leokuang', lang: 'zh', hosts: ['claude', 'codex'] });
+    const { buildInitPlan, applyInitPlan } = require('../../src/cli/commands/init');
+
+    try {
+      const plan = buildInitPlan({
+        platform: 'claude',
+        name: 'leokuang',
+        lang: 'zh',
+        target: { mode: 'single-repo', projectRoot },
+      });
+      applyInitPlan(projectRoot, plan);
+
+      // 即使本次未传 platforms(空选择),既有 hosts 记录仍被保留。
+      expect(readGlobalDeveloperProfile()).toMatch(/hosts=claude,codex/);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('explicit host flag persists the selected host to the global profile', async () => {
+    const projectRoot = makeTempDir();
+    // 既有记录 hosts=claude;显式 --codex 应把记录更新为 codex。
+    writeGlobalDeveloperProfile({ name: 'leokuang', lang: 'zh', hosts: ['claude'] });
+    const prompts = interactivePrompts({ platforms: ['claude'] });
+
+    try {
+      const result = await captureInit(projectRoot, ['--codex', '--user', 'leokuang', '--lang', 'zh'], prompts);
+
+      expect(result.exitCode).toBe(0);
+      expect(prompts.checkbox).not.toHaveBeenCalled();
+      expect(readGlobalDeveloperProfile()).toMatch(/hosts=codex/);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('explicit identity overwrite preserves the original initialized_at', () => {
+    const { buildInitPlan } = require('../../src/cli/commands/init');
+    const projectRoot = makeTempDir();
+    const dir = path.join(isolatedHome, '.spec-first');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, '.developer'),
+      'name=old\nlang=zh\ninitialized_at=2026-01-01T00:00:00.000Z\nversion=1.0.0\nhosts=claude\n',
+      'utf8',
+    );
+
+    try {
+      // 显式改名/改语言走 overwrite 分支;initialized_at 是首次初始化时间,不应被刷新。
+      const plan = buildInitPlan({
+        platform: 'codex',
+        platforms: ['codex'],
+        user: 'newname',
+        lang: 'en',
+        target: { mode: 'single-repo', projectRoot },
+      });
+      expect(plan.globalDeveloperWrite.action).toBe('overwrite');
+      expect(plan.globalDeveloperWrite.developer.initializedAt).toBe('2026-01-01T00:00:00.000Z');
+      expect(plan.globalDeveloperWrite.developer.name).toBe('newname');
+      expect(plan.globalDeveloperWrite.developer.hosts).toEqual(['codex']);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('reordered identical host selection is treated as unchanged (no spurious overwrite)', () => {
+    const { buildInitPlan } = require('../../src/cli/commands/init');
+    const projectRoot = makeTempDir();
+    // 既有记录 hosts=claude,codex(文件读回为排序后形式)。
+    writeGlobalDeveloperProfile({ name: 'leokuang', lang: 'zh', hosts: ['claude', 'codex'] });
+
+    try {
+      // 本次选择顺序相反但集合相同;不传 name/lang 走非显式分支,
+      // sameHosts 应判定无变化 -> preserve(不因顺序差异触发覆写)。
+      const plan = buildInitPlan({
+        platform: 'claude',
+        platforms: ['codex', 'claude'],
+        target: { mode: 'single-repo', projectRoot },
+      });
+      expect(plan.globalDeveloperWrite.action).toBe('preserve');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 

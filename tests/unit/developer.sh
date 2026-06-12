@@ -200,6 +200,68 @@ source=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write
 assert_output "timed out git config does not choose a name" "" "$name"
 assert_output "timed out git config falls through unresolved" "unresolved" "$source"
 
+echo "12. hosts field round-trips through the global developer file"
+rm -rf "$PROJECT_DIR/.codex" "$PROJECT_DIR/.claude"
+hosts_round_trip=$(HOME="$HOME_DIR" node - <<'EOF' "$REPO_ROOT"
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const {
+  writeGlobalDeveloperFile,
+  readDeveloperFile,
+  getGlobalDeveloperPath,
+} = require(path.join(repoRoot, 'src/cli/developer'));
+
+writeGlobalDeveloperFile({
+  name: 'host-user',
+  lang: 'zh',
+  initializedAt: 't',
+  version: '1',
+  hosts: ['codex', 'claude', 'claude'],
+});
+process.stdout.write(JSON.stringify(readDeveloperFile(getGlobalDeveloperPath()).hosts));
+EOF
+)
+assert_output "hosts dedup + sort round-trips" '["claude","codex"]' "$hosts_round_trip"
+
+echo "13. old developer files without hosts read back as empty hosts"
+cat > "$HOME_DIR/.spec-first/.developer" <<'EOF'
+name=legacy-user
+lang=en
+EOF
+legacy_hosts=$(HOME="$HOME_DIR" node - <<'EOF' "$REPO_ROOT"
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const { readDeveloperFile, getGlobalDeveloperPath } = require(path.join(repoRoot, 'src/cli/developer'));
+process.stdout.write(JSON.stringify(readDeveloperFile(getGlobalDeveloperPath()).hosts));
+EOF
+)
+assert_output "legacy file yields empty hosts" '[]' "$legacy_hosts"
+
+echo "14. a developer record with only hosts is not normalized to null"
+cat > "$HOME_DIR/.spec-first/.developer" <<'EOF'
+hosts=claude
+EOF
+only_hosts=$(HOME="$HOME_DIR" node - <<'EOF' "$REPO_ROOT"
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const { readDeveloperFile, getGlobalDeveloperPath } = require(path.join(repoRoot, 'src/cli/developer'));
+const record = readDeveloperFile(getGlobalDeveloperPath());
+process.stdout.write(record === null ? 'null' : JSON.stringify(record.hosts));
+EOF
+)
+assert_output "only-hosts record is preserved" '["claude"]' "$only_hosts"
+
+echo "15. empty hosts are omitted from the serialized file"
+host_line=$(HOME="$HOME_DIR" node - <<'EOF' "$REPO_ROOT"
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const { formatDeveloperContents } = require(path.join(repoRoot, 'src/cli/developer'));
+const out = formatDeveloperContents({ name: 'x', lang: 'zh', initializedAt: 't', version: '1' });
+process.stdout.write(out.includes('hosts=') ? 'has-hosts' : 'no-hosts');
+EOF
+)
+assert_output "empty hosts omit the hosts line" "no-hosts" "$host_line"
+
 echo ""
 echo "=== Results ==="
 echo "  Passed: $pass"

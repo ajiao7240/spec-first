@@ -145,6 +145,9 @@ function formatDeveloperContents(developer) {
     `initialized_at=${normalized.initializedAt}`,
     `version=${normalized.version}`,
   ];
+  if (normalized.hosts.length > 0) {
+    lines.push(`hosts=${normalized.hosts.join(',')}`);
+  }
   return `${lines.join('\n')}\n`;
 }
 
@@ -154,8 +157,9 @@ function normalizeDeveloper(raw) {
   const lang = normalizeLang(safe.lang);
   const initializedAt = normalizeText(safe.initializedAt || safe.initialized_at);
   const version = normalizeText(safe.version);
+  const hosts = normalizeHosts(safe.hosts);
 
-  if (!name && !lang && !initializedAt && !version) {
+  if (!name && !lang && !initializedAt && !version && hosts.length === 0) {
     return null;
   }
 
@@ -164,7 +168,21 @@ function normalizeDeveloper(raw) {
     lang: lang || '',
     initializedAt: initializedAt || '',
     version: version || '',
+    hosts,
   };
+}
+
+// hosts 字段:接受数组或逗号分隔字符串,去空白、去重、稳定排序。
+// 此处不按受支持 host 集合过滤——过滤在 init 读取侧按 INIT_PLATFORM_CHOICES 进行,
+// 避免 developer.js 反向依赖 commands/init.js。
+function normalizeHosts(value) {
+  const raw = Array.isArray(value)
+    ? value
+    : (typeof value === 'string' ? value.split(',') : []);
+  const cleaned = raw
+    .map((entry) => normalizeText(entry))
+    .filter((entry) => entry.length > 0);
+  return [...new Set(cleaned)].sort((a, b) => a.localeCompare(b));
 }
 
 function normalizeName(value) {
