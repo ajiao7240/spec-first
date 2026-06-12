@@ -67,7 +67,7 @@ That mismatch creates three practical problems:
 - **target_repo:** `.`
 - **source_refs:** `skills/agent-native-architecture/SKILL.md`, `skills/agent-native-audit/SKILL.md`, `agents/spec-agent-native-reviewer.agent.md`, `agents/spec-best-practices-researcher.agent.md`, `src/cli/contracts/dual-host-governance/skills-governance.json`, `tests/unit/agent-native-architecture-contracts.test.js`, `docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md`, `docs/10-prompt/结构化项目角色契约.md`, `skills/spec-plan/SKILL.md`, `skills/spec-plan/references/governance-boundaries.md`, `skills/spec-plan/references/plan-sections.md`, `skills/spec-plan/references/markdown-rendering.md`, `skills/spec-plan/references/plan-template.md`, `skills/spec-plan/references/visual-communication.md`
 - **current_revision:** `ee76a7ec`
-- **worktree_dirty:** `true`; many existing modified/untracked files are unrelated or pre-existing, including `CHANGELOG.md`, `skills/spec-plan/SKILL.md`, `skills/spec-skill-audit/SKILL.md`, and `docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md`. Planned target `skills/spec-code-review/SKILL.md` is also already dirty; implementation must inspect `git diff -- skills/spec-code-review/SKILL.md` and reread the file immediately before any U4 edit.
+- **worktree_dirty:** `true` at planning time (revision `ee76a7ec`); many existing modified/untracked files are unrelated or pre-existing, including `CHANGELOG.md`, `skills/spec-plan/SKILL.md`, `skills/spec-skill-audit/SKILL.md`, and `docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md`. Planned target `skills/spec-code-review/SKILL.md` was also dirty at planning time, but that state may have since been committed; treat this as a planning-time snapshot, not a current fact. Implementation must re-check `git diff -- skills/spec-code-review/SKILL.md` at execution time (the diff may be empty) and reread the file immediately before any U4 edit.
 - **discovery_methods:** bounded source reads, `rg`, `rg --files`, git status/revision, Graphify query via fallback CLI discovery, `spec-first internal task-governance-signals`, official/GitHub fetches
 - **tests_or_logs:** `task-governance-signals` returned `candidate_level: deep` with `cross-module`, `many-files-or-paths`, `critical-path-hit`, `keyword-hit`, and risk domains `cli`, `contract`, `runtime`, `workflow`; no implementation tests were run because this is planning-only
 - **confidence:** high for local source/governance/test gaps; medium for external trend synthesis because X/Twitter direct fetch was blocked and external docs are advisory
@@ -275,7 +275,7 @@ flowchart TB
 - Keep `spec-agent-native-reviewer` focused on code-review findings, but add a short mapping explaining how review categories derive from the canonical taxonomy and which exceptions stay reviewer-specific.
 - Fix `spec-best-practices-researcher` mapping from `spec-agent-native-architecture` to the actual source asset name, while avoiding any implication that it is a public route.
 - Keep code-review persona catalog references stable, only adjusting wording where it misstates the canonical taxonomy.
-- Before editing `skills/spec-code-review/SKILL.md`, inspect its existing diff and preserve unrelated changes. If `skills/spec-code-review/references/persona-catalog.md` is sufficient to express the mapping, leave `skills/spec-code-review/SKILL.md` untouched.
+- Before editing `skills/spec-code-review/SKILL.md`, inspect its diff at execution time and preserve any unrelated changes. The file was dirty at planning time but may have since been committed, so the diff may be empty; do not treat an empty diff as a mistake. If `skills/spec-code-review/references/persona-catalog.md` is sufficient to express the mapping, leave `skills/spec-code-review/SKILL.md` untouched.
 
 **Patterns to follow:**
 - `agents/spec-agent-native-reviewer.agent.md` exception list for human-only/security/platform flows.
@@ -379,7 +379,7 @@ flowchart TB
 | Guardrails reference becomes a vendor-specific checklist | Medium | Medium | Encode provider-neutral concepts and cite providers only as advisory sources |
 | Contract tests become brittle text snapshots | Medium | Medium | Test stable headings, mappings, and forbidden drift patterns, not full paragraphs |
 | Prose changes are not reflected in runtime mirrors | High | Medium | Closeout must state `spec-first init` and fresh-session requirements |
-| Existing dirty worktree causes accidental overwrite | Medium | High | Implementation must inspect touched files immediately before edits, especially already-dirty target `skills/spec-code-review/SKILL.md`, and avoid reverting unrelated changes |
+| Existing dirty worktree causes accidental overwrite | Medium | High | Implementation must inspect touched files immediately before edits and avoid reverting unrelated changes; the planning-time dirty state of `skills/spec-code-review/SKILL.md` may have since been committed, so re-check its diff at execution time rather than assuming it is still dirty |
 | X/Twitter trend claims cannot be verified | High | Low | Record fetch limitation and avoid X-specific conclusions |
 
 ---
