@@ -161,9 +161,13 @@ Executable task packs must include exactly one fenced JSON block under `## Task 
 }
 ```
 
-MVP required task fields are `task_id`, `dependencies`, non-empty concrete `files`, `goal`, `test_focus`, `done_signal`, `wave`, and `stop_if`, plus at least one source anchor through `source_unit` or `requirement_refs`. The deterministic validator treats `context_refs`, `entry_hint`, `parallelizable`, `risk_note`, `expected_side_effects`, `review_gate`, and `review_focus` as quality/review fields rather than hard executable fields. When present, `expected_side_effects` must be an array of repo-relative exact paths or bounded globs and must not use `**` whole-repo globs. When present, `review_gate` must be exactly `optional` or `required`; absence means no task-level review gate. The validator checks only the enum structure, not whether the task semantically deserves a gate.
+MVP required task fields are `task_id`, `dependencies`, non-empty concrete `files`, `goal`, `test_focus`, `done_signal`, `wave`, and `stop_if`, plus at least one source anchor through `source_unit` or `requirement_refs`. The deterministic validator treats `context_refs`, `entry_hint`, `parallelizable`, `risk_note`, `expected_side_effects`, `review_gate`, and `review_focus` as quality/review fields rather than hard executable fields.
+
+Maintenance contract: the deterministic task-field set is owned jointly by this schema and `src/cli/task-pack.js`. Adding, removing, or renaming a deterministic field (the required set or the allowed-field whitelist) must update both `REQUIRED_TASK_FIELDS` / `ALLOWED_TASK_FIELDS` in `src/cli/task-pack.js` and the task-field tables in the `Task Cards` section of this schema in the same change; a parity test enforces bidirectional sync (every validator field is documented as a task-card field, and every documented task-card field is validator-recognized), so dropping a field on either side fails the test. Quality/review fields that the validator only shape-checks may still evolve in prose, but any field name the validator recognizes must appear in this schema's field tables. When present, `expected_side_effects` must be an array of repo-relative exact paths or bounded globs and must not use `**` whole-repo globs. When present, `review_gate` must be exactly `optional` or `required`; absence means no task-level review gate. The validator checks only the enum structure, not whether the task semantically deserves a gate.
 
 ## Task Cards
+
+`Task Cards` is the human-readable mirror of the `Task Pack Contract` JSON; the JSON block is the machine-readable canonical source, and the JSON wins on any conflict. When you edit a task card, update the corresponding JSON entry in the same change so the mirror does not drift from the canonical source.
 
 Executable task cards must include these deterministic fields:
 

@@ -6,6 +6,7 @@ const path = require('node:path');
 
 const CodexAdapter = require('../../src/cli/adapters/codex');
 const { syncSkills } = require('../../src/cli/plugin');
+const { ALLOWED_TASK_FIELDS, REQUIRED_TASK_FIELDS } = require('../../src/cli/task-pack');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'SKILL.md');
@@ -125,6 +126,10 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('If `--input` is omitted or unreadable');
     expect(skill).toContain('do not treat that as proof of low risk');
     expect(skill).not.toContain('Use `task-governance-signals.v1` as the primary complexity evidence');
+
+    expect(skill).toContain('Before filling `deterministic_handoff` and the `validation:` block, you must actually run the deterministic CLI and transcribe its result');
+    expect(skill).toContain('Run `spec-first tasks validate <task-pack-path> --json`');
+    expect(skill).toContain('never self-report `deterministic_handoff: true` or `validation` matches without the CLI JSON in hand');
   });
 
   test('task pack schema requires executable handoff metadata and quality structures', () => {
@@ -178,6 +183,43 @@ describe('spec-write-tasks contracts', () => {
     expect(schema).toContain('If `spec_id` does not match the current source plan, execution must be rejected');
     expect(schema).toContain('expected_side_effects, when present, use repo-relative exact paths or bounded globs and never `**` whole-repo globs');
     expect(schema).toContain('`direct-repo-reads`, `lsp`, `mixed`, or `skipped`');
+
+    expect(schema).toContain('the deterministic task-field set is owned jointly by this schema and `src/cli/task-pack.js`');
+    expect(schema).toContain('a parity test enforces bidirectional sync');
+    expect(schema).toContain('`Task Cards` is the human-readable mirror of the `Task Pack Contract` JSON');
+    expect(schema).toContain('the JSON block is the machine-readable canonical source, and the JSON wins on any conflict');
+  });
+
+  test('schema task-field tables stay in parity with the validator field sets', () => {
+    const schema = read(SCHEMA_PATH);
+
+    // Scope the field-table scan to the Task Cards section (deterministic + quality
+    // task-field tables) so frontmatter field rows (type/status/spec_id/...) are not
+    // mistaken for task fields. This keeps the parity check bidirectional and honest.
+    const taskCardsStart = schema.indexOf('## Task Cards');
+    const taskCardsEnd = schema.indexOf('## Orientation Evidence');
+    expect(taskCardsStart).toBeGreaterThan(-1);
+    expect(taskCardsEnd).toBeGreaterThan(taskCardsStart);
+    const taskCardsSection = schema.slice(taskCardsStart, taskCardsEnd);
+
+    const documentedTaskFields = new Set(
+      [...taskCardsSection.matchAll(/^\| `([a-z_]+)` \| /gm)].map((match) => match[1]),
+    );
+
+    // REQUIRED is a subset of ALLOWED by construction in the validator.
+    for (const field of REQUIRED_TASK_FIELDS) {
+      expect(ALLOWED_TASK_FIELDS.has(field)).toBe(true);
+    }
+
+    // Bidirectional parity: every validator-recognized task field is documented, and
+    // every documented task-card field is validator-recognized. Either direction
+    // failing means src/cli/task-pack.js and the schema drifted apart.
+    for (const field of ALLOWED_TASK_FIELDS) {
+      expect(documentedTaskFields.has(field)).toBe(true);
+    }
+    for (const field of documentedTaskFields) {
+      expect(ALLOWED_TASK_FIELDS.has(field)).toBe(true);
+    }
   });
 
   test('quality guide owns quality examples without redefining schema fields', () => {
@@ -224,7 +266,7 @@ describe('spec-write-tasks contracts', () => {
     expect(guide).toContain('Do not treat that output as confirmed low risk');
   });
 
-  test('decisive recommendations keep task signals advisory and review handoff user-confirmed', () => {
+  test('decisive recommendations keep task signals advisory and bound the doc-review auto-continuation', () => {
     const skill = read(SKILL_PATH);
     const guide = read(GUIDE_PATH);
     const contract = read(TASK_SIGNALS_CONTRACT_PATH);
@@ -237,9 +279,11 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('The output must include one concrete reason and a copy-ready current-host document-review invocation');
     expect(skill).toContain('/spec:doc-review <task-pack-path>');
     expect(skill).toContain('$spec-doc-review <task-pack-path>');
-    expect(skill).toContain('not an instruction for `spec-write-tasks` to invoke document review');
-    expect(skill).toContain('Autonomous or headless hosts must surface the same recommendation');
-    expect(skill).toContain('instead of silently dispatching `spec-doc-review`');
+    expect(skill).toContain('continue directly into the current host\'s document review without a separate confirmation step');
+    expect(skill).toContain('the continuation targets exactly the doc-review of the just-written task pack; do not chain any further workflow');
+    expect(skill).toContain('This is bounded auto-continuation, not general workflow chaining');
+    expect(skill).toContain('or the run is autonomous/headless — do not dispatch');
+    expect(skill).toContain('Surface the `review-task-pack` recommendation in the returned envelope instead and let the caller decide');
     expect(contract).toContain('`spec-write-tasks` may use `plan-declared` output only as optional cross-check evidence');
     expect(contract).toContain('written source-plan structure is the primary evidence');
     expect(contract).toContain('must not treat `plan-declared` as a hard gate or a second source of truth');
@@ -249,7 +293,7 @@ describe('spec-write-tasks contracts', () => {
       expected_decision: 'compile',
     }));
     expect(highRiskCase.expected_next_action).toContain('next_action: review-task-pack');
-    expect(highRiskCase.expected_next_action).toContain('do not dispatch doc-review automatically');
+    expect(highRiskCase.expected_next_action).toContain('continue directly into current-host doc-review');
   });
 
   test('eval cases cover trigger, boundary, failure, and expected behavior posture', () => {

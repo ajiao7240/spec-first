@@ -8,7 +8,9 @@ const { isSecretDeniedPath } = require('./helpers/secret-deny-patterns');
 const CANONICALIZATION_VERSION = 'source-plan-body-v1';
 const TASK_PACK_SCHEMA_VERSION = 'task-pack/v1';
 
-const REQUIRED_TASK_FIELDS = [
+// Frozen because these sets are exported; consumers read them (e.g. the parity
+// contract test) and must not mutate the module-level singleton.
+const REQUIRED_TASK_FIELDS = Object.freeze([
   'task_id',
   'dependencies',
   'files',
@@ -17,7 +19,7 @@ const REQUIRED_TASK_FIELDS = [
   'done_signal',
   'wave',
   'stop_if',
-];
+]);
 
 const ALLOWED_TASK_FIELDS = new Set([
   ...REQUIRED_TASK_FIELDS,
@@ -34,6 +36,12 @@ const ALLOWED_TASK_FIELDS = new Set([
   'handoff_owner',
   'target_repo',
 ]);
+// Object.freeze does not block Set.add/delete, so null out the mutators to keep
+// the exported allow-list immutable. .has()/iteration remain available.
+ALLOWED_TASK_FIELDS.add = undefined;
+ALLOWED_TASK_FIELDS.delete = undefined;
+ALLOWED_TASK_FIELDS.clear = undefined;
+Object.freeze(ALLOWED_TASK_FIELDS);
 
 const ALLOWED_REVIEW_GATES = new Set(['optional', 'required']);
 
@@ -868,6 +876,8 @@ function validateTaskPackContract(contract, repoRoot, errors, limitations) {
 module.exports = {
   CANONICALIZATION_VERSION,
   TASK_PACK_SCHEMA_VERSION,
+  REQUIRED_TASK_FIELDS,
+  ALLOWED_TASK_FIELDS,
   computeSourcePlanHash,
   parseFrontmatterScalars,
   splitMarkdownFrontmatter,

@@ -203,7 +203,7 @@ If the user names a standalone skill rather than a public workflow, invoke that 
 7. Execution routes: plan before work when the desired outcome is clear but the implementation path is not.
 8. Knowledge routes: compound/compound-refresh after or around completed work.
 
-Do not chain multiple workflows automatically unless the active workflow explicitly hands off. Route to the next best workflow and let that workflow govern its own handoff.
+Do not chain multiple workflows automatically unless the active workflow or skill explicitly hands off. Route to the next best workflow and let that workflow govern its own handoff. A standalone skill may perform one bounded, documented continuation when its own contract defines that edge (for example `spec-write-tasks` continuing into document review for a high-risk task pack); this is not general multi-workflow chaining.
 
 PRD/readiness tie-break: independent critique of a requirements, plan, task, or Markdown artifact routes to document review. Brownfield PRD authoring/refinement, current-state/code-aware PRD validation, and "can this PRD go to planning without inventing WHAT?" route to the PRD workflow.
 

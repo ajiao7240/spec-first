@@ -296,11 +296,21 @@ orientation:
 next_action: spec-work-task-pack | review-task-pack | spec-work-plan | revise-plan | stop
 ```
 
+Before filling `deterministic_handoff` and the `validation:` block, you must actually run the deterministic CLI and transcribe its result, not assert it from inspection. Run `spec-first tasks validate <task-pack-path> --json` (and `spec-first tasks hash <plan-path>` when computing or comparing the source plan hash), then copy `deterministic_handoff` and each `validation` field from that JSON output. If the `tasks` subcommand is not runtime-visible or returns an unknown-subcommand error, treat the run as `unverifiable_hash`, set `deterministic_handoff: false`, and downgrade to `draft-only`; never self-report `deterministic_handoff: true` or `validation` matches without the CLI JSON in hand.
+
 `next_action: spec-work-task-pack` is allowed only when `deterministic_handoff: true` and `semantic_posture` is `generated-this-run` or `reviewed-existing`. `deterministic_handoff` proves identity, freshness, and structure only; it does not prove semantic task quality.
 
 Use `next_action: review-task-pack` as the decisive handoff recommendation for high-risk task packs. Choose it when the pack contains `review_gate: required` tasks, touches shared contracts, public workflow prose, source/runtime boundaries, security/release/CI surfaces, or has enough tasks/dependencies that semantic drift or over-splitting would be costly. The output must include one concrete reason and a copy-ready current-host document-review invocation, such as `/spec:doc-review <task-pack-path>` for Claude or `$spec-doc-review <task-pack-path>` for Codex.
 
-`review-task-pack` is a user-confirmed handoff recommendation, not an instruction for `spec-write-tasks` to invoke document review. Interactive hosts should surface the recommendation and wait for the user. Autonomous or headless hosts must surface the same recommendation in their returned envelope instead of silently dispatching `spec-doc-review`.
+For a high-risk pack that resolves to `review-task-pack`, continue directly into the current host's document review without a separate confirmation step, and only under all of these conditions:
+
+- the pack is executable (`deterministic_handoff: true`) and `review-task-pack` was selected by the high-risk criteria above,
+- the current session is an interactive host that exposes a document-review dispatch primitive (`/spec:doc-review` on Claude, `$spec-doc-review` on Codex),
+- the continuation targets exactly the doc-review of the just-written task pack; do not chain any further workflow, and do not invoke document review as an Agent/Task/subagent type.
+
+When continuing, invoke the current-host doc-review in headless mode on the task-pack path (`/spec:doc-review mode:headless <task-pack-path>` on Claude, `$spec-doc-review mode:headless <task-pack-path>` on Codex), then report the doc-review outcome alongside this envelope. Headless keeps the continuation bounded and non-interactive: doc-review applies its own safe fixes silently and returns structured findings without firing its interactive routing or walk-through prompts inside this run.
+
+This is bounded auto-continuation, not general workflow chaining: it covers only the single write-tasks → doc-review edge for high-risk packs, and `spec-write-tasks` still does not become an orchestrator or execution state machine. When any condition is not met — the pack is low-risk, `deterministic_handoff` is false, no doc-review primitive is available, or the run is autonomous/headless — do not dispatch. Surface the `review-task-pack` recommendation in the returned envelope instead and let the caller decide.
 
 ## Required Task Card Semantics
 
