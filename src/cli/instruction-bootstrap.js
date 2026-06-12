@@ -151,6 +151,7 @@ function buildZhBootstrapBody(hostId) {
 - **何时直接做**:轻量事实问答、窄定位查询（where is X used）、无 workflow 增益的简短解释可直接回答;workflow-first 不等于 brainstorming-first,不强制每个任务走 workflow
 - **何时不重新分流**:已在公开 workflow 内（按其 SKILL 继续,仅在用户改目标/显式 handoff/明显越界时重路由）或作为 bounded subagent/worker 被派遣（完成 bounded 任务即可,不重启路由)
 - **如何路由**:意图优先于关键词与主题域;选一个入口并说明一个理由,不默认进入 \`spec-brainstorm\`,不自动串联多个 workflow;用户显式调用某 workflow 时优先尊重;用户询问下一步时用 \`using-spec-first\` guide mode 给一个入口、一个理由、一个动作
+- 用户可见输出语言以本文件的 \`spec-first:lang\` managed block 为准；skill/agent/template 原文语言和当前会话惯性不得覆盖该策略，除非用户明确要求其他语言
 - **优先级(高→低)**:显式 route > 安全/修复(setup/update/缺 runtime) > 诊断(debug 先于 work,针对失败) > 评审(code/doc review 先于实现) > 定义(brainstorm/ideate/prd 先于 plan/work,WHAT 不清时) > 优化(可度量实验) > 执行(plan 先于 work) > 知识(compound/compound-refresh)
 - 父级多仓 workspace：写入、修复、测试、review autofix 或 commit 前必须有明确 \`target_repo\` / per-child scope；只读定位也应使用 bounded direct reads 并说明目标 repo 假设
 - Runtime context 默认排除 \`.spec-first/audits/**\` 和 generated mirrors（\`.claude/**\`、\`.codex/**\`、\`.agents/skills/**\`）;只有 setup/update/runtime-drift/audit 等明确运行时任务按需读取
@@ -183,6 +184,7 @@ function buildEnBootstrapBody(hostId) {
 - **When to just answer**: lightweight factual Q&A, narrow lookups (where is X used), and brief explanations with no workflow leverage may be answered directly; workflow-first does NOT mean brainstorming-first, and you do not force every task through a workflow
 - **When NOT to reroute**: if already inside a public workflow (follow its SKILL; reroute only when the user changes the goal, the workflow explicitly hands off, or the request is clearly out of scope) or dispatched as a bounded subagent/worker (complete the bounded task; do not restart routing)
 - **How to route**: immediate intent beats keywords and broad subject area; pick one entrypoint and state one reason; do not default to \`spec-brainstorm\` or chain workflows automatically; honor an explicitly invoked workflow; when the user asks what's next, use \`using-spec-first\` guide mode for one entrypoint, one reason, one action
+- User-visible output language follows this file's \`spec-first:lang\` managed block; skill/agent/template source language and conversation inertia must not override it unless the user explicitly requests another language
 - **Priority (high→low)**: explicit route > safety/repair (setup/update/missing runtime) > diagnostic (debug before work, for failures) > evaluation (code/doc review before implementation) > definition (brainstorm/ideate/prd before plan/work, when WHAT is unclear) > optimization (measurable experiments) > execution (plan before work) > knowledge (compound/compound-refresh)
 - Parent multi-repo workspace: writes, fixes, tests, review autofix, or commits require explicit \`target_repo\` / per-child scope; read-only orientation should use bounded direct reads and state target-repo assumptions
 - Runtime context excludes \`.spec-first/audits/**\` and generated mirrors (\`.claude/**\`, \`.codex/**\`, \`.agents/skills/**\`) by default; only setup/update/runtime-drift/audit tasks read them when explicitly needed

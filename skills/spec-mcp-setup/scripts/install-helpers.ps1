@@ -57,6 +57,8 @@ function Get-NonNegativeIntEnv {
   return $Default
 }
 
+$probeTimeoutSeconds = Get-NonNegativeIntEnv -Name 'SPEC_FIRST_PROBE_TIMEOUT_SECONDS' -Default 30
+
 function Reset-InstallProvenance {
   $script:LastInstallProvenance = $null
 }
@@ -948,11 +950,14 @@ function Resolve-GraphifyCliMatchingPin {
 }
 
 function Invoke-GraphifyCommand {
-  param([string[]]$Arguments)
+  param(
+    [string[]]$Arguments,
+    [int]$TimeoutSeconds = $stageTimeoutSeconds
+  )
   $graphifyCommand = Resolve-GraphifyCli
   if ([string]::IsNullOrWhiteSpace($graphifyCommand)) { return $false }
   $graphifyArguments = @($Arguments)
-  return (Invoke-GraphifyCommandWithTimeout -Command $graphifyCommand -Arguments $graphifyArguments)
+  return (Invoke-GraphifyCommandWithTimeout -Command $graphifyCommand -Arguments $graphifyArguments -TimeoutSeconds $TimeoutSeconds)
 }
 
 function Resolve-RequirementWorkspace {
@@ -1135,7 +1140,7 @@ Rules:
 - Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `"<resolved-graphify>" update .` when a Graphify CLI is runtime-visible to keep the graph current (AST-only, no API cost). If no CLI is visible, do not repair generated runtime from ordinary workflows; disclose the skipped graph refresh and rely on direct source evidence.
+- Ordinary workflows do not refresh project graphs after code changes. Treat graph freshness as a setup/readiness advisory from `docs/contracts/project-graph-consumption.md`; confirm conclusions from source/test/log evidence and use `/spec:mcp-setup --only graphify` when setup repair would help.
 '@
   }
   return @'
@@ -1151,7 +1156,7 @@ Rules:
 - Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `"<resolved-graphify>" update .` when a Graphify CLI is runtime-visible to keep the graph current (AST-only, no API cost). If no CLI is visible, do not repair generated runtime from ordinary workflows; disclose the skipped graph refresh and rely on direct source evidence.
+- Ordinary workflows do not refresh project graphs after code changes. Treat graph freshness as a setup/readiness advisory from `docs/contracts/project-graph-consumption.md`; confirm conclusions from source/test/log evidence and use `$spec-mcp-setup --only graphify` when setup repair would help.
 '@
 }
 
@@ -1276,7 +1281,7 @@ function Invoke-GraphifyQueryProbe {
   if (-not (Test-Path -LiteralPath $graphJson -PathType Leaf)) { return }
   Push-Location $RepoRoot
   try {
-    if (Invoke-GraphifyCommand @('query', 'spec-first setup readiness', '--graph', $graphJson)) {
+    if (Invoke-GraphifyCommand -Arguments @('query', 'spec-first setup readiness', '--graph', $graphJson) -TimeoutSeconds $probeTimeoutSeconds) {
       Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED -Value 'true'
     } else {
       Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED -Value 'false'
@@ -1284,6 +1289,15 @@ function Invoke-GraphifyQueryProbe {
   } finally {
     Pop-Location
   }
+}
+
+function Invoke-GraphifyQueryProbeForExistingArtifactIfAvailable {
+  if (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED'))) { return }
+  $artifactRoot = Join-Path $providerRepoRoot $graphifyArtifactRootDefault
+  $graphJson = Join-Path $artifactRoot 'graph.json'
+  if (-not (Test-Path -LiteralPath $graphJson -PathType Leaf)) { return }
+  if ([string]::IsNullOrWhiteSpace((Resolve-GraphifyCli))) { return }
+  Invoke-GraphifyQueryProbe -RepoRoot $providerRepoRoot -ArtifactRoot $artifactRoot
 }
 
 function Invoke-GraphifyProviderInstallIfRequested {
@@ -1303,6 +1317,7 @@ function Invoke-GraphifyProviderInstallIfRequested {
 }
 
 Invoke-GraphifyProviderInstallIfRequested
+Invoke-GraphifyQueryProbeForExistingArtifactIfAvailable
 try {
   $providerReadinessRaw = & node (Join-Path $PSScriptRoot 'provider-readiness-renderer.cjs') --source helper --repo-root $providerRepoRoot
   $providerReadiness = @($providerReadinessRaw | ConvertFrom-Json)

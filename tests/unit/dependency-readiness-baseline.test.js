@@ -291,6 +291,51 @@ describe('dependency readiness baseline contracts', () => {
     });
   });
 
+  test('provider readiness renderer reports Graphify query probe advisory only when unverified', () => {
+    const tempDir = makeTempDir();
+    const binDir = path.join(tempDir, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'graphify-out'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, '.agents/skills/graphify'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'graphify-out/graph.json'), '{}\n', 'utf8');
+    fs.writeFileSync(path.join(tempDir, '.agents/skills/graphify/SKILL.md'), '# graphify\n', 'utf8');
+    const graphifyBin = path.join(binDir, 'graphify');
+    fs.writeFileSync(graphifyBin, '#!/bin/sh\nif [ "$1" = "--version" ]; then printf "graphify 0.8.36\\n"; fi\nexit 0\n', 'utf8');
+    fs.chmodSync(graphifyBin, 0o755);
+
+    const base = {
+      ...process.env,
+      PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+      SPEC_FIRST_PROVIDER_HOST: 'codex',
+    };
+    const unverified = spawnSync(process.execPath, [providerRendererPath, '--source', 'helper', '--repo-root', tempDir], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: base,
+    });
+    expect(unverified.status).toBe(0);
+    const unverifiedGraphify = JSON.parse(unverified.stdout)[0];
+    expect(unverifiedGraphify.lifecycle.query_verified).toBe(false);
+    expect(unverifiedGraphify.next_actions.join('\n')).toContain('Graphify query probe has not confirmed CLI/artifact usability');
+    expect(unverifiedGraphify.next_actions.join('\n')).toContain('$spec-mcp-setup --only graphify');
+    expect(unverifiedGraphify.next_actions.join('\n')).toContain('graphify explain');
+    expect(unverifiedGraphify.next_actions.join('\n')).not.toContain('recall quality failed');
+    expect(unverifiedGraphify.next_actions.join('\n')).not.toContain('is broken');
+
+    const verified = spawnSync(process.execPath, [providerRendererPath, '--source', 'helper', '--repo-root', tempDir], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...base,
+        SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED: 'true',
+      },
+    });
+    expect(verified.status).toBe(0);
+    const verifiedGraphify = JSON.parse(verified.stdout)[0];
+    expect(verifiedGraphify.lifecycle.query_verified).toBe(true);
+    expect(verifiedGraphify.next_actions.join('\n')).not.toContain('Graphify query probe has not confirmed CLI/artifact usability');
+  });
+
   test('provider renderers run from generated runtime mirror without source-relative src requires', () => {
     const tempDir = makeTempDir();
     const mirrorSkill = path.join(tempDir, '.agents/skills/spec-mcp-setup');
@@ -686,6 +731,7 @@ exit 0
     expect(captured).toContain('hook install');
     expect(captured).toContain('hook status');
     expect(captured).toContain('query spec-first setup readiness --graph');
+    expect(captured.match(/query spec-first setup readiness --graph/g) || []).toHaveLength(1);
     expect(captured).not.toContain('--no-cluster');
     const payload = JSON.parse(result.stdout);
     const graphify = payload.provider_readiness.find((entry) => entry.provider === 'graphify');
@@ -819,7 +865,10 @@ exit 0
     expect(agents).toContain('Graphify CLI is runtime-visible');
     expect(agents).toContain('"<resolved-graphify>" query "<question>"');
     expect(agents).toContain('$spec-mcp-setup --only graphify');
+    expect(agents).toContain('docs/contracts/project-graph-consumption.md');
+    expect(agents).toContain('Ordinary workflows do not refresh project graphs after code changes');
     expect(agents).not.toContain('first run `graphify query "<question>"`');
+    expect(agents).not.toContain('run `"<resolved-graphify>" update .`');
   });
 
   test('install-helpers normalizes provider-written Claude Graphify instructions', () => {
@@ -899,8 +948,11 @@ exit 0
     expect(claude).toContain('Graphify CLI is runtime-visible');
     expect(claude).toContain('"<resolved-graphify>" query "<question>"');
     expect(claude).toContain('/spec:mcp-setup --only graphify');
+    expect(claude).toContain('docs/contracts/project-graph-consumption.md');
+    expect(claude).toContain('Ordinary workflows do not refresh project graphs after code changes');
     expect(claude).not.toContain('$spec-mcp-setup --only graphify');
     expect(claude).not.toContain('first run `graphify query "<question>"`');
+    expect(claude).not.toContain('run `"<resolved-graphify>" update .`');
   });
 
   test('install-helpers rejects escaped Graphify requirement workspace without running first generation', () => {

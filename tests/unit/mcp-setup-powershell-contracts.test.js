@@ -136,7 +136,12 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('hook', 'status')");
     expect(read(installHelpersPs1)).toContain('Test-GraphifyFirstGenerationReadyForHook');
     expect(read(installHelpersPs1)).toContain('Set-GraphifyHookSkipped');
-    expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('query', 'spec-first setup readiness', '--graph', $graphJson)");
+    expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand -Arguments @('query', 'spec-first setup readiness', '--graph', $graphJson) -TimeoutSeconds $probeTimeoutSeconds");
+    expect(read(installHelpersPs1)).toContain("$probeTimeoutSeconds = Get-NonNegativeIntEnv -Name 'SPEC_FIRST_PROBE_TIMEOUT_SECONDS' -Default 30");
+    expect(read(installHelpersPs1)).toContain('Invoke-GraphifyQueryProbeForExistingArtifactIfAvailable');
+    expect(read(installHelpersPs1)).toContain("SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED'))) { return }");
+    expect(read(installHelpersPs1)).toContain('Ordinary workflows do not refresh project graphs after code changes');
+    expect(read(installHelpersPs1)).not.toContain('After modifying code, run `"<resolved-graphify>" update .`');
     expect(read(installHelpersPs1)).not.toContain('--no-cluster');
     expect(read(installHelpersPs1)).not.toContain('.spec-first/workspace/providers/graphify/graphify-out');
     expect(read(installHelpersPs1)).not.toContain('uvx --from graphifyy==0.8.36 graphify');

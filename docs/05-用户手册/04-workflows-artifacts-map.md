@@ -107,7 +107,7 @@
 
 `spec-work` 的 run artifact 写入 `.spec-first/workflows/spec-work/<workspace-slug>/<run-id>/run.json`。它是 closeout evidence，不是 plan/task 的 source authority；当前 contract 标记 `producer_available=true` 且 `workflow_integrated=false`，表示 producer 可写 schema-aligned payload，但完整 replay/retention lifecycle 仍是后续工作。
 
-`direct_evidence_used` 是 optional compact summary，用于把 `$spec-work` 从 plan envelope 消费到的 direct source evidence evidence 传递给下游 `$spec-code-review`。它只保存 `capabilities_used`、`evidence_grade`、`evidence_posture`、`freshness_state`、`repo_scope`、`graph_findings_applied`、`graph_findings_as_risk_only`、`source_reads_validated` 和 `redaction_status`，不保存 raw provider output、源码摘录或 credentialed URL。`spec-code-review` 读取失败、artifact scope 不匹配或字段缺失时，应在 Coverage 的 `direct evidence:` 行记录 unavailable/stale 并继续 direct source reads。
+`direct_evidence_used` 是 optional compact summary，用于把 `$spec-work` 从 plan envelope 消费到的 direct source evidence evidence 传递给下游 `$spec-code-review`。它只保存 `capabilities_used`、`evidence_grade`、`evidence_posture`、`freshness_state`、`repo_scope`、`graph_findings_applied`、`graph_findings_as_risk_only`、`source_reads_validated` 和 `redaction_status`，不保存 raw provider output、源码摘录或 credentialed URL。Capability-class advisory candidates 的查询与采纳/拒绝摘要落 `provider_untrusted.summaries[]`；经回源确认的内容再落 `direct_evidence_used`，未确认候选只能作为 limitation。`spec-code-review` 读取失败、artifact scope 不匹配或字段缺失时，应在 Coverage 的 `direct evidence:` 行记录 unavailable/stale 并继续 direct source reads。
 
 ## Code review temporary handoff
 

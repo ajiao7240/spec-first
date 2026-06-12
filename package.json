@@ -45,6 +45,7 @@
     "docs/contracts/governance/",
     "docs/contracts/helper-tools-registry.schema.json",
     "docs/contracts/knowledge/",
+    "docs/contracts/project-graph-consumption.md",
     "docs/contracts/quality-gates/",
     "docs/contracts/provider-readiness.md",
     "docs/contracts/provider-readiness.schema.json",

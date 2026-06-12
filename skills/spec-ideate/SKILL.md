@@ -86,6 +86,10 @@ Ideation dispatch is optional and read-only. Direct invocation of the current ho
 
 If dispatch is unavailable, explicitly disabled, or fails for a non-capacity reason, run grounding and ideation sequentially or inline in the current agent. The workflow must still produce an ideation artifact when dispatch is unavailable; dispatch improves breadth, latency, and context separation, not correctness. The orchestrator owns scratch checkpoints, merged candidates, critique, and final artifact writes.
 
+## Capability-Class Evidence Boundary
+
+Follows `docs/contracts/project-graph-consumption.md`: `capability-class` candidates such as `code-graph` or `project-graph` are advisory only. Check `readiness_status` before use; option evaluation and the chosen direction must be re-grounded in source, never the candidate. Record used candidates as `provider_untrusted`, never-block on availability, keep setup-side `lifecycle.fallback_used` separate; fall back to direct source reads on missing/`unknown`/`unverified`/failure/disabled.
+
 ## Execution Flow
 
 ### Phase 0: Resume and Scope

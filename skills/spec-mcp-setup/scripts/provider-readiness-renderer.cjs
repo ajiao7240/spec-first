@@ -449,6 +449,9 @@ function helperProviderEntries(registry, repoDir) {
       if (installed && !artifact) {
         nextActions.push('Generate project-root graphify-out/ with graphify extract or graphify update . before using this provider as architecture navigation.');
       }
+      if (installed && artifact && provider.id === 'graphify' && !queryVerified) {
+        nextActions.push(`Graphify query probe has not confirmed CLI/artifact usability; rerun ${setupWorkflowCommand(currentHost, '--only graphify')} when project-graph navigation would help. For code navigation prefer \`graphify explain\`/\`path\`; \`query\` is unscored BFS and weak orientation only. Otherwise continue with bounded direct evidence.`);
+      }
       if (hookOverrides.hookStatus === 'failed') {
         readinessStatus = 'degraded';
         nextActions.push(`Graphify hook setup failed; rerun \`${setupWorkflowCommand(currentHost, '--only graphify')}\` or run \`graphify hook install\` and \`graphify hook status\` from the project root.`);

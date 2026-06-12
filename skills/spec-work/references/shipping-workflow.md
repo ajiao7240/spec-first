@@ -194,7 +194,7 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
 
    **Completion Response Contract**
 
-   The final user-visible response must be compact but complete. Include these fields in the current conversation language:
+   The final user-visible response must be compact but complete. Include these fields in the repository language policy from the active `CLAUDE.md` / `AGENTS.md` `spec-first:lang` block:
 
    ```text
    Completed: <what changed and the main files or artifact paths>
@@ -209,6 +209,8 @@ This file contains the shipping workflow (Phase 3-4). It is loaded when all Phas
    **Direct evidence used (when applicable)**
 
    If the plan/task-pack or this work run consumed direct source/test/log evidence that materially shaped scope or verification, include a compact `direct_evidence_used` mini-section in closeout or handoff evidence. Omit the section when the ordinary changed-file/test summary is enough.
+
+   If capability-class candidates shaped scope or verification, put advisory query/candidate summaries in `provider_untrusted.summaries[]`; put source-confirmed facts in `direct_evidence_used.source_refs` or `direct_evidence_used.checks_or_logs`; put unconfirmed candidates and bounded coverage in `limitations`.
 
    ```text
    Direct evidence used:

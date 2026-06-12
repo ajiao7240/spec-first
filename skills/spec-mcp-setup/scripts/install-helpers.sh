@@ -11,6 +11,7 @@ source "$SCRIPT_DIR/lib-helper-registry.sh"
 MODE="install"
 REQUIREMENT_WORKSPACE="${SPEC_FIRST_PROVIDER_GRAPHIFY_REQUIREMENT_WORKSPACE:-${SPEC_FIRST_REQUIREMENT_WORKSPACE:-}}"
 DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
+PROBE_TIMEOUT_SECONDS="${SPEC_FIRST_PROBE_TIMEOUT_SECONDS:-30}"
 
 NPM_MIRROR_ENDPOINT="https://registry.npmmirror.com"
 UV_MIRROR_ENDPOINT="https://mirrors.tuna.tsinghua.edu.cn/pypi/simple"
@@ -1112,7 +1113,7 @@ Rules:
 - Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `"<resolved-graphify>" update .` when a Graphify CLI is runtime-visible to keep the graph current (AST-only, no API cost). If no CLI is visible, do not repair generated runtime from ordinary workflows; disclose the skipped graph refresh and rely on direct source evidence.
+- Ordinary workflows do not refresh project graphs after code changes. Treat graph freshness as a setup/readiness advisory from `docs/contracts/project-graph-consumption.md`; confirm conclusions from source/test/log evidence and use `/spec:mcp-setup --only graphify` when setup repair would help.
 EOF
       ;;
     *)
@@ -1129,7 +1130,7 @@ Rules:
 - Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `"<resolved-graphify>" update .` when a Graphify CLI is runtime-visible to keep the graph current (AST-only, no API cost). If no CLI is visible, do not repair generated runtime from ordinary workflows; disclose the skipped graph refresh and rely on direct source evidence.
+- Ordinary workflows do not refresh project graphs after code changes. Treat graph freshness as a setup/readiness advisory from `docs/contracts/project-graph-consumption.md`; confirm conclusions from source/test/log evidence and use `$spec-mcp-setup --only graphify` when setup repair would help.
 EOF
       ;;
   esac
@@ -1243,6 +1244,16 @@ probe_graphify_query_if_available() {
     export SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED=false
   fi
   popd >/dev/null
+}
+
+probe_graphify_query_for_existing_artifact_if_available() {
+  [ -z "${SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED+x}" ] || return 0
+  local repo_root="${SPEC_FIRST_PROVIDER_REPO_ROOT:-$PWD}"
+  local artifact_root="${SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT:-graphify-out}"
+  local artifact_abs="$repo_root/$artifact_root"
+  [ -f "$artifact_abs/graph.json" ] || return 0
+  resolve_graphify_cli >/dev/null 2>&1 || return 0
+  DEFAULT_STAGE_TIMEOUT_SECONDS="$PROBE_TIMEOUT_SECONDS" probe_graphify_query_if_available "$repo_root" "$artifact_abs" || true
 }
 
 graphify_artifact_ref() {
@@ -1438,6 +1449,7 @@ finalize_agent_browser \
   "${AGENT_BROWSER_DEMAND_SIGNALS_JSON:-[]}"
 finalize_global_skill "ast-grep-skill" "ast-grep"
 install_graphify_provider_if_requested
+probe_graphify_query_for_existing_artifact_if_available
 PROVIDER_JSON="$(node "$SCRIPT_DIR/provider-readiness-renderer.cjs" --source helper --repo-root "${SPEC_FIRST_PROVIDER_REPO_ROOT:-$PWD}" 2>/dev/null || printf '[]')"
 
 jq -n \

@@ -55,6 +55,8 @@ describe('instruction bootstrap', () => {
     expect(twice).toContain('不自动串联多个 workflow');
     expect(twice).toContain('用户询问下一步时');
     expect(twice).toContain('用 `using-spec-first` guide mode 给一个入口、一个理由、一个动作');
+    expect(twice).toContain('用户可见输出语言以本文件的 `spec-first:lang` managed block 为准');
+    expect(twice).toContain('当前会话惯性不得覆盖该策略');
     expect(twice).toContain('bounded subagent');
     expect(twice).toContain('bounded direct reads');
     expect(twice).toContain('target_repo');
@@ -96,6 +98,8 @@ describe('instruction bootstrap', () => {
     expect(updated).toContain('must not block routing');
     expect(updated).toContain("when the user asks what's next");
     expect(updated).toContain('use `using-spec-first` guide mode for one entrypoint, one reason, one action');
+    expect(updated).toContain("User-visible output language follows this file's `spec-first:lang` managed block");
+    expect(updated).toContain('conversation inertia must not override it');
     expect(updated).toContain('bounded subagents, leaf reviewers, and worker agents');
     expect(updated).toContain('Runtime context excludes `.spec-first/audits/**`');
     expect(updated).toContain('generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`)');

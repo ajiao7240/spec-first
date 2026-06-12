@@ -9,6 +9,10 @@ const WORKFLOW_SKILLS = [
   'skills/spec-plan/SKILL.md',
   'skills/spec-code-review/SKILL.md',
   'skills/spec-debug/SKILL.md',
+  'skills/spec-work/SKILL.md',
+  'skills/spec-prd/SKILL.md',
+  'skills/spec-brainstorm/SKILL.md',
+  'skills/spec-ideate/SKILL.md',
 ];
 
 function readRepo(relativePath) {
@@ -32,6 +36,7 @@ describe('capability-aware provider contracts', () => {
     const lower = source.toLowerCase();
 
     expect(source).toContain('Capability-Class Evidence Boundary');
+    expect(source).toContain('docs/contracts/project-graph-consumption.md');
     expect(source).toContain('capability-class');
     expect(source).toContain('code-graph');
     expect(source).toContain('project-graph');
@@ -43,6 +48,7 @@ describe('capability-aware provider contracts', () => {
     expect(lower).not.toContain('codegraph_');
     expect(lower).not.toContain('graphify');
     expect(source).not.toContain('缺失即 warn/降级/阻断');
+    expect(source).not.toContain('absent, stale, unknown, or unverified');
   });
 
   test('provider readiness contract preserves setup-vs-consumption fallback split', () => {

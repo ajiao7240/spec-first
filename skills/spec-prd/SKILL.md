@@ -57,6 +57,10 @@ Overrides: none
 
 This is a workflow orchestrator, not an agent type. Use the current host's PRD workflow entrypoint when routing into it. Do not expose helper reviewers or readiness checks as separate public entrypoints.
 
+## Capability-Class Evidence Boundary
+
+Follows `docs/contracts/project-graph-consumption.md`: `capability-class` candidates such as `code-graph` or `project-graph` are advisory only. Check `readiness_status` before use; PRD conclusions must be re-grounded in source, and a candidate must never decide scope authority. Record used candidates as `provider_untrusted`, never-block on availability, keep setup-side `lifecycle.fallback_used` separate; fall back to direct source reads on missing/`unknown`/`unverified`/failure/disabled.
+
 ## Core Principles
 
 1. **Brownfield first** - Establish the current system snapshot before writing new behavior.

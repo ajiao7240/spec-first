@@ -39,6 +39,7 @@ describe('AI Coding Harness contract', () => {
       'context-governance.md',
       'context-bundle.md',
       'artifact-summary.md',
+      'project-graph-consumption.md',
       'knowledge/knowledge-harness.md',
       'workflows/spec-id-traceability.md',
       'workflows/spec-work-run-artifact.schema.json',
@@ -60,6 +61,7 @@ describe('AI Coding Harness contract', () => {
     expect(contract).toContain('| verification | tests, syntax checks, CLI output, logs, deterministic validators |');
     expect(contract).toContain('| handoff-summary | artifact summaries, changed files, review/debug/work summaries |');
     expect(contract).toContain('| external-tool | browser/MCP/package manager/shell outputs when explicitly useful |');
+    expect(contract).toContain('| capability-candidate | project-graph/code-graph orientation candidates, consumed through `project-graph-consumption.md` |');
     expect(contract).toContain('source reads remain the confirmation path');
     expect(contract).toContain('untrusted until validated, bounded, summarized, and confirmed against source/test/log evidence when material');
   });

@@ -132,7 +132,7 @@ Use a compact, user-visible shape so the answer is easy to scan:
 下一步: <one action the user can take now>
 ```
 
-In English sessions, use the same three fields as `Recommended entrypoint`, `Reason`, and `Next action`. The next action should be a copy-ready workflow invocation or a short continuation phrase such as "reply `继续` to run it now". Do not start the selected workflow from guide mode unless the user explicitly asks to continue with that workflow.
+In repositories whose active `CLAUDE.md` / `AGENTS.md` `spec-first:lang` block sets English, use the same three fields as `Recommended entrypoint`, `Reason`, and `Next action`. The next action should be a copy-ready workflow invocation or a short continuation phrase such as "reply `continue` to run it now". Do not start the selected workflow from guide mode unless the user explicitly asks to continue with that workflow.
 
 Use the Routing Priority and Routing Rules below as the source of truth. Use the exact current-host public entrypoint those rules select.
 

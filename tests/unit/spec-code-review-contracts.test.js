@@ -448,7 +448,8 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).toContain('"I need to consider"');
     expect(text).toContain('"I think"');
     expect(text).toContain('state the verified limitation and the next check');
-    expect(text).toContain('Use the session language for new prose');
+    expect(text).toContain('Use the repository language policy from the active `CLAUDE.md` / `AGENTS.md` `spec-first:lang` block for new prose');
+    expect(text).not.toContain('Use the session language for new prose');
   });
 
   test('resolve-base script lives under scripts and runtime calls use the trusted skill path', () => {

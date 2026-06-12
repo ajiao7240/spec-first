@@ -104,6 +104,10 @@ Institutional learnings from `docs/solutions/` recalled during execution (direct
 
 Work does not require external-tool readiness before ordinary implementation. Use direct source reads, `rg`, ast-grep, git diff, focused tests, logs, package metadata, and user-provided artifacts as the evidence base. If an external tool is unavailable or outside the current scope, disclose that limitation and continue only with claims that the direct evidence supports.
 
+## Capability-Class Evidence Boundary
+
+Follows `docs/contracts/project-graph-consumption.md`: `capability-class` candidates such as `code-graph` or `project-graph` are advisory only. Check `readiness_status` before use; the basis for any change must be the plan/task/source/tests, never the candidate alone. Record used candidates as `provider_untrusted`, never-block on availability, keep setup-side `lifecycle.fallback_used` separate; fall back to direct source reads on missing/`unknown`/`unverified`/failure/disabled.
+
 ## Workspace Repo Scope
 
 When invoked from a parent workspace containing multiple independent Git repos, do not infer a write target from cwd alone. For read-only orientation questions, use bounded direct reads of candidate repos only after the user request or plan makes the candidate scope clear. A plan or task pack must state a single `target_repo` or per-unit/per-task `target_repo` values before edits, tests, changelog updates, or commits. Verify that planned file paths and actual `git status` changes belong to the selected child repo. If repo scope is missing or ambiguous, return to `spec-plan` or ask for the active repo instead of writing into a sibling repo or the parent workspace.
@@ -155,7 +159,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    **User-Facing Handoff Contract**
 
-   When `spec-work` cannot continue safely and must recommend another workflow, task compilation, repo scoping, task-pack regeneration, or user clarification, do not stop with only "return to spec-plan" or a bare workflow name. Give the user a compact handoff in the current conversation language:
+   When `spec-work` cannot continue safely and must recommend another workflow, task compilation, repo scoping, task-pack regeneration, or user clarification, do not stop with only "return to spec-plan" or a bare workflow name. Give the user a compact handoff in the repository language policy from the active `CLAUDE.md` / `AGENTS.md` `spec-first:lang` block:
 
    ```text
    Blocking reason: <specific reason execution cannot continue safely>
