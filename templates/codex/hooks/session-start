@@ -27,13 +27,14 @@ if (fs.existsSync(instructionPath)) {
   const endIdx = instructionBody.indexOf(BOOTSTRAP_END);
 
   if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    const bootstrapBlock = instructionBody.slice(startIdx, endIdx + BOOTSTRAP_END.length);
+    // The managed bootstrap block already lives in AGENTS.md, which Codex loads at
+    // session start, so re-injecting its full body here would duplicate it verbatim.
+    // Emit a short pointer instead: keep the workflow-entry trigger and the parent
+    // multi-repo target_repo boundary salient without paying the duplication cost.
     additionalContext = [
       '[spec-first] using-spec-first SessionStart injection',
-      'Use the following managed AGENTS.md bootstrap block as the workflow-entry trigger for this repository.',
-      'For parent multi-repo workspaces, preserve its explicit target_repo write boundary.',
-      '',
-      bootstrapBlock,
+      "Workflow entry governance is active in this repo's AGENTS.md (using-spec-first managed block): route substantial work through a public $spec-* workflow before editing, and in a parent multi-repo workspace keep writes within an explicit target_repo.",
+      'Full routing policy: skills/using-spec-first/SKILL.md.',
     ].join('\n');
   }
 }

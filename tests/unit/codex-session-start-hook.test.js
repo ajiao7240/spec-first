@@ -291,7 +291,7 @@ describe('Codex SessionStart hook runtime plan', () => {
 });
 
 describe('Codex SessionStart hook script', () => {
-  test('prints valid SessionStart JSON with the managed AGENTS bootstrap block', () => {
+  test('emits a short governance pointer without re-injecting the AGENTS bootstrap block', () => {
     const projectRoot = makeTempDir();
 
     try {
@@ -318,11 +318,14 @@ describe('Codex SessionStart hook script', () => {
       expect(result.stderr).toBe('');
       const payload = JSON.parse(result.stdout);
       expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('[spec-first] using-spec-first SessionStart injection');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('managed AGENTS.md bootstrap block');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('workflow-entry trigger');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('target_repo');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('Codex workflow entrypoints use `$spec-*`.');
+      const ctx = payload.hookSpecificOutput.additionalContext;
+      expect(ctx).toContain('[spec-first] using-spec-first SessionStart injection');
+      expect(ctx).toContain('Workflow entry governance is active');
+      expect(ctx).toContain('target_repo');
+      expect(ctx).toContain('skills/using-spec-first/SKILL.md');
+      // AGENTS.md already carries the block; the hook must not duplicate its body.
+      expect(ctx).not.toContain('## Workflow entry governance');
+      expect(ctx).not.toContain('- Codex workflow entrypoints use `$spec-*`.');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
