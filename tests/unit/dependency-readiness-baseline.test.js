@@ -758,6 +758,87 @@ exit 0
     });
   });
 
+  test('install-helpers verify-only probes existing Graphify artifact with pinned CLI', () => {
+    const tempDir = makeTempDir();
+    const homeDir = path.join(tempDir, 'home');
+    const binDir = path.join(tempDir, 'bin');
+    const graphifyBinDir = path.join(homeDir, '.local/bin');
+    const capturePath = path.join(tempDir, 'graphify-args.txt');
+    fs.mkdirSync(path.join(homeDir, '.agents/skills/ast-grep'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, '.agents/skills/graphify'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'graphify-out'), { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.mkdirSync(graphifyBinDir, { recursive: true });
+    fs.writeFileSync(path.join(homeDir, '.agents/skills/ast-grep/SKILL.md'), '# ast-grep\n', 'utf8');
+    fs.writeFileSync(path.join(tempDir, '.agents/skills/graphify/SKILL.md'), '# graphify\n', 'utf8');
+    fs.writeFileSync(path.join(tempDir, 'graphify-out/graph.json'), '{}\n', 'utf8');
+
+    for (const command of ['gh', 'vhs', 'silicon', 'ffmpeg', 'ast-grep']) {
+      const commandPath = path.join(binDir, command);
+      fs.writeFileSync(commandPath, '#!/bin/sh\nexit 0\n', 'utf8');
+      fs.chmodSync(commandPath, 0o755);
+    }
+    const staleGraphifyPath = path.join(binDir, 'graphify');
+    fs.writeFileSync(staleGraphifyPath, `#!/bin/sh
+printf 'PATH:%s\\n' "$*" >> "$GRAPHIFY_CAPTURE"
+if [ "$1" = "--version" ]; then
+  printf 'graphify 0.1.0\\n'
+  exit 0
+fi
+if [ "$1" = "query" ]; then
+  exit 0
+fi
+exit 0
+`, 'utf8');
+    fs.chmodSync(staleGraphifyPath, 0o755);
+    const pinnedGraphifyPath = path.join(graphifyBinDir, 'graphify');
+    fs.writeFileSync(pinnedGraphifyPath, `#!/bin/sh
+printf 'PINNED:%s\\n' "$*" >> "$GRAPHIFY_CAPTURE"
+if [ "$1" = "--version" ]; then
+  printf 'graphify 0.8.36\\n'
+  exit 0
+fi
+if [ "$1" = "query" ]; then
+  exit 9
+fi
+exit 0
+`, 'utf8');
+    fs.chmodSync(pinnedGraphifyPath, 0o755);
+
+    const result = spawnSync('bash', [installHelpersPath, '--verify-only'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: homeDir,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        SPEC_FIRST_PROVIDER_ORIGINAL_PATH: binDir,
+        GRAPHIFY_CAPTURE: capturePath,
+        SPEC_FIRST_PROVIDER_REPO_ROOT: tempDir,
+        SPEC_FIRST_PROVIDER_HOST: 'codex',
+        SPEC_FIRST_STAGE_TIMEOUT_SECONDS: '5',
+        SPEC_FIRST_PROBE_TIMEOUT_SECONDS: '5',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    const captured = fs.readFileSync(capturePath, 'utf8');
+    expect(captured).toContain('PINNED:query spec-first setup readiness --graph');
+    expect(captured).not.toContain('PATH:query spec-first setup readiness --graph');
+    const payload = JSON.parse(result.stdout);
+    const graphify = payload.provider_readiness.find((entry) => entry.provider === 'graphify');
+    expect(graphify).toMatchObject({
+      lifecycle: {
+        installed: true,
+        configured: true,
+        artifact_exists: true,
+        query_verified: false,
+      },
+    });
+    expect(graphify.next_actions.join('\n')).toContain('Graphify query probe has not confirmed CLI/artifact usability');
+    expect(graphify.next_actions.join('\n')).toContain('does not match pinned graphifyy==0.8.36');
+  });
+
   test('install-helpers invokes provider-standard off-PATH Graphify while preserving manual visibility next action', () => {
     const tempDir = makeTempDir();
     const homeDir = path.join(tempDir, 'home');

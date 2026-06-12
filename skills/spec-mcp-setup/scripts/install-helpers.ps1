@@ -1296,7 +1296,7 @@ function Invoke-GraphifyQueryProbeForExistingArtifactIfAvailable {
   $artifactRoot = Join-Path $providerRepoRoot $graphifyArtifactRootDefault
   $graphJson = Join-Path $artifactRoot 'graph.json'
   if (-not (Test-Path -LiteralPath $graphJson -PathType Leaf)) { return }
-  if ([string]::IsNullOrWhiteSpace((Resolve-GraphifyCli))) { return }
+  if ([string]::IsNullOrWhiteSpace((Resolve-GraphifyCliMatchingPin))) { return }
   Invoke-GraphifyQueryProbe -RepoRoot $providerRepoRoot -ArtifactRoot $artifactRoot
 }
 

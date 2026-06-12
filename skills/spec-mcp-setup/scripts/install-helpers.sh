@@ -1252,7 +1252,7 @@ probe_graphify_query_for_existing_artifact_if_available() {
   local artifact_root="${SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT:-graphify-out}"
   local artifact_abs="$repo_root/$artifact_root"
   [ -f "$artifact_abs/graph.json" ] || return 0
-  resolve_graphify_cli >/dev/null 2>&1 || return 0
+  resolve_graphify_cli_matching_pin >/dev/null 2>&1 || return 0
   DEFAULT_STAGE_TIMEOUT_SECONDS="$PROBE_TIMEOUT_SECONDS" probe_graphify_query_if_available "$repo_root" "$artifact_abs" || true
 }
 

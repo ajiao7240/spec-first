@@ -69,6 +69,7 @@ assert "bash install-helpers invokes resolved Graphify hook install" grep -q -- 
 assert "bash install-helpers invokes resolved Graphify hook status" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" hook status' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers invokes resolved Graphify query probe" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" query "spec-first setup readiness" --graph "$graph_json"' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers probes existing Graphify artifact before provider rendering" grep -q -- 'probe_graphify_query_for_existing_artifact_if_available' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers verify-only probe requires pinned Graphify CLI" grep -q -- 'resolve_graphify_cli_matching_pin >/dev/null 2>&1 || return 0' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers uses short Graphify query probe timeout" grep -q -- 'PROBE_TIMEOUT_SECONDS="${SPEC_FIRST_PROBE_TIMEOUT_SECONDS:-30}"' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers overrides stage timeout for verify-only Graphify probe" grep -q -- 'DEFAULT_STAGE_TIMEOUT_SECONDS="$PROBE_TIMEOUT_SECONDS" probe_graphify_query_if_available' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers preserves install-produced Graphify query fact" grep -q -- '[ -z "${SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED+x}" ] || return 0' "$SCRIPTS_DIR/install-helpers.sh"
