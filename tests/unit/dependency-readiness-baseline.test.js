@@ -806,7 +806,8 @@ exit 0
     expect(claude).toContain('# Project');
     expect(claude).toContain('Graphify CLI is runtime-visible');
     expect(claude).toContain('"<resolved-graphify>" query "<question>"');
-    expect(claude).toContain('$spec-mcp-setup --only graphify');
+    expect(claude).toContain('/spec:mcp-setup --only graphify');
+    expect(claude).not.toContain('$spec-mcp-setup --only graphify');
     expect(claude).not.toContain('first run `graphify query "<question>"`');
   });
 
