@@ -26,6 +26,7 @@
 | path | reason_code | 说明 |
 | --- | --- | --- |
 | `.spec-first/audits/**` | `runtime_audit_artifact_excluded` | skill/runtime 审计执行产物，体积大、可重建，不是 source truth |
+| `.spec-first/governance/**` | `runtime_governance_artifact_excluded` | 本机 workflow 治理观测证据，如 rule-maturity shadow hits；普通 source context 不扫描，周期审计或显式治理复查按路径读取 |
 | `.claude/**` | `generated_runtime_mirror_excluded` | Claude generated runtime mirror / host-local state |
 | `.codex/**` | `generated_runtime_mirror_excluded` | Codex generated runtime mirror / host-local state |
 | `.agents/skills/**` | `generated_runtime_mirror_excluded` | Codex-facing generated skill mirror |
@@ -48,7 +49,7 @@
 
 ## Runtime Artifact Policy
 
-`.spec-first/workspace/**`、`.spec-first/app-audit/**` 和 `.spec-first/workflows/**` 默认也不是普通 source context。下游 workflow 应优先读取该目录下的 canonical summary、validated contract 或明确路径，而不是扫描整棵 `.spec-first/**`。
+`.spec-first/workspace/**`、`.spec-first/app-audit/**`、`.spec-first/governance/**` 和 `.spec-first/workflows/**` 默认也不是普通 source context。下游 workflow 应优先读取该目录下的 canonical summary、validated contract 或明确路径，而不是扫描整棵 `.spec-first/**`。
 
 `summary-first` 规则：
 
@@ -78,6 +79,7 @@ External-tool results and session summaries follow the same rule: pass only comp
 | --- | --- |
 | `spec-mcp-setup` / `spec-first update` CLI | runtime delivery、host setup、drift repair 所需的 host runtime paths |
 | `spec-skill-audit` | `.spec-first/audits/skill-audit/**` 的本轮 summary、scorecard、runtime-drift evidence |
+| `spec-skill-audit` governance health pass | `.spec-first/governance/rule-maturity.json` 的 rule-maturity 观测汇总，输出周期治理健康 artifact |
 | `spec-app-consistency-audit` | `.spec-first/app-audit/**` 的 run-scoped evidence |
 | changelog author resolution | 读取全局 developer profile：`~/.spec-first/.developer`，只用于 `CHANGELOG.md` 作者字段，不纳入 broad context bundle |
 | user-explicit path request | 只读取用户明确点名的文件或目录，并说明它是 runtime/generated/audit context |
@@ -93,7 +95,7 @@ External-tool results and session summaries follow the same rule: pass only comp
 3. validated summaries, review facts, or deterministic setup facts.
 4. 精确路径的 full artifact 或 raw evidence，仅当用户要求、workflow 明确需要，或 summary 显示证据不足。
 
-禁止把 `.spec-first/audits/**`、`.claude/**`、`.codex/**`、`.agents/skills/**` 纳入默认 `rg --files` / file-search / agent prompt bundle 的普通候选集。
+禁止把 `.spec-first/audits/**`、`.spec-first/governance/**`、`.claude/**`、`.codex/**`、`.agents/skills/**` 纳入默认 `rg --files` / file-search / agent prompt bundle 的普通候选集。
 
 内部 context helper 在匹配排除规则前必须先把输入路径规范化为 repo-relative canonical path；解析后位于当前 repo 外的路径，或 repo 内 symlink 解析后指向 repo 外的路径，必须以 `outside_repo_context_excluded` 排除，除非上游 workflow 明确使用了自己的外部路径合同。
 
@@ -112,4 +114,4 @@ External-tool results and session summaries follow the same rule: pass only comp
 
 - Host bootstrap 应提示默认 runtime exclusion。
 - 高频 public workflows 的 context orientation 应引用本 contract 或等价规则。
-- Contract tests 应防止 `.spec-first/audits/**` 和 generated mirrors 被重新描述为普通上下文。
+- Contract tests 应防止 `.spec-first/audits/**`、`.spec-first/governance/**` 和 generated mirrors 被重新描述为普通上下文。

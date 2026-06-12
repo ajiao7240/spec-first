@@ -70,7 +70,7 @@ For docs-only and config-only changes, docs contract checks, schema/help/render 
 
 ## Runtime Context Exclusion
 
-遵循 `docs/contracts/context-governance.md`：普通 Code Review context 默认排除 `.spec-first/audits/**` 和 generated mirrors（`.claude/**`、`.codex/**`、`.agents/skills/**`）。除非 diff 或用户请求明确指向 setup/update/runtime drift/audit evidence，否则不要把这些路径放进 reviewer prompt、broad repo search 或 review context bundle；被排除时，在 Coverage 中报告 path 或 reason，而不是静默扫描。
+遵循 `docs/contracts/context-governance.md`：普通 Code Review context 默认排除 `.spec-first/audits/**`、`.spec-first/governance/**` 和 generated mirrors（`.claude/**`、`.codex/**`、`.agents/skills/**`）。除非 diff 或用户请求明确指向 setup/update/runtime drift/audit/governance evidence，否则不要把这些路径放进 reviewer prompt、broad repo search 或 review context bundle；被排除时，在 Coverage 中报告 path 或 reason，而不是静默扫描。
 
 ## Cache-Friendly Context Layout
 
@@ -487,6 +487,14 @@ spec-first internal resource-governance-lens \
 
 Record `resource_lens_status`, advisory dimensions, and `reason_codes` with the preflight facts. Resource lens facts are advisory: they may justify reviewer focus or closeout notes, but they do not block review, do not replace reviewer judgment, and do not treat generated runtime paths as `evidence_ref` values. If the helper is unavailable, keep the existing scale-aware preflight and record `resource-governance-lens unavailable` in Coverage.
 
+When confirmed findings or resource advisories reveal a repeated governance miss, the synthesis may record a small advisory shadow hit only when the current mode permits writes. In `mode:report-only` or single-agent report-only fallback, do not run this command; render `Rule Maturity Candidates` in Stage 6 and note skipped recording in Coverage instead.
+
+```bash
+spec-first internal rule-maturity record --rule-id summary-generated-output-staged --workflow spec-code-review --evidence-ref <durable-review-artifact-or-finding-ref> --reason-code <reason-code> --json
+```
+
+Only record when there is durable evidence and one of these signals exists: a P1/P2 finding exposes a repeated governance gap, the same low-level issue appears at least twice in one review, or an advisory clearly violates a registered contract or plan non-goal. Use `rule_id` as `lens-family + problem-class` kebab-case, carry `similar_existing_rule_ids` when known, and continue with Coverage noting degraded posture if `rule-maturity record` is unavailable or rejected. Do not automatically adjudicate, promote, demote, or convert the observation into a code-review finding.
+
 Progressive disclosure boundary: low-risk docs-only, simple config, and tiny executable diffs may use a minimum reviewer set; high-risk workflow, contract, release, source/runtime boundary, external-tool evidence, security, or cross-module changes must use the full default core plus applicable conditional reviewers. The goal is to avoid unbounded fan-out on small diffs without hiding risk.
 
 Use the minimum reviewer set only when all of these are true:
@@ -836,8 +844,9 @@ Assemble the final report using **pipe-delimited markdown tables for findings** 
 10. **Schema Drift Check.** If spec-schema-drift-detector ran, summarize whether drift was found. If drift exists, list the unrelated schema objects and the required cleanup command. If clean, say so briefly.
 11. **Deployment Notes.** If spec-deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage.
 12. **Resource Advisory.** If `resource-governance-lens` returned `status=advisory`, list the advisory dimensions and reason codes using `subject_path` for the file under discussion and `evidence_ref` for the proof source. Do not convert resource advisories into blocking findings unless a reviewer independently confirms a concrete code-review issue. A `status=unavailable` result (for example a non-git target) is a non-blocking degraded posture, not a fast-fail signal: note it in Coverage and continue; the helper exit code stays `0` for `ok`, `advisory`, and `unavailable`.
-13. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, resource lens status/reason codes, direct evidence posture, and any intent uncertainty carried by non-interactive modes. Include `Direct evidence: <source refs/checks/logs used> | limitations: <reason>` when coverage depends on bounded direct evidence; for multi-repo review, report evidence per child repo. External-tool evidence is advisory whenever it is degraded or unconfirmed by source.
-14. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
+13. **Rule Maturity Candidates.** Include only when the confirmed findings or resource advisory meet the rule-maturity noise filter: P1/P2 repeated governance gap, same low-level issue appears at least twice, or a registered contract / plan non-goal is clearly violated. For each candidate list `rule_id`, `evidence_ref`, `reason_code`, `human_review_kind`, and `similar_existing_rule_ids`; use durable repo-readable evidence refs, never session-only summaries, raw lens stdout, `/tmp` files, or "see above". This section is an advisory queue for humans, not a finding, not a verdict input, and not an automatic `adjudicate`, `promote`, or `demote` action.
+14. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, resource lens status/reason codes, direct evidence posture, and any intent uncertainty carried by non-interactive modes. Include `Direct evidence: <source refs/checks/logs used> | limitations: <reason>` when coverage depends on bounded direct evidence; for multi-repo review, report evidence per child repo. External-tool evidence is advisory whenever it is degraded or unconfirmed by source.
+15. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
 
 Do not include time estimates.
 

@@ -53,6 +53,7 @@ logs/
 .spec-first/verification-profile.local.json
 .spec-first/config/*.json
 .spec-first/audits/
+.spec-first/governance/
 .spec-first/app-audit/
 .spec-first/workflows/
 .spec-first/workspace/
@@ -91,6 +92,7 @@ __pycache__/
 .spec-first/config.local.yaml
 .spec-first/config/*.json
 .spec-first/audits/
+.spec-first/governance/
 .spec-first/app-audit/
 .spec-first/workflows/
 .spec-first/workspace/

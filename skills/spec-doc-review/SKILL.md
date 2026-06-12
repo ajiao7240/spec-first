@@ -53,7 +53,7 @@ When editing or reviewing this workflow prompt, or when running fresh-source eva
 
 ## Runtime Context Exclusion
 
-Follow `docs/contracts/context-governance.md`: ordinary Document Review context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Do not include those paths in reviewer prompts, pre-facts targets, broad repo search, or section bundles unless the document or user request explicitly targets setup/update/runtime drift/audit evidence; when excluded, surface the path or reason in Coverage instead of silently scanning it.
+Follow `docs/contracts/context-governance.md`: ordinary Document Review context excludes `.spec-first/audits/**`, `.spec-first/governance/**`, and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Do not include those paths in reviewer prompts, pre-facts targets, broad repo search, or section bundles unless the document or user request explicitly targets setup/update/runtime drift/audit/governance evidence; when excluded, surface the path or reason in Coverage instead of silently scanning it.
 
 ## Summary-First Section Bundles
 

@@ -78,7 +78,7 @@ When spawning subagents, pass the relevant file contents into the task prompt so
 
 ## Runtime Context Exclusion
 
-Follow `docs/contracts/context-governance.md`: ordinary Compound research excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Compound from confirmed fix summaries, changed source/test paths, session extracts, and `docs/solutions/` candidates; read runtime/audit artifacts only when the reusable lesson is specifically about setup/update/runtime drift/audit evidence or the user names a precise path.
+Follow `docs/contracts/context-governance.md`: ordinary Compound research excludes `.spec-first/audits/**`, `.spec-first/governance/**`, and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Compound from confirmed fix summaries, changed source/test paths, session extracts, and `docs/solutions/` candidates; read runtime/audit/governance artifacts only when the reusable lesson is specifically about setup/update/runtime drift/audit/governance evidence or the user names a precise path.
 
 ## Summary-First Handoff
 

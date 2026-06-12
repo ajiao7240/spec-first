@@ -140,6 +140,7 @@ describe('context bundle and summary contracts', () => {
       changedFiles: [
         'skills/spec-work/SKILL.md',
         '.spec-first/audits/old-run/summary.json',
+        '.spec-first/governance/rule-maturity.json',
         '.spec-first/workspace/legacy-summary.json',
       ],
       relatedPaths: ['docs/contracts/context-bundle.md'],
@@ -168,6 +169,10 @@ describe('context bundle and summary contracts', () => {
       expect.objectContaining({
         path: '.spec-first/audits/old-run/summary.json',
         reason_code: 'runtime_audit_artifact_excluded',
+      }),
+      expect.objectContaining({
+        path: '.spec-first/governance/rule-maturity.json',
+        reason_code: 'runtime_governance_artifact_excluded',
       }),
       expect.objectContaining({
         path: '.spec-first/workspace/legacy-summary.json',

@@ -31,6 +31,7 @@ Target skill/path or audit options, deterministic release/governance guard resul
 ### Outputs
 
 Skill audit findings with trigger/boundary/contract/progressive-disclosure/runtime governance evidence, confidence, suggested action, and residual risk.
+For spec-first self audits, also surface rule-maturity observation health facts when the local evidence file exists.
 
 ### Artifacts
 
@@ -140,6 +141,7 @@ The full self-audit run may write:
 
 - `skill-source-inventory.json`
 - `reviewer-guard-coverage-report.json`
+- `rule-maturity-observations.json`
 - `expert-scorecard.json`
 - `skill-audit-report.json`
 - `trigger-routing-report.json`
@@ -160,7 +162,7 @@ When the user explicitly asks for patch preview, it may also write:
 
 `.spec-first/audits/` is a gitignored execution artifact directory. It is not source truth and can be deleted or regenerated.
 
-This workflow is an explicit exception to the ordinary runtime context exclusion in `docs/contracts/context-governance.md`: it may read `.spec-first/audits/skill-audit/**` for the current audit summary, scorecard, and drift evidence. Other workflows should treat `.spec-first/audits/**` as excluded runtime audit artifacts unless the user names a precise path or the task is explicitly about audit/runtime evidence.
+This workflow is an explicit exception to the ordinary runtime context exclusion in `docs/contracts/context-governance.md`: it may read `.spec-first/audits/skill-audit/**` for the current audit summary, scorecard, and drift evidence. For repo-wide spec-first audits it may also read `.spec-first/governance/rule-maturity.json` to write `rule-maturity-observations.json`; that artifact reports periodic governance health facts and does not trigger human review, adjudication, or promotion. Other workflows should treat `.spec-first/audits/**` and `.spec-first/governance/**` as excluded runtime artifacts unless the user names a precise path or the task is explicitly about audit/runtime/governance evidence.
 
 ## Workflow
 
@@ -189,7 +191,7 @@ This workflow is an explicit exception to the ordinary runtime context exclusion
    node skills/spec-skill-audit/scripts/write-audit-artifacts.js --repo . --target skills/<skill-name>
    ```
 
-6. Read `skill-audit-summary.md`, `skill-improvement-plan.md`, and the JSON reports relevant to the user's question. For repo-wide spec-first source audits, read `reviewer-guard-coverage-report.json` before judging reviewer-agent guard completeness.
+6. Read `skill-audit-summary.md`, `skill-improvement-plan.md`, and the JSON reports relevant to the user's question. For repo-wide spec-first source audits, read `reviewer-guard-coverage-report.json` before judging reviewer-agent guard completeness, and read `rule-maturity-observations.json` before judging whether rule-maturity evidence is empty, degraded, or awaiting later human adjudication.
 7. Review the deterministic findings and reviewer guard coverage facts using `references/expert-audit-rubric.md`.
 8. Treat scorecards as signals, not gates.
 9. For each P0/P1 finding you surface to the user, include signal, file/section evidence, counter-evidence status, decision, reason, recommendation, and confidence.

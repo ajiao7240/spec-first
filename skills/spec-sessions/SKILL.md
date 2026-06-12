@@ -77,7 +77,7 @@ These rules apply at all times during orchestration and synthesis.
 - **Never analyze the current session.** Its conversation history is already available to the caller.
 - **Surface technical content, not personal content.** Sessions contain everything: credentials, frustration, half-formed opinions. Use judgment about what belongs in a technical summary and what does not.
 - **Fail fast on access errors.** If session discovery fails on permissions, report the issue immediately. Do not retry the same operation with different tools or approaches; repeated retries waste tokens without changing the outcome.
-- **Apply runtime context exclusion.** Follow `docs/contracts/context-governance.md`: do not treat `.spec-first/audits/**` or generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) as ordinary session context. Mention them only as path-backed evidence when the user's question explicitly concerns runtime/setup/audit history.
+- **Apply runtime context exclusion.** Follow `docs/contracts/context-governance.md`: do not treat `.spec-first/audits/**`, `.spec-first/governance/**`, or generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) as ordinary session context. Mention them only as path-backed evidence when the user's question explicitly concerns runtime/setup/audit/governance history.
 
 ## Distilled Replay References
 

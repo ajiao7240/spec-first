@@ -1,7 +1,7 @@
 ---
 title: "feat: v1.17 Governance Maturity 整版（规则自进化闭环 + governance ROI + resource hardening）"
 type: feat
-status: active
+status: completed
 date: 2026-06-10
 spec_id: 2026-06-10-001-rule-maturity-shadow-producer
 implements_schemas:

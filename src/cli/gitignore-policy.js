@@ -27,6 +27,7 @@ const SPEC_FIRST_GITIGNORE_SECTIONS = [
       '.spec-first/config.local.yaml',
       '.spec-first/config/*.json',
       '.spec-first/audits/',
+      '.spec-first/governance/',
       '.spec-first/app-audit/',
       '.spec-first/workflows/',
       '.spec-first/workspace/',

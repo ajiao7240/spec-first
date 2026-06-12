@@ -36,7 +36,7 @@ describe('governance contracts', () => {
     ]));
   });
 
-  test('rule-maturity schema allows reserved stages but source does not register a producer helper', () => {
+  test('rule-maturity schema allows reserved stages but source registers only a shadow producer helper', () => {
     const schema = readSchema('rule-maturity.schema.json');
     const payload = {
       schema_version: 'rule-maturity.v1',
@@ -60,11 +60,15 @@ describe('governance contracts', () => {
       reason_code: 'shadow-observation',
     };
     const internalSource = fs.readFileSync(path.join(REPO_ROOT, 'src', 'cli', 'commands', 'internal.js'), 'utf8');
+    const helperSource = fs.readFileSync(path.join(REPO_ROOT, 'src', 'cli', 'helpers', 'rule-maturity.js'), 'utf8');
 
     expect(validateAgainstSchema(schema, payload).errors).toEqual([]);
     expect(validateAgainstSchema(schema, { ...payload, stage: 'required-evidence' }).errors).toEqual([]);
     expect(validateAgainstSchema(schema, { ...payload, stage: 'blocking' }).errors).toEqual([]);
-    expect(internalSource).not.toContain("subcommand === 'rule-maturity'");
+    expect(internalSource).toContain("subcommand === 'rule-maturity'");
+    expect(helperSource).not.toContain("'--stage'");
+    expect(helperSource).not.toContain('"--stage"');
+    expect(helperSource).not.toMatch(/\b(promote|approveRule|escalate)\s*\(/);
   });
 
   test('producers never emit reserved maturity stages or promotion logic', () => {
@@ -110,5 +114,28 @@ describe('governance contracts', () => {
     delete incompleteItem.reason_code;
     const missingReasonCode = { ...payload, items: [incompleteItem] };
     expect(validateAgainstSchema(schema, missingReasonCode).errors.length).toBeGreaterThan(0);
+  });
+
+  test('rule maturity workflow prose exposes candidates without automatic promotion', () => {
+    const specPlan = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-plan', 'SKILL.md'), 'utf8');
+    const codeReview = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-code-review', 'SKILL.md'), 'utf8');
+    const outputTemplate = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-code-review', 'references', 'review-output-template.md'), 'utf8');
+    const skillAudit = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-skill-audit', 'SKILL.md'), 'utf8');
+    const contract = fs.readFileSync(path.join(REPO_ROOT, 'docs', 'contracts', 'governance', 'rule-maturity.md'), 'utf8');
+
+    expect(specPlan).toContain('spec-first internal rule-maturity record --rule-id planning-depth-underclassified');
+    expect(specPlan).toContain('this observation is not a planning gate and does not adjudicate or promote a rule');
+    expect(codeReview).toContain('spec-first internal rule-maturity record --rule-id summary-generated-output-staged');
+    expect(codeReview).toContain('Rule Maturity Candidates');
+    expect(codeReview).toContain('similar_existing_rule_ids');
+    expect(codeReview).toContain('Do not automatically adjudicate, promote, demote');
+    expect(codeReview).toContain('never session-only summaries, raw lens stdout, `/tmp` files, or "see above"');
+    expect(outputTemplate).toContain('### Rule Maturity Candidates');
+    expect(skillAudit).toContain('rule-maturity-observations.json');
+    expect(skillAudit).toContain('does not trigger human review, adjudication, or promotion');
+    expect(contract).toContain('spec-first internal rule-maturity record');
+    expect(contract).toContain('The local evidence store is `.spec-first/governance/rule-maturity.json`');
+    expect(contract).toContain('spec-code-review` Stage 6');
+    expect(contract).toContain('`spec-skill-audit`');
   });
 });

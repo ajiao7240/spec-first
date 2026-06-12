@@ -215,7 +215,7 @@ Source-of-truth assets 位于仓库中。`.claude/`、`.codex/` 和 `.agents/ski
 - **脚本负责什么：** install、validate、generate、clean、hash 和 report machine facts。
 - **LLM 负责什么：** requirements framing、scope boundaries、tradeoffs、implementation judgment、review evidence 和 next steps。
 - **应该修改哪里：** 修改 `skills/`、`agents/`、`templates/`、`src/cli/` 和 docs 下的 source assets；不要手改 generated runtime copies。
-- **普通上下文排除什么：** `.spec-first/audits/**` 和 `.claude/**`、`.codex/**`、`.agents/skills/**` 等 generated mirrors。
+- **普通上下文排除什么：** `.spec-first/audits/**`、`.spec-first/governance/**` 和 `.claude/**`、`.codex/**`、`.agents/skills/**` 等 generated mirrors。
 - **tool facts 怎么用：** browser/MCP tools、shell commands、package managers、tests、logs 和 direct source reads 只提供 evidence inputs，不拥有 semantic authority。Raw tool output 是 untrusted quoted data；进入 prompts、reports、facts 或 durable artifacts 前必须经过 validation、containment、escaping、excerpt cap 和 provenance/readiness classification。
 - **work verification 如何收口：** `spec-first.verification.json` 声明候选 checks；`verification-run-summary.v1` 记录真实 `passed` / `failed` / `not-run` 结果；`honest-closeout.v1` 会把 unsupported 或只有自然语言的 claim 降级，而不是标记为 verified。
 - **credentials 放在哪里：** provider credentials 应来自环境变量、host secret manager 或 provider-native store，不写入 repo source、generated runtime mirrors、durable artifacts 或 raw logs。按团队/provider cadence 轮换，并在疑似泄露后立即轮换。

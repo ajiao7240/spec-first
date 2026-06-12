@@ -9,6 +9,7 @@ const { buildPromiseImplementationReport } = require('../../skills/spec-skill-au
 const { inspectHostRuntime } = require('../../skills/spec-skill-audit/scripts/audit-runtime-drift');
 const {
   collectReviewerGuardCoverage,
+  collectRuleMaturityObservations,
   collectSkillFacts,
 } = require('../../skills/spec-skill-audit/scripts/collect-skill-facts');
 const { detectBoundaryOverlap } = require('../../skills/spec-skill-audit/scripts/detect-boundary-overlap');
@@ -238,6 +239,143 @@ describe('spec-skill-audit scripts', () => {
     }));
     expect(byId['spec-adversarial-reviewer']).not.toHaveProperty('is_na');
     expect(report.note).toContain('LLM review decides');
+  });
+
+  test('collects rule maturity observation facts without triggering human review', () => {
+    write(path.join(repoRoot, '.spec-first', 'governance', 'rule-maturity.json'), JSON.stringify([
+      {
+        schema_version: 'rule-maturity.v1',
+        rule_id: 'review-missing-contract-test',
+        stage: 'shadow',
+        shadow_hits: [
+          {
+            observed_at: '2026-06-12T01:00:00.000Z',
+            workflow: 'spec-code-review',
+            evidence_ref: 'docs/validation/review.md#F1',
+            reason_code: 'missing-contract-test',
+          },
+          {
+            observed_at: '2026-06-12T03:00:00.000Z',
+            workflow: 'spec-code-review',
+            evidence_ref: 'docs/validation/review.md#F2',
+            reason_code: 'missing-contract-test',
+          },
+        ],
+        defect_evidence_refs: [],
+        false_positive_refs: [],
+        rollback: {
+          available: true,
+          notes: 'shadow observation only; nothing to roll back',
+        },
+        evidence_refs: ['docs/validation/review.md#F1', 'docs/validation/review.md#F2'],
+        reason_code: 'shadow-observation',
+      },
+      {
+        schema_version: 'rule-maturity.v1',
+        rule_id: 'custom-rule-without-family',
+        stage: 'shadow',
+        shadow_hits: [
+          {
+            observed_at: '2026-06-12T02:00:00.000Z',
+            workflow: 'spec-plan',
+            evidence_ref: 'docs/plans/example.md#depth',
+            reason_code: 'depth-override',
+          },
+        ],
+        defect_evidence_refs: [],
+        false_positive_refs: [],
+        rollback: {
+          available: true,
+          notes: 'shadow observation only; nothing to roll back',
+        },
+        evidence_refs: ['docs/plans/example.md#depth'],
+        reason_code: 'shadow-observation',
+      },
+    ], null, 2));
+
+    const report = collectRuleMaturityObservations({ repoRoot });
+
+    expect(report).toEqual(expect.objectContaining({
+      schema_version: 'rule-maturity-observations.v1',
+      status: 'ok',
+      reason_code: 'rule-maturity-observations-collected',
+      rule_count: 2,
+      shadow_hit_count: 3,
+      uncategorized_count: 1,
+      last_observed_at: '2026-06-12T03:00:00.000Z',
+      workflow_distribution: {
+        'spec-code-review': 2,
+        'spec-plan': 1,
+      },
+    }));
+    expect(report.rules).toContainEqual(expect.objectContaining({
+      rule_id: 'review-missing-contract-test',
+      stage: 'shadow',
+      shadow_hit_count: 2,
+      last_observed_at: '2026-06-12T03:00:00.000Z',
+      reason_codes: ['missing-contract-test'],
+      similar_existing_rule_ids: [],
+    }));
+    expect(report.health_signals).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        reason_code: 'shadow-observations-await-review',
+      }),
+      expect.objectContaining({
+        reason_code: 'uncategorized-rule-id',
+        rule_ids: ['custom-rule-without-family'],
+      }),
+    ]));
+    expect(report).not.toHaveProperty('human_review');
+  });
+
+  test('writes degraded rule maturity observations for a corrupt local store without throwing', () => {
+    write(path.join(repoRoot, '.spec-first', 'governance', 'rule-maturity.json'), '{not json');
+
+    const result = writeAuditArtifacts({
+      repoRoot,
+      includeGovernance: false,
+      includeRuntime: false,
+      runId: 'corrupt-rule-maturity',
+    });
+    const report = JSON.parse(fs.readFileSync(
+      path.join(repoRoot, result.run_dir, 'rule-maturity-observations.json'),
+      'utf8',
+    ));
+
+    expect(result.files).toContain('rule-maturity-observations.json');
+    expect(report).toEqual(expect.objectContaining({
+      schema_version: 'rule-maturity-observations.v1',
+      status: 'degraded',
+      reason_code: 'evidence-store-corrupt',
+      rules: [],
+    }));
+    expect(report.health_signals).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        severity: 'warning',
+        reason_code: 'evidence-store-corrupt',
+      }),
+    ]));
+  });
+
+  test('runtime-copied collector degrades when rule maturity helper is unavailable', () => {
+    const runtimeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-skill-audit-runtime-'));
+    try {
+      const runtimeScripts = path.join(runtimeRoot, '.agents', 'skills', 'spec-skill-audit', 'scripts');
+      fs.cpSync(path.join(REPO_ROOT, 'skills', 'spec-skill-audit', 'scripts'), runtimeScripts, { recursive: true });
+      const runtimeCollector = require(path.join(runtimeScripts, 'collect-skill-facts.js'));
+
+      const report = runtimeCollector.collectRuleMaturityObservations({ repoRoot });
+
+      expect(report).toEqual(expect.objectContaining({
+        schema_version: 'rule-maturity-observations.v1',
+        status: 'degraded',
+        reason_code: 'rule-maturity-helper-unavailable',
+        rules: [],
+      }));
+      expect(report.errors.join('\n')).toContain('helper not found');
+    } finally {
+      fs.rmSync(runtimeRoot, { recursive: true, force: true });
+    }
   });
 
   test('supports CRLF frontmatter and preserves duplicate sections', () => {
@@ -640,6 +778,7 @@ describe('spec-skill-audit scripts', () => {
     expect(after).toBe(before);
     expect(result.files).toContain('skill-source-inventory.json');
     expect(result.files).toContain('reviewer-guard-coverage-report.json');
+    expect(result.files).toContain('rule-maturity-observations.json');
     expect(result.files).toContain('skill-audit-summary.md');
     expect(result.files).toContain('promise-implementation-report.json');
     expect(result.files).toContain('executor-context.json');
@@ -650,6 +789,7 @@ describe('spec-skill-audit scripts', () => {
     const latestDir = path.join(repoRoot, '.spec-first', 'audits', 'skill-audit', 'latest');
     const auditReport = JSON.parse(fs.readFileSync(path.join(latestDir, 'skill-audit-report.json'), 'utf8'));
     const reviewerGuardReport = JSON.parse(fs.readFileSync(path.join(latestDir, 'reviewer-guard-coverage-report.json'), 'utf8'));
+    const ruleMaturityReport = JSON.parse(fs.readFileSync(path.join(latestDir, 'rule-maturity-observations.json'), 'utf8'));
     const scorecard = JSON.parse(fs.readFileSync(path.join(latestDir, 'expert-scorecard.json'), 'utf8'));
     const executorContext = JSON.parse(fs.readFileSync(path.join(latestDir, 'executor-context.json'), 'utf8'));
     const promiseReport = JSON.parse(fs.readFileSync(path.join(latestDir, 'promise-implementation-report.json'), 'utf8'));
@@ -659,6 +799,9 @@ describe('spec-skill-audit scripts', () => {
     expect(Object.keys(scorecard.weights)).toHaveLength(12);
     expect(reviewerGuardReport.schema_version).toBe('spec-first.reviewer-guard-coverage-report.v1');
     expect(reviewerGuardReport.reviewers).toEqual([]);
+    expect(ruleMaturityReport.schema_version).toBe('rule-maturity-observations.v1');
+    expect(ruleMaturityReport.status).toBe('empty');
+    expect(ruleMaturityReport.reason_code).toBe('rule-maturity-observations-empty');
     expect(scorecard.score_is_signal_not_gate).toBe(true);
     expect(scorecard.requires_llm_review).toBe(true);
     expect(scorecard.skills[0].dimension_reasons.input_contract.why_not_5).toContain('semantic completeness');

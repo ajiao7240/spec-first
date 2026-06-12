@@ -102,7 +102,7 @@ First-run specs should default to `execution.mode: serial`, `execution.max_concu
 
 ## Runtime Context Exclusion
 
-Follow `docs/contracts/context-governance.md`: ordinary Optimize context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Optimization run state under `.spec-first/workflows/spec-optimize/**` is local scratch for this workflow only; pass compact strategy/result summaries to agents and avoid broad runtime/audit scans unless the metric explicitly targets runtime/setup/audit behavior.
+Follow `docs/contracts/context-governance.md`: ordinary Optimize context excludes `.spec-first/audits/**`, `.spec-first/governance/**`, and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Optimization run state under `.spec-first/workflows/spec-optimize/**` is local scratch for this workflow only; pass compact strategy/result summaries to agents and avoid broad runtime/audit/governance scans unless the metric explicitly targets runtime/setup/audit/governance behavior.
 
 ## Evidence Utilization Boundary
 

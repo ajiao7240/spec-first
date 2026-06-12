@@ -9,6 +9,7 @@ const { runCli: runVerificationProfileCli } = require('../helpers/verification-p
 const { runCli: runVerificationRunSummaryCli } = require('../helpers/verification-run-summary');
 const { runCli: runTaskGovernanceSignalsCli } = require('../helpers/task-governance-signals');
 const { runCli: runResourceGovernanceLensCli } = require('../helpers/resource-governance-lens');
+const { runCli: runRuleMaturityCli } = require('../helpers/rule-maturity');
 
 function runInternal(argv) {
   const args = Array.isArray(argv) ? [...argv] : [];
@@ -48,6 +49,10 @@ function runInternal(argv) {
 
   if (subcommand === 'resource-governance-lens') {
     return runResourceGovernanceLensCli(args.slice(1));
+  }
+
+  if (subcommand === 'rule-maturity') {
+    return runRuleMaturityCli(args.slice(1));
   }
 
   if (args.includes('--json')) {

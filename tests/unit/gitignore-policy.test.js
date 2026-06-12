@@ -29,6 +29,7 @@ describe('spec-first gitignore policy', () => {
     expect(patterns).toContain('.agents/skills/');
     expect(getSpecFirstGitignorePatternMetadata()).toEqual({});
     expect(patterns).toContain('.spec-first/config/*.json');
+    expect(patterns).toContain('.spec-first/governance/');
     expect(patterns).toContain('.codegraph/');
     expect(patterns).toContain('graphify-out/cost.json');
     expect(patterns).toContain('graphify-out/.graphify_python');
@@ -43,6 +44,15 @@ describe('spec-first gitignore policy', () => {
     expect(patterns).not.toContain('.agents/');
     expect(patterns).not.toContain('.spec-first/');
     expect(patterns).not.toContain('*.tgz');
+    expect(block).toContain([
+      '# spec-first local setup and workflow runtime artifacts',
+      '.spec-first/*.local.yaml',
+      '.spec-first/config.local.yaml',
+      '.spec-first/config/*.json',
+      '.spec-first/audits/',
+      '.spec-first/governance/',
+      '.spec-first/app-audit/',
+    ].join('\n'));
   });
 
   test('adds a managed block to empty content', () => {

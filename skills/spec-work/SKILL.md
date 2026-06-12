@@ -82,7 +82,7 @@ Prefer vertical tracer bullets when scope permits: close one behavior with its i
 
 ## Runtime Context Exclusion
 
-Follow `docs/contracts/context-governance.md`: ordinary Work context excludes `.spec-first/audits/**` and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Do not pass those paths to worker context, reviewer handoff, or broad repo search unless the current task explicitly targets setup/update/runtime drift/audit evidence or the user names a precise runtime path; when excluded, record the path or reason instead of silently scanning it.
+Follow `docs/contracts/context-governance.md`: ordinary Work context excludes `.spec-first/audits/**`, `.spec-first/governance/**`, and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Do not pass those paths to worker context, reviewer handoff, or broad repo search unless the current task explicitly targets setup/update/runtime drift/audit/governance evidence or the user names a precise runtime path; when excluded, record the path or reason instead of silently scanning it.
 
 ## Cache-Friendly Context Layout
 

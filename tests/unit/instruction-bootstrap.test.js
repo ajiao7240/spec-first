@@ -61,6 +61,7 @@ describe('instruction bootstrap', () => {
     expect(twice).toContain('bounded direct reads');
     expect(twice).toContain('target_repo');
     expect(twice).toContain('Runtime context 默认排除 `.spec-first/audits/**`');
+    expect(twice).toContain('`.spec-first/governance/**`');
     expect(twice).toContain('generated mirrors（`.claude/**`、`.codex/**`、`.agents/skills/**`）');
     expect(twice).toContain('入口映射(意图→入口)');
     expect(twice).toContain('可度量优化实验→`/spec:optimize`');
@@ -102,6 +103,7 @@ describe('instruction bootstrap', () => {
     expect(updated).toContain('conversation inertia must not override it');
     expect(updated).toContain('bounded subagents, leaf reviewers, and worker agents');
     expect(updated).toContain('Runtime context excludes `.spec-first/audits/**`');
+    expect(updated).toContain('`.spec-first/governance/**`');
     expect(updated).toContain('generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`)');
     expect(updated).toContain('Entry map (intent→entrypoint): environment/MCP');
     expect(updated).toContain('measurable optimization→`$spec-optimize`');

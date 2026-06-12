@@ -81,6 +81,12 @@ Use this **exact format** when presenting synthesized review findings. Findings 
 - Verify: `SELECT COUNT(*) FROM exports WHERE status IS NULL;` should stay at `0`
 - Rollback: keep the old export path available until the backfill has been validated
 
+### Rule Maturity Candidates
+
+| rule_id | evidence_ref | reason_code | human_review_kind | similar_existing_rule_ids |
+|---------|--------------|-------------|-------------------|---------------------------|
+| `summary-generated-output-staged` | `docs/validation/review.md#F2` | `generated-runtime-path` | `adjudication-review` | `[]` |
+
 ### Coverage
 
 - Direct evidence: <source refs/checks/logs used | limitations>
@@ -139,6 +145,7 @@ This fails because: no pipe-delimited tables, no severity-grouped `###` headers,
 - **Schema Drift Check section** -- results from spec-schema-drift-detector. Omit if the agent did not run.
 - **Deployment Notes section** -- key checklist items from spec-deployment-verification-agent. Omit if the agent did not run.
 - **Coverage section** -- direct evidence posture, suppressed count, residual risks, testing gaps, failed reviewers
+- **Rule Maturity Candidates section** -- optional; include only when confirmed findings or resource advisory meet the noise filter and have durable evidence refs
 - **Summary uses blockquotes** for verdict, reasoning, and fix order
 - **Horizontal rule** (`---`) separates findings from verdict
 - **`###` headers** for each section -- never plain text headers

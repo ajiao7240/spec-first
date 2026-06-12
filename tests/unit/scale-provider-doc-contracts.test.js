@@ -80,6 +80,9 @@ describe('SCALE provider documentation contracts', () => {
     expect(combined).toContain('CodeGraph 走 `mcp-tools.json` + `install-mcp`');
     expect(combined).toContain('Graphify 走 `provider-tools.json` + `install-helpers`');
     expect(readme).toContain('| v1.16 | Capability-aware 协同');
+    expect(readme).toContain('| v1.17 | Governance Maturity');
+    expect(readme).toContain('phase 1 shadow producer 已落地');
+    expect(readme).toContain('R9-R17 后续重开窄计划');
     expect(readme).toContain('父 plan：`docs/plans/2026-06-06-001-feat-capability-aware-provider-coordination-plan.md`');
     expect(readme).toContain('当前 provider-native Runtime Setup 开发主方案：`docs/plans/2026-06-08-004-refactor-provider-native-runtime-setup-plan.md`');
     expect(codegraph).toContain('最佳版本不是 `源码 -> CodeGraph -> Graphify` 的硬线性 pipeline');

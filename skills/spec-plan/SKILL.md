@@ -240,6 +240,14 @@ Classify the work into one of these plan depths:
 
 Confirm the helper candidate or explicitly override it with a short reason, for example: "Using Standard despite candidate lightweight because the request touches a public CLI contract." If the helper is unavailable, continue with direct evidence and record `task-governance-signals unavailable` as degraded advisory evidence rather than inventing candidate facts.
 
+When the helper signal exposes a governance miss worth observing, the LLM may record a small advisory shadow hit after the planning decision is made:
+
+```bash
+spec-first internal rule-maturity record --rule-id planning-depth-underclassified --workflow spec-plan --evidence-ref <durable-plan-or-review-ref> --reason-code <reason-code> --json
+```
+
+Use `rule_id` as `lens-family + problem-class` kebab-case, include `similar_existing_rule_ids` in any handoff prose when known, and keep `evidence_ref` durable and repo-readable. If `rule-maturity record` is unavailable or rejected, record the degraded posture and continue; this observation is not a planning gate and does not adjudicate or promote a rule.
+
 If depth is unclear, ask one targeted question and then continue.
 
 #### 0.7 Solo-Mode Scope Summary

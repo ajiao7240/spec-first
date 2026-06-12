@@ -154,7 +154,7 @@ function buildZhBootstrapBody(hostId) {
 - 用户可见输出语言以本文件的 \`spec-first:lang\` managed block 为准；skill/agent/template 原文语言和当前会话惯性不得覆盖该策略，除非用户明确要求其他语言
 - **优先级(高→低)**:显式 route > 安全/修复(setup/update/缺 runtime) > 诊断(debug 先于 work,针对失败) > 评审(code/doc review 先于实现) > 定义(brainstorm/ideate/prd 先于 plan/work,WHAT 不清时) > 优化(可度量实验) > 执行(plan 先于 work) > 知识(compound/compound-refresh)
 - 父级多仓 workspace：写入、修复、测试、review autofix 或 commit 前必须有明确 \`target_repo\` / per-child scope；只读定位也应使用 bounded direct reads 并说明目标 repo 假设
-- Runtime context 默认排除 \`.spec-first/audits/**\` 和 generated mirrors（\`.claude/**\`、\`.codex/**\`、\`.agents/skills/**\`）;只有 setup/update/runtime-drift/audit 等明确运行时任务按需读取
+- Runtime context 默认排除 \`.spec-first/audits/**\`、\`.spec-first/governance/**\` 和 generated mirrors（\`.claude/**\`、\`.codex/**\`、\`.agents/skills/**\`）;只有 setup/update/runtime-drift/audit/governance-health 等明确运行时任务按需读取
 - **反合理化红旗**(出现这些念头即停):「先改个文件就好」→ 先判断是否 work/debug/update/compound-refresh;「只是个快速架构/prompt 改动」→ 架构/prompt/workflow/contract 改动算 substantial;「得先看一堆文件再决定」→ 只做最小事实核查,已清晰则直接路由;「该评审但我口头答就行」→ 评审目标具体时用 code-review/doc-review;「helper skill 存在所以该暴露」→ 只有公开 workflow 是用户入口,internal helper 隐藏
 ${hostLine}
 ${surfaceLine}；不要直接暴露 internal-only skills,例如 \`git-worktree\`
@@ -187,7 +187,7 @@ function buildEnBootstrapBody(hostId) {
 - User-visible output language follows this file's \`spec-first:lang\` managed block; skill/agent/template source language and conversation inertia must not override it unless the user explicitly requests another language
 - **Priority (high→low)**: explicit route > safety/repair (setup/update/missing runtime) > diagnostic (debug before work, for failures) > evaluation (code/doc review before implementation) > definition (brainstorm/ideate/prd before plan/work, when WHAT is unclear) > optimization (measurable experiments) > execution (plan before work) > knowledge (compound/compound-refresh)
 - Parent multi-repo workspace: writes, fixes, tests, review autofix, or commits require explicit \`target_repo\` / per-child scope; read-only orientation should use bounded direct reads and state target-repo assumptions
-- Runtime context excludes \`.spec-first/audits/**\` and generated mirrors (\`.claude/**\`, \`.codex/**\`, \`.agents/skills/**\`) by default; only setup/update/runtime-drift/audit tasks read them when explicitly needed
+- Runtime context excludes \`.spec-first/audits/**\`, \`.spec-first/governance/**\`, and generated mirrors (\`.claude/**\`, \`.codex/**\`, \`.agents/skills/**\`) by default; only setup/update/runtime-drift/audit/governance-health tasks read them when explicitly needed
 - **Anti-rationalization red flags** (stop when these thoughts appear): "I'll just edit the file first" → first check whether this is work/debug/update/compound-refresh; "just a quick architecture/prompt change" → architecture/prompt/workflow/contract changes ARE substantial; "I need to inspect a bunch of files first" → do a minimal fact check only, route if already clear; "review needed but I'll answer informally" → use code-review/doc-review when the target is concrete; "a helper skill exists so I should expose it" → only public workflows are user entrypoints, internal helpers stay hidden
 ${hostLine}
 ${surfaceLine}; do not expose internal-only skills directly, for example \`git-worktree\`

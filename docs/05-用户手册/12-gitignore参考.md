@@ -8,7 +8,7 @@
 
 - `.claude/`、`.codex/` 和 `.agents/skills/` 下的 spec-first runtime mirror 可重建，不作为项目 source truth。
 - `.spec-first/config/` 和 `.spec-first/workspace/` 是本地 setup/control-plane facts，默认不提交。
-- `.spec-first/audits/**` 和 generated runtime mirrors 也不应作为普通 LLM 上下文扫描源；只有 setup/update/runtime-drift/audit 任务或用户明确点名路径时才按需读取。
+- `.spec-first/audits/**`、`.spec-first/governance/**` 和 generated runtime mirrors 也不应作为普通 LLM 上下文扫描源；只有 setup/update/runtime-drift/audit/governance evidence 任务或用户明确点名路径时才按需读取。
 - `.spec-first/sessions/` 是 multi-actor 治理协议的 opt-in advisory 记录目录，由 `spec-first session register` 等命令写入；属于 runtime state，默认不提交。
 - `.codegraph/` 是 CodeGraph 项目级 SQLite 索引，默认不提交。
 - `graphify-out/` 是 Graphify provider 的项目图谱目录，Graphify 官方实践允许团队提交它以共享 map；`spec-first init` 只默认忽略其中本地成本文件 `graphify-out/cost.json` 和本机解释器路径 `graphify-out/.graphify_python`，不忽略整个目录。
@@ -39,6 +39,7 @@
 .spec-first/config.local.yaml
 .spec-first/config/*.json
 .spec-first/audits/
+.spec-first/governance/
 .spec-first/app-audit/
 .spec-first/workflows/
 .spec-first/workspace/
@@ -93,6 +94,8 @@ graphify-out/.graphify_python
     config.local.yaml               # 本地配置，忽略
     config/
       runtime-capabilities.json     # setup-owned local readiness facts，忽略
+    governance/
+      rule-maturity.json            # workflow governance observations，忽略
     workspace/
       *.json                        # 父级多仓 advisory summaries，忽略
 

@@ -15,6 +15,12 @@ const EXCLUDED_PREFIXES = [
     reason: 'runtime audit artifacts are excluded from ordinary context',
   },
   {
+    prefix: '.spec-first/governance',
+    kind: 'runtime_governance_artifact',
+    reason_code: 'runtime_governance_artifact_excluded',
+    reason: 'runtime governance artifacts are excluded from ordinary context',
+  },
+  {
     prefix: '.spec-first/workspace',
     kind: 'runtime_context_artifact',
     reason_code: 'runtime_context_artifact_excluded',
