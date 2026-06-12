@@ -30,6 +30,7 @@ When a plan document is warranted, it includes:
 
 Include these only when they carry real information:
 
+- **Decision Brief** - a front-loaded Standard/Deep plan reading aid immediately after `## Summary`. Use it when a human first pass needs the recommended approach, load-bearing decisions, validation focus, largest risks, or scope boundaries before the dense evidence and unit detail. It summarizes and points to lower sections; it does not replace `## Summary`, `## Key Technical Decisions`, `## Risks & Dependencies`, Direct Evidence, or Implementation Units. Lightweight plans may omit it when the 1-3 line Summary is enough.
 - **Assumptions** - unconfirmed inferred bets, especially in headless or non-interactive planning.
 - **Scope Boundaries** - contested exclusions, deferred follow-up work, or tempting non-goals.
 - **Open Questions** - unresolved planning-owned or implementation-owned unknowns.

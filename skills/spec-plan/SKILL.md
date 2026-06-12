@@ -556,18 +556,20 @@ Use one planning philosophy across all depths. Change the amount of detail, not 
 **Lightweight**
 - Keep the plan compact
 - Usually 2-4 implementation units
-- Omit optional sections that add little value
+- Omit optional sections that add little value; use `## Summary` alone when a separate Decision Brief would only repeat it
 
 **Standard**
 - Use the full core template, omitting optional sections (including High-Level Technical Design) that add no value for this particular work
 - Usually 3-6 implementation units
 - Include risks, deferred questions, and system-wide impact when relevant
+- Include `## Decision Brief` when the first human pass needs recommended approach, key decisions, validation focus, or largest risks before dense evidence and implementation detail
 
 **Deep**
 - Use the full core template plus optional analysis sections where warranted
 - Usually 4-8 implementation units
 - Group units into phases when that improves clarity
 - Include alternatives considered, documentation impacts, and deeper risk treatment when warranted
+- Include `## Decision Brief` near the top unless the plan is unusually narrow and `## Summary` already carries the first-pass orientation
 
 #### 4.1b Optional Deep Plan Extensions
 
@@ -634,6 +636,7 @@ Before finalizing, check:
 - If Scope Boundaries lists items that are planned work for a separate PR, issue, or repo, are they under `### Deferred to Follow-Up Work` rather than mixed with true non-goals?
 - U-IDs are unique within the plan and follow the stability rule — no two units share an ID; reordering or splitting did not renumber existing units; gaps from deletions are preserved
 - Would a visual aid (dependency graph, interaction diagram, comparison table) help a reader grasp the plan structure faster than scanning prose alone?
+- For Standard or Deep plans, does the first human pass (`## Summary` plus material `## Decision Brief`) answer what is being built, why this approach, what validates it, and what could go wrong without replacing Direct Evidence or Implementation Units?
 
 If the plan originated from a requirements document, re-read that document and verify:
 - The chosen approach still matches the product intent

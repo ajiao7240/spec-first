@@ -24,6 +24,21 @@ implements_schemas: []  # optional; include only repo-relative contract schema p
 
 ---
 
+## Decision Brief
+
+<!-- Optional for Lightweight plans. Include for Standard/Deep plans when the first human pass
+     should see the recommended approach, key decisions, validation focus, largest risks, or
+     scope boundaries before dense evidence and implementation detail. This section summarizes
+     and points to the detailed sections below; it does not replace Summary, Key Technical
+     Decisions, Risks & Dependencies, Direct Evidence, or Implementation Units. -->
+
+- **Recommended approach:** [The approach in one or two sentences, with the key reason.]
+- **Key decisions:** [The load-bearing choices to inspect below, not a duplicate KTD list.]
+- **Validation focus:** [The checks, tests, or evidence that matter most.]
+- **Largest risks / boundaries:** [The highest-risk failure mode, scope boundary, or deferred edge.]
+
+---
+
 ## Problem Frame
 
 [Summarize the user/business problem and context. Reference the origin doc when present.]

@@ -470,6 +470,10 @@ describe('spec_id planning contract', () => {
     expect(skill).toContain('#### 5.1.5 Brainstorm-Sourced Scope Summary');
     expect(skill).toContain('read `references/synthesis-summary.md`');
     expect(planTemplate).toContain('## Summary');
+    expect(planTemplate).toContain('## Decision Brief');
+    expect(planTemplate).toContain('Optional for Lightweight plans');
+    expect(planTemplate).toContain('This section summarizes');
+    expect(planTemplate).toContain('does not replace Summary, Key Technical');
     expect(planTemplate).toContain('## Requirements');
     expect(planTemplate).toContain('treat `## Overview` as the legacy name');
     expect(planTemplate).toContain('legacy `## Requirements Trace`');
@@ -481,15 +485,22 @@ describe('spec_id planning contract', () => {
     expect(skill).toContain('Read `skills/spec-plan/references/plan-template.md` before writing the plan.');
     expect(skill).toContain('Do not reconstruct the template from memory and do not inline the full template in this skill.');
     expect(skill).toContain('Markdown remains the source artifact for `spec-work`, `spec-write-tasks`, `spec-doc-review`, and plan deepening.');
+    expect(skill).toContain('Include `## Decision Brief` when the first human pass needs recommended approach');
+    expect(skill).toContain('does the first human pass (`## Summary` plus material `## Decision Brief`) answer what is being built');
     expect(skill).toContain('optional sidecar only');
     expect(skill).toContain('do not replace the markdown plan without focused downstream consumer tests');
     expect(planSections).toContain('Markdown remains the canonical plan artifact.');
     expect(planSections).toContain('`plan-template.md` is still the concrete markdown skeleton');
     expect(planSections).toContain('`spec-work`, `spec-write-tasks`, and `spec-doc-review` can consume');
+    expect(planSections).toContain('**Decision Brief**');
+    expect(planSections).toContain('It summarizes and points to lower sections');
+    expect(planSections).toContain('Lightweight plans may omit it');
     expect(planSections).toContain('optional HTML sidecar');
     expect(planSections).toContain('not an exclusive output mode');
     expect(markdownRendering).toContain('YAML frontmatter appears at the top of the file');
     expect(markdownRendering).toContain('Markdown stays markdown');
+    expect(markdownRendering).toContain('place `## Decision Brief` immediately after `## Summary` as visible Markdown');
+    expect(markdownRendering).toContain('without replacing requirements, decisions, evidence, or implementation units');
     expect(markdownRendering).toContain('Use H3 headings for implementation units: `### U1. [Name]`');
     expect(htmlRendering).toContain('optional HTML sidecar');
     expect(htmlRendering).toContain('not an exclusive output mode');
@@ -501,6 +512,12 @@ describe('spec_id planning contract', () => {
       expect(text).not.toContain('output mode is exclusive');
     }
     const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
+    const summaryIndex = template.indexOf('## Summary');
+    const decisionBriefIndex = template.indexOf('## Decision Brief');
+    const problemFrameIndex = template.indexOf('## Problem Frame');
+    expect(summaryIndex).toBeGreaterThanOrEqual(0);
+    expect(decisionBriefIndex).toBeGreaterThan(summaryIndex);
+    expect(problemFrameIndex).toBeGreaterThan(decisionBriefIndex);
     expect(template.indexOf('## Requirements')).toBeLessThan(template.indexOf('## Assumptions'));
     expect(template.indexOf('## Assumptions')).toBeLessThan(template.indexOf('## Scope Boundaries'));
     expect(template).toContain('### U1. [Name]');
@@ -510,6 +527,9 @@ describe('spec_id planning contract', () => {
     expect(synthesis).toContain('Solo variant (Phase 0.7)');
     expect(synthesis).toContain('Brainstorm-sourced variant (Phase 5.1.5)');
     expect(synthesis).toContain('Two-stage shape: internal draft, then chat-time synthesis');
+    expect(synthesis).toContain('Decision Brief is a reading aid, not a routing destination');
+    expect(synthesis).toContain('synthesis content still routes to the destinations below');
+    expect(synthesis).toContain('not a second synthesis section');
     expect(synthesis).toContain('Do not paste this draft verbatim into chat');
     expect(synthesis).toContain('Stage 2: Chat-Time Scoping Synthesis');
     expect(synthesis).toContain('No user-facing **Stated** or **Out of scope** bucket appears in chat');
@@ -522,6 +542,7 @@ describe('spec_id planning contract', () => {
     expect(synthesis).toContain('exact JSON or response shapes');
     expect(synthesis).toContain('bare origin IDs such as `R1`, `AE2`, `F3`, or `U4` without plain names');
     expect(synthesis).toContain('Do not route unconfirmed inferences into Key Technical Decisions or Implementation Units');
+    expect(synthesis).toContain('First-pass decision/risk/validation orientation, when material');
     expect(synthesis).toContain('current host\'s brainstorm entrypoint');
     expect(synthesis).toContain('## Assumptions');
     expect(deepening).toContain('**Requirements**');

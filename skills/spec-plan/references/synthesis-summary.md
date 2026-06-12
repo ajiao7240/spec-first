@@ -6,6 +6,8 @@
 
 **Three-bucket structure is internal.** It does its scope-thinking job during stage 1 and dissolves when Phase 5.2 writes the plan. The plan does not get a parallel `## Synthesis` section. Only the stage-2 summary embeds as `## Summary`.
 
+**Decision Brief is a reading aid, not a routing destination.** When a Standard or Deep plan includes `## Decision Brief`, keep it immediately after `## Summary`. It may summarize the recommended approach, load-bearing decisions, validation focus, and largest risks for a first human pass, but synthesis content still routes to the destinations below. Do not dump the internal draft or Call outs into the brief, and do not let the brief duplicate or replace `## Summary`, `## Key Technical Decisions`, `## Scope Boundaries`, Direct Evidence, or Implementation Units.
+
 There are two variants:
 
 - **Solo variant (Phase 0.7)** — fires after the brief planning bootstrap and before Phase 1 research. It catches wrong scope before research or sub-agent work is spent.
@@ -189,6 +191,7 @@ After user confirmation or soft-cut proceed, Phase 5.2 writes the plan:
 | Synthesis element | Plan destination |
 |---|---|
 | Stage-2 summary | `## Summary` |
+| First-pass decision/risk/validation orientation, when material | `## Decision Brief` as a short summary that points to detailed destinations; not a second synthesis section |
 | Stated draft content | `## Requirements` and relevant `## Problem Frame` context |
 | Inferred draft content | `## Key Technical Decisions` and Implementation Units in interactive mode; `## Assumptions` in headless mode |
 | Out-of-scope draft content | `## Scope Boundaries`, including `### Deferred to Follow-Up Work` when relevant |

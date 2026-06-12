@@ -1,7 +1,7 @@
 ---
 title: "refactor: Add a front-loaded decision brief to spec-plan output"
 type: refactor
-status: active
+status: completed
 date: 2026-06-11
 recalibrated: 2026-06-12
 spec_id: 2026-06-11-001-spec-plan-decision-surface-coverage

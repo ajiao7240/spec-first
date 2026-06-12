@@ -15,6 +15,7 @@ This reference describes how to render the canonical markdown plan. Pair it with
 - Use prose for narrative context and rationale.
 - Use bullets for parallel items that need short explanation.
 - Use tables only when several items share a uniform structure and the table improves scanning.
+- For Standard or Deep plans with material choices, place `## Decision Brief` immediately after `## Summary` as visible Markdown. Keep it short and raw-diff friendly; use it to summarize the recommended approach, key decisions, validation focus, and largest risks before the detailed sections.
 - Use H3 headings for implementation units: `### U1. [Name]`.
 - Use bold leader labels inside bullets for structured subfields such as `**Goal:**`, `**Files:**`, `**Test scenarios:**`, or flow fields.
 - Use horizontal rules between top-level H2 sections for Standard and Deep plans; omit them for compact Lightweight plans.
@@ -33,6 +34,7 @@ Before declaring the markdown plan complete, scan for:
 - plain stable ID prefixes;
 - repo-relative paths only;
 - no HTML elements or hidden metadata;
+- any material `## Decision Brief` summarizes lower sections without replacing requirements, decisions, evidence, or implementation units;
 - no `## Next Steps` or phase/process exhaust;
 - feature-bearing units with test scenarios or an explicit non-behavioral test expectation;
 - links and sources that help implementation or review rather than restating the workflow.
