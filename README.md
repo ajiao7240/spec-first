@@ -159,7 +159,7 @@ Use this single table as the public entrypoint map. Shared prose should say "cur
 
 Use `ideate` when you want options, critiques, or surprising directions before committing to a problem frame. Use `brainstorm` when you already have a rough problem or feature and need actors, flows, boundaries, and acceptance examples. Use `prd` for existing-system increments or rough PRDs that need current-state evidence and change delta. Use `doc-review` when a requirements, plan, or task document already exists and needs gap-finding. Do not make `brainstorm` the default entrypoint for every unclear request.
 
-To check whether spec-first and its generated runtime assets are up to date, run the `spec-first update` package CLI command in your terminal (check-only, like `npm outdated`; it never auto-upgrades). It is no longer a host workflow entrypoint.
+To upgrade the spec-first CLI, run the `spec-first update` package CLI command in your terminal. It runs `npm install -g spec-first@latest` and, on success, reminds you to run `spec-first init` to refresh this project's generated runtime assets. It is a package CLI command, not a host workflow entrypoint. Note: if you installed spec-first as a Claude Code plugin, upgrade it with `claude plugin update` instead — `npm -g` manages a separate copy.
 
 ## Operating Model
 
@@ -294,7 +294,7 @@ spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
 spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]
-spec-first update [--claude|--codex] [--json]
+spec-first update   # runs `npm install -g spec-first@latest`, then prompts `spec-first init`
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first clean --workspace-orphans [--confirm]
 spec-first tasks hash <plan-path> [--json]

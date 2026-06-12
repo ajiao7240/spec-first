@@ -159,7 +159,7 @@ $spec-brainstorm "改进 onboarding"
 
 想要选项、批判或意外方向，还没确定问题框架时，用 `ideate`。已经有粗略产品问题或功能想法，需要 actors、flows、边界和 acceptance examples 时，用 `brainstorm`。已有系统增量或粗糙 PRD 需要 current-state evidence 和 change delta 时，用 `prd`。已有 requirements、plan 或 task 文档，需要找缺口时，用 `doc-review`。不要把 `brainstorm` 当作所有不清楚请求的默认入口。
 
-检查 spec-first 及其 generated runtime assets 是否最新,在终端运行 `spec-first update` package CLI 命令(check-only,类似 `npm outdated`,绝不自动升级)。它不再是宿主 workflow 入口。
+升级 spec-first CLI,在终端运行 `spec-first update` package CLI 命令。它会执行 `npm install -g spec-first@latest`,成功后提示你运行 `spec-first init` 刷新本项目的 generated runtime assets。它是 package CLI 命令,不是宿主 workflow 入口。注意:若你是通过 Claude Code plugin 安装的,请改用 `claude plugin update` 升级——`npm -g` 管理的是另一份独立副本。
 
 ## 产物与工作方式
 
@@ -294,7 +294,7 @@ spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
 spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]
-spec-first update [--claude|--codex] [--json]
+spec-first update   # 执行 `npm install -g spec-first@latest`,随后提示 `spec-first init`
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first clean --workspace-orphans [--confirm]
 spec-first tasks hash <plan-path> [--json]

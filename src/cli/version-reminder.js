@@ -159,7 +159,7 @@ function formatStartupVersionReminder({ host, currentVersion, latestVersion }) {
 
   return [
     statusLine,
-    'Run `spec-first update` in your terminal to check version and runtime freshness. This startup reminder is read-only and will not install, refresh runtime assets, or restart the host.',
+    'Run `spec-first update` in your terminal to upgrade the spec-first CLI. This startup reminder itself is read-only and will not install, refresh runtime assets, or restart the host.',
   ].join('\n');
 }
 
