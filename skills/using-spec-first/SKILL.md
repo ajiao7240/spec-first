@@ -9,7 +9,7 @@ description: "Use before substantial work in a spec-first project, and when user
 
 It is not a command-backed workflow, slash command, or `$spec-*` workflow. It does **not** exist to force every task through brainstorming.
 
-- Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md` and also reads the managed block in `CLAUDE.md`; its SessionStart hook may re-inject that same bootstrap block.
+- Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md` and also reads the managed block in `CLAUDE.md`; its SessionStart hook does not re-inject that block (CLAUDE.md already carries it) and instead emits a short pointer to the active governance plus any startup reminder.
 - Codex installs it as `.agents/skills/using-spec-first/SKILL.md` and also reads the managed block in `AGENTS.md`.
 
 ## Contract Summary

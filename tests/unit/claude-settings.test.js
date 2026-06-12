@@ -271,7 +271,7 @@ describe('claude settings', () => {
     }
   });
 
-  test('session-start hook emits managed wrapper plus CLAUDE.md bootstrap block', () => {
+  test('session-start hook emits a short governance pointer without re-injecting the bootstrap block', () => {
     const projectRoot = makeTempDir();
     const instructionPath = path.join(projectRoot, 'CLAUDE.md');
 
@@ -282,7 +282,7 @@ describe('claude settings', () => {
         '<!-- spec-first:bootstrap:start -->',
         '## Workflow 入口治理',
         '',
-        '- 本 block 只做轻量 workflow entry context router；完整路由策略在 `skills/using-spec-first/SKILL.md`',
+        '- 本 block 是 using-spec-first 的核心决策集；完整路由策略在 `skills/using-spec-first/SKILL.md`',
         '- substantial work 前先判断是否进入公开 spec-first workflow；轻量问答和窄事实查询可直接回答；已在 workflow 或 bounded subagent 中时不重新分流',
         '- Claude workflow 入口使用 `/spec:*`',
         '- 不要把 `using-spec-first` 本身当作 command-backed workflow',
@@ -303,10 +303,14 @@ describe('claude settings', () => {
       expect(result.status).toBe(0);
       const payload = JSON.parse(result.stdout);
       expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('[spec-first] using-spec-first SessionStart injection');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('workflow-entry trigger');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('parent multi-repo workspaces');
-      expect(payload.hookSpecificOutput.additionalContext).toContain('substantial work 前先判断是否进入公开 spec-first workflow');
+      const ctx = payload.hookSpecificOutput.additionalContext;
+      expect(ctx).toContain('[spec-first] using-spec-first SessionStart injection');
+      expect(ctx).toContain('Workflow entry governance is active');
+      expect(ctx).toContain('target_repo');
+      expect(ctx).toContain('skills/using-spec-first/SKILL.md');
+      // CLAUDE.md already carries the block; the hook must not duplicate its body.
+      expect(ctx).not.toContain('## Workflow 入口治理');
+      expect(ctx).not.toContain('substantial work 前先判断是否进入公开 spec-first workflow');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
