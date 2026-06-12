@@ -142,7 +142,7 @@ describe('clean --dry-run', () => {
     }
   });
 
-  test('Codex clean --dry-run previews legacy cleanup and hook paths, and apply removes them', () => {
+  test('Codex clean preserves provider-owned Graphify runtime while removing managed and legacy assets', () => {
     const projectRoot = makeTempDir();
     const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const legacyPaths = [
@@ -153,6 +153,16 @@ describe('clean --dry-run', () => {
       'plugins/spec-first',
     ];
     const providerOwnedGraphifySkill = '.codex/skills/graphify/SKILL.md';
+    const staleLegacySpecFirstSkill = '.codex/skills/work/SKILL.md';
+    const graphifyHook = {
+      matcher: 'Bash',
+      hooks: [
+        {
+          type: 'command',
+          command: 'graphify hook status --refresh',
+        },
+      ],
+    };
 
     try {
       expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
@@ -161,6 +171,12 @@ describe('clean --dry-run', () => {
       }
       fs.mkdirSync(path.dirname(path.join(projectRoot, providerOwnedGraphifySkill)), { recursive: true });
       fs.writeFileSync(path.join(projectRoot, providerOwnedGraphifySkill), '# graphify\n', 'utf8');
+      fs.mkdirSync(path.dirname(path.join(projectRoot, staleLegacySpecFirstSkill)), { recursive: true });
+      fs.writeFileSync(path.join(projectRoot, staleLegacySpecFirstSkill), '# stale spec-first work\n', 'utf8');
+      const hooksPath = path.join(projectRoot, '.codex', 'hooks.json');
+      const hooksJson = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      hooksJson.hooks.PreToolUse = [graphifyHook];
+      fs.writeFileSync(hooksPath, `${JSON.stringify(hooksJson, null, 2)}\n`, 'utf8');
 
       const dryRun = captureCommand(projectRoot, runClean, ['--codex', '--dry-run']);
       expect(dryRun.exitCode).toBe(0);
@@ -172,12 +188,17 @@ describe('clean --dry-run', () => {
         expect(dryRun.stdout).toContain(relativePath);
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(false);
       }
-      for (const relativePath of ['.codex/hooks/session-start', '.codex/hooks.json']) {
+      for (const relativePath of ['.codex/hooks/session-start']) {
         expect(dryRun.stdout).toContain(relativePath);
         expect(fs.existsSync(path.join(projectRoot, relativePath))).toBe(false);
       }
-      expect(dryRun.stdout).not.toContain('.codex/skills');
+      expect(dryRun.stdout).toContain('.codex/hooks.json');
+      expect(dryRun.stdout).toContain('.codex/skills/work');
+      expect(fs.existsSync(path.join(projectRoot, staleLegacySpecFirstSkill))).toBe(false);
       expect(fs.readFileSync(path.join(projectRoot, providerOwnedGraphifySkill), 'utf8')).toBe('# graphify\n');
+      const cleanedHooksJson = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      expect(cleanedHooksJson.hooks.PreToolUse).toEqual([graphifyHook]);
+      expect(cleanedHooksJson.hooks.SessionStart).toBeUndefined();
 
     } finally {
       initLogSpy.mockRestore();

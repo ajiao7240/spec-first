@@ -110,6 +110,13 @@ function resolveCommand(command) {
   return { found: false, command: command || '', onPath: false };
 }
 
+function setupWorkflowCommand(host, args = '') {
+  const suffix = args ? ` ${args}` : '';
+  if (host === 'claude') return `/spec:mcp-setup${suffix}`;
+  if (host === 'codex') return `$spec-mcp-setup${suffix}`;
+  return `/spec:mcp-setup${suffix} or $spec-mcp-setup${suffix}`;
+}
+
 function commandExists(command) {
   return resolveCommand(command).found;
 }
@@ -379,18 +386,34 @@ function helperProviderEntries(registry, repoDir) {
     .filter((provider) => provider.install_route === 'install-helpers')
     .map((provider) => {
       const command = provider.detection && provider.detection.command;
-      const commandInfo = resolveCommand(command);
-      const installed = commandInfo.found;
       const expectedVersion = provider.installation && provider.installation.version_pin;
       const versionArgs = provider.detection && Array.isArray(provider.detection.version_args)
         ? provider.detection.version_args
         : [];
+      let commandInfo = resolveCommand(command);
+      let stalePathCommand = null;
+      let installed = commandInfo.found;
       const versionResult = installed && versionArgs.length > 0
         ? runResolved(commandInfo, versionArgs, { cwd: repoDir })
         : null;
-      const versionMatches = versionResult
+      let versionMatches = versionResult
         ? (versionResult.status === 0 && versionOutputMatchesExpected(expectedVersion, `${versionResult.stdout || ''}\n${versionResult.stderr || ''}`))
         : true;
+      if (provider.id === 'graphify' && installed && expectedVersion && !versionMatches) {
+        const fallback = knownCommandCandidates(command)
+          .map((candidate) => ({ found: isExecutable(candidate), command: candidate, onPath: false }))
+          .find((candidate) => {
+            if (!candidate.found || candidate.command === commandInfo.command) return false;
+            const result = runResolved(candidate, versionArgs, { cwd: repoDir });
+            return result.status === 0 && versionOutputMatchesExpected(expectedVersion, `${result.stdout || ''}\n${result.stderr || ''}`);
+          });
+        if (fallback) {
+          stalePathCommand = commandInfo.command;
+          commandInfo = fallback;
+          installed = true;
+          versionMatches = true;
+        }
+      }
       const artifactPaths = provider.detection && provider.detection.artifact_paths;
       const artifact = artifactExists(repoDir, artifactPaths);
       const artifactRefs = existingArtifactRefs(repoDir, artifactPaths);
@@ -410,19 +433,25 @@ function helperProviderEntries(registry, repoDir) {
       if (installed && !commandInfo.onPath && provider.id === 'graphify') {
         nextActions.push(`Graphify CLI is installed at ${commandInfo.command} but not on PATH; add ${path.dirname(commandInfo.command)} to PATH or use the absolute command path for manual graphify CLI calls.`);
       }
+      if (stalePathCommand && provider.id === 'graphify') {
+        nextActions.push(`Graphify CLI on PATH at ${stalePathCommand} does not match pinned graphifyy==${expectedVersion}; setup is using ${commandInfo.command}. Update PATH when convenient.`);
+      }
       if (installed && !configured && provider.id === 'graphify') {
-        nextActions.push(`Install the current-host Graphify project skill with \`$spec-mcp-setup --only graphify\` for ${currentHost}.`);
+        if (readinessStatus === 'unknown' || readinessStatus === 'fresh') {
+          readinessStatus = 'degraded';
+        }
+        nextActions.push(`Install the current-host Graphify project skill with \`${setupWorkflowCommand(currentHost, '--only graphify')}\` for ${currentHost}.`);
       }
       if (installed && !versionMatches && expectedVersion && provider.id === 'graphify') {
         readinessStatus = 'degraded';
-        nextActions.push(`Graphify CLI version does not match pinned graphifyy==${expectedVersion}; rerun \`$spec-mcp-setup --only graphify\` to reinstall the pinned provider version.`);
+        nextActions.push(`Graphify CLI version does not match pinned graphifyy==${expectedVersion}; rerun \`${setupWorkflowCommand(currentHost, '--only graphify')}\` to reinstall the pinned provider version.`);
       }
       if (installed && !artifact) {
         nextActions.push('Generate project-root graphify-out/ with graphify extract or graphify update . before using this provider as architecture navigation.');
       }
       if (hookOverrides.hookStatus === 'failed') {
         readinessStatus = 'degraded';
-        nextActions.push('Graphify hook setup failed; rerun `$spec-mcp-setup --only graphify` or run `graphify hook install` and `graphify hook status` from the project root.');
+        nextActions.push(`Graphify hook setup failed; rerun \`${setupWorkflowCommand(currentHost, '--only graphify')}\` or run \`graphify hook install\` and \`graphify hook status\` from the project root.`);
       } else if (hookOverrides.hookStatus === 'skipped' && hookOverrides.hookSkippedReason === 'first-generation-not-completed') {
         nextActions.push('Complete Graphify first generation before enabling provider-native hook refresh.');
       } else if (installed && artifact && provider.steady_state && provider.steady_state.hook_default && hookOverrides.hookStatus === undefined) {

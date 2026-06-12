@@ -6,7 +6,7 @@ const { formatInitGuidance } = require('../init-guidance');
 const {
   isHostComparativeRuntimeSkill,
 } = require('../host-comparative-workflows');
-const { listBundledAgentNames } = require('../plugin');
+const { listBundledAgentNames, listBundledSkills } = require('../plugin');
 const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'session-start');
 const HOOKS_JSON_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'hooks.json');
 const SESSION_START_RELATIVE_PATH = '.codex/hooks/session-start';
@@ -139,7 +139,7 @@ class CodexAdapter extends PlatformAdapter {
     };
   }
 
-  planRuntimeFilesRemoval() {
+  planRuntimeFilesRemoval(projectRoot) {
     const operations = [
       ...buildRuntimeCleanupOperations(this),
       {
@@ -147,12 +147,20 @@ class CodexAdapter extends PlatformAdapter {
         path: SESSION_START_RELATIVE_PATH.replace(/\\/g, '/'),
         reason: 'managed_runtime_hook',
       },
-      {
+    ];
+    const renderedHooksJson = renderHooksJsonRemoval(projectRoot);
+    operations.push(renderedHooksJson.existsAfter
+      ? {
+        kind: 'update_file',
+        path: HOOKS_JSON_RELATIVE_PATH.replace(/\\/g, '/'),
+        reason: 'managed_runtime_hook',
+        contents: renderedHooksJson.contents,
+      }
+      : {
         kind: 'remove_file',
         path: HOOKS_JSON_RELATIVE_PATH.replace(/\\/g, '/'),
         reason: 'managed_runtime_hook',
-      },
-    ];
+      });
     return {
       operations,
       summary: summarizeOperations(operations),
@@ -172,8 +180,9 @@ class CodexAdapter extends PlatformAdapter {
     removeManagedDirectory(path.join(projectRoot, this.legacyMarketplaceRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyPluginRoot), projectRoot);
     removeManagedDirectory(path.join(projectRoot, this.legacyPluginRootAlt), projectRoot);
+    removeLegacyCodexSpecFirstSkills(projectRoot, this);
     removeManagedFile(path.join(projectRoot, SESSION_START_RELATIVE_PATH), projectRoot);
-    removeManagedFile(path.join(projectRoot, HOOKS_JSON_RELATIVE_PATH), projectRoot);
+    removeManagedHooksJson(projectRoot);
   }
 }
 
@@ -390,6 +399,77 @@ function renderHooksJsonTemplate(projectRoot) {
   return `${JSON.stringify(mergeHooksJson(existing.ok ? existing.value : null, managed, projectRoot), null, 2)}\n`;
 }
 
+function renderHooksJsonRemoval(projectRoot) {
+  const existingPath = path.join(projectRoot, HOOKS_JSON_RELATIVE_PATH);
+  const existing = readJsonFile(existingPath);
+  if (!existing.ok || !isPlainObject(existing.value)) {
+    return { existsAfter: false, contents: '' };
+  }
+
+  const cleaned = removeManagedHooksJsonEntries(existing.value, projectRoot);
+  return hasAnyHookEntries(cleaned)
+    ? { existsAfter: true, contents: `${JSON.stringify(cleaned, null, 2)}\n` }
+    : { existsAfter: false, contents: '' };
+}
+
+function removeManagedHooksJson(projectRoot) {
+  const target = path.join(projectRoot, HOOKS_JSON_RELATIVE_PATH);
+  if (!fs.existsSync(target)) return;
+  const rendered = renderHooksJsonRemoval(projectRoot);
+  if (rendered.existsAfter) {
+    fs.writeFileSync(target, rendered.contents, 'utf8');
+    return;
+  }
+  removeManagedFile(target, projectRoot);
+}
+
+function removeManagedHooksJsonEntries(hooksJson, projectRoot) {
+  const cleaned = { ...hooksJson };
+  const hooks = isPlainObject(hooksJson.hooks) ? hooksJson.hooks : {};
+  cleaned.hooks = {};
+  for (const [eventName, entries] of Object.entries(hooks)) {
+    if (!Array.isArray(entries)) continue;
+    const remaining = entries.filter((entry) => !isManagedSessionStartEntry(entry, projectRoot));
+    if (remaining.length > 0) {
+      cleaned.hooks[eventName] = remaining;
+    }
+  }
+  return cleaned;
+}
+
+function hasAnyHookEntries(hooksJson) {
+  const hooks = isPlainObject(hooksJson && hooksJson.hooks) ? hooksJson.hooks : {};
+  return Object.values(hooks).some((entries) => Array.isArray(entries) && entries.length > 0);
+}
+
+function buildLegacyCodexSpecFirstSkillCleanupOperations(adapter) {
+  return legacyCodexSpecFirstSkillNames()
+    .map((skillName) => `${adapter.legacyCodexSkillsRoot}/${skillName}`)
+    .map((relativePath) => ({
+      kind: 'remove_dir',
+      path: relativePath.replace(/\\/g, '/'),
+      reason: 'legacy_codex_spec_first_skill_cleanup',
+    }));
+}
+
+function removeLegacyCodexSpecFirstSkills(projectRoot, adapter) {
+  for (const skillName of legacyCodexSpecFirstSkillNames()) {
+    removeManagedDirectory(path.join(projectRoot, adapter.legacyCodexSkillsRoot, skillName), projectRoot);
+  }
+}
+
+function legacyCodexSpecFirstSkillNames() {
+  const names = new Set();
+  for (const skillName of listBundledSkills()) {
+    if (skillName === 'graphify') continue;
+    names.add(skillName);
+    if (skillName.startsWith('spec-')) {
+      names.add(skillName.replace(/^spec-/, ''));
+    }
+  }
+  return [...names].filter((name) => name !== 'graphify').sort();
+}
+
 function summarizeOperations(operations) {
   return operations.reduce((summary, operation) => {
     summary[operation.kind] = (summary[operation.kind] || 0) + 1;
@@ -412,7 +492,7 @@ function codexRuntimeSkillName(context = {}) {
 }
 
 function buildRuntimeCleanupOperations(adapter) {
-  return [
+  const operations = [
     adapter.commandRoot,
     adapter.legacyCommandRoot,
     adapter.legacyMarketplaceRoot,
@@ -423,6 +503,8 @@ function buildRuntimeCleanupOperations(adapter) {
     path: relativePath,
     reason: 'managed_runtime_cleanup',
   }));
+  operations.push(...buildLegacyCodexSpecFirstSkillCleanupOperations(adapter));
+  return operations;
 }
 
 function readJsonFile(filePath) {

@@ -859,12 +859,100 @@ function Resolve-GraphifyCli {
   return ''
 }
 
+function Invoke-GraphifyCommandWithTimeout {
+  param(
+    [string]$Command,
+    [string[]]$Arguments,
+    [int]$TimeoutSeconds = $stageTimeoutSeconds
+  )
+
+  $job = Start-Job -ScriptBlock {
+    param($InnerCommand, $InnerArguments)
+    try {
+      $global:LASTEXITCODE = 0
+      & $InnerCommand @InnerArguments *> $null
+      return $LASTEXITCODE
+    } catch {
+      return 1
+    }
+  } -ArgumentList $Command, $Arguments
+
+  $completed = Wait-Job -Job $job -Timeout $TimeoutSeconds
+  if (-not $completed) {
+    Stop-Job -Job $job -Force | Out-Null
+    Remove-Job -Job $job -Force | Out-Null
+    return $false
+  }
+
+  $result = Receive-Job -Job $job -ErrorAction SilentlyContinue | Select-Object -Last 1
+  Remove-Job -Job $job -Force | Out-Null
+  return ([int]$result -eq 0)
+}
+
+function Get-GraphifyVersionOutputWithTimeout {
+  param(
+    [string]$Command,
+    [int]$TimeoutSeconds = 30
+  )
+
+  $job = Start-Job -ScriptBlock {
+    param($InnerCommand)
+    try {
+      & $InnerCommand --version 2>$null
+    } catch {
+      ''
+    }
+  } -ArgumentList $Command
+
+  $completed = Wait-Job -Job $job -Timeout $TimeoutSeconds
+  if (-not $completed) {
+    Stop-Job -Job $job -Force | Out-Null
+    Remove-Job -Job $job -Force | Out-Null
+    return ''
+  }
+
+  $output = (Receive-Job -Job $job -ErrorAction SilentlyContinue) -join "`n"
+  Remove-Job -Job $job -Force | Out-Null
+  return $output
+}
+
+function Test-GraphifyCommandVersionMatchesPin {
+  param([string]$Command)
+  if ([string]::IsNullOrWhiteSpace($Command)) { return $false }
+  $output = Get-GraphifyVersionOutputWithTimeout -Command $Command
+  return ($output -match "(^|[^0-9A-Za-z.])$([regex]::Escape($graphifyVersionPin))([^0-9A-Za-z.]|$)")
+}
+
+function Resolve-GraphifyCliMatchingPin {
+  Reset-GraphifyResolver
+
+  $pathCommand = Resolve-GraphifyOnOriginalPath
+  if ((-not [string]::IsNullOrWhiteSpace($pathCommand)) -and (Test-GraphifyCommandVersionMatchesPin -Command $pathCommand)) {
+    Set-GraphifyResolvedCommand -Command $pathCommand -OnPath $true
+    return $script:GraphifyResolvedCommand
+  }
+
+  foreach ($name in @('graphify', 'graphify.exe', 'graphify.cmd')) {
+    $candidate = Join-Path $homeLocalBin $name
+    $command = Get-Command -Name $candidate -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -ne $command -and -not [string]::IsNullOrWhiteSpace([string]$command.Source)) {
+      $source = [string]$command.Source
+      if (Test-GraphifyCommandVersionMatchesPin -Command $source) {
+        Set-GraphifyResolvedCommand -Command $source -OnPath $false
+        return $script:GraphifyResolvedCommand
+      }
+    }
+  }
+
+  return ''
+}
+
 function Invoke-GraphifyCommand {
   param([string[]]$Arguments)
   $graphifyCommand = Resolve-GraphifyCli
   if ([string]::IsNullOrWhiteSpace($graphifyCommand)) { return $false }
   $graphifyArguments = @($Arguments)
-  return (Invoke-HelperCommand { & $graphifyCommand @graphifyArguments })
+  return (Invoke-GraphifyCommandWithTimeout -Command $graphifyCommand -Arguments $graphifyArguments)
 }
 
 function Resolve-RequirementWorkspace {
@@ -1001,26 +1089,21 @@ function Invoke-GraphifyCodeOnlyFallback {
 function Test-GraphifyCliVersionMatchesPin {
   $graphifyCommand = Resolve-GraphifyCli
   if ([string]::IsNullOrWhiteSpace($graphifyCommand)) { return $false }
-  try {
-    $output = (& $graphifyCommand --version 2>$null) -join "`n"
-    return ($output -match "(^|[^0-9A-Za-z.])$([regex]::Escape($graphifyVersionPin))([^0-9A-Za-z.]|$)")
-  } catch {
-    return $false
-  }
+  return (Test-GraphifyCommandVersionMatchesPin -Command $graphifyCommand)
 }
 
 function Install-GraphifyCli {
-  if ((-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCli))) -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
+  if (-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCliMatchingPin))) { return $true }
   if (Test-CommandExists 'uv') {
     if (Invoke-HelperCommand { uv tool install --force "graphifyy==$graphifyVersionPin" }) {
       Reset-GraphifyResolver
-      if ((-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCli))) -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
+      if (-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCliMatchingPin))) { return $true }
     }
   }
   if (Test-CommandExists 'pipx') {
     if (Invoke-HelperCommand { pipx install --force "graphifyy==$graphifyVersionPin" }) {
       Reset-GraphifyResolver
-      if ((-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCli))) -and (Test-GraphifyCliVersionMatchesPin)) { return $true }
+      if (-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCliMatchingPin))) { return $true }
     }
   }
   return $false

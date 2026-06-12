@@ -252,9 +252,10 @@ describe('dependency readiness baseline contracts', () => {
       schema_version: 'provider-readiness.v2',
       provider: 'graphify',
       profile: 'optional',
-      readiness_status: 'unknown',
+      readiness_status: 'degraded',
       lifecycle: {
         installed: true,
+        configured: false,
       },
       native_interfaces: ['cli'],
       first_generation: {
@@ -446,6 +447,85 @@ exit 0
         configured: true,
       },
     });
+  });
+
+  test('provider readiness renderer gives Claude-specific Graphify repair actions', () => {
+    const tempDir = makeTempDir();
+    const binDir = path.join(tempDir, 'bin');
+    fs.mkdirSync(path.join(tempDir, 'graphify-out'), { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'graphify-out/graph.json'), '{}\n', 'utf8');
+    const graphifyBin = path.join(binDir, 'graphify');
+    fs.writeFileSync(graphifyBin, `#!/bin/sh
+if [ "$1" = "--version" ]; then
+  printf 'graphify 0.8.36\\n'
+  exit 0
+fi
+exit 0
+`, 'utf8');
+    fs.chmodSync(graphifyBin, 0o755);
+
+    const result = spawnSync(process.execPath, [providerRendererPath, '--source', 'helper', '--repo-root', tempDir], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        SPEC_FIRST_PROVIDER_HOST: 'claude',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    const graphify = JSON.parse(result.stdout)[0];
+    expect(graphify).toMatchObject({
+      provider: 'graphify',
+      readiness_status: 'degraded',
+      lifecycle: {
+        installed: true,
+        configured: false,
+        artifact_exists: true,
+      },
+    });
+    expect(graphify.next_actions.join('\n')).toContain('/spec:mcp-setup --only graphify');
+    expect(graphify.next_actions.join('\n')).not.toContain('$spec-mcp-setup --only graphify');
+  });
+
+  test('provider readiness renderer prefers pinned provider-standard Graphify over stale PATH command', () => {
+    const tempDir = makeTempDir();
+    const homeDir = path.join(tempDir, 'home');
+    const binDir = path.join(tempDir, 'bin');
+    const graphifyBinDir = path.join(homeDir, '.local/bin');
+    fs.mkdirSync(path.join(tempDir, 'graphify-out'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, '.codex/skills/graphify'), { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.mkdirSync(graphifyBinDir, { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'graphify-out/graph.json'), '{}\n', 'utf8');
+    fs.writeFileSync(path.join(tempDir, '.codex/skills/graphify/SKILL.md'), '# graphify\n', 'utf8');
+    const staleGraphify = path.join(binDir, 'graphify');
+    fs.writeFileSync(staleGraphify, '#!/bin/sh\nprintf "graphify 0.1.0\\n"\n', 'utf8');
+    fs.chmodSync(staleGraphify, 0o755);
+    const pinnedGraphify = path.join(graphifyBinDir, 'graphify');
+    fs.writeFileSync(pinnedGraphify, '#!/bin/sh\nprintf "graphify 0.8.36\\n"\n', 'utf8');
+    fs.chmodSync(pinnedGraphify, 0o755);
+
+    const result = spawnSync(process.execPath, [providerRendererPath, '--source', 'helper', '--repo-root', tempDir], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: homeDir,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        SPEC_FIRST_PROVIDER_ORIGINAL_PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        SPEC_FIRST_PROVIDER_HOST: 'codex',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    const graphify = JSON.parse(result.stdout)[0];
+    expect(graphify.lifecycle.installed).toBe(true);
+    expect(graphify.next_actions.join('\n')).toContain(`setup is using ${pinnedGraphify}`);
+    expect(graphify.next_actions.join('\n')).toContain(`Graphify CLI on PATH at ${staleGraphify} does not match pinned graphifyy==0.8.36`);
+    expect(graphify.next_actions.join('\n')).not.toContain('Graphify CLI version does not match pinned');
   });
 
   test('provider readiness renderer degrades Graphify when hook setup failed', () => {
@@ -649,6 +729,16 @@ exit 0
       fs.writeFileSync(commandPath, '#!/bin/sh\nexit 0\n', 'utf8');
       fs.chmodSync(commandPath, 0o755);
     }
+    const staleGraphifyPath = path.join(binDir, 'graphify');
+    fs.writeFileSync(staleGraphifyPath, `#!/bin/sh
+printf '%s %s\\n' "$0" "$*" >> "$GRAPHIFY_CAPTURE"
+if [ "$1" = "--version" ]; then
+  printf 'graphify 0.1.0\\n'
+  exit 0
+fi
+exit 1
+`, 'utf8');
+    fs.chmodSync(staleGraphifyPath, 0o755);
     const graphifyPath = path.join(graphifyBinDir, 'graphify');
     fs.writeFileSync(graphifyPath, `#!/bin/sh
 printf '%s %s\\n' "$0" "$*" >> "$GRAPHIFY_CAPTURE"
@@ -700,6 +790,8 @@ exit 0
 
     expect(result.status).toBe(0);
     const captured = fs.readFileSync(capturePath, 'utf8');
+    expect(captured).toContain(`${staleGraphifyPath} --version`);
+    expect(captured).not.toContain(`${staleGraphifyPath} install --project --platform codex`);
     expect(captured).toContain(`${graphifyPath} install --project --platform codex`);
     expect(captured).toContain(`${graphifyPath} extract .`);
     expect(captured).toContain(`${graphifyPath} query spec-first setup readiness --graph`);
@@ -1475,6 +1567,10 @@ exit 0
           next_action: 'Run `$spec-mcp-setup` from codex to refresh host-aligned setup facts.',
         },
       });
+      expect(computeDecisionInputHealth({ projectRoot: tmp, platforms: ['claude'], now })).toMatchObject({
+        status: 'pass',
+        basis: { reason_code: 'setup-facts-ready' },
+      });
 
       fs.mkdirSync(path.dirname(factsPath), { recursive: true });
       fs.writeFileSync(factsPath, '{', 'utf8');
@@ -1523,7 +1619,40 @@ exit 0
       }));
       expect(computeDecisionInputHealth({ projectRoot: tmp, platforms: ['codex'], now })).toMatchObject({
         status: 'warn',
-        basis: { reason_code: 'optional-capability-degraded' },
+        basis: {
+          reason_code: 'optional-capability-degraded',
+          next_action: 'Rerun `$spec-mcp-setup` from codex to refresh degraded optional capability facts.',
+        },
+      });
+
+      writeJson(factsPath, toolFactsFixture({
+        host: 'claude',
+        generated_at: '2026-06-04T00:00:00Z',
+        provider_readiness: [
+          providerFixture({
+            provider: 'graphify',
+            kind: 'project-graph',
+            readiness_status: 'degraded',
+            lifecycle: {
+              installed: true,
+              configured: false,
+              initialized: true,
+              indexed: true,
+              server_reachable: false,
+              artifact_exists: true,
+              query_verified: false,
+              fallback_used: false,
+            },
+            next_actions: ['Install the current-host Graphify project skill with `/spec:mcp-setup --only graphify` for claude.'],
+          }),
+        ],
+      }));
+      expect(computeDecisionInputHealth({ projectRoot: tmp, platforms: ['claude'], now })).toMatchObject({
+        status: 'warn',
+        basis: {
+          reason_code: 'optional-capability-degraded',
+          next_action: 'Rerun `/spec:mcp-setup` from claude to refresh degraded optional capability facts.',
+        },
       });
 
       // configured scan 失败必须降级 health(warn)并在 basis 暴露 configured_scan_status,

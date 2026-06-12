@@ -120,7 +120,11 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(read(installHelpersPs1)).toContain('Resolve-RequirementWorkspace');
     expect(read(installHelpersPs1)).toContain('SPEC_FIRST_PROVIDER_ORIGINAL_PATH');
     expect(read(installHelpersPs1)).toContain('Resolve-GraphifyCli');
+    expect(read(installHelpersPs1)).toContain('Resolve-GraphifyCliMatchingPin');
     expect(read(installHelpersPs1)).toContain('Invoke-GraphifyCommand');
+    expect(read(installHelpersPs1)).toContain('Invoke-GraphifyCommandWithTimeout');
+    expect(read(installHelpersPs1)).toContain('Get-GraphifyVersionOutputWithTimeout');
+    expect(read(installHelpersPs1)).toContain('Test-GraphifyCommandVersionMatchesPin');
     expect(read(installHelpersPs1)).toContain('Normalize-GraphifyInstructionSection');
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('extract', '.')");
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('update', '.')");

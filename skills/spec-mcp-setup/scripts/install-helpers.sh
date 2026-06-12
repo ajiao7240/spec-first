@@ -964,7 +964,7 @@ PY
 }
 
 install_graphify_cli() {
-  if resolve_graphify_cli >/dev/null 2>&1 && graphify_cli_version_matches_pin; then
+  if resolve_graphify_cli_matching_pin >/dev/null 2>&1; then
     return 0
   fi
 
@@ -972,7 +972,7 @@ install_graphify_cli() {
     if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" uv tool install --force "graphifyy==$GRAPHIFY_VERSION_PIN" >/dev/null 2>&1; then
       hash -r 2>/dev/null || true
       reset_graphify_resolver
-      resolve_graphify_cli >/dev/null 2>&1 && graphify_cli_version_matches_pin && return 0
+      resolve_graphify_cli_matching_pin >/dev/null 2>&1 && return 0
     fi
   fi
 
@@ -980,7 +980,7 @@ install_graphify_cli() {
     if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" pipx install --force "graphifyy==$GRAPHIFY_VERSION_PIN" >/dev/null 2>&1; then
       hash -r 2>/dev/null || true
       reset_graphify_resolver
-      resolve_graphify_cli >/dev/null 2>&1 && graphify_cli_version_matches_pin && return 0
+      resolve_graphify_cli_matching_pin >/dev/null 2>&1 && return 0
     fi
   fi
 
@@ -1035,6 +1035,41 @@ resolve_graphify_cli() {
   return 1
 }
 
+graphify_command_version_matches_pin() {
+  local command_path="$1"
+  local output
+  output="$(run_with_timeout 30 "$command_path" --version 2>/dev/null || true)"
+  grep -Eq "(^|[^0-9A-Za-z.])${GRAPHIFY_VERSION_PIN//./\\.}([^0-9A-Za-z.]|$)" <<<"$output"
+}
+
+resolve_graphify_cli_matching_pin() {
+  reset_graphify_resolver
+
+  local candidate
+  candidate="$(resolve_graphify_on_original_path || true)"
+  if [ -n "$candidate" ] && graphify_command_version_matches_pin "$candidate"; then
+    GRAPHIFY_RESOLVED_COMMAND="$candidate"
+    GRAPHIFY_RESOLVED_ON_PATH="true"
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_COMMAND="$GRAPHIFY_RESOLVED_COMMAND"
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_ON_PATH="$GRAPHIFY_RESOLVED_ON_PATH"
+    printf '%s' "$GRAPHIFY_RESOLVED_COMMAND"
+    return 0
+  fi
+
+  for candidate in "$HOME/.local/bin/graphify" "$HOME/.local/bin/graphify.exe" "$HOME/.local/bin/graphify.cmd"; do
+    if [ -f "$candidate" ] && [ -x "$candidate" ] && graphify_command_version_matches_pin "$candidate"; then
+      GRAPHIFY_RESOLVED_COMMAND="$candidate"
+      GRAPHIFY_RESOLVED_ON_PATH="false"
+      export SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_COMMAND="$GRAPHIFY_RESOLVED_COMMAND"
+      export SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_ON_PATH="$GRAPHIFY_RESOLVED_ON_PATH"
+      printf '%s' "$GRAPHIFY_RESOLVED_COMMAND"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 run_graphify_with_timeout() {
   local timeout_seconds="$1"
   shift
@@ -1044,9 +1079,9 @@ run_graphify_with_timeout() {
 }
 
 graphify_cli_version_matches_pin() {
-  local output
-  output="$(run_graphify_with_timeout 30 --version 2>/dev/null || true)"
-  grep -Eq "(^|[^0-9A-Za-z.])${GRAPHIFY_VERSION_PIN//./\\.}([^0-9A-Za-z.]|$)" <<<"$output"
+  local graphify_command
+  graphify_command="$(resolve_graphify_cli)" || return 1
+  graphify_command_version_matches_pin "$graphify_command"
 }
 
 graphify_project_platform() {

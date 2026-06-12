@@ -95,7 +95,7 @@ describe('runtime plan contracts', () => {
 
   test('Codex runtime plans retain legacy cleanup while adding SessionStart hook assets', () => {
     const adapter = getAdapter('codex');
-    const expectedPaths = [
+    const expectedCleanupPaths = [
       '.codex/commands/spec',
       '.codex/spec-first/commands',
       '.agents/plugins',
@@ -104,24 +104,34 @@ describe('runtime plan contracts', () => {
     ];
 
     const syncPlan = adapter.planRuntimeFilesSync('/tmp/unused');
-    expect(syncPlan.operations.map((entry) => entry.path)).toEqual([
-      ...expectedPaths,
+    const syncCleanupOps = syncPlan.operations.filter((entry) => entry.reason === 'managed_runtime_cleanup'
+      || entry.reason === 'legacy_codex_spec_first_skill_cleanup');
+    expect(expectedCleanupPaths.every((expectedPath) =>
+      syncCleanupOps.some((entry) => entry.path === expectedPath)
+    )).toBe(true);
+    expect(syncCleanupOps.some((entry) => entry.path === '.codex/skills/work')).toBe(true);
+    expect(syncPlan.operations.slice(-2).map((entry) => entry.path)).toEqual([
       '.codex/hooks/session-start',
       '.codex/hooks.json',
     ]);
-    expect(syncPlan.operations.slice(0, expectedPaths.length).every((entry) => entry.kind === 'remove_dir')).toBe(true);
-    expect(syncPlan.operations.slice(expectedPaths.length).map((entry) => entry.kind)).toEqual(['write_file', 'write_file']);
-    expect(syncPlan.summary).toEqual({ remove_dir: expectedPaths.length, write_file: 2 });
+    expect(syncCleanupOps.every((entry) => entry.kind === 'remove_dir')).toBe(true);
+    expect(syncPlan.operations.slice(-2).map((entry) => entry.kind)).toEqual(['write_file', 'write_file']);
+    expect(syncPlan.summary).toEqual({ remove_dir: syncCleanupOps.length, write_file: 2 });
 
     const removalPlan = adapter.planRuntimeFilesRemoval('/tmp/unused');
-    expect(removalPlan.operations.map((entry) => entry.path)).toEqual([
-      ...expectedPaths,
+    const removalCleanupOps = removalPlan.operations.filter((entry) => entry.reason === 'managed_runtime_cleanup'
+      || entry.reason === 'legacy_codex_spec_first_skill_cleanup');
+    expect(expectedCleanupPaths.every((expectedPath) =>
+      removalCleanupOps.some((entry) => entry.path === expectedPath)
+    )).toBe(true);
+    expect(removalCleanupOps.some((entry) => entry.path === '.codex/skills/work')).toBe(true);
+    expect(removalPlan.operations.slice(-2).map((entry) => entry.path)).toEqual([
       '.codex/hooks/session-start',
       '.codex/hooks.json',
     ]);
-    expect(removalPlan.operations.slice(0, expectedPaths.length).every((entry) => entry.kind === 'remove_dir')).toBe(true);
-    expect(removalPlan.operations.slice(expectedPaths.length).map((entry) => entry.kind)).toEqual(['remove_file', 'remove_file']);
-    expect(removalPlan.summary).toEqual({ remove_dir: expectedPaths.length, remove_file: 2 });
+    expect(removalCleanupOps.every((entry) => entry.kind === 'remove_dir')).toBe(true);
+    expect(removalPlan.operations.slice(-2).map((entry) => entry.kind)).toEqual(['remove_file', 'remove_file']);
+    expect(removalPlan.summary).toEqual({ remove_dir: removalCleanupOps.length, remove_file: 2 });
   });
 
   test('Codex-rendered spec-plan preserves research dispatch semantics', () => {

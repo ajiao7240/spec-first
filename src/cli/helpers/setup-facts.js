@@ -484,7 +484,7 @@ function computeDecisionInputHealth({ projectRoot, platforms = [], factsPath, no
   const resolvedFactsPath = factsPath || path.join(projectRoot, '.spec-first', 'config', 'tool-facts.json');
   const projection = normalizeSetupFactsFile(resolvedFactsPath, { now });
   if (projection.status === 'missing') {
-    return buildDecisionResult('missing', 'setup-facts-missing', projection);
+    return buildDecisionResult('missing', 'setup-facts-missing', projection, { requestedPlatforms: platforms });
   }
   if (projection.status === 'error') {
     const reasonCode = projection.reason_code === 'setup-facts-unreadable'
@@ -496,15 +496,15 @@ function computeDecisionInputHealth({ projectRoot, platforms = [], factsPath, no
     return buildDecisionResult('missing', 'setup-facts-host-mismatch', projection, { requestedPlatforms: platforms });
   }
   if (projection.freshness.status === 'stale') {
-    return buildDecisionResult('stale', 'setup-facts-stale', projection);
+    return buildDecisionResult('stale', 'setup-facts-stale', projection, { requestedPlatforms: platforms });
   }
   if (projection.counts.required_action > 0 || projection.configured_dependency_counts.action_required > 0) {
-    return buildDecisionResult('error', 'required-runtime-action-required', projection);
+    return buildDecisionResult('error', 'required-runtime-action-required', projection, { requestedPlatforms: platforms });
   }
   // configured dependency scan 失败是诚实降级(丢失 undeclared 可见性),非确定 blocker:
   // 映射成 warn,reason_code 专用以与「真有 degraded helper」区分,不静默 pass。
   if (projection.configured_scan_status === 'scan-failed') {
-    return buildDecisionResult('warn', 'configured-scan-degraded', projection);
+    return buildDecisionResult('warn', 'configured-scan-degraded', projection, { requestedPlatforms: platforms });
   }
   if (
     projection.counts.degraded > 0
@@ -513,7 +513,7 @@ function computeDecisionInputHealth({ projectRoot, platforms = [], factsPath, no
     || projection.provider_counts.stale > 0
     || projection.provider_counts.degraded > 0
   ) {
-    return buildDecisionResult('warn', 'optional-capability-degraded', projection);
+    return buildDecisionResult('warn', 'optional-capability-degraded', projection, { requestedPlatforms: platforms });
   }
   return buildDecisionResult('pass', 'setup-facts-ready', projection);
 }
@@ -545,22 +545,38 @@ function decisionInputNextAction(reasonCode, requestedPlatforms = []) {
   const hostLabel = Array.isArray(requestedPlatforms) && requestedPlatforms.length > 0
     ? requestedPlatforms.map(String).join('/')
     : 'the current host';
+  const command = setupWorkflowCommandForPlatforms(requestedPlatforms);
   if (reasonCode === 'setup-facts-host-mismatch') {
-    return `Run \`$spec-mcp-setup\` from ${hostLabel} to refresh host-aligned setup facts.`;
+    return `Run \`${command}\` from ${hostLabel} to refresh host-aligned setup facts.`;
   }
   if (reasonCode === 'setup-facts-missing') {
-    return `Run \`$spec-mcp-setup\` from ${hostLabel} to create setup facts.`;
+    return `Run \`${command}\` from ${hostLabel} to create setup facts.`;
   }
   if (reasonCode === 'setup-facts-stale') {
-    return `Rerun \`$spec-mcp-setup\` from ${hostLabel} to refresh stale setup facts.`;
+    return `Rerun \`${command}\` from ${hostLabel} to refresh stale setup facts.`;
   }
   if (reasonCode === 'required-runtime-action-required') {
-    return `Rerun \`$spec-mcp-setup\` from ${hostLabel} and resolve required runtime actions.`;
+    return `Rerun \`${command}\` from ${hostLabel} and resolve required runtime actions.`;
   }
   if (reasonCode === 'configured-scan-degraded') {
-    return `Rerun \`$spec-mcp-setup\` from ${hostLabel} to refresh configured dependency scan evidence.`;
+    return `Rerun \`${command}\` from ${hostLabel} to refresh configured dependency scan evidence.`;
+  }
+  if (reasonCode === 'optional-capability-degraded') {
+    return `Rerun \`${command}\` from ${hostLabel} to refresh degraded optional capability facts.`;
   }
   return '';
+}
+
+function setupWorkflowCommandForPlatforms(requestedPlatforms = []) {
+  const platforms = Array.isArray(requestedPlatforms)
+    ? [...new Set(requestedPlatforms.map((platform) => String(platform).toLowerCase()).filter(Boolean))]
+    : [];
+  if (platforms.length === 1 && platforms[0] === 'claude') return '/spec:mcp-setup';
+  if (platforms.length === 1 && platforms[0] === 'codex') return '$spec-mcp-setup';
+  if (platforms.includes('claude') && platforms.includes('codex')) {
+    return '/spec:mcp-setup or $spec-mcp-setup';
+  }
+  return '$spec-mcp-setup';
 }
 
 function toBoolean(value, fallback) {
