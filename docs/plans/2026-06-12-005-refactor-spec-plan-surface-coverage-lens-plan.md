@@ -51,8 +51,8 @@ The original Track B asserted the gap rather than observing it (flagged in 001's
 
 This plan stays deferred until **both** hold:
 
-1. **001 has shipped** the decision brief, and ≥2 genuine recent Standard/Deep *multi-surface* plans exist to inspect. Prefer plans generated after 001 landed; record each sample's path and its pre-/post-001 provenance. Fewer than 2 genuine multi-surface samples means the Gate **cannot pass** (insufficient evidence) — it does not default to "primitives already cover".
-2. **A cheap real-plan check shows a gap:** review those real multi-surface samples (or observe normal use) and ask whether existing `## Summary` + current deepening specialists already surfaced the relevant surfaces, or demonstrably missed an in-scope one. If they already cover, this plan stays Deferred. If they missed an in-scope surface, the lens is authorized to land. (This is a review-for-misses check, not an application of a not-yet-built lens.)
+1. **001 has shipped** the decision brief, and ≥2 genuine recent Standard/Deep *multi-surface* plans exist to inspect. ("Multi-surface" follows R1's definition — >1 client, backend surface, API/schema/event contract, data lifecycle, operational concern, or rollout path. For spec-first's own plans this includes the Claude/Codex dual-host split, CLI, skills/agents, contracts, and runtime mirrors; it is **not** limited to App/H5/PC-web/Admin clients, which are illustrative of downstream consumer products.) Samples may be drawn from spec-first's own `docs/plans/` **or** from a genuine multi-surface plan that `spec-plan` generated when applied to a downstream multi-client repo — the latter matches the lens's actual beneficiary population. **`001 has shipped` is a provenance prerequisite (so post-001 plans reflect the decision-brief output), not a source of the multi-surface samples themselves.** Prefer plans generated after 001 landed; record each sample's repo, path, and pre-/post-001 provenance. Fewer than 2 genuine multi-surface samples means the Gate **cannot pass** (insufficient evidence) — it does not default to "primitives already cover".
+2. **A cheap real-plan check shows a gap:** review those real multi-surface samples (or observe normal use) and ask whether existing primitives — `## Summary`, the existing `## System-Wide Impact` section (its `API surface parity` / `Integration coverage` bullets already prompt cross-surface consequences), and current deepening specialists — already surfaced the relevant surfaces, or demonstrably missed an in-scope one. The miss must be one the existing `## System-Wide Impact` bullets do **not** already cover; if they do, the gap is a usage/prompting problem, not a missing section, and this plan stays Deferred. If they already cover, this plan stays Deferred. If they missed an in-scope surface, the lens is authorized to land. (This is a review-for-misses check, not an application of a not-yet-built lens.)
 
 **What this gate can and cannot detect.** It reliably catches *enumerative* misses — a surface that is visible in hindsight once the plan is read against the repo's real surfaces. It is weak for the *unknown-unknown* surface (the one nobody thought to enumerate — e.g., an embedded SDK), which can surface as a false "null = primitives already cover." That residual risk is **not** owned by this gate; it routes to U3's deterministic surface-enumeration script path, not to relaxing the gate.
 
@@ -66,7 +66,8 @@ This is an **execution-locked, deferred plan**. `status: active` is the only leg
 
 - **Execution lock:** do not enter U2–U4 until **both** Gate conditions hold. `spec-work` (or any executor) handed this plan path must verify the Gate first; if it is not met, stop and report `gate-not-met` without implementing. U1 is the only unit runnable before the Gate opens.
 - **Null gate stays deferred:** if U1 returns null (existing primitives already cover) or insufficient evidence (<2 genuine multi-surface samples), record the result and keep `status: active` with the DEFERRED banner intact. Do **not** mark `status: completed` for a null or insufficient-evidence gate.
-- **Completion path:** move to `status: completed` only after U2–U4 actually land behind a passed Gate. If the Gate never opens, this plan stays `active` + DEFERRED indefinitely, or is closed as `superseded` — never silently completed.
+- **Completion path:** move to `status: completed` only after U2–U4 actually land behind a passed Gate — never silently completed.
+- **Bounded deferral (no indefinite limbo):** review by **2026-09-12** (one quarter post-001). If by then no qualifying multi-surface sample has appeared (from spec-first's own plans or a downstream multi-client repo) and the Gate has not opened — or after 2 recorded `gate-not-met` / insufficient-evidence checks — close as `status: superseded` with a one-line rationale and a `docs/solutions/` pointer recording the idea, the dropped over-built Track B version, and the trigger to revisit. `superseded` is also the right close if a later plan subsumes this work. Do not leave the plan as `active` + DEFERRED past the review date without an explicit decision.
 
 ---
 
@@ -77,7 +78,7 @@ This is an **execution-locked, deferred plan**. `status: active` is the only leg
 - source_refs: `skills/spec-plan/references/plan-sections.md`, `skills/spec-plan/references/plan-template.md`, `skills/spec-plan/references/markdown-rendering.md`, `skills/spec-plan/references/deepening-workflow.md`, `skills/spec-plan/SKILL.md`, `tests/unit/spec-plan-contracts.test.js`, `docs/solutions/architecture-patterns/ai-reviewer-capability-borrowing-gates-2026-06-09.md`, `docs/10-prompt/结构化项目角色契约.md`
 - external_refs: `https://github.com/github/spec-kit/blob/main/templates/plan-template.md`, `https://docs.anthropic.com/en/docs/claude-code/sub-agents`, `https://www.anthropic.com/engineering/building-effective-agents`
 - confidence: high that the conditional pattern has industry precedent and the lighter shape is correct; medium that the gap exists at all (that is exactly what the Gate tests before landing)
-- limitations: the "gap" is not yet observed in real `spec-first` plans; this plan deliberately does not assert it.
+- limitations: the "gap" is not yet observed in real `spec-first` plans; this plan deliberately does not assert it. Industry precedent (spec-kit) validates the conditional / delete-unused / non-exhaustive **form** (R1/R3), not the per-surface in-scope/out-of-scope/deferred **decision semantics** (the `out-of-scope: <reason>` state) — that semantics is a spec-first design choice justified by the U1 Gate, not by the spec-kit citation. spec-kit's own block is project-directory-structure scaffolding, a related but distinct mechanism.
 
 ---
 
@@ -103,11 +104,11 @@ Order: U1 (gate check) → U2 (lens) → U3 (deepening/agent boundary) → U4 (c
 **Dependencies:** 001 shipped; ≥2 genuine recent Standard/Deep multi-surface samples available
 
 **Files:**
-- Inspect only: ≥2 genuine recent `docs/plans/*` Standard/Deep multi-surface samples (prefer post-001; read 001's closeout / generated-sample evidence to identify them)
+- Inspect only: ≥2 genuine recent Standard/Deep multi-surface samples — from spec-first's own `docs/plans/*` (per R1's surface definition) and/or downstream multi-client repos `spec-plan` was used on (prefer post-001 for provenance). 001's closeout seeds only a single decision-brief baseline sample, **not** multi-surface ones, so it is not where the ≥2 samples are located.
 - Record: a short finding in this plan's closeout or a `docs/validation/spec-plan/` note
 
 **Approach:**
-- Gather ≥2 genuine recent Standard/Deep multi-surface plan samples. Prefer samples generated after 001 shipped; read 001's closeout to find them. Record each sample's path and pre-/post-001 provenance.
+- Gather ≥2 genuine recent Standard/Deep multi-surface plan samples (per R1's surface definition), drawn from spec-first's own `docs/plans/` and/or downstream multi-client repos `spec-plan` was applied to. Prefer samples generated after 001 shipped for provenance, but do not treat 001's closeout as their source — it seeds only one decision-brief baseline sample. Record each sample's repo, path, and pre-/post-001 provenance.
 - If fewer than 2 genuine multi-surface samples exist, the Gate does **not** pass: record `insufficient-evidence`, keep this plan deferred, and do not treat sparse evidence as "primitives already cover".
 - Check whether existing `## Summary` + current deepening specialists already surfaced the relevant surfaces, or demonstrably missed an in-scope one. This is a review-for-misses pass against the repo's real surfaces, not application of a lens (the lens does not exist until U2).
 - Scope honestly: this pass catches enumerative misses (visible in hindsight), not unknown-unknown surfaces; record that limitation. A persistent unknown-unknown gap routes to U3's enumeration-script path, not to this gate.
@@ -134,6 +135,7 @@ Order: U1 (gate check) → U2 (lens) → U3 (deepening/agent boundary) → U4 (c
 - Test: `tests/unit/spec-plan-contracts.test.js`
 
 **Approach:**
+- **First, reconcile against the existing `## System-Wide Impact` section** (present in both `plan-sections.md` and `plan-template.md`, with `API surface parity` and `Integration coverage` bullets). Decide explicitly whether `Surface Coverage` is a **new** section or an **enrichment** of `## System-Wide Impact`. Default to enriching `## System-Wide Impact` unless a per-surface in-scope/out-of-scope/deferred **decision** matrix is demonstrably distinct from that section's **consequence-framed** prose ("what else is impacted / which other interfaces need the same change"). The two answer different questions — coverage enumeration vs impact propagation — but the plan must not add a parallel section that silently duplicates the existing one. Record the chosen shape (new vs enrich) and the one-line reason in U2 closeout.
 - Add a conditional `Surface Coverage` lens: when the plan touches >1 client/contract/runtime/data/ops surface, the writer marks each **materially-considered** surface in-scope / out-of-scope / deferred.
 - **Single list + derivation rule:** list representative surfaces (App, H5, PC web, Admin, backend, data/API, events/jobs, observability, testing) as *examples*, and state the rule: enumerate the surfaces that actually exist in the target repo/product; extend or drop rows accordingly. No second "module model" table.
 - Adopt spec-kit's delete-unused discipline: irrelevant surfaces are omitted, not carried as empty rows. There is **no `not-applicable` state** — an N/A surface is irrelevant and is simply omitted; a surface that was considered but deliberately left unchanged uses `out-of-scope: <reason>` so the consideration stays visible.
@@ -166,7 +168,9 @@ Order: U1 (gate check) → U2 (lens) → U3 (deepening/agent boundary) → U4 (c
 - Test: `tests/unit/spec-plan-contracts.test.js`; `tests/unit/agent-support-contracts.test.js` only if an agent is added
 
 **Approach:**
-- Update deepening guidance so multi-surface depth first reuses existing specialists (`spec-architecture-strategist`, `spec-spec-flow-analyzer`, `spec-design-lens-reviewer`, `spec-api-contract-reviewer`, `spec-security-sentinel`, `spec-data-integrity-guardian`, `spec-performance-oracle`, `spec-deployment-verification-agent`) as domain lenses at plan time.
+- Update deepening guidance so multi-surface depth first reuses existing specialist **agent assets** as domain lenses at plan time. These split into two groups, and the plan must not blur them:
+  - **Already in `deepening-workflow.md`'s section-to-agent mapping** (pure reuse, no wiring): `spec-architecture-strategist`, `spec-spec-flow-analyzer`, `spec-security-sentinel`, `spec-data-integrity-guardian`, `spec-performance-oracle`, `spec-deployment-verification-agent`.
+  - **Exist as agents under `agents/` but NOT yet in the deepening mapping** (this unit wires them in — a real edit + contract-test update, inside U3's already-declared "Modify: `deepening-workflow.md`" scope, not pure reuse): `spec-api-contract-reviewer`, `spec-design-lens-reviewer`. For `spec-design-lens-reviewer` specifically, justify its fit as a plan-time deepening lens before adding it (it is currently a doc-review lens agent); do not assume it is deepening-eligible.
 - **New-agent gate (compressed):** create a new agent only if a *repeated, same-instruction* need appears that existing specialists do not cover — i.e., a **semantic** coverage miss (surfaces are enumerable but their coverage judgment is consistently wrong), not an enumerative one. Per Anthropic's standard, a custom subagent is justified only when you keep spawning the same kind of worker with the same instructions. Context isolation alone is not a justification (existing deepening dispatch already isolates).
 - If enumeration (not judgment) is the gap, prefer a deterministic surface-discovery script (scan `ios/`, `android/`, `admin/`, `migrations/`, etc.) over an agent — file discovery is script-owned per the role contract.
 - Any agent added must be read-only, conditional, internal to documented deepening phases, and not a public workflow entry.
@@ -177,7 +181,7 @@ Order: U1 (gate check) → U2 (lens) → U3 (deepening/agent boundary) → U4 (c
 - If an agent is added: tests confirm it is an internal reviewer asset, not a standalone user entrypoint.
 
 **Verification:**
-- Closeout states whether an agent was added and what repeated, same-instruction evidence justified it; if none, existing primitives suffice.
+- Closeout states whether an agent was added and what repeated, same-instruction evidence justified it; if none, existing primitives suffice. It also discloses any change to `deepening-workflow.md`'s section-to-agent mapping — including wiring in `spec-api-contract-reviewer` / `spec-design-lens-reviewer` — distinctly from net-new agent creation, so "reuse existing" is not conflated with new wiring.
 
 ---
 
@@ -229,6 +233,7 @@ Order: U1 (gate check) → U2 (lens) → U3 (deepening/agent boundary) → U4 (c
 
 - Parent / source plan: `docs/plans/2026-06-11-001-refactor-spec-plan-decision-surface-coverage-plan.md`
 - Constraint-budget prerequisite: `docs/plans/2026-06-11-004-refactor-spec-plan-skill-slimming-plan.md`
+- Handoff-gate prerequisite: `docs/plans/2026-06-11-003-refactor-spec-plan-plan-mode-hardening-plan.md`
 - Plan sections contract: `skills/spec-plan/references/plan-sections.md`
 - Plan template: `skills/spec-plan/references/plan-template.md`
 - Deepening workflow: `skills/spec-plan/references/deepening-workflow.md`
