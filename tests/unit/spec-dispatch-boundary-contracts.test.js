@@ -24,6 +24,10 @@ function readMarkdownFiles(relativeDir) {
     }));
 }
 
+function stripSupersededDecisionSections(content) {
+  return content.replace(/^## Superseded Decision[^\n]*\n[\s\S]*?(?=^## |$(?![\s\S]))/gm, '');
+}
+
 describe('CE-lineage dispatch boundary contracts', () => {
   test('audit matrix covers required dispatch-bearing skills with actions', () => {
     const matrix = read('docs/validation/2026-05-05-ce-dispatch-boundary-audit-matrix.md');
@@ -73,22 +77,35 @@ describe('CE-lineage dispatch boundary contracts', () => {
     expect(read('skills/using-spec-first/SKILL.md')).toContain('Workflow Dispatch Admission');
     expect(read('skills/using-spec-first/SKILL.md')).toContain('It does not by itself override host-level subagent tool contracts.');
     expect(read('skills/using-spec-first/SKILL.md')).toContain('current request explicitly asks for subagents, delegated work, parallel agents, persona reviewer dispatch');
+    expect(read('skills/using-spec-first/SKILL.md')).toContain('visible parent request or handoff evidence includes explicit subagent/delegation/parallel/persona wording');
   });
 
-  test('dispatch-boundary durable learnings do not retain stale authorization gates', () => {
+  test('dispatch-boundary durable learnings keep old admission model only as superseded provenance', () => {
     const docs = readMarkdownFiles('docs/solutions/workflow-issues')
       .filter(({ fileName, content }) => (
         fileName.includes('dispatch')
         || /\bdispatch\b|spawn_agent|subagent|sub-agent/i.test(content)
       ));
-    const combined = docs.map(({ fileName, content }) => `\n--- ${fileName} ---\n${content}`).join('\n');
+    const liveCombined = docs
+      .map(({ fileName, content }) => `\n--- ${fileName} ---\n${stripSupersededDecisionSections(content)}`)
+      .join('\n');
+    const supersededLearning = read(
+      'docs/solutions/workflow-issues/doc-review-codex-multi-agent-dispatch-boundary-2026-05-05.md',
+    );
 
     expect(docs.length).toBeGreaterThan(0);
-    expect(combined).not.toMatch(/session authorization/i);
-    expect(combined).not.toContain('current session rules permit workflow-owned reviewer dispatch');
-    expect(combined).not.toContain('stricter dispatch authorization boundary');
-    expect(combined).not.toContain('Codex dispatch is authorized');
-    expect(combined).not.toContain('unavailable or disallowed');
+    expect(supersededLearning).toContain('## Superseded Decision (Historical Only)');
+    expect(supersededLearning).toContain('fc3d43c1');
+    expect(supersededLearning).toContain('2026-05-24');
+    expect(supersededLearning).toContain('dispatch_authorization_missing');
+    expect(supersededLearning).toContain('Public workflow invocation does not automatically authorize host-level `spawn_agent`.');
+    expect(supersededLearning).toContain('String-based drift guards are a secondary backstop');
+    expect(liveCombined).not.toMatch(/session authorization/i);
+    expect(liveCombined).not.toContain('current session rules permit workflow-owned reviewer dispatch');
+    expect(liveCombined).not.toContain('Codex dispatch is authorized');
+    expect(liveCombined).not.toContain('unavailable or disallowed');
+    expect(liveCombined).not.toContain('treat that invocation as admission for the documented persona-reviewer phase');
+    expect(liveCombined).not.toContain('do not require another subagent confirmation');
   });
 
   test('dispatch planning docs do not reintroduce user-confirmation gates', () => {

@@ -201,13 +201,16 @@ describe('spec-doc-review best-judgment wording contract', () => {
     expect(skill).toContain('it does not automatically authorize host-level subagent tools whose contract requires explicit subagent, delegation, or parallel-agent wording.');
     expect(skill).toContain('For Codex, a direct `$spec-doc-review` invocation alone is not an explicit `spawn_agent` authorization.');
     expect(skill).toContain('Call `spawn_agent` only when the user explicitly requests subagents, parallel agents, delegated review, or persona reviewer dispatch');
-    expect(skill).toContain('Default doc-review posture is multi-persona analysis.');
-    expect(skill).toContain('Use bounded reviewer dispatch when both host capability and authorization are present');
+    expect(skill).toContain('visible parent request or handoff evidence includes explicit subagent/delegation/parallel/persona wording');
+    expect(skill).toContain('Default doc-review posture is multi-persona analysis when host capability and dispatch authorization are both present.');
+    expect(skill).toContain('A plain invocation on a gated host uses the single-agent report-only fallback without treating the review itself as failed.');
     expect(skill).toContain('`mode:headless` is not a dispatch-disabling flag');
     expect(skill).toContain('Codex supports reviewer dispatch through `spawn_agent` only when the current request satisfies the runtime tool authorization contract.');
     expect(skill).toContain('Do not call `spawn_agent` solely because a persona profile exists');
     expect(skill).toContain('or because `$spec-doc-review` was invoked.');
     expect(skill).toContain('If dispatch capability exists but explicit authorization is absent, record `dispatch_authorization_missing`');
+    expect(skill).toContain('for multi-persona or subagent review in Codex, ask for `subagents`, `personas`, delegated review, or parallel agents in the request.');
+    expect(skill).toContain('continue with normal bounded multi-persona dispatch only when the visible parent request or handoff evidence carries explicit subagent/delegation/parallel/persona authorization.');
     expect(skill).toContain('user explicitly requests report-only/no-agents mode');
     expect(skill).toContain('set `single_agent_report_only_fallback: true`');
     expect(skill).toContain('Treat the effective mode as report-only');

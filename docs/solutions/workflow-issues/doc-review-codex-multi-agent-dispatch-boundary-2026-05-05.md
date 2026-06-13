@@ -17,51 +17,63 @@ tags: [doc-review, codex, multi-agent, dispatch, workflow-boundary]
 
 ## Context
 
-`spec-doc-review` inherited the CE shape of document review: a workflow chooses persona reviewers, runs them as independent agents, then synthesizes findings. The initial local adaptation treated Codex too conservatively by implying that Codex doc-review should fall back unless the user separately said "use subagents".
+`spec-doc-review` inherited the CE shape of document review: a workflow chooses persona reviewers, runs them as independent agents, then synthesizes findings.
 
-That framing mixed three separate concepts:
+This learning originally documented a looser Codex dispatch-admission model. That model is no longer current. Commit `fc3d43c1` on 2026-05-24 ("闭合 must-fix 批次") superseded it with the stricter boundary now encoded in `skills/using-spec-first/SKILL.md`, `skills/spec-doc-review/SKILL.md`, and the dispatch contract tests.
 
-- Codex host capability: Codex can dispatch reviewer agents through `spawn_agent`.
-- Workflow invocation: invoking the current host's documented doc-review workflow authorizes that workflow-owned reviewer phase by default; do not ask for a second "use subagents" confirmation.
-- Runtime capability and safety: fallback is only for missing dispatch primitives, runtime call failure, explicit no-agent/report-only user requests, or unsafe mutating conditions.
+Use this file as historical provenance plus current corrected guidance. Do not use the superseded section below as live implementation advice.
 
 ## Guidance
 
-Do not downgrade solely because the host is Codex. Model the boundary as a dispatch capability gate:
+Current rule:
 
-1. If the host exposes a dispatch primitive, run bounded persona reviewers for the documented reviewer phase.
-2. If the user explicitly invokes the current host's doc-review workflow, treat that invocation as admission for the documented persona-reviewer phase; do not require another subagent confirmation.
-3. If dispatch is unavailable, explicitly disabled, or unsafe, fall back to single-agent report-only review instead of calling hidden helpers or silently skipping review.
-4. Keep bounded parallelism semantics from CE: queue reviewers, respect active-agent limits, and treat capacity errors as backpressure rather than reviewer failure.
+1. Public workflow invocation authorizes the workflow to run.
+2. Public workflow invocation does not automatically authorize host-level `spawn_agent`.
+3. In Codex, call `spawn_agent` only when the visible user request or parent workflow handoff explicitly asks for subagents, delegated work, parallel agents, persona reviewer dispatch, or equivalent documented multi-agent authorization.
+4. If dispatch capability exists but explicit authorization is absent, run the single-agent report-only fallback and record `dispatch_authorization_missing`.
+5. Make the opt-in path user-visible: for multi-persona or subagent review in Codex, ask for `subagents`, `personas`, delegated review, or parallel agents in the request.
 
-The local `spec-doc-review` source now encodes this explicitly:
-
-```markdown
-- A direct invocation of the current host's document-review workflow entrypoint authorizes this documented persona-reviewer phase; do not ask for a second "use subagents" confirmation.
-- Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex.
-```
-
-The fallback is still important, but it is a capability/safety fallback, not a Codex-capability fallback:
+The local `spec-doc-review` source now encodes this strict boundary:
 
 ```markdown
-When dispatch is unavailable, explicitly disabled, or unsafe, set `single_agent_report_only_fallback: true` and run a read-only review in the current orchestrator.
+- A direct invocation of the current host's document-review workflow entrypoint authorizes the doc-review workflow itself; it does not automatically authorize host-level subagent tools whose contract requires explicit subagent, delegation, or parallel-agent wording.
+- If dispatch capability exists but explicit authorization is absent, record `dispatch_authorization_missing` and run the single-agent report-only fallback.
 ```
+
+The fallback is a host-boundary fallback, not a reviewer failure:
+
+```markdown
+When dispatch is unavailable, explicitly disabled, unauthorized, or unsafe, set `single_agent_report_only_fallback: true` and run a read-only review in the current orchestrator.
+```
+
+String-based drift guards are a secondary backstop; they can miss paraphrases of the old model. This supersession note is the primary durable guardrail for future recall from `docs/solutions/`.
+
+## Superseded Decision (Historical Only)
+
+The superseded 2026-05-05 model treated the documented doc-review workflow phase as enough dispatch admission in Codex. Historical wording included:
+
+```markdown
+Workflow invocation: invoking the current host's documented doc-review workflow authorizes that workflow-owned reviewer phase by default; do not ask for a second "use subagents" confirmation.
+If the user explicitly invokes the current host's doc-review workflow, treat that invocation as admission for the documented persona-reviewer phase; do not require another subagent confirmation.
+```
+
+That guidance was intentionally reversed by commit `fc3d43c1` on 2026-05-24. Keep it only as provenance for why older docs or memories may disagree with the current stricter contract.
 
 ## Why This Matters
 
-If host capability and runtime authorization are conflated, the workflow loses one of CE's main quality mechanisms: independent persona review. It also creates confusing user behavior where `$spec-doc-review` appears to mean "single-agent inline review" even though the workflow contract documents persona reviewers.
+If workflow admission and host-level dispatch authorization are conflated, Codex may call `spawn_agent` as an unprompted side effect. That violates the host boundary even when the document-review workflow itself is appropriate.
 
 The corrected contract preserves both sides:
 
-- spec-first supports Codex multi-agent doc-review when the host dispatch primitive exists.
-- spec-first still respects explicit no-agent/report-only requests and capability/safety fallback conditions.
-- callers get an explicit coverage note when review degraded to report-only fallback.
+- spec-first still supports Codex multi-agent doc-review when host capability and explicit dispatch authorization are both present.
+- A plain `$spec-doc-review` request still runs the document-review workflow, but defaults to single-agent report-only fallback on a gated Codex host.
+- Callers get an explicit coverage note and `dispatch_authorization_missing` when review degrades because authorization is absent.
 
 ## When to Apply
 
 - When porting CE workflows that use persona subagents into spec-first.
 - When writing Codex-specific workflow prose around `spawn_agent`.
-- When deciding whether an explicit workflow invocation should count as authorization for workflow-owned agent phases.
+- When deciding whether an explicit workflow invocation should count as authorization for host-level agent dispatch.
 - When adding fallback behavior for hosts or sessions where dispatch is unavailable.
 
 ## Examples
@@ -74,11 +86,11 @@ Respect the current harness's active-subagent limit.
 Treat active-agent/thread/concurrency-limit spawn errors as backpressure, not reviewer failure.
 ```
 
-### Better Codex boundary
+### Current Codex boundary
 
 ```markdown
-Codex supports reviewer dispatch through `spawn_agent`; do not downgrade solely because the host is Codex.
-Fallback only when dispatch is unavailable, explicitly disabled, or unsafe.
+A direct `$spec-doc-review` invocation alone is not an explicit `spawn_agent` authorization.
+Fallback with `dispatch_authorization_missing` unless the request or parent handoff explicitly asks for subagents, personas, delegated review, or parallel agents.
 ```
 
 ### Verification used for this change

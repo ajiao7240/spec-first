@@ -709,7 +709,8 @@ describe('spec-code-review CE sync contracts', () => {
     expect(text).toContain('the current tool contract controls dispatch permission');
     expect(text).toContain('A workflow entrypoint by itself is not enough to call `spawn_agent`');
     expect(text).toContain('require an explicit user request for subagents/parallel agents/delegated review');
-    expect(text).toContain('parent-orchestrator delegation that carries that permission');
+    expect(text).toContain('parent-orchestrator delegation whose visible parent request or handoff evidence carries that permission');
+    expect(text).toContain('visible delegation includes reviewer-dispatch permission');
     expect(text).toContain('Codex may expose reviewer dispatch through `spawn_agent`');
     expect(text).toContain('only when both the host capability and the current permission boundary allow it');
     expect(text).toContain('Do not downgrade solely because the host is Codex when the permission boundary is satisfied.');

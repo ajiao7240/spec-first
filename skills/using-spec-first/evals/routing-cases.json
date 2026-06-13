@@ -56,6 +56,42 @@
       "graphify_required": false,
       "artifact_expected": true,
       "boundary_note": "Progressive disclosure must not weaken explicit public workflow invocation."
+    },
+    {
+      "id": "codex-doc-review-no-subagents-fallback",
+      "name": "Codex doc-review without subagents uses fallback",
+      "user_intent": "$spec-doc-review docs/plans/example.md",
+      "expected_outcome": "public_workflow",
+      "public_workflow_required": true,
+      "expected_entrypoint": "$spec-doc-review",
+      "graphify_required": false,
+      "artifact_expected": true,
+      "dispatch_decision": "fallback",
+      "fallback_reason": "dispatch_authorization_missing",
+      "boundary_note": "Codex public workflow admission authorizes the document-review workflow, not host-level spawn_agent dispatch."
+    },
+    {
+      "id": "skill-agent-asset-audit-routes-skill-audit",
+      "name": "Skill and agent asset review routes to skill audit",
+      "user_intent": "review skills/using-spec-first/SKILL.md and agents/spec-reviewer.agent.md for trigger precision and governance",
+      "expected_outcome": "public_workflow",
+      "public_workflow_required": true,
+      "expected_entrypoint": "$spec-skill-audit",
+      "graphify_required": false,
+      "artifact_expected": true,
+      "boundary_note": "Spec-first skill or agent asset governance review is a skill-audit workflow, not a generic code/doc review route."
+    },
+    {
+      "id": "codex-spec-plan-explicit-research-personas-dispatch",
+      "name": "Codex plan with explicit delegated personas may dispatch",
+      "user_intent": "$spec-plan deep docs/brainstorms/example.md using delegated research agents and persona reviewers",
+      "expected_outcome": "public_workflow",
+      "public_workflow_required": true,
+      "expected_entrypoint": "$spec-plan",
+      "graphify_required": false,
+      "artifact_expected": true,
+      "dispatch_decision": "dispatch",
+      "boundary_note": "Codex dispatch-bearing workflows may use bounded dispatch when the request itself explicitly asks for delegated/persona agent work."
     }
   ]
 }

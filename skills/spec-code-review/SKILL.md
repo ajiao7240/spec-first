@@ -610,10 +610,10 @@ Before creating a run ID or dispatching any reviewer, confirm the current host e
 
 Reviewers are analysis agents, not implementation workers. Dispatch is bounded to the resolved diff scope, selected reviewer personas, advisory facts, and output schema. Do not create hidden implement/check agents from code review. Mutation is allowed only through documented `safe_auto` / selected Apply paths in the chosen mode; report-only fallback, unsafe runtime, or missing dispatch capability must not edit source, generated runtime mirrors, or workflow artifacts.
 
-- In Codex, the current tool contract controls dispatch permission. A workflow entrypoint by itself is not enough to call `spawn_agent`; require an explicit user request for subagents/parallel agents/delegated review or an explicit parent-orchestrator delegation that carries that permission.
+- In Codex, the current tool contract controls dispatch permission. A workflow entrypoint by itself is not enough to call `spawn_agent`; require an explicit user request for subagents/parallel agents/delegated review or an explicit parent-orchestrator delegation whose visible parent request or handoff evidence carries that permission.
 - In Claude, follow the current host's documented workflow-owned dispatch admission rules; if the host contract is unavailable or ambiguous, prefer the single-agent report-only fallback.
 - If the user explicitly requested subagents, parallel agents, or delegated review and the host exposes a dispatch primitive, continue with normal multi-persona dispatch.
-- If the active workflow or parent orchestrator explicitly delegated this code-review workflow and that delegation includes reviewer-dispatch permission, continue with normal multi-persona dispatch.
+- If the active workflow or parent orchestrator explicitly delegated this code-review workflow and that visible delegation includes reviewer-dispatch permission, continue with normal multi-persona dispatch.
 - If the user explicitly requests report-only/no-agents mode, the host lacks a dispatch primitive, or the current runtime cannot call it, do not call `Agent`, `Task`, `spawn_agent`, or equivalent dispatch tools.
 - Codex may expose reviewer dispatch through `spawn_agent`, but use it only when both the host capability and the current permission boundary allow it. Do not downgrade solely because the host is Codex when the permission boundary is satisfied.
 

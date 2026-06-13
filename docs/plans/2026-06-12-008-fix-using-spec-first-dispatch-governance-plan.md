@@ -1,7 +1,7 @@
 ---
 title: fix: Align using-spec-first dispatch governance
 type: fix
-status: active
+status: completed
 date: 2026-06-12
 spec_id: 2026-06-12-008-using-spec-first-dispatch-governance
 plan_depth: deep
@@ -531,3 +531,7 @@ flowchart TB
 - Durable learnings: `docs/solutions/workflow-issues/doc-review-codex-multi-agent-dispatch-boundary-2026-05-05.md`, `docs/solutions/workflow-issues/routing-skill-eval-methodology-2026-06-08.md`, `docs/solutions/architecture-patterns/workflow-entrypoint-exposure-contract-2026-04-26.md`
 - Governance baseline: `docs/10-prompt/结构化项目角色契约.md`
 - Fresh-source eval contract: `docs/contracts/workflows/fresh-source-eval-checklist.md`
+
+## Completion Evidence
+
+Implemented in source/test/docs with Codex bootstrap projection regenerated for the checked-in `AGENTS.md` block. Verification passed focused dispatch/bootstrap/routing Jest suites, full `npm run test:unit`, `npm run typecheck`, `npm run lint:skill-entrypoints`, `npm run sync:instructions`, and `git diff --check`; `smoke` and `integration` were not run and are recorded as schedulable in the spec-work run artifact. Review completed via `$spec-code-review` single-agent report-only fallback with no actionable findings. Runtime regeneration ran with `spec-first init --codex -y`; generated runtime mirrors were not hand-edited. Fresh-source eval was not run because this implementation context lacked explicit subagent/persona dispatch authorization; closeout artifact: `.spec-first/workflows/spec-work/spec-first/20260613-using-spec-first-dispatch-governance-final/run.json`.

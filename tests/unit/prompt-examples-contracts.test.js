@@ -3,9 +3,18 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { buildBootstrapBlock } = require('../../src/cli/instruction-bootstrap');
+
 const REPO_ROOT = path.join(__dirname, '..', '..');
+const USING_SPEC_FIRST_EXAMPLES = path.join(
+  REPO_ROOT,
+  'skills',
+  'using-spec-first',
+  'evals',
+  'examples.json',
+);
 const EXAMPLE_FILES = [
-  ['using-spec-first', path.join(REPO_ROOT, 'skills', 'using-spec-first', 'evals', 'examples.json'), 'skills/using-spec-first/evals/examples.json'],
+  ['using-spec-first', USING_SPEC_FIRST_EXAMPLES, 'skills/using-spec-first/evals/examples.json'],
   ['spec-work', path.join(REPO_ROOT, 'skills', 'spec-work', 'evals', 'examples.json'), 'skills/spec-work/evals/examples.json'],
   ['spec-doc-review', path.join(REPO_ROOT, 'skills', 'spec-doc-review', 'evals', 'examples.json'), 'skills/spec-doc-review/evals/examples.json'],
 ];
@@ -76,6 +85,9 @@ describe('prompt examples baseline contracts', () => {
   test('using-spec-first routing cases pin lightweight direct outcomes without becoming a router', () => {
     const payload = readJson(USING_SPEC_FIRST_ROUTING_CASES);
     const skillPrompt = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'using-spec-first', 'SKILL.md'), 'utf8');
+    const docReviewSkill = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-doc-review', 'SKILL.md'), 'utf8');
+    const examplesPayload = readJson(USING_SPEC_FIRST_EXAMPLES);
+    const codexBootstrap = buildBootstrapBlock('codex', 'en');
 
     expect(payload.schema_version).toBe('using-spec-first-routing-cases/v1');
     expect(payload.skill).toBe('using-spec-first');
@@ -109,6 +121,29 @@ describe('prompt examples baseline contracts', () => {
       artifact_expected: true,
     });
 
+    expect(casesById.get('codex-doc-review-no-subagents-fallback')).toMatchObject({
+      expected_outcome: 'public_workflow',
+      public_workflow_required: true,
+      expected_entrypoint: '$spec-doc-review',
+      dispatch_decision: 'fallback',
+      fallback_reason: 'dispatch_authorization_missing',
+    });
+    expect(casesById.get('codex-doc-review-no-subagents-fallback').boundary_note).toContain('Codex');
+
+    expect(casesById.get('skill-agent-asset-audit-routes-skill-audit')).toMatchObject({
+      expected_outcome: 'public_workflow',
+      public_workflow_required: true,
+      expected_entrypoint: '$spec-skill-audit',
+    });
+
+    expect(casesById.get('codex-spec-plan-explicit-research-personas-dispatch')).toMatchObject({
+      expected_outcome: 'public_workflow',
+      public_workflow_required: true,
+      expected_entrypoint: '$spec-plan',
+      dispatch_decision: 'dispatch',
+    });
+    expect(casesById.get('codex-spec-plan-explicit-research-personas-dispatch').boundary_note).toContain('Codex');
+
     for (const entry of payload.cases) {
       expect(typeof entry.name).toBe('string');
       expect(typeof entry.user_intent).toBe('string');
@@ -117,6 +152,22 @@ describe('prompt examples baseline contracts', () => {
       expect(entry.user_intent.trim().length).toBeGreaterThan(0);
       expect(entry.boundary_note.trim().length).toBeGreaterThan(0);
       expect(JSON.stringify(entry)).not.toMatch(PLACEHOLDER_PATTERN);
+
+      if (entry.dispatch_decision !== undefined) {
+        expect(['dispatch', 'fallback', 'none']).toContain(entry.dispatch_decision);
+      }
+      if (entry.dispatch_decision === 'fallback') {
+        expect(entry.fallback_reason).toBe('dispatch_authorization_missing');
+      } else {
+        expect(entry.fallback_reason).toBeUndefined();
+      }
     }
+
+    expect(docReviewSkill).toContain('dispatch_authorization_missing');
+    expect(docReviewSkill).toContain('for multi-persona or subagent review in Codex, ask for `subagents`, `personas`');
+    expect(codexBootstrap).toContain('dispatch_authorization_missing');
+    expect(codexBootstrap).toContain('ask for `subagents` or `personas` in the request');
+    expect(JSON.stringify(examplesPayload)).toContain('dispatch_authorization_missing');
+    expect(JSON.stringify(examplesPayload)).toContain('not host-level subagent tools');
   });
 });

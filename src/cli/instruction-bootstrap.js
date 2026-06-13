@@ -140,7 +140,7 @@ function buildZhBootstrapBody(hostId) {
   const codexStartupReminderLines = hostId === 'codex'
     ? [
       '- Codex：进入公开 `$spec-*` 前可 best-effort 运行 `spec-first startup-reminder --codex`；失败/空输出不阻塞，只提示在终端运行 `spec-first update`，bounded subagents、leaf reviewers、worker agents 不运行',
-      '- Codex：公开 `$spec-*` 调用即授权该 workflow 文档化的只读 reviewer/researcher phase；`$spec-doc-review` 默认多 persona dispatch，仅 report-only/no-agents、dispatch/runtime 缺失或安全边界不满足时降级',
+      '- Codex：公开 `$spec-*` 调用只授权 workflow 本身，不自动授权 `spawn_agent`；例如 `$spec-doc-review` 缺少 subagents/personas/delegated/parallel 明示授权时走 documented fallback 并记录 `dispatch_authorization_missing`，需要多 persona/subagent review 时请在请求中明说 `subagents`/`personas`',
     ].join('\n')
     : '';
 
@@ -174,7 +174,7 @@ function buildEnBootstrapBody(hostId) {
   const codexStartupReminderLines = hostId === 'codex'
     ? [
       '- Codex: before entering public `$spec-*`, a top-level orchestrator may best-effort run `spec-first startup-reminder --codex`; failure/empty output must not block routing, only points to running `spec-first update` in the terminal, and bounded subagents, leaf reviewers, and worker agents do not run it',
-      '- Codex: invoking public `$spec-*` authorizes that workflow\'s documented read-only reviewer/researcher phase; `$spec-doc-review` defaults to multi-persona dispatch and falls back only for report-only/no-agents, missing dispatch/runtime, or unmet safety boundaries',
+      '- Codex: invoking public `$spec-*` authorizes the workflow itself, not `spawn_agent`; for example, `$spec-doc-review` without explicit subagents/personas/delegated/parallel wording uses the documented fallback with `dispatch_authorization_missing`; for multi-persona/subagent review, ask for `subagents` or `personas` in the request',
     ].join('\n')
     : '';
 

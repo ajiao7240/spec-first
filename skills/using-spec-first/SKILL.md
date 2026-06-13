@@ -91,7 +91,7 @@ Route concrete implementation or prose changes to:
 - Claude: `/spec:work`
 - Codex: `$spec-work`
 
-Route unresolved policy, architecture, or scope questions to `spec-brainstorm` or `spec-plan` based on whether the WHAT or HOW is unclear. Route review-only requests to `spec-code-review` or `spec-doc-review`. If the request asks for review plus concrete revisions, route to work and keep a review posture during execution.
+Route unresolved policy, architecture, or scope questions to `spec-brainstorm` or `spec-plan` based on whether the WHAT or HOW is unclear. Route review-only requests by artifact type: code/diff/PR quality review to `spec-code-review`, requirements/plan/Markdown review to `spec-doc-review`, and skill/agent asset governance audits to `spec-skill-audit`. If the request asks for review plus concrete revisions, route to work and keep a review posture during execution.
 
 For source changes, update source-of-truth files, the narrowest contract tests, and `CHANGELOG.md` when project policy requires it. Keep changelog entries compact and consume changelog history through the latest relevant window / summary-first rules in `docs/contracts/context-governance.md`. Do not modify generated `.claude/`, `.codex/`, or `.agents/skills/` mirrors just to refresh runtime behavior. If runtime drift must be repaired after source validation, use `spec-first init` with the target host selected as a runtime regeneration step, not as the source fix.
 
@@ -260,9 +260,11 @@ If the user asks a read-only codebase question from a parent workspace containin
 
 ### Workflow Dispatch Admission
 
-Routing into a public workflow authorizes that workflow to run. It does not by itself override host-level subagent tool contracts. In Codex, call `spawn_agent` only when the current request explicitly asks for subagents, delegated work, parallel agents, persona reviewer dispatch, or when an upstream workflow delegates from an already authorized multi-agent context.
+Routing into a public workflow authorizes that workflow to run. It does not by itself override host-level subagent tool contracts. In Codex, call `spawn_agent` only when the current request explicitly asks for subagents, delegated work, parallel agents, persona reviewer dispatch, or when an upstream workflow delegates from an already authorized multi-agent context whose visible parent request or handoff evidence includes explicit subagent/delegation/parallel/persona wording.
 
 Some public workflows prefer multi-persona or research phases when host capability and authorization are both present, for example `$spec-doc-review` multi-persona document reviewers, `$spec-code-review` reviewer personas, `$spec-plan` research agents, and `$spec-ideate` grounding or ideation agents. If authorization is absent, use that workflow's documented single-agent/report-only or inline-checklist fallback and record the concrete fallback reason instead of treating the workflow itself as failed.
+
+When Codex fallback is caused by missing dispatch authorization, record `dispatch_authorization_missing` and make the opt-in path user-visible: for multi-persona or subagent review, ask for `subagents`, `personas`, delegated review, or parallel agents in the request.
 
 If the user names `spec-doc-review` in a document-review request without the `$` prefix, normalize it to the current host's public document-review entrypoint when the intent is clearly to run that workflow. Do not invent extra dispatch authorization from normalization; the selected workflow owns reviewer selection, bounded parallelism when authorized, synthesis, artifacts, fallback, and final judgment.
 

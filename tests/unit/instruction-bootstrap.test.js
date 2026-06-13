@@ -302,22 +302,32 @@ describe('instruction bootstrap', () => {
     expect(codexZh).toContain('只提示在终端运行 `spec-first update`');
     expect(codexZh).toContain('失败/空输出不阻塞');
     expect(codexZh).toContain('bounded subagents、leaf reviewers、worker agents 不运行');
-    expect(codexZh).toContain('`$spec-doc-review` 默认多 persona dispatch');
-    expect(codexZh).toContain('仅 report-only/no-agents、dispatch/runtime 缺失或安全边界不满足时降级');
-    expect(codexZh).toContain('公开 `$spec-*` 调用即授权该 workflow 文档化的只读 reviewer/researcher phase');
+    expect(codexZh).toContain('公开 `$spec-*` 调用只授权 workflow 本身');
+    expect(codexZh).toContain('不自动授权 `spawn_agent`');
+    expect(codexZh).toContain('`$spec-doc-review` 缺少 subagents/personas/delegated/parallel 明示授权时走 documented fallback');
+    expect(codexZh).toContain('`dispatch_authorization_missing`');
+    expect(codexZh).toContain('需要多 persona/subagent review 时请在请求中明说 `subagents`/`personas`');
+    expect(codexZh).not.toContain('`$spec-doc-review` 默认多 persona dispatch');
+    expect(codexZh).not.toContain('仅 report-only/no-agents、dispatch/runtime 缺失或安全边界不满足时降级');
+    expect(codexZh).not.toContain('公开 `$spec-*` 调用即授权该 workflow 文档化的只读 reviewer/researcher phase');
     expect(codexZh.split('\n').length).toBeGreaterThan(10);
     expect(codexZh.split('\n').length).toBeLessThan(28);
     expect(codexEn).toContain('a top-level orchestrator');
     expect(codexEn).toContain('failure/empty output must not block routing');
     expect(codexEn).toContain('worker agents do not run it');
-    expect(codexEn).toContain('`$spec-doc-review` defaults to multi-persona dispatch');
-    expect(codexEn).toContain('falls back only for report-only/no-agents, missing dispatch/runtime, or unmet safety boundaries');
-    expect(codexEn).toContain('invoking public `$spec-*` authorizes');
+    expect(codexEn).toContain('invoking public `$spec-*` authorizes the workflow itself, not `spawn_agent`');
+    expect(codexEn).toContain('`$spec-doc-review` without explicit subagents/personas/delegated/parallel wording uses the documented fallback');
+    expect(codexEn).toContain('`dispatch_authorization_missing`');
+    expect(codexEn).toContain('for multi-persona/subagent review, ask for `subagents` or `personas` in the request');
+    expect(codexEn).not.toContain('`$spec-doc-review` defaults to multi-persona dispatch');
+    expect(codexEn).not.toContain('falls back only for report-only/no-agents, missing dispatch/runtime, or unmet safety boundaries');
+    expect(codexEn).not.toContain('that workflow\'s documented read-only reviewer/researcher phase');
     expect(codexEn.split('\n').length).toBeGreaterThan(10);
     expect(codexEn.split('\n').length).toBeLessThan(28);
     expect(claudeZh).not.toContain('startup-reminder --codex');
     expect(claudeZh).not.toContain('$spec-update');
     expect(claudeZh).not.toContain('默认多 persona dispatch');
+    expect(claudeZh).not.toContain('dispatch_authorization_missing');
   });
 
   // U3: 最小入口锚点 + R2 哲学守护(AE1/AE2)
