@@ -1,16 +1,28 @@
 ---
 title: "feat: SCALE Engine 融合到 spec-first 的版本迭代路线图"
 type: roadmap
-status: active
+status: superseded
 date: 2026-06-03
 spec_id: 2026-06-03-003-feat-scale-engine-fusion-roadmap
+superseded_by: docs/01-需求分析/13.scale-integration/spec-first内化集成scale-project-scaffold技术方案.md
+superseded_by_index: docs/01-需求分析/13.scale-integration/README.md
 origin:
-  - docs/09-业界借鉴/scale-engine-能力清单与集成建议.md
-  - docs/09-业界借鉴/project-scaffold-依赖安装逻辑分析.md
-  - docs/09-业界借鉴/scale-os-config-claude-code-依赖安装面分析.md
+  - docs/01-需求分析/13.scale-integration/bak/scale-engine-能力清单与集成建议.md
+  - docs/01-需求分析/13.scale-integration/bak/project-scaffold-依赖安装逻辑分析.md
+  - docs/01-需求分析/13.scale-integration/bak/scale-os-config-claude-code-依赖安装面分析.md
 ---
 
 # feat: SCALE Engine 融合到 spec-first 的版本迭代路线图
+
+> **Superseded（2026-06-13 深度审查后收敛）：本路线图不再作为 active 开发入口，仅作历史规划快照保留。**
+>
+> 本文是 2026-06-03 的 pre-implementation roadmap（自身 Handoff 即定位为"待 `spec-plan` 拆解"）。其规划的 v1.11–v1.17 已全部落地，各自有更窄、更克制的独立实施 plan 在管；v2.0 已被 live 父方案以 `Phase F：Platform Baseline` 承接。因此本文的方向判断成立，但其版本表、文件面、schema 清单均已被实现期的窄 plan 超越，**不得按本文原文执行**。
+>
+> - **Live source-of-truth**：`docs/01-需求分析/13.scale-integration/spec-first内化集成scale-project-scaffold技术方案.md`（父方案）+ 同目录 `README.md`（持有权威逐版本进度台账）。
+> - **逐版本落地状态**（git/源码/CHANGELOG 三方核实）：v1.11/v1.12 已落地（commit `4b63cc4c`，plan `2026-06-04-001`）；v1.13 已落地（commit `3fc4dbda`，plan `2026-06-04-003`）；v1.14 已落地（`docs/contracts/governance/*` + `src/cli/helpers/{rule-maturity,task-governance-signals}.js`，plan `2026-06-05-001`）；v1.15 已落地（commit `3c8da872`，plan `2026-06-05-003`）；v1.16 已落地（`provider-readiness.{md,schema.json}` + `setup-facts.js`，plan `2026-06-06-001`）；v1.17 phase 1 shadow producer 已落地，phase 2+ deferred；v2.0 未开始，归 live 父方案 `Phase F`。
+> - **版本映射纠正（重要）**：本文 §"v1.14 = 六层 Knowledge Harness" / "v1.15 = File-First Memory" 是 2026-06-03 拆分前的 stale 标签。**权威映射为 v1.14 = Governance Lens Foundation、v1.15 = Knowledge Harness**（见 README 台账与 version-split 文档）。本文"无 governance 里程碑"是 stale-doc 假象，不是交付缺口——治理 lens 已作为 v1.14 落地。不要原地改本文版本号去假装它当时权威。
+> - **实现期已自动纠正本文两处过度设计**，无需回填：① v1.11 的扁平 8-state 依赖枚举 → 落地为 `provider-readiness.schema.json` 的 `readiness_status` enum + 独立 `reason_code` 多字段模型；② v1.14 的"六层全栈落地" → 落地为 `docs/contracts/knowledge/knowledge-harness.md` 的轻量地图（只 gate L2/L4/L6，L5 advisory，L3 推后）。本文提出的 `out-of-scope-memory.v1`/`learning-candidate.v1`/`knowledge-recall-summary.v1`/`project-context-map.v1`/TF-IDF index 均**有意未落地**（避免第二真相源与 schema 增生），不应补建。
+> - **origin 修正**：本文 frontmatter 原 `origin:` 指向的 `docs/09-业界借鉴/` 路径已失效，三份来源研究文档现位于 `docs/01-需求分析/13.scale-integration/bak/`（按该目录 README 仅作历史分析输入，非当前 source-of-truth），已在 frontmatter 同步修正。
 
 ## Summary
 

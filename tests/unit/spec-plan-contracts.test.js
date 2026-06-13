@@ -474,6 +474,12 @@ describe('spec_id planning contract', () => {
     expect(planTemplate).toContain('Optional for Lightweight plans');
     expect(planTemplate).toContain('This section summarizes');
     expect(planTemplate).toContain('does not replace Summary, Key Technical');
+    expect(planTemplate).toContain('## System-Wide Impact');
+    expect(planTemplate).toContain('Surface coverage');
+    expect(planTemplate).toContain('`in-scope`');
+    expect(planTemplate).toContain('`out-of-scope: <reason>`');
+    expect(planTemplate).toContain('`deferred: <owner/trigger>`');
+    expect(planTemplate).toContain('do not include empty rows or a `not-applicable` state');
     expect(planTemplate).toContain('## Requirements');
     expect(planTemplate).toContain('treat `## Overview` as the legacy name');
     expect(planTemplate).toContain('legacy `## Requirements Trace`');
@@ -495,6 +501,11 @@ describe('spec_id planning contract', () => {
     expect(planSections).toContain('**Decision Brief**');
     expect(planSections).toContain('It summarizes and points to lower sections');
     expect(planSections).toContain('Lightweight plans may omit it');
+    expect(planSections).toContain('conditional surface-coverage lens');
+    expect(planSections).toContain('enumerate only the surfaces that actually exist in the target repo/product');
+    expect(planSections).toContain('mark each as `in-scope`, `out-of-scope: <reason>`, or `deferred: <owner/trigger>`');
+    expect(planSections).toContain('Omit irrelevant surfaces entirely');
+    expect(planSections).toContain('do not carry empty rows or a `not-applicable` state');
     expect(planSections).toContain('optional HTML sidecar');
     expect(planSections).toContain('not an exclusive output mode');
     expect(markdownRendering).toContain('YAML frontmatter appears at the top of the file');
@@ -547,6 +558,12 @@ describe('spec_id planning contract', () => {
     expect(synthesis).toContain('## Assumptions');
     expect(deepening).toContain('**Requirements**');
     expect(deepening).toContain('Requirements / Open Questions classification');
+    expect(deepening).toContain('`spec-api-contract-reviewer`');
+    expect(deepening).toContain('existing specialist for contract depth, not a new surface-enumeration agent');
+    expect(deepening).toContain('`spec-design-lens-reviewer`');
+    expect(deepening).toContain('design-decision lens for materially user-facing plans');
+    expect(skill).not.toContain('`out-of-scope: <reason>`');
+    expect(skill).not.toContain('spec-surface-coverage-reviewer');
     expect(visual).toContain('Summary or Problem Frame');
     expect([skill, synthesis].join('\n')).not.toContain('STRATEGY.md');
     expect([skill, synthesis].join('\n')).not.toContain('/ce-');
@@ -561,6 +578,8 @@ describe('spec_id planning contract', () => {
     expect(command).toContain('Read `.claude/spec-first/workflows/spec-plan/references/markdown-rendering.md` before writing the canonical markdown plan.');
     expect(command).toContain('Read `.claude/spec-first/workflows/spec-plan/references/plan-template.md` before writing the plan.');
     expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/plan-sections.md')).toContain('Markdown remains the canonical plan artifact.');
+    expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/plan-sections.md')).toContain('conditional surface-coverage lens');
+    expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/plan-template.md')).toContain('- **Surface coverage:**');
     expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/markdown-rendering.md')).toContain('Markdown stays markdown');
     expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/html-rendering.md')).toContain('optional HTML sidecar');
     expect(command).not.toContain('Read `references/plan-template.md` before writing the plan.');

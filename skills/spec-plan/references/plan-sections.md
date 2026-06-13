@@ -35,7 +35,7 @@ Include these only when they carry real information:
 - **Scope Boundaries** - contested exclusions, deferred follow-up work, or tempting non-goals.
 - **Open Questions** - unresolved planning-owned or implementation-owned unknowns.
 - **High-Level Technical Design** - diagrams, pseudo-code, or data-flow sketches when prose alone leaves the approach ambiguous. Frame as directional guidance, not implementation code.
-- **System-Wide Impact** - cross-cutting data, auth, lifecycle, API, rollout, or integration consequences.
+- **System-Wide Impact** - cross-cutting data, auth, lifecycle, API, rollout, or integration consequences. For Standard/Deep plans that materially touch more than one client, backend, API/schema/event contract, data lifecycle, operational concern, or rollout path, enrich this section with a conditional surface-coverage lens: enumerate only the surfaces that actually exist in the target repo/product and were materially considered; mark each as `in-scope`, `out-of-scope: <reason>`, or `deferred: <owner/trigger>`. Representative examples include App, H5, PC web, Admin, backend, data/API, events/jobs, observability, and testing, but this is not a closed list. Omit irrelevant surfaces entirely; do not carry empty rows or a `not-applicable` state.
 - **Risks & Dependencies** - meaningful risks, material dependencies, and mitigation or acceptance.
 - **Documentation / Operational Notes** - docs, monitoring, rollout, or runbook impacts.
 - **Output Structure** - greenfield directory or package shape when layout itself is a decision.

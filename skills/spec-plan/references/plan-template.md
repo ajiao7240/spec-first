@@ -218,10 +218,18 @@ implements_schemas: []  # optional; include only repo-relative contract schema p
 
 ## System-Wide Impact
 
+<!-- For Standard/Deep plans that materially touch more than one client, backend, API/schema/event
+     contract, data lifecycle, operational concern, or rollout path, add a compact surface-coverage
+     note here. Enumerate only repo/product-real surfaces that were materially considered. Use
+     `in-scope`, `out-of-scope: <reason>`, or `deferred: <owner/trigger>`. Omit irrelevant surfaces;
+     do not include empty rows or a `not-applicable` state. Representative examples: App, H5,
+     PC web, Admin, backend, data/API, events/jobs, observability, testing. -->
+
 - **Interaction graph:** [What callbacks, middleware, observers, or entry points may be affected]
 - **Error propagation:** [How failures should travel across layers]
 - **State lifecycle risks:** [Partial-write, cache, duplicate, or cleanup concerns]
 - **API surface parity:** [Other interfaces that may require the same change]
+- **Surface coverage:** [Only when multi-surface: surface -> in-scope / out-of-scope: reason / deferred: owner or trigger]
 - **Integration coverage:** [Cross-layer scenarios unit tests alone will not prove]
 - **Unchanged invariants:** [Existing APIs, interfaces, or behaviors that this plan explicitly does not change — and how the new work relates to them]
 

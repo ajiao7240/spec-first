@@ -125,6 +125,8 @@ Use fully-qualified agent names inside Task calls.
 
 **System-Wide Impact**
 - `spec-architecture-strategist` for cross-boundary effects, interface surfaces, and architectural knock-on impact
+- Add `spec-api-contract-reviewer` when the plan changes API routes, request/response schemas, exported type signatures, event contracts, or versioning expectations; this is an existing specialist for contract depth, not a new surface-enumeration agent.
+- Add `spec-design-lens-reviewer` only when the plan includes user-facing client surfaces and needs plan-time coverage of information architecture, interaction states, user flows, responsive/accessibility concerns, or AI-slop risk. It is a design-decision lens for materially user-facing plans, not a default reviewer for every multi-surface plan.
 - Add the specific specialist that matches the risk:
   - `spec-performance-oracle` for scalability, latency, throughput, and resource-risk analysis
   - `spec-security-sentinel` for auth, validation, exploit surfaces, and security boundary review
