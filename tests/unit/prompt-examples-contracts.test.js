@@ -9,6 +9,13 @@ const EXAMPLE_FILES = [
   ['spec-work', path.join(REPO_ROOT, 'skills', 'spec-work', 'evals', 'examples.json'), 'skills/spec-work/evals/examples.json'],
   ['spec-doc-review', path.join(REPO_ROOT, 'skills', 'spec-doc-review', 'evals', 'examples.json'), 'skills/spec-doc-review/evals/examples.json'],
 ];
+const USING_SPEC_FIRST_ROUTING_CASES = path.join(
+  REPO_ROOT,
+  'skills',
+  'using-spec-first',
+  'evals',
+  'routing-cases.json',
+);
 const PLACEHOLDER_PATTERN = /\b(?:TODO|TBD|foo|bar)\b|example 1/i;
 
 function readJson(filePath) {
@@ -64,5 +71,52 @@ describe('prompt examples baseline contracts', () => {
     expect(skillPrompt).toContain(relativeExamplePath);
     expect(skillPrompt).toContain('examples-as-context');
     expect(skillPrompt).toContain('not');
+  });
+
+  test('using-spec-first routing cases pin lightweight direct outcomes without becoming a router', () => {
+    const payload = readJson(USING_SPEC_FIRST_ROUTING_CASES);
+    const skillPrompt = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'using-spec-first', 'SKILL.md'), 'utf8');
+
+    expect(payload.schema_version).toBe('using-spec-first-routing-cases/v1');
+    expect(payload.skill).toBe('using-spec-first');
+    expect(Array.isArray(payload.cases)).toBe(true);
+    expect(payload.cases.length).toBeGreaterThanOrEqual(5);
+    expect(payload.cases.length).toBeLessThanOrEqual(8);
+    expect(skillPrompt).toContain('skills/using-spec-first/evals/routing-cases.json');
+    expect(skillPrompt).toContain('not a deterministic router');
+
+    const casesById = new Map(payload.cases.map((entry) => [entry.id, entry]));
+    for (const id of [
+      'greeting-direct-answer',
+      'current-context-explanation-direct',
+      'narrow-where-used-bounded-read',
+      'current-document-summary-direct',
+    ]) {
+      const entry = casesById.get(id);
+      expect(entry).toBeDefined();
+      expect(entry.public_workflow_required).toBe(false);
+      expect(entry.expected_entrypoint).toBeNull();
+      expect(entry.graphify_required).toBe(false);
+      expect(entry.artifact_expected).toBe(false);
+      expect(['direct_answer', 'bounded_read']).toContain(entry.expected_outcome);
+      expect(entry.expected_outcome).not.toBe('public_workflow');
+    }
+
+    expect(casesById.get('explicit-spec-plan-honored')).toMatchObject({
+      expected_outcome: 'public_workflow',
+      public_workflow_required: true,
+      expected_entrypoint: '$spec-plan',
+      artifact_expected: true,
+    });
+
+    for (const entry of payload.cases) {
+      expect(typeof entry.name).toBe('string');
+      expect(typeof entry.user_intent).toBe('string');
+      expect(typeof entry.boundary_note).toBe('string');
+      expect(entry.name.trim()).toBe(entry.name);
+      expect(entry.user_intent.trim().length).toBeGreaterThan(0);
+      expect(entry.boundary_note.trim().length).toBeGreaterThan(0);
+      expect(JSON.stringify(entry)).not.toMatch(PLACEHOLDER_PATTERN);
+    }
   });
 });

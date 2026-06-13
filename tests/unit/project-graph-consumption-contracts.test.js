@@ -27,6 +27,10 @@ describe('project graph consumption contract', () => {
 
     expect(contract).toContain('`project-graph-consumption.v1` defines how workflows consume project-graph and code-graph capability-class providers as candidate evidence');
     expect(contract).toContain('The output stays candidate-only');
+    expect(contract).toContain('Trigger Shape');
+    expect(contract).toContain('Default project-graph use is appropriate for architecture relationships, cross-file relationships, impact analysis, broad codebase navigation');
+    expect(contract).toContain('Default project-graph use is not appropriate for simple factual Q&A, current conversation or current-context summaries');
+    expect(contract).toContain('user-provided single-document summarization/editing');
     expect(contract).toContain('never cat graph.json');
     expect(contract).toContain('setup-facts artifact that carries `provider_readiness[]`');
     expect(contract).toContain('If setup facts are missing, stale, missing `generated_at`, or otherwise freshness-untrusted');
@@ -46,6 +50,32 @@ describe('project graph consumption contract', () => {
   test('registered consumers cite the single source of truth', () => {
     for (const relativePath of CONSUMER_SURFACES) {
       expect(read(relativePath)).toContain('docs/contracts/project-graph-consumption.md');
+    }
+  });
+
+  test('checked-in host graphify instructions narrow triggers and mark provider evidence advisory', () => {
+    const requiredTokens = [
+      'Use Graphify first only',
+      'architecture relationships',
+      'cross-file relationships',
+      'impact analysis',
+      'broad codebase navigation',
+      'Do not use Graphify by default',
+      'simple factual Q&A',
+      'current conversation or context summaries',
+      'single-document summarization/editing',
+      'already-scoped file reads',
+      'provider_untrusted',
+      'confirm important conclusions from source/test/log/doc evidence',
+    ];
+
+    for (const relativePath of ['CLAUDE.md', 'AGENTS.md']) {
+      const content = read(relativePath);
+
+      for (const token of requiredTokens) {
+        expect(content).toContain(token);
+      }
+      expect(content).not.toContain('For codebase questions, first use Graphify');
     }
   });
 

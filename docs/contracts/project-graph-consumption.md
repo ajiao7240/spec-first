@@ -40,6 +40,12 @@ Use project-graph output only to shrink the next read:
 
 The output stays candidate-only. A useful candidate can change where you look first, but it cannot become the answer.
 
+## Trigger Shape
+
+Default project-graph use is appropriate for architecture relationships, cross-file relationships, impact analysis, broad codebase navigation, and questions about how one project area connects to another.
+
+Default project-graph use is not appropriate for simple factual Q&A, current conversation or current-context summaries, user-provided single-document summarization/editing, or already-scoped file reads. In those cases, answer directly, use bounded source reads, or use baseline search tools first. A workflow may still use project-graph later if the request expands into architecture or impact analysis.
+
 ## Readiness Gate
 
 Availability is anchored in setup-facts, not artifact presence:

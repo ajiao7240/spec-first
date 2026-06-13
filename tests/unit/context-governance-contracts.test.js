@@ -43,6 +43,12 @@ describe('context governance runtime exclusion contract', () => {
     expect(contract).toContain('普通 workflow 仍可读取 checked-in source truth');
     expect(contract).toContain('禁止把 `.spec-first/audits/**`、`.spec-first/governance/**`、`.claude/**`、`.codex/**`、`.agents/skills/**` 纳入默认');
     expect(contract).toContain('repo-relative canonical path');
+    expect(contract).toContain('Changelog Consumption Policy');
+    expect(contract).toContain('`CHANGELOG.md` remains mandatory for project source changes.');
+    expect(contract).toContain('latest relevant dated window');
+    expect(contract).toContain('compact breadcrumbs');
+    expect(contract).toContain('verification status or not-run reason');
+    expect(contract).toContain('Detailed design rationale belongs in requirements, plans, reviews, validation artifacts, or PR descriptions');
     expect(contract).toContain('Allowed Exceptions');
     expect(contract).toContain('`spec-mcp-setup` / `spec-first update` CLI');
     expect(contract).toContain('`spec-skill-audit`');
@@ -100,6 +106,9 @@ describe('context governance runtime exclusion contract', () => {
       expect(content).toContain('.claude/**');
       expect(content).toContain('.codex/**');
       expect(content).toContain('.agents/skills/**');
+      if (relativePath === 'skills/using-spec-first/SKILL.md') {
+        expect(content).toContain('latest relevant window / summary-first rules in `docs/contracts/context-governance.md`');
+      }
     }
   });
 

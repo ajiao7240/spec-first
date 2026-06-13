@@ -20,6 +20,8 @@ describe('spec-release-notes filtering contract', () => {
     expect(skill).toContain('The goal is a scoped answer, not a long changelog dump.');
     expect(skill).toContain('Do not paste the whole release body or copy a long sequence of CHANGELOG entries.');
     expect(skill).toContain('If filters are present but no confident semantic match exists');
+    expect(skill).toContain('This release/history workflow may intentionally use a wider release window.');
+    expect(skill).toContain('consume `CHANGELOG.md` through format guidance plus the latest relevant window');
   });
 
   test('does not create a release-specific external evidence pipeline', () => {

@@ -1,7 +1,7 @@
 ---
 title: refactor: Harden agent-native architecture skill governance
 type: refactor
-status: active
+status: completed
 date: 2026-06-12
 spec_id: 2026-06-12-007-agent-native-architecture-governance
 ---

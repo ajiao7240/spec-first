@@ -48,6 +48,8 @@ The agent becomes a living system that improves over time, not frozen code.
 
 Self-modification is powerful. It needs safety mechanisms.
 
+Before production self-modification, also apply `runtime-production-guardrails.md` so code/prompt changes are evaluated against workspace authority, secrets, approvals, tracing, rollback, HITL, completion semantics, and eval gates.
+
 **Approval gates for code changes:**
 ```typescript
 tool("write_file", async ({ path, content }) => {

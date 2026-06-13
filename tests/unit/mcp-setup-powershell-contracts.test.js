@@ -142,6 +142,22 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(read(installHelpersPs1)).toContain("SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED'))) { return }");
     expect(read(installHelpersPs1)).toContain('if ([string]::IsNullOrWhiteSpace((Resolve-GraphifyCliMatchingPin))) { return }');
     expect(read(installHelpersPs1)).toContain('Ordinary workflows do not refresh project graphs after code changes');
+    for (const token of [
+      'Use Graphify first only',
+      'architecture relationships',
+      'cross-file relationships',
+      'impact analysis',
+      'broad codebase navigation',
+      'Do not use Graphify by default',
+      'simple factual Q&A',
+      'current conversation or context summaries',
+      'single-document summarization/editing',
+      'already-scoped file reads',
+      'provider_untrusted',
+    ]) {
+      expect(read(installHelpersPs1)).toContain(token);
+    }
+    expect(read(installHelpersPs1)).not.toContain('For codebase questions, first use Graphify');
     expect(read(installHelpersPs1)).not.toContain('After modifying code, run `"<resolved-graphify>" update .`');
     expect(read(installHelpersPs1)).not.toContain('--no-cluster');
     expect(read(installHelpersPs1)).not.toContain('.spec-first/workspace/providers/graphify/graphify-out');

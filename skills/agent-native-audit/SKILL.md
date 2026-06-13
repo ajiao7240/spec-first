@@ -13,6 +13,18 @@ This is an internal helper skill, not a public `spec-*` workflow entrypoint. It 
 
 ## Core Principles to Audit
 
+Use the canonical taxonomy from `skills/agent-native-architecture/SKILL.md` as the source spine for these audit lenses. The eight audit labels below are audit-specific adapters; do not treat them as a second canonical taxonomy.
+
+Adapter map:
+- **Action Parity** maps to **Action parity**.
+- **Tools as Primitives** maps to **Primitive tools**.
+- **Context Injection** maps to **Context injection**.
+- **Shared Workspace** maps to **Shared workspace**.
+- **CRUD Completeness** maps to **Action parity** and **Primitive tools** for complete entity outcomes.
+- **UI Integration** maps to **Shared workspace**.
+- **Capability Discovery** maps to **Context injection** and **Prompt-native features**.
+- **Prompt-Native Features** maps to **Prompt-native features**.
+
 1. **Action Parity** - "Whatever the user can do, the agent can do"
 2. **Tools as Primitives** - "Tools provide capability, not behavior"
 3. **Context Injection** - "System prompt includes dynamic context about app state"
@@ -24,15 +36,11 @@ This is an internal helper skill, not a public `spec-*` workflow entrypoint. It 
 
 ## Workflow
 
-### Step 1: Load the Agent-Native Skill
+### Step 1: Load the Agent-Native Source Context
 
-First, invoke the agent-native-architecture skill to understand all principles:
+First, read `skills/agent-native-architecture/SKILL.md` and the relevant `skills/agent-native-architecture/references/` files as source context. `agent-native-architecture` is an internal helper/reference, not a public workflow command.
 
-```
-/agent-native-architecture
-```
-
-Select option 1 (action parity) to load the full reference material.
+When this audit needs the action parity reference path, read `skills/agent-native-architecture/references/action-parity-discipline.md` directly instead of depending on a numbered intake-menu option.
 
 ### Step 2: Launch Parallel Sub-Agents
 

@@ -19,7 +19,7 @@ Spawned for medium, broad, sensitive, or unclear reviews. The Stage 3 scale-awar
 
 | Agent | Focus |
 |-------|-------|
-| `spec-agent-native-reviewer` | Verify new features are agent-accessible |
+| `spec-agent-native-reviewer` | Verify new features are agent-accessible and mapped against the agent-native-architecture canonical taxonomy |
 | `spec-learnings-researcher` | Search docs/solutions/ for past issues related to this PR's modules and patterns |
 
 ## Conditional (8 personas)

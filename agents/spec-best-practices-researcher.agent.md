@@ -22,6 +22,7 @@ Before going online, check if curated knowledge already exists in skills:
    - Treat `.codex/skills/` and `~/.codex/skills/` as legacy cleanup signals only, not curated skill sources
    - In Codex environments, `.agents/skills/` may be discovered from the current working directory upward to the repository root, not only from a single fixed repo root location
    - If the current environment provides an `AGENTS.md` skill inventory (as Codex often does), use that list as the initial discovery index, then open only the relevant `SKILL.md` files
+   - For curated internal source mappings, first check the current source checkout path `skills/<skill-name>/SKILL.md` before falling back to generated runtime skill inventories
    - Use the platform's native file-read capability to examine skill descriptions and understand what each covers
 
 2. **Identify Relevant Skills**:
@@ -29,7 +30,7 @@ Before going online, check if curated knowledge already exists in skills:
    - Rails/Ruby → `dhh-rails-style`
    - Frontend/Design → `frontend-design`, `swiss-design`
    - TypeScript/React → `react-best-practices`
-   - AI/Agents → `spec-agent-native-architecture`
+   - AI/Agents → `skills/agent-native-architecture/SKILL.md` (`agent-native-architecture`, curated internal source)
    - Documentation → `spec-compound`
    - File operations → `git-worktree`, `feature-video` artifacts
    - Image generation → `gemini-imagegen`

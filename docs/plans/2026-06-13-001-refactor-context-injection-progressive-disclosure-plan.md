@@ -1,7 +1,7 @@
 ---
 title: refactor: Context Injection Progressive Disclosure
 type: refactor
-status: active
+status: completed
 date: 2026-06-13
 spec_id: 2026-06-12-002-context-injection-progressive-disclosure
 origin: docs/brainstorms/2026-06-12-002-context-injection-progressive-disclosure-requirements.md

@@ -2,6 +2,8 @@
 How to design MCP tools following prompt-native principles. Tools should be primitives that enable capability, not workflows that encode decisions.
 
 **Core principle:** Whatever a user can do, the agent should be able to do. Don't artificially limit the agent—give it the same primitives a power user would have.
+
+For production tools, pair this design guidance with `runtime-production-guardrails.md` so primitive capability is bounded by workspace authority, secrets, approval, tracing, rollback, and eval readiness.
 </overview>
 
 <principle name="primitives-not-workflows">

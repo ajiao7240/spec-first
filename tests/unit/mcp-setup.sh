@@ -75,6 +75,23 @@ assert "bash install-helpers overrides stage timeout for verify-only Graphify pr
 assert "bash install-helpers preserves install-produced Graphify query fact" grep -q -- '[ -z "${SPEC_FIRST_PROVIDER_GRAPHIFY_QUERY_VERIFIED+x}" ] || return 0' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers gates hook on first generation" grep -q -- 'graphify_first_generation_ready_for_hook' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers normalizes away ordinary workflow Graphify refresh" grep -q -- 'Ordinary workflows do not refresh project graphs after code changes' "$SCRIPTS_DIR/install-helpers.sh"
+for token in \
+  'Use Graphify first only' \
+  'architecture relationships' \
+  'cross-file relationships' \
+  'impact analysis' \
+  'broad codebase navigation' \
+  'Do not use Graphify by default' \
+  'simple factual Q&A' \
+  'current conversation or context summaries' \
+  'single-document summarization/editing' \
+  'already-scoped file reads' \
+  'provider_untrusted'; do
+  assert "bash install-helpers Graphify instruction contains token: $token" grep -q -- "$token" "$SCRIPTS_DIR/install-helpers.sh"
+done
+if grep -q 'For codebase questions, first use Graphify' "$SCRIPTS_DIR/install-helpers.sh"; then
+  fail "install-helpers must not normalize Graphify to broad all-codebase-question trigger"
+fi
 if grep -q 'After modifying code, run `"<resolved-graphify>" update .`' "$SCRIPTS_DIR/install-helpers.sh"; then
   fail "install-helpers must not normalize provider instructions to ordinary workflow graph refresh"
 fi

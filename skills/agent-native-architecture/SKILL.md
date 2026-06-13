@@ -3,6 +3,73 @@ name: agent-native-architecture
 description: Build applications where agents are first-class citizens. Use this skill when designing autonomous agents, creating MCP tools, implementing self-modifying systems, or building apps where features are outcomes achieved by agents operating in a loop.
 ---
 
+## Purpose
+
+Use this internal architecture reference/helper to reason about agent-native application design: parity, primitive tools, prompt-native features, shared workspaces, production guardrails, and improvement over time.
+
+## Canonical Taxonomy
+
+Adjacent audit, review, and research assets should treat this skill as the canonical taxonomy source. Local assets may use job-specific labels, but they should map back to these concepts instead of inventing a divergent top-level principle list:
+
+- **Action parity:** whatever the user can do through the UI, the agent can achieve through tools or composed primitives.
+- **Primitive tools:** tools expose capability and evidence, while prompts carry judgment and workflow intent.
+- **Shared workspace:** users and agents operate on the same durable data space, with UI updates observing agent writes.
+- **Context injection:** prompts include current resources, state, vocabulary, and capability maps instead of static instructions only.
+- **Prompt-native features:** features are outcomes described in prompts, not business workflows embedded in tools.
+- **Production guardrails:** sandbox/workspace authority, approvals, secrets, tracing, rollback, HITL, and completion semantics are first-class design checks.
+- **Eval readiness:** boundary, parity, guardrail, and failure-mode cases are represented in tests or eval fixtures before behavior is treated as stable.
+
+## Invocation Boundary
+
+`agent-native-architecture` is currently an internal architecture reference/helper, not a public `$spec-*` or `/spec:*` workflow. Upstream workflows may read this source skill and the relevant reference files as bounded context, but they must not imply that users can invoke a standalone public command unless dual-host governance exposes one.
+
+## When To Use
+
+- Designing or reviewing an agent-native system.
+- Creating primitive tools, MCP tool surfaces, or dynamic capability discovery.
+- Checking action parity between user-facing workflows and agent capabilities.
+- Evaluating self-modifying, prompt-native, shared-workspace, or production-agent architecture choices.
+- Reviewing production readiness with `references/runtime-production-guardrails.md`.
+
+## When Not To Use
+
+- As a public workflow entrypoint or user-facing command.
+- To replace a concrete `spec-plan`, `spec-work`, `spec-code-review`, or `spec-doc-review` workflow.
+- To hard-code provider-specific SDK fields, model names, or runtime implementation details into spec-first contracts.
+- To justify editing generated host runtime mirrors as source fixes.
+
+## Inputs
+
+- The user's bounded design, review, refactor, or architecture question.
+- Relevant source files, product surfaces, tool definitions, prompt files, tests, and existing workflow artifacts.
+- Advisory external provider facts only after source/test/log evidence has defined the local scope.
+
+## Outputs
+
+- Architecture guidance, checklists, capability maps, review criteria, or reference-file pointers tailored to the current task.
+- Source-backed recommendations that preserve provider neutrality and source/runtime boundaries.
+- Stop conditions when a request requires a public workflow, schema, runtime provider integration, or product decision outside this reference.
+
+## Workflow
+
+1. Confirm whether the current task has a bounded context from an upstream workflow.
+2. If the task is already bounded, read only the relevant reference files from the routing table instead of asking the full intake menu.
+3. If the task is exploratory, use the intake menu to select the relevant reference path.
+4. Apply the canonical taxonomy, five core principles, and any relevant production guardrails to the user's concrete system.
+5. Return guidance with source refs, limitations, and any required handoff to a public `spec-*` workflow.
+
+## Failure Modes
+
+- Missing product or code context leads to generic architecture advice.
+- Unsafe write authority or absent approval boundaries can make agent autonomy exceed user intent.
+- Provider-specific overfitting can turn advisory SDK examples into brittle spec-first contracts.
+- Missing eval/readiness coverage leaves prompt drift invisible.
+- Generated runtime confusion can cause edits to `.claude/`, `.codex/`, or `.agents/skills/` instead of the source skill.
+
+## Runtime/Source Boundary
+
+The source of truth is `skills/agent-native-architecture/SKILL.md` and its `references/` files. Generated runtime mirrors are not source-of-truth and must not be hand-edited as source fixes. After source changes, use source-focused tests and, when runtime refresh is authorized, regenerate host runtime assets with `spec-first init`.
+
 <why_now>
 ## Why Now
 
@@ -186,6 +253,7 @@ The improvement mechanisms are still being discovered. Context and prompt refine
 | 8, "parity", "ui action", "capability map" | Read `references/action-parity-discipline.md` |
 | 9, "self-modify", "evolve", "git" | Read `references/self-modification.md` |
 | 10, "product", "progressive", "approval", "latent demand" | Read `references/product-implications.md` |
+| "production", "guardrail", "autonomy", "deploy", "external api", "rollback" | Read `references/runtime-production-guardrails.md` before endorsing production autonomy |
 | 11, "mobile", "ios", "android", "background", "checkpoint" | Read `references/mobile-patterns.md` |
 | 12, "test", "testing", "verify", "validate" | Read `references/agent-native-testing.md` |
 | 13, "review", "refactor", "existing" | Read `references/refactoring-to-prompt-native.md` |
@@ -249,6 +317,7 @@ All references in `references/`:
 - `references/shared-workspace-architecture.md` - Shared data space, UI integration
 - `references/product-implications.md` - Progressive disclosure, latent demand, approval
 - `references/agent-native-testing.md` - Testing outcomes, parity tests
+- `references/runtime-production-guardrails.md` - Provider-neutral production safety and operability checks
 - `references/checklists.md` - Architecture review checklist, anti-patterns, success criteria
 
 **Platform-Specific:**

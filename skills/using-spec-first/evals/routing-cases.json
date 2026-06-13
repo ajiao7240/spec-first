@@ -1,0 +1,61 @@
+{
+  "schema_version": "using-spec-first-routing-cases/v1",
+  "skill": "using-spec-first",
+  "cases": [
+    {
+      "id": "greeting-direct-answer",
+      "name": "Greeting stays direct",
+      "user_intent": "你好",
+      "expected_outcome": "direct_answer",
+      "public_workflow_required": false,
+      "expected_entrypoint": null,
+      "graphify_required": false,
+      "artifact_expected": false,
+      "boundary_note": "A greeting has no workflow leverage and must not create brainstorm, plan, work, or review artifacts."
+    },
+    {
+      "id": "current-context-explanation-direct",
+      "name": "Current context injection explanation stays direct",
+      "user_intent": "当前上下文注入了哪些内容",
+      "expected_outcome": "direct_answer",
+      "public_workflow_required": false,
+      "expected_entrypoint": null,
+      "graphify_required": false,
+      "artifact_expected": false,
+      "boundary_note": "Explaining already-loaded context is a lightweight current-session answer unless it turns into source edits or audit work."
+    },
+    {
+      "id": "narrow-where-used-bounded-read",
+      "name": "Narrow where-used lookup uses bounded reads",
+      "user_intent": "where is buildBootstrapBlock used?",
+      "expected_outcome": "bounded_read",
+      "public_workflow_required": false,
+      "expected_entrypoint": null,
+      "graphify_required": false,
+      "artifact_expected": false,
+      "boundary_note": "A narrow location lookup may use rg or precise source reads without entering a public workflow."
+    },
+    {
+      "id": "current-document-summary-direct",
+      "name": "Current supplied document summary stays direct",
+      "user_intent": "总结我刚贴的这份文档",
+      "expected_outcome": "direct_answer",
+      "public_workflow_required": false,
+      "expected_entrypoint": null,
+      "graphify_required": false,
+      "artifact_expected": false,
+      "boundary_note": "Summarizing current user-provided material is not project-graph or workflow work by default."
+    },
+    {
+      "id": "explicit-spec-plan-honored",
+      "name": "Explicit plan route remains honored",
+      "user_intent": "$spec-plan deep docs/brainstorms/example-requirements.md",
+      "expected_outcome": "public_workflow",
+      "public_workflow_required": true,
+      "expected_entrypoint": "$spec-plan",
+      "graphify_required": false,
+      "artifact_expected": true,
+      "boundary_note": "Progressive disclosure must not weaken explicit public workflow invocation."
+    }
+  ]
+}

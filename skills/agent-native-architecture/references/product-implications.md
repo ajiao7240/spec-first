@@ -180,6 +180,8 @@ You didn't have to guess that weekly review would be popular. You discovered it.
 
 When agents take unsolicited actions—doing things on their own rather than responding to explicit requests—you need to decide how much autonomy to grant.
 
+For production deployments, pair this product approval model with `runtime-production-guardrails.md`; the guardrails reference adds workspace authority, secrets, audit/tracing, rollback, HITL, completion semantics, and eval gates.
+
 > **Note:** This framework applies to unsolicited agent actions. If the user explicitly asks the agent to do something ("send that email"), that's already approval—the agent just does it.
 
 ### The Stakes/Reversibility Matrix

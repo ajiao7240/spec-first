@@ -60,6 +60,14 @@
 
 External-tool results and session summaries follow the same rule: pass only compact facts, source-read requirements, limitations, and precise artifact paths; do not broadcast raw MCP dumps or full external-tool output into ordinary prompt bundles.
 
+## Changelog Consumption Policy
+
+`CHANGELOG.md` remains mandatory for project source changes. This policy narrows how workflows consume and write changelog context; it does not weaken the source-change recording gate, user-visible marker rule, or developer author resolution from `~/.spec-first/.developer`.
+
+Ordinary plan/work/debug/review context should read the changelog format guidance and the latest relevant dated window, not the full historical changelog. Release-history, regression archaeology, or user-explicit history questions may expand the window with a reason, but should still summarize path-backed evidence instead of copying long entry sequences into prompts.
+
+New changelog entries should be compact breadcrumbs: one concise summary naming the source surface, user-visible impact when applicable, verification status or not-run reason, and a path to the plan/review/validation artifact when long reasoning is needed. Detailed design rationale belongs in requirements, plans, reviews, validation artifacts, or PR descriptions, not in the changelog entry body.
+
 ## Cache-Friendly Prompt Layout
 
 高频 workflow 应把输入分成两个稳定层：

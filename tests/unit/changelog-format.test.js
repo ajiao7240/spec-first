@@ -15,6 +15,7 @@ describe('CHANGELOG format', () => {
     const changelog = read(CHANGELOG_PATH);
 
     expect(changelog).toContain('- 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`');
+    expect(changelog).toContain('- 条目保持 compact：记录 source surface、用户可见影响、验证/未验证状态和必要 artifact 路径；长推理放 requirements、plan、review 或 validation 文档');
   });
 
   test('latest dated entries use timestamped format without constraining author identity', () => {

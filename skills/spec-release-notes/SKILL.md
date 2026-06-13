@@ -54,6 +54,8 @@ This workflow does not create a release-specific external evidence pipeline. Rel
 
 Data comes from the GitHub Releases API for `sunrain520/spec-first`, filtered to the `spec-first-v*` tag prefix so sibling components (`cli-v*`, `coding-tutor-v*`, `marketplace-v*`, `cursor-marketplace-v*`) are excluded.
 
+This release/history workflow may intentionally use a wider release window. That exception must not be copied into ordinary plan/work/debug/review context collection: those workflows should follow `docs/contracts/context-governance.md` and consume `CHANGELOG.md` through format guidance plus the latest relevant window, not long historical dumps.
+
 ## Phase 1 — Parse Arguments
 
 Split the argument string on whitespace. Strip every token that starts with `mode:` — these are reserved flag tokens; v1 does not act on them but still strips them so a stray `mode:foo` is not treated as a query string.

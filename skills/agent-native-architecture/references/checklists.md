@@ -27,6 +27,7 @@ When designing an agent-native system, verify these **before implementation**:
 - [ ] **Completion Signals:** Agent has explicit `complete_task` tool (not heuristic detection)
 - [ ] **Partial Completion:** Multi-step tasks track progress for resume
 - [ ] **Context Limits:** Designed for bounded context from the start
+- [ ] **Production Guardrails:** Apply `runtime-production-guardrails.md` before production autonomy, self-modification, external network access, or irreversible actions
 
 ### Context Injection
 - [ ] **Available Resources:** System prompt includes what exists (files, data, types)

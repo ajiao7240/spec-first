@@ -1,5 +1,7 @@
 <overview>
 Testing agent-native apps requires different approaches than traditional unit testing. You're testing whether the agent achieves outcomes, not whether it calls specific functions. This guide provides concrete testing patterns for verifying your app is truly agent-native.
+
+Use `runtime-production-guardrails.md` when test scenarios need production-readiness coverage for sandbox boundaries, approvals, secrets, tracing, rollback, HITL escalation, or eval gates.
 </overview>
 
 <testing_philosophy>
