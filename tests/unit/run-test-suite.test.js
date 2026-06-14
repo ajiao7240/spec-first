@@ -41,4 +41,16 @@ describe('run-test-suite command runner', () => {
     expect(smokeIndex).toBeGreaterThan(-1);
     expect(continuityIndex).toBeLessThan(smokeIndex);
   });
+
+  test('integration suite retires the legacy shell e2e chain', () => {
+    const runner = fs.readFileSync(TEST_RUNNER_PATH, 'utf8');
+
+    expect(runner).toContain('tests/integration/verification-gate.integration.test.js');
+    expect(runner).toContain('tests/integration/spec-work-closeout-producer.test.js');
+    expect(runner).not.toContain("runBash('tests/integration/e2e.sh')");
+    expect(runner).not.toContain('tests/integration/e2e.sh');
+    expect(runner).not.toContain('scripts/task-manager.sh');
+    expect(runner).not.toContain('scripts/stage-gate.sh');
+    expect(runner).not.toContain('scripts/review-judge.sh');
+  });
 });

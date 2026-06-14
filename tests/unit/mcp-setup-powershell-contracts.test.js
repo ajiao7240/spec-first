@@ -11,7 +11,10 @@ const installMcpPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/install
 const verifyToolsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/verify-tools.ps1');
 const writeSetupFactsPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/write-setup-facts.ps1');
 const mcpToolsJsonPath = path.join(repoRoot, 'skills/spec-mcp-setup/mcp-tools.json');
+const helperToolsJsonPath = path.join(repoRoot, 'skills/spec-mcp-setup/helper-tools.json');
 const mcpSetupSkillPath = path.join(repoRoot, 'skills/spec-mcp-setup/SKILL.md');
+const helperRegistryPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/lib-helper-registry.ps1');
+const checkHealthPs1 = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/check-health.ps1');
 
 function spawnPwsh(args, options = {}) {
   const result = spawnSync('pwsh', args, options);
@@ -191,6 +194,38 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
       'Next steps',
     ]) {
       expect(read(verifyToolsPs1)).toContain(`title = '${section}'`);
+    }
+  });
+
+  test('check-health project URLs come from helper registry source_repo', () => {
+    const registry = JSON.parse(read(helperToolsJsonPath));
+    const helperLib = read(helperRegistryPs1);
+    const checkHealth = read(checkHealthPs1);
+
+    expect(helperLib).toContain('function Get-HelperSourceRepo');
+    expect(checkHealth).toContain('return (Get-HelperSourceRepo -Name $Name)');
+    expect(checkHealth).not.toMatch(/https:\/\/cli\.github\.com|https:\/\/jqlang\.github\.io\/jq\/|https:\/\/ffmpeg\.org\/download\.html/);
+    expect(registry.helpers.every((helper) => helper.safety.source_repo && helper.safety.source_repo.length > 0)).toBe(true);
+
+    const psScript = [
+      `. '${helperRegistryPs1}'`,
+      'foreach ($h in @((Get-HelperRegistry).helpers)) {',
+      '  Write-Output ("{0}|{1}" -f $h.id, (Get-HelperSourceRepo -Name $h.id))',
+      '}',
+    ].join('\n');
+    const psResult = spawnPwsh(['-NoProfile', '-Command', psScript], { encoding: 'utf8' });
+    if (psResult === null) {
+      return;
+    }
+    expect(psResult.status).toBe(0);
+    const sourceRepoById = Object.fromEntries(
+      psResult.stdout.split('\n').filter(Boolean).map((line) => {
+        const [id, ...rest] = line.split('|');
+        return [id, rest.join('|').trim()];
+      }),
+    );
+    for (const helper of registry.helpers) {
+      expect(sourceRepoById[helper.id]).toBe(helper.safety.source_repo);
     }
   });
 

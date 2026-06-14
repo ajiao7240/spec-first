@@ -38,6 +38,11 @@ helper_registry_profile() {
   jq -r --arg id "$id" '.helpers[] | select(.id == $id) | (.profiles[0] // "minimal")' "$(helper_registry_path)"
 }
 
+helper_registry_source_repo() {
+  local id="$1"
+  jq -r --arg id "$id" '.helpers[] | select(.id == $id) | .safety.source_repo // empty' "$(helper_registry_path)"
+}
+
 # ---- 展示用安装命令生成器(单一真相源)----
 # install-helpers.sh 与 check-health 历史上各维护一份几乎逐行相同的展示命令生成器,
 # 与 registry 的静态 installation.commands 三方漂移。这里收敛为共享函数:

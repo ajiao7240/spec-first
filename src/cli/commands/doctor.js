@@ -977,7 +977,7 @@ function printHelp() {
 	    '🔎 Boundaries:',
 	    '  doctor checks CLI install, managed runtime assets, host readiness, and workflow verification evidence.',
 	    '  When setup facts exist, doctor reads .spec-first/config/tool-facts.json for decision_input_health.',
-	    '  MCP/helper setup is handled by $spec-runtime-setup or /spec:runtime-setup (legacy alias: spec-mcp-setup).',
+	    '  MCP/helper setup is handled by $spec-mcp-setup or /spec:mcp-setup (target name: spec-runtime-setup, pending host alias contract).',
 	    '',
 	    '🔗 Repository:',
 	    '  https://github.com/sunrain520/spec-first',

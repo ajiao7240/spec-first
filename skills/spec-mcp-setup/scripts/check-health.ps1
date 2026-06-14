@@ -50,17 +50,7 @@ function Get-InstallCommand {
 
 function Get-ProjectUrl {
   param([string]$Name)
-  switch ($Name) {
-    'agent-browser' { return 'https://github.com/vercel-labs/agent-browser' }
-    'gh' { return 'https://cli.github.com' }
-    'jq' { return 'https://jqlang.github.io/jq/' }
-    'vhs' { return 'https://github.com/charmbracelet/vhs' }
-    'silicon' { return 'https://github.com/Aloxaf/silicon' }
-    'ffmpeg' { return 'https://ffmpeg.org/download.html' }
-    'ast-grep' { return 'https://ast-grep.github.io' }
-    'ast-grep-skill' { return 'https://ast-grep.github.io' }
-    default { return '' }
-  }
+  return (Get-HelperSourceRepo -Name $Name)
 }
 
 function Get-HelperEntry {

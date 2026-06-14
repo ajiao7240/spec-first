@@ -10,6 +10,19 @@ function Get-HelperRegistry {
   return (Get-Content -Raw -LiteralPath (Get-HelperRegistryPath) | ConvertFrom-Json)
 }
 
+function Get-HelperSourceRepo {
+  param([string]$Name)
+  foreach ($helper in @((Get-HelperRegistry).helpers)) {
+    if ($helper.id -eq $Name) {
+      if ($helper.safety -and $helper.safety.source_repo) {
+        return [string]$helper.safety.source_repo
+      }
+      return ''
+    }
+  }
+  return ''
+}
+
 # 展示用安装命令生成器(PowerShell 单一真相源),与 bash lib 的
 # helper_registry_install_command_display 对称。install-helpers.ps1 与 check-health.ps1
 # 历史上各维护一份且与 registry 静态 commands 三方漂移(如 brew install gh vs upgrade-wrapped)。

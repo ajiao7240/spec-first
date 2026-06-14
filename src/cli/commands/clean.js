@@ -100,10 +100,11 @@ function runClean(argv) {
 
   const cleanPlan = buildCleanPlan(projectRoot, state, adapter);
   if (parsed.dryRun) {
-    printCleanDryRun(platform, cleanPlan);
+    printCleanSummary(platform, cleanPlan, { mode: 'dry-run' });
     return 0;
   }
 
+  printCleanSummary(platform, cleanPlan, { mode: 'apply' });
   applyOperationPlan(projectRoot, mergeOperationPlans(cleanPlan.managedPlan, cleanPlan.runtimeCleanup));
   applyOperationPlan(projectRoot, planEmptyManagedRootCleanup(projectRoot, adapter));
 
@@ -421,7 +422,8 @@ function buildRuntimeCleanupPreview(projectRoot, adapter) {
   };
 }
 
-function printCleanDryRun(platform, cleanPlan) {
+function printCleanSummary(platform, cleanPlan, { mode }) {
+  const dryRun = mode === 'dry-run';
   const removeCount =
     (cleanPlan.managedPlan.summary.remove_file || 0) +
     (cleanPlan.managedPlan.summary.remove_dir || 0) +
@@ -430,8 +432,8 @@ function printCleanDryRun(platform, cleanPlan) {
   const updateCount = cleanPlan.runtimeCleanup.summary.update_file || 0;
   const emptyRootCount = cleanPlan.emptyRootPlan.summary.remove_empty_root || 0;
 
-  console.log(`Dry run: spec-first clean (${platform})`);
-  console.log(`Would remove ${removeCount} managed path(s).`);
+  console.log(`${dryRun ? 'Dry run' : 'Apply'}: spec-first clean (${platform})`);
+  console.log(`${dryRun ? 'Would remove' : 'Removing'} ${removeCount} managed path(s).`);
   for (const operation of cleanPlan.managedPlan.operations) {
     console.log(`  - ${operation.path}`);
   }
@@ -440,13 +442,15 @@ function printCleanDryRun(platform, cleanPlan) {
   )) {
     console.log(`  - ${operation.path}`);
   }
-  console.log(`Would update ${updateCount} managed file(s).`);
+  console.log(`${dryRun ? 'Would update' : 'Updating'} ${updateCount} managed file(s).`);
   for (const operation of cleanPlan.runtimeCleanup.operations.filter((entry) => entry.kind === 'update_file')) {
     console.log(`  - ${operation.path}`);
   }
-  console.log(`Would remove ${emptyRootCount} empty managed root(s) after cleanup.`);
-  console.log('Custom assets outside the spec-first managed set would remain untouched.');
-  console.log('No files were changed.');
+  console.log(`${dryRun ? 'Would remove' : 'Removing'} ${emptyRootCount} empty managed root(s) after cleanup.`);
+  console.log(`Custom assets outside the spec-first managed set ${dryRun ? 'would remain' : 'are left'} untouched.`);
+  if (dryRun) {
+    console.log('No files were changed.');
+  }
 }
 
 module.exports = {

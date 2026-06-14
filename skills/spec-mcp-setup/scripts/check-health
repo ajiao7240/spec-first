@@ -55,16 +55,7 @@ build_install_command() {
 
 build_project_url() {
   local name="$1"
-  case "$name" in
-    agent-browser) echo "https://github.com/vercel-labs/agent-browser" ;;
-    gh) echo "https://cli.github.com" ;;
-    jq) echo "https://jqlang.github.io/jq/" ;;
-    vhs) echo "https://github.com/charmbracelet/vhs" ;;
-    silicon) echo "https://github.com/Aloxaf/silicon" ;;
-    ffmpeg) echo "https://ffmpeg.org/download.html" ;;
-    ast-grep|ast-grep-skill) echo "https://ast-grep.github.io" ;;
-    *) echo "" ;;
-  esac
+  helper_registry_source_repo "$name"
 }
 
 ok()      { echo "  🟢  $1"; }

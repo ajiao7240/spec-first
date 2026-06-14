@@ -197,6 +197,7 @@ describe('ai dev quality gate contract', () => {
       'tests/unit/spec-work-contracts.test.js',
       'tests/unit/spec-doc-review-contracts.test.js',
       'tests/unit/spec-code-review-contracts.test.js',
+      'tests/unit/plan-status-taxonomy.test.js',
     ]);
     expect(QUALITY_FEEDBACK_FILE).toBe('quality-feedback-topics.json');
   });
@@ -211,6 +212,7 @@ describe('ai dev quality gate contract', () => {
     expect(aiWorkflow).toContain("scripts/run-ai-dev-quality-gate.js");
     expect(aiWorkflow).toContain("scripts/run-test-suite.cjs");
     expect(aiWorkflow).toContain("src/cli/gitignore-policy.js");
+    expect(aiWorkflow).toContain("docs/plans/**");
     expect(aiWorkflow).toContain("skills/spec-mcp-setup/**");
     expect(aiWorkflow).toContain("skills/spec-doc-review/**");
     expect(aiWorkflow).toContain(".github/workflows/ai-dev-quality-gate.yml");
@@ -220,6 +222,7 @@ describe('ai dev quality gate contract', () => {
     expect(aiWorkflow).toContain("tests/unit/mcp-setup-powershell-contracts.test.js");
     expect(aiWorkflow).toContain("tests/unit/ai-dev-quality-gate.test.js");
     expect(aiWorkflow).toContain("tests/unit/ai-dev-benchmark-fixtures.test.js");
+    expect(aiWorkflow).toContain("tests/unit/plan-status-taxonomy.test.js");
     expect(aiWorkflow).toContain("tests/fixtures/ai-dev-benchmarks/**");
     expect(aiWorkflow).not.toContain("src/bootstrap-compiler/**");
     expect(aiWorkflow).not.toContain("src/context-routing/**");

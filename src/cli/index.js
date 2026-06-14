@@ -158,7 +158,7 @@ function printHelp(withErrorPrefix = false) {
     '🧩 Commands:',
     '  doctor                 Check environment, runtime asset manifest, and managed runtime assets',
     '  init [--claude] [--codex] [-y] Interactively install workflows, skills, agents, and developer profile',
-    '  update [--claude|--codex] Check version and runtime freshness (check-only; never auto-upgrades)',
+    '  update                 Upgrade the spec-first CLI package and refresh runtime assets with `spec-first init`',
     '  clean (--claude|--codex) Remove spec-first managed assets from the current project',
     '  repair-worktree        Preview broken worktree pointer repair guidance',
     '  tasks <subcommand>      Hash and validate derived task packs',

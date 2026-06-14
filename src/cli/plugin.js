@@ -509,6 +509,10 @@ function listAgentMarkdownEntries(sourceDir) {
 }
 
 function walkAgentEntries(absolutePath, relativePath) {
+  if (shouldIgnoreBundledSupportPath(relativePath)) {
+    return [];
+  }
+
   const stat = fs.statSync(absolutePath);
   if (stat.isDirectory()) {
     return fs
@@ -525,6 +529,10 @@ function walkAgentEntries(absolutePath, relativePath) {
 }
 
 function walkAgentSupportEntries(absolutePath, relativePath) {
+  if (shouldIgnoreBundledSupportPath(relativePath)) {
+    return [];
+  }
+
   const stat = fs.statSync(absolutePath);
   if (stat.isDirectory()) {
     return fs
@@ -984,6 +992,10 @@ function copyDirectoryWithTransform(sourceDir, targetDir, transformText) {
   fs.mkdirSync(targetDir, { recursive: true });
 
   for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    if (shouldIgnoreBundledSupportPath(entry.name)) {
+      continue;
+    }
+
     const sourcePath = path.join(sourceDir, entry.name);
     const targetPath = path.join(targetDir, entry.name);
 
@@ -1016,6 +1028,18 @@ function isTextFile(filePath) {
   return TEXT_FILE_EXTENSIONS.has(path.extname(filePath));
 }
 
+function shouldIgnoreBundledSupportPath(relativePath) {
+  const normalizedPath = normalizePathForContent(relativePath);
+  const parts = normalizedPath.split('/');
+  const basename = parts[parts.length - 1] || '';
+  return (
+    parts.includes('__pycache__')
+    || basename === '.DS_Store'
+    || basename.endsWith('.pyc')
+    || basename.endsWith('.pyo')
+  );
+}
+
 function emptyPlan() {
   return buildEmptyOperationPlan();
 }
@@ -1044,6 +1068,10 @@ function planDirectoryWithTransform({
   ];
 
   for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    if (shouldIgnoreBundledSupportPath(entry.name)) {
+      continue;
+    }
+
     const sourcePath = path.join(sourceDir, entry.name);
     const nextTargetPath = path.join(targetDir, entry.name);
 
@@ -1227,6 +1255,10 @@ function listDirectoryFiles(rootDir, relativeRoot = '') {
     .readdirSync(path.join(rootDir, relativeRoot), { withFileTypes: true })
     .flatMap((entry) => {
       const relativePath = path.join(relativeRoot, entry.name);
+      if (shouldIgnoreBundledSupportPath(relativePath)) {
+        return [];
+      }
+
       if (entry.isDirectory()) {
         return listDirectoryFiles(rootDir, relativePath);
       }

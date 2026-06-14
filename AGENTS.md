@@ -115,7 +115,7 @@ Generated runtime assets 包括：
 - `docs/solutions/`：解决问题后沉淀的可复用工程知识，供后续 plan/work/debug/review/compound 检索
 - `scripts/`：辅助脚本
 - `vendor/`：vendored parser dependencies
-- `tests/unit/`、`tests/smoke/`、`tests/integration/`：分层测试(e2e 由 `tests/integration/e2e.sh` 承载，无独立 `tests/e2e/` 目录）
+- `tests/unit/`、`tests/smoke/`、`tests/integration/`：分层测试（integration 由 Jest 集成测试承载，无独立 `tests/e2e/` 目录）
 
 不要把 `.claude/`、`.codex/`、`.agents/skills/` 当作 source。
 

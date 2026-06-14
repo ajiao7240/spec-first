@@ -97,7 +97,6 @@ function runIntegration() {
     'tests/integration/spec-work-closeout-producer.test.js',
     '--runInBand',
   ]);
-  runBash('tests/integration/e2e.sh');
 }
 
 function runReleaseGovernance() {

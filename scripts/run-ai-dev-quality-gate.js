@@ -26,6 +26,7 @@ const WORKFLOW_RUNTIME_CONTRACT_TESTS = [
   'tests/unit/spec-work-contracts.test.js',
   'tests/unit/spec-doc-review-contracts.test.js',
   'tests/unit/spec-code-review-contracts.test.js',
+  'tests/unit/plan-status-taxonomy.test.js',
 ];
 
 function ensureDir(dirPath) {

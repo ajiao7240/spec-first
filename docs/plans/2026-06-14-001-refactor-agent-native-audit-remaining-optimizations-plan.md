@@ -1,7 +1,7 @@
 ---
 title: refactor: 收敛 agent-native 审查剩余优化项
 type: refactor
-status: active
+status: completed
 date: 2026-06-14
 spec_id: 2026-06-14-001-agent-native-audit-remaining-optimizations
 origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
@@ -518,6 +518,14 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 - U7: legacy shell e2e chain deletion after coverage/obsolescence classification.
 - U8: Runtime Setup alias prose 核对（多为 already-satisfied）或最小一句修正。
 - 条件项 doctor JSON freshness 与 schema-validator details[] 留在 Deferred to Follow-Up Work，仅在 consumer/owner 确认价值后单独启动。
+
+## Completion Evidence
+
+- Implementation scope: U1-U7 completed; U8 required one additional current-entrypoint `doctor --help` prose correction. `doctor --json` freshness and `schema-validator details[]` remain deferred until a confirmed consumer exists.
+- Legacy classification: `task-manager.sh` task.yaml lifecycle is obsolete-by-replacement through source plan/task-pack artifacts and spec-work run artifacts; `stage-gate.sh` phase gating is replaced by verification profile/run-summary/honest-closeout helpers plus Jest integration coverage; `review-judge.sh` shell scoring is replaced by `spec-code-review` confidence-gated findings, reviewer synthesis, and review contracts.
+- Verification: focused Jest suites, `npm run test:mcp-setup`, `npm run test:integration`, `npm run typecheck`, `npm run test:ai-dev:gate`, `npm run test:unit`, `npm run test:smoke`, `npm run build`, `npm run sync:instructions`, and `git diff --check` passed.
+- Review: `$spec-code-review` ran as single-agent report-only fallback because Codex reviewer dispatch/subagents were not explicitly authorized; one P3 test cleanup guard was fixed and re-verified with focused Jest.
+- Runtime impact: source-only changes; generated runtime mirrors were not edited and `spec-first init` was not run.
 
 ---
 

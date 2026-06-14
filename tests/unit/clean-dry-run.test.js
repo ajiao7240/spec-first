@@ -117,6 +117,15 @@ describe('clean --dry-run', () => {
 
       const cleanResult = captureCommand(projectRoot, runClean, ['--claude']);
       expect(cleanResult.exitCode).toBe(0);
+      expect(cleanResult.stdout).toContain('Apply: spec-first clean (claude)');
+      expect(cleanResult.stdout).toContain('Removing');
+      expect(cleanResult.stdout).toContain('Updating');
+      expect(cleanResult.stdout).toContain('.claude/spec-first/state.json');
+      expect(cleanResult.stdout).toContain('.claude/hooks/session-start');
+      expect(cleanResult.stdout).toContain('Custom assets outside the spec-first managed set are left untouched.');
+      expect(cleanResult.stdout).not.toContain('Would remove');
+      expect(cleanResult.stdout).not.toContain('Would update');
+      expect(cleanResult.stdout).not.toContain('No files were changed.');
 
       const removedPaths = [
         '.claude/spec-first/state.json',

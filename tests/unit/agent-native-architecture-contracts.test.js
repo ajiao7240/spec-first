@@ -193,6 +193,7 @@ describe('agent-native-architecture contracts', () => {
     });
 
     [
+      'External facts and social sources',
       'Workspace authority and sandbox boundaries',
       'Least privilege',
       'Secret redaction',
@@ -207,8 +208,31 @@ describe('agent-native-architecture contracts', () => {
       expect(guardrails).toContain(category);
     });
 
+    expect(guardrails).toContain('## Dimension to workflow application index');
+    [
+      'External facts and social sources',
+      'Workspace authority and sandbox boundaries',
+      'Least privilege',
+      'Secret redaction',
+      'Network and firewall posture',
+      'Approval by stakes and reversibility',
+      'Audit logs and tracing',
+      'Checkpoints and rollback',
+      'Completion semantics',
+      'Human-in-the-loop escalation',
+      'Eval gates',
+    ].forEach((category) => {
+      expect(guardrails).toMatch(new RegExp(`\\| ${escapeRegExp(category)} \\|[^\\n]+\\|[^\\n]+\\|`));
+    });
+    expect(guardrails).toContain('advisory evidence pressure, not confirmed source truth');
+    expect(guardrails).toContain('`spec-plan`');
+    expect(guardrails).toContain('`spec-work`');
+    expect(guardrails).toContain('`spec-code-review`');
+    expect(guardrails).toContain('`spec-mcp-setup`');
+    expect(guardrails).toContain('`spec-skill-audit`');
     expect(guardrails).toContain('Provider notes are advisory pressure, not spec-first contract fields.');
     expect(guardrails).not.toMatch(/comprehensive security/i);
+    expect(guardrails).not.toMatch(/provider-specific contract fields/i);
   });
 });
 

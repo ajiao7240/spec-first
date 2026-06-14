@@ -167,12 +167,34 @@ describe('dependency readiness baseline contracts', () => {
       baseline_blocking: false,
     });
     expect(registry.helpers.every((helper) => helper.safety && helper.platform_required_tools && helper.runner_kind)).toBe(true);
+    expect(registry.helpers.every((helper) => helper.safety.source_repo && helper.safety.source_repo.length > 0)).toBe(true);
 
     const invalid = {
       ...registry,
       helpers: [{ ...registry.helpers[0], profiles: ['team'] }],
     };
     expect(validateAgainstSchema(schema, invalid).errors).toContain('root.helpers[0].profiles[0]: value "team" not in enum');
+  });
+
+  test('check-health reads helper project URLs from the helper registry', () => {
+    const registry = readJson(helperRegistryPath);
+    const checkHealth = fs.readFileSync(
+      path.join(repoRoot, 'skills/spec-mcp-setup/scripts/check-health'),
+      'utf8',
+    );
+    const libSh = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/lib-helper-registry.sh');
+
+    expect(checkHealth).toContain('helper_registry_source_repo "$name"');
+    expect(checkHealth).not.toMatch(/https:\/\/cli\.github\.com|https:\/\/jqlang\.github\.io\/jq\/|https:\/\/ffmpeg\.org\/download\.html/);
+
+    for (const helper of registry.helpers) {
+      const result = spawnSync('bash', ['-c', `source '${libSh}'; helper_registry_source_repo '${helper.id}'`], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+      expect(result.status).toBe(0);
+      expect(result.stdout.trim()).toBe(helper.safety.source_repo);
+    }
   });
 
   test('tool facts and provider readiness schemas reject drifted enums', () => {

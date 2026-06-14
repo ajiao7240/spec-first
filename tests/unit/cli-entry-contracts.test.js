@@ -31,6 +31,10 @@ describe('CLI entry contract', () => {
     expect(result.stdout).toContain('init');
     expect(result.stdout).toContain('Interactively install workflows');
     expect(result.stdout).toContain('clean (--claude|--codex)');
+    expect(result.stdout).toContain('Upgrade the spec-first CLI package');
+    expect(result.stdout).toContain('refresh runtime assets with `spec-first init`');
+    expect(result.stdout).not.toContain('check-only; never auto-upgrades');
+    expect(result.stdout).not.toContain('[--claude|--codex] Check version and runtime freshness');
     expect(result.stdout).toContain('tasks <subcommand>');
     expect(result.stdout).toContain('session <subcommand>');
   });
@@ -42,6 +46,17 @@ describe('CLI entry contract', () => {
     expect(result.stderr).toBe('');
     expect(result.stdout).toContain(`Spec-First v${PACKAGE_JSON.version}`);
     expect(result.stdout).toContain('Claude Code & Codex');
+  });
+
+  test('doctor help names the current setup entrypoint and deferred runtime-setup alias', () => {
+    const result = runCli(['doctor', '--help']);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain('MCP/helper setup is handled by $spec-mcp-setup or /spec:mcp-setup');
+    expect(result.stdout).toContain('target name: spec-runtime-setup, pending host alias contract');
+    expect(result.stdout).not.toContain('legacy alias: spec-mcp-setup');
+    expect(result.stdout).not.toContain('$spec-runtime-setup or /spec:runtime-setup');
   });
 
   test('unknown command exits with usage-error code and actionable help', () => {
