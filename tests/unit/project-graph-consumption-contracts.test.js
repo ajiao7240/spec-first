@@ -79,13 +79,18 @@ describe('project graph consumption contract', () => {
     }
   });
 
-  test('parent SCALE plan registers brainstorm and ideate consumers with 80/20 boundary', () => {
-    const plan = read('docs/01-需求分析/13.scale-integration/spec-first内化集成scale-project-scaffold技术方案.md');
+  test('brainstorm and ideate consumers keep project graph optional and user-led', () => {
+    const contract = read('docs/contracts/project-graph-consumption.md');
+    const brainstorm = read('skills/spec-brainstorm/SKILL.md');
+    const ideate = read('skills/spec-ideate/SKILL.md');
 
-    expect(plan).toContain('spec-brainstorm');
-    expect(plan).toContain('spec-ideate');
-    expect(plan).toContain('context orientation only');
-    expect(plan).toContain('conversation-first');
-    expect(plan).toContain('project-graph use is optional orientation');
+    expect(brainstorm).toContain('docs/contracts/project-graph-consumption.md');
+    expect(brainstorm).toContain('the WHAT must come from user dialogue and source confirmation, never the candidate');
+    expect(brainstorm).toContain('fall back to direct source reads');
+    expect(ideate).toContain('docs/contracts/project-graph-consumption.md');
+    expect(ideate).toContain('option evaluation and the chosen direction must be re-grounded in source, never the candidate');
+    expect(ideate).toContain('fall back to direct source reads');
+    expect(contract).toContain('Do not require workflows to run project-graph before direct source reads');
+    expect(contract).toContain('whether to issue a project-graph query is an LLM judgment');
   });
 });

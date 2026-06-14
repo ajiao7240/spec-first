@@ -42,7 +42,7 @@
 | `docs/06-待办事项/` | historical-input | 历史待办；不作为当前优先级来源 |
 | `docs/07-经验总结/` | historical-input | 经验记录；稳定知识应沉淀到 `docs/solutions/` |
 | `docs/08-版本更新/` | historical-input | 版本说明材料；正式变更事实以 `CHANGELOG.md` 为准 |
-| `docs/09-业界借鉴/` | external-reference | 外部实践材料和映射分析；只作启发和对照 |
+| `../spec-first-doc/业界学习/` | external-reference | 外部实践材料和映射分析；只作启发和对照 |
 | `docs/11-文章系列/` | external-reference | 对外文章与素材，不作为工程 contract |
 | `docs/12-loop分析/` | historical-input | workflow loop 分析背景，不覆盖当前 skill source |
 | `docs/10-prompt/审查skill.md` | historical-input | skill / agent harness 审查 prompt 输入；需结合对应 audit artifact 判读，不代表当前 runtime contract |
@@ -50,7 +50,7 @@
 | `docs/archive/` | archived | 备份和归档内容，只用于追溯 |
 | `docs/项目介绍/` | historical-input | 项目介绍和 CRG 旧方案材料；当前上下文证据边界以 direct source reads、`skills/`、`src/cli/`、`docs/contracts/` 与用户手册为准 |
 | `docs/项目审查/` | historical-input | 旧审查材料；引用前必须核对当前代码 |
-| `docs/业界分析/` | external-reference | 业界与 CE 对比材料，不代表当前 implementation contract |
+| `../spec-first-doc/业界学习/04-能力映射/` | external-reference | 业界与 CE 对比材料，不代表当前 implementation contract |
 
 ## Legacy CRG / ECC 搜索边界
 

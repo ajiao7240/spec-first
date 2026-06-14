@@ -3,8 +3,8 @@
 > 日期：2026-06-03
 > 状态：superseded（2026-06-13 收敛；v1.11–v1.17 已落地，v2.0 归 live 父方案 Phase F）
 > 来源计划：`docs/plans/2026-06-03-003-feat-scale-engine-fusion-roadmap-plan.md`（同步标记 superseded）
-> Live source-of-truth：`docs/01-需求分析/13.scale-integration/spec-first内化集成scale-project-scaffold技术方案.md` + 同目录 `README.md`（权威逐版本进度台账）
-> 输入材料：`docs/01-需求分析/13.scale-integration/bak/scale-engine-能力清单与集成建议.md`、`.../bak/project-scaffold-依赖安装逻辑分析.md`、`.../bak/scale-os-config-claude-code-依赖安装面分析.md`（旧 `docs/09-业界借鉴/` 路径已失效，bak/ 仅作历史输入）
+> Live source-of-truth：`spec-first-doc:业界学习/02-对标研究/scale-engine/spec-first内化集成scale-project-scaffold技术方案.md` + 同目录 `README.md`（权威逐版本进度台账）
+> 输入材料：`spec-first-doc:业界学习/02-对标研究/scale-engine/bak/scale-engine-能力清单与集成建议.md`、`.../bak/project-scaffold-依赖安装逻辑分析.md`、`.../bak/scale-os-config-claude-code-依赖安装面分析.md`（旧 `docs/09-业界借鉴/` 路径已失效，bak/ 仅作历史输入）
 
 > **Superseded：本拆分文档不再作为 active 发布管理入口，仅作历史快照。** 其版本拆分原则、波次（Wave A–D）和准入条件的方向判断成立，但逐版本明细已被实现期的窄 plan 超越。注意：本文的 v1.14/v1.15 映射（v1.14 Governance Lens、v1.15 Knowledge Harness）是**正确的**权威映射——与之冲突的是来源 roadmap 文档自身的 stale 标签，不是本文。逐版本落地证据见 README 台账。
 

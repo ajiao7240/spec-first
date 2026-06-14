@@ -22,7 +22,7 @@ applicable_versions:
   - "AI code reviewer landscape 2025-2026"
 invalidation_condition: 当 spec-first 自身具备确定性 TIA/覆盖率/依赖图 provider 且评审可作为其 consumer 消费时，Case 1 的「点名测试=幻觉」结论需重评；当出现确凿用户证据显示本地同分支 3+ 次复审的重复 finding 是真实高频痛点且 base:<sha> 摩擦过大时，Case 2 需重评
 source_refs:
-  - "docs/01-需求分析/14.code-review/code-review-test-decision-sheet-analysis.md"
+  - "spec-first-doc:业界学习/03-机制分析/review-testing/code-review-test-decision-sheet-analysis.md"
   - "docs/plans/2026-06-09-001-feat-code-review-incremental-scope-plan.md"
   - "skills/spec-code-review/SKILL.md"
   - "skills/spec-code-review/references/findings-schema.json"
@@ -111,7 +111,7 @@ tags: [code-review, competitor-analysis, evidence-first, anti-bloat, test-impact
 ## Related
 
 - [[competitor-skill-borrowing-judgment]] — 通用四步借鉴方法论（本文是其在 code-review 域的具体落点；双重过滤的"覆盖检查"在此细化为两道域专属门）
-- `docs/01-需求分析/14.code-review/code-review-test-decision-sheet-analysis.md` — Case 1 的原始分析（含对 findings-schema 的逐字核验）
+- `spec-first-doc:业界学习/03-机制分析/review-testing/code-review-test-decision-sheet-analysis.md` — Case 1 的原始分析（含对 findings-schema 的逐字核验）
 - `docs/plans/2026-06-09-001-feat-code-review-incremental-scope-plan.md` — Case 2 的计划（含 Rejected Heavy Mechanism 留档）
 - `skills/spec-code-review/SKILL.md` — Capability-Class Evidence Boundary（provider 自报非 confirmed fact）、`base:<sha>` fast-path、Scenario Capability override
 - `docs/solutions/workflow-issues/routing-skill-eval-methodology-2026-06-08.md` — 同源"对抗式评审验证结论"方法

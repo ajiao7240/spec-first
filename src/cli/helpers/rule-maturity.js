@@ -9,8 +9,17 @@ const { writeFileAtomic } = require('../atomic-write');
 
 const RECORD_SCHEMA_VERSION = 'rule-maturity.v1';
 const LIST_SCHEMA_VERSION = 'rule-maturity-list.v1';
+const PHASE1_GATE_FACTS_SCHEMA_VERSION = 'rule-maturity-phase1-gate-facts.v1';
 const STORE_RELATIVE_PATH = '.spec-first/governance/rule-maturity.json';
 const SCHEMA_PATH = path.join(__dirname, '..', '..', '..', 'docs', 'contracts', 'governance', 'rule-maturity.schema.json');
+const DEFAULT_PHASE1_GATE_WINDOW_DAYS = 14;
+const OWNER_CADENCE_REQUIRED_FIELDS = [
+  'reviewer',
+  'cadence',
+  'trigger',
+  'minimum_sample',
+  'fallback',
+];
 const SHADOW_ROLLBACK = {
   available: true,
   notes: 'shadow observation only; nothing to roll back',
@@ -317,6 +326,74 @@ function summarizeRuleMaturityRecords(records) {
   };
 }
 
+function buildRuleMaturityPhase1GateFacts(options = {}) {
+  const list = options.list && typeof options.list === 'object' ? options.list : {};
+  const observations = options.observations && typeof options.observations === 'object' ? options.observations : null;
+  const asOf = normalizeAsOf(options.asOf);
+  const ruleCount = countRules(list, observations);
+  const shadowHitCount = countShadowHits(list, observations);
+  const workflowDistribution = normalizeWorkflowDistribution(observations, list);
+  const ownerCadenceDecision = normalizeOwnerCadenceDecision(options.ownerCadenceDecision);
+  const windowDays = normalizePositiveNumber(options.windowDays, DEFAULT_PHASE1_GATE_WINDOW_DAYS);
+  const storeStatus = list.status || 'unknown';
+  const consumerStatus = observations ? (observations.status || 'unknown') : 'missing';
+  const statusClass = phase1StatusClass({
+    storeStatus,
+    consumerStatus,
+    shadowHitCount,
+    workflowDistribution,
+  });
+  const recommended = phase1RecommendedNextAction({
+    statusClass,
+    ownerCadenceDecision,
+    shadowHitCount,
+  });
+
+  return {
+    schema_version: PHASE1_GATE_FACTS_SCHEMA_VERSION,
+    as_of: asOf,
+    source_refs: normalizeSourceRefs(options.sourceRefs),
+    status_class: statusClass,
+    rule_count: ruleCount,
+    shadow_hit_count: shadowHitCount,
+    candidate_density: {
+      window_days: windowDays,
+      shadow_hits_per_week: Number(((shadowHitCount / windowDays) * 7).toFixed(2)),
+      rule_count: ruleCount,
+      workflow_count: Object.keys(workflowDistribution).length,
+    },
+    workflow_distribution: workflowDistribution,
+    consumer_status: consumerStatus,
+    store_status: storeStatus,
+    owner_cadence_decision: ownerCadenceDecision,
+    recommended_next_action: recommended.action,
+    reason_codes: recommended.reason_codes,
+  };
+}
+
+function renderRuleMaturityPhase1GateMarkdown(facts) {
+  const gate = facts && typeof facts === 'object' ? facts : buildRuleMaturityPhase1GateFacts();
+  const owner = gate.owner_cadence_decision || {};
+  const lines = [
+    '# Rule Maturity Phase 1 Gate',
+    '',
+    `- as_of: ${gate.as_of || ''}`,
+    '- source_refs:',
+    ...(gate.source_refs || []).map((sourceRef) => `  - ${sourceRef}`),
+    `- status_class: ${gate.status_class || ''}`,
+    `- rule_count: ${numberOrZero(gate.rule_count)}`,
+    `- shadow_hit_count: ${numberOrZero(gate.shadow_hit_count)}`,
+    `- candidate_density: ${JSON.stringify(gate.candidate_density || {})}`,
+    `- workflow_distribution: ${JSON.stringify(gate.workflow_distribution || {})}`,
+    `- consumer_status: ${gate.consumer_status || ''}`,
+    `- store_status: ${gate.store_status || ''}`,
+    `- owner_cadence_decision: ${JSON.stringify(owner)}`,
+    `- recommended_next_action: ${gate.recommended_next_action || ''}`,
+    '',
+  ];
+  return `${lines.join('\n')}`;
+}
+
 function lastObservedAt(hits) {
   let maxTime = null;
   let maxValue = null;
@@ -405,6 +482,128 @@ function unique(values) {
   return [...new Set((values || []).filter((value) => value !== undefined && value !== null && String(value).length > 0))];
 }
 
+function normalizeAsOf(value) {
+  if (!value) return new Date().toISOString();
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? new Date(time).toISOString() : String(value);
+}
+
+function countRules(list, observations) {
+  if (observations && Number.isFinite(observations.rule_count)) return observations.rule_count;
+  if (Array.isArray(list.rules)) return list.rules.length;
+  return 0;
+}
+
+function countShadowHits(list, observations) {
+  if (observations && Number.isFinite(observations.shadow_hit_count)) return observations.shadow_hit_count;
+  return (list.rules || []).reduce((total, rule) => total + numberOrZero(rule.shadow_hit_count), 0);
+}
+
+function normalizeWorkflowDistribution(observations, list) {
+  if (observations && observations.workflow_distribution && typeof observations.workflow_distribution === 'object') {
+    return sortObjectValues(observations.workflow_distribution);
+  }
+  const distribution = {};
+  for (const rule of list.rules || []) {
+    for (const workflow of rule.workflows || []) {
+      distribution[workflow] = distribution[workflow] || 0;
+    }
+  }
+  return sortObjectValues(distribution);
+}
+
+function sortObjectValues(input) {
+  return Object.fromEntries(Object.entries(input || {})
+    .filter(([key]) => key)
+    .sort((left, right) => left[0].localeCompare(right[0])));
+}
+
+function normalizeOwnerCadenceDecision(decision) {
+  if (!decision || typeof decision !== 'object') {
+    return {
+      status: decision ? 'prose-only' : 'missing',
+      summary: typeof decision === 'string' ? decision : '',
+      missing_fields: [...OWNER_CADENCE_REQUIRED_FIELDS],
+    };
+  }
+  const normalized = {
+    status: decision.status || 'pending',
+    reviewer: decision.reviewer || '',
+    cadence: decision.cadence || '',
+    trigger: decision.trigger || '',
+    minimum_sample: Number.isFinite(decision.minimum_sample) ? decision.minimum_sample : null,
+    fallback: decision.fallback || '',
+  };
+  const missingFields = OWNER_CADENCE_REQUIRED_FIELDS.filter((field) => {
+    if (field === 'minimum_sample') return !Number.isFinite(normalized.minimum_sample) || normalized.minimum_sample <= 0;
+    return !normalized[field];
+  });
+  if (normalized.fallback && normalized.fallback !== 'continue-phase1') {
+    missingFields.push('fallback:continue-phase1');
+  }
+  return {
+    ...normalized,
+    missing_fields: unique(missingFields),
+  };
+}
+
+function phase1StatusClass({ storeStatus, consumerStatus, shadowHitCount, workflowDistribution }) {
+  if (storeStatus === 'degraded' || consumerStatus === 'degraded') return 'degraded/corrupt';
+  if (consumerStatus === 'missing') return 'consumer_missing';
+  if (shadowHitCount === 0) return 'empty';
+  if (Object.keys(workflowDistribution || {}).length === 0) return 'no_llm_adoption';
+  return 'candidate_density';
+}
+
+function phase1RecommendedNextAction({ statusClass, ownerCadenceDecision, shadowHitCount }) {
+  if (['degraded/corrupt', 'consumer_missing'].includes(statusClass)) {
+    return {
+      action: 'repair-producer-consumer',
+      reason_codes: [statusClass === 'consumer_missing' ? 'phase1-consumer-missing' : 'phase1-evidence-degraded'],
+    };
+  }
+  if (statusClass !== 'candidate_density') {
+    return {
+      action: 'continue-phase1',
+      reason_codes: [statusClass === 'empty' ? 'phase1-no-shadow-observations' : 'phase1-no-workflow-distribution'],
+    };
+  }
+  if (!ownerCadenceDecision || ownerCadenceDecision.status !== 'confirmed') {
+    return {
+      action: 'continue-phase1',
+      reason_codes: ['phase1-owner-cadence-not-confirmed'],
+    };
+  }
+  if ((ownerCadenceDecision.missing_fields || []).length > 0) {
+    return {
+      action: 'continue-phase1',
+      reason_codes: ['phase1-owner-cadence-incomplete'],
+    };
+  }
+  if (shadowHitCount < ownerCadenceDecision.minimum_sample) {
+    return {
+      action: 'continue-phase1',
+      reason_codes: ['phase1-sample-below-minimum'],
+    };
+  }
+  return {
+    action: 'open-phase2-plan',
+    reason_codes: ['phase1-ready-for-phase2-plan'],
+  };
+}
+
+function normalizeSourceRefs(sourceRefs) {
+  return Array.isArray(sourceRefs) ? unique(sourceRefs.map((sourceRef) => String(sourceRef))) : [];
+}
+
+function normalizePositiveNumber(value, fallback) {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function numberOrZero(value) {
+  return Number.isFinite(value) ? value : 0;
+}
+
 function writeJson(value, output) {
   output.write(`${JSON.stringify(value, null, 2)}\n`);
 }
@@ -415,12 +614,15 @@ if (require.main === module) {
 
 module.exports = {
   LIST_SCHEMA_VERSION,
+  PHASE1_GATE_FACTS_SCHEMA_VERSION,
   RECORD_SCHEMA_VERSION,
   STORE_RELATIVE_PATH,
+  buildRuleMaturityPhase1GateFacts,
   buildRuleMaturityList,
   getRuleMaturityStorePath,
   readRuleMaturityRecords,
   recordShadowHit,
+  renderRuleMaturityPhase1GateMarkdown,
   runCli,
   summarizeRuleMaturityRecords,
 };

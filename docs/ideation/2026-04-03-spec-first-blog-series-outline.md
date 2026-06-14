@@ -164,5 +164,5 @@ source: docs/ideation/2026-04-03-spec-first-blog-series-ideation.md
 - [Spec-First 连载博客方向](./2026-04-03-spec-first-blog-series-ideation.md)
 - [Spec-First 连载首篇详细大纲](./2026-04-03-spec-first-blog-series-article-1-outline.md)
 - [Spec-First 连载首篇正文初稿](./2026-04-03-spec-first-blog-series-article-1-draft.md)
-- [Harness Engineering 指南](../09-业界借鉴/2026-04-03-Qoder-工程实践：Harness-Engineering-指南.md)
+- [Harness Engineering 指南](../../../spec-first-doc/业界学习/01-外部文章/2026-04-03-Qoder-工程实践：Harness-Engineering-指南.md)
 - OpenAI 官方文章：<https://openai.com/index/harness-engineering/>

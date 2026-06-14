@@ -77,7 +77,7 @@ graphify path "<A>" "<B>"
 graphify explain "<concept>"
 ```
 
-但本次实测也暴露了一个实际盲区：查询 “Graphify 如何与 spec-first 配合” 时，Graphify 主要命中 `AGENTS.md` / `CLAUDE.md` 中的 graphify 小节，没有优先命中 `docs/01-需求分析/13.scale-integration/CodeGraph技术方案.md` 这类关键方案文档。
+但本次实测也暴露了一个实际盲区：查询 “Graphify 如何与 spec-first 配合” 时，Graphify 主要命中 `AGENTS.md` / `CLAUDE.md` 中的 graphify 小节，没有优先命中 `spec-first-doc:业界学习/02-对标研究/crg-graph/CodeGraph技术方案.md` 这类关键方案文档。
 
 这说明“图谱存在”不等于“图谱能稳定召回关键上下文”。Graphify 的价值需要两个条件同时成立：
 
@@ -140,7 +140,7 @@ Graphify 提升理解速度，spec-first 保持证据纪律。
 
 ### 8.2 Graphify 查询召回关键方案不稳定
 
-实测 `graphify explain "Graphify"` 主要命中 `AGENTS.md` / `CLAUDE.md` 中的 graphify 小节，没有优先命中 `docs/01-需求分析/13.scale-integration/CodeGraph技术方案.md` 这种关键方案。
+实测 `graphify explain "Graphify"` 主要命中 `AGENTS.md` / `CLAUDE.md` 中的 graphify 小节，没有优先命中 `spec-first-doc:业界学习/02-对标研究/crg-graph/CodeGraph技术方案.md` 这种关键方案。
 
 这说明当前图谱虽然包含相关文档，但 Graphify 对“Graphify 与 spec-first 配合”这类主题的 anchor / alias / summary 质量仍不足。
 

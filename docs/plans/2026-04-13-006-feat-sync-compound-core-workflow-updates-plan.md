@@ -111,14 +111,14 @@ origin: docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates
 本计划基于以下文档执行：
 
 - [需求文档](/Users/kuang/xiaobu/spec-first/docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates-requirements.md)
-- [映射基线](/Users/kuang/xiaobu/spec-first/docs/业界分析/7.skill-agent-映射核对与升级同步指南.md)
-- [逐 commit 同步矩阵](/Users/kuang/xiaobu/spec-first/docs/业界分析/8.核心链路逐commit同步矩阵-v1.md)
+- [映射基线](/Users/kuang/xiaobu/spec-first-doc/业界学习/04-能力映射/7.skill-agent-映射核对与升级同步指南.md)
+- [逐 commit 同步矩阵](/Users/kuang/xiaobu/spec-first-doc/业界学习/04-能力映射/8.核心链路逐commit同步矩阵-v1.md)
 - [源项目更新清单](/Users/kuang/xiaobu/compound-engineering-plugin/updated-files-2026-04-13.txt)
 
 ## Upstream Evidence Baseline
 
 - 本计划中的 tracked commit，不以短 SHA 独立推断含义；统一以 [源项目更新清单](/Users/kuang/xiaobu/compound-engineering-plugin/updated-files-2026-04-13.txt) 的 `=== 提交记录（ID + 信息） ===` 段为准。
-- 所有纳入本计划的 42 个唯一 tracked commit 的原始 `source-subject`，已固化在 [逐 commit 同步矩阵](/Users/kuang/xiaobu/spec-first/docs/业界分析/8.核心链路逐commit同步矩阵-v1.md) `7.6 上游提交记录原文基线`；若按矩阵业务行计数则为 43 行，其中 `f4e0904` 因跨 A/B 双落点而重复出现一次。
+- 所有纳入本计划的 42 个唯一 tracked commit 的原始 `source-subject`，已固化在 [逐 commit 同步矩阵](/Users/kuang/xiaobu/spec-first-doc/业界学习/04-能力映射/8.核心链路逐commit同步矩阵-v1.md) `7.6 上游提交记录原文基线`；若按矩阵业务行计数则为 43 行，其中 `f4e0904` 因跨 A/B 双落点而重复出现一次。
 - 本文中的“上游近期稳态”或“已验证的稳定性修复”，仅表示这些变更已进入上游主干，并在部分能力上形成了连续后续修正链，不等同于我们已经持有其独立测试报告。
 - 当前计划直接依赖的连续修正链至少包括：
   - `638b38a -> 4e0ed2c`：review base resolution 加固后又补 stale merge-base 修正

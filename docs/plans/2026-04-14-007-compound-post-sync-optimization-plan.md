@@ -3,7 +3,7 @@
 - 日期：`2026-04-14`
 - 适用仓库：`spec-first`
 - 背景基线：
-  - [核心链路逐 commit 同步矩阵](/Users/kuang/xiaobu/spec-first/docs/业界分析/8.核心链路逐commit同步矩阵-v1.md)
+  - [核心链路逐 commit 同步矩阵](/Users/kuang/xiaobu/spec-first-doc/业界学习/04-能力映射/8.核心链路逐commit同步矩阵-v1.md)
   - [逐文件深度审查报告](/Users/kuang/xiaobu/spec-first/docs/validation/2026-04-14-compound-core-workflow-matrix-deep-audit-report.md)
   - [最终审查报告](/Users/kuang/xiaobu/spec-first/docs/validation/2026-04-14-compound-core-workflow-final-audit-report.md)
 
@@ -131,7 +131,7 @@
 
 但这套规则目前主要固化在：
 
-- [8.核心链路逐commit同步矩阵-v1.md](/Users/kuang/xiaobu/spec-first/docs/业界分析/8.核心链路逐commit同步矩阵-v1.md)
+- [8.核心链路逐commit同步矩阵-v1.md](/Users/kuang/xiaobu/spec-first-doc/业界学习/04-能力映射/8.核心链路逐commit同步矩阵-v1.md)
 - [matrix-deep-audit-report.md](/Users/kuang/xiaobu/spec-first/docs/validation/2026-04-14-compound-core-workflow-matrix-deep-audit-report.md)
 
 仓库内仍存在旧口径残留，例如：
@@ -148,7 +148,7 @@
 
 - 更新：
   - [2026-04-13-spec-first-sync-compound-engineering-updates-requirements.md](/Users/kuang/xiaobu/spec-first/docs/brainstorms/2026-04-13-spec-first-sync-compound-engineering-updates-requirements.md)
-  - [8.核心链路逐commit同步矩阵-v1.md](/Users/kuang/xiaobu/spec-first/docs/业界分析/8.核心链路逐commit同步矩阵-v1.md)
+  - [8.核心链路逐commit同步矩阵-v1.md](/Users/kuang/xiaobu/spec-first-doc/业界学习/04-能力映射/8.核心链路逐commit同步矩阵-v1.md)
 - 新增：
   - [shared-commit-handoff-template.md](/Users/kuang/xiaobu/spec-first/docs/templates/shared-commit-handoff-template.md)
 
@@ -243,7 +243,7 @@ beta workflow 至少需要一次低风险、最小范围的真实运行，证明
 **建议落点**
 
 - 首选更新：
-  - [8.核心链路逐commit同步矩阵-v1.md](/Users/kuang/xiaobu/spec-first/docs/业界分析/8.核心链路逐commit同步矩阵-v1.md)
+  - [8.核心链路逐commit同步矩阵-v1.md](/Users/kuang/xiaobu/spec-first-doc/业界学习/04-能力映射/8.核心链路逐commit同步矩阵-v1.md)
 - 备选补充：
   - [spec-work/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/spec-work/SKILL.md)
   - [spec-work-beta/SKILL.md](/Users/kuang/xiaobu/spec-first/skills/spec-work-beta/SKILL.md)
