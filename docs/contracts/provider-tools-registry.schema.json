@@ -108,9 +108,33 @@
         },
         "installation": {
           "type": "object",
-          "required": ["strategy", "package", "version_pin", "commands_display", "next_action"],
+          "required": ["strategy", "commands_display", "next_action"],
+          "oneOf": [
+            {
+              "required": ["dependency_ref"],
+              "properties": {
+                "strategy": {},
+                "dependency_ref": {},
+                "commands_display": {},
+                "next_action": {}
+              },
+              "additionalProperties": false
+            },
+            {
+              "required": ["package", "version_pin"],
+              "properties": {
+                "strategy": {},
+                "package": {},
+                "version_pin": {},
+                "commands_display": {},
+                "next_action": {}
+              },
+              "additionalProperties": false
+            }
+          ],
           "properties": {
             "strategy": { "enum": ["uv-tool", "npm-global", "manual"] },
+            "dependency_ref": { "type": "string", "minLength": 1 },
             "package": { "type": "string", "minLength": 1 },
             "version_pin": { "type": "string", "minLength": 1 },
             "commands_display": {

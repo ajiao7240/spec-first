@@ -12,7 +12,7 @@ source "$SCRIPT_DIR/lib-template.sh"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
 PROVIDER_TOOLS_JSON="$SKILL_DIR/provider-tools.json"
-require_mcp_tools_schema_version 6 "$TOOLS_JSON"
+require_mcp_tools_schema_version 7 "$TOOLS_JSON"
 HOST_INFO_JSON="$(bash "$SCRIPT_DIR/detect-host.sh")"
 HOST="$(jq -r '.host' <<<"$HOST_INFO_JSON")"
 HOST_DISPLAY_NAME="$(jq -r '.display_name' <<<"$HOST_INFO_JSON")"
@@ -741,7 +741,7 @@ for tool_id in "${TOOL_IDS[@]}"; do
     while IFS= read -r arg; do
       install_args+=("$arg")
     done <<EOF
-$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'.tools[] | select(.id == $id) as $t | $t.installation.unix.args[] | expand_tpl($t)' "$TOOLS_JSON")
+$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'tool_by_id($id) as $t | $t.installation.unix.args[] | expand_tpl($t)' "$TOOLS_JSON")
 EOF
     warmup_hash="$(warmup_command_hash "$install_command" "${install_args[@]}")"
     warmup_ttl_seconds="$(warmup_cache_ttl_seconds "$install_command" "${install_args[@]}")"
@@ -755,7 +755,7 @@ EOF
       exit_code="$RUN_EXIT_CODE"
       diagnostic_summary="$RUN_DIAGNOSTIC"
     else
-      package_spec="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | if ((.package // "") != "" and (.version // "") != "") then "\(.package)@\(.version)" else "" end' "$TOOLS_JSON")"
+      package_spec="$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'tool_by_id($id) | if ((.package // "") != "" and (.version // "") != "") then "\(.package)@\(.version)" else "" end' "$TOOLS_JSON")"
       write_warmup_cache "$tool_id" "$install_command" "$warmup_hash" "$package_spec" "${install_args[@]}"
     fi
   elif [ "$status" = "ready" ] && [ "$install_kind" = "global-npm" ]; then
@@ -764,7 +764,7 @@ EOF
     while IFS= read -r arg; do
       install_args+=("$arg")
     done <<EOF
-$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'.tools[] | select(.id == $id) as $t | $t.installation.unix.args[] | expand_tpl($t)' "$TOOLS_JSON")
+$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'tool_by_id($id) as $t | $t.installation.unix.args[] | expand_tpl($t)' "$TOOLS_JSON")
 EOF
     verify_command="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .installation.verify_command.command // empty' "$TOOLS_JSON")"
     verify_args=()
@@ -772,10 +772,10 @@ EOF
       while IFS= read -r arg; do
         verify_args+=("$arg")
       done <<EOF
-$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'.tools[] | select(.id == $id) as $t | ($t.installation.verify_command.args // [])[] | expand_tpl($t)' "$TOOLS_JSON")
+$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'tool_by_id($id) as $t | ($t.installation.verify_command.args // [])[] | expand_tpl($t)' "$TOOLS_JSON")
 EOF
     fi
-    expected_version="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .version // empty' "$TOOLS_JSON")"
+    expected_version="$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'tool_by_id($id) | .version // empty' "$TOOLS_JSON")"
     if [ -n "$verify_command" ] \
       && run_and_capture "verify-before-install:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$verify_command" "${verify_args[@]}" \
       && version_output_matches_expected "$expected_version" "$RUN_STDOUT $RUN_DIAGNOSTIC"; then
@@ -848,7 +848,7 @@ EOF
     while IFS= read -r arg; do
       bootstrap_args+=("$arg")
     done <<EOF
-$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'.tools[] | select(.id == $id) as $t | $t.project_bootstrap.unix.args[] | expand_tpl($t)' "$TOOLS_JSON")
+$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'tool_by_id($id) as $t | $t.project_bootstrap.unix.args[] | expand_tpl($t)' "$TOOLS_JSON")
 EOF
     pushd "$REPO_ROOT" >/dev/null
     if run_and_capture "project-bootstrap:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$bootstrap_command" "${bootstrap_args[@]}"; then
@@ -874,7 +874,7 @@ EOF
       while IFS= read -r arg; do
         status_probe_args+=("$arg")
       done <<EOF
-$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'.tools[] | select(.id == $id) as $t | ($t.project_bootstrap.status_probe.args // [])[] | expand_tpl($t)' "$TOOLS_JSON")
+$(jq -r --arg id "$tool_id" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'tool_by_id($id) as $t | ($t.project_bootstrap.status_probe.args // [])[] | expand_tpl($t)' "$TOOLS_JSON")
 EOF
       pushd "$REPO_ROOT" >/dev/null
       if run_and_capture "project-status:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$status_probe_command" "${status_probe_args[@]}"; then

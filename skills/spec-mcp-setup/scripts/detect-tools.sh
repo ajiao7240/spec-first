@@ -10,7 +10,7 @@ SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
 source "$SCRIPT_DIR/lib-toml.sh"
 source "$SCRIPT_DIR/lib-template.sh"
-require_mcp_tools_schema_version 6 "$TOOLS_JSON"
+require_mcp_tools_schema_version 7 "$TOOLS_JSON"
 
 REPO_ARG=""
 FOLDER_ARG=""
@@ -120,7 +120,7 @@ host_config_status() {
 
   detect_kind="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detection.kind' "$TOOLS_JSON")"
   detect_key="$(jq -r --arg id "$tool_id" '.tools[] | select(.id == $id) | .detection.key' "$TOOLS_JSON")"
-  host_cfg="$(jq -c --arg id "$tool_id" --arg host "$HOST" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'.tools[] | select(.id == $id) as $t | $t.host_config[$host] | .args = (.args | map(expand_tpl($t)))' "$TOOLS_JSON")"
+  host_cfg="$(jq -c --arg id "$tool_id" --arg host "$HOST" "$SPEC_FIRST_JQ_TEMPLATE_PRELUDE"'tool_by_id($id) as $t | $t.host_config[$host] | .args = (.args | map(expand_tpl($t)))' "$TOOLS_JSON")"
 
   [ -n "$SELECTED_SCOPE" ] || {
     echo action-required

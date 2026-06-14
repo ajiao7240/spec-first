@@ -6,7 +6,10 @@ set -euo pipefail
 command -v jq >/dev/null 2>&1 || { echo '错误：jq 是必需依赖，请先安装 jq' >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MCP_TOOLS_JSON="$(cd "$SCRIPT_DIR/.." && pwd)/mcp-tools.json"
 source "$SCRIPT_DIR/lib-helper-registry.sh"
+source "$SCRIPT_DIR/lib-template.sh"
+require_mcp_tools_schema_version 7 "$MCP_TOOLS_JSON"
 
 MODE="install"
 REQUIREMENT_WORKSPACE="${SPEC_FIRST_PROVIDER_GRAPHIFY_REQUIREMENT_WORKSPACE:-${SPEC_FIRST_REQUIREMENT_WORKSPACE:-}}"
@@ -112,6 +115,13 @@ npm_mirror_env_pairs() {
   printf '%s\n' "npm_config_registry=${NPM_MIRROR_ENDPOINT}" "NPM_CONFIG_REGISTRY=${NPM_MIRROR_ENDPOINT}"
 }
 
+external_dependency_field() {
+  local dependency_id="$1" field="$2"
+  jq -r --arg id "$dependency_id" --arg field "$field" '
+    (first((.external_dependencies // [])[]? | select(.id == $id)) // {})[$field] // empty
+  ' "$MCP_TOOLS_JSON"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --install)
@@ -210,7 +220,10 @@ PROVIDER_REPO_ROOT="${SPEC_FIRST_PROVIDER_REPO_ROOT:-$PWD}"
 PROVIDER_TOOL_ROOT="${SPEC_FIRST_PROVIDER_TOOL_ROOT:-$PROVIDER_REPO_ROOT/.spec-first/tools}"
 PROVIDER_CACHE_ROOT="${SPEC_FIRST_PROVIDER_CACHE_ROOT:-$PROVIDER_REPO_ROOT/.spec-first/cache}"
 GRAPHIFY_ARTIFACT_ROOT_DEFAULT="${SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT:-graphify-out}"
-GRAPHIFY_VERSION_PIN="${SPEC_FIRST_PROVIDER_GRAPHIFY_VERSION_PIN:-0.8.36}"
+GRAPHIFY_PACKAGE="${SPEC_FIRST_PROVIDER_GRAPHIFY_PACKAGE:-$(external_dependency_field graphify package)}"
+GRAPHIFY_VERSION_PIN="${SPEC_FIRST_PROVIDER_GRAPHIFY_VERSION_PIN:-$(external_dependency_field graphify version)}"
+[ -n "$GRAPHIFY_PACKAGE" ] || { echo '错误：mcp-tools.json 缺少 graphify package pin' >&2; exit 1; }
+[ -n "$GRAPHIFY_VERSION_PIN" ] || { echo '错误：mcp-tools.json 缺少 graphify version pin' >&2; exit 1; }
 GRAPHIFY_ORIGINAL_PATH="${PATH:-}"
 GRAPHIFY_RESOLVED_COMMAND=""
 GRAPHIFY_RESOLVED_ON_PATH=""
@@ -970,7 +983,7 @@ install_graphify_cli() {
   fi
 
   if command -v uv >/dev/null 2>&1; then
-    if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" uv tool install --force "graphifyy==$GRAPHIFY_VERSION_PIN" >/dev/null 2>&1; then
+    if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" uv tool install --force "$GRAPHIFY_PACKAGE==$GRAPHIFY_VERSION_PIN" >/dev/null 2>&1; then
       hash -r 2>/dev/null || true
       reset_graphify_resolver
       resolve_graphify_cli_matching_pin >/dev/null 2>&1 && return 0
@@ -978,7 +991,7 @@ install_graphify_cli() {
   fi
 
   if command -v pipx >/dev/null 2>&1; then
-    if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" pipx install --force "graphifyy==$GRAPHIFY_VERSION_PIN" >/dev/null 2>&1; then
+    if run_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" pipx install --force "$GRAPHIFY_PACKAGE==$GRAPHIFY_VERSION_PIN" >/dev/null 2>&1; then
       hash -r 2>/dev/null || true
       reset_graphify_resolver
       resolve_graphify_cli_matching_pin >/dev/null 2>&1 && return 0

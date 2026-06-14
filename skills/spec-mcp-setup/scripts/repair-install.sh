@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TOOLS_JSON="$SKILL_DIR/mcp-tools.json"
 source "$SCRIPT_DIR/lib-template.sh"
-require_mcp_tools_schema_version 6 "$TOOLS_JSON"
+require_mcp_tools_schema_version 7 "$TOOLS_JSON"
 TOOL_ID=""
 while [[ $# -gt 0 ]]; do
   case "$1" in

@@ -28,6 +28,19 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+function externalDependency(id) {
+  const dependency = readJson(mcpToolsPath).external_dependencies.find((entry) => entry.id === id);
+  if (!dependency) throw new Error(`missing external dependency: ${id}`);
+  return dependency;
+}
+
+const graphifyDependency = externalDependency('graphify');
+const codegraphDependency = externalDependency('codegraph');
+const GRAPHIFY_PACKAGE = graphifyDependency.package;
+const GRAPHIFY_VERSION = graphifyDependency.version;
+const CODEGRAPH_PACKAGE = codegraphDependency.package;
+const CODEGRAPH_VERSION = codegraphDependency.version;
+
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-readiness-'));
 }
@@ -174,6 +187,12 @@ describe('dependency readiness baseline contracts', () => {
       'root.readiness_status: value "unavailable" not in enum',
     );
     expect(validateAgainstSchema(providerToolsSchema, providerTools).errors).toEqual([]);
+    const duplicatedProviderPin = JSON.parse(JSON.stringify(providerTools));
+    duplicatedProviderPin.providers[0].installation.package = GRAPHIFY_PACKAGE;
+    duplicatedProviderPin.providers[0].installation.version_pin = GRAPHIFY_VERSION;
+    expect(validateAgainstSchema(providerToolsSchema, duplicatedProviderPin).errors).toContain(
+      'root.providers[0].installation: value matched 0 oneOf schemas',
+    );
     expect(providerTools.providers).toHaveLength(1);
     expect(providerTools.providers[0]).toMatchObject({
       id: 'graphify',
@@ -195,8 +214,7 @@ describe('dependency readiness baseline contracts', () => {
       },
       installation: {
         strategy: 'uv-tool',
-        package: 'graphifyy',
-        version_pin: '0.8.36',
+        dependency_ref: 'graphify',
       },
       readiness: {
         fresh_self_report_maps_to: 'unknown',
@@ -230,8 +248,8 @@ describe('dependency readiness baseline contracts', () => {
     fs.mkdirSync(binDir, { recursive: true });
     const graphifyBin = path.join(binDir, process.platform === 'win32' ? 'graphify.cmd' : 'graphify');
     fs.writeFileSync(graphifyBin, process.platform === 'win32'
-      ? '@echo off\r\nif "%1"=="--version" echo graphify 0.8.36& exit /b 0\r\nexit /b 0\r\n'
-      : '#!/bin/sh\nif [ "$1" = "--version" ]; then printf "graphify 0.8.36\\n"; exit 0; fi\nexit 0\n', 'utf8');
+      ? `@echo off\r\nif "%1"=="--version" echo graphify ${GRAPHIFY_VERSION}& exit /b 0\r\nexit /b 0\r\n`
+      : `#!/bin/sh\nif [ "$1" = "--version" ]; then printf "graphify ${GRAPHIFY_VERSION}\\n"; exit 0; fi\nexit 0\n`, 'utf8');
     fs.chmodSync(graphifyBin, 0o755);
 
     const baseEnv = {
@@ -300,7 +318,7 @@ describe('dependency readiness baseline contracts', () => {
     fs.writeFileSync(path.join(tempDir, 'graphify-out/graph.json'), '{}\n', 'utf8');
     fs.writeFileSync(path.join(tempDir, '.agents/skills/graphify/SKILL.md'), '# graphify\n', 'utf8');
     const graphifyBin = path.join(binDir, 'graphify');
-    fs.writeFileSync(graphifyBin, '#!/bin/sh\nif [ "$1" = "--version" ]; then printf "graphify 0.8.36\\n"; fi\nexit 0\n', 'utf8');
+    fs.writeFileSync(graphifyBin, `#!/bin/sh\nif [ "$1" = "--version" ]; then printf "graphify ${GRAPHIFY_VERSION}\\n"; fi\nexit 0\n`, 'utf8');
     fs.chmodSync(graphifyBin, 0o755);
 
     const base = {
@@ -389,7 +407,7 @@ describe('dependency readiness baseline contracts', () => {
     const graphifyBin = path.join(graphifyBinDir, 'graphify');
     fs.writeFileSync(graphifyBin, `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf 'graphify 0.8.36\\n'
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
   exit 0
 fi
 if [ "$1" = "hook" ] && [ "$2" = "status" ]; then
@@ -446,7 +464,7 @@ exit 0
     const graphifyBin = path.join(binDir, 'graphify');
     fs.writeFileSync(graphifyBin, `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf 'graphify 0.8.36\\n'
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
   exit 0
 fi
 exit 0
@@ -503,7 +521,7 @@ exit 0
     const graphifyBin = path.join(binDir, 'graphify');
     fs.writeFileSync(graphifyBin, `#!/bin/sh
 if [ "$1" = "--version" ]; then
-  printf 'graphify 0.8.36\\n'
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
   exit 0
 fi
 exit 0
@@ -550,7 +568,7 @@ exit 0
     fs.writeFileSync(staleGraphify, '#!/bin/sh\nprintf "graphify 0.1.0\\n"\n', 'utf8');
     fs.chmodSync(staleGraphify, 0o755);
     const pinnedGraphify = path.join(graphifyBinDir, 'graphify');
-    fs.writeFileSync(pinnedGraphify, '#!/bin/sh\nprintf "graphify 0.8.36\\n"\n', 'utf8');
+    fs.writeFileSync(pinnedGraphify, `#!/bin/sh\nprintf "graphify ${GRAPHIFY_VERSION}\\n"\n`, 'utf8');
     fs.chmodSync(pinnedGraphify, 0o755);
 
     const result = spawnSync(process.execPath, [providerRendererPath, '--source', 'helper', '--repo-root', tempDir], {
@@ -569,7 +587,7 @@ exit 0
     const graphify = JSON.parse(result.stdout)[0];
     expect(graphify.lifecycle.installed).toBe(true);
     expect(graphify.next_actions.join('\n')).toContain(`setup is using ${pinnedGraphify}`);
-    expect(graphify.next_actions.join('\n')).toContain(`Graphify CLI on PATH at ${staleGraphify} does not match pinned graphifyy==0.8.36`);
+    expect(graphify.next_actions.join('\n')).toContain(`Graphify CLI on PATH at ${staleGraphify} does not match pinned ${GRAPHIFY_PACKAGE}==${GRAPHIFY_VERSION}`);
     expect(graphify.next_actions.join('\n')).not.toContain('Graphify CLI version does not match pinned');
   });
 
@@ -581,8 +599,8 @@ exit 0
     fs.writeFileSync(path.join(tempDir, 'graphify-out/graph.json'), '{}\n', 'utf8');
     const graphifyBin = path.join(binDir, process.platform === 'win32' ? 'graphify.cmd' : 'graphify');
     fs.writeFileSync(graphifyBin, process.platform === 'win32'
-      ? '@echo off\r\nif "%1"=="--version" echo graphify 0.8.36& exit /b 0\r\nexit /b 0\r\n'
-      : '#!/bin/sh\nif [ "$1" = "--version" ]; then printf "graphify 0.8.36\\n"; exit 0; fi\nexit 0\n', 'utf8');
+      ? `@echo off\r\nif "%1"=="--version" echo graphify ${GRAPHIFY_VERSION}& exit /b 0\r\nexit /b 0\r\n`
+      : `#!/bin/sh\nif [ "$1" = "--version" ]; then printf "graphify ${GRAPHIFY_VERSION}\\n"; exit 0; fi\nexit 0\n`, 'utf8');
     fs.chmodSync(graphifyBin, 0o755);
 
     const result = spawnSync(process.execPath, [providerRendererPath, '--source', 'helper', '--repo-root', tempDir], {
@@ -646,7 +664,7 @@ exit 0
         artifact_exists: true,
       },
     });
-    expect(graphify.next_actions.join('\n')).toContain('graphifyy==0.8.36');
+    expect(graphify.next_actions.join('\n')).toContain(`${GRAPHIFY_PACKAGE}==${GRAPHIFY_VERSION}`);
   });
 
   test('install-helpers runs native Graphify project skill, graph generation, hook, and query probe', () => {
@@ -670,7 +688,7 @@ exit 0
     fs.writeFileSync(graphifyPath, `#!/bin/sh
 printf '%s\\n' "$*" >> "$GRAPHIFY_CAPTURE"
 if [ "$1" = "--version" ]; then
-  printf 'graphify 0.8.36\\n'
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
   exit 0
 fi
 if [ "$1" = "install" ]; then
@@ -795,7 +813,7 @@ exit 0
     fs.writeFileSync(pinnedGraphifyPath, `#!/bin/sh
 printf 'PINNED:%s\\n' "$*" >> "$GRAPHIFY_CAPTURE"
 if [ "$1" = "--version" ]; then
-  printf 'graphify 0.8.36\\n'
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
   exit 0
 fi
 if [ "$1" = "query" ]; then
@@ -836,7 +854,7 @@ exit 0
       },
     });
     expect(graphify.next_actions.join('\n')).toContain('Graphify query probe has not confirmed CLI/artifact usability');
-    expect(graphify.next_actions.join('\n')).toContain('does not match pinned graphifyy==0.8.36');
+    expect(graphify.next_actions.join('\n')).toContain(`does not match pinned ${GRAPHIFY_PACKAGE}==${GRAPHIFY_VERSION}`);
   });
 
   test('install-helpers invokes provider-standard off-PATH Graphify while preserving manual visibility next action', () => {
@@ -870,7 +888,7 @@ exit 1
     fs.writeFileSync(graphifyPath, `#!/bin/sh
 printf '%s %s\\n' "$0" "$*" >> "$GRAPHIFY_CAPTURE"
 if [ "$1" = "--version" ]; then
-  printf 'graphify 0.8.36\\n'
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
   exit 0
 fi
 if [ "$1" = "install" ]; then
@@ -971,7 +989,7 @@ exit 0
     fs.writeFileSync(graphifyPath, `#!/bin/sh
 printf '%s %s\\n' "$0" "$*" >> "$GRAPHIFY_CAPTURE"
 if [ "$1" = "--version" ]; then
-  printf 'graphify 0.8.36\\n'
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
   exit 0
 fi
 if [ "$1" = "install" ]; then
@@ -1054,7 +1072,7 @@ exit 0
     fs.writeFileSync(graphifyPath, `#!/bin/sh
 printf '%s\\n' "$*" >> "$GRAPHIFY_CAPTURE"
 if [ "$1" = "--version" ]; then
-  printf 'graphify 0.8.36\\n'
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
   exit 0
 fi
 exit 0
@@ -1115,7 +1133,7 @@ exit 0
     fs.writeFileSync(graphifyPath, `#!/bin/sh
 printf '%s\\n' "$*" >> "$GRAPHIFY_CAPTURE"
 if [ "$1" = "--version" ]; then
-  printf 'graphify 0.8.36\\n'
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
   exit 0
 fi
 if [ "$1" = "install" ]; then
@@ -1301,7 +1319,7 @@ exit 0
     fs.writeFileSync(graphifyPath, `#!/bin/sh
 printf '%s\\n' "$*" >> "$GRAPHIFY_CAPTURE"
 if [ "$1" = "--version" ]; then
-  printf 'graphify 0.8.36\\n'
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
   exit 0
 fi
 if [ "$1" = "install" ]; then
@@ -1396,7 +1414,7 @@ exit 0
     fs.writeFileSync(codegraphPath, `#!/bin/sh
 printf '%s\\n' "$*" >> "$CODEGRAPH_CAPTURE"
 if [ "$1" = "--version" ]; then
-  printf '0.9.9\\n'
+  printf '${CODEGRAPH_VERSION}\\n'
   exit 0
 fi
 if [ "$1" = "init" ]; then
@@ -1472,7 +1490,7 @@ exit 0
 printf '%s\\n' "$*" >> "$CODEGRAPH_CAPTURE"
 if [ "$1" = "--version" ]; then
   if [ -f "$CODEGRAPH_VERSION_MARKER" ]; then
-    printf '0.9.9\\n'
+    printf '${CODEGRAPH_VERSION}\\n'
   else
     printf '0.9.8\\n'
   fi
@@ -1507,7 +1525,7 @@ exit 0
     });
 
     expect(result.status).toBe(0);
-    expect(fs.readFileSync(npmCapturePath, 'utf8')).toContain('install -g @colbymchenry/codegraph@0.9.9');
+    expect(fs.readFileSync(npmCapturePath, 'utf8')).toContain(`install -g ${CODEGRAPH_PACKAGE}@${CODEGRAPH_VERSION}`);
     const captured = fs.readFileSync(codegraphCapturePath, 'utf8');
     expect(captured.match(/--version/g).length).toBeGreaterThanOrEqual(2);
     expect(JSON.parse(result.stdout).results.find((entry) => entry.tool_id === 'codegraph')).toMatchObject({

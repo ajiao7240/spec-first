@@ -49,7 +49,20 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
       read(mcpSetupSkillPath),
     ].join('\n');
 
-    expect(toolsJson.schema_version).toBe('6');
+    expect(toolsJson.schema_version).toBe('7');
+    expect(toolsJson.external_dependencies).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'codegraph',
+        package: '@colbymchenry/codegraph',
+        version: expect.any(String),
+      }),
+      expect.objectContaining({
+        id: 'graphify',
+        package: 'graphifyy',
+        version: expect.any(String),
+      }),
+    ]));
+    expect(toolsJson.external_dependencies.every((dependency) => dependency.version.length > 0)).toBe(true);
     expect(toolsJson.tools.map((tool) => tool.id)).toEqual(['sequential-thinking', 'context7', 'codegraph']);
     expect(toolsJson.tools.filter((tool) => tool.required).map((tool) => tool.id)).toEqual(['sequential-thinking', 'context7']);
     expect(toolsJson.tools.find((tool) => tool.id === 'codegraph')).toMatchObject({
@@ -81,8 +94,7 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
       },
     });
     expect(toolsJson.tools.find((tool) => tool.id === 'codegraph')).toMatchObject({
-      package: '@colbymchenry/codegraph',
-      version: '0.9.9',
+      dependency_ref: 'codegraph',
       installation: {
         kind: 'global-npm',
         unix: {
@@ -128,9 +140,12 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(read(installHelpersPs1)).toContain('Normalize-GraphifyInstructionSection');
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('extract', '.')");
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('update', '.')");
-    expect(read(installHelpersPs1)).toContain("$graphifyVersionPin = '0.8.36'");
-    expect(read(installHelpersPs1)).toContain('uv tool install --force "graphifyy==$graphifyVersionPin"');
-    expect(read(installHelpersPs1)).toContain('pipx install --force "graphifyy==$graphifyVersionPin"');
+    expect(read(installHelpersPs1)).toContain('Get-ExternalDependencyField');
+    expect(read(installHelpersPs1)).toContain('$mcpToolsJson = Read-McpToolsJson -Path $mcpToolsPath');
+    expect(read(installHelpersPs1)).toContain('Assert-McpToolsSchemaVersion -ToolsJson $mcpToolsJson');
+    expect(read(installHelpersPs1)).toContain("Get-ExternalDependencyField -DependencyId 'graphify' -Field 'version'");
+    expect(read(installHelpersPs1)).toContain('uv tool install --force "$graphifyPackage==$graphifyVersionPin"');
+    expect(read(installHelpersPs1)).toContain('pipx install --force "$graphifyPackage==$graphifyVersionPin"');
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('install', '--project', '--platform', $platformName)");
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('hook', 'install')");
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('hook', 'status')");
@@ -161,7 +176,7 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(read(installHelpersPs1)).not.toContain('After modifying code, run `"<resolved-graphify>" update .`');
     expect(read(installHelpersPs1)).not.toContain('--no-cluster');
     expect(read(installHelpersPs1)).not.toContain('.spec-first/workspace/providers/graphify/graphify-out');
-    expect(read(installHelpersPs1)).not.toContain('uvx --from graphifyy==0.8.36 graphify');
+    expect(read(installHelpersPs1)).not.toContain('uvx --from graphifyy==');
     expect(read(installHelpersPs1)).not.toContain('graphify .');
     expect(read(installMcpPs1)).toContain('codegraph sync');
     for (const section of [

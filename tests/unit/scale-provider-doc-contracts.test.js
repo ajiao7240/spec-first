@@ -68,8 +68,10 @@ describe('SCALE provider documentation contracts', () => {
     expect(plan).toContain('Graphify installed/skill installed/graph generated/hook installed/query probe status');
 
     expect(mcpTools).toContain('"id": "codegraph"');
+    expect(mcpTools).toContain('"external_dependencies"');
     expect(mcpTools).toContain('"package": "@colbymchenry/codegraph"');
-    expect(mcpTools).toContain('"version": "0.9.9"');
+    expect(mcpTools).toContain('"package": "graphifyy"');
+    expect(mcpTools).toContain('"dependency_ref": "codegraph"');
     expect(mcpTools).toContain('"kind": "code-structure"');
     expect(mcpTools).toContain('"command": "codegraph"');
     expect(mcpTools).toContain('codegraph serve --mcp');
@@ -77,8 +79,8 @@ describe('SCALE provider documentation contracts', () => {
 
     expect(providerTools).toContain('"id": "graphify"');
     expect(providerTools).toContain('"kind": "project-graph"');
-    expect(providerTools).toContain('"package": "graphifyy"');
-    expect(providerTools).toContain('"version_pin": "0.8.36"');
+    expect(providerTools).toContain('"dependency_ref": "graphify"');
+    expect(providerTools).not.toContain('"version_pin"');
     expect(providerTools).toContain('"install_route": "install-helpers"');
     expect(providerTools).toContain('graphify install --project --platform');
     expect(providerTools).toContain('graphify extract .');

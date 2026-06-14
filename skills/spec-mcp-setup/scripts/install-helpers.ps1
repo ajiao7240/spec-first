@@ -7,6 +7,24 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'lib-helper-registry.ps1')
+. (Join-Path $PSScriptRoot 'lib-template.ps1')
+$mcpToolsPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'mcp-tools.json'
+$mcpToolsJson = Read-McpToolsJson -Path $mcpToolsPath
+Assert-McpToolsSchemaVersion -ToolsJson $mcpToolsJson
+
+function Get-ExternalDependencyField {
+  param(
+    [string]$DependencyId,
+    [string]$Field
+  )
+  if ($null -eq $mcpToolsJson -or $mcpToolsJson.PSObject.Properties.Name -notcontains 'external_dependencies') { return '' }
+  foreach ($dependency in @($mcpToolsJson.external_dependencies)) {
+    if ([string]$dependency.id -eq $DependencyId -and $dependency.PSObject.Properties.Name -contains $Field) {
+      return [string]$dependency.$Field
+    }
+  }
+  return ''
+}
 
 $mode = if ($VerifyOnly) { 'verify-only' } else { 'install' }
 if ([string]::IsNullOrWhiteSpace($RequirementWorkspace)) {
@@ -24,8 +42,12 @@ $providerCacheRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_
 if ([string]::IsNullOrWhiteSpace($providerCacheRoot)) { $providerCacheRoot = Join-Path $providerRepoRoot '.spec-first/cache' }
 $graphifyArtifactRootDefault = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT')
 if ([string]::IsNullOrWhiteSpace($graphifyArtifactRootDefault)) { $graphifyArtifactRootDefault = 'graphify-out' }
+$graphifyPackage = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_PACKAGE')
+if ([string]::IsNullOrWhiteSpace($graphifyPackage)) { $graphifyPackage = Get-ExternalDependencyField -DependencyId 'graphify' -Field 'package' }
 $graphifyVersionPin = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_VERSION_PIN')
-if ([string]::IsNullOrWhiteSpace($graphifyVersionPin)) { $graphifyVersionPin = '0.8.36' }
+if ([string]::IsNullOrWhiteSpace($graphifyVersionPin)) { $graphifyVersionPin = Get-ExternalDependencyField -DependencyId 'graphify' -Field 'version' }
+if ([string]::IsNullOrWhiteSpace($graphifyPackage)) { throw 'mcp-tools.json missing graphify package pin' }
+if ([string]::IsNullOrWhiteSpace($graphifyVersionPin)) { throw 'mcp-tools.json missing graphify version pin' }
 $homeLocalBin = Join-Path $HOME '.local/bin'
 $homeCargoBin = Join-Path $HOME '.cargo/bin'
 $graphifyOriginalPath = $env:PATH
@@ -1100,13 +1122,13 @@ function Test-GraphifyCliVersionMatchesPin {
 function Install-GraphifyCli {
   if (-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCliMatchingPin))) { return $true }
   if (Test-CommandExists 'uv') {
-    if (Invoke-HelperCommand { uv tool install --force "graphifyy==$graphifyVersionPin" }) {
+    if (Invoke-HelperCommand { uv tool install --force "$graphifyPackage==$graphifyVersionPin" }) {
       Reset-GraphifyResolver
       if (-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCliMatchingPin))) { return $true }
     }
   }
   if (Test-CommandExists 'pipx') {
-    if (Invoke-HelperCommand { pipx install --force "graphifyy==$graphifyVersionPin" }) {
+    if (Invoke-HelperCommand { pipx install --force "$graphifyPackage==$graphifyVersionPin" }) {
       Reset-GraphifyResolver
       if (-not [string]::IsNullOrWhiteSpace((Resolve-GraphifyCliMatchingPin))) { return $true }
     }

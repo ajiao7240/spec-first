@@ -27,6 +27,65 @@ function readJson(filePath, fallback) {
   }
 }
 
+function dependencyFor(registry, ref) {
+  const dependencies = registry && Array.isArray(registry.external_dependencies)
+    ? registry.external_dependencies
+    : [];
+  return dependencies.find((dependency) => dependency && dependency.id === ref) || null;
+}
+
+function hydrateTool(registry, tool) {
+  if (!tool || typeof tool !== 'object') return tool;
+  const dependency = dependencyFor(registry, tool.dependency_ref || tool.id) || {};
+  return {
+    ...tool,
+    package: tool.package || dependency.package || '',
+    version: tool.version || dependency.version || '',
+  };
+}
+
+function hydrateProvider(mcpRegistry, provider) {
+  if (!provider || typeof provider !== 'object') return provider;
+  const installation = provider.installation && typeof provider.installation === 'object'
+    ? provider.installation
+    : {};
+  const dependency = dependencyFor(mcpRegistry, installation.dependency_ref || provider.id) || {};
+  return {
+    ...provider,
+    installation: {
+      ...installation,
+      package: installation.package || dependency.package || '',
+      version_pin: installation.version_pin || dependency.version || '',
+    },
+  };
+}
+
+function expandDependencyTemplate(value, installation = {}) {
+  return String(value || '')
+    .replace(/\{\{package\}\}/g, installation.package || '')
+    .replace(/\{\{version\}\}/g, installation.version_pin || '');
+}
+
+function expandProviderTemplates(provider) {
+  const installation = provider.installation || {};
+  const commandsDisplay = {};
+  for (const [key, value] of Object.entries(installation.commands_display || {})) {
+    commandsDisplay[key] = expandDependencyTemplate(value, installation);
+  }
+  return {
+    ...provider,
+    installation: {
+      ...installation,
+      commands_display: commandsDisplay,
+      next_action: expandDependencyTemplate(installation.next_action, installation),
+    },
+    safety: {
+      ...(provider.safety || {}),
+      install_effect: expandDependencyTemplate(provider.safety && provider.safety.install_effect, installation),
+    },
+  };
+}
+
 function loadHelperRegistry() {
   return {
     registry: readJson(HELPER_TOOLS_JSON, { helpers: [] }),
@@ -174,6 +233,7 @@ function optionalMcpProviders(mcpRegistry, repoRoot) {
   return (mcpRegistry.tools || [])
     .filter((tool) => tool.required !== true)
     .filter((tool) => tool.opt_in && tool.opt_in.explicit_consent_required === true)
+    .map((tool) => hydrateTool(mcpRegistry, tool))
     .map((tool) => {
       const safety = providerSafetyResult(tool.safety || {});
       const packageSpec = tool.package && tool.version ? `${tool.package}@${tool.version}` : tool.package || tool.id;
@@ -210,16 +270,17 @@ function optionalMcpProviders(mcpRegistry, repoRoot) {
         ],
         risk_flags: (tool.safety && tool.safety.risk_flags) || [],
         source: tool.safety && tool.safety.source,
-        pin_status: tool.safety && tool.safety.version_pin ? 'pinned' : 'unknown',
+        pin_status: tool.version ? 'pinned' : 'unknown',
         review_required: Boolean(tool.safety && tool.safety.review_required),
         ...safety,
       };
     });
 }
 
-function helperProviders(providerRegistry, repoRoot, requirementWorkspace) {
+function helperProviders(providerRegistry, mcpRegistry, repoRoot, requirementWorkspace) {
   return (providerRegistry.providers || [])
     .filter((provider) => provider.install_route === 'install-helpers')
+    .map((provider) => expandProviderTemplates(hydrateProvider(mcpRegistry, provider)))
     .map((provider) => {
       const scope = provider.id === 'graphify'
         ? resolveGraphifyScope(repoRoot, requirementWorkspace)
@@ -306,7 +367,7 @@ function buildProviderSelection(args) {
   const providerRegistry = readJson(PROVIDER_TOOLS_JSON, { providers: [] });
   const providers = [
     ...optionalMcpProviders(mcpRegistry, repoRoot),
-    ...helperProviders(providerRegistry, repoRoot, args.requirementWorkspace),
+    ...helperProviders(providerRegistry, mcpRegistry, repoRoot, args.requirementWorkspace),
   ];
   const validIds = new Set([
     ...(mcpRegistry.tools || []).map((tool) => tool.id),

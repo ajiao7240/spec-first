@@ -8,6 +8,7 @@ const { spawnSync } = require('node:child_process');
 
 const skillDir = path.resolve(__dirname, '..');
 const providerRegistryPath = path.join(skillDir, 'provider-tools.json');
+const mcpToolsPath = path.join(skillDir, 'mcp-tools.json');
 
 function readJson(filePath, fallback = null) {
   if (!filePath) return fallback;
@@ -16,6 +17,59 @@ function readJson(filePath, fallback = null) {
   } catch (_error) {
     return fallback;
   }
+}
+
+function dependencyFor(registry, ref) {
+  const dependencies = registry && Array.isArray(registry.external_dependencies)
+    ? registry.external_dependencies
+    : [];
+  return dependencies.find((dependency) => dependency && dependency.id === ref) || null;
+}
+
+function hydrateProvider(mcpRegistry, provider) {
+  if (!provider || typeof provider !== 'object') return provider;
+  const installation = provider.installation && typeof provider.installation === 'object'
+    ? provider.installation
+    : {};
+  const dependency = dependencyFor(mcpRegistry, installation.dependency_ref || provider.id) || {};
+  return {
+    ...provider,
+    installation: {
+      ...installation,
+      package: installation.package || dependency.package || '',
+      version_pin: installation.version_pin || dependency.version || '',
+    },
+  };
+}
+
+function expandDependencyTemplate(value, installation = {}) {
+  return String(value || '')
+    .replace(/\{\{package\}\}/g, installation.package || '')
+    .replace(/\{\{version\}\}/g, installation.version_pin || '');
+}
+
+function expandProviderTemplates(provider) {
+  const installation = provider.installation || {};
+  return {
+    ...provider,
+    installation: {
+      ...installation,
+      next_action: expandDependencyTemplate(installation.next_action, installation),
+    },
+    safety: {
+      ...(provider.safety || {}),
+      install_effect: expandDependencyTemplate(provider.safety && provider.safety.install_effect, installation),
+    },
+    usage_note: expandDependencyTemplate(provider.usage_note, installation),
+  };
+}
+
+function hydrateProviderRegistry(providerRegistry, mcpRegistry) {
+  return {
+    ...providerRegistry,
+    providers: (providerRegistry.providers || [])
+      .map((provider) => expandProviderTemplates(hydrateProvider(mcpRegistry, provider))),
+  };
 }
 
 function parseArgs(argv) {
@@ -387,6 +441,7 @@ function helperProviderEntries(registry, repoDir) {
     .map((provider) => {
       const command = provider.detection && provider.detection.command;
       const expectedVersion = provider.installation && provider.installation.version_pin;
+      const expectedPackage = provider.installation && provider.installation.package ? provider.installation.package : provider.id;
       const versionArgs = provider.detection && Array.isArray(provider.detection.version_args)
         ? provider.detection.version_args
         : [];
@@ -434,7 +489,7 @@ function helperProviderEntries(registry, repoDir) {
         nextActions.push(`Graphify CLI is installed at ${commandInfo.command} but not on PATH; add ${path.dirname(commandInfo.command)} to PATH or use the absolute command path for manual graphify CLI calls.`);
       }
       if (stalePathCommand && provider.id === 'graphify') {
-        nextActions.push(`Graphify CLI on PATH at ${stalePathCommand} does not match pinned graphifyy==${expectedVersion}; setup is using ${commandInfo.command}. Update PATH when convenient.`);
+        nextActions.push(`Graphify CLI on PATH at ${stalePathCommand} does not match pinned ${expectedPackage}==${expectedVersion}; setup is using ${commandInfo.command}. Update PATH when convenient.`);
       }
       if (installed && !configured && provider.id === 'graphify') {
         if (readinessStatus === 'unknown' || readinessStatus === 'fresh') {
@@ -444,7 +499,7 @@ function helperProviderEntries(registry, repoDir) {
       }
       if (installed && !versionMatches && expectedVersion && provider.id === 'graphify') {
         readinessStatus = 'degraded';
-        nextActions.push(`Graphify CLI version does not match pinned graphifyy==${expectedVersion}; rerun \`${setupWorkflowCommand(currentHost, '--only graphify')}\` to reinstall the pinned provider version.`);
+        nextActions.push(`Graphify CLI version does not match pinned ${expectedPackage}==${expectedVersion}; rerun \`${setupWorkflowCommand(currentHost, '--only graphify')}\` to reinstall the pinned provider version.`);
       }
       if (installed && !artifact) {
         nextActions.push('Generate project-root graphify-out/ with graphify extract or graphify update . before using this provider as architecture navigation.');
@@ -575,7 +630,8 @@ function uniqueByProvider(entries) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const registry = readJson(providerRegistryPath, { providers: [] });
+  const mcpRegistry = readJson(mcpToolsPath, { external_dependencies: [] });
+  const registry = hydrateProviderRegistry(readJson(providerRegistryPath, { providers: [] }), mcpRegistry);
   const facts = readJson(args.factsFile, {});
   const repoDir = path.resolve(args.repoRoot || process.cwd());
   const entries = [];
