@@ -61,6 +61,10 @@ Resolve source and scope, gather required repo/research context, structure the p
 Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
 Overrides: none
 
+## Examples As Context
+
+When editing or reviewing this workflow prompt, or when running fresh-source eval for planning posture drift, read `skills/spec-plan/evals/examples.json` as examples-as-context. These examples are not a deterministic router, state machine, semantic readiness gate, or substitute for LLM judgment during ordinary planning runs.
+
 **STOP. Before broad context gathering, domain interpretation, upstream artifact intake, or optional capability consumption, read `skills/spec-plan/references/governance-boundaries.md`.** This runtime-copied reference carries the planning governance boundaries for context orientation, decision ledgers, runtime mirror exclusion, summary-first handoff, recall trust, and optional capability evidence. Do not duplicate those boundaries in this spine.
 
 ## Interaction Method

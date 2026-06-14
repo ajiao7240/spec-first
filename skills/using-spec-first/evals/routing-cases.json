@@ -11,7 +11,8 @@
       "expected_entrypoint": null,
       "graphify_required": false,
       "artifact_expected": false,
-      "boundary_note": "A greeting has no workflow leverage and must not create brainstorm, plan, work, or review artifacts."
+      "boundary_note": "A greeting has no workflow leverage and must not create brainstorm, plan, work, or review artifacts.",
+      "coverage_tags": ["routing", "boundary"]
     },
     {
       "id": "current-context-explanation-direct",
@@ -22,7 +23,8 @@
       "expected_entrypoint": null,
       "graphify_required": false,
       "artifact_expected": false,
-      "boundary_note": "Explaining already-loaded context is a lightweight current-session answer unless it turns into source edits or audit work."
+      "boundary_note": "Explaining already-loaded context is a lightweight current-session answer unless it turns into source edits or audit work.",
+      "coverage_tags": ["routing", "boundary"]
     },
     {
       "id": "narrow-where-used-bounded-read",
@@ -33,7 +35,8 @@
       "expected_entrypoint": null,
       "graphify_required": false,
       "artifact_expected": false,
-      "boundary_note": "A narrow location lookup may use rg or precise source reads without entering a public workflow."
+      "boundary_note": "A narrow location lookup may use rg or precise source reads without entering a public workflow.",
+      "coverage_tags": ["routing", "boundary"]
     },
     {
       "id": "current-document-summary-direct",
@@ -44,7 +47,8 @@
       "expected_entrypoint": null,
       "graphify_required": false,
       "artifact_expected": false,
-      "boundary_note": "Summarizing current user-provided material is not project-graph or workflow work by default."
+      "boundary_note": "Summarizing current user-provided material is not project-graph or workflow work by default.",
+      "coverage_tags": ["routing", "boundary"]
     },
     {
       "id": "explicit-spec-plan-honored",
@@ -55,7 +59,8 @@
       "expected_entrypoint": "$spec-plan",
       "graphify_required": false,
       "artifact_expected": true,
-      "boundary_note": "Progressive disclosure must not weaken explicit public workflow invocation."
+      "boundary_note": "Progressive disclosure must not weaken explicit public workflow invocation.",
+      "coverage_tags": ["routing", "trigger"]
     },
     {
       "id": "codex-doc-review-no-subagents-fallback",
@@ -68,7 +73,8 @@
       "artifact_expected": true,
       "dispatch_decision": "fallback",
       "fallback_reason": "dispatch_authorization_missing",
-      "boundary_note": "Codex public workflow admission authorizes the document-review workflow, not host-level spawn_agent dispatch."
+      "boundary_note": "Codex public workflow admission authorizes the document-review workflow, not host-level spawn_agent dispatch.",
+      "coverage_tags": ["routing", "trigger", "dispatch-boundary"]
     },
     {
       "id": "skill-agent-asset-audit-routes-skill-audit",
@@ -79,7 +85,8 @@
       "expected_entrypoint": "$spec-skill-audit",
       "graphify_required": false,
       "artifact_expected": true,
-      "boundary_note": "Spec-first skill or agent asset governance review is a skill-audit workflow, not a generic code/doc review route."
+      "boundary_note": "Spec-first skill or agent asset governance review is a skill-audit workflow, not a generic code/doc review route.",
+      "coverage_tags": ["routing", "trigger"]
     },
     {
       "id": "codex-spec-plan-explicit-research-personas-dispatch",
@@ -91,7 +98,10 @@
       "graphify_required": false,
       "artifact_expected": true,
       "dispatch_decision": "dispatch",
-      "boundary_note": "Codex dispatch-bearing workflows may use bounded dispatch when the request itself explicitly asks for delegated/persona agent work."
+      "boundary_note": "Codex dispatch-bearing workflows may use bounded dispatch when the request itself explicitly asks for delegated/persona agent work.",
+      "coverage_tags": ["routing", "trigger", "dispatch-boundary"]
     }
-  ]
+  ],
+  "source_refs": ["skills/using-spec-first/SKILL.md"],
+  "source_ref_authority": "source"
 }

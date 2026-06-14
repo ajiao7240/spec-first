@@ -4,7 +4,11 @@
     {
       "id": "broad-description",
       "input": "description: Use for any task.",
-      "expected_signal": "ambiguous_trigger_wording"
+      "expected_signal": "ambiguous_trigger_wording",
+      "coverage_tags": ["trigger"]
     }
-  ]
+  ],
+  "skill": "spec-skill-audit",
+  "source_refs": ["skills/spec-skill-audit/SKILL.md"],
+  "source_ref_authority": "source"
 }

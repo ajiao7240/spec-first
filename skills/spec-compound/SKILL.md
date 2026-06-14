@@ -52,6 +52,10 @@ Choose full or lightweight mode, gather bounded evidence, check existing learnin
 Follows `docs/contracts/workflows/scenario-capability-matrix.md` (default).
 Overrides: none
 
+## Examples As Context
+
+When editing or reviewing this workflow prompt, or when running fresh-source eval for knowledge-promotion posture drift, read `skills/spec-compound/evals/examples.json` as examples-as-context. These examples are not a deterministic router, state machine, semantic readiness gate, or substitute for LLM judgment during ordinary compound runs.
+
 ## Usage
 
 ```bash

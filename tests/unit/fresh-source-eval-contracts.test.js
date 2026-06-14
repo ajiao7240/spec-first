@@ -5,6 +5,8 @@ const path = require('node:path');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const CHECKLIST_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'workflows', 'fresh-source-eval-checklist.md');
+const PR_TEMPLATE_PATH = path.join(REPO_ROOT, '.github', 'pull_request_template.md');
+const SOURCE_RUNTIME_BOUNDARY_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'source-runtime-customization-boundary.md');
 const AGENTS_PATH = path.join(REPO_ROOT, 'AGENTS.md');
 const CLAUDE_PATH = path.join(REPO_ROOT, 'CLAUDE.md');
 
@@ -23,10 +25,32 @@ describe('fresh-source eval checklist contract', () => {
     expect(checklist).toContain('Do not validate changed skill prose by invoking the same typed skill in the current session');
     expect(checklist).toContain('Do not use the checklist to require subagent dispatch when the host lacks a dispatch primitive or the user explicitly disabled helper agents.');
     expect(checklist).toContain('deterministic_vs_semantic_boundary');
+    expect(checklist).toContain('## Cadence');
+    expect(checklist).toContain('passed`: a fresh read-only reviewer or equivalent fresh source review actually ran');
+    expect(checklist).toContain('concerns');
+    expect(checklist).toContain('not_run');
+    expect(checklist).toContain('N/A');
+    expect(checklist).toContain('not a deterministic CI gate');
+    expect(checklist).toContain('Do not require PRs to pass a model judge in CI.');
 
     for (const entryDoc of [agents, claude]) {
       expect(entryDoc).toContain('docs/contracts/workflows/fresh-source-eval-checklist.md');
       expect(entryDoc).toContain('如果宿主缺少 dispatch primitive、runtime 无法调用，或用户显式禁用 helper agents，必须记录未执行原因，不能声称通过。');
     }
+  });
+
+  test('PR template and source-runtime boundary expose advisory fresh-source status with N/A', () => {
+    const template = fs.readFileSync(PR_TEMPLATE_PATH, 'utf8');
+    const boundary = fs.readFileSync(SOURCE_RUNTIME_BOUNDARY_PATH, 'utf8');
+
+    for (const text of [template, boundary]) {
+      expect(text).toContain('Fresh-source eval: passed | concerns | not_run | N/A');
+      expect(text).toContain('Runtime impact');
+      expect(text).toContain('N/A');
+    }
+    expect(template).toContain('advisory');
+    expect(template).toContain('not a model-judge CI gate');
+    expect(template).not.toMatch(/must pass.*model judge/i);
+    expect(template).not.toMatch(/required CI gate/i);
   });
 });

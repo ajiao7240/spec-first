@@ -13,6 +13,13 @@ const {
   collectSkillFacts,
 } = require('./collect-skill-facts');
 const { detectBoundaryOverlap } = require('./detect-boundary-overlap');
+const {
+  BUCKETS,
+  bucketCoverageBasis,
+  caseHasBucketCoverage,
+  normalizeFixtureFile,
+  validateNormalizedCase,
+} = require('./eval-fixture-normalizer');
 const { extractTriggerSignals } = require('./extract-trigger-signals');
 const { assignFindingIds, compareFindings, countBySeverity } = require('./lib/finding');
 const {
@@ -256,24 +263,51 @@ function displayPath(repoRoot, targetPath) {
 }
 
 function buildEvalReadinessReport(inventory) {
+  const repoRoot = inventory.repo_root || process.cwd();
   const skills = (inventory.skills || []).map((skill) => {
     const evalFiles = skill.resources && skill.resources.evals ? skill.resources.evals.files : [];
-    const hasTrigger = evalFiles.some((file) => /trigger/i.test(file));
-    const hasBoundary = evalFiles.some((file) => /boundary/i.test(file));
-    const hasFailure = evalFiles.some((file) => /failure/i.test(file));
-    const hasExpected = evalFiles.some((file) => /expected/i.test(file));
+    const normalized = normalizeEvalFilesForSkill(repoRoot, skill.skill_id, evalFiles);
+    const bucketReports = Object.fromEntries(BUCKETS.map((bucket) => {
+      const validCases = normalized.cases.filter((entry) =>
+        caseHasBucketCoverage(entry, bucket, { repoRoot, allowLegacyFilenameFallback: true }));
+      const basis = unique(validCases.map((entry) => bucketCoverageBasis(entry, bucket)).filter(Boolean));
+      return [bucket, {
+        present: validCases.length > 0,
+        case_ids: validCases.map((entry) => entry.id),
+        coverage_basis: basis,
+      }];
+    }));
+    const hasTrigger = bucketReports.trigger.present;
+    const hasBoundary = bucketReports.boundary.present;
+    const hasFailure = bucketReports.failure.present;
+    const hasExpected = bucketReports.expected.present;
     const missing = [];
     if (!hasTrigger) missing.push('trigger cases');
     if (!hasBoundary) missing.push('boundary cases');
-    if (!hasFailure) missing.push('failure cases');
-    if (!hasExpected) missing.push('expected behavior');
+    const optionalMissing = [];
+    if (!hasFailure) optionalMissing.push('failure cases');
+    if (!hasExpected) optionalMissing.push('expected behavior');
+    const readiness = !skill.has_evals || normalized.cases.length === 0
+      ? 'missing'
+      : missing.length === 0
+      ? 'ready'
+      : 'partial';
 
     return {
       skill_id: skill.skill_id,
       has_evals: skill.has_evals,
       eval_files: evalFiles,
-      readiness: missing.length === 0 ? 'ready' : skill.has_evals ? 'partial' : 'missing',
+      normalized_case_count: normalized.cases.length,
+      invalid_cases: normalized.invalid_cases,
+      coverage_buckets: bucketReports,
+      coverage_basis: Object.fromEntries(BUCKETS.map((bucket) => [
+        bucket,
+        bucketReports[bucket].coverage_basis,
+      ])),
+      readiness,
       missing,
+      optional_missing: optionalMissing,
+      note: 'coverage_buckets report declared structural coverage from normalized eval fixtures; semantic quality still requires LLM/human review.',
     };
   });
 
@@ -284,10 +318,51 @@ function buildEvalReadinessReport(inventory) {
   };
 }
 
+function normalizeEvalFilesForSkill(repoRoot, skillId, evalFiles) {
+  const cases = [];
+  const invalidCases = [];
+
+  for (const evalFile of evalFiles) {
+    if (path.extname(evalFile) !== '.json') continue;
+    try {
+      const normalizedCases = normalizeFixtureFile({ repoRoot, filePath: evalFile, skillId });
+      for (const entry of normalizedCases) {
+        const errors = validateNormalizedCase(entry, { repoRoot });
+        cases.push(entry);
+        if (errors.length > 0) {
+          invalidCases.push({
+            id: entry.id,
+            source_file: entry.source_file,
+            errors,
+          });
+        }
+      }
+    } catch (error) {
+      invalidCases.push({
+        id: null,
+        source_file: evalFile,
+        errors: [{
+          reason_code: 'fixture_unreadable',
+          message: error.message,
+          skill: skillId,
+          id: null,
+          source_file: evalFile,
+        }],
+      });
+    }
+  }
+
+  return { cases, invalid_cases: invalidCases };
+}
+
 function averageScore(skills) {
   if (!Array.isArray(skills) || skills.length === 0) return null;
   const total = skills.reduce((sum, skill) => sum + (Number(skill.overall_score) || 0), 0);
   return Math.round(total / skills.length);
+}
+
+function unique(values) {
+  return [...new Set(values)];
 }
 
 function skippedReport(schemaVersion, reason) {

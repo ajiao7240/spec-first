@@ -1,7 +1,7 @@
 ---
 title: refactor: Unify eval readiness fixture schema
 type: refactor
-status: active
+status: completed
 date: 2026-06-13
 spec_id: 2026-06-13-002-eval-readiness-fixture-schema
 origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
@@ -633,6 +633,15 @@ flowchart TB
 - README updates are optional and should happen only if the PR template or eval fixture contract becomes contributor-facing enough to warrant documentation.
 - If implementation modifies SKILL.md files, closeout must mention fresh-source-eval status. Current-session invocation of those skills is not proof.
 - If runtime mirrors need refresh, run `spec-first init` after source validation. Do not patch generated mirrors directly.
+
+---
+
+## Completion Evidence
+
+- Implemented U1-U7 with a source-owned normalized fixture contract and normalizer, normalized readiness scoring, migrated fixture metadata, four first-wave workflow eval files, advisory fresh-source-eval closeout surfaces, deterministic CI/package checks, and source-first closeout notes.
+- Verification completed with focused eval fixture tests, typecheck, skill entrypoint lint, unit tests, smoke tests, integration tests, package dry-run build, changelog/plan-status focused checks, and diff whitespace checks. Structured closeout evidence was written to `.spec-first/workflows/spec-work/spec-first/20260614-eval-fixture-schema-closeout/run.json`.
+- Review completed as single-agent report-only fallback because the current Codex request did not explicitly authorize subagents/personas/delegated review. Residual actionable findings: none after the URL `source_refs[]` contract fix.
+- Fresh-source eval: `not_run` (`dispatch_authorization_missing` for current Codex request). Runtime impact: `none`; `spec-first init` was not run and generated runtime mirrors were not hand-edited.
 
 ---
 

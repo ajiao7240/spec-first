@@ -9,6 +9,19 @@ Use it when a change modifies:
 - host entry instructions that affect workflow routing or generated runtime behavior
 - templates that project source skill/agent behavior into Claude or Codex runtime assets
 
+## Cadence
+
+Run or explicitly record fresh-source eval status during PR or closeout when a change touches skill/agent/workflow prose, host entry blocks, templates, or generated-runtime behavior.
+
+Use this status vocabulary:
+
+- `passed`: a fresh read-only reviewer or equivalent fresh source review actually ran against current disk source and found no material concerns.
+- `concerns`: a fresh source review ran and produced findings or unresolved risks.
+- `not_run`: dispatch or reviewer execution was unavailable, unauthorized, explicitly disabled, or intentionally deferred; include the reason.
+- `N/A`: the change does not touch skill/agent/workflow prose, templates, host entry blocks, or generated-runtime behavior.
+
+For larger workflow or prompt changes, sample at least one judge/human agreement check or record why calibration was deferred. This remains an advisory semantic practice, not a deterministic CI gate.
+
 ## Source Boundary
 
 Fresh-source eval reads source-of-truth files:
@@ -81,3 +94,4 @@ fresh_source_eval:
 - Do not patch `.claude/`, `.codex/`, or `.agents/skills/` to make the eval pass.
 - Do not claim a fresh-source eval passed when only normal unit tests or current-session reads were executed.
 - Do not use the checklist to require subagent dispatch when the host lacks a dispatch primitive or the user explicitly disabled helper agents.
+- Do not require PRs to pass a model judge in CI.

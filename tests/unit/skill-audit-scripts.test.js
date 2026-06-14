@@ -24,6 +24,7 @@ const {
   validateRunId,
 } = require('../../skills/spec-skill-audit/scripts/lib/report-writer');
 const {
+  buildEvalReadinessReport,
   buildExecutorContext,
   writeAuditArtifacts,
 } = require('../../skills/spec-skill-audit/scripts/write-audit-artifacts');
@@ -197,6 +198,76 @@ describe('spec-skill-audit scripts', () => {
     expect(inventory.skills.find((skill) => skill.skill_id === 'good-skill').declared_outputs).toContain(
       '.spec-first/audits/skill-audit/latest/skill-source-inventory.json',
     );
+  });
+
+  test('eval readiness uses normalized coverage tags instead of filename regex', () => {
+    write(path.join(repoRoot, 'skills', 'good-skill', 'evals', 'routing-cases.json'), JSON.stringify({
+      schema_version: 'spec-first.workflow-eval-fixtures.v1',
+      skill: 'good-skill',
+      source_refs: ['skills/good-skill/SKILL.md'],
+      cases: [
+        {
+          id: 'clear-good-skill-trigger',
+          input: 'Review this local skill.',
+          coverage_tags: ['trigger'],
+          expected_outcome: 'Use good-skill.',
+        },
+        {
+          id: 'good-skill-boundary',
+          input: 'Install a third-party skill.',
+          coverage_tags: ['boundary'],
+          boundary_note: 'Third-party installation is out of scope.',
+        },
+      ],
+    }));
+
+    const inventory = collectSkillFacts({ repoRoot });
+    const report = buildEvalReadinessReport(inventory);
+    const goodSkill = report.skills.find((entry) => entry.skill_id === 'good-skill');
+
+    expect(goodSkill.readiness).toBe('ready');
+    expect(goodSkill.missing).toEqual([]);
+    expect(goodSkill.optional_missing).toEqual(['failure cases', 'expected behavior']);
+    expect(goodSkill.coverage_buckets.trigger.case_ids).toEqual(['clear-good-skill-trigger']);
+    expect(goodSkill.coverage_buckets.boundary.case_ids).toEqual(['good-skill-boundary']);
+    expect(goodSkill.coverage_basis.trigger).toEqual(['declared_coverage_tags']);
+    expect(goodSkill.coverage_basis.boundary).toEqual(['declared_coverage_tags']);
+    expect(goodSkill.note).toContain('declared structural coverage');
+  });
+
+  test('eval readiness reports legacy filename fallback without making optional buckets required', () => {
+    write(path.join(repoRoot, 'skills', 'good-skill', 'evals', 'trigger-cases.json'), JSON.stringify({
+      schema_version: 'legacy-trigger-cases.v1',
+      skill: 'good-skill',
+      source_refs: ['skills/good-skill/SKILL.md'],
+      cases: [
+        {
+          id: 'legacy-trigger',
+          input: 'Review this local skill.',
+          expected_outcome: 'Use good-skill.',
+        },
+      ],
+    }));
+    write(path.join(repoRoot, 'skills', 'good-skill', 'evals', 'boundary-cases.json'), JSON.stringify({
+      schema_version: 'legacy-boundary-cases.v1',
+      skill: 'good-skill',
+      source_refs: ['skills/good-skill/SKILL.md'],
+      cases: [
+        {
+          id: 'legacy-boundary',
+          input: 'Install third-party skills.',
+          boundary_note: 'Out of scope.',
+        },
+      ],
+    }));
+
+    const report = buildEvalReadinessReport(collectSkillFacts({ repoRoot }));
+    const goodSkill = report.skills.find((entry) => entry.skill_id === 'good-skill');
+
+    expect(goodSkill.readiness).toBe('ready');
+    expect(goodSkill.coverage_basis.trigger).toEqual(['legacy_filename_fallback']);
+    expect(goodSkill.coverage_basis.boundary).toEqual(['legacy_filename_fallback']);
+    expect(goodSkill.optional_missing).toEqual(['failure cases', 'expected behavior']);
   });
 
   test('collects reviewer guard coverage facts without semantic N/A judgment', () => {

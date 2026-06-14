@@ -52,6 +52,10 @@ Overrides: high-risk
 - optional external-tool evidence unavailable -> `fallback-only`: use bounded direct diff/source/test evidence and record the limitation in Coverage; do not claim blast radius, related tests, or changed-symbol coverage that was not confirmed from direct evidence.
 - `non-git-build-workspace` coverage gaps -> `partial`: review covered git roots normally, but treat uncovered build modules as direct-read/test candidates before raising cross-module findings.
 
+## Examples As Context
+
+When editing or reviewing this workflow prompt, or when running fresh-source eval for review posture drift, read `skills/spec-code-review/evals/examples.json` as examples-as-context. These examples are not a deterministic router, state machine, semantic readiness gate, or substitute for LLM judgment during ordinary code reviews.
+
 ## Context Orientation Anchor
 
 Orient review from the diff scope, current user request, plan/task/work artifacts when present, already-loaded host/project instructions, package manifests and command registries, nearby implementation files, nearby tests, and test results. Treat `AGENTS.md`, `CLAUDE.md`, and project role docs as host instruction sources that are normally already loaded by the current session, not automatic re-read targets for every review run. Read those source instruction files only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it; Stage 3b is the narrow project-standards persona exception and discovers paths before leaf reviewers read relevant sections. Use bounded direct diff/source reads, `rg`, ast-grep when useful, package/test facts, logs, and user-provided artifacts as review evidence. External tools may prioritize inspection, but they do not define scope authority or replace reviewer judgment. Findings still need direct source, diff, test, contract, log, or artifact confirmation.

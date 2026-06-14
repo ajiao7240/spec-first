@@ -1,0 +1,42 @@
+{
+  "schema_version": "spec-first.workflow-eval-fixtures.v1",
+  "skill": "spec-compound",
+  "description": "Examples-as-context for spec-compound trigger and boundary coverage. They are not a deterministic router.",
+  "source_refs": ["skills/spec-compound/SKILL.md", "skills/spec-compound/references/schema.yaml", "skills/spec-compound/assets/resolution-template.md"],
+  "source_ref_authority": "source",
+  "cases": [
+    {
+      "id": "recently-solved-reusable-problem",
+      "input": "We just fixed a recurring runtime drift issue; capture the reusable lesson for future agents.",
+      "coverage_tags": ["trigger", "knowledge-promotion"],
+      "expected_outcome": "Create one source-confirmed docs/solutions learning with evidence paths and invalidation conditions."
+    },
+    {
+      "id": "review-pattern-worth-capturing",
+      "input": "The last review found a repeated class of source/runtime boundary mistakes across multiple workflows.",
+      "coverage_tags": ["trigger", "knowledge-promotion"],
+      "expected_outcome": "Capture the generalizable review heuristic if the lesson is verified and not already documented."
+    },
+    {
+      "id": "unresolved-finding-boundary",
+      "input": "A reviewer suspects a bug but no test or source evidence confirms it yet; compound it.",
+      "coverage_tags": ["boundary", "knowledge-promotion-gate"],
+      "expected_outcome": "Do not promote unresolved or advisory findings into durable knowledge.",
+      "boundary_note": "Knowledge promotion requires verified, reusable evidence."
+    },
+    {
+      "id": "one-off-cosmetic-boundary",
+      "input": "We fixed a typo in one Markdown file; write a reusable solution doc.",
+      "coverage_tags": ["boundary", "scope-boundary"],
+      "expected_outcome": "Skip compound because one-off cosmetic edits do not carry a durable reusable lesson.",
+      "boundary_note": "Compound is not a mandatory completion gate for every small change."
+    },
+    {
+      "id": "raw-transcript-boundary",
+      "input": "Archive the entire debug transcript and raw logs into docs/solutions.",
+      "coverage_tags": ["boundary", "evidence-boundary"],
+      "expected_outcome": "Summarize the reusable lesson and cite compact evidence; do not copy raw transcripts or unsafe logs.",
+      "boundary_note": "Durable knowledge should preserve source-confirmed lessons, not raw session dumps."
+    }
+  ]
+}

@@ -6,21 +6,27 @@
       "input": "Please split docs/plans/2026-05-01-example-plan.md into tasks.",
       "context": "The referenced plan exists, has spec_id, and has multiple implementation units.",
       "expected_decision": "compile",
-      "expected_next_action": "Generate an executable task pack if the plan passes task-ready checks."
+      "expected_next_action": "Generate an executable task pack if the plan passes task-ready checks.",
+      "coverage_tags": ["trigger"]
     },
     {
       "id": "work-suitability-diversion",
       "input": "A spec-work suitability check says the plan has dependency chains, cross-module files, and multiple verification layers.",
       "context": "The user has not explicitly refused task compilation, and the source plan passes task-ready checks.",
       "expected_decision": "compile",
-      "expected_next_action": "Generate an executable task pack because the suitability check already found strong value signals."
+      "expected_next_action": "Generate an executable task pack because the suitability check already found strong value signals.",
+      "coverage_tags": ["trigger"]
     },
     {
       "id": "bare-request-no-unique-plan",
       "input": "Split this plan into tasks.",
       "context": "Multiple recent docs/plans/*-plan.md files exist and none is clearly referenced.",
       "expected_decision": "return-to-plan",
-      "expected_next_action": "Ask for the plan path instead of guessing task scope."
+      "expected_next_action": "Ask for the plan path instead of guessing task scope.",
+      "coverage_tags": ["trigger"]
     }
-  ]
+  ],
+  "skill": "spec-write-tasks",
+  "source_refs": ["skills/spec-write-tasks/SKILL.md", "skills/spec-write-tasks/evals/README.md"],
+  "source_ref_authority": "source"
 }
