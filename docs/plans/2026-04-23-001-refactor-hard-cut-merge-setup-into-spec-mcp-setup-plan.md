@@ -1,4 +1,14 @@
+---
+title: "2026-04-23 `refactor(hard-cut): merge setup into spec-mcp-setup`"
+type: archive
+status: superseded
+created: 2026-04-23
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # 2026-04-23 `refactor(hard-cut): merge setup into spec-mcp-setup`
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 ## 背景
 

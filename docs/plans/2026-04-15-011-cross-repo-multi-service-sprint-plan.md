@@ -1,4 +1,14 @@
+---
+title: "多工程 / 微服务联动需求 Sprint 排期计划"
+type: archive
+status: superseded
+created: 2026-04-15
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # 多工程 / 微服务联动需求 Sprint 排期计划
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 **Goal:** 将 [2026-04-15-010-cross-repo-multi-service-implementation-backlog.md](/Users/kuang/xiaobu/spec-first/docs/plans/2026-04-15-010-cross-repo-multi-service-implementation-backlog.md) 转换为可执行的按周排期计划，供团队按 Sprint 推进 `Level 1` 与 `Level 2` 开发。
 

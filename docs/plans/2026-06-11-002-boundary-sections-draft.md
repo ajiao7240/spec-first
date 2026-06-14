@@ -1,4 +1,15 @@
+---
+title: "Boundary 落地措辞（U1/U2/U3/U4）"
+type: archive
+status: superseded
+created: 2026-06-11
+archived_at: 2026-06-14
+superseded_by: docs/plans/2026-06-11-002-feat-project-graph-consumption-protocol-plan.md
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # Boundary 落地措辞（U1/U2/U3/U4）
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 英文为 authoritative（写入 skill/合同）；中文仅供审阅。落地前需 U1 先建合同 `docs/contracts/project-graph-consumption.md`。
 

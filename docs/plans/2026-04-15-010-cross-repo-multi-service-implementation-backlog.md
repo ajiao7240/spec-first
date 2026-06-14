@@ -1,4 +1,14 @@
+---
+title: "多工程 / 微服务联动需求 Implementation Backlog"
+type: archive
+status: superseded
+created: 2026-04-15
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # 多工程 / 微服务联动需求 Implementation Backlog
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 **Goal:** 将 [2026-04-15-009-cross-repo-multi-service-full-development-execution-checklist.md](/Users/kuang/xiaobu/spec-first/docs/plans/2026-04-15-009-cross-repo-multi-service-full-development-execution-checklist.md) 继续下沉为可分配、可排期、可跟踪的 backlog，按 `Epic -> Story -> Subtask -> 验收标准` 组织，支撑团队分阶段推进 `Level 1` 与 `Level 2` 开发。
 

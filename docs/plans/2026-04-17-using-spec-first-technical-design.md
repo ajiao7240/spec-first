@@ -1,4 +1,14 @@
+---
+title: "Using-Spec-First 技术方案文档"
+type: archive
+status: superseded
+created: 2026-04-17
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # Using-Spec-First 技术方案文档
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 > **Status:** 设计思考稿（design rationale）
 > **Authority:** 当前执行权威为 `2026-04-17-using-spec-first-host-split-integration-plan.md`；本文档承担"方案对比 + 设计原则推导 + 反模式拒绝"的解释性职责，不是实施计划。

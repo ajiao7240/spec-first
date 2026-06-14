@@ -1,4 +1,14 @@
+---
+title: "Spec-First Skills 系统全量审查报告"
+type: archive
+status: superseded
+created: 2026-04-23
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # Spec-First Skills 系统全量审查报告
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 **审查时间**：2026-04-23  
 **审查范围**：`skills/` 全量 + 直接相关代码、测试、runtime 治理  

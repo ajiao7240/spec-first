@@ -1,4 +1,14 @@
+---
+title: "自动发现子 `.git` 并为每个子工程生成独立 `docs/contexts/<child-slug>/` 的改造方案"
+type: archive
+status: superseded
+created: 2026-04-17
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # 自动发现子 `.git` 并为每个子工程生成独立 `docs/contexts/<child-slug>/` 的改造方案
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 **日期：** 2026-04-17  
 **状态：** Proposed  

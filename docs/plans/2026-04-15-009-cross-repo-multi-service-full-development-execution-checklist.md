@@ -1,4 +1,14 @@
+---
+title: "多工程 / 微服务联动需求全量开发执行清单"
+type: archive
+status: superseded
+created: 2026-04-15
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # 多工程 / 微服务联动需求全量开发执行清单
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 **Goal:** 将 [2026-04-15-008-cross-repo-multi-service-integration-implementation-plan.md](/Users/kuang/xiaobu/spec-first/docs/plans/2026-04-15-008-cross-repo-multi-service-integration-implementation-plan.md) 下沉为一份可直接执行的全量开发清单，覆盖 `Level 1 可开发主链` 与 `Level 2 工程硬化` 的完整推进路径，明确每个阶段的任务包、文件范围、验证口径、交付物和完成判据。
 

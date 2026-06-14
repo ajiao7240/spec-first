@@ -1,4 +1,15 @@
+---
+title: "非 bootstrap Skill 控制面路径迁移计划"
+type: archive
+status: completed
+created: 2026-04-13
+archived_at: 2026-06-14
+completed_at: 2026-04-13
+archive_reason: "legacy plan-status backfill; completion was already documented in this file and the non-bootstrap skill control-plane todo"
+---
 # 非 bootstrap Skill 控制面路径迁移计划
+
+> Lifecycle: completed historical implementation record. This document is retained as evidence and is not an active implementation plan.
 
 ```
 文件：docs/plans/2026-04-13-004-refactor-non-bootstrap-skill-artifact-paths-plan.md

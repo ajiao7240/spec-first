@@ -1,4 +1,14 @@
+---
+title: "多工程 / 微服务联动需求集成实施计划"
+type: archive
+status: superseded
+created: 2026-04-15
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # 多工程 / 微服务联动需求集成实施计划
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 **Goal:** 面向“一个需求需要联动多个工程代码”的团队现实，完成 `spec-first` 在 cross-repo / multi-service 场景下的最小可运行主链，使系统能在**已知 workspace 范围**内、在存在 `workspace registry` 或显式 workspace 输入时，稳定回答“涉及哪些工程、为什么涉及、每个工程要做什么、怎么验证没有漏改”。本计划同时区分 `Level 1 可开发主链` 与 `Level 2 工程硬化`，避免把 MVP 一次性扩成平台工程。
 

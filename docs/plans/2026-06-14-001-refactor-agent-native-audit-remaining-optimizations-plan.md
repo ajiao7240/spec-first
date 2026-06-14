@@ -41,7 +41,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 - R2. P0 修复必须是低风险、可并行、focused test 可证明的 source-only 变更。
 - R3. 所有涉及 setup helper 的变更必须保持 Bash/PowerShell 对称，并从 registry 读取确定性 facts。
 - R4. 所有 source/runtime 相关变更必须遵守 source-first：只改 `skills/`、`templates/`、`src/cli/`、`tests/`、`.github/`、`docs/` 等 source，不手改 generated runtime mirrors。
-- R5. Legacy 删除必须先证明当前 Jest integration 覆盖仍承接 workflow closeout/verification 语义。
+- R5. Legacy 删除必须先对每个承载行为分类：obsolete-by-replacement（需 positive 引用现有 agent-native workflow/artifact 承接该行为）或 still-needed（需先证明 Jest integration 覆盖承接），仅凭“缺少重复 Jest 覆盖”不足以判定 obsolete。
 - R6. 条件项只有在 consumer 或明确 runtime closeout 需求存在时进入实现，不为了 schema 完整性提前扩展。
 - R7. 每个实施切片必须同步 `CHANGELOG.md`，并声明是否影响用户可见行为和 runtime regeneration。
 
@@ -49,7 +49,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 
 ## Assumptions
 
-- A1. 当前本地 HEAD `59d4bd15` 上，`docs/plans/2026-06-13-002-refactor-eval-readiness-fixture-schema-plan.md` 的 `status: completed` 与 `CHANGELOG.md` 记录足以把 W1 视为已完成基线。
+- A1. 本次修订复核 snapshot HEAD `44339315` 上，`docs/plans/2026-06-13-002-refactor-eval-readiness-fixture-schema-plan.md` 的 `status: completed` 与 `CHANGELOG.md` 记录足以把 W1 视为已完成基线。
 - A2. 当前工作树存在大量无关 docs 迁移/治理 dirty 变更；执行本计划时必须在每个切片开头重跑 `git status --short` 并只处理 in-scope 文件。
 - A3. Graphify 在本轮探索中只作为 `provider_untrusted` 导航；其 query 召回偏离主题，结论不依赖 Graphify 输出。
 
@@ -66,6 +66,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 ### Deferred to Follow-Up Work
 
 - `schema-validator` 结构化 `details[].{keyword,instanceLocation}`：仅当 CLI/helper/review consumer 需要机器可读错误定位时启动。
+- `doctor --json` 投影 `runtime_catalog_freshness`：现有 `checkManagedState` 已比较 `manifestVersion`，但 source/tests/skills 中无任何 consumer 读取该字段。遵循 R6，仅当 closeout、doctor automation 或 runtime repair guidance 确有机器可读 manifest freshness 需求时启动，不为 schema 完整性提前扩展。
 - 完整 `/spec:runtime-setup` / `$spec-runtime-setup` alias 迁移：遵循 `docs/plans/2026-06-07-003-refactor-runtime-setup-lifecycle-plan.md` 的 U8，不作为 P0 顺手改。
 
 ---
@@ -73,10 +74,11 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 ## Completion Criteria
 
 - P0 三项完成：`update` help 文案、`check-health` URL registry accessor、plan taxonomy CI path trigger。
-- P1 三项完成：`plugin.js` support-file ignore set、`clean` apply 前摘要、guardrails 维度到 workflow 索引。
-- P2 至少完成 legacy shell e2e 链删除，或明确保留原因与 replacement coverage gap。
+- P1 完成：`plugin.js` support-file ignore set、guardrails 维度到 workflow 索引。`clean` apply 前摘要（U5）按 origin 的“可选/Observation”定性为 conditional，不作为阻塞性 must-have；未做时在 closeout 标注即可。
+- P2 完成条件是 legacy shell e2e 链每个承载行为都有记录化分类和证据：`obsolete-by-replacement` 必须 positive 引用取代它的现有 workflow/artifact 后才能删除；`still-needed` 必须先补当前 Jest integration 覆盖再删除。若仍有 `still-needed` 行为缺覆盖，则该行为不得删除，必须产出 follow-up `spec_id` 承接“补 coverage + 删除”，并在 closeout 标注具体未覆盖行为。
+- U8（Runtime Setup alias 文案核对）完成：确认 SKILL.md 与 mcp-setup template 当前入口只把 `mcp-setup` 呈现为可运行命令、future alias 标为 deferred；如已满足则关闭为 already-satisfied。
 - 每个已实施切片都有 focused test、`CHANGELOG.md` 记录和 `git diff --check` 通过记录。
-- 未实施条件项在 closeout 中明确标为 deferred，并说明 consumer 或触发条件。
+- 未实施条件项（含 doctor freshness、schema-validator details[]）在 closeout 中明确标为 deferred，并说明 consumer 或触发条件。
 
 ---
 
@@ -100,7 +102,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
   - `src/cli/commands/clean.js`
   - `src/cli/commands/doctor.js`
   - `src/contracts/schema-validator.js`
-- current_revision: `59d4bd15`
+- planning_snapshot_revision: `44339315`
 - worktree_status: dirty; many unrelated docs migration/deletion changes plus existing `CHANGELOG.md` edits
 - confidence: medium-high for listed source state; medium for implementation blast radius because worktree is dirty
 - limitations: no tests were run during planning; Graphify query was advisory and low-signal; line numbers may drift before implementation
@@ -123,7 +125,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
   - W4: `schema-validator` returns `valid/errors`; current callers primarily consume `errors`, and no confirmed `details[]` consumer was found.
 - source_reads_required:
   - Before implementation, re-read in-scope files after dirty worktree settles or immediately before patching.
-  - For legacy deletion, inspect `tests/integration/verification-gate.integration.test.js` and `tests/integration/spec-work-closeout-producer.test.js` to confirm replacement coverage.
+  - For legacy deletion, inspect `tests/integration/verification-gate.integration.test.js` and `tests/integration/spec-work-closeout-producer.test.js` only as coverage evidence; obsolete classification still requires positive replacement workflow/artifact citations.
 - commands_or_tools_used: `rg`, `sed`, `nl`, `git status --short`, provider-standard Graphify query via `$HOME/.local/bin/graphify`
 - impact_on_plan: W1 removed from active work; remaining work split into P0/P1/P2/conditional buckets.
 - key_findings: All remaining active work is XS/S except legacy deletion and optional doctor projection; no architecture redesign is needed.
@@ -137,7 +139,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 
 - `scripts/run-ai-dev-quality-gate.js` already centralizes a focused workflow-runtime contract suite; it is the right place to add `plan-status-taxonomy.test.js`.
 - `skills/spec-mcp-setup/scripts/lib-helper-registry.sh` and `.ps1` already centralize install command display; helper project URL should follow that source-owned registry pattern.
-- `src/cli/commands/clean.js` already has a `printCleanDryRun` summary helper; apply-path visibility should reuse or factor that summary rather than creating a second format.
+- `src/cli/commands/clean.js` already has dry-run summary counting/output logic; apply-path visibility should factor the shared summary with mode-specific wording rather than calling dry-run output verbatim.
 - `tests/unit/package-install-contracts.test.js` already treats `__pycache__` and `.pyc` as package noise; `plugin.js` runtime support traversal should align with that packaging boundary.
 
 ### Institutional Learnings
@@ -158,7 +160,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 - KTD3. Keep setup helper facts registry-owned: `check-health` should read `helper-tools.json` through shared Bash/PowerShell accessors rather than duplicating URL switch tables.
 - KTD4. Keep mutation visibility preview-first but not prompt-heavy: `clean` should echo summary before apply, without adding a hard confirmation prompt or `--force` branch.
 - KTD5. Keep guardrail guidance provider-neutral: the new index should map dimensions to spec-first workflows and source refs, not to provider-specific field names.
-- KTD6. Delete legacy shell e2e as a separate slice: the old chain is live in the runner, so deletion must be paired with integration coverage confirmation.
+- KTD6. Delete legacy shell e2e as a separate slice: the old chain is live in the runner, so deletion must be paired with a per-behavior classification — obsolete-by-replacement (cite the superseding workflow/artifact) or still-needed (confirm Jest coverage) — not with a blanket coverage-confirmation assumption.
 - KTD7. Leave speculative validator details deferred: expanding validation output without a consumer adds contract surface without improving current workflow behavior.
 
 ---
@@ -196,6 +198,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 
 **Approach:**
 - 删除 `check-only; never auto-upgrades` 措辞。
+- 删除 root help 行中的 `[--claude|--codex]` 参数标注——这些旧 check-only flag 已被 `src/cli/commands/update.js` 视为用法错误（传参即 exit 2），与当前真实行为不符。
 - 明确 `update` 会升级 CLI，并提醒用户之后运行 `spec-first init` 刷新项目 runtime assets。
 
 **Patterns to follow:**
@@ -204,7 +207,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 
 **Test scenarios:**
 - Happy path: root help includes upgrade wording for `update`.
-- Error path: root help no longer contains `check-only` or `never auto-upgrades`.
+- Error path: root help no longer contains `check-only`、`never auto-upgrades` 或 `[--claude|--codex]` 标注。
 
 **Verification:**
 - Focused CLI help/update contract tests pass.
@@ -239,7 +242,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 
 **Test scenarios:**
 - Happy path: `gh`、`jq`、`ast-grep` health output URL 来自 registry。
-- Edge case: 缺失 `source_repo` 时输出空 URL，而不是 fallback 到旧 switch。
+- Invariant: contract 断言每个 `helper-tools.json` 条目都带非空 `safety.source_repo`（当前 8 个 helper 全部具备），而非测试不可达的缺失态。
 - Integration: Bash 与 PowerShell contract 都断言没有重复 switch 表。
 
 **Verification:**
@@ -264,6 +267,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 
 **Approach:**
 - 把 `tests/unit/plan-status-taxonomy.test.js` 加入 `WORKFLOW_RUNTIME_CONTRACT_TESTS`。
+- 同一原子提交内同步更新 `tests/unit/ai-dev-quality-gate.test.js` 中对 `WORKFLOW_RUNTIME_CONTRACT_TESTS` 的 `toEqual` 精确快照（约 L187）与遍历断言（约 L227，断言每个条目都出现在 workflow YAML path filter 中）；否则 gate 自身测试会失败。
 - 在 GitHub workflow paths 中加入 `docs/plans/**` 和该测试文件。
 - 不新增 plan archive/schema，不改变 plan status taxonomy 本身。
 
@@ -294,8 +298,8 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 - Modify: `CHANGELOG.md`
 
 **Approach:**
-- 在 `plugin.js` 中增加集中 ignore predicate，覆盖 `__pycache__/`、`.pyc`、`.pyo`、`.DS_Store` 等既有 package 忽略噪音。
-- 让 support-file integrity traversal 和 copy/list 逻辑共用同一 predicate。
+- 在 `plugin.js` 中增加 ignore predicate，覆盖 `__pycache__/`、`.pyc`、`.pyo`、`.DS_Store` 等既有 package 忽略噪音。
+- 优先内联在 `listDirectoryFiles`；只有当 integrity 与 copy/list 确有第二处调用方时再提升为共享 predicate，避免单调用点的过早抽象。
 - 不忽略真正 source support files，不扩大到任意 dotfile。
 
 **Patterns to follow:**
@@ -316,7 +320,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 
 **Goal:** 让 `spec-first clean --claude|--codex` 在 apply 前显示与 dry-run 一致的高价值摘要。
 
-**Requirements:** R2, R4, R7
+**Requirements:** R4, R7
 
 **Dependencies:** None
 
@@ -326,16 +330,18 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 - Modify: `CHANGELOG.md`
 
 **Approach:**
-- 抽出 dry-run/apply 共用 summary renderer，或让 apply path 在 `applyOperationPlan` 前打印 compact summary。
+- 抽出 `printCleanSummary(platform, cleanPlan, { mode })` 共享 helper：承载 remove/update/empty-root 统计与 “Custom assets … left/would remain untouched” 行；`mode: 'dry-run'` 用 “Would remove/update …” 措辞并保留 `No files were changed.` footer，`mode: 'apply'` 用 “Removing/Updating …” 措辞且不打印 dry-run footer。注意：现有 `printCleanDryRun` 以 `console.log('No files were changed.')` 结尾且通篇用 “Would …” 措辞，直接在 apply path 调用会在删除前输出与实际相反的内容，故必须按 mode 分流而非原样复用。
+- apply path 在 `applyOperationPlan` 前调用 `printCleanSummary(..., { mode: 'apply' })`；dry-run path 改调 `printCleanSummary(..., { mode: 'dry-run' })`。
 - 保持当前 auto-apply 行为，不新增 prompt、不新增 `--force`。
 - 保留 “Custom assets outside the spec-first managed set were left untouched” 语义。
 
 **Patterns to follow:**
-- `printCleanDryRun` 的 remove/update/empty-root 统计。
+- `printCleanDryRun` 分支中的 remove/update/empty-root 统计逻辑，重构后需通过 mode-specific printer 复用。
 - `init --dry-run` preview-first 但不强塞确认的输出风格。
 
 **Test scenarios:**
 - Happy path: apply stdout 在删除前包含 remove/update summary。
+- Regression: dry-run path 仍输出 `No files were changed.`（`clean-dry-run.test.js:99` 断言不变），apply path 不输出该 footer、不出现 “Would …” 措辞。
 - Edge case: custom assets remain untouched 的承诺仍在 apply 输出中出现。
 - Regression: `--dry-run` 仍不改文件，apply 仍删除 managed assets。
 
@@ -382,7 +388,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 
 **Requirements:** R5, R7
 
-**Dependencies:** U1-U6 可并行；实施前必须先确认 replacement coverage。
+**Dependencies:** U1-U6 可并行；实施前必须先完成 Step-0 行为分类（而非笼统“确认 replacement coverage”）。
 
 **Files:**
 - Modify: `scripts/run-test-suite.cjs`
@@ -395,10 +401,11 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 - Modify: `CHANGELOG.md`
 
 **Approach:**
-- 先检查两个 Jest integration 是否覆盖当前 closeout producer / verification gate 语义。
+- Step 0 — 行为分类：对旧 chain 承载的每个行为（`task.yaml` 生命周期、`stage-gate.sh` 逐阶段门、`review-judge.sh` 评分）判定属于 (a) obsolete-by-replacement，还是 (b) still-needed。已验证 `verification-gate.integration.test.js`（gate runner + workflow YAML）与 `spec-work-closeout-producer.test.js`（`spec-work-run-artifact write` 命令/schema）均不复刻上述三类语义——但“缺少重复覆盖”只是必要条件，不足以判定 (a)。判 (a) 必须 positive 引用承接该行为的现有 agent-native workflow/artifact（点名取代 task.yaml 生命周期、阶段门、review 评分的具体命令/测试）；无法给出该引用的行为按 (b) 处理。
+- 对 (a) 类行为以 obsolescence 为由删除，不为复刻死行为而补测试，但必须在 closeout 记录每个 (a) 行为的承接 artifact，使删除理由可审计（与保留路径要求的 follow-up `spec_id` + 未覆盖行为说明对称）。
+- 仅对 (b) 类行为先补 Jest integration 再删除。
 - 从 `runIntegration()` 删除 `runBash('tests/integration/e2e.sh')`。
 - 删除旧 shell 脚本和 e2e 文件。
-- 如果发现 replacement coverage gap，先补 Jest integration，再删除 shell 链。
 
 **Patterns to follow:**
 - `scripts/run-test-suite.cjs` 中 Jest integration 先于 shell integration 的当前结构。
@@ -414,25 +421,27 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 
 ---
 
-### U8. 收口 Runtime Setup alias 迁移文案
+### U8. 核对 Runtime Setup alias 迁移文案（多为已满足）
 
-**Goal:** 消除当前 source prose 中“未来入口 `/spec:runtime-setup` 已像当前入口一样推荐”的漂移，同时不执行完整 alias 迁移。
+**Goal:** 确认当前 source prose 未把“未来入口 `/spec:runtime-setup`”呈现为可运行命令；如已正确收口则关闭为 already-satisfied，否则做最小一句修正。
 
 **Requirements:** R4, R6, R7
 
-**Dependencies:** None
+**Dependencies:** 与 `docs/plans/2026-06-07-003-refactor-runtime-setup-lifecycle-plan.md` 的 B5/U8 deferred 决策同源；非 `None`，属对该已 deferred cosmetic 切片的核对，不重启 alias 迁移。
 
 **Files:**
-- Modify: `skills/spec-mcp-setup/SKILL.md`
-- Modify: `templates/claude/commands/spec/mcp-setup.md`
+- Inspect: `skills/spec-mcp-setup/SKILL.md`
+- Inspect: `templates/claude/commands/spec/mcp-setup.md`
 - Inspect: `docs/plans/2026-06-07-003-refactor-runtime-setup-lifecycle-plan.md`
-- Test: `tests/unit/mcp-setup-powershell-contracts.test.js` or relevant setup prose contract
-- Modify: `CHANGELOG.md`
+- Conditional Modify: `skills/spec-mcp-setup/SKILL.md` only if drift is found
+- Conditional Modify: `templates/claude/commands/spec/mcp-setup.md` only if drift is found
+- Conditional Test: relevant setup prose/contract test only if source is modified or an existing contract must be updated
+- Conditional Modify: `CHANGELOG.md` only when this slice changes source; already-satisfied closeout alone does not require a changelog entry.
 
 **Approach:**
-- 保留当前 runnable entrypoints：`/spec:mcp-setup` 和 `$spec-mcp-setup`。
-- 将 `/spec:runtime-setup` / `$spec-runtime-setup` 明确标为 deferred alias migration candidate，指向既有 U8 计划。
-- 不新增 host command，不改 runtime generation，不刷新 generated runtime mirrors。
+- 先核对 source 现状：`skills/spec-mcp-setup/SKILL.md`（L9 已写明 `/spec:mcp-setup` / `$spec-mcp-setup` 为 compatibility names，直至 alias contract 落地）与 `templates/claude/commands/spec/mcp-setup.md`（L8/L10 已标注 legacy compatibility entrypoint、future `/spec:runtime-setup`）均已带 deferred-alias 语义。若核对通过，本切片关闭为 already-satisfied，仅留 closeout 说明，不为“未改 source”的核对结果单独写 changelog。
+- 仅当发现某处 prose 仍把 future alias 当作当前可运行命令时，做最小一句修正，指向既有 2026-06-07-003 U8 计划。
+- 不新增 host command，不改 runtime generation，不刷新 generated runtime mirrors；如最终触及 template 文案改动，需显式记录 runtime drift 并由实现 workflow 运行 `spec-first init`。
 
 **Patterns to follow:**
 - `using-spec-first` route map 当前 setup entrypoint 口径。
@@ -448,38 +457,6 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 
 ---
 
-### U9. 按需投影 doctor runtime catalog freshness
-
-**Goal:** 当 closeout、doctor automation 或 runtime repair guidance 需要机器可读 manifest freshness 时，在 `doctor --json` 增加清晰字段。
-
-**Requirements:** R4, R6, R7
-
-**Dependencies:** Consumer or explicit implementation decision.
-
-**Files:**
-- Modify: `src/cli/commands/doctor.js`
-- Test: relevant doctor JSON contract test
-- Modify: `CHANGELOG.md`
-
-**Approach:**
-- 基于现有 managed state `manifestVersion` 与 bundled manifest version 比较，投影 `runtime_catalog_freshness`。
-- 候选值保持小而确定：`fresh`、`stale`、`missing`、`unknown`。
-- 不把 warning prose 当机器契约；JSON 字段只表达 deterministic version comparison。
-
-**Patterns to follow:**
-- `checkManagedState` 现有 manifest mismatch 逻辑。
-- `decision_input_health` / `workflow_runnability` 的 JSON projection 风格。
-
-**Test scenarios:**
-- Happy path: state manifest 与 bundled manifest 相同，JSON 输出 `fresh`。
-- Edge case: state missing 或 invalid，JSON 输出 `missing` 或 `unknown`。
-- Error path: state version 与 bundled version 不同，JSON 输出 `stale` 且 existing warning 保留。
-
-**Verification:**
-- Focused doctor JSON contract tests pass。
-
----
-
 ## System-Wide Impact
 
 - **CLI surface:** U1 and U5 affect user-visible CLI output only; no new commands or flags.
@@ -487,7 +464,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 - **Setup scripts:** U2 touches Bash and PowerShell setup health scripts; must preserve dual-host parity.
 - **CI:** U3 changes GitHub Actions path filters and quality gate test list; monitor CI duration but expected cost is small.
 - **Workflow governance:** U6 and U8 are prose/contract governance changes; they affect how workflows consume guardrail/setup guidance.
-- **Integration coverage:** U7 changes test topology by removing a shell integration chain; replacement coverage must be explicit.
+- **Integration coverage:** U7 changes test topology by removing a shell integration chain; coverage/obsolescence classification must be explicit.
 - **Unchanged invariants:** Public workflow entrypoint governance, source/runtime boundary, eval light-contract posture, and generated runtime exclusion remain unchanged.
 
 ---
@@ -500,7 +477,7 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 | Registry URL accessor changes setup output unexpectedly | Add Bash and PowerShell focused assertions against `helper-tools.json` values |
 | Legacy shell deletion removes hidden coverage | Inspect current integration tests first; add Jest coverage before deletion if needed |
 | Guardrail index becomes another stale table | Keep rows tied to existing workflow names and test only load-bearing mappings |
-| Doctor JSON freshness becomes premature schema surface | Implement U9 only with clear consumer or explicit acceptance; otherwise keep deferred |
+| Doctor JSON freshness becomes premature schema surface | Implement the doctor freshness conditional item only with clear consumer or explicit acceptance; otherwise keep deferred |
 | Runtime Setup alias prose implies unavailable commands | Keep current `mcp-setup` as runnable entrypoint and mark alias as deferred |
 
 ---
@@ -538,9 +515,9 @@ origin: docs/项目审查/2026-06-12-agent-native-architecture-audit-report.md
 
 ### Phase 3: P2 retirement and deferred surfaces
 
-- U7: legacy shell e2e chain deletion after coverage confirmation.
-- U8: Runtime Setup alias prose cleanup or explicit alias-slice handoff.
-- U9: doctor JSON freshness only if consumer/owner confirms value.
+- U7: legacy shell e2e chain deletion after coverage/obsolescence classification.
+- U8: Runtime Setup alias prose 核对（多为 already-satisfied）或最小一句修正。
+- 条件项 doctor JSON freshness 与 schema-validator details[] 留在 Deferred to Follow-Up Work，仅在 consumer/owner 确认价值后单独启动。
 
 ---
 

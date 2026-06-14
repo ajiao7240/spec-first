@@ -1,4 +1,15 @@
+---
+title: "Spec-First 产物目录标准化技术方案"
+type: archive
+status: superseded
+created: 2026-04-13
+archived_at: 2026-06-14
+superseded_by: docs/plans/2026-04-13-003-refactor-artifact-path-hard-cut-plan.md
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # Spec-First 产物目录标准化技术方案
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 > 日期：2026-04-13
 > 状态：Draft

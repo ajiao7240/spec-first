@@ -1,4 +1,14 @@
+---
+title: "CRG + spec-graph-bootstrap 终局研究项 Backlog"
+type: archive
+status: superseded
+created: 2026-04-15
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # CRG + spec-graph-bootstrap 终局研究项 Backlog
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 ## 1. 文档定位
 

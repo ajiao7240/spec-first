@@ -1,4 +1,14 @@
+---
+title: "多工程 / 微服务联动需求场景集成能力方案"
+type: archive
+status: superseded
+created: 2026-04-15
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # 多工程 / 微服务联动需求场景集成能力方案
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 ## 1. 文档目标
 

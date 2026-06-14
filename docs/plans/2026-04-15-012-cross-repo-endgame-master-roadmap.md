@@ -1,4 +1,14 @@
+---
+title: "Cross-repo 终局总路线图"
+type: archive
+status: superseded
+created: 2026-04-15
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # Cross-repo 终局总路线图
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 **Goal:** 建立 `CRG + spec-graph-bootstrap + cross-repo / multi-service` 的终局总控路线图，把“当前已批准可开发范围”和“终局愿景研究路线”统一到一份文档中，回答以下问题：
 

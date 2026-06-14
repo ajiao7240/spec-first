@@ -1,4 +1,14 @@
+---
+title: "Compound 核心链路同步后优化实施计划"
+type: archive
+status: superseded
+created: 2026-04-14
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # Compound 核心链路同步后优化实施计划
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 - 日期：`2026-04-14`
 - 适用仓库：`spec-first`

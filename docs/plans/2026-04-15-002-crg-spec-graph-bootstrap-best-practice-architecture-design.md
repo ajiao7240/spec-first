@@ -1,4 +1,14 @@
+---
+title: "CRG + spec-graph-bootstrap 终局优化技术方案"
+type: archive
+status: superseded
+created: 2026-04-15
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # CRG + spec-graph-bootstrap 终局优化技术方案
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 > 日期：2026-04-15
 > 状态：Draft

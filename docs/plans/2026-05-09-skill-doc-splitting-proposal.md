@@ -1,4 +1,14 @@
+---
+title: "技术方案：精简 Skill 文档，分离核心流程与参考细节"
+type: archive
+status: superseded
+created: 2026-05-09
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # 技术方案：精简 Skill 文档，分离核心流程与参考细节
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 Created: 2026-05-09
 

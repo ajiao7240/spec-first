@@ -1,4 +1,14 @@
+---
+title: "当前 spec-first 按宿主分开的 using-spec-first 集成技术方案"
+type: archive
+status: superseded
+created: 2026-04-17
+archived_at: 2026-06-14
+archive_reason: "legacy plan-status backfill; retained as historical evidence only, not an active implementation plan"
+---
 # 当前 spec-first 按宿主分开的 using-spec-first 集成技术方案
+
+> Lifecycle: historical plan archive. This document is retained as historical evidence only and is not an active implementation plan.
 
 **Goal:** 参考 `using-superpowers` 的真实宿主拆分实现，为当前仅支持 `Claude Code` 与 `Codex` 的 `spec-first` 设计一套按宿主分开的 `using-spec-first` 集成方案。目标不是做“统一但虚假的对称方案”，而是让 `Claude` 走 `SessionStart` 自动注入增强，让 `Codex` 走 native skill discovery + repo 指令 bootstrap，最终把 `using-spec-first` 落成 `spec-first` 的会话级入口治理层。
 
