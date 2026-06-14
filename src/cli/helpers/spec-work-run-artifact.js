@@ -13,6 +13,9 @@ const {
 
 const PAYLOAD_SCHEMA_VERSION = 'spec-work-run-artifact-payload/v2';
 const ARTIFACT_SCHEMA_VERSION = 'spec-work-run-artifact/v2';
+// 此 producer 仅服务 spec-work closeout,故 ref 固定 spec-work。verification-run-summary
+// 已支持 spec-debug/spec-code-review workflow,但本 producer 当前不消费它们;若未来为 debug/
+// review 接线 run artifact,validateRunSummaryReference 的 spec-work 硬编码需同步放宽。
 const WORKFLOW = 'spec-work';
 const DEFAULT_RETENTION_DAYS = 30;
 const ALLOWED_RAW_LOG_KINDS = new Set(['none', 'repo_relative_artifact']);

@@ -435,4 +435,21 @@ describe('verification run summary contract and capture helper', () => {
       fs.rmSync(repo, { recursive: true, force: true });
     }
   });
+
+  // 防双真相源漂移:ALLOWED_WORKFLOWS(写侧 + log_path 前缀校验)与 schema log_path
+  // pattern 的 workflow 备选列表必须完全一致。单边新增/拼错任一,会在运行时写入阶段
+  // 以泛化 anyOf 报错失败,而非被此 test 提前抓住。
+  it('keeps ALLOWED_WORKFLOWS in sync with the schema log_path workflow alternation', () => {
+    const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, 'utf8'));
+    const logPathPattern = schema.properties.checks.items.properties.log_path.anyOf
+      .map((entry) => entry.pattern)
+      .find((pattern) => typeof pattern === 'string' && pattern.includes('workflows/'));
+    expect(logPathPattern).toBeTruthy();
+
+    const alternation = /workflows\/\(([^)]+)\)\//.exec(logPathPattern);
+    expect(alternation).toBeTruthy();
+    const schemaWorkflows = alternation[1].split('|').sort();
+    const helperWorkflows = Array.from(ALLOWED_WORKFLOWS).sort();
+    expect(schemaWorkflows).toEqual(helperWorkflows);
+  });
 });

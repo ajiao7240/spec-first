@@ -440,6 +440,10 @@ function validateCheckLogPath(check, pointer, context, errors) {
   if (typeof check.log_path !== 'string') return;
 
   const normalized = check.log_path.replace(/\\/g, '/');
+  // context.workflow 缺省即 spec-work,与 parseRecordArgs 的 DEFAULT_WORKFLOW 对齐(向后兼容
+  // 默认,非疏漏):内部写路径(writeVerificationRunSummary)总是显式传 workflow;只有直接调用
+  // 导出的 validateRunSummaryInput 且省略 workflow 时才回退,此时按 spec-work 校验是有意契约。
+  // 显式传入非法 workflow 才报错。
   const workflow = normalizeWorkflow(context.workflow || DEFAULT_WORKFLOW);
   if (!workflow) {
     errors.push(`${pointer}.log_path workflow must be one of: ${Array.from(ALLOWED_WORKFLOWS).join(', ')}`);
