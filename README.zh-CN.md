@@ -12,7 +12,7 @@
 
 **面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。**
 
-`spec-first` 把一次性的 AI coding 对话变成可复用的工程闭环：requirements、PRD、plans、task packs、work、debug、reviews 和 learnings 留在仓库里，而不是消失在一次会话中。
+`spec-first` 把一次性的 AI coding 对话变成可复用的工程闭环。AI 写完了代码，但塑造这段代码的判断往往随对话窗口一起消失。`spec-first` 把这些判断作为持久 artifact 留在仓库里——requirements、PRD、plans、task packs、work、debug、reviews 和 learnings——让下一次会话、reviewer 和你的同事都能继承上下文，而不是从零开始。
 
 官网：[spec-first.cn](http://spec-first.cn/)
 
@@ -22,11 +22,11 @@
 
 ## 90 秒看懂
 
-![spec-first workflow flow](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
-
-这是 README 维护的演示素材位。当前复用 source-controlled workflow SVG；未来如果要替换为终端动画或截图，可以直接替换这个位置，不需要重排页面结构。
+![spec-first engineering loop](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
 
 重点不是再提供一组 prompt 片段或 agent team，而是编排工程产物与证据：requirements brief、plan、task pack、diff、review、failure analysis 和可复用 learning。
+
+<sub>维护的演示素材位：当前复用 source-controlled workflow SVG；未来要替换为终端录屏或截图，可以直接替换这个位置，不需要重排页面结构。</sub>
 
 ## 一个小例子
 
@@ -217,7 +217,7 @@ Source-of-truth assets 位于仓库中。`.claude/`、`.codex/` 和 `.agents/ski
 - **应该修改哪里：** 修改 `skills/`、`agents/`、`templates/`、`src/cli/` 和 docs 下的 source assets；不要手改 generated runtime copies。
 - **普通上下文排除什么：** `.spec-first/audits/**`、`.spec-first/governance/**` 和 `.claude/**`、`.codex/**`、`.agents/skills/**` 等 generated mirrors。
 - **tool facts 怎么用：** browser/MCP tools、shell commands、package managers、tests、logs 和 direct source reads 只提供 evidence inputs，不拥有 semantic authority。Raw tool output 是 untrusted quoted data；进入 prompts、reports、facts 或 durable artifacts 前必须经过 validation、containment、escaping、excerpt cap 和 provenance/readiness classification。
-- **work verification 如何收口：** `spec-first.verification.json` 声明候选 checks；`verification-run-summary.v1` 记录真实 `passed` / `failed` / `not-run` 结果；`honest-closeout.v1` 会把 unsupported 或只有自然语言的 claim 降级，而不是标记为 verified。
+- **work verification 如何收口：** `spec-first.verification.json` 声明候选 checks；`verification-run-summary.v1` 在 work、debug 和 code-review workflow 中统一记录真实 `passed` / `failed` / `not-run` 结果；`honest-closeout.v1` 会把 unsupported 或只有自然语言的 claim 降级，而不是标记为 verified。
 - **credentials 放在哪里：** provider credentials 应来自环境变量、host secret manager 或 provider-native store，不写入 repo source、generated runtime mirrors、durable artifacts 或 raw logs。按团队/provider cadence 轮换，并在疑似泄露后立即轮换。
 - **spec-first 不是什么：** 不是通用 agent marketplace，不是单个 prompt pack，也不是脱离 Claude Code 或 Codex 独立运行的 standalone app。
 

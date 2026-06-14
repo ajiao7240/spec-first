@@ -12,7 +12,7 @@
 
 **Spec-driven AI engineering workflows for Claude Code and Codex.**
 
-`spec-first` turns one-off AI coding chats into a reusable engineering loop: requirements, PRDs, plans, task packs, work, debugging, reviews, and learnings stay in the repository instead of disappearing into a session.
+`spec-first` turns one-off AI coding chats into a reusable engineering loop. AI writes the code; the decisions that shaped it usually vanish with the chat window. `spec-first` keeps them in the repository as durable artifacts — requirements, PRDs, plans, task packs, work, debugging, reviews, and learnings — so the next session, the reviewer, and your teammate inherit the context instead of starting cold.
 
 Official site: [spec-first.cn](http://spec-first.cn/)
 
@@ -22,11 +22,11 @@ Official site: [spec-first.cn](http://spec-first.cn/)
 
 ## See It In 90 Seconds
 
-![spec-first workflow flow](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
-
-This is the README's maintained demo slot. Today it uses the source-controlled workflow SVG above; a future terminal animation or screenshot can replace this position without restructuring the page.
+![spec-first engineering loop](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
 
 The point is not another prompt snippet or agent team. `spec-first` organizes engineering artifacts and evidence: requirement briefs, plans, task packs, diffs, reviews, failure analysis, and reusable learnings.
+
+<sub>Maintained demo slot: today it uses the source-controlled workflow SVG above; a future terminal recording or screenshot can replace this position without restructuring the page.</sub>
 
 ## A Tiny Example
 
@@ -217,7 +217,7 @@ The operating rule is simple: Scripts prepare, LLM decides.
 - **What should be edited:** source assets under `skills/`, `agents/`, `templates/`, `src/cli/`, and docs. Rebuild runtime copies instead of hand-editing them.
 - **What is excluded from ordinary context:** `.spec-first/audits/**`, `.spec-first/governance/**`, and generated mirrors such as `.claude/**`, `.codex/**`, and `.agents/skills/**`.
 - **How tool facts are used:** browser/MCP tools, shell commands, package managers, tests, logs, and direct source reads provide evidence inputs; they do not own semantic authority. Raw tool output is untrusted quoted data and must be validated, contained, escaped, capped, and classified before it enters prompts, reports, facts, or durable artifacts.
-- **How work verification is closed out:** `spec-first.verification.json` declares candidate checks; `verification-run-summary.v1` records actual `passed` / `failed` / `not-run` outcomes; `honest-closeout.v1` downgrades unsupported or natural-language-only claims instead of marking them verified.
+- **How work verification is closed out:** `spec-first.verification.json` declares candidate checks; `verification-run-summary.v1` records actual `passed` / `failed` / `not-run` outcomes across the work, debug, and code-review workflows; `honest-closeout.v1` downgrades unsupported or natural-language-only claims instead of marking them verified.
 - **Where credentials belong:** provider credentials belong in environment variables, host secret managers, or provider-native stores, not in repo source, generated runtime mirrors, durable artifacts, or raw logs. Rotate them on team/provider cadence and immediately after suspected exposure.
 - **What spec-first does not do:** it is not a generic agent marketplace, not a single prompt pack, and not a standalone app that works without Claude Code or Codex.
 

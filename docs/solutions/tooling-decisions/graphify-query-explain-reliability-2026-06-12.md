@@ -4,13 +4,29 @@ date: 2026-06-12
 category: docs/solutions/tooling-decisions
 module: spec-first
 problem_type: tooling_decision
-component: graphify-provider-consumption
+component: tooling
 severity: medium
 applies_when:
   - 评估 graphify(project-graph provider)在 spec-first 中的可用性、消费方式或 readiness 信号
   - 计划把 project-graph 候选用于 docs/方案文档导航或语义检索
   - 设计 mcp-setup 对 provider 能力的探测/暴露逻辑
 tags: [graphify, project-graph, provider-consumption, mcp-setup, code-graph, recall]
+domain: project-graph provider consumption
+pattern: Graphify query is weak orientation; use explain/path for named graph navigation and confirm from source
+rejected_alternatives:
+  - "Treating query_verified=true as semantic recall confidence: query probe only proves CLI/artifact liveness."
+  - "Fixing Graphify query inside spec-first setup: provider algorithm and indexing limits are upstream-owned."
+applicable_versions:
+  - "spec-first v1.10.0"
+  - "graphifyy 0.8.36-0.8.39 observed"
+invalidation_condition: "Graphify query gains ranked semantic retrieval over docs and representative project-graph diagnostic cases reliably recall source contracts without high-frequency or self-reference seed hijack."
+source_refs:
+  - "docs/validation/project-graph/2026-06-15-relay-diagnostic.md"
+  - "docs/contracts/project-graph-consumption.md"
+  - "docs/contracts/knowledge/knowledge-harness.md"
+  - "skills/spec-mcp-setup/scripts/install-helpers.sh"
+  - "skills/spec-mcp-setup/scripts/install-helpers.ps1"
+  - "skills/spec-mcp-setup/scripts/provider-readiness-renderer.cjs"
 ---
 
 # Graphify 命令可靠性分化:query 弱定向、explain/path 可靠、.cjs 索引盲区
@@ -25,6 +41,8 @@ tags: [graphify, project-graph, provider-consumption, mcp-setup, code-graph, rec
 ## Context
 
 评估 graphify 作为 project-graph provider 在 spec-first 中的实用价值时,实测发现其三个查询命令的可靠性显著分化。此前的消费协议设计(`docs/plans/2026-06-11-002-feat-project-graph-consumption-protocol-plan.md`)假设三种消费意图(broad orientation query / relationship path / concept explain)大致等价可用,实测推翻了这一前提。
+
+2026-06-15 relay diagnostic 再次确认该结论:14 个样本中,`query` 对 docs/plan/contract 定位多数 noisy/miss,而 `explain` 对已索引具名 Bash 符号可用。该诊断只把 Graphify/CodeGraph 结果当作 `provider_untrusted` 候选,最终判断来自 source docs/tests/helper source。
 
 ## Guidance
 

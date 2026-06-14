@@ -78,11 +78,14 @@ assert "bash install-helpers preserves install-produced Graphify query fact" gre
 assert "bash install-helpers gates hook on first generation" grep -q -- 'graphify_first_generation_ready_for_hook' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers normalizes away ordinary workflow Graphify refresh" grep -q -- 'Ordinary workflows do not refresh project graphs after code changes' "$SCRIPTS_DIR/install-helpers.sh"
 for token in \
-  'Use Graphify first only' \
+  'Use Graphify as exploration-tier orientation' \
   'architecture relationships' \
   'cross-file relationships' \
   'impact analysis' \
   'broad codebase navigation' \
+  'reading source first is always valid' \
+  'Use `query` for broad orientation' \
+  'scoped candidate subgraph' \
   'Do not use Graphify by default' \
   'simple factual Q&A' \
   'current conversation or context summaries' \
@@ -91,6 +94,9 @@ for token in \
   'provider_untrusted'; do
   assert "bash install-helpers Graphify instruction contains token: $token" grep -q -- "$token" "$SCRIPTS_DIR/install-helpers.sh"
 done
+if grep -q 'Use Graphify first only' "$SCRIPTS_DIR/install-helpers.sh"; then
+  fail "install-helpers must not normalize Graphify to hard first-call routing"
+fi
 if grep -q 'For codebase questions, first use Graphify' "$SCRIPTS_DIR/install-helpers.sh"; then
   fail "install-helpers must not normalize Graphify to broad all-codebase-question trigger"
 fi

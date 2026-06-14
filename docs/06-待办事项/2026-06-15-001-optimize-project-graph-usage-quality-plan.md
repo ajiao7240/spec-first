@@ -2,7 +2,7 @@
 
 - **日期**: 2026-06-15
 - **类型**: 治理优化 / 中型
-- **状态**: 待执行
+- **状态**: 已完成
 - **审查结论**: 方案方向成立,但只做使用质量层收口,不重做协议层或 provider 层
 - **source_refs**:
   - `docs/contracts/project-graph-consumption.md`
@@ -275,3 +275,11 @@ P1 完成后只写一条结论注记:
 - 运行 Graphify query 作为 advisory orientation,结果主要召回 host instruction / boundary 节点,未作为结论证据。
 
 未执行实现测试,因为本文档是优化方案审查与更新,不是 P0-P2 的 implementation run。
+
+## Completion Evidence
+
+- **完成时间**: 2026-06-15 01:42:15
+- **实现范围**: P0 已修正 `CLAUDE.md` / `AGENTS.md` 与 `skills/spec-mcp-setup/scripts/install-helpers.{sh,ps1}` 的 Graphify host 指令措辞；P1 已新增 `docs/validation/project-graph/2026-06-15-relay-diagnostic.md`；P2 已按诊断结果回填既有 Graphify solution 的 structured recall anchor；P3 明确不做常驻 benchmark suite。
+- **验证**: `npm run typecheck`、`npm run test:mcp-setup`、focused Jest、`npm run test:smoke`、`npm run test:integration`、`git diff --check` 均通过；`npm run test:unit` 已尝试，剩余失败集中在 init 输出本地化断言，属当前分支既有非本计划触达面；结构化 closeout 已写入 `.spec-first/workflows/spec-work/spec-first/2026-06-15-project-graph-usage-quality/run.json`。
+- **Review**: `$spec-code-review` 因 Codex 未显式授权 reviewer subagents/personas，按 single-agent report-only fallback 做只读 diff/source review；发现并修正 P1 诊断文档中的本机绝对路径固化问题，修后无本计划阻断 findings。
+- **Generated runtime**: 未手改 `.claude/`、`.codex/` 或 `.agents/skills/` runtime mirrors；Graphify 段刷新路径仍是 `install-helpers.{sh,ps1}` normalize。

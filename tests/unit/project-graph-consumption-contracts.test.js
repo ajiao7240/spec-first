@@ -55,11 +55,14 @@ describe('project graph consumption contract', () => {
 
   test('checked-in host graphify instructions narrow triggers and mark provider evidence advisory', () => {
     const requiredTokens = [
-      'Use Graphify first only',
+      'Use Graphify as exploration-tier orientation',
       'architecture relationships',
       'cross-file relationships',
       'impact analysis',
       'broad codebase navigation',
+      'reading source first is always valid',
+      'Use `query` for broad orientation',
+      'scoped candidate subgraph',
       'Do not use Graphify by default',
       'simple factual Q&A',
       'current conversation or context summaries',
@@ -75,6 +78,7 @@ describe('project graph consumption contract', () => {
       for (const token of requiredTokens) {
         expect(content).toContain(token);
       }
+      expect(content).not.toContain('Use Graphify first only');
       expect(content).not.toContain('For codebase questions, first use Graphify');
     }
   });

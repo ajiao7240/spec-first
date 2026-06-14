@@ -161,11 +161,14 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(read(installHelpersPs1)).toContain('if ([string]::IsNullOrWhiteSpace((Resolve-GraphifyCliMatchingPin))) { return }');
     expect(read(installHelpersPs1)).toContain('Ordinary workflows do not refresh project graphs after code changes');
     for (const token of [
-      'Use Graphify first only',
+      'Use Graphify as exploration-tier orientation',
       'architecture relationships',
       'cross-file relationships',
       'impact analysis',
       'broad codebase navigation',
+      'reading source first is always valid',
+      'Use `query` for broad orientation',
+      'scoped candidate subgraph',
       'Do not use Graphify by default',
       'simple factual Q&A',
       'current conversation or context summaries',
@@ -175,6 +178,7 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     ]) {
       expect(read(installHelpersPs1)).toContain(token);
     }
+    expect(read(installHelpersPs1)).not.toContain('Use Graphify first only');
     expect(read(installHelpersPs1)).not.toContain('For codebase questions, first use Graphify');
     expect(read(installHelpersPs1)).not.toContain('After modifying code, run `"<resolved-graphify>" update .`');
     expect(read(installHelpersPs1)).not.toContain('--no-cluster');
