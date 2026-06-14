@@ -13,6 +13,13 @@ Scope: this script catches frontmatter that strict YAML parsers can silently
 misread. It does not validate required fields or enum values; those remain
 separate schema concerns. The goal is to prevent silent data loss from YAML
 quoting rules.
+
+Intentional copy: byte-identical copies live at
+skills/spec-compound/scripts/validate-frontmatter.py and
+skills/spec-compound-refresh/scripts/validate-frontmatter.py. The skill
+projection mechanism only ships each skill's own scripts/, so the two skills
+cannot share one file. Edit both copies together; tests/unit/frontmatter-validator.test.js
+asserts they stay byte-identical.
 """
 
 import os

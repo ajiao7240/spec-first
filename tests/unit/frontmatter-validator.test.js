@@ -85,3 +85,14 @@ problem_type: not_a_real_enum
     expect(result.stdout).toContain('OK:');
   });
 });
+
+// 防拷贝漂移:validate-frontmatter.py 在 spec-compound 与 spec-compound-refresh 各有一份
+// 有意副本(skill 投影机制只带各自目录的 scripts/,无法跨 skill 引用)。两份必须逐字一致;
+// 改一处时此 test 强制同步另一处,把隐性漂移风险转为显式守护。彻底去重需改投影机制,
+// 对一个稳定的纯 stdlib 脚本属过度工程,故按 80/20 选 test 守护而非共享资产机制。
+describe('validate-frontmatter.py intentional copies stay in sync', () => {
+  test('both skill copies are byte-identical', () => {
+    const contents = SCRIPT_PATHS.map((scriptPath) => fs.readFileSync(scriptPath, 'utf8'));
+    expect(contents[0]).toBe(contents[1]);
+  });
+});
