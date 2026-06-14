@@ -65,7 +65,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^\\.spec-first/workflows/spec-work/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/logs/.+[^/]$"
+                "pattern": "^\\.spec-first/workflows/(spec-work|spec-debug|spec-code-review)/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/logs/.+[^/]$"
               },
               { "type": "null" }
             ]

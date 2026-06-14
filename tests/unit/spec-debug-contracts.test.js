@@ -127,6 +127,15 @@ describe('spec-debug branch-aware handoff contract', () => {
     expect(text).toContain('claims_remaining_advisory');
   });
 
+  test('debug closeout uses structured verification evidence instead of freeform pass claims', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('verification-run-summary.v1');
+    expect(text).toContain('honest-closeout.v1');
+    expect(text).toContain('instead of a freeform "tests passed" claim');
+    expect(text).toContain('if no structured claim or evidence exists, mark the closeout as `degraded`');
+  });
+
   test('multi-repo debug requires target repo before fixes', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 

@@ -14,7 +14,8 @@ const {
 
 const RUN_SUMMARY_SCHEMA_VERSION = 'verification-run-summary.v1';
 const RUN_SUMMARY_SCHEMA_PATH = path.join(__dirname, '..', '..', '..', 'docs', 'contracts', 'verification', 'verification-run-summary.schema.json');
-const WORKFLOW = 'spec-work';
+const DEFAULT_WORKFLOW = 'spec-work';
+const ALLOWED_WORKFLOWS = new Set(['spec-work', 'spec-debug', 'spec-code-review']);
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/;
 const ALLOWED_INPUT_FIELDS = new Set(['profile', 'checks']);
 const ALLOWED_PROFILE_FIELDS = new Set(['source', 'name', 'path']);
@@ -76,6 +77,7 @@ function parseRecordArgs(args) {
     inputPath: '',
     runId: '',
     targetRepo: '',
+    workflow: DEFAULT_WORKFLOW,
     errors: [],
   };
   for (let index = 0; index < args.length; index += 1) {
@@ -93,6 +95,11 @@ function parseRecordArgs(args) {
     }
     if (arg === '--target-repo') {
       parsed.targetRepo = args[index + 1] || '';
+      index += 1;
+      continue;
+    }
+    if (arg === '--workflow') {
+      parsed.workflow = args[index + 1] || '';
       index += 1;
       continue;
     }
@@ -130,10 +137,14 @@ function parseReadArgs(args) {
   return parsed;
 }
 
-function writeVerificationRunSummary({ inputPath, runId, targetRepo }) {
+function writeVerificationRunSummary({ inputPath, runId, targetRepo, workflow = DEFAULT_WORKFLOW }) {
   const target = resolveTargetRepoRoot(targetRepo);
   if (!target.ok) {
     return notWritten('target-repo-not-found', target.errors);
+  }
+  const workflowName = normalizeWorkflow(workflow);
+  if (!workflowName) {
+    return rejected('invalid-workflow', [`workflow must be one of: ${Array.from(ALLOWED_WORKFLOWS).join(', ')}`]);
   }
   if (!isSafeId(runId)) {
     return rejected('invalid-run-id', ['run-id must be a stable safe identifier']);
@@ -148,8 +159,8 @@ function writeVerificationRunSummary({ inputPath, runId, targetRepo }) {
 
   const targetRepoRoot = target.root;
   const workspaceSlug = slugify(path.basename(targetRepoRoot));
-  const runRoot = resolveRunRoot(targetRepoRoot, workspaceSlug, runId);
-  const summaryRef = path.join('.spec-first', 'workflows', WORKFLOW, workspaceSlug, runId, 'verification-run-summary.json');
+  const runRoot = resolveRunRoot(targetRepoRoot, workflowName, workspaceSlug, runId);
+  const summaryRef = path.join('.spec-first', 'workflows', workflowName, workspaceSlug, runId, 'verification-run-summary.json');
   const absoluteSummaryPath = path.join(targetRepoRoot, summaryRef);
   const containment = validateOutputContainment(targetRepoRoot, absoluteSummaryPath);
   if (containment.errors.length > 0) {
@@ -158,6 +169,7 @@ function writeVerificationRunSummary({ inputPath, runId, targetRepo }) {
 
   const validation = validateRunSummaryInput(payload, {
     targetRepoRoot,
+    workflow: workflowName,
     workspaceSlug,
     runId,
   });
@@ -428,7 +440,12 @@ function validateCheckLogPath(check, pointer, context, errors) {
   if (typeof check.log_path !== 'string') return;
 
   const normalized = check.log_path.replace(/\\/g, '/');
-  const expectedPrefix = `.spec-first/workflows/${WORKFLOW}/${context.workspaceSlug}/${context.runId}/logs/`;
+  const workflow = normalizeWorkflow(context.workflow || DEFAULT_WORKFLOW);
+  if (!workflow) {
+    errors.push(`${pointer}.log_path workflow must be one of: ${Array.from(ALLOWED_WORKFLOWS).join(', ')}`);
+    return;
+  }
+  const expectedPrefix = `.spec-first/workflows/${workflow}/${context.workspaceSlug}/${context.runId}/logs/`;
   if (!normalized.startsWith(expectedPrefix)) {
     errors.push(`${pointer}.log_path must stay under ${expectedPrefix}`);
     return;
@@ -485,8 +502,8 @@ function scanLogForSecretLikeContent(absoluteLogPath) {
   }
 }
 
-function resolveRunRoot(targetRepoRoot, workspaceSlug, runId) {
-  const workspaceRoot = resolveWorkflowArtifactDir(targetRepoRoot, WORKFLOW, workspaceSlug);
+function resolveRunRoot(targetRepoRoot, workflow, workspaceSlug, runId) {
+  const workspaceRoot = resolveWorkflowArtifactDir(targetRepoRoot, workflow, workspaceSlug);
   return path.join(workspaceRoot, runId);
 }
 
@@ -562,6 +579,11 @@ function isSafeId(value) {
   return SAFE_ID_PATTERN.test(value || '');
 }
 
+function normalizeWorkflow(value) {
+  const workflow = String(value || '').trim();
+  return ALLOWED_WORKFLOWS.has(workflow) ? workflow : '';
+}
+
 // run summary 全量聚合的唯一真相源:对全部 check 取最严重状态。
 // 所有 consumer(spec-work-run-artifact 写入、honest-closeout 校验)都复用此函数,
 // 不各自实现聚合,避免对同一 run summary 给出矛盾结论。
@@ -580,6 +602,8 @@ function writeJson(payload) {
 }
 
 module.exports = {
+  ALLOWED_WORKFLOWS,
+  DEFAULT_WORKFLOW,
   RUN_SUMMARY_SCHEMA_VERSION,
   aggregateRunSummaryStatus,
   readVerificationRunSummary,

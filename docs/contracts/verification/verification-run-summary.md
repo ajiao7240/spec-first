@@ -1,6 +1,6 @@
 # Verification Run Summary Contract
 
-`verification-run-summary.v1` records structured verification results for a single workflow run. It is the only per-check result surface consumed by `spec-work` closeout.
+`verification-run-summary.v1` records structured verification results for a single workflow run. It is the shared per-check result surface consumed by `spec-work`, `spec-debug`, and `spec-code-review` closeout.
 
 Canonical fields are defined by `docs/contracts/verification/verification-run-summary.schema.json`:
 

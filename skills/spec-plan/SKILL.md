@@ -169,6 +169,7 @@ If a relevant requirements document exists:
    - If the origin uses `artifact_kind: prd-requirements`, treat it as a PRD-grade requirements origin, not as a separate planning artifact class; inherit the existing `spec_id`, R/F/AE references, Scope Boundaries, Evidence And Assumptions, trace self-check summary, and any project-local `US-*` / `FEAT-*` / `NFR-*` auxiliary trace mappings instead of rebuilding identity or silently dropping trace gaps.
    - If that PRD-grade origin includes `## Feature Slices`, preserve feature IDs, requirement refs, acceptance refs, and source/evidence pointers in the plan Context, Sources, Requirements, or Implementation Units where relevant. Feature slices are PRD-origin trace, not a new planning-owned artifact class.
    - If the origin uses `document_role: split-summary`, treat it as a navigation and boundary artifact; do not default to implementation planning from it. Prefer a concrete `document_role: child-prd` source, and preserve `child_id`, `parent_spec_id`, `source_prd`, and `split_summary` trace in the plan Context / Sources.
+   - If the origin is a review or audit report and the plan addresses specific findings, carry those finding ids into plan frontmatter through `referenced_reviews[].addresses_findings` or `referenced_reviews[].deferred_findings` as defined in `docs/contracts/workflows/review-closure-traceability.md`.
 4. Use the source document as the primary input to planning and research
 5. Reference important carried-forward decisions in the plan with `(see origin: <source-path>)`
 6. Do not silently omit source content — if the origin document discussed it, the plan must address it even if briefly. Before finalizing, scan each section of the origin document to verify nothing was dropped.
@@ -453,6 +454,7 @@ Ask the user only when the answer materially affects architecture, scope, sequen
   - If there is no origin document, generate a new `spec_id` from the plan filename sequence and slug.
   - Before minting a new `spec_id`, scan `docs/brainstorms/`, `docs/plans/`, and `docs/tasks/` frontmatter. If the same `spec_id` already exists and `origin` / `source_plan` links do not prove it belongs to the same spec chain, increment the local sequence or ask the user to confirm.
   - Preserve `spec_id` across ordinary edits, plan deepening, task-pack rebuilds, and work/review handoffs. For alternative implementation plans, independent delivery chains, or abandon-and-replace work from the same origin, decide whether to inherit or create a new spec chain and record the reason in the plan.
+- If the plan's origin is a review or audit report, include `referenced_reviews` entries in frontmatter for any in-scope findings. For `role: origin` and `scope: in`, set `addresses_findings: ["FINDING-ID"]` for findings this plan handles, or `deferred_findings: ["FINDING-ID"]` plus a follow-up note for findings this plan explicitly defers. This is a weak traceability convention, not proof that every finding is covered.
 
 #### 3.2 Stakeholder and Impact Awareness
 

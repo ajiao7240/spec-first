@@ -292,4 +292,26 @@ describe('using-spec-first contracts', () => {
     expect(rendered).not.toContain('spec-first init --codex or spec-first init --codex');
     expect(rendered).toContain('`.agents/skills/spec-work/SKILL.md`');
   });
+
+  // P1-8 防回归:internal_only skill 的 SKILL.md 不得自称一级入口。它们由公开
+  // workflow 委托或用户在已知上下文中直接唤起,但不是 routable 菜单项,文案不应
+  // 与 using-spec-first 入口治理(internal helper 非用户入口)对抗。
+  test('internal_only skills do not self-declare as first-class entrypoints', () => {
+    const governance = JSON.parse(read(GOVERNANCE_PATH));
+    const internalSkills = governance.skills
+      .filter((skill) => skill.entry_surface === 'internal_only')
+      .map((skill) => skill.skill_name);
+
+    const offenders = [];
+    for (const skillName of internalSkills) {
+      const skillPath = path.join(REPO_ROOT, 'skills', skillName, 'SKILL.md');
+      if (!fs.existsSync(skillPath)) continue;
+      const content = read(skillPath);
+      if (/first-class entry point/i.test(content) || /do not require an upstream caller/i.test(content)) {
+        offenders.push(skillName);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
 });

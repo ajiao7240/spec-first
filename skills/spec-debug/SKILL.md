@@ -311,6 +311,8 @@ Analyze how this was introduced and what allowed it to survive. Note any systemi
 **Confidence**: [High/Medium/Low]
 ```
 
+When validation was run, prefer a structured `verification-run-summary.v1` ref in the summary or attached handoff evidence instead of a freeform "tests passed" claim. Use `honest-closeout.v1` only as the verdict helper for structured claims; if no structured claim or evidence exists, mark the closeout as `degraded` rather than upgrading confidence.
+
 **If Phase 3 was skipped** (user chose "Diagnosis only" in Phase 2), stop after the summary — the user already told you they were taking it from here. Do not prompt.
 
 **If Phase 3 ran**, the next move depends on whether this skill created the branch in Phase 3.

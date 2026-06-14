@@ -74,6 +74,15 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('For docs-only and config-only changes, docs contract checks, schema/help/render checks, generated catalog diff checks, or diff-shape review can be sufficient verification');
     expect(text).toContain('Do not flag "no test-first loop" when the change has no behavior-bearing code');
   });
+
+  test('stage 6 closeout uses structured verification evidence when validation is claimed', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(text).toContain('verification-run-summary.v1');
+    expect(text).toContain('honest-closeout.v1');
+    expect(text).toContain('instead of a freeform "tests passed" claim');
+    expect(text).toContain('mark the closeout `degraded`');
+  });
 });
 
 describe('spec-code-review compound recommendation contract', () => {

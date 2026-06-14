@@ -12,6 +12,7 @@ const {
   validateRunSummary,
   validateRunSummaryInput,
   writeVerificationRunSummary,
+  ALLOWED_WORKFLOWS,
 } = require('../../src/cli/helpers/verification-run-summary');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
@@ -33,16 +34,16 @@ function slugify(value) {
     .slice(0, 80) || 'workspace';
 }
 
-function logRef(repo, runId, fileName, contents = 'ok\n') {
+function logRef(repo, runId, fileName, contents = 'ok\n', workflow = 'spec-work') {
   const workspaceSlug = slugify(path.basename(repo));
-  const relativePath = path.join('.spec-first', 'workflows', 'spec-work', workspaceSlug, runId, 'logs', fileName);
+  const relativePath = path.join('.spec-first', 'workflows', workflow, workspaceSlug, runId, 'logs', fileName);
   const absolutePath = path.join(repo, relativePath);
   fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
   fs.writeFileSync(absolutePath, contents);
   return relativePath;
 }
 
-function payload(repo, runId, overrides = {}) {
+function payload(repo, runId, overrides = {}, workflow = 'spec-work') {
   return {
     profile: {
       source: 'explicit',
@@ -59,7 +60,7 @@ function payload(repo, runId, overrides = {}) {
         ran: true,
         required_tools: ['node', 'npm'],
         missing_tools: [],
-        log_path: logRef(repo, runId, 'typecheck.log'),
+        log_path: logRef(repo, runId, 'typecheck.log', 'ok\n', workflow),
         reason_code: 'exit-code-zero',
         redaction_status: 'none-required',
       },
@@ -110,6 +111,32 @@ describe('verification run summary contract and capture helper', () => {
           reason_code: 'exit-code-zero',
           redaction_status: 'none-required',
         },
+        {
+          id: 'debug-repro',
+          service: 'spec-first',
+          command: 'npm run test:unit -- debug',
+          status: 'passed',
+          exit_code: 0,
+          ran: true,
+          required_tools: ['node', 'npm'],
+          missing_tools: [],
+          log_path: '.spec-first/workflows/spec-debug/spec-first/run-1/logs/debug-repro.log',
+          reason_code: 'exit-code-zero',
+          redaction_status: 'none-required',
+        },
+        {
+          id: 'review-autofix',
+          service: 'spec-first',
+          command: 'npm run test:unit -- review',
+          status: 'passed',
+          exit_code: 0,
+          ran: true,
+          required_tools: ['node', 'npm'],
+          missing_tools: [],
+          log_path: '.spec-first/workflows/spec-code-review/spec-first/run-1/logs/review-autofix.log',
+          reason_code: 'exit-code-zero',
+          redaction_status: 'none-required',
+        },
       ],
     };
 
@@ -153,6 +180,60 @@ describe('verification run summary contract and capture helper', () => {
       expect(read.code).toBe(0);
       expect(readOutput.status).toBe('read');
       expect(readOutput.summary.checks[0].status).toBe('passed');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('records run summaries under explicit debug and review workflow scopes', () => {
+    for (const workflow of ['spec-debug', 'spec-code-review']) {
+      const repo = makeRepo();
+      try {
+        const runId = `run-${workflow}`;
+        const inputPath = writePayload(repo, payload(repo, runId, {}, workflow));
+
+        const result = writeVerificationRunSummary({
+          inputPath,
+          runId,
+          targetRepo: repo,
+          workflow,
+        });
+
+        expect(result.exitCode).toBe(0);
+        expect(result.output.status).toBe('written');
+        expect(result.output.run_summary_ref).toContain(`.spec-first/workflows/${workflow}/`);
+        const read = readVerificationRunSummary({ targetRepo: repo, runSummaryRef: result.output.run_summary_ref });
+        expect(read.output.summary.checks[0].log_path).toContain(`.spec-first/workflows/${workflow}/`);
+      } finally {
+        fs.rmSync(repo, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('accepts explicit workflow selection through the internal CLI boundary', () => {
+    const repo = makeRepo();
+    try {
+      const runId = 'cli-workflow';
+      const inputPath = writePayload(repo, payload(repo, runId, {}, 'spec-debug'), 'payload-cli.json');
+
+      const { code, stdout } = captureStdout(() => runInternal([
+        'verification-run-summary',
+        'record',
+        '--workflow',
+        'spec-debug',
+        '--input',
+        inputPath,
+        '--run-id',
+        runId,
+        '--target-repo',
+        repo,
+        '--json',
+      ]));
+      const output = JSON.parse(stdout);
+
+      expect(code).toBe(0);
+      expect(output.status).toBe('written');
+      expect(output.run_summary_ref).toContain('.spec-first/workflows/spec-debug/');
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
@@ -320,6 +401,36 @@ describe('verification run summary contract and capture helper', () => {
       expect(second.exitCode).toBe(0);
       expect(second.output.status).toBe('not-written');
       expect(second.output.reason_code).toBe('run-summary-already-exists');
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects unsupported workflow names for recording and log validation', () => {
+    const repo = makeRepo();
+    try {
+      const runId = 'bad-workflow';
+      const inputPath = writePayload(repo, payload(repo, runId));
+      const result = writeVerificationRunSummary({
+        inputPath,
+        runId,
+        targetRepo: repo,
+        workflow: 'spec-review',
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.output.status).toBe('rejected');
+      expect(result.output.reason_code).toBe('invalid-workflow');
+
+      const validation = validateRunSummaryInput(payload(repo, runId), {
+        targetRepoRoot: repo,
+        workflow: 'spec-review',
+        workspaceSlug: slugify(path.basename(repo)),
+        runId,
+      });
+      expect(validation.errors).toContain(
+        'checks[0].log_path workflow must be one of: spec-work, spec-debug, spec-code-review'
+      );
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }

@@ -972,10 +972,11 @@ function applyGlobalDeveloperProfileWrite(globalWrite) {
 
 function printInitApplySuccess(plan, result, options = {}) {
   const adapter = getAdapter(plan.platform);
+  const messages = getInitMessages((plan.developer && plan.developer.lang) || 'zh');
   if (plan.platform === 'claude') {
-    console.log('🪝 Installed Claude managed hook matchers in .claude/settings.json');
+    console.log(messages.applyInstalledClaudeHook);
   } else if (plan.platform === 'codex') {
-    console.log('🪝 Installed Codex SessionStart hook in .codex/hooks/');
+    console.log(messages.applyInstalledCodexHook);
   }
   const synced = plan.syncedAssets || {
     commands: [],
@@ -993,42 +994,43 @@ function printInitApplySuccess(plan, result, options = {}) {
   const agentSupportFiles = synced.agentSupportFiles || [];
 
   if (adapter.hasCommands) {
-    console.log(`📦 Generated ${written.length} command file(s) in ${path.relative(plan.projectRoot, plan.commandDir)}`);
+    console.log(messages.applyGeneratedCommands(written.length, path.relative(plan.projectRoot, plan.commandDir)));
   }
-  console.log(`🧩 Generated ${skillNames.length} skill directory(ies) in ${adapter.skillsRoot}`);
-  console.log(`🤖 Generated ${agentPaths.length} agent file(s) in ${adapter.agentsRoot}`);
+  console.log(messages.applyGeneratedSkills(skillNames.length, adapter.skillsRoot));
+  console.log(messages.applyGeneratedAgents(agentPaths.length, adapter.agentsRoot));
   if (agentSupportFiles.length > 0) {
-    console.log(`🧰 Generated ${agentSupportFiles.length} agent support file(s) in ${adapter.agentsRoot}`);
+    console.log(messages.applyGeneratedAgentSupport(agentSupportFiles.length, adapter.agentsRoot));
   }
   const gitignoreOperation = plan.writePlan.operations.find((operation) => operation.reason === 'managed_gitignore_policy');
   if (gitignoreOperation) {
-    const action = gitignoreOperation.gitignoreStatus === 'added' ? 'Added' : 'Updated';
-    console.log(`🧹 ${action} .gitignore spec-first managed block`);
+    console.log(gitignoreOperation.gitignoreStatus === 'added'
+      ? messages.applyGitignoreAdded
+      : messages.applyGitignoreUpdated);
   }
   const runtimeUntrack = result.runtime_untrack;
-  printRuntimeUntrackApplySummary(runtimeUntrack);
-  printGlobalDeveloperWriteSummary(plan.globalDeveloperWrite);
+  printRuntimeUntrackApplySummary(runtimeUntrack, messages);
+  printGlobalDeveloperWriteSummary(plan.globalDeveloperWrite, messages);
   if (plan.changelogCreated && !options.suppressChangelogCreated) {
-    console.log('📝 Bootstrapped CHANGELOG.md');
+    console.log(messages.applyBootstrappedChangelog);
   }
 
   if (options.showNextSteps !== false) {
     console.log('');
-    printInitNextSteps(plan.platform, plan.developer.lang);
+    printInitNextSteps(plan.platform, (plan.developer && plan.developer.lang) || 'zh');
   }
 }
 
-function printGlobalDeveloperWriteSummary(globalWrite) {
+function printGlobalDeveloperWriteSummary(globalWrite, messages = getInitMessages('zh')) {
   if (!globalWrite || !globalWrite.developer) {
     return;
   }
   const action = globalWrite.action;
   if (action === 'create') {
-    console.log('🪪 Wrote global developer profile:');
+    console.log(messages.applyDeveloperProfileCreate);
   } else if (action === 'overwrite') {
-    console.log('🪪 Updated global developer profile:');
+    console.log(messages.applyDeveloperProfileOverwrite);
   } else {
-    console.log('🪪 Preserved existing global developer profile:');
+    console.log(messages.applyDeveloperProfilePreserve);
   }
   console.log(`  📍 path: ${globalWrite.globalPath}`);
   console.log(`  👤 name: ${globalWrite.developer.name}`);
@@ -1050,13 +1052,14 @@ function runInitForWorkspace({
   selectionSource,
 }) {
   const results = [];
+  const workspaceMessages = getInitMessages(parsed.lang || 'zh');
   console.log(`Workspace init: spec-first init (${platform})`);
   console.log(`  workspace_root: ${workspaceRoot}`);
   console.log(`  selection_source: ${selectionSource}`);
   console.log(`  child_repos: ${candidates.length}`);
 
   console.log('');
-  console.log('▶ Refresh parent host runtime assets');
+  console.log(workspaceMessages.applyRefreshParentRuntime);
   let parentRuntime = {
     exit_code: 0,
     overall_status: 'ready',
@@ -2305,18 +2308,18 @@ function printRuntimeUntrackDryRunSummary(untrackDiagnostic = buildRuntimeUntrac
   }
 }
 
-function printRuntimeUntrackApplySummary(summary = buildRuntimeUntrackSummary()) {
+function printRuntimeUntrackApplySummary(summary = buildRuntimeUntrackSummary(), messages = getInitMessages('zh')) {
   if (summary.count > 0) {
-    console.log(`🧯 Untracked ${summary.count} managed runtime path(s) from git index (work tree files preserved).`);
+    console.log(messages.applyRuntimeUntracked(summary.count));
     return;
   }
 
   if (summary.reason_code === 'none-tracked') {
-    console.log('🧯 No managed runtime paths require untracking.');
+    console.log(messages.applyRuntimeUntrackNone);
     return;
   }
 
-  console.log(`🧯 Runtime untrack skipped: ${summary.reason_code}`);
+  console.log(messages.applyRuntimeUntrackSkipped(summary.reason_code));
 }
 
 function buildRuntimeUntrackSummary(untrackDiagnostic = {}, applyResult = null) {
