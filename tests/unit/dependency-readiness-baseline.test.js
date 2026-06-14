@@ -197,6 +197,48 @@ describe('dependency readiness baseline contracts', () => {
     }
   });
 
+  test('check-health can report jq missing before jq is available', () => {
+    const binDir = makeTempDir();
+    const checkHealth = path.join(repoRoot, 'skills/spec-mcp-setup/scripts/check-health');
+    const linkCommand = (name, target) => {
+      const linkPath = path.join(binDir, name);
+      try {
+        fs.symlinkSync(target, linkPath);
+      } catch (_error) {
+        fs.writeFileSync(linkPath, `#!/bin/sh\nexec "${target}" "$@"\n`, 'utf8');
+        fs.chmodSync(linkPath, 0o755);
+      }
+    };
+
+    try {
+      linkCommand('bash', '/bin/bash');
+      linkCommand('node', process.execPath);
+      for (const command of ['dirname', 'pwd', 'uname', 'git']) {
+        linkCommand(command, `/usr/bin/${command}`);
+      }
+
+      const result = spawnSync('bash', [checkHealth, '--json'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          PATH: binDir,
+        },
+      });
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+
+      const payload = JSON.parse(result.stdout);
+      const jqTool = payload.tools.find((tool) => tool.id === 'jq');
+      expect(jqTool).toMatchObject({
+        dependency_status: 'missing',
+        result: 'action-required',
+      });
+    } finally {
+      fs.rmSync(binDir, { recursive: true, force: true });
+    }
+  });
+
   test('tool facts and provider readiness schemas reject drifted enums', () => {
     const toolFactsSchema = readJson(path.join(repoRoot, 'docs/contracts/tool-facts.schema.json'));
     const providerSchema = readJson(path.join(repoRoot, 'docs/contracts/provider-readiness.schema.json'));

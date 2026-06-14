@@ -6,41 +6,139 @@ helper_registry_path() {
   printf '%s\n' "$(dirname "$script_dir")/helper-tools.json"
 }
 
+helper_registry_read_node() {
+  local query="$1"
+  shift
+  node - "$(helper_registry_path)" "$query" "$@" <<'NODE'
+const fs = require('node:fs');
+
+const [registryPath, query, ...args] = process.argv.slice(2);
+const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+const helpers = Array.isArray(registry.helpers) ? registry.helpers : [];
+
+function helperById(id) {
+  return helpers.find((helper) => helper && helper.id === id) || {};
+}
+
+function writeLines(values) {
+  const filtered = values.filter((value) => value !== undefined && value !== null && String(value).length > 0);
+  if (filtered.length > 0) {
+    process.stdout.write(`${filtered.map(String).join('\n')}\n`);
+  }
+}
+
+function writeScalar(value, fallback = '') {
+  if (value === undefined || value === null) {
+    process.stdout.write(`${fallback}\n`);
+    return;
+  }
+  process.stdout.write(`${String(value)}\n`);
+}
+
+switch (query) {
+  case 'ids':
+    writeLines(helpers.map((helper) => helper.id));
+    break;
+  case 'cli_ids':
+    writeLines(helpers
+      .filter((helper) => helper.kind === 'cli' || helper.kind === 'browser-helper')
+      .map((helper) => helper.id));
+    break;
+  case 'skill_ids':
+    writeLines(helpers
+      .filter((helper) => helper.kind === 'global-skill')
+      .map((helper) => helper.id));
+    break;
+  case 'baseline_blocking':
+    writeScalar(helperById(args[0]).baseline_blocking);
+    break;
+  case 'kind':
+    writeScalar(helperById(args[0]).kind);
+    break;
+  case 'skill_name':
+    writeScalar((helperById(args[0]).detection || {}).skill_name);
+    break;
+  case 'profile': {
+    const profiles = helperById(args[0]).profiles;
+    writeScalar(Array.isArray(profiles) ? profiles[0] : undefined, 'minimal');
+    break;
+  }
+  case 'source_repo':
+    writeScalar((helperById(args[0]).safety || {}).source_repo);
+    break;
+  default:
+    process.exit(2);
+}
+NODE
+}
+
 helper_registry_ids() {
-  jq -r '.helpers[].id' "$(helper_registry_path)"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '.helpers[].id' "$(helper_registry_path)"
+  else
+    helper_registry_read_node ids
+  fi
 }
 
 helper_registry_cli_ids() {
-  jq -r '.helpers[] | select(.kind == "cli" or .kind == "browser-helper") | .id' "$(helper_registry_path)"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '.helpers[] | select(.kind == "cli" or .kind == "browser-helper") | .id' "$(helper_registry_path)"
+  else
+    helper_registry_read_node cli_ids
+  fi
 }
 
 helper_registry_skill_ids() {
-  jq -r '.helpers[] | select(.kind == "global-skill") | .id' "$(helper_registry_path)"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '.helpers[] | select(.kind == "global-skill") | .id' "$(helper_registry_path)"
+  else
+    helper_registry_read_node skill_ids
+  fi
 }
 
 helper_registry_baseline_blocking() {
   local id="$1"
-  jq -r --arg id "$id" '.helpers[] | select(.id == $id) | .baseline_blocking' "$(helper_registry_path)"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r --arg id "$id" '.helpers[] | select(.id == $id) | .baseline_blocking' "$(helper_registry_path)"
+  else
+    helper_registry_read_node baseline_blocking "$id"
+  fi
 }
 
 helper_registry_kind() {
   local id="$1"
-  jq -r --arg id "$id" '.helpers[] | select(.id == $id) | .kind' "$(helper_registry_path)"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r --arg id "$id" '.helpers[] | select(.id == $id) | .kind' "$(helper_registry_path)"
+  else
+    helper_registry_read_node kind "$id"
+  fi
 }
 
 helper_registry_skill_name() {
   local id="$1"
-  jq -r --arg id "$id" '.helpers[] | select(.id == $id) | .detection.skill_name // empty' "$(helper_registry_path)"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r --arg id "$id" '.helpers[] | select(.id == $id) | .detection.skill_name // empty' "$(helper_registry_path)"
+  else
+    helper_registry_read_node skill_name "$id"
+  fi
 }
 
 helper_registry_profile() {
   local id="$1"
-  jq -r --arg id "$id" '.helpers[] | select(.id == $id) | (.profiles[0] // "minimal")' "$(helper_registry_path)"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r --arg id "$id" '.helpers[] | select(.id == $id) | (.profiles[0] // "minimal")' "$(helper_registry_path)"
+  else
+    helper_registry_read_node profile "$id"
+  fi
 }
 
 helper_registry_source_repo() {
   local id="$1"
-  jq -r --arg id "$id" '.helpers[] | select(.id == $id) | .safety.source_repo // empty' "$(helper_registry_path)"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r --arg id "$id" '.helpers[] | select(.id == $id) | .safety.source_repo // empty' "$(helper_registry_path)"
+  else
+    helper_registry_read_node source_repo "$id"
+  fi
 }
 
 # ---- 展示用安装命令生成器(单一真相源)----

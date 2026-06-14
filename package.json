@@ -107,10 +107,6 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "dependencies": {
-    "ignore": "^5.0.0",
-    "simple-git": "~3.0.0"
-  },
   "devDependencies": {
     "jest": "^29.0.0"
   }

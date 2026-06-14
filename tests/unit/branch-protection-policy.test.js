@@ -103,6 +103,7 @@ describe('branch protection policy contracts', () => {
     expect(coveredPaths).toEqual(expect.arrayContaining([
       'src/cli/contracts/quality-gates/**',
       'docs/contracts/quality-gates/**',
+      'docs/contracts/workflows/**',
       'scripts/run-ai-dev-quality-gate.js',
       'tests/unit/branch-protection-policy.test.js',
       'tests/integration/verification-gate.integration.test.js',

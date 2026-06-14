@@ -208,6 +208,7 @@ describe('ai dev quality gate contract', () => {
     expect(aiWorkflow).toContain("src/cli/contracts/quality-gates/**");
     expect(aiWorkflow).toContain("src/contracts/**");
     expect(aiWorkflow).toContain("docs/contracts/quality-gates/**");
+    expect(aiWorkflow).toContain("docs/contracts/workflows/**");
     expect(aiWorkflow).toContain("scripts/run-ai-dev-benchmark-fixtures.js");
     expect(aiWorkflow).toContain("scripts/run-ai-dev-quality-gate.js");
     expect(aiWorkflow).toContain("scripts/run-test-suite.cjs");

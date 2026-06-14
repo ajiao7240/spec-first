@@ -120,11 +120,13 @@ describe('clean --dry-run', () => {
       expect(cleanResult.stdout).toContain('Apply: spec-first clean (claude)');
       expect(cleanResult.stdout).toContain('Removing');
       expect(cleanResult.stdout).toContain('Updating');
+      expect(cleanResult.stdout).toContain('Empty managed roots are removed during cleanup.');
       expect(cleanResult.stdout).toContain('.claude/spec-first/state.json');
       expect(cleanResult.stdout).toContain('.claude/hooks/session-start');
       expect(cleanResult.stdout).toContain('Custom assets outside the spec-first managed set are left untouched.');
       expect(cleanResult.stdout).not.toContain('Would remove');
       expect(cleanResult.stdout).not.toContain('Would update');
+      expect(cleanResult.stdout).not.toContain('empty managed root(s) after cleanup.');
       expect(cleanResult.stdout).not.toContain('No files were changed.');
 
       const removedPaths = [
@@ -145,6 +147,26 @@ describe('clean --dry-run', () => {
       expect(claudeInstruction).not.toContain('spec-first:bootstrap:start');
       expect(claudeInstruction).not.toContain('spec-first:coding-guidelines:start');
       expect(claudeInstruction).not.toContain('spec-first:runtime-tools:start');
+    } finally {
+      initLogSpy.mockRestore();
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('Claude clean dry-run keeps empty-root preview in the summary', () => {
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'claude' }))).toBe(0);
+
+      fs.rmSync(path.join(projectRoot, '.claude', 'skills'), { recursive: true, force: true });
+      fs.mkdirSync(path.join(projectRoot, '.claude', 'skills'), { recursive: true });
+
+      const result = captureCommand(projectRoot, runClean, ['--claude', '--dry-run']);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Would remove 1 empty managed root(s) after cleanup.');
+      expect(result.stdout).toContain('No files were changed.');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

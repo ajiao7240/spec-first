@@ -446,7 +446,11 @@ function printCleanSummary(platform, cleanPlan, { mode }) {
   for (const operation of cleanPlan.runtimeCleanup.operations.filter((entry) => entry.kind === 'update_file')) {
     console.log(`  - ${operation.path}`);
   }
-  console.log(`${dryRun ? 'Would remove' : 'Removing'} ${emptyRootCount} empty managed root(s) after cleanup.`);
+  if (dryRun) {
+    console.log(`Would remove ${emptyRootCount} empty managed root(s) after cleanup.`);
+  } else {
+    console.log('Empty managed roots are removed during cleanup.');
+  }
   console.log(`Custom assets outside the spec-first managed set ${dryRun ? 'would remain' : 'are left'} untouched.`);
   if (dryRun) {
     console.log('No files were changed.');

@@ -710,7 +710,7 @@ Key improvements:
 ### 4.3 Preserve and Offer Next Steps
 
 The optimization branch (`optimize/<spec-name>`) is preserved with all commits from kept experiments.
-The experiment log and strategy digest remain in local `.context/...` scratch space for resume and audit on this machine only; they do not travel with the branch because `.context/` is gitignored.
+The experiment log and strategy digest remain in local `.spec-first/workflows/spec-optimize/<spec-name>/` scratch space for resume and audit on this machine only; they do not travel with the branch because that run-state path is gitignored.
 
 Present post-completion options via the platform question tool:
 

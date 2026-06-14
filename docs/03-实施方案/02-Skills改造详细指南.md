@@ -4,6 +4,12 @@
 
 本文档提供每个 skill 从 Every 基座改造为 spec-first 的详细步骤。
 
+> 现状说明：本文档是早期迁移指南，保留了 `.claude/tasks/<task-id>/task.yaml`
+> 与 `task-manager.sh` / `stage-gate.sh` / `review-judge.sh` 的历史示例。当前
+> spec-first 不再依赖这条 legacy shell e2e 链；现行 skill / workflow 改造以
+> `skills/*/SKILL.md`、`src/cli/`、`docs/contracts/workflows/**` 和 focused Jest
+> contract tests 为 source-of-truth。
+
 ## 2. 通用改造流程
 
 ### 2.1 文件复制
@@ -16,7 +22,7 @@ cp -r /Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineeri
 
 ### 2.2 通用修改点
 
-每个 skill 都需要修改以下内容：
+历史迁移草案中曾需要修改以下内容：
 
 **1. Skill 名称**
 - 文件名：`ce-<name>` → `spec-<name>`
@@ -24,28 +30,29 @@ cp -r /Users/kuang/xiaobu/compound-engineering-plugin/plugins/compound-engineeri
 
 **2. 输出路径**
 - 原路径：`docs/plans/` 或其他
-- 新路径：`.claude/tasks/<task-id>/0X-<name>.md`
+- 当前 source-first 路径：`docs/plans/`、`docs/validation/`、`.spec-first/workflows/**`
+  或 workflow 自身声明的 artifact；不要把 generated runtime mirror 当 source。
 
-**3. 增加阶段契约检查**
-在 skill 开头增加：
+**3. 增加输入与证据边界**
+在 skill 开头明确：
 ```markdown
-## 阶段契约检查
+## 输入与证据边界
 
 执行以下检查：
-1. 调用 stage-gate.sh 检查上游产物
-2. 调用 task-manager.sh 读取 task.yaml
-3. 决策 level（如未指定）
-4. 验证输入完整性
+1. 读取用户指定 artifact、plan 或 task-pack 的 source refs
+2. 区分 source-of-truth 与 generated runtime
+3. 区分 script-owned facts 与 LLM-owned judgment
+4. 记录验证命令、limitations 与 next action
 ```
 
-**4. 增加状态更新**
+**4. 增加 closeout 证据**
 在 skill 结尾增加：
 ```markdown
-## 状态更新
+## Closeout
 
-1. 生成阶段产物到 .claude/tasks/<task-id>/
-2. 调用 task-manager.sh 更新 task.yaml
-3. 推进 current_stage
+1. 列出 changed files / generated artifacts
+2. 列出已运行验证和未运行原因
+3. 给出 review / compound / release handoff
 ```
 
 ## 3. spec-brainstorm 改造
@@ -80,9 +87,9 @@ description: 思路发散、方案探索
    - 如果 --task-id 未指定，自动生成
    - 创建 .claude/tasks/<task-id>/
 
-2. 初始化或读取 task.yaml
-   - 如果不存在，调用 task-manager.sh create
-   - 如果存在，调用 task-manager.sh read
+2. 初始化或读取 legacy task.yaml
+   - 如果不存在，legacy 示例使用 task-manager.sh create
+   - 如果存在，legacy 示例使用 task-manager.sh read
 
 3. 决策 level
    - 如果 --level 未指定，根据任务描述分析
@@ -125,7 +132,7 @@ description: 思路发散、方案探索
 ## 状态更新
 
 1. 生成 01-brainstorm.md 到 .claude/tasks/<task-id>/
-2. 调用 task-manager.sh update --stage brainstorm --status completed
+2. legacy 示例使用 task-manager.sh update --stage brainstorm --status completed
 3. 推进 current_stage 到 plan
 ```
 
@@ -164,13 +171,13 @@ description: 规划制定、方案细化
 ```markdown
 ## 阶段契约检查
 
-1. 调用 stage-gate.sh 检查上游产物
+1. legacy 示例使用 stage-gate.sh 检查上游产物
    - 验证 01-brainstorm.md 存在
    - 验证 01-brainstorm.md 非空
-   - 验证 task.yaml 中 brainstorm 阶段已完成
+   - 验证 legacy task.yaml 中 brainstorm 阶段已完成
 
-2. 读取 task.yaml
-   - 调用 task-manager.sh read
+2. 读取 legacy task.yaml
+   - legacy 示例使用 task-manager.sh read
    - 获取 task_id, role, level
 
 3. 验证输入完整性
@@ -209,7 +216,7 @@ description: 规划制定、方案细化
 ## 状态更新
 
 1. 生成 02-plan.md 到 .claude/tasks/<task-id>/
-2. 调用 task-manager.sh update --stage plan --status completed
+2. legacy 示例使用 task-manager.sh update --stage plan --status completed
 3. 推进 current_stage 到 work
 ```
 
@@ -248,13 +255,13 @@ description: 执行落地、代码实现
 ```markdown
 ## 阶段契约检查
 
-1. 调用 stage-gate.sh 检查上游产物
+1. legacy 示例使用 stage-gate.sh 检查上游产物
    - 验证 02-plan.md 存在
    - 验证 02-plan.md 非空
-   - 验证 task.yaml 中 plan 阶段已完成
+   - 验证 legacy task.yaml 中 plan 阶段已完成
 
-2. 读取 task.yaml
-   - 调用 task-manager.sh read
+2. 读取 legacy task.yaml
+   - legacy 示例使用 task-manager.sh read
    - 获取 task_id, role, level
 
 3. 验证输入完整性
@@ -276,7 +283,7 @@ description: 执行落地、代码实现
 ## 状态更新
 
 1. 生成 03-work.md 到 .claude/tasks/<task-id>/
-2. 调用 task-manager.sh update --stage work --status completed
+2. legacy 示例使用 task-manager.sh update --stage work --status completed
 3. 推进 current_stage 到 review
 ```
 
@@ -316,13 +323,13 @@ description: 质量评审、问题识别
 ```markdown
 ## 阶段契约检查
 
-1. 调用 stage-gate.sh 检查上游产物
+1. legacy 示例使用 stage-gate.sh 检查上游产物
    - 验证 03-work.md 存在
    - 验证 03-work.md 非空
-   - 验证 task.yaml 中 work 阶段已完成
+   - 验证 legacy task.yaml 中 work 阶段已完成
 
-2. 读取 task.yaml
-   - 调用 task-manager.sh read
+2. 读取 legacy task.yaml
+   - legacy 示例使用 task-manager.sh read
    - 获取 task_id, role, level
 
 3. 验证输入完整性
@@ -359,7 +366,7 @@ description: 质量评审、问题识别
 
 ### 判定流程
 
-1. 调用 review-judge.sh 执行判定
+1. legacy 示例使用 review-judge.sh 执行判定
 2. 生成 pass 字段（true/false）
 3. 生成 rework_required 字段
 4. 生成 compound_recommended 字段
@@ -409,7 +416,7 @@ reviewed_at: <timestamp>
 ## 状态更新
 
 1. 生成 04-review.md 到 .claude/tasks/<task-id>/
-2. 调用 task-manager.sh update --stage review --status completed
+2. legacy 示例使用 task-manager.sh update --stage review --status completed
 3. 根据 pass 字段决定：
    - pass=true：推进 current_stage 到 compound
    - pass=false：保持 current_stage 为 work，设置 status 为 blocked
@@ -451,14 +458,14 @@ description: 知识沉淀、资产提取
 ```markdown
 ## 阶段契约检查
 
-1. 调用 stage-gate.sh 检查上游产物
+1. legacy 示例使用 stage-gate.sh 检查上游产物
    - 验证 04-review.md 存在
    - 验证 04-review.md 非空
    - **验证 pass=true**（关键检查）
-   - 验证 task.yaml 中 review 阶段已完成
+   - 验证 legacy task.yaml 中 review 阶段已完成
 
-2. 读取 task.yaml
-   - 调用 task-manager.sh read
+2. 读取 legacy task.yaml
+   - legacy 示例使用 task-manager.sh read
    - 获取 task_id, role, level
 
 3. 验证沉淀条件
@@ -539,8 +546,8 @@ tags: [tag1, tag2, tag3]
 
 1. 生成 05-compound.md 到 .claude/tasks/<task-id>/
 2. 执行资产迁移到 .claude/assets/
-3. 调用 task-manager.sh update --stage compound --status completed
-4. 设置 task.yaml 的 status 为 completed
+3. legacy 示例使用 task-manager.sh update --stage compound --status completed
+4. 设置 legacy task.yaml 的 status 为 completed
 ```
 
 ### 7.8 保留内容
@@ -626,4 +633,3 @@ tags: [tag1, tag2, tag3]
 - 保持 Every 的高质量 prompt
 - 符合 spec-first 设计
 - 可正常运行
-
