@@ -74,12 +74,15 @@ describe('context governance runtime exclusion contract', () => {
       expect(block).toContain('.agents/skills/**');
     }
 
-    expect(read('AGENTS.md')).toContain('Runtime context excludes `.spec-first/audits/**`');
-    expect(read('AGENTS.md')).toContain('`.spec-first/governance/**`');
-    expect(read('CLAUDE.md')).toContain('Runtime context excludes `.spec-first/audits/**`');
-    expect(read('CLAUDE.md')).toContain('`.spec-first/governance/**`');
-    expect(read('AGENTS.md')).toContain("User-visible output language follows this file's `spec-first:lang` managed block");
-    expect(read('CLAUDE.md')).toContain("User-visible output language follows this file's `spec-first:lang` managed block");
+    // Checked-in instruction files surface the same runtime-exclusion invariants.
+    // Assert language-agnostic anchors (path globs + the spec-first:lang managed-block
+    // pointer) rather than en/zh prose, since the bootstrap block follows the repo host lang.
+    for (const file of ['AGENTS.md', 'CLAUDE.md']) {
+      const content = read(file);
+      expect(content).toContain('`.spec-first/audits/**`');
+      expect(content).toContain('`.spec-first/governance/**`');
+      expect(content).toContain('`spec-first:lang` managed block');
+    }
   });
 
   test('high-frequency ordinary workflows carry the runtime exclusion rule', () => {

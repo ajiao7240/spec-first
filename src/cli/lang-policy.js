@@ -83,9 +83,9 @@ function buildZhPolicy() {
 - 新增代码注释使用中文，只说明非显然意图。
 
 ### Changelog
-- 任何项目 source 新增、删除或修改，都必须同步更新根目录 \`CHANGELOG.md\`；记录格式以仓库现行格式为准。
-- \`作者\` 使用全局 developer profile：统一读 \`~/.spec-first/.developer\`；缺失时先运行 \`spec-first init\` 并按引导选择开发者姓名与语言。
-- 用户可见变更追加 \`(user-visible)\`；缺少对应记录时，拒绝生成 source 变更。`;
+- 任何项目 source 新增/删除/修改都必须同步更新根目录 \`CHANGELOG.md\`；记录格式以仓库现行为准。
+- \`作者\` 读全局 developer profile \`~/.spec-first/.developer\`；取不到时回退 git 提交身份或留空，不阻断变更。
+- 用户可见变更追加 \`(user-visible)\`；缺少 changelog 记录时拒绝生成 source 变更。`;
 }
 
 function buildEnPolicy() {
@@ -100,8 +100,8 @@ function buildEnPolicy() {
 
 ### Changelog
 - Any project source addition, deletion, or modification must update the repo-root \`CHANGELOG.md\`; follow the repository's existing format.
-- \`author\` uses the global developer profile: always read \`~/.spec-first/.developer\`; if missing, run \`spec-first init\` first and choose the developer name and language when prompted.
-- Append \`(user-visible)\` for user-visible changes; if the matching entry is missing, refuse to generate the source change.`;
+- \`author\` reads the global developer profile \`~/.spec-first/.developer\`; if it is unavailable, fall back to the git commit identity or leave it blank, and do not block the change.
+- Append \`(user-visible)\` for user-visible changes; if the changelog entry is missing, refuse to generate the source change.`;
 }
 
 module.exports = {
