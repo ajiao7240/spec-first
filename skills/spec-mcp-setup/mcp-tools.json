@@ -303,7 +303,7 @@
           "hook_default": false,
           "usage_owner": "downstream-skill"
         },
-        "usage_note": "Install package `{{package}}@{{version}}`, run the `codegraph` CLI, and use CodeGraph MCP tools for impact/call graph candidates. `codegraph serve --mcp` owns provider-native Auto-Sync freshness; confirm conclusions from source/test/log/contract/user evidence.",
+        "usage_note": "Install package `{{package}}@{{version}}`, run the `codegraph` CLI, and use CodeGraph MCP tools for impact/call graph candidates. Confirmed setup runs `codegraph sync` first when status reports pending changes or recommends `codegraph index -f`, then may run one bounded `codegraph index -f` only if the full-rebuild advisory remains. `codegraph serve --mcp` owns provider-native Auto-Sync freshness; confirm conclusions from source/test/log/contract/user evidence.",
         "fallback_methods": ["rg", "ast-grep", "direct-source-read"],
         "fresh_self_report_maps_to": "unknown",
         "stale_self_report_maps_to": "stale",

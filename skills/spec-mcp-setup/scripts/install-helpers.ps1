@@ -56,6 +56,9 @@ if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('SPEC_FIR
 }
 $script:GraphifyResolvedCommand = ''
 $script:GraphifyResolvedOnPath = ''
+$script:GraphifyRunDiagnostic = ''
+$script:GraphifyRunOutput = ''
+$script:GraphifyRunExitCode = 0
 $env:PATH = "$homeLocalBin$([System.IO.Path]::PathSeparator)$homeCargoBin$([System.IO.Path]::PathSeparator)$providerToolRoot$([System.IO.Path]::PathSeparator)$env:PATH"
 
 $script:MirrorEndpoints = [ordered]@{
@@ -982,6 +985,97 @@ function Invoke-GraphifyCommand {
   return (Invoke-GraphifyCommandWithTimeout -Command $graphifyCommand -Arguments $graphifyArguments -TimeoutSeconds $TimeoutSeconds)
 }
 
+function Join-WindowsProcessArguments {
+  param([object[]]$Arguments)
+
+  $quoted = foreach ($argument in @($Arguments)) {
+    $value = [string]$argument
+    if ($value.Length -eq 0) { '""'; continue }
+    if ($value -notmatch '[\s"]') { $value; continue }
+    '"' + $value.Replace('\', '\\').Replace('"', '\"') + '"'
+  }
+
+  return ($quoted -join ' ')
+}
+
+function Set-ProcessArgumentsCompat {
+  param(
+    [System.Diagnostics.ProcessStartInfo]$ProcessInfo,
+    [object[]]$Arguments
+  )
+
+  if ($ProcessInfo.PSObject.Properties.Name -contains 'ArgumentList') {
+    foreach ($argument in @($Arguments)) {
+      [void]$ProcessInfo.ArgumentList.Add([string]$argument)
+    }
+    return
+  }
+
+  $ProcessInfo.Arguments = Join-WindowsProcessArguments -Arguments $Arguments
+}
+
+function Invoke-GraphifyCommandCapture {
+  param(
+    [string[]]$Arguments,
+    [int]$TimeoutSeconds = $stageTimeoutSeconds
+  )
+
+  $graphifyCommand = Resolve-GraphifyCli
+  if ([string]::IsNullOrWhiteSpace($graphifyCommand)) {
+    $script:GraphifyRunDiagnostic = 'graphify CLI not found'
+    $script:GraphifyRunOutput = ''
+    $script:GraphifyRunExitCode = 127
+    return [pscustomobject]@{ ok = $false; exit_code = 127; stdout = ''; diagnostic_summary = $script:GraphifyRunDiagnostic }
+  }
+
+  $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $processInfo.FileName = $graphifyCommand
+  Set-ProcessArgumentsCompat -ProcessInfo $processInfo -Arguments @($Arguments)
+  $processInfo.RedirectStandardOutput = $true
+  $processInfo.RedirectStandardError = $true
+  $processInfo.UseShellExecute = $false
+
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $processInfo
+  try {
+    [void]$process.Start()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $timedOut = -not $process.WaitForExit($TimeoutSeconds * 1000)
+    if ($timedOut) {
+      try {
+        $process.Kill($true)
+      } catch {
+        try { $process.Kill() } catch {}
+      }
+      $process.WaitForExit()
+    }
+    $stdoutTask.Wait()
+    $stderrTask.Wait()
+    $stdout = [string]$stdoutTask.Result
+    $stderr = [string]$stderrTask.Result
+    $exitCode = if ($timedOut) { 124 } else { [int]$process.ExitCode }
+    $diagnostic = (@($stderr, $stdout) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }) -join ' '
+    if ($diagnostic.Length -gt 1000) { $diagnostic = $diagnostic.Substring(0, 1000) }
+    $script:GraphifyRunDiagnostic = $diagnostic
+    $script:GraphifyRunOutput = $stdout
+    $script:GraphifyRunExitCode = $exitCode
+    return [pscustomobject]@{ ok = ($exitCode -eq 0); exit_code = $exitCode; stdout = $stdout; diagnostic_summary = $diagnostic }
+  } catch {
+    $script:GraphifyRunDiagnostic = [string]$_.Exception.Message
+    $script:GraphifyRunOutput = ''
+    $script:GraphifyRunExitCode = 1
+    return [pscustomobject]@{ ok = $false; exit_code = 1; stdout = ''; diagnostic_summary = $script:GraphifyRunDiagnostic }
+  } finally {
+    $process.Dispose()
+  }
+}
+
+function Test-GraphifyOutputRequestsForceOverwrite {
+  param([string]$Output)
+  return ($Output -match 'Refusing to overwrite' -and $Output -match '--force')
+}
+
 function Repair-GraphifyHookPathVisibility {
   param([string]$RepoRoot)
   if ($script:GraphifyResolvedOnPath -ne 'false') { return }
@@ -1122,6 +1216,18 @@ function Invoke-GraphifyFirstGenerationIfRequested {
           Set-GraphifyFirstGenerationFact -Status 'completed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -ArtifactRef $artifactRef -NextAction 'graphify-code-only-fallback-used'
           return
         }
+      } elseif (Test-GraphifyOutputRequestsForceOverwrite -Output $script:GraphifyRunDiagnostic) {
+        $forceOk = Invoke-GraphifyForceOverwriteRepair -RepoRoot $repoRoot -WorkspacePath ([string]$resolved.workspace_rel)
+        if ($forceOk) {
+          $artifactRef = Get-GraphifyArtifactRef -RepoRoot $repoRoot -ArtifactRoot ([string]$resolved.artifact_rel)
+          if (-not [string]::IsNullOrWhiteSpace($artifactRef)) {
+            Invoke-GraphifyQueryProbe -RepoRoot $repoRoot -ArtifactRoot ([string]$resolved.artifact_abs)
+            Set-GraphifyFirstGenerationFact -Status 'completed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -ArtifactRef $artifactRef -NextAction 'graphify-force-overwrite-used'
+            return
+          }
+        }
+        Set-GraphifyFirstGenerationFact -Status 'failed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -NextAction 'graphify-force-overwrite-failed'
+        return
       }
     }
     Set-GraphifyFirstGenerationFact -Status 'failed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -NextAction 'graphify-first-generation-failed'
@@ -1150,7 +1256,23 @@ function Invoke-GraphifyCodeOnlyFallback {
   if ($WorkspacePath -ne '.') { return $false }
   Push-Location $RepoRoot
   try {
-    return (Invoke-GraphifyCommand @('update', '.'))
+    $result = Invoke-GraphifyCommandCapture -Arguments @('update', '.')
+    return [bool]$result.ok
+  } finally {
+    Pop-Location
+  }
+}
+
+function Invoke-GraphifyForceOverwriteRepair {
+  param(
+    [string]$RepoRoot,
+    [string]$WorkspacePath
+  )
+  if ($WorkspacePath -ne '.') { return $false }
+  Push-Location $RepoRoot
+  try {
+    $result = Invoke-GraphifyCommandCapture -Arguments @('update', '.', '--force')
+    return [bool]$result.ok
   } finally {
     Pop-Location
   }

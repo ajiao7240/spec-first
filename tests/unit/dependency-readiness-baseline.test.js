@@ -1396,6 +1396,92 @@ exit 0
     expect(payload.results.some((entry) => entry.tool_id === 'codegraph')).toBe(false);
   });
 
+  test('install-helpers retries Graphify update with force after overwrite refusal', () => {
+    const tempDir = makeTempDir();
+    const homeDir = path.join(tempDir, 'home');
+    const binDir = path.join(tempDir, 'bin');
+    const capturePath = path.join(tempDir, 'graphify-args.txt');
+    fs.mkdirSync(path.join(homeDir, '.agents/skills/ast-grep'), { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.writeFileSync(path.join(homeDir, '.agents/skills/ast-grep/SKILL.md'), '# ast-grep\n', 'utf8');
+    spawnSync('git', ['init'], { cwd: tempDir, encoding: 'utf8' });
+
+    for (const command of ['gh', 'vhs', 'silicon', 'ffmpeg', 'ast-grep']) {
+      const commandPath = path.join(binDir, command);
+      fs.writeFileSync(commandPath, '#!/bin/sh\nexit 0\n', 'utf8');
+      fs.chmodSync(commandPath, 0o755);
+    }
+    const graphifyPath = path.join(binDir, 'graphify');
+    fs.writeFileSync(graphifyPath, `#!/bin/sh
+printf '%s\\n' "$*" >> "$GRAPHIFY_CAPTURE"
+if [ "$1" = "--version" ]; then
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
+  exit 0
+fi
+if [ "$1" = "install" ]; then
+  mkdir -p .codex/skills/graphify
+  printf '# graphify\\n' > .codex/skills/graphify/SKILL.md
+  exit 0
+fi
+if [ "$1" = "extract" ]; then
+  exit 2
+fi
+if [ "$1" = "update" ] && [ "$2" = "." ] && [ "$3" = "--force" ]; then
+  mkdir -p graphify-out
+  printf '{}\\n' > graphify-out/graph.json
+  exit 0
+fi
+if [ "$1" = "update" ]; then
+  printf 'AST extraction: 6157/6157 files (100%%)\\n'
+  printf '[graphify] WARNING: new graph has 101070 nodes but existing graph.json has 102771. Refusing to overwrite — you may be missing chunk files from a previous session. Pass --force to override.\\n'
+  exit 1
+fi
+if [ "$1" = "query" ]; then
+  exit 0
+fi
+if [ "$1" = "hook" ]; then
+  exit 0
+fi
+exit 0
+`, 'utf8');
+    fs.chmodSync(graphifyPath, 0o755);
+
+    const result = spawnSync('bash', [installHelpersPath, '--install'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: homeDir,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        GRAPHIFY_CAPTURE: capturePath,
+        SPEC_FIRST_PROVIDER_REPO_ROOT: tempDir,
+        SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT: 'approved',
+        SPEC_FIRST_STAGE_TIMEOUT_SECONDS: '5',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    const captured = fs.readFileSync(capturePath, 'utf8');
+    expect(captured).toContain('extract .');
+    expect(captured).toContain('update .');
+    expect(captured).toContain('update . --force');
+    expect(captured.indexOf('update .')).toBeLessThan(captured.indexOf('update . --force'));
+    const payload = JSON.parse(result.stdout);
+    const graphify = payload.provider_readiness.find((entry) => entry.provider === 'graphify');
+    expect(graphify).toMatchObject({
+      first_generation: {
+        status: 'completed',
+        next_action: 'graphify-force-overwrite-used',
+        artifact_refs: ['graphify-out/graph.json'],
+      },
+      steady_state: {
+        hook_installed: true,
+        hook_verified: true,
+        hook_status: 'verified',
+      },
+    });
+  });
+
   test('install-mcp --only graphify internally approves Graphify and defaults to project workspace', () => {
     const tempDir = makeTempDir();
     const homeDir = path.join(tempDir, 'home');
@@ -1559,6 +1645,84 @@ exit 0
     expect(payload.results.find((entry) => entry.tool_id === 'codegraph')).toMatchObject({
       status: 'ready',
       last_action: 'project-bootstrapped-status-synced',
+    });
+  });
+
+  test('install-mcp runs one CodeGraph full reindex after sync cannot clear old-engine advisory', () => {
+    const tempDir = makeTempDir();
+    const homeDir = path.join(tempDir, 'home');
+    const binDir = path.join(tempDir, 'bin');
+    const capturePath = path.join(tempDir, 'codegraph-args.txt');
+    fs.mkdirSync(homeDir, { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'package.json'), '{"name":"fixture"}\n', 'utf8');
+    spawnSync('git', ['init'], { cwd: tempDir, encoding: 'utf8' });
+
+    const npmPath = path.join(binDir, 'npm');
+    fs.writeFileSync(npmPath, '#!/bin/sh\nexit 0\n', 'utf8');
+    fs.chmodSync(npmPath, 0o755);
+
+    const codegraphPath = path.join(binDir, 'codegraph');
+    fs.writeFileSync(codegraphPath, `#!/bin/sh
+printf '%s\\n' "$*" >> "$CODEGRAPH_CAPTURE"
+if [ "$1" = "--version" ]; then
+  printf '${CODEGRAPH_VERSION}\\n'
+  exit 0
+fi
+if [ "$1" = "init" ]; then
+  mkdir -p .codegraph
+  printf 'db\\n' > .codegraph/codegraph.db
+  exit 0
+fi
+if [ "$1" = "status" ]; then
+  if [ -f .codegraph/reindexed ]; then
+    printf 'CodeGraph Status\\nIndex is up to date\\n'
+  else
+    printf 'CodeGraph Status\\nIndex is up to date\\nRun "codegraph index -f" (full rebuild) or "codegraph sync"\\n'
+  fi
+  exit 0
+fi
+if [ "$1" = "sync" ]; then
+  mkdir -p .codegraph
+  printf 'already up to date\\n'
+  exit 0
+fi
+if [ "$1" = "index" ] && [ "$2" = "-f" ]; then
+  mkdir -p .codegraph
+  printf 'ok\\n' > .codegraph/reindexed
+  exit 0
+fi
+exit 0
+`, 'utf8');
+    fs.chmodSync(codegraphPath, 0o755);
+
+    const result = spawnSync('bash', [installMcpPath, '--only', 'codegraph', '--repo', tempDir], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: homeDir,
+        MCP_SETUP_HOST: 'codex',
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        CODEGRAPH_CAPTURE: capturePath,
+        SPEC_FIRST_STAGE_TIMEOUT_SECONDS: '5',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    const capturedLines = fs.readFileSync(capturePath, 'utf8').trim().split('\n');
+    expect(capturedLines).toEqual(expect.arrayContaining([
+      '--version',
+      'init',
+      'status',
+      'sync',
+      'index -f',
+    ]));
+    expect(capturedLines.join(' > ')).toContain('status > sync > status > index -f > status');
+    expect(JSON.parse(result.stdout).results.find((entry) => entry.tool_id === 'codegraph')).toMatchObject({
+      status: 'ready',
+      last_action: 'project-status-full-reindexed',
+      reason_code: 'codegraph-full-reindex-used',
     });
   });
 
@@ -2384,25 +2548,28 @@ exit 0
     });
     expect(guided.status).toBe(0);
     const guidedPlan = JSON.parse(guided.stdout);
-    expect(guidedPlan.optional_provider_selection).toMatchObject({
-      selection_source: 'guided-default-provider-pack',
-      selected_ids: ['codegraph', 'graphify'],
-      requires_confirmation: true,
-    });
-    const graphify = guidedPlan.provider_selection.find((entry) => entry.provider === 'graphify');
-    expect(graphify).toMatchObject({
-      selected: true,
-      tool_install_root: null,
-      artifact_root: path.join(tempDir, 'graphify-out'),
-      first_generation_display: 'resolved graphify CLI -> graphify install --project --platform <current-host>; graphify extract . (fallback: graphify update . code-only when extract fails)',
-      auto_refresh_display: 'resolved graphify CLI -> graphify hook install (git repo only; provider-owned post-commit/post-checkout refresh)',
-      command_visibility_display: 'setup resolves graphify from the original PATH or provider-standard $HOME/.local/bin/graphify; off-PATH installs remain usable by setup but are reported as a manual PATH visibility action.',
-      instruction_section_display: 'after provider project install, setup normalizes the AGENTS.md/CLAUDE.md ## graphify section to resolved CLI/manual-visibility/direct-source-fallback wording.',
-    });
-    expect(graphify.writes_display.provider_runtime).toEqual(expect.arrayContaining([
-      '.codex/skills/graphify/',
-      '.codex/hooks.json',
-      'AGENTS.md',
+  expect(guidedPlan.optional_provider_selection).toMatchObject({
+    selection_source: 'guided-default-provider-pack',
+    selected_ids: ['codegraph', 'graphify'],
+    requires_confirmation: true,
+  });
+  const graphify = guidedPlan.provider_selection.find((entry) => entry.provider === 'graphify');
+  expect(graphify).toMatchObject({
+    selected: true,
+    tool_install_root: null,
+    artifact_root: path.join(tempDir, 'graphify-out'),
+    first_generation_display: 'resolved graphify CLI -> graphify install --project --platform <current-host>; graphify extract . (fallback: graphify update . code-only; if provider refuses overwrite and suggests --force, one graphify update . --force repair)',
+    auto_refresh_display: 'resolved graphify CLI -> graphify hook install (git repo only; provider-owned post-commit/post-checkout refresh)',
+    command_visibility_display: 'setup resolves graphify from the original PATH or provider-standard $HOME/.local/bin/graphify; off-PATH installs remain usable by setup but are reported as a manual PATH visibility action.',
+    instruction_section_display: 'after provider project install, setup normalizes the AGENTS.md/CLAUDE.md ## graphify section to resolved CLI/manual-visibility/direct-source-fallback wording.',
+  });
+  const codegraph = guidedPlan.provider_selection.find((entry) => entry.provider === 'codegraph');
+  expect(codegraph.first_generation_display).toContain('codegraph sync first');
+  expect(codegraph.first_generation_display).toContain('one codegraph index -f repair');
+  expect(graphify.writes_display.provider_runtime).toEqual(expect.arrayContaining([
+    '.codex/skills/graphify/',
+    '.codex/hooks.json',
+    'AGENTS.md',
       '.claude/skills/graphify/',
       'CLAUDE.md',
     ]));

@@ -263,7 +263,7 @@ function optionalMcpProviders(mcpRegistry, repoRoot) {
         tool_install_root: null,
         cache_root: path.join(repoRoot, '.spec-first', 'cache'),
         artifact_root: path.join(repoRoot, '.codegraph'),
-        first_generation_display: `cd ${repoRoot} && codegraph init && codegraph status`,
+        first_generation_display: `cd ${repoRoot} && codegraph init && codegraph status; if status requests full rebuild, setup runs codegraph sync first and may run one codegraph index -f repair`,
         auto_refresh_display: 'codegraph serve --mcp Auto-Sync watcher (provider-owned; default debounce about 2s)',
         will_not_do: [
           'will not treat CodeGraph output as confirmed source truth',
@@ -327,7 +327,7 @@ function helperProviders(providerRegistry, mcpRegistry, repoRoot, requirementWor
         artifact_root: scope.artifact_root ? path.join(repoRoot, scope.artifact_root) : null,
         requirement_workspace_path: scope.requirement_workspace_path,
         first_generation_display: scope.ok
-          ? 'resolved graphify CLI -> graphify install --project --platform <current-host>; graphify extract . (fallback: graphify update . code-only when extract fails)'
+          ? 'resolved graphify CLI -> graphify install --project --platform <current-host>; graphify extract . (fallback: graphify update . code-only; if provider refuses overwrite and suggests --force, one graphify update . --force repair)'
           : `skipped: ${scope.first_generation_next_action}`,
         auto_refresh_display: scope.ok
           ? 'resolved graphify CLI -> graphify hook install (git repo only; provider-owned post-commit/post-checkout refresh)'

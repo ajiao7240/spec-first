@@ -142,7 +142,9 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(read(installHelpersPs1)).toContain('Test-GraphifyCommandVersionMatchesPin');
     expect(read(installHelpersPs1)).toContain('Normalize-GraphifyInstructionSection');
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('extract', '.')");
-    expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('update', '.')");
+    expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommandCapture -Arguments @('update', '.')");
+    expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommandCapture -Arguments @('update', '.', '--force')");
+    expect(read(installHelpersPs1)).toContain('Test-GraphifyOutputRequestsForceOverwrite');
     expect(read(installHelpersPs1)).toContain('Get-ExternalDependencyField');
     expect(read(installHelpersPs1)).toContain('$mcpToolsJson = Read-McpToolsJson -Path $mcpToolsPath');
     expect(read(installHelpersPs1)).toContain('Assert-McpToolsSchemaVersion -ToolsJson $mcpToolsJson');
@@ -189,6 +191,9 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(read(installHelpersPs1)).not.toContain('uvx --from graphifyy==');
     expect(read(installHelpersPs1)).not.toContain('graphify .');
     expect(read(installMcpPs1)).toContain('codegraph sync');
+    expect(read(installMcpPs1)).toContain('Test-CodeGraphStatusRequestsFullReindex');
+    expect(read(installMcpPs1)).toContain('& codegraph index -f');
+    expect(read(installMcpPs1)).toContain("Where-Object { $_.status -ne 'ready' }");
     for (const section of [
       'Execution result',
       'MCP servers',

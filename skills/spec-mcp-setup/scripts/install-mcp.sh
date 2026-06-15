@@ -140,7 +140,7 @@ write_all_repos_install_summary_and_exit() {
     child_overall="$(jq -r '
       if ((.results // []) | length) == 0 then "action-required"
       elif any((.results // [])[]; .status == "action-required") then "action-required"
-      elif any((.results // [])[]; .status == "partial") then "partial"
+      elif any((.results // [])[]; .status != "ready") then "partial"
       else "ready"
       end' <<<"$child_result")"
     child_reason="$(jq -r '[(.results // [])[] | select((.reason_code // "") != "") | .reason_code][0] // empty' <<<"$child_result")"
@@ -685,6 +685,12 @@ PY
   return "$RUN_EXIT_CODE"
 }
 
+codegraph_status_requests_full_reindex() {
+  local output="$1"
+  grep -qi "codegraph index -f" <<<"$output" || return 1
+  return 0
+}
+
 export PATH="$HOME/.cargo/bin:$HOME/.fnm/aliases/default/bin:$HOME/.local/bin:$PATH"
 mkdir -p "$CONFIG_DIR"
 
@@ -879,7 +885,7 @@ EOF
       pushd "$REPO_ROOT" >/dev/null
       if run_and_capture "project-status:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$status_probe_command" "${status_probe_args[@]}"; then
         status_probe_output="$RUN_STDOUT $RUN_DIAGNOSTIC"
-        if [ "$tool_id" = "codegraph" ] && grep -q "Pending Changes" <<<"$status_probe_output"; then
+        if [ "$tool_id" = "codegraph" ] && { grep -q "Pending Changes" <<<"$status_probe_output" || codegraph_status_requests_full_reindex "$status_probe_output"; }; then
           if run_and_capture "project-sync:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" codegraph sync; then
             if run_and_capture "project-status-after-sync:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$status_probe_command" "${status_probe_args[@]}"; then
               status_probe_output="$RUN_STDOUT $RUN_DIAGNOSTIC"
@@ -889,6 +895,36 @@ EOF
                 reason_code="project_status_pending_changes"
                 next_action="Run codegraph sync from the project root and inspect pending changes."
                 diagnostic_summary="$RUN_DIAGNOSTIC"
+              elif codegraph_status_requests_full_reindex "$status_probe_output"; then
+                if run_and_capture "project-full-reindex:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" codegraph index -f; then
+                  if run_and_capture "project-status-after-full-reindex:$tool_id" "$DEFAULT_STAGE_TIMEOUT_SECONDS" "$status_probe_command" "${status_probe_args[@]}"; then
+                    status_probe_output="$RUN_STDOUT $RUN_DIAGNOSTIC"
+                    if codegraph_status_requests_full_reindex "$status_probe_output"; then
+                      status="degraded"
+                      last_action="project-full-reindex-still-required"
+                      reason_code="project_full_reindex_still_required"
+                      next_action="Run codegraph status and inspect why codegraph index -f did not clear the advisory."
+                      diagnostic_summary="$RUN_DIAGNOSTIC"
+                    else
+                      last_action="project-status-full-reindexed"
+                      reason_code="codegraph-full-reindex-used"
+                    fi
+                  else
+                    status="degraded"
+                    last_action="project-full-reindex-status-failed"
+                    reason_code="project_status_failed_after_full_reindex"
+                    next_action="Run codegraph status from the project root and inspect local index state."
+                    exit_code="$RUN_EXIT_CODE"
+                    diagnostic_summary="$RUN_DIAGNOSTIC"
+                  fi
+                else
+                  status="degraded"
+                  last_action="project-full-reindex-failed"
+                  reason_code="project_full_reindex_failed"
+                  next_action="Run codegraph index -f from the project root and inspect rebuild errors."
+                  exit_code="$RUN_EXIT_CODE"
+                  diagnostic_summary="$RUN_DIAGNOSTIC"
+                fi
               elif [ "$last_action" = "project-bootstrap-cache-hit" ]; then
                 last_action="project-status-synced"
               elif [ "$last_action" = "project-bootstrapped" ]; then

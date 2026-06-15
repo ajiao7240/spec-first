@@ -1092,6 +1092,49 @@ run_graphify_with_timeout() {
   run_with_timeout "$timeout_seconds" "$graphify_command" "$@"
 }
 
+GRAPHIFY_RUN_OUTPUT=""
+GRAPHIFY_RUN_DIAGNOSTIC=""
+GRAPHIFY_RUN_EXIT_CODE=0
+
+run_graphify_capture() {
+  local timeout_seconds="$1"
+  shift
+  local graphify_command stdout_file stderr_file combined had_errexit=false
+  graphify_command="$(resolve_graphify_cli)" || {
+    GRAPHIFY_RUN_OUTPUT=""
+    GRAPHIFY_RUN_DIAGNOSTIC="graphify CLI not found"
+    GRAPHIFY_RUN_EXIT_CODE=127
+    return 127
+  }
+  stdout_file="$(mktemp "${TMPDIR:-/tmp}/spec-graphify-stdout.XXXXXX")"
+  stderr_file="$(mktemp "${TMPDIR:-/tmp}/spec-graphify-stderr.XXXXXX")"
+
+  case "$-" in
+    *e*) had_errexit=true ;;
+  esac
+  set +e
+  run_with_timeout "$timeout_seconds" "$graphify_command" "$@" >"$stdout_file" 2>"$stderr_file"
+  GRAPHIFY_RUN_EXIT_CODE=$?
+  if [ "$had_errexit" = "true" ]; then
+    set -e
+  else
+    set +e
+  fi
+
+  GRAPHIFY_RUN_OUTPUT="$(cat "$stdout_file")"
+  combined="$(cat "$stderr_file" "$stdout_file" | tr '\n' ' ' | cut -c 1-1000)"
+  GRAPHIFY_RUN_DIAGNOSTIC="$combined"
+  rm -f "$stdout_file" "$stderr_file"
+  return "$GRAPHIFY_RUN_EXIT_CODE"
+}
+
+graphify_output_requests_force_overwrite() {
+  local output="$1"
+  grep -qi "Refusing to overwrite" <<<"$output" || return 1
+  grep -qi -- "--force" <<<"$output" || return 1
+  return 0
+}
+
 repair_graphify_hook_path_visibility() {
   local repo_root="$1"
   [ "${SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_ON_PATH:-}" = "false" ] || return 0
@@ -1339,10 +1382,21 @@ run_graphify_code_only_fallback() {
   local workspace_rel="$2"
   [ "$workspace_rel" = "." ] || return 1
   pushd "$repo_root" >/dev/null
-  run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" update . >/dev/null 2>&1
+  run_graphify_capture "$DEFAULT_STAGE_TIMEOUT_SECONDS" update .
   local update_status=$?
   popd >/dev/null
   return "$update_status"
+}
+
+run_graphify_force_overwrite_repair() {
+  local repo_root="$1"
+  local workspace_rel="$2"
+  [ "$workspace_rel" = "." ] || return 1
+  pushd "$repo_root" >/dev/null
+  run_graphify_capture "$DEFAULT_STAGE_TIMEOUT_SECONDS" update . --force
+  local force_status=$?
+  popd >/dev/null
+  return "$force_status"
 }
 
 run_graphify_first_generation_if_requested() {
@@ -1404,6 +1458,25 @@ run_graphify_first_generation_if_requested() {
         stage_log "provider:graphify" "code-only first generation fallback done (exit 0)"
         return 0
       fi
+    elif graphify_output_requests_force_overwrite "$GRAPHIFY_RUN_DIAGNOSTIC"; then
+      stage_log "provider:graphify" "graphify update refused overwrite; trying graphify update . --force once"
+      set +e
+      run_graphify_force_overwrite_repair "$repo_root" "$workspace_rel"
+      local force_status=$?
+      set -e
+      if [ "$force_status" -eq 0 ]; then
+        artifact_ref_rel="$(graphify_artifact_ref "$repo_root" "$artifact_rel" || true)"
+        if [ -n "$artifact_ref_rel" ]; then
+          probe_graphify_query_if_available "$repo_root" "$artifact_abs"
+          set_graphify_first_generation_fact "completed" "$workspace_rel" "$artifact_rel" "$artifact_ref_rel" "graphify-force-overwrite-used"
+          stage_log "provider:graphify" "force-overwrite first generation repair done (exit 0)"
+          return 0
+        fi
+      fi
+      exit_code="$force_status"
+      set_graphify_first_generation_fact "failed" "$workspace_rel" "$artifact_rel" "" "graphify-force-overwrite-failed"
+      stage_log "provider:graphify" "force-overwrite first generation repair failed (exit $force_status)"
+      return 0
     fi
   fi
 

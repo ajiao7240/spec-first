@@ -66,7 +66,8 @@ assert "bash install-helpers resolves Graphify CLI before invocation" grep -q --
 assert "bash install-helpers normalizes provider-written Graphify instructions" grep -q -- 'normalize_graphify_instruction_section "$repo_root" "$platform"' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers invokes resolved Graphify project skill install" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" install --project --platform "$platform"' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers invokes resolved Graphify extract" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" extract .' "$SCRIPTS_DIR/install-helpers.sh"
-assert "bash install-helpers invokes resolved code-only Graphify update" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" update .' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers captures code-only Graphify update output" grep -q -- 'run_graphify_capture "$DEFAULT_STAGE_TIMEOUT_SECONDS" update .' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers retries Graphify force overwrite after provider hint" grep -q -- 'run_graphify_capture "$DEFAULT_STAGE_TIMEOUT_SECONDS" update . --force' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers invokes resolved Graphify hook install" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" hook install' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers repairs off-PATH Graphify hooks before status" grep -q -- 'repair_graphify_hook_path_visibility "$repo_root"' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers invokes resolved Graphify hook status" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" hook status' "$SCRIPTS_DIR/install-helpers.sh"
@@ -105,7 +106,12 @@ if grep -q 'After modifying code, run `"<resolved-graphify>" update .`' "$SCRIPT
   fail "install-helpers must not normalize provider instructions to ordinary workflow graph refresh"
 fi
 assert "bash install-mcp syncs pending CodeGraph status" grep -q -- 'codegraph sync' "$SCRIPTS_DIR/install-mcp.sh"
+assert "bash install-mcp detects CodeGraph full reindex advisory" grep -q -- 'codegraph_status_requests_full_reindex' "$SCRIPTS_DIR/install-mcp.sh"
+assert "bash install-mcp can run bounded CodeGraph full reindex" grep -q -- 'codegraph index -f' "$SCRIPTS_DIR/install-mcp.sh"
+assert "bash install-mcp treats degraded child results as partial all-repos summary" grep -q -- '.status != "ready"' "$SCRIPTS_DIR/install-mcp.sh"
 assert "setup plan renderer reads registry from skill mirror" grep -q -- "const SKILL_DIR = path.resolve(__dirname, '..')" "$SCRIPTS_DIR/setup-plan-renderer.cjs"
+assert "setup plan renderer discloses Graphify force repair" grep -q -- 'graphify update . --force repair' "$SCRIPTS_DIR/setup-plan-renderer.cjs"
+assert "setup plan renderer discloses CodeGraph full reindex repair" grep -q -- 'one codegraph index -f repair' "$SCRIPTS_DIR/setup-plan-renderer.cjs"
 if grep -q '.spec-first/workspace/providers/graphify/graphify-out' "$SCRIPTS_DIR/install-helpers.sh"; then
   fail "install-helpers must not use old .spec-first Graphify artifact root"
 fi

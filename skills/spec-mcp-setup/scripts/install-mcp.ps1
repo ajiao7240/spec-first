@@ -217,7 +217,7 @@ function Write-WorkspaceMcpSetupSummaryAndExit {
       'action-required'
     } elseif (@($childResults | Where-Object { $_.status -eq 'action-required' }).Count -gt 0) {
       'action-required'
-    } elseif (@($childResults | Where-Object { $_.status -eq 'partial' }).Count -gt 0) {
+    } elseif (@($childResults | Where-Object { $_.status -ne 'ready' }).Count -gt 0) {
       'partial'
     } else {
       'ready'
@@ -504,6 +504,11 @@ function Test-VersionOutputMatchesExpected {
   )
   if ([string]::IsNullOrWhiteSpace($Expected)) { return $true }
   return ([string]$Output -match "(^|[^0-9A-Za-z.])$([regex]::Escape($Expected))([^0-9A-Za-z.]|$)")
+}
+
+function Test-CodeGraphStatusRequestsFullReindex {
+  param([string]$Output)
+  return ([string]$Output -match 'codegraph index -f')
 }
 
 function Join-WindowsProcessArguments {
@@ -826,7 +831,7 @@ foreach ($tool in @($ToolsJson.tools)) {
     }
     if ($probeRun.ok) {
       $probeOutput = "$($probeRun.stdout) $($probeRun.diagnostic_summary)"
-      if ($tool.id -eq 'codegraph' -and $probeOutput -match 'Pending Changes') {
+      if ($tool.id -eq 'codegraph' -and (($probeOutput -match 'Pending Changes') -or (Test-CodeGraphStatusRequestsFullReindex -Output $probeOutput))) {
         $syncRun = Invoke-Captured {
           Push-Location $ResolvedRepoRoot
           try {
@@ -852,6 +857,52 @@ foreach ($tool in @($ToolsJson.tools)) {
               $reasonCode = 'project_status_pending_changes'
               $nextAction = 'Run codegraph sync from the project root and inspect pending changes.'
               $diagnosticSummary = $probeAfterSync.diagnostic_summary
+            } elseif (Test-CodeGraphStatusRequestsFullReindex -Output $probeAfterOutput) {
+              $fullReindexRun = Invoke-Captured {
+                Push-Location $ResolvedRepoRoot
+                try {
+                  & codegraph index -f
+                } finally {
+                  Pop-Location
+                }
+              }
+              if ($fullReindexRun.ok) {
+                $probeAfterFullReindex = Invoke-Captured {
+                  Push-Location $ResolvedRepoRoot
+                  try {
+                    & $probeStep.command @probeArgs
+                  } finally {
+                    Pop-Location
+                  }
+                }
+                if ($probeAfterFullReindex.ok) {
+                  $probeAfterFullOutput = "$($probeAfterFullReindex.stdout) $($probeAfterFullReindex.diagnostic_summary)"
+                  if (Test-CodeGraphStatusRequestsFullReindex -Output $probeAfterFullOutput) {
+                    $status = 'degraded'
+                    $lastAction = 'project-full-reindex-still-required'
+                    $reasonCode = 'project_full_reindex_still_required'
+                    $nextAction = 'Run codegraph status and inspect why codegraph index -f did not clear the advisory.'
+                    $diagnosticSummary = $probeAfterFullReindex.diagnostic_summary
+                  } else {
+                    $lastAction = 'project-status-full-reindexed'
+                    $reasonCode = 'codegraph-full-reindex-used'
+                  }
+                } else {
+                  $status = 'degraded'
+                  $lastAction = 'project-full-reindex-status-failed'
+                  $reasonCode = 'project_status_failed_after_full_reindex'
+                  $nextAction = 'Run codegraph status from the project root and inspect local index state.'
+                  $exitCode = $probeAfterFullReindex.exit_code
+                  $diagnosticSummary = $probeAfterFullReindex.diagnostic_summary
+                }
+              } else {
+                $status = 'degraded'
+                $lastAction = 'project-full-reindex-failed'
+                $reasonCode = 'project_full_reindex_failed'
+                $nextAction = 'Run codegraph index -f from the project root and inspect rebuild errors.'
+                $exitCode = $fullReindexRun.exit_code
+                $diagnosticSummary = $fullReindexRun.diagnostic_summary
+              }
             } elseif ($lastAction -eq 'project-bootstrap-cache-hit') {
               $lastAction = 'project-status-synced'
             } elseif ($lastAction -eq 'project-bootstrapped') {
