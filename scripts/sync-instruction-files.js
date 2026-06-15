@@ -9,7 +9,7 @@ const CLAUDE_PATH = path.join(REPO_ROOT, 'CLAUDE.md');
 const AGENTS_PATH = path.join(REPO_ROOT, 'AGENTS.md');
 
 // 手写治理区与 managed block 区的分界标记。脚本只派生标记之前的手写区,
-// managed 区(lang/bootstrap/coding-guidelines)由 spec-first init 各 host 生成,脚本不触碰。
+// managed 区(lang/bootstrap)由 spec-first init 各 host 生成,脚本不触碰。
 const LANG_START = '<!-- spec-first:lang:start -->';
 
 // 派生提示注释:HTML 注释内禁止出现 `--`,措辞需规避。

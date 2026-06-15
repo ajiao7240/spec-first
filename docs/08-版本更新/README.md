@@ -9,6 +9,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-06-15 | refactor | `retire-coding-guidelines-block` | `spec-first init` 不再向 `CLAUDE.md` / `AGENTS.md` 注入 `coding-guidelines` managed block；`init` / `clean` 仍会清除存量与孤立 block，`doctor` 移除对应检查项，`coding-guidelines` 模块瘦身为 removal-only，执行姿势交还给项目自身 instruction 维护，managed 区收敛为 `lang` → `bootstrap` 两层 |
 | 2026-05-13 | refactor | `init-bootstrap-context-router` | 将 `spec-first init` 写入 `CLAUDE.md` / `AGENTS.md` 的 `spec-first:bootstrap` managed block 收敛为轻量 context router：根入口文档只保留 workflow 触发提醒、当前 host 入口边界、父 workspace 写入安全线、Codex startup/dispatch 边界和常用锚点，完整路由策略继续由 `skills/using-spec-first/SKILL.md` 维护 |
 | 2026-04-21 | docs | `bootstrap-database-handoff-doc-sync` | 同步刷新 `spec-graph-bootstrap` source/mirror skill、solution learning 与 contract test 的数据库 handoff 口径：明确 `database-routing.json` 中 `candidate_readiness` 才是主信息面板，顶层 `recommended_action` / `blockers[]` 只是 compatibility projection，避免 prompt / 文档继续沿用旧的 route/fallback/provenance 真源叙事 |
 | 2026-04-21 | refactor | `bootstrap-database-compatibility-projection` | 将 `database-routing.json` 顶层 `recommended_action` / `blockers[]` 明确降格为 compatibility projection：这两个字段继续保留以兼容旧消费方，但已经不再是主真源，而是从候选级 readiness / blockers facts 派生出来；真正的数据库 handoff 判断面继续收敛到 `candidate_readiness` |
@@ -160,6 +161,8 @@
 
 
 ## 2026-04-20 `feat(init-coding-guidelines)`
+
+> 已于 2026-06-15 退役：`spec-first init` 不再注入该 block；以下为历史记录。`init` / `clean` 仍会清除存量与孤立 block。
 
 ### 更新内容
 

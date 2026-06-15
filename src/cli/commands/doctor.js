@@ -3,7 +3,6 @@ const path = require('node:path');
 const { inspectInstalledAssets, listBundledCommands, loadPluginManifest } = require('../plugin');
 const { readDeveloperFile, getGlobalDeveloperPath } = require('../developer');
 const { isCommandTimeout, spawnSyncWithTimeout } = require('../external-command');
-const { inspectCodingGuidelinesBlock } = require('../coding-guidelines');
 const { isLegacyManagedState, readState, readStateFileRaw } = require('../state');
 const { getAdapter, getSupportedPlatforms } = require('../adapters');
 const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
@@ -435,7 +434,6 @@ function buildDoctorReport({ projectRoot, platforms }) {
     const hostSpecificChecks = buildHostSpecificChecks(projectRoot, adapter);
     const coreRuntimeChecks = [
       checkManagedState(projectRoot, adapter),
-      checkInstructionCodingGuidelines(projectRoot, adapter),
       checkInstructionBootstrap(projectRoot, adapter),
       ...runtimeFileChecks,
       ...commandChecks,
@@ -915,24 +913,6 @@ function checkInstructionBootstrap(projectRoot, adapter) {
     name: `${adapter.instructionFile} using-spec-first bootstrap`,
     message: status.message,
     fix: formatInitGuidance(adapter, 'in this project to restore the managed bootstrap block'),
-  };
-}
-
-function checkInstructionCodingGuidelines(projectRoot, adapter) {
-  const status = inspectCodingGuidelinesBlock(projectRoot, adapter);
-  if (status.status === 'installed') {
-    return {
-      level: 'PASS',
-      name: `${adapter.instructionFile} coding guidelines`,
-      message: status.message,
-    };
-  }
-
-  return {
-    level: 'WARNING',
-    name: `${adapter.instructionFile} coding guidelines`,
-    message: status.message,
-    fix: formatInitGuidance(adapter, 'in this project to restore the managed coding-guidelines block'),
   };
 }
 

@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
@@ -18,6 +20,10 @@ function runCli(args, options = {}) {
     shell: false,
     windowsHide: true,
   });
+}
+
+function makeTempDir() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-cli-entry-'));
 }
 
 describe('CLI entry contract', () => {
@@ -57,6 +63,101 @@ describe('CLI entry contract', () => {
     expect(result.stdout).toContain('target name: spec-runtime-setup, pending host alias contract');
     expect(result.stdout).not.toContain('legacy alias: spec-mcp-setup');
     expect(result.stdout).not.toContain('$spec-runtime-setup or /spec:runtime-setup');
+  });
+
+  test('init help documents non-interactive workspace targeting flags', () => {
+    const result = runCli(['init', '--help']);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain('--all-repos');
+    expect(result.stdout).toContain('--repo <path>');
+    expect(result.stdout).toContain('--dry-run');
+  });
+
+  test('init --all-repos dry-run uses the real CLI parser from a parent workspace', () => {
+    const workspaceRoot = makeTempDir();
+    const home = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, 'project-b', '.git'), { recursive: true });
+
+      const result = runCli([
+        'init',
+        '--codex',
+        '--all-repos',
+        '--dry-run',
+        '-y',
+        '-u',
+        'reviewer',
+        '--lang',
+        'en',
+      ], {
+        cwd: workspaceRoot,
+        env: { HOME: home },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('Workspace preview: spec-first init (codex)');
+      expect(result.stdout).toContain('selection_source: explicit-all-repos');
+      expect(result.stdout).toContain('Child 1/2: project-a');
+      expect(fs.existsSync(path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary.json'))).toBe(false);
+      expect(fs.existsSync(path.join(workspaceRoot, 'project-a', 'AGENTS.md'))).toBe(false);
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test('init workspace target flags reject unsafe combinations through the real CLI parser', () => {
+    const projectRoot = makeTempDir();
+    const workspaceRoot = makeTempDir();
+    const home = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(projectRoot, '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
+
+      const insideGit = runCli([
+        'init',
+        '--codex',
+        '--all-repos',
+        '-y',
+        '-u',
+        'reviewer',
+        '--lang',
+        'en',
+      ], {
+        cwd: projectRoot,
+        env: { HOME: home },
+      });
+      expect(insideGit.status).toBe(2);
+      expect(insideGit.stderr).toContain('--all-repos must be run from a parent workspace');
+
+      const conflicting = runCli([
+        'init',
+        '--codex',
+        '--all-repos',
+        '--repo',
+        'project-a',
+        '-y',
+        '-u',
+        'reviewer',
+        '--lang',
+        'en',
+      ], {
+        cwd: workspaceRoot,
+        env: { HOME: home },
+      });
+      expect(conflicting.status).toBe(2);
+      expect(conflicting.stderr).toContain('Cannot combine --repo and --all-repos');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+      fs.rmSync(home, { recursive: true, force: true });
+    }
   });
 
   test('unknown command exits with usage-error code and actionable help', () => {

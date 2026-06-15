@@ -286,6 +286,7 @@ $runtimePayload = [ordered]@{
   setup_summary = [ordered]@{
     host_runtime_ready = if (Test-JsonProperty -Object $facts -Name 'host_runtime_ready') { [bool](Get-JsonPropertyValue -Object $facts -Name 'host_runtime_ready') } else { [bool](Get-JsonPropertyValue -Object $facts -Name 'baseline_ready') }
     baseline_ready = if (Test-JsonProperty -Object $facts -Name 'baseline_ready') { [bool](Get-JsonPropertyValue -Object $facts -Name 'baseline_ready') } else { $false }
+    generated_runtime_manifest = Get-JsonPropertyValue -Object $facts -Name 'generated_runtime_manifest'
     reason_code = 'setup-facts-ready'
   }
   host_ledger_pointer = Get-JsonPropertyValue -Object $facts -Name 'host_ledger_pointer'

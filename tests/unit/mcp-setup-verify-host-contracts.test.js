@@ -40,4 +40,32 @@ describe('spec-mcp-setup verify host propagation contract', () => {
     expect(source).toContain("$env:SPEC_FIRST_PROVIDER_HOST = $reconciliationHost");
     expect(source).toContain("$mcpProviderRaw = & node (Join-Path $ScriptDir 'provider-readiness-renderer.cjs')");
   });
+
+  test('verify outputs generated runtime manifest freshness separately from dependency readiness', () => {
+    const bashSource = read(verifyToolsSh);
+    const powerShellSource = read(verifyToolsPs1);
+
+    for (const source of [bashSource, powerShellSource]) {
+      expect(source).toContain('generated_runtime_manifest');
+      expect(source).toContain('state.manifestVersion vs bundled manifest.version');
+      expect(source).toContain('Required MCP/helper dependencies');
+      expect(source).toContain('Generated runtime manifest');
+      expect(source).not.toContain('"Harness runtime"');
+      expect(source).not.toContain("'Harness runtime'");
+    }
+  });
+
+  test('all-repos verify propagates generated runtime manifest counts and stale refresh action', () => {
+    const bashSource = read(verifyToolsSh);
+    const powerShellSource = read(verifyToolsPs1);
+
+    for (const source of [bashSource, powerShellSource]) {
+      expect(source).toContain('spec-first init --all-repos -y');
+      expect(source).toContain('Generated runtime manifest stale or missing in one or more child repos');
+      expect(source).toContain('current');
+      expect(source).toContain('stale');
+      expect(source).toContain('missing');
+      expect(source).toContain('unknown');
+    }
+  });
 });

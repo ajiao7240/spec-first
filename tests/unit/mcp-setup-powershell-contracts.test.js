@@ -276,6 +276,12 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
         repo_root: repo,
         host: 'codex',
         baseline_ready: true,
+        generated_runtime_manifest: {
+          status: 'current',
+          recorded_manifest_version: '1.11.0',
+          bundled_manifest_version: '1.11.0',
+          evidence_basis: 'state.manifestVersion vs bundled manifest.version',
+        },
         tools: {
           context7: { status: 'ready' },
         },
@@ -378,6 +384,7 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
       });
       expect(runtimeCapabilities.schema_version).toBe('runtime-capabilities.v1');
       expect(runtimeCapabilities.direct_evidence.bounded_source_reads).toBe(true);
+      expect(runtimeCapabilities.setup_summary.generated_runtime_manifest.status).toBe('current');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }

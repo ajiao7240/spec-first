@@ -127,6 +127,12 @@ cat > "$FACTS_FILE" <<JSON
   "platform": "macos",
   "baseline_ready": true,
   "host_runtime_ready": true,
+  "generated_runtime_manifest": {
+    "status": "current",
+    "recorded_manifest_version": "1.11.0",
+    "bundled_manifest_version": "1.11.0",
+    "evidence_basis": "state.manifestVersion vs bundled manifest.version"
+  },
   "tools": {
     "context7": {
       "status": "ready"
@@ -162,6 +168,7 @@ assert_eq "tool facts exposes configured dependency scan" "true" "$(jq -r '.conf
 assert_eq "tool facts exposes schema capabilities" "true" "$(jq -r '.schema_capabilities | index("items") != null and index("configured_dependencies") != null and index("tool-existence") != null' "$REPO_A/.spec-first/config/tool-facts.json")"
 assert_eq "runtime facts schema" "runtime-capabilities.v1" "$(jq -r '.schema_version' "$REPO_A/.spec-first/config/runtime-capabilities.json")"
 assert_eq "direct evidence facts are available" "true" "$(jq -r '.direct_evidence.bounded_source_reads and .direct_evidence.ripgrep and .direct_evidence.git_diff' "$REPO_A/.spec-first/config/runtime-capabilities.json")"
+assert_eq "runtime facts preserve generated runtime manifest health" "current" "$(jq -r '.setup_summary.generated_runtime_manifest.status' "$REPO_A/.spec-first/config/runtime-capabilities.json")"
 
 REPO_CONFLICT="$TMP_ROOT/repo-conflict"
 mkdir -p "$REPO_CONFLICT"

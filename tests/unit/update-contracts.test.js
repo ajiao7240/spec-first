@@ -12,6 +12,15 @@ function makeInstaller(outcome) {
   return { runInstall, calls };
 }
 
+function makeRuntimeRefresh(outcome) {
+  const calls = [];
+  const runRuntimeRefresh = (args, options) => {
+    calls.push({ args, options });
+    return outcome;
+  };
+  return { runRuntimeRefresh, calls };
+}
+
 async function captureUpdate(args, deps) {
   const logs = [];
   const errors = [];
@@ -29,22 +38,79 @@ async function captureUpdate(args, deps) {
 }
 
 describe('spec-first update command', () => {
-  test('successful npm install: calls installer once and points to spec-first init', async () => {
+  test('successful npm install: calls installer once and refreshes runtime with fresh init', async () => {
     const { runInstall, calls } = makeInstaller({ status: 0, errorCode: null });
-    const { exitCode, stdout } = await captureUpdate([], { runInstall });
+    const refresh = makeRuntimeRefresh({ status: 0, errorCode: null });
+    const { exitCode, stdout } = await captureUpdate([], {
+      runInstall,
+      runRuntimeRefresh: refresh.runRuntimeRefresh,
+      resolveRuntimeRefreshCommand: () => ({ args: ['init', '-y'], cwd: '/repo' }),
+    });
     expect(exitCode).toBe(0);
     expect(calls).toHaveLength(1);
+    expect(refresh.calls).toEqual([{ args: ['init', '-y'], options: { cwd: '/repo' } }]);
     expect(stdout).toContain('npm install -g spec-first@latest');
-    expect(stdout).toContain('spec-first init');
+    expect(stdout).toContain('Refreshing runtime assets via: spec-first init -y');
+    expect(stdout).toContain('Runtime refresh completed.');
   });
 
-  test('failed npm install (non-zero): surfaces manual command, no init prompt, exit non-zero', async () => {
+  test('successful npm install: parent workspace refresh uses init --all-repos', async () => {
+    const { runInstall } = makeInstaller({ status: 0, errorCode: null });
+    const refresh = makeRuntimeRefresh({ status: 0, errorCode: null });
+    const { exitCode, stdout } = await captureUpdate([], {
+      runInstall,
+      runRuntimeRefresh: refresh.runRuntimeRefresh,
+      resolveRuntimeRefreshCommand: () => ({ args: ['init', '--all-repos', '-y'], cwd: '/workspace' }),
+    });
+
+    expect(exitCode).toBe(0);
+    expect(refresh.calls).toEqual([{ args: ['init', '--all-repos', '-y'], options: { cwd: '/workspace' } }]);
+    expect(stdout).toContain('spec-first init --all-repos -y');
+  });
+
+  test('failed npm install (non-zero): surfaces manual command, no init refresh, exit non-zero', async () => {
     const { runInstall } = makeInstaller({ status: 1, errorCode: null });
-    const { exitCode, stdout, stderr } = await captureUpdate([], { runInstall });
+    const refresh = makeRuntimeRefresh({ status: 0, errorCode: null });
+    const { exitCode, stdout, stderr } = await captureUpdate([], {
+      runInstall,
+      runRuntimeRefresh: refresh.runRuntimeRefresh,
+    });
     expect(exitCode).not.toBe(0);
     expect(stderr).toContain('Upgrade failed');
     expect(stderr).toContain('npm install -g spec-first@latest');
     expect(stdout).not.toContain('spec-first init');
+    expect(refresh.calls).toHaveLength(0);
+  });
+
+  test('automatic runtime refresh failure returns update failure and fallback commands', async () => {
+    const { runInstall } = makeInstaller({ status: 0, errorCode: null });
+    const refresh = makeRuntimeRefresh({ status: 3, errorCode: null });
+    const { exitCode, stderr } = await captureUpdate([], {
+      runInstall,
+      runRuntimeRefresh: refresh.runRuntimeRefresh,
+      resolveRuntimeRefreshCommand: () => ({ args: ['init', '-y'], cwd: '/repo' }),
+    });
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Runtime refresh: degraded');
+    expect(stderr).toContain('Single repo: spec-first init -y');
+    expect(stderr).toContain('Parent workspace: spec-first init --all-repos -y');
+  });
+
+  test('unknown refresh scope prints fallback commands without spawning init', async () => {
+    const { runInstall } = makeInstaller({ status: 0, errorCode: null });
+    const refresh = makeRuntimeRefresh({ status: 0, errorCode: null });
+    const { exitCode, stdout, stderr } = await captureUpdate([], {
+      runInstall,
+      runRuntimeRefresh: refresh.runRuntimeRefresh,
+      resolveRuntimeRefreshCommand: () => ({ args: null, cwd: '/tmp', reason_code: 'scope-undetermined' }),
+    });
+
+    expect(exitCode).toBe(0);
+    expect(refresh.calls).toHaveLength(0);
+    expect(stdout).toContain('Runtime refresh: skipped');
+    expect(stderr).toContain('Single repo: spec-first init -y');
+    expect(stderr).toContain('Parent workspace: spec-first init --all-repos -y');
   });
 
   test('npm not found (ENOENT): explains npm is missing, exit non-zero', async () => {
@@ -79,6 +145,8 @@ describe('spec-first update command', () => {
     expect(stdout).not.toContain('NEVER');
     expect(stdout).toContain('npm install -g spec-first@latest');
     expect(stdout).toContain('spec-first init');
+    expect(stdout).toContain('fresh `spec-first init` subprocess');
+    expect(stdout).toContain('fallback init commands');
     expect(stdout).toContain('Exit codes:');
   });
 });

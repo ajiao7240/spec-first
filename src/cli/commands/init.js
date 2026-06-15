@@ -37,11 +37,7 @@ const { planRuntimeUntrack } = require('../runtime-untrack');
 const { writeFileAtomic } = require('../atomic-write');
 const { getAdapter } = require('../adapters');
 const { applyManagedBlock, buildManagedBlock } = require('../lang-policy');
-const {
-  applyManagedCodingGuidelinesBlock,
-  buildCodingGuidelinesBlock,
-  inspectCodingGuidelinesBlock,
-} = require('../coding-guidelines');
+const { removeManagedCodingGuidelinesBlock } = require('../coding-guidelines');
 const { buildInitialChangelog, formatChangelogTimestamp } = require('../changelog');
 const { applySpecFirstGitignoreBlock } = require('../gitignore-policy');
 const {
@@ -109,7 +105,7 @@ async function runInit(argv, promptOverrides = {}) {
 
   if (parsed.error) {
     console.error(parsed.error);
-    console.error('Usage: spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]');
+    console.error('Usage: spec-first init [--claude] [--codex] [-y] [--all-repos|--repo <path>] [-u <name>] [--lang <zh|en>]');
     return 2;
   }
 
@@ -154,6 +150,10 @@ async function runInit(argv, promptOverrides = {}) {
         activeLang = lang;
       },
     });
+    if (interactiveInput && interactiveInput.error) {
+      console.error(interactiveInput.error);
+      return interactiveInput.exitCode || 2;
+    }
     if (!interactiveInput || interactiveInput.cancelled) {
       console.log(getInitMessages(activeLang).cancelled);
       return 0;
@@ -169,6 +169,11 @@ async function runInit(argv, promptOverrides = {}) {
         console.error(error.message || String(error));
       }
       return 1;
+    }
+
+    if (parsed.dryRun) {
+      printInitPreviews(plans, { lang: interactiveInput.lang, useColor });
+      return 0;
     }
 
     if (!parsed.yes) {
@@ -214,6 +219,9 @@ function parseInitArgs(args) {
   const parsed = {
     help: false,
     yes: false,
+    dryRun: false,
+    allRepos: false,
+    repo: '',
     platforms: [],
     name: '',
     lang: '',
@@ -238,6 +246,27 @@ function parseInitArgs(args) {
     }
     if (arg === '-y' || arg === '--yes') {
       parsed.yes = true;
+      continue;
+    }
+    if (arg === '--dry-run') {
+      parsed.dryRun = true;
+      continue;
+    }
+    if (arg === '--all-repos') {
+      parsed.allRepos = true;
+      continue;
+    }
+    if (arg === '--repo') {
+      const value = readValue(index, arg);
+      if (parsed.error) break;
+      parsed.repo = value;
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--repo=')) {
+      parsed.repo = arg.slice('--repo='.length);
+      if (!parsed.repo) parsed.error = 'init: missing value for --repo';
+      if (parsed.error) break;
       continue;
     }
     if (arg === '-u' || arg === '--user') {
@@ -277,6 +306,9 @@ function parseInitArgs(args) {
 
   if (!parsed.error && parsed.lang && parsed.lang !== 'zh' && parsed.lang !== 'en') {
     parsed.error = 'init: --lang must be zh or en';
+  }
+  if (!parsed.error && parsed.allRepos && parsed.repo) {
+    parsed.error = 'init: Cannot combine --repo and --all-repos.';
   }
 
   parsed.platforms = [...platforms];
@@ -378,11 +410,16 @@ async function collectInitInput({
       validate: (value) => (String(value || '').trim().length > 0 ? true : activeMessages.nameRequired),
     });
   }
-  const target = parsed.yes
-    ? collectDefaultInitTarget(root)
-    : await collectInteractiveInitTarget(root, promptApi, activeMessages);
+  const target = parsed.allRepos || parsed.repo
+    ? collectExplicitInitTarget(root, parsed)
+    : parsed.yes
+      ? collectDefaultInitTarget(root)
+      : await collectInteractiveInitTarget(root, promptApi, activeMessages);
   if (!target) {
     return { cancelled: true, lang };
+  }
+  if (target.error) {
+    return { error: target.error, exitCode: 2, lang };
   }
 
   const globalProfileConfirmed = await maybeConfirmGlobalProfileOverwrite({
@@ -399,6 +436,7 @@ async function collectInitInput({
     platforms,
     name,
     lang,
+    dryRun: parsed.dryRun,
     target,
     globalProfileConfirmed,
   };
@@ -473,6 +511,47 @@ function collectDefaultInitTarget(workspaceRoot) {
     projectRoot: workspaceRoot,
     selectionSource: 'cwd-directory-non-interactive',
   };
+}
+
+function collectExplicitInitTarget(workspaceRoot, parsed) {
+  if (parsed.allRepos) {
+    if (findGitRoot(workspaceRoot)) {
+      return { error: 'Error: --all-repos must be run from a parent workspace, not inside a Git repo.' };
+    }
+    const candidates = discoverChildGitRepos(workspaceRoot);
+    if (candidates.length === 0) {
+      return { error: 'Error: --all-repos requires a parent workspace containing child Git repos.' };
+    }
+    return {
+      mode: 'all-repos',
+      workspaceRoot,
+      candidates,
+      selectionSource: 'explicit-all-repos',
+    };
+  }
+
+  if (parsed.repo) {
+    const targetPath = path.resolve(workspaceRoot, parsed.repo);
+    if (!fs.existsSync(targetPath)) {
+      return { error: `Error: --repo target does not exist: ${parsed.repo}` };
+    }
+    const realWorkspace = canonicalizeExistingPath(workspaceRoot);
+    const realTarget = canonicalizeExistingPath(targetPath);
+    if (!isPathWithin(realTarget, realWorkspace)) {
+      return { error: 'Error: --repo target must be inside the current workspace.' };
+    }
+    const gitRoot = findGitRoot(realTarget);
+    if (!gitRoot || !isPathWithin(gitRoot, realWorkspace)) {
+      return { error: 'Error: --repo target must resolve to a Git repo inside the current workspace.' };
+    }
+    return {
+      mode: 'single-repo',
+      projectRoot: gitRoot,
+      selectionSource: 'explicit-repo',
+    };
+  }
+
+  return null;
 }
 
 async function collectInteractiveInitTarget(workspaceRoot, promptApi, messages = getInitMessages('zh')) {
@@ -1562,7 +1641,7 @@ function printHelp() {
     '🚀 spec-first init',
     '',
     '📘 Usage:',
-    '  spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]',
+    '  spec-first init [--claude] [--codex] [-y] [--all-repos|--repo <path>] [-u <name>] [--lang <zh|en>]',
     '',
     'Host selection:',
     '  spec-first init                         Select one or more host runtimes interactively',
@@ -1581,12 +1660,14 @@ function printHelp() {
     '',
     'Workspace targeting:',
     '  In a parent workspace with child Git repos, init asks whether to initialize all child repos or one selected child.',
+    '  spec-first init --all-repos -y     Initialize every child Git repo from a parent workspace.',
+    '  spec-first init --repo <path> -y   Initialize one child repo from a parent workspace.',
     '  Parent workspace runs write only parent advisory summary assets; child repo truth stays in each child repo.',
     '',
     'Non-interactive usage:',
     '  Use -y/--yes to skip prompts. Without -y, init requires an interactive terminal and exits 2 in CI/non-TTY environments.',
     '  Explicit --claude/--codex flags override the default host set.',
-    '  CI callers that need dry-run evidence or custom target selection should use require("spec-first/src/cli/init-plan").',
+    '  Use --dry-run to preview writes without changing runtime assets.',
     '',
     '➡️ After successful init:',
     '  Claude: restart Claude Code. For lightweight work, start the matching /spec:* workflow; for enhanced readiness, run /spec:mcp-setup, then route by user intent.',
@@ -1767,11 +1848,6 @@ function inspectCurrentRuntimeDrift(projectRoot, adapter) {
   const bootstrapStatus = inspectInstructionBootstrap(projectRoot, adapter);
   if (bootstrapStatus.status !== 'installed') {
     reasons.push(`bootstrap_${bootstrapStatus.status}`);
-  }
-
-  const codingGuidelinesStatus = inspectCodingGuidelinesBlock(projectRoot, adapter);
-  if (codingGuidelinesStatus.status !== 'installed') {
-    reasons.push(`coding_guidelines_${codingGuidelinesStatus.status}`);
   }
 
   for (const check of adapter.inspectRuntimeFiles(projectRoot)) {
@@ -2131,19 +2207,21 @@ function buildInitMetadataPlan({
     ? fs.readFileSync(instructionPath, 'utf8')
     : '';
   const instructionWithoutLegacyRuntimeTools = removeManagedRuntimeToolsBlock(existingInstruction);
-  const instructionWithLang = applyManagedBlock(instructionWithoutLegacyRuntimeTools, buildManagedBlock(developer.lang));
+  const instructionWithoutLegacyCodingGuidelines = removeManagedCodingGuidelinesBlock(
+    instructionWithoutLegacyRuntimeTools,
+  );
+  const instructionWithLang = applyManagedBlock(
+    instructionWithoutLegacyCodingGuidelines,
+    buildManagedBlock(developer.lang),
+  );
   const instructionWithBootstrap = applyManagedBootstrapBlock(
     instructionWithLang,
     buildBootstrapBlock(adapter, developer.lang),
   );
-  const finalInstruction = applyManagedCodingGuidelinesBlock(
-    instructionWithBootstrap,
-    buildCodingGuidelinesBlock(developer.lang),
-  );
   operations.push(buildPlanFileOperation(
     projectRoot,
     adapter.instructionFile,
-    finalInstruction,
+    instructionWithBootstrap,
     'managed_instruction_file',
   ));
 

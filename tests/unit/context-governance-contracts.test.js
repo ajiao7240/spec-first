@@ -74,12 +74,12 @@ describe('context governance runtime exclusion contract', () => {
       expect(block).toContain('.agents/skills/**');
     }
 
-    expect(read('AGENTS.md')).toContain('Runtime context 默认排除 `.spec-first/audits/**`');
+    expect(read('AGENTS.md')).toContain('Runtime context excludes `.spec-first/audits/**`');
     expect(read('AGENTS.md')).toContain('`.spec-first/governance/**`');
-    expect(read('CLAUDE.md')).toContain('Runtime context 默认排除 `.spec-first/audits/**`');
+    expect(read('CLAUDE.md')).toContain('Runtime context excludes `.spec-first/audits/**`');
     expect(read('CLAUDE.md')).toContain('`.spec-first/governance/**`');
-    expect(read('AGENTS.md')).toContain('用户可见输出语言以本文件的 `spec-first:lang` managed block 为准');
-    expect(read('CLAUDE.md')).toContain('用户可见输出语言以本文件的 `spec-first:lang` managed block 为准');
+    expect(read('AGENTS.md')).toContain("User-visible output language follows this file's `spec-first:lang` managed block");
+    expect(read('CLAUDE.md')).toContain("User-visible output language follows this file's `spec-first:lang` managed block");
   });
 
   test('high-frequency ordinary workflows carry the runtime exclusion rule', () => {

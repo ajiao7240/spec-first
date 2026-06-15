@@ -1,3 +1,5 @@
+const fs = require('node:fs');
+const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const pkg = require('../../../package.json');
@@ -11,8 +13,8 @@ const UPGRADE_COMMAND = `npm install -g ${PACKAGE_NAME}@latest`;
  * 设计边界(见 docs/plans/2026-06-12-003-feat-update-perform-upgrade-plan.md):
  * - 无条件直跑 `npm install -g spec-first@latest`:不查版本、不检测安装方式。
  *   npm 自身幂等,已是最新会自动 no-op。
- * - 升级成功后只提示用户运行 `spec-first init` 刷新本地 runtime,不代跑 init
- *   (用户用新装的 binary 另起 init,避免旧进程跑新生成逻辑的版本错位)。
+ * - 升级成功后启动 fresh `spec-first init` 子进程刷新本地 runtime,避免旧进程
+ *   直接跑新生成逻辑的版本错位。
  * - 已知风险(用户确认接受):非 npm-global 安装(Claude plugin / pnpm / volta 等)
  *   会被装出冲突副本;以一条静态 caveat 提示缓解,不做分支检测。
  * - 退出码:0=升级成功;1=升级失败(npm 未找到或返回非 0);2=用法错误。
@@ -32,6 +34,9 @@ async function runUpdate(argv, deps = {}) {
   }
 
   const runInstall = deps.runInstall || defaultRunInstall;
+  const runRuntimeRefresh = deps.runRuntimeRefresh || defaultRunRuntimeRefresh;
+  const resolveRuntimeRefresh = deps.resolveRuntimeRefreshCommand || resolveRuntimeRefreshCommand;
+  const cwd = deps.cwd || process.cwd();
 
   console.log(`Upgrading ${PACKAGE_NAME} via: ${UPGRADE_COMMAND}`);
   console.log('');
@@ -55,7 +60,28 @@ async function runUpdate(argv, deps = {}) {
 
   console.log('');
   console.log(`✅ ${PACKAGE_NAME} upgraded.`);
-  console.log('Next step: run `spec-first init` to refresh this project\'s runtime assets.');
+  const refresh = resolveRuntimeRefresh(cwd);
+  if (!refresh || !Array.isArray(refresh.args)) {
+    console.log('Runtime refresh: skipped (scope could not be determined safely).');
+    printRuntimeRefreshFallback();
+  } else {
+    console.log(`Refreshing runtime assets via: ${formatSpecFirstCommand(refresh.args)}`);
+    const refreshResult = runRuntimeRefresh(refresh.args, { cwd: refresh.cwd || cwd });
+    if (refreshResult && refreshResult.errorCode === 'ENOENT') {
+      console.error('');
+      console.error('Runtime refresh: degraded (`spec-first` was not found on PATH after upgrade).');
+      printRuntimeRefreshFallback();
+      return 1;
+    }
+    if (!refreshResult || refreshResult.status !== 0) {
+      const status = refreshResult && Number.isInteger(refreshResult.status) ? refreshResult.status : 1;
+      console.error('');
+      console.error(`Runtime refresh: degraded (spec-first init exited with code ${status}).`);
+      printRuntimeRefreshFallback();
+      return 1;
+    }
+    console.log('Runtime refresh completed.');
+  }
   console.log('');
   console.log('Note: if you installed spec-first as a Claude Code plugin (not via npm -g),');
   console.log('upgrade it with `claude plugin update` instead — npm -g manages a separate copy.');
@@ -76,12 +102,138 @@ function defaultRunInstall() {
   };
 }
 
+function defaultRunRuntimeRefresh(args, options = {}) {
+  const specFirstCommand = process.platform === 'win32' ? 'spec-first.cmd' : 'spec-first';
+  const result = spawnSync(specFirstCommand, args, {
+    cwd: options.cwd || process.cwd(),
+    stdio: 'inherit',
+    windowsHide: true,
+  });
+  return {
+    status: result.status,
+    errorCode: result.error ? result.error.code : null,
+  };
+}
+
+function resolveRuntimeRefreshCommand(cwd = process.cwd()) {
+  const root = path.resolve(cwd);
+  if (findGitRoot(root)) {
+    return {
+      args: ['init', '-y'],
+      cwd: root,
+      reason_code: 'single-git-repo',
+    };
+  }
+
+  const childRepos = discoverChildGitRepos(root);
+  if (childRepos.length > 0) {
+    return {
+      args: ['init', '--all-repos', '-y'],
+      cwd: root,
+      reason_code: 'parent-workspace',
+      child_repo_count: childRepos.length,
+    };
+  }
+
+  return {
+    args: null,
+    cwd: root,
+    reason_code: 'scope-undetermined',
+  };
+}
+
+function printRuntimeRefreshFallback() {
+  console.error('Fallback commands:');
+  console.error('  Single repo: spec-first init -y');
+  console.error('  Parent workspace: spec-first init --all-repos -y');
+}
+
+function formatSpecFirstCommand(args) {
+  return `spec-first ${args.join(' ')}`;
+}
+
+function discoverChildGitRepos(workspaceRoot, maxDepth = 3) {
+  const candidates = [];
+  const queue = [{ dir: workspaceRoot, depth: 0 }];
+  const skipNames = new Set([
+    '.agents',
+    '.cache',
+    '.claude',
+    '.codex',
+    '.direnv',
+    '.git',
+    '.spec-first',
+    '.venv',
+    '.worktrees',
+    'coverage',
+    'dist',
+    'node_modules',
+    'temp',
+    'tmp',
+    'vendor',
+  ]);
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(current.dir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .sort((left, right) => left.name.localeCompare(right.name));
+    } catch (_error) {
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (skipNames.has(entry.name)) continue;
+      const childPath = path.join(current.dir, entry.name);
+      if (hasGitMarker(childPath)) {
+        candidates.push(childPath);
+        continue;
+      }
+      if (current.depth < maxDepth) {
+        queue.push({ dir: childPath, depth: current.depth + 1 });
+      }
+    }
+  }
+
+  return candidates;
+}
+
+function findGitRoot(startPath) {
+  let current = path.resolve(startPath);
+  try {
+    const stat = fs.statSync(current);
+    if (!stat.isDirectory()) {
+      current = path.dirname(current);
+    }
+  } catch (_error) {
+    return '';
+  }
+
+  while (true) {
+    if (hasGitMarker(current)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return '';
+    }
+    current = parent;
+  }
+}
+
+function hasGitMarker(dirPath) {
+  return fs.existsSync(path.join(dirPath, '.git'));
+}
+
 function printHelp() {
   console.log([
     '🔄 spec-first update — upgrade the spec-first CLI package',
     '',
     `Runs \`${UPGRADE_COMMAND}\` to upgrade the globally installed spec-first CLI,`,
-    'then reminds you to run `spec-first init` to refresh this project\'s runtime assets.',
+    'then runs a fresh `spec-first init` subprocess to refresh this project\'s runtime assets.',
+    'If refresh cannot run safely, it prints copy-ready fallback init commands.',
     '',
     '📘 Usage:',
     '  spec-first update',
@@ -90,8 +242,8 @@ function printHelp() {
     '  -h, --help      Show help',
     '',
     '🔢 Exit codes:',
-    '  0  upgrade succeeded',
-    '  1  upgrade failed (npm not found, or npm exited non-zero)',
+    '  0  upgrade succeeded and runtime refresh completed, or refresh was skipped with fallback guidance',
+    '  1  upgrade failed or automatic runtime refresh failed',
     '  2  usage error (unexpected argument)',
     '',
     'Note: this upgrades the npm-installed spec-first package. If you use spec-first as a',
@@ -104,5 +256,6 @@ function printHelp() {
 }
 
 module.exports = {
+  resolveRuntimeRefreshCommand,
   runUpdate,
 };

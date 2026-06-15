@@ -207,6 +207,7 @@ jq -n -S \
     setup_summary:{
       host_runtime_ready: ($facts[0].host_runtime_ready // $facts[0].baseline_ready // false),
       baseline_ready: ($facts[0].baseline_ready // false),
+      generated_runtime_manifest: ($facts[0].generated_runtime_manifest // null),
       reason_code:"setup-facts-ready"
     },
     host_ledger_pointer: ($facts[0].host_ledger_pointer // null)

@@ -6,6 +6,7 @@ const { formatInitGuidance } = require('../init-guidance');
 const {
   isHostComparativeRuntimeSkill,
 } = require('../host-comparative-workflows');
+const { rewriteSourceSkillRuntimePaths } = require('../skill-path-rewrite-markers');
 const { listBundledAgentNames, listBundledSkills } = require('../plugin');
 const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'session-start');
 const HOOKS_JSON_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'hooks.json');
@@ -276,22 +277,6 @@ function rewriteSkillName(content, skillName) {
   }
 
   return content.replace(/^name:\s*.+$/m, `name: ${skillName}`);
-}
-
-function rewriteSourceSkillRuntimePaths(content, skillName, runtimeSkillRoot) {
-  if (typeof skillName !== 'string' || skillName.length === 0) {
-    return content;
-  }
-
-  const sourcePathPattern = new RegExp(
-    `(^|[^A-Za-z0-9_./-])skills/${escapeRegExp(skillName)}/`,
-    'g',
-  );
-  return content.replace(sourcePathPattern, (_match, prefix) => `${prefix}${runtimeSkillRoot}/`);
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function buildRuntimeHookWriteOperations(projectRoot) {

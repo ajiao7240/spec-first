@@ -209,7 +209,10 @@ if (state.developer) throw new Error('state should no longer track developer pro
 NODE
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/CLAUDE.md"
 grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/CLAUDE.md"
-grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md"
+if grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/CLAUDE.md"; then
+  echo "retired coding-guidelines block should not be injected into CLAUDE.md" >&2
+  exit 1
+fi
 test -f "$TMP_DIR/.claude/hooks/session-start"
 grep -q 'startup-reminder' "$TMP_DIR/.claude/hooks/session-start"
 grep -q -- '--claude' "$TMP_DIR/.claude/hooks/session-start"
@@ -297,7 +300,10 @@ for agent in spec-repo-research-analyst.agent.md spec-session-historian.agent.md
 done
 grep -q '<!-- spec-first:lang:start -->' "$TMP_DIR/AGENTS.md"
 grep -q '<!-- spec-first:bootstrap:start -->' "$TMP_DIR/AGENTS.md"
-grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/AGENTS.md"
+if grep -q '<!-- spec-first:coding-guidelines:start -->' "$TMP_DIR/AGENTS.md"; then
+  echo "retired coding-guidelines block should not be injected into AGENTS.md" >&2
+  exit 1
+fi
 grep -q 'spec-first startup-reminder --codex' "$TMP_DIR/AGENTS.md"
 grep -q 'must not block routing' "$TMP_DIR/AGENTS.md"
 grep -q 'bounded subagents, leaf reviewers, and worker agents' "$TMP_DIR/AGENTS.md"

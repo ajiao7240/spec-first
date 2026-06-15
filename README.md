@@ -128,7 +128,7 @@ Initialize the host runtime you actually use:
 spec-first init
 ```
 
-`spec-first init` is interactive: select Claude Code and/or Codex, then confirm your developer name and language — when a global developer profile already exists, init asks once whether to reuse it instead of re-prompting for the name — preview the writes, then confirm. Use `spec-first init --codex` or `spec-first init --claude` to skip only the host selection step. Use `spec-first init -y` for scripted defaults, or combine `-y` with explicit host flags, `-u <name>`, and `--lang <zh|en>`.
+`spec-first init` is interactive: select Claude Code and/or Codex, then confirm your developer name and language — when a global developer profile already exists, init asks once whether to reuse it instead of re-prompting for the name — preview the writes, then confirm. Use `spec-first init --codex` or `spec-first init --claude` to skip only the host selection step. Use `spec-first init -y` for scripted defaults, or combine `-y` with explicit host flags, `--all-repos`, `--repo <path>`, `-u <name>`, and `--lang <zh|en>`.
 
 Restart the host or open a new session so it loads the generated runtime assets.
 
@@ -172,7 +172,7 @@ Use this single table as the public entrypoint map. Shared prose should say "cur
 
 Use `ideate` when you want options, critiques, or surprising directions before committing to a problem frame. Use `brainstorm` when you already have a rough problem or feature and need actors, flows, boundaries, and acceptance examples. Use `prd` for existing-system increments or rough PRDs that need current-state evidence and change delta. Use `doc-review` when a requirements, plan, or task document already exists and needs gap-finding. Do not make `brainstorm` the default entrypoint for every unclear request.
 
-To upgrade the spec-first CLI, run the `spec-first update` package CLI command in your terminal. It runs `npm install -g spec-first@latest` and, on success, reminds you to run `spec-first init` to refresh this project's generated runtime assets. It is a package CLI command, not a host workflow entrypoint. Note: if you installed spec-first as a Claude Code plugin, upgrade it with `claude plugin update` instead — `npm -g` manages a separate copy.
+To upgrade the spec-first CLI, run the `spec-first update` package CLI command in your terminal. It runs `npm install -g spec-first@latest` and, on success, starts a fresh `spec-first init` subprocess to refresh this project's generated runtime assets. In a Git repo it runs `spec-first init -y`; in a parent workspace with child Git repos it runs `spec-first init --all-repos -y`. If refresh fails or scope cannot be determined safely, it prints copy-ready fallback commands. It is a package CLI command, not a host workflow entrypoint. Note: if you installed spec-first as a Claude Code plugin, upgrade it with `claude plugin update` instead — `npm -g` manages a separate copy.
 
 ## Operating Model
 
@@ -295,8 +295,8 @@ CLI reference:
 spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
-spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]
-spec-first update   # runs `npm install -g spec-first@latest`, then prompts `spec-first init`
+spec-first init [--claude] [--codex] [-y] [--all-repos|--repo <path>] [-u <name>] [--lang <zh|en>]
+spec-first update   # runs `npm install -g spec-first@latest`, then refreshes runtime with fresh `spec-first init`
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first clean --workspace-orphans [--confirm]
 spec-first repair-worktree [--dry-run]

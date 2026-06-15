@@ -145,7 +145,7 @@ describe('interactive init command', () => {
       expect(result.stdout).toContain('spec-first init --codex');
       expect(result.stdout).toContain('spec-first init -y');
       expect(result.stdout).toContain('Explicit --claude/--codex flags override the default host set.');
-      expect(result.stdout).not.toContain('--dry-run');
+      expect(result.stdout).toContain('--dry-run');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -156,10 +156,10 @@ describe('interactive init command', () => {
     const prompts = interactivePrompts();
 
     try {
-      const result = await captureInit(projectRoot, ['--dry-run'], prompts);
+      const result = await captureInit(projectRoot, ['--bogus'], prompts);
 
       expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain('unknown option --dry-run');
+      expect(result.stderr).toContain('unknown option --bogus');
       expect(result.stderr).toContain('Usage: spec-first init');
       expect(prompts.checkbox).not.toHaveBeenCalled();
       expect(snapshotTree(projectRoot)).toEqual([]);

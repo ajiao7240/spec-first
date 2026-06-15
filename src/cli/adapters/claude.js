@@ -3,6 +3,7 @@ const path = require('node:path');
 
 const PlatformAdapter = require('./base');
 const { formatInitGuidance } = require('../init-guidance');
+const { rewriteSourceSkillRuntimePaths } = require('../skill-path-rewrite-markers');
 const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'claude', 'hooks', 'session-start');
 const SESSION_START_RELATIVE_PATH = '.claude/hooks/session-start';
 const SPEC_PLAN_GUARD_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'claude', 'hooks', 'spec-plan-guard');
@@ -219,22 +220,6 @@ function rewriteClaudeStandaloneSkillName(content, skillName) {
   }
 
   return content.replace(/^name:\s*spec-(.+)$/m, 'name: $1');
-}
-
-function rewriteSourceSkillRuntimePaths(content, skillName, runtimeSkillRoot) {
-  if (typeof skillName !== 'string' || skillName.length === 0) {
-    return content;
-  }
-
-  const sourcePathPattern = new RegExp(
-    `(^|[^A-Za-z0-9_./-])skills/${escapeRegExp(skillName)}/`,
-    'g',
-  );
-  return content.replace(sourcePathPattern, (_match, prefix) => `${prefix}${runtimeSkillRoot}/`);
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function listMarkdownFiles(rootPath) {

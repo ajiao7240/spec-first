@@ -88,6 +88,107 @@ compute_host_pointer_reconciliation() {
     }'
 }
 
+resolve_bundled_manifest_version() {
+  local repo_root version
+  if [ -n "${SPEC_FIRST_BUNDLED_VERSION:-}" ]; then
+    printf '%s' "$SPEC_FIRST_BUNDLED_VERSION"
+    return 0
+  fi
+
+  repo_root="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+  if [ -f "$repo_root/package.json" ]; then
+    version="$(jq -r '.version // empty' "$repo_root/package.json" 2>/dev/null || true)"
+    if [ -n "$version" ] && [ "$version" != "null" ]; then
+      printf '%s' "$version"
+      return 0
+    fi
+  fi
+
+  if command -v spec-first >/dev/null 2>&1; then
+    version="$(spec-first --version 2>/dev/null | sed -n 's/.*Spec-First v\([0-9][0-9A-Za-z._-]*\).*/\1/p' | head -n 1 || true)"
+    if [ -n "$version" ]; then
+      printf '%s' "$version"
+      return 0
+    fi
+  fi
+
+  printf ''
+}
+
+runtime_state_path_for_host() {
+  local host="$1"
+  local target_root="$2"
+  case "$host" in
+    codex)
+      printf '%s/.codex/spec-first/state.json' "$target_root"
+      ;;
+    claude)
+      printf '%s/.claude/spec-first/state.json' "$target_root"
+      ;;
+    *)
+      printf ''
+      ;;
+  esac
+}
+
+compute_generated_runtime_manifest_health() {
+  local host="$1"
+  local target_root="$2"
+  local bundled_version state_path recorded_version status reason next_action
+
+  bundled_version="$(resolve_bundled_manifest_version)"
+  state_path="$(runtime_state_path_for_host "$host" "$target_root")"
+  recorded_version=""
+  status="unknown"
+  reason="unknown-runtime-manifest-health"
+  next_action="spec-first init -y"
+
+  if [ -z "$host" ] || [ -z "$target_root" ] || [ -z "$state_path" ]; then
+    reason="missing-host-or-target-root"
+  elif [ ! -f "$state_path" ]; then
+    status="missing"
+    reason="runtime-state-missing"
+  elif ! jq -e . "$state_path" >/dev/null 2>&1; then
+    status="unknown"
+    reason="runtime-state-unreadable"
+  else
+    recorded_version="$(jq -r '.manifestVersion // empty' "$state_path" 2>/dev/null || true)"
+    if [ -z "$recorded_version" ]; then
+      status="missing"
+      reason="runtime-manifest-version-missing"
+    elif [ -z "$bundled_version" ]; then
+      status="unknown"
+      reason="bundled-manifest-version-unknown"
+    elif [ "$recorded_version" = "$bundled_version" ]; then
+      status="current"
+      reason=""
+      next_action=""
+    else
+      status="stale"
+      reason="runtime-manifest-version-stale"
+    fi
+  fi
+
+  jq -n \
+    --arg status "$status" \
+    --arg reason_code "$reason" \
+    --arg host "$host" \
+    --arg state_path "$state_path" \
+    --arg recorded_manifest_version "$recorded_version" \
+    --arg bundled_manifest_version "$bundled_version" \
+    --arg next_action "$next_action" \
+    '{
+      status:$status,
+      reason_code:(if $reason_code == "" then null else $reason_code end),
+      host:$host,
+      state_path:(if $state_path == "" then null else $state_path end),
+      recorded_manifest_version:(if $recorded_manifest_version == "" then null else $recorded_manifest_version end),
+      bundled_manifest_version:(if $bundled_manifest_version == "" then null else $bundled_manifest_version end),
+      evidence_basis:"state.manifestVersion vs bundled manifest.version",
+      next_action:(if $next_action == "" then null else $next_action end)
+    }'
+}
+
 write_workspace_summary_atomic() {
   local workspace_root="$1"
   local file_name="$2"
@@ -373,6 +474,7 @@ write_all_repos_verify_summary_and_exit() {
       child_result="$(jq -n --argjson ledger "$child_ledger" '{
         schema_version:"mcp-verify-child-result.v1",
         baseline_ready:($ledger.baseline_ready // false),
+        generated_runtime_manifest:($ledger.generated_runtime_manifest // {status:"unknown", reason_code:"not-reported"}),
         tool_facts_status:($ledger.tool_facts_status // "unknown"),
         runtime_capabilities_status:($ledger.runtime_capabilities_status // "unknown"),
         reason_code:($ledger.reason_code // ""),
@@ -440,7 +542,13 @@ write_all_repos_verify_summary_and_exit() {
         counts:{
           total:($results | length),
           ready:([$results[] | select(.overall_status == "ready")] | length),
-          action_required:([$results[] | select(.overall_status != "ready")] | length)
+          action_required:([$results[] | select(.overall_status != "ready")] | length),
+          generated_runtime_manifest:{
+            current:([$results[] | select((.result.generated_runtime_manifest.status // "unknown") == "current")] | length),
+            stale:([$results[] | select((.result.generated_runtime_manifest.status // "unknown") == "stale")] | length),
+            missing:([$results[] | select((.result.generated_runtime_manifest.status // "unknown") == "missing")] | length),
+            unknown:([$results[] | select((.result.generated_runtime_manifest.status // "unknown") == "unknown")] | length)
+          }
         },
         overall_status:(
           if ($results | length) == 0 then "action-required"
@@ -457,15 +565,18 @@ write_all_repos_verify_summary_and_exit() {
         ),
         parent_workspace_pollution_count:$parent_workspace_pollution_count,
         runtime_hints:(
-          if $parent_workspace_pollution_count > 0 then
+          (if $parent_workspace_pollution_count > 0 then
             ["- Workspace pollution detected: wrote .spec-first/workspace/parent-artifact-quarantine.json (\($parent_workspace_pollution_count) paths quarantined). Run `spec-first clean --workspace-orphans` for read-only inspection."]
-          else
-            []
-          end
+          else [] end)
+          + (if ([$results[] | select(((.result.generated_runtime_manifest.status // "unknown") == "stale") or ((.result.generated_runtime_manifest.status // "unknown") == "missing"))] | length) > 0 then
+            ["- Generated runtime manifest stale or missing in one or more child repos. Run `spec-first init --all-repos -y` from the parent workspace."]
+          else [] end)
         ),
         next_action:(
-          if ([$results[] | select(.overall_status != "ready")] | length) == 0 then
-            "All child repos verified Required Harness Runtime readiness."
+          if ([$results[] | select(((.result.generated_runtime_manifest.status // "unknown") == "stale") or ((.result.generated_runtime_manifest.status // "unknown") == "missing"))] | length) > 0 then
+            "Run spec-first init --all-repos -y from the parent workspace, then rerun verify."
+          elif ([$results[] | select(.overall_status != "ready")] | length) == 0 then
+            "All child repos verified required MCP/helper dependency readiness."
           else
             "Inspect per-child reason_code and rerun setup/verify for action-required repos."
           end
@@ -537,6 +648,7 @@ FACTS_JSON="$(bash "$SCRIPT_DIR/detect-tools.sh" ${DETECT_ARGS[@]+"${DETECT_ARGS
 RECONCILIATION_HOST="$(jq -r '.host // empty' <<<"$FACTS_JSON")"
 RECONCILIATION_REPO_ROOT="$(jq -r '.selected_repo_root // .selected_folder_root // .target.target_root // .repo_root // empty' <<<"$FACTS_JSON")"
 HOST_POINTER_RECONCILIATION="$(compute_host_pointer_reconciliation "$RECONCILIATION_HOST" "$RECONCILIATION_REPO_ROOT" "$MARKER_PATH")"
+GENERATED_RUNTIME_MANIFEST="$(compute_generated_runtime_manifest_health "$RECONCILIATION_HOST" "$RECONCILIATION_REPO_ROOT")"
 HELPER_JSON="$(
   SPEC_FIRST_PROVIDER_HOST="$RECONCILIATION_HOST" \
   SPEC_FIRST_PROVIDER_REPO_ROOT="$RECONCILIATION_REPO_ROOT" \
@@ -561,6 +673,7 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
   --argjson mcp_provider_readiness "$MCP_PROVIDER_JSON" \
   --argjson configured_scan "$CONFIGURED_SCAN" \
   --argjson host_pointer_reconciliation "$HOST_POINTER_RECONCILIATION" \
+  --argjson generated_runtime_manifest "$GENERATED_RUNTIME_MANIFEST" \
   '
   def host_ready:
     ((.host_config_required == false) and (.host_config_status == "not-required"))
@@ -623,6 +736,7 @@ jq --arg completed_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
         schema_version: "v2"
       },
       host_pointer_reconciliation: $host_pointer_reconciliation,
+      generated_runtime_manifest: $generated_runtime_manifest,
       tool_facts_status: "pending",
       tool_facts_path: null,
       runtime_capabilities_status: "pending",
@@ -664,6 +778,11 @@ jq --argjson setup "$SETUP_FACTS_RESULT" \
        ((.next_actions // []) | map(. as $action | select(
          (($nonblocking_helper_actions | index($action)) == null)
        )))
+       + (if ((.generated_runtime_manifest.status // "") != "current" and ((.generated_runtime_manifest.next_action // "") != "")) then
+            [.generated_runtime_manifest.next_action]
+          else
+            []
+          end)
        + (if ((.target.state_write_allowed // false) != true and ((.target.next_action // "") != "")) then
             [.target.next_action]
           elif .repo_status == "not-git-repo" and (.target_kind // "") != "non-git-folder" then
@@ -689,7 +808,7 @@ echo "🧭 baseline_ready: $(jq -r '.baseline_ready' "$MARKER_PATH")"
 echo "🧩 代码上下文证据使用 bounded direct source reads、rg、ast-grep、git diff、tests/logs。"
 echo "✅ readiness ledger v2 已写入"
 echo ""
-echo "Required Harness Runtime status (grouped):"
+echo "Setup readiness status (grouped):"
 render_status_block() {
   node "$SCRIPT_DIR/render-status-block.cjs"
 }
@@ -734,10 +853,16 @@ jq -c '
   def summary_rows:
     [
       [
-        "Harness runtime",
+        "Required MCP/helper dependencies",
         (if .baseline_ready == true then "ready" else "action-required" end),
         "baseline_ready=\((.baseline_ready // false) | tostring)",
         (if .baseline_ready == true then "" else "fix action-required rows" end)
+      ],
+      [
+        "Generated runtime manifest",
+        display(.generated_runtime_manifest.status // "unknown"),
+        "state.manifestVersion=\((.generated_runtime_manifest.recorded_manifest_version // "missing") | tostring), bundled=\((.generated_runtime_manifest.bundled_manifest_version // "unknown") | tostring)",
+        display(.generated_runtime_manifest.next_action)
       ]
     ];
   def mcp_rows:
@@ -835,13 +960,18 @@ echo "下一步:"
 if [ "$baseline_ready" = "true" ]; then
   target_state_write_allowed="$(jq -r 'if (.target | type == "object") then (.target.state_write_allowed | tostring) else "true" end' "$MARKER_PATH")"
   target_next_action="$(jq -r '.target.next_action // empty' "$MARKER_PATH")"
+  manifest_status="$(jq -r '.generated_runtime_manifest.status // "unknown"' "$MARKER_PATH")"
+  manifest_next_action="$(jq -r '.generated_runtime_manifest.next_action // empty' "$MARKER_PATH")"
   if [ "$target_state_write_allowed" != "true" ]; then
     echo "  1. 选择目标 child repo，并用 --repo 重新运行 ${setup_command}。"
     if [ -n "$target_next_action" ]; then
       echo "     $target_next_action"
     fi
+  elif [ "$manifest_status" != "current" ] && [ -n "$manifest_next_action" ]; then
+    echo "  1. Required MCP/helper dependencies 已就绪；generated runtime manifest 为 ${manifest_status}。"
+    echo "  2. 运行 ${manifest_next_action} 刷新 runtime，然后重新运行 ${setup_command}。"
   else
-    echo "  1. Required harness runtime 已就绪；如果已经有明确任务，可以直接描述目标，或选择匹配的 plan/work/review/debug workflow。"
+    echo "  1. Required MCP/helper dependencies 与 generated runtime manifest 均已就绪；如果已经有明确任务，可以直接描述目标，或选择匹配的 plan/work/review/debug workflow。"
     echo "  2. 重启 ${host_display} 或新开会话只在下游 workflow 依赖新写入的 MCP 配置前需要。"
   fi
 else

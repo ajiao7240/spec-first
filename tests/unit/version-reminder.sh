@@ -851,7 +851,7 @@ const { runCli } = require(path.join(repoRoot, 'src/cli'));
     return true;
   };
 
-  const exitCode = await runCli(['init', '--dry-run']);
+  const exitCode = await runCli(['init', '--bogus']);
 
   console.log = originalLog;
   process.stderr.write = originalStderrWrite;
@@ -864,7 +864,7 @@ init_stdout=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.
 init_stderr=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stderr);" "$init_output")
 assert_output "init exits 2 for unsupported flags" "2" "$init_exit"
 assert_contains "init prints reminder" "Update available for spec-first" "$init_stderr"
-assert_contains "init rejects unsupported flags" "unknown option --dry-run" "$init_stderr"
+assert_contains "init rejects unsupported flags" "unknown option --bogus" "$init_stderr"
 assert_output "init does not generate runtime assets from unsupported flags" "" "$init_stdout"
 
 clean_output="$(

@@ -543,10 +543,9 @@ describe('init --dry-run', () => {
       expect(claudeInstruction).toContain('User note with CRLF.');
       expect(claudeInstruction).toContain('<!-- spec-first:lang:start -->');
       expect(claudeInstruction).toContain('<!-- spec-first:bootstrap:start -->');
-      expect(claudeInstruction).toContain('<!-- spec-first:coding-guidelines:start -->');
+      expect(claudeInstruction).not.toContain('<!-- spec-first:coding-guidelines:start -->');
       expect(countLiteral(claudeInstruction, '<!-- spec-first:lang:start -->')).toBe(1);
       expect(countLiteral(claudeInstruction, '<!-- spec-first:bootstrap:start -->')).toBe(1);
-      expect(countLiteral(claudeInstruction, '<!-- spec-first:coding-guidelines:start -->')).toBe(1);
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -625,7 +624,7 @@ describe('init --dry-run', () => {
       expect(codexInstruction).toContain('User note from Windows editor.');
       expect(countLiteral(codexInstruction, '<!-- spec-first:lang:start -->')).toBe(1);
       expect(countLiteral(codexInstruction, '<!-- spec-first:bootstrap:start -->')).toBe(1);
-      expect(countLiteral(codexInstruction, '<!-- spec-first:coding-guidelines:start -->')).toBe(1);
+      expect(codexInstruction).not.toContain('<!-- spec-first:coding-guidelines:start -->');
       expect(fs.existsSync(path.join(projectRoot, '.codex', 'spec-first', 'state.json'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.codex', 'spec-first', '.developer'))).toBe(false);
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'using-spec-first', 'SKILL.md'))).toBe(true);

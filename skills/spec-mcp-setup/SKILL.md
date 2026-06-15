@@ -15,7 +15,7 @@ argument-hint: "[bare guided setup] [--check|--verify-only|--plan] [--only codeg
 | When to use | Host runtime setup, MCP setup, helper-tool readiness, missing runtime assets, or project-local setup fact refresh. |
 | When not to use | Ordinary planning, implementation, review, debugging, or code impact questions that can proceed from direct source evidence. |
 | Inputs | Current host, repo target, `skills/spec-mcp-setup/mcp-tools.json`, helper installer facts, host config state, git/workspace target facts, and project instructions. |
-| Outputs | Readiness ledger v2, provider readiness v2 facts, setup scenario fingerprint, optional project setup facts under `.spec-first/config/`, and a grouped status block. |
+| Outputs | Readiness ledger v2, provider readiness v2 facts, generated runtime manifest freshness, setup scenario fingerprint, optional project setup facts under `.spec-first/config/`, and a grouped status block. |
 | Artifacts | `.spec-first/config/tool-facts.json`, `.spec-first/config/runtime-capabilities.json`, and `.spec-first/workspace/scenario-fingerprint-setup.json` when applicable. |
 | Failure modes | Missing dependencies, host config write failure, ambiguous parent workspace target, symlink escape, invalid registry schema, helper install failure, or unsupported host. |
 | Downstream consumers | `using-spec-first`, plan/work/review/debug workflows, doctor/update guidance, and humans repairing setup. |
@@ -43,7 +43,7 @@ Optional provider readiness is reported through `provider_readiness[]` (`provide
 
 ## Project Preflight / Local Setup
 
-Project-local setup writes `.spec-first/config/tool-facts.json`, `.spec-first/config/runtime-capabilities.json`, and when applicable `.spec-first/workspace/scenario-fingerprint-setup.json`. Scenario fingerprint wrapper failures are warn-and-continue: report `scenario_fingerprint_setup` status and keep the rest of setup actionable instead of blocking ordinary direct-evidence workflows.
+Project-local setup writes `.spec-first/config/tool-facts.json`, `.spec-first/config/runtime-capabilities.json`, and when applicable `.spec-first/workspace/scenario-fingerprint-setup.json`. The readiness ledger and runtime capabilities include `generated_runtime_manifest.status` (`current`, `stale`, `missing`, or `unknown`) based only on `state.manifestVersion` versus the bundled manifest version; this is a deterministic freshness fact, not proof that generated prose is semantically correct. Scenario fingerprint wrapper failures are warn-and-continue: report `scenario_fingerprint_setup` status and keep the rest of setup actionable instead of blocking ordinary direct-evidence workflows.
 
 ## Workflow Modes
 
@@ -81,14 +81,14 @@ For bare `$spec-mcp-setup`, do this inside the skill:
 3. Read `mcp-tools.json`, validate schema version, and verify every required baseline tool plus explicit opt-in MCP entry has deterministic install, host-config, detection, and summary metadata.
 4. Run `detect-tools.*` or `install-mcp.*` as appropriate. Warm required package-backed MCP tools, admit optional MCP entries only through explicit selection, write host config only through documented host targets, and record structured status.
 5. Run `install-helpers.*` for required helper tooling and explicitly approved non-MCP provider helpers. Guided confirmation or `--only graphify` is enough public consent for Graphify; the script layer may translate that to helper env consent internally. Approved provider first generation and project-local auto-refresh setup may run only through controlled script cases or provider-native bounded CLI commands invoked through the resolved CLI path, then helper/provider readiness facts are collected. If `graphify extract .` fails in the default project-root scope, the script should try code-only `graphify update .` before returning failed readiness. If Graphify is installed but not visible on the user's original `PATH`, report the manual visibility action instead of editing shell profiles. If Graphify hook install fails, report `readiness_status=degraded` with `next_actions` instead of marking hook refresh verified.
-6. Run `verify-tools.*` to write the readiness ledger, reconcile host pointer facts, write project setup facts, and render the grouped status block.
-7. Report the status exactly enough for the user to act: ready rows need no action; action-required rows name the missing dependency/config/target step.
+6. Run `verify-tools.*` to write the readiness ledger, reconcile host pointer facts, write project setup facts, and render the grouped status block. Read `generated_runtime_manifest.status` separately from `baseline_ready`; `baseline_ready=true` must not hide stale generated runtime. If the status is `stale` or `missing`, refresh runtime with the topology-appropriate command (`spec-first init -y` for the current repo, `spec-first init --all-repos -y` from a parent workspace, or `spec-first init --repo <child> -y` for one child repo), then rerun verification. If `spec-first update` just ran and the status is still stale, treat that as degraded refresh evidence and surface the same fallback command instead of reporting runtime freshness as ready.
+7. Report the status exactly enough for the user to act: ready rows need no action; action-required rows name the missing dependency/config/target step; generated runtime manifest rows name the init refresh command when stale or missing.
 
 ## Output Shape
 
 The final setup output should contain:
 
-- `Execution result`: `Harness runtime` status and `baseline_ready`.
+- `Execution result`: separate `Required MCP/helper dependencies` and `Generated runtime manifest` rows; report `baseline_ready` as dependency readiness and `generated_runtime_manifest.status` as generated runtime freshness.
 - `MCP servers`: required baseline MCP tool dependency/host/project readiness, explicit opt-in MCP entries when selected or detected, and next action.
 - `Helper tools`: helper install and readiness status.
 - `Provider tools`: provider readiness status and lifecycle display bits when present.

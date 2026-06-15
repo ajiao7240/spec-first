@@ -129,6 +129,107 @@ function Read-JsonObjectOrNull {
   }
 }
 
+function Get-BundledManifestVersion {
+  if (-not [string]::IsNullOrWhiteSpace($env:SPEC_FIRST_BUNDLED_VERSION)) {
+    return [string]$env:SPEC_FIRST_BUNDLED_VERSION
+  }
+
+  try {
+    $repoRoot = (Resolve-Path -LiteralPath (Join-Path $ScriptDir '../../..')).Path
+    $packagePath = Join-Path $repoRoot 'package.json'
+    if (Test-Path -LiteralPath $packagePath -PathType Leaf) {
+      $packageJson = Get-Content -Raw -LiteralPath $packagePath | ConvertFrom-Json -ErrorAction Stop
+      if (-not [string]::IsNullOrWhiteSpace([string]$packageJson.version)) {
+        return [string]$packageJson.version
+      }
+    }
+  } catch {
+    # Fall through to the installed CLI probe.
+  }
+
+  if (Get-Command spec-first -ErrorAction SilentlyContinue) {
+    try {
+      $versionOutput = & spec-first --version 2>$null
+      foreach ($line in @($versionOutput)) {
+        if ([string]$line -match 'Spec-First v([0-9][0-9A-Za-z._-]*)') {
+          return $Matches[1]
+        }
+      }
+    } catch {
+      return ''
+    }
+  }
+
+  return ''
+}
+
+function Get-RuntimeStatePathForHost {
+  param(
+    [string]$HostName,
+    [string]$TargetRoot
+  )
+  if ([string]::IsNullOrWhiteSpace($TargetRoot)) { return '' }
+  switch ($HostName) {
+    'codex' { return (Join-Path $TargetRoot '.codex/spec-first/state.json') }
+    'claude' { return (Join-Path $TargetRoot '.claude/spec-first/state.json') }
+    default { return '' }
+  }
+}
+
+function Get-GeneratedRuntimeManifestHealth {
+  param(
+    [string]$HostName,
+    [string]$TargetRoot
+  )
+
+  $bundledVersion = Get-BundledManifestVersion
+  $statePath = Get-RuntimeStatePathForHost -HostName $HostName -TargetRoot $TargetRoot
+  $recordedVersion = ''
+  $status = 'unknown'
+  $reasonCode = 'unknown-runtime-manifest-health'
+  $nextAction = 'spec-first init -y'
+
+  if ([string]::IsNullOrWhiteSpace($HostName) -or [string]::IsNullOrWhiteSpace($TargetRoot) -or [string]::IsNullOrWhiteSpace($statePath)) {
+    $reasonCode = 'missing-host-or-target-root'
+  } elseif (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) {
+    $status = 'missing'
+    $reasonCode = 'runtime-state-missing'
+  } else {
+    try {
+      $state = Get-Content -Raw -LiteralPath $statePath | ConvertFrom-Json -ErrorAction Stop
+      $recordedVersion = [string]$state.manifestVersion
+      if ([string]::IsNullOrWhiteSpace($recordedVersion)) {
+        $status = 'missing'
+        $reasonCode = 'runtime-manifest-version-missing'
+      } elseif ([string]::IsNullOrWhiteSpace($bundledVersion)) {
+        $status = 'unknown'
+        $reasonCode = 'bundled-manifest-version-unknown'
+      } elseif ($recordedVersion -eq $bundledVersion) {
+        $status = 'current'
+        $reasonCode = $null
+        $nextAction = $null
+      } else {
+        $status = 'stale'
+        $reasonCode = 'runtime-manifest-version-stale'
+      }
+    } catch {
+      $status = 'unknown'
+      $reasonCode = 'runtime-state-unreadable'
+    }
+  }
+
+  [ordered]@{
+    status = $status
+    reason_code = $reasonCode
+    host = $HostName
+    state_path = if ([string]::IsNullOrWhiteSpace($statePath)) { $null } else { $statePath }
+    recorded_manifest_version = if ([string]::IsNullOrWhiteSpace($recordedVersion)) { $null } else { $recordedVersion }
+    bundled_manifest_version = if ([string]::IsNullOrWhiteSpace($bundledVersion)) { $null } else { $bundledVersion }
+    evidence_basis = 'state.manifestVersion vs bundled manifest.version'
+    next_action = $nextAction
+  }
+}
+
 function Test-PathIsSymlink {
   param([string]$Path)
   if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
@@ -418,6 +519,7 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
         $childResult = [pscustomobject]@{
           schema_version = 'mcp-verify-child-result.v1'
           baseline_ready = [bool]$childLedger.baseline_ready
+          generated_runtime_manifest = if ($childLedger.PSObject.Properties.Name -contains 'generated_runtime_manifest') { $childLedger.generated_runtime_manifest } else { [pscustomobject]@{ status = 'unknown'; reason_code = 'not-reported' } }
           tool_facts_status = $childLedger.tool_facts_status
           runtime_capabilities_status = $childLedger.runtime_capabilities_status
           reason_code = [string]$childLedger.reason_code
@@ -456,6 +558,13 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
 
   $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
   $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' }).Count
+  $manifestCurrentCount = @($results | Where-Object { (Get-NestedValue -InputObject $_.result -PathParts @('generated_runtime_manifest', 'status')) -eq 'current' }).Count
+  $manifestStaleCount = @($results | Where-Object { (Get-NestedValue -InputObject $_.result -PathParts @('generated_runtime_manifest', 'status')) -eq 'stale' }).Count
+  $manifestMissingCount = @($results | Where-Object { (Get-NestedValue -InputObject $_.result -PathParts @('generated_runtime_manifest', 'status')) -eq 'missing' }).Count
+  $manifestUnknownCount = @($results | Where-Object {
+    $status = Get-NestedValue -InputObject $_.result -PathParts @('generated_runtime_manifest', 'status')
+    [string]::IsNullOrWhiteSpace($status) -or $status -eq 'unknown'
+  }).Count
   $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0) { 'ready' } elseif ($readyCount -gt 0) { 'partial' } else { 'action-required' }
   $targetGitHealth = if ($TargetFacts.PSObject.Properties.Name -contains 'git_health') { $TargetFacts.git_health } else { $null }
   $targetGitStatus = if ($targetGitHealth -and $targetGitHealth.PSObject.Properties.Name -contains 'status') { [string]$targetGitHealth.status } else { '' }
@@ -483,16 +592,25 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
       total = $results.Count
       ready = $readyCount
       action_required = $actionRequiredCount
+      generated_runtime_manifest = [ordered]@{
+        current = $manifestCurrentCount
+        stale = $manifestStaleCount
+        missing = $manifestMissingCount
+        unknown = $manifestUnknownCount
+      }
     }
     overall_status = $overallStatus
     reason_code = if ($actionRequiredCount -eq 0) { $null } else { 'all-repos-partial-or-action-required' }
     parent_workspace_pollution_count = $parentWorkspacePollutionCount
-    runtime_hints = if ($parentWorkspacePollutionCount -gt 0) {
-      @(('- Workspace pollution detected: wrote .spec-first/workspace/parent-artifact-quarantine.json ({0} paths quarantined). Run `spec-first clean --workspace-orphans` for read-only inspection.' -f $parentWorkspacePollutionCount))
-    } else {
-      @()
-    }
-    next_action = if ($actionRequiredCount -eq 0) { 'All child repos verified Required Harness Runtime readiness.' } else { 'Inspect per-child reason_code and rerun setup/verify for action-required repos.' }
+    runtime_hints = @(
+      if ($parentWorkspacePollutionCount -gt 0) {
+        ('- Workspace pollution detected: wrote .spec-first/workspace/parent-artifact-quarantine.json ({0} paths quarantined). Run `spec-first clean --workspace-orphans` for read-only inspection.' -f $parentWorkspacePollutionCount)
+      }
+      if (($manifestStaleCount + $manifestMissingCount) -gt 0) {
+        '- Generated runtime manifest stale or missing in one or more child repos. Run `spec-first init --all-repos -y` from the parent workspace.'
+      }
+    )
+    next_action = if (($manifestStaleCount + $manifestMissingCount) -gt 0) { 'Run spec-first init --all-repos -y from the parent workspace, then rerun verify.' } elseif ($actionRequiredCount -eq 0) { 'All child repos verified required MCP/helper dependency readiness.' } else { 'Inspect per-child reason_code and rerun setup/verify for action-required repos.' }
   }
 
   try {
@@ -561,6 +679,7 @@ try {
 }
 
 $HostPointerReconciliation = Get-HostPointerReconciliation -CurrentHost $reconciliationHost -RepoRoot $reconciliationRepoRoot -MarkerPathArg $MarkerPath
+$GeneratedRuntimeManifest = Get-GeneratedRuntimeManifestHealth -HostName $reconciliationHost -TargetRoot $reconciliationRepoRoot
 
 function Test-ToolReady {
   param([object]$Tool)
@@ -624,6 +743,9 @@ foreach ($property in $helperTools.PSObject.Properties) {
     $nextActions.Add($helperAction)
   }
 }
+if ($GeneratedRuntimeManifest.status -ne 'current' -and -not [string]::IsNullOrWhiteSpace([string]$GeneratedRuntimeManifest.next_action) -and -not $nextActions.Contains([string]$GeneratedRuntimeManifest.next_action)) {
+  $nextActions.Add([string]$GeneratedRuntimeManifest.next_action)
+}
 $factsTargetKind = if ($Facts.PSObject.Properties.Name -contains 'target_kind') { [string]$Facts.target_kind } else { '' }
 if ($null -ne $Facts.PSObject.Properties['target'] -and -not [bool]$Facts.target.state_write_allowed -and -not [string]::IsNullOrWhiteSpace([string]$Facts.target.next_action) -and -not $nextActions.Contains([string]$Facts.target.next_action)) {
   $nextActions.Add([string]$Facts.target.next_action)
@@ -684,6 +806,7 @@ $combined = [ordered]@{
     schema_version = 'v2'
   }
   host_pointer_reconciliation = $HostPointerReconciliation
+  generated_runtime_manifest = $GeneratedRuntimeManifest
   tool_facts_status = 'pending'
   tool_facts_path = $null
   runtime_capabilities_status = 'pending'
@@ -848,14 +971,24 @@ Write-Host "🧭 baseline_ready: $($combined.baseline_ready)"
 Write-Host '🧩 代码上下文证据使用 bounded direct source reads、rg、ast-grep、git diff、tests/logs。'
 Write-Host '✅ readiness ledger v2 已写入'
 Write-Host ''
-Write-Host 'Required Harness Runtime status (grouped):'
+Write-Host 'Setup readiness status (grouped):'
 $harnessNext = if ($combined.baseline_ready) { '' } else { 'fix action-required rows' }
+$manifest = $combined.generated_runtime_manifest
+$manifestEvidence = 'state.manifestVersion={0}, bundled={1}' -f `
+  (Format-Cell (Get-Field -InputObject $manifest -Name 'recorded_manifest_version' -Default 'missing')), `
+  (Format-Cell (Get-Field -InputObject $manifest -Name 'bundled_manifest_version' -Default 'unknown'))
 $summaryRows = @(
   ,@(
-    'Harness runtime',
+    'Required MCP/helper dependencies',
     $(if ($combined.baseline_ready) { 'ready' } else { 'action-required' }),
     "baseline_ready=$($combined.baseline_ready.ToString().ToLowerInvariant())",
     $harnessNext
+  ),
+  ,@(
+    'Generated runtime manifest',
+    (Format-Cell (Get-Field -InputObject $manifest -Name 'status' -Default 'unknown')),
+    $manifestEvidence,
+    (Format-Cell (Get-Field -InputObject $manifest -Name 'next_action' -Default ''))
   )
 )
 
@@ -1010,13 +1143,18 @@ Write-Host '下一步:'
 if ($combined.baseline_ready) {
   $targetStateWriteAllowed = if ($null -ne $combined.target) { [bool]$combined.target.state_write_allowed } else { $true }
   $targetNextAction = if ($null -ne $combined.target) { [string]$combined.target.next_action } else { '' }
+  $manifestStatus = [string](Get-Field -InputObject $combined.generated_runtime_manifest -Name 'status' -Default 'unknown')
+  $manifestNextAction = [string](Get-Field -InputObject $combined.generated_runtime_manifest -Name 'next_action' -Default '')
   if (-not $targetStateWriteAllowed) {
     Write-Host "  1. 选择目标 child repo，并用 --repo 重新运行 $setupCommand。"
     if (-not [string]::IsNullOrWhiteSpace($targetNextAction)) {
       Write-Host "     $targetNextAction"
     }
+  } elseif ($manifestStatus -ne 'current' -and -not [string]::IsNullOrWhiteSpace($manifestNextAction)) {
+    Write-Host "  1. Required MCP/helper dependencies 已就绪；generated runtime manifest 为 $manifestStatus。"
+    Write-Host "  2. 运行 $manifestNextAction 刷新 runtime，然后重新运行 $setupCommand。"
   } else {
-    Write-Host '  1. Required harness runtime 已就绪；如果已经有明确任务，可以直接描述目标，或选择匹配的 plan/work/review/debug workflow。'
+    Write-Host '  1. Required MCP/helper dependencies 与 generated runtime manifest 均已就绪；如果已经有明确任务，可以直接描述目标，或选择匹配的 plan/work/review/debug workflow。'
     Write-Host "  2. 重启 $hostDisplay 或新开会话只在下游 workflow 依赖新写入的 MCP 配置前需要。"
   }
 } else {
