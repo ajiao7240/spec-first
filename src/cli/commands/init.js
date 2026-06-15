@@ -491,6 +491,7 @@ function resolveSelectedHosts(platforms) {
 function buildInitPlans(input) {
   return input.platforms.map((platform) => buildInitPlan({
     ...input,
+    platformCount: input.platforms.length,
     platform,
     adapter: getAdapter(platform),
   }));
@@ -706,7 +707,10 @@ function printWorkspaceInitApplySuccess(plan, result) {
   const counts = summary.counts || {};
   console.log(`Workspace init summary: ${summary.overall_status || 'unknown'} (${counts.ready || 0}/${counts.total || 0} ready)`);
   if (result.exit_code === 0) {
-    console.log('🧭 Wrote parent advisory summary: .spec-first/workspace/init-summary.json');
+    const paths = Array.isArray(result.workspace_summary_paths) && result.workspace_summary_paths.length > 0
+      ? result.workspace_summary_paths
+      : ['.spec-first/workspace/init-summary.json'];
+    console.log(`🧭 Wrote parent advisory summary: ${paths.join(', ')}`);
   }
 }
 
@@ -1239,6 +1243,12 @@ function runInitForWorkspace({
     parent_host_runtime: parentRuntime,
     dry_run: parsed.dryRun,
     platform,
+    platforms: Array.isArray(parsed.platforms) && parsed.platforms.length > 0
+      ? [...new Set(parsed.platforms)].sort((left, right) => left.localeCompare(right))
+      : [platform],
+    platform_count: Array.isArray(parsed.platforms) && parsed.platforms.length > 0
+      ? parsed.platforms.length
+      : 1,
     results,
     counts: {
       total: results.length,
@@ -1264,14 +1274,12 @@ function runInitForWorkspace({
   if (parsed.dryRun) {
     console.log('Dry run: no parent advisory summary was written.');
   } else {
-    const summaryPath = path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary.json');
-    const summaryPathGuard = validateContainedWorkspaceWritePath(workspaceRoot, summaryPath);
-    if (!summaryPathGuard.ok) {
-      console.error(`Error: workspace init summary path is unsafe (${summaryPathGuard.reason_code}).`);
+    const writeResult = writeWorkspaceInitSummaryFiles(workspaceRoot, summary);
+    if (!writeResult.ok) {
+      console.error(`Error: workspace init summary path is unsafe (${writeResult.reason_code}).`);
       return 1;
     }
-    writeJsonFileAtomic(summaryPath, summary);
-    console.log(`🧭 Wrote parent advisory summary: ${path.relative(workspaceRoot, summaryPath)}`);
+    console.log(`🧭 Wrote parent advisory summary: ${writeResult.paths.join(', ')}`);
   }
 
   return actionRequiredCount === 0 ? 0 : 1;
@@ -1283,6 +1291,7 @@ function buildWorkspaceInitPlan({
   workspaceRoot,
   candidates,
   selectionSource = 'programmatic-all-repos',
+  platformCount = 1,
   name = '',
   user = '',
   lang = '',
@@ -1321,6 +1330,8 @@ function buildWorkspaceInitPlan({
     mode: 'all-repos',
     workspaceRoot: normalizedWorkspaceRoot,
     platform,
+    platformCount,
+    platforms,
     adapterId: adapter.id,
     dryRun: Boolean(dryRun),
     selectionSource,
@@ -1417,23 +1428,24 @@ function applyWorkspaceInitPlan(workspaceRoot, plan) {
   });
 
   if (!plan.dryRun) {
-    const summaryPath = path.join(normalizedWorkspaceRoot, '.spec-first', 'workspace', 'init-summary.json');
-    const summaryPathGuard = validateContainedWorkspaceWritePath(normalizedWorkspaceRoot, summaryPath);
-    if (!summaryPathGuard.ok) {
+    const writeResult = writeWorkspaceInitSummaryFiles(normalizedWorkspaceRoot, summary);
+    if (!writeResult.ok) {
       return {
         exit_code: 1,
         workspace_summary: summary,
         runtime_untrack: buildRuntimeUntrackSummary(),
-        error: `workspace init summary path is unsafe (${summaryPathGuard.reason_code})`,
+        error: `workspace init summary path is unsafe (${writeResult.reason_code})`,
       };
     }
-    writeJsonFileAtomic(summaryPath, summary);
+    summary.workspace_summary_index = writeResult.index_summary || null;
+    summary.workspace_summary_paths = writeResult.paths;
   }
 
   const actionRequiredCount = summary.counts.action_required + summary.counts.parent_runtime_action_required;
   return {
     exit_code: actionRequiredCount === 0 ? 0 : 1,
     workspace_summary: summary,
+    workspace_summary_paths: summary.workspace_summary_paths || [],
     runtime_untrack: parentRuntime.runtime_untrack,
   };
 }
@@ -1466,6 +1478,12 @@ function buildWorkspaceInitSummary({
     parent_host_runtime: parentRuntime,
     dry_run: Boolean(plan.dryRun),
     platform: plan.platform,
+    platforms: Array.isArray(plan.platforms) && plan.platforms.length > 0
+      ? [...new Set(plan.platforms)].sort((left, right) => left.localeCompare(right))
+      : [plan.platform],
+    platform_count: Number.isInteger(plan.platformCount) && plan.platformCount > 0
+      ? plan.platformCount
+      : 1,
     results,
     counts: {
       total: results.length,
@@ -1485,6 +1503,164 @@ function buildWorkspaceInitSummary({
       ? 'Parent host runtime and all child repos completed init.'
       : 'Inspect per-child reason_code and rerun init for action-required repos.',
   };
+}
+
+function writeWorkspaceInitSummaryFiles(workspaceRoot, summary) {
+  const workspaceDir = path.join(workspaceRoot, '.spec-first', 'workspace');
+  const platformSummaryPath = path.join(workspaceDir, workspaceInitSummaryFileName(summary.platform));
+  const summaryPath = path.join(workspaceDir, 'init-summary.json');
+
+  for (const candidatePath of [platformSummaryPath, summaryPath]) {
+    const guard = validateContainedWorkspaceWritePath(workspaceRoot, candidatePath);
+    if (!guard.ok) {
+      return { ok: false, reason_code: guard.reason_code, paths: [] };
+    }
+  }
+
+  writeJsonFileAtomic(platformSummaryPath, summary);
+  const platformRelativePath = toWorkspaceRelativePath(platformSummaryPath, workspaceRoot);
+  const multiPlatform = (Array.isArray(summary.platforms) && summary.platforms.length > 1)
+    || (Number.isInteger(summary.platform_count) && summary.platform_count > 1);
+
+  if (!multiPlatform) {
+    writeJsonFileAtomic(summaryPath, summary);
+    return {
+      ok: true,
+      paths: [
+        toWorkspaceRelativePath(summaryPath, workspaceRoot),
+        platformRelativePath,
+      ],
+      index_summary: null,
+    };
+  }
+
+  const indexSummary = buildWorkspaceInitSummaryIndex({
+    workspaceRoot,
+    summaryPath,
+    currentSummary: summary,
+    currentSummaryRelativePath: platformRelativePath,
+  });
+  writeJsonFileAtomic(summaryPath, indexSummary);
+  return {
+    ok: true,
+    paths: [
+      toWorkspaceRelativePath(summaryPath, workspaceRoot),
+      platformRelativePath,
+    ],
+    index_summary: indexSummary,
+  };
+}
+
+function workspaceInitSummaryFileName(platform) {
+  const safePlatform = SUPPORTED_HOST_IDS.has(platform) ? platform : 'unknown';
+  return `init-summary-${safePlatform}.json`;
+}
+
+function buildWorkspaceInitSummaryIndex({
+  workspaceRoot,
+  summaryPath,
+  currentSummary,
+  currentSummaryRelativePath,
+}) {
+  const existing = readWorkspaceInitSummaryIndex(summaryPath, workspaceRoot);
+  const platforms = {
+    ...(existing.platforms || {}),
+    [currentSummary.platform]: buildWorkspaceInitPlatformEntry(currentSummary, currentSummaryRelativePath),
+  };
+  const entries = Object.values(platforms).sort((left, right) => (
+    String(left.platform || '').localeCompare(String(right.platform || ''))
+  ));
+  const readyCount = entries.filter((entry) => entry.overall_status === 'ready').length;
+  const actionRequiredCount = entries.length - readyCount;
+  const childTotal = entries.reduce((total, entry) => total + entry.counts.total, 0);
+  const childReady = entries.reduce((total, entry) => total + entry.counts.ready, 0);
+  const childActionRequired = entries.reduce((total, entry) => total + entry.counts.action_required, 0);
+  const parentRuntimeReady = entries.reduce((total, entry) => total + entry.counts.parent_runtime_ready, 0);
+  const parentRuntimeActionRequired = entries.reduce((total, entry) => total + entry.counts.parent_runtime_action_required, 0);
+  const runtimeUntrackTotal = entries.reduce((total, entry) => total + entry.counts.runtime_untrack_total, 0);
+
+  return {
+    schema_version: 'workspace-init-summary-index.v1',
+    generated_at: new Date().toISOString(),
+    advisory: true,
+    workflow_mode: 'all-repos',
+    selection_source: currentSummary.selection_source,
+    workspace_root: workspaceRoot,
+    parent_writes_repo_local_artifacts: false,
+    parent_writes_host_runtime_assets: true,
+    platforms: entries.reduce((memo, entry) => {
+      memo[entry.platform] = entry;
+      return memo;
+    }, {}),
+    counts: {
+      platform_total: entries.length,
+      platform_ready: readyCount,
+      platform_action_required: actionRequiredCount,
+      total: childTotal,
+      ready: childReady,
+      action_required: childActionRequired,
+      parent_runtime_ready: parentRuntimeReady,
+      parent_runtime_action_required: parentRuntimeActionRequired,
+      runtime_untrack_total: runtimeUntrackTotal,
+    },
+    overall_status: actionRequiredCount === 0
+      ? 'ready'
+      : readyCount > 0
+        ? 'partial'
+        : 'action-required',
+    reason_code: actionRequiredCount === 0 ? null : 'all-repos-partial-or-action-required',
+    next_action: actionRequiredCount === 0
+      ? 'Parent host runtime and all child repos completed init for all selected platforms.'
+      : 'Inspect per-platform reason_code and rerun init for action-required platforms.',
+  };
+}
+
+function readWorkspaceInitSummaryIndex(summaryPath, workspaceRoot) {
+  if (!fs.existsSync(summaryPath)) {
+    return { platforms: {} };
+  }
+  try {
+    const payload = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+    if (payload && payload.schema_version === 'workspace-init-summary-index.v1' && payload.platforms && typeof payload.platforms === 'object') {
+      return { platforms: payload.platforms };
+    }
+    if (payload && payload.schema_version === 'workspace-init-summary.v1' && payload.platform) {
+      return {
+        platforms: {
+          [payload.platform]: buildWorkspaceInitPlatformEntry(
+            payload,
+            toWorkspaceRelativePath(summaryPath, workspaceRoot),
+          ),
+        },
+      };
+    }
+  } catch (_error) {
+    return { platforms: {} };
+  }
+  return { platforms: {} };
+}
+
+function buildWorkspaceInitPlatformEntry(summary, summaryRelativePath) {
+  const counts = summary.counts || {};
+  return {
+    platform: summary.platform,
+    path: summaryRelativePath,
+    generated_at: summary.generated_at,
+    overall_status: summary.overall_status,
+    reason_code: summary.reason_code,
+    counts: {
+      total: numberOrZero(counts.total),
+      ready: numberOrZero(counts.ready),
+      action_required: numberOrZero(counts.action_required),
+      parent_runtime_ready: numberOrZero(counts.parent_runtime_ready),
+      parent_runtime_action_required: numberOrZero(counts.parent_runtime_action_required),
+      runtime_untrack_total: numberOrZero(counts.runtime_untrack_total),
+    },
+  };
+}
+
+function numberOrZero(value) {
+  return Number.isFinite(value) ? value : 0;
 }
 
 function buildErroredProjectInitPlan({
@@ -1679,8 +1855,9 @@ function printHelp() {
 }
 
 function discoverChildGitRepos(workspaceRoot, maxDepth = 3) {
+  const normalizedWorkspaceRoot = canonicalizeExistingPath(workspaceRoot);
   const candidates = [];
-  const queue = [{ dir: workspaceRoot, depth: 0 }];
+  const queue = [{ dir: normalizedWorkspaceRoot, depth: 0 }];
   const skipNames = new Set([
     '.agents',
     '.cache',
@@ -1714,7 +1891,7 @@ function discoverChildGitRepos(workspaceRoot, maxDepth = 3) {
       if (skipNames.has(entry.name)) continue;
       const childPath = path.join(current.dir, entry.name);
       if (hasGitMarker(childPath)) {
-        addChildRepoCandidate(candidates, childPath, workspaceRoot);
+        addChildRepoCandidate(candidates, childPath, normalizedWorkspaceRoot);
         continue;
       }
       if (current.depth < maxDepth) {
@@ -2446,6 +2623,8 @@ module.exports = {
   applyInitPlan,
   buildInitPlan,
   buildInitWritePlan,
+  discoverChildGitRepos,
+  findGitRoot,
   printInitApplySuccess,
   printInitDryRun,
   printInitPreview,

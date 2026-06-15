@@ -72,6 +72,16 @@ When reviewing behavior-bearing changes, check whether the work established and 
 
 For docs-only and config-only changes, docs contract checks, schema/help/render checks, generated catalog diff checks, or diff-shape review can be sufficient verification. Do not flag "no test-first loop" when the change has no behavior-bearing code and another observable check proves the intended effect.
 
+## Anti-Rationalization Red Flags
+
+| 红旗念头 | 停下来做什么 |
+| --- | --- |
+| 「看着没问题,跳过对抗复核」 | 跑该跑的对抗、证伪或 confidence-gate 视角,再给出 verdict。 |
+| 「这条 finding 大概成立」 | 回到 source、diff、test、log 或 artifact 证据核对,确认后再定级;advisory 不能当 confirmed。 |
+| 「口头说一下结论就行」 | 产出结构化 finding、Coverage 与 residual risk,让下游能处理而不是靠会话记忆。 |
+
+这是注意力提醒,不是 gate,也不替代 LLM 判断;最终是否停下、如何处理仍由你按当前证据决定。
+
 ## Runtime Context Exclusion
 
 遵循 `docs/contracts/context-governance.md`：普通 Code Review context 默认排除 `.spec-first/audits/**`、`.spec-first/governance/**` 和 generated mirrors（`.claude/**`、`.codex/**`、`.agents/skills/**`）。除非 diff 或用户请求明确指向 setup/update/runtime drift/audit/governance evidence，否则不要把这些路径放进 reviewer prompt、broad repo search 或 review context bundle；被排除时，在 Coverage 中报告 path 或 reason，而不是静默扫描。

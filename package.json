@@ -1,7 +1,7 @@
 {
   "name": "spec-first",
   "version": "1.11.0",
-  "description": "AI coding workflow CLI for spec-driven engineering, spec-driven development, and harness engineering on Claude Code and Codex",
+  "description": "AI Coding Harness for Claude Code and Codex — turns one-off AI coding chats into a repo-backed, verifiable engineering loop for spec-driven development. Scripts prepare facts; LLMs decide; evidence stays in your repo.",
   "type": "commonjs",
   "bin": {
     "spec-first": "bin/spec-first.js"

@@ -1,8 +1,11 @@
-const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const pkg = require('../../../package.json');
+const {
+  discoverChildGitRepos,
+  findGitRoot,
+} = require('./init');
 
 const PACKAGE_NAME = pkg.name;
 const UPGRADE_COMMAND = `npm install -g ${PACKAGE_NAME}@latest`;
@@ -150,81 +153,6 @@ function printRuntimeRefreshFallback() {
 
 function formatSpecFirstCommand(args) {
   return `spec-first ${args.join(' ')}`;
-}
-
-function discoverChildGitRepos(workspaceRoot, maxDepth = 3) {
-  const candidates = [];
-  const queue = [{ dir: workspaceRoot, depth: 0 }];
-  const skipNames = new Set([
-    '.agents',
-    '.cache',
-    '.claude',
-    '.codex',
-    '.direnv',
-    '.git',
-    '.spec-first',
-    '.venv',
-    '.worktrees',
-    'coverage',
-    'dist',
-    'node_modules',
-    'temp',
-    'tmp',
-    'vendor',
-  ]);
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    let entries = [];
-    try {
-      entries = fs.readdirSync(current.dir, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory())
-        .sort((left, right) => left.name.localeCompare(right.name));
-    } catch (_error) {
-      continue;
-    }
-
-    for (const entry of entries) {
-      if (skipNames.has(entry.name)) continue;
-      const childPath = path.join(current.dir, entry.name);
-      if (hasGitMarker(childPath)) {
-        candidates.push(childPath);
-        continue;
-      }
-      if (current.depth < maxDepth) {
-        queue.push({ dir: childPath, depth: current.depth + 1 });
-      }
-    }
-  }
-
-  return candidates;
-}
-
-function findGitRoot(startPath) {
-  let current = path.resolve(startPath);
-  try {
-    const stat = fs.statSync(current);
-    if (!stat.isDirectory()) {
-      current = path.dirname(current);
-    }
-  } catch (_error) {
-    return '';
-  }
-
-  while (true) {
-    if (hasGitMarker(current)) {
-      return current;
-    }
-    const parent = path.dirname(current);
-    if (parent === current) {
-      return '';
-    }
-    current = parent;
-  }
-}
-
-function hasGitMarker(dirPath) {
-  return fs.existsSync(path.join(dirPath, '.git'));
 }
 
 function printHelp() {

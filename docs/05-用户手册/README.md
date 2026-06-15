@@ -19,7 +19,7 @@
 
 - `spec-first init [--claude] [--codex] [-y]`：已支持；无平台 flag 时交互式多选，显式平台 flag 会覆盖默认宿主集合
 - `spec-first doctor`：支持自动检测，也支持 `--claude` / `--codex`
-- `spec-first update`：已支持；升级 npm 包到 `@latest`，并提示你随后运行 `spec-first init` 刷新本地 runtime
+- `spec-first update`：已支持；升级 npm 包到 `@latest`，成功后自动启动 fresh `spec-first init` 刷新本地 runtime；刷新失败或 scope 不明时输出可复制 fallback
 - `spec-first clean --claude / --codex`：已支持
 - `spec-first repair-worktree`：已支持；预览失效 worktree pointer 的修复指引（`--dry-run` 仅预览）
 - `spec-first tasks <subcommand>` / `spec-first session <subcommand>`：派生 task pack 的确定性校验入口，以及 opt-in 多 actor 会话 advisory
@@ -28,7 +28,7 @@
 
 关于升级：
 
-- 日常升级直接运行 `spec-first update`：它会把 npm 包升级到 `@latest`，成功后提示你用新 binary 另起 `spec-first init` 刷新本地 runtime（它不代跑 `init`，避免旧进程跑新生成逻辑）
+- 日常升级直接运行 `spec-first update`：它会把 npm 包升级到 `@latest`，成功后用 fresh `spec-first init` 子进程刷新本地 runtime；刷新失败或 scope 不明时会输出可复制 fallback（它不会在旧进程内直接执行 runtime generator）
 - 如果你不是通过 `npm -g` 安装（如 Claude plugin / pnpm / volta），`update` 可能装出冲突副本，应按你自己的包管理器升级
 - 如果 `doctor` 报告 `legacy managed state`，直接重新运行 `spec-first init` 并选择目标宿主
 - `init` 会执行 managed hard reset 并按当前版本全量重建运行时

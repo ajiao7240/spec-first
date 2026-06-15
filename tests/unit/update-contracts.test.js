@@ -1,6 +1,13 @@
 'use strict';
 
-const { runUpdate } = require('../../src/cli/commands/update');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const {
+  resolveRuntimeRefreshCommand,
+  runUpdate,
+} = require('../../src/cli/commands/update');
 
 // 注入假 runInstall,避免单测触发真实 `npm install -g` 或联网。
 function makeInstaller(outcome) {
@@ -66,6 +73,23 @@ describe('spec-first update command', () => {
     expect(exitCode).toBe(0);
     expect(refresh.calls).toEqual([{ args: ['init', '--all-repos', '-y'], options: { cwd: '/workspace' } }]);
     expect(stdout).toContain('spec-first init --all-repos -y');
+  });
+
+  test('default runtime refresh resolver detects a real parent workspace', () => {
+    const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-update-workspace-'));
+    try {
+      fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, 'project-b', '.git'), { recursive: true });
+
+      expect(resolveRuntimeRefreshCommand(workspaceRoot)).toEqual({
+        args: ['init', '--all-repos', '-y'],
+        cwd: path.resolve(workspaceRoot),
+        reason_code: 'parent-workspace',
+        child_repo_count: 2,
+      });
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
   });
 
   test('failed npm install (non-zero): surfaces manual command, no init refresh, exit non-zero', async () => {

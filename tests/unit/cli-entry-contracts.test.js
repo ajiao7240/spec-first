@@ -111,6 +111,64 @@ describe('CLI entry contract', () => {
     }
   });
 
+  test('init --all-repos -y preserves per-host workspace summaries for default hosts', () => {
+    const workspaceRoot = makeTempDir();
+    const home = makeTempDir();
+
+    try {
+      fs.mkdirSync(path.join(workspaceRoot, 'project-a', '.git'), { recursive: true });
+      fs.mkdirSync(path.join(workspaceRoot, 'project-b', '.git'), { recursive: true });
+
+      const result = runCli([
+        'init',
+        '--all-repos',
+        '-y',
+        '-u',
+        'reviewer',
+        '--lang',
+        'en',
+      ], {
+        cwd: workspaceRoot,
+        env: { HOME: home },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('Workspace init summary: ready (2/2 ready)');
+
+      const workspaceSummaryDir = path.join(workspaceRoot, '.spec-first', 'workspace');
+      const summaryIndex = JSON.parse(fs.readFileSync(path.join(workspaceSummaryDir, 'init-summary.json'), 'utf8'));
+      const claudeSummary = JSON.parse(fs.readFileSync(path.join(workspaceSummaryDir, 'init-summary-claude.json'), 'utf8'));
+      const codexSummary = JSON.parse(fs.readFileSync(path.join(workspaceSummaryDir, 'init-summary-codex.json'), 'utf8'));
+
+      expect(summaryIndex.schema_version).toBe('workspace-init-summary-index.v1');
+      expect(summaryIndex.counts).toMatchObject({
+        platform_total: 2,
+        platform_ready: 2,
+        platform_action_required: 0,
+        total: 4,
+        ready: 4,
+        action_required: 0,
+      });
+      expect(Object.keys(summaryIndex.platforms).sort()).toEqual(['claude', 'codex']);
+      expect(summaryIndex.platforms.claude.path).toBe('.spec-first/workspace/init-summary-claude.json');
+      expect(summaryIndex.platforms.codex.path).toBe('.spec-first/workspace/init-summary-codex.json');
+      expect(claudeSummary).toMatchObject({
+        schema_version: 'workspace-init-summary.v1',
+        platform: 'claude',
+        overall_status: 'ready',
+      });
+      expect(codexSummary).toMatchObject({
+        schema_version: 'workspace-init-summary.v1',
+        platform: 'codex',
+        overall_status: 'ready',
+      });
+    } finally {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   test('init workspace target flags reject unsafe combinations through the real CLI parser', () => {
     const projectRoot = makeTempDir();
     const workspaceRoot = makeTempDir();

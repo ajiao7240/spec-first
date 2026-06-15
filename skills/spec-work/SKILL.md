@@ -80,6 +80,17 @@ Before changing behavior, establish or attempt the smallest feedback loop that c
 
 Prefer vertical tracer bullets when scope permits: close one behavior with its implementation, verification, and necessary docs/handoff evidence before broadening to the next behavior. Do not split work into "write all tests first across every unit, then implement everything" when independent vertical slices can be verified. Docs-only and config-only tasks use docs contract checks, schema/help/render checks, or diff-shape checks as the feedback loop; do not force TDD where no behavior-bearing code changes.
 
+## Anti-Rationalization Red Flags
+
+| 红旗念头 | 停下来做什么 |
+| --- | --- |
+| 「测试大概会过,先声明完成」 | 跑匹配本次改动的验证命令,读真实输出,再声明完成或记录 not-run reason_code。 |
+| 「这处改动显然对,不用 preview」 | 先做可观察的 preview、diff-shape check 或最窄反馈回路,再继续扩大改动。 |
+| 「相邻代码顺手改了」 | 回到 plan/task scope,只碰完成当前目标必须修改的 source;额外发现记录为 follow-up。 |
+| 「孤儿代码留着无所谓」 | 清理自己造成的 orphaned 文件、测试、引用或 runtime 产物,避免把后续成本留给别人。 |
+
+这是注意力提醒,不是 gate,也不替代 LLM 判断;最终是否停下、如何处理仍由你按当前证据决定。
+
 ## Runtime Context Exclusion
 
 Follow `docs/contracts/context-governance.md`: ordinary Work context excludes `.spec-first/audits/**`, `.spec-first/governance/**`, and generated mirrors (`.claude/**`, `.codex/**`, `.agents/skills/**`) by default. Do not pass those paths to worker context, reviewer handoff, or broad repo search unless the current task explicitly targets setup/update/runtime drift/audit/governance evidence or the user names a precise runtime path; when excluded, record the path or reason instead of silently scanning it.

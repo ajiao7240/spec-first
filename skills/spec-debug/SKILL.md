@@ -67,6 +67,16 @@ These principles govern every phase. They are repeated at decision points becaus
 3. **One change at a time.** Test one hypothesis, change one thing. If you're changing multiple things to "see if it helps," stop — that is shotgun debugging.
 4. **When stuck, diagnose why — don't just try harder.**
 
+## Anti-Rationalization Red Flags
+
+| 红旗念头 | 停下来做什么 |
+| --- | --- |
+| 「我看出 bug 了,跳过复现」 | 先建立最小复现或明确记录 `feedback_loop_not_possible`;没有复现就不能声明 root cause confirmed。 |
+| 「root cause 很明显」 | 用源码、日志、测试或运行值补齐 causal chain;不把直觉当 evidence。 |
+| 「修完了,手测一下就行」 | 复跑同一个反馈回路并留下 confirmed evidence;不能只写 freeform「tests passed」。 |
+
+这是注意力提醒,不是 gate,也不替代 LLM 判断;最终是否停下、如何处理仍由你按当前证据决定。
+
 ## Context Orientation Anchor
 
 Orient debugging from the reported symptom, reproduction path, already-loaded host/project instructions, package manifests and command registries, nearby implementation files, nearby tests, recent diffs, and runtime logs. Treat `AGENTS.md`, `CLAUDE.md`, and project role docs as host instruction sources that are normally already loaded by the current session, not automatic re-read targets for every debug run. Read those source instruction files only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it, such as a user-named path, missing/stale loaded context, source/runtime governance work, or a directory-scoped instruction file that may govern changed files. In a parent workspace containing multiple independent Git repos, use bounded direct reads only after the symptom, user request, or plan makes the candidate repo scope clear. Before Phase 3 writes, the bug must have a single explicit `target_repo` or per-fix repo scope; do not let cwd or broad workspace discovery choose a sibling repo for edits.

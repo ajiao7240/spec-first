@@ -469,8 +469,26 @@ write_all_repos_verify_summary_and_exit() {
     set -e
     if [ -f "$MARKER_PATH" ] && jq -e . "$MARKER_PATH" >/dev/null 2>&1; then
       child_ledger="$(cat "$MARKER_PATH")"
-      child_overall="$(jq -r 'if (.baseline_ready == true) then "ready" else "action-required" end' <<<"$child_ledger")"
-      child_reason="$(jq -r '.reason_code // empty' <<<"$child_ledger")"
+      child_overall="$(jq -r '
+        (.generated_runtime_manifest.status // "unknown") as $manifest_status
+        | if (.overall_status // "") != "" then
+            .overall_status
+          elif (($manifest_status == "stale") or ($manifest_status == "missing")) then
+            "action-required"
+          elif (.baseline_ready == true) then
+            "ready"
+          else
+            "action-required"
+          end
+      ' <<<"$child_ledger")"
+      child_reason="$(jq -r '
+        (.generated_runtime_manifest.status // "unknown") as $manifest_status
+        | if (($manifest_status == "stale") or ($manifest_status == "missing")) then
+            "generated-runtime-manifest-refresh-required"
+          else
+            (.reason_code // empty)
+          end
+      ' <<<"$child_ledger")"
       child_result="$(jq -n --argjson ledger "$child_ledger" '{
         schema_version:"mcp-verify-child-result.v1",
         baseline_ready:($ledger.baseline_ready // false),
@@ -514,13 +532,25 @@ write_all_repos_verify_summary_and_exit() {
     parent_workspace_pollution_count=0
   fi
 
+  parent_host="$(jq -r '.host // empty' <<<"$HOST_INFO_JSON")"
+  parent_generated_runtime_manifest="$(compute_generated_runtime_manifest_health "$parent_host" "$workspace_root" | jq '
+    if ((.status // "unknown") == "stale") or ((.status // "unknown") == "missing") then
+      .next_action = "spec-first init --all-repos -y"
+    else
+      .
+    end
+  ')"
+
   summary_json="$(jq -n \
     --arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
     --arg selection_source "$selection_source" \
     --argjson target "$target_json" \
+    --argjson parent_generated_runtime_manifest "$parent_generated_runtime_manifest" \
     --argjson parent_workspace_pollution_count "$parent_workspace_pollution_count" \
     --slurpfile items "$summary_items" \
     '($items[0] // []) as $results
+    | (((($parent_generated_runtime_manifest.status // "unknown") == "stale") or (($parent_generated_runtime_manifest.status // "unknown") == "missing"))) as $parent_manifest_refresh_required
+    | ([$results[] | select(((.result.generated_runtime_manifest.status // "unknown") == "stale") or ((.result.generated_runtime_manifest.status // "unknown") == "missing"))] | length) as $child_manifest_refresh_required_count
     | {
         schema_version:"workspace-mcp-verify-summary.v1",
         generated_at:$generated_at,
@@ -538,6 +568,7 @@ write_all_repos_verify_summary_and_exit() {
           diagnostic_command:(if (($target.git_health.status // "") == "corrupted-gitdir") then "git fsck" else null end)
         },
         parent_writes_repo_local_artifacts:false,
+        parent_generated_runtime_manifest:$parent_generated_runtime_manifest,
         results:$results,
         counts:{
           total:($results | length),
@@ -552,6 +583,9 @@ write_all_repos_verify_summary_and_exit() {
         },
         overall_status:(
           if ($results | length) == 0 then "action-required"
+          elif $parent_manifest_refresh_required then (
+            if ([$results[] | select(.overall_status == "ready")] | length) > 0 then "partial" else "action-required" end
+          )
           elif ([$results[] | select(.overall_status != "ready")] | length) == 0 then "ready"
           elif ([$results[] | select(.overall_status == "ready")] | length) > 0 then "partial"
           else "action-required"
@@ -559,6 +593,7 @@ write_all_repos_verify_summary_and_exit() {
         ),
         reason_code:(
           if ($results | length) == 0 then "workspace-no-git-candidates"
+          elif ($parent_manifest_refresh_required or ($child_manifest_refresh_required_count > 0)) then "generated-runtime-manifest-refresh-required"
           elif ([$results[] | select(.overall_status != "ready")] | length) == 0 then null
           else "all-repos-partial-or-action-required"
           end
@@ -568,12 +603,12 @@ write_all_repos_verify_summary_and_exit() {
           (if $parent_workspace_pollution_count > 0 then
             ["- Workspace pollution detected: wrote .spec-first/workspace/parent-artifact-quarantine.json (\($parent_workspace_pollution_count) paths quarantined). Run `spec-first clean --workspace-orphans` for read-only inspection."]
           else [] end)
-          + (if ([$results[] | select(((.result.generated_runtime_manifest.status // "unknown") == "stale") or ((.result.generated_runtime_manifest.status // "unknown") == "missing"))] | length) > 0 then
-            ["- Generated runtime manifest stale or missing in one or more child repos. Run `spec-first init --all-repos -y` from the parent workspace."]
+          + (if ($parent_manifest_refresh_required or ($child_manifest_refresh_required_count > 0)) then
+            ["- Generated runtime manifest stale or missing in the parent workspace or one or more child repos. Run `spec-first init --all-repos -y` from the parent workspace."]
           else [] end)
         ),
         next_action:(
-          if ([$results[] | select(((.result.generated_runtime_manifest.status // "unknown") == "stale") or ((.result.generated_runtime_manifest.status // "unknown") == "missing"))] | length) > 0 then
+          if ($parent_manifest_refresh_required or ($child_manifest_refresh_required_count > 0)) then
             "Run spec-first init --all-repos -y from the parent workspace, then rerun verify."
           elif ([$results[] | select(.overall_status != "ready")] | length) == 0 then
             "All child repos verified required MCP/helper dependency readiness."
@@ -795,9 +830,16 @@ jq --argjson setup "$SETUP_FACTS_RESULT" \
      )
    | ([.tool_facts_status, .runtime_capabilities_status]
       | any(. != "ready" and . != "written")) as $setup_action_required
+   | (.generated_runtime_manifest.status // "unknown") as $manifest_status
+   | (($manifest_status == "stale") or ($manifest_status == "missing")) as $runtime_manifest_action_required
    | .baseline_ready = ((.baseline_ready == true) and ($setup_action_required | not))
-   | .host_runtime_ready = (.baseline_ready == true)
-   | .overall_status = (if .baseline_ready == true then "ready" else "action-required" end)' "$combined_tmp" > "$final_tmp"
+   | .host_runtime_ready = ((.baseline_ready == true) and ($runtime_manifest_action_required | not))
+   | .overall_status = (if .baseline_ready == true and ($runtime_manifest_action_required | not) then "ready" else "action-required" end)
+   | .reason_code = (
+       if $runtime_manifest_action_required then "generated-runtime-manifest-refresh-required"
+       else (.reason_code // "")
+       end
+     )' "$combined_tmp" > "$final_tmp"
 
 mv "$final_tmp" "$MARKER_PATH"
 write_setup_scenario_fingerprint

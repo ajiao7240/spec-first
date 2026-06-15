@@ -511,11 +511,21 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
     if (Test-Path -LiteralPath $MarkerPath -PathType Leaf) {
       try {
         $childLedger = Get-Content -Raw $MarkerPath | ConvertFrom-Json
-        $childOverall = if ([bool]$childLedger.baseline_ready) { 'ready' } else { 'action-required' }
+        $childManifestStatus = [string](Get-NestedValue -InputObject $childLedger -PathParts @('generated_runtime_manifest', 'status'))
+        $childManifestRefreshRequired = @('stale', 'missing') -contains $childManifestStatus
+        $childOverall = if ($childLedger.PSObject.Properties.Name -contains 'overall_status' -and -not [string]::IsNullOrWhiteSpace([string]$childLedger.overall_status)) {
+          [string]$childLedger.overall_status
+        } elseif ($childManifestRefreshRequired) {
+          'action-required'
+        } elseif ([bool]$childLedger.baseline_ready) {
+          'ready'
+        } else {
+          'action-required'
+        }
         if ($childStatus -ne 0 -and $childOverall -eq 'ready') {
           $childOverall = 'action-required'
         }
-        $childReason = if ($childStatus -ne 0 -and [string]::IsNullOrWhiteSpace([string]$childLedger.reason_code)) { 'child-verify-failed' } else { [string]$childLedger.reason_code }
+        $childReason = if ($childManifestRefreshRequired) { 'generated-runtime-manifest-refresh-required' } elseif ($childStatus -ne 0 -and [string]::IsNullOrWhiteSpace([string]$childLedger.reason_code)) { 'child-verify-failed' } else { [string]$childLedger.reason_code }
         $childResult = [pscustomobject]@{
           schema_version = 'mcp-verify-child-result.v1'
           baseline_ready = [bool]$childLedger.baseline_ready
@@ -556,6 +566,10 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
     }
   }
 
+  $parentGeneratedRuntimeManifest = Get-GeneratedRuntimeManifestHealth -HostName ([string]$HostInfo.host) -TargetRoot $workspaceRoot
+  if (@('stale', 'missing') -contains [string]$parentGeneratedRuntimeManifest.status) {
+    $parentGeneratedRuntimeManifest['next_action'] = 'spec-first init --all-repos -y'
+  }
   $readyCount = @($results | Where-Object { $_.overall_status -eq 'ready' }).Count
   $actionRequiredCount = @($results | Where-Object { $_.overall_status -ne 'ready' }).Count
   $manifestCurrentCount = @($results | Where-Object { (Get-NestedValue -InputObject $_.result -PathParts @('generated_runtime_manifest', 'status')) -eq 'current' }).Count
@@ -565,7 +579,9 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
     $status = Get-NestedValue -InputObject $_.result -PathParts @('generated_runtime_manifest', 'status')
     [string]::IsNullOrWhiteSpace($status) -or $status -eq 'unknown'
   }).Count
-  $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($actionRequiredCount -eq 0) { 'ready' } elseif ($readyCount -gt 0) { 'partial' } else { 'action-required' }
+  $parentManifestRefreshRequired = @('stale', 'missing') -contains [string]$parentGeneratedRuntimeManifest.status
+  $manifestRefreshRequiredCount = $manifestStaleCount + $manifestMissingCount + $(if ($parentManifestRefreshRequired) { 1 } else { 0 })
+  $overallStatus = if ($results.Count -eq 0) { 'action-required' } elseif ($parentManifestRefreshRequired) { if ($readyCount -gt 0) { 'partial' } else { 'action-required' } } elseif ($actionRequiredCount -eq 0) { 'ready' } elseif ($readyCount -gt 0) { 'partial' } else { 'action-required' }
   $targetGitHealth = if ($TargetFacts.PSObject.Properties.Name -contains 'git_health') { $TargetFacts.git_health } else { $null }
   $targetGitStatus = if ($targetGitHealth -and $targetGitHealth.PSObject.Properties.Name -contains 'status') { [string]$targetGitHealth.status } else { '' }
   $parentArtifactQuarantine = New-ParentArtifactQuarantine -WorkspaceRoot $workspaceRoot
@@ -587,6 +603,7 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
       diagnostic_command = if ($targetGitStatus -eq 'corrupted-gitdir') { 'git fsck' } else { $null }
     }
     parent_writes_repo_local_artifacts = $false
+    parent_generated_runtime_manifest = $parentGeneratedRuntimeManifest
     results = @($results)
     counts = [ordered]@{
       total = $results.Count
@@ -600,17 +617,17 @@ function Write-WorkspaceMcpVerifySummaryAndExit {
       }
     }
     overall_status = $overallStatus
-    reason_code = if ($actionRequiredCount -eq 0) { $null } else { 'all-repos-partial-or-action-required' }
+    reason_code = if ($results.Count -eq 0) { 'workspace-no-git-candidates' } elseif ($manifestRefreshRequiredCount -gt 0) { 'generated-runtime-manifest-refresh-required' } elseif ($actionRequiredCount -eq 0) { $null } else { 'all-repos-partial-or-action-required' }
     parent_workspace_pollution_count = $parentWorkspacePollutionCount
     runtime_hints = @(
       if ($parentWorkspacePollutionCount -gt 0) {
         ('- Workspace pollution detected: wrote .spec-first/workspace/parent-artifact-quarantine.json ({0} paths quarantined). Run `spec-first clean --workspace-orphans` for read-only inspection.' -f $parentWorkspacePollutionCount)
       }
-      if (($manifestStaleCount + $manifestMissingCount) -gt 0) {
-        '- Generated runtime manifest stale or missing in one or more child repos. Run `spec-first init --all-repos -y` from the parent workspace.'
+      if ($manifestRefreshRequiredCount -gt 0) {
+        '- Generated runtime manifest stale or missing in the parent workspace or one or more child repos. Run `spec-first init --all-repos -y` from the parent workspace.'
       }
     )
-    next_action = if (($manifestStaleCount + $manifestMissingCount) -gt 0) { 'Run spec-first init --all-repos -y from the parent workspace, then rerun verify.' } elseif ($actionRequiredCount -eq 0) { 'All child repos verified required MCP/helper dependency readiness.' } else { 'Inspect per-child reason_code and rerun setup/verify for action-required repos.' }
+    next_action = if ($manifestRefreshRequiredCount -gt 0) { 'Run spec-first init --all-repos -y from the parent workspace, then rerun verify.' } elseif ($actionRequiredCount -eq 0) { 'All child repos verified required MCP/helper dependency readiness.' } else { 'Inspect per-child reason_code and rerun setup/verify for action-required repos.' }
   }
 
   try {
@@ -838,8 +855,18 @@ $combined['configured_dependencies'] = if ($toolFactsPayload -and $toolFactsPayl
 $setupActionRequired = @(@($combined.tool_facts_status, $combined.runtime_capabilities_status) | Where-Object { $_ -ne 'ready' -and $_ -ne 'written' })
 if (@($setupActionRequired).Count -gt 0) {
   $combined.baseline_ready = $false
-  $combined.host_runtime_ready = $false
   $combined.overall_status = 'action-required'
+}
+$runtimeManifestStatus = if ($combined.generated_runtime_manifest -is [System.Collections.IDictionary] -and $combined.generated_runtime_manifest.Contains('status')) {
+  [string]$combined.generated_runtime_manifest['status']
+} else {
+  [string]$combined.generated_runtime_manifest.status
+}
+$runtimeManifestActionRequired = @('stale', 'missing') -contains $runtimeManifestStatus
+$combined.host_runtime_ready = ([bool]$combined.baseline_ready -and -not $runtimeManifestActionRequired)
+if ($runtimeManifestActionRequired) {
+  $combined.overall_status = 'action-required'
+  $combined.reason_code = 'generated-runtime-manifest-refresh-required'
 }
 $filteredNextActions = New-Object System.Collections.Generic.List[string]
 $nonBlockingHelperActions = New-Object System.Collections.Generic.List[string]
