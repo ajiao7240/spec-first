@@ -10,9 +10,11 @@
 
 [English](https://github.com/sunrain520/spec-first/blob/main/README.md) | [简体中文](https://github.com/sunrain520/spec-first/blob/main/README.zh-CN.md)
 
-**面向 Claude Code 与 Codex 的 spec-driven AI engineering workflows。**
+**面向 Claude Code 与 Codex 的 AI Coding Harness。**
 
-`spec-first` 把一次性的 AI coding 对话变成可复用的工程闭环。AI 写完了代码，但塑造这段代码的判断往往随对话窗口一起消失。`spec-first` 把这些判断作为持久 artifact 留在仓库里——requirements、PRD、plans、task packs、work、debug、reviews 和 learnings——让下一次会话、reviewer 和你的同事都能继承上下文，而不是从零开始。
+`spec-first` 把一次性的 AI coding 对话变成仓库承载的工程闭环。AI 写代码很快；真正危险的是塑造代码的判断、证据和评审轨迹往往随对话窗口一起消失。`spec-first` 把这些工作作为持久 artifact 留在仓库里——requirements、PRD、plans、task packs、work evidence、debug notes、reviews 和 learnings——让下一次会话、reviewer 和你的同事都能继承上下文，而不是从零开始。
+
+脚本准备事实，LLM 做语义判断，证据留在你的仓库里。
 
 官网：[spec-first.cn](http://spec-first.cn/)
 
@@ -24,11 +26,13 @@
 
 ![spec-first engineering loop](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.png)
 
-重点不是再提供一组 prompt 片段或 agent team，而是编排工程产物与证据：requirements brief、plan、task pack、diff、review、failure analysis 和可复用 learning。
+重点不是再提供一组 prompt 片段或 autonomous agent team，而是给你已有的 Claude Code 或 Codex 会话加上一条可治理的工程闭环：定义问题、规划方案、必要时拆 task、执行、评审，并把经验沉淀下来。
 
 <sub>维护的演示素材位：配图由 source-controlled SVG（[spec-first-flow.svg](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)）生成并转为 PNG，使其在 GitHub 和 npm 包页面都能正常显示；未来可直接替换为终端录屏，不需要重排页面结构。</sub>
 
-## 一个小例子
+## 跑通第一条闭环
+
+安装、初始化一个测试仓库、重启宿主后，在宿主会话里运行一个 workflow 入口。第一次可见结果会是写进仓库的 Markdown artifact，而不是某个隐藏的 memory cell。
 
 在当前宿主会话中输入：
 
@@ -48,15 +52,23 @@ Claude Code 用户可改用：
 docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
 ```
 
-随后进入当前宿主的 plan 入口继续推进。更长的链路后续可能增加 `docs/plans/`、`docs/tasks/`、代码/测试改动、review findings 和 `docs/solutions/` learnings，但不是每个 workflow 都写入所有 artifact。
+随后进入当前宿主的 plan 入口继续推进。更长的链路后续可能增加 `docs/plans/`、`docs/tasks/`、代码/测试改动、structured work evidence、review findings、debug notes 和 `docs/solutions/` learnings，但不是每个 workflow 都写入所有 artifact。
 
 完整走查见 [首次工作流走查](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md)。产物归属见 [产物目录](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/10-%E4%BA%A7%E7%89%A9%E7%9B%AE%E5%BD%95.md)。
+
+## 什么会留在本地仓库里
+
+![spec-first artifact trail: requirements, plans, tasks, local work evidence, review/debug notes, and learnings stay with the repository context](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-artifact-trail.png)
+
+当一个判断必须活过当前聊天窗口时，`spec-first` 就有价值：为什么选这个 scope、检查过哪些证据、实际跑了哪些验证、review 发现了什么、下一次团队应该复用什么经验。
+
+<sub>配图源：[spec-first-artifact-trail.svg](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-artifact-trail.svg)。图中路径是代表性 artifact roots；`docs/` artifacts 是团队共享面，`.spec-first/workflows/` 是 repo-local runtime evidence，默认被 gitignore。</sub>
 
 ## 为什么使用 spec-first？
 
 AI coding 最大的问题通常不是 agent 不会写代码，而是关键判断只停留在聊天窗口里：下一次会话缺上下文，reviewer 看不到计划为什么变化，团队也很难复用一次成功经验。
 
-`spec-first` 让软件生命周期本身保持可读：
+`spec-first` 让软件生命周期本身保持可读，同时不把 prose 当成证明：
 
 | 问题 | Agent 编排工具 | spec-first |
 |---|---|---|
@@ -70,6 +82,7 @@ AI coding 最大的问题通常不是 agent 不会写代码，而是关键判断
 
 - requirements 变成持久 brief，而不是会话里消失的 prompt。
 - plans 和 task packs 把模糊意图变成可评审、可执行的上下文。
+- work closeout 可以指向结构化 verification evidence，而不是一句自由文本的“tests passed”。
 - task-pack handoff 会基于 source plan 结构推荐是否拆分，并对高风险 task pack 推荐文档审查，同时保持工程师在环确认。
 - work、review、debug、optimize 和 compound workflows 会沉淀证据与经验。
 - knowledge handoff 默认 summary-first，召回的 `docs/solutions/` learning 在回源确认前保持 advisory。
@@ -286,9 +299,13 @@ spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]
 spec-first update   # 执行 `npm install -g spec-first@latest`,随后提示 `spec-first init`
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first clean --workspace-orphans [--confirm]
+spec-first repair-worktree [--dry-run]
+spec-first session (register|list|heartbeat|unregister) [--json]
 spec-first tasks hash <plan-path> [--json]
 spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]
 ```
+
+`repair-worktree` 是 broken parent worktree pointer 的 preview-first 辅助命令。`session` 是 opt-in multi-actor advisory surface，只提升并行可见性，不是锁，也不是 workflow state machine。
 
 需要查看当前 runtime delivery 细节时，使用 `spec-first doctor`、`spec-first init` 输出、`spec-first --help` 和 [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md)。README 有意不硬编码内部 skills/agents/commands 数量，因为这些计数会随版本漂移。
 

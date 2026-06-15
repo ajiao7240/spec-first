@@ -10,9 +10,11 @@
 
 [English](https://github.com/sunrain520/spec-first/blob/main/README.md) | [简体中文](https://github.com/sunrain520/spec-first/blob/main/README.zh-CN.md)
 
-**Spec-driven AI engineering workflows for Claude Code and Codex.**
+**AI Coding Harness for Claude Code and Codex.**
 
-`spec-first` turns one-off AI coding chats into a reusable engineering loop. AI writes the code; the decisions that shaped it usually vanish with the chat window. `spec-first` keeps them in the repository as durable artifacts — requirements, PRDs, plans, task packs, work, debugging, reviews, and learnings — so the next session, the reviewer, and your teammate inherit the context instead of starting cold.
+`spec-first` turns one-off AI coding chats into a repo-backed engineering loop. AI can write code quickly; the risky part is that the decisions, evidence, and review trail often vanish with the chat window. `spec-first` keeps that work as durable artifacts — requirements, PRDs, plans, task packs, work evidence, debugging notes, reviews, and learnings — so the next session, the reviewer, and your teammate inherit context instead of starting cold.
+
+Scripts prepare facts. LLMs make semantic judgments. Evidence stays in your repository.
 
 Official site: [spec-first.cn](http://spec-first.cn/)
 
@@ -24,11 +26,13 @@ Official site: [spec-first.cn](http://spec-first.cn/)
 
 ![spec-first engineering loop](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.png)
 
-The point is not another prompt snippet or agent team. `spec-first` organizes engineering artifacts and evidence: requirement briefs, plans, task packs, diffs, reviews, failure analysis, and reusable learnings.
+The point is not another prompt snippet or autonomous agent team. `spec-first` gives your existing Claude Code or Codex session a governed loop: define the work, plan it, split it when useful, execute it, review it, and compound the learning.
 
 <sub>Maintained demo slot: the diagram is generated from a source-controlled SVG ([spec-first-flow.svg](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)) and rendered to PNG so it shows on both GitHub and the npm package page; a future terminal recording can replace this position without restructuring the page.</sub>
 
-## A Tiny Example
+## Try The First Loop
+
+Install, initialize a test repository, restart your host, then run one workflow entry from the host session. The first visible result is a Markdown artifact in your repo, not a hidden memory cell.
 
 In your current host session:
 
@@ -48,15 +52,23 @@ The first brainstorm run usually creates one requirements brief:
 docs/brainstorms/YYYY-MM-DD-NNN-topic-requirements.md
 ```
 
-From there, continue to the current host's plan entrypoint. A longer chain may later add `docs/plans/`, `docs/tasks/`, code/test changes, review findings, and `docs/solutions/` learnings, but not every workflow writes every artifact.
+From there, continue to the current host's plan entrypoint. A longer chain may add `docs/plans/`, `docs/tasks/`, code/test changes, structured work evidence, review findings, debug notes, and `docs/solutions/` learnings, but not every workflow writes every artifact.
 
 Detailed walkthrough: [Chinese First Workflow Walkthrough](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/09-%E9%A6%96%E6%AC%A1%E5%B7%A5%E4%BD%9C%E6%B5%81%E8%B5%B0%E6%9F%A5.md). Artifact ownership: [Chinese Artifact Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/10-%E4%BA%A7%E7%89%A9%E7%9B%AE%E5%BD%95.md).
+
+## What Stays Repo-Local
+
+![spec-first artifact trail: requirements, plans, tasks, local work evidence, review/debug notes, and learnings stay with the repository context](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-artifact-trail.png)
+
+`spec-first` is useful when a decision must survive the current chat: why a scope was chosen, what evidence was checked, which validation actually ran, what review found, and what the team should remember next time.
+
+<sub>Diagram source: [spec-first-artifact-trail.svg](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-artifact-trail.svg). The paths shown are representative artifact roots; `docs/` artifacts are the team-sharing surface, while `.spec-first/workflows/` is repo-local runtime evidence and is gitignored by default.</sub>
 
 ## Why spec-first?
 
 AI coding breaks down when important decisions live only in chat: the next session lacks context, reviewers cannot see why a plan changed, and teams cannot reuse what worked.
 
-`spec-first` keeps the software lifecycle legible:
+`spec-first` keeps the software lifecycle legible without pretending that prose alone is proof:
 
 | Question | Agent orchestration tools | spec-first |
 |---|---|---|
@@ -70,6 +82,7 @@ What this buys you:
 
 - Requirements become durable briefs instead of disappearing prompts.
 - Plans and task packs turn vague intent into reviewable execution context.
+- Work closeout can point to structured verification evidence instead of a free-form "tests passed" claim.
 - Task-pack handoffs now recommend splitting from source-plan structure and recommend document review for high-risk packs while keeping the engineer in the loop.
 - Work, review, debug, optimize, and compound workflows preserve evidence and learning.
 - Knowledge handoffs stay summary-first, and recalled `docs/solutions/` learnings remain advisory until reconfirmed from source evidence.
@@ -286,9 +299,13 @@ spec-first init [--claude] [--codex] [-y] [-u <name>] [--lang <zh|en>]
 spec-first update   # runs `npm install -g spec-first@latest`, then prompts `spec-first init`
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first clean --workspace-orphans [--confirm]
+spec-first repair-worktree [--dry-run]
+spec-first session (register|list|heartbeat|unregister) [--json]
 spec-first tasks hash <plan-path> [--json]
 spec-first tasks validate <task-pack-path> [--json] [--repo=<path>|--repo <path>]
 ```
+
+`repair-worktree` is a preview-first helper for broken parent worktree pointers. `session` is an opt-in multi-actor advisory surface; it improves visibility but is not a lock or workflow state machine.
 
 To inspect current runtime delivery details, use `spec-first doctor`, `spec-first init` output, `spec-first --help`, and the [Runtime Capability Catalog](https://github.com/sunrain520/spec-first/blob/main/docs/catalog/runtime-capabilities.md). The README intentionally avoids hardcoding internal skills/agents/commands counts because those drift across releases.
 
