@@ -971,6 +971,28 @@ if [ "$1" = "query" ]; then
   exit 0
 fi
 if [ "$1" = "hook" ]; then
+  if [ "$2" = "install" ]; then
+    mkdir -p .git/hooks
+    cat > .git/hooks/post-commit <<'HOOK'
+#!/bin/sh
+# graphify-hook-start
+# Installed by: graphify hook install
+command -v graphify >/dev/null 2>&1
+HOOK
+    cat > .git/hooks/post-checkout <<'HOOK'
+#!/bin/sh
+# graphify-checkout-hook-start
+# Installed by: graphify hook install
+command -v graphify >/dev/null 2>&1
+HOOK
+    chmod +x .git/hooks/post-commit .git/hooks/post-checkout
+    exit 0
+  fi
+  if [ "$2" = "status" ]; then
+    PATH="/usr/bin:/bin" .git/hooks/post-commit >/dev/null 2>&1 || exit 1
+    PATH="/usr/bin:/bin" .git/hooks/post-checkout >/dev/null 2>&1 || exit 1
+    exit 0
+  fi
   exit 0
 fi
 if [ "$1" = "extract" ]; then
@@ -1036,6 +1058,9 @@ exit 0
     expect(agents).not.toContain('Use Graphify first only');
     expect(agents).not.toContain('first run `graphify query "<question>"`');
     expect(agents).not.toContain('run `"<resolved-graphify>" update .`');
+    const postCommitHook = fs.readFileSync(path.join(tempDir, '.git/hooks/post-commit'), 'utf8');
+    expect(postCommitHook).toContain('# spec-first graphify path repair start');
+    expect(postCommitHook).toContain(`export PATH='${graphifyBinDir}':"$PATH"`);
   });
 
   test('install-helpers normalizes provider-written Claude Graphify instructions', () => {

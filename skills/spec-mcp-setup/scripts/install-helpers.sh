@@ -1092,6 +1092,52 @@ run_graphify_with_timeout() {
   run_with_timeout "$timeout_seconds" "$graphify_command" "$@"
 }
 
+repair_graphify_hook_path_visibility() {
+  local repo_root="$1"
+  [ "${SPEC_FIRST_PROVIDER_GRAPHIFY_RESOLVED_ON_PATH:-}" = "false" ] || return 0
+
+  local graphify_command graphify_bin_dir hooks_dir
+  graphify_command="$(resolve_graphify_cli)" || return 0
+  graphify_bin_dir="$(dirname "$graphify_command")"
+  [ -d "$graphify_bin_dir" ] || return 0
+
+  hooks_dir="$repo_root/.git/hooks"
+  [ -d "$hooks_dir" ] || return 0
+
+  GRAPHIFY_BIN_DIR="$graphify_bin_dir" python3 - "$hooks_dir/post-commit" "$hooks_dir/post-checkout" <<'PY'
+import os
+import sys
+from pathlib import Path
+
+bin_dir = os.environ["GRAPHIFY_BIN_DIR"]
+quoted_bin_dir = bin_dir.replace("'", "'\\''")
+repair_block = (
+    "# spec-first graphify path repair start\n"
+    f"export PATH='{quoted_bin_dir}':\"$PATH\"\n"
+    "# spec-first graphify path repair end\n"
+)
+
+for raw_path in sys.argv[1:]:
+    path = Path(raw_path)
+    if not path.is_file():
+        continue
+    text = path.read_text(encoding="utf-8")
+    if "Installed by: graphify hook install" not in text:
+        continue
+    if "# spec-first graphify path repair start" in text and "# spec-first graphify path repair end" in text:
+        before = text.split("# spec-first graphify path repair start", 1)[0]
+        after = text.split("# spec-first graphify path repair end", 1)[1]
+        new_text = before + repair_block + after.lstrip("\n")
+    else:
+        lines = text.splitlines(keepends=True)
+        insert_at = 1 if lines and lines[0].startswith("#!") else 0
+        new_text = "".join(lines[:insert_at]) + repair_block + "".join(lines[insert_at:])
+    if new_text != text:
+        path.write_text(new_text, encoding="utf-8")
+PY
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_PATH_REPAIRED=true
+}
+
 graphify_cli_version_matches_pin() {
   local graphify_command
   graphify_command="$(resolve_graphify_cli)" || return 1
@@ -1209,6 +1255,7 @@ install_graphify_hook_if_available() {
   pushd "$repo_root" >/dev/null
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     if run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" hook install >/dev/null 2>&1; then
+      repair_graphify_hook_path_visibility "$repo_root" || stage_log "provider:graphify" "hook PATH repair skipped"
       export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED=true
       if run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" hook status >/dev/null 2>&1; then
         export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED=true

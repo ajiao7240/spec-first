@@ -68,6 +68,7 @@ assert "bash install-helpers invokes resolved Graphify project skill install" gr
 assert "bash install-helpers invokes resolved Graphify extract" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" extract .' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers invokes resolved code-only Graphify update" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" update .' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers invokes resolved Graphify hook install" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" hook install' "$SCRIPTS_DIR/install-helpers.sh"
+assert "bash install-helpers repairs off-PATH Graphify hooks before status" grep -q -- 'repair_graphify_hook_path_visibility "$repo_root"' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers invokes resolved Graphify hook status" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" hook status' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers invokes resolved Graphify query probe" grep -q -- 'run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" query "spec-first setup readiness" --graph "$graph_json"' "$SCRIPTS_DIR/install-helpers.sh"
 assert "bash install-helpers probes existing Graphify artifact before provider rendering" grep -q -- 'probe_graphify_query_for_existing_artifact_if_available' "$SCRIPTS_DIR/install-helpers.sh"

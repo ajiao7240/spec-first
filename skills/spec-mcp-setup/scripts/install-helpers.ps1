@@ -982,6 +982,49 @@ function Invoke-GraphifyCommand {
   return (Invoke-GraphifyCommandWithTimeout -Command $graphifyCommand -Arguments $graphifyArguments -TimeoutSeconds $TimeoutSeconds)
 }
 
+function Repair-GraphifyHookPathVisibility {
+  param([string]$RepoRoot)
+  if ($script:GraphifyResolvedOnPath -ne 'false') { return }
+
+  $graphifyCommand = Resolve-GraphifyCli
+  if ([string]::IsNullOrWhiteSpace($graphifyCommand)) { return }
+  $graphifyBinDir = Split-Path -Parent $graphifyCommand
+  if ([string]::IsNullOrWhiteSpace($graphifyBinDir) -or -not (Test-Path -LiteralPath $graphifyBinDir -PathType Container)) { return }
+
+  $hooksDir = Join-Path $RepoRoot '.git/hooks'
+  if (-not (Test-Path -LiteralPath $hooksDir -PathType Container)) { return }
+
+  $escapedBinDir = $graphifyBinDir.Replace("'", "'\''")
+  $repairBlock = "# spec-first graphify path repair start`nexport PATH='$escapedBinDir':`"`$PATH`"`n# spec-first graphify path repair end`n"
+
+  foreach ($hookName in @('post-commit', 'post-checkout')) {
+    $hookPath = Join-Path $hooksDir $hookName
+    if (-not (Test-Path -LiteralPath $hookPath -PathType Leaf)) { continue }
+    $text = Get-Content -LiteralPath $hookPath -Raw
+    if ($text -notlike '*Installed by: graphify hook install*') { continue }
+    if (($text -like '*# spec-first graphify path repair start*') -and ($text -like '*# spec-first graphify path repair end*')) {
+      $newText = [regex]::Replace(
+        $text,
+        '# spec-first graphify path repair start[\s\S]*?# spec-first graphify path repair end\s*',
+        [System.Text.RegularExpressions.MatchEvaluator]{ param($match) $repairBlock },
+        1
+      )
+    } else {
+      $lines = $text -split "(`r`n|`n)", 2
+      if ($lines.Count -ge 3 -and $lines[0].StartsWith('#!')) {
+        $newText = $lines[0] + $lines[1] + $repairBlock + $lines[2]
+      } else {
+        $newText = $repairBlock + $text
+      }
+    }
+    if ($newText -ne $text) {
+      Set-Content -LiteralPath $hookPath -Value $newText -NoNewline
+    }
+  }
+
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_PATH_REPAIRED -Value 'true'
+}
+
 function Resolve-RequirementWorkspace {
   param(
     [string]$RepoRoot,
@@ -1246,6 +1289,10 @@ function Install-GraphifyHookIfAvailable {
     git rev-parse --is-inside-work-tree *> $null
     if ($LASTEXITCODE -eq 0) {
       if (Invoke-GraphifyCommand @('hook', 'install')) {
+        try {
+          Repair-GraphifyHookPathVisibility -RepoRoot $RepoRoot
+        } catch {
+        }
         Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED -Value 'true'
         if (Invoke-GraphifyCommand @('hook', 'status')) {
           Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED -Value 'true'

@@ -151,6 +151,9 @@ describe('spec-mcp-setup PowerShell setup facts contract', () => {
     expect(read(installHelpersPs1)).toContain('pipx install --force "$graphifyPackage==$graphifyVersionPin"');
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('install', '--project', '--platform', $platformName)");
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('hook', 'install')");
+    expect(read(installHelpersPs1)).toContain('Repair-GraphifyHookPathVisibility -RepoRoot $RepoRoot');
+    expect(read(installHelpersPs1)).toContain('# spec-first graphify path repair start');
+    expect(read(installHelpersPs1)).toContain('Installed by: graphify hook install');
     expect(read(installHelpersPs1)).toContain("Invoke-GraphifyCommand @('hook', 'status')");
     expect(read(installHelpersPs1)).toContain('Test-GraphifyFirstGenerationReadyForHook');
     expect(read(installHelpersPs1)).toContain('Set-GraphifyHookSkipped');
