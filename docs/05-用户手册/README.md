@@ -2,7 +2,9 @@
 
 这套手册对应当前 `spec-first` npm CLI 模型。
 
-`spec-first` 不是单点命令集合，而是一套把 AI 辅助开发收敛成工程闭环的项目级工作流系统。它通过 `doctor / init [--claude] [--codex] [-y] / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、agent support files、项目级 `.developer` 和受管状态安装到当前项目中。
+`spec-first` 是面向 Claude Code 与 Codex 的 **AI Coding Harness**：它把一次性的 AI coding 对话，变成可治理、可验证、可复用的工程闭环。AI 写代码很快，真正会丢失的是塑造代码的判断——需求、计划、评审结论和经验常常随对话窗口一起消失。`spec-first` 把这些工作作为持久 artifact 留在你的仓库里：**脚本产出可信事实，LLM 做语义判断，证据留在仓库**，让下一次会话、reviewer 和同事直接继承上下文，而不是从零开始。
+
+落到 CLI，它通过 `doctor / init [--claude] [--codex] [-y] / update / clean (--claude|--codex)` 把 Claude Code 的 `/spec:*` 命令、Codex 的 `$spec-*` skills、workflow skills、agents、agent support files、项目级 `.developer` 和受管状态安装到当前项目中。
 
 完成 `doctor`、`init` 和宿主重启后，轻量任务可以直接进入匹配的 `/spec:*` 或 `$spec-*` workflow。`spec-mcp-setup` 是 required harness runtime 的 setup 路径；普通 plan/work/debug/review 使用 bounded direct source reads、`rg`、ast-grep、git diff、tests、logs 和用户提供证据。
 
@@ -17,13 +19,18 @@
 
 - `spec-first init [--claude] [--codex] [-y]`：已支持；无平台 flag 时交互式多选，显式平台 flag 会覆盖默认宿主集合
 - `spec-first doctor`：支持自动检测，也支持 `--claude` / `--codex`
+- `spec-first update`：已支持；升级 npm 包到 `@latest`，并提示你随后运行 `spec-first init` 刷新本地 runtime
 - `spec-first clean --claude / --codex`：已支持
+- `spec-first repair-worktree`：已支持；预览失效 worktree pointer 的修复指引（`--dry-run` 仅预览）
+- `spec-first tasks <subcommand>` / `spec-first session <subcommand>`：派生 task pack 的确定性校验入口，以及 opt-in 多 actor 会话 advisory
 
 `init` 支持在交互式引导中选择开发者姓名和语言；`-y` 会使用默认宿主集合和默认身份/语言，显式 `--claude` / `--codex` 会覆盖默认宿主集合。如果没有传用户名，它会优先回退到已选宿主的项目级 `.developer`，再回退到全局 `~/.spec-first/.developer` 和 `git config user.name`。
 
 关于升级：
 
-- 如果 `doctor` 报告 `legacy managed state`，直接重新运行`spec-first init` 并选择目标宿主
+- 日常升级直接运行 `spec-first update`：它会把 npm 包升级到 `@latest`，成功后提示你用新 binary 另起 `spec-first init` 刷新本地 runtime（它不代跑 `init`，避免旧进程跑新生成逻辑）
+- 如果你不是通过 `npm -g` 安装（如 Claude plugin / pnpm / volta），`update` 可能装出冲突副本，应按你自己的包管理器升级
+- 如果 `doctor` 报告 `legacy managed state`，直接重新运行 `spec-first init` 并选择目标宿主
 - `init` 会执行 managed hard reset 并按当前版本全量重建运行时
 - `clean` 只清理当前受管资产，不承担 legacy 迁移
 
@@ -135,6 +142,6 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 
 ## 版本
 
-当前版本线：`v1.9.0`
+本手册对应当前 `spec-first` 代码与运行时资产布局。当前版本以 `spec-first -v` 与 `package.json` 的 `version` 字段为单一真相源（撰写时为 `v1.11.0`），手册不再单独维护版本号以避免漂移。
 
-> 说明：本手册对应当前 `spec-first` 代码与运行时资产布局；遇到行为疑问时，优先以 source-of-truth 文件、CLI contract 和本手册当前章节为准。
+> 说明：遇到行为疑问时，优先以 source-of-truth 文件、CLI contract 和本手册当前章节为准。

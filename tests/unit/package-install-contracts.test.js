@@ -72,9 +72,9 @@ describe('package install contracts', () => {
     ];
 
     for (const packageName of nativePackages) {
-      expect(pkg.dependencies[packageName]).toBeUndefined();
+      expect(pkg.dependencies?.[packageName]).toBeUndefined();
       expect(pkg.optionalDependencies?.[packageName]).toBeUndefined();
-      expect(lock.packages[''].dependencies[packageName]).toBeUndefined();
+      expect(lock.packages[''].dependencies?.[packageName]).toBeUndefined();
       expect(lock.packages[''].optionalDependencies?.[packageName]).toBeUndefined();
       expect(lock.packages[`node_modules/${packageName}`]).toBeUndefined();
     }

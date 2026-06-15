@@ -427,4 +427,4 @@ Do not let scripts judge whether task splitting is semantically good. Splitting,
 - [Technical Plan](../../docs/03-实施方案/2026-04-26-spec-write-tasks-技术方案.md)
 - [spec-plan](../spec-plan/SKILL.md)
 - [spec-work](../spec-work/SKILL.md)
-- [Project Role](../../docs/10-prompt/项目角色.md)
+- [Project Role](../../docs/10-prompt/历史快照/角色治理演化-历史/项目角色.md)

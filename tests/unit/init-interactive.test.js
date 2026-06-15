@@ -197,7 +197,7 @@ describe('interactive init command', () => {
       expect(result.stderr).toBe('');
       expect(result.stdout).toContain('Spec-First v');
       expect(result.stdout).toContain('spec-first init (codex)');
-      expect(result.stdout).toContain('Generated');
+      expect(result.stdout).toContain('已在 .agents/skills 生成');
       expect(result.stdout).toContain('重启');
       expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-work', 'SKILL.md'))).toBe(true);

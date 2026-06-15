@@ -21,8 +21,6 @@
 | `docs/contracts/workflows/self-reflection-capability-upgrade.md` | current | 自我审视、CUD、最佳实践 intake、plan/review/compound handoff 和 30-cycle loop 的轻量 contract |
 | `docs/contracts/workflows/skill-agent-quality-governance.md` | current | skill / agent 质量治理的薄契约、执行边界语言和例外说明 |
 | `docs/10-prompt/结构化项目角色契约.md` | current | spec-first 演化判断和 source/runtime 边界基线 |
-| `docs/10-prompt/skill-agent-harness-audit/` | active-artifact | skill / agent harness 审查快照；作为治理计划证据，不覆盖当前 source、contract 或 tests |
-| `docs/archive-index.md` | current | 历史 CRG/CE/ECC 搜索命中的判读入口和 risky token allowlist |
 | `docs/2026-05-04/project-audit/` | active-artifact | 当前系统级审查报告与修复阶段证据 |
 | `docs/ideation/` | active-artifact | ideation artifact；进入 brainstorm 前需要确认 freshness 和所选方向 |
 | `docs/brainstorms/` | active-artifact | requirements brief；进入 plan/work 前需要确认 freshness |
@@ -45,7 +43,9 @@
 | `../spec-first-doc/业界学习/` | external-reference | 外部实践材料和映射分析；只作启发和对照 |
 | `docs/11-文章系列/` | external-reference | 对外文章与素材，不作为工程 contract |
 | `docs/12-loop分析/` | historical-input | workflow loop 分析背景，不覆盖当前 skill source |
-| `docs/10-prompt/审查skill.md` | historical-input | skill / agent harness 审查 prompt 输入；需结合对应 audit artifact 判读，不代表当前 runtime contract |
+| `docs/10-prompt/历史快照/审查方法-历史/` | historical-input | 历史审查/审计 prompt 快照（全面项目审查、项目审查、审查 agent/skill/token）；需结合对应 audit artifact 判读，不代表当前 runtime contract |
+| `docs/10-prompt/历史快照/角色治理演化-历史/` | historical-input | 历史角色/治理/自我进化 prompt 快照，是 `结构化项目角色契约.md` 的前身谱系；不代表当前 runtime contract |
+| `docs/10-prompt/系统性项目审查方法.md` | current | 系统性项目审查方法论基线（怎么编排/取证/收口一次项目级审查） |
 | `docs/2026-04-22-full-audit/` | historical-input | 旧全量审查快照；当前结论以最新审查报告和代码为准 |
 | `docs/archive/` | archived | 备份和归档内容，只用于追溯 |
 | `docs/项目介绍/` | historical-input | 项目介绍和 CRG 旧方案材料；当前上下文证据边界以 direct source reads、`skills/`、`src/cli/`、`docs/contracts/` 与用户手册为准 |
@@ -56,7 +56,7 @@
 
 如果搜索命中 `src/crg`、`spec-first crg`、`graph.db`、`CRG Stage-0`、`ECC` 或旧的 bootstrap-compiler 路径，默认先按 `historical-input` 处理，不要直接当作当前实现、CLI 或 graph readiness contract。
 
-先打开 `docs/archive-index.md` 判读搜索命中的 lifecycle 与 risky token，再回到下方当前 source-of-truth 列表复核。单篇历史文档即使正文很具体，也不能覆盖当前 source、contract 或 generated runtime 治理规则。
+先按本索引的 lifecycle 表判读搜索命中的历史语境，再回到下方当前 source-of-truth 列表复核。单篇历史文档即使正文很具体，也不能覆盖当前 source、contract 或 generated runtime 治理规则。
 
 当前上下文与证据主线以这些 source 和 contract 为准：
 

@@ -696,7 +696,7 @@ describe('init --dry-run', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe('');
-      expect(result.stdout).toContain('🧯 Untracked 1 managed runtime path(s) from git index (work tree files preserved).');
+      expect(result.stdout).toContain('🧯 已从 git index untrack 1 个 managed runtime path（工作区文件保留）。');
       expect(tracked(projectRoot, '.codex/spec-first/state.json')).toBe('');
       expect(fs.existsSync(path.join(projectRoot, '.codex/spec-first/state.json'))).toBe(true);
     } finally {
@@ -712,9 +712,9 @@ describe('init --dry-run', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe('');
-      expect(result.stdout).toContain('🧯 Runtime untrack skipped: not-a-git-repo');
-      expect(result.stdout).not.toContain('🧯 Untracked');
-      expect(result.stdout).not.toContain('🧯 No managed runtime paths require untracking.');
+      expect(result.stdout).toContain('🧯 Runtime untrack 已跳过: not-a-git-repo');
+      expect(result.stdout).not.toContain('🧯 已从 git index untrack');
+      expect(result.stdout).not.toContain('🧯 没有 managed runtime path 需要 untrack。');
       expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
