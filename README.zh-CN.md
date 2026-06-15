@@ -22,11 +22,11 @@
 
 ## 90 秒看懂
 
-![spec-first engineering loop](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)
+![spec-first engineering loop](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.png)
 
 重点不是再提供一组 prompt 片段或 agent team，而是编排工程产物与证据：requirements brief、plan、task pack、diff、review、failure analysis 和可复用 learning。
 
-<sub>维护的演示素材位：当前复用 source-controlled workflow SVG；未来要替换为终端录屏或截图，可以直接替换这个位置，不需要重排页面结构。</sub>
+<sub>维护的演示素材位：配图由 source-controlled SVG（[spec-first-flow.svg](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-flow.svg)）生成并转为 PNG，使其在 GitHub 和 npm 包页面都能正常显示；未来可直接替换为终端录屏，不需要重排页面结构。</sub>
 
 ## 一个小例子
 
@@ -181,20 +181,9 @@ docs/
 
 Runtime shape：
 
-```text
-Source assets
-  skills/  agents/  templates/  src/cli/
-        |
-        | spec-first init
-        v
-Host runtime assets
-  Claude Code: /spec:* commands
-  Codex:      $spec-* skills
-        |
-        v
-Workflow artifacts
-  ideation -> brainstorms -> plans -> tasks -> work/review/debug -> learnings
-```
+![spec-first 运行模型：source assets 经 spec-first init 重新生成为 Claude Code 与 Codex 的 host runtime，并产出 workflow artifacts](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-runtime-model.png)
+
+<sub>Source assets（`skills/`、`agents/`、`templates/`、`src/cli/`）经 `spec-first init` 重新生成为 host runtime assets——Claude Code 的 `/spec:*` commands 与 Codex 的 `$spec-*` skills——再产出仓库内 workflow artifacts：`ideation -> brainstorms -> plans -> tasks -> work/review/debug -> learnings`。配图源：[spec-first-runtime-model.svg](https://raw.githubusercontent.com/sunrain520/spec-first/main/docs/assets/readme/spec-first-runtime-model.svg)。</sub>
 
 Source-of-truth assets 位于仓库中。`.claude/`、`.codex/` 和 `.agents/skills/` 下的 generated runtime copies 是可丢弃镜像，可通过 `spec-first init` 重建。init 期间，spec-first 也会一次性 untrack 已被 Git 索引的 managed runtime paths，保留 worktree 文件但避免历史 generated mirrors 制造 noisy diffs。
 
