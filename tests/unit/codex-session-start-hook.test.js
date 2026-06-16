@@ -155,6 +155,70 @@ describe('Codex SessionStart hook runtime plan', () => {
     }
   });
 
+  test('skips SessionStart hook writes when projectRoot .codex is CODEX_HOME (anti double-injection)', () => {
+    // Simulate "init in a directory whose .codex IS the Codex global hook location":
+    // set CODEX_HOME to <projectRoot>/.codex so the derived-position predicate matches.
+    const projectRoot = makeTempDir();
+    const prevCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = path.join(projectRoot, '.codex');
+
+    try {
+      const plan = getAdapter('codex').planRuntimeFilesSync(projectRoot);
+      const hookOps = plan.operations.filter((operation) => operation.reason === 'managed_runtime_hook');
+
+      expect(plan.skippedHookWrite).toBe(true);
+      expect(hookOps).toHaveLength(0);
+      // Cleanup ops (skills/agents/legacy) still planned — only the hook write is skipped.
+      expect(plan.operations.some((operation) => (
+        operation.reason === 'managed_runtime_cleanup'
+        || operation.reason === 'legacy_codex_spec_first_skill_cleanup'
+      ))).toBe(true);
+      expect(plan.summary.write_file || 0).toBe(0);
+    } finally {
+      if (prevCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = prevCodexHome;
+      }
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('runtime file inspection treats CODEX_HOME skipped hooks as intentional', () => {
+    const projectRoot = makeTempDir();
+    const prevCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = path.join(projectRoot, '.codex');
+
+    try {
+      const checks = getAdapter('codex').inspectRuntimeFiles(projectRoot);
+
+      expect(checks).toEqual([
+        {
+          level: 'PASS',
+          name: '.codex/hooks/session-start',
+          message: 'managed SessionStart hook intentionally skipped because project .codex is CODEX_HOME',
+        },
+        {
+          level: 'PASS',
+          name: '.codex/hooks/session-start.cmd',
+          message: 'managed SessionStart hook intentionally skipped because project .codex is CODEX_HOME',
+        },
+        {
+          level: 'PASS',
+          name: '.codex/hooks.json',
+          message: 'managed SessionStart hook intentionally skipped because project .codex is CODEX_HOME',
+        },
+      ]);
+    } finally {
+      if (prevCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = prevCodexHome;
+      }
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('sync plan preserves provider-owned hooks while refreshing managed SessionStart', () => {
     const projectRoot = makeTempDir();
     const graphifyHook = {
@@ -614,11 +678,13 @@ describe('Codex SessionStart hook script', () => {
       const ctx = payload.hookSpecificOutput.additionalContext;
       expect(ctx).toContain('[spec-first] using-spec-first SessionStart injection');
       expect(ctx).toContain('Workflow entry governance is active');
+      expect(ctx).toContain('before non-trivial or risky edits');
       expect(ctx).toContain('target_repo');
       expect(ctx).toContain('skills/using-spec-first/SKILL.md');
       // AGENTS.md already carries the block; the hook must not duplicate its body.
       expect(ctx).not.toContain('## Workflow entry governance');
       expect(ctx).not.toContain('- Codex workflow entrypoints use `$spec-*`.');
+      expect(ctx).not.toContain('before editing');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

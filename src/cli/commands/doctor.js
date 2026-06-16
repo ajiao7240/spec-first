@@ -8,6 +8,7 @@ const { getAdapter, getSupportedPlatforms } = require('../adapters');
 const { inspectInstructionBootstrap } = require('../instruction-bootstrap');
 const { formatInitGuidance } = require('../init-guidance');
 const { inspectManagedClaudeHooks } = require('../claude-settings');
+const { detectGlobalCodexHookPollution } = require('../adapters/codex');
 const { resolveWorkflowArtifactDir } = require('../../verification/artifact-paths');
 const { validateAgainstSchema } = require('../../contracts/schema-validator');
 const { computeDecisionInputHealth } = require('../helpers/setup-facts');
@@ -917,6 +918,10 @@ function checkInstructionBootstrap(projectRoot, adapter) {
 }
 
 function buildHostSpecificChecks(projectRoot, adapter) {
+  if (adapter.id === 'codex') {
+    return buildCodexGlobalHookPollutionChecks();
+  }
+
   if (adapter.id !== 'claude') {
     return [];
   }
@@ -932,6 +937,30 @@ function buildHostSpecificChecks(projectRoot, adapter) {
     }
     return check;
   });
+}
+
+// Codex fires global (CODEX_HOME/hooks.json) and project SessionStart hooks additively. A
+// spec-first-managed SessionStart in the global location double-injects into every project.
+// Surface it as advisory (read-only); cleanup is a user action, not auto-applied.
+function buildCodexGlobalHookPollutionChecks() {
+  let result;
+  try {
+    result = detectGlobalCodexHookPollution();
+  } catch {
+    return [];
+  }
+  if (!result || !result.polluted) {
+    return [];
+  }
+  return [{
+    level: 'WARNING',
+    name: 'Codex global SessionStart hook',
+    message: `spec-first SessionStart hook found in the Codex global hook location (${result.hooksJsonPath}); `
+      + 'it fires for every project and double-injects alongside each project\'s own hook.',
+    fix: `Remove the spec-first SessionStart entry from ${result.hooksJsonPath} `
+      + `(delete the file if it has no other hooks), or run \`spec-first clean --codex\` in ${result.codexHome}. `
+      + 'If clean reports no managed state, remove the SessionStart entry manually.',
+  }];
 }
 
 function printHelp() {

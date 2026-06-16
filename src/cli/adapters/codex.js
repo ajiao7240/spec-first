@@ -8,6 +8,7 @@ const {
 } = require('../host-comparative-workflows');
 const { rewriteSourceSkillRuntimePaths } = require('../skill-path-rewrite-markers');
 const { listBundledAgentNames, listBundledSkills } = require('../plugin');
+const { isCodexHomeProjectRoot, effectiveCodexHome } = require('../helpers/global-config-dir');
 const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'session-start');
 const SESSION_START_CMD_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'session-start.cmd');
 const HOOKS_JSON_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'hooks.json');
@@ -133,14 +134,20 @@ class CodexAdapter extends PlatformAdapter {
   }
 
   planRuntimeFilesSync(projectRoot) {
+    // Skip SessionStart hook writes when this projectRoot's .codex IS the Codex global hook
+    // directory (CODEX_HOME). Writing hooks there registers a global SessionStart that fires
+    // for every project, double-injecting alongside each project's own hook. skills/agents/
+    // AGENTS.md still install; only the hook write is skipped.
+    const skipHookWrite = isCodexHomeProjectRoot(projectRoot);
     const operations = [
       ...buildRuntimeCleanupOperations(this),
-      ...buildRuntimeHookWriteOperations(projectRoot),
+      ...(skipHookWrite ? [] : buildRuntimeHookWriteOperations(projectRoot)),
     ];
 
     return {
       operations,
       summary: summarizeOperations(operations),
+      skippedHookWrite: skipHookWrite,
     };
   }
 
@@ -178,6 +185,14 @@ class CodexAdapter extends PlatformAdapter {
   }
 
   inspectRuntimeFiles(projectRoot) {
+    if (isCodexHomeProjectRoot(projectRoot)) {
+      return [
+        inspectSkippedCodexHomeHook(SESSION_START_RELATIVE_PATH),
+        inspectSkippedCodexHomeHook(SESSION_START_CMD_RELATIVE_PATH),
+        inspectSkippedCodexHomeHook(HOOKS_JSON_RELATIVE_PATH),
+      ];
+    }
+
     return [
       inspectSessionStartHook(projectRoot),
       inspectSessionStartCommandHook(projectRoot),
@@ -199,6 +214,7 @@ class CodexAdapter extends PlatformAdapter {
 }
 
 module.exports = CodexAdapter;
+module.exports.detectGlobalCodexHookPollution = detectGlobalCodexHookPollution;
 
 function rewriteSharedPaths(content) {
   return content
@@ -425,6 +441,14 @@ function inspectHooksJson(projectRoot) {
   };
 }
 
+function inspectSkippedCodexHomeHook(relativePath) {
+  return {
+    level: 'PASS',
+    name: relativePath,
+    message: 'managed SessionStart hook intentionally skipped because project .codex is CODEX_HOME',
+  };
+}
+
 function renderSessionStartHookTemplate() {
   const template = fs.readFileSync(SESSION_START_TEMPLATE_PATH, 'utf8');
   // Function replacement: a string replacement would interpret $&/$`/$'/$$/$n in the
@@ -600,6 +624,31 @@ function hasManagedSessionStartHook(hooksJson, projectRoot) {
     .some((entry) => isCurrentManagedSessionStartEntry(entry, projectRoot));
 }
 
+// Detect whether the Codex global hook directory (CODEX_HOME) carries a spec-first-managed
+// SessionStart hook. When it does, that global hook fires for EVERY project alongside the
+// project's own hook -> per-session double injection. Matching uses isManagedSessionStartHook,
+// which is stale-tolerant: the global entry is typically a bare home-rooted path written by a
+// prior `init` in the home/CODEX_HOME directory, so it never equals the current project's
+// exact command. Read-only; never mutates.
+function detectGlobalCodexHookPollution() {
+  const codexHome = effectiveCodexHome();
+  const hooksJsonPath = path.join(codexHome, 'hooks.json');
+  if (!fs.existsSync(hooksJsonPath)) {
+    return { polluted: false, codexHome, hooksJsonPath };
+  }
+  const parsed = readJsonFile(hooksJsonPath);
+  if (!parsed.ok) {
+    return { polluted: false, codexHome, hooksJsonPath, invalidJson: true };
+  }
+  // Use stale-tolerant managed-path matching here: any spec-first SessionStart command stored
+  // in CODEX_HOME/hooks.json is global pollution, even if it points at a prior project path.
+  const polluted = managedSessionStartEntries(parsed.value).some((entry) => (
+    Array.isArray(entry.hooks)
+    && entry.hooks.some((hook) => isManagedSessionStartHook(hook, codexHome))
+  ));
+  return { polluted, codexHome, hooksJsonPath };
+}
+
 // A managed SessionStart entry is present (matched loosely by the managed path/shape) but is
 // not the current exact entry -- i.e. it was written by a prior init under a different node
 // path, project path, or host. Used to give doctor an "outdated" message instead of "missing".
@@ -680,10 +729,14 @@ function isStaleManagedSessionStartCommand(command) {
     .replace(/^bash\s+/, '')
     .replace(/^cmd\.exe\s+\/d\s+\/c\s+/, '')
     .replace(/^(["'])[^"']*\1\s+/, '');
-  // After the optional interpreter prefix, the managed path must be the program token
-  // (no other token may precede it), so a leading user command does not match.
+  // After the optional interpreter prefix, the managed path must be the program token:
+  // - no other token may precede it (front anchor), so a leading user command does not match;
+  // - it must END the token, optionally as the `.cmd` Windows wrapper, followed by end /
+  //   whitespace / closing quote (back anchor), so a user's own program that merely begins
+  //   with the managed path (e.g. `.codex/hooks/session-start-custom.sh`, `session-start.bak`)
+  //   is NOT misclassified as spec-first-managed.
   const pathPattern = SESSION_START_RELATIVE_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`^["']?[^"'\\s]*${pathPattern}`).test(program);
+  return new RegExp(`^["']?[^"'\\s]*${pathPattern}(\\.cmd)?(["'\\s]|$)`).test(program);
 }
 
 // Strip managed hooks at HOOK granularity (mirror Claude removeManagedHookEntries): only

@@ -177,4 +177,55 @@ describe('init plan API', () => {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
   });
+
+  test('codex init at CODEX_HOME root emits skip diagnostic and installs no hook (U1)', () => {
+    const projectRoot = makeTempDir();
+    const prevCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = path.join(projectRoot, '.codex');
+
+    try {
+      const plan = buildInitPlan({ projectRoot, platform: 'codex', name: 'reviewer', lang: 'zh' });
+      const codes = plan.diagnostics.map((diagnostic) => diagnostic.code);
+      expect(codes).toContain('codex_home_hook_write_skipped');
+      // No SessionStart hook write planned, but skills/agents/AGENTS.md still install.
+      const opPaths = plan.operationPlan.operations.map((operation) => operation.path);
+      expect(opPaths).not.toContain('.codex/hooks.json');
+      expect(opPaths).not.toContain('.codex/hooks/session-start');
+      expect(opPaths).toContain('AGENTS.md');
+    } finally {
+      if (prevCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = prevCodexHome;
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('normal codex init surfaces a U2b advisory when CODEX_HOME is already polluted', () => {
+    const projectRoot = makeTempDir();
+    // A real CODEX_HOME ends in `.codex` (default ~/.codex); pollution is only possible there,
+    // because the managed hook path always contains the `.codex/hooks/session-start` segment.
+    const codexHomeParent = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-codexhome-'));
+    const codexHome = path.join(codexHomeParent, '.codex');
+    fs.mkdirSync(codexHome, { recursive: true });
+    const prevCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = codexHome;
+
+    try {
+      // Pre-existing global pollution: a managed SessionStart entry in CODEX_HOME/hooks.json.
+      fs.writeFileSync(
+        path.join(codexHome, 'hooks.json'),
+        JSON.stringify({ hooks: { SessionStart: [{ hooks: [{ type: 'command', command: path.join(codexHome, 'hooks/session-start') }] }] } }),
+      );
+      const plan = buildInitPlan({ projectRoot, platform: 'codex', name: 'reviewer', lang: 'zh' });
+      const codes = plan.diagnostics.map((diagnostic) => diagnostic.code);
+      expect(codes).toContain('codex_global_hook_pollution_detected');
+      // This is a normal project init (projectRoot != CODEX_HOME), so the hook still installs here.
+      const opPaths = plan.operationPlan.operations.map((operation) => operation.path);
+      expect(opPaths).toContain('.codex/hooks.json');
+    } finally {
+      if (prevCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = prevCodexHome;
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(codexHomeParent, { recursive: true, force: true });
+    }
+  });
 });

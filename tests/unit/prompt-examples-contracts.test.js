@@ -93,7 +93,7 @@ describe('prompt examples baseline contracts', () => {
     expect(payload.skill).toBe('using-spec-first');
     expect(Array.isArray(payload.cases)).toBe(true);
     expect(payload.cases.length).toBeGreaterThanOrEqual(5);
-    expect(payload.cases.length).toBeLessThanOrEqual(8);
+    expect(payload.cases.length).toBeLessThanOrEqual(10);
     expect(skillPrompt).toContain('skills/using-spec-first/evals/routing-cases.json');
     expect(skillPrompt).toContain('not a deterministic router');
 
@@ -113,6 +113,24 @@ describe('prompt examples baseline contracts', () => {
       expect(['direct_answer', 'bounded_read']).toContain(entry.expected_outcome);
       expect(entry.expected_outcome).not.toBe('public_workflow');
     }
+
+    expect(casesById.get('small-low-risk-edit-stays-direct')).toMatchObject({
+      expected_outcome: 'normal_execution',
+      public_workflow_required: false,
+      expected_entrypoint: null,
+      artifact_expected: false,
+    });
+    expect(casesById.get('small-low-risk-edit-stays-direct').boundary_note).toContain('changelog');
+    expect(casesById.get('small-low-risk-edit-stays-direct').boundary_note).toContain('narrow verification');
+    expect(casesById.get('small-low-risk-edit-stays-direct').boundary_note).toContain('source/runtime boundaries');
+
+    expect(casesById.get('cross-file-contract-change-routes-work')).toMatchObject({
+      expected_outcome: 'public_workflow',
+      public_workflow_required: true,
+      expected_entrypoint: '$spec-work',
+      artifact_expected: true,
+    });
+    expect(casesById.get('cross-file-contract-change-routes-work').boundary_note).toContain('contract/runtime delivery changes');
 
     expect(casesById.get('explicit-spec-plan-honored')).toMatchObject({
       expected_outcome: 'public_workflow',

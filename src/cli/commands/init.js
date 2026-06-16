@@ -36,6 +36,7 @@ const {
 const { planRuntimeUntrack } = require('../runtime-untrack');
 const { writeFileAtomic } = require('../atomic-write');
 const { getAdapter } = require('../adapters');
+const { detectGlobalCodexHookPollution } = require('../adapters/codex');
 const { applyManagedBlock, buildManagedBlock } = require('../lang-policy');
 const { removeManagedCodingGuidelinesBlock } = require('../coding-guidelines');
 const { buildInitialChangelog, formatChangelogTimestamp } = require('../changelog');
@@ -893,6 +894,33 @@ function buildProjectInitPlan({
   const commandSkillNames = new Set(manifest.commands.map((cmd) => cmd.skill));
   const assetSync = planBundledAssetSync(normalizedRoot, adapter, filteredAssetSet);
   const runtimeSyncPlan = adapter.planRuntimeFilesSync(normalizedRoot, { manifest, filteredAssetSet });
+  if (runtimeSyncPlan && runtimeSyncPlan.skippedHookWrite) {
+    diagnostics.push({
+      level: 'warn',
+      code: 'codex_home_hook_write_skipped',
+      message: 'This directory\'s .codex is the Codex global hook location (CODEX_HOME). '
+        + 'Skipping SessionStart hook install here to avoid double-injecting into every project. '
+        + 'skills/agents/AGENTS.md were still installed. Run init inside an actual project to install the project hook.',
+    });
+  } else if (platform === 'codex') {
+    // High-touch existing-pollution bridge (U2b): a normal project init is a frequent action,
+    // so surface a pre-existing global SessionStart pollution here instead of waiting for the
+    // user to remember to run doctor. Read-only advisory; never auto-deletes.
+    try {
+      const pollution = detectGlobalCodexHookPollution();
+      if (pollution && pollution.polluted) {
+        diagnostics.push({
+          level: 'warn',
+          code: 'codex_global_hook_pollution_detected',
+          message: `A spec-first SessionStart hook exists in the Codex global hook location (${pollution.hooksJsonPath}); `
+            + 'it double-injects into every project. Run `spec-first doctor --codex` for details, or remove that entry / '
+            + `run \`spec-first clean --codex\` in ${pollution.codexHome}.`,
+        });
+      }
+    } catch {
+      // Advisory only; never block init on detection failure.
+    }
+  }
   const previewState = buildState(manifest.version, {
     ...assetSync.syncedAssets,
     platform,
@@ -1059,7 +1087,9 @@ function printInitApplySuccess(plan, result, options = {}) {
   if (plan.platform === 'claude') {
     console.log(messages.applyInstalledClaudeHook);
   } else if (plan.platform === 'codex') {
-    console.log(messages.applyInstalledCodexHook);
+    console.log(hasInitDiagnostic(plan, 'codex_home_hook_write_skipped')
+      ? messages.applySkippedCodexHook
+      : messages.applyInstalledCodexHook);
   }
   const synced = plan.syncedAssets || {
     commands: [],
@@ -1124,6 +1154,11 @@ function printGlobalDeveloperWriteSummary(globalWrite, messages = getInitMessage
   if (globalWrite.developer.version) {
     console.log(`  🔖 version: ${globalWrite.developer.version}`);
   }
+}
+
+function hasInitDiagnostic(plan, code) {
+  return Array.isArray(plan && plan.diagnostics)
+    && plan.diagnostics.some((diagnostic) => diagnostic && diagnostic.code === code);
 }
 
 function runInitForWorkspace({

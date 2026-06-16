@@ -58,7 +58,7 @@ Standalone skills 会安装为宿主可发现的 skills，不是 command-backed 
 | Skill | Claude Delivery | Codex Delivery | Description |
 |---|---|---|---|
 | spec-write-tasks | standalone skill: spec-write-tasks | standalone skill: spec-write-tasks | Compile a settled spec-plan into an optional derived task pack for spec-work, or validate an existing task pack before execution. Use when the user asks to split a plan into tasks, write task docs, or when a work suitability check concludes a task pack would materially reduce execution risk or context load. Keep plan as the single source of truth; tasks are derived and optional. |
-| using-spec-first | standalone skill: using-spec-first | standalone skill: using-spec-first | Use before substantial work in a spec-first project, and when users ask what spec-first workflow or command to run next. Decide whether to route into a public spec-first workflow before editing files, running state-changing commands, debugging, reviewing, planning, setup, update, or architecture/prompt/workflow decisions. |
+| using-spec-first | standalone skill: using-spec-first | standalone skill: using-spec-first | Use before substantial work in a spec-first project, and when users ask what spec-first workflow or command to run next. Decide whether to route into a public spec-first workflow before non-trivial or risky edits, running state-changing commands, debugging, reviewing, planning, setup, update, or architecture/prompt/workflow decisions. |
 
 ## Internal Skill Governance
 

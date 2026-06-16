@@ -146,15 +146,15 @@ Generated runtime assets 包括：
 
 ## Workflow 入口治理
 
-substantial work 前，先判断是否应进入公开 spec-first workflow。完整入口策略由 `skills/using-spec-first/SKILL.md` 维护；下方 managed bootstrap block 只提供 Codex 和其他 agent host 的启动提醒和入口锚点。
+substantial work 前，先判断是否应进入公开 spec-first workflow。明确单点、低风险的小代码/文案/config 修正可直接执行，但仍遵守 CHANGELOG、最窄验证和 source/runtime 边界；一旦范围、风险、根因或架构/contract/governance 影响不清晰，重新路由。完整入口策略由 `skills/using-spec-first/SKILL.md` 维护；下方 managed bootstrap block 只提供 Codex 和其他 agent host 的启动提醒和入口锚点。
 
-本仓库的具体实现或 prose 修改通常走当前 host 的 work workflow；具体文档审查走 doc-review；bug/失败走 debug；setup/update/runtime repair 走 mcp-setup 或 update。不要把 brainstorm workflow 当作默认入口，也不要把 internal helper skills 暴露为用户入口。
+本仓库的 prompt/workflow/contract/governance/skill/agent prose、runtime delivery 与架构改动通常走当前 host 的 work workflow；明确单点低风险的普通代码/文案修正可直接做。具体文档审查走 doc-review；bug/失败走 debug；setup/update/runtime repair 走 mcp-setup 或 update。不要把 brainstorm workflow 当作默认入口，也不要把 internal helper skills 暴露为用户入口。
 
 ## 任务分级
 
 根据任务大小调整审查和验证强度：
 
-- 小任务：文案修正、注释、单文件局部修复、docs-only 变更。保持审查范围窄，不引入新架构。
+- 小任务：文案修正、注释、单文件局部修复、docs-only 变更。默认直接执行，保持审查范围窄，不引入新架构，并保留 CHANGELOG、最窄验证和 source/runtime 边界纪律。
 - 中型任务：skill/agent/CLI 行为调整、文档结构调整、小幅 schema 扩展、runtime generation 调整、测试补充。检查 source/runtime 边界、双宿主影响、CHANGELOG/docs 需求、workflow 影响和测试覆盖。
 - 大型任务：新增 skill 或 agent 体系、CLI 重构、provider/readiness 协议变更、source-of-truth 变更、runtime generation 变更、核心 workflow 变更、删除/迁移。必须明确 goals/non-goals、artifact contracts、failure modes、migration strategy、test plan、downstream consumer checks，并审查是否过度设计。
 
@@ -243,8 +243,8 @@ Rules:
 ## Workflow 入口治理
 
 - 本 block 是 using-spec-first 的最小入口锚点(随会话启动注入,启动即在场);完整路由表、边界细节和例外仍在 `skills/using-spec-first/SKILL.md`
-- **何时进入 workflow**:substantial work（改代码/docs/config/runtime asset、启动 implementation/debug/review/plan/setup/update/optimization/知识沉淀、运行改状态命令、架构/prompt/workflow/contract 决策、durable knowledge 增删）前先判断是否进入公开 spec-first workflow
-- **何时直接做**:轻量事实问答、当前上下文解释、窄定位查询（where is X used）、当前对话/用户给定单文档整理可直接回答或 bounded read;workflow-first 不等于 brainstorming-first
+- **何时进入 workflow**:substantial work（需要工程闭环的非平凡/有风险编辑、启动 implementation/debug/review/plan/setup/update/optimization/知识沉淀、运行改状态命令、架构/prompt/workflow/contract 决策、durable knowledge 增删）前先判断是否进入公开 spec-first workflow
+- **何时直接做**:轻量事实问答、当前上下文解释、窄定位查询（where is X used）、当前对话/用户给定单文档整理、明确单点低风险小改动可直接回答、bounded read 或正常执行;小改动仍遵守 CHANGELOG、最窄验证和 source/runtime 边界;workflow-first 不等于 brainstorming-first
 - **何时不重新分流**:已在公开 workflow 内（按其 SKILL 继续,仅在用户改目标/显式 handoff/明显越界时重路由）或作为 bounded subagent/worker 被派遣（完成 bounded 任务即可,不重启路由)
 - **如何路由**:意图优先于关键词与主题域;用户显式调用当前 host 公开 workflow 时优先尊重;否则只选一个入口并说明一个理由,不默认进入 `spec-brainstorm`,不自动串联多个 workflow
 - **常见入口锚点**:setup/runtime→`$spec-mcp-setup` 或终端 `spec-first update`;失败→`$spec-debug`;评审→`$spec-code-review`/`$spec-doc-review`;定义→`$spec-ideate`/`$spec-brainstorm`/`$spec-prd`;优化→`$spec-optimize`;计划/执行→`$spec-plan`/`$spec-work`;知识→`$spec-compound`/`$spec-compound-refresh`;完整 map 查 SKILL
@@ -252,7 +252,7 @@ Rules:
 - 父级多仓 workspace：写入、修复、测试、review autofix 或 commit 前必须有明确 `target_repo` / per-child scope；只读定位也应使用 bounded direct reads 并说明目标 repo 假设
 - Runtime context 默认排除 `.spec-first/audits/**`、`.spec-first/governance/**` 和 generated mirrors（`.claude/**`、`.codex/**`、`.agents/skills/**`）;只有 setup/update/runtime-drift/audit/governance-health 等明确运行时任务按需读取
 - 架构/prompt/workflow/contract 或 source/runtime 判断前按需读取 `docs/10-prompt/结构化项目角色契约.md`;scripts/tools 只产 deterministic facts,LLM 做语义路由判断
-- **反合理化红旗**(出现这些念头即停):「先改个文件就好」→ 先判断是否 work/debug/update/compound-refresh;「只是个快速架构/prompt 改动」→ 架构/prompt/workflow/contract 改动算 substantial;「得先看一堆文件再决定」→ 只做最小事实核查,已清晰则直接路由;「该评审但我口头答就行」→ 评审目标具体时用 code-review/doc-review;「helper skill 存在所以该暴露」→ 只有公开 workflow 是用户入口,internal helper 隐藏
+- **反合理化红旗**(出现这些念头即停):「先改个文件就好」→ 明确小改动可直接做;规模/风险不明、根因未定或触及架构/contract/多文件时先路由;「只是个快速架构/prompt 改动」→ 架构/prompt/workflow/contract 改动算 substantial;「得先看一堆文件再决定」→ 只做最小事实核查,已清晰则直接路由;「该评审但我口头答就行」→ 评审目标具体时用 code-review/doc-review;「helper skill 存在所以该暴露」→ 只有公开 workflow 是用户入口,internal helper 隐藏
 - Codex workflow 入口使用 `$spec-*`
 - 不要把 `using-spec-first` 写成 `/spec:*` 或 command-backed workflow；不要直接暴露 internal-only skills,例如 `git-worktree`
 - Codex：进入公开 `$spec-*` 前可 best-effort 运行 `spec-first startup-reminder --codex`；失败/空输出不阻塞，只提示在终端运行 `spec-first update`，bounded subagents、leaf reviewers、worker agents 不运行

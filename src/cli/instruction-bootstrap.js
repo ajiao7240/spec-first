@@ -156,8 +156,8 @@ function buildZhBootstrapBody(hostId) {
   return `## Workflow 入口治理
 
 - 本 block 是 using-spec-first 的最小入口锚点(随会话启动注入,启动即在场);完整路由表、边界细节和例外仍在 \`skills/using-spec-first/SKILL.md\`
-- **何时进入 workflow**:substantial work（改代码/docs/config/runtime asset、启动 implementation/debug/review/plan/setup/update/optimization/知识沉淀、运行改状态命令、架构/prompt/workflow/contract 决策、durable knowledge 增删）前先判断是否进入公开 spec-first workflow
-- **何时直接做**:轻量事实问答、当前上下文解释、窄定位查询（where is X used）、当前对话/用户给定单文档整理可直接回答或 bounded read;workflow-first 不等于 brainstorming-first
+- **何时进入 workflow**:substantial work（需要工程闭环的非平凡/有风险编辑、启动 implementation/debug/review/plan/setup/update/optimization/知识沉淀、运行改状态命令、架构/prompt/workflow/contract 决策、durable knowledge 增删）前先判断是否进入公开 spec-first workflow
+- **何时直接做**:轻量事实问答、当前上下文解释、窄定位查询（where is X used）、当前对话/用户给定单文档整理、明确单点低风险小改动可直接回答、bounded read 或正常执行;小改动仍遵守 CHANGELOG、最窄验证和 source/runtime 边界;workflow-first 不等于 brainstorming-first
 - **何时不重新分流**:已在公开 workflow 内（按其 SKILL 继续,仅在用户改目标/显式 handoff/明显越界时重路由）或作为 bounded subagent/worker 被派遣（完成 bounded 任务即可,不重启路由)
 - **如何路由**:意图优先于关键词与主题域;用户显式调用当前 host 公开 workflow 时优先尊重;否则只选一个入口并说明一个理由,不默认进入 \`spec-brainstorm\`,不自动串联多个 workflow
 - **常见入口锚点**:setup/runtime→\`${entry('mcp-setup')}\` 或终端 \`spec-first update\`;失败→\`${entry('debug')}\`;评审→\`${entry('code-review')}\`/\`${entry('doc-review')}\`;定义→\`${entry('ideate')}\`/\`${entry('brainstorm')}\`/\`${entry('prd')}\`;优化→\`${entry('optimize')}\`;计划/执行→\`${entry('plan')}\`/\`${entry('work')}\`;知识→\`${entry('compound')}\`/\`${entry('compound-refresh')}\`;完整 map 查 SKILL
@@ -165,7 +165,7 @@ function buildZhBootstrapBody(hostId) {
 - 父级多仓 workspace：写入、修复、测试、review autofix 或 commit 前必须有明确 \`target_repo\` / per-child scope；只读定位也应使用 bounded direct reads 并说明目标 repo 假设
 - Runtime context 默认排除 \`.spec-first/audits/**\`、\`.spec-first/governance/**\` 和 generated mirrors（\`.claude/**\`、\`.codex/**\`、\`.agents/skills/**\`）;只有 setup/update/runtime-drift/audit/governance-health 等明确运行时任务按需读取
 - 架构/prompt/workflow/contract 或 source/runtime 判断前按需读取 \`docs/10-prompt/结构化项目角色契约.md\`;scripts/tools 只产 deterministic facts,LLM 做语义路由判断
-- **反合理化红旗**(出现这些念头即停):「先改个文件就好」→ 先判断是否 work/debug/update/compound-refresh;「只是个快速架构/prompt 改动」→ 架构/prompt/workflow/contract 改动算 substantial;「得先看一堆文件再决定」→ 只做最小事实核查,已清晰则直接路由;「该评审但我口头答就行」→ 评审目标具体时用 code-review/doc-review;「helper skill 存在所以该暴露」→ 只有公开 workflow 是用户入口,internal helper 隐藏
+- **反合理化红旗**(出现这些念头即停):「先改个文件就好」→ 明确小改动可直接做;规模/风险不明、根因未定或触及架构/contract/多文件时先路由;「只是个快速架构/prompt 改动」→ 架构/prompt/workflow/contract 改动算 substantial;「得先看一堆文件再决定」→ 只做最小事实核查,已清晰则直接路由;「该评审但我口头答就行」→ 评审目标具体时用 code-review/doc-review;「helper skill 存在所以该暴露」→ 只有公开 workflow 是用户入口,internal helper 隐藏
 ${hostLine}
 ${surfaceLine}；不要直接暴露 internal-only skills,例如 \`git-worktree\`
 ${codexStartupReminderLines ? `${codexStartupReminderLines}` : ''}`;
@@ -190,8 +190,8 @@ function buildEnBootstrapBody(hostId) {
   return `## Workflow Entry Governance
 
 - This block is the using-spec-first minimal entry anchor (injected at session start, present from the start); the full route map, boundaries, and exceptions still live in \`skills/using-spec-first/SKILL.md\`
-- **When to enter a workflow**: before substantial work (editing code/docs/config/runtime assets; starting implementation/debug/review/plan/setup/update/optimization/knowledge capture; running state-changing commands; architecture/prompt/workflow/contract decisions; adding/removing durable knowledge), decide whether to enter a public spec-first workflow
-- **When to just answer**: lightweight factual Q&A, current-context explanations, narrow lookups (where is X used), and current conversation/user-provided single-document summaries may be answered directly or with bounded reads; workflow-first does NOT mean brainstorming-first
+- **When to enter a workflow**: before substantial work (non-trivial or risky edits that need an engineering loop; starting implementation/debug/review/plan/setup/update/optimization/knowledge capture; running state-changing commands; architecture/prompt/workflow/contract decisions; adding/removing durable knowledge), decide whether to enter a public spec-first workflow
+- **When to just answer**: lightweight factual Q&A, current-context explanations, narrow lookups (where is X used), current conversation/user-provided single-document summaries, and clearly scoped low-risk small edits may be answered, bounded-read, or executed directly; small edits still follow CHANGELOG, narrow verification, and source/runtime boundaries; workflow-first does NOT mean brainstorming-first
 - **When NOT to reroute**: if already inside a public workflow (follow its SKILL; reroute only when the user changes the goal, the workflow explicitly hands off, or the request is clearly out of scope) or dispatched as a bounded subagent/worker (complete the bounded task; do not restart routing)
 - **How to route**: immediate intent beats keywords and broad subject area; honor an explicitly invoked current-host public workflow; otherwise pick one entrypoint and state one reason; do not default to \`spec-brainstorm\` or chain workflows automatically
 - **Common entry anchors**: setup/runtime→\`${entry('mcp-setup')}\` or terminal \`spec-first update\`; failures→\`${entry('debug')}\`; review→\`${entry('code-review')}\`/\`${entry('doc-review')}\`; definition→\`${entry('ideate')}\`/\`${entry('brainstorm')}\`/\`${entry('prd')}\`; optimization→\`${entry('optimize')}\`; plan/execute→\`${entry('plan')}\`/\`${entry('work')}\`; knowledge→\`${entry('compound')}\`/\`${entry('compound-refresh')}\`; read the SKILL for the complete map
@@ -199,7 +199,7 @@ function buildEnBootstrapBody(hostId) {
 - Parent multi-repo workspace: writes, fixes, tests, review autofix, or commits require explicit \`target_repo\` / per-child scope; read-only orientation should use bounded direct reads and state target-repo assumptions
 - Runtime context excludes \`.spec-first/audits/**\`, \`.spec-first/governance/**\`, and generated mirrors (\`.claude/**\`, \`.codex/**\`, \`.agents/skills/**\`) by default; only setup/update/runtime-drift/audit/governance-health tasks read them when explicitly needed
 - Before architecture/prompt/workflow/contract or source/runtime judgments, read \`docs/10-prompt/结构化项目角色契约.md\` as needed; scripts/tools produce deterministic facts, while the LLM owns semantic routing judgment
-- **Anti-rationalization red flags** (stop when these thoughts appear): "I'll just edit the file first" → first check whether this is work/debug/update/compound-refresh; "just a quick architecture/prompt change" → architecture/prompt/workflow/contract changes ARE substantial; "I need to inspect a bunch of files first" → do a minimal fact check only, route if already clear; "review needed but I'll answer informally" → use code-review/doc-review when the target is concrete; "a helper skill exists so I should expose it" → only public workflows are user entrypoints, internal helpers stay hidden
+- **Anti-rationalization red flags** (stop when these thoughts appear): "I'll just edit the file first" → clearly scoped small edits can proceed directly; route first when scope/risk is unclear, root cause is unresolved, or architecture/contract/multi-file work is involved; "just a quick architecture/prompt change" → architecture/prompt/workflow/contract changes ARE substantial; "I need to inspect a bunch of files first" → do a minimal fact check only, route if already clear; "review needed but I'll answer informally" → use code-review/doc-review when the target is concrete; "a helper skill exists so I should expose it" → only public workflows are user entrypoints, internal helpers stay hidden
 ${hostLine}
 ${surfaceLine}; do not expose internal-only skills directly, for example \`git-worktree\`
 ${codexStartupReminderLines ? `${codexStartupReminderLines}` : ''}`;

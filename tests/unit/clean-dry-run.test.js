@@ -463,3 +463,61 @@ describe('clean --workspace-orphans', () => {
     }
   });
 });
+
+describe('clean is not blocked by the CODEX_HOME write-side guard (U3)', () => {
+  test('codex clean removes managed assets even when projectRoot .codex is CODEX_HOME', () => {
+    // The U1 anti-pollution guard lives in the WRITE plan (planRuntimeFilesSync). clean uses
+    // the REMOVAL plan, so it must still work in a directory whose .codex is CODEX_HOME —
+    // this is the official cleanup path for global pollution. Asserting it is not blocked
+    // prevents a future "symmetry" change from copying the guard onto clean.
+    const projectRoot = makeTempDir();
+    const initLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const prevCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = path.join(projectRoot, '.codex');
+
+    try {
+      // Install a normal codex project first (writes state + hooks), then point CODEX_HOME at
+      // it to simulate "this directory's .codex is the global hook location".
+      delete process.env.CODEX_HOME;
+      expect(withCwd(projectRoot, () => runProgrammaticInit({ projectRoot, platform: 'codex' }))).toBe(0);
+      process.env.CODEX_HOME = path.join(projectRoot, '.codex');
+      initLogSpy.mockRestore();
+
+      expect(fs.existsSync(path.join(projectRoot, '.codex', 'hooks.json'))).toBe(true);
+
+      const cleanResult = captureCommand(projectRoot, runClean, ['--codex']);
+      expect(cleanResult.exitCode).toBe(0);
+      // clean ran (not refused) and removed the managed hook script.
+      expect(fs.existsSync(path.join(projectRoot, '.codex', 'hooks', 'session-start'))).toBe(false);
+    } finally {
+      if (prevCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = prevCodexHome;
+      }
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('codex clean reports no managed state when state is absent (state-gated path → manual fallback needed)', () => {
+    // When the global hook was written by an older version with no/legacy state, clean cannot
+    // strip it. This documents why U4 must provide a state-independent manual-delete fallback.
+    const projectRoot = makeTempDir();
+    try {
+      const codexHome = path.join(projectRoot, '.codex');
+      fs.mkdirSync(path.join(codexHome, 'hooks'), { recursive: true });
+      fs.writeFileSync(
+        path.join(codexHome, 'hooks.json'),
+        JSON.stringify({ hooks: { SessionStart: [{ hooks: [{ type: 'command', command: path.join(codexHome, 'hooks/session-start') }] }] } }),
+      );
+      // No .codex/spec-first/state.json written — simulates the state-missing case.
+      const result = captureCommand(projectRoot, runClean, ['--codex']);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('No spec-first managed project assets found');
+      // The polluting hook remains — confirming clean cannot help here without state.
+      expect(fs.existsSync(path.join(codexHome, 'hooks.json'))).toBe(true);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+});

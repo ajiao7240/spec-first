@@ -336,11 +336,13 @@ describe('claude settings', () => {
       const ctx = payload.hookSpecificOutput.additionalContext;
       expect(ctx).toContain('[spec-first] using-spec-first SessionStart injection');
       expect(ctx).toContain('Workflow entry governance is active');
+      expect(ctx).toContain('before non-trivial or risky edits');
       expect(ctx).toContain('target_repo');
       expect(ctx).toContain('skills/using-spec-first/SKILL.md');
       // CLAUDE.md already carries the block; the hook must not duplicate its body.
       expect(ctx).not.toContain('## Workflow 入口治理');
       expect(ctx).not.toContain('substantial work 前先判断是否进入公开 spec-first workflow');
+      expect(ctx).not.toContain('before editing');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

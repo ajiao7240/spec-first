@@ -72,7 +72,12 @@ describe('instruction bootstrap', () => {
     expect(twice).not.toContain('过往 session 检索');
     expect(twice).not.toContain('发布说明');
     // R2 哲学守护:保留「不强制」,严禁滑向 1% 强制全拦截语义
-    expect(twice).toContain('可直接回答或 bounded read');
+    expect(twice).toContain('可直接回答、bounded read 或正常执行');
+    expect(twice).toContain('明确单点低风险小改动');
+    expect(twice).toContain('小改动仍遵守 CHANGELOG、最窄验证和 source/runtime 边界');
+    expect(twice).toContain('需要工程闭环的非平凡/有风险编辑');
+    expect(twice).toContain('明确小改动可直接做');
+    expect(twice).not.toContain('先判断是否 work/debug/update/compound-refresh');
     expect(twice).not.toMatch(/1%|任何可能.*必须 invoke|any chance.*must invoke/i);
     expect(twice).not.toContain('startup-reminder --codex');
     expect(twice).not.toContain('$spec-update` 由用户自主决策升级');
@@ -421,7 +426,9 @@ describe('instruction bootstrap', () => {
           expect(block).toContain('如何路由');
           expect(block).toContain('常见入口锚点');
           expect(block).toContain('反合理化红旗');
-          expect(block).toContain('可直接回答或 bounded read');
+          expect(block).toContain('可直接回答、bounded read 或正常执行');
+          expect(block).toContain('明确单点低风险小改动');
+          expect(block).toContain('小改动仍遵守 CHANGELOG、最窄验证和 source/runtime 边界');
         } else {
           expect(block).toContain('When to enter a workflow');
           expect(block).toContain('When to just answer');
@@ -429,6 +436,9 @@ describe('instruction bootstrap', () => {
           expect(block).toContain('Common entry anchors');
           expect(block).toContain('Anti-rationalization red flags');
           expect(block).toContain('does NOT mean brainstorming-first');
+          expect(block).toContain('clearly scoped low-risk small edits');
+          expect(block).toContain('small edits still follow CHANGELOG, narrow verification, and source/runtime boundaries');
+          expect(block).toContain('non-trivial or risky edits that need an engineering loop');
         }
         // R2: 严禁 1% 强制全拦截语义
         expect(block).not.toMatch(/1%/);

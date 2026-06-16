@@ -603,6 +603,33 @@ describe('init --dry-run', () => {
     }
   });
 
+  test('Codex init apply reports skipped SessionStart hook when project .codex is CODEX_HOME', () => {
+    const projectRoot = makeTempDir();
+    const prevCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = path.join(projectRoot, '.codex');
+
+    try {
+      const result = captureInit(projectRoot, ['--codex', '-u', 'reviewer', '--lang', 'zh']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('已跳过 Codex SessionStart hook 安装');
+      expect(result.stdout).toContain('CODEX_HOME 全局 hook 位置');
+      expect(result.stdout).not.toContain('已安装 Codex SessionStart hook');
+      expect(fs.existsSync(path.join(projectRoot, '.codex', 'hooks.json'))).toBe(false);
+      expect(fs.existsSync(path.join(projectRoot, '.codex', 'hooks', 'session-start'))).toBe(false);
+      expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'using-spec-first', 'SKILL.md'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
+    } finally {
+      if (prevCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = prevCodexHome;
+      }
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('Codex init preserves CRLF AGENTS.md content in unicode and bracketed paths', () => {
     const tempRoot = makeTempDir();
     const projectRoot = path.join(tempRoot, 'codex workspace 中文 [win64]');

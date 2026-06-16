@@ -1,6 +1,6 @@
 ---
 name: using-spec-first
-description: "Use before substantial work in a spec-first project, and when users ask what spec-first workflow or command to run next. Decide whether to route into a public spec-first workflow before editing files, running state-changing commands, debugging, reviewing, planning, setup, update, or architecture/prompt/workflow decisions."
+description: "Use before substantial work in a spec-first project, and when users ask what spec-first workflow or command to run next. Decide whether to route into a public spec-first workflow before non-trivial or risky edits, running state-changing commands, debugging, reviewing, planning, setup, update, or architecture/prompt/workflow decisions."
 ---
 
 # Using Spec-First
@@ -17,7 +17,7 @@ It is not a command-backed workflow, slash command, or `$spec-*` workflow. It do
 | Field | Contract |
 | --- | --- |
 | When to use | Before substantial work in a `spec-first` repo, and when the user asks what `spec-first` workflow or command to run next. |
-| When not to use | Lightweight factual answers, narrow code-location questions, or work already governed by an active public workflow or bounded subagent task. |
+| When not to use | Lightweight factual answers, narrow code-location questions, clearly scoped low-risk small edits, or work already governed by an active public workflow or bounded subagent task. |
 | Inputs | Current user intent, host surface, available project instructions, minimal deterministic facts when already available, and this routing policy. |
 | Outputs | Either one public workflow entrypoint with a concrete reason, User Next-Step Guide Mode output, or a direct answer/normal execution when no workflow applies. |
 | Artifacts | None. `using-spec-first` does not create plans, task packs, review reports, setup reports, runtime assets, or durable knowledge. |
@@ -59,7 +59,7 @@ If you were dispatched as a subagent or worker for a specific bounded task, do n
 
 Treat these as substantial work:
 
-- modifying code, docs, config, or generated runtime assets
+- non-trivial or risky edits that need an engineering loop: multi-file changes, architecture or contract changes, governance/runtime delivery changes, unclear root cause, sensitive areas, or changes likely to require planning, debugging, review, or migration judgment
 - starting implementation, debugging, review, planning, setup, update, bootstrap, optimization, or context-capture workflows
 - running commands that change project state or depend on workflow context
 - making architectural, prompt, workflow, governance, or contract decisions
@@ -71,6 +71,7 @@ These are not substantial work:
 - brief explanations with no workflow leverage
 - quick questions where `spec-first` provides no meaningful routing benefit
 - showing command output or answering a narrow "where is X used?" question without edits
+- clearly scoped, single-point, low-risk code/prose/config edits such as a typo, comment, constant, or local single-function fix, provided the root cause and target file are clear and no architecture, contract, governance, runtime delivery, multi-file, or sensitive-surface judgment is needed
 
 ### Lightweight Direct Outcomes
 
@@ -78,15 +79,19 @@ These are not substantial work:
 
 Direct-answer / bounded-read cases include greetings, current-context or current-instruction explanations, narrow code-location lookups such as "where is X used?", and summarizing or reorganizing the current conversation or a user-provided single document. These requests may still use ordinary source tools such as `rg` or precise file reads when needed, but they do not require brainstorm, plan, work, review, Graphify, or durable artifacts by default.
 
-If a lightweight request turns into editing, planning, review, debugging, setup, source/runtime judgment, or another state-changing action, reclassify it at that point and route normally.
+Clearly scoped small edits may also proceed as normal execution without opening a public workflow. Direct execution still carries the local engineering discipline: update `CHANGELOG.md` when project policy requires it, use the narrowest meaningful verification, respect source/runtime boundaries, and avoid generated mirror patches as source fixes.
+
+If a lightweight request turns into non-trivial or risky editing, planning, review, debugging, setup, source/runtime judgment, multi-file spread, unclear root cause, or another substantial state-changing action, reclassify it at that point and route normally.
 
 ### Spec-First Self-Work
 
-Work on `spec-first` itself is substantial when it changes skills, agents, prompt/workflow prose, host instruction blocks, `init`/`doctor`/`clean` behavior, governance contracts, or runtime delivery rules.
+Work on `spec-first` itself is substantial when it changes skills, agents, prompt/workflow prose, host instruction blocks, `init`/`doctor`/`clean` behavior, governance contracts, architecture, source/runtime policy, or runtime delivery rules.
 
 Before self-work that changes architecture, prompt, workflow, contract, source/runtime governance, or evolution policy, read `docs/10-prompt/结构化项目角色契约.md` and use it as the judgment baseline.
 
-Route concrete implementation or prose changes to:
+Clearly scoped, single-point, low-risk ordinary code/prose corrections in `spec-first` itself may proceed directly when they do not touch prompt/workflow/contract/governance/runtime delivery semantics and do not expand beyond the known target. Keep the same local discipline: source-of-truth edits, `CHANGELOG.md` when required, narrow verification, and reclassification if the change becomes substantial.
+
+Route substantial concrete implementation or prose changes to:
 
 - Claude: `/spec:work`
 - Codex: `$spec-work`
@@ -321,7 +326,7 @@ If this guidance has already been injected through `CLAUDE.md`, `AGENTS.md`, or 
 
 | Thought | Better move |
 | --- | --- |
-| "I'll just edit the file first." | Check whether this is `work`, `debug`, `update`, or `compound-refresh`. |
+| "I'll just edit the file first." | Direct editing is fine for clearly scoped, low-risk small edits; stop and route when scope/risk is unclear, root cause is unresolved, or the change touches architecture, contracts, governance, runtime delivery, multi-file behavior, or sensitive surfaces. |
 | "This is just a quick architecture/prompt change." | Treat architecture, prompt, workflow, and contract changes as substantial work. |
 | "I need to inspect a bunch of files before deciding." | Do a minimal fact check only; route if the request is already clearly review/debug/plan/work. |
 | "The user asked for a review, but I can answer informally." | Use `code-review` or `doc-review` when the review target is concrete. |

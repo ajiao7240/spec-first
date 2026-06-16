@@ -51,6 +51,30 @@
       "coverage_tags": ["routing", "boundary"]
     },
     {
+      "id": "small-low-risk-edit-stays-direct",
+      "name": "Small low-risk edit stays direct",
+      "user_intent": "给 src/cli/helpers/format.js 里的 formatLabel 函数加两行日志，目标文件和改法都明确",
+      "expected_outcome": "normal_execution",
+      "public_workflow_required": false,
+      "expected_entrypoint": null,
+      "graphify_required": false,
+      "artifact_expected": false,
+      "boundary_note": "A clearly scoped single-point low-risk edit can be executed directly while still honoring changelog, narrow verification, and source/runtime boundaries.",
+      "coverage_tags": ["routing", "boundary", "small-edit"]
+    },
+    {
+      "id": "cross-file-contract-change-routes-work",
+      "name": "Cross-file contract change routes to work",
+      "user_intent": "调整 runtime artifact contract，并同步三个 CLI 模块和双宿主生成逻辑",
+      "expected_outcome": "public_workflow",
+      "public_workflow_required": true,
+      "expected_entrypoint": "$spec-work",
+      "graphify_required": false,
+      "artifact_expected": true,
+      "boundary_note": "Cross-file contract/runtime delivery changes need the public work workflow; the small-edit allowance does not apply.",
+      "coverage_tags": ["routing", "trigger", "substantial-work"]
+    },
+    {
       "id": "explicit-spec-plan-honored",
       "name": "Explicit plan route remains honored",
       "user_intent": "$spec-plan deep docs/brainstorms/example-requirements.md",
