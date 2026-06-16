@@ -374,7 +374,7 @@ function renderSessionStartHookTemplate() {
 }
 
 function renderHooksJsonTemplate(projectRoot) {
-  const commandPath = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+  const commandPath = formatSessionStartCommand(projectRoot);
   const managed = JSON.parse(fs.readFileSync(HOOKS_JSON_TEMPLATE_PATH, 'utf8').replace(
     JSON.stringify(SESSION_START_COMMAND_PLACEHOLDER),
     JSON.stringify(commandPath),
@@ -526,18 +526,33 @@ function hasManagedSessionStartHook(hooksJson, projectRoot) {
   return sessionStart.some((entry) => isCurrentManagedSessionStartEntry(entry, projectRoot));
 }
 
+function formatSessionStartCommand(projectRoot) {
+  return `bash ${shellQuote(normalizeSessionStartCommandPath(projectRoot))}`;
+}
+
+function normalizeSessionStartCommandPath(projectRoot) {
+  return path.join(projectRoot, SESSION_START_RELATIVE_PATH).replace(/\\/g, '/');
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
 function isManagedSessionStartEntry(entry, projectRoot) {
-  const expectedCommand = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+  const expectedCommand = formatSessionStartCommand(projectRoot);
   return Boolean(entry && Array.isArray(entry.hooks) && entry.hooks.some((hook) => (
     hook
       && hook.type === 'command'
       && typeof hook.command === 'string'
-      && (hook.command === expectedCommand || hook.command.includes(SESSION_START_RELATIVE_PATH))
+      && (
+        hook.command === expectedCommand
+        || hook.command.replace(/\\/g, '/').includes(SESSION_START_RELATIVE_PATH)
+      )
   )));
 }
 
 function isCurrentManagedSessionStartEntry(entry, projectRoot) {
-  const expectedCommand = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+  const expectedCommand = formatSessionStartCommand(projectRoot);
   return Boolean(entry && Array.isArray(entry.hooks) && entry.hooks.some((hook) => (
     hook
       && hook.type === 'command'

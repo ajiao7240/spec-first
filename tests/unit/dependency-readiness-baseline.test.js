@@ -2371,6 +2371,7 @@ exit 0
               hooks: [
                 // spec-first managed runtime hook(.codex/hooks/):双宿主对等跳过,不报 undeclared。
                 { type: 'command', command: '"$CODEX_PROJECT_DIR"/.codex/hooks/session-start' },
+                { type: 'command', command: 'bash "C:/Users/spec/project/.codex/hooks/session-start"' },
                 { type: 'command', command: 'definitely-missing-codex-hook --flag' },
               ],
             },

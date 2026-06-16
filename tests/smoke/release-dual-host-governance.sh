@@ -124,7 +124,8 @@ const projectRoot = fs.realpathSync.native(process.argv[2]);
 const hooksPath = path.join(projectRoot, '.codex', 'hooks.json');
 const payload = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
 const command = payload.hooks?.SessionStart?.[0]?.hooks?.[0]?.command;
-if (command !== path.join(projectRoot, '.codex/hooks/session-start')) {
+const expected = `bash '${path.join(projectRoot, '.codex/hooks/session-start').replace(/\\/g, '/').replace(/'/g, "'\\''")}'`;
+if (command !== expected) {
   throw new Error(`unexpected codex hook command ${command}`);
 }
 NODE

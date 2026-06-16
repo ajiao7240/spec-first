@@ -143,7 +143,7 @@ describe('init plan API', () => {
       expect(hooksJson.hooks.PreToolUse).toEqual([graphifyHook]);
       expect(hooksJson.hooks.SessionStart[0].hooks[0]).toEqual({
         type: 'command',
-        command: path.join(fs.realpathSync.native(projectRoot), '.codex/hooks/session-start'),
+        command: `bash '${path.join(fs.realpathSync.native(projectRoot), '.codex/hooks/session-start').replace(/\\/g, '/').replace(/'/g, "'\\''")}'`,
       });
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });

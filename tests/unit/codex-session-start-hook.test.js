@@ -17,6 +17,10 @@ const LEGACY_CLEANUP_PATHS = [
   'plugins/spec-first',
 ];
 
+function expectedSessionStartCommand(projectRoot) {
+  return `bash '${path.join(projectRoot, '.codex/hooks/session-start').replace(/\\/g, '/').replace(/'/g, "'\\''")}'`;
+}
+
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-codex-hook-'));
 }
@@ -103,14 +107,15 @@ describe('Codex SessionStart hook runtime plan', () => {
               hooks: [
                 {
                   type: 'command',
-                  command: path.join(projectRoot, '.codex/hooks/session-start'),
+                  command: expectedSessionStartCommand(projectRoot),
                 },
               ],
             },
           ],
         },
       });
-      expect(path.isAbsolute(parsed.hooks.SessionStart[0].hooks[0].command)).toBe(true);
+      expect(parsed.hooks.SessionStart[0].hooks[0].command).toContain('.codex/hooks/session-start');
+      expect(parsed.hooks.SessionStart[0].hooks[0].command).toMatch(/^bash '/);
       expect(hooksJson.contents).not.toContain('__CODEX_SESSION_START_COMMAND__');
       expect(plan.summary).toEqual({ remove_dir: cleanupOps.length, write_file: 2 });
     } finally {
@@ -153,6 +158,14 @@ describe('Codex SessionStart hook runtime plan', () => {
                 },
               ],
             },
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: 'C:\\Users\\spec\\old-project\\.codex\\hooks\\session-start',
+                },
+              ],
+            },
           ],
         },
       }, null, 2), 'utf8');
@@ -169,11 +182,12 @@ describe('Codex SessionStart hook runtime plan', () => {
         hooks: [
           {
             type: 'command',
-            command: path.join(projectRoot, '.codex/hooks/session-start'),
+            command: expectedSessionStartCommand(projectRoot),
           },
         ],
       });
       expect(JSON.stringify(parsed)).not.toContain('old-project');
+      expect(JSON.stringify(parsed)).not.toContain('C:\\\\Users\\\\spec');
       expect(getAdapter('codex').inspectRuntimeFiles(projectRoot)[1]).toMatchObject({
         level: 'WARNING',
         message: 'missing managed SessionStart hook config',
@@ -181,6 +195,21 @@ describe('Codex SessionStart hook runtime plan', () => {
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
+  });
+
+  test('sync plan shell-quotes hook command paths with active shell characters', () => {
+    const projectRoot = path.join(os.tmpdir(), "spec first '$HOME' `touch bad` $(touch bad)");
+
+    const plan = getAdapter('codex').planRuntimeFilesSync(projectRoot);
+    const hooksJson = plan.operations.find((operation) => operation.path === '.codex/hooks.json');
+    const parsed = JSON.parse(hooksJson.contents);
+    const command = parsed.hooks.SessionStart[0].hooks[0].command;
+
+    expect(command).toBe(expectedSessionStartCommand(projectRoot));
+    expect(command).toContain("'\\''");
+    expect(command).toContain('$HOME');
+    expect(command).toContain('`touch bad`');
+    expect(command).toContain('$(touch bad)');
   });
 
   test('sync plan switches hook files to update_file when they already exist', () => {
@@ -268,7 +297,7 @@ describe('Codex SessionStart hook runtime plan', () => {
 
       const hooksPath = path.join(projectRoot, '.codex', 'hooks.json');
       const hooksJson = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
-      hooksJson.hooks.SessionStart[0].hooks[0].command = path.join(os.tmpdir(), 'old-project', '.codex/hooks/session-start');
+      hooksJson.hooks.SessionStart[0].hooks[0].command = expectedSessionStartCommand(path.join(os.tmpdir(), 'old-project'));
       fs.writeFileSync(hooksPath, JSON.stringify(hooksJson, null, 2), 'utf8');
       const checks = adapter.inspectRuntimeFiles(projectRoot);
       expect(checks[0].level).toBe('PASS');
