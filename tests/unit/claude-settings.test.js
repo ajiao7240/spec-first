@@ -139,6 +139,36 @@ describe('claude settings', () => {
     }
   });
 
+  test('upsert preserves a user wrapper hook that merely references the managed path', () => {
+    const projectRoot = makeTempDir();
+    const settingsPath = getClaudeSettingsPath(projectRoot);
+    const userWrapper = {
+      type: 'command',
+      command: `my-wrapper ${SESSION_START_COMMAND} && echo extra`,
+    };
+
+    try {
+      fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+      fs.writeFileSync(settingsPath, `${JSON.stringify({
+        hooks: {
+          SessionStart: [
+            { matcher: 'startup', hooks: [userWrapper] },
+          ],
+        },
+      }, null, 2)}\n`, 'utf8');
+
+      upsertManagedSessionStartHook(projectRoot);
+
+      const settings = readJson(settingsPath);
+      const allHooks = settings.hooks.SessionStart.flatMap((matcher) => matcher.hooks);
+      // Substring-based removal would have deleted this wrapper; exact/prefix removal keeps it.
+      expect(allHooks).toContainEqual(userWrapper);
+      expect(allHooks.filter((hook) => hook.command === SESSION_START_COMMAND)).toHaveLength(1);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('remove only deletes managed matchers and preserves custom entries', () => {
     const projectRoot = makeTempDir();
     const settingsPath = getClaudeSettingsPath(projectRoot);
@@ -449,6 +479,69 @@ describe('claude settings', () => {
       expect(payload.hookSpecificOutput.additionalContext).toContain('Managed using-spec-first bootstrap is missing');
       expect(payload.hookSpecificOutput.additionalContext).toContain('spec-first init');
       expect(payload.hookSpecificOutput.additionalContext).toContain('choose Claude Code');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('session-start hook degrades non-blockingly when the instruction path is unreadable', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      const hookPath = writeRenderedSessionStartHook(projectRoot);
+      // A directory in place of CLAUDE.md makes readFileSync throw EISDIR regardless of
+      // the runner's uid (unlike chmod 0o000, which root bypasses) -> exercises the guard.
+      fs.mkdirSync(path.join(projectRoot, 'CLAUDE.md'));
+
+      const result = spawnSync('bash', [hookPath], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          CLAUDE_PROJECT_DIR: projectRoot,
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      const payload = JSON.parse(result.stdout);
+      expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('using-spec-first SessionStart injection');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('session-start hook emits exactly the SessionStart wire contract (no extra keys, single JSON object)', () => {
+    // Keep the Claude hook output identical in shape to the Codex SessionStart wire contract
+    // (hookSpecificOutput with only hookEventName + additionalContext). This guards dual-host
+    // parity and prevents stdout noise / extra keys that a strict host parser would reject.
+    const projectRoot = makeTempDir();
+
+    try {
+      fs.writeFileSync(path.join(projectRoot, 'CLAUDE.md'), [
+        '<!-- spec-first:bootstrap:start -->',
+        '- Claude workflow entrypoints use `/spec:*`.',
+        '<!-- spec-first:bootstrap:end -->',
+        '',
+      ].join('\n'), 'utf8');
+      const hookPath = writeRenderedSessionStartHook(projectRoot);
+
+      const result = spawnSync('bash', [hookPath], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      const trimmed = result.stdout.trim();
+      expect(trimmed.startsWith('{')).toBe(true);
+      const payload = JSON.parse(trimmed);
+      expect(Object.keys(payload)).toEqual(['hookSpecificOutput']);
+      expect(Object.keys(payload.hookSpecificOutput).sort()).toEqual(['additionalContext', 'hookEventName']);
+      expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
+      expect(typeof payload.hookSpecificOutput.additionalContext).toBe('string');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }

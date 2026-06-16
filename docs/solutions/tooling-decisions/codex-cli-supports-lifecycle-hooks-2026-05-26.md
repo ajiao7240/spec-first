@@ -29,6 +29,22 @@ spec-first 项目长期假设 Codex CLI 没有与 Claude Code 对等的 hook 系
 
 > 2026-06-07 落地更新：`spec-first init --codex` 已写入项目级 `.codex/hooks/session-start` 与 `.codex/hooks/hooks.json`，用于 startup 维度注入 `AGENTS.md` managed bootstrap 并 best-effort 运行 `startup-reminder --codex`。同时经计划核查确认 Codex `pre_compact`/`post_compact` 当前为 `StatelessHookOutcome`，不消费 `additionalContext`；因此 compact 后上下文重注入不能靠 Codex compact hook 实现，仍需保留 `AGENTS.md` 静态 fallback。
 
+> 2026-06-16 落地更新（session 注入深度审查修复）：
+> - **Windows `commandWindows` 百分号转义**：`windowsCommandQuote` 原先按"批处理文件体"规则把 `%`→`%%`，但 `commandWindows` 实际在 cmd 命令行上下文被消费（命令行上 `%%` 不会折叠回 `%`），含字面 `%` 的项目路径会被主动破坏。已改为命令行式引用（不再 doubling）；批处理体内的 `%` 转义仍由 `escapeBatchFileLiteral` 负责（仅用于 `.cmd` 文件正文）。
+> - **冗余双层 cmd.exe（已移除）**：经用户 Windows 复现 `SessionStart hook failed` 后回源确认 upstream `codex-rs/hooks/src/engine/command_runner.rs`：Codex 会在 Windows 用默认 shell `cmd.exe /C <commandWindows>` 执行 hook，且会先向 hook stdin 写入事件 JSON。此前本仓库 `commandWindows` 又内嵌 `cmd.exe /d /c "<project>\\.codex\\hooks\\session-start.cmd"`，形成双层 cmd + quoted path 组合，属于 Windows 启动失败高风险点。修复为 `commandWindows` 只包含带引号的 `.cmd` wrapper 路径，由 Codex 外层 `cmd.exe /C` 执行；`.cmd` 再用 baked Node 路径调用 sibling `session-start`。
+> - **stdin drain 必须保留**：Codex runner 会把 hook event JSON 写入子进程 stdin；若 hook 过早退出导致写入失败，上游会返回 `failed to write hook stdin` 并判 hook failed。Codex `session-start` hook 即使当前不需要 payload，也必须 drain stdin 后再输出 `hookSpecificOutput`。
+> - **baked 绝对 node 路径（nvm 失效面）**：`.codex/hooks.json` 的 `command` 与 `.codex/hooks/session-start.cmd` 都内联了 init 时的 `process.execPath`（绝对 node 路径）。若 node 因 nvm 切换/卸载移动，hook 自身无法启动且无法优雅降级。当前已由现有 drift 检测覆盖：`spec-first doctor` / `inspect` 以**当前** `process.execPath` 重新渲染并比对，node 路径变更会被报为 `.codex/hooks.json` 的 outdated 与 `.codex/hooks/session-start.cmd` 的 `drifted from bundled template`。**修复路径：node/nvm 变更后重跑 `spec-first init`**。未改为 PATH 解析 node（会改变所有 Codex 用户的调用语义且无法在本环境验证）。
+>
+> 2026-06-16 code-review 复核补充：
+> - **保持 baked execPath，不放宽 drift 检测**：审查曾建议让 drift 检测忽略 execPath 以消除「node 升级后误报」。但若 node 真的移动，baked 路径确实无法启动——hook 是真坏，re-init 是真需要。放宽检测会制造「false PASS 掩盖坏 hook」这一更危险方向。决策：**保留精确检测**（baked execPath 仍参与比对），改为**更准确的措辞**：`inspectHooksJson` 新增「present-but-outdated」分支（`hasOutdatedManagedSessionStartHook`，按 managed path/shape 宽松匹配但非当前 exact entry），node/project/host 变更时报 outdated（提示重跑 init 刷新）而非误导性的 missing；真正无 managed entry 时仍报 missing。
+> - **`.cmd` missing 标注为 Windows-only**：非 Windows 宿主缺 `.cmd` 只是 advisory，message 注明「only required when Codex runs on Windows」，避免 Linux/macOS 用户把它当功能性故障。
+>
+> 2026-06-16 流程核验补充（回 upstream + context7 双重确认）：
+> - **修正 compact 措辞**：上面 2026-06-07 那条「compact 后上下文重注入不能靠 Codex compact hook，仅能靠 `AGENTS.md` 静态 fallback」**不完整**。回源（`codex-rs/hooks/src/events/session_start.rs`）确认 Codex 的 compact 会以 `SessionStartSource::Compact` 触发 **SessionStart hook 本身**，而 `SessionStartOutcome.additional_contexts` 会注入模型。即:`pre_compact`/`post_compact` 仍是 `StatelessHookOutcome`（不消费 context，结论不变），但 compact 之后 spec-first 的 bootstrap 指针**会经由 SessionStart(source=compact) 重新注入**，比原假设更好。无需代码改动，仅纠正认知。
+> - **SessionStart 输出契约（易碎点）**：`SessionStartHookSpecificOutputWire` 与 `SessionStartCommandOutputWire` 都是 `#[serde(deny_unknown_fields)]`（源码与 context7 `session-start.command.output.schema.json` 一致）。`parse_completed` 逻辑:stdout 以 `{` 开头但 parse 失败即判 `hook returned invalid session start JSON output` → hook failed；exit 0 且非 JSON 的 stdout 会被整段当 additionalContext 注入模型。因此 hook 必须只向 stdout 写**单一合法 JSON 对象**，且 `hookSpecificOutput` 仅含 `hookEventName` + `additionalContext` 两个键。已加回归测试（codex + claude 各一条「net wire contract」）锁死键集合与单 JSON 对象,防未来误加字段或 stdout 噪声重蹈 `hook failed`。
+> - **无 matcher = 匹配全部 source**：`.codex/hooks.json` 的 SessionStart entry 不带 `matcher`,源码 `matches_matcher(None,_)→true`,即对 `startup/resume/clear/compact` 四个 source 全部生效,符合预期。
+> - **stdin 契约定性**：runner 经 `dispatcher::execute_handlers` 把 `SessionStartCommandInput` JSON 写入 hook stdin;hook 必须 drain（已修）。这是 `hook failed` 的根因之一,前述 stdin drain 修复正确。
+
 ## Guidance
 
 把 dual-host hook parity 当作可以做到的事，而不是不可达目标。具体地：
@@ -53,7 +69,7 @@ spec-first 项目长期假设 Codex CLI 没有与 Claude Code 对等的 hook 系
 2. **认 Codex hook 配置形态**：
    - 配置文件：`hooks/hooks.json`（plugin 层位于 `<plugin>/hooks/hooks.json`）。
    - 配置来源 5 层：`User` / `Project` / `Session` / `Plugin` / `Managed`。比 Claude Code 的 user/project 两层更细。
-   - Handler 类型：`Prompt {}`、`Command { command, command_windows, timeout_sec, async, status_message }`（注意 `command_windows` 原生跨平台）、`Agent {}`。
+   - Handler 类型：`Prompt {}`、`Command { command, commandWindows, timeout, async, statusMessage }`、`Agent {}`。2026-06-16 复核当前 `openai/codex` source：JSON/TOML 主字段名是 `commandWindows`，`command_windows` 只是兼容 alias。
    - 企业治理：`requirements.toml` 顶层 `allow_managed_hooks_only = true` 可锁为仅管理员/managed 层 hook，忽略 user/project/session 层。Claude Code 当前没有等价能力。
 
 3. **更新 dual-host 设计原则的措辞**：保留"核心治理放 helper、hook 仅做 host-specific 锦上添花"这条结论，但把理由从"Codex 没有 hook"换成下面三条仍然成立的理由：
@@ -107,17 +123,18 @@ gh api repos/openai/codex/contents/codex-rs/features/src/lib.rs \
 ```json
 {
   "hooks": {
-    "session_start": [
+    "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "/abs/path/to/hook-script.sh"
+            "command": "/abs/path/to/hook-script.sh",
+            "commandWindows": "\"C:\\\\path\\\\to\\\\hook-script.cmd\""
           }
         ]
       }
     ],
-    "pre_tool_use": [
+    "PreToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
@@ -129,17 +146,17 @@ gh api repos/openai/codex/contents/codex-rs/features/src/lib.rs \
 }
 ```
 
-注意事件名在 `hooks.json` 配置里使用 snake_case（`session_start`、`pre_tool_use` 等），常量 `HOOK_EVENT_NAMES` 中是 PascalCase。
+注意事件名在 `hooks.json` 配置里使用 PascalCase（`SessionStart`、`PreToolUse` 等）。`hook_event_key_label` 里用于 persisted hook-state key 的 label 是 snake_case（`session_start`、`pre_tool_use` 等），不要混作 runtime `hooks.json` 输入 key。
 
 ### dual-host hook parity matrix（可作为后续 contract 起点）
 
 | 行为 | Claude Code | Codex CLI |
 | --- | --- | --- |
-| Session 启动注入 spec-first bootstrap | `SessionStart` hook | `session_start` hook 或 `AGENTS.md` managed block |
-| Tool 调用前注入 redaction 校验 | `PreToolUse` matcher | `pre_tool_use` matcher |
-| Mutation 操作前强制 preview-first | `PreToolUse` + 自定义判定 | `permission_request` hook（更精确） |
-| 压缩后恢复 bootstrap 上下文 | （Claude 仅有 `PreCompact`，需 prompt 续接） | `pre_compact`/`post_compact` 当前为 `StatelessHookOutcome`，不可注入 context；保留 `AGENTS.md` fallback |
-| Reviewer dispatch 前注入 utilization 记录 | 主 agent `PreToolUse` matcher=`Agent` | `subagent_start` hook（更精确） |
+| Session 启动注入 spec-first bootstrap | `SessionStart` hook | `SessionStart` hook 或 `AGENTS.md` managed block |
+| Tool 调用前注入 redaction 校验 | `PreToolUse` matcher | `PreToolUse` matcher |
+| Mutation 操作前强制 preview-first | `PreToolUse` + 自定义判定 | `PermissionRequest` hook（更精确） |
+| 压缩后恢复 bootstrap 上下文 | （Claude 仅有 `PreCompact`，需 prompt 续接） | `PreCompact`/`PostCompact` 当前为 `StatelessHookOutcome`，不可注入 context；保留 `AGENTS.md` fallback |
+| Reviewer dispatch 前注入 utilization 记录 | 主 agent `PreToolUse` matcher=`Agent` | `SubagentStart` hook（更精确） |
 
 ## Related
 

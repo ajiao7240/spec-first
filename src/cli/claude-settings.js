@@ -46,12 +46,28 @@ function buildManagedSpecPlanGuardMatcher() {
   };
 }
 
+// Loose substring match: used for drift DETECTION/inspection so a lightly-edited managed
+// command is still recognized as ours and reported as drifted.
 function isSpecFirstManagedHook(hook) {
   return !!hook &&
     typeof hook === 'object' &&
     hook.type === 'command' &&
     typeof hook.command === 'string' &&
     MANAGED_HOOK_PATH_PATTERN.test(hook.command);
+}
+
+// Tight match: used for REMOVAL only. The Claude managed commands are project-relative
+// and stable, so exact-equality (or the command followed by extra args, e.g. spec-first's
+// own "...session-start --debug" drift) is safe to remove and re-add. A user wrapper that
+// merely references the managed path mid-command (e.g. "my-wrapper ...session-start && x")
+// does not start with the managed command, so it is preserved instead of silently deleted.
+function isManagedHookForRemoval(hook) {
+  if (!hook || typeof hook !== 'object' || hook.type !== 'command' || typeof hook.command !== 'string') {
+    return false;
+  }
+  return [SESSION_START_COMMAND, SPEC_PLAN_GUARD_COMMAND].some((command) => (
+    hook.command === command || hook.command.startsWith(`${command} `)
+  ));
 }
 
 function upsertManagedClaudeHooks(projectRoot) {
@@ -271,7 +287,7 @@ function removeManagedHookEntries(settings) {
         continue;
       }
 
-      const remainingHooks = matcher.hooks.filter((hook) => !isSpecFirstManagedHook(hook));
+      const remainingHooks = matcher.hooks.filter((hook) => !isManagedHookForRemoval(hook));
       if (remainingHooks.length === 0) {
         continue;
       }

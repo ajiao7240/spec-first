@@ -316,9 +316,11 @@ function inspectManagedHookFile(projectRoot, hook) {
 
 function renderSessionStartHookTemplate() {
   const template = fs.readFileSync(SESSION_START_TEMPLATE_PATH, 'utf8');
+  // Function replacement: a string replacement would interpret $&/$`/$'/$$/$n in the
+  // baked path (e.g. an install dir containing `$&`), corrupting the generated hook.
   return template.replace(
     JSON.stringify(SESSION_START_CLI_PLACEHOLDER),
-    JSON.stringify(TRUSTED_SPEC_FIRST_CLI_PATH),
+    () => JSON.stringify(TRUSTED_SPEC_FIRST_CLI_PATH),
   );
 }
 

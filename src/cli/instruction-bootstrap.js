@@ -91,10 +91,19 @@ function applyManagedBootstrapBlock(existing, block) {
     return `${before}${block}${after}`;
   }
 
+  // Strip spec-first's own prior content before appending, so a legacy managed section is
+  // not duplicated by the freshly appended block on re-init. How aggressively depends on
+  // the evidence that the file was spec-first-managed:
+  // - A dangling marker (corrupted) proves prior management, so the full heuristic is safe
+  //   (exact bodies + explicit legacy heading + generic governance heading with >=2 anchors).
+  // - With NO markers there is no such proof, so only remove unambiguous spec-first content
+  //   (exact known bodies and the explicit "(managed by spec-first)" heading). A generic
+  //   heading like "## Workflow Entry Governance" that merely shares anchor phrases is left
+  //   alone: a possible duplicate is recoverable, but deleting a user-authored section is not.
   const corrupted = startIdx !== -1 || endIdx !== -1;
   const cleaned = corrupted
     ? stripKnownBootstrapBodies(stripStandaloneMarkerLines(existing))
-    : existing;
+    : stripKnownBootstrapBodies(existing, { legacyHeadingsOnly: true });
   if (cleaned.length === 0) {
     return block;
   }
@@ -206,7 +215,7 @@ function stripStandaloneMarkerLines(content) {
     .join('\n');
 }
 
-function stripKnownBootstrapBodies(content) {
+function stripKnownBootstrapBodies(content, { legacyHeadingsOnly = false } = {}) {
   let next = content;
   for (const body of buildKnownBootstrapBodies()) {
     next = next
@@ -215,7 +224,7 @@ function stripKnownBootstrapBodies(content) {
       .replace(`${body}\n`, '')
       .replace(body, '');
   }
-  return stripManagedBootstrapSections(next);
+  return stripManagedBootstrapSections(next, { legacyHeadingsOnly });
 }
 
 function buildKnownBootstrapBodies() {
@@ -227,12 +236,12 @@ function buildKnownBootstrapBodies() {
   return [...new Set(bodies)];
 }
 
-function stripManagedBootstrapSections(content) {
+function stripManagedBootstrapSections(content, { legacyHeadingsOnly = false } = {}) {
   const lines = content.split('\n');
   const next = [];
 
   for (let index = 0; index < lines.length; index += 1) {
-    const skipTo = matchManagedBootstrapSection(lines, index);
+    const skipTo = matchManagedBootstrapSection(lines, index, { legacyHeadingsOnly });
     if (skipTo !== -1) {
       index = skipTo - 1;
       continue;
@@ -244,7 +253,7 @@ function stripManagedBootstrapSections(content) {
   return next.join('\n');
 }
 
-function matchManagedBootstrapSection(lines, startIndex) {
+function matchManagedBootstrapSection(lines, startIndex, { legacyHeadingsOnly = false } = {}) {
   const heading = lines[startIndex] ? lines[startIndex].trim() : '';
   const knownHeadings = [
     '## Workflow 入口治理',
@@ -253,6 +262,12 @@ function matchManagedBootstrapSection(lines, startIndex) {
     '## Workflow Entry Governance (managed by spec-first)',
   ];
   if (!knownHeadings.includes(heading)) {
+    return -1;
+  }
+
+  // No-marker callers (legacyHeadingsOnly) only strip the unambiguous explicit
+  // "(managed by spec-first)" headings; a generic governance heading is left for the user.
+  if (legacyHeadingsOnly && !isLegacyManagedBootstrapHeading(heading)) {
     return -1;
   }
 

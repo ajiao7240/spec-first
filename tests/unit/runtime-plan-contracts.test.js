@@ -110,13 +110,14 @@ describe('runtime plan contracts', () => {
       syncCleanupOps.some((entry) => entry.path === expectedPath)
     )).toBe(true);
     expect(syncCleanupOps.some((entry) => entry.path === '.codex/skills/work')).toBe(true);
-    expect(syncPlan.operations.slice(-2).map((entry) => entry.path)).toEqual([
+    expect(syncPlan.operations.slice(-3).map((entry) => entry.path)).toEqual([
       '.codex/hooks/session-start',
+      '.codex/hooks/session-start.cmd',
       '.codex/hooks.json',
     ]);
     expect(syncCleanupOps.every((entry) => entry.kind === 'remove_dir')).toBe(true);
-    expect(syncPlan.operations.slice(-2).map((entry) => entry.kind)).toEqual(['write_file', 'write_file']);
-    expect(syncPlan.summary).toEqual({ remove_dir: syncCleanupOps.length, write_file: 2 });
+    expect(syncPlan.operations.slice(-3).map((entry) => entry.kind)).toEqual(['write_file', 'write_file', 'write_file']);
+    expect(syncPlan.summary).toEqual({ remove_dir: syncCleanupOps.length, write_file: 3 });
 
     const removalPlan = adapter.planRuntimeFilesRemoval('/tmp/unused');
     const removalCleanupOps = removalPlan.operations.filter((entry) => entry.reason === 'managed_runtime_cleanup'
@@ -125,13 +126,14 @@ describe('runtime plan contracts', () => {
       removalCleanupOps.some((entry) => entry.path === expectedPath)
     )).toBe(true);
     expect(removalCleanupOps.some((entry) => entry.path === '.codex/skills/work')).toBe(true);
-    expect(removalPlan.operations.slice(-2).map((entry) => entry.path)).toEqual([
+    expect(removalPlan.operations.slice(-3).map((entry) => entry.path)).toEqual([
       '.codex/hooks/session-start',
+      '.codex/hooks/session-start.cmd',
       '.codex/hooks.json',
     ]);
     expect(removalCleanupOps.every((entry) => entry.kind === 'remove_dir')).toBe(true);
-    expect(removalPlan.operations.slice(-2).map((entry) => entry.kind)).toEqual(['remove_file', 'remove_file']);
-    expect(removalPlan.summary).toEqual({ remove_dir: removalCleanupOps.length, remove_file: 2 });
+    expect(removalPlan.operations.slice(-3).map((entry) => entry.kind)).toEqual(['remove_file', 'remove_file', 'remove_file']);
+    expect(removalPlan.summary).toEqual({ remove_dir: removalCleanupOps.length, remove_file: 3 });
   });
 
   test('Codex-rendered spec-plan preserves research dispatch semantics', () => {

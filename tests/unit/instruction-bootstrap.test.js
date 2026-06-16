@@ -209,6 +209,85 @@ describe('instruction bootstrap', () => {
     expect(updated).toContain(BOOTSTRAP_END);
   });
 
+  test('clears a markerless EXPLICIT-legacy managed section before appending (no duplicate on re-init)', () => {
+    // The unambiguous "(managed by spec-first)" heading predates the marker scheme and is
+    // safe to strip even without markers, because it can only be spec-first's own content.
+    const legacy = [
+      '# Header',
+      '',
+      '## Workflow Entry Governance (managed by spec-first)',
+      '',
+      '- This block is the spec-first workflow entry reminder; `using-spec-first` is a standalone meta skill, not a workflow command',
+      '- Common entry anchors: environment/MCP→`/spec:mcp-setup`; version/runtime check→run `spec-first update` in the terminal; execution→`/spec:work`',
+      '- Do not expose internal-only skills directly',
+      '- CUSTOM DRIFT',
+      '',
+      '# Tail',
+    ].join('\n');
+
+    const updated = applyManagedBootstrapBlock(legacy, buildBootstrapBlock('codex', 'en'));
+
+    expect(updated).toContain('# Header');
+    expect(updated).toContain('# Tail');
+    expect(updated).not.toContain('CUSTOM DRIFT');
+    expect(updated).not.toContain('## Workflow Entry Governance (managed by spec-first)');
+    // Only the freshly appended block's generic heading remains, and one marker pair.
+    expect(updated.match(/^## Workflow Entry Governance$/gm)).toHaveLength(1);
+    expect(updated.match(/<!-- spec-first:bootstrap:start -->/g)).toHaveLength(1);
+  });
+
+  test('preserves a markerless GENERIC-heading user section even when it shares anchor phrases (no data loss)', () => {
+    // A user-authored section under the generic heading with >=2 incidental anchor phrases
+    // and no markers. Without proof it was ever spec-first-managed, it must NOT be stripped:
+    // a possible duplicate is recoverable, deleting user content is not.
+    const existing = [
+      '# Header',
+      '',
+      '## Workflow Entry Governance',
+      '',
+      '- We follow `using-spec-first` loosely here',
+      '- Do not expose internal-only skills to contractors',
+      '- Require owner approval before changing commands',
+      '- IMPORTANT USER DATA do not delete',
+      '',
+      '# Tail',
+    ].join('\n');
+
+    const updated = applyManagedBootstrapBlock(existing, buildBootstrapBlock('codex', 'en'));
+
+    expect(updated).toContain('- IMPORTANT USER DATA do not delete');
+    expect(updated).toContain('# Tail');
+    expect(updated.match(/<!-- spec-first:bootstrap:start -->/g)).toHaveLength(1);
+    // Two generic headings: the preserved user section plus the freshly appended block.
+    expect(updated.match(/^## Workflow Entry Governance$/gm)).toHaveLength(2);
+  });
+
+  test('preserves a markerless non-managed governance section when appending', () => {
+    // Same heading text but only user content (no spec-first anchor phrases) and no
+    // markers: must NOT be stripped, proving the append-path cleanup is spec-first-scoped.
+    const existing = [
+      '# Header',
+      '',
+      '## Workflow Entry Governance',
+      '',
+      '- Custom workflow note.',
+      '- Keep the local planning checklist.',
+      '- Require owner approval before changing commands.',
+      '- Do not remove this section.',
+      '',
+      '# Tail',
+    ].join('\n');
+
+    const updated = applyManagedBootstrapBlock(existing, buildBootstrapBlock('codex', 'en'));
+
+    expect(updated).toContain('- Custom workflow note.');
+    expect(updated).toContain('- Do not remove this section.');
+    expect(updated).toContain('# Tail');
+    expect(updated.match(/<!-- spec-first:bootstrap:start -->/g)).toHaveLength(1);
+    // Two headings: the preserved user section plus the freshly appended managed block.
+    expect(updated.match(/^## Workflow Entry Governance$/gm)).toHaveLength(2);
+  });
+
   test('removes only the managed block and preserves user content', () => {
     const content = [
       '# Header',

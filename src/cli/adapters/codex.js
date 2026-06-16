@@ -9,14 +9,18 @@ const {
 const { rewriteSourceSkillRuntimePaths } = require('../skill-path-rewrite-markers');
 const { listBundledAgentNames, listBundledSkills } = require('../plugin');
 const SESSION_START_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'session-start');
+const SESSION_START_CMD_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'session-start.cmd');
 const HOOKS_JSON_TEMPLATE_PATH = path.join(__dirname, '..', '..', '..', 'templates', 'codex', 'hooks', 'hooks.json');
 const SESSION_START_RELATIVE_PATH = '.codex/hooks/session-start';
+const SESSION_START_CMD_RELATIVE_PATH = '.codex/hooks/session-start.cmd';
 // Codex project 层 hook 配置发现路径为 `<projectRoot>/.codex/hooks.json`
 // (codex-rs hooks discovery 用 config_folder.join("hooks.json"),config_folder = .codex/;
 //  带 hooks/ 子目录的 hooks/hooks.json 仅用于 plugin 层,不适用于 project 层)。
 const HOOKS_JSON_RELATIVE_PATH = '.codex/hooks.json';
 const SESSION_START_CLI_PLACEHOLDER = '__SPEC_FIRST_CLI_PATH__';
 const SESSION_START_COMMAND_PLACEHOLDER = '__CODEX_SESSION_START_COMMAND__';
+const SESSION_START_COMMAND_WINDOWS_PLACEHOLDER = '__CODEX_SESSION_START_COMMAND_WINDOWS__';
+const SESSION_START_NODE_PLACEHOLDER = '__CODEX_SESSION_START_NODE__';
 const TRUSTED_SPEC_FIRST_CLI_PATH = path.join(__dirname, '..', '..', '..', 'bin', 'spec-first.js');
 
 /**
@@ -148,6 +152,11 @@ class CodexAdapter extends PlatformAdapter {
         path: SESSION_START_RELATIVE_PATH.replace(/\\/g, '/'),
         reason: 'managed_runtime_hook',
       },
+      {
+        kind: 'remove_file',
+        path: SESSION_START_CMD_RELATIVE_PATH.replace(/\\/g, '/'),
+        reason: 'managed_runtime_hook',
+      },
     ];
     const renderedHooksJson = renderHooksJsonRemoval(projectRoot);
     operations.push(renderedHooksJson.existsAfter
@@ -171,6 +180,7 @@ class CodexAdapter extends PlatformAdapter {
   inspectRuntimeFiles(projectRoot) {
     return [
       inspectSessionStartHook(projectRoot),
+      inspectSessionStartCommandHook(projectRoot),
       inspectHooksJson(projectRoot),
     ];
   }
@@ -183,6 +193,7 @@ class CodexAdapter extends PlatformAdapter {
     removeManagedDirectory(path.join(projectRoot, this.legacyPluginRootAlt), projectRoot);
     removeLegacyCodexSpecFirstSkills(projectRoot, this);
     removeManagedFile(path.join(projectRoot, SESSION_START_RELATIVE_PATH), projectRoot);
+    removeManagedFile(path.join(projectRoot, SESSION_START_CMD_RELATIVE_PATH), projectRoot);
     removeManagedHooksJson(projectRoot);
   }
 }
@@ -281,6 +292,7 @@ function rewriteSkillName(content, skillName) {
 
 function buildRuntimeHookWriteOperations(projectRoot) {
   const sessionStartTarget = path.join(projectRoot, SESSION_START_RELATIVE_PATH);
+  const sessionStartCommandTarget = path.join(projectRoot, SESSION_START_CMD_RELATIVE_PATH);
   const hooksJsonTarget = path.join(projectRoot, HOOKS_JSON_RELATIVE_PATH);
   return [
     {
@@ -288,6 +300,13 @@ function buildRuntimeHookWriteOperations(projectRoot) {
       path: SESSION_START_RELATIVE_PATH.replace(/\\/g, '/'),
       reason: 'managed_runtime_hook',
       contents: renderSessionStartHookTemplate(),
+      mode: 0o755,
+    },
+    {
+      kind: fs.existsSync(sessionStartCommandTarget) ? 'update_file' : 'write_file',
+      path: SESSION_START_CMD_RELATIVE_PATH.replace(/\\/g, '/'),
+      reason: 'managed_runtime_hook',
+      contents: renderSessionStartCommandHookTemplate(),
       mode: 0o755,
     },
     {
@@ -328,6 +347,37 @@ function inspectSessionStartHook(projectRoot) {
   };
 }
 
+function inspectSessionStartCommandHook(projectRoot) {
+  const targetPath = path.join(projectRoot, SESSION_START_CMD_RELATIVE_PATH);
+  if (!fs.existsSync(targetPath)) {
+    return {
+      level: 'WARNING',
+      name: SESSION_START_CMD_RELATIVE_PATH,
+      // Annotate as Windows-only: this wrapper is exercised only when Codex runs on Windows,
+      // so on macOS/Linux a missing wrapper is advisory, not a functional break.
+      message: 'missing (Windows hook wrapper; only required when Codex runs on Windows)',
+      fix: formatInitGuidance('codex', 'in this project to install the managed Windows SessionStart hook wrapper'),
+    };
+  }
+
+  const actual = fs.readFileSync(targetPath, 'utf8');
+  const expected = renderSessionStartCommandHookTemplate();
+  if (actual !== expected) {
+    return {
+      level: 'WARNING',
+      name: SESSION_START_CMD_RELATIVE_PATH,
+      message: 'drifted from bundled template',
+      fix: formatInitGuidance('codex', 'in this project to restore the managed Windows SessionStart hook wrapper'),
+    };
+  }
+
+  return {
+    level: 'PASS',
+    name: SESSION_START_CMD_RELATIVE_PATH,
+    message: 'managed Windows SessionStart hook wrapper present',
+  };
+}
+
 function inspectHooksJson(projectRoot) {
   const targetPath = path.join(projectRoot, HOOKS_JSON_RELATIVE_PATH);
   if (!fs.existsSync(targetPath)) {
@@ -350,11 +400,21 @@ function inspectHooksJson(projectRoot) {
   }
 
   if (!hasManagedSessionStartHook(actual.value, projectRoot)) {
+    // Distinguish "a managed entry exists but is outdated" from "no managed entry at all".
+    // An outdated entry is the common upgrade case: a baked node path / project path / host
+    // changed, so the stored command no longer equals the current expected command. The hook
+    // genuinely will not launch as-is, so this stays a WARNING (not a false PASS), but the
+    // message and fix tell the user re-init will refresh it rather than implying it is absent.
+    const outdated = hasOutdatedManagedSessionStartHook(actual.value, projectRoot);
     return {
       level: 'WARNING',
       name: HOOKS_JSON_RELATIVE_PATH,
-      message: 'missing managed SessionStart hook config',
-      fix: formatInitGuidance('codex', 'in this project to restore the managed SessionStart hook config'),
+      message: outdated
+        ? 'managed SessionStart hook config is outdated (run init to refresh after a node/project/host change)'
+        : 'missing managed SessionStart hook config',
+      fix: formatInitGuidance('codex', outdated
+        ? 'in this project to refresh the outdated managed SessionStart hook config'
+        : 'in this project to restore the managed SessionStart hook config'),
     };
   }
 
@@ -367,18 +427,36 @@ function inspectHooksJson(projectRoot) {
 
 function renderSessionStartHookTemplate() {
   const template = fs.readFileSync(SESSION_START_TEMPLATE_PATH, 'utf8');
+  // Function replacement: a string replacement would interpret $&/$`/$'/$$/$n in the
+  // baked path (e.g. an install dir containing `$&`), corrupting the generated hook.
   return template.replace(
     JSON.stringify(SESSION_START_CLI_PLACEHOLDER),
-    JSON.stringify(TRUSTED_SPEC_FIRST_CLI_PATH),
+    () => JSON.stringify(TRUSTED_SPEC_FIRST_CLI_PATH),
+  );
+}
+
+function renderSessionStartCommandHookTemplate() {
+  // Function replacement: keep $&/$$ in the node path literal instead of letting
+  // String.prototype.replace treat them as replacement patterns.
+  return fs.readFileSync(SESSION_START_CMD_TEMPLATE_PATH, 'utf8').replace(
+    SESSION_START_NODE_PLACEHOLDER,
+    () => escapeBatchFileLiteral(process.execPath),
   );
 }
 
 function renderHooksJsonTemplate(projectRoot) {
-  const commandPath = formatSessionStartCommand(projectRoot);
-  const managed = JSON.parse(fs.readFileSync(HOOKS_JSON_TEMPLATE_PATH, 'utf8').replace(
-    JSON.stringify(SESSION_START_COMMAND_PLACEHOLDER),
-    JSON.stringify(commandPath),
-  ));
+  // Function replacements: a string replacement would interpret $&/$`/$'/$$/$n in a
+  // projectRoot containing those sequences, corrupting the generated hooks.json.
+  const template = fs.readFileSync(HOOKS_JSON_TEMPLATE_PATH, 'utf8')
+    .replace(
+      JSON.stringify(SESSION_START_COMMAND_PLACEHOLDER),
+      () => JSON.stringify(formatSessionStartCommand(projectRoot)),
+    )
+    .replace(
+      JSON.stringify(SESSION_START_COMMAND_WINDOWS_PLACEHOLDER),
+      () => JSON.stringify(formatWindowsSessionStartCommand(projectRoot)),
+    );
+  const managed = JSON.parse(template);
   const existingPath = path.join(projectRoot, HOOKS_JSON_RELATIVE_PATH);
   const existing = readJsonFile(existingPath);
   return `${JSON.stringify(mergeHooksJson(existing.ok ? existing.value : null, managed, projectRoot), null, 2)}\n`;
@@ -414,7 +492,7 @@ function removeManagedHooksJsonEntries(hooksJson, projectRoot) {
   cleaned.hooks = {};
   for (const [eventName, entries] of Object.entries(hooks)) {
     if (!Array.isArray(entries)) continue;
-    const remaining = entries.filter((entry) => !isManagedSessionStartEntry(entry, projectRoot));
+    const remaining = stripManagedSessionStartHooksFromEntries(entries, projectRoot);
     if (remaining.length > 0) {
       cleaned.hooks[eventName] = remaining;
     }
@@ -509,7 +587,7 @@ function mergeHooksJson(existing, managed, projectRoot) {
   for (const [eventName, managedEntries] of Object.entries(managedHooks)) {
     const existingEntries = Array.isArray(existingHooks[eventName]) ? existingHooks[eventName] : [];
     merged.hooks[eventName] = [
-      ...existingEntries.filter((entry) => !isManagedSessionStartEntry(entry, projectRoot)),
+      ...stripManagedSessionStartHooksFromEntries(existingEntries, projectRoot),
       ...managedEntries,
     ];
   }
@@ -518,16 +596,38 @@ function mergeHooksJson(existing, managed, projectRoot) {
 }
 
 function hasManagedSessionStartHook(hooksJson, projectRoot) {
-  const sessionStart = hooksJson
+  return managedSessionStartEntries(hooksJson)
+    .some((entry) => isCurrentManagedSessionStartEntry(entry, projectRoot));
+}
+
+// A managed SessionStart entry is present (matched loosely by the managed path/shape) but is
+// not the current exact entry -- i.e. it was written by a prior init under a different node
+// path, project path, or host. Used to give doctor an "outdated" message instead of "missing".
+function hasOutdatedManagedSessionStartHook(hooksJson, projectRoot) {
+  return managedSessionStartEntries(hooksJson).some((entry) => (
+    Array.isArray(entry.hooks)
+    && entry.hooks.some((hook) => isManagedSessionStartHook(hook, projectRoot))
+    && !isCurrentManagedSessionStartEntry(entry, projectRoot)
+  ));
+}
+
+function managedSessionStartEntries(hooksJson) {
+  return hooksJson
     && hooksJson.hooks
     && Array.isArray(hooksJson.hooks.SessionStart)
     ? hooksJson.hooks.SessionStart
     : [];
-  return sessionStart.some((entry) => isCurrentManagedSessionStartEntry(entry, projectRoot));
 }
 
 function formatSessionStartCommand(projectRoot) {
-  return `bash ${shellQuote(normalizeSessionStartCommandPath(projectRoot))}`;
+  return [
+    shellQuote(process.execPath),
+    shellQuote(normalizeSessionStartCommandPath(projectRoot)),
+  ].join(' ');
+}
+
+function formatWindowsSessionStartCommand(projectRoot) {
+  return windowsCommandQuote(path.join(projectRoot, SESSION_START_CMD_RELATIVE_PATH));
 }
 
 function normalizeSessionStartCommandPath(projectRoot) {
@@ -538,26 +638,93 @@ function shellQuote(value) {
   return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
-function isManagedSessionStartEntry(entry, projectRoot) {
-  const expectedCommand = formatSessionStartCommand(projectRoot);
-  return Boolean(entry && Array.isArray(entry.hooks) && entry.hooks.some((hook) => (
-    hook
-      && hook.type === 'command'
-      && typeof hook.command === 'string'
-      && (
-        hook.command === expectedCommand
-        || hook.command.replace(/\\/g, '/').includes(SESSION_START_RELATIVE_PATH)
-      )
-  )));
+function windowsCommandQuote(value) {
+  // Codex itself runs commandWindows through the platform shell (Windows: cmd.exe /C),
+  // so commandWindows should be the command body only, not a nested "cmd.exe /c".
+  // This value is consumed on a cmd command line, not inside a batch-file body: do not
+  // apply % -> %% here. Batch-body escaping lives in escapeBatchFileLiteral.
+  return `"${String(value).replace(/"/g, '\\"')}"`;
+}
+
+function escapeBatchFileLiteral(value) {
+  return String(value).replace(/%/g, '%%');
+}
+
+function isManagedSessionStartHook(hook, projectRoot) {
+  if (!hook || hook.type !== 'command') {
+    return false;
+  }
+  const expectedCommands = new Set([
+    formatSessionStartCommand(projectRoot),
+    formatWindowsSessionStartCommand(projectRoot),
+  ]);
+  return managedSessionStartCommandFields(hook).some((command) => (
+    expectedCommands.has(command)
+    || isStaleManagedSessionStartCommand(command)
+  ));
+}
+
+// A managed SessionStart command left by a prior init/machine (different node path,
+// project path, or host) that should be cleaned on refresh. Matches only when the managed
+// session-start path is the INVOKED program -- optionally behind a `bash`, legacy
+// `cmd.exe /d /c`, or quoted-interpreter (node) prefix -- NOT when the path appears as an
+// argument inside a larger user command. This mirrors the Claude exact/prefix removal
+// contract so a user wrapper like `my-wrapper bash .codex/hooks/session-start && echo`
+// is preserved on Codex too.
+function isStaleManagedSessionStartCommand(command) {
+  const normalized = String(command).replace(/\\/g, '/');
+  if (!normalized.includes(SESSION_START_RELATIVE_PATH)) {
+    return false;
+  }
+  const program = normalized
+    .replace(/^bash\s+/, '')
+    .replace(/^cmd\.exe\s+\/d\s+\/c\s+/, '')
+    .replace(/^(["'])[^"']*\1\s+/, '');
+  // After the optional interpreter prefix, the managed path must be the program token
+  // (no other token may precede it), so a leading user command does not match.
+  const pathPattern = SESSION_START_RELATIVE_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^["']?[^"'\\s]*${pathPattern}`).test(program);
+}
+
+// Strip managed hooks at HOOK granularity (mirror Claude removeManagedHookEntries): only
+// remove the managed hook object(s) from each entry, and drop an entry only when nothing
+// else remains. This preserves a user hook co-located in the same SessionStart entry.
+function stripManagedSessionStartHooksFromEntries(entries, projectRoot) {
+  const preserved = [];
+  for (const entry of entries) {
+    if (!entry || !Array.isArray(entry.hooks)) {
+      preserved.push(entry);
+      continue;
+    }
+    const remainingHooks = entry.hooks.filter((hook) => !isManagedSessionStartHook(hook, projectRoot));
+    if (remainingHooks.length === entry.hooks.length) {
+      // Nothing managed here (covers a user entry that arrived with an empty hooks array).
+      preserved.push(entry);
+      continue;
+    }
+    if (remainingHooks.length === 0) {
+      // Entry held only managed hooks -> drop it.
+      continue;
+    }
+    preserved.push({ ...entry, hooks: remainingHooks });
+  }
+  return preserved;
 }
 
 function isCurrentManagedSessionStartEntry(entry, projectRoot) {
   const expectedCommand = formatSessionStartCommand(projectRoot);
+  const expectedWindowsCommand = formatWindowsSessionStartCommand(projectRoot);
   return Boolean(entry && Array.isArray(entry.hooks) && entry.hooks.some((hook) => (
     hook
       && hook.type === 'command'
       && hook.command === expectedCommand
+      && hook.commandWindows === expectedWindowsCommand
   )));
+}
+
+function managedSessionStartCommandFields(hook) {
+  return [hook.command, hook.commandWindows, hook.command_windows]
+    .filter((command) => typeof command === 'string');
 }
 
 function isPlainObject(value) {

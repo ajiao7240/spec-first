@@ -1,16 +1,20 @@
-#!/bin/bash
-set -euo pipefail
+#!/usr/bin/env node
+'use strict';
 
-project_dir="${CODEX_PROJECT_DIR:-$(pwd)}"
-instruction_path="$project_dir/AGENTS.md"
-
-node - "$instruction_path" "$project_dir" <<'EOF'
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const instructionPath = process.argv[2];
-const projectDir = process.argv[3];
+// Codex writes the hook event payload to stdin and treats a broken stdin pipe as hook
+// failure. Drain it even though this hook currently needs only cwd/project files.
+try {
+  fs.readFileSync(0, 'utf8');
+} catch {
+  // Best effort: malformed or unavailable stdin should not block SessionStart.
+}
+
+const projectDir = process.env.CODEX_PROJECT_DIR || process.cwd();
+const instructionPath = path.join(projectDir, 'AGENTS.md');
 const SPEC_FIRST_CLI_PATH = "__SPEC_FIRST_CLI_PATH__";
 const BOOTSTRAP_START = '<!-- spec-first:bootstrap:start -->';
 const BOOTSTRAP_END = '<!-- spec-first:bootstrap:end -->';
@@ -21,16 +25,15 @@ const missingMessage = [
 ].join('\n');
 
 let additionalContext = missingMessage;
-if (fs.existsSync(instructionPath)) {
-  const instructionBody = fs.readFileSync(instructionPath, 'utf8');
+// Read via try/catch (not existsSync + read) so an unreadable file (EACCES/EISDIR)
+// or a TOCTOU delete degrades to a pointer instead of throwing and aborting the hook.
+const instructionBody = readInstructionBody(instructionPath);
+if (instructionBody !== null) {
   const startIdx = instructionBody.indexOf(BOOTSTRAP_START);
   const endIdx = instructionBody.indexOf(BOOTSTRAP_END);
 
   if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    // The managed bootstrap block already lives in AGENTS.md, which Codex loads at
-    // session start, so re-injecting its full body here would duplicate it verbatim.
-    // Emit a short pointer instead: keep the workflow-entry trigger and the parent
-    // multi-repo target_repo boundary salient without paying the duplication cost.
+    // AGENTS.md already carries the managed bootstrap block; inject a short pointer.
     additionalContext = [
       '[spec-first] using-spec-first SessionStart injection',
       "Workflow entry governance is active in this repo's AGENTS.md (using-spec-first managed block): route substantial work through a public $spec-* workflow before editing, and in a parent multi-repo workspace keep writes within an explicit target_repo.",
@@ -39,7 +42,7 @@ if (fs.existsSync(instructionPath)) {
   }
 }
 
-if (additionalContext === missingMessage && fs.existsSync(instructionPath)) {
+if (additionalContext === missingMessage && instructionBody !== null) {
   additionalContext = [
     '[spec-first] using-spec-first SessionStart injection',
     'Managed using-spec-first bootstrap markers are missing or incomplete in `AGENTS.md`.',
@@ -63,6 +66,14 @@ process.stdout.write(JSON.stringify({
   },
 }));
 
+function readInstructionBody(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
 function readStartupReminder(cwd) {
   try {
     if (!isTrustedSpecFirstCliPath(SPEC_FIRST_CLI_PATH)) {
@@ -71,6 +82,10 @@ function readStartupReminder(cwd) {
 
     const result = spawnSync(process.execPath, [SPEC_FIRST_CLI_PATH, 'startup-reminder', '--codex'], {
       cwd,
+      // Deliberate session-start latency cap. The child records its cooldown only after a
+      // successful display, so on a dead/slow network it re-spawns every session — a larger
+      // timeout would block every offline session-start by that much. The reminder is a
+      // best-effort cosmetic notice and still completes on a healthy network (~600ms).
       encoding: 'utf8',
       timeout: 1200,
     });
@@ -102,4 +117,3 @@ function isTrustedSpecFirstCliPath(cliPath) {
     return false;
   }
 }
-EOF

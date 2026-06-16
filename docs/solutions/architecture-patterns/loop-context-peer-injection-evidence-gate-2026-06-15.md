@@ -30,14 +30,14 @@ invalidation_condition: >
   并先修 doc-review 暴露的 5 处设计硬伤（见 plan 004 frontmatter）。
 ---
 
-## 问题
+## Context
 
 源起 TMA1 v2「让 Coding Agent Loop 转起来」对标分析：是否给 spec-first 补一层
 Loop Context（observe→attribute→inject→act），具体落为两项——
 P1-3（spec-sessions 加结构化 peer 输出 schema `peer-session-summary.v1`）与
 P0-2（spec-work 加 review→work handoff gate）。两项看似「接线非新建」、成本低、契约对齐。
 
-## 判断（reasoned defer，非否决）
+## Guidance
 
 经 5 reviewer 多视角 + 对抗 doc-review 与痛点证据门检索，结论 **DEFERRED**。三门只过一门：
 
@@ -52,7 +52,7 @@ P0-2（spec-work 加 review→work handoff gate）。两项看似「接线非新
 3. **已有原语覆盖门（部分撞）：** spec-work 已有 Summary-First Handoff 消费 review
    artifact；spec-sessions 已有 output_schema 透传机制。P0-2/P1-3 的真实增量比「填空白」小。
 
-## 关键教训（可复用）
+## Why This Matters
 
 - **「接线非新建 + 成本低」不豁免证据门。** 廉价不等于该做；按 §10，证据不足时正确动作是
   带重启条件的 reasoned-defer，不是先建地基。便宜的 speculative infrastructure 仍是 latent
@@ -66,3 +66,18 @@ P0-2（spec-work 加 review→work handoff gate）。两项看似「接线非新
   advisory 数据结构化时，字段命名要保留「这是推断」的不确定性（如 `appeared-pass`）。
 - **同日 plan 002 已立同类证据门**（per-turn 注入因痛点检索空而 defer，重启条件 ≥3 confirmed
   context-drift）。同类能力反复出现时，先查既有 defer 记录的重启条件，别重新规划。
+
+## When to Apply
+
+- 当某个 Loop Context、peer session、active peer 或 review→work gate 方案看似只需补一层 schema
+  或接线时，先查痛点证据门，而不是先建通用地基。
+- 当方案依赖宿主正在商品化的 per-turn / active-session primitive 时，先确认 spec-first 的真实增量是否
+  在 source/runtime 边界之上，而不是重建宿主层能力。
+- 当结构化字段会被下游当成 confirmed truth 时，用字段命名和消费者合同保留 advisory 边界。
+
+## Examples
+
+- P1-3 的 `peer-session-summary.v1` 看似是低成本地基，但主机器消费者 P0-1 已 defer，当前落地会变成
+  speculative generality。
+- P0-2 的 review→work gate 只能稳定约束同会话/frontmatter 可见 finding，无法覆盖它声称要解决的
+  跨会话丢失痛点，因此应 reasoned-defer 而不是伪装成闭环修复。

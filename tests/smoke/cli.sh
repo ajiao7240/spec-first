@@ -133,13 +133,13 @@ fi
 test "$init_status" = "2"
 grep -q "requires an interactive terminal" "$init_stderr"
 init_status=0
-(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --dry-run >"$init_stdout" 2>"$init_stderr") || init_status=$?
+(cd "$TMP_DIR" && node "$REPO_ROOT/bin/spec-first.js" init --bogus >"$init_stdout" 2>"$init_stderr") || init_status=$?
 if [ "$init_status" -eq 0 ]; then
   echo "init should reject unsupported flags" >&2
   exit 1
 fi
 test "$init_status" = "2"
-grep -q "unknown option --dry-run" "$init_stderr"
+grep -q "unknown option --bogus" "$init_stderr"
 yes_dir="$TMP_DIR/init-yes"
 mkdir -p "$yes_dir"
 (cd "$yes_dir" && node "$REPO_ROOT/bin/spec-first.js" init --codex -y -u smoke --lang zh >"$init_stdout" 2>"$init_stderr")
@@ -308,19 +308,27 @@ grep -q 'spec-first startup-reminder --codex' "$TMP_DIR/AGENTS.md"
 grep -q 'must not block routing' "$TMP_DIR/AGENTS.md"
 grep -q 'bounded subagents, leaf reviewers, and worker agents' "$TMP_DIR/AGENTS.md"
 test -f "$TMP_DIR/.codex/hooks/session-start"
+test -f "$TMP_DIR/.codex/hooks/session-start.cmd"
 test -f "$TMP_DIR/.codex/hooks.json"
 grep -q 'startup-reminder' "$TMP_DIR/.codex/hooks/session-start"
 grep -q -- '--codex' "$TMP_DIR/.codex/hooks/session-start"
+grep -q '%~dp0session-start' "$TMP_DIR/.codex/hooks/session-start.cmd"
 node - "$TMP_DIR" <<'NODE'
 const fs = require('node:fs');
 const path = require('node:path');
 const projectRoot = fs.realpathSync.native(process.argv[2]);
 const hooksPath = path.join(projectRoot, '.codex', 'hooks.json');
 const payload = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
-const command = payload.hooks?.SessionStart?.[0]?.hooks?.[0]?.command;
-const expected = `bash '${path.join(projectRoot, '.codex/hooks/session-start').replace(/\\/g, '/').replace(/'/g, "'\\''")}'`;
+const hook = payload.hooks?.SessionStart?.[0]?.hooks?.[0];
+const command = hook?.command;
+const commandWindows = hook?.commandWindows;
+const expected = `'${process.execPath.replace(/'/g, "'\\''")}' '${path.join(projectRoot, '.codex/hooks/session-start').replace(/\\/g, '/').replace(/'/g, "'\\''")}'`;
+const expectedWindows = `"${path.join(projectRoot, '.codex/hooks/session-start.cmd').replace(/"/g, '\\"')}"`;
 if (command !== expected) {
   throw new Error(`unexpected codex hook command ${command}`);
+}
+if (commandWindows !== expectedWindows) {
+  throw new Error(`unexpected codex hook commandWindows ${commandWindows}`);
 }
 NODE
 grep -q '.agents/skills/' "$TMP_DIR/.gitignore"

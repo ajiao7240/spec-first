@@ -5,7 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "__CODEX_SESSION_START_COMMAND__"
+            "command": "__CODEX_SESSION_START_COMMAND__",
+            "commandWindows": "__CODEX_SESSION_START_COMMAND_WINDOWS__"
           }
         ]
       }

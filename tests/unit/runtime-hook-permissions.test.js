@@ -121,11 +121,17 @@ describe('runtime hook permissions', () => {
 
       const normalizedProjectRoot = fs.realpathSync.native(projectRoot);
       const hookPath = path.join(projectRoot, '.codex', 'hooks', 'session-start');
+      const commandHookPath = path.join(projectRoot, '.codex', 'hooks', 'session-start.cmd');
       const hooksJsonPath = path.join(projectRoot, '.codex', 'hooks.json');
       const expectedHook = getAdapter('codex')
         .planRuntimeFilesSync(normalizedProjectRoot)
         .operations
         .find((operation) => operation.path === '.codex/hooks/session-start')
+        .contents;
+      const expectedCommandHook = getAdapter('codex')
+        .planRuntimeFilesSync(normalizedProjectRoot)
+        .operations
+        .find((operation) => operation.path === '.codex/hooks/session-start.cmd')
         .contents;
       const expectedHooksJson = getAdapter('codex')
         .planRuntimeFilesSync(normalizedProjectRoot)
@@ -133,11 +139,15 @@ describe('runtime hook permissions', () => {
         .find((operation) => operation.path === '.codex/hooks.json')
         .contents;
       const mode = fs.statSync(hookPath).mode & 0o777;
+      const commandHookMode = fs.statSync(commandHookPath).mode & 0o777;
 
       expect(fs.readFileSync(hookPath, 'utf8')).toBe(expectedHook);
+      expect(fs.readFileSync(commandHookPath, 'utf8')).toBe(expectedCommandHook);
       expect(fs.readFileSync(hooksJsonPath, 'utf8')).toBe(expectedHooksJson);
       expect(mode).toBe(0o755);
+      expect(commandHookMode).toBe(0o755);
       expect(isExecutable(mode)).toBe(true);
+      expect(isExecutable(commandHookMode)).toBe(true);
     } finally {
       logSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });
