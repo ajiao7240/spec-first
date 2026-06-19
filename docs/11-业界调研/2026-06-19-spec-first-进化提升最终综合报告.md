@@ -15,15 +15,16 @@
 
 - `spec-first` 已经在 **source/runtime 边界、Scripts prepare / LLM decides、honest closeout、51 agents、compound knowledge、双宿主投影** 上建立了明显护城河。
 - 最大结构性缺口是 **被开发系统的行为真相单源缺失**。当前 requirements / plan / tasks 是横向一次性 artifact，缺少纵向累积的 living behavior contract。
-- 但“活契约 + Delta”不能孤立落地。若没有 artifact quality gate、honest closeout producer integration、eval corpus 和 fresh review，它会变成又一层漂亮文档，而不是工程闭环。
-- 因此 P0 不应只写成“做 Delta”，而应写成 **Contract-backed Evidence Loop v1**：行为契约、Delta、质量门、运行证据、最小 eval 同步落地。
+- 但“活契约 + Delta”不是该最先做的事。它是净新增的 source-of-truth 表面、高回退成本，且当前缺少 spec-first 用户侧的真实痛点证据；横向 benchmark 也把它列为可选项而非最高层级（见 §2.4）。
+- **更高确定性、更低新抽象的杠杆是先把已就位的证据机制兑现**：artifact quality gate、honest closeout producer integration、eval corpus 都建立在仓库已有表面（`honest-closeout.v1`、`verification-run-summary.v1`、11 个 `evals/`）之上，直接服务角色契约的「可采纳性 / 可外部验证性 / 表达可信度」一等结果与 §10「aspirational 推进义务」。
 
-最终优先级：
+因此最终优先级把**证据质量闭环放在 P0**（兑现既有机制、低新抽象、高确定性），把 **behavior contract + delta 作为 P1 乘数项**（在 P0 证据闭环稳定、且取得真实痛点证据后再引入新 source-of-truth 表面）：
 
 | 优先级 | 主题 | 核心产物 | 判断 |
 | --- | --- | --- | --- |
-| P0 | Contract-backed Evidence Loop v1 | behavior contracts + delta preview/apply + artifact checklist + closeout integration + eval fixtures | 最高杠杆，补“状态治理”和“证据闭环”的根 |
-| P1 | Context and Review Hardening | context/progress ledger + fresh review protocol + contract-aware review | 让长任务和多 agent 执行不丢上下文、不丢 spec intent |
+| P0 | Artifact Quality + Honest Closeout + Eval Loop | artifact checklist + closeout producer integration + eval fixtures（均扩展既有表面） | 最高确定性、最低新抽象，直接兑现可采纳性/可验证性与 aspirational→confirmed 义务 |
+| P1 | Behavior Contract + Delta | behavior contracts source surface + delta preview/apply + contract-aware review/closeout | 最高杠杆的新机制，但净新增、高回退成本，需 P0 证据闭环与真实痛点证据先行 |
+| P1 | Context and Review Hardening | context/progress ledger + fresh review protocol | 让长任务和多 agent 执行不丢上下文、不丢 spec intent |
 | P1 | Adoption and External Proof | guide/next + demo loop + replay reports | 把“内部能力强”转成“外部可试、可评估” |
 | P2 | Workflow Extensibility | schema/profile/extension/preset | 等核心 contracts 稳定后再开放，避免先做平台化 |
 | P2 | Runtime Observability | optional run ledger / cost / timeout / stuck / crash | 做 evidence，不做 agent runtime app |
@@ -34,7 +35,7 @@
 
 | 文档 | 主要价值 | 在本报告中的用途 |
 | --- | --- | --- |
-| `2026-06-19-spec-first-最大杠杆点-活契约层与-delta-累积演进.md` | 将“活契约 + Delta”论证为最大杠杆项 | P0 根机制来源 |
+| `2026-06-19-spec-first-最大杠杆点-活契约层与-delta-累积演进.md` | 将“活契约 + Delta”论证为最大杠杆项 | P1 behavior contract / delta 机制来源 |
 | `2026-06-19-openspec-vs-spec-first-源码级深度对比分析.md` | 深拆 OpenSpec 的 filesystem-as-state-machine、delta apply、schema.yaml，并确认 spec-first 护城河 | 行为契约与 Delta 机制来源 |
 | `2026-06-19-spec-first-架构对标分析-业界-sdd-工具全景对比与提升路线.md` | 汇总 OpenSpec / spec-kit / superpowers / gsd 五维缺口 | 进化维度框架来源 |
 | `2026-06-19-sdd-ai-coding-harness-benchmark.md` | 扩展到 Superpowers、Spec Kit、OpenSpec、GSD、BMAD、scale-engine、cc-sdd、sdd-riper 等 | 横向能力矩阵和 P0/P1/P2 排序校准 |
@@ -45,6 +46,8 @@
 - 本报告不重新声明所有竞品源码细节，只提炼架构判断。
 - 既有调研中部分远端状态为 dirty/behind，结论应理解为基于当时本地 checkout 的机制分析，不是对远端最新版本的声明。
 - Graphify 等 provider 输出只作 advisory，不作为本报告的 confirmed truth。
+- **同源声明**：四份输入文档与本综合报告为同一作者、同一日（2026-06-19）产出。因此「四份报告共同结论」「所有报告都收敛」应理解为 **同一作者跨多份文档的一致框定**，而非多个独立来源的独立佐证。它们共享对 OpenSpec 对比的同一锚定，收敛性不应被当作强独立证据；强结论（尤其新建 source-of-truth 表面）仍需回到 spec-first 真实使用证据确认。
+- **共识强度**：横向 benchmark（§2.4）实际把 OpenSpec-style delta 列为「可选层」而非最高层级，并把 eval / artifact 质量门 / closeout 列在更前。本报告 §0 的优先级排序已据此校准——把证据质量闭环放 P0、delta 放 P1，而非声称四份文档对 delta 的优先级完全一致。
 
 ## 2. 四份报告的共同结论
 
@@ -95,14 +98,14 @@ Codebase -> Spec -> Plan -> Tasks -> Code -> Review -> Knowledge
 
 最新横向 benchmark 对前几份报告形成了必要修正：如果只做 behavior delta，会得到一个更好的 spec archive，但不一定得到更强的 engineering loop。
 
-要让 Delta 成为 spec-first 的乘数项，必须同时接上：
+要让 Delta 成为 spec-first 的乘数项，必须**先**接上：
 
 - artifact quality gate，保证契约、PRD、plan、task 本身可测试。
 - honest closeout producer integration，保证完成声明和契约覆盖声明有证据。
 - eval corpus，保证 skill/workflow prompt 的行为不是靠自信描述。
 - fresh review protocol，保证实现先接受 spec compliance 再接受 code quality。
 
-所以最终 P0 是一个最小闭环，而不是单点功能。
+这几项都是既有表面的兑现（见 §1 证据边界与 §5–§7），确定性高、新抽象低。Delta 在它们之上才有稳定可消费的根基准。所以排序是：**先做证据质量闭环（P0），再引入 behavior contract + delta（P1）**，而不是把 delta 当作最先落地的单点。
 
 ## 3. 最终能力模型：从 Artifact Trail 到 Contract-backed Evidence Loop
 
@@ -135,7 +138,9 @@ Request
 - Review 不只问代码质量，还先问 spec compliance / contract regression。
 - Compound 不只沉淀 learning，也能触发 contract archive 或记录未合并原因。
 
-## 4. P0：Contract-backed Evidence Loop v1
+## 4. P1：Behavior Contract + Delta（证据闭环稳定后引入）
+
+> 排序说明：本节机制（behavior contract source surface + delta parser/preview/apply）杠杆最高，但属净新增 source-of-truth 表面、回退成本高，且当前缺少 spec-first 用户侧的真实痛点证据。按 §0 重排，它在 P0 证据质量闭环（§5–§7）稳定后作为 P1 乘数项落地。下文设计细节保持不变，仅相对优先级调整。
 
 ### 4.1 Goals
 
@@ -261,7 +266,7 @@ P0 不以“功能很多”为完成标准，而以下列信号为准：
 - closeout 能声明 contract coverage，并在证据不足时降级。
 - 至少 10 个 eval fixtures 能回放：好 delta、冲突 delta、模糊 delta、未覆盖 contract claim、review 漏判场景。
 
-## 5. P0 并行补齐：Artifact Quality Gate
+## 5. P0：Artifact Quality Gate
 
 Spec Kit 的 “Unit Tests for English” 是对 spec-first 最低成本、最高确定性的补强之一。它不验证实现，只验证 artifact 本身是否足够可执行、可评审、可追溯。
 
@@ -306,7 +311,7 @@ docs/checklists/<date>-<slug>-artifact-quality.md
 
 其他语义质量问题应进入 findings，由 LLM 决定是否需要回到 brainstorm/plan。
 
-## 6. P0 并行补齐：Honest Closeout Producer Integration
+## 6. P0：Honest Closeout Producer Integration
 
 当前 report 共识是：spec-first 有强信任模型，但 producer integration 覆盖仍窄。下一步不是再写一套 closeout 文案，而是把 closeout 结构化接入更多 workflow。
 
@@ -323,9 +328,9 @@ docs/checklists/<date>-<slug>-artifact-quality.md
 
 ### 6.2 防 cherry-pick 规则
 
-沿用现有思想：如果 claim 声明 `passed`，不能只引用通过的子集。对 contract coverage，必须聚合所有 affected requirement/scenario 的状态：
+沿用现有 `honest-closeout.v1` 思想：如果 claim 声明已验证，不能只引用通过的子集。对 contract coverage，必须聚合所有 affected requirement/scenario 的状态。**verdict 必须复用既有 schema 的 enum（`consistent | degraded | unsupported`），不要引入 `passed`**，否则会产生 schema-invalid 输出（见 `docs/contracts/workflows/honest-closeout.schema.json` 与 `src/cli/helpers/honest-closeout.js` 的 `CLAIM_TYPES`）：
 
-- `passed`：所有 required coverage 都有 confirmed evidence。
+- `consistent`：所有 required coverage 都有 confirmed evidence。
 - `degraded`：部分 coverage not-run / advisory / missing。
 - `unsupported`：没有对应 evidence 或 evidence 与 claim 不匹配。
 
@@ -339,7 +344,7 @@ docs/checklists/<date>-<slug>-artifact-quality.md
 4. `spec-doc-review`：PRD/plan/delta quality gate。
 5. `spec-compound`：knowledge promotion 与 contract sync 的交汇点。
 
-## 7. P0 并行补齐：Evaluation Harness v1
+## 7. P0：Evaluation Harness v1
 
 角色契约已承认 Evaluation Harness 仍带 aspirational。四份报告都提示：没有 eval，spec-first 的 prompt/workflow/agent 质量只能靠经验判断。
 
@@ -552,29 +557,35 @@ GSD-2 的 token/cost/stuck/crash ledger 有价值，但 spec-first 不应控制 
 
 ## 13. 建议执行顺序
 
-### Phase 0：准备和裁边界
+### Phase 0：对账既有表面，写 eval fixtures
 
-1. 定义 behavior contract source surface：推荐 `docs/behavior-contracts/**`。
-2. 定义 `contract-sync-summary.v1` schema 草案。
-3. 明确与现有 `docs/contracts/**`、`src/cli/contracts/**` 的边界。
-4. 写 5-10 个 eval fixtures，先覆盖 parser / conflict / closeout claim。
+1. 盘点既有可扩展表面：`honest-closeout.v1`（claim_type enum 与 verdict enum）、`verification-run-summary.v1`、`spec-work-run-artifact` + `.spec-first/` run artifacts、11 个 `skills/*/evals/`（examples.json 约定）、`docs/validation/`。明确每个 P0 项是 **扩展** 而非新建。
+2. 写 5-10 个 eval fixtures，复用既有 `skills/*/evals/` 约定与 schema，先覆盖 artifact quality / closeout claim / review 漏判。
 
-完成信号：不用实现 workflow，也能用 fixture 说明好坏 delta 和应有 closeout 行为。
+完成信号：不实现 workflow，也能用 fixture 说明应有的 artifact quality 与 closeout 行为，且 fixture 落在既有 evals 约定内。
 
-### Phase 1：P0 最小闭环
+### Phase 1a：P0 证据质量闭环（扩展既有机制）
 
-1. 实现 delta parser + preview。
-2. 实现 deterministic apply。
-3. 增加 artifact quality checklist v1。
-4. 增加 contract_coverage / contract_sync closeout claim。
+1. 增加 artifact quality checklist v1（独立 artifact，低侵入）。
+2. 扩展 `honest-closeout` claim：新增 `artifact_quality`、扩展 coverage 类 claim——**需同步改 `honest-closeout.schema.json` 的 `claim_type` enum、`src/cli/helpers/honest-closeout.js` 的 `CLAIM_TYPES` Set 与 evaluateClaim dispatch、tests**；verdict 复用既有 `consistent | degraded | unsupported`，不引入 `passed`。
+3. 扩展 closeout producer integration 到更多 workflow（§6.3 顺序）。
+4. 输出 replay validation report。
+
+完成信号：一个小功能可以从 artifact checklist 到 verification 到 honest closeout 全链路留证据，且不产生 schema-invalid 输出。
+
+### Phase 1b：P1 behavior contract + delta（证据闭环稳定后）
+
+1. 定义 behavior contract source surface 与边界（见 §4.3 的目录决策，先论证 vs 复用 `docs/contracts/` 子命名空间）。
+2. 定义 `contract-sync-summary.v1` schema 草案，明确它是 closeout `contract_sync` claim 指向的 **证据 artifact**（区别于 claim type 本身）。
+3. 实现 delta parser + preview。
+4. 实现 deterministic apply。
 5. 接入 `spec-code-review` 的 contract compliance checklist。
-6. 输出 replay validation report。
 
-完成信号：一个小功能可以从 Delta 到 apply 到 review 到 closeout 全链路留证据。
+完成信号：取得真实痛点证据后，一个 brownfield 小功能可从 Delta 到 apply 到 contract-aware review 全链路留证据。
 
 ### Phase 2：P1 加固
 
-1. 引入 progress ledger / file handoff。
+1. 引入 progress ledger / file handoff（先对账 `spec-work-run-artifact`，确认是扩展而非并行新表面）。
 2. 增强 fresh review protocol。
 3. 增强 guide / next。
 4. 做 demo loop。
@@ -592,18 +603,20 @@ GSD-2 的 token/cost/stuck/crash ledger 有价值，但 spec-first 不应控制 
 
 ## 14. 一页路线图
 
-| 时间序 | 机制 | 产物 | 最小验证 |
-| --- | --- | --- | --- |
-| 1 | Behavior contract boundary | `docs/behavior-contracts/**` contract doc | fixture: existing governance contracts 不受影响 |
-| 2 | Delta parser / preview | `contract-sync-summary.v1` | fixture: conflict/no-conflict |
-| 3 | Deterministic apply | updated `spec.md` | fixture: atomic apply / no partial write |
-| 4 | Artifact quality gate | checklist artifact | fixture: ambiguous PRD 被标出 |
-| 5 | Closeout integration | contract claims | fixture: cherry-pick passed 被 degraded |
-| 6 | Contract-aware review | review section | fixture: spec compliance finding before quality |
-| 7 | Eval corpus | replay reports | fixture: 10-20 cases |
-| 8 | Progress ledger | `.spec-first/progress.md` or run summary | resume scenario |
-| 9 | Guide / demo | `spec-first guide` or docs demo | new-user replay |
-| 10 | Schema/profile | `schemas/*.yaml` | schema validate |
+排序原则：先兑现既有证据机制（P0，低新抽象），再引入 behavior contract + delta（P1，新 source-of-truth 表面）。
+
+| 时间序 | 优先级 | 机制 | 产物 | 最小验证 |
+| --- | --- | --- | --- | --- |
+| 1 | P0 | Surface 对账 + eval corpus | fixtures（复用 `skills/*/evals/`） | fixture: 10-20 cases，落在既有 evals 约定 |
+| 2 | P0 | Artifact quality gate | checklist artifact | fixture: ambiguous PRD 被标出 |
+| 3 | P0 | Closeout integration（扩展 enum/helper/tests） | 新 claim type + 复用既有 verdict | fixture: cherry-pick passed 被 degraded |
+| 4 | P1 | Behavior contract boundary | `docs/behavior-contracts/**` 或 `docs/contracts/` 子目录 | fixture: existing governance contracts 不受影响 |
+| 5 | P1 | Delta parser / preview | `contract-sync-summary.v1`（证据 artifact） | fixture: conflict/no-conflict |
+| 6 | P1 | Deterministic apply | updated `spec.md` | fixture: atomic apply / no partial write |
+| 7 | P1 | Contract-aware review | review section | fixture: spec compliance finding before quality |
+| 8 | P1 | Progress ledger（对账 run-artifact） | `.spec-first/` run summary 扩展 | resume scenario |
+| 9 | P1 | Guide / demo | `spec-first guide` or docs demo | new-user replay |
+| 10 | P2 | Schema/profile | `schemas/*.yaml` | schema validate |
 
 ## 15. 最终架构判断
 
@@ -624,6 +637,7 @@ GSD-2 的 token/cost/stuck/crash ledger 有价值，但 spec-first 不应控制 
 - 保持 light contract：只 gate 出口和副作用，不画死思考路径。
 - 保持 explicit boundaries：behavior contract、governance contract、runtime artifact 分层。
 - 提升用户真实研发增益：更少回归盲区，更可信完成声明，更可试用 demo。
+- 尊重 adoption-first 取舍（角色契约 line 218）：P0 先兑现已就位的证据机制（可外部验证/可信度），把净新增 source-of-truth 表面的 behavior contract 放到 P1，而不是先加新能力。
 
 最终一句话：
 
