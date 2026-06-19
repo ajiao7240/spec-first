@@ -5,14 +5,43 @@ user-invocable: false
 allowed-tools: Bash(bash *worktree-manager.sh*)
 ---
 
-# Worktree Creation
+# Worktree Isolation
 
-Create a worktree under `.worktrees/<branch>` with branch-specific setup that `git worktree add` alone does not handle:
+Detect whether the current checkout is already isolated, then create a worktree under `.worktrees/<branch>` only when creation is still needed. The bundled script adds branch-specific setup that `git worktree add` alone does not handle:
 
 - Does not copy `.env*` files by default; `--copy-env` is an explicit opt-in for workflows that need local env files
 - Trusts `mise`/`direnv` configs, with branch-aware safety rules so review branches do not auto-grant trust to untrusted `.envrc` content
 - Adds `.worktrees` to `.gitignore` if not already ignored
 - Does not modify the main repo checkout — `from-branch` is fetched, not checked out
+
+## Step 0: Detect existing isolation
+
+Before creating anything, invoke the bundled script with `detect --json` through the same `bash -c` wrapper whose command text includes `exec bash ...worktree-manager.sh`:
+
+```bash
+bash -c 'if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then exec bash "$CLAUDE_SKILL_DIR/scripts/worktree-manager.sh" "$@"; fi; exec bash "$(git rev-parse --show-toplevel)"/"skills/git-worktree/scripts/worktree-manager.sh" "$@"' _ detect --json
+```
+
+The output is the deterministic facts contract `git-worktree-detect.v1`:
+
+```json
+{
+  "schema_version": "git-worktree-detect.v1",
+  "state": "ordinary-checkout | linked-worktree | submodule | unknown",
+  "reason_code": "same-git-dir | linked-worktree | submodule-superproject | not-git-repo | git-query-failed | output-contract-failed",
+  "worktree_root": "<absolute path or null>",
+  "main_worktree_root": "<absolute path or null>",
+  "git_dir": "<resolved absolute path or null>",
+  "common_dir": "<resolved absolute path or null>",
+  "branch": "<current branch or null>"
+}
+```
+
+`state=ordinary-checkout` and `state=submodule` mean creation may proceed if the workflow still needs isolation. For `state=submodule`, the new worktree is created under the submodule's own working tree (`<submodule-root>/.worktrees/<branch>`), not the superproject. `state=linked-worktree` means the current checkout is already isolated; report `worktree_root` and `branch`, then work in place instead of creating another worktree. `state=unknown` or any non-zero detect exit means stop and report `reason_code`; do not fall back to raw `git worktree add`.
+
+The script computes this by comparing resolved absolute `--absolute-git-dir` and resolved absolute `--git-common-dir`. Equal paths are an ordinary checkout. Different paths plus non-empty `--show-superproject-working-tree` are a submodule. Different paths plus empty superproject output are an existing linked worktree.
+
+`detect --json` requires `node` on `PATH` to serialize the facts. When `node` is missing the command still prints a parseable `state=unknown`/`reason_code=output-contract-failed` object and exits non-zero, so a consumer always gets a structured reason_code rather than empty output.
 
 ## Creating a worktree
 
@@ -35,6 +64,8 @@ bash -c 'if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then exec bash "$CLAUDE_SKILL_DIR/sc
 ```
 
 After creation, switch to the worktree with `cd .worktrees/<branch-name>`.
+
+The `create` command consumes the same detection function before creating `.worktrees/<branch>` or running `git worktree add`. It refuses `linked-worktree`, `unknown`, `not-git-repo`, `git-query-failed`, and `output-contract-failed` states so this helper cannot create nested or invisible worktrees by bypassing Step 0.
 
 ## Env File Opt-In
 
@@ -71,11 +102,11 @@ Create a worktree when:
 - Running multiple features in parallel without branch-switching overhead
 - Keeping the default branch free of in-progress state
 
-Do not create a worktree for single-task work that can happen on a branch in the main checkout.
+Do not create a worktree for single-task work that can happen on a branch in the main checkout, and never create one when Step 0 reports `state=linked-worktree`.
 
 ## Integration
 
-`spec-work` and `spec-code-review` offer this skill as an option. When the user selects "worktree" in those flows, invoke the bundled script through the same `${CLAUDE_SKILL_DIR}` branch plus source/runtime fallback shown above, using a meaningful branch name derived from the work description (e.g., `feat/crowd-sniff`, `fix/email-validation`). Avoid auto-generated names like `worktree-jolly-beaming-raven` that obscure the work.
+`spec-work` and `spec-code-review` offer this skill as an option. When the user selects "worktree" in those flows, run Step 0 first. If isolation already exists, proceed in place. Otherwise invoke `create` through the same `${CLAUDE_SKILL_DIR}` branch plus source/runtime fallback shown above, using a meaningful branch name derived from the work description (e.g., `feat/crowd-sniff`, `fix/email-validation`). Avoid auto-generated names like `worktree-jolly-beaming-raven` that obscure the work.
 
 ## Troubleshooting
 

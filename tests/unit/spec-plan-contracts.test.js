@@ -506,6 +506,13 @@ describe('spec_id planning contract', () => {
     expect(planSections).toContain('mark each as `in-scope`, `out-of-scope: <reason>`, or `deferred: <owner/trigger>`');
     expect(planSections).toContain('Omit irrelevant surfaces entirely');
     expect(planSections).toContain('do not carry empty rows or a `not-applicable` state');
+    expect(planSections).toContain('The section catalog is a floor, not a ceiling.');
+    expect(planSections).toContain('Do not use this agency to skip canonical markdown');
+    expect(planSections).toContain('## Prose Economy');
+    expect(planSections).toContain('Resolve in place; do not stratify');
+    expect(planSections).toContain('Precision is not padding');
+    expect(planSections).not.toContain('Decide whether a plan doc is warranted at all');
+    expect(planSections).not.toContain('Plans carry **no `status` field**');
     expect(planSections).toContain('optional HTML sidecar');
     expect(planSections).toContain('not an exclusive output mode');
     expect(markdownRendering).toContain('YAML frontmatter appears at the top of the file');

@@ -41,6 +41,33 @@ Include these only when they carry real information:
 - **Output Structure** - greenfield directory or package shape when layout itself is a decision.
 - **Alternative Approaches Considered** - only for real architectural, sequencing, boundary, or rollout alternatives.
 
+## Agent Agency
+
+The section catalog is a floor, not a ceiling. Preserve the canonical markdown artifact and the hard-floor contract, but let the plan content drive local structure when the catalog does not carry the shape cleanly.
+
+The planning agent may:
+
+- Merge Problem Frame into Summary for compact plans when no decision context is lost.
+- Add subheadings inside Requirements, Key Technical Decisions, or Implementation Units when grouping by capability, component, phase, or risk makes the plan easier to execute and review.
+- Introduce a material section that is not listed above when it names content that would otherwise be forced into the wrong place.
+- Place diagrams, tables, or examples in the section where they make the implementation boundary clearer, while keeping the same markdown source truth.
+
+Do not use this agency to skip canonical markdown, omit hard-floor sections from a warranted implementation plan, hide unresolved scope as prose style, or change the downstream artifact contract.
+
+## Prose Economy
+
+Include-when-material decides which sections appear; prose economy decides how the kept sections read. A section can be material and still fail by turning into padded text where contradictions hide and implementation units blur together.
+
+Hold every kept section to these rules:
+
+- One idea per sentence. If a sentence carries several branches, split it or move the unresolved fork to Open Questions.
+- State the action in the verb. Prefer "Demote optional sync" over "the demotion of optional sync is the intended change".
+- Keep requirements and implementation units scoped to one intent plus any load-bearing qualifier.
+- Resolve in place; do not stratify. When a review or later decision supersedes text, rewrite or remove the live text instead of stacking a "resolution" layer on top.
+- Precision is not padding: keep paths, IDs, schema names, thresholds, and exact conditions verbatim.
+
+The quick check before handing off: can an implementer find the live decision, scope boundary, and verification expectation in each section in one pass? If not, cut connective prose, split overloaded items, or move deferred material out of implementation units.
+
 ## Metadata Fields
 
 Plan metadata is part of the artifact contract. In canonical markdown it appears in YAML frontmatter. Optional HTML sidecars may render equivalent values visibly, but the markdown source remains canonical until HTML consumer parity is explicitly tested.

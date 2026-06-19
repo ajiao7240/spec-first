@@ -273,7 +273,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    **Option B: Use a worktree (recommended for parallel development)**
    ```bash
    skill: git-worktree
-   # The skill will create a new branch from the default branch in an isolated worktree
+   # The skill detects existing isolation first, then creates a branch/worktree only when needed
    ```
 
    **Option C: Continue on the default branch**

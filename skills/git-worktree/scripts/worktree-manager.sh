@@ -15,15 +15,16 @@
 
 set -euo pipefail
 
-# Resolve the main worktree's working tree, not the current worktree's toplevel.
-# `git worktree list --porcelain` always emits the main worktree first. This
-# handles normal repos, linked worktrees (where --show-toplevel would return
-# the nested worktree), submodules (where --git-common-dir points under
-# .git/modules), and --separate-git-dir setups (where --git-common-dir points
-# to an external path). Parse with `sed` to preserve paths containing spaces
-# (awk '{print $2}' would truncate them).
-GIT_ROOT=$(git worktree list --porcelain | sed -n 's/^worktree //p' | head -n 1)
-WORKTREE_DIR="$GIT_ROOT/.worktrees"
+DETECT_SCHEMA_VERSION="git-worktree-detect.v1"
+DETECT_STATE=""
+DETECT_REASON_CODE=""
+DETECT_WORKTREE_ROOT=""
+DETECT_MAIN_WORKTREE_ROOT=""
+DETECT_GIT_DIR=""
+DETECT_COMMON_DIR=""
+DETECT_BRANCH=""
+GIT_ROOT=""
+WORKTREE_DIR=""
 
 realpath_existing() {
   local target_path="${1:?Error: path required}"
@@ -41,9 +42,182 @@ path_within() {
   [[ "$child_path" == "$root_path" || "$child_path" == "$root_path"/* ]]
 }
 
+validated_worktree_root() {
+  local candidate_path="${1:-}"
+  [[ -n "$candidate_path" ]] || return 1
+
+  local candidate_real candidate_top_raw candidate_top
+  candidate_real=$(realpath_existing "$candidate_path" 2>/dev/null) || return 1
+  candidate_top_raw=$(git -C "$candidate_real" rev-parse --show-toplevel 2>/dev/null) || return 1
+  candidate_top=$(realpath_existing "$candidate_top_raw" 2>/dev/null) || return 1
+  [[ "$candidate_top" == "$candidate_real" ]] || return 1
+  printf '%s\n' "$candidate_real"
+}
+
+# Pass nullable fields through verbatim. An empty value stays empty and the node
+# emitter maps empty -> null. No in-band sentinel: a real branch or path name
+# could collide with it.
+json_arg() {
+  printf '%s\n' "${1:-}"
+}
+
+# Positional args (order matters; the four path slots are easy to transpose):
+#   1:state 2:reason_code 3:worktree_root 4:main_worktree_root 5:git_dir 6:common_dir 7:branch
+set_detect_facts() {
+  DETECT_STATE="${1:-unknown}"
+  DETECT_REASON_CODE="${2:-output-contract-failed}"
+  DETECT_WORKTREE_ROOT="${3:-}"
+  DETECT_MAIN_WORKTREE_ROOT="${4:-}"
+  DETECT_GIT_DIR="${5:-}"
+  DETECT_COMMON_DIR="${6:-}"
+  DETECT_BRANCH="${7:-}"
+}
+
+emit_detect_json() {
+  node -e '
+const [
+  schema_version,
+  state,
+  reason_code,
+  worktree_root,
+  main_worktree_root,
+  git_dir,
+  common_dir,
+  branch,
+] = process.argv.slice(1);
+// An empty value means "absent" for every nullable field here: a path field is
+// only empty when that fact does not exist, and an empty branch means detached
+// HEAD. Mapping empty -> null avoids an in-band sentinel that a real branch or
+// path name could collide with. Fields are passed positionally via argv, which
+// is already an out-of-band boundary, so no sentinel is needed.
+const nullable = (value) => !value ? null : value;
+process.stdout.write(`${JSON.stringify({
+  schema_version,
+  state,
+  reason_code,
+  worktree_root: nullable(worktree_root),
+  main_worktree_root: nullable(main_worktree_root),
+  git_dir: nullable(git_dir),
+  common_dir: nullable(common_dir),
+  branch: nullable(branch),
+}, null, 2)}\n`);
+' \
+    "$DETECT_SCHEMA_VERSION" \
+    "$DETECT_STATE" \
+    "$DETECT_REASON_CODE" \
+    "$(json_arg "$DETECT_WORKTREE_ROOT")" \
+    "$(json_arg "$DETECT_MAIN_WORKTREE_ROOT")" \
+    "$(json_arg "$DETECT_GIT_DIR")" \
+    "$(json_arg "$DETECT_COMMON_DIR")" \
+    "$(json_arg "$DETECT_BRANCH")"
+}
+
+detect_worktree_facts() {
+  local cwd_real
+  cwd_real=$(pwd -P 2>/dev/null || pwd)
+
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    # worktree_root is null here: cwd is not a git checkout, so there is no
+    # git root to report. Emitting cwd would mislead consumers reading the field.
+    set_detect_facts "unknown" "not-git-repo" "" "" "" "" ""
+    return 1
+  fi
+
+  local worktree_root_raw worktree_root git_dir_raw git_dir common_raw common_dir
+  local worktree_listing main_root_raw main_root branch superproject
+
+  if ! worktree_root_raw=$(git rev-parse --show-toplevel 2>/dev/null); then
+    set_detect_facts "unknown" "git-query-failed" "$cwd_real" "" "" "" ""
+    return 1
+  fi
+  if ! worktree_root=$(realpath_existing "$worktree_root_raw" 2>/dev/null); then
+    set_detect_facts "unknown" "output-contract-failed" "$worktree_root_raw" "" "" "" ""
+    return 1
+  fi
+
+  if ! git_dir_raw=$(git rev-parse --absolute-git-dir 2>/dev/null); then
+    set_detect_facts "unknown" "git-query-failed" "$worktree_root" "" "" "" ""
+    return 1
+  fi
+  if ! git_dir=$(realpath_existing "$git_dir_raw" 2>/dev/null); then
+    set_detect_facts "unknown" "output-contract-failed" "$worktree_root" "" "$git_dir_raw" "" ""
+    return 1
+  fi
+
+  if ! common_raw=$(git rev-parse --git-common-dir 2>/dev/null); then
+    set_detect_facts "unknown" "git-query-failed" "$worktree_root" "" "$git_dir" "" ""
+    return 1
+  fi
+  if ! common_dir=$(cd "$common_raw" 2>/dev/null && pwd -P); then
+    set_detect_facts "unknown" "output-contract-failed" "$worktree_root" "" "$git_dir" "$common_raw" ""
+    return 1
+  fi
+
+  if ! worktree_listing=$(git worktree list --porcelain 2>/dev/null); then
+    set_detect_facts "unknown" "git-query-failed" "$worktree_root" "" "$git_dir" "$common_dir" ""
+    return 1
+  fi
+  main_root_raw=$(printf '%s\n' "$worktree_listing" | sed -n 's/^worktree //p' | head -n 1)
+  if [[ -z "$main_root_raw" ]]; then
+    set_detect_facts "unknown" "output-contract-failed" "$worktree_root" "" "$git_dir" "$common_dir" ""
+    return 1
+  fi
+  main_root=$(validated_worktree_root "$main_root_raw" 2>/dev/null || true)
+
+  branch=$(git branch --show-current 2>/dev/null || true)
+  superproject=$(git rev-parse --show-superproject-working-tree 2>/dev/null || true)
+
+  if [[ "$git_dir" == "$common_dir" ]]; then
+    main_root="${main_root:-$worktree_root}"
+    set_detect_facts "ordinary-checkout" "same-git-dir" "$worktree_root" "$main_root" "$git_dir" "$common_dir" "$branch"
+  elif [[ -n "$superproject" ]]; then
+    set_detect_facts "submodule" "submodule-superproject" "$worktree_root" "$main_root" "$git_dir" "$common_dir" "$branch"
+  else
+    set_detect_facts "linked-worktree" "linked-worktree" "$worktree_root" "$main_root" "$git_dir" "$common_dir" "$branch"
+  fi
+}
+
+detect_command() {
+  if [[ "${1:-}" != "--json" ]]; then
+    echo "Error: detect requires --json" >&2
+    usage >&2
+    return 1
+  fi
+  # The detect --json contract promises that every non-zero exit still carries a
+  # parseable reason_code on stdout. emit_detect_json shells to node, so if node
+  # is missing we must emit the failure JSON by hand rather than aborting under
+  # set -e with empty stdout.
+  if ! command -v node >/dev/null 2>&1; then
+    printf '{\n  "schema_version": "%s",\n  "state": "unknown",\n  "reason_code": "output-contract-failed",\n  "worktree_root": null,\n  "main_worktree_root": null,\n  "git_dir": null,\n  "common_dir": null,\n  "branch": null\n}\n' "$DETECT_SCHEMA_VERSION"
+    echo "Error: detect requires node to emit JSON facts" >&2
+    return 1
+  fi
+  local status
+  if detect_worktree_facts; then
+    status=0
+  else
+    status=$?
+  fi
+  emit_detect_json
+  return "$status"
+}
+
+init_worktree_paths_from_detect() {
+  # Anchor on the current working tree (--show-toplevel), not main_worktree_root.
+  # create only runs for ordinary-checkout/submodule (linked-worktree is refused
+  # above), so the current checkout IS the working tree the user wants .worktrees
+  # under. main_worktree_root comes from `git worktree list` and points at the
+  # GIT DIR (not the working tree) for --separate-git-dir repos and submodules,
+  # which would otherwise place .worktrees/.gitignore inside the git dir.
+  GIT_ROOT="${DETECT_WORKTREE_ROOT}"
+  WORKTREE_DIR="$GIT_ROOT/.worktrees"
+}
+
 usage() {
   cat <<'EOF'
-Usage: worktree-manager.sh create [--copy-env] <branch-name> [from-branch]
+Usage:
+  worktree-manager.sh detect --json
+  worktree-manager.sh create [--copy-env] <branch-name> [from-branch]
 
 Creates .worktrees/<branch-name> with <branch-name> branched from
 [from-branch] (default: origin's default branch, or main).
@@ -52,6 +226,16 @@ The main repo checkout is not modified; from-branch is fetched but
 not checked out.
 
 By default, .env* files are not copied. Pass --copy-env to opt in.
+
+detect --json emits schema_version git-worktree-detect.v1 with state:
+ordinary-checkout | linked-worktree | submodule | unknown
+and reason_code:
+same-git-dir | linked-worktree | submodule-superproject | not-git-repo | git-query-failed | output-contract-failed
+
+Exit code: 0 when the state was determined (ordinary-checkout, linked-worktree,
+or submodule) -- always parse the state field to choose the next action, since
+exit 0 alone does not mean "safe to create". Non-zero (state=unknown) means
+detection failed; read reason_code. node is required to emit the JSON.
 EOF
 }
 
@@ -293,6 +477,24 @@ create_worktree() {
     exit 1
   fi
 
+  if ! detect_worktree_facts; then
+    echo "Error: cannot create worktree; detection failed reason_code=$DETECT_REASON_CODE" >&2
+    return 1
+  fi
+  if [[ "$DETECT_STATE" == "linked-worktree" ]]; then
+    echo "Error: already in an isolated worktree; work in place instead of creating a nested worktree." >&2
+    echo "reason_code=linked-worktree worktree_root=$DETECT_WORKTREE_ROOT branch=${DETECT_BRANCH:-detached}" >&2
+    return 1
+  fi
+  case "$DETECT_STATE" in
+    ordinary-checkout|submodule) ;;
+    *)
+      echo "Error: cannot create worktree; unknown detection state=$DETECT_STATE reason_code=$DETECT_REASON_CODE" >&2
+      return 1
+      ;;
+  esac
+  init_worktree_paths_from_detect
+
   local default_branch
   default_branch=$(get_default_branch)
   from_branch="${from_branch:-$default_branch}"
@@ -360,6 +562,7 @@ main() {
   local command="${1:-}"
   shift || true
   case "$command" in
+    detect) detect_command "$@" ;;
     create) create_worktree "$@" ;;
     ""|help|-h|--help) usage ;;
     *)

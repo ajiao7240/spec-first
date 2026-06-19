@@ -44,8 +44,8 @@ function run(command, args, cwd) {
   return result;
 }
 
-function initGitRepo(options = {}) {
-  const repo = makeTempDir();
+function initGitRepoAt(repo, options = {}) {
+  fs.mkdirSync(repo, { recursive: true });
   run('git', ['init', '-b', 'main'], repo);
   fs.writeFileSync(path.join(repo, 'README.md'), '# fixture\n');
   if (options.trackEnv) {
@@ -62,11 +62,23 @@ function initGitRepo(options = {}) {
   return repo;
 }
 
+function initGitRepo(options = {}) {
+  return initGitRepoAt(makeTempDir(), options);
+}
+
 function runWorktreeManager(repo, args) {
-  return spawnSync('bash', [SCRIPT_PATH, 'create', ...args], {
+  return spawnSync('bash', [SCRIPT_PATH, ...args], {
     cwd: repo,
     encoding: 'utf8',
   });
+}
+
+function runWorktreeCreate(repo, args) {
+  return runWorktreeManager(repo, ['create', ...args]);
+}
+
+function parseJson(stdout) {
+  return JSON.parse(stdout);
 }
 
 function plannedRuntimeContent(platform, targetPath) {
@@ -96,6 +108,7 @@ describe('git-worktree runtime delivery contracts', () => {
     expect(skill).toContain('`bash -c` wrapper whose command text includes `exec bash ...worktree-manager.sh`');
     expect(skill).toContain('exec bash "$CLAUDE_SKILL_DIR/scripts/worktree-manager.sh" "$@"');
     expect(skill).toContain('exec bash "$(git rev-parse --show-toplevel)"/"skills/git-worktree/scripts/worktree-manager.sh" "$@"');
+    expect(skill).toContain("' _ detect --json");
     expect(skill).toContain("' _ create [--copy-env] <branch-name> [from-branch]");
     expect(skill).toContain("' _ create feat/login");
     expect(skill).toContain("' _ create --copy-env feat/local-env");
@@ -117,7 +130,7 @@ describe('git-worktree runtime delivery contracts', () => {
     expect(skill).not.toContain('Copies `.env`, `.env.local`, `.env.test`, etc. from the main repo');
     expect(skill).not.toContain('for env_file in .env .env.*');
 
-    expect(script).toContain('Usage: worktree-manager.sh create [--copy-env] <branch-name> [from-branch]');
+    expect(script).toContain('worktree-manager.sh create [--copy-env] <branch-name> [from-branch]');
     expect(script).toContain('local copy_env="false"');
     expect(script).toContain('if [[ "${1:-}" == "--copy-env" ]]');
     expect(script).toContain('Not copied by default. Re-run create with --copy-env to opt in.');
@@ -132,6 +145,197 @@ describe('git-worktree runtime delivery contracts', () => {
     expect(script).not.toContain('cat "$source"');
   });
 
+  test('detect --json exposes deterministic checkout state facts', () => {
+    const skill = read(SKILL_PATH);
+    const script = read(SCRIPT_PATH);
+
+    expect(skill).toContain('Step 0: Detect existing isolation');
+    expect(skill).toContain('detect --json');
+    expect(skill).toContain('git-worktree-detect.v1');
+    expect(skill).toContain('not-git-repo');
+    expect(skill).toContain('output-contract-failed');
+
+    expect(script).toContain('detect --json');
+    expect(script).toContain('git-worktree-detect.v1');
+    expect(script).toContain('ordinary-checkout | linked-worktree | submodule | unknown');
+    expect(script).toContain('same-git-dir | linked-worktree | submodule-superproject | not-git-repo | git-query-failed | output-contract-failed');
+  });
+
+  test('detect --json reports ordinary checkout from root and subdirectories', () => {
+    const repo = initGitRepo();
+    try {
+      const repoReal = fs.realpathSync(repo);
+      const rootResult = runWorktreeManager(repo, ['detect', '--json']);
+      expect(rootResult.status).toBe(0);
+      const rootFacts = parseJson(rootResult.stdout);
+      expect(rootFacts).toMatchObject({
+        schema_version: 'git-worktree-detect.v1',
+        state: 'ordinary-checkout',
+        reason_code: 'same-git-dir',
+        worktree_root: repoReal,
+        main_worktree_root: repoReal,
+      });
+      expect(rootFacts.git_dir).toBe(fs.realpathSync(path.join(repo, '.git')));
+      expect(rootFacts.common_dir).toBe(fs.realpathSync(path.join(repo, '.git')));
+      expect(rootFacts.branch).toBe('main');
+
+      const subdir = path.join(repo, 'nested', 'path');
+      fs.mkdirSync(subdir, { recursive: true });
+      const subdirResult = runWorktreeManager(subdir, ['detect', '--json']);
+      expect(subdirResult.status).toBe(0);
+      expect(parseJson(subdirResult.stdout)).toMatchObject({
+        state: 'ordinary-checkout',
+        reason_code: 'same-git-dir',
+        worktree_root: repoReal,
+        main_worktree_root: repoReal,
+      });
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('detect --json reports linked worktrees and create refuses nested worktrees', () => {
+    const repo = initGitRepo();
+    const linkedPath = path.join(repo, '.worktrees', 'linked-existing');
+    try {
+      run('git', ['worktree', 'add', '-b', 'linked-existing', linkedPath, 'main'], repo);
+      const repoReal = fs.realpathSync(repo);
+      const linkedReal = fs.realpathSync(linkedPath);
+
+      const detectResult = runWorktreeManager(linkedPath, ['detect', '--json']);
+      expect(detectResult.status).toBe(0);
+      expect(parseJson(detectResult.stdout)).toMatchObject({
+        schema_version: 'git-worktree-detect.v1',
+        state: 'linked-worktree',
+        reason_code: 'linked-worktree',
+        worktree_root: linkedReal,
+        main_worktree_root: repoReal,
+        branch: 'linked-existing',
+      });
+
+      const createResult = runWorktreeCreate(linkedPath, ['nested-from-linked', 'main']);
+      expect(createResult.status).not.toBe(0);
+      expect(createResult.stderr).toContain('already in an isolated worktree');
+      expect(createResult.stderr).toContain('reason_code=linked-worktree');
+      expect(fs.existsSync(path.join(repo, '.worktrees', 'nested-from-linked'))).toBe(false);
+      expect(fs.existsSync(path.join(linkedPath, '.worktrees', 'nested-from-linked'))).toBe(false);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('detect --json reports submodules without classifying them as linked worktrees', () => {
+    const parent = makeTempDir();
+    const superRepo = path.join(parent, 'super');
+    const childRepo = path.join(parent, 'child');
+    try {
+      initGitRepoAt(superRepo);
+      initGitRepoAt(childRepo);
+      run('git', ['-c', 'protocol.file.allow=always', 'submodule', 'add', childRepo, 'modules/child'], superRepo);
+      run('git', [
+        '-c', 'core.hooksPath=/dev/null',
+        '-c', 'user.name=Spec Test',
+        '-c', 'user.email=spec@example.test',
+        'commit',
+        '-m', 'add submodule',
+      ], superRepo);
+
+      const submodulePath = path.join(superRepo, 'modules', 'child');
+      const result = runWorktreeManager(submodulePath, ['detect', '--json']);
+      expect(result.status).toBe(0);
+      const facts = parseJson(result.stdout);
+      // Load-bearing invariant: a submodule must never be misclassified as a
+      // linked-worktree (that is the whole point of the superproject check).
+      // Both ordinary-checkout and submodule are acceptable: a submodule at its
+      // own root has git_dir == common_dir, so it correctly resolves to
+      // ordinary-checkout; the `submodule` state only fires for the rarer case
+      // where git_dir != common_dir AND a superproject is present. Do not
+      // tighten this to require `submodule` — that would fail on the normal
+      // submodule-at-root topology.
+      expect(facts.state).not.toBe('linked-worktree');
+      expect(['ordinary-checkout', 'submodule']).toContain(facts.state);
+      if (facts.state === 'submodule') {
+        expect(facts.reason_code).toBe('submodule-superproject');
+      }
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test('detect --json reports a real branch name verbatim and detached HEAD as null', () => {
+    // Regression: the emitter must not collapse a real branch (even one that
+    // looks like an internal sentinel) to null, and must report detached HEAD
+    // as null branch.
+    const repo = initGitRepo();
+    try {
+      run('git', ['branch', '-m', '__SPEC_FIRST_NULL__'], repo);
+      const named = parseJson(runWorktreeManager(repo, ['detect', '--json']).stdout);
+      expect(named.branch).toBe('__SPEC_FIRST_NULL__');
+
+      run('git', ['checkout', '--detach'], repo);
+      const detached = parseJson(runWorktreeManager(repo, ['detect', '--json']).stdout);
+      expect(detached.branch).toBeNull();
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('detect --json reports non-git directories as unknown with a reason code', () => {
+    const dir = makeTempDir();
+    try {
+      const result = runWorktreeManager(dir, ['detect', '--json']);
+      expect(result.status).not.toBe(0);
+      expect(parseJson(result.stdout)).toMatchObject({
+        schema_version: 'git-worktree-detect.v1',
+        state: 'unknown',
+        reason_code: 'not-git-repo',
+      });
+
+      const createResult = runWorktreeCreate(dir, ['should-not-create']);
+      expect(createResult.status).not.toBe(0);
+      expect(createResult.stderr).toContain('reason_code=not-git-repo');
+      expect(fs.existsSync(path.join(dir, '.worktrees', 'should-not-create'))).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('create anchors .worktrees on the working tree, not the git dir, for --separate-git-dir repos', () => {
+    // Regression for the separate-git-dir clash: `git worktree list` reports the
+    // external git dir as the first entry, so anchoring on main_worktree_root
+    // would drop .worktrees/.gitignore inside the git dir instead of the working
+    // tree. create must anchor on --show-toplevel (the working tree).
+    const parent = makeTempDir();
+    const workTree = path.join(parent, 'wt');
+    const gitDir = path.join(parent, 'extgit');
+    try {
+      fs.mkdirSync(workTree, { recursive: true });
+      run('git', ['init', '-b', 'main', '--separate-git-dir', gitDir, workTree], parent);
+      fs.writeFileSync(path.join(workTree, 'README.md'), '# fixture\n');
+      run('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'add', '.'], workTree);
+      run('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-m', 'init'], workTree);
+
+      const detect = parseJson(runWorktreeManager(workTree, ['detect', '--json']).stdout);
+      expect(detect).toMatchObject({
+        state: 'ordinary-checkout',
+        reason_code: 'same-git-dir',
+        worktree_root: fs.realpathSync(workTree),
+        main_worktree_root: fs.realpathSync(workTree),
+        git_dir: fs.realpathSync(gitDir),
+        common_dir: fs.realpathSync(gitDir),
+      });
+
+      const result = runWorktreeCreate(workTree, ['probe', 'main']);
+      expect(result.status).toBe(0);
+      expect(fs.existsSync(path.join(workTree, '.worktrees', 'probe'))).toBe(true);
+      expect(fs.existsSync(path.join(gitDir, '.worktrees', 'probe'))).toBe(false);
+      expect(read(path.join(workTree, '.gitignore'))).toContain('.worktrees');
+      expect(fs.existsSync(path.join(gitDir, '.gitignore'))).toBe(false);
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
   test('default create does not copy untracked env files', () => {
     const repo = initGitRepo();
     try {
@@ -139,7 +343,7 @@ describe('git-worktree runtime delivery contracts', () => {
       fs.writeFileSync(path.join(repo, '.env.local'), 'local_secret=not-copied\n');
       fs.writeFileSync(path.join(repo, '.env.example'), 'example=not-secret\n');
 
-      const result = runWorktreeManager(repo, ['no-env-copy', 'main']);
+      const result = runWorktreeCreate(repo, ['no-env-copy', 'main']);
 
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('Not copied by default. Re-run create with --copy-env to opt in.');
@@ -160,7 +364,7 @@ describe('git-worktree runtime delivery contracts', () => {
       fs.writeFileSync(outsideFile, 'outside\n', 'utf8');
       fs.symlinkSync(outsideFile, path.join(repo, '.gitignore'));
 
-      const result = runWorktreeManager(repo, ['gitignore-symlink', 'main']);
+      const result = runWorktreeCreate(repo, ['gitignore-symlink', 'main']);
 
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain('refusing to modify symlinked .gitignore');
@@ -180,7 +384,7 @@ describe('git-worktree runtime delivery contracts', () => {
       fs.writeFileSync(path.join(repo, '.env.template'), 'template=not-secret\n');
       fs.writeFileSync(path.join(repo, '.env.sample'), 'sample=not-secret\n');
 
-      const result = runWorktreeManager(repo, ['--copy-env', 'with-env-copy', 'main']);
+      const result = runWorktreeCreate(repo, ['--copy-env', 'with-env-copy', 'main']);
 
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('Copying env files by explicit --copy-env opt-in:');
@@ -234,7 +438,7 @@ describe('git-worktree runtime delivery contracts', () => {
       fs.rmSync(path.join(repo, '.env'), { force: true });
       fs.writeFileSync(path.join(repo, '.env'), 'main-secret=do-not-leak\n', 'utf8');
 
-      const result = runWorktreeManager(repo, ['--copy-env', 'env-symlink', 'symlink-base']);
+      const result = runWorktreeCreate(repo, ['--copy-env', 'env-symlink', 'symlink-base']);
 
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain('refusing to copy env file through symlink destination: .env');
@@ -267,7 +471,7 @@ describe('git-worktree runtime delivery contracts', () => {
       ], repo);
       fs.writeFileSync(path.join(repo, '.env'), 'secret=do-not-leak\n', 'utf8');
 
-      const result = runWorktreeManager(repo, ['--copy-env', 'env-log-symlink', 'main']);
+      const result = runWorktreeCreate(repo, ['--copy-env', 'env-log-symlink', 'main']);
 
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain('refusing to write env copy log through symlink destination');
@@ -281,11 +485,11 @@ describe('git-worktree runtime delivery contracts', () => {
   test('destination env backups only happen on explicit opt-in path', () => {
     const repo = initGitRepo({ trackEnv: true });
     try {
-      const defaultResult = runWorktreeManager(repo, ['tracked-default', 'main']);
+      const defaultResult = runWorktreeCreate(repo, ['tracked-default', 'main']);
       expect(defaultResult.status).toBe(0);
       expect(fs.existsSync(path.join(repo, '.worktrees', 'tracked-default', '.env.backup'))).toBe(false);
 
-      const optInResult = runWorktreeManager(repo, ['--copy-env', 'tracked-opt-in', 'main']);
+      const optInResult = runWorktreeCreate(repo, ['--copy-env', 'tracked-opt-in', 'main']);
       expect(optInResult.status).toBe(0);
       expect(fs.existsSync(path.join(repo, '.worktrees', 'tracked-opt-in', '.env.backup'))).toBe(true);
     } finally {
