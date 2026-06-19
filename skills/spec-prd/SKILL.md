@@ -1,6 +1,6 @@
 ---
 name: spec-prd
-description: "Create, refine, or validate brownfield PRD-grade requirements for existing systems before implementation planning."
+description: "Create, write, refine, or validate planning-readiness of brownfield PRD-grade requirements for existing systems before implementation planning. Not for PRD/Figma/source consistency audits; use spec-app-consistency-audit."
 argument-hint: "[increment request, existing PRD path, or validation target]"
 ---
 
@@ -161,4 +161,5 @@ Run the readiness lens before recommending planning:
 - If the document needs independent critique, hand off to the current host's document-review workflow.
 - If the input is better served by brainstorm, app consistency audit, debug, plan, or work, route out with a short reason.
 
+When a PRD artifact path exists, run `scripts/check-prd-artifact.js <prd-path>` first to seed advisory closeout counts and trace facts; readiness remains LLM-owned.
 Close with a PRD summary: included sections, requirement count, acceptance example count, priority distribution, NFR/assumption/outstanding count, optimization suggestion count, trace gaps, and whether planning would still have to invent WHAT.

@@ -160,6 +160,7 @@ function listScannableFiles(rootPath) {
         walk(entryPath);
         continue;
       }
+      if (isDetectorOwnSource(entryPath)) continue;
       if (entry.isFile() && SCANNED_EXTENSIONS.has(path.extname(entry.name))) {
         files.push(entryPath);
       }
@@ -168,6 +169,11 @@ function listScannableFiles(rootPath) {
 
   walk(rootPath);
   return files.sort((left, right) => left.localeCompare(right));
+}
+
+// 只排除审计器自己的 regex catalog；其他 skill 中同名文件仍按源文件扫描。
+function isDetectorOwnSource(filePath) {
+  return filePath.replace(/\\/g, '/').endsWith('skills/spec-skill-audit/scripts/lib/security-patterns.js');
 }
 
 function buildSecurityReport(findings) {

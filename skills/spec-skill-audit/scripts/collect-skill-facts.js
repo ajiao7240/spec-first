@@ -65,6 +65,8 @@ function collectSingleSkill(repoRoot, skillDir) {
     }];
   }));
 
+  const evalShape = summarizeEvalShape(path.join(skillDir, 'evals'), resourceDirs.evals.exists);
+
   return {
     skill_id: skillId,
     source_path: repoRelative(repoRoot, skillDir),
@@ -83,11 +85,52 @@ function collectSingleSkill(repoRoot, skillDir) {
     has_examples: resourceDirs.examples.exists,
     has_assets: resourceDirs.assets.exists,
     has_evals: resourceDirs.evals.exists,
+    eval_case_count: evalShape.case_count,
+    eval_has_negative_case: evalShape.has_negative_case,
     resources: resourceDirs,
     estimated_tokens: parsed.estimated_tokens,
     parser_warnings: parsed.parser_warnings,
     body_excerpt: hasSkillMd ? fs.readFileSync(skillFile, 'utf8').slice(0, 1200) : '',
   };
+}
+
+// 确定性 eval case 形态事实，供打分诚实化使用。仅含单条 positive-only case 的 fixture 无法
+// 捕捉 routing/boundary 回归，所以打分器不能把它和含真正 negative case 的 fixture 同分。
+// "negative" case 指断言某物必须 NOT 命中的用例——由 forbidden_signals[] 或显式 boundary_note
+// 承载。仅有 "boundary"/"failure" 的 coverage_tag 不够：这类 tag 也会标注 should-flag 的正向
+// 用例（如「candidate boundary conflict requiring review」），它和 trigger 用例一样翻转，
+// 抓不到 false positive。本函数只读 case 结构，不裁决语义质量。
+function summarizeEvalShape(evalsDir, hasEvals) {
+  if (!hasEvals || !fs.existsSync(evalsDir)) {
+    return { case_count: 0, has_negative_case: false };
+  }
+  let caseCount = 0;
+  let hasNegativeCase = false;
+  let files = [];
+  try {
+    files = fs.readdirSync(evalsDir).filter((name) => name.endsWith('.json'));
+  } catch (err) {
+    return { case_count: 0, has_negative_case: false };
+  }
+  for (const name of files) {
+    let parsed;
+    try {
+      parsed = JSON.parse(fs.readFileSync(path.join(evalsDir, name), 'utf8'));
+    } catch (err) {
+      continue;
+    }
+    const cases = Array.isArray(parsed && parsed.cases) ? parsed.cases : [];
+    caseCount += cases.length;
+    for (const entry of cases) {
+      if (!entry || typeof entry !== 'object') continue;
+      const forbidden = Array.isArray(entry.forbidden_signals) && entry.forbidden_signals.length > 0;
+      const boundaryNote = typeof entry.boundary_note === 'string' && entry.boundary_note.trim().length > 0;
+      if (forbidden || boundaryNote) {
+        hasNegativeCase = true;
+      }
+    }
+  }
+  return { case_count: caseCount, has_negative_case: hasNegativeCase };
 }
 
 function collectReviewerGuardCoverage(options = {}) {

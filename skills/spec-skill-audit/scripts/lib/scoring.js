@@ -248,10 +248,16 @@ function explainDimension(dimension, context) {
       return dimensionReason({
         score,
         status,
-        signals: [skill.has_evals ? `eval fixture files: ${evalFileCount(skill)}` : 'eval fixture files missing'],
-        whyNot5: skill.has_evals
-          ? 'Eval fixtures exist, but no executable eval runner is proven; fixtures are review inputs only.'
-          : 'No eval fixtures were found.',
+        signals: [
+          skill.has_evals ? `eval fixture files: ${evalFileCount(skill)}` : 'eval fixture files missing',
+          skill.has_evals ? `eval cases: ${skill.eval_case_count || 0}` : 'eval cases: 0',
+          skill.has_evals ? `negative/near-neighbor case: ${skill.eval_has_negative_case ? 'yes' : 'no'}` : 'negative/near-neighbor case: no',
+        ],
+        whyNot5: !skill.has_evals
+          ? 'No eval fixtures were found.'
+          : (skill.eval_case_count || 0) <= 1 || !skill.eval_has_negative_case
+          ? 'Eval fixtures are single-case or positive-only, so they cannot catch a routing/boundary regression; add a negative/near-neighbor case. No executable eval runner is proven; fixtures are review inputs only.'
+          : 'Eval fixtures exist with a negative/near-neighbor case, but no executable eval runner is proven; fixtures are review inputs only.',
       });
     case 'security_posture':
       return dimensionReason({
@@ -440,8 +446,13 @@ function scoreProgressiveDisclosure(skill) {
 }
 
 function scoreEvalReadiness(skill) {
-  if (skill.has_evals) return 4;
-  return 2;
+  if (!skill.has_evals) return 2;
+  // 仅有 fixture 不等于 ready：单条 positive-only fixture 抓不到 routing/boundary 回归，
+  // 不能和含 negative/near-neighbor case 的 fixture 同分。在形态能真正守护 route 前压到 4 以下。
+  const caseCount = skill.eval_case_count || 0;
+  const hasNegativeCase = Boolean(skill.eval_has_negative_case);
+  if (caseCount <= 1 || !hasNegativeCase) return 3;
+  return 4;
 }
 
 function scoreSecurityPosture(findings) {

@@ -22,4 +22,19 @@ describe('spec-skill-audit contract', () => {
     expect(text).not.toContain('token budget engine');
     expect(text).not.toContain('durable replay index');
   });
+
+  test('entrypoint stays lean: no duplicate contract sections and within size cap', () => {
+    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const lines = text.split(/\r?\n/);
+
+    // 契约字段只允许在 Workflow Contract Summary 中出现一次。
+    const duplicateContractHeadings = lines.filter((line) => (
+      /^## (When To Use|When Not To Use|Inputs|Outputs|Failure Modes)\s*$/.test(line)
+    ));
+    expect(duplicateContractHeadings).toEqual([]);
+
+    // 去重后锁住入口体量，防止静默回涨；字符上限为 contract 固定的 context-governance 文案留余量。
+    expect(lines.length).toBeLessThanOrEqual(180);
+    expect(text.length).toBeLessThanOrEqual(9500);
+  });
 });

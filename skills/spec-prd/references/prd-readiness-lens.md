@@ -19,6 +19,8 @@ The base dimensions are:
 
 Run checks by pack. Always run the core pack; run conditional packs only when their trigger is present. This is a prompt economy rule, not a weaker quality bar.
 
+When a PRD artifact path exists, `skills/spec-prd/scripts/check-prd-artifact.js <prd-path>` can report deterministic `spec-prd-artifact-check.v1` facts such as frontmatter, core-section presence, requirement/acceptance trace gaps, placeholder lines, forbidden `docs/prds/` path, and Feature Slice acceptance trace gaps. Treat those findings as advisory script-owned facts for this lens; they do not decide `ready-for-planning` by themselves.
+
 ### Core Pack
 
 - `current-state provenance` - material current-system claims have evidence tags; user-stated, confirmed-source, source-candidate, external-research, and assumptions are not blended; stale pointers are not presented as confirmed.

@@ -22,7 +22,7 @@ Use when the user wants to audit skill source quality, workflow boundaries, publ
 
 ### When Not To Use
 
-Do not use to install/create skills, perform ordinary code review, mine remote skill repositories, rewrite source automatically, or patch generated runtime mirrors.
+Do not use to install/create skills, perform ordinary code review, mine remote skill repositories, rewrite source automatically, or patch generated runtime mirrors. External methodology research belongs in a separate future workflow such as `spec-skill-mining`.
 
 ### Inputs
 
@@ -86,81 +86,9 @@ Treat skill entry prompts as progressive-disclosure surfaces. Flag source skills
 
 Audit facts may identify public-surface or runtime drift, but scripts only report deterministic evidence. The LLM explains whether the drift affects governance, catalog, README/user-doc visibility, or source/runtime boundaries. Hard dependency gaps should point to setup/doctor/init repair commands; soft context gaps only lower confidence.
 
-## When To Use
+## Inputs And Outputs
 
-Use this workflow when the user asks to:
-
-- audit spec-first source skills
-- review `SKILL.md` quality
-- check skill trigger precision
-- check skill boundary overlap
-- identify missing input or output contracts
-- identify missing failure modes
-- check source/runtime consistency
-- review generated runtime drift
-- prepare a skill improvement plan
-- produce patch-preview suggestions for skill quality improvements
-
-## When Not To Use
-
-Do not use this workflow to:
-
-- install third-party skills
-- mine external GitHub skills for methodology
-- directly modify `.claude/`, `.codex/`, or `.agents/skills/`
-- automatically rewrite source skills without explicit confirmation
-- execute implementation tasks unrelated to skill quality
-- replace code review
-- act as a general CLI command
-
-External methodology research belongs in a separate future workflow such as `spec-skill-mining`.
-
-## Inputs
-
-Default input:
-
-- current spec-first repository root
-
-Optional input:
-
-- one local skill directory under `skills/`
-- `--patch-preview` when the user explicitly asks for patch-preview artifacts
-- `--runtime` to include generated runtime drift checks when runtime directories are present
-
-This workflow does not accept remote repositories, package names, or marketplace identifiers.
-
-## Outputs
-
-Default outputs are local audit artifacts under:
-
-```text
-.spec-first/audits/skill-audit/latest/
-```
-
-The full self-audit run may write:
-
-- `skill-source-inventory.json`
-- `reviewer-guard-coverage-report.json`
-- `rule-maturity-observations.json`
-- `expert-scorecard.json`
-- `skill-audit-report.json`
-- `trigger-routing-report.json`
-- `boundary-overlap-matrix.json`
-- `security-risk-report.json`
-- `eval-readiness-report.json`
-- `promise-implementation-report.json`
-- `governance-drift-report.json`
-- `runtime-drift-report.json`
-- `executor-context.json`
-- `skill-audit-summary.md`
-- `skill-improvement-plan.md`
-
-When the user explicitly asks for patch preview, it may also write:
-
-- `patch-preview/summary.md`
-- `patch-preview/*.patch.md`
-
-`.spec-first/audits/` is a gitignored execution artifact directory. It is not source truth and can be deleted or regenerated.
+Default input is the current spec-first repository root; optionally one local skill directory under `skills/`. This workflow does not accept remote repositories, package names, or marketplace identifiers. See the `### Inputs` / `### Outputs` summary above for the contract, the `## Workflow` CLI options below for invocation flags, and `references/report-format.md` for the full output-file set and the gitignored-artifact rule.
 
 This workflow is an explicit exception to the ordinary runtime context exclusion in `docs/contracts/context-governance.md`: it may read `.spec-first/audits/skill-audit/**` for the current audit summary, scorecard, and drift evidence. For repo-wide spec-first audits it may also read `.spec-first/governance/rule-maturity.json` to write `rule-maturity-observations.json`; that artifact reports periodic governance health facts and does not trigger human review, adjudication, or promotion. Other workflows should treat `.spec-first/audits/**` and `.spec-first/governance/**` as excluded runtime artifacts unless the user names a precise path or the task is explicitly about audit/runtime/governance evidence.
 
@@ -193,9 +121,17 @@ This workflow is an explicit exception to the ordinary runtime context exclusion
 
 6. Read `skill-audit-summary.md`, `skill-improvement-plan.md`, and the JSON reports relevant to the user's question. For repo-wide spec-first source audits, read `reviewer-guard-coverage-report.json` before judging reviewer-agent guard completeness, and read `rule-maturity-observations.json` before judging whether rule-maturity evidence is empty, degraded, or awaiting later human adjudication.
 7. Review the deterministic findings and reviewer guard coverage facts using `references/expert-audit-rubric.md`.
-8. Treat scorecards as signals, not gates.
-9. For each P0/P1 finding you surface to the user, include signal, file/section evidence, counter-evidence status, decision, reason, recommendation, and confidence.
-10. Do not modify source files unless the user separately asks to apply a specific fix.
+8. Security matches inside an audited skill's own `evals/`, `examples/`, or `references/` are expected `scope_limited` fixtures (see `references/security-threat-model.md`): treat them as counter-evidenced P3 noise and do not surface them as review items unless an executable code path actually performs the action.
+9. Treat scorecards as signals, not gates.
+10. For each P0/P1 finding you surface to the user, include signal, file/section evidence, counter-evidence status, decision, reason, recommendation, and confidence.
+11. Do not modify source files unless the user separately asks to apply a specific fix.
+
+### Advanced Options
+
+Two additional flags are accepted by `write-audit-artifacts.js` and are documented here for contract completeness:
+
+- `node skills/spec-skill-audit/scripts/write-audit-artifacts.js --repo . --no-governance` skips the governance-drift checks during a repo-wide self audit. `governance-drift-report.json` is still written, but its body records a skipped status rather than drift findings.
+- `node skills/spec-skill-audit/scripts/write-audit-artifacts.js --repo . --run-id <name>` overrides the run-directory name under `.spec-first/audits/skill-audit/` instead of the default timestamped directory. Use it for reproducible or test runs.
 
 ## Governance
 
@@ -217,36 +153,7 @@ It must not modify these paths without explicit user confirmation:
 
 Generated runtime assets must be repaired by rerunning `spec-first init` with the target host selected, not by hand-editing generated copies.
 
-## Failure Modes
-
-If no source skills are found:
-
-- report `NO_SKILLS_FOUND`
-- show searched paths
-- suggest the expected `skills/<name>/SKILL.md` layout
-
-If the target is not the spec-first repo root or one local skill directory under `skills/`:
-
-- stop for this version
-- explain that generic local skill collection audit is intentionally deferred
-
-If governance validation fails:
-
-- continue source inventory and structure checks
-- report the governance validation error as audit evidence
-- do not rewrite the governance file
-
-If runtime directories are missing:
-
-- mark runtime status as `not_initialized`
-- do not fail the audit
-- recommend rerunning the appropriate init command only when runtime delivery is required
-
-If runtime drift is detected:
-
-- report drift
-- recommend rerunning init
-- do not patch generated runtime copies
+Deterministic failure reason codes (`NO_SKILLS_FOUND`, deferred generic-collection audit, governance-validation-fails, runtime `not_initialized`, runtime drift) and their handling live in `references/report-format.md`; the `### Failure Modes` summary above states the contract.
 
 ## References
 

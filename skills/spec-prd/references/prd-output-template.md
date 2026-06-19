@@ -292,6 +292,8 @@ Every PRD handoff should report:
 - feature items without acceptance examples
 - current-state claims without confirmed evidence
 
+When a PRD artifact path exists, seed deterministic counts and trace facts from `scripts/check-prd-artifact.js <prd-path>` before adding LLM-owned readiness judgment such as whether planning would still have to invent WHAT.
+
 When `## Feature Slices` is present, or when PRD complexity was explicitly evaluated for slice need, additionally report:
 
 - feature slice count and feature IDs

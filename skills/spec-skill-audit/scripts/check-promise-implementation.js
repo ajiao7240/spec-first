@@ -17,7 +17,7 @@ function buildPromiseImplementationReport(options = {}) {
   const writerText = readIfExists(writerPath);
 
   const reportFormatFiles = extractReportFormatFiles(reportFormat);
-  const skillOutputFiles = extractSkillOutputFiles(skillText);
+  const skillOutputFiles = extractSkillOutputFiles(skillText, reportFormat);
   const scriptWrittenFiles = extractScriptWrittenFiles(writerText);
   const documentedOptions = extractDocumentedScriptOptions(`${skillText}\n${reportFormat}`);
   const scriptOptions = extractScriptOptions(writerText);
@@ -38,6 +38,11 @@ function buildPromiseImplementationReport(options = {}) {
       documentedOptions,
       scriptOptions,
       sourceFile: relative(repoRoot, skillPath),
+    }),
+    ...findUndocumentedOptions({
+      documentedOptions,
+      scriptOptions,
+      sourceFile: relative(repoRoot, writerPath),
     }),
   ];
 
@@ -73,13 +78,18 @@ function extractReportFormatFiles(markdown) {
   return { required, optional };
 }
 
-function extractSkillOutputFiles(markdown) {
-  const outputs = section(markdown, 'Outputs', 'Workflow');
-  return {
-    required: extractInlineCodeBullets(outputs)
-      .map(normalizeArtifactPath)
-      .filter(Boolean),
-  };
+function extractSkillOutputFiles(markdown, reportFormat) {
+  // run-set 单源下沉到 report-format.md；保留旧 Outputs section 兼容。
+  const skillOutputs = extractInlineCodeBullets(section(markdown, 'Outputs', 'Workflow'));
+  if (skillOutputs.length > 0) {
+    return { required: skillOutputs };
+  }
+  const runSet = section(
+    String(reportFormat || ''),
+    'Output Location And Run Set',
+    'Context-Governance Exception',
+  );
+  return { required: extractInlineCodeBullets(runSet) };
 }
 
 function section(markdown, heading, nextHeading) {
@@ -193,6 +203,28 @@ function findMissingOptions({ documentedOptions, scriptOptions, sourceFile }) {
     }));
 }
 
+// 反向检查：实现已解析但契约未文档化的 CLI option。
+const INTERNAL_OPTION_ALLOWLIST = new Set([]);
+
+function findUndocumentedOptions({ documentedOptions, scriptOptions, sourceFile }) {
+  const documented = new Set(documentedOptions);
+  return scriptOptions
+    .filter((option) => !documented.has(option))
+    .filter((option) => !INTERNAL_OPTION_ALLOWLIST.has(option))
+    .map((option) => createFinding({
+      severity: 'P2',
+      category: 'promise_implementation_drift',
+      skill_id: 'spec-skill-audit',
+      title: 'Implemented CLI option is not documented',
+      signal: `undocumented-option:${option}`,
+      claim_type: 'relational',
+      evidence: [{ file: sourceFile, excerpt: option }],
+      reason: 'A parsed script option should be documented in the workflow or added to the internal-option allowlist.',
+      recommendation: `Document ${option} in SKILL.md or add it to INTERNAL_OPTION_ALLOWLIST if it is intentionally internal.`,
+      confidence: 'high',
+    }));
+}
+
 function relative(repoRoot, filePath) {
   return path.relative(repoRoot, filePath).replace(/\\/g, '/');
 }
@@ -226,4 +258,5 @@ module.exports = {
   extractDocumentedScriptOptions,
   extractOptions,
   extractScriptWrittenFiles,
+  findUndocumentedOptions,
 };

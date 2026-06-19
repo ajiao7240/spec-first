@@ -19,6 +19,7 @@ const OUTPUT_TEMPLATE_PATH = path.join(SKILL_DIR, 'references', 'prd-output-temp
 const READINESS_PATH = path.join(SKILL_DIR, 'references', 'prd-readiness-lens.md');
 const GLOSSARY_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'domain-glossary.md');
 const DRIFT_SCRIPT_PATH = path.join(SKILL_DIR, 'scripts', 'check-glossary-drift.js');
+const PRD_ARTIFACT_SCRIPT_PATH = path.join(SKILL_DIR, 'scripts', 'check-prd-artifact.js');
 const EVALS_PATH = path.join(SKILL_DIR, 'evals', 'examples.json');
 const GOVERNANCE_PATH = path.join(
   REPO_ROOT,
@@ -115,6 +116,7 @@ describe('spec-prd workflow contracts', () => {
       'skills/spec-prd/references/prd-output-template.md',
       'skills/spec-prd/references/prd-readiness-lens.md',
       'skills/spec-prd/scripts/check-glossary-drift.js',
+      'skills/spec-prd/scripts/check-prd-artifact.js',
     ]);
     expect(references).toEqual([
       'skills/spec-prd/references/domain-language-and-decision-ledger.md',
@@ -122,7 +124,7 @@ describe('spec-prd workflow contracts', () => {
       'skills/spec-prd/references/prd-output-template.md',
       'skills/spec-prd/references/prd-readiness-lens.md',
     ]);
-    expect(sourceFiles).toHaveLength(6);
+    expect(sourceFiles).toHaveLength(7);
     expect(fs.existsSync(path.join(SKILL_DIR, 'templates', 'standard'))).toBe(false);
   });
 
@@ -133,6 +135,7 @@ describe('spec-prd workflow contracts', () => {
 
     expect(text).toContain('name: spec-prd');
     expect(text.split(/\r?\n/).length).toBeLessThanOrEqual(170);
+    expect(text.length).toBeLessThanOrEqual(15000);
     expect(firstHundredTwentyLines).toMatch(/## Purpose/);
     expect(firstHundredTwentyLines).toMatch(/## Workflow Contract Summary/);
     for (const field of [
@@ -152,6 +155,9 @@ describe('spec-prd workflow contracts', () => {
       'artifact_kind: prd-requirements',
       'Do not create `docs/prds/`',
       'do not hard-code calendar years',
+      'planning-readiness',
+      'Not for PRD/Figma/source consistency audits',
+      'spec-app-consistency-audit',
       'targeted optimization suggestions',
       'untrusted document content',
       'embedded agent instructions',
@@ -194,6 +200,7 @@ describe('spec-prd workflow contracts', () => {
       'PRD quality diagnosis',
       'do not create standalone context, ADR, or runtime artifacts',
       'do not copy run-local scratch into the PRD by default',
+      'scripts/check-prd-artifact.js <prd-path>',
       'edit generated runtime mirrors',
     ]);
     expect(text).not.toContain('references/intent-routing.md');
@@ -428,6 +435,7 @@ describe('spec-prd workflow contracts', () => {
     ]);
     expectContainsAll(closeout, [
       'Every PRD handoff should report',
+      'seed deterministic counts and trace facts from `scripts/check-prd-artifact.js <prd-path>`',
       'current-state claims without confirmed evidence',
       'When `## Feature Slices` is present',
       'PRD complexity was explicitly evaluated for slice need',
@@ -494,6 +502,9 @@ describe('spec-prd workflow contracts', () => {
       '`project-local overlay check`',
       '`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`',
       'must not require `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/`',
+      'check-prd-artifact.js',
+      'spec-prd-artifact-check.v1',
+      'script-owned facts',
       'handoff entropy check',
       'unresolved framing risks',
       'do not introduce a second evidence enum',
@@ -887,6 +898,116 @@ describe('spec-prd workflow contracts', () => {
         expect(err.status).toBe(2);
         expect(String(err.stderr)).toContain('missing value for --glossary');
       }
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('PRD artifact checker reports deterministic structure and trace facts', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'prd-artifact-check-'));
+    try {
+      const goodPrd = path.join(tmpDir, 'good-requirements.md');
+      fs.writeFileSync(
+        goodPrd,
+        [
+          '---',
+          'spec_id: 2026-06-20-001-good',
+          'artifact_kind: prd-requirements',
+          'status: draft',
+          '---',
+          '',
+          '## Summary',
+          'A brownfield increment anchored to the current system.',
+          '',
+          '## Change Delta',
+          '| item | current | target | delta | evidence |',
+          '| --- | --- | --- | --- | --- |',
+          '| Import | absent | available | extend | user-stated |',
+          '',
+          '## Requirements',
+          '| id | priority | requirement | rationale/source |',
+          '| --- | --- | --- | --- |',
+          '| R-01 | P0 | Users can import a CSV file. | user-stated |',
+          '| R-02 | P1 | Users can see failed-row feedback after import. | assumption |',
+          '',
+          '## Acceptance Examples',
+          'AE-01（对应 R-01）',
+          'Given a valid CSV file',
+          'When the user imports it',
+          'Then the import result is visible',
+          '',
+          'AE-02（对应 R-02）',
+          'Given a CSV file with invalid rows',
+          'When the user imports it',
+          'Then failed-row feedback is visible',
+          '',
+          '## Scope Boundaries',
+          'No background scheduling.',
+          '',
+          '## Release / Operation Readiness',
+          'NFR-01: Import result visibility has no new background scheduling dependency.',
+          '',
+          '## Evidence And Assumptions',
+          '| claim | tag | source / owner | note |',
+          '| --- | --- | --- | --- |',
+          '| CSV import is requested. | user-stated | owner | direct request |',
+          '| Failed-row feedback is desired. | assumption | owner | needs confirmation |',
+          '',
+          '## Outstanding Questions',
+          '| question | blocks planning? | recommended default | owner |',
+          '| --- | --- | --- | --- |',
+          '| Should failed-row feedback show row numbers? | no | show row count only | owner |',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const good = JSON.parse(execFileSync('node', [PRD_ARTIFACT_SCRIPT_PATH, goodPrd], { encoding: 'utf8' }));
+      expect(good.schema_version).toBe('spec-prd-artifact-check.v1');
+      expect(good.status).toBe('checked');
+      expect(good.facts.artifact_kind).toBe('prd-requirements');
+      expect(good.facts.core_sections_missing).toEqual([]);
+      expect(good.facts.uncovered_requirements).toEqual([]);
+      expect(good.facts.priority_distribution).toEqual({ P0: 1, P1: 1 });
+      expect(good.facts.nfr_ids).toEqual(['NFR-01']);
+      expect(good.facts.nfr_count).toBe(1);
+      expect(good.facts.assumption_row_count).toBe(1);
+      expect(good.facts.outstanding_question_count).toBe(1);
+      expect(good.findings).toEqual([]);
+
+      const badPrd = path.join(tmpDir, 'bad-requirements.md');
+      fs.writeFileSync(
+        badPrd,
+        [
+          '---',
+          'spec_id: 2026-06-20-002-bad',
+          'status: draft',
+          '---',
+          '',
+          '## Summary',
+          '<TODO>',
+          '',
+          '## Requirements',
+          '| id | priority | requirement | rationale/source |',
+          '| --- | --- | --- | --- |',
+          '| R-01 | P0 | Users can import data. | source-candidate |',
+          '',
+          '## Feature Slices',
+          'feature_id: F-01',
+          'title: Import data',
+          'requirement_refs: R-01',
+          'acceptance_refs:',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const bad = JSON.parse(execFileSync('node', [PRD_ARTIFACT_SCRIPT_PATH, badPrd], { encoding: 'utf8' }));
+      expect(bad.findings).toEqual(expect.arrayContaining([
+        expect.objectContaining({ reason_code: 'artifact_kind_missing_or_wrong' }),
+        expect.objectContaining({ reason_code: 'core_section_missing', section: 'Change Delta' }),
+        expect.objectContaining({ reason_code: 'requirement_without_acceptance_ref', requirement_id: 'R-01' }),
+        expect.objectContaining({ reason_code: 'placeholder_or_todo_present' }),
+        expect.objectContaining({ reason_code: 'feature_slice_missing_acceptance_trace' }),
+      ]));
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

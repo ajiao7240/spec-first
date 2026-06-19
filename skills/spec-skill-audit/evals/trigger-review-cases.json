@@ -6,6 +6,13 @@
       "input": "description: Use for any task.",
       "expected_signal": "ambiguous_trigger_wording",
       "coverage_tags": ["trigger"]
+    },
+    {
+      "id": "specific-description-not-flagged",
+      "input": "description: Audit agent skills for trigger precision, scope boundaries, and runtime governance before release. Do not use for installing or creating skills.",
+      "boundary_note": "A specific, scoped description with explicit exclusions must NOT be flagged as ambiguous/broad trigger wording (near-neighbor of broad-description).",
+      "forbidden_signals": ["ambiguous_trigger_wording"],
+      "coverage_tags": ["boundary"]
     }
   ],
   "skill": "spec-skill-audit",

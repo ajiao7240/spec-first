@@ -134,6 +134,7 @@ function renderImprovementPlan({ auditReport }) {
   const p0 = findings.filter((finding) => finding.severity === 'P0');
   const p1 = findings.filter((finding) => finding.severity === 'P1');
   const p2 = findings.filter((finding) => finding.severity === 'P2');
+  const residual = findings.filter((finding) => finding.severity === 'P3' || finding.decision === 'tentative');
 
   return [
     '# Skill Improvement Plan',
@@ -149,6 +150,10 @@ function renderImprovementPlan({ auditReport }) {
     '## Phase 3: Normalize Structure And Eval Readiness Signals',
     '',
     renderFindingPlan(p2.slice(0, 30), 'No P2 issues found.'),
+    '',
+    '## Phase 3b: Triage Tentative Signals (P3/unverified)',
+    '',
+    renderResidualSignalPlan(residual.slice(0, 30), 'No P3/unverified residual signals found.'),
     '',
     '## Phase 4: Human Review',
     '',
@@ -213,6 +218,19 @@ function renderFindingPlan(findings, emptyText) {
     .join('\n');
 }
 
+function renderResidualSignalPlan(findings, emptyText) {
+  if (findings.length === 0) return emptyText;
+  return findings
+    .slice(0, 30)
+    .map((finding) => [
+      `- ${finding.id}: ${finding.title}`,
+      `  - Scope: ${finding.skill_id || 'repo'}`,
+      `  - Signal: ${finding.signal || finding.category || 'deterministic signal'}`,
+      `  - Decision needed: dismiss as fixture/noise, keep as residual risk, or promote to a concrete fix.`,
+    ].join('\n'))
+    .join('\n');
+}
+
 function renderGovernanceSummary(report) {
   if (!report) return 'Governance audit was skipped.';
   if (report.skipped) return `Governance audit skipped: ${report.reason || 'not in scope'}.`;
@@ -230,13 +248,41 @@ function renderRuntimeSummary(report) {
 function renderSecuritySummary(report) {
   if (!report) return 'Security scan was skipped.';
   const counts = report.summary || {};
-  return `Security signals: P0=${counts.p0_count || 0}, P1=${counts.p1_count || 0}, P2=${counts.p2_count || 0}, P3=${counts.p3_count || 0}.`;
+  const findings = report.findings || [];
+  const total = findings.length;
+  const countsLine = `Security signals: P0=${counts.p0_count || 0}, P1=${counts.p1_count || 0}, P2=${counts.p2_count || 0}, P3=${counts.p3_count || 0}.`;
+  if (total === 0) return countsLine;
+
+  // 先呈现验证状态，避免裸 P3 计数被误读为已确认风险。
+  const confirmed = findings.filter((finding) => finding.counter_evidence && finding.counter_evidence.checked && finding.decision === 'accepted').length;
+  const fixtureNoise = findings.filter((finding) => isFixturePath((finding.evidence && finding.evidence[0] && finding.evidence[0].file) || '')).length;
+  const parts = [`Security: ${total} pattern matches, ${confirmed} LLM-confirmed`];
+  if (fixtureNoise > 0) {
+    parts.push(`${fixtureNoise} inside audited skills' own evals/examples/references (expected self-fixture noise)`);
+  }
+  parts.push('review security-risk-report.json and check counter-evidence before acting');
+  return `${parts.join('; ')}.\n${countsLine}`;
+}
+
+function isFixturePath(file) {
+  const normalized = String(file || '').replace(/\\/g, '/');
+  return normalized.includes('/evals/')
+    || normalized.includes('/examples/')
+    || normalized.includes('/references/');
 }
 
 function renderPromiseSummary(report) {
   if (!report) return 'Promise implementation audit was skipped.';
   if (report.skipped) return `Promise implementation audit skipped: ${report.reason || 'not in scope'}.`;
-  return `Promise implementation signals: findings=${(report.findings || []).length}; documented options=${(report.documented_options || []).length}; implemented options=${(report.implemented_options || []).length}.`;
+  const documented = report.documented_options || [];
+  const implemented = report.implemented_options || [];
+  const undocumented = implemented.filter((option) => !documented.includes(option));
+  const base = `Promise implementation signals: findings=${(report.findings || []).length}; documented options=${documented.length}; implemented options=${implemented.length}.`;
+  // 非零 option 差异必须显式呈现，不能藏在 findings=0 后面。
+  if (undocumented.length > 0) {
+    return `${base} ${undocumented.length} implemented option(s) not documented: ${undocumented.join(', ')}.`;
+  }
+  return base;
 }
 
 function renderPatchPreview({ auditReport }) {
