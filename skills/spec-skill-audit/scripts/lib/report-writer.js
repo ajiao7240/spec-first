@@ -134,7 +134,14 @@ function renderImprovementPlan({ auditReport }) {
   const p0 = findings.filter((finding) => finding.severity === 'P0');
   const p1 = findings.filter((finding) => finding.severity === 'P1');
   const p2 = findings.filter((finding) => finding.severity === 'P2');
-  const residual = findings.filter((finding) => finding.severity === 'P3' || finding.decision === 'tentative');
+  // Phase 3b 只收 Phases 1-3 未覆盖的残余信号（P3，或非 P0/P1/P2 的 tentative）。
+  // 不能只按 decision==='tentative' 过滤：deterministic finding 默认 counter_evidence.checked=false
+  // → decision='tentative'，否则会把已在 Phase 1-3 列出的 P0/P1/P2 全部重列，自相矛盾。
+  const bucketed = new Set(['P0', 'P1', 'P2']);
+  const residual = findings.filter((finding) => (
+    finding.severity === 'P3'
+    || (finding.decision === 'tentative' && !bucketed.has(finding.severity))
+  ));
 
   return [
     '# Skill Improvement Plan',

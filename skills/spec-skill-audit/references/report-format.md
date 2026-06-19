@@ -95,7 +95,7 @@ When the user explicitly asks for patch preview it may also write `patch-preview
 
 ## Context-Governance Exception
 
-This workflow is an explicit exception to the ordinary runtime context exclusion in `docs/contracts/context-governance.md`: it may read `.spec-first/audits/skill-audit/**` for the current audit summary, scorecard, and drift evidence. For repo-wide spec-first audits it may also read `.spec-first/governance/rule-maturity.json` to write `rule-maturity-observations.json`; that artifact reports periodic governance health facts and does not trigger human review, adjudication, or promotion. Other workflows should treat `.spec-first/audits/**` and `.spec-first/governance/**` as excluded runtime artifacts unless the user names a precise path or the task is explicitly about audit/runtime/governance evidence.
+The full context-governance read exception (which `.spec-first/**` paths this workflow may read, and the rule that other workflows treat them as excluded) is stated once in `skills/spec-skill-audit/SKILL.md` under `## Inputs And Outputs`, where the governance contract test pins it. This heading is retained as the run-set parser boundary; do not duplicate the prose here.
 
 ## Failure Mode Reason Codes
 

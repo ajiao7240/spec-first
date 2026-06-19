@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { detectSkillLayout } = require('./detect-skill-layout');
+const { normalizeFixtureFile } = require('./eval-fixture-normalizer');
 const { parseSkillMarkdownFile } = require('./parse-skill-md');
 const { repoRelative, toPosixPath } = require('./lib/path-rules');
 
@@ -65,7 +66,7 @@ function collectSingleSkill(repoRoot, skillDir) {
     }];
   }));
 
-  const evalShape = summarizeEvalShape(path.join(skillDir, 'evals'), resourceDirs.evals.exists);
+  const evalShape = summarizeEvalShape(repoRoot, path.join(skillDir, 'evals'), resourceDirs.evals.exists);
 
   return {
     skill_id: skillId,
@@ -99,30 +100,36 @@ function collectSingleSkill(repoRoot, skillDir) {
 // "negative" case 指断言某物必须 NOT 命中的用例——由 forbidden_signals[] 或显式 boundary_note
 // 承载。仅有 "boundary"/"failure" 的 coverage_tag 不够：这类 tag 也会标注 should-flag 的正向
 // 用例（如「candidate boundary conflict requiring review」），它和 trigger 用例一样翻转，
-// 抓不到 false positive。本函数只读 case 结构，不裁决语义质量。
-function summarizeEvalShape(evalsDir, hasEvals) {
+// 抓不到 false positive。
+// 复用 eval-fixture-normalizer（与 buildEvalReadinessReport 同一真相源），因此 cases/examples
+// 双 key、negative_signal 别名都被一致处理——避免与 eval-readiness 报告对同一 skill 给出矛盾事实。
+// 本函数只读 case 结构，不裁决语义质量。
+function summarizeEvalShape(repoRoot, evalsDir, hasEvals) {
   if (!hasEvals || !fs.existsSync(evalsDir)) {
     return { case_count: 0, has_negative_case: false };
   }
-  let caseCount = 0;
-  let hasNegativeCase = false;
   let files = [];
   try {
     files = fs.readdirSync(evalsDir).filter((name) => name.endsWith('.json'));
   } catch (err) {
     return { case_count: 0, has_negative_case: false };
   }
+  let caseCount = 0;
+  let hasNegativeCase = false;
   for (const name of files) {
-    let parsed;
+    let normalizedCases;
     try {
-      parsed = JSON.parse(fs.readFileSync(path.join(evalsDir, name), 'utf8'));
+      normalizedCases = normalizeFixtureFile({
+        repoRoot,
+        filePath: path.join(evalsDir, name),
+      });
     } catch (err) {
+      // 无法解析的 fixture 由 buildEvalReadinessReport 记 invalid_cases；此处跳过不计数。
       continue;
     }
-    const cases = Array.isArray(parsed && parsed.cases) ? parsed.cases : [];
-    caseCount += cases.length;
-    for (const entry of cases) {
-      if (!entry || typeof entry !== 'object') continue;
+    if (!Array.isArray(normalizedCases)) continue;
+    caseCount += normalizedCases.length;
+    for (const entry of normalizedCases) {
       const forbidden = Array.isArray(entry.forbidden_signals) && entry.forbidden_signals.length > 0;
       const boundaryNote = typeof entry.boundary_note === 'string' && entry.boundary_note.trim().length > 0;
       if (forbidden || boundaryNote) {

@@ -79,7 +79,9 @@ function extractReportFormatFiles(markdown) {
 }
 
 function extractSkillOutputFiles(markdown, reportFormat) {
-  // run-set 单源下沉到 report-format.md；保留旧 Outputs section 兼容。
+  // run-set 的唯一真相源是 report-format.md 的「Output Location And Run Set」。
+  // 当前 SKILL.md 的标题是「## Inputs And Outputs」，下面这个 `## Outputs` 分支不会命中，
+  // 始终落到 report-format.md；保留它只是为兼容未来某个 skill 重新引入字面 `## Outputs` 段。
   const skillOutputs = extractInlineCodeBullets(section(markdown, 'Outputs', 'Workflow'));
   if (skillOutputs.length > 0) {
     return { required: skillOutputs };
@@ -204,6 +206,8 @@ function findMissingOptions({ documentedOptions, scriptOptions, sourceFile }) {
 }
 
 // 反向检查：实现已解析但契约未文档化的 CLI option。
+// 保持为空：当前 6 个 flag 全部已在 SKILL.md 文档化（exact-set 测试守护）。只有当某个
+// flag 是「刻意不对用户文档化的内部 flag」时才加入此 allowlist，否则一律文档化。
 const INTERNAL_OPTION_ALLOWLIST = new Set([]);
 
 function findUndocumentedOptions({ documentedOptions, scriptOptions, sourceFile }) {
