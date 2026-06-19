@@ -27,6 +27,32 @@
 - 不要手改 `.claude/`、`.codex/`、`.agents/skills/` runtime mirror。
 - 不要新增默认 Graphify / setup / update 执行路径；entry governor 只能读取已存在事实，不能为了路由去改变状态。
 
+## 2026-06-20 后续采纳状态
+
+本节记录后续执行对本文建议的逐项处理，不改变原始审查证据的历史语境。
+
+| 建议 | 状态 | 处理 |
+| --- | --- | --- |
+| 1. `SKILL.md` 收敛成 lean entrypoint | 部分采纳 | 先抽 `Scenario Fingerprint Routing` 到 `skills/using-spec-first/references/scenario-fingerprint-routing.md`，随后继续抽 `User Next-Step Guide Mode`、`Multi-Session Awareness`、`Codex Startup Reminder Boundary`、`Routing Red Flags` 到 references；`SKILL.md` 从原约 4,660 词降到 3,805 词。未做全量 9 文件拆分。 |
+| 2. 增加 `output-risk-profile` | 已采纳 | 新增 `skills/using-spec-first/references/output-risk-profile.md`，列出 over-routing、dispatch-overreach、setup-hijack、automatic-chaining 等高风险输出失败。 |
+| 3. 建立 routing-discipline output eval | 已采纳第一步 | 新增 canonical fixture `skills/using-spec-first/evals/routing-discipline-cases.json`；本轮只加结构化 cases 和 Jest normalizer 校验，未跑 provider/model with-skill vs baseline。 |
+| 4. eval fixture 贴近 canonical contract | 部分采纳 | 新增 routing-discipline canonical fixture；保留 legacy `examples.json` 与 `routing-cases.json`，避免丢失现有本地字段和测试语义。 |
+| 5. 补治理元数据 | 暂缓 | 未改 `skills-governance.json` schema；改用 `references/maintenance-and-fresh-source-eval.md` 记录 owner、review cadence、invalidation conditions。 |
+| 6. 调整 frontmatter `description` | 暂缓 | 未运行 route-confusion holdout 前不改 trigger description，避免无证据 drift。 |
+| 7. 新增 deterministic checks | 低成本采纳 | 未新增脚本；复用 `skills/spec-skill-audit/scripts/eval-fixture-normalizer.js` 在 Jest 中校验新 canonical fixture。 |
+| 8. Review Studio | 暂缓 | 不引入 `reports/` 或 Review Studio surface；本轮用 focused Jest + source docs + changelog 作为证据。 |
+
+本轮逐项判断后的剩余未优化项:
+
+1. `Dispatch And Host Boundaries` 全文迁出: 暂缓。该段是 Codex dispatch 授权的高风险边界，当前 contract test 仍要求关键授权提醒存在于 runtime-transformed `SKILL.md`；迁出前需要先确认 runtime reference 读取链与 fresh-source 语义表现。
+2. with-skill vs baseline model output eval: 暂缓。已补 8 个 canonical routing-discipline cases 和结构校验，但没有 provider/model runner 证据；不能声称输出质量已相对 baseline 提升。
+3. `skills-governance.json` 生命周期 schema 扩展: 暂缓。单 skill 临时加 owner/cadence/maturity 会制造 repo-wide registry 形态漂移，需要先做全仓 schema 设计。
+4. frontmatter `description` 改写: 暂缓。没有 route-confusion holdout 证明候选描述优于现状，贸然改会增加 skill discovery drift 风险。
+5. legacy `examples.json` / `routing-cases.json` 全量迁移: 暂缓。它们仍承载本地字段和既有测试语义；先用新增 canonical fixture 承接新评估面。
+6. Review Studio / `reports/output_quality_scorecard.md`: 暂缓。对本轮 source refactor 过重；大版本入口语义变更或发布级评审时再引入。
+
+本轮 fresh-source eval 状态: `not_run`。原因: 当前 Codex 请求未显式授权 `subagents` / `personas` / delegated review；按 dispatch 边界不能自行启动多 persona 或 subagent eval。
+
 ## 输入证据
 
 本次只读审视了以下 `file-backed fixture` / source:
@@ -47,10 +73,10 @@
 | context governance | `docs/contracts/context-governance.md` |
 | 既有 durable learning | `docs/solutions/workflow-issues/routing-skill-eval-methodology-2026-06-08.md` |
 | governance registry | `src/cli/contracts/dual-host-governance/skills-governance.json` |
-| `$yao-meta-skill` method | `/Users/kuang/.agents/skills/yao-meta-skill/SKILL.md` |
+| `$yao-meta-skill` method | external skill `yao-meta-skill` (`SKILL.md`，安装于本机 agent skills 目录，非本仓 source) |
 | `$yao-meta-skill` references | `skill-engineering-method.md`, `operating-modes.md`, `resource-boundaries.md`, `skill-ir-method.md`, `output-eval-method.md`, `review-studio-method.md`, `artifact-design-doctrine.md`, `governance.md`, `skillops-decision-policy.md`, `systems-thinking-doctrine.md`, `prompt-engineering-doctrine.md`, `gate-selection.md`, `authoring-discipline.md` |
 
-限制:
+原始审查限制:
 
 - 未运行 fresh-source subagent eval；本次没有修改目标 skill source。
 - 未运行 Jest；本次只新增 `think/` 本地建议文档。

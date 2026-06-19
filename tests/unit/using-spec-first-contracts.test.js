@@ -10,6 +10,15 @@ const { inspectInstalledAssets, syncSkills } = require('../../src/cli/plugin');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'using-spec-first', 'SKILL.md');
+const USING_SPEC_FIRST_REFERENCES = [
+  'scenario-fingerprint-routing.md',
+  'user-next-step-guide-mode.md',
+  'multi-session-awareness.md',
+  'codex-startup-reminder-boundary.md',
+  'routing-red-flags.md',
+  'output-risk-profile.md',
+  'maintenance-and-fresh-source-eval.md',
+];
 const GOVERNANCE_PATH = path.join(
   REPO_ROOT,
   'src',
@@ -29,9 +38,22 @@ function expectContainsAll(content, snippets) {
   }
 }
 
+function readUsingSpecFirstPackage() {
+  return [
+    read(SKILL_PATH),
+    ...USING_SPEC_FIRST_REFERENCES.map((fileName) => read(path.join(
+      REPO_ROOT,
+      'skills',
+      'using-spec-first',
+      'references',
+      fileName,
+    ))),
+  ].join('\n');
+}
+
 describe('using-spec-first contracts', () => {
   test('source skill defines the entry-governor contract', () => {
-    const skill = read(SKILL_PATH);
+    const skill = readUsingSpecFirstPackage();
 
     expectContainsAll(skill, [
       'name: using-spec-first',
@@ -89,7 +111,7 @@ describe('using-spec-first contracts', () => {
       'active `CLAUDE.md` / `AGENTS.md` `spec-first:lang` block sets English',
       'Recommended entrypoint',
       'reply `continue` to run it now',
-      'Use the Routing Priority and Routing Rules below as the source of truth',
+      'Use the Routing Priority and Routing Rules in `skills/using-spec-first/SKILL.md` as the source of truth',
       'Use the exact current-host public entrypoint those rules select',
       'Low-confidence cases need one narrow confirmation before routing',
       'a change could be either a bug fix or a product behavior change',
@@ -179,6 +201,14 @@ describe('using-spec-first contracts', () => {
       '$spec-work',
       'Ordinary execution-ready work routes to the stable work entrypoint.',
       'skills/using-spec-first/evals/routing-cases.json',
+      'skills/using-spec-first/evals/routing-discipline-cases.json',
+      'skills/using-spec-first/references/scenario-fingerprint-routing.md',
+      'skills/using-spec-first/references/user-next-step-guide-mode.md',
+      'skills/using-spec-first/references/multi-session-awareness.md',
+      'skills/using-spec-first/references/codex-startup-reminder-boundary.md',
+      'skills/using-spec-first/references/routing-red-flags.md',
+      'skills/using-spec-first/references/output-risk-profile.md',
+      'skills/using-spec-first/references/maintenance-and-fresh-source-eval.md',
       'not a deterministic router',
     ]);
 
@@ -196,6 +226,18 @@ describe('using-spec-first contracts', () => {
     expect(skill).not.toContain('$spec-next');
     expect(skill).not.toContain('/spec:guide');
     expect(skill).not.toContain('$spec-guide');
+  });
+
+  test('using-spec-first references are source package assets, not decorative files', () => {
+    const skill = read(SKILL_PATH);
+
+    for (const fileName of USING_SPEC_FIRST_REFERENCES) {
+      const relativePath = `skills/using-spec-first/references/${fileName}`;
+      const absolutePath = path.join(REPO_ROOT, relativePath);
+
+      expect(fs.existsSync(absolutePath)).toBe(true);
+      expect(skill).toContain(relativePath);
+    }
   });
 
   test('skills governance exposes using-spec-first as a standalone meta skill on both hosts', () => {
@@ -220,6 +262,7 @@ describe('using-spec-first contracts', () => {
 
   test('runtime transforms preserve internal guidance text when transformed directly', () => {
     const sourceSkill = read(SKILL_PATH);
+    const sourcePackage = readUsingSpecFirstPackage();
     const claude = new ClaudeAdapter();
     const codex = new CodexAdapter();
     const claudeRuntime = claude.transformSkillContent(sourceSkill);
@@ -253,6 +296,9 @@ describe('using-spec-first contracts', () => {
     expect(claudeRuntime).toContain('推荐入口: <current-host entrypoint>');
     expect(codexRuntime).toContain('Next action');
     expect(codexRuntime).toContain('This mode is read-only.');
+    expect(sourcePackage).toContain('Version reminders point to running `spec-first update` in the terminal');
+    expect(sourcePackage).toContain('Low-confidence cases need one narrow confirmation before routing');
+    expect(sourcePackage).toContain('Direct editing is fine for clearly scoped, low-risk small edits');
     expect(claudeRuntime).toContain('Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`');
     expect(claudeRuntime).toContain('Codex installs it as `.agents/skills/using-spec-first/SKILL.md`');
     expect(codexRuntime).toContain('Claude Code installs it as `.claude/skills/using-spec-first/SKILL.md`');

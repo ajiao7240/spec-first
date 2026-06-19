@@ -4,6 +4,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { buildBootstrapBlock } = require('../../src/cli/instruction-bootstrap');
+const {
+  normalizeFixtureFile,
+  validateNormalizedCases,
+} = require('../../skills/spec-skill-audit/scripts/eval-fixture-normalizer');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const USING_SPEC_FIRST_EXAMPLES = path.join(
@@ -24,6 +28,13 @@ const USING_SPEC_FIRST_ROUTING_CASES = path.join(
   'using-spec-first',
   'evals',
   'routing-cases.json',
+);
+const USING_SPEC_FIRST_ROUTING_DISCIPLINE_CASES = path.join(
+  REPO_ROOT,
+  'skills',
+  'using-spec-first',
+  'evals',
+  'routing-discipline-cases.json',
 );
 const PLACEHOLDER_PATTERN = /\b(?:TODO|TBD|foo|bar)\b|example 1/i;
 
@@ -187,5 +198,35 @@ describe('prompt examples baseline contracts', () => {
     expect(codexBootstrap).toContain('ask for `subagents` or `personas` in the request');
     expect(JSON.stringify(examplesPayload)).toContain('dispatch_authorization_missing');
     expect(JSON.stringify(examplesPayload)).toContain('not host-level subagent tools');
+  });
+
+  test('using-spec-first routing discipline cases are canonical output-eval fixtures', () => {
+    const payload = readJson(USING_SPEC_FIRST_ROUTING_DISCIPLINE_CASES);
+    const skillPrompt = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'using-spec-first', 'SKILL.md'), 'utf8');
+    const normalized = normalizeFixtureFile({
+      repoRoot: REPO_ROOT,
+      filePath: 'skills/using-spec-first/evals/routing-discipline-cases.json',
+      skillId: 'using-spec-first',
+    });
+    const errors = validateNormalizedCases(normalized, { repoRoot: REPO_ROOT });
+
+    expect(payload.schema_version).toBe('spec-first.workflow-eval-fixtures.v1');
+    expect(payload.skill).toBe('using-spec-first');
+    expect(skillPrompt).toContain('skills/using-spec-first/evals/routing-discipline-cases.json');
+    expect(errors).toEqual([]);
+    expect(normalized.length).toBeGreaterThanOrEqual(6);
+
+    const casesById = new Map(normalized.map((entry) => [entry.id, entry]));
+    expect(casesById.get('automatic-chain-pressure-stays-single-entrypoint').forbidden_signals)
+      .toEqual(expect.arrayContaining(['Automatically chains multiple workflows']));
+    expect(casesById.get('codex-doc-review-admission-not-dispatch-authorization').coverage_tags)
+      .toEqual(expect.arrayContaining(['dispatch-boundary']));
+    expect(casesById.get('codex-doc-review-admission-not-dispatch-authorization').extensions)
+      .toMatchObject({
+        dispatch_decision: 'fallback',
+        fallback_reason: 'dispatch_authorization_missing',
+      });
+    expect(casesById.get('stale-setup-does-not-hijack-lightweight-docs-work').forbidden_signals)
+      .toEqual(expect.arrayContaining(['Forces $spec-mcp-setup before answering a lightweight docs question']));
   });
 });

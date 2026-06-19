@@ -33,6 +33,20 @@ When editing or reviewing this routing prompt, or when running fresh-source eval
 
 For lightweight-route regressions, also read `skills/using-spec-first/evals/routing-cases.json`. These cases are machine-judgable guardrails for direct-answer, bounded-read, and explicit-route outcomes; they are not a deterministic router or a replacement for LLM judgment.
 
+For routing-discipline regressions, read `skills/using-spec-first/evals/routing-discipline-cases.json`. These cases target multi-intent conflict, automatic chaining pressure, standalone/internal helper confusion, dispatch authorization, parent-workspace write scope, and setup-hijack boundaries; they are structural output-eval fixtures, not a runtime router.
+
+## Reference Files
+
+Keep this `SKILL.md` focused on trigger, output, and branch-selection posture. Read references only when their boundary is directly relevant:
+
+- `skills/using-spec-first/references/scenario-fingerprint-routing.md`: when `.spec-first/workspace/scenario-fingerprint*.json` already exists or setup/workspace state affects route trust.
+- `skills/using-spec-first/references/user-next-step-guide-mode.md`: when the user asks what to run next, which workflow applies, or asks for guide-only output.
+- `skills/using-spec-first/references/multi-session-awareness.md`: before substantial file-writing work when opt-in session records may affect coordination disclosure.
+- `skills/using-spec-first/references/codex-startup-reminder-boundary.md`: before a top-level Codex orchestrator enters a public `$spec-*` workflow and startup reminder evidence may be relevant.
+- `skills/using-spec-first/references/routing-red-flags.md`: when editing or reviewing routing posture and anti-rationalization reminders.
+- `skills/using-spec-first/references/output-risk-profile.md`: when editing, reviewing, or evaluating this routing skill; it names likely output failures and matching checks.
+- `skills/using-spec-first/references/maintenance-and-fresh-source-eval.md`: when changing this skill, host bootstrap prose, dispatch boundaries, route map entries, or source/runtime guidance.
+
 ## Source Of Truth And Runtime Surface
 
 `skills/using-spec-first/SKILL.md` is the source-of-truth routing policy.
@@ -102,22 +116,13 @@ For source changes, update source-of-truth files, the narrowest contract tests, 
 
 ## Multi-Session Awareness
 
-Before substantial work that will write files, optionally check whether other agent sessions are currently active in the same worktree. The check is read-only and uses the opt-in advisory protocol defined in `docs/contracts/sessions/spec-first-session.md`:
+Before substantial work that will write files, optionally check whether other agent sessions are currently active in the same worktree. This disclosure is advisory only, never a hard gate, and it uses the opt-in protocol in `docs/contracts/sessions/spec-first-session.md`.
 
 ```bash
 spec-first session list --json
 ```
 
-If `active_count` is 0 or the command returns "0 active", proceed normally — single-actor mode is the default and this disclosure is not needed.
-
-If `active_count >= 2`, emit one short advisory line in the user-facing response before continuing, naming the count and one concrete next-action choice. Do not block, do not lock, do not auto-defer. The LLM decides whether to proceed in parallel with disclosure or to coordinate. Examples of valid advisory phrasing:
-
-- "另一个 session 正在 work；继续即可，写入冲突会被 `concurrent-write-detected` 兜住，或者用 `git-worktree` 隔离开。"
-- "Detected 2 active sessions in this worktree. Proceeding; consider `spec-first session register` for visibility, or use a separate `git-worktree` to isolate."
-
-`spec-first session list` returning a non-zero exit, missing binary, missing `.spec-first/sessions/` directory, or an empty list are all equivalent to single-actor mode. Do not derive judgment from the absence of session records — register is opt-in. Do not invent fallback heuristics from `git status --porcelain` external-mtime patterns; that belongs to the writer-side fingerprint detection, not to guide-mode disclosure.
-
-This disclosure is **never** a hard gate. It does not run as part of headless / autofix / programmatic flows where the response shape is fixed. It is also unnecessary when this skill is being invoked from inside a bounded subagent that has already accepted the parent's scope.
+If `active_count >= 2`, emit one short advisory line naming the count and a concrete next-action choice. Do not block, do not lock, do not auto-defer — the LLM decides whether to proceed in parallel with disclosure or to coordinate. For active_count interpretation, missing-command behavior, wording examples, and subagent/headless exclusions, read `skills/using-spec-first/references/multi-session-awareness.md`.
 
 ## Decision Output Contract
 
@@ -153,53 +158,13 @@ Use a compact, user-visible shape so the answer is easy to scan:
 下一步: <one action the user can take now>
 ```
 
-In repositories whose active `CLAUDE.md` / `AGENTS.md` `spec-first:lang` block sets English, use the same three fields as `Recommended entrypoint`, `Reason`, and `Next action`. The next action should be a copy-ready workflow invocation or a short continuation phrase such as "reply `continue` to run it now". Do not start the selected workflow from guide mode unless the user explicitly asks to continue with that workflow.
-
-Use the Routing Priority and Routing Rules below as the source of truth. Use the exact current-host public entrypoint those rules select.
-
-High-confidence guide cases may recommend without confirmation after naming the chosen route:
-
-- clear failures, stack traces, or test failures -> debug
-- clear code, PR, diff, requirements, plan, or markdown review requests -> code review or doc review based on the artifact
-- clear setup, host readiness, MCP, update, or runtime repair requests -> setup or update based on the repair target
-- existing plan, task pack, or implementation-ready task -> work
-
-Low-confidence cases need one narrow confirmation before routing:
-
-- idea generation vs requirement shaping vs execution planning is unclear
-- a change could be either a bug fix or a product behavior change
-- the user may need a durable artifact, but it is not clear whether that artifact should be requirements, a plan, tasks, or review notes
-- a workflow just finished, but its handoff context is unavailable or conflicts with the new request
-
-When the user asks "what next?" after a workflow:
-
-- If an active workflow has an explicit handoff, follow that workflow's handoff.
-- If a brainstorm requirements document exists and implementation direction is not yet planned, recommend plan.
-- If a plan or validated task pack exists and the work is implementation-ready, recommend work.
-- If there is an existing diff and the user asks whether it is ready, recommend code review or doc review based on the artifact.
-- After init, prefer setup/readiness guidance only when the user asks about setup/readiness, missing runtime assets, MCP setup, or a workflow is blocked by unavailable tools.
-- After init, when runtime or MCP readiness is unresolved but the user has a clear lightweight docs, small-code, plan, work, or review goal, route by that goal and require the selected workflow to disclose degraded setup/MCP evidence when relevant.
+In English-language repos, use `Recommended entrypoint`, `Reason`, and `Next action`. Do not start the selected workflow from guide mode unless the user explicitly asks to continue with that workflow. For confidence rules, post-workflow "what next?" handling, and after-init setup tie-breaks, read `skills/using-spec-first/references/user-next-step-guide-mode.md`.
 
 ## Scenario Fingerprint Routing
 
-When `.spec-first/workspace/scenario-fingerprint.json` or `.spec-first/workspace/scenario-fingerprint-setup.json` is already present, treat it as advisory deterministic context for guide mode and entry routing. Prefer the bootstrap layer (`developer-scenario-fingerprint.v1`) over the setup layer (`developer-scenario-fingerprint-setup.v1`). If only the setup layer exists, use it with the limitation that bootstrap-only fields are unavailable. Do not run setup, clean, external-tool commands, or runtime regeneration just to create a fingerprint from this entry governor.
+When `.spec-first/workspace/scenario-fingerprint.json` or `.spec-first/workspace/scenario-fingerprint-setup.json` is already present, treat it as advisory deterministic context for guide mode and entry routing. Do not run setup, clean, external-tool commands, or runtime regeneration just to create a fingerprint from this entry governor.
 
-Scenario fingerprints are not gates, approvals, or source scope authority. Read their independent dimensions and scenario class as routing evidence for the current user intent; do not collapse them into a single risk score. The route output still remains one entrypoint, one reason, and one next action.
-
-Use this compatibility rule before the priority checks:
-
-- If the fingerprint is missing and setup artifacts exist, add one advisory line that rerunning `$spec-mcp-setup` / `/spec:mcp-setup` will refresh the workspace scenario fingerprint, then continue normal routing by user intent.
-- If the fingerprint is missing and no setup artifacts exist, recommend `$spec-mcp-setup` / `/spec:mcp-setup` for setup/readiness or "what next?" requests. For clearly lightweight work, route by intent and mention missing scenario evidence only when it affects trust in setup/MCP facts.
-
-Apply these scenario-aware checks in priority order, then fall back to the ordinary Routing Rules:
-
-1. `state_class=foreign-residual-workspace` or non-empty `foreign_residual_indicators[]`: route to the current repair owner before downstream work. Recommend `spec-first clean --workspace-orphans` as the preview-first inspection step, then `spec-first clean --workspace-orphans --confirm` only when the user explicitly wants to delete the quarantined parent artifacts; pair cleanup with `spec-first init` or `$spec-mcp-setup` / `/spec:mcp-setup` when setup facts or generated runtime guidance must be refreshed.
-2. `state_class=first-time-git-repo`: recommend `$spec-mcp-setup` / `/spec:mcp-setup` when the user is asking for setup/readiness or wants durable setup facts before downstream work.
-3. `complexity_dimensions.git_alignment_broken=true` and the user is asking for impact analysis, review, refactor, or cross-module reasoning: disclose the coverage blind spot and prefer bounded direct reads; do not claim full workspace coverage.
-4. `complexity_dimensions.worktree_dirty_source_affecting=true` and the user is asking for commit, PR, review, or impact: mention the bounded dirty path sample when present and ask the selected downstream workflow to disclose dirty evidence.
-5. None of the above: route normally by the user's immediate intent.
-
-If `freshness.stale_setup_layer=true`, add one advisory line recommending rerunning `$spec-mcp-setup` / `/spec:mcp-setup`; do not block ordinary routing solely for stale setup-layer evidence.
+Scenario fingerprints are not gates, approvals, or source scope authority. Route output still remains one entrypoint, one reason, and one next action. For layer priority, missing-artifact compatibility, scenario-aware checks, and foreign residual repair wording, read `skills/using-spec-first/references/scenario-fingerprint-routing.md`.
 
 ## Routing Rules
 
@@ -294,11 +259,7 @@ When a top-level Codex orchestrator is about to route into a public `$spec-*` wo
 spec-first startup-reminder --codex
 ```
 
-This is a read-only best-effort check. Missing CLI, command failure, network failure, empty output, or malformed local state must be ignored and must not block workflow routing.
-
-If the command prints a reminder, surface that reminder and continue routing. Version reminders point to running `spec-first update` in the terminal, where the user decides whether to upgrade; they must not install packages, refresh runtime assets, or restart Codex.
-
-Bounded subagents, leaf reviewers, and worker agents must not run the startup reminder or write reminder cooldown state. They inherit the parent task scope.
+This is a read-only best-effort check. Missing CLI, command failure, network failure, empty output, or malformed local state must be ignored and must not block workflow routing. Bounded subagents, leaf reviewers, and worker agents must not run the startup reminder. For reminder surfacing, version-update wording, and cooldown-state boundaries, read `skills/using-spec-first/references/codex-startup-reminder-boundary.md`.
 
 ### Injection Behavior
 
@@ -324,15 +285,7 @@ If this guidance has already been injected through `CLAUDE.md`, `AGENTS.md`, or 
 
 ## Routing Red Flags
 
-| Thought | Better move |
-| --- | --- |
-| "I'll just edit the file first." | Direct editing is fine for clearly scoped, low-risk small edits; stop and route when scope/risk is unclear, root cause is unresolved, or the change touches architecture, contracts, governance, runtime delivery, multi-file behavior, or sensitive surfaces. |
-| "This is just a quick architecture/prompt change." | Treat architecture, prompt, workflow, and contract changes as substantial work. |
-| "I need to inspect a bunch of files before deciding." | Do a minimal fact check only; route if the request is already clearly review/debug/plan/work. |
-| "The user asked for a review, but I can answer informally." | Use `code-review` or `doc-review` when the review target is concrete. |
-| "The task is vague, but I can probably implement something." | Use `brainstorm` or `plan` before work. |
-| "A helper skill exists, so I should expose it." | Only public workflows are user entrypoints; internal helpers stay hidden. |
-| "I should run init/update now." | Route to `update` or `setup` first unless the user explicitly requested the command. |
+Anti-rationalization reminders are advisory, not a deterministic router. Direct editing is fine for clearly scoped, low-risk small edits; stop and route when scope/risk is unclear, root cause is unresolved, or the change touches architecture, contracts, governance, runtime delivery, multi-file behavior, or sensitive surfaces. For the full red-flag table, read `skills/using-spec-first/references/routing-red-flags.md`.
 
 ## Artifact And Evidence Boundaries
 
