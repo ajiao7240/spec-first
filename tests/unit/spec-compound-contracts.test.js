@@ -252,6 +252,19 @@ describe('spec-compound host entrypoint contract', () => {
     expect(command).not.toContain('Load `skills/spec-compound-refresh/references/per-action-flows.md`');
   });
 
+  test('validator invocation carries a loud-convention degraded mode (no silent skip when script cannot run)', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const reference = fs.readFileSync(COMPOUND_REFRESH_PER_ACTION_FLOWS_PATH, 'utf8');
+
+    for (const text of [skill, reference]) {
+      expect(text).toContain('validator unavailable: <reason>');
+      expect(text).toContain('do not silently skip');
+      expect(text).toContain('manually verify the same scope the script covers');
+      // The manual fallback must stay scoped to the script's exact three checks.
+      expect(text).toContain('Keep the manual check to exactly these three');
+    }
+  });
+
   test('compound and refresh templates include structured recall promotion fields', () => {
     const templates = [
       fs.readFileSync(COMPOUND_RESOLUTION_TEMPLATE_PATH, 'utf8'),

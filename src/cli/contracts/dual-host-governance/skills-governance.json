@@ -124,17 +124,6 @@
       }
     },
     {
-      "skill_name": "lfg",
-      "entry_surface": "internal_only",
-      "command_name": null,
-      "host_scope": "dual_host",
-      "owner_host": null,
-      "host_delivery": {
-        "claude": "internal",
-        "codex": "internal"
-      }
-    },
-    {
       "skill_name": "proof",
       "entry_surface": "internal_only",
       "command_name": null,

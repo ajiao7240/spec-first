@@ -158,7 +158,6 @@ describe('using-spec-first contracts', () => {
       'This skill should not ask the agent to fabricate command results',
       'Do not use this governor to create pseudo-plan, pseudo-task, or pseudo-review artifacts.',
       'Do **not** expose internal-only skills as user entrypoints.',
-      'legacy/internal `lfg`',
       '`git-worktree`',
       'using-spec-first` itself is a standalone meta skill',
       '/spec:doc-review',
@@ -179,7 +178,6 @@ describe('using-spec-first contracts', () => {
       '/spec:work',
       '$spec-work',
       'Ordinary execution-ready work routes to the stable work entrypoint.',
-      'Legacy/internal `lfg` must not be recommended as a public workflow path.',
       'skills/using-spec-first/evals/routing-cases.json',
       'not a deterministic router',
     ]);

@@ -305,7 +305,6 @@ describe('spec-code-review CE sync contracts', () => {
     const files = [
       path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'tracker-defer.md'),
       path.join(__dirname, '..', '..', 'skills', 'spec-work', 'references', 'tracker-defer.md'),
-      path.join(__dirname, '..', '..', 'skills', 'lfg', 'references', 'tracker-defer.md'),
     ];
 
     for (const filePath of files) {
@@ -329,7 +328,6 @@ describe('spec-code-review CE sync contracts', () => {
     const files = [
       path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'tracker-defer.md'),
       path.join(__dirname, '..', '..', 'skills', 'spec-work', 'references', 'tracker-defer.md'),
-      path.join(__dirname, '..', '..', 'skills', 'lfg', 'references', 'tracker-defer.md'),
     ];
 
     for (const filePath of files) {

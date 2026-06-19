@@ -282,7 +282,7 @@ If the user explicitly asks for report-only/no-agents mode, the host lacks a dis
 - In Codex, `$spec-doc-review` means the document-review workflow. It uses bounded reviewer dispatch only when the current request also satisfies Codex `spawn_agent` authorization; otherwise it follows the documented fallback.
 - `using-spec-first` itself is a standalone meta skill, not a `/spec:*` or `$spec-*` workflow entrypoint.
 - `spec-write-tasks` is a standalone skill for optional plan-to-task-pack compilation, not a `/spec:*` or `$spec-*` workflow entrypoint.
-- Internal-only skills remain source/runtime support assets, not menu items. Legacy/internal `lfg` must not be recommended as a public workflow path.
+- Internal-only skills remain source/runtime support assets, not menu items. Do not recommend them as public workflow paths.
 
 ### Codex Startup Reminder Boundary
 
@@ -318,7 +318,7 @@ If this guidance has already been injected through `CLAUDE.md`, `AGENTS.md`, or 
 5. Do **not** describe `using-spec-first` itself as a command-backed workflow.
 6. Do **not** write Codex entrypoints as `/spec:*`.
 7. Do **not** write Claude workflow entrypoints as `$spec-*`.
-8. Do **not** expose internal-only skills as user entrypoints. This includes legacy/internal `lfg` and delegated helpers such as `git-worktree`.
+8. Do **not** expose internal-only skills as user entrypoints. This includes delegated helpers such as `git-worktree`.
 9. Do **not** route to hidden helper skills such as git, browser, image, proof, xcode, or bug-report helpers unless a public workflow explicitly delegates to them.
 10. Do **not** run `spec-first init`, `clean`, update, or other state-changing commands just because this governor matched; first route to the appropriate workflow or ask a narrow confirmation when required.
 

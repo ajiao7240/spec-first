@@ -6,7 +6,7 @@
 
 ```mermaid
 flowchart LR
-  Code[代码变更 / Diff] --> Review[/spec:code-review/]
+  Code[代码变更 / Diff] --> Review["/spec:code-review/"]
   Review --> Findings[结构化 Findings]
   Review --> Fixes[safe_auto 修复队列]
   Review --> Residual[Residual Actionable Work]
@@ -14,7 +14,7 @@ flowchart LR
   Findings --> PR[PR 准备或人工评审]
   Residual --> Work[后续 downstream-resolver]
   Coverage --> Quality[质量判断与风险披露]
-  Review -. advisory only .-> Compound[/spec:compound/ 知识沉淀建议]
+  Review -. advisory only .-> Compound["/spec:compound/ 知识沉淀建议"]
 ```
 
 上图只表达本页边界内的审查产物流向：`spec-code-review` 可以向 `spec-work`、PR 准备、人类 reviewer 或 `spec-compound` 提供下游输入，但它不拥有提交、推送、创建 PR 或自动运行知识沉淀的决策权。Sources: [SKILL.md](skills/spec-code-review/SKILL.md#L41-L43), [SKILL.md](skills/spec-code-review/SKILL.md#L156-L163), [SKILL.md](skills/spec-code-review/SKILL.md#L172-L183), [SKILL.md](skills/spec-code-review/SKILL.md#L852-L856)

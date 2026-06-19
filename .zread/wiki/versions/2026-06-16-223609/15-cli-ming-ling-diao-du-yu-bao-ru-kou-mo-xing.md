@@ -9,7 +9,7 @@ flowchart TD
   A[npm / npx / 全局 shell: spec-first] --> B[package.json bin 映射]
   B --> C[bin/spec-first.js]
   C --> D[Node 20+ 版本门禁]
-  D --> E[src/cli/index.js runCli(argv)]
+  D --> E["src/cli/index.js runCli(argv)"]
   E --> F{包级命令?}
   F -->|doctor/init/clean/update| G[用户可见维护命令]
   F -->|tasks/session/repair-worktree| H[辅助治理命令]

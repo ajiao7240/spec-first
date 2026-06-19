@@ -35,6 +35,15 @@ describe('spec-debug branch-aware handoff contract', () => {
     expect(text).toContain('Re-read only when exact wording is needed');
     expect(text).toContain('single explicit `target_repo` or per-fix repo scope');
     expect(text).toContain('do not let cwd or broad workspace discovery choose a sibling repo for edits');
+    // docs/solutions recall is wired into orientation as default-on, anchored on the precise
+    // fast-path carve-out (not a fuzzy up-front guess); direct flat scan is the default mechanism
+    // and subagent dispatch is an OQ-2-gated upgrade, so high-frequency debug pays no subagent cost.
+    expect(text).toContain('By default, include `docs/solutions/` recall as an orientation source');
+    expect(text).toContain('directly scan `docs/solutions/` frontmatter');
+    expect(text).toContain('do not spawn a recall subagent for this');
+    expect(text).toContain('Skip recall only when the bug already qualifies for the Trivial-bug fast-path');
+    expect(text).toContain('judge candidate relevance after recall returns, not before');
+    expect(text).toContain('Dispatching `spec-learnings-researcher` instead of a direct scan is an upgrade reserved for when the corpus grows');
     expect(text).toContain('Direct Debug Evidence Boundary');
     expect(text).toContain('Debug does not require external-tool readiness before investigation.');
     expect(text).toContain('Use reproduction, direct source reads, `rg`, ast-grep, git diff, focused tests, runtime probes, logs, and user-provided artifacts');
