@@ -61,6 +61,7 @@ logs/
 .spec-first/ci/
 .spec-first/cache/
 .spec-first/tools/
+.spec-first/tmp-review/
 
 # Provider runtime data (CodeGraph daemon db/log) — runtime facts, not source
 .codegraph/
