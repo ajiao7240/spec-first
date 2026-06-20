@@ -71,7 +71,7 @@ function isRuntimeResolvable(skillName, governanceByName) {
 
 describe('source→runtime helper resolvability (workflow skill delegations)', () => {
   // 范围边界:本 verifier 只治理「load/invoke/use/run the `X` skill」式 runtime skill-loading 委托。
-  // 不覆盖 slash-command 风格的内部 skill 互调(如 agent-native-audit 用 `/agent-native-architecture`
+  // 不覆盖 slash-command 风格的历史内部 skill 互调。
   // 调用同族 skill);该族 skill 两端都 internal_only+skipped、自成一对,不经 runtime skill-loading 解析。
   test('every "Load the X skill" delegation is runtime-delivered or registered host-provided', () => {
     const governanceByName = loadGovernanceSkillNames();

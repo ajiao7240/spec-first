@@ -22,9 +22,33 @@
       "id": "action-parity-audit-mapping",
       "user_intent": "Use the audit helper to check action parity against the architecture skill.",
       "coverage_tags": ["action-parity-audit-mapping", "taxonomy-mapping", "expected"],
-      "expected_posture": "Read the source architecture skill and the direct action parity reference path; keep the audit-specific eight-principle scoring as an adapter to the canonical taxonomy rather than a second taxonomy.",
-      "forbidden_signals": ["Invokes /agent-native-architecture", "Depends on a numbered intake-menu option for action parity", "Introduces a new top-level principle list without mapping to the canonical taxonomy"],
-      "source_refs": ["skills/agent-native-audit/SKILL.md", "skills/agent-native-architecture/SKILL.md#Canonical-Taxonomy"]
+      "expected_posture": "Read the source architecture skill, the audit playbook, and the direct action parity reference path; keep the audit-specific eight-principle scoring as an adapter to the canonical taxonomy rather than a second taxonomy.",
+      "forbidden_signals": ["Invokes /agent-native-architecture", "Depends on a numbered intake-menu option for action parity", "Introduces a new top-level principle list without mapping to the canonical taxonomy", "Treats agent-native-audit as a standalone current skill"],
+      "source_refs": ["skills/agent-native-architecture/references/audit-playbook.md", "skills/agent-native-architecture/SKILL.md#Canonical-Taxonomy"]
+    },
+    {
+      "id": "skill-quality-near-neighbor",
+      "user_intent": "Audit whether this SKILL.md has clear triggers, output contract, eval readiness, and runtime governance.",
+      "coverage_tags": ["near-neighbor", "skill-quality-boundary", "spec-skill-audit-handoff", "expected"],
+      "expected_posture": "Do not run the agent-native audit playbook. Route skill/source governance review to spec-skill-audit because the requested object is skill quality, not app-level agent-native architecture.",
+      "forbidden_signals": ["Runs the eight agent-native app audit lenses", "Scores UI integration or CRUD completeness for a SKILL.md", "Treats spec-skill-audit as an agent-native architecture reference"],
+      "source_refs": ["skills/spec-skill-audit/SKILL.md", "skills/agent-native-architecture/references/audit-playbook.md"]
+    },
+    {
+      "id": "code-review-parity-near-neighbor",
+      "user_intent": "Review this PR to see whether a new UI feature forgot the matching agent tool.",
+      "coverage_tags": ["near-neighbor", "code-review-boundary", "spec-agent-native-reviewer-handoff", "expected"],
+      "expected_posture": "Use spec-code-review and its spec-agent-native-reviewer for PR/diff review; reserve the audit playbook for full-codebase app architecture audits delegated by an upstream workflow.",
+      "forbidden_signals": ["Runs a full-codebase eight-lens audit for a narrow PR review", "Bypasses spec-code-review reviewer context", "Creates a public agent-native-audit route"],
+      "source_refs": ["skills/spec-code-review/SKILL.md", "agents/spec-agent-native-reviewer.agent.md", "skills/agent-native-architecture/references/audit-playbook.md"]
+    },
+    {
+      "id": "merged-audit-helper-boundary",
+      "user_intent": "Run agent-native-audit on this project.",
+      "coverage_tags": ["merged-helper-boundary", "internal-only", "audit-playbook-routing", "expected"],
+      "expected_posture": "State that agent-native-audit is no longer a standalone skill surface; for a bounded full-codebase agent-native audit, read agent-native-architecture and references/audit-playbook.md, otherwise hand off to the appropriate public workflow.",
+      "forbidden_signals": ["Claims skills/agent-native-audit/SKILL.md is the current source of truth", "Invents a $spec-agent-native-audit workflow", "Edits generated runtime mirrors to restore the removed helper"],
+      "source_refs": ["skills/agent-native-architecture/SKILL.md", "skills/agent-native-architecture/references/audit-playbook.md", "src/cli/contracts/dual-host-governance/skills-governance.json"]
     },
     {
       "id": "provider-neutral-external-absorption",

@@ -40,7 +40,6 @@ describe('CE-lineage dispatch boundary contracts', () => {
       'spec-optimize',
       'resolve-pr-feedback',
       'spec-work',
-      'agent-native-audit',
       'spec-compound',
       'spec-compound-refresh',
       'spec-brainstorm',
@@ -67,7 +66,7 @@ describe('CE-lineage dispatch boundary contracts', () => {
       'skills/resolve-pr-feedback/SKILL.md',
       'skills/spec-work/SKILL.md',
       'skills/spec-optimize/SKILL.md',
-      'skills/agent-native-audit/SKILL.md',
+      'skills/agent-native-architecture/references/audit-playbook.md',
     ].map(read).join('\n');
 
     expect(combined).not.toMatch(/Codex cannot dispatch/i);
@@ -163,18 +162,18 @@ describe('CE-lineage dispatch boundary contracts', () => {
     expect(optimize).toContain('The orchestrator owns final integration');
   });
 
-  test('internal helper audit is capability-gated with sequential fallback', () => {
-    const text = read('skills/agent-native-audit/SKILL.md');
+  test('agent-native audit playbook is capability-gated with sequential fallback', () => {
+    const text = read('skills/agent-native-architecture/references/audit-playbook.md');
 
-    expect(text).toContain('internal helper skill');
-    expect(text).toContain('not a public `spec-*` workflow entrypoint');
-    expect(text).toContain('Launch 8 parallel sub-agents when the host exposes a dispatch primitive');
+    expect(text).toContain('full-codebase audit adapter');
+    expect(text).toContain('not a standalone public workflow or skill entrypoint');
+    expect(text).toContain('Launch 8 parallel read-only subagents when the host exposes a dispatch primitive');
     expect(text).toContain('If dispatch is unavailable, explicitly disabled, or unsafe');
-    expect(text).not.toContain('If dispatch is unavailable or explicitly disabled');
+    expect(text).not.toContain('If dispatch is unavailable or explicitly disabled, run');
     expect(text).toContain('run the eight principle audits sequentially in the current agent');
-    expect(text).toContain('Sub-agents are read-only explorers.');
+    expect(text).toContain('Subagents are read-only explorers.');
     expect(text).toContain('Keep parallelism bounded to these eight principles');
-    expect(text).toContain('All 8 principle audits complete, whether via parallel sub-agents or sequential current-agent fallback');
+    expect(text).toContain('All 8 principle audits complete, whether via parallel subagents or sequential current-agent fallback');
     expect(text).not.toContain('All 8 sub-agents complete their audits');
   });
 

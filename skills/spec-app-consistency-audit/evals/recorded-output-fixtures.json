@@ -1,0 +1,90 @@
+{
+  "schema_version": "spec-app-consistency-audit-recorded-output-fixtures.v1",
+  "skill": "spec-app-consistency-audit",
+  "execution_kind": "recorded_fixture",
+  "description": "Minimal deterministic output fixtures for app-audit output contracts. These are file-backed recorded fixtures, not provider-backed model evidence or semantic quality proof.",
+  "source_refs": [
+    "skills/spec-app-consistency-audit/scripts/render-headless-envelope.js",
+    "skills/spec-app-consistency-audit/scripts/merge-contracts.js",
+    "skills/spec-app-consistency-audit/references/headless-runner.md",
+    "skills/spec-app-consistency-audit/references/mode-output-contract.md"
+  ],
+  "cases": [
+    {
+      "id": "no-raw-issues-not-run",
+      "input": "mode:headless run with no staged raw issues and no --raw-issues file.",
+      "coverage_tags": ["expected"],
+      "input_summary": "mode:headless run with no staged raw issues and no --raw-issues file.",
+      "expected_outcome": "Runner records issue_synthesis_status:not_run, keeps issues empty, and renders Awaiting LLM audit instead of inventing issues.",
+      "recorded_output": {
+        "issue_synthesis_status": "not_run",
+        "issues": [],
+        "rejected_issues": [],
+        "headless_envelope_contains": [
+          "Issue synthesis status: not_run",
+          "Verdict: Awaiting LLM audit",
+          "Awaiting LLM audit: no semantic issues produced; runner did not invent issues."
+        ]
+      },
+      "assertions": [
+        "runner_must_not_invent_issues",
+        "empty_issues_stay_empty",
+        "semantic_audit_status_remains_not_run"
+      ]
+    },
+    {
+      "id": "figma-reference-only-degraded",
+      "input": "mode:headless receives figma-ref without local figma-context JSON.",
+      "coverage_tags": ["expected", "failure"],
+      "input_summary": "mode:headless run receives figma-ref without local figma-context JSON.",
+      "expected_outcome": "Runner preserves input_figma_reference_only as degraded coverage and keeps design findings skipped or advisory.",
+      "recorded_output": {
+        "scope_and_degraded_modes": [
+          {
+            "code": "input_figma_reference_only",
+            "severity": "warning"
+          }
+        ],
+        "finding_posture": "design alignment findings remain skipped or advisory without local materialized context",
+        "headless_envelope_contains": [
+          "Degraded modes: input_figma_reference_only"
+        ]
+      },
+      "assertions": [
+        "degraded_mode_preserved",
+        "remote_figma_fetch_forbidden",
+        "unmaterialized_design_evidence_not_confirmed"
+      ]
+    },
+    {
+      "id": "code-review-handoff-consumable",
+      "input": "from:code-review issue artifact with project-specific evidence is normalized for downstream review.",
+      "coverage_tags": ["expected"],
+      "input_summary": "from:code-review issue artifact with project-specific evidence is normalized for downstream review.",
+      "expected_outcome": "Issue normalization preserves enabled code_review_handoff fields with severity, owner, verification, run id, and source issue id.",
+      "recorded_output": {
+        "issue_fields": {
+          "code_review_handoff": {
+            "enabled": true,
+            "severity": "P2",
+            "autofix_class": "manual",
+            "owner": "downstream-resolver",
+            "requires_verification": true,
+            "source_run_id": "20260502-recorded-output",
+            "source_issue_id": "APP-AUDIT-RECORDED-001"
+          }
+        },
+        "headless_envelope_contains": [
+          "Code-review handoff:",
+          "requires_verification=true"
+        ]
+      },
+      "assertions": [
+        "handoff_enabled",
+        "handoff_severity_present",
+        "handoff_requires_verification_preserved",
+        "handoff_source_ids_consumable"
+      ]
+    }
+  ]
+}

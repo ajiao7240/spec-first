@@ -8,15 +8,18 @@ const CodexAdapter = require('../../src/cli/adapters/codex');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills/agent-native-architecture/SKILL.md');
-const AUDIT_SKILL_PATH = path.join(REPO_ROOT, 'skills/agent-native-audit/SKILL.md');
+const EVALS_PATH = path.join(REPO_ROOT, 'skills/agent-native-architecture/evals/examples.json');
 const REFERENCES_DIR = path.join(REPO_ROOT, 'skills/agent-native-architecture/references');
+const AUDIT_PLAYBOOK_PATH = path.join(REFERENCES_DIR, 'audit-playbook.md');
 const CHECKLISTS_PATH = path.join(REFERENCES_DIR, 'checklists.md');
 const GOVERNANCE_PATH = path.join(REPO_ROOT, 'src/cli/contracts/dual-host-governance/skills-governance.json');
 const GUARDRAILS_PATH = path.join(REFERENCES_DIR, 'runtime-production-guardrails.md');
+const PRINCIPLES_PATH = path.join(REFERENCES_DIR, 'agent-native-principles.md');
 const TESTING_PATH = path.join(REFERENCES_DIR, 'agent-native-testing.md');
 const MCP_TOOL_DESIGN_PATH = path.join(REFERENCES_DIR, 'mcp-tool-design.md');
 const PRODUCT_IMPLICATIONS_PATH = path.join(REFERENCES_DIR, 'product-implications.md');
 const SELF_MODIFICATION_PATH = path.join(REFERENCES_DIR, 'self-modification.md');
+const LOCAL_MANIFEST_PATH = path.join(REPO_ROOT, 'skills/agent-native-architecture/manifest.json');
 const REVIEWER_AGENT_PATH = path.join(REPO_ROOT, 'agents/spec-agent-native-reviewer.agent.md');
 const BEST_PRACTICES_RESEARCHER_PATH = path.join(REPO_ROOT, 'agents/spec-best-practices-researcher.agent.md');
 const PERSONA_CATALOG_PATH = path.join(REPO_ROOT, 'skills/spec-code-review/references/persona-catalog.md');
@@ -83,19 +86,24 @@ describe('agent-native-architecture contracts', () => {
     expectNoPublicAgentNativeCommandReference(skill);
   });
 
-  test('source skill preserves identity and core agent-native architecture principles', () => {
+  test('source skill preserves identity and routes long principles to references', () => {
     const skill = read(SKILL_PATH);
+    const principles = read(PRINCIPLES_PATH);
 
     expect(skill).toContain('name: agent-native-architecture');
-    expect(skill).toContain('### 1. Parity');
-    expect(skill).toContain('### 2. Granularity');
-    expect(skill).toContain('### 3. Composability');
-    expect(skill).toContain('### 4. Emergent Capability');
-    expect(skill).toContain('### 5. Improvement Over Time');
+    expect(skill).toContain('references/agent-native-principles.md');
+    expect(skill).not.toContain('<why_now>');
+    expect(skill).not.toContain('<core_principles>');
+    expect(skill).not.toContain('<quick_start>');
 
-    expect(skill).toContain('Whatever the user can do through the UI, the agent should be able to achieve through tools.');
-    expect(skill).toContain('Features are outcomes achieved by an agent operating in a loop.');
-    expect(skill).toContain('Can you add a new feature by writing a new prompt section, without adding new code?');
+    expect(principles).toContain('### 1. Parity');
+    expect(principles).toContain('### 2. Granularity');
+    expect(principles).toContain('### 3. Composability');
+    expect(principles).toContain('### 4. Emergent Capability');
+    expect(principles).toContain('### 5. Improvement Over Time');
+    expect(principles).toContain('Whatever the user can do through the UI, the agent should be able to achieve through tools.');
+    expect(principles).toContain('Features are outcomes achieved by an agent operating in a loop.');
+    expect(principles).toContain('Can you add a new feature by writing a new prompt section, without adding new code?');
   });
 
   test('source skill exposes canonical taxonomy for adjacent assets', () => {
@@ -115,28 +123,44 @@ describe('agent-native-architecture contracts', () => {
     });
   });
 
-  test('source skill preserves intake routing and architecture checklist contracts', () => {
+  test('source skill preserves compact reference routing and architecture checklist contracts', () => {
     const skill = read(SKILL_PATH);
     const checklists = read(CHECKLISTS_PATH);
 
-    expect(skill).toContain('## What aspect of agent-native architecture do you need help with?');
-    expect(skill).toContain('1. **Design architecture**');
-    expect(skill).toContain('13. **Refactoring**');
-    expect(skill).toContain('**Wait for response before proceeding.**');
+    expect(skill).toContain('## Reference Routing');
+    expect(skill).toContain('Read only the track that matches the task');
 
-    const routing = sectionBetween(skill, '<routing>', '</routing>');
+    [
+      'references/agent-native-principles.md',
+      'references/architecture-patterns.md',
+      'references/files-universal-interface.md',
+      'references/shared-workspace-architecture.md',
+      'references/checklists.md',
+      'references/mcp-tool-design.md',
+      'references/from-primitives-to-domain-tools.md',
+      'references/system-prompt-design.md',
+      'references/dynamic-context-injection.md',
+      'references/agent-execution-patterns.md',
+      'references/action-parity-discipline.md',
+      'references/audit-playbook.md',
+      'references/runtime-production-guardrails.md',
+      'references/self-modification.md',
+      'references/product-implications.md',
+      'references/mobile-patterns.md',
+      'references/agent-native-testing.md',
+      'references/refactoring-to-prompt-native.md',
+    ].forEach((referencePath) => {
+      expect(skill).toContain(referencePath);
+    });
 
-    expect(skill).toContain('Read `references/architecture-patterns.md`');
-    expect(skill).toContain('Read `references/architecture-patterns.md` and `references/checklists.md`');
-    expect(skill).toContain('Read `references/mcp-tool-design.md`');
-    expect(skill).toContain('Read `references/agent-native-testing.md`');
-    expect(skill).toContain('references/checklists.md');
-    expect(routing).toContain('production');
-    expect(routing).toContain('external api');
-    expect(routing).toContain('references/runtime-production-guardrails.md');
+    expect(skill).toContain('For full-codebase agent-native architecture audits, read `references/audit-playbook.md`');
+    expect(skill).toContain('Production autonomy or self-modification');
+    expect(skill).toContain('evals/examples.json');
     expect(skill).not.toContain('<architecture_checklist>');
     expect(skill).not.toContain('<anti_patterns>');
     expect(skill).not.toContain('<success_criteria>');
+    expect(skill).not.toContain('## What aspect of agent-native architecture do you need help with?');
+    expect(skill).not.toContain('**Wait for response before proceeding.**');
 
     expect(checklists).toContain('## Architecture Review Checklist');
     expect(checklists).toContain('## Anti-Patterns');
@@ -160,8 +184,31 @@ describe('agent-native-architecture contracts', () => {
     expect(codexRuntime).toContain('name: agent-native-architecture');
     expect(claudeRuntime).toContain('references/checklists.md');
     expect(codexRuntime).toContain('references/checklists.md');
+    expect(claudeRuntime).toContain('references/audit-playbook.md');
+    expect(codexRuntime).toContain('references/audit-playbook.md');
     expect(claudeRuntime).not.toContain('compound-engineering');
     expect(codexRuntime).not.toContain('compound-engineering');
+  });
+
+  test('uses centralized governance instead of a local yao manifest', () => {
+    const skill = read(SKILL_PATH);
+    const governance = JSON.parse(read(GOVERNANCE_PATH));
+    const targetGovernance = governance.skills.find((entry) => entry.skill_name === 'agent-native-architecture');
+
+    expect(fs.existsSync(LOCAL_MANIFEST_PATH)).toBe(false);
+    expect(targetGovernance).toBeDefined();
+    expect(skill).toContain('centralized governance in `src/cli/contracts/dual-host-governance/skills-governance.json`');
+    expect(skill).toContain('Do not add a per-skill manifest as a second governance source.');
+  });
+
+  test('declares eval examples as review-time boundary evidence', () => {
+    const skill = read(SKILL_PATH);
+    const evals = JSON.parse(read(EVALS_PATH));
+
+    expect(skill).toContain('Route and boundary examples live in `evals/examples.json`');
+    expect(skill).toContain('not as runtime state');
+    expect(evals.skill).toBe('agent-native-architecture');
+    expect(Array.isArray(evals.examples)).toBe(true);
   });
 
   test('reference examples avoid dated provider model ids', () => {
@@ -236,45 +283,48 @@ describe('agent-native-architecture contracts', () => {
   });
 });
 
-describe('agent-native-audit deterministic prompt drift contracts', () => {
-  test('agent-native-audit points to the stable action parity source and shared workspace label', () => {
-    const auditSkill = read(AUDIT_SKILL_PATH);
+describe('agent-native audit playbook deterministic prompt drift contracts', () => {
+  test('agent-native-audit is no longer a standalone governed skill', () => {
     const governance = JSON.parse(read(GOVERNANCE_PATH));
     const auditGovernance = governance.skills.find((entry) => entry.skill_name === 'agent-native-audit');
 
-    expect(auditGovernance).toMatchObject({
-      entry_surface: 'internal_only',
-      command_name: null,
-      host_delivery: {
-        claude: 'internal',
-        codex: 'internal',
-      },
-    });
+    expect(auditGovernance).toBeUndefined();
+    expect(fs.existsSync(path.join(REPO_ROOT, 'skills/agent-native-audit/SKILL.md'))).toBe(false);
+  });
 
-    expect(auditSkill).toContain('1. **Action Parity**');
-    expect(auditSkill).toContain('read `skills/agent-native-architecture/SKILL.md`');
-    expect(auditSkill).toContain('skills/agent-native-architecture/references/action-parity-discipline.md');
-    expect(auditSkill).not.toMatch(/option \d+ \(Action parity\)/i);
-    expect(auditSkill).toContain('Audit for SHARED WORKSPACE - "Agent and user work in the same data space"');
-    expectNoPublicAgentNativeCommandReference(auditSkill);
-    expect(auditSkill).not.toContain('Select option 1 (action parity)');
-    expect(auditSkill).not.toContain('Select option 7 (action parity)');
-    expect(auditSkill).not.toContain('SHARED WORKSPASpec-First');
+  test('audit playbook points to the stable action parity source and shared workspace label', () => {
+    const auditPlaybook = read(AUDIT_PLAYBOOK_PATH);
+
+    expect(auditPlaybook).toContain('## Adapter Contract');
+    expect(auditPlaybook).toContain('Reference-only adapter; no public command, standalone skill, or direct runtime route');
+    expect(auditPlaybook).toContain('Read-only analysis; no file edits, runtime regeneration, or hidden implementation');
+    expect(auditPlaybook).toContain('Sequential current-agent audit when dispatch is unavailable');
+    expect(auditPlaybook).toContain('1. **Action Parity**');
+    expect(auditPlaybook).toContain('read `skills/agent-native-architecture/SKILL.md`');
+    expect(auditPlaybook).toContain('skills/agent-native-architecture/references/action-parity-discipline.md');
+    expect(auditPlaybook).not.toMatch(/option \d+ \(Action parity\)/i);
+    expect(auditPlaybook).toContain('Audit for SHARED WORKSPACE - "Agent and user work in the same data space"');
+    expect(auditPlaybook).toContain('Use `spec-skill-audit` for that.');
+    expect(auditPlaybook).toContain('Use `spec-code-review` and its `spec-agent-native-reviewer`.');
+    expectNoPublicAgentNativeCommandReference(auditPlaybook);
+    expect(auditPlaybook).not.toContain('Select option 1 (action parity)');
+    expect(auditPlaybook).not.toContain('Select option 7 (action parity)');
+    expect(auditPlaybook).not.toContain('SHARED WORKSPASpec-First');
   });
 
   test('adjacent assets map to agent-native-architecture canonical taxonomy', () => {
-    const auditSkill = read(AUDIT_SKILL_PATH);
+    const auditPlaybook = read(AUDIT_PLAYBOOK_PATH);
     const reviewerAgent = read(REVIEWER_AGENT_PATH);
     const researcherAgent = read(BEST_PRACTICES_RESEARCHER_PATH);
     const personaCatalog = read(PERSONA_CATALOG_PATH);
     const adjacentAssets = [
-      auditSkill,
+      auditPlaybook,
       reviewerAgent,
       researcherAgent,
       personaCatalog,
     ].join('\n');
 
-    expect(auditSkill).toContain('canonical taxonomy from `skills/agent-native-architecture/SKILL.md`');
+    expect(auditPlaybook).toContain('canonical taxonomy from `skills/agent-native-architecture/SKILL.md`');
     expect(reviewerAgent).toContain('maps its review categories to the `agent-native-architecture` canonical taxonomy');
     expect(researcherAgent).toContain('AI/Agents → `skills/agent-native-architecture/SKILL.md`');
     expect(researcherAgent).toContain('current source checkout path `skills/<skill-name>/SKILL.md`');
@@ -284,9 +334,9 @@ describe('agent-native-audit deterministic prompt drift contracts', () => {
   });
 
   test('adjacent taxonomy adapters map every local principle label', () => {
-    const auditSkill = read(AUDIT_SKILL_PATH);
+    const auditPlaybook = read(AUDIT_PLAYBOOK_PATH);
     const reviewerAgent = read(REVIEWER_AGENT_PATH);
-    const auditSection = sectionBetween(auditSkill, '## Core Principles to Audit', '## Workflow');
+    const auditSection = sectionBetween(auditPlaybook, '## Audit Lenses', '## Workflow');
     const reviewerSection = sectionBetween(reviewerAgent, '## Core Principles', '## Review Process');
 
     expect(numberedBoldLabels(auditSection)).toEqual([

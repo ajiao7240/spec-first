@@ -18,10 +18,10 @@
 
 | 范围 | 当前值 |
 |---|---|
-| Bundled source skills | 36 |
+| Bundled source skills | 35 |
 | Bundled source agents | 51 |
 | Bundled agent support files | 0 |
-| Governance records by entry surface | internal_only: 16, standalone_skill: 2, workflow_command: 18 |
+| Governance records by entry surface | internal_only: 15, standalone_skill: 2, workflow_command: 18 |
 | Claude runtime delivery | 18 commands, 18 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
 | Codex runtime delivery | 0 commands, 18 workflow skills, 2 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
 | Beta workflow entries | spec-polish-beta |
@@ -67,7 +67,7 @@ Most `internal_only` governance records are source governance entries and are no
 | Category | Skills |
 |---|---|
 | Delivered agent-facing internal skills | git-worktree |
-| Governance-only internal records | agent-native-architecture, agent-native-audit, changelog, feature-video, frontend-design, gemini-imagegen, git-clean-gone-branches, git-commit, git-commit-push-pr, proof, report-bug, resolve-pr-feedback, spec-dhh-rails-style, test-browser, test-xcode |
+| Governance-only internal records | agent-native-architecture, changelog, feature-video, frontend-design, gemini-imagegen, git-clean-gone-branches, git-commit, git-commit-push-pr, proof, report-bug, resolve-pr-feedback, spec-dhh-rails-style, test-browser, test-xcode |
 
 ## Runtime Paths
 

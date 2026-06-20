@@ -1,6 +1,6 @@
 ---
 name: spec-app-consistency-audit
-description: Audit mobile App consistency across PRD, Figma, local source, page routes, KMP/Clean Architecture, components, analytics, i18n, engineering quality, and industry rule packs before runtime validation.
+description: Audit mobile App PRD/Figma/local-source consistency across page routes, KMP/Clean Architecture, components, analytics, i18n, engineering quality, and industry lenses before runtime validation; use for cross-source App consistency, not ordinary code review, PRD authoring, build/test execution, UI polish, or product-code edits.
 argument-hint: "[mode:headless|mode:report-only] [base:<ref>] [source:<path>] [prd:<path>] [figma-context:<path>|figma-ref:<id-or-url>] [industry:<name>] [depth:deep]"
 ---
 
@@ -16,7 +16,7 @@ Use when mobile App PRD, Figma context, local source, routes, architecture, anal
 
 ### When Not To Use
 
-Do not use for ordinary code review, pure test/lint/build execution, formatting-only changes, or product-source edits.
+Do not use for ordinary code review (`spec-code-review`), PRD authoring or refinement (`spec-prd`), pure test/lint/build/runtime execution, UI polish (`spec-polish-beta`), formatting-only changes, or product-source edits.
 
 ### Inputs
 
@@ -72,6 +72,14 @@ Do not use this workflow when:
 - The task is only code formatting or a mechanical refactor.
 - The user wants this workflow to edit product code or project standards directly.
 
+Near-neighbor routing:
+
+- Ordinary bug, regression, security, or test-coverage review of a diff belongs to `spec-code-review`.
+- PRD creation, refinement, or planning-readiness validation belongs to `spec-prd` unless the explicit job is PRD/Figma/source consistency.
+- Runtime validation, build, simulator, real-device, Maestro, Appium, or cloud-device execution belongs to the requested command or a later runtime workflow.
+- Post-implementation visual/UI polishing belongs to `spec-polish-beta`.
+- Skill or agent quality review belongs to `spec-skill-audit`, not this App product audit workflow.
+
 ## Default Mode
 
 Default to `static_only`.
@@ -80,37 +88,15 @@ Do not start a simulator, real device, package build, Appium, Maestro, cloud dev
 
 ## Mode Contract
 
-> v1 deterministic orchestrator (`scripts/run-audit.js`) accepts `mode:headless` only; `mode:default` and `mode:report-only` orchestration is deferred. The Mode Contract below documents the long-lived canonical-token semantics that downstream extractors and the headless envelope still honor — it is not a promise that all modes ship a working orchestrator today.
+v1 deterministic orchestrator (`scripts/run-audit.js`) accepts `mode:headless` only; `mode:default` and `mode:report-only` orchestration is deferred. Long-lived canonical-token semantics live in [Mode, Output, And Issue Contract](references/mode-output-contract.md).
 
-Supported canonical tokens:
+Keep these route-critical defaults in memory:
 
-- `mode:headless`: programmatic mode for parent workflows such as `spec-code-review`; ask no user questions, write run-scoped artifacts, return a compact headless envelope, and finish with `App consistency audit complete`.
-- `mode:report-only`: read-only mode; ask no user questions and write no run artifacts, materialized inputs, preview files, metadata, manifest, or latest pointers.
-- `base:<sha-or-ref>`: deterministic diff base. `mode:headless` and `from:code-review` should pass this whenever reviewing a diff.
-- `source:<repo-relative-path>`: App source root. Defaults to the current repository root.
-- `prd:<repo-relative-path>`: optional PRD/product input.
-- `figma-context:<repo-relative-path>`: local materialized Figma JSON input.
-- `figma-ref:<id-or-url>`: reference only. It is not extractable context until materialized.
-- `industry:<name>`: explicit industry lens. Industry confirmed findings still require confirmed industry profile plus project-specific evidence.
-- `tech-plan:<repo-relative-path>` and `task-doc:<repo-relative-path>`: optional intent inputs; missing values degrade only when explicitly expected by the caller.
-- `depth:deep`: focused deepening flag, not a mode and not mutually exclusive with headless/report-only.
-- `from:code-review`: caller marker. Do not switch checkout; output summary-first handoff fields.
-
-Conflict and failure rules:
-
-- Multiple mode tokens are invalid. Stop before dispatching experts.
-- `mode:headless` without a determinable diff scope returns a failed envelope with `scope_headless_missing_base`.
-- `mode:report-only` has a strict no-write contract. If a needed extractor only supports file output, record degraded coverage instead of writing.
-- `figma-ref` in headless/report-only is degraded as `input_figma_reference_only`; do not fetch remote Figma data.
+- `mode:headless` asks no user questions, requires `base:<ref>`, writes run-scoped artifacts, returns a compact envelope, and fails with `scope_headless_missing_base` when diff scope is absent.
+- `mode:report-only` is a strict no-write semantic contract; the current runner reports it as unsupported instead of writing artifacts.
+- `source:<path>`, `prd:<path>`, `figma-context:<path>`, `figma-ref:<id-or-url>`, `industry:<name>`, `tech-plan:<path>`, `task-doc:<path>`, `depth:deep`, and `from:code-review` are canonical scope/lens/caller tokens.
+- `figma-ref` is reference-only until a local `figma-context` JSON exists; headless/report-only must degrade it as `input_figma_reference_only` and must not fetch remote Figma data.
 - All modes are read-only with respect to product source, generated runtime assets, durable standards, and `.spec-first/specs/repo-profile.yaml`.
-
-Scope resolution contract:
-
-- `repoRoot` is always the git/project root used for diff, artifact placement, and repo-relative public paths.
-- `sourceRoot` is the App source subtree selected by `source:<path>`.
-- Relative `source:`, `prd:`, `figma-context:`, `run-dir:` and `artifacts-dir` values resolve against `repoRoot`, not against `sourceRoot` or the caller's incidental cwd.
-- Diff facts keep all changed files, but app-audit candidate signals are scoped to `sourceRoot`; out-of-source changes remain visible as cross-surface context.
-- Large text-like files and binary assets may be represented by bounded metadata or degraded facts instead of full content hashes.
 
 ## Run-Scoped Artifacts
 
@@ -120,65 +106,17 @@ Default and headless modes write artifacts under:
 .spec-first/app-audit/runs/<run-id>/
 ```
 
-> v1 deterministic orchestrator: `scripts/run-audit.js` produces the spine below in `mode:headless` only. `mode:default` and `mode:report-only` orchestrators are deferred; see [Headless Runner](#headless-runner). The two markdown summaries (`app-consistency-audit.md`, `app-consistency-audit.summary.md`) are Report-Writer responsibilities — they remain part of the v0.1a contract spine but are not produced by `run-audit.js` today; downstream LLM/Report-Writer steps are responsible for them.
+The core spine includes `metadata.json`, `preflight.json`, `impact-facts.json`, `app-audit-context.json`, `issues.json`, `audit-report.json`, `artifact-manifest.json`, and `headless-envelope.txt`. Report-Writer markdown summaries are downstream responsibilities today.
 
-The v0.1a contract spine writes:
-
-```text
-metadata.json
-artifact-manifest.json
-preflight.json
-impact-facts.json
-app-audit-context.json
-issues.json
-audit-report.json
-app-consistency-audit.md
-app-consistency-audit.summary.md
-headless-envelope.txt
-```
-
-`latest-summary.json` is only a pointer to the latest complete/degraded run. Consumers must validate `head_sha`, `diff_hash`, `worktree_fingerprint`, and `audit_verdict_scope` against `metadata.json` before treating any run artifact as current evidence.
-
-`metadata.json` starts with `status: started`. The headless runner finalizes the run to `complete`, `degraded`, or `failed` via `finalizeMetadata` in `build-run-metadata.js` after `merge-contracts:report` succeeds (or in the catch path before the failed envelope is rendered). Finalize never inspects business issue severity; `degraded` is derived from `audit-report.json#scope_and_degraded_modes`, `failed` is derived from the runner's reason code, and `complete` is the default success path. Do not mark metadata complete in early scope/preflight steps.
-
-`audit-report.json` and `issues.json` carry an `issue_synthesis_status` enum:
-
-- `not_run`: the runner produced the static contract chain but no LLM/human audit has supplied semantic issues yet. The headless envelope reports `Verdict: Awaiting LLM audit` and an `Awaiting LLM audit` line; the runner does not invent issues.
-- `llm_provided`: a downstream LLM step staged raw issues at `<run-dir>/input/raw-issues.json` (or via `--raw-issues <path>`) before invoking the runner. The caller must pass `--issue-synthesis-status llm_provided`; the runner refuses to forward this value when no input is staged (`issue_synthesis_status_without_input`).
-- `fixture_provided`: tests/fixtures stage raw issues with the same contract; the caller passes `--issue-synthesis-status fixture_provided`.
-
-`validate-artifacts.js` enforces the enum on both artifacts and rejects missing/out-of-range values with `issue_synthesis_status_required` / `invalid_issue_synthesis_status`.
+`latest-summary.json` is only a pointer; consumers must validate it against `metadata.json`. Artifact status, `issue_synthesis_status`, and the full spine are documented in [Headless Runner And Artifact Lifecycle](references/headless-runner.md) and [Mode, Output, And Issue Contract](references/mode-output-contract.md).
 
 Do not write new artifacts to the legacy flat `.spec-first/app-audit/` path. Legacy flat paths may be read only for migration compatibility tests.
 
 ## Headless Runner
 
-`scripts/run-audit.js` is the deterministic entrypoint for the static artifact chain. It is a subprocess orchestrator only — it never invents issues, never calls an LLM, and never fetches remote Figma/PRD assets.
+`scripts/run-audit.js` is the deterministic entrypoint for the static artifact chain. It is a subprocess orchestrator only — it never invents issues, never calls an LLM, and never fetches remote Figma/PRD assets. The runner accepts `mode:headless` only and requires `base:<git-ref>`; missing base returns `scope_headless_missing_base`.
 
-v1 commitment: the runner accepts `mode:headless` only. Passing `mode:default` or `mode:report-only` returns a `mode_unsupported` failed envelope. `mode:headless` requires `base:<git-ref>`; missing it returns `scope_headless_missing_base`. Runner-owned fail-fast paths are: `mode_unsupported`, `scope_headless_missing_base`, `raw_issues_value_missing` (a flag value check), `issue_synthesis_status_without_input` (refusing to forward `llm_provided`/`fixture_provided` when no raw issues are staged), and `issue_synthesis_status_required_with_input` (refusing to silently default `not_run` when raw issues are actually present). Every downstream subprocess that emits its own headless failure envelope (e.g. `build-run-metadata`, `build-impact-facts`) is propagated verbatim, preserving the upstream `Reason code:`.
-
-Pipeline order. The subprocess sequence below mirrors the `tests/unit/spec-app-consistency-audit-cli-e2e.test.js` recipe; the in-process steps `12` and `14` are runner-only wrappers and do not appear in the e2e test (the test hand-rolls a slim `latest-summary.json` and never promotes `metadata.json` from `started`):
-
-1. `build-run-metadata.js` → `metadata.json` (`status: started`)
-2. `preflight.js` → `preflight.json`
-3. `build-impact-facts.js` → `impact-facts.json`
-4. `extract-prd-contract` / `extract-figma-contract` / `extract-code-contract` → product/figma/codebase contracts
-5. `extract-page-routes` (depends on the three above) → `page-route-contract.json`
-6. `extract-kmp-architecture` / `extract-engineering-quality` / `extract-components` / `extract-modules` / `extract-analytics` / `extract-i18n`
-7. `build-industry-profile.js` → `industry-profile.preview.json`
-8. `select-rule-packs.js` → `industry-rule-pack-selection.json`
-9. `merge-contracts.js` (Form 1, all 12 contracts) → `merged-context.json`
-10. `merge-contracts.js` (Form 2, `--issues-artifact --issue <raw> from:code-review run-id:<id>`) → `issues.json`
-11. `merge-contracts.js` (Form 3, `--source --run-dir run-id:<id> --artifacts page-route,engineering-quality --issue issues.json`) → `audit-report.json`
-12. `finalizeMetadata` (in-process) — promote `metadata.json` from `started` to `complete` or `degraded` based on `audit-report.json#scope_and_degraded_modes`.
-13. `build-audit-context.js` → `app-audit-context.json`
-14. `buildLatestSummary` (in-process) → `latest-summary.json`
-15. `build-artifact-manifest.js` → `artifact-manifest.json`
-16. `render-headless-envelope.js` → `headless-envelope.txt`
-
-If the caller has not staged raw LLM issues at `<run-dir>/input/raw-issues.json` (or supplied `--raw-issues <path>`), the runner writes `{ issues: [], rejected_issues: [] }` and forces `issue_synthesis_status` to `not_run`; in that auto-stub path the runner drops `--issue-synthesis-status` from the merge-contracts forwarding so an accidental `llm_provided`/`fixture_provided` flag cannot reach an empty-issue artifact.
-
-On any subprocess exit ≠ 0 after `metadata.json` has been written, the runner finalizes it to `status: failed` (best-effort) and emits a single failure envelope at the configured output path. Failures during `build-run-metadata` itself leave `metadata.json` absent or stuck at `started`; the failure envelope still reaches stdout / `--output`.
+The full 16-step subprocess pipeline, runner-owned fail-fast reason codes, the auto-stub path for unstaged issues, and the failure-envelope behavior are documented in [Headless Runner And Artifact Lifecycle](references/headless-runner.md). The deterministic recipe is mirrored by `tests/unit/spec-app-consistency-audit-cli-e2e.test.js`.
 
 ## Source And Runtime Boundaries
 
@@ -191,6 +129,12 @@ Generated runtime assets are not source truth:
 - `.agents/skills/`
 
 Do not hand-edit generated runtime assets. Runtime refresh belongs to the host-specific `spec-first init` invocation.
+
+## Evaluation And Governance Status
+
+This is a production, team-reused workflow command, not a governed-ready or public-claim-ready package. `skills/spec-app-consistency-audit/evals/examples.json` is examples-as-context, not a deterministic router; LLM judgment still owns route choice and issue validity.
+
+Governance labels, `file-backed fixture`, `input_files`, `output contract`, `rollback boundary`, and current `missing evidence` for `trust report` / `reports/output_quality_scorecard.md` are documented in [Evaluation And Governance Status](references/evaluation-governance.md).
 
 ## Expert Prompt Boundary
 
@@ -228,29 +172,11 @@ v0.1b planner and issue hardening:
 
 ## Figma MCP Materialization
 
-Figma extraction consumes a local JSON context file. A Figma node or file reference is not the same as an extractable context.
+Figma extraction consumes a local JSON context file. A Figma node/file reference is not extractable evidence until materialized. Preflight distinguishes `has_figma_reference` from `has_figma_materialized_context`.
 
-If the user provides a Figma node/file reference rather than `--figma-context`:
+In interactive/default mode, a host Figma MCP response may be normalized into `.spec-first/app-audit/runs/<run-id>/input/figma-context.json` and then consumed by `extract-figma-contract.js`. In `mode:headless` and `mode:report-only`, do not materialize remote Figma context; record `input_figma_reference_only` and keep design-alignment findings skipped/advisory unless a local materialized context already exists.
 
-1. Use the available host Figma MCP tool to fetch the design context.
-2. In interactive/default mode only, write the normalized raw MCP response to:
-
-   ```text
-   .spec-first/app-audit/runs/<run-id>/input/figma-context.json
-   ```
-
-3. Run `extract-figma-contract.js` with:
-
-   ```bash
-   node skills/spec-app-consistency-audit/scripts/extract-figma-contract.js \
-     --source . \
-     --figma-context .spec-first/app-audit/runs/<run-id>/input/figma-context.json \
-     --output .spec-first/app-audit/runs/<run-id>/contracts/figma-design-contract.json
-   ```
-
-Do not mark Figma design evidence as materialized until the local context JSON exists and is readable. Preflight distinguishes `has_figma_reference` from `has_figma_materialized_context`.
-
-In `mode:headless` and `mode:report-only`, do not materialize remote Figma context. Record the degraded mode and keep design-alignment findings as skipped/advisory unless a local materialized context is already provided.
+Full command detail lives in [Mode, Output, And Issue Contract](references/mode-output-contract.md).
 
 ## Figma Redaction Policy
 
@@ -264,9 +190,7 @@ Do not retain long text or sensitive-looking text by default.
 
 ## Outputs
 
-Default outputs are local audit artifacts that separate final review results from preview-only writeback suggestions.
-
-The final report should include evidence-backed consistency issues, degraded-mode notes, runtime-verification recommendations, real-device follow-ups, and regression suggestions.
+Default outputs are local audit artifacts that separate final review results from preview-only writeback suggestions. The final report should include evidence-backed consistency issues, degraded-mode notes, runtime-verification recommendations, real-device follow-ups, and regression suggestions.
 
 Preview-only writeback outputs may be written under:
 
@@ -287,40 +211,11 @@ Rule packs can explain risk and rationale, but they cannot be the only evidence 
 
 ## Issue Protocol
 
-Every issue must include:
+Every issue must carry static/runtime flags, `contract_status`, numeric `confidence`, traceable `provenance`/`evidence`, `claim_family`, `claim_type`, `affected_surface`, `impact`, `recommendation`, `related_rule_packs`, `runtime_verification`, `validation_status`, `review_lifecycle`, and `data_sensitivity`.
 
-- `static_confirmed`
-- `requires_runtime_verification`
-- `requires_real_device`
-- `contract_status`
-- `confidence`
-- `provenance`
-- `evidence`
-- `claim_family`
-- `claim_type`
-- `affected_surface`
-- `impact`
-- `recommendation`
-- `related_rule_packs`
-- `runtime_verification`
-- `validation_status`
-- `review_lifecycle`
-- `data_sensitivity`
+Weak evidence may be reported as risk, candidate, or follow-up. It must not be promoted to a confirmed issue. Confirmed findings require `confidence >= 0.75`, `static_confirmed: true`, project-specific traceable evidence, and any claim-family required evidence. `industry:<name>` is an explicit lens, not a confirmed industry profile. Issues surfaced to `spec-code-review` require `code_review_handoff`; app-audit itself does not emit `safe_auto`.
 
-Weak evidence may be reported as risk, candidate, or follow-up. It must not be promoted to a confirmed issue.
-
-Strict issue protocol:
-
-- `confidence` is a number from 0 to 1.
-- `contract_status: confirmed` requires `confidence >= 0.75`; lower confidence findings must remain `candidate` or advisory even when they cite project evidence.
-- `contract_status: confirmed` requires `static_confirmed: true`; `candidate` and `rejected` issues require `static_confirmed: false`.
-- `provenance` and `evidence` entries must contain a traceable project field such as `file`, `path`, `artifact_id`, `node_id`, `route`, `event`, or `key`.
-- `industry:<name>` is an explicit lens, not a confirmed industry profile; confirmed industry issues require caller-provided `confirmedIndustry` evidence plus project-specific evidence.
-- `impact` and `recommendation` are arrays.
-- `claim_family` controls deterministic evidence requirements and conclusion caps.
-- `claim_type` describes the domain issue semantics.
-- `code_review_handoff` is required for issues surfaced to `spec-code-review`; app-audit itself does not emit `safe_auto`.
-- `validation_status` starts as `not_required`; validation pass is deferred beyond v0.1a.
+Detailed field rules are in [Mode, Output, And Issue Contract](references/mode-output-contract.md).
 
 ## Writeback Policy
 
@@ -367,6 +262,19 @@ Rule packs live under:
 ```text
 skills/spec-app-consistency-audit/rule-packs/
 ```
+
+## References
+
+Read these on demand; they are not required for routing:
+
+- [`evals/examples.json`](evals/examples.json): examples-as-context for trigger/boundary/failure coverage; not a deterministic router and still subject to LLM judgment or fresh-source eval.
+- [`evals/recorded-output-fixtures.json`](evals/recorded-output-fixtures.json): minimal recorded fixtures for no-raw-issues, degraded-mode, and handoff output expectations; not provider-backed model evidence.
+- [Evaluation And Governance Status](references/evaluation-governance.md): owner/review cadence, eval status, governed-package evidence labels, and current missing evidence.
+- [Headless Runner And Artifact Lifecycle](references/headless-runner.md): full runner pipeline, fail-fast reason codes, and artifact-lifecycle/enum rules deferred from this entry.
+- [Mode, Output, And Issue Contract](references/mode-output-contract.md): detailed mode tokens, scope resolution, Figma materialization, output/writeback, and issue protocol fields.
+- [`references/report-format.md`](references/report-format.md): the report section structure that downstream Report-Writer steps emit.
+- [`references/pilot-validation.md`](references/pilot-validation.md): minimal pilot-record format gating the v0.2 readiness decision.
+- [`references/ecc-source-lock.json`](references/ecc-source-lock.json): ECC source-lock policy consumed by `scripts/merge-contracts.js` and the orchestrator prompt to keep ECC-derived lenses read-only.
 
 ## Workflow Handoff Boundary
 
