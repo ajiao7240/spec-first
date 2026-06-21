@@ -518,6 +518,9 @@ function helperProviderEntries(registry, repoDir) {
       if (firstGenerationOverrides.firstGenerationStatus === 'failed') {
         readinessStatus = 'degraded';
       }
+      if (provider.id === 'graphify' && firstGenerationOverrides.firstGenerationNextAction === 'graphify-refresh-recommended') {
+        nextActions.push(`Graphify install state is verified for the existing artifact; incrementally refresh graphify-out with \`${setupWorkflowCommand(currentHost, '--only graphify --refresh')}\` when you want to update the graph (runs \`graphify update .\`, no full semantic extraction).`);
+      }
       return providerEntry(provider, {
         installed,
         configured,

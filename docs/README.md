@@ -40,6 +40,7 @@
 | `docs/06-待办事项/` | historical-input | 历史待办；不作为当前优先级来源 |
 | `docs/07-经验总结/` | historical-input | 经验记录；稳定知识应沉淀到 `docs/solutions/` |
 | `docs/08-版本更新/` | historical-input | 版本说明材料；正式变更事实以 `CHANGELOG.md` 为准 |
+| `docs/11-业界调研/` | external-reference | AI Coding Harness、SDD、spec-first 演进路线和团队采纳阻力调研；目录 README 给出阅读顺序、当前三项优先增强点和回源核验边界 |
 | `../spec-first-doc/业界学习/` | external-reference | 外部实践材料和映射分析；只作启发和对照 |
 | `docs/11-文章系列/` | external-reference | 对外文章与素材，不作为工程 contract |
 | `docs/12-loop分析/` | historical-input | workflow loop 分析背景，不覆盖当前 skill source |

@@ -13,6 +13,7 @@ require_mcp_tools_schema_version 7 "$MCP_TOOLS_JSON"
 
 MODE="install"
 REQUIREMENT_WORKSPACE="${SPEC_FIRST_PROVIDER_GRAPHIFY_REQUIREMENT_WORKSPACE:-${SPEC_FIRST_REQUIREMENT_WORKSPACE:-}}"
+GRAPHIFY_REFRESH_REQUESTED="${SPEC_FIRST_PROVIDER_GRAPHIFY_REFRESH:-false}"
 DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
 PROBE_TIMEOUT_SECONDS="${SPEC_FIRST_PROBE_TIMEOUT_SECONDS:-30}"
 
@@ -135,6 +136,10 @@ while [[ $# -gt 0 ]]; do
     --requirement-workspace)
       REQUIREMENT_WORKSPACE="${2:-}"
       shift 2
+      ;;
+    --refresh|--refresh-graphify)
+      GRAPHIFY_REFRESH_REQUESTED=true
+      shift
       ;;
     *)
       shift
@@ -896,6 +901,17 @@ provider_consent_approved() {
   esac
 }
 
+truthy_value() {
+  case "${1:-}" in
+    approved|APPROVED|yes|YES|true|TRUE|1) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+graphify_refresh_requested() {
+  truthy_value "$GRAPHIFY_REFRESH_REQUESTED"
+}
+
 set_graphify_first_generation_fact() {
   local status="$1"
   local workspace_path="${2:-}"
@@ -1259,7 +1275,7 @@ from pathlib import Path
 path = Path(sys.argv[1])
 section = os.environ["GRAPHIFY_SECTION"].rstrip() + "\n"
 content = path.read_text(encoding="utf-8")
-pattern = re.compile(r"\n*## graphify\n.*?(?=\n## |\n<!-- spec-first:lang:start -->|\Z)", re.DOTALL)
+pattern = re.compile(r"\n*## graphify\n.*?(?=\n## |\n<!-- spec-first:[^>]+:start -->|\Z)", re.DOTALL)
 
 if "## graphify" in content:
     def replace(match):
@@ -1273,6 +1289,34 @@ else:
 if new_content != content:
     path.write_text(new_content, encoding="utf-8")
 PY
+}
+
+graphify_project_skill_configured() {
+  local repo_root="$1"
+  local platform
+  platform="$(graphify_project_platform)"
+  case "$platform" in
+    claude|windows)
+      [ -f "$repo_root/.claude/skills/graphify/SKILL.md" ]
+      ;;
+    *)
+      [ -f "$repo_root/.codex/skills/graphify/SKILL.md" ] || [ -f "$repo_root/.agents/skills/graphify/SKILL.md" ]
+      ;;
+  esac
+}
+
+ensure_graphify_project_skill() {
+  local repo_root="$1"
+  local platform
+  platform="$(graphify_project_platform)"
+  if graphify_project_skill_configured "$repo_root"; then
+    normalize_graphify_instruction_section "$repo_root" "$platform" \
+      || stage_log "provider:graphify" "instruction normalization skipped"
+    export SPEC_FIRST_PROVIDER_GRAPHIFY_CONFIGURED=true
+    stage_log "provider:graphify" "project skill verified"
+    return 0
+  fi
+  install_graphify_project_skill "$repo_root"
 }
 
 install_graphify_project_skill() {
@@ -1291,6 +1335,28 @@ install_graphify_project_skill() {
   export SPEC_FIRST_PROVIDER_GRAPHIFY_CONFIGURED=false
   export SPEC_FIRST_PROVIDER_GRAPHIFY_FIRST_GENERATION_NEXT_ACTION="graphify-project-skill-install-failed"
   return 1
+}
+
+verify_graphify_hook_status_if_available() {
+  local repo_root="$1"
+  pushd "$repo_root" >/dev/null
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    if run_graphify_with_timeout "$DEFAULT_STAGE_TIMEOUT_SECONDS" hook status >/dev/null 2>&1; then
+      export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED=true
+      export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED=true
+      export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS="verified"
+      popd >/dev/null
+      return 0
+    fi
+    popd >/dev/null
+    return 1
+  fi
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED=false
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED=false
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS="skipped"
+  export SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_SKIPPED_REASON="not-a-git-repo"
+  popd >/dev/null
+  return 0
 }
 
 install_graphify_hook_if_available() {
@@ -1377,6 +1443,41 @@ graphify_artifact_ref() {
   return 1
 }
 
+setup_graphify_existing_artifact_if_available() {
+  graphify_refresh_requested && return 1
+
+  local repo_root="$PROVIDER_REPO_ROOT"
+  local resolved_json workspace_rel artifact_abs artifact_rel artifact_ref_rel
+
+  resolved_json="$(resolve_requirement_workspace_json "$repo_root" "$REQUIREMENT_WORKSPACE" "$GRAPHIFY_ARTIFACT_ROOT_DEFAULT")"
+  if [ "$(jq -r '.ok' <<<"$resolved_json")" != "true" ]; then
+    return 1
+  fi
+
+  workspace_rel="$(jq -r '.workspace_rel' <<<"$resolved_json")"
+  artifact_abs="$(jq -r '.artifact_abs' <<<"$resolved_json")"
+  artifact_rel="$(jq -r '.artifact_rel' <<<"$resolved_json")"
+  artifact_ref_rel="$(graphify_artifact_ref "$repo_root" "$artifact_rel" || true)"
+  [ -n "$artifact_ref_rel" ] || return 1
+
+  stage_log "provider:graphify" "existing artifact detected; verifying install state"
+  if ! ensure_graphify_project_skill "$repo_root"; then
+    stage_log "provider:graphify" "project skill install failed"
+    set_graphify_first_generation_fact "skipped" "$workspace_rel" "$artifact_rel" "$artifact_ref_rel" "graphify-project-skill-install-failed"
+    return 0
+  fi
+
+  DEFAULT_STAGE_TIMEOUT_SECONDS="$PROBE_TIMEOUT_SECONDS" probe_graphify_query_if_available "$repo_root" "$artifact_abs" || true
+  set_graphify_first_generation_fact "skipped" "$workspace_rel" "$artifact_rel" "$artifact_ref_rel" "graphify-refresh-recommended"
+
+  if verify_graphify_hook_status_if_available "$repo_root"; then
+    stage_log "provider:graphify" "hook verified"
+  else
+    install_graphify_hook_if_available "$repo_root" || true
+  fi
+  return 0
+}
+
 run_graphify_code_only_fallback() {
   local repo_root="$1"
   local workspace_rel="$2"
@@ -1423,6 +1524,45 @@ run_graphify_first_generation_if_requested() {
   workspace_rel="$(jq -r '.workspace_rel' <<<"$resolved_json")"
   artifact_abs="$(jq -r '.artifact_abs' <<<"$resolved_json")"
   artifact_rel="$(jq -r '.artifact_rel' <<<"$resolved_json")"
+  if graphify_refresh_requested && [ "$workspace_rel" = "." ]; then
+    stage_log "provider:graphify" "incremental refresh start"
+    set +e
+    run_graphify_code_only_fallback "$repo_root" "$workspace_rel"
+    refresh_status=$?
+    set -e
+    if [ "$refresh_status" -eq 0 ]; then
+      artifact_ref_rel="$(graphify_artifact_ref "$repo_root" "$artifact_rel" || true)"
+      if [ -n "$artifact_ref_rel" ]; then
+        probe_graphify_query_if_available "$repo_root" "$artifact_abs"
+        set_graphify_first_generation_fact "completed" "$workspace_rel" "$artifact_rel" "$artifact_ref_rel" "graphify-refresh-used"
+        stage_log "provider:graphify" "incremental refresh done (exit 0)"
+        return 0
+      fi
+    elif graphify_output_requests_force_overwrite "$GRAPHIFY_RUN_DIAGNOSTIC"; then
+      stage_log "provider:graphify" "graphify incremental refresh refused overwrite; trying graphify update . --force once"
+      set +e
+      run_graphify_force_overwrite_repair "$repo_root" "$workspace_rel"
+      local force_status=$?
+      set -e
+      if [ "$force_status" -eq 0 ]; then
+        artifact_ref_rel="$(graphify_artifact_ref "$repo_root" "$artifact_rel" || true)"
+        if [ -n "$artifact_ref_rel" ]; then
+          probe_graphify_query_if_available "$repo_root" "$artifact_abs"
+          set_graphify_first_generation_fact "completed" "$workspace_rel" "$artifact_rel" "$artifact_ref_rel" "graphify-refresh-force-overwrite-used"
+          stage_log "provider:graphify" "force-overwrite refresh repair done (exit 0)"
+          return 0
+        fi
+      fi
+      set_graphify_first_generation_fact "failed" "$workspace_rel" "$artifact_rel" "" "graphify-refresh-force-overwrite-failed"
+      stage_log "provider:graphify" "force-overwrite refresh repair failed (exit $force_status)"
+      return 0
+    fi
+
+    set_graphify_first_generation_fact "failed" "$workspace_rel" "$artifact_rel" "" "graphify-refresh-failed"
+    stage_log "provider:graphify" "incremental refresh done (exit $refresh_status)"
+    return 0
+  fi
+
   stage_log "provider:graphify" "first generation start"
   set +e
   if [ "$workspace_rel" = "." ]; then
@@ -1500,7 +1640,15 @@ install_graphify_provider_if_requested() {
   fi
 
   stage_log "provider:graphify" "CLI ready"
-  if ! install_graphify_project_skill "$PROVIDER_REPO_ROOT"; then
+  if setup_graphify_existing_artifact_if_available; then
+    return 0
+  fi
+
+  if graphify_refresh_requested; then
+    stage_log "provider:graphify" "incremental refresh requested"
+  fi
+
+  if ! ensure_graphify_project_skill "$PROVIDER_REPO_ROOT"; then
     stage_log "provider:graphify" "project skill install failed"
     set_graphify_first_generation_fact "skipped" "" "" "" "graphify-project-skill-install-failed"
     return 0

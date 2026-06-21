@@ -4,6 +4,7 @@ param(
   [string]$Folder = '',
   [switch]$AllRepos,
   [switch]$Plan,
+  [switch]$Refresh,
   [string]$RequirementWorkspace = ''
 )
 
@@ -202,6 +203,7 @@ function Write-WorkspaceMcpSetupSummaryAndExit {
   foreach ($child in $children) {
     $childParams = @{ Repo = [string]$child.workspace_relative_path }
     if (-not [string]::IsNullOrWhiteSpace($Only)) { $childParams.Only = $Only }
+    if ($Refresh) { $childParams.Refresh = $true }
     if (-not [string]::IsNullOrWhiteSpace($RequirementWorkspace)) { $childParams.RequirementWorkspace = $RequirementWorkspace }
     $childRun = Invoke-ChildJsonScript -ScriptPath $PSCommandPath -Arguments $childParams
     $childStatus = [int]$childRun.exit_code
@@ -213,16 +215,27 @@ function Write-WorkspaceMcpSetupSummaryAndExit {
       $childResult = [pscustomobject]@{ host = 'unknown'; display_name = 'unknown'; platform = 'unknown'; results = @(); diagnostic = $diagnostic }
     }
     $childResults = @($childResult.results)
-    $childOverall = if ($childResults.Count -eq 0) {
+    $providerApplyStatus = if ($null -ne $childResult.provider_apply) { [string]$childResult.provider_apply.status } else { '' }
+    $providerApplyReason = if ($null -ne $childResult.provider_apply) { [string]$childResult.provider_apply.reason_code } else { '' }
+    $childOverall = if ($childStatus -ne 0) {
       'action-required'
     } elseif (@($childResults | Where-Object { $_.status -eq 'action-required' }).Count -gt 0) {
       'action-required'
+    } elseif ($providerApplyStatus -eq 'action-required') {
+      'action-required'
     } elseif (@($childResults | Where-Object { $_.status -ne 'ready' }).Count -gt 0) {
       'partial'
+    } elseif ($childResults.Count -eq 0 -and $providerApplyStatus -eq 'ready') {
+      'ready'
+    } elseif ($childResults.Count -eq 0) {
+      'action-required'
     } else {
       'ready'
     }
     $childReason = @($childResults | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.reason_code) } | Select-Object -First 1 | ForEach-Object { [string]$_.reason_code })
+    if ($childReason.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($providerApplyReason)) {
+      $childReason = @($providerApplyReason)
+    }
     $results += [pscustomobject][ordered]@{
       repo_label = [string]$child.repo_label
       workspace_relative_path = [string]$child.workspace_relative_path
@@ -976,6 +989,7 @@ if ($OnlyArray.Count -gt 0 -and (Test-SelectionContains -Id 'graphify')) {
     $env:SPEC_FIRST_PROVIDER_REPO_ROOT = $ResolvedRepoRoot
     $env:SPEC_FIRST_PROVIDER_GRAPHIFY_ARTIFACT_ROOT = 'graphify-out'
     $helperParams = @{ Install = $true }
+    if ($Refresh) { $helperParams.Refresh = $true }
     if (-not [string]::IsNullOrWhiteSpace($RequirementWorkspace)) { $helperParams.RequirementWorkspace = $RequirementWorkspace }
     $helperRun = Invoke-ChildJsonScript -ScriptPath (Join-Path $ScriptDir 'install-helpers.ps1') -Arguments $helperParams
     try {

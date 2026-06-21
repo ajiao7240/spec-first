@@ -1,6 +1,6 @@
 #!/bin/bash
 # install-mcp.sh - Unix installer pipeline for Required Harness Runtime MCP servers
-# Usage: install-mcp.sh [--only <tool-ids>] [--repo <child>] [--all-repos]
+# Usage: install-mcp.sh [--only <tool-ids>] [--refresh] [--repo <child>] [--all-repos]
 
 set -euo pipefail
 
@@ -26,6 +26,7 @@ FOLDER_ARG=""
 ALL_REPOS=false
 PLAN_MODE=false
 REQUIREMENT_WORKSPACE="${SPEC_FIRST_PROVIDER_GRAPHIFY_REQUIREMENT_WORKSPACE:-${SPEC_FIRST_REQUIREMENT_WORKSPACE:-}}"
+GRAPHIFY_REFRESH=false
 DEFAULT_STAGE_TIMEOUT_SECONDS="${SPEC_FIRST_STAGE_TIMEOUT_SECONDS:-900}"
 WARMUP_CACHE_ROOT="${SPEC_FIRST_WARMUP_CACHE_DIR:-}"
 WARMUP_LATEST_TTL_SECONDS="${SPEC_FIRST_WARMUP_LATEST_TTL_SECONDS:-86400}"
@@ -125,6 +126,9 @@ write_all_repos_install_summary_and_exit() {
     if [ -n "$ONLY_FILTER" ]; then
       child_args+=(--only "$ONLY_FILTER")
     fi
+    if [ "$GRAPHIFY_REFRESH" = "true" ]; then
+      child_args+=(--refresh)
+    fi
     if [ -n "$REQUIREMENT_WORKSPACE" ]; then
       child_args+=(--requirement-workspace "$REQUIREMENT_WORKSPACE")
     fi
@@ -137,13 +141,16 @@ write_all_repos_install_summary_and_exit() {
     else
       child_result="$child_output"
     fi
-    child_overall="$(jq -r '
-      if ((.results // []) | length) == 0 then "action-required"
+    child_overall="$(jq -r --argjson exit_code "$child_status" '
+      if $exit_code != 0 then "action-required"
       elif any((.results // [])[]; .status == "action-required") then "action-required"
+      elif ((.provider_apply // {}).status == "action-required") then "action-required"
       elif any((.results // [])[]; .status != "ready") then "partial"
+      elif ((.results // []) | length) == 0 and ((.provider_apply // {}).status == "ready") then "ready"
+      elif ((.results // []) | length) == 0 then "action-required"
       else "ready"
       end' <<<"$child_result")"
-    child_reason="$(jq -r '[(.results // [])[] | select((.reason_code // "") != "") | .reason_code][0] // empty' <<<"$child_result")"
+    child_reason="$(jq -r '[(.results // [])[] | select((.reason_code // "") != "") | .reason_code][0] // (.provider_apply.reason_code // empty)' <<<"$child_result")"
     jq \
       --arg repo_label "$child_label" \
       --arg workspace_relative_path "$child_path" \
@@ -251,6 +258,10 @@ while [[ $# -gt 0 ]]; do
     --requirement-workspace)
       REQUIREMENT_WORKSPACE="${2:-}"
       shift 2
+      ;;
+    --refresh|--refresh-graphify)
+      GRAPHIFY_REFRESH=true
+      shift
       ;;
     *)
       echo "未知参数: $1" >&2
@@ -970,6 +981,9 @@ done
 
 if [ -n "$ONLY_FILTER" ] && selection_contains "graphify"; then
   helper_args=(--install)
+  if [ "$GRAPHIFY_REFRESH" = "true" ]; then
+    helper_args+=(--refresh)
+  fi
   if [ -n "$REQUIREMENT_WORKSPACE" ]; then
     helper_args+=(--requirement-workspace "$REQUIREMENT_WORKSPACE")
   fi

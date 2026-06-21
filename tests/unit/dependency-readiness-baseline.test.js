@@ -293,8 +293,10 @@ describe('dependency readiness baseline contracts', () => {
     ]));
     expect(providerTools.providers[0].usage_note).toContain('current-host project skill');
     expect(providerTools.providers[0].usage_note).toContain('project-root `graphify-out/`');
+    expect(providerTools.providers[0].usage_note).toContain('Explicit refresh runs `graphify update .` (code-only, no LLM semantic extraction)');
     expect(providerTools.providers[0].safety.install_effect).toContain('graphify install --project --platform codex');
     expect(providerTools.providers[0].safety.install_effect).toContain('graphify update .');
+    expect(providerTools.providers[0].safety.install_effect).toContain('explicit incremental refresh next action');
     expect(providerTools.providers[0].safety.install_effect).toContain('graphify hook install');
     expect(providerTools.generic_provider_readiness.schema_version).toBe('provider-readiness.v2');
     expect(providerTools.generic_provider_readiness.readiness_status_values).toEqual([
@@ -1063,6 +1065,100 @@ exit 0
     expect(postCommitHook).toContain(`export PATH='${graphifyBinDir}':"$PATH"`);
   });
 
+  test('install-helpers verifies existing Graphify artifact and recommends explicit refresh', () => {
+    const tempDir = makeTempDir();
+    const homeDir = path.join(tempDir, 'home');
+    const binDir = path.join(tempDir, 'bin');
+    const capturePath = path.join(tempDir, 'graphify-args.txt');
+    fs.mkdirSync(path.join(homeDir, '.agents/skills/ast-grep'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, '.codex/skills/graphify'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'graphify-out'), { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.writeFileSync(path.join(homeDir, '.agents/skills/ast-grep/SKILL.md'), '# ast-grep\n', 'utf8');
+    fs.writeFileSync(path.join(tempDir, '.codex/skills/graphify/SKILL.md'), '# graphify\n', 'utf8');
+    fs.writeFileSync(path.join(tempDir, 'AGENTS.md'), '## graphify\n\nold provider text\n\n<!-- spec-first:bootstrap:start -->\n## Workflow 入口治理\n\nkeep\n', 'utf8');
+    fs.writeFileSync(path.join(tempDir, 'graphify-out/graph.json'), '{}\n', 'utf8');
+    spawnSync('git', ['init'], { cwd: tempDir, encoding: 'utf8' });
+
+    for (const command of ['gh', 'vhs', 'silicon', 'ffmpeg', 'ast-grep']) {
+      const commandPath = path.join(binDir, command);
+      fs.writeFileSync(commandPath, '#!/bin/sh\nexit 0\n', 'utf8');
+      fs.chmodSync(commandPath, 0o755);
+    }
+    const graphifyPath = path.join(binDir, 'graphify');
+    fs.writeFileSync(graphifyPath, `#!/bin/sh
+printf '%s\\n' "$*" >> "$GRAPHIFY_CAPTURE"
+if [ "$1" = "--version" ]; then
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
+  exit 0
+fi
+if [ "$1" = "query" ]; then
+  exit 0
+fi
+if [ "$1" = "hook" ] && [ "$2" = "status" ]; then
+  printf 'post-commit: installed\\npost-checkout: installed\\n'
+  exit 0
+fi
+if [ "$1" = "install" ] || [ "$1" = "extract" ] || [ "$1" = "update" ]; then
+  exit 3
+fi
+exit 0
+`, 'utf8');
+    fs.chmodSync(graphifyPath, 0o755);
+
+    const result = spawnSync('bash', [installHelpersPath, '--install'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: homeDir,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        GRAPHIFY_CAPTURE: capturePath,
+        SPEC_FIRST_PROVIDER_REPO_ROOT: tempDir,
+        SPEC_FIRST_PROVIDER_GRAPHIFY_CONSENT: 'approved',
+        SPEC_FIRST_PROVIDER_HOST: 'codex',
+        SPEC_FIRST_STAGE_TIMEOUT_SECONDS: '5',
+        SPEC_FIRST_PROBE_TIMEOUT_SECONDS: '5',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    const captured = fs.readFileSync(capturePath, 'utf8');
+    expect(captured).toContain('query spec-first setup readiness --graph');
+    expect(captured).toContain('hook status');
+    expect(captured).not.toContain('install --project --platform codex');
+    expect(captured).not.toContain('extract .');
+    expect(captured).not.toContain('update .');
+    const payload = JSON.parse(result.stdout);
+    const graphify = payload.provider_readiness.find((entry) => entry.provider === 'graphify');
+    expect(graphify).toMatchObject({
+      lifecycle: {
+        installed: true,
+        configured: true,
+        artifact_exists: true,
+        query_verified: true,
+      },
+      first_generation: {
+        status: 'skipped',
+        next_action: 'graphify-refresh-recommended',
+        artifact_refs: ['graphify-out/graph.json'],
+      },
+      steady_state: {
+        hook_installed: true,
+        hook_verified: true,
+        hook_status: 'verified',
+      },
+    });
+    expect(graphify.next_actions.join('\n')).toContain('$spec-mcp-setup --only graphify --refresh');
+    expect(graphify.next_actions.join('\n')).toContain('incrementally refresh graphify-out');
+    expect(graphify.next_actions.join('\n')).toContain('runs `graphify update .`, no full semantic extraction');
+    const agents = fs.readFileSync(path.join(tempDir, 'AGENTS.md'), 'utf8');
+    expect(agents).toContain('Use Graphify as exploration-tier orientation');
+    expect(agents).not.toContain('old provider text');
+    expect(agents).toContain('<!-- spec-first:bootstrap:start -->\n## Workflow 入口治理');
+    expect(agents).toContain('keep');
+  });
+
   test('install-helpers normalizes provider-written Claude Graphify instructions', () => {
     const tempDir = makeTempDir();
     const homeDir = path.join(tempDir, 'home');
@@ -1576,6 +1672,167 @@ exit 0
         hook_verified: true,
         hook_status: 'verified',
       },
+    });
+  });
+
+  test('install-mcp --only graphify --refresh refreshes existing Graphify artifact', () => {
+    const tempDir = makeTempDir();
+    const homeDir = path.join(tempDir, 'home');
+    const binDir = path.join(tempDir, 'bin');
+    const capturePath = path.join(tempDir, 'graphify-args.txt');
+    fs.mkdirSync(path.join(homeDir, '.agents/skills/ast-grep'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, '.codex/skills/graphify'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'graphify-out'), { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'package.json'), '{"name":"fixture"}\n', 'utf8');
+    fs.writeFileSync(path.join(homeDir, '.agents/skills/ast-grep/SKILL.md'), '# ast-grep\n', 'utf8');
+    fs.writeFileSync(path.join(tempDir, '.codex/skills/graphify/SKILL.md'), '# graphify\n', 'utf8');
+    fs.writeFileSync(path.join(tempDir, 'graphify-out/graph.json'), '{}\n', 'utf8');
+    spawnSync('git', ['init'], { cwd: tempDir, encoding: 'utf8' });
+
+    for (const command of ['gh', 'vhs', 'silicon', 'ffmpeg', 'ast-grep']) {
+      const commandPath = path.join(binDir, command);
+      fs.writeFileSync(commandPath, '#!/bin/sh\nexit 0\n', 'utf8');
+      fs.chmodSync(commandPath, 0o755);
+    }
+    const graphifyPath = path.join(binDir, 'graphify');
+    fs.writeFileSync(graphifyPath, `#!/bin/sh
+printf '%s\\n' "$*" >> "$GRAPHIFY_CAPTURE"
+if [ "$1" = "--version" ]; then
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
+  exit 0
+fi
+if [ "$1" = "query" ]; then
+  exit 0
+fi
+if [ "$1" = "hook" ]; then
+  exit 0
+fi
+if [ "$1" = "update" ]; then
+  mkdir -p graphify-out
+  printf '{"refreshed":true}\\n' > graphify-out/graph.json
+  exit 0
+fi
+if [ "$1" = "extract" ] || [ "$1" = "install" ]; then
+  exit 4
+fi
+exit 0
+`, 'utf8');
+    fs.chmodSync(graphifyPath, 0o755);
+
+    const result = spawnSync('bash', [installMcpPath, '--only', 'graphify', '--refresh'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: homeDir,
+        MCP_SETUP_HOST: 'codex',
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        GRAPHIFY_CAPTURE: capturePath,
+        SPEC_FIRST_STAGE_TIMEOUT_SECONDS: '5',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    const capturedGraphifyArgs = fs.readFileSync(capturePath, 'utf8');
+    expect(capturedGraphifyArgs).toContain('update .');
+    expect(capturedGraphifyArgs).toContain('query spec-first setup readiness --graph');
+    expect(capturedGraphifyArgs).toContain('hook install');
+    expect(capturedGraphifyArgs).toContain('hook status');
+    expect(capturedGraphifyArgs).not.toContain('extract .');
+    expect(capturedGraphifyArgs).not.toContain('install --project --platform codex');
+    const payload = JSON.parse(result.stdout);
+    const graphify = payload.provider_readiness.find((entry) => entry.provider === 'graphify');
+    expect(graphify).toMatchObject({
+      first_generation: {
+        status: 'completed',
+        next_action: 'graphify-refresh-used',
+        requirement_workspace_path: '.',
+        artifact_root: 'graphify-out',
+        artifact_refs: ['graphify-out/graph.json'],
+      },
+    });
+  });
+
+  test('install-mcp --all-repos --only graphify --refresh propagates refresh to child repos', () => {
+    const tempDir = makeTempDir();
+    const homeDir = path.join(tempDir, 'home');
+    const binDir = path.join(tempDir, 'bin');
+    const childDir = path.join(tempDir, 'child-app');
+    const capturePath = path.join(tempDir, 'graphify-args.txt');
+    fs.mkdirSync(path.join(homeDir, '.agents/skills/ast-grep'), { recursive: true });
+    fs.mkdirSync(path.join(childDir, '.codex/skills/graphify'), { recursive: true });
+    fs.mkdirSync(path.join(childDir, 'graphify-out'), { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.writeFileSync(path.join(childDir, 'package.json'), '{"name":"child-app"}\n', 'utf8');
+    fs.writeFileSync(path.join(homeDir, '.agents/skills/ast-grep/SKILL.md'), '# ast-grep\n', 'utf8');
+    fs.writeFileSync(path.join(childDir, '.codex/skills/graphify/SKILL.md'), '# graphify\n', 'utf8');
+    fs.writeFileSync(path.join(childDir, 'graphify-out/graph.json'), '{}\n', 'utf8');
+    spawnSync('git', ['init'], { cwd: childDir, encoding: 'utf8' });
+
+    for (const command of ['gh', 'vhs', 'silicon', 'ffmpeg', 'ast-grep']) {
+      const commandPath = path.join(binDir, command);
+      fs.writeFileSync(commandPath, '#!/bin/sh\nexit 0\n', 'utf8');
+      fs.chmodSync(commandPath, 0o755);
+    }
+    const graphifyPath = path.join(binDir, 'graphify');
+    fs.writeFileSync(graphifyPath, `#!/bin/sh
+printf '%s:%s\\n' "$PWD" "$*" >> "$GRAPHIFY_CAPTURE"
+if [ "$1" = "--version" ]; then
+  printf 'graphify ${GRAPHIFY_VERSION}\\n'
+  exit 0
+fi
+if [ "$1" = "query" ]; then
+  exit 0
+fi
+if [ "$1" = "hook" ]; then
+  exit 0
+fi
+if [ "$1" = "update" ]; then
+  mkdir -p graphify-out
+  printf '{"refreshed":true}\\n' > graphify-out/graph.json
+  exit 0
+fi
+if [ "$1" = "extract" ] || [ "$1" = "install" ]; then
+  exit 4
+fi
+exit 0
+`, 'utf8');
+    fs.chmodSync(graphifyPath, 0o755);
+
+    const result = spawnSync('bash', [installMcpPath, '--all-repos', '--only', 'graphify', '--refresh'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: homeDir,
+        MCP_SETUP_HOST: 'codex',
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+        GRAPHIFY_CAPTURE: capturePath,
+        SPEC_FIRST_STAGE_TIMEOUT_SECONDS: '5',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    const capturedGraphifyArgs = fs.readFileSync(capturePath, 'utf8');
+    const childRealPath = fs.realpathSync(childDir);
+    expect(capturedGraphifyArgs).toContain(`${childRealPath}:update .`);
+    expect(capturedGraphifyArgs).toContain(`${childRealPath}:hook install`);
+    expect(capturedGraphifyArgs).not.toContain(`${childRealPath}:extract .`);
+    const payload = JSON.parse(result.stdout);
+    expect(payload).toMatchObject({
+      workflow_mode: 'all-repos',
+      overall_status: 'ready',
+      counts: {
+        total: 1,
+        ready: 1,
+      },
+    });
+    const childGraphify = payload.results[0].result.provider_readiness.find((entry) => entry.provider === 'graphify');
+    expect(childGraphify.first_generation).toMatchObject({
+      status: 'completed',
+      next_action: 'graphify-refresh-used',
+      artifact_refs: ['graphify-out/graph.json'],
     });
   });
 
@@ -2541,36 +2798,41 @@ exit 0
     }
   });
 
-  test('setup plan renderer exposes guided provider pack and headless selection gates', () => {
+  test('setup plan renderer exposes bare default provider pack without confirmation gate', () => {
     const tempDir = makeTempDir();
-    const guided = spawnSync('node', [setupPlanRendererPath, '--mode', 'guided-confirm', '--repo-root', tempDir], {
+    const guided = spawnSync('node', [setupPlanRendererPath, '--mode', 'guided-apply', '--repo-root', tempDir], {
       cwd: repoRoot,
       encoding: 'utf8',
     });
     expect(guided.status).toBe(0);
     const guidedPlan = JSON.parse(guided.stdout);
-  expect(guidedPlan.optional_provider_selection).toMatchObject({
-    selection_source: 'guided-default-provider-pack',
-    selected_ids: ['codegraph', 'graphify'],
-    requires_confirmation: true,
-  });
-  const graphify = guidedPlan.provider_selection.find((entry) => entry.provider === 'graphify');
-  expect(graphify).toMatchObject({
-    selected: true,
-    tool_install_root: null,
-    artifact_root: path.join(tempDir, 'graphify-out'),
-    first_generation_display: 'resolved graphify CLI -> graphify install --project --platform <current-host>; graphify extract . (fallback: graphify update . code-only; if provider refuses overwrite and suggests --force, one graphify update . --force repair)',
-    auto_refresh_display: 'resolved graphify CLI -> graphify hook install (git repo only; provider-owned post-commit/post-checkout refresh)',
-    command_visibility_display: 'setup resolves graphify from the original PATH or provider-standard $HOME/.local/bin/graphify; off-PATH installs remain usable by setup but are reported as a manual PATH visibility action.',
-    instruction_section_display: 'after provider project install, setup normalizes the AGENTS.md/CLAUDE.md ## graphify section to resolved CLI/manual-visibility/direct-source-fallback wording.',
-  });
-  const codegraph = guidedPlan.provider_selection.find((entry) => entry.provider === 'codegraph');
-  expect(codegraph.first_generation_display).toContain('codegraph sync first');
-  expect(codegraph.first_generation_display).toContain('one codegraph index -f repair');
-  expect(graphify.writes_display.provider_runtime).toEqual(expect.arrayContaining([
-    '.codex/skills/graphify/',
-    '.codex/hooks.json',
-    'AGENTS.md',
+    expect(guidedPlan.optional_provider_selection).toMatchObject({
+      selection_source: 'bare-default-provider-pack',
+      selected_ids: ['codegraph', 'graphify'],
+      requires_confirmation: false,
+      confirmation_prompt: null,
+    });
+    const graphify = guidedPlan.provider_selection.find((entry) => entry.provider === 'graphify');
+    expect(graphify).toMatchObject({
+      selected: true,
+      requires_confirmation: false,
+      tool_install_root: null,
+      artifact_root: path.join(tempDir, 'graphify-out'),
+      first_generation_display: 'resolved graphify CLI -> verify/install current-host project skill; if graphify-out exists, verify install state and recommend incremental --refresh; otherwise graphify extract .; explicit --refresh runs graphify update . code-only/no-LLM (if provider refuses overwrite and suggests --force, one graphify update . --force repair)',
+      auto_refresh_display: 'resolved graphify CLI -> graphify hook install (git repo only; provider-owned post-commit/post-checkout refresh)',
+      command_visibility_display: 'setup resolves graphify from the original PATH or provider-standard $HOME/.local/bin/graphify; off-PATH installs remain usable by setup but are reported as a manual PATH visibility action.',
+      instruction_section_display: 'after provider project install, setup normalizes the AGENTS.md/CLAUDE.md ## graphify section to resolved CLI/manual-visibility/direct-source-fallback wording.',
+    });
+    const codegraph = guidedPlan.provider_selection.find((entry) => entry.provider === 'codegraph');
+    expect(codegraph).toMatchObject({
+      requires_confirmation: false,
+    });
+    expect(codegraph.first_generation_display).toContain('codegraph sync first');
+    expect(codegraph.first_generation_display).toContain('one codegraph index -f repair');
+    expect(graphify.writes_display.provider_runtime).toEqual(expect.arrayContaining([
+      '.codex/skills/graphify/',
+      '.codex/hooks.json',
+      'AGENTS.md',
       '.claude/skills/graphify/',
       'CLAUDE.md',
     ]));

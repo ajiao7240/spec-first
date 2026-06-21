@@ -327,7 +327,7 @@ function helperProviders(providerRegistry, mcpRegistry, repoRoot, requirementWor
         artifact_root: scope.artifact_root ? path.join(repoRoot, scope.artifact_root) : null,
         requirement_workspace_path: scope.requirement_workspace_path,
         first_generation_display: scope.ok
-          ? 'resolved graphify CLI -> graphify install --project --platform <current-host>; graphify extract . (fallback: graphify update . code-only; if provider refuses overwrite and suggests --force, one graphify update . --force repair)'
+          ? 'resolved graphify CLI -> verify/install current-host project skill; if graphify-out exists, verify install state and recommend incremental --refresh; otherwise graphify extract .; explicit --refresh runs graphify update . code-only/no-LLM (if provider refuses overwrite and suggests --force, one graphify update . --force repair)'
           : `skipped: ${scope.first_generation_next_action}`,
         auto_refresh_display: scope.ok
           ? 'resolved graphify CLI -> graphify hook install (git repo only; provider-owned post-commit/post-checkout refresh)'
@@ -357,7 +357,7 @@ function helperProviders(providerRegistry, mcpRegistry, repoRoot, requirementWor
 
 function selectionSource(args) {
   if (args.only) return 'explicit-only';
-  if (args.mode === 'guided-confirm') return 'guided-default-provider-pack';
+  if (args.mode === 'guided-apply' || args.mode === 'guided-confirm') return 'bare-default-provider-pack';
   return 'plan-default-provider-pack';
 }
 
@@ -381,16 +381,14 @@ function buildProviderSelection(args) {
     selection_source: source,
     selected_ids: providers.filter((provider) => selectedSet.has(provider.provider)).map((provider) => provider.provider),
     unknown_ids: unknown,
-    requires_confirmation: !args.only && args.mode !== 'headless',
-    confirmation_prompt: !args.only
-      ? 'Confirm Runtime Setup provider pack install-init for CodeGraph and Graphify in the current workspace?'
-      : null,
+    requires_confirmation: false,
+    confirmation_prompt: null,
     workspace_root: repoRoot,
     provider_selection: providers.map((provider) => ({
       ...provider,
       selected: selectedSet.has(provider.provider),
       selection_source: selectedSet.has(provider.provider) ? source : 'not-selected',
-      requires_confirmation: selectedSet.has(provider.provider) && !args.only,
+      requires_confirmation: false,
     })),
     blocked: unknown.map((id) => ({
       id,

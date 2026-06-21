@@ -285,7 +285,7 @@ source assets -> spec-first init -> host runtime assets -> workflow artifacts
 
 - `spec-first doctor` 检查 CLI/runtime health。选定 host 且 setup facts 存在时，`doctor --json` 还会基于 `.spec-first/config/tool-facts.json` 输出 `decision_input_health` 与 `decision_input_health_basis`。
 - 当前宿主的 setup workflow 会写入 required harness tools、configured dependencies、provider readiness slots 和本地 runtime capabilities 的 setup-owned facts。下游 workflow 把这些事实当作 advisory setup evidence，再用 direct source reads、`rg`、ast-grep、git diff、tests、logs 和用户提供证据确认具体任务 claim。
-- Runtime setup modes 明确拆分副作用：裸 `$spec-mcp-setup` / `/spec:mcp-setup` 是 guided setup 路径，先确认一次再 install-init；`--only codegraph,graphify` 是 headless/子集 apply 路径；`--check` 只读，`--verify-only` / `--refresh-facts` 只刷新 setup facts，`--plan` 只预览 install/config 操作且不 mutation。
+- Runtime setup modes 明确拆分副作用：裸 `$spec-mcp-setup` / `/spec:mcp-setup` 会渲染默认 CodeGraph/Graphify provider pack 并直接自动执行 install-init，不再额外确认；`--only codegraph,graphify` 将同一 apply 路径收窄到显式子集；`--check` 只读，`--verify-only` / `--refresh-facts` 只刷新 setup facts，`--plan` 只预览 install/config 操作且不 mutation。
 - Graphify readiness 是分层 ladder：`graphify-out/graph.json` 可以存在，但 CLI 仍可能对当前 shell 不可见，或当前 host project skill 缺失。Runtime Setup 会为 setup 内部操作解析 provider-standard CLI path，报告手动 PATH visibility action，保留 provider-owned hooks/skills，并保持 Graphify output 为 advisory。
 - branch switch、pull、rebase、merge 和 dirty worktree changes 可能让既有本地证据过期。workflow 会披露这些 limitations，而不是隐藏运行 external-tool refresh、hooks、watchers 或 daemons。
 

@@ -1,6 +1,7 @@
 param(
   [switch]$Install,
   [switch]$VerifyOnly,
+  [switch]$Refresh,
   [string]$RequirementWorkspace = ''
 )
 
@@ -32,6 +33,11 @@ if ([string]::IsNullOrWhiteSpace($RequirementWorkspace)) {
 }
 if ([string]::IsNullOrWhiteSpace($RequirementWorkspace)) {
   $RequirementWorkspace = [Environment]::GetEnvironmentVariable('SPEC_FIRST_REQUIREMENT_WORKSPACE')
+}
+$graphifyRefreshRequested = $Refresh
+if (-not $graphifyRefreshRequested) {
+  $refreshEnv = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_GRAPHIFY_REFRESH')
+  $graphifyRefreshRequested = @('approved', 'yes', 'true', '1') -contains ([string]$refreshEnv).ToLowerInvariant()
 }
 
 $providerRepoRoot = [Environment]::GetEnvironmentVariable('SPEC_FIRST_PROVIDER_REPO_ROOT')
@@ -1192,6 +1198,32 @@ function Invoke-GraphifyFirstGenerationIfRequested {
     return
   }
 
+  if ($graphifyRefreshRequested -and [string]$resolved.workspace_rel -eq '.') {
+    $refreshOk = Invoke-GraphifyCodeOnlyFallback -RepoRoot $repoRoot -WorkspacePath ([string]$resolved.workspace_rel)
+    if ($refreshOk) {
+      $artifactRef = Get-GraphifyArtifactRef -RepoRoot $repoRoot -ArtifactRoot ([string]$resolved.artifact_rel)
+      if (-not [string]::IsNullOrWhiteSpace($artifactRef)) {
+        Invoke-GraphifyQueryProbe -RepoRoot $repoRoot -ArtifactRoot ([string]$resolved.artifact_abs)
+        Set-GraphifyFirstGenerationFact -Status 'completed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -ArtifactRef $artifactRef -NextAction 'graphify-refresh-used'
+        return
+      }
+    } elseif (Test-GraphifyOutputRequestsForceOverwrite -Output $script:GraphifyRunDiagnostic) {
+      $forceOk = Invoke-GraphifyForceOverwriteRepair -RepoRoot $repoRoot -WorkspacePath ([string]$resolved.workspace_rel)
+      if ($forceOk) {
+        $artifactRef = Get-GraphifyArtifactRef -RepoRoot $repoRoot -ArtifactRoot ([string]$resolved.artifact_rel)
+        if (-not [string]::IsNullOrWhiteSpace($artifactRef)) {
+          Invoke-GraphifyQueryProbe -RepoRoot $repoRoot -ArtifactRoot ([string]$resolved.artifact_abs)
+          Set-GraphifyFirstGenerationFact -Status 'completed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -ArtifactRef $artifactRef -NextAction 'graphify-refresh-force-overwrite-used'
+          return
+        }
+      }
+      Set-GraphifyFirstGenerationFact -Status 'failed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -NextAction 'graphify-refresh-force-overwrite-failed'
+      return
+    }
+    Set-GraphifyFirstGenerationFact -Status 'failed' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -NextAction 'graphify-refresh-failed'
+    return
+  }
+
   if ([string]$resolved.workspace_rel -eq '.') {
     Push-Location $repoRoot
     try {
@@ -1361,7 +1393,7 @@ function Normalize-GraphifyInstructionSection {
   if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { return }
   $content = [System.IO.File]::ReadAllText($target)
   $section = (Get-GraphifyInstructionSection -PlatformName $PlatformName).TrimEnd() + "`n"
-  $pattern = '(?s)\n*## graphify\n.*?(?=\n## |\n<!-- spec-first:lang:start -->|\z)'
+  $pattern = '(?s)\n*## graphify\n.*?(?=\n## |\n<!-- spec-first:[^>]+:start -->|\z)'
   if ($content.Contains('## graphify')) {
     $regex = [regex]$pattern
     $newContent = $regex.Replace(
@@ -1383,6 +1415,32 @@ function Normalize-GraphifyInstructionSection {
   }
 }
 
+function Test-GraphifyProjectSkillConfigured {
+  param([string]$RepoRoot)
+  $platformName = Get-GraphifyProjectPlatform
+  if ($platformName -eq 'claude' -or $platformName -eq 'windows') {
+    return (Test-Path -LiteralPath (Join-Path $RepoRoot '.claude/skills/graphify/SKILL.md') -PathType Leaf)
+  }
+  return (
+    (Test-Path -LiteralPath (Join-Path $RepoRoot '.codex/skills/graphify/SKILL.md') -PathType Leaf) -or
+    (Test-Path -LiteralPath (Join-Path $RepoRoot '.agents/skills/graphify/SKILL.md') -PathType Leaf)
+  )
+}
+
+function Ensure-GraphifyProjectSkill {
+  param([string]$RepoRoot)
+  $platformName = Get-GraphifyProjectPlatform
+  if (Test-GraphifyProjectSkillConfigured -RepoRoot $RepoRoot) {
+    try {
+      Normalize-GraphifyInstructionSection -RepoRoot $RepoRoot -PlatformName $platformName
+    } catch {
+    }
+    Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_CONFIGURED -Value 'true'
+    return $true
+  }
+  return (Install-GraphifyProjectSkill -RepoRoot $RepoRoot)
+}
+
 function Install-GraphifyProjectSkill {
   param([string]$RepoRoot)
   $platformName = Get-GraphifyProjectPlatform
@@ -1402,6 +1460,30 @@ function Install-GraphifyProjectSkill {
   Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_CONFIGURED -Value 'false'
   Set-GraphifyFirstGenerationFact -Status 'skipped' -NextAction 'graphify-project-skill-install-failed'
   return $false
+}
+
+function Test-GraphifyHookStatusIfAvailable {
+  param([string]$RepoRoot)
+  Push-Location $RepoRoot
+  try {
+    git rev-parse --is-inside-work-tree *> $null
+    if ($LASTEXITCODE -eq 0) {
+      if (Invoke-GraphifyCommand @('hook', 'status')) {
+        Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED -Value 'true'
+        Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED -Value 'true'
+        Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS -Value 'verified'
+        return $true
+      }
+      return $false
+    }
+  } finally {
+    Pop-Location
+  }
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_INSTALLED -Value 'false'
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_VERIFIED -Value 'false'
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_STATUS -Value 'skipped'
+  Set-Item -Path env:SPEC_FIRST_PROVIDER_GRAPHIFY_HOOK_SKIPPED_REASON -Value 'not-a-git-repo'
+  return $true
 }
 
 function Install-GraphifyHookIfAvailable {
@@ -1495,6 +1577,29 @@ function Invoke-GraphifyQueryProbeForExistingArtifactIfAvailable {
   Invoke-GraphifyQueryProbe -RepoRoot $providerRepoRoot -ArtifactRoot $artifactRoot
 }
 
+function Invoke-GraphifyExistingArtifactSetupIfAvailable {
+  if ($graphifyRefreshRequested) { return $false }
+
+  $resolved = Resolve-RequirementWorkspace -RepoRoot $providerRepoRoot -Candidate $RequirementWorkspace -ArtifactRoot $graphifyArtifactRootDefault
+  if (-not [bool]$resolved.ok) { return $false }
+
+  $artifactRef = Get-GraphifyArtifactRef -RepoRoot $providerRepoRoot -ArtifactRoot ([string]$resolved.artifact_rel)
+  if ([string]::IsNullOrWhiteSpace($artifactRef)) { return $false }
+
+  if (-not (Ensure-GraphifyProjectSkill -RepoRoot $providerRepoRoot)) {
+    Set-GraphifyFirstGenerationFact -Status 'skipped' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -ArtifactRef $artifactRef -NextAction 'graphify-project-skill-install-failed'
+    return $true
+  }
+
+  Invoke-GraphifyQueryProbe -RepoRoot $providerRepoRoot -ArtifactRoot ([string]$resolved.artifact_abs)
+  Set-GraphifyFirstGenerationFact -Status 'skipped' -WorkspacePath ([string]$resolved.workspace_rel) -ArtifactRoot ([string]$resolved.artifact_rel) -ArtifactRef $artifactRef -NextAction 'graphify-refresh-recommended'
+
+  if (-not (Test-GraphifyHookStatusIfAvailable -RepoRoot $providerRepoRoot)) {
+    Install-GraphifyHookIfAvailable -RepoRoot $providerRepoRoot | Out-Null
+  }
+  return $true
+}
+
 function Invoke-GraphifyProviderInstallIfRequested {
   if ($mode -ne 'install') { return }
   if (-not (Test-ProviderConsentApproved -Provider 'GRAPHIFY')) { return }
@@ -1502,7 +1607,8 @@ function Invoke-GraphifyProviderInstallIfRequested {
     Set-GraphifyFirstGenerationFact -Status 'skipped' -NextAction 'graphify-cli-install-failed'
     return
   }
-  if (-not (Install-GraphifyProjectSkill -RepoRoot $providerRepoRoot)) { return }
+  if (Invoke-GraphifyExistingArtifactSetupIfAvailable) { return }
+  if (-not (Ensure-GraphifyProjectSkill -RepoRoot $providerRepoRoot)) { return }
   Invoke-GraphifyFirstGenerationIfRequested
   if (Test-GraphifyFirstGenerationReadyForHook) {
     Install-GraphifyHookIfAvailable -RepoRoot $providerRepoRoot | Out-Null
