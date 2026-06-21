@@ -59,4 +59,4 @@ Route and boundary examples live in `evals/examples.json`; use them for review/e
 
 ## Runtime/Source Boundary
 
-Source of truth: `skills/agent-native-architecture/SKILL.md`, `references/`, `evals/examples.json`, and centralized governance in `src/cli/contracts/dual-host-governance/skills-governance.json`. Do not add a per-skill manifest as a second governance source. Generated runtime mirrors are not source-of-truth and must not be hand-edited as source fixes.
+The source of truth is `skills/agent-native-architecture/SKILL.md`, `references/`, `evals/examples.json`, and centralized governance in `src/cli/contracts/dual-host-governance/skills-governance.json`. Do not add a per-skill manifest as a second governance source. Generated runtime mirrors are not source-of-truth and must not be hand-edited as source fixes.

@@ -109,6 +109,22 @@ describe('spec-brainstorm host entrypoint contract', () => {
     expect(skill).toContain('External-tool evidence must not expand product scope or let implementation details back-drive user-facing requirements.');
   });
 
+  test('brainstorm entry contract routes near-neighbor requests out early', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+
+    expect(skill).toContain('Use when the user has a selected or user-framed problem, feature, or improvement');
+    expect(skill).toContain('Do not use for open-ended idea generation, brownfield PRD authoring/refinement/validation');
+    expect(skill).toContain('## Near-Neighbor Exit Cues');
+    expect(skill).toContain('Broad idea generation, "what should we improve", or surprising options -> current host\'s ideation workflow.');
+    expect(skill).toContain('Brownfield PRD authoring, refinement, or validation -> current host\'s PRD workflow.');
+    expect(skill).toContain('Clear implementation planning -> current host\'s plan workflow.');
+    expect(skill).toContain('Single-document cleanup, summarization, or narrow factual answer -> direct handling.');
+    expect(skill).toContain('status: not_applicable | handoff | degraded');
+    expect(skill).toContain('recommended_next_action: <current-host entrypoint or direct action>');
+    expect(skill).toContain('source_refs: <repo-relative paths when source evidence was read>');
+    expect(skill).not.toContain('even if they don\'t explicitly ask to brainstorm');
+  });
+
   test('planning handoffs use current-host entrypoint wording', () => {
     const combined = [
       fs.readFileSync(SKILL_PATH, 'utf8'),

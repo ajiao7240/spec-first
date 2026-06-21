@@ -1,6 +1,6 @@
 ---
 name: spec-brainstorm
-description: 'Explore requirements and approaches through collaborative dialogue before writing a right-sized requirements document and planning implementation. Use for feature ideas, problem framing, when the user says ''let''s brainstorm'', or when they want to think through options before deciding what to build. Also use when a user describes a vague or ambitious feature request, asks ''what should we build'', ''help me think through X'', presents a problem with multiple valid solutions, or seems unsure about scope or direction — even if they don''t explicitly ask to brainstorm.'
+description: "Explore a selected or user-framed feature/problem through collaborative WHAT discovery before requirements or planning. Use when the user has a direction but product behavior, scope, users, success criteria, or planning handoff context remain unresolved. Not for open-ended idea generation, brownfield PRD authoring/refinement/validation, clear implementation planning, execution/debug/review/setup, narrow factual answers, or single-document cleanup/summarization."
 argument-hint: "[feature idea or problem to explore]"
 ---
 
@@ -20,11 +20,11 @@ This skill does not implement code. It explores, clarifies, and documents decisi
 
 ### When To Use
 
-Use when product behavior, problem framing, user goals, success criteria, or scope boundaries are still open enough that planning would otherwise invent WHAT to build.
+Use when the user has a selected or user-framed problem, feature, or improvement, but product behavior, problem framing, user goals, success criteria, or scope boundaries are still open enough that planning would otherwise invent WHAT to build.
 
 ### When Not To Use
 
-Do not use for settled implementation work, code debugging, document/code review, setup/update/runtime repair, or narrow factual questions that can be answered directly.
+Do not use for open-ended idea generation, brownfield PRD authoring/refinement/validation, settled implementation work, clear implementation planning, code debugging, document/code review, setup/update/runtime repair, single-document cleanup/summarization, or narrow factual questions that can be answered directly.
 
 ### Inputs
 
@@ -49,6 +49,36 @@ Assess scope and domain, ask focused questions, synthesize options and decisions
 ### Downstream Consumers
 
 `spec-plan`, human product owners, document reviewers, and future work/review flows that need stable WHAT/WHY context.
+
+## Near-Neighbor Exit Cues
+
+If Phase 0 shows the request belongs elsewhere, stop before Phase 1 and route out rather than producing a requirements document:
+
+- Broad idea generation, "what should we improve", or surprising options -> current host's ideation workflow.
+- Brownfield PRD authoring, refinement, or validation -> current host's PRD workflow.
+- Clear implementation planning -> current host's plan workflow.
+- Review request -> current host's doc-review or code-review workflow, as applicable.
+- Bug, failure, or failing test -> current host's debug workflow.
+- Implementation-ready plan/task -> current host's work workflow.
+- Single-document cleanup, summarization, or narrow factual answer -> direct handling.
+
+## Route-Out Shape
+
+Wrong-entry, degraded, or handoff cases should return a compact chat-consumable shape for the user or parent entry router, not a schema-validated artifact:
+
+```text
+status: not_applicable | handoff | degraded
+reason_code: idea_generation | brownfield_prd | clear_plan_request | execution_ready | debug_request | doc_review | direct_cleanup | missing_feature_description | insufficient_evidence
+recommended_next_action: <current-host entrypoint or direct action>
+limitation: <why brainstorm should not continue>
+source_refs: <repo-relative paths when source evidence was read>
+```
+
+Do not create a requirements doc or durable brainstorm artifact for route-out unless the user redirects back into brainstorm with a fitting feature/problem.
+
+## Examples As Context
+
+`evals/routing-cases.json` records positive WHAT-discovery triggers and near-neighbor route-out examples. It is structural regression evidence, not a deterministic router or semantic proof.
 
 ## Scenario Capability
 
