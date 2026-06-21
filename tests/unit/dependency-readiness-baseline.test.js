@@ -1065,7 +1065,7 @@ exit 0
     expect(postCommitHook).toContain(`export PATH='${graphifyBinDir}':"$PATH"`);
   });
 
-  test('install-helpers verifies existing Graphify artifact and recommends explicit refresh', () => {
+  test('install-helpers verifies existing Graphify artifact and recommends explicit incremental refresh', () => {
     const tempDir = makeTempDir();
     const homeDir = path.join(tempDir, 'home');
     const binDir = path.join(tempDir, 'bin');
@@ -1675,7 +1675,7 @@ exit 0
     });
   });
 
-  test('install-mcp --only graphify --refresh refreshes existing Graphify artifact', () => {
+  test('install-mcp --only graphify --refresh incrementally refreshes existing Graphify artifact', () => {
     const tempDir = makeTempDir();
     const homeDir = path.join(tempDir, 'home');
     const binDir = path.join(tempDir, 'bin');
