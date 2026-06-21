@@ -13,6 +13,14 @@ The Phase 4 menu's visible option count varies by state: no requirements doc hid
 
 Never silently skip the question.
 
+**Terminal action defaults:**
+
+- Default to `spec-plan` when the requirements are ready and no unresolved WHAT/product decision remains.
+- Recommend written-doc review before planning for Standard/Deep requirements, and prefer `spec-doc-review` when the doc is complex or high-risk.
+- Increase the review/clarify recommendation when the doc contains `Assumptions`, `Outstanding Questions`, multiple `Key Decisions`, or Deep-product scope boundaries. This is a recommendation, not a hard approval gate; the user may still choose the lightweight fast path when the risk is acceptable.
+- Offer `spec-work` only when the direct-to-work gate passes: lightweight scope, clear success criteria, clear scope boundaries, and no meaningful technical or research questions remain.
+- If unresolved WHAT or product decisions remain, continue clarifying or pause. Do not recommend `spec-plan` or `spec-work` while planning would still need to invent product intent.
+
 If `Resolve Before Planning` contains any items:
 - Ask the blocking questions now, one at a time, by default
 - If the user explicitly wants to proceed anyway, first convert each remaining item into an explicit decision, assumption, or `Deferred to Planning` question
@@ -46,7 +54,7 @@ What would you like to do next? (Pick a number or describe what you want.)
 Present only the options that apply. Renumber so visible options stay contiguous starting at 1.
 
 1. **Plan implementation with `spec-plan` (Recommended)** - Move to `spec-plan` for structured implementation planning. Shown only when `Resolve Before Planning` is empty.
-2. **Document review with `spec-doc-review`** - Execute the document-review workflow, which dispatches reviewer agents internally to check the doc for coherence, feasibility, scope, and other persona-specific issues; auto-apply safe fixes; route remaining findings interactively. Shown only when a requirements document exists.
+2. **Document review with `spec-doc-review`** - Review the written requirements doc for coherence, feasibility, scope, and persona-specific issues before planning; especially recommended for Standard/Deep docs, high-risk docs, or docs with assumptions/open questions/multiple key decisions. Shown only when a requirements document exists.
 3. **Open in Proof — review and comment to iterate with the agent** - Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others. Shown only when a requirements document exists.
 4. **Build it now with `spec-work` (skip planning)** - Skip planning and move to `spec-work`; suited to lightweight, well-defined changes. Shown only when `Resolve Before Planning` is empty **and** scope is lightweight, success criteria are clear, scope boundaries are clear, and no meaningful technical or research questions remain (the "direct-to-work gate").
 5. **More clarifying questions to sharpen the doc** - Keep refining scope, edge cases, constraints, and preferences through further dialogue. Always shown.

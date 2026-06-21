@@ -1,6 +1,6 @@
 # Universal Brainstorming Facilitator
 
-This file is loaded when spec-brainstorm detects a non-software task (Phase 0). It replaces the software-specific brainstorming phases (Phases 0.2 through 4) with facilitation principles for any domain. The Core Principles and **Interaction Rules** in the parent `spec-brainstorm/SKILL.md` still apply unchanged — including one-question-per-turn and the default to the platform's blocking question tool. This file extends those rules with universal-domain facilitation guidance; it does not relax them.
+This file is loaded when spec-brainstorm detects a non-software task (Phase 0). It replaces the software-specific brainstorming phases (Phases 0.2 through 4) with facilitation principles for any domain. The Core Principles in `references/discovery-flow.md` and the **Interaction Rules** in `references/interaction-rules.md` still apply unchanged — including one-question-per-turn and the default to the platform's blocking question tool. This file extends those rules with universal-domain facilitation guidance; it does not relax them.
 
 ---
 

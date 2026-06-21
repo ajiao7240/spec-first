@@ -33,7 +33,7 @@ Render up to four sections. Empty conditional sections are omitted, not padded.
 3. **What's not in scope** (conditional) — 1-3 bullets, or one sentence, when deferred items would surprise a downstream reader.
 4. **Call outs** (conditional) — 0-3 bullets for residual scope forks, silent inferences, or consequences of combining user answers.
 
-Call outs are not missed interview questions. If a call out reads like "we should have asked this earlier," pause and resolve the question before presenting the synthesis.
+Call outs are not missed interview questions. If a call out reads like "we should have asked this earlier," or exposes a blocking branch that affects WHAT, pause and resolve the question before presenting the synthesis.
 
 ## Path A / Path B Gate
 
@@ -71,6 +71,8 @@ Every user-facing bullet must pass both tests:
 
 - **Affirmability test:** the user can affirm or redirect without reading code.
 - **Detail test:** one line ideally, two lines maximum; conversational rather than documentary.
+- **Read-aloud test:** if the bullet would sound unnatural in a quick scope conversation, recut it.
+- **Single-sentence test:** each bullet should reduce to one decision, trade-off, exclusion, or call out. If it carries two ideas, split it or raise the abstraction level.
 
 Do not include:
 
@@ -81,6 +83,15 @@ Do not include:
 - SQL syntax, query bodies, or column-level details
 
 When a bullet starts naming those details, move it to the future plan body or omit it from the synthesis.
+
+## Pre-Flight Re-Review
+
+Before showing Stage 2, re-read it once as the user:
+
+- If it looks like a miniature requirements document, recut to conversational scope confirmation.
+- If bullets have become paragraphs, raise the abstraction level instead of increasing the cap.
+- If a Call out is really a missed blocking WHAT question, pause and ask that question before synthesis.
+- If implementation details, R-IDs, file paths, schemas, or exact strings appear, move them to planning or the eventual requirements document.
 
 ## Output Shapes
 
@@ -112,6 +123,30 @@ No open scope decisions to weigh in on. I'll wait for your next message before w
 ```
 
 Use prose for the user's response, not a multiple-choice menu. Option sets bias correction by signaling which dimensions matter.
+
+## Worked Example
+
+Internal draft:
+
+- **Stated:** add a lightweight resume path for existing brainstorm docs.
+- **Inferred:** the user wants to avoid duplicate requirements files.
+- **Out of scope:** changing `spec-plan` discovery or runtime mirrors.
+
+Compressed Stage 2:
+
+```text
+Based on our dialogue, here's the scope I'm proposing for the requirements doc:
+
+**What we're building:** A brainstorm resume path that detects an existing requirements doc, confirms whether to continue it, and keeps the durable artifact chain clean.
+
+**Key trade-offs:**
+- Keep this in brainstorm instead of planning so the WHAT document stays single-source before implementation planning starts.
+
+**What's not in scope:**
+- Changing plan discovery or regenerating runtime mirrors.
+
+Confirm and I'll write the requirements doc next, drawing on our dialogue and this synthesis. Or tell me what to change.
+```
 
 ## Revision Loop
 

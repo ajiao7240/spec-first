@@ -2,6 +2,16 @@
 
 Visual aids are conditional on content patterns, not on depth classification — a Lightweight brainstorm about a complex workflow may warrant a diagram; a Deep brainstorm about a straightforward feature may not.
 
+## During Dialogue
+
+Use visual aids during dialogue only when seeing the shape is clearer than reading another paragraph. Good triggers: UI layout, screen flow, multi-role relationships, multi-step workflows, A/B/C visual differences, or hard source/runtime/artifact-chain relationships.
+
+Ask the user before switching into a visual artifact. Default to lightweight Markdown tables, Mermaid, or ASCII that can live in chat and later be summarized in the canonical markdown requirements doc. Use browser prototypes, Proof, or HTML sidecars only when the user explicitly opts in.
+
+Dialogue-time visuals are thinking aids, not canonical requirements. Do not let a diagram replace the markdown requirements document, introduce implementation architecture, or smuggle code/module/data-schema decisions into WHAT discovery.
+
+## In Requirements Documents
+
 **When to include:**
 
 | Requirements describe... | Visual aid | Placement |

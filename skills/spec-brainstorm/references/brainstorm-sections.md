@@ -14,6 +14,18 @@ A strong brainstorm document enables three audiences to act:
 
 Sections earn their place by serving one of those audiences. Omit padding.
 
+## Prose Economy
+
+Prose economy is artifact quality, not a style linter. Use it to make live decisions easier for `spec-plan`, reviewers, and future readers to find.
+
+- One sentence carries one idea.
+- One requirement carries one intent plus at most one necessary qualifier.
+- Move unresolved forks to `Outstanding Questions`; do not bury them inside a requirement.
+- Cut hedges, intensifiers, transcript residue, and process narration that do not change behavior, scope, evidence, or handoff.
+- Prefer verbs over nominalizations when the requirement describes behavior.
+- Resolve superseded text in place instead of layering "updated", "instead", or "actually" notes.
+- Precision is not padding: keep exact IDs, actor names, thresholds, domain terms, conditions, and source-backed constraints when they affect planning.
+
 ## Decide Whether A Document Is Warranted
 
 Skip durable document creation only when the user needs brief alignment and no durable decisions, scope boundaries, or acceptance criteria need to survive into planning, commits, or `docs/solutions/`.

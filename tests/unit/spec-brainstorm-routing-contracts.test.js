@@ -46,7 +46,7 @@ describe('spec-brainstorm routing boundary contract', () => {
 
     expect(skill).toContain('Explore a selected or user-framed feature/problem through collaborative WHAT discovery');
     expect(skill).toContain('planning handoff context remain unresolved');
-    expect(skill).toContain('Not for open-ended idea generation');
+    expect(skill).toContain('Do not use for open-ended idea generation');
     expect(skill).toContain('brownfield PRD authoring/refinement/validation');
     expect(skill).toContain('clear implementation planning');
     expect(skill).toContain('single-document cleanup/summarization');

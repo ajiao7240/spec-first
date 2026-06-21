@@ -216,10 +216,19 @@ Include a visual aid when the requirements would be significantly easier to unde
 
 This gate replaces the older flat finalization checklist. Before finalizing, run a lightweight pre-scan, then walk the six readiness dimensions. The gate assesses whether requirements are **ready to hand to planning** — it is LLM-owned judgment, not a script.
 
+**Materiality calibration (what blocks readiness):**
+
+Treat an issue as readiness-blocking only when it would force `spec-plan` to invent WHAT, misunderstand scope/non-goals/success, confuse `Stated` vs `Inferred`, allow opposite implementations, or leave a user/product decision unresolved.
+
+Do not block finalization for style polish, uneven detail that does not affect planning, technical HOW unknowns that naturally belong in planning, or wording improvements that do not change behavior or scope. Capture those as polish, `Deferred to Planning`, or a brief note instead of stretching the brainstorm.
+
+When uncertain, ask: would two competent planners produce materially different product outcomes because of this gap? If yes, clarify before handoff. If no, do not delay planning for it.
+
 **Pre-scan (cheap, do first):**
 
 - **Placeholder scan** — no `TODO`, `TBD`, leftover placeholders, or unfinished sections remain.
 - **Contradiction scan** — no *literal* in-document conflict (e.g., a requirement that directly contradicts a Scope Boundary, Success Criterion, or Key Decision in the same doc). This is a same-document consistency check, not a judgment about whether the requirements *should* exist.
+- **Prose economy scan** — apply `references/brainstorm-sections.md` `Prose Economy`: one idea per sentence, one requirement intent plus necessary qualifier, unresolved forks moved to `Outstanding Questions`, superseded text resolved in place. Precision is not padding; keep exact IDs, thresholds, actor names, domain terms, and conditions that affect planning.
 
 **Clarity & Non-ambiguity**
 
