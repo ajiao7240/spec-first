@@ -78,6 +78,7 @@ Load references only when their trigger is present:
 - `references/domain-language-and-decision-ledger.md` plus optional `docs/contracts/domain-glossary.md` - terminology, domain boundaries, source/user/glossary contradictions, bounded grill, and decision notes.
 - `references/prd-output-template.md` - drafting, output shape, adaptive product expert lens, PRD quality diagnosis, section selection, surface lenses, embedded standard template skeleton, and project-local overlays.
 - `references/prd-readiness-lens.md` - final PRD quality, readiness, handoff, or doc-review decision.
+- `references/evaluation-governance.md` - maturity posture, owner, review cadence, eval status, and promotion boundary; load for governance or lifecycle questions, not during normal PRD authoring.
 
 ## Input
 

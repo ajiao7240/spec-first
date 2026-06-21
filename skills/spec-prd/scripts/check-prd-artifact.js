@@ -29,6 +29,12 @@ function parseArgs(argv) {
   for (const arg of argv) {
     if (!args.target) {
       args.target = arg;
+    } else {
+      // 只接受单个位置参数:多余的目标路径会被静默丢弃,反而让错误调用
+      // 对非预期输入返回一份"自信报告",与兄弟脚本 check-glossary-drift.js 的
+      // error+exit-2 行为对齐,把坏调用变成确定性的 exit_code fact。
+      args.error = `unexpected extra argument: ${arg}`;
+      break;
     }
   }
   return args;

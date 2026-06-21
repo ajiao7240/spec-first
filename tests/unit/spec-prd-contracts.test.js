@@ -112,6 +112,7 @@ describe('spec-prd workflow contracts', () => {
     expect(sourceFiles).toEqual([
       'skills/spec-prd/SKILL.md',
       'skills/spec-prd/references/domain-language-and-decision-ledger.md',
+      'skills/spec-prd/references/evaluation-governance.md',
       'skills/spec-prd/references/evidence-and-topology.md',
       'skills/spec-prd/references/prd-output-template.md',
       'skills/spec-prd/references/prd-readiness-lens.md',
@@ -120,11 +121,12 @@ describe('spec-prd workflow contracts', () => {
     ]);
     expect(references).toEqual([
       'skills/spec-prd/references/domain-language-and-decision-ledger.md',
+      'skills/spec-prd/references/evaluation-governance.md',
       'skills/spec-prd/references/evidence-and-topology.md',
       'skills/spec-prd/references/prd-output-template.md',
       'skills/spec-prd/references/prd-readiness-lens.md',
     ]);
-    expect(sourceFiles).toHaveLength(7);
+    expect(sourceFiles).toHaveLength(8);
     expect(fs.existsSync(path.join(SKILL_DIR, 'templates', 'standard'))).toBe(false);
   });
 
@@ -188,7 +190,7 @@ describe('spec-prd workflow contracts', () => {
     expect(text).toContain('`code-align` is validation posture, not a fourth public intent');
   });
 
-  test('entrypoint references only the four source references and keeps generated mirrors out of source fixes', () => {
+  test('entrypoint references only the five source references and keeps generated mirrors out of source fixes', () => {
     const text = read(SKILL_PATH);
 
     expectContainsAll(text, [
@@ -196,6 +198,7 @@ describe('spec-prd workflow contracts', () => {
       'references/domain-language-and-decision-ledger.md',
       'references/prd-output-template.md',
       'references/prd-readiness-lens.md',
+      'references/evaluation-governance.md',
       'adaptive product expert lens',
       'PRD quality diagnosis',
       'do not create standalone context, ADR, or runtime artifacts',
@@ -541,6 +544,13 @@ describe('spec-prd workflow contracts', () => {
     for (const surface of ['App', 'Admin', 'Backend', 'H5/PC', 'CLI/DevTool', 'Mixed']) {
       expect(runtimeTemplate).toContain(surface);
     }
+    // 人类镜像的证据 tag 词表必须与 runtime 脚本枚举(check-prd-artifact.js EVIDENCE_TAGS)一致,
+    // 且不得保留已废弃的 stale 词 gitnexus-pointer。仅守 evidence-tag 词表,
+    // 不约束 README 声明的证券行业列/C1-C12 清单等项目本地 overlay。
+    for (const tag of ['confirmed-source', 'user-stated', 'source-candidate', 'external-research', 'assumption']) {
+      expect(humanCore).toContain(tag);
+    }
+    expect(humanCore).not.toContain('gitnexus-pointer');
   });
 
   test('routing and downstream plan intake know prd-requirements boundaries', () => {
@@ -1008,6 +1018,17 @@ describe('spec-prd workflow contracts', () => {
         expect.objectContaining({ reason_code: 'placeholder_or_todo_present' }),
         expect.objectContaining({ reason_code: 'feature_slice_missing_acceptance_trace' }),
       ]));
+
+      // 多余位置参数必须 exit 2 而不是静默丢弃,与 check-glossary-drift.js 的坏调用语义对齐
+      let extraArgError = null;
+      try {
+        execFileSync('node', [PRD_ARTIFACT_SCRIPT_PATH, goodPrd, badPrd], { encoding: 'utf8', stdio: 'pipe' });
+      } catch (err) {
+        extraArgError = err;
+      }
+      expect(extraArgError).not.toBeNull();
+      expect(extraArgError.status).toBe(2);
+      expect(String(extraArgError.stderr)).toContain('unexpected extra argument');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

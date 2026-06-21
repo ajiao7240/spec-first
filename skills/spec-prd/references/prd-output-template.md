@@ -294,6 +294,8 @@ Every PRD handoff should report:
 
 When a PRD artifact path exists, seed deterministic counts and trace facts from `scripts/check-prd-artifact.js <prd-path>` before adding LLM-owned readiness judgment such as whether planning would still have to invent WHAT.
 
+The script seeds only the deterministic lines: sections included, requirement count, acceptance example count, priority distribution, NFR count, assumption count, outstanding question count, uncovered requirements, and feature-to-R/AE trace gaps. The lines `current-state claims without confirmed evidence` and whether planning would still have to invent WHAT stay LLM-owned: the checker intentionally does not and must not compute them, because deciding which sentence is a load-bearing current-state claim and whether its evidence genuinely confirms is semantic (the script reports `evidence_tags_present` by presence only, not sufficiency).
+
 When `## Feature Slices` is present, or when PRD complexity was explicitly evaluated for slice need, additionally report:
 
 - feature slice count and feature IDs

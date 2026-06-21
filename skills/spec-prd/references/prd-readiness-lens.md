@@ -21,6 +21,8 @@ Run checks by pack. Always run the core pack; run conditional packs only when th
 
 When a PRD artifact path exists, `skills/spec-prd/scripts/check-prd-artifact.js <prd-path>` can report deterministic `spec-prd-artifact-check.v1` facts such as frontmatter, core-section presence, requirement/acceptance trace gaps, placeholder lines, forbidden `docs/prds/` path, and Feature Slice acceptance trace gaps. Treat those findings as advisory script-owned facts for this lens; they do not decide `ready-for-planning` by themselves.
 
+`placeholder_or_todo_present` and `requirement_without_acceptance_ref` / `uncovered_requirements` hits that correspond to an intentional placeholder inside the embedded template skeleton, an explicitly recorded trace gap, or an item deliberately deferred to `Outstanding Questions` are expected advisory noise: record the rationale, do not fabricate an acceptance reference or delete a deliberate trace-gap marker to zero the findings array. The Core Pack already blesses "an explicit trace gap" as a valid readiness state, so silencing the script would invert it from an advisory fact into a coercive gate that drives the WHAT decision instead of informing it. Feature Slice trace gaps are already honored script-side, so this carve-out's load-bearing scope is the placeholder and uncovered-requirement paths plus the recorded-trace-gap state.
+
 ### Core Pack
 
 - `current-state provenance` - material current-system claims have evidence tags; user-stated, confirmed-source, source-candidate, external-research, and assumptions are not blended; stale pointers are not presented as confirmed.
