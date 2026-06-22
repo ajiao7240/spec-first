@@ -99,7 +99,7 @@ describe('team standards governance source contract', () => {
       expect(contract).toContain(snippet);
     }
 
-    expect(contract).toContain('不恢复 `$spec-standards`、`/spec:standards`、`skills/spec-standards/` 或 `.spec-first/standards/`');
+    expect(contract).toContain('不恢复 Claude `/spec:standards`、Codex `$spec-standards`、`skills/spec-standards/` 或 `.spec-first/standards/`');
     expect(contract).not.toContain('confirmed standards can be inferred from code scanning');
   });
 
@@ -165,8 +165,10 @@ describe('team standards governance source contract', () => {
 
     expect(skill).toContain('name: spec-team-standards-governance');
     expect(skill).not.toContain('name: team-standards-governance');
-    expect(skill).toContain('not a public `$spec-*` workflow');
+    expect(skill).toContain('not a public Claude `/spec:*` or Codex `$spec-*` workflow');
     expect(skill).toContain('not the retired `spec-standards` workflow');
+    expect(skill).toContain('Do not create Claude `/spec:standards`, Codex `$spec-standards`');
+    expect(skill).toContain('requires an active Claude `/spec:work`, Codex `$spec-work`');
     expect(skill).toContain('Never load every reference by default');
     expect(skill).toContain('references/meta-prompt-governance.md');
     expect(skill).toContain('references/source-matrix.md');

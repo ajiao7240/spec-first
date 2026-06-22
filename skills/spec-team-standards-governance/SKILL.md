@@ -1,17 +1,17 @@
 ---
 name: spec-team-standards-governance
-description: Govern team development standards as source documents: query confirmed standards, audit standards health, draft candidates, and prepare promotion/deprecation proposals without restoring spec-standards.
+description: "Govern team development standards as source documents: query confirmed standards, audit standards health, draft candidates, and prepare promotion/deprecation proposals without restoring spec-standards."
 ---
 
 # Spec Team Standards Governance
 
-Use this standalone skill when the user asks to query, initialize, audit, propose, promote, or deprecate team development standards. It is a source-maintenance method, not a public `$spec-*` workflow and not the retired `spec-standards` workflow.
+Use this standalone skill when the user asks to query, initialize, audit, propose, promote, or deprecate team development standards. It is a source-maintenance method, not a public Claude `/spec:*` or Codex `$spec-*` workflow and not the retired `spec-standards` workflow.
 
 ## Hard Boundaries
 
-- Do not create `$spec-standards`, `/spec:standards`, `skills/spec-standards/` or `.spec-first/standards/`.
+- Do not create Claude `/spec:standards`, Codex `$spec-standards`, `skills/spec-standards/` or `.spec-first/standards/`.
 - Do not edit generated runtime mirrors such as `.claude/`, `.codex/` or `.agents/skills/`.
-- Standalone direct use defaults to report/proposal-only. Durable source mutation requires an active `$spec-work` or equivalent source-edit workflow, ordinary diff review, `CHANGELOG.md`, and focused tests.
+- Standalone direct use defaults to report/proposal-only. Durable source mutation requires an active Claude `/spec:work`, Codex `$spec-work`, or equivalent source-edit workflow, ordinary diff review, `CHANGELOG.md`, and focused tests.
 - Scripts or structured steps may collect deterministic/advisory facts; the LLM decides semantic applicability and promotion posture.
 - Only `trust=confirmed,lifecycle_state=active` and scope-matched standards can become hard context. `observed`, `suggested`, `imported`, `conflict` and `confirmed-draft` are not enforceable.
 - Confidence score is not authority. High-impact governance, conflicts and owner-unresolved rules require owner/ADR/design-note handling.
