@@ -1,8 +1,12 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
+const ClaudeAdapter = require('../../src/cli/adapters/claude');
+const CodexAdapter = require('../../src/cli/adapters/codex');
+const { syncSkills } = require('../../src/cli/plugin');
 const {
   runTeamStandardsHygiene,
   scanText,
@@ -187,6 +191,28 @@ describe('team standards governance source contract', () => {
       command_name: null,
       host_scope: 'dual_host',
     }));
+  });
+
+  test('runtime sync preserves spec-prefixed standalone skill name for both hosts', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'team-standards-runtime-'));
+
+    try {
+      for (const [adapter, runtimeSkillPath] of [
+        [new ClaudeAdapter(), path.join(projectRoot, '.claude', 'skills', 'spec-team-standards-governance', 'SKILL.md')],
+        [new CodexAdapter(), path.join(projectRoot, '.agents', 'skills', 'spec-team-standards-governance', 'SKILL.md')],
+      ]) {
+        syncSkills(projectRoot, adapter);
+
+        const runtimeSkill = readAbsolute(runtimeSkillPath);
+        expect(runtimeSkill).toContain('name: spec-team-standards-governance');
+        expect(runtimeSkill).not.toContain('name: team-standards-governance');
+        expect(runtimeSkill).toContain('not a public Claude `/spec:*` or Codex `$spec-*` workflow');
+        expect(runtimeSkill).toContain('Do not create Claude `/spec:standards`, Codex `$spec-standards`');
+        expect(runtimeSkill).toContain('requires an active Claude `/spec:work`, Codex `$spec-work`');
+      }
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
   });
 
   test('hygiene script exposes deterministic pre-write checks and skips README by default', () => {

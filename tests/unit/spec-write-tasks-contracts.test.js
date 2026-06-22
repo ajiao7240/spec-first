@@ -456,7 +456,8 @@ with ZipFile(${JSON.stringify(packagePath)}) as package:
       const runtimeSkill = read(path.join(runtimeRoot, 'SKILL.md'));
       const runtimeMetadata = read(path.join(runtimeRoot, 'agents', 'openai.yaml'));
 
-      expect(runtimeSkill).toContain('name: write-tasks');
+      expect(runtimeSkill).toContain('name: spec-write-tasks');
+      expect(runtimeSkill).not.toContain('name: write-tasks');
       expect(runtimeSkill).toContain('Execution Handoff Contract');
       expect(runtimeSkill).toContain('Task Pack Schema');
       expect(runtimeSkill).toContain('Task Quality Guide');

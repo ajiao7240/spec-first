@@ -570,12 +570,7 @@ function removeManagedFile(filePath, projectRoot) {
 }
 
 function codexRuntimeSkillName(context = {}) {
-  const skillName = context.skillName;
-  if (context.isWorkflowSkill || typeof skillName !== 'string' || !skillName.startsWith('spec-')) {
-    return skillName;
-  }
-
-  return skillName.replace(/^spec-/, '');
+  return context.skillName;
 }
 
 function buildRuntimeCleanupOperations(adapter) {
