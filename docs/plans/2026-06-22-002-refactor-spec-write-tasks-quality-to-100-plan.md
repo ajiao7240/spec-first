@@ -53,7 +53,7 @@ plan_depth: deep
 - R8. 所有新增 scripts/reports/tests 必须保持 source/runtime 边界：不改 `.claude/`、`.codex/`、`.agents/skills/` 作为 source，不依赖 `.spec-first/audits` 作为 runtime truth。
 - R9. 验证路径必须能同时证明 deterministic contract、semantic evidence posture、packaging portability 和 changelog 合规。
 - R10. **（主成功契约）** 最终审计在 KTD6/A4 前提下不会是机械 100 分；closeout report 必须把每个非满分/未评分维度逐一归因为 audit tool capability gap、semantic review pending，还是目标 skill 实质缺口，不能用文案遮盖。**达到 evidence-complete 且残差全部具名归因即视为成功，而非追求数字 100。**
-- R11. 为超大 source plan（如 >1500 行 / >8 implementation units / >20 requirements）定义 large-plan handling 纪律：在 Compilation Algorithm 之前要求 map-reduce 式前置产物（unit 索引表、real-dependency/seam 表、requirement×task 覆盖矩阵），强制对宽单元做 fan-out 自检，并允许在一遍编译会降质时按 wave/phase 分阶段编译。该纪律是 advisory authoring discipline，不得变成新的脚本 hard gate，也不得新增 runtime-required reference 之外的 source 文件。
+- R11. 为超大 source plan（如 >1500 行 / >8 implementation units / >20 requirements）定义 large-plan handling 纪律：在既有 fan-out 启发式之上补充"规模触发阈值"与"拆分前持久化 unit 索引表 / dependency·seam 表 / requirement×task 覆盖矩阵"两点（落到输出体既有区块，不新增 schema），强制对宽单元做 fan-out 自检。该纪律是 advisory authoring discipline，并入既有 `task-quality-guide.md` 小节、不新增 reference 文件、不变成脚本 hard gate。
 
 ---
 
@@ -178,7 +178,7 @@ plan_depth: deep
 - KTD6. **Do not change `spec-skill-audit` scoring until target evidence exists.** If the audit remains at 90 after evidence is present, then inspect audit consumption semantics; do not preemptively game scores.
 - KTD7. **Cross-host evidence belongs in tests/smoke, not generated mirror patches.** Use source sync/package APIs and temp directories to prove Codex/Claude delivery surfaces, then regenerate runtime only if a separate setup/update task requires it.
 - KTD8. **High-risk doc-review remains a single bounded edge.** `spec-write-tasks -> spec-doc-review` may be recommended, or invoked only when explicitly authorized for the just-written pack; it never becomes general workflow chaining.
-- KTD9. **Large-plan handling is map-reduce discipline, not a new node or gate.** 对超大 plan，先抽骨架与依赖图、在压缩后的地图上推理、再选择性深读，避免线性通读 2000+ 行导致注意力稀释与跨单元耦合漏判。现有启发式（intake order、large-unit fan-out、vertical slice、wave、context 压缩、requirement 覆盖）已在 `task-quality-guide.md`，缺的是"规模触发 + 中间产物持久化"；本计划只把这些既有启发式在超大规模下硬化为前置 worksheet，细节进 reference（与 KTD5 的 SKILL 瘦身一致），SKILL 只留一行规模触发指针。不新增脚本判定、不新增 runtime-required 文件、不把 fan-out 变成 validator 失败条件。
+- KTD9. **Large-plan handling is map-reduce discipline, not a new node or gate.** 对超大 plan，先抽骨架与依赖图、在压缩后的地图上推理、再选择性深读，避免线性通读 2000+ 行导致注意力稀释与跨单元耦合漏判。现有启发式（intake order、large-unit fan-out、vertical slice、wave、context 压缩、requirement 覆盖）已在 `task-quality-guide.md`，**缺的只是"规模触发 + 中间产物持久化"两点；因此本计划不新建小节、不重述既有概念，只在既有 `Large Implementation Unit Fan-Out` 小节追加这两点并指回相邻小节**（与 KTD5 的 SKILL 瘦身一致），SKILL 只留一行规模触发指针。不新增脚本判定、不新增 runtime-required 文件、不把 fan-out 变成 validator 失败条件。
 
 ---
 
@@ -482,9 +482,9 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 
 ---
 
-### U8. Add Large-Plan Handling Discipline To The Quality Surface
+### U8. Extend Existing Fan-Out Guidance With Large-Plan Scale Triggers
 
-**Goal:** 让 `spec-write-tasks` 在面对超大 source plan 时，把已有的 fan-out / 覆盖 / wave 启发式从"普通规模可省的 prose"硬化为"超大规模必做的前置 worksheet"，从而保障高质量拆分；细节进 reference，入口只加规模触发指针。
+**Goal:** 让 `spec-write-tasks` 在面对超大 source plan 时有明确的"何时把已有 fan-out / 覆盖 / wave 启发式从可省 prose 升级为必做前置 worksheet"的触发点。**只补真正缺失的两点——规模阈值 + 中间产物持久化——并入既有 `Large Implementation Unit Fan-Out` 小节，不重述、不新建小节、不新建文件。**
 
 **Requirements:** R3, R4, R11
 
@@ -498,28 +498,27 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 - Test: `tests/unit/spec-write-tasks-quality-analysis.test.js`
 
 **Approach:**
-- 在 `task-quality-guide.md` 新增 `Large-Plan Handling` 小节，定义：
-  - 规模触发阈值（advisory，非 gate）：plan >1500 行 或 >8 implementation units 或 >20 requirements 时进入 large-plan 路径。
-  - map-reduce 四步前置产物：(1) unit 索引表（unit / files / dependencies / requirement_refs / verification / seam）；(2) real-dependency + seam 表（define-once → consumed-by-many → 强制 wave + `review_gate: required`）；(3) requirement×task 覆盖矩阵；(4) 选择性深读规则（先在压缩地图上推理，仅对边界不清的 unit 做 bounded source orientation）。
-  - 宽单元 fan-out 自检：任何挂 ≥K requirements 或含 ≥2 独立可验证 cluster 的 source unit，必须显式记录"已 fan-out 成多 task / 或为何保持整体"，重复同一 `source_unit` 并收窄 `files` / `requirement_refs` / `test_focus` / `done_signal`。
-  - 分阶段编译：当单次编译会降质时，允许按 wave/phase 分批 `compile` + `validate`，而不是一个巨型 pass。
-- 在 `SKILL.md` 的 Workflow / Compilation Algorithm 处加 **一行**规模触发指针，指向该 reference 小节，保持入口在 ≤3000 token 预算内（与 KTD5 / U4 一致）。
-- 在 `analyze-task-pack-quality.js` 增加 advisory 检查：宽 `source_unit`（被多个 requirement 引用但只对应单个 task）输出 `info|warning` 与 `llm_review_prompt`，但不改变 validator 结果、不设 `deterministic_handoff`。
-- 不新增第六个 reference 文件；不新增脚本 hard gate；不要求 large-plan worksheet 成为 `spec-first tasks validate` 的失败条件。
+- 在既有 `Large Implementation Unit Fan-Out` 小节**追加一段**（不新建 `Large-Plan Handling` 小节），只写当前 guide 尚未覆盖的两点：
+  - **规模触发阈值（advisory，非 gate）**：plan >1500 行 / >8 implementation units / >20 requirements 时，进入 large-plan 路径——此时把已有启发式从"可省 prose"升级为"必做前置产物"。
+  - **中间产物持久化**：large-plan 路径下，拆分前先持久化 unit 索引表 + real-dependency/seam 表 + requirement×task 覆盖矩阵（落到输出体既有的 `Source Summary` / `Traceability Matrix` / `Task Graph` / `Orientation Evidence`，不新增 schema）。
+- 其余概念**指回**既有小节而非重述：fan-out 判据 → `Large Implementation Unit Fan-Out`；真实依赖/wave → `Dependency and Wave Rules`；压缩地图先行的 intake → `Source Orientation Rules`；覆盖 → `Traceability Rules`。新增段只做"规模触发 + 产物持久化"的桥接。
+- 在 `SKILL.md` 的 Compilation Algorithm 处加 **一行**规模触发指针指向该追加段，并在 U4 sizing 时预留这一行，保证最终入口仍 ≤3000 token（与 KTD5 / U4 一致）。
+- 在 U3 已建的 `analyze-task-pack-quality.js` 中复用同一 analyzer 增加 advisory 检查：宽 `source_unit`（被多个 requirement 引用却只对应单个 task）输出 `info|warning` 与 `llm_review_prompt`，但不改变 validator 结果、不设 `deterministic_handoff`。
+- 不新增 reference 文件；不新增脚本 hard gate；不要求 large-plan worksheet 成为 `spec-first tasks validate` 的失败条件。
 
 **Patterns to follow:**
-- `skills/spec-write-tasks/references/task-quality-guide.md` 的 `Large Implementation Unit Fan-Out` 与 `Dependency and Wave Rules`
-- 输出体既有 `Traceability Matrix` / `Task Graph` / `Execution Waves` 结构
+- 既有 `Large Implementation Unit Fan-Out` 与 `Dependency and Wave Rules`（追加段紧邻这两节，避免第二真相源）
+- 输出体既有 `Source Summary` / `Traceability Matrix` / `Task Graph` / `Execution Waves` 结构
 - KTD9 的 map-reduce 纪律
 
 **Test scenarios:**
-- Reference 内容：`task-quality-guide.md` 含规模阈值、四步前置产物、fan-out 自检、分阶段编译。
-- Entrypoint 经济：`SKILL.md` 仅新增 large-plan 触发指针，仍满足 ≤3000 token 预算（与 U4 共测）。
+- Reference 内容：`Large Implementation Unit Fan-Out` 小节含规模阈值与中间产物持久化两点，且不重复定义 fan-out/wave/intake/coverage（指回既有小节）。
+- Entrypoint 经济：`SKILL.md` 仅新增一行 large-plan 触发指针，仍满足 ≤3000 token 预算（与 U4 共测，U4 预留该行）。
 - Advisory 边界：analyzer 对宽单元只产 advisory facts，`spec-first tasks validate` 结果不变，exit code 不因 large-plan smell 变非零。
 - 拓扑稳定：不新增 reference 文件；source topology 测试仍通过。
 
 **Verification:**
-- 一个 reviewer 能仅凭 reference 判断"何时进入 large-plan 路径、要产出哪三张表、何时该 fan-out / 分阶段编译"，而无需依赖 SKILL 主干长文。
+- reviewer 能仅凭既有 fan-out 小节的追加段判断"何时进入 large-plan 路径、要持久化哪三张表"，且不会在 guide 中看到 fan-out/wave 概念的第二份定义。
 - analyzer 的宽单元提示是 advisory，不污染 deterministic handoff。
 
 ---
@@ -596,6 +595,7 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 - **Add more eval cases only:** Rejected. Current coverage has 25 cases and no invalid cases; the missing piece is executable evidence and adjudication.
 - **Make task quality analyzer block invalid packs:** Rejected. That would violate the script/LLM boundary and turn semantic splitting quality into a hard-coded rule engine.
 - **Keep `SKILL.md` near 6000 tokens for self-containment:** Rejected. Runtime quality is better served by a small spine plus focused references because this skill is frequently loaded as an execution method.
+- **Split large-plan handling (R11/KTD9/U8) into its own plan:** Considered (round-3 scope review flagged it as adjacent to the evidence-closure goal). Kept in this plan but **scoped down**: U8 only appends scale-trigger + intermediate-artifact persistence to the existing `Large Implementation Unit Fan-Out` section and reuses U3's analyzer, rather than adding a new section/file. The map-reduce heuristics it leans on already live in `task-quality-guide.md`, so the marginal surface is small and co-locating it with the other quality-evidence work is acceptable. Revisit as a standalone plan only if the appended guidance grows beyond a bridging paragraph.
 
 ---
 

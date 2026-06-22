@@ -12,16 +12,16 @@ method_source: external local grill-with-docs skill, advisory method input only
 
 ## Summary
 
-本计划把外部 `grill-with-docs` 的核心精髓吸收到 `spec-prd` 的前置澄清需求流程：当用户输入粗颗粒度、不完整、会迫使后续 planning 发明 WHAT 的初版 PRD 时，`spec-prd` 先做 PRD sanitization 和 source-first evidence calibration，再建立 run-local shared understanding map，用 1-3 个高价值 owner 问题补齐 actor、flow、state、exception、acceptance、scope 和 decision intersection，然后才进入正式 PRD rewrite/readiness。方案不复制外部 skill 的 `CONTEXT.md` / ADR 产物体系，不新增公开 workflow 节点，不改变 `docs/brainstorms/*-requirements.md` 的 PRD artifact 拓扑。
+本计划把外部 `grill-with-docs` 的核心精髓吸收到 `spec-prd` 的前置澄清需求流程：当用户输入粗颗粒度、不完整、会迫使后续 planning 发明 WHAT 的初版 PRD 时，`spec-prd` 先做 PRD sanitization、problem/outcome framing 和 source-first evidence calibration，再建立 run-local shared understanding map，用 1-3 个高价值 owner 问题补齐 actor、flow、state、exception、acceptance、scope 和 decision intersection。方案同时把业界 PRD 基线收敛为 P0/P1 conditional packs：P0 覆盖问题/结果、指标口径、NFR/约束、traceability、owner closure；P1 覆盖角色对齐、设计证据、release slice 和多轮变更治理。所有补充都落入既有 PRD sections，不复制外部 skill 的 `CONTEXT.md` / ADR 产物体系，不新增公开 workflow 节点，不改变 `docs/brainstorms/*-requirements.md` 的 PRD artifact 拓扑。
 
 ---
 
 ## Decision Brief
 
-- **Recommended approach:** 采用“思想融合，不复制节点”的方案：在 `spec-prd` intake/sanitization 之后、正式 PRD rewrite/readiness 之前加入 PRD-local `Pre-PRD Clarification Loop`，用 `Requirements Grill` 问法纪律压测共同理解；复用当前五个 reference 文件、eval fixtures 和 contract tests，不把 `grill-with-docs` 拷贝为独立 executable node。
-- **Key decisions:** `Pre-PRD Clarification Loop` 负责把粗 PRD 的声明、证据、缺口、问题/假设和 PRD 写入目标串成 shared understanding；`Domain Grill` 继续专治术语、矛盾、source-of-truth 和硬边界。两者共享 source-first、one-question-at-a-time、recommended-answer 和 PRD-local write target 纪律，但不共享外部 `CONTEXT.md` / ADR 写入机制。
-- **Validation focus:** 锁定前置 trigger/non-trigger、shared understanding map、问题上限、推荐答案格式、write-target 映射、readiness closure、eval fixtures、source topology 不增文件、script/LLM ownership 不漂移，以及 generated runtime mirror 不被当 source。
-- **Largest risks / boundaries:** 最大风险是把前置澄清做成长访谈、brainstorm replacement 或第二套 PRD 平台。本计划要求只处理已有粗 PRD/已有系统锚点，超过 3 个 load-bearing 问题时转为 blockers / assumptions / doc-review / refine，而不是继续拷问 owner。
+- **Recommended approach:** 采用“思想融合，不复制节点”的方案：在 `spec-prd` intake/sanitization 之后、正式 PRD rewrite/readiness 之前加入 PRD-local `Pre-PRD Clarification Loop`，用 `Requirements Grill` 问法纪律压测共同理解；再用 P0/P1 PRD-quality packs 补齐业界通用 PRD 基线。复用当前五个 reference 文件、eval fixtures 和 contract tests，不把 `grill-with-docs` 拷贝为独立 executable node。
+- **Key decisions:** `Pre-PRD Clarification Loop` 负责把粗 PRD 的声明、证据、缺口、问题/假设和 PRD 写入目标串成 shared understanding；P0 packs 保证问题价值、可度量、约束、追踪和 closure；P1 packs 只在角色/设计/release/变更信号命中时触发。`Domain Grill` 继续专治术语、矛盾、source-of-truth 和硬边界。
+- **Validation focus:** 锁定前置 trigger/non-trigger、shared understanding map、P0/P1 pack trigger、问题上限、推荐答案格式、write-target 映射、trace/closure readiness、eval fixtures、source topology 不增文件、script/LLM ownership 不漂移，以及 generated runtime mirror 不被当 source。
+- **Largest risks / boundaries:** 最大风险是把前置澄清做成长访谈、brainstorm replacement 或第二套 PRD 平台。本计划要求只处理已有粗 PRD/已有系统锚点；P0/P1 packs 是 conditional authoring discipline，不是强状态机、完整 PRD 平台或固定长模板。
 
 ---
 
@@ -42,6 +42,8 @@ method_source: external local grill-with-docs skill, advisory method input only
 
 因此，本计划的核心是把 `grill-with-docs` 的提问架构重述为 `spec-prd` 原生前置澄清纪律：shared understanding first, source first, one decision at a time, recommended answer, concrete consequence, PRD-local persistence。
 
+进一步对照业界 PRD 基线后，本计划还需要补齐五个 P0 质量闭环和四个 P1 条件增强。P0 负责防止 PRD 只变成“功能清单”：先确认问题/结果，再处理指标口径、产品级 NFR/约束、R->AE->evidence trace 和 owner closure。P1 负责在命中复杂 surface 时增强 PRD：角色/利益相关方、设计/UX 证据、release slice 和多轮 refine change management。它们都必须是轻量 packs，而不是新增 artifact、schema 或公开 workflow。
+
 ---
 
 ## Requirements
@@ -57,6 +59,15 @@ method_source: external local grill-with-docs skill, advisory method input only
 - R9. Eval fixtures 和 contract tests 必须覆盖 rough PRD trigger、shared understanding map、source-first resolution、recommended-answer discipline、1-3 问题上限、no context artifact、PRD-local write target、script/LLM boundary 和 `spec-plan` 不复制 readiness。
 - R10. 实现不得新增公开 skill/agent 入口，不手改 generated runtime mirrors，不改变 `artifact_kind: prd-requirements` 和 `docs/brainstorms/*-requirements.md`。
 - R11. Scripts 只能产 deterministic facts、counts、trace gaps、literal drift 或 structure warnings；是否触发前置澄清、问题是否 load-bearing、是否 ready-for-planning 仍归 LLM/readiness judgment。
+- R12. P0 `Problem / Outcome Framing Gate` 必须在 sanitization 后检查目标用户、问题、期望可观察结果和业务/研发价值；缺任一 load-bearing 项时，要么问一个 owner 问题，要么写入 `Outstanding Questions` / `Evidence And Assumptions`，0-1 机会探索仍路由 `spec-brainstorm`。
+- R13. P0 `Success Metrics / Measurement Readiness` 必须处理所有“提升/优化/减少/改善/加速/降低成本”等目标词：有可信来源时写 metric/target/window，没有可信来源时写 observable signal、assumption 或 Outstanding Question，禁止编造目标值。
+- R14. P0 `NFR / Constraint Pack` 必须在安全、权限、隐私、合规、支付/交易、外部 API、CLI/runtime、migration、批量/异步/数据同步或用户可见失败场景命中时，提取产品级约束、负向验收、运营/发布边界和异常语义；不得把数据库、API 字段或实现架构写成 PRD requirement。
+- R15. P0 `Traceability Matrix` 必须让核心 requirement 能追到 acceptance example、evidence/source 或显式 trace gap；可用轻量 `R -> AE -> evidence/source -> open question` 规则，不新增 schema。
+- R16. P0 `Review / Approval Closure` 必须在 closeout/readiness 前汇总 owner answers applied、accepted assumptions、blocking questions、ready-for-planning 和 planning_would_invent_what；该 summary 可进入最终回复或 PRD-local sections，不创建新 artifact。
+- R17. P1 `Stakeholder / Actor Alignment` 在 Admin、Backend、CLI/DevTool、Mixed surface、权限/审批、producer/consumer 或下游消费信号命中时，必须区分 beneficiary、operator、admin、downstream consumer 和 owner。
+- R18. P1 `Design / UX Evidence Hook` 在 App/H5/PC/Admin、截图、Figma、页面描述或交互状态输入命中时，必须只抽取 PRD 相关事实：入口、状态、文案、空/错/加载态、权限、i18n/accessibility；不得替代 `spec-app-consistency-audit`。
+- R19. P1 `Prioritization / Release Slice` 在 requirement 数量大、目标多、多端/mixed-surface 或 release order 影响范围/验收时，必须明确 P0/P1/deferred、owner-confirmed split 或 Feature Slices；Feature Slice 仍是 PRD handoff unit，不是 task 或 implementation unit。
+- R20. P1 `Change Management` 在 `resume-prd`、existing PRD path、多轮 refine 或新增会议/截图/评审结论输入时，必须保持 stable R/AE IDs，并记录新增、替换、废弃或仍待确认的 PRD delta，不得静默改写旧 requirement。
 
 ---
 
@@ -66,6 +77,7 @@ method_source: external local grill-with-docs skill, advisory method input only
 - A2. 现有 `skills/spec-prd/references/domain-language-and-decision-ledger.md` 可以继续作为 question format 和 decision note discipline 的承载文件；为保持 source topology 不扩张，首选修改既有 reference，而不是新增 `requirements-grill.md`。
 - A3. `Pre-PRD Clarification Loop` 不需要新脚本。现有 `check-prd-artifact.js` 仍只报告结构/trace facts；新的完整性判断先通过 prompt/eval/contract test 锁定。
 - A4. 若后续实现发现 `SKILL.md` 170 行上限压力过大，应把细节下沉到既有 references，而不是提高上限或新增 runtime template。
+- A5. 业界 PRD 最佳实践在本计划中只作为 authoring lens 和 readiness prompts，不升级为外部事实真相源；项目 source、owner decision 和 confirmed evidence 仍优先。
 
 ---
 
@@ -75,6 +87,7 @@ method_source: external local grill-with-docs skill, advisory method input only
 - 不创建一个名为 `grill-with-docs`、`requirements-grill` 或类似名称的新公开 workflow/skill/agent。
 - 不把 `CONTEXT.md`、`CONTEXT-MAP.md`、`docs/adr/` 作为 `spec-prd` 默认 artifact、source-of-truth 或 readiness 前置条件。
 - 不把前置澄清循环做成强状态机、numeric PRD scorecard、长问卷或固定 checklist gate。
+- 不把 P0/P1 packs 做成所有 PRD 必填的长模板；它们按触发条件展开，未触发时保持 compact PRD。
 - 不让 `spec-plan` 运行自己的 grill workflow；`spec-plan` 只消费 PRD，发现 WHAT 缺口时反馈给 PRD refine。
 - 不修改 `.claude/`、`.codex/`、`.agents/skills/` generated mirrors。source 变更后的 runtime sync 属于后续 setup/update 动作。
 - 不把技术 HOW 补成 PRD requirement；API 字段、数据库、函数、任务拆分和实现单元仍归 `spec-plan` / `spec-work`。
@@ -87,7 +100,10 @@ method_source: external local grill-with-docs skill, advisory method input only
 - `skills/spec-prd/references/domain-language-and-decision-ledger.md` 或既有相邻 reference 明确承载前置澄清循环的 question format、trigger/non-trigger、Domain Grill 分工和 PRD-local persistence rules。
 - `skills/spec-prd/references/prd-output-template.md` 明确 rough PRD quality diagnosis 到前置澄清循环的衔接，以及每类 gap 的 write target 映射。
 - `skills/spec-prd/references/prd-readiness-lens.md` 在 Quality Diagnosis Pack / Core Pack / Domain And Decision Pack 中检查前置澄清 closure，不新增第二 evidence enum。
+- `skills/spec-prd/references/prd-output-template.md` 增加 P0/P1 pack triggers 和 write targets，覆盖 problem/outcome、metrics、NFR constraints、traceability、closure、actor alignment、design evidence、release slice 和 change management。
+- `skills/spec-prd/references/prd-readiness-lens.md` 增加 pack closure 检查，确保 unresolved P0 gaps 不会被标记为 `ready-for-planning`。
 - `skills/spec-prd/evals/examples.json` 增加正反 fixtures，覆盖 trigger、bounded questions、recommended answer、source-first、no `CONTEXT.md`/ADR、write target 和 planning-invention failure。
+- `skills/spec-prd/evals/examples.json` 增加 pack fixtures，覆盖 invented metrics rejection、NFR HOW boundary、trace gap closure、owner approval closure、design evidence hook、release slice 和 resume-prd change management。
 - `tests/unit/spec-prd-contracts.test.js` 扩展 contract assertions，保证 source topology 仍为 8 个 source files、5 个 references，不新增 template tree 或 runtime mirror source。
 - fresh-source eval 或等价 validation artifact 诚实记录当前 host 是否能做语义 eval；不能执行时记录 `not_run` 和原因，不声称 pass。
 - `CHANGELOG.md` 记录 source 变更、用户可见影响、验证命令和 generated runtime mirrors 未手改状态。
@@ -186,6 +202,10 @@ method_source: external local grill-with-docs skill, advisory method input only
 - KTD8. **Cap normal clarification runs at 1-3 questions.** More than 3 load-bearing questions means the PRD is not ready for a normal refine rewrite; route to blocker cluster, assumptions, doc-review, or a fuller PRD refinement session.
 - KTD9. **Script boundary remains narrow.** No script decides “this question is load-bearing” or “planning would invent WHAT”. Scripts may report missing sections, trace gaps, placeholders, or literal glossary drift; LLM/readiness decides the semantic consequence.
 - KTD10. **No `spec-plan` clarification copy.** `spec-plan` may identify PRD handoff entropy and point back to `spec-prd`; it must not host its own requirements grill loop or copy the full PRD readiness lens.
+- KTD11. **Use P0/P1 packs, not a full PRD platform.** P0 packs cover the minimum industry PRD quality floor; P1 packs activate only on surface/complexity/refine signals. Do not make every PRD fill every section.
+- KTD12. **Metrics and NFRs stay evidence-bound.** A metric without baseline/source becomes observable signal, assumption, or Outstanding Question. A product-level NFR/constraint may shape acceptance, but implementation mechanics stay out of PRD requirements.
+- KTD13. **Traceability and owner closure are exit checks.** `R -> AE -> evidence/source -> open question` and owner closure protect planning handoff; they are not a new schema, scorecard, or artifact.
+- KTD14. **Design and release evidence remain conditional.** Figma/screenshots/design notes and release slicing improve PRD quality only when they reduce planning invention; App/Figma/source consistency audits remain out-of-scope and route to `spec-app-consistency-audit`.
 
 ---
 
@@ -225,6 +245,14 @@ USER INPUT
                 |
                 v
 +-------------------------------+
+| Problem / Outcome Framing    |
+| - target user / actor         |
+| - problem / desired outcome   |
+| - value / observable signal   |
++---------------+---------------+
+                |
+                v
++-------------------------------+
 | Current-state and evidence    |
 | - source/docs/tests/contracts |
 | - glossary / prior PRDs       |
@@ -239,6 +267,15 @@ USER INPUT
 | - gap                         |
 | - question or assumption      |
 | - PRD write target            |
++---------------+---------------+
+                |
+                v
++-------------------------------+
+| PRD quality packs             |
+| P0: outcome/metrics/NFR/trace |
+|     closure                   |
+| P1: actors/design/release/    |
+|     change management         |
 +---------------+---------------+
                 |
                 v
@@ -288,6 +325,14 @@ Gap-to-target mapping:
 | Scope boundary fuzzy | Plan expands adjacent features | Existing non-goals/prior plans, then owner | `Scope Boundaries`, `Decision Notes` |
 | Decision intersection unresolved | Plan picks behavior where two owner decisions meet | Ratified decisions/docs/source, then owner | `Decision Notes`, `Outstanding Questions` |
 | Term/source contradiction | Plan uses wrong concept or truth source | Domain Grill source-first lookup | `Glossary`, `Decision Notes`, `Evidence And Assumptions` |
+| Problem / outcome unclear | Plan implements a feature without knowing why or for whom | Owner, prior PRD, product docs | `Problem Frame`, `Summary`, `Goals / Success Metrics`, `Outstanding Questions` |
+| Metric claim ungrounded | Plan treats vague improvement as measurable success | Source/baseline lookup, then owner | `Goals / Success Metrics`, `Evidence And Assumptions`, `Outstanding Questions` |
+| NFR / constraint missing | Plan misses security, privacy, compatibility, rollout, ops, or failure constraints | Surface/industry/project overlay, then owner | `Data / Compliance Boundaries`, `Release / Operation Readiness`, `Exception Handling`, `Negative Acceptance` |
+| Trace gap | Plan cannot connect requirement to acceptance/evidence | PRD rewrite or explicit trace gap | `Requirements`, `Acceptance Examples`, `Evidence And Assumptions`, `Outstanding Questions` |
+| Owner closure missing | Plan cannot tell which assumptions or owner answers are accepted | Closeout summary and Decision Notes | `Decision Notes`, `Evidence And Assumptions`, `Outstanding Questions` |
+| Design / UX evidence present | Plan guesses interaction details from screenshots/Figma/notes | Extract PRD facts only; app audit remains separate | `Interaction Requirements`, `Use Cases`, `Acceptance Examples`, `Evidence And Assumptions` |
+| Release or slice ambiguity | Plan invents release order or feature boundary | Owner-confirmed priority/split | `Feature Slices`, `Scope Boundaries`, `Release / Operation Readiness` |
+| Existing PRD changed | Plan loses delta across refine rounds | Stable IDs plus add/replace/deprecate notes | `Change Delta`, `Decision Notes`, `Evidence And Assumptions` |
 
 ---
 
@@ -497,13 +542,165 @@ Gap-to-target mapping:
 
 ---
 
+### U8. Add P0 PRD Quality Packs To Output Template
+
+**Goal:** Add the minimum industry-aligned PRD quality floor without turning every PRD into a heavy template.
+
+**Requirements:** R12, R13, R14, R15, R16, R20
+
+**Dependencies:** U1, U2, U3
+
+**Files:**
+- Modify: `skills/spec-prd/references/prd-output-template.md`
+- Test: `tests/unit/spec-prd-contracts.test.js`
+
+**Approach:**
+- Add a compact `P0 PRD Quality Packs` section to `prd-output-template.md`.
+- Define `Problem / Outcome Framing Gate` after sanitization and before rewrite: target user, problem, desired observable outcome, and value.
+- Define `Success Metrics / Measurement Readiness` trigger for vague improvement verbs; require metric/target/window only when evidence exists, otherwise observable signal, assumption, or Outstanding Question.
+- Define `NFR / Constraint Pack` as product-level constraints only: permissions, privacy, compliance, compatibility, rollout, operational readiness, failure semantics, and negative acceptance. Explicitly exclude database/API-field/implementation architecture.
+- Define lightweight traceability as `R -> AE -> evidence/source -> open question`; no schema, no scorecard.
+- Define `Review / Approval Closure` as closeout/PRD-local summary fields: owner answers applied, assumptions accepted, blocking questions, ready-for-planning, and whether planning would invent WHAT.
+- For `resume-prd` inputs, add change-management discipline to preserve stable IDs and record add/replace/deprecate/needs-confirmation deltas.
+
+**Patterns to follow:**
+- `Adaptive Product Expert Lens`
+- `Core Sections` and `Conditional Sections`
+- `PRD Quality Diagnosis And Optimization`
+- `Embedded Standard Skeleton`
+
+**Test scenarios:**
+- Problem/outcome: a feature-only draft triggers one owner question or `Outstanding Questions` instead of producing a behavior-only PRD.
+- Metrics: “提升体验” without baseline becomes observable signal/assumption, not fabricated target value.
+- NFR: a permission/privacy/rollout signal lands in PRD-local sections without HOW details.
+- Traceability: a core requirement without AE/evidence is represented as an explicit trace gap.
+- Closure: final closeout distinguishes accepted assumptions from blocking questions.
+- Change management: refining an existing PRD preserves stable IDs and records changed/deprecated requirements.
+
+**Verification:**
+- The output template tells implementers where each P0 pack lands and preserves compact PRD behavior for simple increments.
+
+---
+
+### U9. Add Conditional P1 Enrichment Packs
+
+**Goal:** Add actor/stakeholder, design evidence, and release slicing improvements only when the input surface warrants them.
+
+**Requirements:** R17, R18, R19
+
+**Dependencies:** U8
+
+**Files:**
+- Modify: `skills/spec-prd/references/prd-output-template.md`
+- Modify: `skills/spec-prd/references/domain-language-and-decision-ledger.md`
+- Test: `tests/unit/spec-prd-contracts.test.js`
+
+**Approach:**
+- Add `Stakeholder / Actor Alignment` triggers for Admin, Backend, CLI/DevTool, Mixed, permission, approval, producer/consumer, or downstream-consumer signals.
+- Add `Design / UX Evidence Hook` triggers for App/H5/PC/Admin, screenshots, Figma, page descriptions, or interaction-state input. Extract only PRD facts: entry, state, copy, loading/empty/error, permissions, i18n/accessibility.
+- Add `Prioritization / Release Slice` triggers for many requirements, multiple goals, mixed surfaces, or release order affecting scope/acceptance.
+- Route App/Figma/source consistency checks to `spec-app-consistency-audit`; do not absorb that workflow into `spec-prd`.
+- Keep Feature Slices as PRD handoff units only, never tasks or implementation units.
+
+**Patterns to follow:**
+- `Surface Lenses`
+- `Feature Slices`
+- `Project-Local Overlays`
+- `Bounded Scenario Grill`
+
+**Test scenarios:**
+- Actor alignment: a backend/admin draft names “system/user/admin” ambiguously and gets beneficiary/operator/owner clarified.
+- Design evidence: a screenshot/Figma note produces interaction requirements and acceptance examples without claiming source consistency.
+- Release slice: a large multi-goal draft creates owner-confirmed feature slices or split recommendation.
+- Boundary: app consistency audit language remains a route-out, not a hidden `spec-prd` responsibility.
+
+**Verification:**
+- P1 packs stay conditional and do not force extra sections in compact PRDs.
+
+---
+
+### U10. Extend Readiness Lens For Pack Closure
+
+**Goal:** Ensure PRD readiness catches unresolved P0/P1 gaps that would still make planning invent WHAT.
+
+**Requirements:** R12, R13, R14, R15, R16, R17, R18, R19, R20
+
+**Dependencies:** U8, U9
+
+**Files:**
+- Modify: `skills/spec-prd/references/prd-readiness-lens.md`
+- Test: `tests/unit/spec-prd-contracts.test.js`
+
+**Approach:**
+- Extend Core Pack or Quality Diagnosis Pack with P0 closure checks: problem/outcome, metrics readiness, NFR constraints, traceability, owner closure, and change delta integrity.
+- Add conditional readiness bullets for P1 packs only when triggered: stakeholder/actor, design evidence, release slice.
+- Keep all readiness outcomes in the existing set: `ready-for-planning`, `revise-prd`, `ask-owner`, `doc-review`, `route-out`.
+- Keep `check-prd-artifact.js` advisory. Scripts may report trace gaps or section presence, but LLM/readiness decides semantic closure.
+
+**Patterns to follow:**
+- `Core Pack`
+- `Quality Diagnosis Pack`
+- `Feature Slice Pack`
+- `Metrics And Overlay Pack`
+- `Outcomes`
+
+**Test scenarios:**
+- Failure: a PRD with unresolved problem/outcome cannot be ready-for-planning.
+- Failure: a stated metric with fabricated target is rejected or moved to assumptions/questions.
+- Failure: a requirement lacking AE/evidence/trace gap blocks readiness.
+- Happy path: accepted owner answers and accepted assumptions can close readiness without adding new artifacts.
+- Boundary: script facts remain advisory and no new evidence enum appears.
+
+**Verification:**
+- Readiness prose makes the P0 floor explicit while preserving conditional P1 behavior.
+
+---
+
+### U11. Add Best-Practice Pack Eval And Contract Coverage
+
+**Goal:** Lock the new P0/P1 packs with examples-as-context and focused contract assertions.
+
+**Requirements:** R9, R12, R13, R14, R15, R16, R17, R18, R19, R20
+
+**Dependencies:** U8, U9, U10
+
+**Files:**
+- Modify: `skills/spec-prd/evals/examples.json`
+- Modify: `tests/unit/spec-prd-contracts.test.js`
+
+**Approach:**
+- Add focused fixtures for P0 gaps and P1 triggers without creating a large taxonomy.
+- Extend contract assertions to pin no new topology, no schema, no scorecard, no invented metrics, and no app-consistency takeover.
+- Assert the existing reference count remains stable unless intentionally changed with justification.
+
+**Candidate fixture coverage:**
+- `problem-outcome-framing-gate`: feature-only rough PRD needs target user/problem/outcome before rewrite.
+- `success-metrics-no-invention`: vague improvement claim becomes observable signal/assumption/question, not invented target.
+- `nfr-constraint-product-not-how`: privacy/permission/rollout signal becomes PRD constraint, not API/database design.
+- `traceability-matrix-gap`: requirement without AE/evidence records trace gap and blocks readiness when load-bearing.
+- `owner-closure-summary`: accepted assumptions and blocking questions are visible before planning handoff.
+- `actor-alignment-conditional`: mixed/admin/backend actors are disambiguated only when triggered.
+- `design-evidence-hook`: screenshot/Figma input extracts interaction facts and routes consistency audit out-of-scope.
+- `release-slice-conditional`: large multi-goal PRD triggers feature slices or split recommendation.
+- `resume-prd-change-management`: refine keeps stable IDs and records added/replaced/deprecated deltas.
+
+**Test scenarios:**
+- Fixture IDs are present and include P0/P1 coverage tags.
+- Contract tests reject text that implies mandatory all-section PRDs, numeric scorecards, or generated topology.
+- Contract tests keep `spec-plan` as consumer and prevent it from running these packs itself.
+
+**Verification:**
+- Focused PRD contract tests fail if best-practice packs drift into a heavy platform, script-owned semantic gate, or second artifact topology.
+
+---
+
 ### U7. Record Validation And Runtime Boundary Evidence
 
 **Goal:** Close the implementation with honest validation evidence, changelog, and fresh-source eval posture.
 
 **Requirements:** R9, R10
 
-**Dependencies:** U1, U2, U3, U4, U5, U6
+**Dependencies:** U1, U2, U3, U4, U5, U6, U8, U9, U10, U11
 
 **Files:**
 - Create or modify: `docs/validation/spec-prd/fresh-source-eval-2026-06-22-requirements-grill.md`
@@ -530,6 +727,7 @@ Gap-to-target mapping:
 - **Public workflow behavior:** `spec-prd` becomes more capable for rough/incomplete PRD refinement because it clarifies shared understanding before writing the final PRD, but remains the same public workflow entrypoint.
 - **Artifact contract:** unchanged. Durable PRD output remains `docs/brainstorms/*-requirements.md` with `artifact_kind: prd-requirements`.
 - **Downstream planning:** `spec-plan` receives more complete WHAT and less unresolved entropy; it still does not own the pre-PRD clarification loop.
+- **PRD quality floor:** P0 packs make problem/outcome, metrics readiness, product-level constraints, traceability, and owner closure explicit before planning; P1 packs remain conditional to avoid heavy templates.
 - **Skill packaging:** no new skill package, no new reference file by default, no generated runtime mirror edits.
 - **Tests/evals:** focused additions to examples-as-context and contract tests; no new deterministic semantic gate.
 - **Documentation:** changelog and optional validation artifact document the behavior. README updates are optional unless implementation changes user-visible command docs beyond `spec-prd` behavior.
@@ -541,6 +739,7 @@ Surface coverage:
 | `spec-prd` workflow | in-scope | Main behavior change |
 | PRD artifact topology | in-scope unchanged | Must stay `docs/brainstorms/*-requirements.md` |
 | `spec-plan` intake | out-of-scope | No source edit planned unless implementation finds stale handoff wording |
+| P0/P1 PRD quality packs | in-scope | Added as authoring/readiness prompts inside existing references |
 | Generated runtime mirrors | out-of-scope | Do not edit directly |
 | External `grill-with-docs` source | out-of-scope | Method input only, not vendored |
 
@@ -556,6 +755,8 @@ Surface coverage:
 | Route rough PRDs to `spec-brainstorm` by default | Rejected | The target input is an existing rough PRD for an anchored system increment, not 0-1 product discovery. Escalate only when the draft lacks enough product/system anchor to remain PRD refinement. |
 | Add a script to detect rough PRD completeness | Rejected for v1 | Semantic completeness is LLM-owned. Scripts can report structure/trace facts but cannot decide material product gaps. |
 | Use a full PRD scorecard or rubric | Rejected | The workflow already uses qualitative `quality_diagnosis`; numeric scoring would invite gaming and false precision. |
+| Make all industry PRD sections mandatory | Rejected | Would overload compact PRDs and recreate a heavy template platform. P0/P1 packs trigger only when they reduce planning invention. |
+| Create a separate PRD approval artifact | Rejected | Owner closure belongs in PRD-local sections and closeout summary; a new artifact would split the source of truth. |
 
 ---
 
@@ -564,7 +765,10 @@ Surface coverage:
 - Rough PRD refine runs establish shared understanding before PRD rewrite: load-bearing claims are tied to source/evidence, gaps, owner questions or assumptions, and PRD write targets.
 - Owner questions are fewer but better: each load-bearing question includes a recommended answer and write target.
 - `ready-for-planning` is not emitted when actor/flow/acceptance/scope gaps remain unresolved.
+- P0 gaps for problem/outcome, metrics, constraints, traceability, and owner closure are either resolved, explicitly assumed, or visible as blockers before handoff.
+- P1 packs add actor/design/release/change-management detail only when triggered, with compact PRDs staying compact.
 - New eval fixtures and contract tests make no-context-artifact and question-cap regressions obvious.
+- New eval fixtures and contract tests make invented-metric, NFR-HOW, missing-trace, missing-closure, design-audit takeover, and change-management regressions obvious.
 - No new source topology, public entrypoint, runtime mirror edit, numeric scorecard, or standalone critique artifact is introduced.
 - Future `spec-plan` artifacts from PRD origins carry fewer inline PRD feedback candidates for missing WHAT.
 
@@ -580,6 +784,10 @@ Surface coverage:
 | Domain Grill and Pre-PRD Clarification terminology confuses maintainers | Medium | Medium | Define clear division by consequence and use a mapping table. |
 | Scripts start making semantic readiness decisions | Low | High | Explicit script/LLM boundary in readiness and contract tests. |
 | External `grill-with-docs` artifact model leaks into `spec-prd` | Medium | High | Negative tests for `CONTEXT.md`, `CONTEXT-MAP.md`, `docs/adr/` defaults. |
+| P0/P1 packs become mandatory heavy templates | Medium | High | Treat packs as triggered authoring/readiness prompts, not required sections; contract tests reject all-section mandate language. |
+| Metrics get fabricated to satisfy readiness | Medium | High | Require metric sources/baselines when targets are stated; otherwise downgrade to observable signal, assumption, or Outstanding Question. |
+| NFR pack leaks into HOW | Medium | Medium | Keep NFR content product-level only; examples and tests reject API/database/architecture details as requirements. |
+| Design evidence hook absorbs app consistency audit | Low | High | Extract only PRD facts; route PRD/Figma/source consistency to `spec-app-consistency-audit`. |
 | `SKILL.md` line budget is exceeded | Medium | Medium | Keep orchestrator anchor compact and move details to references. |
 
 ---
@@ -593,10 +801,15 @@ Surface coverage:
 
 ### Phase 2
 
-- Land U5-U6 fixtures and contract tests.
-- Run focused validation and adjust prose only where tests expose ambiguity.
+- Land U8-U10 to add P0/P1 quality packs and readiness closure.
+- Keep the output-template/readiness changes in the same PR so pack triggers and readiness outcomes do not drift.
 
 ### Phase 3
+
+- Land U5, U6, and U11 fixtures/contract tests for both the original clarification loop and the new P0/P1 packs.
+- Run focused validation and adjust prose only where tests expose ambiguity.
+
+### Phase 4
 
 - Land U7 validation artifact and changelog.
 - Optionally run fresh-source eval if the host capability is available and explicitly record status.
@@ -608,7 +821,7 @@ Surface coverage:
 - Changelog is required because this changes source docs/plan and future user-visible `spec-prd` behavior.
 - README updates are not required by this plan alone; implementation should reconsider if `spec-prd` command docs or examples need to advertise rough PRD refinement.
 - Runtime regeneration is not part of this plan. If implementation changes source skill files and runtime drift must be repaired, use `spec-first init` as a separate explicit step rather than hand-editing generated mirrors.
-- Plan handoff should recommend `$spec-work` for implementation or a task pack if the implementer wants to split U1-U7.
+- Plan handoff should recommend `$spec-work` for implementation or a task pack if the implementer wants to split U1-U11, with U7 executed as the final closeout unit.
 
 ---
 

@@ -71,7 +71,7 @@ origin: docs/01-需求分析/12.mcp-setup.md/需求.md
 
 - `docs/solutions/developer-experience/bash-portability-pitfalls-2026-04-01.md`：Shell 方案必须按 macOS Bash 3.2 / POSIX 兼容面设计；空数组、`jq --arg`、同目录原子写入、`mkdir` 锁等是本次 installer 设计的底线。
 - `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`：本次重构只能修改 source-of-truth（`skills/`、`templates/`、contracts），不能把 `.claude/` / `.codex/` / `.agents/skills/` 当成持久修改入口。
-- `docs/solutions/developer-experience/standalone-skill-name-convention-2026-04-20.md`：保持 `spec-mcp-setup` 对外命名与 dual-host adapter 语义，不把宿主差异重新塞回 skill identity。
+- `docs/solutions/architecture-patterns/workflow-entrypoint-exposure-contract-2026-04-26.md`：保持 standalone skill 与 workflow command 的治理边界，不把宿主差异重新塞回 source skill identity。
 - `docs/solutions/developer-experience/npm-registry-mirror-release-override-2026-04-20.md`：面对环境差异优先采用命令级显式覆盖，不依赖用户机器的全局默认环境。
 - `docs/contracts/provider-readiness.md`：把“运行时 readiness”“lifecycle 展示位”“建议动作/repair 摘要”分层表达，避免把 installer 做成厚状态机。
 

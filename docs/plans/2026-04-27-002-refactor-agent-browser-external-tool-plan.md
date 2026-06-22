@@ -70,7 +70,7 @@ spec-first 目前同时存在两种 `agent-browser` 所有权表达：`spec-mcp-
 ### Institutional Learnings
 
 - `docs/solutions/architecture-patterns/upstream-ce-sync-upgrade-methodology-2026-04-26.md`：CE 同步不能机械复制；必须按 spec-first 当前产品边界判断是否同步、保留、删除或语义适配。本次只把 CE 当前外部依赖模型作为参考信号，不把 CE 状态作为删除本地 skill 的唯一理由。
-- `docs/solutions/developer-experience/standalone-skill-name-convention-2026-04-20.md`：对外 standalone skill 有命名约束，但本次不新增 standalone skill；反而要减少本地 skill surface。
+- `docs/solutions/architecture-patterns/workflow-entrypoint-exposure-contract-2026-04-26.md`：standalone skill 与 workflow command 有明确治理边界；本次不新增 standalone skill，反而要减少本地 skill surface。
 - `docs/brainstorms/2026-04-01-mcp-setup-skill-requirements.md`：`mcp-tools.json` 是 MCP baseline 唯一机器真相源；helper tools 不应混入 MCP registry 或 readiness ledger。
 
 ### External References

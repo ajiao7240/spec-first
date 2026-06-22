@@ -1,7 +1,7 @@
 ---
 title: 上游 CE 更新同步到 spec-first 的常态化升级方法
 date: 2026-04-26
-last_updated: 2026-06-04
+last_updated: 2026-06-22
 category: docs/solutions/architecture-patterns
 module: workflow-asset-sync
 problem_type: architecture_pattern
@@ -163,7 +163,7 @@ Agent 和 skill frontmatter 变更必须更严格：
 | `plugins/compound-engineering/skills/ce-session-*` | `skills/spec-session-*`，正文调用名以 frontmatter `name` 为准 |
 | `plugins/compound-engineering/skills/ce-sessions/**` | `skills/spec-sessions/**` |
 | `plugins/compound-engineering/skills/ce-work/**` | `skills/spec-work/**` |
-| `plugins/compound-engineering/skills/ce-work-beta/**` | `skills/spec-work-beta/**` |
+| `plugins/compound-engineering/skills/ce-work-beta/**` | 历史映射；当前 `spec-work-beta` 已退役，遇到上游 beta work 变更时先做删除/保留审计，默认不复活同名 skill |
 | `plugins/compound-engineering/skills/ce-commit-push-pr/**` | `skills/git-commit-push-pr/**`，不是 `spec-commit-push-pr` |
 | `plugins/compound-engineering/skills/ce-demo-reel/**` | `skills/feature-video/**` |
 | `plugins/compound-engineering/skills/ce-resolve-pr-feedback/**` | `skills/resolve-pr-feedback/**` |
@@ -250,7 +250,7 @@ docs/plans/YYYY-MM-DD-NNN-sync-ce-<head-sha>-workflow-updates-plan.md
 1. 新增 reference、scripts、schema。
 2. 单一 skill / agent 的小枚举或文案变更。
 3. review、debug、PR workflow 行为变更。
-4. work、work-beta、delegation、host capability 变更。
+4. work、历史 work-beta 删除审计、delegation、host capability 变更。
 5. README、AGENTS、CLAUDE、governance 文案。
 6. tests。
 7. `CHANGELOG.md`。

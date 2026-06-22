@@ -113,5 +113,4 @@ run('npm', ['publish', '--registry=https://registry.npmjs.org']);
 - 相关背景见 `git-npm` skill 的 Real-world lessons（A 节）
 
 ## Related
-- `docs/solutions/developer-experience/standalone-skill-name-convention-2026-04-20.md`
 - `scripts/release-publish.cjs:122` — 根本修复入口

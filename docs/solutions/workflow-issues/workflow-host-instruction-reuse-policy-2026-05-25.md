@@ -25,7 +25,7 @@ related_components: ["spec-plan", "spec-work", "spec-debug", "spec-code-review",
 - host/project instruction layer：会话启动时加载，用于稳定约束 agent 行为。
 - task context bundle：每次 workflow 按当前请求、plan/task、diff、附近源码、测试、artifact summary 和 provider facts 精确收集。
 
-会话历史也暴露过相同方向的问题：`spec-work` 主入口曾被评价为“长 prompt + 浅 references”，大量治理内容挤在主文件里，容易形成读不完的前言；`spec-work` / `spec-work-beta` 的复制式分叉也放大了 prompt drift 风险。这个历史教训说明，workflow prompt 应该复用宿主分层加载能力，并把重场景放到明确 contract 或 lazy-load reference 中，而不是把所有治理和入口文档都作为默认上下文重读。（session history: `63bc8153.skeleton.txt`, `cce97de7.skeleton.txt`）
+会话历史也暴露过相同方向的问题：`spec-work` 主入口曾被评价为“长 prompt + 浅 references”，大量治理内容挤在主文件里，容易形成读不完的前言；曾经的 `spec-work` / `spec-work-beta` 复制式分叉也放大了 prompt drift 风险。`spec-work-beta` 已于 2026-05-24 退役，但这个历史教训仍说明 workflow prompt 应该复用宿主分层加载能力，并把重场景放到明确 contract 或 lazy-load reference 中，而不是把所有治理和入口文档都作为默认上下文重读。（session history: `63bc8153.skeleton.txt`, `cce97de7.skeleton.txt`）
 
 本次修复在 `docs/contracts/context-governance.md` 增加 Host Instruction Reuse Policy，并同步更新 workflow prompt 与 contract tests，使普通 workflow 默认复用已加载的 host/project instructions。
 
@@ -133,7 +133,6 @@ only sections relevant to changed files.
 ```bash
 npx jest tests/unit/context-governance-contracts.test.js \
   tests/unit/spec-work-contracts.test.js \
-  tests/unit/spec-work-beta-contracts.test.js \
   tests/unit/spec-plan-contracts.test.js \
   tests/unit/spec-debug-contracts.test.js \
   tests/unit/spec-code-review-contracts.test.js \
@@ -141,4 +140,4 @@ npx jest tests/unit/context-governance-contracts.test.js \
   tests/unit/spec-doc-review-contracts.test.js --runInBand
 ```
 
-结果：8 suites / 117 tests passed。`git diff --check` 对当时 touched files 通过。
+结果：当前复查时 `spec-work-beta` 回归 suite 已随退役删除；上述 source contract suites 和 `git diff --check` 作为可复跑验证面。

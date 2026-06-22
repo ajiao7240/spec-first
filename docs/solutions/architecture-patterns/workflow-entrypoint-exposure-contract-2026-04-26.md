@@ -69,6 +69,8 @@ tags: [workflow-entrypoint, dual-host-governance, init-runtime, skill-command, c
 
 普通 standalone skill 不走这条路径。它只需要 `skills/<name>/SKILL.md` 和 governance 中的 `entry_surface: "standalone_skill"`，不应出现在 workflow command governance 或 Claude command templates 中。
 
+当前治理下，standalone skill 也不应被写成 `/spec:*` 或 `$spec-*` 这种 public workflow command。`entry_surface: "standalone_skill"` 表示它按宿主 skill 发现机制交付；source `name:` 应保持 skill identity，运行时命名细节由 host adapter 处理。例如 Codex adapter 会把 runtime skill `name:` 改写为目录名，Claude adapter 会把部分 `spec-*` standalone skill 的 runtime name 去掉 `spec-` 前缀；这些 adapter 转换不是 source frontmatter 规范，也不应回写成新的 `/spec:*` 入口规则。
+
 ## Why This Matters
 
 这套设计把确定性同步和语义判断分开：
@@ -142,4 +144,5 @@ tags: [workflow-entrypoint, dual-host-governance, init-runtime, skill-command, c
 - `templates/claude/commands/spec/*.md` — Claude command frontmatter source templates。
 - `src/cli/adapters/claude.js` — Claude command、skill、workflow skill 的运行时目录。
 - `src/cli/adapters/codex.js` — Codex 通过 `.agents/skills` 暴露 workflow，且 `hasCommands=false`。
-- `docs/solutions/developer-experience/standalone-skill-name-convention-2026-04-20.md` — standalone skill 的命名经验，与 workflow command 暴露边界互补。
+- `docs/contracts/dual-host-governance/README.md` — public workflow、standalone skill 和 internal-only 的宿主交付合同。
+- `tests/unit/lint-skill-entrypoints.test.js` — 防止 standalone skill 被写成正向 public command alias。
