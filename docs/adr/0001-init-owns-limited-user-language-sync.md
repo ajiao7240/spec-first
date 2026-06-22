@@ -1,0 +1,3 @@
+# Init Owns Limited User-Level Language Sync
+
+`spec-first init` may maintain a user-level language-only instruction block after explicit user authorization because project-level `AGENTS.md` / `CLAUDE.md` guidance is not always present in non-repo contexts, fresh sessions, or host-level workflows. This ownership is deliberately narrow: it covers only the `spec-first:user-language` managed block, uses global `~/.spec-first/.developer` as the sole persisted consent source, supports all-host cleanup on opt-out, and must not expand into global workflow, changelog, project governance, or role-contract rules without a separate decision.

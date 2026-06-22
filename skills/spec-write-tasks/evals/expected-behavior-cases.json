@@ -21,6 +21,13 @@
       "expected_decision": "draft-only",
       "expected_output": "A non-executable draft or explanation that hash tooling is required before spec-work task-pack handoff.",
       "coverage_tags": ["expected"]
+    },
+    {
+      "id": "degraded-task-signals-do-not-skip-deep-plan",
+      "input": "A deep source plan has clear implementation units, broad file surfaces, dependency chains, and verification spread, but task-governance-signals returns collection_status: degraded with candidate_level: lightweight.",
+      "expected_decision": "compile",
+      "expected_output": "Treat the helper output as degraded advisory evidence, record the limitation in Orientation Evidence or the final envelope, and decide from the source plan structure plus direct reads.",
+      "coverage_tags": ["expected"]
     }
   ],
   "skill": "spec-write-tasks",

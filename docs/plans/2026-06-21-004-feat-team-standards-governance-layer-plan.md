@@ -47,7 +47,7 @@ OpenSpec 的本地源码显示，`openspec/config.yaml` 通过 `context` 和 `ru
 ## 需求
 
 - R1. 建立团队开发规范的 source-of-truth 边界，明确哪些文件能产生 hard project context，哪些历史文档、扫描结果、经验文档只能作为 advisory。
-- R2. 定义 trust level：`confirmed`、`observed`、`imported`、`suggested`、`conflict`，并把 lifecycle state（`active`、`deprecated`、`archived`）和 promotion state（`proposed`、`confirmed-draft`、`reviewed`、`rejected`、`deferred`）分离；只有 `confirmed` 且 `active`、scope 命中的规范可成为硬约束。
+- R2. 定义 trust level：`confirmed`、`observed`、`imported`、`suggested`、`conflict`，并把 lifecycle state（`active`、`deprecated`、`archived`）和 promotion state（canonical 集合由 `team-standards.md` 单一定义：`none`、`proposed`、`confirmed-draft`、`reviewed`、`rejected`、`deferred`；candidate card 禁用 `none`）分离；只有 `confirmed` 且 `active`、scope 命中的规范可成为硬约束。
 - R3. 定义规范条目的最小字段：`id`、`trust`、`lifecycle_state`、`promotion_state`、`priority`、`category`、`applies_to`、`layer`、`capability`、`owner`、`source_refs`、`rule`、`rationale`、`enforcement`、`exceptions`、`effective_from`、`migration_impact`、`invalidation_condition`、`last_reviewed`。
 - R4. 支持团队开发规范的主要类型：高层架构约束、设计决策约束、source/runtime 边界、代码组织、测试策略、review 规则、安全/隐私约束、发布/变更流程约束。
 - R5. 下游 workflow 必须按同一 consumption contract 读取规范：summary-first、scope-filtered、confirmed-first，不得全量注入整个规范库。
@@ -56,7 +56,7 @@ OpenSpec 的本地源码显示，`openspec/config.yaml` 通过 `context` 和 `ru
 - R8. 提供 brownfield 初始化路线：历史代码、历史文档、graphify/codegraph、docs/solutions 和 review 经验默认只能生成候选；graphify/codegraph 证据必须按 provider_untrusted 处理并回源确认；只有满足 authority tier、scope、证据质量和冲突检查后才可进入 `confirmed-draft` promotion state 或面向 `confirmed` 的可审查 patch proposal。
 - R9. 用户文档要说明团队如何配置、维护、审查和演进规范，以及这些规范与 `docs/specs/<capability>/spec.md`、`docs/contracts/**`、`docs/solutions/**` 的区别。
 - R10. 所有变更必须遵守 source/runtime 边界，不手改 `.claude/`、`.codex/`、`.agents/skills/`。
-- R11. 支持多端 scope 模型，至少覆盖 `shared`、`app`、`h5`、`pc`、`admin`、`backend`、`job/event`、`data` 等真实 surface，并能表达跨端一致性规则。
+- R11. 支持多端 scope 模型，至少覆盖 `shared`、`app`、`h5`、`pc`、`admin`、`backend`、`job-event`、`data` 等真实 surface，并能表达跨端一致性规则。
 - R12. 支持高层 architecture/design standards，覆盖系统分层、依赖方向、业务状态 ownership、跨端契约、设计决策门槛和 ADR/design note 触发条件。
 - R13. 定义规范生命周期：什么时候新增、修改、例外、冲突、废弃、归档，以及每种状态如何影响 workflow enforcement。
 - R14. 定义初始化产物结构：显式规则盘点、observed/suggested candidates、conflicts、promotion review 和 confirmed standards 的分区，避免候选与正式规范混放。
@@ -90,11 +90,11 @@ OpenSpec 的本地源码显示，`openspec/config.yaml` 通过 `context` 和 `ru
 ## 假设
 
 - A1. 本计划没有 upstream `docs/brainstorms/*-requirements.md`；origin 是用户本轮 OpenSpec/spec-first 对比讨论和当前仓 source 复核，因此使用 plan-local `spec_id`。
-- A2. 第一版优先落文档 source contract 和 workflow consumption prose，不实现新的 CLI producer 或自动扫描器。
+- A2. 第一版优先落文档 source contract 和 workflow consumption prose；可包含确定性 fact-prep 脚本（结构校验器、owner-resolver 等只产 deterministic facts 的小工具），但不实现语义级 rule-mining 自动 confirmer，也不把扫描结果自动确认为规范。
 - A3. `docs/03-实施方案/06-开发规范.md` 和 `docs/01-需求分析/11.project-standards/**` 是历史/方案材料，可作为迁移输入，但不是当前 confirmed team standards source。
 - A4. “需要 owner 判断”不是因为 LLM 专业能力不足，而是因为团队规范同时是技术判断和组织授权。显式权威来源、低风险重复偏好和可回滚规则可以高度自治；架构边界、状态 ownership、安全、隐私、支付、权限、跨端契约等高影响规则需要 owner gate。
 - A5. `docs/standards/**` 是推荐的新 source surface；若未来团队选择 `AGENTS.md` / `CLAUDE.md` / 目录级文件承载部分规范，也必须在合同中定义 priority 和 scope。
-- A6. 多端项目的 surface 列表必须可项目化调整；本计划使用 App/H5/PC/Admin/Backend 等作为默认例子，不把这些名字硬编码成所有项目的固定枚举。
+- A6. 多端项目的 surface 列表必须可项目化调整；本计划使用 App/H5/PC/Admin/Backend 等作为默认例子，不把这些名字硬编码成所有项目的固定枚举。surface（以及 `layer`、`capability`）作为 project-enum，由 `docs/standards/index.md` 的 Surface / Layer / Capability Registry 按项目声明，结构校验器查该注册表成员资格——闭合但可项目扩展，而非硬编码固定集合（见「规范内容模型 / 字段分类与校验来源」）。
 
 ---
 
@@ -321,6 +321,8 @@ docs/
     pc.md
     admin.md
     backend.md
+    data.md
+    job-event.md
     architecture.md
     design.md
     coding.md
@@ -439,10 +441,11 @@ skills/
 | `promotion_state` | 提升过程状态，不可被 downstream 当 hard context | `none`, `proposed`, `confirmed-draft`, `reviewed`, `rejected`, `deferred` |
 | `priority` | 执行权重 | `P0-blocking`, `P1-required`, `P2-guidance` |
 | `category` | 规则家族 | `architecture`, `design`, `coding`, `testing`, `security`, `review` |
-| `applies_to` | 产品端、文件或 workflow scope | `shared`, `app`, `h5`, `pc`, `admin`, `backend`, `job/event`, `data` |
+| `risk_domain` | 高影响域标签（决定是否强制 owner-gate），闭合枚举，可为空 | `auth`, `permission`, `payment`, `funds`, `privacy`, `data-lifecycle`, `state-ownership`, `cross-surface-contract` |
+| `applies_to` | 产品端、文件或 workflow scope | `shared`, `app`, `h5`, `pc`, `admin`, `backend`, `job-event`, `data` |
 | `layer` | 架构层 | `domain`, `application`, `adapter`, `ui`, `api`, `storage`, `observability` |
 | `capability` | 可选能力范围 | `order`, `payment`, `auth`, `portfolio` |
-| `owner` | 负责维护者或团队 | `platform-team`, `mobile-team`, `security-owner` |
+| `owner` | 问责团队/角色（owner_role，owner-gate 路由目标），由脚本自动识别、不手填 | `platform-team`, `mobile-team`, `security-owner` |
 | `source_refs` | 证据或决策来源 | `AGENTS.md`, ADR, review report, design note, config file |
 | `rule` | 规范正文 | 一句可执行规则 |
 | `rationale` | 规则存在原因 | 风险、一致性、可维护性、合规 |
@@ -455,13 +458,17 @@ skills/
 
 `trust` 表示“能否被消费者当作当前团队规范”；`lifecycle_state` 表示“这条规范在生命周期里是否仍 active”；`promotion_state` 表示“某次候选提升处理到哪一步”。因此 `deprecated` / `archived` 不应作为 trust level，`confirmed-draft` 也不应作为 trust level。硬上下文的最小条件是 `trust=confirmed`、`lifecycle_state=active`、scope 匹配、priority/enforcement 适用。
 
+`promotion_state` 的 canonical 取值集合 `{none, proposed, confirmed-draft, reviewed, rejected, deferred}` 由 `docs/contracts/team-standards.md` 单一定义（single source of truth）；R2、candidate card 和生命周期表只引用、不各自重列。`none` 表示不在提升流程中（直接 confirmed 或纯 advisory 规则）；`candidates/**` 的 candidate card 因已在流程中，`promotion_state` **禁用 `none`**（最低为 `proposed`）。
+
+`owner`（owner_role）不手填，由确定性 owner-resolver 按规则所辖路径（`source_refs`/`applies_to`→目录）解析，precedence：`CODEOWNERS` → 目录级 `AGENTS.md`/`CLAUDE.md` ownership → git blame top committer → `unresolved`。CODEOWNERS 命中视为有效 owner；git-blame 命中为 advisory 候选，high-impact 规则须确认。`unresolved` 时该规则的 owner-gate 项走 `defer`/`not-run`，不伪造 owner。`invalidation_condition: owner gone` 由重跑解析确定性触发（CODEOWNERS 条目移除或 top committers 全部离开）。提出/确认者身份复用 `~/.spec-first/.developer`（global→git，与 CHANGELOG author 同源），不另设 rule-card 字段。
+
 候选规则与 promotion proposal 需要比 confirmed rule 多保留获取过程字段，避免后续 reviewer 只看到抽象结论而无法判断证据质量。第一版 candidate card 至少包含：
 
 | 字段 | 用途 |
 |-------|------|
 | `candidate_id` | 候选规则稳定锚点，提升后可写入 promotion log。 |
 | `acquisition_id` | 指向本次 acquisition task pack，说明该候选来自哪个 slice。 |
-| `candidate_type` | `explicit-rule`, `observed-pattern`, `suggested-rule`, `conflict-record`, `promotion-proposal`。 |
+| `candidate_type` | `explicit-rule`, `observed-pattern`, `suggested-rule`, `imported`, `conflict-record`, `promotion-proposal`。 |
 | `authority_tier` | `explicit-authority`, `machine-enforced-policy`, `inferred-from-code`, `repeated-review-or-incident`, `multi-source-high-confidence`, `high-impact-governance`, `conflict-present`。 |
 | `evidence_quality` | 多维评分摘要，至少引用 source strength、recency、consistency、coverage、owner trace 和 risk level。 |
 | `source_refs` | 可复核来源；provider 输出必须标记 `provider_untrusted` 并回到 source/test/doc/log 确认。 |
@@ -472,6 +479,18 @@ skills/
 | `promotion_decision` | `keep-advisory`, `prepare-confirmed-patch`, `merge-confirmed-after-review`, `rejected`, `deferred`, `conflict`。 |
 
 `confirmed-draft` 是 promotion state，不是 trust level 的 hard-context 等价物。它表示 agent 已基于 explicit authority、mechanical enforcement 或多源高置信证据生成可审查 patch/proposal；只有该 patch 在 active `$spec-work` 或等价 source-edit workflow 中经普通 diff review 合入、更新 CHANGELOG/测试并标为 `trust=confirmed,lifecycle_state=active` 后，下游 workflow 才能 enforce。
+
+### 字段分类与校验来源
+
+为让结构校验器（见 U1/U13）确定性判定每个字段，且不与 A6（surface 不得硬编码成所有项目的固定枚举）冲突，上述 rule-card 与 candidate-card 字段按三类处理，每类的合法值来源不同：
+
+| 类别 | 字段 | 合法值来源 / 校验方式 |
+|------|------|----------------------|
+| **global-enum**（跨项目固定，校验器查合同枚举） | `trust`、`lifecycle_state`、`promotion_state`、`priority`、`category`、`enforcement`、`migration_impact`、`candidate_type`、`authority_tier`、`redaction_status`、`replay_status`、`promotion_decision`、`next_action`、`risk_domain` | 取值由 `docs/contracts/team-standards.md` 的 canonical 枚举段单一定义（single source of truth；`promotion_state` 与各 decision 词表的最终收敛由后续单元完成）。其中 `category`、`enforcement`、`migration_impact`、`risk_domain` 在本计划收为闭合：`category ∈ {architecture, design, coding, testing, security, review}`；`enforcement ∈ {review, tests, lint, plan-gate, manual-owner-review}`；`migration_impact ∈ {none, new-code-only, touched-files-only, backfill-required}`；`risk_domain ∈ {auth, permission, payment, funds, privacy, data-lifecycle, state-ownership, cross-surface-contract}`（可经 index 注册表项目扩展）。 |
+| **project-enum**（项目内闭合，取值由项目声明，解 A6） | `applies_to`(surface)、`layer`、`capability` | 取值由 `docs/standards/index.md` 的 **Surface / Layer / Capability Registry** 块按项目声明；校验器查该项目注册表的成员资格，不硬编码跨项目固定集合。项目可在注册表内扩展合法值（闭合但可扩）。 |
+| **format-free**（只查格式/存在） | `id`、`source_refs`、`effective_from`、`last_reviewed`、`owner`、`rule`、`rationale`、`exceptions`、`invalidation_condition`、`candidate_id`、`acquisition_id`、`evidence_quality`、`privacy_review` | `id` 用稳定 ID 正则（例如 `ARCH-STATE-001` 形态）；`source_refs` 必须 repo-relative 且禁本机绝对路径；`effective_from`、`last_reviewed` 为日期；`owner` 非空（有效性与自动识别另见 owner 相关决策）；其余为非空文本或结构摘要。 |
+
+校验器据此消费三个取值来源：global-enum 查合同枚举、project-enum 查 `index.md` 注册表、format-free 查格式规则。这同时解决 A6 冲突（surface 由项目声明、校验器查注册表而非硬编码）并让全量结构校验可落地。
 
 首批文档应包含这类业务系统示例，但这些示例默认是 rule template 或 `suggested` candidate；只有具备当前权威 source、owner、scope、例外和冲突检查后，才能写成 `confirmed`：
 
@@ -492,7 +511,7 @@ skills/
 |-------|------|-----------------|
 | `trust` | `suggested` | 来自 LLM/review/research 的 advisory candidate；绝不是 hard constraint。 |
 | `trust` | `observed` | 从 code/config/history 观察到的模式；是有用证据，不是政策。 |
-| `trust` | `imported` | 从外部或 team pack 引入待评审的规则；本仓接受前不可 enforce。 |
+| `trust` | `imported` | 从外部或 team pack 引入待评审的规则；本仓接受前不可 enforce。来源（team pack）在 v1 延后（见范围边界），v1 不产出/消费 `imported`，仅保留枚举位以稳定 taxonomy 与 glossary 登记；校验器接受该值，但 v1 出现实际 `imported` 条目时告警。 |
 | `trust` | `conflict` | 存在竞争规则或 source 矛盾；消费者必须暴露冲突并避免 hard enforcement。 |
 | `trust` | `confirmed` | 同时满足 `lifecycle_state=active`、scope 匹配且 priority/enforcement 适用时，成为 hard project context。 |
 | `promotion_state` | `confirmed-draft` | 可审查的 promotion patch/proposal；必须保留 source refs、tier reason、conflict check 和 review 状态；不可作为 hard context。 |
@@ -514,6 +533,8 @@ skills/
 
 当技术或架构已消失、被其他规则替代、例外占主导、enforcement ROI 为负、规则无法评估或 owner 不再存在时，应 deprecate 而不是静默删除。预期路径是 `confirmed` -> `deprecated` -> `archived`，并由 `promotion-log.md` 或等价历史记录原因。
 
+冲突解决程序：进入 `trust=conflict` 的规则必须终结于一个明确出口，不得长期停留。优先级复用仓内 `skills/spec-prd/references/evidence-and-topology.md` 的 Contradiction Handling（`owner`/`user` decision > `confirmed` 权威来源 > 既有 standard；同级再比 authority_tier；两条都 confirmed 且真矛盾则强制 owner decision）。解决结果限定为：`superseded`（胜者留 confirmed，败者 `deprecated` + `superseded_by` -> archive）、`scoped-split`（收窄 `applies_to` 使不再重叠）、`merged`（合并为一条）、`deferred`（显式停放 + owner + 复审日期）、`both-rejected`。解决过程与结果写入 `lineage-ledger.md` 与 `promotion-log.md`，并据结果重新分级。
+
 ---
 
 ## 按需加载与索引
@@ -532,6 +553,10 @@ skills/
 | 规则 ID | Trust | Priority | Category | Applies To | Layer | Capability | Workflow | File | Owner |
 |---------|-------|----------|----------|------------|-------|------------|----------|------|-------|
 | `ARCH-STATE-001` | `confirmed` | `P0-blocking` | `architecture` | `shared,backend,app,h5,pc,admin,data` | `domain,api,ui` | `*` | `plan,work,review` | `architecture.md` | `platform-team` |
+
+此外，`docs/standards/index.md` 必须包含一个 **Surface / Layer / Capability Registry** 块，按项目声明本仓合法的 `applies_to`(surface)、`layer`、`capability` 取值集合（见「规范内容模型 / 字段分类与校验来源」）。结构校验器对这些 project-enum 字段查该注册表的成员资格，而非硬编码跨项目集合；项目可在注册表内扩展合法值（闭合但可扩，满足 A6）。
+
+结构校验器（不仅运行时 audit）还强制 index↔规则文件一致性：每条 `trust=confirmed,lifecycle_state=active` 规则在 index 有且仅有一行、其 `file` 指向存在且含该 ID 的文件（双向完整性），且 index 行的 trust/priority/category/applies_to/layer/capability/owner/file 必须等于 rule card 字段（card 为 SoT，index 为受治理 derived artifact）。运行时 `stale-index` 降级只是兜底，不替代 CI 阻止漂移上线。
 
 消费者默认不能全量读取 `docs/standards/**`。如果 index 缺失或过期，workflow 应响亮降级到当前 host instructions 和精确 source reads，而不是发明规范或扫描整个目录树。
 
@@ -712,7 +737,7 @@ flowchart TD
 | 字段 | 说明 |
 |------|------|
 | `target_repo` | 本次获取对应的单仓或明确子仓。 |
-| `extraction_target.surface` | `shared`、`app`、`h5`、`pc`、`admin`、`backend`、`job/event`、`data` 等。 |
+| `extraction_target.surface` | `shared`、`app`、`h5`、`pc`、`admin`、`backend`、`job-event`、`data` 等。 |
 | `extraction_target.sub_domain` | 可选技术域或端内形态，如 `java-spring`、`react-admin`、`flutter-app`、`kmp-app`。 |
 | `capability` | 业务能力 slice，如 `auth`、`payment`、`order`、`portfolio`。 |
 | `project_paths` | 只读项目路径或 repo-relative roots。 |
@@ -812,7 +837,7 @@ flowchart TD
 | Actionability | 是否有可执行 Must / Must Not / Review 条款 | 不可执行口号进入 `refine-rule` 或 reject。 |
 | Abstraction | 是否太贴单个函数/单个文件，或过度抽象成口号 | 过窄进入 `refine-rule`；过泛不得提升。 |
 | Conflict | 是否同时存在正反例、规则冲突或 scope 重叠 | 进入 `conflict`，需要 conflict resolution 或 owner decision。 |
-| Risk | 是否涉及权限、安全、隐私、支付、资金、状态 ownership、跨端契约等高影响面 | high-risk 或 `owner_required` 进入 owner queue。 |
+| Risk | 是否命中闭合 `risk_domain`（auth/permission/payment/funds/privacy/data-lifecycle/state-ownership/cross-surface-contract）或 `category∈{architecture,security}` | high-risk 或 `owner_required` 进入 owner queue。 |
 | Derivation | AI rules / review checklist 是否只从 accepted standard rule 派生 | 派生项缺 source rule 时不得输出给下游 workflow。 |
 | Anchor Integrity | Git 或非 Git source anchors 是否完整 | 锚点缺失则不能作为 promotion evidence。 |
 | Privacy | 是否含客户数据、敏感业务细节、人员信息或不能复用的事故细节 | `needs-redaction` 或 `blocked` 时不得进入 confirmed-draft。 |
@@ -878,10 +903,12 @@ Warning routing 必须显式：
 | `inferred-from-code` | 代码结构、目录模式、graphify/codegraph、测试布局 | 生成 `observed` pattern、置信分、反例扫描、候选 rule card | 不可以 | owner 或后续 promotion |
 | `repeated-review-or-incident` | 重复 review comment、bug/incident、postmortem、agent 错误复现 | 生成 `suggested` candidate、聚合同类证据、影响面分析 | 不可以 | owner 或负责团队评审 |
 | `multi-source-high-confidence` | 显式文档 + 代码模式 + review 经验一致，且无冲突 | 生成 promotion proposal、推荐 scope/priority/exceptions | 不自动合入；默认只进入 `confirmed-draft` 或 fast-review proposal；即使 repo 配置低影响偏好，也只能自动生成 `confirmed-draft` | repo 配置 + owner 可追溯 |
-| `high-impact-governance` | 架构分层、业务状态 ownership、权限、安全、隐私、支付、数据生命周期、跨端契约 | 生成候选、方案比较、风险和反例、decision brief | 不可以 | owner gate / ADR / design note |
+| `high-impact-governance` | 命中闭合 `risk_domain`（权限/安全/隐私/支付/资金/数据生命周期/状态 ownership/跨端契约）或 `category∈{architecture,security}`（含架构分层） | 生成候选、方案比较、风险和反例、decision brief | 不可以 | owner gate / ADR / design note |
 | `conflict-present` | 来源互相矛盾、scope 不清、owner 不明、例外过多 | 生成 conflict record 和 resolution options | 不可以 | 冲突解决后重新分级 |
 
 `confidence_score` 的定位是 promotion 输入，不是 authority 本身。它可以决定“是否值得 owner 快速批准”“是否生成 confirmed-draft”“是否需要再找反例”，但不能单独把 inferred rule 变成 enforced policy。
+
+**high-impact 判据（闭合、可判定）**：`high_impact ⇔ category ∈ {architecture, security} 或 risk_domain ≠ ∅`，其中 `risk_domain` 是闭合枚举 `{auth, permission, payment, funds, privacy, data-lifecycle, state-ownership, cross-surface-contract}`（项目可经 index 注册表扩展）。本计划其余对“高影响/高风险面”的列举（authority tier 的 `high-impact-governance`、规则质量门禁的 Risk gate、生命周期“新增规范”、brownfield 切片）统一引用该 `risk_domain` 集合并去掉开放式“等”。凡 `high_impact` 的 confirmed 规则必须有有效 `owner`（owner-gate）且不可自动 promote/enforce。
 
 `confirmed-draft` 的强约束是：它只是一份带 source refs、tier reason、evidence quality、conflict check 和 review 状态的 source patch/proposal。它可以降低 owner/reviewer 的整理成本，但不能进入 `docs/standards/index.md` 的 hard-context 查询结果，也不能被 `spec-plan`、`spec-work` 或 `spec-code-review` 当作可 enforce 规则。所谓“低影响偏好”只能缩短 review 队列或自动生成 draft patch，不能绕过普通 diff review、CHANGELOG 和 focused tests。
 
@@ -897,6 +924,24 @@ Warning routing 必须显式：
 | `next_action` | 下一个动作，必须是可执行的：收证、改写、冲突解决、owner review、diff review、reject。 |
 
 AI rules、review checklist、workflow handoff summary 都是 derived artifacts，只能从 `confirmed` standards 或明确标记的 `confirmed-draft` proposal 生成预览；下游 workflow 的 hard context 只能消费 `confirmed`。如果 review checklist 与 standard rule 不一致，以 standard rule 为准，并把派生项标记为 drift。
+
+### 决策与下一步词表（单一来源）
+
+gate、autonomy、promotion 和 eval 之间必须用同一套 token，decision trace 才能对账。规范两个正交轴，既有字段都视为它们的视图：
+
+- **`next_action`（做什么）**：`collect-more-evidence`、`refine-rule`、`resolve-conflict`、`redact`、`owner-review`、`prepare-promotion-patch`、`diff-review`、`reject`、`defer`。
+- **`outcome`（判定结果）**：`keep-advisory`、`prepare-promotion-patch`、`merge-after-review`、`reject`、`defer`、`conflict-hold`。
+
+既有字段同义归一（消除命名/时态漂移）：
+
+| 既有字段 / 取值 | 归一到 |
+|---|---|
+| `promotion_decision`：`keep-advisory` / `prepare-confirmed-patch` / `merge-confirmed-after-review` / `rejected` / `deferred` / `conflict` | `outcome`：`keep-advisory` / `prepare-promotion-patch` / `merge-after-review` / `reject` / `defer` / `conflict-hold` |
+| `autonomy.policy`：`promotion-proposal` / `keep-draft` / `reject` | `prepare-promotion-patch` / `defer` / `reject` |
+| gate `next_action` 与 warning routing：`drop` / `fix-derivation` / `redaction` | `reject` / `refine-rule` / `redact` |
+| eval threshold `decision`：`evidence-supports-promotion` / `needs-rewrite` | `prepare-promotion-patch` / `refine-rule` |
+
+`decision_trace` 只使用上面规范 token；`promotion_decision`、`autonomy.policy`、gate `next_action`、threshold `decision` 都是它的视图，文档其余位置引用本表而不再各自定义新词。
 
 ### 自主分析执行 loop
 
@@ -1159,7 +1204,7 @@ flowchart TB
   U10[U10 获取任务包与证据质量模型]
   U11[U11 Brownfield 切片与角色化访谈]
   U12[U12 获取质量验证与回放 eval]
-  U8[U8 测试、迁移审计与 review]
+  U13[U13 测试、迁移审计与 review]
 
   U1 --> U2
   U1 --> U3
@@ -1174,11 +1219,11 @@ flowchart TB
   U9 --> U10
   U10 --> U11
   U11 --> U12
-  U12 --> U8
-  U5 --> U8
-  U6 --> U8
-  U7 --> U8
-  U9 --> U8
+  U12 --> U13
+  U5 --> U13
+  U6 --> U13
+  U7 --> U13
+  U9 --> U13
 ```
 
 ### U1. 定义规范 source 合同与信任模型
@@ -1206,7 +1251,9 @@ flowchart TB
   - `conflict`: 解决前是 enforcement 的 visible blocker。
   - `lifecycle_state=deprecated`: 除非 migration 引用，否则仅作为历史信息。
   - `promotion_state=confirmed-draft`: 只表示可审查 proposal，不进入 hard-context 查询结果。
+- 定义 canonical 枚举段作为 single source of truth：`promotion_state`（含 `none`；candidate card 禁用 `none`）以及决策两正交轴 `next_action` 与 `outcome`；R2、candidate card、gate、authority、eval 等处只引用该枚举段并提供同义映射，不各自重列。
 - 要求每条 confirmed standard 都包含 scope、source refs、owner、enforcement mode 和 invalidation condition。
+- 定义字段分类（global-enum / project-enum / format-free）及各类取值来源：global-enum 取值由本合同 canonical 枚举段定义并将 `category`/`enforcement`/`migration_impact` 收为闭合；project-enum（`applies_to`/`layer`/`capability`）由 `docs/standards/index.md` 注册表声明、校验器查成员资格而非硬编码；format-free 只查格式/存在（含 `source_refs` 禁本机绝对路径）。
 - 明确 scripts 可以收集 candidate facts，但不能确认 standards。
 - 定义 authority tier：`explicit-authority`、`machine-enforced-policy`、`inferred-from-code`、`repeated-review-or-incident`、`multi-source-high-confidence`、`high-impact-governance`、`conflict-present`。
 - 明确 LLM 可以自主抽取、评分、合并、反例搜索和生成 patch；能否 enforce 由 tier 决定。
@@ -1224,6 +1271,7 @@ flowchart TB
 - 正向：contract text 明确 observed/imported/suggested candidates 在 owner confirmation 前保持 advisory。
 - 正向：contract text 明确 source authority hierarchy、peer conflict 处理和 duplicate host-rule source_refs 策略。
 - 正向：contract text 明确 `docs/specs/<capability>/spec.md` 是能力行为 truth，不是 team standards source。
+- 正向：contract text 定义字段三分类与各自取值来源，且 `applies_to`/`layer`/`capability` 作为 project-enum 指向 `docs/standards/index.md` 注册表，不硬编码跨项目固定集合。
 - 正向：explicit-authority 和 machine-enforced-policy 可生成 `confirmed-draft` 或面向 `confirmed` 的可审查 patch proposal，但必须带 source refs 和 conflict check，且真正 `confirmed` 需要 diff review 合入。
 - 负向：high-impact-governance、conflict-present 和 inferred-from-code 不能仅凭 confidence 自动 enforce。
 
@@ -1249,6 +1297,8 @@ flowchart TB
 - 新增: `docs/standards/pc.md`
 - 新增: `docs/standards/admin.md`
 - 新增: `docs/standards/backend.md`
+- 新增: `docs/standards/data.md`
+- 新增: `docs/standards/job-event.md`
 - 新增: `docs/standards/architecture.md`
 - 新增: `docs/standards/design.md`
 - 新增: `docs/standards/coding.md`
@@ -1261,6 +1311,7 @@ flowchart TB
 
 **方案:**
 - `index.md` 只做导航、索引和 consumption summary，不复制每条规则全文。
+- `index.md` 必须包含 Surface / Layer / Capability Registry 块，声明本仓合法的 surface/layer/capability 取值，供 project-enum 字段校验（见 U1「字段分类与校验来源」）。
 - 实际 standards 放在主题文件和 surface 文件里，每个文件保持 scoped、scannable。
 - 使用紧凑 rule cards，而不是长篇 prose essays。字段采用 `id`、`trust`、`lifecycle_state`、`promotion_state`、`priority`、`category`、`applies_to`、`layer`、`capability`、`owner`、`source_refs`、`rule`、`rationale`、`enforcement`、`exceptions`、`effective_from`、`migration_impact`、`invalidation_condition`、`last_reviewed`。
 - 首批 confirmed seed 只包含本仓已有明确权威来源的治理规则，例如 source/runtime boundary、changelog discipline、generated runtime mirror 禁止手改等。业务状态 ownership、依赖方向和 design note trigger 可作为 architecture/design rule template 或 `suggested` candidate，只有存在 owner/ADR/design note/当前权威文档并通过冲突检查后才能提升为 `confirmed`。
@@ -1274,6 +1325,8 @@ flowchart TB
 - 文档 lint/diff check：新增文件没有绝对路径，也没有 hidden HTML。
 - Contract check：每个 standards 文件包含清晰 trust/authority statement，或指向 `docs/contracts/team-standards.md`。
 - 负向：index 不复制所有子文件全文。
+- 正向：`index.md` 含 Surface / Layer / Capability Registry，声明本仓合法 surface/layer/capability 取值。
+- 负向：rule/candidate 的 project-enum 取值不在注册表内时不视为合法。
 - 负向：任何文件都不得声称 code scanning 可以自动确认规则。
 
 **验证:**
@@ -1314,7 +1367,7 @@ flowchart TB
   - `spec-write-tasks`：standards 只有在与 source plan 一致时，才能变成 task constraints。
   - `spec-work`：scope 匹配时 standards 约束 changed files；具体实现仍由 direct source evidence 决定。
   - `spec-code-review`：standards findings 必须同时引用 rule 和 diff/source violation。
-  - `spec-doc-review`：standards 可以校准文档期望，但不能变成 generic style preferences。
+  - `spec-doc-review`：只消费 `category∈{architecture,design}` 且 `workflow` 含 `plan`/`doc-review` 的规划期规范（如 `DESIGN-NOTE-001`），用于发现 plan/PRD 与 confirmed 架构/设计规范矛盾或缺失规范要求的 design-note/ADR；不得把 coding/testing/style 规范施于文档，也不变成 generic style preferences。
   - `spec-debug`：standards 可以解释 expected invariants，但不能替代 reproduction/source evidence。
 - 保留 Host Instruction Reuse Policy：root host files 不自动 full reread，除非策略允许或精确需要。
 
@@ -1358,7 +1411,7 @@ flowchart TB
 - 对 task packs：standards 只能在不扩大 source-plan scope 时进入 `context_refs` 或 task constraints。
 - 对 work closeout：当某条 standard 实质影响实现或阻断选项时，在 closeout evidence 或 limitations 中记录 standards rule ID。
 - 对 debug：允许 standards 定义 expected invariants，但 root cause evidence 仍必须基于 source/test/log。
-- 对 doc-review：允许 standards 校准文档要求，但要区分 document-quality feedback 和 standards violations。
+- 对 doc-review：只用 `category∈{architecture,design}` 且 `workflow` 含 `plan`/`doc-review` 的规划期规范校准文档要求；区分 document-quality feedback 和 standards violations，不把 coding/testing/style 规范施于文档。
 
 **遵循模式:**
 - `skills/spec-plan/references/governance-boundaries.md` 的 decision ledger format。
@@ -1542,7 +1595,7 @@ flowchart TB
 - `authority-tiers.md` 定义 autonomy vs authority 的分层：显式来源、机械 enforcement、代码推断、重复 review、多源高置信、高影响治理和冲突规则分别如何处理。
 - `acquisition-quality.md` 定义获取任务包、证据质量评分、规则验收清单、反例库和隐私脱敏边界；具体内容由 U10 填充。
 - `source-matrix.md` 定义不同来源能产生的 trust level、candidate type 和必须补充的证据；具体内容由 U10 填充。
-- `promotion-and-conflicts.md` 定义 decision trace、owner queue、conflict resolution options 和 derived artifact 边界。
+- `promotion-and-conflicts.md` 定义 decision trace、owner queue、conflict resolution 程序（precedence + 出口集 `superseded`/`scoped-split`/`merged`/`deferred`/`both-rejected`，复用 `evidence-and-topology` Contradiction Handling）和 derived artifact 边界。
 - `loading-and-consumption.md` 定义 AI rules、review checklist、query summary 和 workflow handoff 只能从 confirmed standards 派生。
 - `loading-and-consumption.md` 同时承载 rule selection contract 的 mode-specific 应用，包含 matched/excluded/uncertainty/fallback/limitations 输出格式。
 - `role-interview-playbook.md` 定义架构、安全、测试、SRE、多端、后端、数据和业务 owner 的访谈问题；具体内容由 U11 填充。
@@ -1597,6 +1650,9 @@ flowchart TB
 - 新增或修改: `docs/standards/candidates/fact-ledger.md`
 - 新增或修改: `docs/standards/candidates/source-matrix.md`
 - 新增或修改: `docs/standards/candidates/output-risk-profile.md`
+- 新增或修改: `docs/standards/candidates/lineage-ledger.md`
+- 新增或修改: `docs/standards/candidates/owner-decision-queue.md`
+- 新增或修改: `docs/standards/candidates/promotion-log.md`
 - 新增: `skills/team-standards-governance/references/acquisition-quality.md`
 - 新增: `skills/team-standards-governance/references/source-matrix.md`
 - 新增测试: `tests/unit/team-standards-governance-contracts.test.js`
@@ -1608,6 +1664,7 @@ flowchart TB
 - 定义 source anchor 字段：`source_type`、`snapshot_id`、`path_hash`、`file`、`line_range`、`snippet_hash`、`fact_id`、`scope`。
 - 定义 source matrix：显式文档、机械配置、ADR、PR review、incident、代码结构、测试、onboarding、访谈分别能产出的最高 trust/tier。
 - 定义 candidate card 最小字段：`candidate_id`、`acquisition_id`、`candidate_type`、`authority_tier`、`evidence_quality`、`privacy_review`、`redaction_status`、`replay_status`、`promotion_state`、`promotion_decision` 和 `source_refs`。
+- 新增 `lineage-ledger.md`、`owner-decision-queue.md`、`promotion-log.md` 模板（带 schema，v1 无真实条目）：lineage 记录 candidate→proposal→confirmed/deprecated/archive 演化；owner-decision-queue 只接 conflict/high-risk/`owner_required`；promotion-log 记录提升/废弃原因。三者字段与 `promotion_state`（F1 canonical 集合）、`outcome`/`next_action`（决策词表）、`risk_domain`（high-impact 判据）对齐。
 - 定义 quality gates 和 warning routing：证据薄继续收证，表达/抽象差继续 refine，冲突/高风险/owner_required 才进入 owner queue。
 - 定义 do-not-promote list：个人偏好、历史债、临时 workaround、低频例外、未确认 review opinion、旧架构残留、敏感业务细节。
 - 明确 privacy/redaction：候选规则应抽象为工程约束，只保留必要 source refs，不复制敏感日志、客户数据或人员信息。
@@ -1726,7 +1783,7 @@ flowchart TB
 
 ---
 
-### U8. 增加聚焦验证、review 和迁移审计
+### U13. 增加聚焦验证、review 和迁移审计
 
 **目标:** 证明新治理层可用、不会回归退役 standards 行为，并且不是只增加 prose。
 
@@ -1937,7 +1994,7 @@ flowchart TB
 
 ### 阶段 5：Docs、standalone skill 与语义 review
 
-- 完成 U7、U9 full skill 收口、U8。
+- 完成 U7、U9 full skill 收口、U13。
 - 目标是证明旧 `spec-standards` 未回归，新治理层和 standalone skill 可被实际 workflow 消费，获取质量机制不会变成另一套隐性自动审批。
 
 ---

@@ -4,6 +4,7 @@ type: feat
 status: active
 date: 2026-06-22
 spec_id: 2026-06-22-001-user-language-sync
+adr: docs/adr/0001-init-owns-limited-user-language-sync.md
 ---
 
 # feat: 用户级语言偏好同步
@@ -18,6 +19,7 @@ spec_id: 2026-06-22-001-user-language-sync
 
 - **Recommended approach:** 新增独立的 user-language sync plan/apply 阶段，并把语言规则抽象成共享生成器：项目级 `spec-first:lang` block 与用户级 `spec-first:user-language` block 复用同一套 zh/en hard-execution language prose；项目级继续叠加 changelog/governance，用户级只写 language-only 内容；不要把用户级文件伪装成 repo-root `operationPlan`。
 - **Key decisions:** 首次授权必须来自交互确认或显式 `--sync-user-language`；授权后通过 `sync_user_language=true` 持久化，后续静默同步；`--no-sync-user-language` 显式关闭、持久化 false，并删除所有 host（spec-first 曾写过的 Codex / Claude 用户文件）中的 spec-first managed language block。
+- **Decision record:** `docs/adr/0001-init-owns-limited-user-language-sync.md` 记录 `spec-first init` 只在语言偏好这一窄范围内拥有用户级 instruction sync ownership；不得扩展为全局 workflow / changelog / 项目治理规则。
 - **Validation focus:** 覆盖交互、`-y`、`--dry-run`、显式 opt-in/opt-out、双宿主、`CODEX_HOME`、all-repos 只写一次、用户内容保留和 marker 幂等。
 - **Largest risks / boundaries:** 用户级文件影响所有项目，不能无条件默认静默写；同步失败必须 fail loud，不得让用户以为全局偏好已经生效。
 
@@ -28,6 +30,8 @@ spec_id: 2026-06-22-001-user-language-sync
 当前 `spec-first init` 会把语言策略写到项目级 `AGENTS.md` 或 `CLAUDE.md`，但执行过程中仍可能因为会话缓存、skill/subagent prompt、非当前仓库上下文或用户级规则缺失而偶发英文回答或英文文档输出。用户希望提升“所有回答默认中文”的稳定性，但无条件静默写用户级文件会越过项目初始化边界，影响所有项目的 agent 行为。
 
 本计划采用 B 方案：首次需要用户授权；授权被持久化后，后续 `spec-first init` 默认静默维护用户级语言规则。这样同时满足体验目标和 mutation gate 边界。
+
+Option zero（只在根因处修复，不新增用户级 instruction surface）已被权衡后不采用：skill/subagent prompt、会话缓存和非当前仓上下文仍应继续各自修复，但它们不能覆盖 fresh session、跨 repo、host-level workflow 这类缺少项目级 instruction 的入口面。用户级 language-only block 是补齐默认 guidance surface，不是替代根因修复，也不承诺完全语言 enforcement。
 
 ---
 
@@ -52,7 +56,7 @@ spec_id: 2026-06-22-001-user-language-sync
 
 ## Assumptions
 
-- A1. Claude Code 的用户级自然语言规则入口按当前官方文档和本轮讨论采用 user-level `CLAUDE.md`；实现必须通过单一解析 helper（建议 `resolveClaudeUserInstructionPath()`）得到最终写入路径，不能在调用点硬编码 `os.homedir()/.claude`。`CLAUDE_CONFIG_DIR` 是否重定位 user memory 文件是 implementation-time verification gate：若当前 Claude Code docs/行为确认会重定位，则 helper 经 `CLAUDE_CONFIG_DIR` 回退 `~/.claude/CLAUDE.md`；若确认不重定位，则 helper 固定返回 `~/.claude/CLAUDE.md` 并在 docs/help 中说明 config dir 与 user memory 文件的边界。
+- A1. Claude Code 的用户级自然语言规则入口按当前官方文档采用 `~/.claude/CLAUDE.md`。实现必须通过单一解析 helper（建议 `resolveClaudeUserInstructionPath()`）得到最终写入路径，不能在调用点硬编码 `os.homedir()/.claude`；v1 helper 固定返回 `{ absolutePath: ~/.claude/CLAUDE.md, displayPath: "~/.claude/CLAUDE.md", basis: "claude-memory-home-fixed" }`。当前 docs/help/tests 不承诺 `CLAUDE_CONFIG_DIR` 会重定位 user memory / `CLAUDE.md`；若未来 Claude Code 官方文档或实测行为确认支持重定位，再单独扩展 helper 与测试。
 - A2. 用户级语言规则能提高遵循率，但不是 hard enforcement；系统/开发者指令、当前请求、skill prompt 或宿主缓存仍可能覆盖。
 - A3. 用户级文件中已经存在同名用户级 managed block 时，以 spec-first 管理段落为可替换区域；managed block 外所有内容必须保留。
 
@@ -76,7 +80,7 @@ spec_id: 2026-06-22-001-user-language-sync
 - 项目级 `AGENTS.md` / `CLAUDE.md` 的 `spec-first:lang` block 使用同一套 hard-execution 语言文案，同时继续包含项目级 changelog/governance 规则。
 - `--sync-user-language` 在 non-interactive / `-y` 路径下可作为明确授权；`--no-sync-user-language` 可作为明确关闭。
 - `--dry-run` 能展示用户级同步计划且不落盘。
-- Codex 路径遵守 `CODEX_HOME`；Claude 路径由 `resolveClaudeUserInstructionPath()` 统一解析，且其 `CLAUDE_CONFIG_DIR` 行为有实现期确认和测试覆盖。
+- Codex 路径遵守 `CODEX_HOME`；Claude 路径由 `resolveClaudeUserInstructionPath()` 统一解析到 `~/.claude/CLAUDE.md`，并在测试中锁定 `basis: "claude-memory-home-fixed"`。
 - all-repos 模式每个 host 最多写一次用户级文件。
 - README / README.zh-CN / help / CHANGELOG 同步说明用户可见行为。
 
@@ -169,6 +173,10 @@ spec_id: 2026-06-22-001-user-language-sync
 - KTD7. **Fail loud on sync failure.** User-level sync failure should be surfaced with path and reason, and the command must return a non-zero exit code even when project init writes already succeeded. The implementation may not silently claim global language sync succeeded.
 - KTD8. **Use shared language-rule fragments for project and user blocks.** `lang-policy.js` should expose or internally use one language-rule builder per language, then compose it into two wrappers: project managed block = shared language rules + project changelog/governance; user managed block = shared language rules only. Do not maintain separate hand-copied zh/en prose for project and user scopes.
 - KTD9. **Separate marker upsert from marker removal.** Writing a managed block and deleting a managed block have different absence semantics: upsert appends when markers are absent, while removal is a no-op when markers are absent. Do not encode both behaviors in a single ambiguous helper whose no-marker behavior depends on caller assumptions.
+- KTD10. **Model user-language sync as one run-level aggregate plan.** `userLanguageSyncPlan` belongs to the current `spec-first init` invocation, not to a repo-local `operationPlan`, child project plan, or individual host/project plan. The plan contains per-host operations (`codex` / `claude` write, remove, noop, skipped, failed), is built once after language/host/preference resolution, is applied once at run level, and owns the user-sync preview/output/exit-code summary. This avoids repeated all-repos writes and prevents global cleanup failures from being hidden inside a local project success.
+- KTD11. **Create only on enable/write, never on cleanup.** Enable/maintain operations may create the missing user instruction parent directory and file because that is the authorized desired state. Explicit opt-out and stored-false residual cleanup must treat missing user files/directories as no-op and must not create empty global instruction files just to prove removal. Dry-run reports `create` or `missing/no-op` without writing.
+- KTD12. **Use only the global developer profile as sync authorization.** `sync_user_language` is authoritative only when read from global `~/.spec-first/.developer` or set by the current run's explicit flag/interactive answer. Project-local or legacy developer profiles may be parsed/round-tripped for compatibility, but must never authorize user-level file writes, trigger cleanup, suppress consent prompts, or migrate consent into the global profile.
+- KTD13. **Keep `unset`, explicit `false`, and non-interactive absent distinct.** First interactive prompt `No` is a formal preference decision equivalent to disabling user-language sync: on the final apply path, persist `sync_user_language=false` and run the same all-host managed-block cleanup semantics as opt-out. `--dry-run`, preview-only paths, and a final apply cancellation must not persist false. Non-interactive runs with no stored preference must remain `unset`, skip user sync, and must not write `sync_user_language=false`.
 
 ---
 
@@ -180,6 +188,7 @@ spec_id: 2026-06-22-001-user-language-sync
 - Should hook files enforce language? No. Language is model behavior guidance, not a mechanical command/file mutation event.
 - Should the user-level block include changelog governance? No. Changelog is repo-level governance and does not belong in global personal preference.
 - Should explicit opt-out remove user-language blocks from all hosts or only the selected host? All hosts (global). Consent is a single global boolean, so `--no-sync-user-language` cleans every host where spec-first wrote the block; per-host removal would orphan an active block on an unselected host. (Resolved in the 2026-06-22 review.)
+- Should first interactive prompt `No` count as a formal opt-out? Yes, but only on final apply. It persists `sync_user_language=false` and uses all-host cleanup semantics; dry-run, preview-only, final apply cancellation, and non-interactive absent state must not write false.
 
 ### Deferred to Implementation
 
@@ -206,13 +215,14 @@ flowchart TB
   G -->|absent non-interactive| H
   I -->|yes| E
   I -->|no| F
-  E --> J[build user-language sync plan per selected host]
+  E --> J[build one run-level userLanguageSyncPlan with selected host operations]
   H --> K[project init plan only]
-  F --> M[remove managed blocks from all host user files]
+  F --> M[build one run-level all-host removal plan]
   R --> M
-  M -->|success or no-op| K
-  M -->|failure| N[fail loud and retry on next init]
-  J --> L[dry-run preview or apply after project init]
+  J --> L[dry-run preview or apply once at run level]
+  M --> L
+  L -->|success or no-op| K
+  L -->|failure| N[fail loud with run-level nonzero exit and retry on next init]
 ```
 
 ---
@@ -323,6 +333,7 @@ flowchart TB
 - Extend `parseDeveloperContents` / `normalizeDeveloper` / `formatDeveloperContents` to support `sync_user_language=true|false`.
 - Represent the value internally as a boolean or nullable preference, not as a truthy arbitrary string.
 - Preserve the current behavior for legacy profiles without this key.
+- Treat global `~/.spec-first/.developer` as the only persisted source of truth for this field. If parser utilities encounter `sync_user_language` in project-local, legacy, or non-global profile contents, they may preserve/normalize it as data, but `init` must not use it as authorization for user-level writes, all-host cleanup, stored-false residual cleanup, prompt suppression, or migration into the global profile.
 - Ensure `false` round-trips; do not drop false as an empty/default value.
 - Update global profile write resolution so an explicit sync preference change triggers `overwrite` even when `name`, `lang`, and `hosts` are unchanged. The branch that only updates `hosts` must preserve the existing `sync_user_language` value, and the explicit name/lang overwrite branch must preserve or update it according to the current run's resolved preference.
 - Treat interactive consent (the one-time prompt answered yes/no) as an explicit preference change for the overwrite trigger, not only the `--sync-user-language` / `--no-sync-user-language` flags — otherwise re-init that grants consent hits the `preserve` branch and never persists. The object handed to `resolveGlobalDeveloperWriteAction` is identity-only today, so enrich it with the run's resolved `sync_user_language` before resolution so both overwrite branches can carry it through.
@@ -336,6 +347,7 @@ flowchart TB
 - Happy path: profile containing `sync_user_language=false` parses to disabled state and serializes back.
 - Edge case: legacy profile without the key parses with an unset value, not false.
 - Edge case: invalid value such as `maybe` is ignored or normalized to unset without crashing.
+- Integration: project-local or legacy profile content containing `sync_user_language=true` does not authorize global user-language sync, does not suppress the first global consent prompt, and is not migrated into `~/.spec-first/.developer` unless the current run has an explicit flag or interactive answer.
 - Integration: explicit name/lang overwrite preserves existing `initialized_at` and updates `sync_user_language` only when the current run explicitly changes it.
 - Integration: existing profile plus unchanged `name`/`lang`/`hosts` still writes when the run passes `--sync-user-language` or `--no-sync-user-language`.
 - Integration: host-only profile updates preserve the stored `sync_user_language` value.
@@ -365,7 +377,8 @@ flowchart TB
 - Update help text and CLI contract tests.
 - In interactive mode, after language and host selection are known, ask once only if the stored preference is unset and no explicit sync flag was provided.
 - Default the prompt to false because this is a user-global mutation.
-- In non-interactive mode, do not ask. Only explicit flag or stored `sync_user_language=true` should write user-level files.
+- Treat prompt `No` as a formal opt-out only if the init run reaches final apply. In that case, persist `sync_user_language=false` and build the all-host cleanup plan. If the run is `--dry-run`, preview-only, or the user cancels the final apply confirmation, do not write the profile and do not turn `unset` into false.
+- In non-interactive mode, do not ask. Only explicit flag or stored `sync_user_language=true` should write user-level files. If no stored preference exists, leave it unset; do not persist `sync_user_language=false` merely because the run was non-interactive.
 - Carry the resolved sync preference through `collectInitInput`, `buildInitPlans`, and relevant plan objects.
 
 **Patterns to follow:**
@@ -374,7 +387,10 @@ flowchart TB
 
 **Test scenarios:**
 - Happy path: interactive first run with no stored preference and user confirms sync -> profile write includes `sync_user_language=true`.
-- Happy path: interactive first run and user declines -> profile write includes `sync_user_language=false` and no user files are written.
+- Happy path: interactive first run and user declines, then final apply proceeds -> profile write includes `sync_user_language=false`, no user-language block is written, and all-host cleanup is planned/applied if any spec-first user-language blocks exist.
+- Dry-run: interactive first run and user declines under `--dry-run` -> preview shows disabled/cleanup intent, but global profile remains unset and no user files are written or removed.
+- Edge case: interactive first run and user declines, then cancels final apply confirmation -> global profile remains unset and no user-level cleanup/write happens.
+- Edge case: non-interactive first run with no stored preference -> no prompt, no user sync, and no `sync_user_language=false` is written.
 - Happy path: stored true and no flag -> no prompt; user sync plan is produced.
 - Happy path: stored false and no flag -> no prompt; no user-language write plan; if residual spec-first user-language blocks exist, only a removal cleanup plan is produced.
 - Happy path: `--sync-user-language -y` writes without prompt.
@@ -410,15 +426,19 @@ flowchart TB
   - resolve host targets for selected platforms;
   - build a previewable sync plan with display paths and absolute internal targets;
   - build a previewable removal plan for explicit opt-out that scans ALL host user files spec-first could have written (Codex + Claude) and removes only the spec-first user-language managed block wherever it exists (global opt-out), regardless of the current run's selected host;
-  - apply the plan with atomic writes and directory creation;
+  - apply enable/maintain plans with atomic writes and directory creation;
+  - apply removal/cleanup plans without creating missing files or directories;
   - return structured diagnostics for success/failure.
 - Codex target resolution must use `effectiveCodexHome()` from `src/cli/helpers/global-config-dir.js`, then target `AGENTS.md` under that directory.
 - Add a shared physical-path helper in `src/cli/helpers/global-config-dir.js`, e.g. `samePhysicalPath(left, right)` backed by the existing symlink-aware `canonicalize()` implementation, and export it. Do not duplicate canonicalization logic inside `user-language-sync.js`; either export `samePhysicalPath` directly or export `canonicalize` only if another caller genuinely needs raw canonical paths.
-- Guard the same-physical-file collision for BOTH hosts: when the project-level and user-level instruction files resolve to the same path (e.g. init run with `projectRoot` equal to the host's global config home), skip the user-level write with a fail-loud diagnostic — the project block already governs that file, and otherwise `spec-first:lang` and `spec-first:user-language` interleave in one file across two apply helpers in a single run. Use the shared physical-path helper, NOT `isCodexHomeProjectRoot`: that predicate compares `canonical(projectRoot/.codex)` to `effectiveCodexHome()` and is the wrong test here (it is false exactly when `projectRoot === effectiveCodexHome()` — the real collision — and true when `projectRoot === ~`, where the two files differ). Correct guards: Codex — skip iff `samePhysicalPath(projectRoot/AGENTS.md, effectiveCodexHome()/AGENTS.md)`; Claude — skip iff `samePhysicalPath(projectRoot/CLAUDE.md, resolveClaudeUserInstructionPath().absolutePath)`.
-- Claude target resolution must not hardcode `os.homedir()/.claude`; resolve through a single `resolveClaudeUserInstructionPath()` helper in `src/cli/helpers/global-config-dir.js` or `src/cli/user-language-sync.js`. The helper is a firm requirement of U4, not optional, and returns at least `{ absolutePath, displayPath, basis }` so docs/output/tests can consume the same decision. IMPLEMENTATION GATE (unverified during planning — docs were unreachable and a guide-agent check was circular): confirm against current Claude Code docs/behavior whether `CLAUDE_CONFIG_DIR` actually relocates the user *memory* file `CLAUDE.md` (not only settings). If it does, the helper reads `CLAUDE_CONFIG_DIR` then falls back to `~/.claude/CLAUDE.md`. If it does not relocate memory, the helper anchors on `~/.claude/CLAUDE.md` and records `basis: claude-memory-home-fixed`; treat `CLAUDE_CONFIG_DIR` as out of scope in docs/help. Either branch avoids the success-reported no-op that R10/KTD7 fail-loud cannot catch.
-- Do not add these writes to `operationPlan`, `parentPlan`, or `childPlans`; attach `userLanguageSyncPlan` only to the top-level host plan returned by `buildInitPlan` / `buildWorkspaceInitPlan`.
-- In all-repos mode, build/apply user sync once from the top-level workspace host plan, not from `applyProjectInitPlan`, the parent runtime plan, or any child repo plan.
-- Single-repo mode has no workspace plan: apply user sync exactly once in `applyInitPlan`, never inside `applyProjectInitPlan` itself (it runs once per child in all-repos and would re-fire the global write per child). For enable/write flows, applying user sync after project init is acceptable because the project initialization result remains the primary repo-local effect. For explicit opt-out/removal flows, avoid the inconsistent state where `sync_user_language=false` is persisted but old blocks remain active: either apply the all-host removal plan before persisting profile false, or keep a stored-false residual-cleanup mechanism that reruns removal-only cleanup on later init attempts until no block remains. The "exactly once per selected host" guarantee must hold in both modes; the all-host opt-out removal is the deliberate exception and still runs only once per command invocation.
+- Guard the same-physical-file collision for BOTH hosts: when the project-level and user-level instruction files resolve to the same path (e.g. init run with `projectRoot` equal to the host's global config home), do not write the user-level block. In apply mode, mark that host operation as `failed` with a fail-loud diagnostic and make the run-level command exit non-zero even if repo-local init succeeded; in `--dry-run`, preview the collision/action-required diagnostic only and do not turn the preview itself into an apply failure. The project block already governs that file, and otherwise `spec-first:lang` and `spec-first:user-language` would interleave in one file across two apply helpers in a single run. Use the shared physical-path helper, NOT `isCodexHomeProjectRoot`: that predicate compares `canonical(projectRoot/.codex)` to `effectiveCodexHome()` and is the wrong test here (it is false exactly when `projectRoot === effectiveCodexHome()` — the real collision — and true when `projectRoot === ~`, where the two files differ). Correct guards: Codex — collision iff `samePhysicalPath(projectRoot/AGENTS.md, effectiveCodexHome()/AGENTS.md)`; Claude — collision iff `samePhysicalPath(projectRoot/CLAUDE.md, resolveClaudeUserInstructionPath().absolutePath)`.
+- Claude target resolution must not hardcode `os.homedir()/.claude` at call sites; resolve through a single `resolveClaudeUserInstructionPath()` helper in `src/cli/helpers/global-config-dir.js` or `src/cli/user-language-sync.js`. The helper is a firm requirement of U4, not optional, and returns at least `{ absolutePath, displayPath, basis }` so docs/output/tests can consume the same decision. For v1, official Claude Code docs identify user memory as `~/.claude/CLAUDE.md`, so the helper must anchor there and record `basis: claude-memory-home-fixed`; treat `CLAUDE_CONFIG_DIR` as out of scope for user memory / `CLAUDE.md` until official docs or implementation verification proves otherwise.
+- Do not add these writes to `operationPlan`, `parentPlan`, `childPlans`, or any individual platform/project plan. Build `userLanguageSyncPlan` as a run-level aggregate owned by the current `spec-first init` invocation.
+- The run-level plan should contain one operation per effective host target: enable/maintain uses the selected/current host set; explicit opt-out and stored-false residual cleanup use all host targets spec-first could have written. Each operation records at least `{ host, action, absolutePath, displayPath, basis, status/reason }`.
+- Missing-target semantics are action-specific: enable/maintain against a missing user instruction file is a planned `create` and may create the parent directory plus file on apply; explicit opt-out and stored-false residual cleanup against a missing file or missing parent directory is `missing/no-op` and must not create anything. `--dry-run --sync-user-language` previews `create`; `--dry-run --no-sync-user-language` previews `missing/no-op` for absent targets.
+- Build order: parse flags -> resolve host selection and language -> resolve stored/explicit/interactive `sync_user_language` preference -> build repo-local init plans -> build one run-level `userLanguageSyncPlan` from the resolved preference and effective host set. `--dry-run` may preview both repo-local and run-level plans, but must apply neither.
+- Apply order: apply repo-local project/runtime plans through the existing flow; apply the user-language aggregate exactly once from the top-level init runner, never from `applyProjectInitPlan` or per-child workspace logic. For explicit opt-out/removal flows, avoid the inconsistent state where `sync_user_language=false` is persisted but old blocks remain active: either apply the all-host removal plan before persisting profile false, or keep a stored-false residual-cleanup mechanism that reruns removal-only cleanup on later init attempts until no block remains.
+- In all-repos mode, child plans must not own or apply user sync. Workspace summary should receive the already-applied run-level user sync result, not rebuild or replay it per child.
 - On `--dry-run`, print the user-language sync plan but do not apply it.
 - On apply failure, report the host, display path, and error. Do not silently mark sync as done.
 
@@ -432,11 +452,14 @@ flowchart TB
 - Happy path: Claude sync writes user-language block under isolated test home `CLAUDE.md`.
 - Happy path: both hosts selected -> two user sync operations.
 - Edge case: `CODEX_HOME` env var points to a temp directory -> Codex target uses it rather than default home.
-- Edge case: `projectRoot` equals `effectiveCodexHome()` (init inside Codex home) -> user-level Codex write is skipped with a fail-loud diagnostic; project `AGENTS.md` is not double-written.
-- Edge case: `projectRoot/CLAUDE.md` equals `resolveClaudeUserInstructionPath().absolutePath` -> user-level Claude write is skipped with a fail-loud diagnostic; project `CLAUDE.md` is not double-written.
+- Edge case: enable/maintain when the user instruction file and parent directory are missing -> apply creates the directory/file and writes the user-language block; dry-run reports `create` without touching the filesystem.
+- Edge case: explicit opt-out or stored-false residual cleanup when a user instruction file or parent directory is missing -> operation is `missing/no-op`, no directory/file is created, and dry-run reports the same.
+- Error path: apply mode with `projectRoot` equal to `effectiveCodexHome()` (init inside Codex home) -> project `AGENTS.md` is not double-written, user-level Codex operation is `failed` with `same-physical-path-collision`, output says repo-local init succeeded but user-level sync failed/action-required, and final exit code is non-zero.
+- Error path: apply mode with `projectRoot/CLAUDE.md` equal to `resolveClaudeUserInstructionPath().absolutePath` -> project `CLAUDE.md` is not double-written, user-level Claude operation is `failed` with `same-physical-path-collision`, output says repo-local init succeeded but user-level sync failed/action-required, and final exit code is non-zero.
+- Dry-run: same-physical-path collision appears in preview as action-required, but no files/profile are written and the preview is not treated as an apply failure.
 - Edge case: `samePhysicalPath` handles symlinked home/config directories consistently for Codex and Claude collision checks.
-- Edge case (only if the implementation gate confirms `CLAUDE_CONFIG_DIR` relocates memory): `CLAUDE_CONFIG_DIR` points to a temp directory -> Claude target uses it rather than `~/.claude/CLAUDE.md`.
-- Edge case: all-repos init with two child repos -> user sync apply helper called once per selected host, not once per child.
+- Regression: `CLAUDE_CONFIG_DIR` does not affect v1 Claude user instruction targeting; the helper still returns `~/.claude/CLAUDE.md` with `basis: "claude-memory-home-fixed"` unless a future documented change deliberately updates this contract.
+- Edge case: all-repos init with two child repos -> the run-level aggregate apply helper is called once total; its internal host operations run at most once per targeted host and never once per child.
 - Edge case: existing user content before/after marker remains unchanged.
 - Edge case: `--no-sync-user-language` removes the user-language managed block from ALL hosts that have it — e.g. opted in with both hosts, then `--codex --no-sync-user-language` still removes the Claude block too — and preserves all surrounding user content.
 - Error path: `--no-sync-user-language` removal failure returns non-zero and leaves enough state for the next init to retry removal-only cleanup instead of silently preserving an active orphaned block.
@@ -464,10 +487,10 @@ flowchart TB
 
 **Approach:**
 - Extend init preview output with a distinct section such as "User-level language sync" so it is not confused with project runtime assets.
-- Apply output should say whether user-level language sync was written, removed, preserved, skipped, or failed.
+- Apply output should render the run-level aggregate result and say per host whether user-level language sync was written, removed, preserved/noop, skipped, or failed.
 - `--no-sync-user-language` should print a clear disabled state and, for EVERY host where a managed block was found and removed (Codex and/or Claude, not only the selected host), a removed state listing each cleaned user file.
 - Do not list full absolute internal paths in docs; command output may show user-friendly home-relative or env-relative display paths.
-- If sync fails after project init writes have succeeded, report partial success clearly and return a non-zero exit code. In all-repos mode, include the user sync failure in the workspace summary as `action-required` with a dedicated reason code AND set the workspace command exit code to non-zero (R10 fail-loud applies to both modes), so command success never implies global language sync succeeded. In single-repo mode, thread the user-sync failure into the returned `result.exit_code` (non-zero) so the `run()`-level aggregator returns non-zero — printing a diagnostic alone is insufficient because the project success path returns `exit_code: 0`.
+- If sync fails after project init writes have succeeded, report partial success clearly and return a non-zero run-level exit code. In all-repos mode, include the already-applied aggregate user sync result in the workspace summary as `action-required` with a dedicated reason code and set the command exit code to non-zero (R10 fail-loud applies to both modes), so command success never implies global language sync succeeded. In single-repo mode, merge the aggregate user-sync result into the top-level `run()` result; printing a diagnostic alone is insufficient because the project success path may otherwise return `exit_code: 0`.
 - For opt-out/removal failures, output must distinguish preference intent from cleanup completion: say the user-language sync preference is disabled or pending-disable according to the chosen apply ordering, but do not claim old global guidance was removed unless every all-host removal operation either succeeded or was a no-op. Use a reason code such as `user-language-cleanup-failed` so future work can identify retryable residual cleanup.
 
 **Patterns to follow:**
@@ -537,7 +560,8 @@ flowchart TB
 - **CLI behavior:** Adds new user-visible flags and one interactive prompt branch.
 - **Global user state:** Extends `.spec-first/.developer`; existing profile reads must remain backward compatible.
 - **Host instruction surfaces:** Writes user-level Codex / Claude instruction files only after authorization; project-level `AGENTS.md` / `CLAUDE.md` continue to be written by existing init flow but their language prose is upgraded to the shared hard-execution wording while retaining project governance.
-- **Workspace mode:** all-repos must avoid repeated global writes across children by storing user sync status on the top-level workspace host plan and summary, never on child plans.
+- **Long-term ownership:** This is an intentional, narrow product commitment: `spec-first init` owns the `spec-first:user-language` managed block as a user-global language preference surface after explicit authorization. The commitment is bounded by `docs/adr/0001-init-owns-limited-user-language-sync.md` and must not expand to global workflow, changelog, project governance, or role-contract rules without a separate plan/review/ADR.
+- **Workspace mode:** all-repos must avoid repeated global writes across children by storing user sync as one run-level aggregate result owned by the init invocation; workspace summary may report that result, but child plans and child apply paths must never own, rebuild, or replay it.
 - **Opt-out cleanup:** `sync_user_language=false` becomes an explicit global cleanup state for spec-first user-language blocks, not merely a skip flag; stale managed blocks found after a previous failed cleanup are retried as removal-only operations.
 - **Generated runtime mirrors:** No direct generated runtime mirror writes are required by the feature itself. If help text or templates change later, refresh through source and `spec-first init`, not manual runtime patching.
 - **Testing:** Requires isolated home/CODEX_HOME fixtures to avoid touching the real user's files.
@@ -551,14 +575,16 @@ flowchart TB
 | User-level files affect all projects, making silent mutation surprising | Require first-run prompt or explicit flag; persist choice; expose dry-run preview |
 | User content in global instruction files is overwritten | Dedicated markers and content-preserving replacement; tests for before/after content |
 | User disables sync but an old managed block remains active | Treat explicit opt-out as an all-host managed-block removal plan; stored false continues removal-only residual cleanup until spec-first user-language blocks are gone; preserve content outside markers |
+| Cleanup creates new global instruction files while trying to remove old blocks | Keep creation semantics action-specific: enable/maintain can create missing targets, cleanup treats missing files/directories as no-op and never creates them |
 | Project language block and user language block drift | Put shared wording/builders in `lang-policy.js`, but keep project-only changelog governance out of user block |
 | Shared abstraction accidentally leaks project governance into user-level files | Compose shared language rules first, then wrap separately; tests assert user block excludes `CHANGELOG` and project source-change refusal text |
 | Project-level language upgrade accidentally drops changelog governance | Keep `buildManagedBlock` as the project API and add regression tests that project blocks still include changelog/governance |
 | Project-level prose upgrade (R12) changes init output for every existing repo, not just new user-level sync (high blast radius) | Treat the project-level hard-execution upgrade as an explicit co-goal of this plan, not an incidental side effect; gate behind `buildManagedBlock` regression tests; ship the project-prose change and user-sync together or split deliberately |
 | `CODEX_HOME` users get writes in the wrong directory | Reuse `effectiveCodexHome()` and add env-based test |
-| Claude config/home behavior drifts or is misunderstood | Route all Claude user instruction targeting through `resolveClaudeUserInstructionPath()` with implementation-time verification of `CLAUDE_CONFIG_DIR` behavior and tests for the chosen branch |
+| Claude config/home behavior drifts or is misunderstood | Route all Claude user instruction targeting through `resolveClaudeUserInstructionPath()` and lock v1 to `~/.claude/CLAUDE.md` with `basis: "claude-memory-home-fixed"`; do not treat `CLAUDE_CONFIG_DIR` as user-memory relocation unless future docs or verification deliberately change the contract |
 | Path collision detection forks canonicalization logic | Export and reuse `samePhysicalPath` (or an intentionally exported `canonicalize`) from `global-config-dir.js`; do not duplicate symlink handling in `user-language-sync.js` |
-| all-repos writes the same user file repeatedly | Attach user sync at host/run level, not per child project plan |
+| Project-level and user-level instruction targets resolve to the same physical file | Do not write the user-level block; in apply mode mark the run-level user sync result failed/non-zero with `same-physical-path-collision`, while reporting repo-local init as partial success; dry-run only previews the action-required state |
+| all-repos writes the same user file repeatedly | Attach user sync to one run-level aggregate plan, not to child project plans or individual platform/project plans |
 | Sync failure is mistaken for success | Structured failure diagnostics and output tests; fail loud |
 | New profile field breaks legacy parsing | Normalize missing/invalid values as unset and round-trip existing fields unchanged |
 
@@ -582,21 +608,12 @@ flowchart TB
 
 ---
 
-## Deferred / Open Questions
+## Observability / Success Signals
 
-### From 2026-06-22 review
-
-- **前提：为概率性、未度量的收益新增永久全局变更面** — Problem Frame / A2 (P2, product-lens, confidence-first 75)
-
-  Problem Frame 列的根因（会话缓存、skill/subagent prompt、非当前仓上下文）正是 A2 承认 user 级规则「不是 hard enforcement、仍会被覆盖」的那些；计划用「永久拥有影响所有项目的全局变更面」换一个未量化的遵循率提升，文档未给出提升多少 / 如何验证。建议补一条可观测成功判据（如英文输出事件下降的观测方式），或显式记录「option zero＝在根因处修，而非加第 4 个指令面」已被权衡为何不取。
-
-  <!-- dedup-key: section="problem frame  a2" title="前提为概率性未度量的收益新增永久全局变更面" evidence="problem frame 列的根因正是 a2 承认 user 级规则不是 hard enforcement 的那些" -->
-
-- **身份/路径依赖：init 变成全局个人配置维护者** — Summary / System-Wide Impact (P2, product-lens, confidence-first 75)
-
-  今天 init 只写项目相对文件 + developer profile；本计划让 init 伸到仓库之外、静默维护影响所有项目的个人指令文件，并在 `~/.claude/CLAUDE.md` 长期拥有一个 managed block（含其升级/迁移语义与爆炸半径）。KTD5 的「未来静默维护、不再询问」意味着该全局块未来的回归会在所有项目无声铺开。建议明确这是否为有意的长期产品承诺，并在 System-Wide Impact 把全局变更面的长期 ownership 作为承诺而非仅作为待缓解风险陈述。
-
-  <!-- dedup-key: section="summary  systemwide impact" title="身份路径依赖 init 变成全局个人配置维护者" evidence="今天 init 只写项目相对文件 developer profile 本计划让 init 伸到仓库之外" -->
+- Primary deterministic success: focused tests prove authorization, dry-run, all-host cleanup, missing-target no-op, path collision failure, run-level aggregation, and project/user language prose sharing behavior.
+- Behavioral success is intentionally observational, not a hard release gate: after release, track user/session reports where spec-first-generated responses, status updates, plans, tasks, reviews, docs, changelog text, or PR/commit prose unexpectedly appear in English despite Chinese language preference.
+- A useful adoption signal is fewer manual project-level language patches or repeated user reminders after `spec-first init --sync-user-language`; absence of such reports is not proof of perfect enforcement.
+- Invalidation condition: if English-output incidents remain concentrated in specific skill/subagent prompts or cached-session flows after user-level sync is enabled, fix those root causes directly rather than expanding the user-level block scope.
 
 ---
 

@@ -13,6 +13,7 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 const SKILL_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'SKILL.md');
 const SCHEMA_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'references', 'task-pack-schema.md');
 const GUIDE_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'references', 'task-quality-guide.md');
+const HANDOFF_CONTRACT_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'references', 'execution-handoff-contract.md');
 const EVALS_DIR = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'evals');
 const EVALS_README_PATH = path.join(EVALS_DIR, 'README.md');
 const OUTPUT_QUALITY_CASES_PATH = path.join(EVALS_DIR, 'output-quality-cases.json');
@@ -48,6 +49,8 @@ describe('spec-write-tasks contracts', () => {
 
   test('source skill preserves derived-task-pack boundaries and task-ready flow', () => {
     const skill = read(SKILL_PATH);
+    const handoff = read(HANDOFF_CONTRACT_PATH);
+    const guide = read(GUIDE_PATH);
     const frontmatter = skill.match(/^---\n([\s\S]*?)\n---/)[1];
     const frontmatterKeys = frontmatter
       .split('\n')
@@ -57,6 +60,7 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('name: spec-write-tasks');
     expect(frontmatterKeys).toEqual(['name', 'description']);
     expect(frontmatter).not.toContain('argument-hint:');
+    expect(frontmatter).toContain('do not use for implementation execution, unresolved scope, small low-risk plans, or remote/generic task lists');
     expect(skill).toContain('## Purpose');
     expect(skill).toContain('## Inputs');
     expect(skill).toContain('## Outputs');
@@ -81,13 +85,14 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('not a script state machine');
     expect(skill).toContain('Quality Pass Before Output');
     expect(skill).toContain('Final Decision Envelope');
-    expect(skill).toContain('decision: compile | skip | return-to-plan | draft-only | validate-only');
-    expect(skill).toContain('reason_code: source_plan_missing | ambiguous_plan | missing_spec_id');
-    expect(skill).toContain('semantic_posture');
-    expect(skill).toContain('dispatch_authorization: authorized | missing | not_required | not_applicable');
+    expect(skill).toContain('Execution Handoff Contract');
+    expect(handoff).toContain('decision: compile | skip | return-to-plan | draft-only | validate-only');
+    expect(handoff).toContain('reason_code: source_plan_missing | ambiguous_plan | missing_spec_id');
+    expect(handoff).toContain('semantic_posture');
+    expect(handoff).toContain('dispatch_authorization: authorized | missing | not_required | not_applicable');
     expect(skill).toContain('next_action');
-    expect(skill).toContain('orientation:');
-    expect(skill).toContain('evidence_refs');
+    expect(handoff).toContain('orientation:');
+    expect(handoff).toContain('evidence_refs');
     expect(skill).toContain('Source Summary');
     expect(skill).toContain('Traceability Matrix');
     expect(skill).toContain('Orientation Evidence');
@@ -99,63 +104,74 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('`Requirements` (or legacy `Requirements Trace`)');
     expect(skill).toContain('A mismatch is a wrong-chain handoff');
     expect(skill).toContain('bounded source orientation');
-    expect(skill).toContain('If the source plan contains a `## Direct Evidence` block');
-    expect(skill).toContain('`impact_on_plan` may influence task ordering');
-    expect(skill).toContain('`source_reads_required` may become granular `context_refs`, `stop_if`, or `test_focus`');
-    expect(skill).toContain('must not create new tasks, expand source-plan scope');
-    expect(skill).toContain('Use this intake order for context economy');
-    expect(skill).toContain('first read the plan/task summary and contract metadata');
-    expect(skill).toContain('then deterministic inventory or validation facts');
-    expect(skill).toContain('then current task/phase refs');
-    expect(skill).toContain('then focused source-of-truth sections');
-    expect(skill).toContain('only then deeper references');
-    expect(skill).toContain('do not create an external-tool facts pipeline');
-    expect(skill).toContain('Start with targeted direct repo reads');
-    expect(skill).toContain('optionally use LSP when available');
-    expect(skill).toContain('LSP provider rule');
-    expect(skill).toContain('Do not let LSP references automatically expand task scope');
+    expect(skill).toContain('Use [Task Quality Guide](references/task-quality-guide.md) for the intake order, Direct Evidence handling, LSP provider rule, and orientation-evidence quality checks.');
+    expect(guide).toContain('## Source Orientation Rules');
+    expect(guide).toContain('If the source plan contains a `## Direct Evidence` block');
+    expect(guide).toContain('`impact_on_plan` may influence task ordering');
+    expect(guide).toContain('`source_reads_required` may become granular `context_refs`, `stop_if`, or `test_focus`');
+    expect(guide).toContain('must not create new tasks, expand source-plan scope');
+    expect(guide).toContain('Use this intake order for context economy');
+    expect(guide).toContain('first read the plan/task summary and contract metadata');
+    expect(guide).toContain('then deterministic inventory or validation facts');
+    expect(guide).toContain('then current task/phase refs');
+    expect(guide).toContain('then focused source-of-truth sections');
+    expect(guide).toContain('only then deeper references');
+    expect(guide).toContain('do not create an external-tool facts pipeline');
+    expect(guide).toContain('Start with targeted direct repo reads');
+    expect(guide).toContain('LSP provider rule');
+    expect(guide).toContain('Do not let LSP references automatically expand task scope');
     expect(skill).toContain('top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work');
     expect(skill).toContain('do not invent child repo targets while deriving tasks');
     expect(skill).toContain('inspect `target_repo` inheritance or per-task `target_repo` values');
     expect(skill).toContain('current deterministic validation does not prove workspace repo scope');
-    expect(skill).toContain('Deterministic contract fields validated by `spec-first tasks validate`');
-    expect(skill).toContain('LLM/human quality fields that should be present when they reduce execution context');
+    expect(handoff).toContain('Deterministic contract fields validated by `spec-first tasks validate`');
+    expect(handoff).toContain('LLM/human quality fields that should be present when they reduce execution context');
     expect(skill).toContain('`review_gate`, `review_focus`');
-    expect(skill).toContain('Use `required` only for high-risk shared contracts');
-    expect(skill).toContain('Use `optional` for medium-risk behavior changes');
-    expect(skill).toContain('Omit it for docs-only, config-only, trivial copy edits, and low-risk single-file fixes');
-    expect(skill).toContain('This is not lifecycle state, review status, or approval metadata');
+    expect(guide).toContain('Uses `required` only for high-risk shared contracts');
+    expect(guide).toContain('uses `optional` for medium-risk behavior changes');
+    expect(guide).toContain('omits the field for low-risk docs/config/trivial work');
+    expect(skill).toContain('`review_gate` is review intent, not lifecycle state, approval state, or validator-owned semantic risk');
     expect(skill).toContain('Prefer independently verifiable vertical slices over horizontal layers');
     expect(skill).toContain('A good slice closes one behavior with implementation, verification, and any necessary docs/config evidence');
     expect(skill).toContain('Docs-only and config-only tasks should use docs contract checks, schema/help/render checks, or diff-shape checks');
     expect(skill).toContain('do not force TDD where no behavior-bearing code changes');
     expect(skill).toContain('split into vertical story tasks');
+    expect(skill).toContain('split into multiple feedback-loop tasks');
+    expect(skill).toContain('A single source implementation unit may produce more than one task');
+    expect(skill).toContain('repeat the same `source_unit` on those tasks');
+    expect(skill).toContain('no task keeps a large source implementation unit intact when it actually contains multiple independent feedback loops');
+    expect(skill).toContain('large source units can fan out into multiple executable tasks');
     expect(skill).toContain('Avoid horizontal "all tests first, then all implementation" waves when independent vertical tracer bullets can be verified');
-    expect(skill).toContain('The deterministic validator checks `review_gate` structure only');
-    expect(skill).toContain('does not decide which tasks semantically require review');
-    expect(skill).toContain('start from the source plan, plan-indicated source files, and nearby tests');
-    expect(skill).toContain('reuse already-loaded host/project instructions');
-    expect(skill).toContain('read `AGENTS.md` / `CLAUDE.md` source only when the active host/project instruction reuse policy allows it');
-    expect(skill).toContain('read local contract docs only by precise path or section when they exist');
-    expect(skill).toContain('Written project standards may become hard task constraints only when they apply to the changed files');
+    expect(handoff).toContain('The deterministic validator checks `review_gate` structure only');
+    expect(handoff).toContain('does not decide which tasks semantically require review');
+    expect(guide).toContain('Start from the source plan, plan-indicated source files, and nearby tests');
+    expect(guide).toContain('Reuse already-loaded host/project instructions');
+    expect(guide).toContain('Read `AGENTS.md` / `CLAUDE.md` source only when the active host/project instruction reuse policy allows it');
+    expect(guide).toContain('Read local contract docs only by precise path or section when they exist');
+    expect(guide).toContain('Written project standards may become hard task constraints only when they apply to the changed files');
     expect(skill).not.toContain('read `AGENTS.md`, `CLAUDE.md`, directory-scoped standards files, `docs/contracts/`');
     expect(skill).not.toContain('docs/examples/standards-glue-consumption-examples.md');
     expect(skill).not.toContain('.spec-first/standards/');
     expect(skill).not.toContain('glue-map.json');
     expect(skill).toContain('The deterministic validator only proves frontmatter identity/freshness plus the `Task Pack Contract` machine-readable structure');
-    expect(skill).toContain('direct source reads, changed files, tests/logs, and limitations');
-    expect(skill).toContain('external-tool facts are advisory context refs');
+    expect(guide).toContain('direct source reads, changed files, tests/logs, and limitations');
+    expect(guide).toContain('external-tool facts are advisory context refs');
     expect(skill).toContain('Use the source plan\'s own structure as the primary complexity evidence');
-    expect(skill).toContain('implementation-unit count, declared `Files`, dependency chains, cross-module surfaces, verification spread, and frontmatter `plan_depth`');
-    expect(skill).toContain('`task-governance-signals.v1` may be used only as optional cross-check evidence');
-    expect(skill).toContain('If `--input` is omitted or unreadable');
-    expect(skill).toContain('do not treat that as proof of low risk');
+    expect(skill).toContain('degraded helper-signal handling');
+    expect(guide).toContain('implementation units, declared files, dependency graph, verification spread, and `plan_depth`');
+    expect(guide).toContain('`task-governance-signals.v1` is advisory cross-check input only');
+    expect(guide).toContain('when no `--input` planning context is supplied');
+    expect(guide).toContain('It may also return `collection_status: degraded`');
+    expect(guide).toContain('even when an `--input` path was provided');
+    expect(guide).toContain('ignore its `candidate_level` for compile/skip decisions');
+    expect(guide).toContain('record the helper output in Orientation Evidence or the final envelope limitations');
+    expect(guide).toContain('Do not treat that output as confirmed low risk');
     expect(skill).not.toContain('Use `task-governance-signals.v1` as the primary complexity evidence');
 
-    expect(skill).toContain('Before filling `deterministic_handoff` and the `validation:` block, you must actually run the deterministic CLI and transcribe its result');
-    expect(skill).toContain('Run `spec-first tasks validate <task-pack-path> --json`');
-    expect(skill).toContain('never self-report `deterministic_handoff: true` or `validation` matches without the CLI JSON in hand');
-    expect(skill).toContain('Use a `Failure Modes` code as `reason_code` whenever the run stops, downgrades, or rejects a handoff.');
+    expect(handoff).toContain('Before filling `deterministic_handoff` and the `validation:` block, you must actually run the deterministic CLI and transcribe its result');
+    expect(handoff).toContain('spec-first tasks validate <task-pack-path> --json');
+    expect(handoff).toContain('never self-report `deterministic_handoff: true`');
+    expect(handoff).toContain('Use a `Failure Modes` code as `reason_code` whenever the run stops, downgrades, or rejects a handoff.');
     expect(skill).toContain('## Portability Boundary');
     expect(skill).toContain('Runtime references must be packaged skill files');
     expect(skill).toContain('Standalone `.skill` packages must remain usable when those sibling workflow files are absent');
@@ -260,6 +276,27 @@ describe('spec-write-tasks contracts', () => {
     }
   });
 
+  test('execution handoff contract owns envelope, validation, and review continuation details', () => {
+    const handoff = read(HANDOFF_CONTRACT_PATH);
+
+    expect(handoff).toContain('## Final Decision Envelope');
+    expect(handoff).toContain('decision: compile | skip | return-to-plan | draft-only | validate-only');
+    expect(handoff).toContain('reason_code: source_plan_missing | ambiguous_plan | missing_spec_id');
+    expect(handoff).toContain('validity_scope: identity-freshness-structure-only');
+    expect(handoff).toContain('dispatch_authorization: authorized | missing | not_required | not_applicable');
+    expect(handoff).toContain('## Deterministic Validation Rule');
+    expect(handoff).toContain('spec-first tasks validate <task-pack-path> --json');
+    expect(handoff).toContain('spec-first tasks hash <plan-path>');
+    expect(handoff).toContain('never self-report `deterministic_handoff: true`');
+    expect(handoff).toContain('## High-Risk Review Handoff');
+    expect(handoff).toContain('a standalone skill trigger alone is not dispatch authorization');
+    expect(handoff).toContain('This is bounded auto-continuation, not general workflow chaining');
+    expect(handoff).toContain('## Drift And Hash');
+    expect(handoff).toContain('`source_plan_hash` must be the canonical source plan body hash produced by `spec-first tasks hash <plan-path>`');
+    expect(handoff).toContain('## Lint Boundary');
+    expect(handoff).toContain('Do not let scripts judge whether task splitting is semantically good.');
+  });
+
   test('quality guide owns quality examples without redefining schema fields', () => {
     const guide = read(GUIDE_PATH);
 
@@ -297,34 +334,40 @@ describe('spec-write-tasks contracts', () => {
     expect(guide).toContain('Horizontal slicing smell: a task pack that writes all tests for every unit first, then all implementation, then all docs makes feedback late');
     expect(guide).toContain('Horizontal all-tests-then-all-implementation slicing');
     expect(guide).toContain('Prefer vertical tracer bullets with one behavior, verification loop, and docs/config evidence closed together');
+    expect(guide).toContain('Large Implementation Unit Fan-Out');
+    expect(guide).toContain('A source implementation unit is not automatically an executable task');
+    expect(guide).toContain('repeat the same `source_unit` on each task');
+    expect(guide).toContain('Large source unit kept as one task');
     expect(guide).toContain('orientation_evidence');
     expect(guide).toContain('prefer the source plan\'s own structure over helper-derived size hints');
     expect(guide).toContain('`task-governance-signals.v1` is advisory cross-check input only');
     expect(guide).toContain('may emit an empty-signal `lightweight` candidate when no `--input` planning context is supplied');
+    expect(guide).toContain('It may also return `collection_status: degraded`');
+    expect(guide).toContain('ignore its `candidate_level` for compile/skip decisions');
     expect(guide).toContain('Do not treat that output as confirmed low risk');
   });
 
   test('decisive recommendations keep task signals advisory and bound the doc-review auto-continuation', () => {
     const skill = read(SKILL_PATH);
+    const handoff = read(HANDOFF_CONTRACT_PATH);
     const guide = read(GUIDE_PATH);
     const contract = read(TASK_SIGNALS_CONTRACT_PATH);
     const boundaryCases = JSON.parse(read(path.join(EVALS_DIR, 'boundary-cases.json')));
 
     expect(`${skill}\n${guide}`).toContain('source plan\'s own structure');
-    expect(skill).toContain('Recommend `compile` when those plan facts show material execution risk or context load');
-    expect(skill).toContain('Recommend `skip` when the plan is small and shallow');
-    expect(skill).toContain('Use `next_action: review-task-pack` as the decisive handoff recommendation for high-risk task packs.');
-    expect(skill).toContain('The output must include one concrete reason and a copy-ready current-host document-review invocation');
-    expect(skill).toContain('/spec:doc-review <task-pack-path>');
-    expect(skill).toContain('$spec-doc-review <task-pack-path>');
-    expect(skill).toContain('do not dispatch by default');
-    expect(skill).toContain('the invoking parent workflow or user explicitly authorized this single bounded continuation for the current run');
-    expect(skill).toContain('a standalone skill trigger alone is not dispatch authorization');
-    expect(skill).toContain('the continuation targets exactly the doc-review of the just-written task pack; do not chain any further workflow');
-    expect(skill).toContain('This is bounded auto-continuation, not general workflow chaining');
-    expect(skill).toContain('Set `dispatch_authorization: authorized` only when the explicit authorization condition is met.');
-    expect(skill).toContain('dispatch authorization is missing');
-    expect(skill).toContain('surface the `review-task-pack` recommendation in the returned envelope, and let the caller decide');
+    expect(guide).toContain('For split recommendations, prefer the source plan\'s own structure over helper-derived size hints');
+    expect(guide).toContain('A written plan\'s implementation units, declared files, dependency graph, verification spread, and `plan_depth` are task-time evidence');
+    expect(handoff).toContain('Use `next_action: review-task-pack` as the decisive handoff recommendation for high-risk task packs.');
+    expect(handoff).toContain('The output must include one concrete reason and a copy-ready current-host document-review invocation');
+    expect(handoff).toContain('/spec:doc-review <task-pack-path>');
+    expect(handoff).toContain('$spec-doc-review <task-pack-path>');
+    expect(handoff).toContain('do not dispatch by default');
+    expect(handoff).toContain('the invoking parent workflow or user explicitly authorized this single bounded continuation for the current run');
+    expect(handoff).toContain('a standalone skill trigger alone is not dispatch authorization');
+    expect(handoff).toContain('the continuation targets exactly the doc-review of the just-written task pack; do not chain any further workflow');
+    expect(handoff).toContain('This is bounded auto-continuation, not general workflow chaining');
+    expect(handoff).toContain('Set `dispatch_authorization: authorized` only when the explicit authorization condition is met.');
+    expect(handoff).toContain('surface the `review-task-pack` recommendation in the returned envelope, and let the caller decide');
     expect(contract).toContain('`spec-write-tasks` may use `plan-declared` output only as optional cross-check evidence');
     expect(contract).toContain('written source-plan structure is the primary evidence');
     expect(contract).toContain('must not treat `plan-declared` as a hard gate or a second source of truth');
@@ -350,6 +393,13 @@ describe('spec-write-tasks contracts', () => {
     expect(payload.source_refs).toEqual(expect.arrayContaining([
       'skills/spec-write-tasks/SKILL.md',
       'tests/fixtures/spec-write-tasks/valid/source-plan.md',
+      'tests/fixtures/spec-write-tasks/small-plan/source-plan.md',
+      'tests/fixtures/spec-write-tasks/high-risk-review/source-plan.md',
+      'tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md',
+    ]));
+    expect(payload.source_refs).not.toEqual(expect.arrayContaining([
+      'docs/plans/2026-06-22-001-feat-user-language-sync-plan.md',
+      'docs/tasks/2026-06-22-001-feat-user-language-sync-tasks.md',
     ]));
     expect(payload.source_refs.join('\n')).not.toContain('../../docs/');
     expect(payload.cases.length).toBeGreaterThanOrEqual(3);
@@ -361,16 +411,73 @@ describe('spec-write-tasks contracts', () => {
       expect(evalCase.with_skill_expectations.length).toBeGreaterThan(0);
       expect(evalCase.objective_assertions.length).toBeGreaterThan(0);
       expect(typeof evalCase.expected_outcome).toBe('string');
+      for (const inputFile of evalCase.input_files) {
+        expect(inputFile.evidence).toBe('file-backed fixture');
+        expect(fs.existsSync(path.join(REPO_ROOT, inputFile.path))).toBe(true);
+      }
     }
 
-    expect(payload.cases.some((entry) => entry.evidence_status === 'file-backed fixture')).toBe(true);
-    expect(payload.cases.some((entry) => entry.evidence_status === 'missing evidence')).toBe(true);
+    const casesById = new Map(payload.cases.map((entry) => [entry.id, entry]));
+    const smallPlanCase = casesById.get('small-plan-skip-preserves-context-budget');
+    const highRiskCase = casesById.get('high-risk-pack-review-handoff-needs-authorization');
+    const fanoutCase = casesById.get('deep-plan-large-unit-fanout');
+    const degradedHelperCase = casesById.get('degraded-helper-signal-does-not-downgrade-deep-plan');
+    expect(smallPlanCase.evidence_status).toBe('file-backed fixture');
+    expect(smallPlanCase.input_files.map((entry) => entry.path)).toEqual([
+      'tests/fixtures/spec-write-tasks/small-plan/source-plan.md',
+    ]);
+    expect(smallPlanCase.missing_evidence).not.toContain('file-backed fixture');
+    expect(smallPlanCase.missing_evidence).toEqual(expect.arrayContaining([
+      'model execution evidence',
+      'human adjudication',
+    ]));
+    expect(highRiskCase.evidence_status).toBe('file-backed fixture');
+    expect(highRiskCase.input_files.map((entry) => entry.path)).toEqual([
+      'tests/fixtures/spec-write-tasks/high-risk-review/source-plan.md',
+      'tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md',
+    ]);
+    expect(highRiskCase.missing_evidence).not.toContain('file-backed fixture');
+    expect(highRiskCase.missing_evidence).toEqual(expect.arrayContaining([
+      'provider telemetry',
+      'human adjudication',
+    ]));
+    expect(fanoutCase.evidence_status).toBe('file-backed fixture');
+    expect(fanoutCase.source_ref_authority).toBe('historical');
+    expect(fanoutCase.source_refs).toEqual([
+      'docs/plans/2026-06-22-001-feat-user-language-sync-plan.md',
+      'docs/tasks/2026-06-22-001-feat-user-language-sync-tasks.md',
+    ]);
+    expect(fanoutCase.input_files.map((entry) => entry.path)).toEqual([
+      'docs/plans/2026-06-22-001-feat-user-language-sync-plan.md',
+      'docs/tasks/2026-06-22-001-feat-user-language-sync-tasks.md',
+    ]);
+    expect(fanoutCase.objective_assertions.join('\n')).toContain('source_unit appears in more than one task');
+    expect(fanoutCase.with_skill_expectations.join('\n')).toContain('repeat the same source_unit');
+    expect(fanoutCase.missing_evidence).toEqual(expect.arrayContaining([
+      'provider telemetry',
+      'human adjudication',
+    ]));
+    expect(degradedHelperCase.evidence_status).toBe('file-backed fixture');
+    expect(degradedHelperCase.source_ref_authority).toBe('historical');
+    expect(degradedHelperCase.input_files.map((entry) => entry.path)).toEqual([
+      'docs/plans/2026-06-21-004-feat-team-standards-governance-layer-plan.md',
+      'docs/tasks/2026-06-21-004-feat-team-standards-governance-layer-tasks.md',
+    ]);
+    expect(degradedHelperCase.baseline_risks.join('\n')).toContain('degraded helper output');
+    expect(degradedHelperCase.with_skill_expectations.join('\n')).toContain('records degraded helper output');
+    expect(degradedHelperCase.objective_assertions.join('\n')).toContain('candidate_level: lightweight');
+    expect(degradedHelperCase.objective_assertions.join('\n')).toContain('deterministic_handoff: true');
+    expect(degradedHelperCase.missing_evidence).toEqual(expect.arrayContaining([
+      'provider telemetry',
+      'human adjudication',
+    ]));
   });
 
   test('eval cases cover trigger, boundary, failure, and expected behavior posture', () => {
     const skill = read(SKILL_PATH);
+    const handoff = read(HANDOFF_CONTRACT_PATH);
     const readme = read(EVALS_README_PATH);
-    const decisionLine = skill.match(/^decision: (.+)$/m);
+    const decisionLine = handoff.match(/^decision: (.+)$/m);
     const evalFiles = [
       'trigger-cases.json',
       'boundary-cases.json',
@@ -431,6 +538,20 @@ describe('spec-write-tasks contracts', () => {
     expect(failureCases).toContain('missing_spec_id');
     expect(failureCases).toContain('stale_hash');
     expect(failureCases).toContain('repo_scope_missing');
+
+    const boundaryCases = JSON.parse(read(path.join(EVALS_DIR, 'boundary-cases.json')));
+    const implementationCase = boundaryCases.cases.find((entry) => entry.id === 'implementation-request');
+    const highRiskReviewCase = boundaryCases.cases.find((entry) => entry.id === 'high-risk-review-gate');
+    expect(implementationCase.boundary_note).toContain('must not be rerouted');
+    expect(implementationCase.forbidden_signals).toEqual(expect.arrayContaining([
+      'generated-task-pack',
+      'compile-by-default',
+    ]));
+    expect(highRiskReviewCase.boundary_note).toContain('must not silently chain');
+    expect(highRiskReviewCase.forbidden_signals).toEqual(expect.arrayContaining([
+      'auto-dispatch-without-authorization',
+      'general-workflow-chaining',
+    ]));
   });
 
   test('spec-work validates task packs before creating execution tasks', () => {
@@ -503,6 +624,7 @@ with ZipFile(${JSON.stringify(packagePath)}) as package:
       expect(entries).toEqual([
         'spec-write-tasks/SKILL.md',
         'spec-write-tasks/agents/openai.yaml',
+        'spec-write-tasks/references/execution-handoff-contract.md',
         'spec-write-tasks/references/task-pack-schema.md',
         'spec-write-tasks/references/task-quality-guide.md',
       ]);
@@ -515,6 +637,7 @@ with ZipFile(${JSON.stringify(packagePath)}) as package:
 `], { encoding: 'utf8' });
       expect(readSkillProc.status).toBe(0);
       expect(readSkillProc.stdout).toContain('## References');
+      expect(readSkillProc.stdout).toContain('[Execution Handoff Contract](references/execution-handoff-contract.md)');
       expect(readSkillProc.stdout).toContain('[Task Pack Schema](references/task-pack-schema.md)');
       expect(readSkillProc.stdout).toContain('[Task Quality Guide](references/task-quality-guide.md)');
       expect(readSkillProc.stdout).toContain('`evals/` files are maintainer-only validation fixtures');
@@ -543,7 +666,7 @@ with ZipFile(${JSON.stringify(packagePath)}) as package:
       expect(runtimeSkill).toContain('Task-Ready Check');
       expect(runtimeSkill).toContain('Quality Pass Before Output');
       expect(runtimeSkill).toContain('reason_code');
-      expect(runtimeSkill).toContain('dispatch_authorization');
+      expect(runtimeSkill).toContain('Execution Handoff Contract');
       expect(runtimeSkill).toContain('If deterministic hash tooling is unavailable, report the task pack as unverifiable handoff');
       expect(runtimeSkill).toContain('A mismatch is a wrong-chain handoff');
       expect(runtimeSkill).not.toContain('../../docs/');

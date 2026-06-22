@@ -1,0 +1,578 @@
+---
+title: "refactor: spec-write-tasks 质量冲刺到 100"
+type: refactor
+status: active
+date: 2026-06-22
+spec_id: 2026-06-22-002-spec-write-tasks-quality-to-100
+plan_depth: deep
+---
+
+# refactor: spec-write-tasks 质量冲刺到 100
+
+## Summary
+
+本计划把 `spec-write-tasks` 从当前 A- / 90 分推进到可解释的 100 分目标态：补齐 executable output eval、语义质量事实分析、进一步 entrypoint 瘦身、input/output/workflow 证据、runtime/cross-host portability 证据，以及高风险 task-pack doc-review 的 bounded continuation 证明。核心原则是增强证据闭环，而不是把任务拆分语义硬编码进脚本。
+
+---
+
+## Decision Brief
+
+- **Recommended approach:** 采用“证据层补强 + entrypoint 继续瘦身”的组合方案：脚本只产 deterministic facts / warnings / reports，LLM 和 reviewer 继续负责语义判断；`SKILL.md` 只保留触发、边界、分支和 reference map。
+- **Key decisions:** 100 分不是让审计脚本替代语义评审，而是让每个非满分维度都有可复查的 source evidence、runner evidence 或明确的 not-scored governance reason；runtime 和 cross-host portability 通过 packager / generated adapter smoke 证明，不手改 generated runtime mirrors。
+- **Validation focus:** 新增 runner 和 analyzer 的单测、eval fixture execution report、official `.skill` package smoke、Codex/Claude runtime sync smoke、task-pack fixture validation、`spec-skill-audit` 复跑与 changelog/plan hygiene。
+- **Largest risks / boundaries:** 最危险的偏差是为了“100 分”游戏化审计，把语义任务质量变成硬脚本门禁；本计划明确禁止该方向，只允许 advisory facts 和 human/LLM adjudication。
+
+---
+
+## Problem Frame
+
+当前 `spec-write-tasks` 已经能高质量完成 plan 技术方案到开发任务的拆分，已覆盖 settled plan 输入、skip/compile/return/draft/validate 分支、hash freshness、`Task Pack Contract`、bounded source orientation、large implementation unit fan-out、高风险 review handoff、degraded helper signal 等关键边界。
+
+最新审计信号显示它不是结构性失败，而是质量证据尚未闭环：
+
+- `spec-skill-audit` 当前得分 `90/A-`，无 P0/P1/P2。
+- `trigger_precision`、`boundary_discipline`、`security_posture`、`spec_first_alignment` 已是 5 分。
+- `input_contract`、`output_contract`、`workflow_explicitness` 仍是 4 分，因为 deterministic audit 只能看到 section exists，不能确认语义完整性。
+- `progressive_disclosure` 仍是 4 分，`SKILL.md` 已降到约 5997 estimated tokens，但还没达到更强的 entrypoint economy。
+- `eval_readiness` 仍是 4 分，因为 eval fixtures 存在且结构有效，但缺少 executable eval runner 和 output quality adjudication evidence。
+- `runtime_governance`、`cross_host_portability` 当前为 `not_checked` / `null`，不是失败，但缺少目标 skill 级证据。
+
+本计划逐项解决这些缺口，同时保留 spec-first 的核心边界：scripts prepare, LLM decides；task pack 是 derived execution index，不是第二份 plan，不是 approval state，也不是 workflow state machine。
+
+---
+
+## Requirements
+
+- R1. 定义 `spec-write-tasks` 的 100 分口径：审计分数是 signal not gate；满分目标必须解释 numeric dimension、not-scored dimension 和 semantic reviewer evidence 的关系。
+- R2. 为 `skills/spec-write-tasks/evals/output-quality-cases.json` 提供可执行 output eval runner，至少能在无 provider credential 的本地环境跑 deterministic fixture assertions，并生成 scorecard report。
+- R3. 增加 task-pack semantic quality analysis 的 deterministic facts 输出，覆盖 traceability、granularity、context_refs、review_gate、done_signal、stop_if、large unit fan-out 等风险，但不得把语义好坏变成 validator hard gate。
+- R4. 将 `skills/spec-write-tasks/SKILL.md` 进一步压到约 3000 estimated tokens 或更低；入口只保留触发、边界、分支、load-bearing rules 和 reference map。
+- R5. 强化 input/output/workflow contract 的语义证据，使审计不只看到“section exists”，还可以读取 source-owned contract checklist、owner/review cadence、rollback boundary 和 output contract reports。
+- R6. 为 runtime governance 和 cross-host portability 建立目标 skill 级证据：official package smoke、Codex runtime sync smoke、Claude runtime sync smoke、packaged reference closure、maintainer-only eval/report exclusion。
+- R7. 明确高风险 task-pack doc-review 自动衔接的边界：默认只推荐 `review-task-pack`；只有明确 bounded continuation authorization 时才允许单跳 headless doc-review，且不得链到 implementation。
+- R8. 所有新增 scripts/reports/tests 必须保持 source/runtime 边界：不改 `.claude/`、`.codex/`、`.agents/skills/` 作为 source，不依赖 `.spec-first/audits` 作为 runtime truth。
+- R9. 验证路径必须能同时证明 deterministic contract、semantic evidence posture、packaging portability 和 changelog 合规。
+- R10. 若最终审计仍不是机械 100 分，必须在 report 中记录剩余分数是 audit tool capability gap、semantic review pending，还是目标 skill 实质缺口，不能用文案遮盖。
+
+---
+
+## Assumptions
+
+- A1. `spec-write-tasks` 仍定位为 standalone skill，不升级为 `$spec-*` public workflow。
+- A2. official `.skill` package 仍排除 root `evals/` 和 generated reports；evals/reports 是 maintainer evidence，不是用户 runtime dependency。
+- A3. 后续实现可以新增 skill-local `scripts/` 和 `reports/`，但 package smoke 必须证明 runtime archive 不依赖 maintainer-only 资产。
+- A4. `spec-skill-audit` 的评分语义可能需要小幅读取新增 evidence，但本计划优先改善目标 skill evidence；除非审计器明显无法消费合理证据，否则不改审计器评分逻辑。
+
+---
+
+## Scope Boundaries
+
+- 不把 task splitting 语义质量硬编码成 `spec-first tasks validate` 的失败条件。
+- 不把 `review_gate` 变成 approval state、lifecycle state 或 validator-owned risk classification。
+- 不把 output eval fixture 的 deterministic runner 描述成 provider-backed model evidence。
+- 不为了 100 分手改 generated runtime mirrors。
+- 不把 `.spec-first/audits/**` 纳入普通 runtime evidence；本计划只把它作为当前审查输入。
+- 不要求 ordinary users 读取 `evals/`、`reports/` 或 repo-local historical plans 才能使用 packaged skill。
+- 不自动链入 `$spec-doc-review`、`$spec-work` 或 implementation workflow。
+
+---
+
+## Completion Criteria
+
+- `skills/spec-write-tasks/SKILL.md` entrypoint estimated tokens 降到约 3000 以下，且 contract tests 仍锁定所有 load-bearing trigger/boundary/handoff rules。
+- `skills/spec-write-tasks/scripts/run-output-evals.js` 可执行，能读取 output-quality cases 和 file-backed fixtures，输出 `reports/output_quality_scorecard.{md,json}`，并清楚标记 deterministic / recorded fixture / model-executed / human-adjudicated evidence。
+- `skills/spec-write-tasks/scripts/analyze-task-pack-quality.js` 可执行，输出 advisory quality facts，不作为 task-pack validator hard gate。
+- `skills/spec-write-tasks/reports/output_quality_scorecard.md` 记录 owner、review cadence、output contract、rollback boundary、missing evidence 和本次 run 结果。
+- runtime / cross-host smoke 能证明 packaged skill 只依赖 package-local runtime refs，maintainer-only evals/reports 不进入 runtime package，Codex/Claude generated mirrors 可从 source 生成或同步。
+- 高风险 task-pack review handoff fixture 覆盖 `dispatch_authorization: missing|authorized|not_required`，并证明 standalone skill trigger 不会 silent auto-dispatch。
+- `node skills/spec-skill-audit/scripts/write-audit-artifacts.js --repo . --target skills/spec-write-tasks` 复跑后无 invalid eval cases；若不是 100，报告必须明确剩余维度的真实阻塞。
+
+---
+
+## Direct Evidence Readiness
+
+- target_repo: `spec-first`
+- evidence_sources: direct source reads, audit artifacts, eval fixtures, contract tests, git status, task-governance-signals advisory output
+- source_refs:
+  - `skills/spec-write-tasks/SKILL.md`
+  - `skills/spec-write-tasks/references/task-quality-guide.md`
+  - `skills/spec-write-tasks/references/execution-handoff-contract.md`
+  - `skills/spec-write-tasks/references/task-pack-schema.md`
+  - `skills/spec-write-tasks/evals/README.md`
+  - `skills/spec-write-tasks/evals/output-quality-cases.json`
+  - `skills/spec-write-tasks/evals/expected-behavior-cases.json`
+  - `skills/spec-write-tasks/evals/boundary-cases.json`
+  - `tests/unit/spec-write-tasks-contracts.test.js`
+  - `tests/fixtures/spec-write-tasks/valid/source-plan.md`
+  - `tests/fixtures/spec-write-tasks/valid/task-pack.md`
+  - `.spec-first/audits/skill-audit/latest/skill-audit-summary.md`
+  - `.spec-first/audits/skill-audit/latest/expert-scorecard.json`
+  - `.spec-first/audits/skill-audit/latest/eval-readiness-report.json`
+  - `.spec-first/audits/skill-audit/latest/trigger-routing-report.json`
+- current_revision: `61c29f10`
+- worktree_status: dirty before this plan; existing unrelated or prior-turn changes exist in `CHANGELOG.md`, plans, validation docs, `skills/spec-write-tasks/**`, fixtures, and task packs. Implementation must preserve and work with those changes rather than reverting them.
+- confidence: high for current score gaps and source boundaries; medium for runtime/cross-host evidence shape until implementation checks exact adapter/packager behavior.
+- limitations: planning did not execute new eval runner because it does not exist yet; `.spec-first/audits` is explicit review evidence, not source-of-truth runtime input.
+
+---
+
+## Direct Evidence
+
+- repo_scope: single repo, current working tree under `spec-first`
+- source_reads_completed:
+  - `skills/spec-write-tasks/SKILL.md` currently contains complete trigger, boundary, input/output/workflow, final envelope, high-risk review handoff and portability boundaries.
+  - `skills/spec-write-tasks/references/task-quality-guide.md` already owns semantic quality heuristics for task readiness, source orientation, traceability, granularity, fan-out, context compression, field writing, done/stop signals and bad smells.
+  - `skills/spec-write-tasks/references/execution-handoff-contract.md` already owns final decision envelope, deterministic validation rule, high-risk review handoff and lint boundary.
+  - `skills/spec-write-tasks/evals/README.md` explicitly says evals are maintainer-only fixtures, not executable runner evidence.
+  - `skills/spec-write-tasks/evals/output-quality-cases.json` includes file-backed cases, baseline risks, with-skill expectations, objective assertions and missing evidence labels.
+  - `tests/unit/spec-write-tasks-contracts.test.js` already checks many load-bearing strings, official packager behavior, eval fixture shape and source/runtime boundaries.
+  - Latest audit artifacts report score `90/A-`, no P0/P1/P2, 25 normalized eval cases, `invalid_cases: []`, and non-perfect signals around contracts, workflow explicitness, progressive disclosure, eval runner, runtime governance and cross-host portability.
+- source_reads_required:
+  - Re-read `src/cli/plugin.js`, `src/cli/adapters/*`, and package helper tests before writing runtime/cross-host smoke tests.
+  - Re-read official packager invocation in `tests/unit/spec-write-tasks-contracts.test.js` before changing package expectations.
+  - Re-read `skills/spec-skill-audit/scripts/write-audit-artifacts.js` only if target skill evidence is strong but the audit tool cannot consume it honestly.
+- commands_or_tools_used:
+  - `node bin/spec-first.js internal task-governance-signals --source plan-declared --json`
+  - `node bin/spec-first.js session list --json`
+  - direct file reads with `sed`, `find`, and JSON inspection through Node
+- impact_on_plan:
+  - `task-governance-signals` returned `candidate_level: lightweight` because no plan input or draft file set was provided. This is recorded as advisory empty-context output and overridden to Deep because the real plan touches eval runner, scripts, reports, packaging, runtime governance, tests and skill prose.
+  - Active session count is 0, so no parallel session coordination is required.
+- key_findings:
+  - The target skill is semantically healthy but evidence-incomplete.
+  - The most valuable improvements are executable evaluation and governance evidence, not more prose.
+  - Further SKILL slimming must move detail into references without removing load-bearing boundaries from the entrypoint.
+- limitations:
+  - No fresh-source eval or model-backed output eval was run during planning; those are implementation-phase validation tasks.
+
+---
+
+## Context & Research
+
+### Relevant Code and Patterns
+
+- `skills/spec-write-tasks/references/task-quality-guide.md` is the right home for detailed semantic heuristics; new analyzer checks should point back to these concepts without duplicating them into `SKILL.md`.
+- `skills/spec-write-tasks/references/execution-handoff-contract.md` is the right home for dispatch authorization, final envelope and deterministic validation posture.
+- `skills/spec-write-tasks/evals/output-quality-cases.json` already has enough fixture shape to support a deterministic runner MVP.
+- `tests/unit/spec-write-tasks-contracts.test.js` already centralizes contract checks and packager assertions; new tests should extend or split this suite only when size/readability demands it.
+
+### Institutional Learnings
+
+- The role contract requires `Scripts prepare, LLM decides`; semantic task quality belongs to LLM/reviewer, while scripts may provide facts, warnings, reason codes and artifact paths.
+- `yao-meta-skill` release gates call for output evals, output quality scorecards, owner/review cadence, output contract, rollback boundary, trust reports and clear missing-evidence labels for governed or team-distributed skills.
+
+### External References
+
+- No internet research was needed. The problem is local source/evidence architecture, not third-party API behavior.
+
+---
+
+## Key Technical Decisions
+
+- KTD1. **100 分解释为 evidence-complete, not automation-maximal.** Numeric dimensions should reach 5 only when source evidence and runner/report evidence make semantic review inspectable; not-scored dimensions can remain non-scored only with explicit governance reason.
+- KTD2. **Add an executable eval runner before adding more cases.** Current fixture count is enough; the gap is execution evidence and adjudication, not fixture volume.
+- KTD3. **Keep semantic quality analysis advisory.** `analyze-task-pack-quality.js` may emit warnings and scorecard fields, but `spec-first tasks validate` remains identity/freshness/structure focused.
+- KTD4. **Use reports as maintainer evidence, not runtime dependency.** `skills/spec-write-tasks/reports/` can store scorecards and trust evidence; package tests must prove runtime archives exclude or do not require those reports.
+- KTD5. **Slim `SKILL.md` by moving stable detail, not by deleting contracts.** The entrypoint must still name use/not-use, core derived-artifact boundary, branch list, deterministic validation rule, final envelope requirement and reference map.
+- KTD6. **Do not change `spec-skill-audit` scoring until target evidence exists.** If the audit remains at 90 after evidence is present, then inspect audit consumption semantics; do not preemptively game scores.
+- KTD7. **Cross-host evidence belongs in tests/smoke, not generated mirror patches.** Use source sync/package APIs and temp directories to prove Codex/Claude delivery surfaces, then regenerate runtime only if a separate setup/update task requires it.
+- KTD8. **High-risk doc-review remains a single bounded edge.** `spec-write-tasks -> spec-doc-review` may be recommended, or invoked only when explicitly authorized for the just-written pack; it never becomes general workflow chaining.
+
+---
+
+## Open Questions
+
+### Resolved During Planning
+
+- Should the plan optimize audit score by adding more prose to `SKILL.md`? No. The current progressive disclosure signal says the entrypoint is still too large; quality must move into references/scripts/reports.
+- Should semantic task-pack quality become a hard validator failure? No. It should produce advisory facts and review prompts only.
+- Should runtime/cross-host governance be proven by editing `.agents/skills` or `.codex` mirrors? No. Use source-level sync/package tests and leave generated mirrors alone.
+
+### Deferred to Implementation
+
+- Exact estimated-token threshold implementation: choose a simple deterministic estimator consistent with the audit script, then document its approximation.
+- Exact report file names beyond the required output scorecard: finalize after inspecting whether existing meta-skill report naming conventions are easiest to reuse.
+- Whether `spec-skill-audit` needs a small enhancement to consume target skill reports: decide only after U1-U6 evidence exists.
+
+---
+
+## High-Level Technical Design
+
+> *This illustrates the intended approach and is directional guidance for review, not implementation specification. The implementing agent should treat it as context, not code to reproduce.*
+
+```mermaid
+flowchart TB
+  A[spec-write-tasks source] --> B[package-local references]
+  A --> C[maintainer eval fixtures]
+  C --> D[run-output-evals.js]
+  C --> E[analyze-task-pack-quality.js]
+  D --> F[reports/output_quality_scorecard]
+  E --> G[reports/task_pack_quality_analysis]
+  B --> H[slim SKILL.md reference map]
+  F --> I[spec-skill-audit evidence]
+  G --> I
+  H --> I
+  A --> J[official skill package smoke]
+  J --> K[cross-host portability evidence]
+  I --> L[reviewer confirms semantic quality]
+```
+
+The diagram separates runtime use from maintainer evidence. Users of the packaged skill need `SKILL.md`, `agents/openai.yaml`, packaged references, and any packaged runtime scripts if deliberately included. Maintainers use `evals/`, `reports/`, fixtures and tests to prove quality.
+
+---
+
+## Implementation Units
+
+### U1. Define the 100-Point Quality Contract
+
+**Goal:** Make “100 分” auditable without pretending the score is a hard gate or a replacement for semantic review.
+
+**Requirements:** R1, R5, R10
+
+**Dependencies:** None
+
+**Files:**
+- Create: `skills/spec-write-tasks/reports/quality-score-contract.md`
+- Modify: `skills/spec-write-tasks/evals/README.md`
+- Modify: `tests/unit/spec-write-tasks-contracts.test.js`
+
+**Approach:**
+- Record the current audit dimensions, current score reasons, target evidence for each non-perfect dimension, and which dimensions must remain LLM-reviewed.
+- Define status meanings such as `evidence-complete`, `runner-backed`, `adjudication-pending`, `not-scored-with-reason`, and `audit-tool-gap`.
+- Add owner, review cadence, output contract, rollback boundary, and missing-evidence rules in the eval README/report contract.
+- Keep this as maintainer evidence; do not require runtime users to read it.
+
+**Patterns to follow:**
+- `skills/spec-write-tasks/evals/README.md`
+- `.spec-first/audits/skill-audit/latest/expert-scorecard.json`
+- `yao-meta-skill` output eval evidence boundary
+
+**Test scenarios:**
+- Report contract: a unit test asserts the score contract names all current non-perfect dimensions and preserves `score_is_signal_not_gate`.
+- Missing evidence: a unit test asserts fixture evidence cannot be labeled model-executed or human-adjudicated without explicit report fields.
+- Changelog/review: docs-only evidence changes keep changelog format valid.
+
+**Verification:**
+- Reviewers can answer which concrete artifact closes each current score gap without reading the audit transcript.
+
+---
+
+### U2. Add an Executable Output Eval Runner
+
+**Goal:** Convert output-quality fixtures from passive review examples into repeatable local execution evidence.
+
+**Requirements:** R2, R5, R9, R10
+
+**Dependencies:** U1
+
+**Files:**
+- Create: `skills/spec-write-tasks/scripts/run-output-evals.js`
+- Create: `skills/spec-write-tasks/reports/output_quality_scorecard.md`
+- Create: `skills/spec-write-tasks/reports/output_quality_scorecard.json`
+- Modify: `skills/spec-write-tasks/evals/README.md`
+- Test: `tests/unit/spec-write-tasks-output-evals.test.js`
+
+**Approach:**
+- The MVP runner reads `skills/spec-write-tasks/evals/output-quality-cases.json`, validates `input_files`, checks file existence, evaluates `objective_assertions` against file-backed expected outputs where available, and reports missing provider/human evidence honestly.
+- Use deterministic execution mode names: `fixture-backed`, `recorded-fixture`, `model-executed`, `human-adjudicated`, `missing-evidence`.
+- Produce JSON and Markdown reports with pass/fail assertions, baseline risks, with-skill expectations, evidence status, and missing evidence.
+- Optional future provider runner hooks may be designed, but MVP must pass without network or model credentials.
+
+**Patterns to follow:**
+- `skills/spec-write-tasks/evals/output-quality-cases.json`
+- `tests/fixtures/spec-write-tasks/valid/task-pack.md`
+- `yao-meta-skill` output eval method
+
+**Test scenarios:**
+- Happy path: valid file-backed cases produce a scorecard with case count, assertions, evidence status and no fabricated model evidence.
+- Error path: missing `input_files` path fails the runner with a clear reason and non-zero exit.
+- Boundary: a case with `missing_evidence` remains reportable but cannot count as provider-backed or human-adjudicated.
+- Contract: output JSON schema stays stable enough for `spec-skill-audit` or reviewer scripts to consume.
+
+**Verification:**
+- Running the script locally produces both reports and exits non-zero only for structural or assertion failures, not for honestly declared missing provider evidence.
+
+---
+
+### U3. Add Advisory Task-Pack Semantic Quality Analysis
+
+**Goal:** Give reviewers deterministic quality facts for task packs without expanding the validator into semantic judging.
+
+**Requirements:** R3, R5, R8, R9
+
+**Dependencies:** U1
+
+**Files:**
+- Create: `skills/spec-write-tasks/scripts/analyze-task-pack-quality.js`
+- Create: `skills/spec-write-tasks/reports/task_pack_quality_analysis.md`
+- Create: `skills/spec-write-tasks/reports/task_pack_quality_analysis.json`
+- Modify: `skills/spec-write-tasks/references/task-quality-guide.md`
+- Test: `tests/unit/spec-write-tasks-quality-analysis.test.js`
+
+**Approach:**
+- Analyze existing task packs and output advisory warnings for quality smells already documented in `task-quality-guide.md`.
+- Candidate checks include whole-plan-only `context_refs`, broad directory ownership, missing source anchor, subjective `done_signal`, vague `stop_if`, all-tasks `review_gate: required`, large source unit not fanned out when multiple distinct file/test clusters exist, and same-wave overlap already caught by validator.
+- Emit `severity: info|warning|review_required`, `reason_code`, `evidence_ref`, and `llm_review_prompt`.
+- Explicitly state that these facts do not make task packs executable or invalid; executable status remains owned by `spec-first tasks validate`.
+
+**Patterns to follow:**
+- `skills/spec-write-tasks/references/task-quality-guide.md`
+- `skills/spec-write-tasks/references/execution-handoff-contract.md`
+- `src/cli/task-pack.js` validator boundary
+
+**Test scenarios:**
+- Happy path: the valid fixture produces no high-severity warnings and includes advisory metadata.
+- Warning path: a synthetic task pack with whole-plan-only `context_refs` produces a warning, not a hard validation failure.
+- Boundary: analyzer output cannot set `deterministic_handoff: true` and cannot override `spec-first tasks validate`.
+- Regression: analyzer ignores generated runtime mirrors as task file ownership and flags them if present.
+
+**Verification:**
+- Reviewers get a compact quality report that points them to concrete fields and reasons without claiming semantic correctness.
+
+---
+
+### U4. Slim `SKILL.md` Below the Entrypoint Budget
+
+**Goal:** Reduce entrypoint context cost while preserving load-bearing behavior and package portability.
+
+**Requirements:** R4, R5, R8
+
+**Dependencies:** U1
+
+**Files:**
+- Modify: `skills/spec-write-tasks/SKILL.md`
+- Modify: `skills/spec-write-tasks/references/task-quality-guide.md`
+- Modify: `skills/spec-write-tasks/references/execution-handoff-contract.md`
+- Create: `skills/spec-write-tasks/references/input-output-contract.md`
+- Create: `skills/spec-write-tasks/references/workflow-branching.md`
+- Modify: `tests/unit/spec-write-tasks-contracts.test.js`
+
+**Approach:**
+- Keep `SKILL.md` as the routeable spine: description, purpose, use/not-use, core rules, input classification, branch list, deterministic validation rule, final envelope pointer, high-risk review boundary pointer, portability boundary and references.
+- Move detailed task-card semantics, failure mode descriptions, source orientation rules, handoff envelope details, scope backoff and quality-pass examples into references.
+- Add a deterministic estimated-token check to the contract test using the same approximation as audit when possible.
+- Replace brittle exact prose assertions with load-bearing phrase assertions only where necessary; avoid making future slimming impossible.
+
+**Patterns to follow:**
+- `skills/spec-plan/SKILL.md` plus `references/plan-sections.md` split
+- Existing `spec-write-tasks` references
+
+**Test scenarios:**
+- Token budget: `SKILL.md` estimated tokens stay below the agreed threshold.
+- Boundary preservation: tests still find derived-artifact, plan-as-SoT, not implementation execution, not remote package, and final envelope rules.
+- Package portability: source `SKILL.md` does not point at repo-local docs, historical plans, or maintainer-only evals as runtime references.
+
+**Verification:**
+- Audit progressive disclosure improves because details are in package-local references and entrypoint cost is visibly lower.
+
+---
+
+### U5. Strengthen Input, Output, and Workflow Semantic Evidence
+
+**Goal:** Give the audit and human reviewers concrete evidence for the dimensions currently capped at “section exists”.
+
+**Requirements:** R1, R5, R10
+
+**Dependencies:** U1, U2, U3, U4
+
+**Files:**
+- Modify: `skills/spec-write-tasks/references/input-output-contract.md`
+- Modify: `skills/spec-write-tasks/references/workflow-branching.md`
+- Modify: `skills/spec-write-tasks/evals/README.md`
+- Modify: `skills/spec-write-tasks/reports/quality-score-contract.md`
+- Test: `tests/unit/spec-write-tasks-contracts.test.js`
+
+**Approach:**
+- `input-output-contract.md` should enumerate accepted inputs, rejected inputs, local path requirements, source-plan identity requirements, task-pack identity requirements, executable vs draft output, and downstream consumers.
+- `workflow-branching.md` should define the semantic branch decision tree for `compile`, `skip`, `return-to-plan`, `draft-only`, and `validate-only`, including examples and failure reason codes.
+- Reports should map each branch and output artifact to evidence sources, consumer expectations, and rollback boundary.
+- Tests should assert evidence existence and coverage, not only headings.
+
+**Patterns to follow:**
+- `skills/spec-write-tasks/references/execution-handoff-contract.md`
+- `skills/spec-write-tasks/evals/failure-cases.json`
+- `skills/spec-write-tasks/evals/expected-behavior-cases.json`
+
+**Test scenarios:**
+- Input contract: every accepted input class and rejected near-neighbor class has a fixture or case reference.
+- Output contract: every possible decision has an output artifact or no-artifact rule and downstream next_action.
+- Workflow explicitness: every failure mode used by the final envelope appears in the branch contract.
+
+**Verification:**
+- A reviewer can validate branch semantics from references and cases without relying on the large `SKILL.md` body.
+
+---
+
+### U6. Prove Runtime Governance and Cross-Host Portability
+
+**Goal:** Turn `runtime_governance` and `cross_host_portability` from not-checked into explicit target skill evidence.
+
+**Requirements:** R6, R8, R9, R10
+
+**Dependencies:** U4, U5
+
+**Files:**
+- Modify: `tests/unit/spec-write-tasks-contracts.test.js`
+- Create: `tests/unit/spec-write-tasks-runtime-governance.test.js`
+- Modify: `skills/spec-write-tasks/reports/quality-score-contract.md`
+
+**Approach:**
+- Extend official packager smoke to assert packaged archive contains only runtime-needed files and does not require root `evals/`, `reports/`, local audits, or docs/plans.
+- Add Codex sync smoke in a temp home/root using existing adapter helpers, proving source skill can be projected without hand-editing generated mirrors.
+- Add Claude/runtime delivery smoke only through existing source adapter/generator APIs. If no direct Claude adapter path exists for this skill, record `not_checked_with_reason` rather than fabricating coverage.
+- Assert references from packaged `SKILL.md` resolve within package-local files or optional named integration points.
+
+**Patterns to follow:**
+- Existing official package test in `tests/unit/spec-write-tasks-contracts.test.js`
+- `src/cli/plugin.js`
+- `src/cli/adapters/codex`
+
+**Test scenarios:**
+- Official package: package excludes maintainer-only `evals/` and `reports/`, and includes all runtime referenced files.
+- Runtime sync: temp runtime projection produces `spec-write-tasks/SKILL.md` and packaged references from source.
+- Cross-host limitation: any host not directly testable is reported as not checked with reason, not counted as pass.
+
+**Verification:**
+- Runtime governance evidence is source-generated, reproducible, and does not mutate repository runtime mirrors.
+
+---
+
+### U7. Harden High-Risk Doc-Review Handoff Evidence
+
+**Goal:** Prove that high-risk task packs receive decisive review guidance without turning `spec-write-tasks` into a general workflow orchestrator.
+
+**Requirements:** R7, R8, R9
+
+**Dependencies:** U5
+
+**Files:**
+- Modify: `skills/spec-write-tasks/references/execution-handoff-contract.md`
+- Modify: `skills/spec-write-tasks/evals/boundary-cases.json`
+- Modify: `skills/spec-write-tasks/evals/output-quality-cases.json`
+- Modify: `tests/fixtures/spec-write-tasks/high-risk-review/source-plan.md`
+- Modify: `tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md`
+- Modify: `tests/unit/spec-write-tasks-contracts.test.js`
+
+**Approach:**
+- Make `dispatch_authorization` states testable: `missing` for standalone skill trigger, `authorized` only for explicit bounded continuation, `not_required` for non-high-risk packs, `not_applicable` for skip/return/draft.
+- Add output assertions that high-risk packs surface current-host `$spec-doc-review <task-pack>` or equivalent invocation but do not auto-dispatch without authorization.
+- Keep continuation limited to headless doc-review of the just-written task pack and no further workflow chaining.
+
+**Patterns to follow:**
+- `skills/spec-write-tasks/references/execution-handoff-contract.md`
+- `skills/spec-write-tasks/evals/boundary-cases.json`
+- `tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md`
+
+**Test scenarios:**
+- Missing authorization: high-risk pack returns `next_action: review-task-pack`, copy-ready invocation and `dispatch_authorization: missing`.
+- Authorized continuation: a simulated explicit authorization allows exactly one doc-review handoff status in the envelope, without chaining to work.
+- Low-risk pack: no review handoff is forced.
+
+**Verification:**
+- The bounded edge is visible and test-backed; standalone `spec-write-tasks` invocation cannot silently chain into another workflow.
+
+---
+
+### U8. Close the Validation and Audit Loop
+
+**Goal:** Prove the optimization through focused deterministic checks, package smoke, task-pack validation, audit rerun and fresh-source semantic review.
+
+**Requirements:** R1, R8, R9, R10
+
+**Dependencies:** U1, U2, U3, U4, U5, U6, U7
+
+**Files:**
+- Modify: `CHANGELOG.md`
+- Modify: `skills/spec-write-tasks/reports/quality-score-contract.md`
+- Modify: `skills/spec-write-tasks/reports/output_quality_scorecard.md`
+- Modify: `skills/spec-write-tasks/reports/task_pack_quality_analysis.md`
+
+**Approach:**
+- Run the narrowest checks after each cluster, then a final suite:
+  - `npx jest --runTestsByPath tests/unit/spec-write-tasks-contracts.test.js tests/unit/spec-write-tasks-output-evals.test.js tests/unit/spec-write-tasks-quality-analysis.test.js tests/unit/spec-write-tasks-runtime-governance.test.js tests/unit/eval-fixture-contracts.test.js tests/unit/changelog-format.test.js --runInBand`
+  - `node bin/spec-first.js tasks validate tests/fixtures/spec-write-tasks/valid/task-pack.md --repo . --json`
+  - `node bin/spec-first.js tasks validate tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md --repo . --json`
+  - `node skills/spec-write-tasks/scripts/run-output-evals.js`
+  - `node skills/spec-write-tasks/scripts/analyze-task-pack-quality.js tests/fixtures/spec-write-tasks/valid/task-pack.md`
+  - `node skills/spec-skill-audit/scripts/write-audit-artifacts.js --repo . --target skills/spec-write-tasks`
+  - official package smoke already wired in unit tests or run explicitly when local package script exists.
+- Run fresh-source eval or equivalent read-only semantic review for the final `SKILL.md` and references if substantial prose moved.
+- Update `CHANGELOG.md` with user-visible behavior if any runtime skill behavior changes; otherwise record maintainer quality/governance evidence and validation.
+
+**Patterns to follow:**
+- Existing changelog compact entry format
+- Fresh-source eval checklist in `docs/contracts/workflows/fresh-source-eval-checklist.md`
+
+**Test scenarios:**
+- Audit rerun: no invalid eval cases; score increases or remaining cap is explained as tool capability / semantic review pending.
+- Diff hygiene: `git diff --check` passes for modified files.
+- Package: runtime package remains usable without maintainer-only eval/report paths.
+
+**Verification:**
+- The final closeout can state which of the six original optimization points were closed, which remain pending, and why.
+
+---
+
+## System-Wide Impact
+
+- **Skill runtime:** Packaged users should see a smaller, clearer entrypoint with the same behavior boundaries.
+- **Maintainer workflow:** Maintainers gain repeatable output eval and quality analysis scripts, plus scorecard reports for future regressions.
+- **Audit workflow:** `spec-skill-audit` receives stronger evidence and clearer limitations; any remaining non-100 score becomes more actionable.
+- **Task-pack validator:** No semantic validator expansion is planned; deterministic validation remains identity/freshness/structure focused.
+- **Documentation and reports:** New reports are maintainer evidence and must not become required runtime context.
+- **Generated runtime mirrors:** Out of scope as source edits; any runtime regeneration belongs to a separate `spec-first init` or setup/update action after source validation.
+
+---
+
+## Risks & Dependencies
+
+| Risk | Mitigation |
+|------|------------|
+| Audit-score gaming replaces real quality | Tie every score improvement to source evidence, executable runner output, or reviewer-readable reports; preserve `score_is_signal_not_gate`. |
+| Analyzer becomes semantic hard gate | Keep analyzer separate from `spec-first tasks validate`, label output advisory, and test that it cannot set executable handoff truth. |
+| SKILL slimming removes load-bearing behavior | Add contract tests for route, negative boundaries, branch decisions, final envelope and portability before large prose moves. |
+| Reports become runtime dependencies | Package smoke must prove runtime archive excludes or does not require evals/reports. |
+| Cross-host tests overclaim coverage | Record host-specific missing coverage as `not_checked_with_reason`; never infer Claude coverage from Codex-only sync. |
+| High-risk review handoff chains workflows silently | Require explicit bounded continuation authorization and test the missing-authorization path. |
+| Existing dirty worktree causes accidental revert | Re-read touched files before editing and patch only targeted sections. |
+
+---
+
+## Alternative Approaches Considered
+
+- **Change `spec-skill-audit` scoring first:** Rejected for now. The target skill has real evidence gaps; changing the scorer before producing evidence would make the number less trustworthy.
+- **Add more eval cases only:** Rejected. Current coverage has 25 cases and no invalid cases; the missing piece is executable evidence and adjudication.
+- **Make task quality analyzer block invalid packs:** Rejected. That would violate the script/LLM boundary and turn semantic splitting quality into a hard-coded rule engine.
+- **Keep `SKILL.md` near 6000 tokens for self-containment:** Rejected. Runtime quality is better served by a small spine plus focused references because this skill is frequently loaded as an execution method.
+
+---
+
+## Documentation / Operational Notes
+
+- Update `skills/spec-write-tasks/evals/README.md` to distinguish fixture-backed, deterministic-runner, provider-backed and human-adjudicated evidence.
+- Add or update report docs under `skills/spec-write-tasks/reports/` as source-maintainer evidence.
+- Keep README changes optional unless user-facing packaged behavior changes; most work here is maintainer quality and governance evidence.
+- Changelog is required for every source change in this repository.
+
+---
+
+## Handoff Options
+
+- **Recommended next artifact:** Run `spec-write-tasks` on this plan to produce an executable task pack, because the work has eight dependent units and touches scripts, reports, tests, package evidence and skill prose.
+- **Fast path:** Start `$spec-work` directly from this plan if the implementer wants to keep the full plan in context and land the units sequentially.
+- **Review-first path:** Run `$spec-doc-review` on this plan before implementation if the team wants an independent check of the 100-point interpretation and script/LLM boundary.
+
+---
+
+## Sources & References
+
+- `skills/spec-write-tasks/SKILL.md`
+- `skills/spec-write-tasks/references/task-quality-guide.md`
+- `skills/spec-write-tasks/references/execution-handoff-contract.md`
+- `skills/spec-write-tasks/evals/README.md`
+- `skills/spec-write-tasks/evals/output-quality-cases.json`
+- `tests/unit/spec-write-tasks-contracts.test.js`
+- `.spec-first/audits/skill-audit/latest/skill-audit-summary.md`
+- `.spec-first/audits/skill-audit/latest/expert-scorecard.json`
+- `.spec-first/audits/skill-audit/latest/eval-readiness-report.json`
+- `docs/10-prompt/结构化项目角色契约.md`

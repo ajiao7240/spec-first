@@ -7,6 +7,8 @@
       "context": "The user is asking for execution, not task-pack compilation or validation.",
       "expected_decision": "skip",
       "expected_next_action": "Use spec-work with the source plan instead of generating a derived task pack.",
+      "boundary_note": "An implementation request must not be rerouted into task-pack generation when direct spec-work execution is the actual ask.",
+      "forbidden_signals": ["generated-task-pack", "compile-by-default"],
       "coverage_tags": ["boundary"]
     },
     {
@@ -31,6 +33,8 @@
       "context": "The source plan is executable and the derived pack is high-risk because it changes public workflow prose, shared contracts, and source/runtime boundary guidance.",
       "expected_decision": "compile",
       "expected_next_action": "Set next_action: review-task-pack with one reason and dispatch_authorization: missing unless the invoking parent workflow or user explicitly authorized this single bounded continuation; surface the copy-ready current-host doc-review invocation instead of dispatching by default.",
+      "boundary_note": "High-risk review handoff must not silently chain into document review from a standalone skill trigger.",
+      "forbidden_signals": ["auto-dispatch-without-authorization", "general-workflow-chaining"],
       "coverage_tags": ["boundary"]
     }
   ],

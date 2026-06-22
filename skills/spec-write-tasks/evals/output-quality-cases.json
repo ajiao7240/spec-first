@@ -6,7 +6,10 @@
     "skills/spec-write-tasks/references/task-pack-schema.md",
     "skills/spec-write-tasks/references/task-quality-guide.md",
     "tests/fixtures/spec-write-tasks/valid/source-plan.md",
-    "tests/fixtures/spec-write-tasks/valid/task-pack.md"
+    "tests/fixtures/spec-write-tasks/valid/task-pack.md",
+    "tests/fixtures/spec-write-tasks/small-plan/source-plan.md",
+    "tests/fixtures/spec-write-tasks/high-risk-review/source-plan.md",
+    "tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md"
   ],
   "source_ref_authority": "source",
   "coverage_tags": ["expected", "output-quality"],
@@ -43,7 +46,12 @@
     {
       "id": "small-plan-skip-preserves-context-budget",
       "input": "Split a one-file documentation fix plan into tasks.",
-      "input_files": [],
+      "input_files": [
+        {
+          "path": "tests/fixtures/spec-write-tasks/small-plan/source-plan.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
       "baseline_risks": [
         "The skill generates a task pack even though direct spec-work execution has lower carrying cost."
       ],
@@ -56,13 +64,22 @@
         "The explanation says direct execution is intentional, not an omission."
       ],
       "expected_outcome": "A high-quality run skips task compilation when it would add context cost without reducing execution risk.",
-      "evidence_status": "missing evidence",
-      "missing_evidence": ["file-backed fixture", "model execution evidence", "human adjudication"]
+      "evidence_status": "file-backed fixture",
+      "missing_evidence": ["model execution evidence", "human adjudication"]
     },
     {
       "id": "high-risk-pack-review-handoff-needs-authorization",
       "input": "Compile a task pack for a source/runtime boundary plan with review_gate: required tasks.",
-      "input_files": [],
+      "input_files": [
+        {
+          "path": "tests/fixtures/spec-write-tasks/high-risk-review/source-plan.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
       "baseline_risks": [
         "The skill silently chains into another workflow without explicit bounded dispatch authorization.",
         "The handoff loses the concrete review reason and current-host invocation."
@@ -77,8 +94,81 @@
         "The returned envelope exposes dispatch_authorization and reason_code."
       ],
       "expected_outcome": "High-risk task packs get decisive review handoff without turning spec-write-tasks into a general workflow orchestrator.",
-      "evidence_status": "missing evidence",
-      "missing_evidence": ["file-backed fixture", "provider telemetry", "human adjudication"]
+      "evidence_status": "file-backed fixture",
+      "missing_evidence": ["provider telemetry", "human adjudication"]
+    },
+    {
+      "id": "deep-plan-large-unit-fanout",
+      "input": "Compile a deep source plan whose U4 contains a new module, path helpers, marker behavior, init orchestration, all-repos behavior, dry-run/apply behavior, and failure reporting.",
+      "source_ref_authority": "historical",
+      "source_refs": [
+        "docs/plans/2026-06-22-001-feat-user-language-sync-plan.md",
+        "docs/tasks/2026-06-22-001-feat-user-language-sync-tasks.md"
+      ],
+      "input_files": [
+        {
+          "path": "docs/plans/2026-06-22-001-feat-user-language-sync-plan.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "docs/tasks/2026-06-22-001-feat-user-language-sync-tasks.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
+      "baseline_risks": [
+        "The skill mechanically maps one large implementation unit to one task because the source plan uses a single U-ID.",
+        "The resulting task passes deterministic validation but still forces the executor to privately split module, integration, output, and workspace behavior."
+      ],
+      "with_skill_expectations": [
+        "The output may repeat the same source_unit on multiple tasks when a source unit has multiple independent feedback loops.",
+        "The large unit is split by validation surface, such as module/path-helper behavior before init integration and output reporting.",
+        "The final task pack remains deterministically valid after fan-out."
+      ],
+      "objective_assertions": [
+        "At least one source_unit appears in more than one task when that unit has separable feedback loops.",
+        "The fan-out tasks have narrower files, test_focus, done_signal, and stop_if values rather than duplicated goals.",
+        "The task pack validates with spec-first tasks validate --json and deterministic_handoff: true."
+      ],
+      "expected_outcome": "A high-quality run avoids preserving an oversized implementation unit as one executable task when it contains multiple independent feedback loops.",
+      "evidence_status": "file-backed fixture",
+      "missing_evidence": ["provider telemetry", "human adjudication"]
+    },
+    {
+      "id": "degraded-helper-signal-does-not-downgrade-deep-plan",
+      "input": "Compile a very large team-standards governance plan after `task-governance-signals` returns `collection_status: degraded`, `reason_codes: [planning-context-unreadable, candidate-lightweight]`, and `candidate_level: lightweight`.",
+      "source_ref_authority": "historical",
+      "source_refs": [
+        "docs/plans/2026-06-21-004-feat-team-standards-governance-layer-plan.md",
+        "docs/tasks/2026-06-21-004-feat-team-standards-governance-layer-tasks.md"
+      ],
+      "input_files": [
+        {
+          "path": "docs/plans/2026-06-21-004-feat-team-standards-governance-layer-plan.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "docs/tasks/2026-06-21-004-feat-team-standards-governance-layer-tasks.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
+      "baseline_risks": [
+        "A generic task compiler lets a degraded helper output's lightweight candidate override the source plan's deep implementation structure.",
+        "The final handoff omits the helper degradation from Orientation Evidence, so downstream reviewers cannot tell why helper-derived risk signals were ignored."
+      ],
+      "with_skill_expectations": [
+        "The output records degraded helper output as advisory orientation evidence or envelope limitations.",
+        "The compile/skip decision is based on source-plan structure, implementation units, dependency graph, file surfaces, and verification spread.",
+        "Large source units fan out only when they have separable feedback loops, not merely because the helper signal is degraded."
+      ],
+      "objective_assertions": [
+        "The task pack compiles despite the degraded helper returning candidate_level: lightweight.",
+        "Orientation Evidence mentions the degraded helper status or `planning-context-unreadable` limitation.",
+        "The task pack validates with spec-first tasks validate --json and deterministic_handoff: true.",
+        "At least one source_unit appears in more than one task when the source unit contains distinct acquisition/template and skill-reference feedback loops."
+      ],
+      "expected_outcome": "A high-quality run treats degraded helper signals as limitations, not as authority to skip or downgrade a deep source plan.",
+      "evidence_status": "file-backed fixture",
+      "missing_evidence": ["provider telemetry", "human adjudication"]
     }
   ]
 }

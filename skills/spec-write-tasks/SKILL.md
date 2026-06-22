@@ -1,13 +1,13 @@
 ---
 name: spec-write-tasks
-description: "Compile a settled spec-plan into an optional derived task pack for spec-work, or validate an existing task pack before execution. Use when the user asks to split a plan into tasks, write task docs, or when a work suitability check concludes a task pack would materially reduce execution risk or context load. Keep plan as the single source of truth; tasks are derived and optional."
+description: "Compile a settled spec-plan into an optional derived task pack for spec-work, or validate an existing task pack before execution. Use for explicit plan-splitting/task-doc requests or high-complexity work suitability; do not use for implementation execution, unresolved scope, small low-risk plans, or remote/generic task lists. Keep plan as the single source of truth; tasks are derived and optional."
 ---
 
 # `spec-write-tasks`
 
 `spec-write-tasks` is an optional derived layer between `spec-plan` and `spec-work`.
 
-It does not execute code. It compresses a settled plan into a task pack that is easier for `spec-work` to consume, reducing context load and making dependencies, file boundaries, verification focus, and parallelization opportunities explicit.
+It does not execute code; it compresses a settled plan into a task pack for `spec-work`, making dependencies, file boundaries, verification focus, and parallelization explicit.
 
 ## Workflow Contract Summary
 
@@ -77,7 +77,7 @@ When skipping, say explicitly that this is not an omission; this case does not n
 6. `context_refs` must point to the smallest useful section, file, test, contract, or pattern reference. They are bounded reading pointers, not scope authority; whole-plan or whole-directory refs are low-quality handoff unless paired with narrower anchors.
 7. Each task should solve one clear subproblem and should usually have one primary verification target.
 8. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
-9. Source reads before task-pack generation must be bounded source orientation: start from the source plan, plan-indicated source files, and nearby tests; reuse already-loaded host/project instructions; read `AGENTS.md` / `CLAUDE.md` source only when the active host/project instruction reuse policy allows it, such as a user-named path, missing or stale loaded context, source/runtime governance work, or directory-scoped instructions that may govern changed files; read local contract docs only by precise path or section when they exist and materially improve task boundaries; optionally use LSP when available; and stop once task boundaries are accurate enough. Written project standards may become hard task constraints only when they apply to the changed files and remain consistent with the source plan. Other docs, prior plans, and external-tool facts are advisory context refs and must not become a workflow state machine or expand source-plan scope.
+9. Source reads before task-pack generation must be bounded source orientation: start from the source plan, plan-indicated files, nearby tests, and only the host/project instructions or local contracts allowed by the active instruction reuse policy. Use [Task Quality Guide](references/task-quality-guide.md) for the detailed intake and evidence rules.
 10. If the source plan was created from a parent workspace, it must carry a top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work. If repo scope is missing, return to `spec-plan`; do not invent child repo targets while deriving tasks.
 11. Prefer independently verifiable vertical slices over horizontal layers when the source plan permits it. A good slice closes one behavior with implementation, verification, and any necessary docs/config evidence. Docs-only and config-only tasks should use docs contract checks, schema/help/render checks, or diff-shape checks; do not force TDD where no behavior-bearing code changes.
 
@@ -117,24 +117,9 @@ When the input is `docs/plans/*-plan.md` or another explicit plan file:
 
 ### Bounded Source Orientation
 
-Before writing task cards, you may inspect code only until task boundaries are accurate enough.
+Before writing task cards, inspect code only until task boundaries are accurate enough. Use [Task Quality Guide](references/task-quality-guide.md) for the intake order, Direct Evidence handling, LSP provider rule, and orientation-evidence quality checks.
 
-Use this intake order for context economy: first read the plan/task summary and contract metadata, then deterministic inventory or validation facts, then current task/phase refs, then focused source-of-truth sections, and only then deeper references. Keep orientation facts compact by summarizing direct source reads, changed files, tests/logs, and limitations; do not create an external-tool facts pipeline.
-
-Provider order:
-
-1. Start with targeted direct repo reads of the plan-indicated files, nearby tests, directory indexes, and local patterns.
-2. If direct reads are insufficient and LSP is available, use it only for bounded source orientation: symbol overview, symbol lookup, references, and local pattern search.
-
-Orientation evidence is advisory. It must not turn the current implementation state into new tasks, replace source-plan authority, or override the source plan. If source orientation reveals missing scope, contract, acceptance, or verification decisions, return `return-to-plan` or `draft-only` instead of inventing task scope.
-
-If the source plan contains a `## Direct Evidence` block, consume `key_findings`, `impact_on_plan`, `source_reads_required`, and limitations as advisory task-focus inputs. `impact_on_plan` may influence task ordering, `source_reads_required` may become granular `context_refs`, `stop_if`, or `test_focus`, and `key_findings` may become risk notes. These facts must not create new tasks, expand source-plan scope, replace requirement refs, or choose a repo; every task pointer still needs source-plan and direct-source confirmation.
-
-LSP provider rule:
-
-- Activate the target project and use LSP quick indexing only for bounded source orientation: symbol overview, symbol lookup, references, and local pattern search.
-- Record the provider and limitations in orientation evidence.
-- Do not let LSP references automatically expand task scope or replace source-plan authority.
+Orientation evidence is advisory. It must not turn current implementation state into new tasks, replace source-plan authority, or override the source plan. If orientation reveals missing scope, contract, acceptance, or verification decisions, return `return-to-plan` or `draft-only` instead of inventing task scope.
 
 ### 2. Existing Task-Pack Path
 
@@ -174,9 +159,7 @@ It must have:
 - a source plan `spec_id` when generating an executable task pack,
 - no unresolved product, architecture, or contract decision that would change scope.
 
-Use the source plan's own structure as the primary complexity evidence for the split recommendation. At task-compilation time the plan already exists, so implementation-unit count, declared `Files`, dependency chains, cross-module surfaces, verification spread, and frontmatter `plan_depth` when present are higher-fidelity inputs than a fresh helper guess. Recommend `compile` when those plan facts show material execution risk or context load, such as many units, deep dependencies, broad file ownership, multi-layer verification, or `plan_depth: deep`. Recommend `skip` when the plan is small and shallow, and state that direct `spec-work` is intentional rather than an omission.
-
-`task-governance-signals.v1` may be used only as optional cross-check evidence, not as the task-time source of truth. In `--source plan-declared` mode it is designed for pre-plan Phase 0.6, does not consume written Implementation Units, and only sees non-empty planning facts when the caller builds and passes an `--input <planning-context.json>` file. If `--input` is omitted or unreadable, the helper can fall back to empty signals and still emit a `lightweight` candidate with `collection_status=ok`; do not treat that as proof of low risk. When helper evidence is absent, stale, degraded, or weaker than the written plan structure, fall back to direct plan evidence and let the LLM record the final reason.
+Use the source plan's own structure as the primary complexity evidence for the split recommendation. [Task Quality Guide](references/task-quality-guide.md) owns the detailed split-recommendation, degraded helper-signal handling, and `task-governance-signals.v1` cross-check rules.
 
 Choose exactly one branch:
 
@@ -193,7 +176,7 @@ This is an LLM semantic analysis order, not a script state machine. It does not 
 
 1. Extract source anchors: list requirements, scope boundaries, implementation units, files, verification, and deferred unknowns.
 2. Identify foundations: find shared schemas, contracts, adapters, fixtures, test helpers, and CLI surfaces.
-3. Identify executable slices: decide whether each unit should remain one task, split into vertical story tasks, or merge with a nearby unit. Avoid horizontal "all tests first, then all implementation" waves when independent vertical tracer bullets can be verified.
+3. Identify executable slices: decide whether each unit should remain one task, split into vertical story tasks, split into multiple feedback-loop tasks, or merge with a nearby unit. A single source implementation unit may produce more than one task when it contains distinct module-foundation, orchestration/integration, output/reporting, docs, or verification clusters; repeat the same `source_unit` on those tasks and narrow them with `requirement_refs`, `goal`, `files`, and `test_focus`. Avoid horizontal "all tests first, then all implementation" waves when independent vertical tracer bullets can be verified.
 4. Build the dependency graph: record only real output dependencies, not preferred ordering.
 5. Assign waves: avoid shared files inside a wave; executable task packs must serialize overlapping files into different waves because deterministic validation rejects same-wave file overlap.
 6. Write task cards: each task must state goal, files, granular `context_refs`, test_focus, done_signal, and stop_if.
@@ -208,6 +191,7 @@ Before outputting a task pack, verify:
 - no task adds scope not declared in the plan,
 - no task turns deferred work or non-goals into goals,
 - no task is so large that it needs internal task splitting,
+- no task keeps a large source implementation unit intact when it actually contains multiple independent feedback loops with separate validation surfaces,
 - no task is so small that it cannot be verified independently,
 - dependencies represent real dependencies rather than ordering preference,
 - same-wave tasks have no unmarked file overlap,
@@ -218,18 +202,7 @@ See [Task Quality Guide](references/task-quality-guide.md) for detailed quality 
 
 ## Task Splitting Principles
 
-- Create foundation tasks only when the source plan already requires shared fixtures, schemas, contracts, CLI surfaces, or helpers that multiple later tasks truly depend on.
-- Otherwise prefer closed user-verifiable story slices or plan implementation units.
-- Add integration, docs, release-surface, or polish tasks last.
-- Merge continuous changes in the same module.
-- Merge related changes on the same test surface.
-- Merge implementation and verification when they form a small closed loop.
-- Split when the file set is clearly too large.
-- Prefer splitting when there are independent verification points.
-- Prefer splitting when tasks can run in parallel, but do not invent hidden dependencies.
-- If a task cannot describe its completion signal in one sentence, it is usually too large.
-
-Do not mechanically convert each implementation unit into one task. A unit may contain multiple independently verifiable user stories; multiple units may also share one foundation task.
+Prefer closed user-verifiable story slices or plan implementation units, and create foundation tasks only when the source plan already requires shared artifacts. Do not mechanically convert each implementation unit into one task: large source units can fan out into multiple executable tasks when the feedback loops are independent. Use [Task Quality Guide](references/task-quality-guide.md) for split, merge, vertical slice, and verification-point heuristics.
 
 ## Outputs
 
@@ -266,116 +239,43 @@ The body must include:
 
 The deterministic validator only proves frontmatter identity/freshness plus the `Task Pack Contract` machine-readable structure. The other body sections are LLM/human handoff quality requirements and must not be described as CLI-validated unless a future validator explicitly checks them.
 
-When writing a task pack, read [Task Pack Schema](references/task-pack-schema.md) and use its frontmatter, task-card fields, and regeneration rules.
+When writing a task pack, read [Task Pack Schema](references/task-pack-schema.md) and use its frontmatter, task-card fields, and regeneration rules. When filling the final decision envelope, validating hash identity, or returning a high-risk review handoff, read [Execution Handoff Contract](references/execution-handoff-contract.md).
 
 ## Final Decision Envelope
 
-Every `spec-write-tasks` run must end with a compact decision envelope. The envelope is a handoff summary for this run, not persisted workflow state:
+Every `spec-write-tasks` run must end with the compact decision envelope defined in [Execution Handoff Contract](references/execution-handoff-contract.md). The envelope is a handoff summary for this run, not persisted workflow state.
 
-```yaml
-decision: compile | skip | return-to-plan | draft-only | validate-only
-reason_code: source_plan_missing | ambiguous_plan | missing_spec_id | wrong_chain | stale_hash | unverifiable_hash | invalid_contract | repo_scope_missing | scope_gap | small_plan | task_pack_compiled | task_pack_validated | not_applicable
-source_plan: docs/plans/... | null
-task_pack: docs/tasks/... | null
-task_pack_validity: valid | draft | stale | wrong-chain | invalid | unverifiable | not-applicable
-deterministic_handoff: true | false
-validity_scope: identity-freshness-structure-only
-semantic_posture: generated-this-run | reviewed-existing | unchecked-existing | not-applicable
-reason: <one sentence>
-dispatch_authorization: authorized | missing | not_required | not_applicable
-validation:
-  spec_id: matched | missing | mismatch | not_checked
-  source_plan_hash: matched | missing | mismatch | unavailable | not_checked
-  hash_tool: available | unavailable
-  source_plan_path: resolved | missing | invalid
-  task_pack_contract: valid | invalid | not_checked
-orientation:
-  provider: direct-repo-reads | lsp | mixed | skipped
-  posture: bounded | degraded | skipped-small-plan | unavailable
-  evidence_refs: []
-  limitations: []
-next_action: spec-work-task-pack | review-task-pack | spec-work-plan | revise-plan | stop
-```
+Required posture:
 
-Use a `Failure Modes` code as `reason_code` whenever the run stops, downgrades, or rejects a handoff. Use `small_plan`, `task_pack_compiled`, `task_pack_validated`, or `not_applicable` only when no failure mode applies. The natural-language `reason` explains the code; it must not be the only machine-readable failure signal.
+- use one of `compile`, `skip`, `return-to-plan`, `draft-only`, or `validate-only`,
+- include a machine-readable `reason_code`; use a Failure Modes code whenever the run stops, downgrades, or rejects a handoff,
+- run `spec-first tasks validate <task-pack-path> --json` before reporting `deterministic_handoff` or `validation` fields,
+- run `spec-first tasks hash <plan-path>` when computing or comparing `source_plan_hash`,
+- never self-report `deterministic_handoff: true` without CLI JSON evidence,
+- allow `next_action: spec-work-task-pack` only when the task pack is deterministic and semantically reviewed or generated this run.
 
-Before filling `deterministic_handoff` and the `validation:` block, you must actually run the deterministic CLI and transcribe its result, not assert it from inspection. Run `spec-first tasks validate <task-pack-path> --json` (and `spec-first tasks hash <plan-path>` when computing or comparing the source plan hash), then copy `deterministic_handoff` and each `validation` field from that JSON output. If the `tasks` subcommand is not runtime-visible or returns an unknown-subcommand error, treat the run as `unverifiable_hash`, set `deterministic_handoff: false`, and downgrade to `draft-only`; never self-report `deterministic_handoff: true` or `validation` matches without the CLI JSON in hand.
+High-risk packs should return `next_action: review-task-pack` with one concrete reason and a copy-ready current-host doc-review invocation. Do not auto-dispatch document review unless the explicit bounded continuation conditions in [Execution Handoff Contract](references/execution-handoff-contract.md) are met.
 
-`next_action: spec-work-task-pack` is allowed only when `deterministic_handoff: true` and `semantic_posture` is `generated-this-run` or `reviewed-existing`. `deterministic_handoff` proves identity, freshness, and structure only; it does not prove semantic task quality.
+## Task Card Semantics
 
-Use `next_action: review-task-pack` as the decisive handoff recommendation for high-risk task packs. Choose it when the pack contains `review_gate: required` tasks, touches shared contracts, public workflow prose, source/runtime boundaries, security/release/CI surfaces, or has enough tasks/dependencies that semantic drift or over-splitting would be costly. The output must include one concrete reason and a copy-ready current-host document-review invocation, such as `/spec:doc-review <task-pack-path>` for Claude or `$spec-doc-review <task-pack-path>` for Codex.
+Executable task cards use the deterministic and quality-field split defined in [Execution Handoff Contract](references/execution-handoff-contract.md) and the field tables in [Task Pack Schema](references/task-pack-schema.md).
 
-For a high-risk pack that resolves to `review-task-pack`, do not dispatch by default. Continue directly into the current host's document review without a separate confirmation step only under all of these conditions:
+Key reminders:
 
-- the pack is executable (`deterministic_handoff: true`) and `review-task-pack` was selected by the high-risk criteria above,
-- the invoking parent workflow or user explicitly authorized this single bounded continuation for the current run; a standalone skill trigger alone is not dispatch authorization,
-- the current session is an interactive host that exposes the document-review entrypoint (`/spec:doc-review` on Claude, `$spec-doc-review` on Codex),
-- the continuation targets exactly the doc-review of the just-written task pack; do not chain any further workflow, and do not invoke document review as an Agent/Task/subagent type.
-
-When continuing, invoke the current-host doc-review in headless mode on the task-pack path (`/spec:doc-review mode:headless <task-pack-path>` on Claude, `$spec-doc-review mode:headless <task-pack-path>` on Codex), then report the doc-review outcome alongside this envelope. Headless keeps the continuation bounded and non-interactive: doc-review applies its own safe fixes silently and returns structured findings without firing its interactive routing or walk-through prompts inside this run.
-
-This is bounded auto-continuation, not general workflow chaining: it covers only the single write-tasks → doc-review edge for high-risk packs, and `spec-write-tasks` still does not become an orchestrator or execution state machine. Set `dispatch_authorization: authorized` only when the explicit authorization condition is met. When any condition is not met — the pack is low-risk, `deterministic_handoff` is false, dispatch authorization is missing, no doc-review entrypoint is available, or the run is autonomous/headless — do not dispatch. Set `dispatch_authorization: missing`, `not_required`, or `not_applicable` as appropriate, surface the `review-task-pack` recommendation in the returned envelope, and let the caller decide.
-
-## Required Task Card Semantics
-
-Executable task cards have two layers:
-
-1. Deterministic contract fields validated by `spec-first tasks validate`: `task_id`, `dependencies`, non-empty concrete `files`, `goal`, `test_focus`, `done_signal`, `wave`, `stop_if`, plus at least one source anchor through `source_unit` or `requirement_refs`.
-2. LLM/human quality fields that should be present when they reduce execution context or make delegation staging safe: `context_refs`, `entry_hint`, `parallelizable`, `expected_side_effects`, `risk_note`, `notes`, `review_gate`, `review_focus`, `handoff_owner`, and workspace-scoped `target_repo` when applicable.
-
-Every executable task card must express:
-
-- `task_id`: stable identifier.
-- `source_unit`: matching plan U-ID when available.
-- `requirement_refs`: related requirements or acceptance refs; required when `source_unit` is absent.
-- `goal`: one-sentence task goal.
-- `dependencies`: prerequisite task IDs.
-- `files`: non-empty concrete repo-relative POSIX file paths the task is allowed to touch.
-- `test_focus`: primary verification focus.
-- `done_signal`: observable completion signal.
-- `stop_if`: condition that should send execution back to `spec-plan` or user confirmation.
-- `wave`: execution wave.
-
-Add these quality fields when useful, but do not imply the CLI validator proves their semantic adequacy:
-
-- `context_refs`: specific plan sections, source files, tests, contracts, pattern docs, or research notes the executor must read. Prefer section/file/test/contract granularity. A whole-plan ref is low quality unless it is paired with narrower anchors, and a whole-directory ref is acceptable only when the source plan explicitly makes that directory the bounded surface.
-- `entry_hint`: where to start reading; not a step-by-step implementation script.
-- `parallelizable`: whether the task can run in parallel.
-- `expected_side_effects`: optional repo-relative exact paths or bounded globs that may be touched in addition to `files`, such as lockfiles, generated fixtures, or formatter-adjacent files. Do not use `**` whole-repo globs. This is an explicit staging allowlist, not extra product scope.
-- `risk_note`: main risk.
-- `review_gate`: optional review intent metadata. Use `required` only for high-risk shared contracts, public workflow prose, validator/schema changes, source/runtime boundary changes, security/release/CI surfaces, or tasks that unblock multiple dependent tasks. Use `optional` for medium-risk behavior changes where review can usually merge into final shipping review. Omit it for docs-only, config-only, trivial copy edits, and low-risk single-file fixes. This is not lifecycle state, review status, or approval metadata.
-- `review_focus`: concrete review concern for a mini review or final shipping review. It must not replace `test_focus`, `done_signal`, or `stop_if`.
-- `target_repo`: selected child repo in parent-workspace contexts.
-
-The deterministic validator checks `review_gate` structure only (`optional` or `required`) and does not decide which tasks semantically require review. That decision belongs to LLM/human task compilation and downstream `spec-work` judgment.
+- deterministic fields include `task_id`, `dependencies`, concrete `files`, `goal`, `test_focus`, `done_signal`, `wave`, `stop_if`, and at least one source anchor through `source_unit` or `requirement_refs`,
+- quality fields such as `context_refs`, `entry_hint`, `parallelizable`, `expected_side_effects`, `risk_note`, `review_gate`, `review_focus`, `handoff_owner`, and `target_repo` reduce execution context but do not replace source-plan scope,
+- `review_gate` is review intent, not lifecycle state, approval state, or validator-owned semantic risk,
+- the deterministic validator checks `review_gate` structure only and does not decide which tasks semantically require review.
 
 ## Drift And Hash
 
-`source_plan_hash` must be the canonical source plan body hash produced by `spec-first tasks hash <plan-path>`.
+Use the hash rules in [Execution Handoff Contract](references/execution-handoff-contract.md).
 
-`spec_id` is copied from the source plan and is not part of freshness. It links the task pack to the same spec chain; `source_plan_hash` proves the task pack is still derived from the current source plan body.
-
-If the source plan has no `spec_id`, do not generate an executable task pack. Return to `spec-plan` to add the plan-local identity, or produce only a `draft` / `transient` output that is not valid `spec-work` input.
-
-Hash rules:
-
-- Read the source plan as UTF-8 text.
-- Normalize `CRLF` / `CR` to `LF`.
-- If the first line is `---`, remove the complete frontmatter block; if closing frontmatter is missing, fail closed.
-- Hash the remaining Markdown body exactly as canonicalized; do not extract sections or collapse whitespace in MVP.
-- Frontmatter fields such as `status` and `spec_id` are not part of freshness; identity is checked separately.
-
-A task pack that can be handed to `spec-work` must use a concrete canonical source plan body hash, for example `sha256:<64-hex>`.
-
-If the current environment has no deterministic hash capability, do not pretend validation happened. Only produce a draft/non-executable task pack or explain that hash tooling is required first. Do not use `pending-tooling`, `unknown`, empty values, or guessed whole-file hashes as executable handoff.
+`spec_id` links the source plan and task pack to the same spec chain. `source_plan_hash` proves the task pack is still derived from the current source plan body. If the source plan has no `spec_id`, do not generate an executable task pack; return to `spec-plan` or produce only a draft/transient output that is not valid `spec-work` input.
 
 ## Handoff To `spec-work`
 
-- If the task pack matches the current plan hash, `spec-work` should prefer the task pack.
-- If the plan is small or the task pack has low value, `spec-work` can consume the plan directly.
-- If the task pack lacks a verifiable hash, has a hash mismatch, has a `spec_id` mismatch, or conflicts with the plan, reject handoff and rebuild from the plan.
-
-When consuming a task pack, `spec-work` must still read relevant code, discover tests, and identify execution-time facts. A task pack is a better input, not a replacement for execution judgment.
+Use [Execution Handoff Contract](references/execution-handoff-contract.md). `spec-work` may consume a valid task pack, may consume small plans directly, and must reject missing-hash, stale, wrong-chain, unverifiable, or conflicting packs before implementation. A task pack improves input quality; it never replaces source reads, test discovery, or execution judgment.
 
 ## Failure Modes
 
@@ -391,30 +291,11 @@ When consuming a task pack, `spec-work` must still read relevant code, discover 
 
 ## Scope Backoff
 
-Every generated task must include `stop_if`. Common stop signals:
-
-- the task requires modifying core files not declared by the task pack,
-- the task requires a new public API, CLI command, config key, database table, or durable state file not declared by the plan,
-- the task requires a new term, durable abstraction, or external contract,
-- the task's `done_signal` cannot be proven by the available tests or verification path,
-- execution reveals a conflict between the source plan's scope boundary and the real code.
-
-When a stop signal triggers, return to `spec-plan` or rerun `spec-write-tasks`. Do not expand scope in place.
+Every generated task must include `stop_if`. Stop when execution needs undeclared core files, public APIs, config/state, new durable terms or contracts, unverifiable `done_signal`, or a conflict between real code and source-plan boundaries. Return to `spec-plan` or rerun `spec-write-tasks`; do not expand scope in place.
 
 ## Lint Boundary
 
-A script may run deterministic lint for:
-
-- complete frontmatter,
-- `source_plan` exists,
-- `source_plan_hash` format,
-- `Task Pack Contract` fenced JSON block exists and parses,
-- unique `task_id`,
-- dependencies refer to existing tasks,
-- files use concrete repo-relative paths,
-- same-wave file overlap is absent or serialized.
-
-Do not let scripts judge whether task splitting is semantically good. Splitting, merging, waves, and boundaries are LLM semantic decisions.
+A script may lint frontmatter, `source_plan`, hash format, contract JSON, task ids, dependencies, concrete repo-relative files, and same-wave file overlap. Do not let scripts judge whether task splitting is semantically good. Splitting, merging, waves, and boundaries are LLM semantic decisions.
 
 ## Do Not
 
@@ -430,5 +311,6 @@ Do not let scripts judge whether task splitting is semantically good. Splitting,
 
 ## References
 
+- [Execution Handoff Contract](references/execution-handoff-contract.md)
 - [Task Pack Schema](references/task-pack-schema.md)
 - [Task Quality Guide](references/task-quality-guide.md)

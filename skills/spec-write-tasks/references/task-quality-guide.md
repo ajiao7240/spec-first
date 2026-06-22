@@ -30,7 +30,30 @@ Source plan is task-ready when it has:
 
 If a missing item is a true implementation-time unknown, keep the task pack derived and record it in `risk_note` and `stop_if`. If it is a planning decision, return to `spec-plan` instead of inventing task scope.
 
-For split recommendations, prefer the source plan's own structure over helper-derived size hints. A written plan's implementation units, declared files, dependency graph, verification spread, and `plan_depth` are task-time evidence. `task-governance-signals.v1` is advisory cross-check input only; `plan-declared` mode was designed for pre-plan collection and may emit an empty-signal `lightweight` candidate when no `--input` planning context is supplied. Do not treat that output as confirmed low risk, and do not make it a gate.
+For split recommendations, prefer the source plan's own structure over helper-derived size hints. A written plan's implementation units, declared files, dependency graph, verification spread, and `plan_depth` are task-time evidence. `task-governance-signals.v1` is advisory cross-check input only; `plan-declared` mode was designed for pre-plan collection and may emit an empty-signal `lightweight` candidate when no `--input` planning context is supplied. It may also return `collection_status: degraded` or `reason_codes` such as `planning-context-unreadable` even when an `--input` path was provided. When signal collection is degraded, record the helper output in Orientation Evidence or the final envelope limitations, ignore its `candidate_level` for compile/skip decisions, and rely on source-plan structure plus direct reads. Do not treat that output as confirmed low risk, and do not make it a gate.
+
+## Source Orientation Rules
+
+Source orientation exists only to make task boundaries accurate enough.
+
+Use this intake order for context economy: first read the plan/task summary and contract metadata, then deterministic inventory or validation facts, then current task/phase refs, then focused source-of-truth sections, and only then deeper references. Keep orientation facts compact by summarizing direct source reads, changed files, tests/logs, and limitations; do not create an external-tool facts pipeline.
+
+Start from the source plan, plan-indicated source files, and nearby tests. Reuse already-loaded host/project instructions. Read `AGENTS.md` / `CLAUDE.md` source only when the active host/project instruction reuse policy allows it, such as a user-named path, missing or stale loaded context, source/runtime governance work, or directory-scoped instructions that may govern changed files. Read local contract docs only by precise path or section when they exist and materially improve task boundaries. Written project standards may become hard task constraints only when they apply to the changed files and remain consistent with the source plan. Other docs, prior plans, and external-tool facts are advisory context refs and must not become a workflow state machine or expand source-plan scope.
+
+Provider order:
+
+1. Start with targeted direct repo reads of the plan-indicated files, nearby tests, directory indexes, and local patterns.
+2. If direct reads are insufficient and LSP is available, use it only for bounded source orientation: symbol overview, symbol lookup, references, and local pattern search.
+
+Orientation evidence is advisory. It must not turn current implementation state into new tasks, replace source-plan authority, or override the source plan. If orientation reveals missing scope, contract, acceptance, or verification decisions, return `return-to-plan` or `draft-only` instead of inventing task scope.
+
+If the source plan contains a `## Direct Evidence` block, consume `key_findings`, `impact_on_plan`, `source_reads_required`, and limitations as advisory task-focus inputs. `impact_on_plan` may influence task ordering, `source_reads_required` may become granular `context_refs`, `stop_if`, or `test_focus`, and `key_findings` may become risk notes. These facts must not create new tasks, expand source-plan scope, replace requirement refs, or choose a repo; every task pointer still needs source-plan and direct-source confirmation.
+
+LSP provider rule:
+
+- Activate the target project and use LSP quick indexing only for bounded source orientation: symbol overview, symbol lookup, references, and local pattern search.
+- Record the provider and limitations in orientation evidence.
+- Do not let LSP references automatically expand task scope or replace source-plan authority.
 
 ## Traceability Rules
 
@@ -63,12 +86,28 @@ Split a task when:
 - it has multiple independent validation points,
 - part of it can run in parallel and part must be serial,
 - it combines contract, implementation, docs, and tests without a small closed loop.
+- it preserves a large source implementation unit that actually contains separable feedback loops, such as module foundation, orchestration/integration, output/reporting, docs, and verification clusters.
 
 Merge tasks when:
 
 - each split item is too small to verify independently,
 - they are consecutive changes in the same file,
 - implementation and tests form one natural closed loop.
+
+## Large Implementation Unit Fan-Out
+
+A source implementation unit is not automatically an executable task. Deep plans often use one `U-ID` to describe a broad technical slice, but the executor still needs smaller feedback loops.
+
+Split a single source unit into multiple tasks when it has at least two independently verifiable clusters, for example:
+
+- a new module or helper API, plus a separate orchestration/integration path,
+- path or marker primitives, plus CLI output and failure reporting,
+- core behavior tests, plus docs/changelog/release-surface work,
+- selected-host behavior, plus all-host cleanup or workspace/all-repos behavior.
+
+When you fan out one source unit, repeat the same `source_unit` on each task and narrow each task with specific `requirement_refs`, `files`, `test_focus`, and `done_signal`. This keeps traceability while avoiding a task so broad that the executor needs a private task list before starting.
+
+Do not split merely because a unit is long. Split only when the resulting tasks have distinct file groups, validation surfaces, or failure boundaries. If the split would produce tiny tasks that cannot be verified independently, keep the unit together.
 
 ## Vertical Slice And Feedback Loop Rules
 
@@ -198,6 +237,7 @@ Bad stop signals:
 | `done_signal` is subjective | Cannot verify completion | Use test, diff, CLI, docs, or review signals |
 | `stop_if` is vague | Cannot stop scope creep | Name concrete out-of-scope triggers |
 | Horizontal all-tests-then-all-implementation slicing | Feedback arrives too late and integration risk is hidden | Prefer vertical tracer bullets with one behavior, verification loop, and docs/config evidence closed together |
+| Large source unit kept as one task | The validator may pass while the executor still has to privately split module, integration, output, and docs work | Fan out the source unit into multiple tasks that repeat the same `source_unit` but have narrower files, verification, and stop signals |
 | `review_gate` is required by default | Creates review noise and encourages executors to bypass the field | Reserve `required` for high-risk or dependency-unblocking tasks; use `optional` sparingly and omit for low-risk tasks |
 | `review_focus` repeats test focus | Review loses a distinct risk lens | Name the contract, boundary, or semantic concern review should inspect |
 | Task adds scope | Task pack becomes a second plan | Return to `spec-plan` |
