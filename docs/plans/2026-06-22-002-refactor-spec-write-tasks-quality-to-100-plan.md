@@ -11,7 +11,7 @@ plan_depth: deep
 
 ## Summary
 
-本计划把 `spec-write-tasks` 从当前 A- / 90 分推进到 **evidence-complete 目标态**：每个非满分维度都有可复查证据，确定性审计分数到达其诚实上限（在 `--target` 审计与 KTD6/A4「不改 scorer」前提下约为 92），剩余分差逐一归因到具名的 scorer capability gap。具体补齐 executable output eval、语义质量事实分析、进一步 entrypoint 瘦身、input/output/workflow 证据、runtime/cross-host portability 证据，以及高风险 task-pack doc-review 的 bounded continuation 证明。核心原则是增强证据闭环，而不是把任务拆分语义硬编码进脚本，也不是把审计数字本身当成目标。
+本计划把 `spec-write-tasks` 从当前 A- / 90 分推进到 **evidence-complete 目标态**：每个非满分维度都有可复查证据，确定性审计分数到达其诚实上限（在 `--target` 审计与 KTD6/A4「不改 scorer」前提下约为 92），剩余分差逐一归因到具名的 scorer capability gap。具体补齐 executable output eval、语义质量事实分析、进一步 entrypoint 瘦身、input/output/workflow 证据、runtime/cross-host portability 证据、高风险 task-pack doc-review 的 bounded continuation 证明，以及面向超大 source plan 的 large-plan handling 纪律（map-reduce 前置产物 + 宽单元 fan-out 自检 + 分阶段编译）。核心原则是增强证据闭环与拆分纪律，而不是把任务拆分语义硬编码进脚本，也不是把审计数字本身当成目标。
 
 ---
 
@@ -53,6 +53,7 @@ plan_depth: deep
 - R8. 所有新增 scripts/reports/tests 必须保持 source/runtime 边界：不改 `.claude/`、`.codex/`、`.agents/skills/` 作为 source，不依赖 `.spec-first/audits` 作为 runtime truth。
 - R9. 验证路径必须能同时证明 deterministic contract、semantic evidence posture、packaging portability 和 changelog 合规。
 - R10. **（主成功契约）** 最终审计在 KTD6/A4 前提下不会是机械 100 分；closeout report 必须把每个非满分/未评分维度逐一归因为 audit tool capability gap、semantic review pending，还是目标 skill 实质缺口，不能用文案遮盖。**达到 evidence-complete 且残差全部具名归因即视为成功，而非追求数字 100。**
+- R11. 为超大 source plan（如 >1500 行 / >8 implementation units / >20 requirements）定义 large-plan handling 纪律：在 Compilation Algorithm 之前要求 map-reduce 式前置产物（unit 索引表、real-dependency/seam 表、requirement×task 覆盖矩阵），强制对宽单元做 fan-out 自检，并允许在一遍编译会降质时按 wave/phase 分阶段编译。该纪律是 advisory authoring discipline，不得变成新的脚本 hard gate，也不得新增 runtime-required reference 之外的 source 文件。
 
 ---
 
@@ -177,6 +178,7 @@ plan_depth: deep
 - KTD6. **Do not change `spec-skill-audit` scoring until target evidence exists.** If the audit remains at 90 after evidence is present, then inspect audit consumption semantics; do not preemptively game scores.
 - KTD7. **Cross-host evidence belongs in tests/smoke, not generated mirror patches.** Use source sync/package APIs and temp directories to prove Codex/Claude delivery surfaces, then regenerate runtime only if a separate setup/update task requires it.
 - KTD8. **High-risk doc-review remains a single bounded edge.** `spec-write-tasks -> spec-doc-review` may be recommended, or invoked only when explicitly authorized for the just-written pack; it never becomes general workflow chaining.
+- KTD9. **Large-plan handling is map-reduce discipline, not a new node or gate.** 对超大 plan，先抽骨架与依赖图、在压缩后的地图上推理、再选择性深读，避免线性通读 2000+ 行导致注意力稀释与跨单元耦合漏判。现有启发式（intake order、large-unit fan-out、vertical slice、wave、context 压缩、requirement 覆盖）已在 `task-quality-guide.md`，缺的是"规模触发 + 中间产物持久化"；本计划只把这些既有启发式在超大规模下硬化为前置 worksheet，细节进 reference（与 KTD5 的 SKILL 瘦身一致），SKILL 只留一行规模触发指针。不新增脚本判定、不新增 runtime-required 文件、不把 fan-out 变成 validator 失败条件。
 
 ---
 
@@ -480,13 +482,55 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 
 ---
 
-### U8. Close the Validation and Audit Loop
+### U8. Add Large-Plan Handling Discipline To The Quality Surface
+
+**Goal:** 让 `spec-write-tasks` 在面对超大 source plan 时，把已有的 fan-out / 覆盖 / wave 启发式从"普通规模可省的 prose"硬化为"超大规模必做的前置 worksheet"，从而保障高质量拆分；细节进 reference，入口只加规模触发指针。
+
+**Requirements:** R3, R4, R11
+
+**Dependencies:** U3, U4
+
+**Files:**
+- Modify: `skills/spec-write-tasks/references/task-quality-guide.md`
+- Modify: `skills/spec-write-tasks/SKILL.md`
+- Modify: `skills/spec-write-tasks/scripts/analyze-task-pack-quality.js`
+- Test: `tests/unit/spec-write-tasks-contracts.test.js`
+- Test: `tests/unit/spec-write-tasks-quality-analysis.test.js`
+
+**Approach:**
+- 在 `task-quality-guide.md` 新增 `Large-Plan Handling` 小节，定义：
+  - 规模触发阈值（advisory，非 gate）：plan >1500 行 或 >8 implementation units 或 >20 requirements 时进入 large-plan 路径。
+  - map-reduce 四步前置产物：(1) unit 索引表（unit / files / dependencies / requirement_refs / verification / seam）；(2) real-dependency + seam 表（define-once → consumed-by-many → 强制 wave + `review_gate: required`）；(3) requirement×task 覆盖矩阵；(4) 选择性深读规则（先在压缩地图上推理，仅对边界不清的 unit 做 bounded source orientation）。
+  - 宽单元 fan-out 自检：任何挂 ≥K requirements 或含 ≥2 独立可验证 cluster 的 source unit，必须显式记录"已 fan-out 成多 task / 或为何保持整体"，重复同一 `source_unit` 并收窄 `files` / `requirement_refs` / `test_focus` / `done_signal`。
+  - 分阶段编译：当单次编译会降质时，允许按 wave/phase 分批 `compile` + `validate`，而不是一个巨型 pass。
+- 在 `SKILL.md` 的 Workflow / Compilation Algorithm 处加 **一行**规模触发指针，指向该 reference 小节，保持入口在 ≤3000 token 预算内（与 KTD5 / U4 一致）。
+- 在 `analyze-task-pack-quality.js` 增加 advisory 检查：宽 `source_unit`（被多个 requirement 引用但只对应单个 task）输出 `info|warning` 与 `llm_review_prompt`，但不改变 validator 结果、不设 `deterministic_handoff`。
+- 不新增第六个 reference 文件；不新增脚本 hard gate；不要求 large-plan worksheet 成为 `spec-first tasks validate` 的失败条件。
+
+**Patterns to follow:**
+- `skills/spec-write-tasks/references/task-quality-guide.md` 的 `Large Implementation Unit Fan-Out` 与 `Dependency and Wave Rules`
+- 输出体既有 `Traceability Matrix` / `Task Graph` / `Execution Waves` 结构
+- KTD9 的 map-reduce 纪律
+
+**Test scenarios:**
+- Reference 内容：`task-quality-guide.md` 含规模阈值、四步前置产物、fan-out 自检、分阶段编译。
+- Entrypoint 经济：`SKILL.md` 仅新增 large-plan 触发指针，仍满足 ≤3000 token 预算（与 U4 共测）。
+- Advisory 边界：analyzer 对宽单元只产 advisory facts，`spec-first tasks validate` 结果不变，exit code 不因 large-plan smell 变非零。
+- 拓扑稳定：不新增 reference 文件；source topology 测试仍通过。
+
+**Verification:**
+- 一个 reviewer 能仅凭 reference 判断"何时进入 large-plan 路径、要产出哪三张表、何时该 fan-out / 分阶段编译"，而无需依赖 SKILL 主干长文。
+- analyzer 的宽单元提示是 advisory，不污染 deterministic handoff。
+
+---
+
+### U9. Close the Validation and Audit Loop
 
 **Goal:** Prove the optimization through focused deterministic checks, package smoke, task-pack validation, audit rerun and fresh-source semantic review.
 
-**Requirements:** R1, R8, R9, R10
+**Requirements:** R1, R8, R9, R10, R11
 
-**Dependencies:** U1, U2, U3, U4, U5, U6, U7
+**Dependencies:** U1, U2, U3, U4, U5, U6, U7, U8
 
 **Files:**
 - Modify: `CHANGELOG.md`
@@ -541,6 +585,7 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 | Reports become runtime dependencies | Package smoke must prove runtime archive excludes or does not require evals/reports. |
 | Cross-host tests overclaim coverage | Record host-specific missing coverage as `not_checked_with_reason`; never infer Claude coverage from Codex-only sync. |
 | High-risk review handoff chains workflows silently | Require explicit bounded continuation authorization and test the missing-authorization path. |
+| Large-plan discipline 膨胀成新节点 / 脚本 gate | 仅在既有 `task-quality-guide.md` 加 reference 小节 + SKILL 一行指针；analyzer 宽单元提示保持 advisory，exit code 不因 large-plan smell 变非零；不新增 reference 文件。 |
 | Existing dirty worktree causes accidental revert | Re-read touched files before editing and patch only targeted sections. |
 
 ---
@@ -565,7 +610,7 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 
 ## Handoff Options
 
-- **Recommended next artifact:** Run `spec-write-tasks` on this plan to produce an executable task pack, because the work has eight dependent units and touches scripts, reports, tests, package evidence and skill prose.
+- **Recommended next artifact:** Run `spec-write-tasks` on this plan to produce an executable task pack, because the work has nine dependent units and touches scripts, reports, tests, package evidence, large-plan handling discipline and skill prose.
 - **Fast path:** Start `$spec-work` directly from this plan if the implementer wants to keep the full plan in context and land the units sequentially.
 - **Review-first path:** Run `$spec-doc-review` on this plan before implementation if the team wants an independent check of the 100-point interpretation and script/LLM boundary.
 
