@@ -207,6 +207,75 @@ Then produce the final rewritten PRD using the standard skeleton and triggered s
 
 `not-run` is a run-local decision-card state only; do not emit it in the diagnosis block because an emitted refine/validate diagnosis has run by definition. Do not create numeric PRD scorecards, 0-100 quality ratings, or industry hard-threshold rubrics.
 
+Use two different diagnosis moments:
+
+- `Preliminary Diagnosis` happens after sanitization and source/current-state evidence. It decides input scale, system anchor, whether Pre-PRD Clarification is needed, whether large-input Map-Reduce is needed, which P0/P1 packs are triggered, and whether to route out.
+- `Final Readiness Diagnosis` happens after rewrite and closure. It decides whether unresolved gaps still force planning to invent WHAT. Preliminary labels such as `ready`, `minor-gaps`, `material-gaps`, or `blockers` are not final `ready-for-planning`.
+
+If Pre-PRD Clarification ran, feed its results into final PRD rewrite through section-level write targets. Do not leave a detached critique, interview transcript, chunk summary, Map row, Reduce output, or standalone grill report as the durable output.
+
+Rough PRD gap-to-target mapping:
+
+| Gap type | First resolution path | PRD write target |
+| --- | --- | --- |
+| actor / beneficiary unclear | prior PRD/source-facing entry, then owner | `Actors`, `Requirements`, `Outstanding Questions` |
+| flow missing | current routes/commands/docs, then owner | `Use Cases`, `Interaction Requirements`, `Acceptance Examples` |
+| state / permission missing | source/tests/roles/contracts, then owner | `Requirements`, `Acceptance Examples`, `Negative Acceptance` |
+| exception / failure missing | existing error/empty/retry patterns, then owner | `Exception Handling`, `Acceptance Examples`, `Scope Boundaries` |
+| scope boundary fuzzy | prior plans/non-goals, then owner | `Scope Boundaries`, `Decision Notes` |
+| decision intersection unresolved | ratified decisions/docs/source, then owner | `Decision Notes`, `Outstanding Questions` |
+| term/source contradiction | Domain Grill source-first lookup | `Glossary`, `Decision Notes`, `Evidence And Assumptions` |
+| problem / outcome unclear | owner, prior PRD, product docs | `Problem Frame`, `Summary`, `Goals / Success Metrics`, `Outstanding Questions` |
+| metric claim ungrounded | source/baseline lookup, then owner | `Goals / Success Metrics`, `Evidence And Assumptions`, `Outstanding Questions` |
+| product-level NFR or constraint missing | surface/project overlay, then owner | `Data / Compliance Boundaries`, `Release / Operation Readiness`, `Exception Handling`, `Negative Acceptance` |
+| trace gap | PRD rewrite or explicit trace gap | `Requirements`, `Acceptance Examples`, `Evidence And Assumptions`, `Outstanding Questions` |
+| cross-chunk duplication or contradiction | Map-Reduce Shuffle/Reduce, then owner if unresolved | `Requirements`, `Decision Notes`, `Evidence And Assumptions`, `Outstanding Questions` |
+| owner closure missing | closeout summary and Decision Notes | `Decision Notes`, `Evidence And Assumptions`, `Outstanding Questions` |
+| design / UX evidence present | extract PRD facts only; app audit remains separate | `Interaction Requirements`, `Use Cases`, `Acceptance Examples`, `Evidence And Assumptions` |
+| release or slice ambiguity | owner-confirmed priority/split | `Feature Slices`, `Scope Boundaries`, `Release / Operation Readiness` |
+| existing PRD changed | stable IDs plus add/replace/deprecate notes | `Change Delta`, `Decision Notes`, `Evidence And Assumptions` |
+
+Large-input Map-Reduce results must enter final PRD rewrite through the same section-level reducers: canonical candidates become requirements or feature slices, supporting refs become evidence, conflicts become Decision Notes / Evidence And Assumptions / Outstanding Questions, and blocker clusters stay blockers. Never treat lossy chunk summaries as source-of-truth.
+
+## P0 PRD Quality Packs
+
+Run these packs only when their trigger affects planning-invention risk. If a trigger is absent, keep compact PRDs compact and record none/zero only when closeout clarity needs it.
+
+| Pack | Trigger | Write target |
+| --- | --- | --- |
+| Problem / Outcome Framing Gate | Draft describes functions but lacks target user, product problem, desired observable outcome, or value decision planning would otherwise invent | `Problem Frame`, `Summary`, `Goals / Success Metrics`, `Outstanding Questions` |
+| Success Metrics / Measurement Readiness | PRD says improve, optimize, reduce, accelerate, lower cost, or similar and the claim affects acceptance or priority | `Goals / Success Metrics`, `Evidence And Assumptions`, `Outstanding Questions` |
+| NFR / Constraint Pack | Security, permission, privacy, compliance, payment/transaction, external API, CLI/runtime, migration, bulk/async/sync, or user-visible failure signal affects WHAT, acceptance, or release boundary | `Data / Compliance Boundaries`, `Release / Operation Readiness`, `Exception Handling`, `Negative Acceptance` |
+| Traceability Matrix | Core requirement will be consumed by planning | `Requirements`, `Acceptance Examples`, `Evidence And Assumptions`, `Outstanding Questions` |
+| Review / Approval Closure | Closeout/readiness needs to show owner answers, accepted assumptions, blockers, and planning readiness | `Decision Notes`, `Evidence And Assumptions`, `Outstanding Questions`, closeout summary |
+
+Rules:
+
+- A missing target user/problem/outcome becomes one owner question, an accepted assumption, or an `Outstanding Questions` blocker; 0-1 opportunity discovery routes to brainstorm.
+- A metric with source, baseline, target, and window can be written as a metric. Without credible evidence, write an observable signal, assumption, or Outstanding Question. Never fabricate target values.
+- NFR and constraint content stays product-level: permissions, privacy, compliance, compatibility, rollout, operational readiness, failure semantics, and negative acceptance. API/database/architecture HOW excluded from PRD requirements; implementation mechanisms stay out of PRD requirements.
+- Traceability is lightweight: `R -> AE -> evidence/source -> open question`. This is not a schema, scorecard, or mandatory table format.
+- Owner closure summarizes `owner_answers_applied`, `accepted_assumptions`, `blocking_questions`, `ready-for-planning`, and `planning_would_invent_what` when those signals exist. It does not create a separate approval artifact.
+
+## P1 Conditional Enrichment Packs
+
+Run these only when the input surface warrants them and the detail reduces planning invention:
+
+| Pack | Trigger | Write target |
+| --- | --- | --- |
+| Stakeholder / Actor Alignment | Admin, Backend, CLI/DevTool, Mixed surface, permission, approval, producer/consumer, downstream consumer, or ambiguous user/system/admin wording | `Actors`, `Requirements`, `Use Cases`, `Evidence And Assumptions` |
+| Design / UX Evidence Hook | App/H5/PC/Admin, screenshots, Figma, page description, or interaction-state input | `Interaction Requirements`, `Use Cases`, `Acceptance Examples`, `Evidence And Assumptions` |
+| Prioritization / Release Slice | Many requirements, multiple goals, multi-surface scope, or release order affects scope or acceptance | `Feature Slices`, `Scope Boundaries`, `Release / Operation Readiness` |
+| Change Management | `resume-prd`, existing PRD path, multi-round refine, new meeting/screenshot/review conclusion, or changed owner decision | `Change Delta`, `Decision Notes`, `Evidence And Assumptions` |
+
+Actor alignment distinguishes beneficiary, operator, admin, downstream consumer, and owner only when the distinction changes WHAT or acceptance. Design evidence extracts PRD facts only: entry, state, copy, empty/error/loading, permissions, i18n, and accessibility. It routes consistency audit to `spec-app-consistency-audit`; PRD/Figma/source consistency remains outside `spec-prd`. Release slices are PRD handoff units, never tasks or implementation units. Change Management preserves stable R/AE IDs and records added, replaced, deprecated, or still-unconfirmed deltas instead of silently rewriting old requirements.
+
+## Context / ADR Promotion Notes
+
+When existing `CONTEXT.md`, `CONTEXT-MAP.md`, context-specific `CONTEXT.md`, or `docs/adr/**` were read, record only the PRD-relevant evidence source and contradiction/decision outcome. Stable terms first persist in `Glossary`; hard decisions first persist in `Decision Notes`, `Evidence And Assumptions`, or `Scope Boundaries`.
+
+Project-level context or ADR updates are preview-first promotion candidates only. They are not required PRD output, not readiness prerequisites, and not silently written by this workflow.
+
 ## Feature Slices
 
 Add `## Feature Slices` when the PRD is large, mixed-surface, multi-feature, refine/validate with multiple goals, or otherwise likely to make planning infer feature boundaries. Feature Slices are context and handoff units, not execution units, task packs, program slices, or sub-agent dispatch units.

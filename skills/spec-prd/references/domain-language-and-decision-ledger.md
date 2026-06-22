@@ -87,10 +87,80 @@ why_recommended:
 source_tag:
 consequence_if_chosen:
 consequence_if_not_chosen:
-write_target: Glossary | Decision Notes | Evidence And Assumptions | Outstanding Questions
+write_target: Summary | Problem Frame | Current System Snapshot | Change Delta | Requirements | Acceptance Examples | Scope Boundaries | Evidence And Assumptions | Outstanding Questions | Glossary | Decision Notes | Actors | Use Cases | Interaction Requirements | Exception Handling | Negative Acceptance | Data / Compliance Boundaries | Release / Operation Readiness | Goals / Success Metrics | Feature Slices
 ```
 
 This format is for asking the owner, not a third persistent field set. Persist the result into existing PRD-local sections. If it lands in `Decision Notes`, map it back to the existing fields: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`. Fold `why_recommended`, `consequence_if_chosen`, and `consequence_if_not_chosen` into `consequence` prose when useful. If it lands in `Glossary`, `Evidence And Assumptions`, or `Outstanding Questions`, compress it into that section's existing fields and do not add new fields. Do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` by default.
+
+## Pre-PRD Clarification Loop
+
+Use this loop for rough PRD, draft, `reference-claims`, `resume-prd`, or `pure-text` input only when existing product/system anchors are sufficient for PRD refinement and unresolved gaps would make `spec-plan` invent WHAT. It is a PRD-local pressure loop, not a new workflow node, report, schema, JSON contract, state machine, or persistent extraction artifact.
+
+Run it after PRD Sanitization and source/current-state evidence calibration, before final PRD rewrite and final readiness. Maintain a run-local shared understanding map:
+
+```text
+claim -> evidence/source -> gap -> question_or_assumption -> PRD write target
+```
+
+The map is authoring scratch. It can guide questions and rewrite targets, but it must not be copied into the PRD as a durable field set.
+
+Trigger when a rough PRD lacks load-bearing clarity for actor, beneficiary, observable behavior, flow, state, permission, exception/failure, negative acceptance, scope boundary, priority/degrade semantics, release slice, or decision intersection. If the draft lacks target user, product problem, system anchor, or core scenario, route to brainstorm instead of pretending `create|refine` can close 0-1 discovery.
+
+Do not trigger for implementation HOW, source-answerable facts, minor wording polish, already planning-ready PRDs, pure terminology already covered by Domain Grill, low-risk assumptions, or broad product discovery.
+
+### Progressive Detail Ladder
+
+Use the smallest sufficient layer and stop as soon as planning-invention risk is closed or explicitly blocked:
+
+| Level | Trigger | Stop condition | Output |
+| --- | --- | --- | --- |
+| L0 compact PRD | Small, anchored, low ambiguity, source-supported input | PRD can be rewritten without planning inventing WHAT | Compact PRD plus none/zero closure where relevant |
+| L1 shared understanding map | Rough claim needs source/gap/write-target alignment | Load-bearing gaps are resolved, assumed, or escalated | Run-local shared understanding map |
+| L2 large-input Map-Reduce | Oversized, multi-source, PDF/screenshot/meeting/chat mix, or too large for reliable whole-document judgment | Reduced candidates preserve source refs and conflicts | Run-local Map rows and Reduce outputs |
+| L3 P0 packs | Problem/outcome, metric, NFR, trace, or owner closure affects planning invention | P0 gap is resolved, assumed, questioned, or blocked | PRD-local core/conditional section updates |
+| L4 P1 packs | Actor/design/release/change-management signal is consequential | Conditional detail is captured or explicitly deferred | PRD-local conditional section updates |
+| L5 blocker cluster / route-out | More than 3 load-bearing gaps, missing anchor, or unresolved owner decision set | Route recommendation is explicit and no `ready-for-planning` is emitted | Prioritized blocker cluster, assumptions, affected write targets |
+
+Preliminary Diagnosis selects this layer. It cannot emit final `ready-for-planning`; only Final Readiness Diagnosis after rewrite and closure can do that.
+
+### Large-Input Map-Reduce Discipline
+
+For large or multi-source rough PRDs, do not summarize chunks and treat the summary as truth. Use source-ref preserving Map-Reduce as run-local LLM-owned authoring discipline:
+
+1. Map chunk-level requirement atoms and keep `source_ref`, confidence, claim, actor/flow/state, gap, and write-target candidate.
+2. Shuffle semantically by actor, flow, feature, data object, state, permission, exception, PRD section, and source contradiction.
+3. Reduce duplicates into canonical requirement candidates while preserving conflicting refs, deduped assumptions, load-bearing gaps, prioritized blocker clusters, and at most 1-3 owner question candidates.
+
+Run-local scratch shapes:
+
+```text
+Map row = source_ref / claim / actor / flow / state / gap / confidence / write_target_candidate
+Reduce output = canonical_requirement / supporting_refs / conflicts / assumptions / load_bearing_gap / owner_question_candidate / affected_write_targets
+```
+
+These shapes are prompt/reference guidance only. They are not schemas, artifacts, JSON contracts, durable PRD fields, or script output requirements. Scripts may report deterministic structure, counts, literal drift, or trace gaps, but must not decide semantic completeness, load-bearing status, or readiness.
+
+### Load-Bearing Gap Triage
+
+Before asking, sort gaps by acceptance impact, behavior/scope irreversibility, number of affected PRD sections, source contradiction, and release/planning consequence. Resolve source/docs/tests/contracts/glossary/prior-PRD-answerable gaps first. Owner questions are for product decisions, not facts already available from source.
+
+Normal PRD runs ask 1-3 load-bearing questions, one at a time, using the run-local question format above. If more than 3 load-bearing questions remain, output a prioritized blocker cluster with recommended route, acceptable assumptions when defensible, and affected write targets. Do not continue a long interview and do not mark the PRD `ready-for-planning`.
+
+### Deep Requirements Grill
+
+Adapt `grill-with-docs` as method, not topology. Apply these seven actions only to load-bearing WHAT or planning-readiness gaps:
+
+1. Keep one-question-at-a-time progression: progress one owner question at a time.
+2. Provide `recommended_answer` and `why_recommended` whenever defensible.
+3. Perform source/code/docs/tests/contracts lookup before asking owner; inspect glossary and prior PRDs when relevant.
+4. Run a glossary conflict challenge against existing glossary/context wording instead of normalizing drift.
+5. Use fuzzy term sharpening to turn overloaded words into observable actor/flow/state/scope language.
+6. Use concrete scenario stress for happy path, permission/state boundary, exception/failure, and negative acceptance.
+7. Perform code contradiction surfacing with evidence tags and consequences.
+
+Every load-bearing grill question must close before planning by one of: source evidence, owner answer, accepted assumption, `Outstanding Questions`, blocker cluster, or route-out. If unresolved actor, flow, state, exception, scope, acceptance, permission, release-slice, or decision-intersection uncertainty remains, the PRD is not `ready-for-planning`.
+
+Domain Grill and Pre-PRD Clarification share cadence and source-first discipline but have different centers of gravity: Domain Grill handles terminology, source/user/glossary contradiction, source-of-truth, ownership, permission/state/exception edges, and hard product boundaries; Pre-PRD Clarification handles rough PRD completeness, scenario coverage, acceptance, scope, and write-target closure.
 
 ## Decision Notes
 
@@ -112,3 +182,20 @@ Suggest a future ADR-like artifact only when all three conditions hold:
 - reflects a real tradeoff
 
 Otherwise, keep the decision local to the PRD.
+
+## Context / ADR Topology Adapter
+
+Read existing `CONTEXT.md`, `CONTEXT-MAP.md`, context-specific `CONTEXT.md`, and `docs/adr/**` only as optional evidence and promotion topology, not required PRD artifacts. During source-first evidence calibration, read existing topology only when it exists and is relevant to the PRD topic. If it does not exist, record graceful no-topology fallback and continue with PRD-local closure.
+
+Context routing:
+
+- single relevant context: use it as advisory evidence for glossary/decision conflicts
+- multiple contexts plus `CONTEXT-MAP.md`: route by the map and record the evidence source
+- multiple contexts with unclear topic ownership: ask at most one owner/context routing question or record the ambiguity as a blocker
+- no topology: do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or ADR as a prerequisite
+
+PRD-local persistence comes first. Stable term decisions land in `Glossary`, with avoid terms or explanatory prose when useful. Hard decisions and consequences land in `Decision Notes`, `Evidence And Assumptions`, or `Scope Boundaries`. Project-level promotion is a preview-first candidate after PRD-local closure, not a substitute for closure.
+
+Suggest a `CONTEXT.md` promotion candidate only when the term is project-specific, owner accepted, repeated in the current PRD/source or cross-team relevant, and has a clear definition plus avoid terms. Suggest an ADR promotion candidate only when the decision is hard to reverse, surprising without context, and a real tradeoff. ADR candidates should stay sparse: context, decision, why, and alternatives/consequences only when useful, with PRD source refs.
+
+Never silently create or edit `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/**` during ordinary PRD output. Missing promotion does not block planning unless the underlying term or decision remains unresolved in the PRD.

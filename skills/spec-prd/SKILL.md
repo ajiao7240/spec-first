@@ -75,9 +75,9 @@ Follows `docs/contracts/project-graph-consumption.md`: `capability-class` candid
 Load references only when their trigger is present:
 
 - `references/evidence-and-topology.md` - current-state evidence tags, Change Delta, source-candidate boundaries, Framing Gate, topology, surface, producer/consumer, source-of-truth, contradiction, and negative-space rules.
-- `references/domain-language-and-decision-ledger.md` plus optional `docs/contracts/domain-glossary.md` - terminology, domain boundaries, source/user/glossary contradictions, bounded grill, and decision notes.
-- `references/prd-output-template.md` - drafting, output shape, adaptive product expert lens, PRD quality diagnosis, section selection, surface lenses, embedded standard template skeleton, and project-local overlays.
-- `references/prd-readiness-lens.md` - final PRD quality, readiness, handoff, or doc-review decision.
+- `references/domain-language-and-decision-ledger.md` plus optional `docs/contracts/domain-glossary.md` - terminology, domain boundaries, source/user/glossary contradictions, bounded grill, Pre-PRD Clarification Loop, Deep Requirements Grill, Context / ADR Topology Adapter, and decision notes.
+- `references/prd-output-template.md` - drafting, output shape, adaptive product expert lens, PRD quality diagnosis, Pre-PRD Clarification write-target mapping, P0/P1 quality packs, section selection, surface lenses, embedded standard template skeleton, and project-local overlays.
+- `references/prd-readiness-lens.md` - final PRD quality, Pre-PRD Clarification closure, triggered P0/P1 pack closure, readiness, handoff, or doc-review decision.
 - `references/evaluation-governance.md` - maturity posture, owner, review cadence, eval status, and promotion boundary; load for governance or lifecycle questions, not during normal PRD authoring.
 
 ## Input
@@ -100,6 +100,7 @@ primary_topology: add | extend | replace | remove | migrate | split | merge | po
 surface_lens: App | H5/PC | Admin | Backend/Java | CLI/DevTool | Mixed | Generic
 evidence_depth: none | user-stated | source-candidate | confirmed-source | mixed
 quality_diagnosis: not-run | minor-gaps | material-gaps | blockers | ready
+pre_prd_clarification_status: not-needed | source-resolved | asked-owner | blocker-cluster | route-out | not-run
 owner_question_count: 0 | 1 | 2 | 3 | more-than-3
 readiness_outcome: ready-for-planning | revise-prd | ask-owner | doc-review | route-out | not-run
 ```
@@ -135,6 +136,10 @@ Write or update `Current System Snapshot` only for claims that affect the PRD. U
 
 For existing PRD or draft inputs, also extract a `quality_diagnosis` before rewriting by applying the canonical Adaptive Product Expert Lens in `prd-output-template.md`. Treat external research and industry norms as advisory overlays unless confirmed by project source or owner decision.
 
+For rough PRD / draft / reference-claims / resume-prd / pure-text inputs where `quality_diagnosis=material-gaps|blockers` or unresolved actor, flow, state, exception, acceptance, scope, permission, release-slice, or decision intersections would force planning to invent WHAT, run a PRD-local `Pre-PRD Clarification Loop` after sanitization and current-state evidence and before final rewrite/readiness. Keep its shared understanding map run-local: `claim -> evidence/source -> gap -> question_or_assumption -> PRD write target`. Resolve source/docs/tests/contracts/glossary/prior-PRD-answerable gaps before owner questions, ask only 1-3 load-bearing owner questions with recommended answers and write targets, route missing product/system anchors to brainstorm, and never create standalone `CONTEXT.md`, `CONTEXT-MAP.md`, ADR, report, schema, or runtime artifacts.
+
+Use `Preliminary Diagnosis` only to choose the smallest necessary detail level: compact PRD, shared understanding map, large-input Map-Reduce, triggered P0/P1 packs, blocker cluster, or route-out. Only the post-rewrite `Final Readiness Diagnosis` can emit `ready-for-planning`.
+
 ### Phase 2: Change Delta And Domain Language
 
 Confirm the increment as `keep`, `extend`, `replace`, `remove`, or `unknown`. Do not let current-state discovery expand the product scope silently.
@@ -143,13 +148,15 @@ When the delta affects capability identity, source-of-truth, public entrypoints,
 
 When domain terminology, source/user contradiction, ownership, permission/state/exception scenario, or hard product boundary affects WHAT or acceptance, use the domain-language reference. Prefer source-first questioning, read `docs/contracts/domain-glossary.md` when it exists, and surface contradictions instead of normalizing them silently. When that glossary exists, `scripts/check-glossary-drift.js <prd-path>` reports deterministic `avoid_term_used` facts you can use while drafting; it is advisory, and readiness reuses it (see `prd-readiness-lens.md`).
 
-The Bounded Scenario Grill / Domain Grill Gate is run-local only: ask one owner question at a time, cap normal runs at 1-3 grill questions, persist results into existing PRD sections, and do not create standalone context, ADR, or runtime artifacts.
+The Bounded Scenario Grill / Domain Grill Gate is run-local only: ask one owner question at a time, cap normal runs at 1-3 grill questions, persist results into existing PRD sections, and do not create standalone context, ADR, or runtime artifacts. Keep its focus distinct from Pre-PRD Clarification: Domain Grill handles terminology, source/user/glossary contradictions, source-of-truth, ownership, permissions, state/exception edges, and hard product boundaries; Pre-PRD Clarification handles rough PRD behavioral completeness, scenario coverage, acceptance, scope, and planning-invention gaps. If one question touches both, classify by the consequence for the PRD.
 
 ### Phase 3: Draft, Refine, Or Split
 
 Choose `output_shape` before drafting, then use `prd-output-template.md` for the core skeleton, surface lens, project-local overlay, and split topology. Include conditional sections only when they reduce planning invention; do not copy run-local scratch into the PRD by default.
 
 When refining or validating an existing PRD, produce optimization suggestions in the compact form `original -> recommendation -> reason -> write target` before the final rewrite or blocking question. The final durable artifact is the rewritten PRD-grade document under `docs/brainstorms/`, not a standalone critique report.
+
+For rough PRDs that ran Pre-PRD Clarification, fold source-resolved gaps, owner answers, accepted assumptions, blocker clusters, and write targets into existing PRD-local sections from `prd-output-template.md`. Do not copy Map rows, Reduce outputs, question cards, or topology-promotion notes into the PRD unless the content itself reduces planning invention.
 
 For oversized initial PRDs, produce a split-decision recommendation first. Write split summary and child PRDs only when the owner confirms module boundaries, priorities, and release sequencing. Keep the original PRD or source input by reference; do not introduce packet manifests or trace-ledgers in v1.
 

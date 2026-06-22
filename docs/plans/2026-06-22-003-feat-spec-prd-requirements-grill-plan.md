@@ -1,7 +1,7 @@
 ---
 title: "feat: spec-prd 前置需求澄清循环"
 type: feat
-status: active
+status: completed
 date: 2026-06-22
 spec_id: 2026-06-22-003-spec-prd-requirements-grill
 plan_depth: deep
@@ -13,6 +13,20 @@ method_source: external local grill-with-docs skill, advisory method input only
 ## Summary
 
 本计划把外部 `grill-with-docs` 深度集成到 `spec-prd` 的需求文档阶段：当用户输入粗颗粒度、不完整、会迫使后续 planning 发明 WHAT 的初版 PRD 时，`spec-prd` 先做 PRD sanitization、problem/outcome framing 和 source-first evidence calibration，再用 `Preliminary Diagnosis` 决定是否需要 shared understanding map、Map-Reduce、P0/P1 packs 或 route-out。对超大或多来源 PRD 输入，前置澄清显式采用 run-local Map-Reduce 证据归约纪律：chunk-level Map 保留 source refs 和原子需求，semantic Shuffle 按 actor/flow/data/state/permission/PRD section 聚组，Reduce 合并重复、暴露冲突并产出 blockers、assumptions、write targets 和 owner questions。随后用 `grill-with-docs` 式 Deep Requirements Grill 逐一压测术语、场景、代码矛盾和决策依赖，用 1-3 个经 load-bearing triage 排序的高价值 owner 问题补齐 actor、flow、state、exception、acceptance、scope 和 decision intersection，rewrite 后再由 `Final Readiness Diagnosis` 判断是否可进入 planning。方案同时把 `CONTEXT.md` / `CONTEXT-MAP.md` / `docs/adr/` 拓扑作为可选 evidence and promotion adapter：先读取现有 topology 作 source evidence，PRD 内先闭环，满足稳定术语或 hard-decision promotion criteria 时再 preview-first 生成 glossary/ADR 候选更新。PRD 质量基线收敛为只在 planning-invention risk 命中时展开的 P0/P1 conditional packs：P0 覆盖问题/结果、指标口径、NFR/约束、traceability、owner closure；P1 覆盖角色对齐、设计证据、release slice 和多轮变更治理。所有补充仍先落入既有 PRD sections，不新增公开 workflow 节点，不改变 `docs/brainstorms/*-requirements.md` 的 PRD artifact 拓扑。
+
+## Completion Evidence
+
+**状态:** `completed`(2026-06-22)。本计划已落地到 `spec-prd` source、reference、eval fixture、contract test、validation artifact 和 changelog；未新增公开 workflow/skill/agent、schema、script semantic gate 或 generated runtime mirror edits。
+
+验证:
+
+- `npx jest tests/unit/spec-prd-contracts.test.js --runInBand`
+- `npx jest tests/unit/spec-prd-contracts.test.js tests/unit/changelog-format.test.js tests/unit/plan-status-taxonomy.test.js tests/unit/eval-fixture-contracts.test.js --runInBand`
+- `npm run lint:skill-entrypoints`
+- `npm run test:unit`
+- `git diff --check -- CHANGELOG.md docs/plans/2026-06-22-003-feat-spec-prd-requirements-grill-plan.md skills/spec-prd/SKILL.md skills/spec-prd/references/domain-language-and-decision-ledger.md skills/spec-prd/references/prd-output-template.md skills/spec-prd/references/prd-readiness-lens.md skills/spec-prd/evals/examples.json tests/unit/spec-prd-contracts.test.js && test -f docs/validation/spec-prd/fresh-source-eval-2026-06-22-requirements-grill.md`
+
+Review status: 多 agent 只读审查已覆盖计划一致性、架构治理、测试/fixture 合同，P1 findings 已修复并复跑相关验证。Fresh-source semantic eval 记录为 `not_run`，representative rough PRD sample 记录为 `not_measured`，详见 `docs/validation/spec-prd/fresh-source-eval-2026-06-22-requirements-grill.md`。
 
 ---
 
