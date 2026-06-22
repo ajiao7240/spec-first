@@ -6,6 +6,14 @@ const path = require('node:path');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const CONTRACT_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'workflows', 'skill-agent-quality-governance.md');
 const DOCS_README_PATH = path.join(REPO_ROOT, 'docs', 'README.md');
+const SKILLS_GOVERNANCE_SCHEMA_PATH = path.join(
+  REPO_ROOT,
+  'src',
+  'cli',
+  'contracts',
+  'dual-host-governance',
+  'skills-governance.schema.json',
+);
 const SOURCE_ROOTS = ['skills', 'agents'];
 
 function read(filePath) {
@@ -50,6 +58,26 @@ describe('skill/agent quality governance thin contract', () => {
     expect(contract).toContain('orchestrator dispatch');
     expect(contract).toContain('optional/internal skills do not need examples until they become high-risk, high-traffic, or downstream-consumed');
     expect(contract).toContain('they must not pretend to judge semantic quality');
+  });
+
+  test('lifecycle metadata waiver avoids per-skill manifest topology', () => {
+    const contract = read(CONTRACT_PATH);
+    const schema = JSON.parse(read(SKILLS_GOVERNANCE_SCHEMA_PATH));
+    const specPlanManifest = path.join(REPO_ROOT, 'skills', 'spec-plan', 'manifest.json');
+    const specPlanInterface = path.join(REPO_ROOT, 'skills', 'spec-plan', 'agents', 'interface.yaml');
+
+    expect(contract).toContain('公开 workflow skill 不需要为了响应单个审计 finding');
+    expect(contract).toContain('当前集中式 dual-host governance contract 只记录 delivery topology');
+    expect(contract).toContain('才设计独立的集中式 advisory lifecycle contract');
+    expect(contract).toContain('至少两个 public workflows 需要同一组 lifecycle fields');
+    expect(contract).toContain('不要为了单个 skill 新增 `skills/<skill>/manifest.json`、`agents/interface.yaml`');
+    expect(fs.existsSync(specPlanManifest)).toBe(false);
+    expect(fs.existsSync(specPlanInterface)).toBe(false);
+    expect(schema.$defs.skillGovernanceRecord.additionalProperties).toBe(false);
+    expect(schema.$defs.skillGovernanceRecord.properties.owner).toBeUndefined();
+    expect(schema.$defs.skillGovernanceRecord.properties.review_cadence).toBeUndefined();
+    expect(schema.$defs.skillGovernanceRecord.properties.maturity).toBeUndefined();
+    expect(schema.$defs.skillGovernanceRecord.properties.lifecycle).toBeUndefined();
   });
 
   test('docs index lists the contract as current source-of-truth documentation', () => {

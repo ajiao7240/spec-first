@@ -1,18 +1,19 @@
 # spec-write-tasks Eval Fixture Contract
 
-本目录保存的是 maintainer-only LLM review fixtures，不是 executable eval runner，也不是通用 `.skill` 包的用户运行时依赖。官方 `.skill` packager 会跳过根目录 `evals/`；需要验证 skill 质量时，在 source 仓库运行这些 fixtures 或后续 provider-backed eval。
+This directory stores maintainer-only LLM review fixtures. It is not an executable eval runner and not a user-runtime dependency for generic `.skill` packages. The official `.skill` packager skips root `evals/`; validate skill quality from the source repo with these fixtures, `scripts/spec-write-tasks/run-output-evals.js`, or future provider-backed evals.
 
 ## Contract
 
-- `trigger-cases.json`、`boundary-cases.json`、`failure-cases.json` 和 `expected-behavior-cases.json` 只提供可复查样例，不能替代 LLM 语义判断。
-- `output-quality-cases.json` 记录 file-backed output-quality review cases，用来评审 skill-guided task pack 是否优于无 skill 的普通拆分；它仍是 fixture evidence，不是 provider-backed model eval，也不是 executable runner。
-- `expected_decision` 必须来自 `SKILL.md` 的 Final Decision Envelope：`compile`、`skip`、`return-to-plan`、`draft-only` 或 `validate-only`。
-- `expected_failure` 必须来自 `SKILL.md` 的 Failure Modes 枚举。
-- Final Decision Envelope 中声明的每个 decision 至少要有一个 eval case 覆盖。
-- Failure Modes 中声明的每个 failure 至少要有一个 eval case 覆盖。
-- 确定性测试只校验 JSON shape、case id 唯一性、decision/failure 枚举合法性和覆盖率，不判断样例的语义质量。
-- output-quality case 必须声明 `input_files`、`baseline_risks`、`with_skill_expectations` 和 `objective_assertions`；如果缺少真实文件、provider telemetry、human adjudication 或 model execution evidence，必须标记为 `missing evidence`，不能声称已证明产出质量。
+- `trigger-cases.json`, `boundary-cases.json`, `failure-cases.json`, and `expected-behavior-cases.json` provide reviewable examples only; they do not replace LLM semantic judgment.
+- `output-quality-cases.json` records file-backed output-quality review cases for judging whether a skill-guided task pack is better than a generic task split. It is not a provider-backed model eval; `deterministic_assertions` can be executed by the repo-level runner, while `objective_assertions` remain reviewer narrative.
+- `expected_decision` must come from the `SKILL.md` Final Decision Envelope: `compile`, `skip`, `return-to-plan`, `draft-only`, or `validate-only`.
+- `expected_failure` must come from the `SKILL.md` Failure Modes enumeration.
+- Every decision declared in the Final Decision Envelope must have at least one eval case.
+- Every failure declared in Failure Modes must have at least one eval case.
+- Deterministic tests only check JSON shape, case id uniqueness, decision/failure enum validity, coverage, and runner contract; they do not judge semantic quality.
+- Output-quality cases must declare `input_files`, `baseline_risks`, `with_skill_expectations`, `objective_assertions`, and applicable `deterministic_assertions`. Missing real files, provider telemetry, human adjudication, or model execution evidence must be labeled as `missing evidence`; do not claim output quality is fully proven.
+- Repo-level scorecards are written to `docs/validation/spec-write-tasks/output_quality_scorecard.{json,md}` and must include owner/review cadence, generated_at, command, source revision, rerun command, targeted recorded-output hash, and rollback boundary. Reports are maintainer evidence, not packaged runtime dependencies.
 
 ## Review Boundary
 
-新增或修改 case 时，先从 `SKILL.md` 派生当前 decision/failure 枚举，再更新 fixture。脚本负责发现漂移；LLM 负责判断样例是否代表真实触发、边界、失败或期望行为。
+When adding or changing cases, derive the current decision/failure enums from `SKILL.md` first, then update the fixtures. Scripts detect drift; the LLM judges whether each example represents a real trigger, boundary, failure, or expected behavior.

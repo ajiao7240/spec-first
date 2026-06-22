@@ -1,0 +1,26 @@
+{
+  "schema_version": "spec-first.spec-write-tasks-recorded-output-adjudication.v1",
+  "id": "valid-task-pack-recorded-output",
+  "source_plan": "tests/fixtures/spec-write-tasks/valid/source-plan.md",
+  "source_plan_hash": "sha256:7337f3e94d0a592de139bf13e1364de47c9e193f9ebffac9c91b2c6cfe43b388",
+  "recorded_output": "docs/validation/spec-write-tasks/recorded-output/valid-task-pack-output.md",
+  "output_hash": "sha256:f3695af126ea323de12665dff0b16775c31adaa88ceea34b90d0d3cb7fc73d85",
+  "generation_context": {
+    "command": "recorded representative fixture derived from tests/fixtures/spec-write-tasks/valid/task-pack.md",
+    "recorded_at": "2026-06-23T00:00:00.000Z"
+  },
+  "adjudication": {
+    "status": "model-adjudicated",
+    "reviewer": "codex-orchestrator",
+    "verdict": "pass",
+    "notes": [
+      "Task pack 保留 source plan identity 与 canonical hash。",
+      "Task card 含具体 files、test_focus、done_signal、stop_if 与 source anchors。",
+      "Deterministic validator 仍只负责 identity、freshness 与 structure。"
+    ],
+    "missing_evidence": [
+      "provider-backed generation telemetry",
+      "human adjudication"
+    ]
+  }
+}

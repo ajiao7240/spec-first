@@ -1,7 +1,7 @@
 ---
 title: 团队开发规范治理层深度计划
 type: feat
-status: active
+status: completed
 date: 2026-06-21
 spec_id: 2026-06-21-004-team-standards-governance-layer
 plan_depth: deep
@@ -22,7 +22,7 @@ deepened: 2026-06-21
 
 ## 决策摘要
 
-- **推荐方案:** 先建立 `docs/standards/**` 作为团队开发规范的 confirmed source surface，并新增 `docs/contracts/team-standards.md` 定义 trust level、scope、lifecycle、注入边界和提升流程；再以 `skills/team-standards-governance/SKILL.md` 作为规范治理元提示词层，规定动态加载、候选生成、提升、废弃和审计方式；随后让 `spec-plan`、`spec-work`、`spec-write-tasks`、`spec-code-review`、`spec-doc-review`、`spec-debug` 按同一合同消费 confirmed standards。
+- **推荐方案:** 先建立 `docs/standards/**` 作为团队开发规范的 confirmed source surface，并新增 `docs/contracts/team-standards.md` 定义 trust level、scope、lifecycle、注入边界和提升流程；再以 `skills/spec-team-standards-governance/SKILL.md` 作为规范治理元提示词层，规定动态加载、候选生成、提升、废弃和审计方式；随后让 `spec-plan`、`spec-work`、`spec-write-tasks`、`spec-code-review`、`spec-doc-review`、`spec-debug` 按同一合同消费 confirmed standards。
 - **关键决策:** 不恢复 `$spec-standards` / `/spec:standards` public workflow，不复用 `.spec-first/standards/` 作为当前 source，不把代码扫描结果本身自动确认为团队规范，不全量注入大文档；多端适配靠 surface/layer/capability/workflow 标签过滤，架构规范单列为最高优先级规则；LLM 自主能力按 authority tier 放大，而不是用单一“必须人工确认”压平所有场景；规范获取必须先过 acquisition quality layer，避免把历史债、个人偏好或低质量证据包装成团队规则。
 - **验证重点:** V1 重点验证 public workflow catalog 仍不暴露 `spec-standards`，下游 workflow 只把 `confirmed` 且 scope 命中的规范当硬上下文，review persona findings 必须引用具体标准条款，索引加载不会要求全量读取 `docs/standards/**`，候选落盘前通过 privacy/secret/path/prompt-injection pre-write gate。PR replay / retrieval eval 属于 V2 价值验证，用真实 pilot 证明“获取到的规范能否减少误判和正确命中”。
 - **最大风险 / 边界:** 最大风险是把“规范治理”做成第二套流程引擎、大上下文注入器，或把模型置信度误当组织授权。本计划把第一版限定为轻合同、Markdown source、手工索引、focused contract tests 和分级自治的提升流程。
@@ -93,7 +93,7 @@ OpenSpec 的本地源码显示，`openspec/config.yaml` 通过 `context` 和 `ru
 - R35. 定义 source authority hierarchy：明确角色契约、host instructions、team-standards contract、`docs/standards/**`、目录级规则、capability specs、solutions 和候选区之间的权威顺序、冲突处理和重复规则去重方式。
 - R36. 定义 rule selection contract：下游 workflow 和规范 skill 必须以统一输入/输出选择规则，记录 matched/excluded/uncertainty/fallback/limitations；未知 scope 只能加载安全摘要和默认规则，不能全量扫描 `docs/standards/**`。
 - R37. 定义 standards vs capability spec 边界表：`docs/specs/<capability>/spec.md` 维护当前能力行为真相，`docs/standards/**` 维护工程约束与协作规则，`docs/contracts/**` 维护 harness/artifact/workflow contract，`docs/solutions/**` 维护可复用经验。
-- R38. 定义 skill reference loading map：`team-standards-governance` 的 `SKILL.md` 只保留模式路由、硬边界、输出合同和 reference map；不同 mode 只按需读取相关 references，禁止默认全量加载。
+- R38. 定义 skill reference loading map：`spec-team-standards-governance` 的 `SKILL.md` 只保留模式路由、硬边界、输出合同和 reference map；不同 mode 只按需读取相关 references，禁止默认全量加载。
 
 ---
 
@@ -157,7 +157,7 @@ OpenSpec 的本地源码显示，`openspec/config.yaml` 通过 `context` 和 `ru
 - C25. `docs/contracts/team-standards.md` 明确 source authority hierarchy、同级冲突处理、重复规则去重和“高权威指针优先于复制全文”的维护规则。
 - C26. `docs/contracts/team-standards.md` 或 `docs/standards/index.md` 定义 rule selection contract，包括输入字段、输出字段、fallback modes、unknown-scope 降级和禁止全量扫描的约束。
 - C27. 用户文档和 source contract 给出 standards、capability specs、contracts、solutions、candidates 的边界表和跨界示例，避免把产品能力真相写成开发规范，或把工程约束塞进能力 spec。
-- C28. `skills/team-standards-governance/SKILL.md` 和 `references/README` 或等价文件包含 skill reference loading map，说明 near-core references、mode-specific references、触发条件和 no-load-all 默认策略。
+- C28. `skills/spec-team-standards-governance/SKILL.md` 和 `references/README` 或等价文件包含 skill reference loading map，说明 near-core references、mode-specific references、触发条件和 no-load-all 默认策略。
 
 ---
 
@@ -358,7 +358,7 @@ docs/
     archive/
       README.md                       # V1 按需：存在退役规则时创建
 skills/
-  team-standards-governance/
+  spec-team-standards-governance/
     SKILL.md                          # V1 必建：query/audit/proposal-only skeleton
     references/
       initialization.md               # V1 必建
@@ -382,7 +382,7 @@ skills/
         README.md                    # V2 optional replay fixture notes
 ```
 
-`index.md` 是加载地图；`shared.md`、`architecture.md`、`review.md`、`security.md` 承载 V1 最小规则面；端侧文件只在项目确有对应 surface 且存在 confirmed 规则时创建；`candidates/README.md` 把 proposal-only、pre-write privacy gate、source anchor 和 no-absolute-path 边界先讲清楚。完整获取任务包、fact/evidence/lineage ledger、owner queue、output risk profile、role interview 和 replay eval 都是 V2 真实运行产物，不作为 V1 空模板批量创建。`skills/team-standards-governance/` 是辅助规范工作的 standalone source skill，不能暴露成 `$spec-standards` 或 `/spec:standards`。
+`index.md` 是加载地图；`shared.md`、`architecture.md`、`review.md`、`security.md` 承载 V1 最小规则面；端侧文件只在项目确有对应 surface 且存在 confirmed 规则时创建；`candidates/README.md` 把 proposal-only、pre-write privacy gate、source anchor 和 no-absolute-path 边界先讲清楚。完整获取任务包、fact/evidence/lineage ledger、owner queue、output risk profile、role interview 和 replay eval 都是 V2 真实运行产物，不作为 V1 空模板批量创建。`skills/spec-team-standards-governance/` 是辅助规范工作的 standalone source skill，不能暴露成 `$spec-standards` 或 `/spec:standards`。
 
 ---
 
@@ -421,7 +421,7 @@ skills/
 | `docs/standards/**` | 工程约束：分层、依赖方向、状态 ownership、测试策略、review 规则、安全/隐私规则、跨端一致性变更门槛 | 单个能力的完整需求文档、一次需求的验收标准、历史问题流水账 | `spec-plan`、`spec-work`、`spec-write-tasks`、`spec-code-review`、`spec-doc-review`、`spec-debug` |
 | `docs/contracts/**` | harness、artifact、workflow、schema、consumer 的契约和边界 | 具体业务能力行为、团队偏好、候选规则 | workflow / CLI / tests / contract reviewers |
 | `docs/solutions/**` | 解决过的问题、可复用经验、原因和适用/失效条件 | confirmed team policy、当前能力真相、未验证的规则强制 | `spec-plan`、`spec-work`、`spec-debug`、`spec-compound` |
-| `docs/standards/candidates/**` | 候选、证据、冲突、lineage、owner decisions、promotion proposals | 下游 workflow 可直接 enforce 的正式规则 | `team-standards-governance`、owner review、source-edit workflow |
+| `docs/standards/candidates/**` | 候选、证据、冲突、lineage、owner decisions、promotion proposals | 下游 workflow 可直接 enforce 的正式规则 | `spec-team-standards-governance`、owner review、source-edit workflow |
 
 业务系统例子：
 
@@ -666,7 +666,7 @@ Fallback modes：
 | `conflict-present` | 命中规则存在冲突 | 输出 conflict refs、owner/next action；停止 hard enforcement | 在冲突规则中任选一条 enforce |
 | `contract-missing` | `team-standards.md` 不存在 | 降级到 host instructions 和 direct source reads | 把 standards 文件当无合同 hard context |
 
-这个合同应被 `spec-plan`、`spec-work`、`spec-write-tasks`、`spec-code-review`、`spec-doc-review`、`spec-debug` 和 `team-standards-governance query` 共同遵守。它可以由 LLM 执行，也可以后续由脚本生成 advisory selection facts；但最终“当前任务应如何理解这些规则”的语义判断仍归 workflow orchestrator。
+这个合同应被 `spec-plan`、`spec-work`、`spec-write-tasks`、`spec-code-review`、`spec-doc-review`、`spec-debug` 和 `spec-team-standards-governance query` 共同遵守。它可以由 LLM 执行，也可以后续由脚本生成 advisory selection facts；但最终“当前任务应如何理解这些规则”的语义判断仍归 workflow orchestrator。
 
 ---
 
@@ -682,7 +682,7 @@ Fallback modes：
      定义最高边界：source/runtime、Scripts prepare, LLM decides、workflow routing
 
 规范治理元提示词层
-  └─ skills/team-standards-governance/SKILL.md
+  └─ skills/spec-team-standards-governance/SKILL.md
      定义如何解释、选择、加载、候选生成、提升、废弃、审计规范
 
 规范合同层
@@ -902,7 +902,7 @@ flowchart TD
 - absolute path scan：禁止出现本机绝对路径；定位信息使用 repo-relative path、path hash、snapshot id、line range 和 snippet hash。
 - prompt-injection scan：规则正文中出现“忽略系统指令”“跳过验证”“修改 generated runtime mirror”等越权指令式文本时标记 `needs-sanitization`。
 
-不通过时不得落盘到 git-tracked candidates；只能输出 `redaction-blocked` / `path-hygiene-blocked` 的 report-only limitation，并提示先脱敏或替换 source refs。`needs-redaction` 不能长期留存在仓库：V1 处理方式是阻断写入并要求本轮内 redacted retry；V2 才可引入有保留期的临时隔离区。U13 的最窄验证必须包含 grep/Node hygiene check，至少覆盖 `docs/standards/**`、`skills/team-standards-governance/evals/**` 和本次生成的 validation report。
+不通过时不得落盘到 git-tracked candidates；只能输出 `redaction-blocked` / `path-hygiene-blocked` 的 report-only limitation，并提示先脱敏或替换 source refs。`needs-redaction` 不能长期留存在仓库：V1 处理方式是阻断写入并要求本轮内 redacted retry；V2 才可引入有保留期的临时隔离区。U13 的最窄验证必须包含 grep/Node hygiene check，至少覆盖 `docs/standards/**`、`skills/spec-team-standards-governance/evals/**` 和本次生成的 validation report。
 
 Warning routing 必须显式：
 
@@ -1038,13 +1038,13 @@ flowchart TD
   J --> L
 ```
 
-第一版不需要实现复杂自动评分器，但 `docs/contracts/team-standards.md` 和 `team-standards-governance` skill 必须给后续自动化留下正确边界：自动挖掘越强，越要显式记录证据、反例、影响面、tier、为什么能或不能 enforce。
+第一版不需要实现复杂自动评分器，但 `docs/contracts/team-standards.md` 和 `spec-team-standards-governance` skill 必须给后续自动化留下正确边界：自动挖掘越强，越要显式记录证据、反例、影响面、tier、为什么能或不能 enforce。
 
 ---
 
 ## 规范治理 Skill 架构
 
-可选规范 skill 应是 guided source-maintenance skill，而不是 command-backed public workflow。可用工作名是 `team-standards-governance`；具体目录可在实现时最终确认，但不能命名为 `spec-standards`，也不能创建 `$spec-standards` / `/spec:standards`。当用户直接调用该 standalone skill 时，默认输出 proposal/report/patch preview；任何 durable source mutation（写入 confirmed standards、`index.md`、archive、promotion log、lineage ledger、owner queue，或把 candidate 状态真正推进）都必须由 active `$spec-work` 或等价 source-edit workflow 承担，并遵守 preview-first、普通 diff review、CHANGELOG 和 focused tests。
+可选规范 skill 应是 guided source-maintenance skill，而不是 command-backed public workflow。可用工作名是 `spec-team-standards-governance`；具体目录可在实现时最终确认，但不能命名为 `spec-standards`，也不能创建 `$spec-standards` / `/spec:standards`。当用户直接调用该 standalone skill 时，默认输出 proposal/report/patch preview；任何 durable source mutation（写入 confirmed standards、`index.md`、archive、promotion log、lineage ledger、owner queue，或把 candidate 状态真正推进）都必须由 active `$spec-work` 或等价 source-edit workflow 承担，并遵守 preview-first、普通 diff review、CHANGELOG 和 focused tests。
 
 ### Skill 角色与模式
 
@@ -1059,7 +1059,7 @@ flowchart TD
 
 ### Skill Reference Loading Map
 
-`team-standards-governance` 必须采用 progressive disclosure。`SKILL.md` 是入口和调度层，只保留模式路由、硬边界、输出合同、no-load-all 规则和下表 reference map；不得把所有获取、提升、访谈、eval、生命周期细则塞回入口文件。
+`spec-team-standards-governance` 必须采用 progressive disclosure。`SKILL.md` 是入口和调度层，只保留模式路由、硬边界、输出合同、no-load-all 规则和下表 reference map；不得把所有获取、提升、访谈、eval、生命周期细则塞回入口文件。
 
 ```text
 SKILL.md
@@ -1090,7 +1090,7 @@ SKILL.md
 
 ```mermaid
 flowchart LR
-  U[用户或既有 workflow] --> S[team-standards-governance skill]
+  U[用户或既有 workflow] --> S[spec-team-standards-governance skill]
   S --> M{模式}
 
   M -->|init| I[初始化器]
@@ -1645,19 +1645,19 @@ flowchart TB
 **依赖:** U1, U2, U3, U6；U10-U12 后续会向本 skill 的 references 扩展内容，但 U9 的 V1 验证不依赖这些 V2 文件存在。
 
 **文件:**
-- 新增: `skills/team-standards-governance/SKILL.md`
-- 新增: `skills/team-standards-governance/references/initialization.md`
-- 新增: `skills/team-standards-governance/references/meta-prompt-governance.md`
-- 新增: `skills/team-standards-governance/references/authority-tiers.md`
-- 新增: `skills/team-standards-governance/references/promotion-and-conflicts.md`
-- 新增: `skills/team-standards-governance/references/loading-and-consumption.md`
-- 新增: `skills/team-standards-governance/references/lifecycle.md`
-- 新增或轻量新增: `skills/team-standards-governance/references/acquisition-quality.md`
-- 新增或轻量新增: `skills/team-standards-governance/references/output-risk-profile.md`
-- 新增或轻量新增: `skills/team-standards-governance/references/adaptive-expansion.md`
-- V2 新增: `skills/team-standards-governance/references/source-matrix.md`
-- V2 新增: `skills/team-standards-governance/references/role-interview-playbook.md`
-- V2 新增: `skills/team-standards-governance/references/validation-and-replay.md`
+- 新增: `skills/spec-team-standards-governance/SKILL.md`
+- 新增: `skills/spec-team-standards-governance/references/initialization.md`
+- 新增: `skills/spec-team-standards-governance/references/meta-prompt-governance.md`
+- 新增: `skills/spec-team-standards-governance/references/authority-tiers.md`
+- 新增: `skills/spec-team-standards-governance/references/promotion-and-conflicts.md`
+- 新增: `skills/spec-team-standards-governance/references/loading-and-consumption.md`
+- 新增: `skills/spec-team-standards-governance/references/lifecycle.md`
+- 新增或轻量新增: `skills/spec-team-standards-governance/references/acquisition-quality.md`
+- 新增或轻量新增: `skills/spec-team-standards-governance/references/output-risk-profile.md`
+- 新增或轻量新增: `skills/spec-team-standards-governance/references/adaptive-expansion.md`
+- V2 新增: `skills/spec-team-standards-governance/references/source-matrix.md`
+- V2 新增: `skills/spec-team-standards-governance/references/role-interview-playbook.md`
+- V2 新增: `skills/spec-team-standards-governance/references/validation-and-replay.md`
 - 新增测试: `tests/unit/team-standards-governance-contracts.test.js`
 - 测试: `tests/unit/lint-skill-entrypoints.test.js`
 - 测试: `tests/unit/runtime-capability-catalog.test.js`
@@ -1693,7 +1693,7 @@ flowchart TB
 - `docs/contracts/workflows/fresh-source-eval-checklist.md` 的 skill/agent prose 语义验证方式。
 
 **测试场景:**
-- 正向：skill entrypoint lint 接受 `team-standards-governance` 作为 standalone skill source。
+- 正向：skill entrypoint lint 接受 `spec-team-standards-governance` 作为 standalone skill source。
 - 正向：skill 文档包含六种 mode 及其输出边界。
 - 正向：skill 文档包含元提示词层职责和自适应扩展边界。
 - 正向：skill 文档包含 reference loading map，说明 near-core references、mode-specific references 和 no-load-all 默认策略。
@@ -1729,8 +1729,8 @@ flowchart TB
 - 新增或修改: `docs/standards/candidates/lineage-ledger.md`
 - 新增或修改: `docs/standards/candidates/owner-decision-queue.md`
 - 新增或修改: `docs/standards/candidates/promotion-log.md`
-- 新增: `skills/team-standards-governance/references/acquisition-quality.md`
-- 新增: `skills/team-standards-governance/references/source-matrix.md`
+- 新增: `skills/spec-team-standards-governance/references/acquisition-quality.md`
+- 新增: `skills/spec-team-standards-governance/references/source-matrix.md`
 - 新增测试: `tests/unit/team-standards-governance-contracts.test.js`
 
 **方案:**
@@ -1775,8 +1775,8 @@ flowchart TB
 **文件:**
 - 修改: `docs/standards/candidates/README.md`
 - 新增或修改: `docs/standards/candidates/role-interview-notes.md`
-- 新增: `skills/team-standards-governance/references/role-interview-playbook.md`
-- 修改: `skills/team-standards-governance/references/initialization.md`
+- 新增: `skills/spec-team-standards-governance/references/role-interview-playbook.md`
+- 修改: `skills/spec-team-standards-governance/references/initialization.md`
 - 可选修改: `docs/05-用户手册/团队开发规范治理.md`
 
 **方案:**
@@ -1812,12 +1812,12 @@ flowchart TB
 **依赖:** U10, U11, U5；需要可复现 PR/review 样本、expected rule IDs 或 owner 反馈，样本不足时只能记录 `not-enough-sample` / `not-run`。
 
 **文件:**
-- 新增: `skills/team-standards-governance/references/validation-and-replay.md`
-- 新增: `skills/team-standards-governance/evals/README.md`
-- 新增: `skills/team-standards-governance/evals/trigger-cases.json`
-- 新增: `skills/team-standards-governance/evals/output-cases.json`
-- 可选新增: `skills/team-standards-governance/evals/examples.json`
-- 可选新增: `skills/team-standards-governance/evals/golden-samples/README.md`
+- 新增: `skills/spec-team-standards-governance/references/validation-and-replay.md`
+- 新增: `skills/spec-team-standards-governance/evals/README.md`
+- 新增: `skills/spec-team-standards-governance/evals/trigger-cases.json`
+- 新增: `skills/spec-team-standards-governance/evals/output-cases.json`
+- 可选新增: `skills/spec-team-standards-governance/evals/examples.json`
+- 可选新增: `skills/spec-team-standards-governance/evals/golden-samples/README.md`
 - 可选新增: `docs/validation/standards-governance/2026-06-21-acquisition-quality-validation.md`
 - 新增测试: `tests/unit/team-standards-governance-contracts.test.js`
 - 测试: `tests/unit/spec-code-review-contracts.test.js`
@@ -1877,8 +1877,8 @@ flowchart TB
 - V2 验证输入: `docs/standards/candidates/lineage-ledger.md`
 - V2 验证输入: `docs/standards/candidates/owner-decision-queue.md`
 - V2 验证输入: `docs/standards/candidates/output-risk-profile.md`
-- V2 验证输入: `skills/team-standards-governance/evals/trigger-cases.json`
-- V2 验证输入: `skills/team-standards-governance/evals/output-cases.json`
+- V2 验证输入: `skills/spec-team-standards-governance/evals/trigger-cases.json`
+- V2 验证输入: `skills/spec-team-standards-governance/evals/output-cases.json`
 - 可选验证报告: `docs/validation/standards-governance/2026-06-21-team-standards-governance-validation.md`
 
 **方案:**
@@ -1950,7 +1950,7 @@ flowchart TB
 - **派生产物边界:** AI rules、review checklist、query summary 和 workflow handoff snippets 变成可再生成的 derived artifacts，不再与 confirmed standards 形成多真相源。
 - **输出风险透明度:** V1 output-risk reference 记录缺失证据、警告路由、pre-write gate 失败和输出失败模式；V2 run-level output risk profile 让自动化提取失败时可诊断而非静默污染规范库。
 - **组织知识获取:** V2 角色化访谈把代码无法表达的架构、安全、运维、业务 owner 约束转成候选规则，但仍受 evidence 和 authority tier 约束。
-- **Skill surface:** 新增 `team-standards-governance` 只作为 standalone source skill，不进入 public workflow route map。
+- **Skill surface:** 新增 `spec-team-standards-governance` 只作为 standalone source skill，不进入 public workflow route map。
 - **Skill 上下文成本:** reference loading map 让 `SKILL.md` 保持轻入口，query/init/propose/promote/deprecate/audit 只读取必要 references，不把获取、访谈、replay、生命周期细节一次性注入。
 - **元提示词层:** 规范治理的动态解释、加载、候选生成和生命周期引导集中在 skill source 中，不分散到每个 workflow 的临时 prompt。
 - **Surface coverage:**
@@ -2031,7 +2031,7 @@ flowchart TB
 - 单个真实 slice 可以先建立 3 到 10 条 confirmed standards 或 templates，而不是一次性写成巨文档；如无 owner 或 source refs，只能保留候选。
 - `spec-standards` 相关 public entrypoint 和 `.spec-first/standards/` active consumption 仍保持 0。
 - 新增规范变更能通过普通 PR/review/changelog 流程治理。
-- `team-standards-governance` skill skeleton 能在 `query` mode 返回 bounded filtered refs；standalone 直接调用默认 report/proposal-only，只有 active source-edit workflow 接管时 `init/propose` 才能写 candidates。
+- `spec-team-standards-governance` skill skeleton 能在 `query` mode 返回 bounded filtered refs；standalone 直接调用默认 report/proposal-only，只有 active source-edit workflow 接管时 `init/propose` 才能写 candidates。
 - lifecycle review 能把 stale rules 退到 `deprecated` 或 `archived`，而不是长期留在 confirmed。
 - architecture/design rules 能在 plan/review 中以 rule ID + source refs 形成可审查约束。
 - 元提示词层能把 workflow feedback 转成 `suggested`/`observed`/`conflict`/audit 输出；显式权威或机械 enforcement 场景可以生成 confirmed-draft 或面向 confirmed 的 patch preview，高影响治理仍走 owner gate，confirmed-draft 不进入 query mode hard context。
@@ -2045,7 +2045,7 @@ flowchart TB
 - Derived AI rules、review checklist、query summary 和 workflow handoff snippets 都引用 source rule IDs 或 reviewable proposal IDs，并能被重新生成。
 - Output risk profile 或 skill reference 明确本次候选/查询缺哪些证据、哪些输出被抑制、哪些 warning 需要下轮处理。
 - 下游 workflow 的 handoff 中能看到过滤后的 rule refs、source refs、exceptions 和 limitations，而不是整库 standards dump。
-- `team-standards-governance` 的 `SKILL.md` 保持轻入口，reference loading map 能指导 query/init/propose/promote/deprecate/audit 只加载必要 reference。
+- `spec-team-standards-governance` 的 `SKILL.md` 保持轻入口，reference loading map 能指导 query/init/propose/promote/deprecate/audit 只加载必要 reference。
 
 ### V2 价值指标
 
@@ -2095,21 +2095,21 @@ flowchart TB
 
 - `docs/contracts/team-standards.md`: 权威合同，定义 source authority hierarchy、trust/scope/promotion/consumer、standards/spec 边界和 rule selection contract。
 - `docs/standards/index.md`: 用户入口，说明如何查找、添加、确认和引用规则，并承载 selection summary、scope tags、fallback 提示和 file map。
-- `skills/team-standards-governance/SKILL.md`: standalone source skill 入口，定义 mode、边界、输出、handoff 和 reference loading map。
-- `skills/team-standards-governance/references/meta-prompt-governance.md`: 定义规范治理元提示词层的职责、禁止事项和 handoff 规则。
-- `skills/team-standards-governance/references/authority-tiers.md`: 定义 LLM 分级自治、confidence scoring、auto-confirm 条件、owner gate 和 conflict handling。
-- `skills/team-standards-governance/references/acquisition-quality.md`: V1 定义轻量规则质量清单、pre-write privacy/secret/path hygiene gate 和 proposal-only 边界；V2 扩展获取任务包、证据质量评分、反例库。
-- `skills/team-standards-governance/references/source-matrix.md`: V2 定义不同证据来源可产生的候选类型和最高默认 trust/tier。
-- `skills/team-standards-governance/references/promotion-and-conflicts.md`: V1 定义 decision trace、owner queue、standards conflict precedence、出口集和 derived artifact 边界；V2 扩展 lineage update。
-- `skills/team-standards-governance/references/loading-and-consumption.md`: 定义 rule selection contract 在 skill mode 中的使用，以及 query summary、AI rules、review checklist 和 workflow handoff snippets 的派生与按需加载规则。
-- `skills/team-standards-governance/references/output-risk-profile.md`: V1 定义 missing evidence、output failure modes、warning routing、pre-write gate failure 和 no-absolute-path guard；V2 扩展 run-level profile。
-- `skills/team-standards-governance/references/role-interview-playbook.md`: V2 定义多角色访谈问题和 owner decision 记录规则。
-- `skills/team-standards-governance/references/validation-and-replay.md`: V2 定义 PR replay、retrieval eval、owner edit distance、noise budget 和 adoption feedback。
-- `skills/team-standards-governance/evals/README.md`: V2 定义可复用 eval case 字段；可选 `examples.json` 提供小样本。
-- `skills/team-standards-governance/evals/trigger-cases.json`: V2 覆盖 acquisition 应触发、不应触发、近邻和边界请求。
-- `skills/team-standards-governance/evals/output-cases.json`: V2 覆盖 candidates、lineage、owner queue、derived artifacts、source anchors 和 no-absolute-path 输出合同。
-- `skills/team-standards-governance/references/adaptive-expansion.md`: V1 轻量定义受治理的自适应候选生成、冲突记录、审计和 owner review 流程；V2 扩展为真实 acquisition producer。
-- `skills/team-standards-governance/references/*.md`: 其他 references 分别承载初始化、提升/冲突、加载/消费、生命周期细则。
+- `skills/spec-team-standards-governance/SKILL.md`: standalone source skill 入口，定义 mode、边界、输出、handoff 和 reference loading map。
+- `skills/spec-team-standards-governance/references/meta-prompt-governance.md`: 定义规范治理元提示词层的职责、禁止事项和 handoff 规则。
+- `skills/spec-team-standards-governance/references/authority-tiers.md`: 定义 LLM 分级自治、confidence scoring、auto-confirm 条件、owner gate 和 conflict handling。
+- `skills/spec-team-standards-governance/references/acquisition-quality.md`: V1 定义轻量规则质量清单、pre-write privacy/secret/path hygiene gate 和 proposal-only 边界；V2 扩展获取任务包、证据质量评分、反例库。
+- `skills/spec-team-standards-governance/references/source-matrix.md`: V2 定义不同证据来源可产生的候选类型和最高默认 trust/tier。
+- `skills/spec-team-standards-governance/references/promotion-and-conflicts.md`: V1 定义 decision trace、owner queue、standards conflict precedence、出口集和 derived artifact 边界；V2 扩展 lineage update。
+- `skills/spec-team-standards-governance/references/loading-and-consumption.md`: 定义 rule selection contract 在 skill mode 中的使用，以及 query summary、AI rules、review checklist 和 workflow handoff snippets 的派生与按需加载规则。
+- `skills/spec-team-standards-governance/references/output-risk-profile.md`: V1 定义 missing evidence、output failure modes、warning routing、pre-write gate failure 和 no-absolute-path guard；V2 扩展 run-level profile。
+- `skills/spec-team-standards-governance/references/role-interview-playbook.md`: V2 定义多角色访谈问题和 owner decision 记录规则。
+- `skills/spec-team-standards-governance/references/validation-and-replay.md`: V2 定义 PR replay、retrieval eval、owner edit distance、noise budget 和 adoption feedback。
+- `skills/spec-team-standards-governance/evals/README.md`: V2 定义可复用 eval case 字段；可选 `examples.json` 提供小样本。
+- `skills/spec-team-standards-governance/evals/trigger-cases.json`: V2 覆盖 acquisition 应触发、不应触发、近邻和边界请求。
+- `skills/spec-team-standards-governance/evals/output-cases.json`: V2 覆盖 candidates、lineage、owner queue、derived artifacts、source anchors 和 no-absolute-path 输出合同。
+- `skills/spec-team-standards-governance/references/adaptive-expansion.md`: V1 轻量定义受治理的自适应候选生成、冲突记录、审计和 owner review 流程；V2 扩展为真实 acquisition producer。
+- `skills/spec-team-standards-governance/references/*.md`: 其他 references 分别承载初始化、提升/冲突、加载/消费、生命周期细则。
 - `docs/standards/candidates/fact-ledger.md`: V2 记录 deterministic facts、source anchors、hash 和 scope。
 - `docs/standards/candidates/lineage-ledger.md`: V2 记录 candidate/proposal/confirmed/deprecated/archive 的演化关系。
 - `docs/standards/candidates/owner-decision-queue.md`: V2 只承接 conflict/high-risk/owner_required 决策项。
@@ -2156,3 +2156,15 @@ flowchart TB
 - Anthropic agent evaluation: `https://docs.anthropic.com/en/docs/test-and-evaluate/eval-tool`
 - NIST AI Risk Management Framework: `https://www.nist.gov/itl/ai-risk-management-framework`
 - Open Policy Agent policy-as-code: `https://www.openpolicyagent.org/docs/latest/`
+
+---
+
+## Completion Evidence
+
+- Implemented V1 source surfaces: `docs/contracts/team-standards.md`, `docs/standards/**`, `skills/spec-team-standards-governance/**`, `scripts/check-team-standards.js`, package delivery metadata, runtime capability catalog, user docs, and focused unit contracts.
+- Updated consumers: `spec-code-review` project-standards discovery and `spec-project-standards-reviewer` now route team standards through the contract/index and only hard-enforce `trust=confirmed,lifecycle_state=active` scope-matched rules.
+- Kept V2 acquisition, PR replay, retrieval eval, role interviews, fact/lineage ledgers, and owner queues out of V1. No `spec-standards` public workflow, `/spec:standards`, `skills/spec-standards/`, or `.spec-first/standards/` source/artifact path was restored.
+- Multi-agent review completed with four read-only reviewers. Findings fixed: P1 local absolute path hygiene gap in `check-team-standards.js`; P2 `meta-prompt-governance.md` reference reachability; P2 index/rule metadata reverse-consistency coverage; P2 missing concrete cross-surface template. No residual blocking findings remain.
+- Verification passed: `node --check scripts/check-team-standards.js`; `node scripts/check-team-standards.js --all`; `npx jest --runTestsByPath tests/unit/changelog-format.test.js tests/unit/team-standards-governance-contracts.test.js tests/unit/spec-code-review-contracts.test.js tests/unit/runtime-capability-catalog.test.js tests/unit/package-install-contracts.test.js tests/unit/spec-write-tasks-output-evals.test.js tests/unit/spec-write-tasks-runtime-governance.test.js --runInBand`; `npx jest --runTestsByPath tests/unit/init-dry-run.test.js tests/unit/runtime-plan-contracts.test.js --runInBand`; `npm run lint:skill-entrypoints`; `npm run typecheck`; `git diff --check`; `npm test` (159 unit suites / 1364 tests, smoke, 2 integration suites passed); `npm run build`.
+- Structured closeout artifact: `.spec-first/workflows/spec-work/spec-first/team-standards-v1-20260623-0304/run.json`; honest closeout verdict was verified with reason `all-claims-consistent`.
+- Generated runtime mirrors were not hand-edited; `spec-first init` was not run because V1 changed source/docs/skill delivery metadata only.

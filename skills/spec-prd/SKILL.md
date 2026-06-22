@@ -1,7 +1,6 @@
 ---
 name: spec-prd
 description: "Create, write, refine, or validate planning-readiness of brownfield PRD-grade requirements for existing systems before implementation planning. Not for PRD/Figma/source consistency audits; use spec-app-consistency-audit."
-argument-hint: "[increment request, existing PRD path, or validation target]"
 ---
 
 # Brownfield PRD Requirements
@@ -68,7 +67,7 @@ Follows `docs/contracts/project-graph-consumption.md`: `capability-class` candid
 3. **Evidence-tag current-state claims** - A current-state assertion is confirmed only when source, tests, docs, contracts, or user confirmation supports it.
 4. **Minimize blocking and right-size output** - Ask only the smallest scope-changing product question; choose bypass, compact, normal, or topology-heavy output via `prd-output-template.md`.
 5. **Adaptive product expert lens** - Infer the product/surface/industry lens from input and evidence, then ask only the questions that improve PRD quality; do not create a new agent type or role taxonomy.
-6. **No second artifact topology** - Keep the chain: `docs/brainstorms/*-requirements.md` -> plan -> tasks -> work -> review -> knowledge.
+6. **No second PRD artifact topology** - Keep the PRD chain: `docs/brainstorms/*-requirements.md` -> plan -> tasks -> work -> review -> knowledge. `grill-with-docs` context or ADR updates are supporting source docs when explicitly triggered, not replacement PRD artifacts.
 
 ## Reference Trigger Map
 
@@ -76,6 +75,7 @@ Load references only when their trigger is present:
 
 - `references/evidence-and-topology.md` - current-state evidence tags, Change Delta, source-candidate boundaries, Framing Gate, topology, surface, producer/consumer, source-of-truth, contradiction, and negative-space rules.
 - `references/domain-language-and-decision-ledger.md` plus optional `docs/contracts/domain-glossary.md` - terminology, domain boundaries, source/user/glossary contradictions, bounded grill, Pre-PRD Clarification Loop, Deep Requirements Grill, Context / ADR Topology Adapter, and decision notes.
+- `references/grill-with-docs-integration.md` - original `grill-with-docs` behavior: sustained one-question-at-a-time interview, source-first lookup, glossary challenge, inline `CONTEXT.md` updates, lazy context topology, and sparse ADR creation. Load when the user explicitly asks for `grill-with-docs` or when the PRD run must preserve that deep behavior.
 - `references/prd-output-template.md` - drafting, output shape, adaptive product expert lens, PRD quality diagnosis, Pre-PRD Clarification write-target mapping, P0/P1 quality packs, section selection, surface lenses, embedded standard template skeleton, and project-local overlays.
 - `references/prd-readiness-lens.md` - final PRD quality, Pre-PRD Clarification closure, triggered P0/P1 pack closure, readiness, handoff, or doc-review decision.
 - `references/evaluation-governance.md` - maturity posture, owner, review cadence, eval status, and promotion boundary; load for governance or lifecycle questions, not during normal PRD authoring.
@@ -136,7 +136,7 @@ Write or update `Current System Snapshot` only for claims that affect the PRD. U
 
 For existing PRD or draft inputs, also extract a `quality_diagnosis` before rewriting by applying the canonical Adaptive Product Expert Lens in `prd-output-template.md`. Treat external research and industry norms as advisory overlays unless confirmed by project source or owner decision.
 
-For rough PRD / draft / reference-claims / resume-prd / pure-text inputs where `quality_diagnosis=material-gaps|blockers` or unresolved actor, flow, state, exception, acceptance, scope, permission, release-slice, or decision intersections would force planning to invent WHAT, run a PRD-local `Pre-PRD Clarification Loop` after sanitization and current-state evidence and before final rewrite/readiness. Keep its shared understanding map run-local: `claim -> evidence/source -> gap -> question_or_assumption -> PRD write target`. Resolve source/docs/tests/contracts/glossary/prior-PRD-answerable gaps before owner questions, ask only 1-3 load-bearing owner questions with recommended answers and write targets, route missing product/system anchors to brainstorm, and never create standalone `CONTEXT.md`, `CONTEXT-MAP.md`, ADR, report, schema, or runtime artifacts.
+For rough PRD / draft / reference-claims / resume-prd / pure-text inputs where `quality_diagnosis=material-gaps|blockers` or unresolved actor, flow, state, exception, acceptance, scope, permission, release-slice, or decision intersections would force planning to invent WHAT, run a PRD-local `Pre-PRD Clarification Loop` after sanitization and current-state evidence and before final rewrite/readiness. Keep its shared understanding map run-local: `claim -> evidence/source -> gap -> question_or_assumption -> PRD write target`. Resolve source/docs/tests/contracts/glossary/prior-PRD-answerable gaps before owner questions, ask only 1-3 load-bearing owner questions with recommended answers and write targets in normal PRD mode, route missing product/system anchors to brainstorm, and never create standalone `CONTEXT.md`, `CONTEXT-MAP.md`, ADR, report, schema, or runtime artifacts in normal mode. If the user explicitly asks for `grill-with-docs` or the run must preserve sustained one-question-at-a-time context/ADR updates, load `grill-with-docs-integration.md` and follow its lazy inline artifact rules.
 
 Use `Preliminary Diagnosis` only to choose the smallest necessary detail level: compact PRD, shared understanding map, large-input Map-Reduce, triggered P0/P1 packs, blocker cluster, or route-out. Only the post-rewrite `Final Readiness Diagnosis` can emit `ready-for-planning`.
 
@@ -148,7 +148,7 @@ When the delta affects capability identity, source-of-truth, public entrypoints,
 
 When domain terminology, source/user contradiction, ownership, permission/state/exception scenario, or hard product boundary affects WHAT or acceptance, use the domain-language reference. Prefer source-first questioning, read `docs/contracts/domain-glossary.md` when it exists, and surface contradictions instead of normalizing them silently. When that glossary exists, `scripts/check-glossary-drift.js <prd-path>` reports deterministic `avoid_term_used` facts you can use while drafting; it is advisory, and readiness reuses it (see `prd-readiness-lens.md`).
 
-The Bounded Scenario Grill / Domain Grill Gate is run-local only: ask one owner question at a time, cap normal runs at 1-3 grill questions, persist results into existing PRD sections, and do not create standalone context, ADR, or runtime artifacts. Keep its focus distinct from Pre-PRD Clarification: Domain Grill handles terminology, source/user/glossary contradictions, source-of-truth, ownership, permissions, state/exception edges, and hard product boundaries; Pre-PRD Clarification handles rough PRD behavioral completeness, scenario coverage, acceptance, scope, and planning-invention gaps. If one question touches both, classify by the consequence for the PRD.
+The Bounded Scenario Grill / Domain Grill Gate is PRD-local in normal mode: ask one owner question at a time, cap normal runs at 1-3 grill questions, persist results into existing PRD sections, and do not create standalone context, ADR, or runtime artifacts. When `grill-with-docs` is explicitly requested or required for deep branch resolution, switch to `grill-with-docs-integration.md`: continue asking one question at a time while waiting for feedback, update `CONTEXT.md` inline for resolved project terms, and create ADRs only when the three ADR conditions hold. Keep its focus distinct from Pre-PRD Clarification: Domain Grill handles terminology, source/user/glossary contradictions, source-of-truth, ownership, permissions, state/exception edges, and hard product boundaries; Pre-PRD Clarification handles rough PRD behavioral completeness, scenario coverage, acceptance, scope, and planning-invention gaps. If one question touches both, classify by the consequence for the PRD.
 
 ### Phase 3: Draft, Refine, Or Split
 

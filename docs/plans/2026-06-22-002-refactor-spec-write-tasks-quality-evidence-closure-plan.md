@@ -1,7 +1,7 @@
 ---
 title: "refactor: spec-write-tasks 质量证据闭环冲刺（审计确定性上限≈92）"
 type: refactor
-status: active
+status: completed
 date: 2026-06-22
 spec_id: 2026-06-22-002-spec-write-tasks-quality-evidence-closure
 plan_depth: deep
@@ -390,7 +390,7 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 - Add a mandatory U4 closeout gate: run fresh-source eval or equivalent fresh read-only semantic review against the final slimmed `SKILL.md` and references. If unavailable, record `fresh_source_eval: not_run` with the concrete reason; do not claim the route is semantically verified.
 
 **Patterns to follow:**
-- `skills/spec-plan/SKILL.md` plus `references/plan-sections.md` split
+- `skills/spec-plan/SKILL.md` plus `references/planning-flow.md` / `references/plan-sections.md` split
 - Existing `spec-write-tasks` references
 
 **Test scenarios:**
@@ -621,3 +621,12 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 - `.spec-first/audits/skill-audit/latest/expert-scorecard.json`
 - `.spec-first/audits/skill-audit/latest/eval-readiness-report.json`
 - `docs/10-prompt/结构化项目角色契约.md`
+
+---
+
+## Completion Evidence
+
+- implementation scope: `spec-write-tasks` entrypoint 瘦身到 target audit 估算 2035 tokens；新增 repo-level output eval runner、advisory task-pack quality analyzer、recorded output adjudication、validation reports、fresh-source eval 记录、高风险 handoff fixture 与聚焦 unit tests。
+- verification: 聚焦 Jest 6 套件 39 tests 通过；两个代表性 task pack `tasks validate` 均 valid/deterministic_handoff true；runner/analyzer 均 ok；`spec-skill-audit --target skills/spec-write-tasks` 返回 92/A-、0 P0/P1/P2、27 eval cases 且 invalid_cases 为空；`npm run typecheck` 通过；`git diff --check` 通过。
+- review status: 多 agent review findings 已修复；fresh-source eval 初始 P2 为记录文件缺失，已通过 `docs/validation/spec-write-tasks/fresh-source-eval-2026-06-23-quality-evidence-closure.md` 补齐并记录。
+- generated runtime status: 未手改 `.claude/`、`.codex/`、`.agents/skills/` generated runtime mirrors。

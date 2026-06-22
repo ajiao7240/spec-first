@@ -40,6 +40,35 @@
         "source_plan_hash uses sha256:<64-hex> and is validated by spec-first tasks validate --json.",
         "Every executable task has files, test_focus, done_signal, wave, stop_if, and a source anchor."
       ],
+      "deterministic_assertions": [
+        {
+          "id": "valid-frontmatter-type",
+          "kind": "frontmatter_equals",
+          "target_file": "tests/fixtures/spec-write-tasks/valid/task-pack.md",
+          "field": "type",
+          "expected": "task-pack"
+        },
+        {
+          "id": "valid-task-pack-validates",
+          "kind": "task_pack_validation",
+          "target_file": "tests/fixtures/spec-write-tasks/valid/task-pack.md",
+          "expected": {
+            "task_pack_validity": "valid",
+            "deterministic_handoff": true
+          }
+        },
+        {
+          "id": "valid-task-fields-present",
+          "kind": "task_contract_every_task_has_fields",
+          "target_file": "tests/fixtures/spec-write-tasks/valid/task-pack.md",
+          "fields": ["task_id", "files", "test_focus", "done_signal", "wave", "stop_if"]
+        },
+        {
+          "id": "valid-no-runtime-files",
+          "kind": "task_contract_no_generated_runtime_files",
+          "target_file": "tests/fixtures/spec-write-tasks/valid/task-pack.md"
+        }
+      ],
       "expected_outcome": "A skill-guided output is executable only when identity, freshness, and Task Pack Contract structure validate.",
       "evidence_status": "file-backed fixture"
     },
@@ -62,6 +91,20 @@
       "objective_assertions": [
         "No docs/tasks artifact is required.",
         "The explanation says direct execution is intentional, not an omission."
+      ],
+      "deterministic_assertions": [
+        {
+          "id": "skip-branch-documented",
+          "kind": "file_contains",
+          "target_file": "skills/spec-write-tasks/SKILL.md",
+          "expected": "`skip`"
+        },
+        {
+          "id": "skip-does-not-require-task-artifact",
+          "kind": "file_contains",
+          "target_file": "skills/spec-write-tasks/references/execution-handoff-contract.md",
+          "expected": "spec-work-plan"
+        }
       ],
       "expected_outcome": "A high-quality run skips task compilation when it would add context cost without reducing execution risk.",
       "evidence_status": "file-backed fixture",
@@ -86,12 +129,35 @@
       ],
       "with_skill_expectations": [
         "The output sets next_action: review-task-pack with one concrete reason.",
-        "The output includes a copy-ready current-host doc-review invocation.",
+        "The output includes a copy-ready current-host document-review invocation.",
         "The output sets dispatch_authorization: missing unless the parent workflow or user explicitly authorized the continuation."
       ],
       "objective_assertions": [
         "No document-review continuation runs solely because this standalone skill was triggered.",
         "The returned envelope exposes dispatch_authorization and reason_code."
+      ],
+      "deterministic_assertions": [
+        {
+          "id": "high-risk-task-pack-validates",
+          "kind": "task_pack_validation",
+          "target_file": "tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md",
+          "expected": {
+            "task_pack_validity": "valid",
+            "deterministic_handoff": true
+          }
+        },
+        {
+          "id": "high-risk-review-gate-present",
+          "kind": "task_contract_any_task_has_review_gate",
+          "target_file": "tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md",
+          "expected": "required"
+        },
+        {
+          "id": "high-risk-dispatch-missing-documented",
+          "kind": "file_contains",
+          "target_file": "skills/spec-write-tasks/references/execution-handoff-contract.md",
+          "expected": "dispatch_authorization: missing"
+        }
       ],
       "expected_outcome": "High-risk task packs get decisive review handoff without turning spec-write-tasks into a general workflow orchestrator.",
       "evidence_status": "file-backed fixture",
@@ -129,6 +195,20 @@
         "The fan-out tasks have narrower files, test_focus, done_signal, and stop_if values rather than duplicated goals.",
         "The task pack validates with spec-first tasks validate --json and deterministic_handoff: true."
       ],
+      "deterministic_assertions": [
+        {
+          "id": "fanout-guidance-is-reference-owned",
+          "kind": "file_contains",
+          "target_file": "skills/spec-write-tasks/references/task-quality-guide.md",
+          "expected": "Large Implementation Unit Fan-Out"
+        },
+        {
+          "id": "large-plan-threshold-not-entrypoint",
+          "kind": "file_not_contains",
+          "target_file": "skills/spec-write-tasks/SKILL.md",
+          "expected": "large-plan threshold"
+        }
+      ],
       "expected_outcome": "A high-quality run avoids preserving an oversized implementation unit as one executable task when it contains multiple independent feedback loops.",
       "evidence_status": "file-backed fixture",
       "missing_evidence": ["provider telemetry", "human adjudication"]
@@ -160,6 +240,20 @@
         "Orientation Evidence mentions the degraded helper status or `planning-context-unreadable` limitation.",
         "The task pack validates with spec-first tasks validate --json and deterministic_handoff: true.",
         "At least one source_unit appears in more than one task when the source unit contains distinct acquisition/template and skill-reference feedback loops."
+      ],
+      "deterministic_assertions": [
+        {
+          "id": "degraded-helper-advisory-guidance",
+          "kind": "file_contains",
+          "target_file": "skills/spec-write-tasks/references/task-quality-guide.md",
+          "expected": "ignore its `candidate_level` for compile/skip decisions"
+        },
+        {
+          "id": "task-signals-not-primary",
+          "kind": "file_not_contains",
+          "target_file": "skills/spec-write-tasks/SKILL.md",
+          "expected": "Use `task-governance-signals.v1` as the primary complexity evidence"
+        }
       ],
       "expected_outcome": "A high-quality run treats degraded helper signals as limitations, not as authority to skip or downgrade a deep source plan.",
       "evidence_status": "file-backed fixture",

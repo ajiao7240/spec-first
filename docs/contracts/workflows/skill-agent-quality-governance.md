@@ -77,3 +77,11 @@ Advisory external-tool facts、social discourse、old review notes 和 generated
 - optional/internal skills do not need examples until they become high-risk, high-traffic, or downstream-consumed.
 - generated runtime mirrors such as `.claude/`, `.codex/`, and `.agents/skills/` are not source of truth.
 - deterministic tests may check file existence, JSON shape, required strings, path safety, and known dangerous patterns; they must not pretend to judge semantic quality.
+
+## 6. Lifecycle Metadata Waiver
+
+公开 workflow skill 不需要为了响应单个审计 finding 而新增 per-skill `manifest.json`、`agents/interface.yaml`、owner/cadence 字段或 maturity metadata。当前集中式 dual-host governance contract 只记录 delivery topology，刻意不表达 lifecycle metadata。
+
+如果 owner、review cadence、maturity 或 lifecycle state 变成可被有效消费的证据，只有在存在真实 consumer 且已有聚焦 consumer tests 后，才设计独立的集中式 advisory lifecycle contract。重估触发条件是：至少两个 public workflows 需要同一组 lifecycle fields，并且 downstream command、review workflow、catalog 或 release process 会把这些字段作为 advisory evidence 消费。
+
+在该触发条件出现前，skill-specific posture 记录在 validation artifacts 或 changelog entries 中。不要为了单个 skill 新增 `skills/<skill>/manifest.json`、`agents/interface.yaml`，也不要扩展 `src/cli/contracts/dual-host-governance/skills-governance.schema.json`。

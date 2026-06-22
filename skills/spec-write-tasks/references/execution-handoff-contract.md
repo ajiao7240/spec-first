@@ -36,6 +36,17 @@ next_action: spec-work-task-pack | review-task-pack | spec-work-plan | revise-pl
 
 Use a `Failure Modes` code as `reason_code` whenever the run stops, downgrades, or rejects a handoff. Use `small_plan`, `task_pack_compiled`, `task_pack_validated`, or `not_applicable` only when no failure mode applies. The natural-language `reason` explains the code; it must not be the only machine-readable failure signal.
 
+## Branch Decision Tree
+
+- `compile`: source plan is settled, task-ready, has executable identity, and a derived task pack materially reduces execution risk or context load. Output is an executable task pack plus envelope. `next_action` is `spec-work-task-pack` unless high-risk review handoff is selected.
+- `skip`: source plan is small enough for direct work or task compilation adds carrying cost. Output is no task pack, `reason_code: small_plan`, and `next_action: spec-work-plan`.
+- `return-to-plan`: scope, acceptance, architecture, repo scope, or verification decisions are missing. Output is no executable task pack, one failure reason, and `next_action: revise-plan`.
+- `draft-only`: temporary slicing can aid discussion but identity/hash/structure is not executable. Output is explicitly non-executable and `next_action: revise-plan` or `stop`.
+- `validate-only`: existing task pack is checked for identity, freshness, and structure. Output is a validation envelope; only valid and semantically reviewed packs may move to `spec-work-task-pack`.
+- high-risk compile handoff without explicit bounded continuation: output `next_action: review-task-pack` and `dispatch_authorization: missing`.
+
+Every branch maps to either an output artifact or an explicit no-artifact rule. No branch may invent implementation scope, mark review as approval, or report deterministic handoff without CLI validation evidence.
+
 ## Deterministic Validation Rule
 
 Before filling `deterministic_handoff` and the `validation:` block, you must actually run the deterministic CLI and transcribe its result, not assert it from inspection.
@@ -56,16 +67,16 @@ Copy `deterministic_handoff` and each `validation` field from the CLI JSON outpu
 
 Use `next_action: review-task-pack` as the decisive handoff recommendation for high-risk task packs.
 
-Choose it when the pack contains `review_gate: required` tasks, touches shared contracts, public workflow prose, source/runtime boundaries, security/release/CI surfaces, or has enough tasks/dependencies that semantic drift or over-splitting would be costly. The output must include one concrete reason and a copy-ready current-host document-review invocation, such as `/spec:doc-review <task-pack-path>` for Claude or `$spec-doc-review <task-pack-path>` for Codex.
+Choose it when the pack contains `review_gate: required` tasks, touches shared contracts, public workflow prose, source/runtime boundaries, security/release/CI surfaces, or has enough tasks/dependencies that semantic drift or over-splitting would be costly. The output must include one concrete reason and a copy-ready current-host document-review invocation for this task pack. This shared reference owns the handoff semantics, not the per-host entrypoint mapping.
 
 For a high-risk pack that resolves to `review-task-pack`, do not dispatch by default. Continue directly into the current host's document review without a separate confirmation step only under all of these conditions:
 
 - the pack is executable (`deterministic_handoff: true`) and `review-task-pack` was selected by the high-risk criteria above,
 - the invoking parent workflow or user explicitly authorized this single bounded continuation for the current run; a standalone skill trigger alone is not dispatch authorization,
-- the current session is an interactive host that exposes the document-review entrypoint (`/spec:doc-review` on Claude, `$spec-doc-review` on Codex),
+- the current session is an interactive host that exposes the current host's document-review entrypoint,
 - the continuation targets exactly the doc-review of the just-written task pack; do not chain any further workflow, and do not invoke document review as an Agent/Task/subagent type.
 
-When continuing, invoke the current-host doc-review in headless mode on the task-pack path (`/spec:doc-review mode:headless <task-pack-path>` on Claude, `$spec-doc-review mode:headless <task-pack-path>` on Codex), then report the doc-review outcome alongside this envelope.
+When continuing, invoke the current host's document-review entrypoint in headless mode on the task-pack path, then report the doc-review outcome alongside this envelope.
 
 This is bounded auto-continuation, not general workflow chaining: it covers only the single write-tasks -> doc-review edge for high-risk packs, and `spec-write-tasks` still does not become an orchestrator or execution state machine. Set `dispatch_authorization: authorized` only when the explicit authorization condition is met. When any condition is not met, surface the `review-task-pack` recommendation in the returned envelope, and let the caller decide.
 

@@ -1,0 +1,28 @@
+{
+  "schema_version": "spec-first.spec-write-tasks-quality-analysis.v1",
+  "generated_at": "2026-06-22T19:19:20.204Z",
+  "command": "node scripts/spec-write-tasks/analyze-task-pack-quality.js tests/fixtures/spec-write-tasks/valid/task-pack.md",
+  "rerun_command": "node scripts/spec-write-tasks/analyze-task-pack-quality.js tests/fixtures/spec-write-tasks/valid/task-pack.md",
+  "source_revision": "4d47b125",
+  "rollback_boundary": "重新生成 docs/validation/spec-write-tasks/task_pack_quality_analysis.{json,md}；不要 patch generated runtime mirrors。",
+  "score_is_signal_not_gate": true,
+  "advisory_only": true,
+  "input_readiness": {
+    "status": "readable",
+    "reason_code": "task-pack-readable"
+  },
+  "validator_boundary": {
+    "deterministic_handoff": true,
+    "task_pack_validity": "valid",
+    "validity_scope": "identity-freshness-structure-only",
+    "cannot_override_validator": true
+  },
+  "task_pack": "tests/fixtures/spec-write-tasks/valid/task-pack.md",
+  "findings": [],
+  "disabled_checks": [
+    {
+      "reason_code": "large-plan-threshold-deferred",
+      "reason": "large-plan 与 wide-source-unit findings 进入 analyzer behavior 前，需要先有 follow-up fixture 或 recorded output。"
+    }
+  ]
+}

@@ -2,6 +2,20 @@
 
 Load this reference before handing a PRD to planning, document review, or done.
 
+## Contents
+
+- [Base Gate](#base-gate)
+- [PRD-Specific Lens](#prd-specific-lens)
+- [Core Pack](#core-pack)
+- [Quality Diagnosis Pack](#quality-diagnosis-pack)
+- [P0 Quality Floor Pack](#p0-quality-floor-pack)
+- [Feature Slice Pack](#feature-slice-pack)
+- [Topology Pack](#topology-pack)
+- [Domain And Decision Pack](#domain-and-decision-pack)
+- [P1 Conditional Pack](#p1-conditional-pack)
+- [Metrics And Overlay Pack](#metrics-and-overlay-pack)
+- [Outcomes](#outcomes)
+
 ## Base Gate
 
 Reuse the existing Requirements Readiness Gate by reference. Do not copy its full prose and do not introduce a second evidence enum.
@@ -79,10 +93,10 @@ Run this pack when terminology, domain boundary, source/user contradiction, owne
 
 - `terminology and contradiction handling` - canonical terms are defined or unresolved terms are in Outstanding Questions; source/user/glossary mismatches are recorded as contradictions, not silently resolved. When `docs/contracts/domain-glossary.md` exists, `skills/spec-prd/scripts/check-glossary-drift.js <prd-path>` reports deterministic `avoid_term_used` facts; treat findings as advisory, then fix or record the decision. Hits that land in the PRD's own `Glossary` avoid/alias column or in Evidence/Decision-Note provenance references are expected advisory noise: record the rationale, do not delete the avoid declaration or drift trace to silence the script.
 - `owner-question minimality` - unresolved owner questions are limited to decisions that change WHAT, acceptance, source-of-truth, or scope; repo-discoverable facts are not asked as product questions, and broad question clusters route to refine/doc-review instead of being hidden in planning.
-- `domain-grill and decision-note adequacy` - load-bearing terminology, domain boundary, contradiction, ownership, permission/state/exception scenario, source/code contradiction, or hard product-boundary ambiguity has either been resolved through source-first evidence plus a bounded scenario grill, recorded as a labeled assumption, or moved to `Outstanding Questions`; material decisions use PRD-local `Decision Notes` with `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when applicable.
-- `deep requirements grill closure` - load-bearing actor, flow, state, exception, scope, acceptance, permission, release-slice, or decision-intersection questions from Pre-PRD Clarification are closed by source evidence, owner answer, accepted assumption, Outstanding Question, blocker cluster, or route-out. Any unresolved load-bearing grill question blocks `ready-for-planning`.
-- `context/adr topology adapter boundary` - existing `CONTEXT.md`, `CONTEXT-MAP.md`, context-specific `CONTEXT.md`, and `docs/adr/**` may provide advisory evidence or preview-first promotion candidates, but PRD-local Glossary / Decision Notes / Evidence And Assumptions / Scope Boundaries remain the planning handoff source.
-- `no context-artifact inflation` - ADR-like artifacts are only a future suggestion when hard to reverse, surprising without context, and a real tradeoff; readiness must not require `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/`, and missing topology does not block planning if PRD-local closure is complete.
+- `domain-grill and decision-note adequacy` - load-bearing terminology, domain boundary, contradiction, ownership, permission/state/exception scenario, source/code contradiction, or hard product-boundary ambiguity has either been resolved through source-first evidence plus a bounded scenario grill, recorded as a labeled assumption, moved to `Outstanding Questions`, or escalated to `grill-with-docs` integration; material decisions use PRD-local `Decision Notes` with `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason` when applicable.
+- `deep requirements grill closure` - load-bearing actor, flow, state, exception, scope, acceptance, permission, release-slice, or decision-intersection questions from Pre-PRD Clarification or triggered `grill-with-docs` integration are closed by source evidence, owner answer, accepted assumption, Outstanding Question, blocker cluster, or route-out. Any unresolved load-bearing grill question blocks `ready-for-planning`.
+- `context/adr topology adapter boundary` - existing `CONTEXT.md`, `CONTEXT-MAP.md`, context-specific `CONTEXT.md`, and `docs/adr/**` may provide advisory evidence in normal mode; in triggered `grill-with-docs` mode, resolved terms or ADR-worthy decisions may update those files inline. PRD-local Glossary / Decision Notes / Evidence And Assumptions / Scope Boundaries remain the planning handoff source.
+- `context/adr artifact mode boundary` - readiness must not require `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` in normal PRD mode, and missing topology does not block planning if PRD-local closure is complete. When `grill-with-docs` mode is triggered, readiness checks that resolved context/ADR updates are reflected in the PRD closeout and that ADR creation still satisfies hard-to-reverse, surprising-without-context, real-tradeoff conditions.
 
 ### P1 Conditional Pack
 

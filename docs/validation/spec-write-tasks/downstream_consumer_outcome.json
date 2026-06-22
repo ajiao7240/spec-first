@@ -1,0 +1,38 @@
+{
+  "schema_version": "spec-first.spec-write-tasks-downstream-consumer-outcome.v1",
+  "generated_at": "2026-06-22T18:15:40.679Z",
+  "command_evidence": [
+    "node bin/spec-first.js tasks validate tests/fixtures/spec-write-tasks/valid/task-pack.md --repo . --json",
+    "node bin/spec-first.js tasks validate tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md --repo . --json"
+  ],
+  "rerun_command": "node bin/spec-first.js tasks validate tests/fixtures/spec-write-tasks/valid/task-pack.md --repo . --json && node bin/spec-first.js tasks validate tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md --repo . --json",
+  "source_revision": "4d47b125",
+  "rollback_boundary": "重新生成 docs/validation/spec-write-tasks/downstream_consumer_outcome.{json,md}；不要 patch generated runtime mirrors。",
+  "score_is_signal_not_gate": true,
+  "outcomes": [
+    {
+      "consumer": "spec-work",
+      "task_pack": "tests/fixtures/spec-write-tasks/valid/task-pack.md",
+      "deterministic_handoff": true,
+      "task_pack_validity": "valid",
+      "identity": "matched",
+      "source_plan_hash": "matched",
+      "execution_blocking_ambiguity": false,
+      "reason": "该任务包 identity/freshness 匹配，并包含具体 files、source anchors、test_focus、done_signal、stop_if 与 validator-owned structure evidence。"
+    },
+    {
+      "consumer": "current-host document-review",
+      "task_pack": "tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md",
+      "deterministic_handoff": true,
+      "task_pack_validity": "valid",
+      "identity": "matched",
+      "source_plan_hash": "matched",
+      "execution_blocking_ambiguity": false,
+      "reason": "该任务包通过 review_gate/review_focus 明确 high-risk review intent，并在 standalone handoff 中记录 dispatch_authorization: missing；它不会自动串到 implementation。"
+    }
+  ],
+  "limitations": [
+    "这是代表性 consumer evidence，不证明未来每个 task pack 都语义充分。",
+    "Deterministic validation 只证明 identity、freshness 与 structure；semantic task quality 仍由 reviewer 负责。"
+  ]
+}

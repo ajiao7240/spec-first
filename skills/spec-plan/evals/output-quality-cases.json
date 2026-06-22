@@ -1,0 +1,148 @@
+{
+  "schema_version": "spec-first.spec-plan-output-quality-cases.v1",
+  "skill": "spec-plan",
+  "source_refs": [
+    "skills/spec-plan/SKILL.md",
+    "skills/spec-plan/references/planning-flow.md",
+    "skills/spec-plan/references/governance-boundaries.md",
+    "skills/spec-plan/references/plan-handoff.md",
+    "skills/spec-plan/references/plan-template.md",
+    "docs/contracts/workflows/skill-agent-quality-governance.md"
+  ],
+  "source_ref_authority": "source",
+  "coverage_tags": ["expected", "output-quality"],
+  "cases": [
+    {
+      "id": "review-origin-plan-preserves-findings",
+      "input": "Create an implementation plan from an existing skill review report and current requirements document.",
+      "input_files": [
+        {
+          "path": "docs/项目审查/详细审查/skill/Skill-25-spec-plan-详细审查报告.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "docs/brainstorms/2026-06-23-001-refactor-spec-plan-skill-quality-requirements.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
+      "baseline_risks": [
+        "A generic plan drops origin review context or invents stable finding ids that the report did not provide.",
+        "The plan treats historical review evidence as current source truth without rechecking current skill source."
+      ],
+      "with_skill_expectations": [
+        "The plan records origin/source refs and maps only in-scope review pressure into requirements or implementation units.",
+        "The plan distinguishes confirmed current source facts from source-candidate review claims.",
+        "The plan avoids claiming every review issue is closed before implementation and verification happen."
+      ],
+      "objective_assertions": [
+        "Plan frontmatter or context names the origin review path and the requirements path when both are consumed.",
+        "Any referenced review finding ids come from the origin; absent stable ids are not fabricated.",
+        "The Direct Evidence or source-read section lists current source files that were actually read."
+      ],
+      "expected_outcome": "A high-quality spec-plan run preserves review-origin traceability without upgrading review evidence into confirmed current truth.",
+      "evidence_status": "file-backed fixture",
+      "missing_evidence": ["model execution evidence", "human adjudication"]
+    },
+    {
+      "id": "unsupported-plan-needs-direct-evidence",
+      "input": "Plan a source/runtime refactor in a repo using only the user prompt and no direct source reads.",
+      "input_files": [
+        {
+          "path": "skills/spec-plan/SKILL.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "skills/spec-plan/references/governance-boundaries.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "skills/spec-plan/references/plan-template.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
+      "baseline_risks": [
+        "The plan claims repository-wide impact, test coverage, or runtime projection behavior from memory.",
+        "The plan omits Direct Evidence limitations, making unsupported assumptions look confirmed."
+      ],
+      "with_skill_expectations": [
+        "The plan includes Direct Evidence with target_repo, source_refs, current revision or status, discovery methods, confidence, and limitations.",
+        "The plan uses bounded direct reads and keeps optional provider evidence advisory.",
+        "The plan defers execution-time unknowns rather than pretending tests or implementation behavior were observed."
+      ],
+      "objective_assertions": [
+        "No repository-wide claim appears without matching source refs or explicit limitations.",
+        "The plan distinguishes script-owned deterministic facts from LLM-owned planning judgment.",
+        "Implementation-dependent questions are marked deferred to spec-work when they require code changes or runtime observation."
+      ],
+      "expected_outcome": "A high-quality plan is evidence-grounded and visibly limited when direct evidence is thin.",
+      "evidence_status": "file-backed fixture",
+      "missing_evidence": ["provider telemetry", "model execution evidence", "human adjudication"]
+    },
+    {
+      "id": "handoff-does-not-silently-compile-task-pack",
+      "input": "After writing the plan, compile tasks and start implementation automatically.",
+      "input_files": [
+        {
+          "path": "skills/spec-plan/SKILL.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "skills/spec-plan/references/plan-handoff.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
+      "baseline_risks": [
+        "The workflow turns a plan artifact into execution state before the user chooses a handoff.",
+        "The workflow silently chains into spec-write-tasks or spec-work and loses the plan-only boundary."
+      ],
+      "with_skill_expectations": [
+        "The workflow presents Start work, Compile task pack, Create Issue, Proof, and Done options after document review.",
+        "The workflow waits for explicit user selection before loading spec-write-tasks, starting work, creating an issue, or editing code.",
+        "Task-pack compilation remains a user-confirmed derived handoff, not a default completion step."
+      ],
+      "objective_assertions": [
+        "The post-plan menu includes a Compile task pack option with spec-write-tasks named as optional.",
+        "The plan-only safety text forbids implementation workflows and code edits before handoff selection.",
+        "No case claims an executable task pack exists unless a downstream task-pack workflow actually wrote and validated it."
+      ],
+      "expected_outcome": "A high-quality spec-plan run stops at a blocking handoff choice instead of silently producing execution artifacts.",
+      "evidence_status": "file-backed fixture",
+      "missing_evidence": ["model execution evidence", "human adjudication"]
+    },
+    {
+      "id": "generated-runtime-mirror-remains-non-source",
+      "input": "A rendered Codex skill copy drifted; fix it by editing .agents/skills/spec-plan/SKILL.md.",
+      "input_files": [
+        {
+          "path": "skills/spec-plan/SKILL.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "skills/spec-plan/references/governance-boundaries.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "docs/contracts/workflows/skill-agent-quality-governance.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
+      "baseline_risks": [
+        "The plan treats generated runtime mirrors as source-of-truth and recommends patching projected files.",
+        "The plan loses the source/runtime regeneration path and makes future drift harder to detect."
+      ],
+      "with_skill_expectations": [
+        "The plan identifies skills/spec-plan source or generator logic as the fix surface.",
+        "The plan states that .claude, .codex, and .agents/skills mirrors are generated outputs.",
+        "The plan recommends source changes plus spec-first init or runtime sync for regeneration when needed."
+      ],
+      "objective_assertions": [
+        "Generated mirror paths do not appear as source_refs with source authority.",
+        "Implementation units do not modify .claude/**, .codex/**, or .agents/skills/** as source fixes.",
+        "Runtime drift is treated as evidence to inspect source/generator behavior, not as permission to hand-edit mirrors."
+      ],
+      "expected_outcome": "A high-quality plan protects source/runtime boundaries and keeps generated mirrors out of the write surface.",
+      "evidence_status": "file-backed fixture",
+      "missing_evidence": ["provider telemetry", "model execution evidence", "human adjudication"]
+    }
+  ]
+}

@@ -166,7 +166,9 @@ graphify-out/.graphify_python
 
 ## 共享 project standards
 
-如果团队希望跨人复用 project standards，应把已确认内容写入明确 source-of-truth，例如 `AGENTS.md`、`CLAUDE.md`、目录级 standards 文件、`.spec-first/specs/repo-profile.yaml`、`docs/specs/**`，或团队约定的 confirmed standards 文档。
+如果团队希望跨人复用 project standards，应把已确认内容写入明确 source-of-truth，例如 `AGENTS.md`、`CLAUDE.md`、目录级 `AGENTS.md` / `CLAUDE.md`，或当前推荐的 `docs/contracts/team-standards.md` + `docs/standards/index.md` + `docs/standards/**`。
+
+`docs/standards/**` 是 checked-in source surface，不是 runtime artifact。只有 `trust=confirmed,lifecycle_state=active` 且 scope 命中的规则才可作为 workflow hard context；`docs/standards/candidates/**` 只放 proposal/advisory 内容，不应被 downstream workflow enforce。`docs/specs/**` 记录能力行为真相，不能替代团队开发规范。旧 `.spec-first/standards/` 属于已退役 runtime/artifact 路径，不应作为新的 confirmed standards source。
 
 ## 不建议加入的规则
 
@@ -182,6 +184,6 @@ graphify-out/.graphify_python
 
 - 整个 `.claude/` 可能会隐藏团队有意提交的项目设置、hook 或非 spec-first 配置；`.codex/` 是当前默认例外，Codex host/runtime config 与 spec-first Codex runtime mirror 都按本地可重建资产处理。
 - 整个 `.agents/` 可能会隐藏团队自定义 plugins 或 marketplace 配置。
-- 整个 `.spec-first/` 会隐藏 `.spec-first/config.local.example.yaml`、`.spec-first/specs/repo-profile.yaml` 和团队选择提交的 confirmed standards source。
+- 整个 `.spec-first/` 会隐藏 `.spec-first/config.local.example.yaml`、`.spec-first/specs/repo-profile.yaml` 和团队可能选择提交的其他 source 文件；当前 confirmed team standards 推荐放在 `docs/standards/**`，不放在 `.spec-first/standards/`。
 
 默认推荐是忽略 spec-first 可重建 runtime、Codex host runtime root 和本地 facts，同时保留明确 source 路径的提交决策空间。

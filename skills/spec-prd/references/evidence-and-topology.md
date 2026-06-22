@@ -4,6 +4,17 @@ Load this reference before writing `Current System Snapshot`, `Change Delta`, to
 
 This is the steel frame for brownfield PRDs: first establish trustworthy current-state evidence, then classify the system-shape risk that would otherwise make planning invent WHAT.
 
+## Contents
+
+- [Evidence Tags](#evidence-tags)
+- [Candidate Boundary](#candidate-boundary)
+- [Calibration Source Boundary](#calibration-source-boundary)
+- [Current-State Coverage](#current-state-coverage)
+- [Topology Framing Gate](#topology-framing-gate)
+- [Boundary Blocks](#boundary-blocks)
+- [Readiness Gates](#readiness-gates)
+- [Contradiction Handling](#contradiction-handling)
+
 ## Evidence Tags
 
 Use the strongest available evidence and label every material current-state claim:

@@ -4,6 +4,20 @@ Load this reference before drafting or materially rewriting a PRD artifact.
 
 This file owns the output shape, section skeleton, surface lenses, and embedded standard template cues. Do not create a second packaged template tree for the same rules.
 
+## Contents
+
+- [Default Frontmatter](#default-frontmatter)
+- [Output Shape](#output-shape)
+- [Core Sections](#core-sections)
+- [Conditional Sections](#conditional-sections)
+- [Surface Lenses](#surface-lenses)
+- [Adaptive Product Expert Lens](#adaptive-product-expert-lens)
+- [Embedded Standard Skeleton](#embedded-standard-skeleton)
+- [PRD Quality Diagnosis And Optimization](#prd-quality-diagnosis-and-optimization)
+- [P0 PRD Quality Packs](#p0-prd-quality-packs)
+- [Feature Slices](#feature-slices)
+- [Lightweight Split Topology](#lightweight-split-topology)
+
 ## Default Frontmatter
 
 ```yaml
@@ -285,11 +299,13 @@ Run these only when the input surface warrants them and the detail reduces plann
 
 Actor alignment distinguishes beneficiary, operator, admin, downstream consumer, and owner only when the distinction changes WHAT or acceptance. Design evidence extracts PRD facts only: entry, state, copy, empty/error/loading, permissions, i18n, and accessibility. It routes consistency audit to `spec-app-consistency-audit`; PRD/Figma/source consistency remains outside `spec-prd`. Release slices are PRD handoff units, never tasks or implementation units. Change Management preserves stable R/AE IDs and records added, replaced, deprecated, or still-unconfirmed deltas instead of silently rewriting old requirements.
 
-## Context / ADR Promotion Notes
+## Context / ADR Notes
 
-When existing `CONTEXT.md`, `CONTEXT-MAP.md`, context-specific `CONTEXT.md`, or `docs/adr/**` were read, record only the PRD-relevant evidence source and contradiction/decision outcome. Stable terms first persist in `Glossary`; hard decisions first persist in `Decision Notes`, `Evidence And Assumptions`, or `Scope Boundaries`.
+When existing `CONTEXT.md`, `CONTEXT-MAP.md`, context-specific `CONTEXT.md`, or `docs/adr/**` were read, record the PRD-relevant evidence source and contradiction/decision outcome. Stable terms persist in `Glossary`; hard decisions persist in `Decision Notes`, `Evidence And Assumptions`, or `Scope Boundaries` so the PRD remains sufficient for planning.
 
-Project-level context or ADR updates are preview-first promotion candidates only. They are not required PRD output, not readiness prerequisites, and not silently written by this workflow.
+In normal PRD mode, project-level context or ADR updates are preview-first promotion candidates only. They are not required PRD output, not readiness prerequisites, and not silently written by this workflow.
+
+When `grill-with-docs-integration.md` is triggered, resolved project-specific terms update `CONTEXT.md` inline and ADR-worthy decisions create ADRs inline. Record the changed context/ADR paths in `Closeout Summary`; do not make those files a replacement for PRD-local closure.
 
 ## Feature Slices
 

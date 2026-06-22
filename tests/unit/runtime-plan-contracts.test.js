@@ -6,6 +6,15 @@ const path = require('node:path');
 
 const { getAdapter } = require('../../src/cli/adapters');
 const SPEC_PLAN_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-plan', 'SKILL.md');
+const SPEC_PLAN_PLANNING_FLOW_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-plan',
+  'references',
+  'planning-flow.md',
+);
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-runtime-plan-'));
@@ -138,19 +147,28 @@ describe('runtime plan contracts', () => {
 
   test('Codex-rendered spec-plan preserves research dispatch semantics', () => {
     const adapter = getAdapter('codex');
-    const rendered = adapter.transformSkillContent(fs.readFileSync(SPEC_PLAN_PATH, 'utf8'), {
+    const renderedSkill = adapter.transformSkillContent(fs.readFileSync(SPEC_PLAN_PATH, 'utf8'), {
       skillName: 'spec-plan',
       isWorkflowSkill: true,
     });
+    const renderedPlanningFlow = adapter.transformSkillContent(fs.readFileSync(SPEC_PLAN_PLANNING_FLOW_PATH, 'utf8'), {
+      skillName: 'spec-plan',
+      isWorkflowSkill: true,
+    });
+    const combined = `${renderedSkill}\n${renderedPlanningFlow}`;
 
-    expect(rendered).toContain('including `spawn_agent` where provided');
-    expect(rendered).toContain('Do not downgrade solely because the host is Codex.');
-    expect(rendered).toContain('explicit fallback');
-    expect(rendered).toContain('Plan generation must still complete when research dispatch is unavailable');
-    expect(rendered).toContain('`.codex/agents/spec-repo-research-analyst.agent.md`');
-    expect(rendered).toContain('`.codex/agents/spec-learnings-researcher.agent.md`');
-    expect(rendered).not.toContain('Read `.codex/agents/spec-repo-research-analyst.agent.md` and apply that agent profile to');
-    expect(rendered).not.toContain('Read `.codex/agents/spec-learnings-researcher.agent.md` and apply that agent profile to');
+    expect(renderedSkill).toContain('read `.agents/skills/spec-plan/references/planning-flow.md`');
+    expect(combined).toContain('dispatch authorization is present for this run');
+    expect(combined).toContain('a public `$spec-plan` invocation authorizes the workflow itself; it does not by itself authorize `spawn_agent`');
+    expect(combined).toContain('record `dispatch_authorization_missing`');
+    expect(combined).toContain('explicit fallback');
+    expect(combined).toContain('Plan generation must still complete when research dispatch is unavailable');
+    expect(combined).toContain('`.codex/agents/spec-repo-research-analyst.agent.md`');
+    expect(combined).toContain('`.codex/agents/spec-learnings-researcher.agent.md`');
+    expect(combined).not.toContain('including `spawn_agent` where provided');
+    expect(combined).not.toContain('Do not downgrade solely because the host is Codex.');
+    expect(combined).not.toContain('Read `.codex/agents/spec-repo-research-analyst.agent.md` and apply that agent profile to');
+    expect(combined).not.toContain('Read `.codex/agents/spec-learnings-researcher.agent.md` and apply that agent profile to');
   });
 
   test('legacy Task shorthand renders as Codex dispatch with explicit inline fallback', () => {

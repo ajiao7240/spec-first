@@ -24,6 +24,9 @@ function parseArgs(argv) {
       i += 1;
     } else if (!args.target) {
       args.target = a;
+    } else {
+      args.error = `unexpected extra argument: ${a}`;
+      break;
     }
   }
   return args;

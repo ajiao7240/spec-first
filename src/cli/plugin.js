@@ -755,8 +755,8 @@ function syncSkills(projectRoot, adapter, filteredAssetSet = buildFilteredAssetS
       fs.rmSync(path.join(standaloneRoot, skillName), { recursive: true, force: true });
     }
 
-    copyDirectoryWithTransform(path.join(sourceRoot, skillName), targetDir, (content) =>
-      adapter.transformSkillContent(content, transformContext),
+    copyDirectoryWithTransform(path.join(sourceRoot, skillName), targetDir, (content, fileContext) =>
+      transformSkillTextFile(adapter, transformContext, content, fileContext),
     );
   }
 
@@ -808,7 +808,8 @@ function planSkillsSync(projectRoot, adapter, filteredAssetSet = buildFilteredAs
       sourceDir: path.join(sourceRoot, skillName),
       targetDir,
       reason: isWorkflowSkill ? 'managed_workflow_skill' : 'managed_skill',
-      transformText: (content) => adapter.transformSkillContent(content, transformContext),
+      transformText: (content, fileContext) =>
+        transformSkillTextFile(adapter, transformContext, content, fileContext),
     }));
   }
 
@@ -988,7 +989,7 @@ module.exports = {
   validateSkillsGovernance,
 };
 
-function copyDirectoryWithTransform(sourceDir, targetDir, transformText) {
+function copyDirectoryWithTransform(sourceDir, targetDir, transformText, relativeRoot = '') {
   fs.mkdirSync(targetDir, { recursive: true });
 
   for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
@@ -998,23 +999,24 @@ function copyDirectoryWithTransform(sourceDir, targetDir, transformText) {
 
     const sourcePath = path.join(sourceDir, entry.name);
     const targetPath = path.join(targetDir, entry.name);
+    const relativePath = normalizePathForContent(path.join(relativeRoot, entry.name));
 
     if (entry.isDirectory()) {
-      copyDirectoryWithTransform(sourcePath, targetPath, transformText);
+      copyDirectoryWithTransform(sourcePath, targetPath, transformText, relativePath);
       continue;
     }
 
     if (entry.isFile()) {
-      copyFileWithTransform(sourcePath, targetPath, transformText);
+      copyFileWithTransform(sourcePath, targetPath, transformText, { relativePath });
     }
   }
 }
 
-function copyFileWithTransform(sourcePath, targetPath, transformText) {
+function copyFileWithTransform(sourcePath, targetPath, transformText, fileContext = {}) {
   const stat = fs.statSync(sourcePath);
   if (isTextFile(sourcePath)) {
     const original = fs.readFileSync(sourcePath, 'utf8');
-    const transformed = transformText(original);
+    const transformed = transformText(original, { sourcePath, targetPath, ...fileContext });
     fs.writeFileSync(targetPath, transformed, 'utf8');
     fs.chmodSync(targetPath, stat.mode);
     return;
@@ -1040,6 +1042,23 @@ function shouldIgnoreBundledSupportPath(relativePath) {
   );
 }
 
+function transformSkillTextFile(adapter, transformContext, content, fileContext = {}) {
+  if (isSkillEvalSupportPath(fileContext.relativePath)) {
+    return content;
+  }
+
+  return adapter.transformSkillContent(content, transformContext);
+}
+
+function isSkillEvalSupportPath(relativePath) {
+  if (typeof relativePath !== 'string' || relativePath.length === 0) {
+    return false;
+  }
+
+  const normalizedPath = normalizePathForContent(relativePath);
+  return normalizedPath.split('/')[0] === 'evals';
+}
+
 function emptyPlan() {
   return buildEmptyOperationPlan();
 }
@@ -1062,6 +1081,7 @@ function planDirectoryWithTransform({
   targetDir,
   reason,
   transformText,
+  relativeRoot = '',
 }) {
   const operations = [
     buildPlanOperation('ensure_dir', toRelativeProjectPath(targetDir, projectRoot), `${reason}_dir`),
@@ -1074,6 +1094,7 @@ function planDirectoryWithTransform({
 
     const sourcePath = path.join(sourceDir, entry.name);
     const nextTargetPath = path.join(targetDir, entry.name);
+    const relativePath = normalizePathForContent(path.join(relativeRoot, entry.name));
 
     if (entry.isDirectory()) {
       operations.push(...planDirectoryWithTransform({
@@ -1082,6 +1103,7 @@ function planDirectoryWithTransform({
         targetDir: nextTargetPath,
         reason,
         transformText,
+        relativeRoot: relativePath,
       }));
       continue;
     }
@@ -1093,6 +1115,7 @@ function planDirectoryWithTransform({
         targetPath: nextTargetPath,
         reason,
         transformText,
+        relativePath,
       }));
     }
   }
@@ -1106,6 +1129,7 @@ function planFileCopyWithTransform({
   targetPath,
   reason,
   transformText,
+  relativePath,
 }) {
   const operations = [
     buildPlanOperation(
@@ -1131,7 +1155,7 @@ function planFileCopyWithTransform({
   }
 
   const original = fs.readFileSync(sourcePath, 'utf8');
-  const transformed = transformText(original);
+  const transformed = transformText(original, { sourcePath, targetPath, relativePath });
   operations.push(buildFileWriteOperation(projectRoot, targetPath, transformed, reason, stat.mode));
   return operations;
 }
@@ -1213,7 +1237,8 @@ function inspectSkillIntegrity({
     ...skillSupportFileIntegrityIssues({
       sourceDir,
       targetDir,
-      transformText: (content) => adapter.transformSkillContent(content, transformContext),
+      transformText: (content, fileContext) =>
+        transformSkillTextFile(adapter, transformContext, content, fileContext),
     }),
   ]);
 
@@ -1242,7 +1267,11 @@ function skillSupportFileIntegrityIssues({ sourceDir, targetDir, transformText }
           : [`content_mismatch:${relativePath}`];
       }
 
-      const expectedContent = transformText(fs.readFileSync(sourcePath, 'utf8'));
+      const expectedContent = transformText(fs.readFileSync(sourcePath, 'utf8'), {
+        sourcePath,
+        targetPath,
+        relativePath,
+      });
       const actualContent = fs.readFileSync(targetPath, 'utf8');
       return actualContent === expectedContent
         ? []

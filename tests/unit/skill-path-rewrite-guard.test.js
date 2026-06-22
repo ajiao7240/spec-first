@@ -81,6 +81,7 @@ describe('skill source path rewrite guard', () => {
 
       expect(plan).toContain(`Read \`${specPlanRuntimeRoot}/references/plan-sections.md\``);
       expect(plan).toContain(`Read \`${specPlanRuntimeRoot}/references/plan-template.md\``);
+      expect(plan).toContain(`read \`${specPlanRuntimeRoot}/references/planning-flow.md\``);
       expect(plan).not.toContain('Read `skills/spec-plan/references/plan-template.md`');
     }
   });

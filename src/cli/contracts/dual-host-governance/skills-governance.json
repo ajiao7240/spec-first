@@ -355,6 +355,17 @@
       }
     },
     {
+      "skill_name": "spec-team-standards-governance",
+      "entry_surface": "standalone_skill",
+      "command_name": null,
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "skill",
+        "codex": "skill"
+      }
+    },
+    {
       "skill_name": "test-browser",
       "entry_surface": "internal_only",
       "command_name": null,

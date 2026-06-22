@@ -256,6 +256,9 @@ Source-of-truth assets 位于仓库中。`.claude/`、`.codex/` 和 `.agents/ski
 - [Verification Profile Contract](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/verification/verification-profile.md)
 - [Verification Run Summary Contract](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/verification/verification-run-summary.md)
 - [Honest Closeout Contract](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/workflows/honest-closeout.md)
+- [团队开发规范合同](https://github.com/sunrain520/spec-first/blob/main/docs/contracts/team-standards.md)
+- [团队开发规范索引](https://github.com/sunrain520/spec-first/blob/main/docs/standards/index.md)
+- [团队开发规范治理用户手册](https://github.com/sunrain520/spec-first/blob/main/docs/05-%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C/23-%E5%9B%A2%E9%98%9F%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83%E6%B2%BB%E7%90%86.md)
 
 使用 workflows：
 

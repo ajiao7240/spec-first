@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const ClaudeAdapter = require('../../src/cli/adapters/claude');
 const CodexAdapter = require('../../src/cli/adapters/codex');
@@ -13,6 +14,10 @@ const {
 } = require('../../src/cli/plugin');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-plan', 'SKILL.md');
+const EVALS_DIR = path.join(__dirname, '..', '..', 'skills', 'spec-plan', 'evals');
+const EXAMPLES_PATH = path.join(EVALS_DIR, 'examples.json');
+const OUTPUT_QUALITY_CASES_PATH = path.join(EVALS_DIR, 'output-quality-cases.json');
+const EVALS_README_PATH = path.join(EVALS_DIR, 'README.md');
 const REQUIREMENTS_CAPTURE_PATH = path.join(
   __dirname,
   '..',
@@ -103,20 +108,33 @@ const GOVERNANCE_BOUNDARIES_PATH = path.join(
   'references',
   'governance-boundaries.md',
 );
+const PLANNING_FLOW_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'spec-plan',
+  'references',
+  'planning-flow.md',
+);
 
 function plannedRuntimeContent(adapter, targetPath) {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-plan-runtime-'));
 
   try {
-    const { plan } = planBundledAssetSync(projectRoot, adapter);
-    const operation = plan.operations.find((entry) => entry.path === targetPath);
-    if (!operation) {
-      throw new Error(`Missing planned runtime operation for ${targetPath}`);
-    }
-    return operation.contents;
+    return plannedRuntimeContentForProject(projectRoot, adapter, targetPath);
   } finally {
     fs.rmSync(projectRoot, { recursive: true, force: true });
   }
+}
+
+function plannedRuntimeContentForProject(projectRoot, adapter, targetPath) {
+  const { plan } = planBundledAssetSync(projectRoot, adapter);
+  const operation = plan.operations.find((entry) => entry.path === targetPath);
+  if (!operation) {
+    throw new Error(`Missing planned runtime operation for ${targetPath}`);
+  }
+  return operation.contents;
 }
 
 function syncedRuntimeInspection(adapter) {
@@ -161,6 +179,13 @@ function readPlanningGovernanceSurface() {
     fs.readFileSync(GOVERNANCE_BOUNDARIES_PATH, 'utf8'),
   ].join('\n');
 }
+
+function readPlanningFlowSurface() {
+  return [
+    fs.readFileSync(SKILL_PATH, 'utf8'),
+    fs.readFileSync(PLANNING_FLOW_PATH, 'utf8'),
+  ].join('\n');
+}
 const UNIVERSAL_PLANNING_PATH = path.join(
   __dirname,
   '..',
@@ -197,7 +222,8 @@ describe('spec-plan context orientation contract', () => {
   test('uses direct repo context and preserves LLM decision boundary', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
     const governance = fs.readFileSync(GOVERNANCE_BOUNDARIES_PATH, 'utf8');
-    const combined = `${text}\n${governance}`;
+    const planningFlow = fs.readFileSync(PLANNING_FLOW_PATH, 'utf8');
+    const combined = `${text}\n${governance}\n${planningFlow}`;
 
     expect(text).toContain('read `skills/spec-plan/references/governance-boundaries.md`');
     expect(text).not.toContain('## Context Orientation Anchor');
@@ -221,17 +247,17 @@ describe('spec-plan context orientation contract', () => {
     expect(combined).not.toContain('docs/examples/standards-glue-consumption-examples.md');
     expect(combined).not.toContain('.spec-first/standards/');
     expect(combined).not.toContain('glue-map.json');
-    expect(text).toContain('target_repo');
+    expect(combined).toContain('target_repo');
     expect(combined).toContain('bounded direct reads');
     expect(combined).toContain('use bounded direct reads, `rg`, ast-grep, git diff, tests/logs, and user evidence');
-    expect(text).toContain('do not let scripts or setup facts choose semantically between child repos');
-    expect(text).toContain('A cross-repo plan must name `target_repo` per implementation unit');
+    expect(combined).toContain('do not let scripts or setup facts choose semantically between child repos');
+    expect(combined).toContain('A cross-repo plan must name `target_repo` per implementation unit');
     expect(combined).not.toContain('stage0-context');
     expect(combined).not.toContain('selected_assets');
   });
 
   test('research and handoff tracker detection avoid full instruction-file reloads', () => {
-    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const text = readPlanningFlowSurface();
     const handoff = fs.readFileSync(PLAN_HANDOFF_PATH, 'utf8');
 
     expect(text).toContain('Already-loaded project guidance that materially affects the plan');
@@ -264,7 +290,7 @@ describe('spec-plan context orientation contract', () => {
   });
 
   test('prd-grade handoff entropy check routes unresolved WHAT gaps back to PRD', () => {
-    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const text = readPlanningFlowSurface();
 
     expect(text).toContain('PRD handoff entropy check');
     expect(text).toContain('canonical term');
@@ -289,16 +315,22 @@ describe('spec-plan context orientation contract', () => {
   });
 
   test('uses Direct Evidence Readiness without hidden evidence gates', () => {
-    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const planningFlow = fs.readFileSync(PLANNING_FLOW_PATH, 'utf8');
     const governance = fs.readFileSync(GOVERNANCE_BOUNDARIES_PATH, 'utf8');
     const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
-    const combined = `${text}\n${governance}\n${template}`;
+    const combined = `${skill}\n${planningFlow}\n${governance}\n${template}`;
 
-    expect(text).toContain('#### 1.1a Direct Evidence Readiness');
-    expect(text).toContain('collect bounded direct evidence');
-    expect(text).toContain('Use this block to disclose what was actually read or verified.');
-    expect(text).toContain('Do not claim repository-wide impact coverage from a narrow search.');
-    expect(text).toContain('Do not add hidden pre-facts or external-tool evidence envelopes.');
+    expect(skill).toContain('read `skills/spec-plan/references/planning-flow.md`');
+    expect(planningFlow).toContain('### 1.1a Direct Evidence Readiness');
+    expect(planningFlow).toContain('collect bounded direct evidence');
+    expect(planningFlow).toContain('Use this block to disclose what was actually read or verified.');
+    expect(planningFlow).toContain('Do not claim repository-wide impact coverage from a narrow search.');
+    expect(planningFlow).toContain('Do not add hidden pre-facts or external-tool evidence envelopes.');
+    expect(planningFlow).toContain('follow `skills/spec-plan/references/plan-template.md` for the canonical `## Direct Evidence Readiness` and `## Direct Evidence` sections');
+    expect(planningFlow).not.toContain('- worktree_dirty:');
+    expect(planningFlow).not.toContain('- discovery_methods:');
+    expect(planningFlow).not.toContain('- tests_or_logs:');
     expect(combined).toContain('## Direct Evidence Readiness');
     expect(combined).toContain('## Direct Evidence');
     const readinessHeadingIndex = template.search(/^## Direct Evidence Readiness$/m);
@@ -331,13 +363,16 @@ describe('spec-plan context orientation contract', () => {
     expect(combined).toContain('do not turn rejected rationale into active workflow state');
   });
   test('planning research dispatch is host-neutral with explicit inline fallback', () => {
-    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const text = readPlanningFlowSurface();
 
     expect(text).toContain('Planning research agents are read-only.');
-    expect(text).toContain('A direct plan workflow invocation authorizes this documented research phase when host capability exists');
-    expect(text).toContain('do not ask for a second subagent confirmation');
-    expect(text).toContain('including `spawn_agent` where provided');
-    expect(text).toContain('Do not downgrade solely because the host is Codex.');
+    expect(text).toContain('dispatch authorization is present for this run');
+    expect(text).toContain('a public `$spec-plan` invocation authorizes the workflow itself; it does not by itself authorize `spawn_agent`');
+    expect(text).toContain('If the user did not explicitly request subagents, delegation, parallel research, or research-agent dispatch');
+    expect(text).toContain('record `dispatch_authorization_missing`');
+    expect(text).toContain('unauthorized, or fails for a non-capacity reason');
+    expect(text).not.toContain('A direct plan workflow invocation authorizes this documented research phase when host capability exists');
+    expect(text).not.toContain('do not ask for a second subagent confirmation');
     expect(text).toContain('run the same research sequentially in the current agent');
     expect(text).toContain('applying it inline as an explicit fallback');
     expect(text).toContain('Plan generation must still complete when research dispatch is unavailable');
@@ -366,7 +401,7 @@ describe('spec-plan context orientation contract', () => {
   });
 
   test('planning can recommend workers only behind a suitability gate', () => {
-    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const text = readPlanningFlowSurface();
 
     expect(text).toContain('Implementation Worker Suitability Gate');
     expect(text).toContain('Planning may recommend later worker delegation, but it must not dispatch implementation workers or create a hidden implement/check lifecycle.');
@@ -390,7 +425,7 @@ describe('spec_id planning contract', () => {
   });
 
   test('plan inherits spec_id, handles legacy origins, and preserves chain boundaries', () => {
-    const text = fs.readFileSync(SKILL_PATH, 'utf8');
+    const text = readPlanningFlowSurface();
     const template = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
     const combined = `${text}\n${template}`;
 
@@ -459,8 +494,124 @@ describe('spec_id planning contract', () => {
     expect(combined).not.toContain('/spec:write-tasks');
   });
 
+  test('eval examples cover trigger, boundary, fallback, safety, handoff, and near-neighbor routing', () => {
+    const payload = JSON.parse(fs.readFileSync(EXAMPLES_PATH, 'utf8'));
+    const casesById = new Map(payload.cases.map((entry) => [entry.id, entry]));
+    const tags = new Set(payload.cases.flatMap((entry) => entry.coverage_tags));
+
+    expect(payload.description).toContain('not a deterministic router or semantic readiness gate');
+    expect(payload.source_refs).toEqual(expect.arrayContaining([
+      'skills/spec-plan/SKILL.md',
+      'skills/spec-plan/references/planning-flow.md',
+      'skills/spec-plan/references/governance-boundaries.md',
+      'skills/spec-plan/references/plan-handoff.md',
+    ]));
+    expect(payload.source_refs.join('\n')).not.toContain('.agents/skills/');
+    expect(payload.source_refs.join('\n')).not.toContain('.claude/');
+    expect(payload.source_refs.join('\n')).not.toContain('.codex/');
+
+    for (const requiredId of [
+      'settled-requirements-implementation-plan',
+      'direct-invocation-always-plans',
+      'unclear-input-bootstrap',
+      'missing-source-document-failure',
+      'question-tool-unavailable-fallback',
+      'plan-only-safety-no-implementation',
+      'review-origin-planning',
+      'dirty-worktree-limitation',
+      'prd-handoff-entropy-boundary',
+      'generated-runtime-mirror-exclusion',
+      'task-pack-optional-handoff',
+      'brainstorm-owned-what-boundary',
+      'execution-ready-plan-boundary',
+      'test-failure-debug-boundary',
+      'prd-readiness-boundary',
+      'plan-document-review-boundary',
+    ]) {
+      expect(casesById.has(requiredId)).toBe(true);
+      expect(casesById.get(requiredId).expected_outcome).toEqual(expect.any(String));
+    }
+
+    for (const requiredTag of [
+      'direct-invocation',
+      'fallback',
+      'failure',
+      'plan-only-safety',
+      'review-origin',
+      'workspace-safety',
+      'prd-handoff',
+      'source-runtime',
+      'task-pack',
+      'brainstorm-routing',
+      'debug-routing',
+      'prd-routing',
+      'review-routing',
+    ]) {
+      expect(tags.has(requiredTag)).toBe(true);
+    }
+
+    expect(casesById.get('generated-runtime-mirror-exclusion').expected_outcome).toContain('skills/spec-plan source');
+    expect(casesById.get('task-pack-optional-handoff').expected_outcome).toContain('wait for explicit user selection');
+    expect(casesById.get('missing-source-document-failure').expected_outcome).toContain('do not invent requirements');
+    expect(casesById.get('question-tool-unavailable-fallback').expected_outcome).toContain('Fall back loudly');
+    expect(casesById.get('prd-handoff-entropy-boundary').boundary_note).toContain('does not copy the full spec-prd readiness lens');
+  });
+
+  test('output-quality fixtures expose objective assertions and missing semantic evidence', () => {
+    const readme = fs.readFileSync(EVALS_README_PATH, 'utf8');
+    const payload = JSON.parse(fs.readFileSync(OUTPUT_QUALITY_CASES_PATH, 'utf8'));
+
+    expect(readme).toContain('maintainer-only planning review fixtures');
+    expect(readme).toContain('不是 executable eval runner');
+    expect(readme).toContain('不是 provider-backed model telemetry');
+    expect(readme).toContain('必须声明 `input_files`、`baseline_risks`、`with_skill_expectations`、`objective_assertions` 和 `evidence_status`');
+    expect(readme).toContain('每个 output-quality case 必须在 `missing_evidence` 中显式标注');
+    expect(readme).toContain('不能声称 fixture 已证明真实模型输出质量提升');
+    expect(payload.schema_version).toContain('spec-plan-output-quality-cases');
+    expect(payload.coverage_tags).toEqual(expect.arrayContaining(['expected', 'output-quality']));
+    expect(payload.source_refs).toEqual(expect.arrayContaining([
+      'skills/spec-plan/SKILL.md',
+      'skills/spec-plan/references/planning-flow.md',
+      'skills/spec-plan/references/governance-boundaries.md',
+      'skills/spec-plan/references/plan-handoff.md',
+      'docs/contracts/workflows/skill-agent-quality-governance.md',
+    ]));
+    expect(payload.source_refs.join('\n')).not.toContain('.agents/skills/');
+    expect(payload.source_refs.join('\n')).not.toContain('.claude/');
+    expect(payload.source_refs.join('\n')).not.toContain('.codex/');
+    expect(payload.source_refs.join('\n')).not.toContain('../../docs/');
+    expect(payload.source_refs.join('\n')).not.toContain('docs/brainstorms/');
+    expect(payload.source_refs.join('\n')).not.toContain('docs/项目审查/');
+    expect(payload.cases.length).toBeGreaterThanOrEqual(4);
+
+    for (const evalCase of payload.cases) {
+      expect(evalCase.id).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+      expect(Array.isArray(evalCase.input_files)).toBe(true);
+      expect(evalCase.baseline_risks.length).toBeGreaterThan(0);
+      expect(evalCase.with_skill_expectations.length).toBeGreaterThan(0);
+      expect(evalCase.objective_assertions.length).toBeGreaterThan(0);
+      expect(typeof evalCase.expected_outcome).toBe('string');
+      expect(evalCase.evidence_status).toBe('file-backed fixture');
+      expect(evalCase.missing_evidence).toEqual(expect.arrayContaining([
+        expect.stringMatching(/model execution evidence|provider telemetry|human adjudication/),
+      ]));
+      expect(evalCase.missing_evidence).not.toContain('file-backed fixture');
+      for (const inputFile of evalCase.input_files) {
+        expect(inputFile.evidence).toBe('file-backed fixture');
+        expect(fs.existsSync(path.join(__dirname, '..', '..', inputFile.path))).toBe(true);
+      }
+    }
+
+    const casesById = new Map(payload.cases.map((entry) => [entry.id, entry]));
+    expect(casesById.get('review-origin-plan-preserves-findings').objective_assertions.join('\n')).toContain('not fabricated');
+    expect(casesById.get('unsupported-plan-needs-direct-evidence').with_skill_expectations.join('\n')).toContain('Direct Evidence');
+    expect(casesById.get('handoff-does-not-silently-compile-task-pack').objective_assertions.join('\n')).toContain('No case claims an executable task pack exists');
+    expect(casesById.get('generated-runtime-mirror-remains-non-source').objective_assertions.join('\n')).toContain('Generated mirror paths do not appear as source_refs');
+  });
+
   test('plan synthesis checkpoints and template naming are in place', () => {
     const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const planningFlow = fs.readFileSync(PLANNING_FLOW_PATH, 'utf8');
     const planTemplate = fs.readFileSync(PLAN_TEMPLATE_PATH, 'utf8');
     const planSections = fs.readFileSync(PLAN_SECTIONS_PATH, 'utf8');
     const markdownRendering = fs.readFileSync(MARKDOWN_RENDERING_PATH, 'utf8');
@@ -469,9 +620,10 @@ describe('spec_id planning contract', () => {
     const deepening = fs.readFileSync(DEEPENING_PATH, 'utf8');
     const visual = fs.readFileSync(VISUAL_COMMUNICATION_PATH, 'utf8');
 
-    expect(skill).toContain('#### 0.7 Solo-Mode Scope Summary');
+    expect(skill).toContain('planning-flow.md');
+    expect(planningFlow).toContain('### 0.7 Solo-Mode Scope Summary');
     expect(skill).toContain('#### 5.1.5 Brainstorm-Sourced Scope Summary');
-    expect(skill).toContain('read `references/synthesis-summary.md`');
+    expect(planningFlow).toContain('read `skills/spec-plan/references/synthesis-summary.md`');
     expect(planTemplate).toContain('## Summary');
     expect(planTemplate).toContain('## Decision Brief');
     expect(planTemplate).toContain('Optional for Lightweight plans');
@@ -584,9 +736,12 @@ describe('spec_id planning contract', () => {
   test('Claude command projection points plan template reference at the workflow runtime copy', () => {
     const command = plannedRuntimeContent(new ClaudeAdapter(), '.claude/commands/spec/plan.md');
 
+    expect(command).toContain('read `.claude/spec-first/workflows/spec-plan/references/planning-flow.md`');
     expect(command).toContain('Read `.claude/spec-first/workflows/spec-plan/references/plan-sections.md` before writing the plan.');
     expect(command).toContain('Read `.claude/spec-first/workflows/spec-plan/references/markdown-rendering.md` before writing the canonical markdown plan.');
     expect(command).toContain('Read `.claude/spec-first/workflows/spec-plan/references/plan-template.md` before writing the plan.');
+    expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/planning-flow.md')).toContain('read `.claude/spec-first/workflows/spec-plan/references/synthesis-summary.md`');
+    expect(plannedRuntimeContent(new CodexAdapter(), '.agents/skills/spec-plan/references/planning-flow.md')).toContain('read `.agents/skills/spec-plan/references/synthesis-summary.md`');
     expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/plan-sections.md')).toContain('Markdown remains the canonical plan artifact.');
     expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/plan-sections.md')).toContain('conditional surface-coverage lens');
     expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/plan-template.md')).toContain('- **Surface coverage:**');
@@ -594,6 +749,78 @@ describe('spec_id planning contract', () => {
     expect(plannedRuntimeContent(new ClaudeAdapter(), '.claude/spec-first/workflows/spec-plan/references/html-rendering.md')).toContain('optional HTML sidecar');
     expect(command).not.toContain('Read `references/plan-template.md` before writing the plan.');
     expect(command).not.toContain('Read `skills/spec-plan/references/plan-template.md` before writing the plan.');
+  });
+
+  test('eval support files are projected while preserving source-authority refs', () => {
+    const claudeRuntimeOutputQuality = plannedRuntimeContent(
+      new ClaudeAdapter(),
+      '.claude/spec-first/workflows/spec-plan/evals/output-quality-cases.json',
+    );
+    const codexRuntimeOutputQuality = plannedRuntimeContent(
+      new CodexAdapter(),
+      '.agents/skills/spec-plan/evals/output-quality-cases.json',
+    );
+    const codexRuntimeReadme = plannedRuntimeContent(
+      new CodexAdapter(),
+      '.agents/skills/spec-plan/evals/README.md',
+    );
+
+    for (const runtimeContent of [claudeRuntimeOutputQuality, codexRuntimeOutputQuality]) {
+      const payload = JSON.parse(runtimeContent);
+      expect(payload.schema_version).toContain('spec-plan-output-quality-cases');
+      expect(payload.coverage_tags).toEqual(expect.arrayContaining(['expected', 'output-quality']));
+      expect(payload.source_refs).toContain('skills/spec-plan/SKILL.md');
+      expect(payload.source_refs).toContain('skills/spec-plan/references/planning-flow.md');
+      expect(payload.source_refs).toContain('skills/spec-plan/references/governance-boundaries.md');
+      expect(payload.source_refs.join('\n')).not.toContain('.claude/spec-first/workflows/spec-plan/SKILL.md');
+      expect(payload.source_refs.join('\n')).not.toContain('.agents/skills/spec-plan/SKILL.md');
+      expect(payload.source_refs.join('\n')).not.toContain('.codex/');
+    }
+    expect(codexRuntimeReadme).toContain('maintainer-only planning review fixtures');
+  });
+
+  test('eval support detection uses skill-relative paths, not absolute source package paths', () => {
+    const parentRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-plan-parent-'));
+    const linkedRepoRoot = path.join(parentRoot, 'evals', 'spec-first');
+
+    try {
+      fs.mkdirSync(path.dirname(linkedRepoRoot), { recursive: true });
+      fs.symlinkSync(path.join(__dirname, '..', '..'), linkedRepoRoot, 'dir');
+      const result = spawnSync(process.execPath, ['--preserve-symlinks', '-e', `
+        const fs = require('node:fs');
+        const os = require('node:os');
+        const path = require('node:path');
+        const repo = process.argv[1];
+        const { planBundledAssetSync } = require(path.join(repo, 'src/cli/plugin.js'));
+        const CodexAdapter = require(path.join(repo, 'src/cli/adapters/codex.js'));
+        const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'projection-target-'));
+        try {
+          const { plan } = planBundledAssetSync(projectRoot, new CodexAdapter());
+          const skill = plan.operations.find((entry) => entry.path === '.agents/skills/spec-plan/SKILL.md').contents;
+          const outputQuality = JSON.parse(plan.operations.find((entry) => entry.path === '.agents/skills/spec-plan/evals/output-quality-cases.json').contents);
+          process.stdout.write(JSON.stringify({
+            runtimeSkillRewritten: skill.includes('read \`.agents/skills/spec-plan/references/planning-flow.md\`'),
+            sourceSkillPathLeaked: skill.includes('read \`skills/spec-plan/references/planning-flow.md\`'),
+            evalRefsPreserved: outputQuality.source_refs.includes('skills/spec-plan/references/planning-flow.md'),
+            evalRuntimePathLeaked: outputQuality.source_refs.join('\\n').includes('.agents/skills/spec-plan/')
+          }));
+        } finally {
+          fs.rmSync(projectRoot, { recursive: true, force: true });
+        }
+      `, linkedRepoRoot], {
+        encoding: 'utf8',
+      });
+      const payload = JSON.parse(result.stdout);
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(payload.runtimeSkillRewritten).toBe(true);
+      expect(payload.sourceSkillPathLeaked).toBe(false);
+      expect(payload.evalRefsPreserved).toBe(true);
+      expect(payload.evalRuntimePathLeaked).toBe(false);
+    } finally {
+      fs.rmSync(parentRoot, { recursive: true, force: true });
+    }
   });
 
   test('governance boundary reference is runtime-copied for both hosts', () => {

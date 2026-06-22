@@ -86,6 +86,7 @@ What this buys you:
 - Task-pack handoffs now recommend splitting from source-plan structure and recommend document review for high-risk packs while keeping the engineer in the loop.
 - Work, review, debug, optimize, and compound workflows preserve evidence and learning.
 - Knowledge handoffs stay summary-first, and recalled `docs/solutions/` learnings remain advisory until reconfirmed from source evidence.
+- 团队开发规范可以放在 `docs/contracts/team-standards.md` 与 `docs/standards/**`，由 workflow 按 scope 选择 confirmed 规则；这是 source 文档，不是新的 `$spec-*` public workflow。
 - One source asset set supports Claude Code `/spec:*` entries and Codex `$spec-*` entries without hand-maintaining generated runtime copies.
 
 ## Quickstart
@@ -190,6 +191,7 @@ docs/
   brainstorms/   requirements briefs and PRD-grade requirements
   plans/         implementation plans ready for review and execution
   tasks/         derived task packs for structured handoff
+  standards/     checked-in confirmed team standards and proposal-only candidates
   solutions/     reusable learnings after solving problems
 .spec-first/
   app-audit/runs/ static App consistency audit facts and reports

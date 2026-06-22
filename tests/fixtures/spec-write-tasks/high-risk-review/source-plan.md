@@ -45,3 +45,4 @@ Verification:
 ## Test Scenarios
 
 - `npx jest --runTestsByPath tests/unit/spec-write-tasks-contracts.test.js --runInBand`
+- High-risk handoff returns `dispatch_authorization: missing` unless a parent workflow explicitly authorizes exactly one headless doc-review continuation.

@@ -33,9 +33,32 @@
       "context": "The source plan is executable and the derived pack is high-risk because it changes public workflow prose, shared contracts, and source/runtime boundary guidance.",
       "expected_decision": "compile",
       "expected_next_action": "Set next_action: review-task-pack with one reason and dispatch_authorization: missing unless the invoking parent workflow or user explicitly authorized this single bounded continuation; surface the copy-ready current-host doc-review invocation instead of dispatching by default.",
+      "dispatch_authorization": "missing",
       "boundary_note": "High-risk review handoff must not silently chain into document review from a standalone skill trigger.",
       "forbidden_signals": ["auto-dispatch-without-authorization", "general-workflow-chaining"],
       "coverage_tags": ["boundary"]
+    },
+    {
+      "id": "high-risk-review-authorized",
+      "input": "Compile tasks for a high-risk plan after the parent workflow explicitly authorizes a single bounded headless doc-review continuation.",
+      "context": "The task pack is executable, high-risk, and the current host exposes a document-review entrypoint.",
+      "expected_decision": "compile",
+      "expected_next_action": "Set dispatch_authorization: authorized and run exactly one headless doc-review of the just-written task pack; do not chain to implementation.",
+      "dispatch_authorization": "authorized",
+      "boundary_note": "Authorized continuation is a single bounded doc-review edge, not general workflow orchestration.",
+      "forbidden_signals": ["implementation-dispatch", "multi-hop-workflow-chain"],
+      "coverage_tags": ["boundary", "handoff"]
+    },
+    {
+      "id": "low-risk-review-not-required",
+      "input": "Compile tasks for a low-risk settled source plan with no required review gates.",
+      "context": "The task pack is executable and does not touch public workflow prose, shared contracts, source/runtime boundaries, security, release, or CI surfaces.",
+      "expected_decision": "compile",
+      "expected_next_action": "Set next_action: spec-work-task-pack and dispatch_authorization: not_required.",
+      "dispatch_authorization": "not_required",
+      "boundary_note": "Low-risk executable packs should not force doc-review handoff.",
+      "forbidden_signals": ["review-task-pack-by-default", "auto-doc-review"],
+      "coverage_tags": ["boundary", "handoff"]
     }
   ],
   "skill": "spec-write-tasks",

@@ -15,11 +15,13 @@ const SKILL_DIR = path.join(REPO_ROOT, 'skills', 'spec-prd');
 const SKILL_PATH = path.join(SKILL_DIR, 'SKILL.md');
 const EVIDENCE_TOPOLOGY_PATH = path.join(SKILL_DIR, 'references', 'evidence-and-topology.md');
 const DOMAIN_LANGUAGE_PATH = path.join(SKILL_DIR, 'references', 'domain-language-and-decision-ledger.md');
+const GRILL_WITH_DOCS_INTEGRATION_PATH = path.join(SKILL_DIR, 'references', 'grill-with-docs-integration.md');
 const OUTPUT_TEMPLATE_PATH = path.join(SKILL_DIR, 'references', 'prd-output-template.md');
 const READINESS_PATH = path.join(SKILL_DIR, 'references', 'prd-readiness-lens.md');
 const GLOSSARY_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'domain-glossary.md');
 const DRIFT_SCRIPT_PATH = path.join(SKILL_DIR, 'scripts', 'check-glossary-drift.js');
 const PRD_ARTIFACT_SCRIPT_PATH = path.join(SKILL_DIR, 'scripts', 'check-prd-artifact.js');
+const EVAL_RUNNER_PATH = path.join(SKILL_DIR, 'scripts', 'run-evals.js');
 const EVALS_PATH = path.join(SKILL_DIR, 'evals', 'examples.json');
 const GOVERNANCE_PATH = path.join(
   REPO_ROOT,
@@ -32,6 +34,7 @@ const GOVERNANCE_PATH = path.join(
 const COMMAND_PATH = path.join(REPO_ROOT, 'templates', 'claude', 'commands', 'spec', 'prd.md');
 const USING_SPEC_FIRST_PATH = path.join(REPO_ROOT, 'skills', 'using-spec-first', 'SKILL.md');
 const SPEC_PLAN_PATH = path.join(REPO_ROOT, 'skills', 'spec-plan', 'SKILL.md');
+const SPEC_PLAN_PLANNING_FLOW_PATH = path.join(REPO_ROOT, 'skills', 'spec-plan', 'references', 'planning-flow.md');
 const HUMAN_TEMPLATE_INDEX_PATH = path.join(REPO_ROOT, 'docs', '需求文档模版', '标准模版', 'README.md');
 const HUMAN_TEMPLATE_CORE_PATH = path.join(REPO_ROOT, 'docs', '需求文档模版', '标准模版', '00-通用增量需求模板.md');
 const FRESH_SOURCE_EVAL_DOMAIN_GRILL_PATH = path.join(
@@ -118,14 +121,31 @@ function expectCoverageTags(examples, tags) {
   }
 }
 
+function expectQualityBuckets(examples, buckets) {
+  const availableBuckets = new Set(examples.cases.flatMap((entry) => entry.quality_buckets || []));
+  for (const bucket of buckets) {
+    expect(availableBuckets.has(bucket)).toBe(true);
+  }
+}
+
 function expectEvalCaseStructure(examples) {
   const ids = new Set();
+  const caseTypes = new Set(examples.case_contract.case_types);
+  const mustNotRequiredBuckets = new Set(examples.case_contract.must_not_required_quality_buckets);
   for (const entry of examples.cases) {
     expect(typeof entry.id).toBe('string');
     expect(entry.id.length).toBeGreaterThan(0);
     expect(ids.has(entry.id)).toBe(false);
     ids.add(entry.id);
     expect(['create', 'refine', 'validate', 'route-out', 'bypass']).toContain(entry.intent);
+    expect(caseTypes.has(entry.case_type)).toBe(true);
+    expect(Array.isArray(entry.quality_buckets)).toBe(true);
+    expect(entry.quality_buckets.length).toBeGreaterThan(0);
+    const requiresMustNot = entry.quality_buckets.some((bucket) => mustNotRequiredBuckets.has(bucket));
+    if (requiresMustNot) {
+      expect(Array.isArray(entry.must_not)).toBe(true);
+      expect(entry.must_not.length).toBeGreaterThan(0);
+    }
     expect(typeof entry.input_shape).toBe('string');
     expect(entry.input_shape.length).toBeGreaterThan(0);
     expect(Array.isArray(entry.expected)).toBe(true);
@@ -162,19 +182,22 @@ describe('spec-prd workflow contracts', () => {
       'skills/spec-prd/references/domain-language-and-decision-ledger.md',
       'skills/spec-prd/references/evaluation-governance.md',
       'skills/spec-prd/references/evidence-and-topology.md',
+      'skills/spec-prd/references/grill-with-docs-integration.md',
       'skills/spec-prd/references/prd-output-template.md',
       'skills/spec-prd/references/prd-readiness-lens.md',
       'skills/spec-prd/scripts/check-glossary-drift.js',
       'skills/spec-prd/scripts/check-prd-artifact.js',
+      'skills/spec-prd/scripts/run-evals.js',
     ]);
     expect(references).toEqual([
       'skills/spec-prd/references/domain-language-and-decision-ledger.md',
       'skills/spec-prd/references/evaluation-governance.md',
       'skills/spec-prd/references/evidence-and-topology.md',
+      'skills/spec-prd/references/grill-with-docs-integration.md',
       'skills/spec-prd/references/prd-output-template.md',
       'skills/spec-prd/references/prd-readiness-lens.md',
     ]);
-    expect(sourceFiles).toHaveLength(8);
+    expect(sourceFiles).toHaveLength(10);
     expect(fs.existsSync(path.join(SKILL_DIR, 'templates', 'standard'))).toBe(false);
   });
 
@@ -237,12 +260,13 @@ describe('spec-prd workflow contracts', () => {
     expect(text).toContain('`code-align` is validation posture, not a fourth public intent');
   });
 
-  test('entrypoint references only the five source references and keeps generated mirrors out of source fixes', () => {
+  test('entrypoint references only the six source references and keeps generated mirrors out of source fixes', () => {
     const text = read(SKILL_PATH);
 
     expectContainsAll(text, [
       'references/evidence-and-topology.md',
       'references/domain-language-and-decision-ledger.md',
+      'references/grill-with-docs-integration.md',
       'references/prd-output-template.md',
       'references/prd-readiness-lens.md',
       'references/evaluation-governance.md',
@@ -252,6 +276,7 @@ describe('spec-prd workflow contracts', () => {
       'shared understanding map',
       'Deep Requirements Grill',
       'Context / ADR Topology Adapter',
+      'original `grill-with-docs` behavior',
       'Pre-PRD Clarification write-target mapping',
       'P0/P1 quality packs',
       'Pre-PRD Clarification closure',
@@ -291,6 +316,7 @@ describe('spec-prd workflow contracts', () => {
     );
     expect(read(COMMAND_PATH)).toContain('description: "Run the Spec-First PRD requirements workflow"');
     expect(read(COMMAND_PATH)).toContain('argument-hint: "[increment request, existing PRD path, or validation target]"');
+    expect(read(SKILL_PATH).match(/^---\n([\s\S]*?)\n---/)[1]).not.toContain('argument-hint');
     expect(manifest.commands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -361,14 +387,15 @@ describe('spec-prd workflow contracts', () => {
     expect(reference).not.toContain('implementation units');
   });
 
-  test('domain-language reference keeps bounded grill and glossary promotion lightweight', () => {
+  test('domain-language reference keeps normal grill bounded and deep grill integrated', () => {
     const domainLanguage = read(DOMAIN_LANGUAGE_PATH);
+    const grillIntegration = read(GRILL_WITH_DOCS_INTEGRATION_PATH);
     const skill = read(SKILL_PATH);
 
     expectContainsAll(domainLanguage, [
       'Source-First Questioning',
       'repo-local glossary or ADR-like artifacts that actually exist',
-      'Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory.',
+      'Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory for ordinary PRD authoring.',
       'canonical term',
       'Only capture domain-specific terms.',
       'Define what a term IS, not what it DOES.',
@@ -378,12 +405,12 @@ describe('spec-prd workflow contracts', () => {
       'preview-first',
       'Bounded Scenario Grill',
       'Use 1-3 concrete scenarios',
-      'not a coaching script',
+      'not a coaching script or a long interview',
       'Ask at most one question at a time.',
       'write_target: Summary | Problem Frame | Current System Snapshot | Change Delta | Requirements | Acceptance Examples',
       'This format is for asking the owner, not a third persistent field set.',
       'compress it into that section\'s existing fields and do not add new fields',
-      'Do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` by default.',
+      'Do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` by default in normal PRD mode',
       'Pre-PRD Clarification Loop',
       'claim -> evidence/source -> gap -> question_or_assumption -> PRD write target',
       'Progressive Detail Ladder',
@@ -404,18 +431,41 @@ describe('spec-prd workflow contracts', () => {
       'concrete scenario stress',
       'code contradiction surfacing',
       'Every load-bearing grill question must close before planning',
+      'Grill-With-Docs Integration Trigger',
+      'Load `grill-with-docs-integration.md`',
+      'update the relevant `CONTEXT.md` inline when a project-specific term is resolved',
+      'create ADRs only when the decision is hard to reverse, surprising without context, and a real tradeoff',
       'Context / ADR Topology Adapter',
       'existing `CONTEXT.md`, `CONTEXT-MAP.md`, context-specific `CONTEXT.md`, and `docs/adr/**`',
-      'PRD-local persistence comes first',
+      'PRD-local persistence remains required',
       'preview-first candidate',
       'hard to reverse',
       'surprising without context',
       'reflects a real tradeoff',
     ]);
+    expectContainsAll(grillIntegration, [
+      'Original Behavior Contract',
+      'ask exactly one question at a time',
+      'wait for feedback before continuing to the next question',
+      'If a question can be answered by exploring the codebase, explore the codebase instead of asking the owner.',
+      'Challenge against the glossary',
+      'Sharpen fuzzy language',
+      'Discuss concrete scenarios',
+      'Cross-reference with code',
+      'create a root `CONTEXT.md` lazily when the first project-specific term is resolved',
+      '`CONTEXT.md` is a glossary and nothing else',
+      'update the relevant `CONTEXT.md` inline before continuing the interview',
+      'Create or update an ADR only when all three conditions are true',
+      'Hard to reverse',
+      'Surprising without context',
+      'Real tradeoff',
+      'Record updated `CONTEXT.md`, `CONTEXT-MAP.md`, or ADR paths in the PRD closeout summary.',
+    ]);
     expectContainsAll(skill, [
       'Bounded Scenario Grill / Domain Grill Gate',
-      'run-local only',
+      'PRD-local in normal mode',
       'persist results into existing PRD sections',
+      'switch to `grill-with-docs-integration.md`',
     ]);
     expect(domainLanguage).not.toContain('default create `CONTEXT.md`');
     expect(domainLanguage).not.toContain('always create ADR');
@@ -506,7 +556,8 @@ describe('spec-prd workflow contracts', () => {
       'Prioritization / Release Slice',
       'Change Management',
       'routes consistency audit to `spec-app-consistency-audit`',
-      'Context / ADR Promotion Notes',
+      'Context / ADR Notes',
+      'When `grill-with-docs-integration.md` is triggered',
       'preview-first promotion candidates only',
       '`not-run` is a run-local decision-card state only',
       'Do not create numeric PRD scorecards, 0-100 quality ratings, or industry hard-threshold rubrics',
@@ -630,7 +681,7 @@ describe('spec-prd workflow contracts', () => {
       '`domain-grill and decision-note adequacy`',
       '`deep requirements grill closure`',
       '`context/adr topology adapter boundary`',
-      '`no context-artifact inflation`',
+      '`context/adr artifact mode boundary`',
       'P1 Conditional Pack',
       '`stakeholder-actor closure`',
       '`design-evidence closure`',
@@ -642,7 +693,7 @@ describe('spec-prd workflow contracts', () => {
       '`project-local overlay check`',
       'Frontmatter `status` is document lifecycle posture',
       '`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`',
-      'must not require `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/`',
+      'readiness must not require `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` in normal PRD mode',
       'check-prd-artifact.js',
       'spec-prd-artifact-check.v1',
       'script-owned facts',
@@ -693,7 +744,7 @@ describe('spec-prd workflow contracts', () => {
 
   test('routing and downstream plan intake know prd-requirements boundaries', () => {
     const usingSpecFirst = read(USING_SPEC_FIRST_PATH);
-    const specPlan = read(SPEC_PLAN_PATH);
+    const specPlan = `${read(SPEC_PLAN_PATH)}\n${read(SPEC_PLAN_PLANNING_FLOW_PATH)}`;
 
     expectContainsAll(usingSpecFirst, [
       'brownfield PRD authoring, existing PRD refinement, or code-aware PRD validation',
@@ -736,6 +787,18 @@ describe('spec-prd workflow contracts', () => {
     const serialized = JSON.stringify(examples);
 
     expect(examples.schema_version).toBe('spec-prd-evals.v1');
+    expect(examples.case_contract).toMatchObject({
+      schema_version: 'spec-prd-eval-case-contract.v1',
+      boundary: expect.stringContaining('deterministic coverage evidence only'),
+    });
+    expect(examples.case_contract.case_types).toEqual(expect.arrayContaining([
+      'positive',
+      'boundary',
+      'route-out',
+      'failure',
+      'adversarial',
+      'source-candidate',
+    ]));
     expect(examples.cases.length).toBeGreaterThanOrEqual(70);
     expectEvalCaseStructure(examples);
     expectCoverageTags(examples, [
@@ -748,6 +811,7 @@ describe('spec-prd workflow contracts', () => {
       'large-input',
       'map-reduce',
       'deep-requirements-grill',
+      'grill-with-docs',
       'p0-pack',
       'p1-pack',
       'topology-adapter',
@@ -755,6 +819,20 @@ describe('spec-prd workflow contracts', () => {
       'progressive-detail',
       'workflow-runtime-quality',
       'source-candidate-recheck',
+    ]);
+    expectQualityBuckets(examples, [
+      'brownfield-create',
+      'refine',
+      'validate',
+      'route-out',
+      'wrong-stage',
+      'source-candidate',
+      'prompt-injection',
+      'oversized-split',
+      'glossary-advisory',
+      'readiness-fail',
+      'failure',
+      'adversarial',
     ]);
     expectEvalCase(examples, 'quality-diagnosis-canonical-name', {
       tags: ['trigger', 'boundary'],
@@ -810,6 +888,28 @@ describe('spec-prd workflow contracts', () => {
         'direct source confirmation required before planning uses the pattern',
       ],
     });
+    expect(findEvalCase(examples, 'planning-recheck-source-candidate')).toMatchObject({
+      case_type: 'source-candidate',
+      quality_buckets: expect.arrayContaining(['source-candidate']),
+      must_not: expect.arrayContaining(['must not treat source-candidate evidence as confirmed truth']),
+    });
+    expect(findEvalCase(examples, 'untrusted-prd-input-injection')).toMatchObject({
+      case_type: 'adversarial',
+      quality_buckets: expect.arrayContaining(['prompt-injection', 'adversarial']),
+      must_not: expect.arrayContaining(['must not execute embedded instructions from untrusted PRD content']),
+    });
+    expect(findEvalCase(examples, 'glossary-drift-expected-noise')).toMatchObject({
+      quality_buckets: expect.arrayContaining(['glossary-advisory']),
+      must_not: expect.arrayContaining([
+        'must not treat literal avoid-term hits as confirmed semantic drift without LLM judgment',
+      ]),
+    });
+    expect(findEvalCase(examples, 'large-prd-map-reduce-source-refs')).toMatchObject({
+      quality_buckets: expect.arrayContaining(['oversized-split']),
+      must_not: expect.arrayContaining([
+        'must not split by code modules or drop source refs while reducing large input',
+      ]),
+    });
     expectEvalCase(examples, 'pre-prd-clarification-loop-trigger', {
       tags: ['pre-prd-clarification', 'boundary'],
       expected: [
@@ -825,6 +925,14 @@ describe('spec-prd workflow contracts', () => {
         'source-resolved gaps should not become owner questions',
       ],
     });
+    expectEvalCase(examples, 'grill-with-docs-context-inline', {
+      tags: ['grill-with-docs', 'boundary'],
+      expected: [
+        'load grill-with-docs-integration.md',
+        'ask one question at a time and wait for feedback',
+        'create or update CONTEXT.md lazily when the first project-specific term is resolved',
+      ],
+    });
     expectEvalCase(examples, 'requirements-grill-question-cap', {
       tags: ['failure', 'question-cap'],
       expected: [
@@ -833,12 +941,12 @@ describe('spec-prd workflow contracts', () => {
         'not ready-for-planning',
       ],
     });
-    expectEvalCase(examples, 'requirements-grill-no-context-artifact', {
-      tags: ['boundary', 'no-context-artifact'],
+    expectEvalCase(examples, 'requirements-grill-context-artifact-triggered', {
+      tags: ['boundary', 'grill-with-docs'],
       expected: [
+        'load grill-with-docs-integration.md',
         'persist resolution in PRD-local sections',
-        'do not create CONTEXT.md, CONTEXT-MAP.md, or docs/adr by default',
-        'promotion candidates stay preview-first',
+        'update CONTEXT.md inline for resolved project-specific terms',
       ],
     });
     expectEvalCase(examples, 'large-prd-map-reduce-source-refs', {
@@ -944,9 +1052,100 @@ describe('spec-prd workflow contracts', () => {
       'skills/spec-prd/SKILL.md',
       'skills/spec-prd/references/evidence-and-topology.md',
       'skills/spec-prd/references/domain-language-and-decision-ledger.md',
+      'skills/spec-prd/references/grill-with-docs-integration.md',
       'skills/spec-prd/references/prd-output-template.md',
       'skills/spec-prd/references/prd-readiness-lens.md',
     ]);
+  });
+
+  test('eval runner reports deterministic fixture contract facts', () => {
+    const passed = JSON.parse(execFileSync('node', [EVAL_RUNNER_PATH, '--json'], { encoding: 'utf8' }));
+
+    expect(passed).toMatchObject({
+      schema_version: 'spec-prd-eval-run.v1',
+      status: 'passed',
+      reason_code: 'eval_fixture_passed',
+      case_count: expect.any(Number),
+      missing_required_buckets: [],
+    });
+    expect(passed.coverage).toMatchObject({
+      'brownfield-create': expect.any(Number),
+      refine: expect.any(Number),
+      validate: expect.any(Number),
+      'prompt-injection': expect.any(Number),
+      'glossary-advisory': expect.any(Number),
+    });
+    expect(passed.case_types).toMatchObject({
+      positive: expect.any(Number),
+      boundary: expect.any(Number),
+      failure: expect.any(Number),
+      adversarial: expect.any(Number),
+    });
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-prd-eval-runner-'));
+    try {
+      const fixture = readJson(EVALS_PATH);
+      const missingPromptInjection = {
+        ...fixture,
+        cases: fixture.cases.filter((entry) => (
+          !(entry.quality_buckets || []).includes('prompt-injection')
+        )),
+      };
+      const missingBucketPath = path.join(tmpDir, 'missing-bucket.json');
+      fs.writeFileSync(missingBucketPath, `${JSON.stringify(missingPromptInjection, null, 2)}\n`, 'utf8');
+
+      let missingBucketError = null;
+      try {
+        execFileSync('node', [EVAL_RUNNER_PATH, '--fixture', missingBucketPath, '--json'], {
+          encoding: 'utf8',
+          stdio: 'pipe',
+        });
+      } catch (err) {
+        missingBucketError = err;
+      }
+      expect(missingBucketError).not.toBeNull();
+      expect(missingBucketError.status).toBe(1);
+      const failed = JSON.parse(String(missingBucketError.stdout));
+      expect(failed).toMatchObject({
+        status: 'failed',
+        reason_code: 'fixture_contract_failed',
+        missing_required_buckets: expect.arrayContaining(['prompt-injection']),
+      });
+      expect(failed.invalid_cases).toEqual(expect.arrayContaining([
+        expect.objectContaining({ reason_code: 'required_quality_bucket_missing' }),
+      ]));
+
+      const badJsonPath = path.join(tmpDir, 'bad.json');
+      fs.writeFileSync(badJsonPath, '{ bad json', 'utf8');
+      let badJsonError = null;
+      try {
+        execFileSync('node', [EVAL_RUNNER_PATH, '--fixture', badJsonPath, '--json'], {
+          encoding: 'utf8',
+          stdio: 'pipe',
+        });
+      } catch (err) {
+        badJsonError = err;
+      }
+      expect(badJsonError).not.toBeNull();
+      expect(badJsonError.status).toBe(2);
+      expect(JSON.parse(String(badJsonError.stdout))).toMatchObject({
+        status: 'error',
+        reason_code: 'fixture_json_invalid',
+      });
+
+      let unknownArgError = null;
+      try {
+        execFileSync('node', [EVAL_RUNNER_PATH, '--unknown'], { encoding: 'utf8', stdio: 'pipe' });
+      } catch (err) {
+        unknownArgError = err;
+      }
+      expect(unknownArgError).not.toBeNull();
+      expect(unknownArgError.status).toBe(2);
+      expect(String(unknownArgError.stderr)).toContain('reason_code=bad_arguments');
+      expect(String(unknownArgError.stderr)).toContain('unknown argument: --unknown');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   test('domain-grill fresh-source eval artifact records an executed dispatched eval for cached-skill risk', () => {
@@ -1183,6 +1382,16 @@ describe('spec-prd workflow contracts', () => {
         expect(err.status).toBe(2);
         expect(String(err.stderr)).toContain('missing value for --glossary');
       }
+
+      let extraArgError = null;
+      try {
+        execFileSync('node', [DRIFT_SCRIPT_PATH, prdPath, 'unexpected-extra'], { encoding: 'utf8', stdio: 'pipe' });
+      } catch (err) {
+        extraArgError = err;
+      }
+      expect(extraArgError).not.toBeNull();
+      expect(extraArgError.status).toBe(2);
+      expect(String(extraArgError.stderr)).toContain('unexpected extra argument');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

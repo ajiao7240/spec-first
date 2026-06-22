@@ -404,6 +404,10 @@ describe('init --dry-run', () => {
         '.claude/hooks/session-start',
         '.claude/hooks/spec-plan-guard',
         '.claude/spec-first/workflows/spec-mcp-setup/scripts/check-health',
+        '.claude/spec-first/workflows/spec-plan/references/planning-flow.md',
+        '.claude/spec-first/workflows/spec-plan/evals/examples.json',
+        '.claude/spec-first/workflows/spec-plan/evals/output-quality-cases.json',
+        '.claude/spec-first/workflows/spec-plan/evals/README.md',
         '.claude/settings.json',
         '.claude/spec-first/state.json',
         '.gitignore',
@@ -438,6 +442,28 @@ describe('init --dry-run', () => {
       );
       expect(claudeMcpSetupCommand).toContain('bash .claude/spec-first/workflows/spec-mcp-setup/scripts/check-health');
       expect(claudeMcpSetupCommand).not.toContain('bash skills/spec-mcp-setup/scripts/check-health');
+      const claudePlanningFlow = fs.readFileSync(
+        path.join(projectRoot, '.claude', 'spec-first', 'workflows', 'spec-plan', 'references', 'planning-flow.md'),
+        'utf8',
+      );
+      const claudeEvalExamples = JSON.parse(fs.readFileSync(
+        path.join(projectRoot, '.claude', 'spec-first', 'workflows', 'spec-plan', 'evals', 'examples.json'),
+        'utf8',
+      ));
+      const claudeOutputQuality = JSON.parse(fs.readFileSync(
+        path.join(projectRoot, '.claude', 'spec-first', 'workflows', 'spec-plan', 'evals', 'output-quality-cases.json'),
+        'utf8',
+      ));
+      const claudeEvalReadme = fs.readFileSync(
+        path.join(projectRoot, '.claude', 'spec-first', 'workflows', 'spec-plan', 'evals', 'README.md'),
+        'utf8',
+      );
+      expect(claudePlanningFlow).toContain('Direct Evidence Readiness');
+      expect(claudeEvalExamples.source_refs).toContain('skills/spec-plan/references/planning-flow.md');
+      expect(claudeEvalExamples.source_refs.join('\n')).not.toContain('.claude/spec-first/workflows/spec-plan/');
+      expect(claudeOutputQuality.source_refs).toContain('skills/spec-plan/references/planning-flow.md');
+      expect(claudeOutputQuality.source_refs.join('\n')).not.toContain('.claude/spec-first/workflows/spec-plan/');
+      expect(claudeEvalReadme).toContain('maintainer-only planning review fixtures');
 
       const claudeState = JSON.parse(fs.readFileSync(path.join(projectRoot, '.claude', 'spec-first', 'state.json'), 'utf8'));
       expect(claudeState.workflowSkills).toContain('spec-mcp-setup');
@@ -589,14 +615,36 @@ describe('init --dry-run', () => {
         path.join(projectRoot, '.agents', 'skills', 'spec-plan', 'SKILL.md'),
         'utf8',
       );
+      const codexPlanningFlow = fs.readFileSync(
+        path.join(projectRoot, '.agents', 'skills', 'spec-plan', 'references', 'planning-flow.md'),
+        'utf8',
+      );
+      const codexEvalExamples = JSON.parse(fs.readFileSync(
+        path.join(projectRoot, '.agents', 'skills', 'spec-plan', 'evals', 'examples.json'),
+        'utf8',
+      ));
+      const codexOutputQuality = JSON.parse(fs.readFileSync(
+        path.join(projectRoot, '.agents', 'skills', 'spec-plan', 'evals', 'output-quality-cases.json'),
+        'utf8',
+      ));
+      const codexEvalReadme = fs.readFileSync(
+        path.join(projectRoot, '.agents', 'skills', 'spec-plan', 'evals', 'README.md'),
+        'utf8',
+      );
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'scripts', 'check-health'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, '.agents', 'skills', 'spec-mcp-setup', 'scripts', 'resolve-project-target.sh'))).toBe(true);
       expect(codexMcpSetupSkill).toContain('bash .agents/skills/spec-mcp-setup/scripts/check-health');
       expect(codexMcpSetupSkill).not.toContain('bash skills/spec-mcp-setup/scripts/check-health');
-      expect(codexPlanSkill).toContain('including `spawn_agent` where provided');
+      expect(codexPlanSkill).toContain('.agents/skills/spec-plan/references/planning-flow.md');
+      expect(codexPlanSkill).toContain('does not by itself authorize `spawn_agent`');
       expect(codexPlanSkill).toContain('applying it inline as an explicit fallback');
-      expect(codexPlanSkill).toContain('`.codex/agents/spec-repo-research-analyst.agent.md`');
-      expect(codexPlanSkill).not.toContain('Read `.codex/agents/spec-repo-research-analyst.agent.md` and apply that agent profile to');
+      expect(codexPlanningFlow).toContain('`.codex/agents/spec-repo-research-analyst.agent.md`');
+      expect(codexPlanningFlow).not.toContain('Read `.codex/agents/spec-repo-research-analyst.agent.md` and apply that agent profile to');
+      expect(codexEvalExamples.source_refs).toContain('skills/spec-plan/references/planning-flow.md');
+      expect(codexEvalExamples.source_refs.join('\n')).not.toContain('.agents/skills/spec-plan/');
+      expect(codexOutputQuality.source_refs).toContain('skills/spec-plan/references/planning-flow.md');
+      expect(codexOutputQuality.source_refs.join('\n')).not.toContain('.agents/skills/spec-plan/');
+      expect(codexEvalReadme).toContain('maintainer-only planning review fixtures');
     } finally {
       initLogSpy.mockRestore();
       fs.rmSync(projectRoot, { recursive: true, force: true });

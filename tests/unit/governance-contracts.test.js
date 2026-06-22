@@ -117,7 +117,10 @@ describe('governance contracts', () => {
   });
 
   test('rule maturity workflow prose exposes candidates without automatic promotion', () => {
-    const specPlan = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-plan', 'SKILL.md'), 'utf8');
+    const specPlan = [
+      fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-plan', 'SKILL.md'), 'utf8'),
+      fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-plan', 'references', 'planning-flow.md'), 'utf8'),
+    ].join('\n');
     const codeReview = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-code-review', 'SKILL.md'), 'utf8');
     const outputTemplate = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-code-review', 'references', 'review-output-template.md'), 'utf8');
     const skillAudit = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'spec-skill-audit', 'SKILL.md'), 'utf8');

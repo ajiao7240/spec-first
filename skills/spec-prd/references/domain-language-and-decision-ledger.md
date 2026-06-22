@@ -2,6 +2,18 @@
 
 Load this reference when terminology, product-domain boundaries, or source/user contradictions affect the PRD.
 
+## Contents
+
+- [Source-First Questioning](#source-first-questioning)
+- [Canonical Term Handling](#canonical-term-handling)
+- [Cross-PRD Glossary Promotion](#cross-prd-glossary-promotion)
+- [Bounded Scenario Grill](#bounded-scenario-grill)
+- [Pre-PRD Clarification Loop](#pre-prd-clarification-loop)
+- [Deep Requirements Grill](#deep-requirements-grill)
+- [Grill-With-Docs Integration Trigger](#grill-with-docs-integration-trigger)
+- [Decision Notes](#decision-notes)
+- [Context / ADR Topology Adapter](#context--adr-topology-adapter)
+
 ## Source-First Questioning
 
 Before asking the owner about terminology or current behavior, inspect context that can answer cheaply:
@@ -12,7 +24,7 @@ Before asking the owner about terminology or current behavior, inspect context t
 - repo-local glossary or ADR-like artifacts that actually exist
 - source, tests, templates, and product-facing strings in the affected area
 
-Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory. The project domain glossary is optional and opt-in: if `docs/contracts/domain-glossary.md` does not exist, record that as advisory context and continue with available evidence — do not create it for a single small increment.
+Do not require a fixed `CONTEXT.md`, `docs/adr/`, or glossary directory for ordinary PRD authoring. The project domain glossary is optional and opt-in: if `docs/contracts/domain-glossary.md` does not exist, record that as advisory context and continue with available evidence — do not create it for a single small increment. When `grill-with-docs` integration is triggered, `CONTEXT.md` and ADR files are created or updated lazily under `grill-with-docs-integration.md`.
 
 ## Canonical Term Handling
 
@@ -28,7 +40,7 @@ Two discipline rules keep glossary entries useful and prevent them from decaying
 - **Only capture domain-specific terms.** Before recording a term, ask: is this a concept unique to this product/domain, or a general engineering concept? Only the former belongs. General concepts (timeout, retry, error type, cache, pagination) stay out even when the system uses them heavily — capturing them dilutes the glossary and adds maintenance with no disambiguation value.
 - **Define what a term IS, not what it DOES.** A glossary definition states the concept's identity in one or two tight sentences, not its behavior, workflow, or implementation. This is `WHAT not HOW` (Core Principle 2) at term granularity. "An Invoice is a request for payment issued after delivery" belongs; "the Invoice service retries failed charges three times" does not.
 
-Do not create a permanent glossary or ADR by default.
+Do not create a permanent glossary or ADR by default in normal PRD mode. Triggered `grill-with-docs` mode may update `CONTEXT.md` inline for resolved project terms and create ADRs when the three ADR conditions hold.
 
 ## Cross-PRD Glossary Promotion
 
@@ -43,7 +55,7 @@ When a new PRD's term conflicts with an existing canonical entry, surface it imm
 
 ## Bounded Scenario Grill
 
-> `spec-prd/SKILL.md` Phase 2 也把这套机制称为 run-local Domain Grill Gate,readiness lens 用 `domain-grill coverage` 指代同一覆盖检查。三者是同一流程,不是独立概念。本文件是 trigger / cadence / question format / no-artifact 规则的权威定义;SKILL.md 只做摘要引用。
+> `spec-prd/SKILL.md` Phase 2 也把这套机制称为 Domain Grill Gate,readiness lens 用 `domain-grill coverage` 指代同一覆盖检查。三者是同一流程,不是独立概念。本文件是 normal-mode trigger / cadence / question format 的权威定义;`grill-with-docs-integration.md` 是 deep-mode context/ADR 行为的权威定义;SKILL.md 只做摘要引用。
 
 Use 1-3 concrete scenarios to stress-test domain boundaries only when the PRD would otherwise be ambiguous. Examples:
 
@@ -51,7 +63,7 @@ Use 1-3 concrete scenarios to stress-test domain boundaries only when the PRD wo
 - a permission/role boundary
 - an exception or contradiction that changes acceptance
 
-Keep the grill bounded. It is a source-backed precision tool, not a coaching script or a long interview.
+Keep the normal PRD grill bounded. It is a source-backed precision tool, not a coaching script or a long interview. If the user explicitly wants the original long-form `grill-with-docs` behavior, or the design tree cannot be responsibly closed under the cap, switch to [Grill-With-Docs Integration Trigger](#grill-with-docs-integration-trigger).
 
 Trigger only when one of these is true:
 
@@ -74,7 +86,7 @@ Question cadence:
 
 - Ask at most one question at a time.
 - Ask no more than 1-3 grill questions in a normal PRD run.
-- If more than 3 load-bearing questions appear necessary, record blockers, route to PRD refine/doc-review, or ask the owner to choose assumptions instead of continuing a long interview.
+- If more than 3 load-bearing questions appear necessary in normal mode, record blockers, route to PRD refine/doc-review, ask the owner to choose assumptions, or explicitly switch to `grill-with-docs` integration when the user wants sustained interview and inline context/ADR updates.
 - Always give a `recommended_answer` unless there is no defensible default.
 - If the owner says "you decide", use the recommended answer only when evidence supports it or it is safely labeled as an assumption.
 
@@ -90,7 +102,7 @@ consequence_if_not_chosen:
 write_target: Summary | Problem Frame | Current System Snapshot | Change Delta | Requirements | Acceptance Examples | Scope Boundaries | Evidence And Assumptions | Outstanding Questions | Glossary | Decision Notes | Actors | Use Cases | Interaction Requirements | Exception Handling | Negative Acceptance | Data / Compliance Boundaries | Release / Operation Readiness | Goals / Success Metrics | Feature Slices
 ```
 
-This format is for asking the owner, not a third persistent field set. Persist the result into existing PRD-local sections. If it lands in `Decision Notes`, map it back to the existing fields: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`. Fold `why_recommended`, `consequence_if_chosen`, and `consequence_if_not_chosen` into `consequence` prose when useful. If it lands in `Glossary`, `Evidence And Assumptions`, or `Outstanding Questions`, compress it into that section's existing fields and do not add new fields. Do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` by default.
+This format is for asking the owner, not a third persistent field set. Persist the result into existing PRD-local sections. If it lands in `Decision Notes`, map it back to the existing fields: `question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`. Fold `why_recommended`, `consequence_if_chosen`, and `consequence_if_not_chosen` into `consequence` prose when useful. If it lands in `Glossary`, `Evidence And Assumptions`, or `Outstanding Questions`, compress it into that section's existing fields and do not add new fields. Do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` by default in normal PRD mode; use `grill-with-docs-integration.md` when inline context or ADR updates are requested or required.
 
 ## Pre-PRD Clarification Loop
 
@@ -148,7 +160,7 @@ Normal PRD runs ask 1-3 load-bearing questions, one at a time, using the run-loc
 
 ### Deep Requirements Grill
 
-Adapt `grill-with-docs` as method, not topology. Apply these seven actions only to load-bearing WHAT or planning-readiness gaps:
+For normal PRD mode, apply these seven `grill-with-docs` actions only to load-bearing WHAT or planning-readiness gaps:
 
 1. Keep one-question-at-a-time progression: progress one owner question at a time.
 2. Provide `recommended_answer` and `why_recommended` whenever defensible.
@@ -161,6 +173,26 @@ Adapt `grill-with-docs` as method, not topology. Apply these seven actions only 
 Every load-bearing grill question must close before planning by one of: source evidence, owner answer, accepted assumption, `Outstanding Questions`, blocker cluster, or route-out. If unresolved actor, flow, state, exception, scope, acceptance, permission, release-slice, or decision-intersection uncertainty remains, the PRD is not `ready-for-planning`.
 
 Domain Grill and Pre-PRD Clarification share cadence and source-first discipline but have different centers of gravity: Domain Grill handles terminology, source/user/glossary contradiction, source-of-truth, ownership, permission/state/exception edges, and hard product boundaries; Pre-PRD Clarification handles rough PRD completeness, scenario coverage, acceptance, scope, and write-target closure.
+
+## Grill-With-Docs Integration Trigger
+
+Load `grill-with-docs-integration.md` when the user explicitly names `grill-with-docs`, asks for sustained grilling, asks to update `CONTEXT.md` / ADRs inline, or when the PRD cannot be responsibly closed by the normal 1-3 question cap.
+
+In this mode:
+
+- interview the owner one question at a time and wait for feedback before continuing
+- provide a recommended answer for each question whenever defensible
+- answer source-answerable questions by reading source/docs/tests/contracts instead of asking the owner
+- challenge glossary conflicts immediately
+- sharpen fuzzy terms into canonical project language
+- stress concrete scenarios across happy path, permission/role boundary, state transition, exception/failure, negative acceptance, and cross-context handoff
+- surface code contradictions with evidence and consequences
+- update the relevant `CONTEXT.md` inline when a project-specific term is resolved
+- create `CONTEXT.md` / `CONTEXT-MAP.md` lazily only when there is resolved content to write
+- create ADRs only when the decision is hard to reverse, surprising without context, and a real tradeoff
+- fold the same resolved facts into PRD-local sections so downstream planning can proceed from the PRD without inventing WHAT
+
+Do not treat this mode as an implementation plan or coaching transcript. Its durable outputs are the PRD plus any directly updated source context files named in closeout.
 
 ## Decision Notes
 
@@ -175,27 +207,28 @@ consequence:
 deferred_reason:
 ```
 
-Suggest a future ADR-like artifact only when all three conditions hold:
+In normal PRD mode, suggest a future ADR-like artifact only when all three conditions hold:
 
 - hard to reverse
 - surprising without context
 - reflects a real tradeoff
 
-Otherwise, keep the decision local to the PRD.
+Otherwise, keep the decision local to the PRD. In triggered `grill-with-docs` mode, create the ADR inline under `grill-with-docs-integration.md` when those same three conditions hold.
 
 ## Context / ADR Topology Adapter
 
-Read existing `CONTEXT.md`, `CONTEXT-MAP.md`, context-specific `CONTEXT.md`, and `docs/adr/**` only as optional evidence and promotion topology, not required PRD artifacts. During source-first evidence calibration, read existing topology only when it exists and is relevant to the PRD topic. If it does not exist, record graceful no-topology fallback and continue with PRD-local closure.
+Read existing `CONTEXT.md`, `CONTEXT-MAP.md`, context-specific `CONTEXT.md`, and `docs/adr/**` as optional evidence and topology for normal PRD authoring. During source-first evidence calibration, read existing topology only when it exists and is relevant to the PRD topic. If it does not exist in normal mode, record graceful no-topology fallback and continue with PRD-local closure. In triggered `grill-with-docs` mode, missing topology is not a blocker because context and ADR files are created lazily when the first resolved term or ADR-worthy decision exists.
 
 Context routing:
 
 - single relevant context: use it as advisory evidence for glossary/decision conflicts
 - multiple contexts plus `CONTEXT-MAP.md`: route by the map and record the evidence source
 - multiple contexts with unclear topic ownership: ask at most one owner/context routing question or record the ambiguity as a blocker
-- no topology: do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or ADR as a prerequisite
+- no topology in normal mode: do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or ADR as a prerequisite
+- no topology in triggered `grill-with-docs` mode: create only the specific `CONTEXT.md` or ADR path needed for resolved content, following `grill-with-docs-integration.md`
 
-PRD-local persistence comes first. Stable term decisions land in `Glossary`, with avoid terms or explanatory prose when useful. Hard decisions and consequences land in `Decision Notes`, `Evidence And Assumptions`, or `Scope Boundaries`. Project-level promotion is a preview-first candidate after PRD-local closure, not a substitute for closure.
+PRD-local persistence remains required. Stable term decisions land in `Glossary`, with avoid terms or explanatory prose when useful. Hard decisions and consequences land in `Decision Notes`, `Evidence And Assumptions`, or `Scope Boundaries`. In normal mode, project-level promotion is a preview-first candidate after PRD-local closure, not a substitute for closure. In triggered `grill-with-docs` mode, resolved terms and ADR-worthy decisions also update the relevant context or ADR file inline.
 
-Suggest a `CONTEXT.md` promotion candidate only when the term is project-specific, owner accepted, repeated in the current PRD/source or cross-team relevant, and has a clear definition plus avoid terms. Suggest an ADR promotion candidate only when the decision is hard to reverse, surprising without context, and a real tradeoff. ADR candidates should stay sparse: context, decision, why, and alternatives/consequences only when useful, with PRD source refs.
+In normal mode, suggest a `CONTEXT.md` promotion candidate only when the term is project-specific, owner accepted, repeated in the current PRD/source or cross-team relevant, and has a clear definition plus avoid terms. Suggest an ADR promotion candidate only when the decision is hard to reverse, surprising without context, and a real tradeoff. ADR candidates should stay sparse: context, decision, why, and alternatives/consequences only when useful, with PRD source refs.
 
-Never silently create or edit `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/**` during ordinary PRD output. Missing promotion does not block planning unless the underlying term or decision remains unresolved in the PRD.
+Never silently create or edit `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/**` during ordinary PRD output. In triggered `grill-with-docs` mode, the owner answer, accepted recommendation, or confirmed source evidence that resolves a term or ADR-worthy decision is the confirmation for that specific inline update. Missing normal-mode promotion does not block planning unless the underlying term or decision remains unresolved in the PRD.

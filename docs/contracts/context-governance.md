@@ -33,6 +33,8 @@
 
 普通 workflow 仍可读取 checked-in source truth，例如 `skills/`、`agents/`、`templates/`、`src/cli/`、`docs/contracts/`、`AGENTS.md`、`CLAUDE.md`、`README*` 和当前任务直接相关的源码、测试、计划或需求文档。
 
+`docs/standards/**` 是 checked-in team standards source surface，而不是 runtime artifact。普通 workflow 只能通过 `docs/contracts/team-standards.md` 的 summary-first、scope-filtered rule selection contract 消费它：先读 contract 和 `docs/standards/index.md`，再按 matched rule files 精确读取。只有 `trust=confirmed,lifecycle_state=active` 且 scope 命中的规则可成为 hard project context；`observed`、`suggested`、`imported`、`conflict`、`confirmed-draft` 和 `docs/standards/candidates/**` 保持 advisory 或 blocked。
+
 ## Host Instruction Reuse Policy
 
 `AGENTS.md`、`CLAUDE.md` 和项目角色文档是 host / project instruction layer。Claude 或 Codex 进入仓库时通常已经把适用的入口指令注入到当前会话；普通 workflow 的 context orientation 应优先使用这些已加载的 host/project instructions，而不是因为 prompt 提到 instruction files 就重新读取根 `AGENTS.md` / `CLAUDE.md`。

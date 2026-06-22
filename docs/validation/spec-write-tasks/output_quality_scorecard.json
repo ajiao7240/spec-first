@@ -1,0 +1,331 @@
+{
+  "schema_version": "spec-first.spec-write-tasks-output-quality-scorecard.v1",
+  "generated_at": "2026-06-22T19:19:20.104Z",
+  "command": "node scripts/spec-write-tasks/run-output-evals.js",
+  "rerun_command": "node scripts/spec-write-tasks/run-output-evals.js",
+  "source_revision": "4d47b125",
+  "source_cases": "skills/spec-write-tasks/evals/output-quality-cases.json",
+  "recorded_output_dir": "docs/validation/spec-write-tasks/recorded-output",
+  "rollback_boundary": "重新生成 docs/validation/spec-write-tasks/output_quality_scorecard.{json,md}；不要 patch generated runtime mirrors。",
+  "owner": "spec-first maintainers",
+  "review_cadence": "在有意义的 spec-write-tasks behavior、packaging、eval 或 handoff contract 变更前重跑。",
+  "output_contract": "执行 deterministic assertions，校验 recorded output 的 source/output hashes，并记录缺失的 provider/human evidence；semantic quality 不成为 hard validator gate。",
+  "score_is_signal_not_gate": true,
+  "evidence_modes": [
+    "fixture-backed",
+    "recorded-fixture",
+    "model-executed",
+    "model-adjudicated",
+    "human-adjudicated",
+    "missing-evidence"
+  ],
+  "summary": {
+    "case_count": 5,
+    "deterministic_assertions": 13,
+    "deterministic_passed": 13,
+    "deterministic_failed": 0,
+    "structural_errors": 0,
+    "recorded_outputs": 1,
+    "adjudicated_outputs": 1,
+    "pending_or_unknown_adjudications": 0
+  },
+  "recorded_outputs": [
+    {
+      "schema_version": "spec-first.spec-write-tasks-recorded-output-adjudication.v1",
+      "id": "valid-task-pack-recorded-output",
+      "source_plan": "tests/fixtures/spec-write-tasks/valid/source-plan.md",
+      "source_plan_hash": "sha256:7337f3e94d0a592de139bf13e1364de47c9e193f9ebffac9c91b2c6cfe43b388",
+      "recorded_output": "docs/validation/spec-write-tasks/recorded-output/valid-task-pack-output.md",
+      "output_hash": "sha256:f3695af126ea323de12665dff0b16775c31adaa88ceea34b90d0d3cb7fc73d85",
+      "generation_context": {
+        "command": "recorded representative fixture derived from tests/fixtures/spec-write-tasks/valid/task-pack.md",
+        "recorded_at": "2026-06-23T00:00:00.000Z"
+      },
+      "adjudication": {
+        "status": "model-adjudicated",
+        "reviewer": "codex-orchestrator",
+        "verdict": "pass",
+        "notes": [
+          "Task pack 保留 source plan identity 与 canonical hash。",
+          "Task card 含具体 files、test_focus、done_signal、stop_if 与 source anchors。",
+          "Deterministic validator 仍只负责 identity、freshness 与 structure。"
+        ],
+        "missing_evidence": [
+          "provider-backed generation telemetry",
+          "human adjudication"
+        ]
+      },
+      "adjudication_file": "docs/validation/spec-write-tasks/recorded-output/valid-task-pack.adjudication.json",
+      "output_hash_actual": "sha256:f3695af126ea323de12665dff0b16775c31adaa88ceea34b90d0d3cb7fc73d85",
+      "hash_status": "matched",
+      "source_plan_hash_actual": "sha256:7337f3e94d0a592de139bf13e1364de47c9e193f9ebffac9c91b2c6cfe43b388",
+      "source_plan_hash_status": "matched"
+    }
+  ],
+  "cases": [
+    {
+      "id": "file-backed-valid-task-pack-handoff",
+      "input_files": [
+        {
+          "path": "tests/fixtures/spec-write-tasks/valid/source-plan.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "tests/fixtures/spec-write-tasks/valid/task-pack.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
+      "baseline_risks": [
+        "A generic task split omits spec_id/source_plan_hash and cannot be deterministically handed to spec-work.",
+        "Task cards restate the plan instead of providing bounded files, test_focus, done_signal, and stop_if."
+      ],
+      "with_skill_expectations": [
+        "The output includes a Task Pack Contract JSON block with executable task fields.",
+        "The final decision envelope carries deterministic_handoff, validation, reason_code, and next_action."
+      ],
+      "expected_outcome": "A skill-guided output is executable only when identity, freshness, and Task Pack Contract structure validate.",
+      "deterministic_assertions": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "results": [
+          {
+            "id": "valid-frontmatter-type",
+            "kind": "frontmatter_equals",
+            "target_file": "tests/fixtures/spec-write-tasks/valid/task-pack.md",
+            "status": "passed"
+          },
+          {
+            "id": "valid-task-pack-validates",
+            "kind": "task_pack_validation",
+            "target_file": "tests/fixtures/spec-write-tasks/valid/task-pack.md",
+            "status": "passed"
+          },
+          {
+            "id": "valid-task-fields-present",
+            "kind": "task_contract_every_task_has_fields",
+            "target_file": "tests/fixtures/spec-write-tasks/valid/task-pack.md",
+            "status": "passed"
+          },
+          {
+            "id": "valid-no-runtime-files",
+            "kind": "task_contract_no_generated_runtime_files",
+            "target_file": "tests/fixtures/spec-write-tasks/valid/task-pack.md",
+            "status": "passed"
+          }
+        ]
+      },
+      "objective_assertions_count": 3,
+      "evidence_status": "file-backed fixture",
+      "evidence_modes": [
+        "fixture-backed"
+      ],
+      "missing_evidence": []
+    },
+    {
+      "id": "small-plan-skip-preserves-context-budget",
+      "input_files": [
+        {
+          "path": "tests/fixtures/spec-write-tasks/small-plan/source-plan.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
+      "baseline_risks": [
+        "The skill generates a task pack even though direct spec-work execution has lower carrying cost."
+      ],
+      "with_skill_expectations": [
+        "The output chooses decision: skip and reason_code: small_plan.",
+        "The output recommends spec-work-plan rather than creating a derived handoff."
+      ],
+      "expected_outcome": "A high-quality run skips task compilation when it would add context cost without reducing execution risk.",
+      "deterministic_assertions": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "results": [
+          {
+            "id": "skip-branch-documented",
+            "kind": "file_contains",
+            "target_file": "skills/spec-write-tasks/SKILL.md",
+            "status": "passed"
+          },
+          {
+            "id": "skip-does-not-require-task-artifact",
+            "kind": "file_contains",
+            "target_file": "skills/spec-write-tasks/references/execution-handoff-contract.md",
+            "status": "passed"
+          }
+        ]
+      },
+      "objective_assertions_count": 2,
+      "evidence_status": "file-backed fixture",
+      "evidence_modes": [
+        "fixture-backed",
+        "missing-evidence"
+      ],
+      "missing_evidence": [
+        "model execution evidence",
+        "human adjudication"
+      ]
+    },
+    {
+      "id": "high-risk-pack-review-handoff-needs-authorization",
+      "input_files": [
+        {
+          "path": "tests/fixtures/spec-write-tasks/high-risk-review/source-plan.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
+      "baseline_risks": [
+        "The skill silently chains into another workflow without explicit bounded dispatch authorization.",
+        "The handoff loses the concrete review reason and current-host invocation."
+      ],
+      "with_skill_expectations": [
+        "The output sets next_action: review-task-pack with one concrete reason.",
+        "The output includes a copy-ready current-host document-review invocation.",
+        "The output sets dispatch_authorization: missing unless the parent workflow or user explicitly authorized the continuation."
+      ],
+      "expected_outcome": "High-risk task packs get decisive review handoff without turning spec-write-tasks into a general workflow orchestrator.",
+      "deterministic_assertions": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "results": [
+          {
+            "id": "high-risk-task-pack-validates",
+            "kind": "task_pack_validation",
+            "target_file": "tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md",
+            "status": "passed"
+          },
+          {
+            "id": "high-risk-review-gate-present",
+            "kind": "task_contract_any_task_has_review_gate",
+            "target_file": "tests/fixtures/spec-write-tasks/high-risk-review/task-pack.md",
+            "status": "passed"
+          },
+          {
+            "id": "high-risk-dispatch-missing-documented",
+            "kind": "file_contains",
+            "target_file": "skills/spec-write-tasks/references/execution-handoff-contract.md",
+            "status": "passed"
+          }
+        ]
+      },
+      "objective_assertions_count": 2,
+      "evidence_status": "file-backed fixture",
+      "evidence_modes": [
+        "fixture-backed",
+        "missing-evidence"
+      ],
+      "missing_evidence": [
+        "provider telemetry",
+        "human adjudication"
+      ]
+    },
+    {
+      "id": "deep-plan-large-unit-fanout",
+      "input_files": [
+        {
+          "path": "docs/plans/2026-06-22-001-feat-user-language-sync-plan.md",
+          "evidence": "file-backed fixture"
+        },
+        {
+          "path": "docs/tasks/2026-06-22-001-feat-user-language-sync-tasks.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
+      "baseline_risks": [
+        "The skill mechanically maps one large implementation unit to one task because the source plan uses a single U-ID.",
+        "The resulting task passes deterministic validation but still forces the executor to privately split module, integration, output, and workspace behavior."
+      ],
+      "with_skill_expectations": [
+        "The output may repeat the same source_unit on multiple tasks when a source unit has multiple independent feedback loops.",
+        "The large unit is split by validation surface, such as module/path-helper behavior before init integration and output reporting.",
+        "The final task pack remains deterministically valid after fan-out."
+      ],
+      "expected_outcome": "A high-quality run avoids preserving an oversized implementation unit as one executable task when it contains multiple independent feedback loops.",
+      "deterministic_assertions": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "results": [
+          {
+            "id": "fanout-guidance-is-reference-owned",
+            "kind": "file_contains",
+            "target_file": "skills/spec-write-tasks/references/task-quality-guide.md",
+            "status": "passed"
+          },
+          {
+            "id": "large-plan-threshold-not-entrypoint",
+            "kind": "file_not_contains",
+            "target_file": "skills/spec-write-tasks/SKILL.md",
+            "status": "passed"
+          }
+        ]
+      },
+      "objective_assertions_count": 3,
+      "evidence_status": "file-backed fixture",
+      "evidence_modes": [
+        "fixture-backed",
+        "missing-evidence"
+      ],
+      "missing_evidence": [
+        "provider telemetry",
+        "human adjudication"
+      ]
+    },
+    {
+      "id": "degraded-helper-signal-does-not-downgrade-deep-plan",
+      "input_files": [
+        {
+          "path": "docs/plans/2026-06-21-004-feat-team-standards-governance-layer-plan.md",
+          "evidence": "file-backed fixture"
+        }
+      ],
+      "baseline_risks": [
+        "A generic task compiler lets a degraded helper output's lightweight candidate override the source plan's deep implementation structure.",
+        "The final handoff omits the helper degradation from Orientation Evidence, so downstream reviewers cannot tell why helper-derived risk signals were ignored."
+      ],
+      "with_skill_expectations": [
+        "The output records degraded helper output as advisory orientation evidence or envelope limitations.",
+        "The compile/skip decision is based on source-plan structure, implementation units, dependency graph, file surfaces, and verification spread.",
+        "Large source units fan out only when they have separable feedback loops, not merely because the helper signal is degraded."
+      ],
+      "expected_outcome": "A high-quality run treats degraded helper signals as limitations, not as authority to skip or downgrade a deep source plan.",
+      "deterministic_assertions": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "results": [
+          {
+            "id": "degraded-helper-advisory-guidance",
+            "kind": "file_contains",
+            "target_file": "skills/spec-write-tasks/references/task-quality-guide.md",
+            "status": "passed"
+          },
+          {
+            "id": "task-signals-not-primary",
+            "kind": "file_not_contains",
+            "target_file": "skills/spec-write-tasks/SKILL.md",
+            "status": "passed"
+          }
+        ]
+      },
+      "objective_assertions_count": 4,
+      "evidence_status": "file-backed fixture",
+      "evidence_modes": [
+        "fixture-backed",
+        "missing-evidence"
+      ],
+      "missing_evidence": [
+        "provider telemetry",
+        "human adjudication"
+      ]
+    }
+  ],
+  "structural_errors": []
+}

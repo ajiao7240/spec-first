@@ -5,7 +5,7 @@ status: derived
 date: 2026-04-26
 spec_id: 2026-04-26-997-high-risk-review-fixture
 source_plan: tests/fixtures/spec-write-tasks/high-risk-review/source-plan.md
-source_plan_hash: sha256:7c4663744fa70acbc0fde8c9a385fbd82065b03fc2b9a3ee64f546282fbec187
+source_plan_hash: sha256:01520950e177e001f23836e1ffd4f5ef13ad690911ed807cd64d1951974a0227
 generated_by: spec-write-tasks
 mode: derived
 ---
@@ -115,6 +115,12 @@ Preserve review handoff authorization boundaries.
 ## Validation Notes
 
 This fixture is valid only when `source_plan_hash` matches the current source plan body hash.
+
+Expected final envelope posture for standalone skill trigger:
+
+- `next_action: review-task-pack`
+- `dispatch_authorization: missing`
+- copy-ready current-host doc-review invocation is surfaced but not auto-dispatched
 
 ## Regeneration Rules
 

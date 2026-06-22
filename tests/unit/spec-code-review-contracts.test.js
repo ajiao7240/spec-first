@@ -39,6 +39,9 @@ describe('spec-code-review context orientation contract', () => {
     expect(text).toContain('risk assessments scoped to the repo that owns the file');
     expect(text).toContain('Discover project standards paths');
     expect(text).toContain('find all `**/CLAUDE.md` and `**/AGENTS.md` in the repo');
+    expect(text).toContain('If `docs/contracts/team-standards.md` exists, include that contract and `docs/standards/index.md` in the path list');
+    expect(text).toContain('select only `trust=confirmed,lifecycle_state=active`, scope-matched rule files from `docs/standards/**`');
+    expect(text).toContain('must not receive or read the full standards corpus by default');
     expect(text).toContain('Pass the resulting path list to the `project-standards` persona inside a `<standards-paths>` block');
     expect(text).not.toContain('docs/examples/standards-glue-consumption-examples.md');
     expect(text).not.toContain('.spec-first/standards/');
@@ -299,6 +302,28 @@ describe('spec-code-review CE sync contracts', () => {
     expect(skill).toContain('Select when diff includes migration artifacts');
     expect(catalog).toContain('`spec-schema-drift-detector` | Cross-references schema.rb changes against included migrations to catch unrelated drift');
     expect(skill).toContain('For spec-schema-drift-detector specifically, pass the resolved review base branch explicitly so it never assumes `main`');
+  });
+
+  test('project-standards reviewer enforces only confirmed team standards with source evidence', () => {
+    const reviewer = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'agents', 'spec-project-standards-reviewer.agent.md'),
+      'utf8',
+    );
+    const catalog = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'skills', 'spec-code-review', 'references', 'persona-catalog.md'),
+      'utf8',
+    );
+
+    expect(reviewer).toContain('docs/contracts/team-standards.md');
+    expect(reviewer).toContain('docs/standards/index.md');
+    expect(reviewer).toContain('trust=confirmed');
+    expect(reviewer).toContain('lifecycle_state=active');
+    expect(reviewer).toContain('matching scope');
+    expect(reviewer).toContain('Suppress `observed`, `suggested`, `imported`, `conflict`, `confirmed-draft`');
+    expect(reviewer).toContain('Do not scan the full `docs/standards/**` tree');
+    expect(reviewer).toContain('Every finding must include');
+    expect(reviewer).toContain('specific line(s) in the diff');
+    expect(catalog).toContain('confirmed `docs/standards/**` rule cards');
   });
 
   test('tracker defer references keep the tracker confidence tuple consistent', () => {
