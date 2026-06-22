@@ -138,16 +138,11 @@
       "input": "Compile a very large team-standards governance plan after `task-governance-signals` returns `collection_status: degraded`, `reason_codes: [planning-context-unreadable, candidate-lightweight]`, and `candidate_level: lightweight`.",
       "source_ref_authority": "historical",
       "source_refs": [
-        "docs/plans/2026-06-21-004-feat-team-standards-governance-layer-plan.md",
-        "docs/tasks/2026-06-21-004-feat-team-standards-governance-layer-tasks.md"
+        "docs/plans/2026-06-21-004-feat-team-standards-governance-layer-plan.md"
       ],
       "input_files": [
         {
           "path": "docs/plans/2026-06-21-004-feat-team-standards-governance-layer-plan.md",
-          "evidence": "file-backed fixture"
-        },
-        {
-          "path": "docs/tasks/2026-06-21-004-feat-team-standards-governance-layer-tasks.md",
           "evidence": "file-backed fixture"
         }
       ],

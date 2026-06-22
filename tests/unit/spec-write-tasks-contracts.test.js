@@ -461,7 +461,6 @@ describe('spec-write-tasks contracts', () => {
     expect(degradedHelperCase.source_ref_authority).toBe('historical');
     expect(degradedHelperCase.input_files.map((entry) => entry.path)).toEqual([
       'docs/plans/2026-06-21-004-feat-team-standards-governance-layer-plan.md',
-      'docs/tasks/2026-06-21-004-feat-team-standards-governance-layer-tasks.md',
     ]);
     expect(degradedHelperCase.baseline_risks.join('\n')).toContain('degraded helper output');
     expect(degradedHelperCase.with_skill_expectations.join('\n')).toContain('records degraded helper output');

@@ -90,9 +90,9 @@ P0/P1 pack basis 是本仓现有 `spec-prd` gaps 与通用 PRD authoring lens �
 ## Assumptions
 
 - A1. 本计划不从现有 brainstorm requirements 继承 `spec_id`。它直接来自当前用户请求和外部本地方法输入，属于新的 plan-local spec chain。
-- A2. 现有 `skills/spec-prd/references/domain-language-and-decision-ledger.md` 可以继续作为 question format 和 decision note discipline 的承载文件；为保持 source topology 不扩张，首选修改既有 reference，而不是新增 `requirements-grill.md`。若实现时发现单一 reference 会混合两个以上 ownership domains、造成同一锚点重复、使 Pre-PRD loop 无法独立解释，或 reference prose 明显超过可维护阅读预算，可新增第六个 reference，但必须同时更新 topology tests、changelog 和 source/runtime 边界说明。
+- A2. 现有 `skills/spec-prd/references/domain-language-and-decision-ledger.md` 可以继续作为 question format 和 decision note discipline 的承载文件；为保持 source topology 不扩张，首选修改既有 reference，而不是新增 `requirements-grill.md`。若实现时发现单一 reference 会混合两个以上 ownership domains、造成同一锚点重复、使 Pre-PRD loop 无法独立解释，或 reference prose 明显超过可维护阅读预算，可新增第六个 reference，但必须同时更新 topology tests、changelog 和 source/runtime 边界说明。具体复核点：`prd-output-template.md`(当前约 337 行)在 U3、U8、U13 三个单元都会被追加内容，落地每个单元时必须按上述阈值显式判断它是否应拆出第六个 reference，而不是默认继续堆叠。
 - A3. `Pre-PRD Clarification Loop` 不需要新脚本。现有 `check-prd-artifact.js` 仍只报告结构/trace facts；新的完整性判断先通过 prompt/eval/contract test 锁定。
-- A4. 若后续实现发现 `SKILL.md` 170 行上限压力过大，应把细节下沉到既有 references，而不是提高上限或新增 runtime template。
+- A4. `tests/unit/spec-prd-contracts.test.js` no longer asserts a hard `SKILL.md` line/char ceiling (the former `<=170` lines / `<=15000` chars assertions were removed). Keeping `SKILL.md` a compact orchestrator is now prose discipline, not an automated gate: if anchor text grows, push detail down into existing references rather than re-adding a numeric ceiling or a new runtime template. U6 may add a structural assertion (entrypoint keeps only anchors, detailed rules live in references) as a replacement guardrail if implementation wants automated backstop.
 - A5. PRD 最佳实践在本计划中只作为 authoring lens 和 readiness prompts，不升级为外部事实真相源；项目 source、owner decision 和 confirmed evidence 仍优先。P0/P1 pack 集合的 recheck condition 是：真实 rough PRD 样本或后续 doc-review 显示某 pack 与既有 Adaptive Product Expert Lens 重复、低频、或增加 owner ceremony 大于减少 planning invention。
 
 ---
@@ -153,8 +153,8 @@ P0/P1 pack basis 是本仓现有 `spec-prd` gaps 与通用 PRD authoring lens �
   - `docs/plans/2026-06-03-001-feat-spec-prd-domain-grill-quality-loop-plan.md`
   - `docs/brainstorms/2026-06-02-002-spec-prd-quality-feedback-loop-requirements.md`
   - `docs/plans/2026-06-05-002-feat-spec-prd-sanitization-feature-slices-plan.md`
-- current_revision: `58aca78b`
-- worktree_status: dirty before this plan; existing unrelated/prior-session changes include `CHANGELOG.md`, several prior plans, solutions docs, and `docs/validation/spec-prd/2026-06-22-spec-prd-execution-flow-ascii.md`. Implementation must not revert them.
+- current_revision: `9cee1af1` (plan authored against `58aca78b`; snapshot refreshed during doc-review follow-up. Re-read source refs before implementation since HEAD has advanced.)
+- worktree_status: dirty before this plan; existing unrelated/prior-session changes include `CHANGELOG.md`, prior plans, solutions docs, `skills/spec-write-tasks/**`, and a deleted task pack. The hard `SKILL.md` line/char ceiling assertions in `tests/unit/spec-prd-contracts.test.js` were already removed and committed upstream. Implementation must not revert these.
 - confidence: high for source topology and current `spec-prd` behavior; medium-high for fusion direction; medium for exact prose placement until implementation rechecks line/token limits.
 - limitations: external local `grill-with-docs` was read as method input only and is outside the target repo; this plan intentionally omits its absolute path for portability. No runtime mirror regeneration or fresh-source semantic eval was performed during planning.
 
@@ -168,10 +168,10 @@ P0/P1 pack basis 是本仓现有 `spec-prd` gaps 与通用 PRD authoring lens �
   - `skills/spec-prd/references/domain-language-and-decision-ledger.md` already contains Source-First Questioning, Bounded Scenario Grill, one-question cadence, recommended answer discipline, PRD-local write targets, and no default `CONTEXT.md`/ADR rule.
   - `skills/spec-prd/references/prd-output-template.md` already contains PRD Quality Diagnosis, `original -> recommendation -> reason -> write target`, Adaptive Product Expert Lens, core/conditional sections, and rough note sanitization.
   - `skills/spec-prd/references/prd-readiness-lens.md` already checks Quality Diagnosis Pack, Domain And Decision Pack, no context-artifact inflation, interaction/exception readiness, and handoff entropy.
-  - `tests/unit/spec-prd-contracts.test.js` locks source topology to 8 files, references to 5 files, `SKILL.md` line count, no template tree, no `CONTEXT.md` default, eval fixture IDs, and fresh-source eval artifacts.
+  - `tests/unit/spec-prd-contracts.test.js` locks source topology to 8 files, references to 5 files, no template tree, no `CONTEXT.md` default, eval fixture IDs, and fresh-source eval artifacts. It no longer asserts a `SKILL.md` line/char ceiling.
   - External local `grill-with-docs` method docs define relentless one-at-a-time questioning, source/codebase lookup before asking, recommended answers, glossary sharpening, scenario stress tests, inline `CONTEXT.md` updates, and sparse ADR criteria.
 - source_reads_required:
-  - Re-read `skills/spec-prd/SKILL.md` immediately before editing to keep line count <=170 and avoid disturbing existing Phase 0-4 flow.
+  - Re-read `skills/spec-prd/SKILL.md` immediately before editing to keep it a compact orchestrator and avoid disturbing the existing Phase 0-4 flow; there is no longer a hard line ceiling, so favor pushing detail into references over inflating the entrypoint.
   - Re-read all modified references before writing tests because current contract tests assert exact snippets and source topology.
   - Re-read `skills/spec-plan/SKILL.md` only if implementation changes PRD handoff wording; current plan does not require `spec-plan` source edits.
 - commands_or_tools_used:
@@ -252,7 +252,7 @@ P0/P1 pack basis 是本仓现有 `spec-prd` gaps 与通用 PRD authoring lens �
 
 ### Deferred to Implementation
 
-- Exact prose placement inside `SKILL.md`: likely Phase 1/2 boundary plus Phase 3 refine wording, but line budget may require concise anchor text and reference detail.
+- Exact prose placement inside `SKILL.md`: likely Phase 1/2 boundary plus Phase 3 refine wording. No hard line ceiling remains, but compact-orchestrator discipline still favors concise anchor text with detail in references.
 - Exact eval IDs: choose concise IDs consistent with the existing `examples.json` style during implementation.
 - Whether to add a fresh-source eval artifact with `passed` or `not_run`: depends on available dispatch/eval capability at implementation time; do not fabricate pass status.
 
@@ -425,6 +425,8 @@ Gap-to-target mapping:
 
 ## Implementation Units
 
+> Unit numbering note: `U7` does not exist. It was the original closeout unit and was renumbered to `U12` when the P0/P1 quality packs (`U8`-`U11`) were inserted; the gap is intentional, not a missing unit. `U12` is deliberately placed last (after `U13`) because it is the closeout unit and depends on every other unit; the label order `U12` < `U13` therefore does not match physical order by design.
+
 ### U1. Add Pre-PRD Clarification Orchestration To spec-prd
 
 **Goal:** Make `spec-prd` visibly route rough PRD `create|refine|validate` inputs with `reference-claims|resume-prd|pure-text` posture through a Pre-PRD Clarification Loop after sanitization and before formal PRD rewrite/readiness when planning-invention risk exists.
@@ -442,7 +444,7 @@ Gap-to-target mapping:
 - Name the two-stage diagnosis in the orchestrator: preliminary diagnosis before expansion, final readiness after PRD rewrite.
 - Point the orchestrator to the Progressive Detail Ladder so ordinary small PRDs can stay compact.
 - Extend the run-local decision card only if necessary with a small state such as `pre_prd_clarification_status`; avoid expanding it into a schema.
-- Keep `SKILL.md` under the existing line and size constraints by linking detailed rules to existing references.
+- Keep `SKILL.md` a compact orchestrator by linking detailed rules to existing references; the former hard line/char ceiling is gone, so the constraint is prose discipline plus the optional U6 structural assertion, not a numeric gate.
 - Preserve current Domain Grill wording and clarify that Pre-PRD Clarification is broader completeness/shared-understanding checking, not a replacement.
 
 **Patterns to follow:**
@@ -458,16 +460,16 @@ Gap-to-target mapping:
 - Regression: first 120 lines retain workflow contract summary and source topology references.
 
 **Verification:**
-- The entrypoint communicates the loop without exceeding existing line/size limits.
+- The entrypoint communicates the loop while staying a compact orchestrator (detail in references); no numeric line/char limit is enforced.
 - Contract tests prove the orchestrator names Pre-PRD Clarification and still keeps generated mirrors out of source fixes.
 
 ---
 
 ### U2. Define Shared-Understanding Pressure Rules In Existing References
 
-**Goal:** Put the detailed trigger, non-trigger, shared understanding map, question cadence, source-first rule and write-target mapping into the existing reference surface without adding a sixth reference file.
+**Goal:** Put the detailed trigger, non-trigger, shared understanding map, question cadence, source-first rule, Deep Requirements Grill seven actions, load-bearing closure rule and write-target mapping into the existing reference surface without adding a sixth reference file.
 
-**Requirements:** R2, R3, R4, R5, R6, R7, R11, R21, R22, R23, R24
+**Requirements:** R2, R3, R4, R5, R6, R7, R11, R21, R22, R23, R24, R25, R26
 
 **Dependencies:** U1
 
@@ -486,6 +488,8 @@ Gap-to-target mapping:
 - Define the load-bearing gap triage order before applying the 1-3 question cap: acceptance impact, behavior/scope irreversibility, affected PRD section count, source contradiction, and release/planning consequence.
 - Define non-triggers: implementation details, source-answerable facts, minor wording polish, planning-ready PRDs, pure terminology already covered by Domain Grill, low-risk assumptions, 0-1 product discovery, and drafts without enough product/system anchor.
 - Reuse the existing run-local question format, adding `write_target` values for PRD core sections while explicitly saying this is not a persistent field set.
+- Define the `Deep Requirements Grill` seven core actions adapted to the PRD stage (R25): one-question-at-a-time progression, recommended answer per question, source/code/docs/tests/contracts lookup before owner questions, existing-glossary conflict challenge, fuzzy/overloaded term sharpening, concrete-scenario boundary stress, and code-contradiction surfacing; each action handles only load-bearing WHAT / planning-readiness questions.
+- Define the load-bearing closure rule (R26): every load-bearing grill question must close via source evidence, owner answer, accepted assumption, `Outstanding Questions`, blocker cluster or route-out; unresolved actor/flow/state/exception/scope/acceptance/permission/release-slice/decision-intersection questions block `ready-for-planning`. The matching readiness check lives in U4.
 - Keep the `CONTEXT.md`, `CONTEXT-MAP.md`, and ADR prohibition in the same reference.
 
 **Patterns to follow:**
@@ -549,7 +553,7 @@ Gap-to-target mapping:
 
 **Goal:** Prevent `ready-for-planning` when rough PRD gaps remain unresolved and would force `spec-plan` to invent WHAT.
 
-**Requirements:** R8, R11, R22, R23
+**Requirements:** R8, R11, R22, R23, R26
 
 **Dependencies:** U2, U3
 
@@ -560,6 +564,7 @@ Gap-to-target mapping:
 **Approach:**
 - Extend existing packs rather than adding a new readiness pack unless implementation proves the wording becomes clearer with a named sub-bullet.
 - Add closure checks in Quality Diagnosis Pack and Core Pack for Pre-PRD Clarification outcomes: resolved by source, owner answer, assumption, explicit trace gap, Outstanding Question, or route-out.
+- Enforce the Deep Requirements Grill load-bearing closure rule (R26) at readiness: no `ready-for-planning` while any actor/flow/state/exception/scope/acceptance/permission/release-slice/decision-intersection grill question stays unresolved.
 - Make final readiness explicitly post-rewrite: preliminary diagnosis can mark a route or detail level, but only final readiness can emit `ready-for-planning`.
 - Ensure Domain And Decision Pack still owns terminology/source-of-truth grill adequacy.
 - Re-state no context-artifact inflation for Pre-PRD Clarification as well as Domain Grill.
@@ -585,7 +590,7 @@ Gap-to-target mapping:
 
 **Goal:** Add examples-as-context that make the new pre-PRD clarification behavior reviewable and prevent regression to long interviews, context-artifact creation, or planning invention.
 
-**Requirements:** R9, R21, R22, R23, R24
+**Requirements:** R9, R21, R22, R23, R24, R25, R26
 
 **Dependencies:** U1, U2, U3, U4
 
@@ -595,6 +600,7 @@ Gap-to-target mapping:
 
 **Approach:**
 - Add a small set of focused cases instead of a large taxonomy.
+- Before adding a fixture, check whether an existing case already covers the concept (`no-context-artifact-topology`, `decision-note-not-adr`, `hard-decision-unresolved`, `bounded-scenario-grill-permission-edge` overlap with the new clarification/grill cases); prefer extending an existing case's `coverage_tags` over adding a near-duplicate so the 47-case fixture set does not bloat.
 - Use existing fixture style: `id`, `intent`, `input_shape`, `expected`, `coverage_tags`.
 - Include negative/near-neighbor cases so the trigger does not widen to every PRD.
 
@@ -610,6 +616,8 @@ Gap-to-target mapping:
 - `small-clear-prd-stays-compact`: source-supported small PRD remains at L0 and does not trigger Map-Reduce or all packs.
 - `source-answerable-no-owner-question`: current behavior is knowable from source/docs/tests, so the loop records evidence and asks no owner question.
 - `huge-prd-cross-chunk-conflict`: multiple chunks disagree on scope or exception behavior, so Reduce preserves conflict refs and emits affected write targets.
+- `deep-grill-seven-actions`: a load-bearing gap drives one-question-at-a-time progression with recommended answer, source-first lookup, glossary/term challenge, scenario stress and code-contradiction surfacing (R25).
+- `deep-grill-closure-blocks-readiness`: an unresolved load-bearing grill question keeps the PRD out of `ready-for-planning` until it closes via source, owner answer, assumption, Outstanding Question or route-out (R26).
 
 **Test scenarios:**
 - Fixture IDs are present.
@@ -637,7 +645,7 @@ Gap-to-target mapping:
 **Approach:**
 - Extend existing tests rather than creating a new large suite unless readability requires it.
 - Assert source topology still equals the current 8 source files and 5 references.
-- Assert `SKILL.md` remains under existing line/size constraints.
+- Do not re-add a hard `SKILL.md` line/char ceiling (the former `<=170` / `<=15000` assertions were intentionally removed). If an automated backstop is still wanted, assert structurally that the entrypoint keeps only anchors and detailed Pre-PRD Clarification rules live in references, instead of a numeric limit.
 - Assert references include Pre-PRD Clarification trigger/non-trigger, shared understanding map, source-first resolution, question format, write targets, cap, no context artifact, and readiness closure.
 - Assert references include large-input Map-Reduce as run-local authoring discipline, with `source_ref` preservation, semantic Shuffle groups, conflict-preserving Reduce and no persistent extraction artifact.
 - Assert references distinguish preliminary diagnosis from final readiness and include Progressive Detail Ladder stop rules.
@@ -778,7 +786,7 @@ Gap-to-target mapping:
 
 **Goal:** Lock the new P0/P1 packs with examples-as-context and focused contract assertions.
 
-**Requirements:** R9, R12, R13, R14, R15, R16, R17, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27, R28, R29, R30
+**Requirements:** R9, R12, R13, R14, R15, R16, R17, R18, R19, R20, R21, R22, R23, R24
 
 **Dependencies:** U8, U9, U10
 
@@ -787,7 +795,7 @@ Gap-to-target mapping:
 - Modify: `tests/unit/spec-prd-contracts.test.js`
 
 **Approach:**
-- Add focused fixtures for P0 gaps and P1 triggers without creating a large taxonomy.
+- Add focused fixtures for P0 gaps and P1 triggers without creating a large taxonomy; reuse or extend an existing case's `coverage_tags` when one already covers the concept rather than adding a near-duplicate.
 - Extend contract assertions to pin no new topology, no schema, no scorecard, no invented metrics, and no app-consistency takeover.
 - Assert the existing reference count remains stable unless intentionally changed with justification.
 
@@ -804,9 +812,8 @@ Gap-to-target mapping:
 - `large-prd-reducer-conflict`: two source chunks disagree on scope or exception behavior and the reducer emits a conflict set plus affected write targets.
 - `preliminary-vs-final-diagnosis`: preliminary diagnosis selects expansion level, but final readiness is evaluated only after rewrite and closure.
 - `progressive-detail-stop-rules`: small clear input stops at L0, source-answerable gap stops before owner question, over-cap gaps stop at blocker cluster.
-- `context-map-routing`: existing `CONTEXT-MAP.md` routes terms to the right context before glossary challenge.
-- `context-promotion-candidate`: accepted project-specific term creates preview-first glossary candidate without silently writing a file.
-- `adr-promotion-three-conditions`: hard decision creates ADR candidate only when hard-to-reverse, surprising and a real tradeoff.
+
+Topology adapter fixtures (`context-map-routing`, `context-promotion-candidate`, `adr-promotion-three-conditions`) are owned by U13 and land in Phase 4, not here, because they assert reference text U13 writes.
 
 **Test scenarios:**
 - Fixture IDs are present and include P0/P1 coverage tags.
@@ -822,7 +829,7 @@ Gap-to-target mapping:
 
 **Goal:** Integrate `grill-with-docs`' context and ADR topology as evidence and promotion paths while keeping PRD-local closure as the source of planning readiness.
 
-**Requirements:** R25, R26, R27, R28, R29, R30
+**Requirements:** R27, R28, R29, R30
 
 **Dependencies:** U2, U3, U4, U5, U6
 
@@ -845,6 +852,13 @@ Gap-to-target mapping:
 - External `grill-with-docs` `CONTEXT-FORMAT.md` term discipline: tight definitions, project-specific terms only, `_Avoid_` words where useful.
 - External `grill-with-docs` `ADR-FORMAT.md` sparse ADR discipline: one-paragraph default, optional sections only when useful, three-condition gate.
 - Existing `spec-prd` `Glossary`, `Decision Notes`, `Evidence And Assumptions`, and `Scope Boundaries` sections.
+
+**Candidate fixture coverage:**
+- `context-map-routing`: existing `CONTEXT-MAP.md` routes terms to the right context before glossary challenge.
+- `context-promotion-candidate`: accepted project-specific term creates preview-first glossary candidate without silently writing a file.
+- `adr-promotion-three-conditions`: hard decision creates ADR candidate only when hard-to-reverse, surprising and a real tradeoff.
+
+These three fixtures and their contract assertions are owned by U13 and land in Phase 4 together with the reference text they check; they are intentionally not in U11.
 
 **Test scenarios:**
 - Existing root `CONTEXT.md`: conflicting term is surfaced and resolved into PRD `Glossary`, with an optional preview candidate if promotion criteria are met.
@@ -974,7 +988,7 @@ Surface coverage:
 | Metrics get fabricated to satisfy readiness | Medium | High | Require metric sources/baselines when targets are stated; otherwise downgrade to observable signal, assumption, or Outstanding Question. |
 | NFR pack leaks into HOW | Medium | Medium | Keep NFR content product-level only; examples and tests reject API/database/architecture details as requirements. |
 | Design evidence hook absorbs app consistency audit | Low | High | Extract only PRD facts; route PRD/Figma/source consistency to `spec-app-consistency-audit`. |
-| `SKILL.md` line budget is exceeded | Medium | Medium | Keep orchestrator anchor compact and move details to references. |
+| `SKILL.md` entrypoint bloats now that the hard line/char ceiling is removed | Medium | Medium | Keep orchestrator anchor compact and move details to references; optionally add the U6 structural assertion (anchors-only entrypoint, rules in references) as a replacement backstop. |
 
 ---
 
