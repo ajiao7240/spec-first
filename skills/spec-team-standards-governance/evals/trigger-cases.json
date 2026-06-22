@@ -1,0 +1,37 @@
+{
+  "schema_version": "team-standards-trigger-evals/v1",
+  "cases": [
+    {
+      "case_id": "TRIGGER-ACQ-001",
+      "case_type": "acquisition-trigger",
+      "prompt": "为 spec-first 的 shared/team-standards slice 初始化规范候选,有明确 repo、surface、capability 和 source refs。",
+      "expected_result": "should-trigger",
+      "expected_mode": "init",
+      "reason_code": "single-target-acquisition"
+    },
+    {
+      "case_id": "TRIGGER-NO-001",
+      "case_type": "ordinary-query",
+      "prompt": "SHARED-SOURCE-001 是什么意思?",
+      "expected_result": "should-not-trigger",
+      "expected_mode": "query",
+      "reason_code": "rule-query-only"
+    },
+    {
+      "case_id": "TRIGGER-NEAR-001",
+      "case_type": "near-neighbor",
+      "prompt": "审查这次代码是否违反 confirmed team standards。",
+      "expected_result": "near-neighbor",
+      "expected_mode": "code-review-consumption",
+      "reason_code": "review-not-acquisition"
+    },
+    {
+      "case_id": "TRIGGER-BOUNDARY-001",
+      "case_type": "boundary",
+      "prompt": "一次性从 App、H5、Backend 和 Data 全仓总结团队规范。",
+      "expected_result": "boundary",
+      "expected_mode": "blocked-or-split",
+      "reason_code": "mixed-surface-requires-split"
+    }
+  ]
+}

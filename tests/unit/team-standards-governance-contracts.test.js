@@ -250,7 +250,7 @@ describe('team standards governance source contract', () => {
     expect(taskPack).toContain('capability: team-standards');
     expect(taskPack).toContain('mode: candidate-only');
     expect(taskPack).toContain('mixed_surface_policy: reject-and-split');
-    expect(taskPack).toContain('confirmed standards writes are out of scope');
+    expect(taskPack).toContain('confirmed standards 写入不在本次 scope');
 
     const factLedger = read('docs/standards/candidates/fact-ledger.md');
     expect(factLedger).toContain('snapshot_id: 4d47b125');
@@ -274,9 +274,9 @@ describe('team standards governance source contract', () => {
       expect(evidenceLedger).toContain(field);
     }
 
-    expect(read('docs/standards/candidates/source-matrix.md')).toContain('Code structure cannot produce `confirmed` trust by itself.');
+    expect(read('docs/standards/candidates/source-matrix.md')).toContain('代码结构不能单独产生 `confirmed` trust');
     expect(read('docs/standards/candidates/lineage-ledger.md')).toContain('CAND-STANDARDS-ACQ-001 -> proposal -> keep-advisory');
-    expect(read('docs/standards/candidates/owner-decision-queue.md')).toContain('No queued owner decisions for this pilot');
+    expect(read('docs/standards/candidates/owner-decision-queue.md')).toContain('本次 pilot 没有排队 owner decision');
     expect(read('docs/standards/candidates/promotion-log.md')).toContain('outcome: keep-advisory');
     expect(read('docs/standards/candidates/output-risk-profile.md')).toContain('not-enough-sample');
   });
@@ -291,13 +291,13 @@ describe('team standards governance source contract', () => {
 
     expect(sourceMatrix).toContain('provider_untrusted');
     expect(sourceMatrix).toContain('cannot produce `confirmed`');
-    expect(interview).toContain('Do not invent answers for absent roles');
+    expect(interview).toContain('不要为缺席角色补写答案');
     expect(interview).toContain('architecture owner');
     expect(interview).toContain('security/privacy owner');
     expect(validation).toContain('PR replay');
     expect(validation).toContain('retrieval eval');
     expect(validation).toContain('owner edit distance');
-    expect(validation).toContain('Do not use LLM self-evaluation as a pass signal.');
+    expect(validation).toContain('不得把 LLM 自评作为 pass 信号');
     expect(evalReadme).toContain('case_id');
     expect(evalReadme).toContain('false_positive_rule_ids');
     expect(evalReadme).toContain('not-enough-sample');

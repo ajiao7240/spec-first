@@ -14,6 +14,24 @@ V1 allows lightweight, manually reviewable notes:
 
 V1 does not create empty fact ledgers, lineage ledgers, owner decision queues, PR replay fixtures or role interview notes. Those belong to V2 after a real repo/capability/surface pilot has samples, owner availability and privacy boundaries.
 
+## V2 获取层
+
+V2 可以写入获取任务包和 ledger，但前提是存在真实 single-target pilot。每个 V2 run 必须绑定一个 repo、surface、capability/sub-domain slice、include/exclude scope、time window、evidence sources、privacy boundary、owner candidates、output mode 和 non-goals。
+
+当前 pilot 是 `team-standards-v2-pilot-20260623`，目标为 `spec-first/shared/team-standards`。它只验证 acquisition output shape，并记录 replay/owner 输入不足：
+
+- `acquisition-task-pack.md`
+- `source-matrix.md`
+- `fact-ledger.md`
+- `evidence-quality-ledger.md`
+- `lineage-ledger.md`
+- `owner-decision-queue.md`
+- `promotion-log.md`
+- `output-risk-profile.md`
+- `role-interview-notes.md`
+
+这些文件仍属于 proposal/evidence 区，不是 hard project context。
+
 ## Single Extraction Target
 
 Each candidate extraction must name one target:

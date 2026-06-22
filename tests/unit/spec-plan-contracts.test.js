@@ -14,6 +14,7 @@ const {
 } = require('../../src/cli/plugin');
 
 const SKILL_PATH = path.join(__dirname, '..', '..', 'skills', 'spec-plan', 'SKILL.md');
+const COMMAND_TEMPLATE_PATH = path.join(__dirname, '..', '..', 'templates', 'claude', 'commands', 'spec', 'plan.md');
 const EVALS_DIR = path.join(__dirname, '..', '..', 'skills', 'spec-plan', 'evals');
 const EXAMPLES_PATH = path.join(EVALS_DIR, 'examples.json');
 const OUTPUT_QUALITY_CASES_PATH = path.join(EVALS_DIR, 'output-quality-cases.json');
@@ -196,6 +197,17 @@ const UNIVERSAL_PLANNING_PATH = path.join(
   'universal-planning.md',
 );
 describe('spec-plan context orientation contract', () => {
+  test('keeps host-only argument hint out of generic skill frontmatter', () => {
+    const skill = fs.readFileSync(SKILL_PATH, 'utf8');
+    const command = fs.readFileSync(COMMAND_TEMPLATE_PATH, 'utf8');
+    const frontmatter = skill.match(/^---\n([\s\S]*?)\n---/)[1];
+
+    expect(frontmatter).toContain('name: spec-plan');
+    expect(frontmatter).toContain('description:');
+    expect(frontmatter).not.toContain('argument-hint:');
+    expect(command).toContain('argument-hint: "[requirements doc path or topic]"');
+  });
+
   test('has a hot-path plan-only safety contract and strict question-tool fallback rules', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 

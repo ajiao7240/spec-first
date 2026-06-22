@@ -1,0 +1,44 @@
+{
+  "schema_version": "team-standards-output-evals/v1",
+  "cases": [
+    {
+      "case_id": "OUTPUT-CANDIDATE-001",
+      "case_type": "candidate-card",
+      "input_refs": ["docs/standards/candidates/acquisition-task-pack.md"],
+      "required_fields": ["candidate_id", "acquisition_id", "candidate_type", "authority_tier", "evidence_quality", "source_refs", "replay_status", "promotion_state"],
+      "must_not": ["trust: confirmed"],
+      "threshold_result": "not-run"
+    },
+    {
+      "case_id": "OUTPUT-LINEAGE-001",
+      "case_type": "lineage-ledger",
+      "input_refs": ["docs/standards/candidates/lineage-ledger.md"],
+      "required_fields": ["from", "to", "transition", "decision_trace", "source_refs"],
+      "threshold_result": "not-run"
+    },
+    {
+      "case_id": "OUTPUT-OWNER-001",
+      "case_type": "owner-queue",
+      "input_refs": ["docs/standards/candidates/owner-decision-queue.md"],
+      "required_fields": ["owner_required_reason", "risk_domain", "candidate_id", "next_action"],
+      "must_route_away": ["evidence warning", "actionability warning", "abstraction warning"],
+      "threshold_result": "not-run"
+    },
+    {
+      "case_id": "OUTPUT-DERIVED-001",
+      "case_type": "derived-artifact",
+      "input_refs": ["docs/contracts/team-standards.md"],
+      "required_fields": ["source_refs", "rule_ids_or_proposal_ids", "limitations"],
+      "must_not": ["independent source truth"],
+      "threshold_result": "not-run"
+    },
+    {
+      "case_id": "OUTPUT-ANCHOR-001",
+      "case_type": "source-anchor",
+      "input_refs": ["docs/standards/candidates/fact-ledger.md"],
+      "required_fields": ["snapshot_id", "path_hash", "file", "line_range", "snippet_hash", "fact_id", "scope"],
+      "must_not": ["local absolute path"],
+      "threshold_result": "not-run"
+    }
+  ]
+}
