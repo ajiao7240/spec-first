@@ -212,14 +212,14 @@ P0/P1 pack basis 是本仓现有 `spec-prd` gaps 与通用 PRD authoring lens �
 
 - `grill-with-docs` contributes these reusable ideas: one question at a time, recommended answer, source/codebase lookup before owner questions, fuzzy term sharpening, concrete scenario stress tests, contradiction surfacing, and sparse decision records.
 - The essence to carry into `spec-prd` is four pressure loops: claim-to-evidence pressure (do we know this or only assume it), language pressure (does the same term mean the same thing), scenario pressure (does the PRD survive real actor/flow/state/exception cases), and decision-closure pressure (does every owner answer land in a durable PRD section with consequences).
-- Its default persistence model is intentionally not reused: root/context-specific `CONTEXT.md`, `CONTEXT-MAP.md`, and `docs/adr/` remain project-specific optional artifacts, not `spec-prd` defaults.
+- Its default persistence model is not reused as a mandatory PRD output: root/context-specific `CONTEXT.md`, `CONTEXT-MAP.md`, and `docs/adr/` are adapted as optional evidence and promotion topology, with PRD-local closure first and preview-first candidates only when criteria are met.
 
 ---
 
 ## Key Technical Decisions
 
 - KTD1. **Fuse the method, not the node.** Do not copy `grill-with-docs` as an executable `spec-prd` workflow node. Re-express its questioning discipline inside `spec-prd` references to preserve one public PRD workflow and one PRD artifact chain.
-- KTD2. **Add Pre-PRD Clarification as a loop, not a new artifact.** The loop is run-local authoring discipline. It maintains a temporary shared understanding map, but does not create a schema, report, context file, ADR, lifecycle state, or second PRD topology.
+- KTD2. **Add Pre-PRD Clarification as a loop, not a new artifact.** The loop is run-local authoring discipline. It maintains a temporary shared understanding map, but does not create a schema, report, lifecycle state, or second PRD topology. Context/ADR changes, when warranted, are preview-first promotion candidates rather than hidden PRD side effects.
 - KTD3. **Trigger on planning-invention risk.** The decisive trigger is not “PRD is imperfect”; it is “without resolving this gap, `spec-plan` must invent WHAT”. Minor wording polish can stay in normal optimization suggestions.
 - KTD4. **Keep Domain Grill distinct.** Terminology/source contradiction/source-of-truth ambiguity stays in Domain Grill; actor/flow/acceptance/scope completeness gaps are handled by Pre-PRD Clarification. If a question touches both, classify by the consequence: term precision if it changes naming only; requirements clarification if it changes behavior or acceptance.
 - KTD5. **Source-first before owner-first.** Repo/docs/tests/contracts/glossary/prior PRDs are checked before asking. The owner should adjudicate product decisions, not facts already available from source.
@@ -778,7 +778,7 @@ Gap-to-target mapping:
 
 **Goal:** Lock the new P0/P1 packs with examples-as-context and focused contract assertions.
 
-**Requirements:** R9, R12, R13, R14, R15, R16, R17, R18, R19, R20, R21, R22, R23, R24
+**Requirements:** R9, R12, R13, R14, R15, R16, R17, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27, R28, R29, R30
 
 **Dependencies:** U8, U9, U10
 
@@ -804,6 +804,9 @@ Gap-to-target mapping:
 - `large-prd-reducer-conflict`: two source chunks disagree on scope or exception behavior and the reducer emits a conflict set plus affected write targets.
 - `preliminary-vs-final-diagnosis`: preliminary diagnosis selects expansion level, but final readiness is evaluated only after rewrite and closure.
 - `progressive-detail-stop-rules`: small clear input stops at L0, source-answerable gap stops before owner question, over-cap gaps stop at blocker cluster.
+- `context-map-routing`: existing `CONTEXT-MAP.md` routes terms to the right context before glossary challenge.
+- `context-promotion-candidate`: accepted project-specific term creates preview-first glossary candidate without silently writing a file.
+- `adr-promotion-three-conditions`: hard decision creates ADR candidate only when hard-to-reverse, surprising and a real tradeoff.
 
 **Test scenarios:**
 - Fixture IDs are present and include P0/P1 coverage tags.
@@ -815,13 +818,53 @@ Gap-to-target mapping:
 
 ---
 
+### U13. Add Context And ADR Topology Adapter
+
+**Goal:** Integrate `grill-with-docs`' context and ADR topology as evidence and promotion paths while keeping PRD-local closure as the source of planning readiness.
+
+**Requirements:** R25, R26, R27, R28, R29, R30
+
+**Dependencies:** U2, U3, U4, U5, U6
+
+**Files:**
+- Modify: `skills/spec-prd/references/domain-language-and-decision-ledger.md`
+- Modify: `skills/spec-prd/references/prd-output-template.md`
+- Modify: `skills/spec-prd/references/prd-readiness-lens.md`
+- Modify: `skills/spec-prd/evals/examples.json`
+- Modify: `tests/unit/spec-prd-contracts.test.js`
+
+**Approach:**
+- Add a `Context / ADR Topology Adapter` reference section that discovers existing `CONTEXT.md`, `CONTEXT-MAP.md`, context-specific `CONTEXT.md`, and `docs/adr/**` as advisory evidence.
+- Define context routing: single context, multi-context via `CONTEXT-MAP.md`, unclear topic-to-context mapping, and no-topology fallback.
+- Define glossary promotion criteria: project-specific term, owner accepted, repeated or cross-team relevant, clear definition and avoid terms.
+- Define ADR promotion criteria: hard to reverse, surprising without context, real tradeoff; otherwise keep the decision in PRD-local `Decision Notes`.
+- Require preview-first candidate output for context/ADR promotion. Do not silently create or edit `CONTEXT.md`, `CONTEXT-MAP.md`, or ADR files during ordinary `spec-prd` output.
+- Keep PRD readiness tied to PRD-local closure. Missing context/ADR promotion does not block planning unless the underlying term or decision remains unresolved in the PRD.
+
+**Patterns to follow:**
+- External `grill-with-docs` `CONTEXT-FORMAT.md` term discipline: tight definitions, project-specific terms only, `_Avoid_` words where useful.
+- External `grill-with-docs` `ADR-FORMAT.md` sparse ADR discipline: one-paragraph default, optional sections only when useful, three-condition gate.
+- Existing `spec-prd` `Glossary`, `Decision Notes`, `Evidence And Assumptions`, and `Scope Boundaries` sections.
+
+**Test scenarios:**
+- Existing root `CONTEXT.md`: conflicting term is surfaced and resolved into PRD `Glossary`, with an optional preview candidate if promotion criteria are met.
+- Existing `CONTEXT-MAP.md`: PRD topic is routed to the right context, or one owner/context routing question is raised if ambiguous.
+- No topology: PRD still completes with PRD-local glossary/decision notes and records no-topology fallback, without creating files.
+- ADR candidate: a hard-to-reverse, surprising real tradeoff produces a preview candidate; a routine decision stays in `Decision Notes`.
+- Boundary: contract tests reject any wording that makes `CONTEXT.md` or ADR creation mandatory for PRD readiness.
+
+**Verification:**
+- Topology integration improves source evidence and durable knowledge promotion without creating a second truth source or hidden write side effect.
+
+---
+
 ### U12. Record Validation And Runtime Boundary Evidence
 
 **Goal:** Close the implementation with honest validation evidence, changelog, and fresh-source eval posture.
 
 **Requirements:** R9, R10
 
-**Dependencies:** U1, U2, U3, U4, U5, U6, U8, U9, U10, U11
+**Dependencies:** U1, U2, U3, U4, U5, U6, U8, U9, U10, U11, U13
 
 **Files:**
 - Create or modify: `docs/validation/spec-prd/fresh-source-eval-2026-06-22-requirements-grill.md`
@@ -852,6 +895,7 @@ Gap-to-target mapping:
 - **Downstream planning:** `spec-plan` receives more complete WHAT and less unresolved entropy; it still does not own the pre-PRD clarification loop.
 - **Large PRD handling:** oversized or multi-source inputs gain a bounded Map-Reduce intake path that preserves evidence references and contradictions before reducing to PRD-local write targets.
 - **Progressive detail:** small PRDs can remain compact; large or risky PRDs expand only through triggered ladder levels. Preliminary diagnosis controls expansion, final readiness controls planning handoff.
+- **Context / ADR topology:** existing context and ADR docs become source evidence and optional promotion targets; PRD-local closure remains the handoff source of truth.
 - **PRD quality floor:** P0 packs make problem/outcome, metrics readiness, product-level constraints, traceability, and owner closure explicit before planning only when those signals affect planning invention; P1 packs remain conditional to avoid heavy templates.
 - **Skill packaging:** no new skill package, no new reference file by default, no generated runtime mirror edits.
 - **Tests/evals:** focused additions to examples-as-context and contract tests; no new deterministic semantic gate.
@@ -866,6 +910,7 @@ Surface coverage:
 | `spec-plan` intake | out-of-scope | No source edit planned unless implementation finds stale handoff wording |
 | Large-input Map-Reduce | in-scope as run-local discipline | No new script, schema, extraction artifact, vector index, or public workflow |
 | Progressive Detail Ladder | in-scope as reference discipline | Trigger/stop conditions only; not a state machine |
+| `CONTEXT.md` / ADR topology | in-scope as evidence and promotion adapter | Preview-first candidates only; not required PRD artifact or readiness gate |
 | P0/P1 PRD quality packs | in-scope but narrowed | Added only as planning-invention authoring/readiness prompts inside existing references |
 | Generated runtime mirrors | out-of-scope | Do not edit directly |
 | External `grill-with-docs` source | out-of-scope | Method input only, not vendored |
@@ -877,6 +922,7 @@ Surface coverage:
 | Approach | Decision | Rationale |
 | --- | --- | --- |
 | Copy `grill-with-docs` into `spec-prd` as an executable node | Rejected | Imports default `CONTEXT.md`/ADR topology, increases public/internal node complexity, and conflicts with bounded PRD authoring. |
+| Reuse `CONTEXT.md` / ADR topology through an adapter | Accepted | Keeps the valuable domain-language and decision-persistence model while preserving PRD-local closure and preview-first writes. |
 | Add a new `requirements-grill` reference file | Defer by default with escape threshold | Cleaner naming, but current tests intentionally keep `spec-prd` to 5 references. Use existing reference first; add a file only if mixed ownership, duplicated anchors, unreadable prose density, or inability to explain the loop independently proves the sixth reference is more maintainable; update topology tests deliberately. |
 | Put Pre-PRD Clarification into `spec-plan` | Rejected | It would let planning resolve WHAT and duplicate PRD readiness, breaking workflow ownership. |
 | Route rough PRDs to `spec-brainstorm` by default | Rejected | The target input is an existing rough PRD for an anchored system increment, not 0-1 product discovery. Escalate only when the draft lacks enough product/system anchor to remain PRD refinement. |
@@ -897,6 +943,7 @@ Surface coverage:
 - Preliminary diagnosis selects the smallest sufficient ladder level, while final readiness is evaluated only after PRD rewrite and closure checks.
 - Small clear PRDs stay compact and do not trigger Map-Reduce or all P0/P1 packs.
 - Oversized/multi-source rough PRDs preserve source refs through Map, expose cross-chunk contradictions during Shuffle/Reduce, and reduce repeated claims before the 1-3 question cap is applied.
+- Existing `CONTEXT.md`/ADR evidence is used when present, and stable terms/hard decisions produce preview-first promotion candidates only when criteria are met.
 - `ready-for-planning` is not emitted when actor/flow/acceptance/scope gaps remain unresolved.
 - Triggered P0 gaps for problem/outcome, metrics, constraints, traceability, and owner closure are either resolved, explicitly assumed, or visible as blockers before handoff; untriggered packs do not expand compact PRDs.
 - P1 packs add actor/design/release/change-management detail only when triggered, with compact PRDs staying compact.
@@ -919,6 +966,8 @@ Surface coverage:
 | Map-Reduce becomes a new hidden extraction platform | Low | Medium | State it is run-local LLM-owned authoring discipline; no schema, vector index, script reducer or standalone artifact in v1. |
 | Progressive ladder is mistaken for a hard state machine | Medium | Medium | Frame levels as trigger/stop guidance, not required sequential states; tests reject mandatory expansion language. |
 | Preliminary diagnosis is mistaken for final readiness | Medium | High | Explicit two-stage naming and fixtures that reject `ready-for-planning` before rewrite/closure. |
+| Context/ADR adapter creates a second truth source | Medium | High | PRD-local closure remains required; context/ADR updates are preview-first promotion candidates with source refs, not readiness prerequisites. |
+| Adapter silently creates or edits topology files | Low | High | Contract tests reject silent writes and mandatory `CONTEXT.md`/ADR creation. |
 | Scripts start making semantic readiness decisions | Low | High | Explicit script/LLM boundary in readiness and contract tests. |
 | External `grill-with-docs` artifact model leaks into `spec-prd` | Medium | High | Negative tests for `CONTEXT.md`, `CONTEXT-MAP.md`, `docs/adr/` defaults. |
 | P0/P1 packs become mandatory heavy templates | Medium | High | Treat packs as triggered authoring/readiness prompts, not required sections; contract tests reject all-section mandate language and require compact-path behavior. |
@@ -952,6 +1001,11 @@ Surface coverage:
 
 ### Phase 4
 
+- Land U13 context/ADR topology adapter fixtures and contract assertions.
+- Validate no-topology fallback, existing topology evidence, preview-first promotion candidates and no silent writes.
+
+### Phase 5
+
 - Land U12 validation artifact and changelog.
 - Optionally run fresh-source eval if the host capability is available and explicitly record status.
 
@@ -962,7 +1016,7 @@ Surface coverage:
 - Changelog is required because this changes source docs/plan and future user-visible `spec-prd` behavior.
 - README updates are not required by this plan alone; implementation should reconsider if `spec-prd` command docs or examples need to advertise rough PRD refinement.
 - Runtime regeneration is not part of this plan. If implementation changes source skill files and runtime drift must be repaired, use `spec-first init` as a separate explicit step rather than hand-editing generated mirrors.
-- Plan handoff should recommend `$spec-work` for implementation or a task pack if the implementer wants to split U1-U12, with U12 executed as the final closeout unit.
+- Plan handoff should recommend `$spec-work` for implementation or a task pack if the implementer wants to split U1-U13, with U12 executed as the final closeout unit.
 
 ---
 
