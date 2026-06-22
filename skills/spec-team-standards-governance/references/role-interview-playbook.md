@@ -1,61 +1,61 @@
-# 角色访谈 Playbook
+# Role Interview Playbook
 
-V2 interviews 用于填补 source code 和 configs 无法回答的缺口。不要为缺席角色补写答案；missing role input 应进入 open question 或 `not-run`，不能被推断成 policy。
+V2 interviews fill gaps that source code and configs cannot answer. Do not invent answers for missing roles; missing role input becomes an open question or `not-run`, not inferred policy.
 
-## Intake 规则
+## Intake Rules
 
-- 将 interview 绑定到一个 `acquisition_id` 和一个 extraction target。
-- 只把角色名记录为 owner roles，不记录 personal data。
-- reusable standards 中不得包含 business、customer、incident 和 personnel details。
-- 只有答案包含 scope、exceptions、source refs 或 explicit owner decision 时，才转换为 candidates。
-- Interview notes 不是 confirmed standards；它们只是 `suggested` candidates 或 promotion proposals 的 evidence。
+- Bind the interview to one `acquisition_id` and one extraction target.
+- Record role names as owner roles, not personal data.
+- Keep business, customer, incident and personnel details out of reusable standards.
+- Convert answers into candidates only when they include scope, exceptions, source refs or explicit owner decision.
+- Interview notes are not confirmed standards. They are evidence for `suggested` candidates or promotion proposals.
 
-## 角色问题
+## Role Questions
 
 ### architecture owner
 
-- 该 capability 的 business state transitions 由哪一层负责？
-- 哪些 dependency directions 被禁止？
-- 什么时候 implementation 前必须有 ADR 或 design note？
-- 允许哪些 exceptions，由谁批准？
+- What layer owns business state transitions for this capability?
+- Which dependency directions are prohibited?
+- When is an ADR or design note required before implementation?
+- Which exceptions are allowed, and who approves them?
 
 ### security/privacy owner
 
-- 哪些 data classes 进入 candidates 或 replay fixtures 前必须 redaction？
-- 哪些 permission、auth、payment、funds 或 privacy flows 属于 high impact？
-- 哪些 logs、traces 或 PR snippets 绝不能复制进 standards artifacts？
-- 哪类 source 确认该 policy：config、ADR、compliance note 还是 owner decision？
+- Which data classes require redaction before they enter candidates or replay fixtures?
+- Which permission, auth, payment, funds or privacy flows are high impact?
+- Which logs, traces or PR snippets must never be copied into standards artifacts?
+- What source confirms the policy: config, ADR, compliance note or owner decision?
 
 ### test/QA owner
 
-- promotion 前哪些 regression cases 是 mandatory？
-- 期望使用哪种 fixture style 或 integration boundary？
-- 哪些 historical bugs 应转成 replay cases？
+- Which regression cases are mandatory before promotion?
+- Which fixture style or integration boundary is expected?
+- Which historical bugs should become replay cases?
 
 ### SRE/operations owner
 
-- 哪些 rollout、rollback、monitoring 或 alerting rules 约束该 slice？
-- 哪些 incident evidence 可抽象成 reusable standards，且不会泄漏 sensitive details？
+- Which rollout, rollback, monitoring or alerting rules govern this slice?
+- Which incident evidence can be abstracted into reusable standards without leaking sensitive details?
 
 ### App/H5/PC/Admin owner
 
-- 哪些 UI/error/state semantics 必须跨 surface 保持一致？
-- 哪些 surface-specific exception 是 deliberate，而不是 drift？
-- 哪个 source 确认 cross-surface behavior？
+- Which UI/error/state semantics must stay consistent across surfaces?
+- Which surface-specific exception is deliberate rather than drift?
+- Which source confirms cross-surface behavior?
 
 ### Backend/Data owner
 
-- 哪些 API、event、idempotency 和 data lifecycle rules 适用？
-- 哪些 storage 或 migration constraints 属于 high impact？
+- Which API, event, idempotency and data lifecycle rules apply?
+- Which storage or migration constraints are high impact?
 
 ### product/business owner
 
-- 哪些 user promises、compliance expectations 或 business-state meanings 会约束 engineering changes？
-- 哪些 exceptions 需要 product 或 compliance approval？
+- Which user promises, compliance expectations or business-state meanings constrain engineering changes?
+- Which exceptions require product or compliance approval?
 
-## 输出形状
+## Output Shape
 
-每条 interview note 应记录：
+Each interview note should record:
 
 - `acquisition_id`
 - `role`

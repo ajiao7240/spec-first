@@ -290,14 +290,14 @@ describe('team standards governance source contract', () => {
     const outputCases = readJson('skills/spec-team-standards-governance/evals/output-cases.json');
 
     expect(sourceMatrix).toContain('provider_untrusted');
-    expect(sourceMatrix).toContain('不能单独产生 `confirmed` trust');
-    expect(interview).toContain('不要为缺席角色补写答案');
+    expect(sourceMatrix).toContain('cannot produce `confirmed` trust by itself');
+    expect(interview).toContain('Do not invent answers for missing roles');
     expect(interview).toContain('architecture owner');
     expect(interview).toContain('security/privacy owner');
     expect(validation).toContain('PR replay');
     expect(validation).toContain('retrieval eval');
     expect(validation).toContain('owner edit distance');
-    expect(validation).toContain('不得把 LLM 自评作为 pass 信号');
+    expect(validation).toContain('Do not use LLM self-evaluation as a pass signal');
     expect(evalReadme).toContain('case_id');
     expect(evalReadme).toContain('false_positive_rule_ids');
     expect(evalReadme).toContain('not-enough-sample');
