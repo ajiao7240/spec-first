@@ -30,7 +30,7 @@
       "input": "Compile tasks for a deep plan that touches workflow contracts and marks several tasks with review_gate: required.",
       "context": "The source plan is executable and the derived pack is high-risk because it changes public workflow prose, shared contracts, and source/runtime boundary guidance.",
       "expected_decision": "compile",
-      "expected_next_action": "Set next_action: review-task-pack with one reason; on an interactive host with a doc-review primitive, continue directly into current-host doc-review of the just-written task pack in headless mode without a separate confirmation; on autonomous/headless hosts, surface the same recommendation in the envelope instead of dispatching.",
+      "expected_next_action": "Set next_action: review-task-pack with one reason and dispatch_authorization: missing unless the invoking parent workflow or user explicitly authorized this single bounded continuation; surface the copy-ready current-host doc-review invocation instead of dispatching by default.",
       "coverage_tags": ["boundary"]
     }
   ],

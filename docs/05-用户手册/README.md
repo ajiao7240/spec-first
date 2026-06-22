@@ -119,11 +119,12 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 6. [产物目录](./10-产物目录.md)
 7. [Gitignore 参考](./12-gitignore参考.md)
 8. [研发场景与降级路径](./20-研发场景与降级路径.md)
-9. [常见问题](./04-常见问题.md)
-10. [最佳实践](./05-最佳实践.md)
-11. [三种开发模式](./08-三种开发模式.md)
-12. [本地源码安装](./06-本地源码安装.md)
-13. [内部培训使用讲稿](./07-内部培训使用讲稿.md)
+9. [OpenSpec 与 spec-first 项目阶段适用性对比](./21-OpenSpec与spec-first阶段适用性对比.md)
+10. [常见问题](./04-常见问题.md)
+11. [最佳实践](./05-最佳实践.md)
+12. [三种开发模式](./08-三种开发模式.md)
+13. [本地源码安装](./06-本地源码安装.md)
+14. [内部培训使用讲稿](./07-内部培训使用讲稿.md)
 
 ## 建议阅读路径
 
@@ -131,6 +132,7 @@ $spec-app-consistency-audit prd:<path> figma-context:<path> source:<path>
 - 如果你要理解运行模型、工程闭环和 evidence 边界，先看 [核心概念](./02-核心概念.md)
 - 如果你要共享 confirmed project standards，先看 [Gitignore 参考](./12-gitignore参考.md) 的共享 project standards 说明
 - 如果你要判断单仓、多模块或多仓 workspace 怎么使用，先看 [三种开发模式](./08-三种开发模式.md)
+- 如果你要判断 OpenSpec 和 spec-first 在不同项目阶段怎么取舍，先看 [OpenSpec 与 spec-first 项目阶段适用性对比](./21-OpenSpec与spec-first阶段适用性对比.md)
 - 如果你要确认真实执行过程，看 [完整示例](./03-完整示例.md)
 - 如果你要判断某个文档或 runtime 目录该不该手改、该不该提交，先看 [产物目录](./10-产物目录.md)
 - 如果你要判断当前仓库属于哪类研发场景、dirty / multi-repo / non-git build target 该如何降级，先看 [研发场景与降级路径](./20-研发场景与降级路径.md)

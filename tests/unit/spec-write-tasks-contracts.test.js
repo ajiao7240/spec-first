@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const CodexAdapter = require('../../src/cli/adapters/codex');
 const { syncSkills } = require('../../src/cli/plugin');
@@ -14,9 +15,22 @@ const SCHEMA_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'referenc
 const GUIDE_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'references', 'task-quality-guide.md');
 const EVALS_DIR = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'evals');
 const EVALS_README_PATH = path.join(EVALS_DIR, 'README.md');
+const OUTPUT_QUALITY_CASES_PATH = path.join(EVALS_DIR, 'output-quality-cases.json');
 const OPENAI_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'agents', 'openai.yaml');
 const SPEC_WORK_PATH = path.join(REPO_ROOT, 'skills', 'spec-work', 'SKILL.md');
 const PLAN_HANDOFF_PATH = path.join(REPO_ROOT, 'skills', 'spec-plan', 'references', 'plan-handoff.md');
+const OFFICIAL_SKILL_CREATOR_DIR = path.join(
+  os.homedir(),
+  '.codex',
+  'plugins',
+  'cache',
+  'claude-plugins-official',
+  'skill-creator',
+  'local',
+  'skills',
+  'skill-creator',
+);
+const OFFICIAL_PACKAGE_SCRIPT = path.join(OFFICIAL_SKILL_CREATOR_DIR, 'scripts', 'package_skill.py');
 const TASK_SIGNALS_CONTRACT_PATH = path.join(
   REPO_ROOT,
   'docs',
@@ -30,10 +44,19 @@ function read(filePath) {
 }
 
 describe('spec-write-tasks contracts', () => {
+  const officialPackageTest = fs.existsSync(OFFICIAL_PACKAGE_SCRIPT) ? test : test.skip;
+
   test('source skill preserves derived-task-pack boundaries and task-ready flow', () => {
     const skill = read(SKILL_PATH);
+    const frontmatter = skill.match(/^---\n([\s\S]*?)\n---/)[1];
+    const frontmatterKeys = frontmatter
+      .split('\n')
+      .filter((line) => /^[a-zA-Z0-9_-]+:/.test(line))
+      .map((line) => line.split(':', 1)[0]);
 
     expect(skill).toContain('name: spec-write-tasks');
+    expect(frontmatterKeys).toEqual(['name', 'description']);
+    expect(frontmatter).not.toContain('argument-hint:');
     expect(skill).toContain('## Purpose');
     expect(skill).toContain('## Inputs');
     expect(skill).toContain('## Outputs');
@@ -59,7 +82,9 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('Quality Pass Before Output');
     expect(skill).toContain('Final Decision Envelope');
     expect(skill).toContain('decision: compile | skip | return-to-plan | draft-only | validate-only');
+    expect(skill).toContain('reason_code: source_plan_missing | ambiguous_plan | missing_spec_id');
     expect(skill).toContain('semantic_posture');
+    expect(skill).toContain('dispatch_authorization: authorized | missing | not_required | not_applicable');
     expect(skill).toContain('next_action');
     expect(skill).toContain('orientation:');
     expect(skill).toContain('evidence_refs');
@@ -110,8 +135,8 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('does not decide which tasks semantically require review');
     expect(skill).toContain('start from the source plan, plan-indicated source files, and nearby tests');
     expect(skill).toContain('reuse already-loaded host/project instructions');
-    expect(skill).toContain('read `AGENTS.md` / `CLAUDE.md` source only when `docs/contracts/context-governance.md`\'s Host Instruction Reuse Policy allows it');
-    expect(skill).toContain('read `docs/contracts/` only by precise path or section');
+    expect(skill).toContain('read `AGENTS.md` / `CLAUDE.md` source only when the active host/project instruction reuse policy allows it');
+    expect(skill).toContain('read local contract docs only by precise path or section when they exist');
     expect(skill).toContain('Written project standards may become hard task constraints only when they apply to the changed files');
     expect(skill).not.toContain('read `AGENTS.md`, `CLAUDE.md`, directory-scoped standards files, `docs/contracts/`');
     expect(skill).not.toContain('docs/examples/standards-glue-consumption-examples.md');
@@ -130,6 +155,19 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('Before filling `deterministic_handoff` and the `validation:` block, you must actually run the deterministic CLI and transcribe its result');
     expect(skill).toContain('Run `spec-first tasks validate <task-pack-path> --json`');
     expect(skill).toContain('never self-report `deterministic_handoff: true` or `validation` matches without the CLI JSON in hand');
+    expect(skill).toContain('Use a `Failure Modes` code as `reason_code` whenever the run stops, downgrades, or rejects a handoff.');
+    expect(skill).toContain('## Portability Boundary');
+    expect(skill).toContain('Runtime references must be packaged skill files');
+    expect(skill).toContain('Standalone `.skill` packages must remain usable when those sibling workflow files are absent');
+    expect(skill).toContain('treat `spec-plan`, `spec-work`, and `spec-doc-review` as named integration points');
+    expect(skill).toContain('`evals/` files are maintainer-only validation fixtures');
+    expect(skill).toContain('the official `.skill` packager excludes root `evals/`');
+    expect(skill).not.toContain('../../docs/');
+    expect(skill).not.toContain('](../spec-plan/');
+    expect(skill).not.toContain('](../spec-work/');
+    expect(skill).not.toContain('Technical Plan');
+    expect(skill).not.toContain('Project Role');
+    expect(skill).not.toContain('历史快照');
   });
 
   test('task pack schema requires executable handoff metadata and quality structures', () => {
@@ -279,11 +317,14 @@ describe('spec-write-tasks contracts', () => {
     expect(skill).toContain('The output must include one concrete reason and a copy-ready current-host document-review invocation');
     expect(skill).toContain('/spec:doc-review <task-pack-path>');
     expect(skill).toContain('$spec-doc-review <task-pack-path>');
-    expect(skill).toContain('continue directly into the current host\'s document review without a separate confirmation step');
+    expect(skill).toContain('do not dispatch by default');
+    expect(skill).toContain('the invoking parent workflow or user explicitly authorized this single bounded continuation for the current run');
+    expect(skill).toContain('a standalone skill trigger alone is not dispatch authorization');
     expect(skill).toContain('the continuation targets exactly the doc-review of the just-written task pack; do not chain any further workflow');
     expect(skill).toContain('This is bounded auto-continuation, not general workflow chaining');
-    expect(skill).toContain('or the run is autonomous/headless — do not dispatch');
-    expect(skill).toContain('Surface the `review-task-pack` recommendation in the returned envelope instead and let the caller decide');
+    expect(skill).toContain('Set `dispatch_authorization: authorized` only when the explicit authorization condition is met.');
+    expect(skill).toContain('dispatch authorization is missing');
+    expect(skill).toContain('surface the `review-task-pack` recommendation in the returned envelope, and let the caller decide');
     expect(contract).toContain('`spec-write-tasks` may use `plan-declared` output only as optional cross-check evidence');
     expect(contract).toContain('written source-plan structure is the primary evidence');
     expect(contract).toContain('must not treat `plan-declared` as a hard gate or a second source of truth');
@@ -293,7 +334,37 @@ describe('spec-write-tasks contracts', () => {
       expected_decision: 'compile',
     }));
     expect(highRiskCase.expected_next_action).toContain('next_action: review-task-pack');
-    expect(highRiskCase.expected_next_action).toContain('continue directly into current-host doc-review');
+    expect(highRiskCase.expected_next_action).toContain('dispatch_authorization: missing');
+  });
+
+  test('output-quality fixtures expose objective assertions and evidence gaps', () => {
+    const readme = read(EVALS_README_PATH);
+    const payload = JSON.parse(read(OUTPUT_QUALITY_CASES_PATH));
+
+    expect(readme).toContain('`output-quality-cases.json` 记录 file-backed output-quality review cases');
+    expect(readme).toContain('不是 provider-backed model eval');
+    expect(readme).toContain('必须声明 `input_files`、`baseline_risks`、`with_skill_expectations` 和 `objective_assertions`');
+    expect(readme).toContain('`missing evidence`');
+    expect(payload.schema_version).toContain('spec-write-tasks-output-quality-cases');
+    expect(payload.coverage_tags).toEqual(expect.arrayContaining(['expected', 'output-quality']));
+    expect(payload.source_refs).toEqual(expect.arrayContaining([
+      'skills/spec-write-tasks/SKILL.md',
+      'tests/fixtures/spec-write-tasks/valid/source-plan.md',
+    ]));
+    expect(payload.source_refs.join('\n')).not.toContain('../../docs/');
+    expect(payload.cases.length).toBeGreaterThanOrEqual(3);
+
+    for (const evalCase of payload.cases) {
+      expect(evalCase.id).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+      expect(Array.isArray(evalCase.input_files)).toBe(true);
+      expect(evalCase.baseline_risks.length).toBeGreaterThan(0);
+      expect(evalCase.with_skill_expectations.length).toBeGreaterThan(0);
+      expect(evalCase.objective_assertions.length).toBeGreaterThan(0);
+      expect(typeof evalCase.expected_outcome).toBe('string');
+    }
+
+    expect(payload.cases.some((entry) => entry.evidence_status === 'file-backed fixture')).toBe(true);
+    expect(payload.cases.some((entry) => entry.evidence_status === 'missing evidence')).toBe(true);
   });
 
   test('eval cases cover trigger, boundary, failure, and expected behavior posture', () => {
@@ -396,12 +467,63 @@ describe('spec-write-tasks contracts', () => {
   test('openai metadata keeps task compilation optional and host-neutral', () => {
     const metadata = read(OPENAI_PATH);
 
-    expect(metadata).toContain('Compile settled plans into optional derived task packs');
-    expect(metadata).toContain('first decide whether task compilation is warranted');
+    expect(metadata).toContain('Compile or validate derived task packs');
+    expect(metadata).toContain('local plan path, existing task-pack path, or clear task-splitting request');
+    expect(metadata).toContain('First decide whether task compilation or validation is warranted');
     expect(metadata).toContain('the appropriate spec-work workflow');
     expect(metadata).toContain('allow_implicit_invocation: false');
     expect(metadata).not.toContain('$spec-work');
     expect(metadata).not.toContain('/spec:work');
+  });
+
+  officialPackageTest('official skill package contains only portable runtime assets', () => {
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-write-tasks-official-package-'));
+    try {
+      const packageProc = spawnSync('python3', [
+        '-m',
+        'scripts.package_skill',
+        path.dirname(SKILL_PATH),
+        tmpRoot,
+      ], {
+        cwd: OFFICIAL_SKILL_CREATOR_DIR,
+        encoding: 'utf8',
+      });
+      expect(packageProc.status).toBe(0);
+
+      const packagePath = path.join(tmpRoot, 'spec-write-tasks.skill');
+      expect(fs.existsSync(packagePath)).toBe(true);
+      const listProc = spawnSync('python3', ['-c', `
+from zipfile import ZipFile
+with ZipFile(${JSON.stringify(packagePath)}) as package:
+    print("\\n".join(sorted(package.namelist())))
+`], { encoding: 'utf8' });
+      expect(listProc.status).toBe(0);
+      const entries = listProc.stdout.trim().split('\n').filter(Boolean);
+
+      expect(entries).toEqual([
+        'spec-write-tasks/SKILL.md',
+        'spec-write-tasks/agents/openai.yaml',
+        'spec-write-tasks/references/task-pack-schema.md',
+        'spec-write-tasks/references/task-quality-guide.md',
+      ]);
+      expect(entries.some((entry) => entry.includes('/evals/'))).toBe(false);
+
+      const readSkillProc = spawnSync('python3', ['-c', `
+from zipfile import ZipFile
+with ZipFile(${JSON.stringify(packagePath)}) as package:
+    print(package.read("spec-write-tasks/SKILL.md").decode())
+`], { encoding: 'utf8' });
+      expect(readSkillProc.status).toBe(0);
+      expect(readSkillProc.stdout).toContain('## References');
+      expect(readSkillProc.stdout).toContain('[Task Pack Schema](references/task-pack-schema.md)');
+      expect(readSkillProc.stdout).toContain('[Task Quality Guide](references/task-quality-guide.md)');
+      expect(readSkillProc.stdout).toContain('`evals/` files are maintainer-only validation fixtures');
+      expect(readSkillProc.stdout).not.toContain('](../');
+      expect(readSkillProc.stdout).not.toContain('](evals/');
+      expect(readSkillProc.stdout).not.toContain('argument-hint:');
+    } finally {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
   });
 
   test('codex runtime sync preserves task-quality guardrails without stale wording', () => {
@@ -414,21 +536,27 @@ describe('spec-write-tasks contracts', () => {
       const runtimeSkill = read(path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'SKILL.md'));
       const runtimeMetadata = read(path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'agents', 'openai.yaml'));
       const runtimeTriggerCases = path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'evals', 'trigger-cases.json');
+      const runtimeOutputQualityCases = path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'evals', 'output-quality-cases.json');
       const runtimeEvalsReadme = path.join(projectRoot, '.agents', 'skills', 'spec-write-tasks', 'evals', 'README.md');
 
       expect(runtimeSkill).toContain('name: write-tasks');
       expect(runtimeSkill).toContain('Task-Ready Check');
       expect(runtimeSkill).toContain('Quality Pass Before Output');
+      expect(runtimeSkill).toContain('reason_code');
+      expect(runtimeSkill).toContain('dispatch_authorization');
       expect(runtimeSkill).toContain('If deterministic hash tooling is unavailable, report the task pack as unverifiable handoff');
       expect(runtimeSkill).toContain('A mismatch is a wrong-chain handoff');
+      expect(runtimeSkill).not.toContain('../../docs/');
       expect(runtimeSkill).not.toContain('source_plan_hash: pending-tooling');
-      expect(runtimeMetadata).toContain('first decide whether task compilation is warranted');
+      expect(runtimeMetadata).toContain('First decide whether task compilation or validation is warranted');
       expect(runtimeMetadata).toContain('the appropriate spec-work workflow');
       expect(runtimeMetadata).toContain('allow_implicit_invocation: false');
       expect(runtimeMetadata).not.toContain('$spec-work');
       expect(fs.existsSync(runtimeTriggerCases)).toBe(true);
+      expect(fs.existsSync(runtimeOutputQualityCases)).toBe(true);
       expect(fs.existsSync(runtimeEvalsReadme)).toBe(true);
       expect(read(runtimeTriggerCases)).toContain('explicit-split-plan');
+      expect(read(runtimeOutputQualityCases)).toContain('output-quality');
       expect(read(runtimeEvalsReadme)).toContain('LLM review fixtures，不是 executable eval runner');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -440,7 +568,8 @@ describe('spec-write-tasks contracts', () => {
 
     expect(handoff).toContain('Load the standalone `spec-write-tasks` skill with the plan path');
     expect(handoff).toContain('If it writes an executable task pack with matching `spec_id` and verifiable `source_plan_hash`');
-    expect(handoff).toContain('offer to proceed with the current host\'s work entrypoint');
+    expect(handoff).toContain('surface the copy-ready current-host doc-review invocation');
+    expect(handoff).toContain('otherwise offer the current host\'s work entrypoint using the task-pack path directly');
     expect(handoff).toContain('using the task-pack path');
     expect(handoff).toContain('If it returns `skip`, `return-to-plan`, `draft-only`, unverifiable identity/hash, or a non-executable task pack');
     expect(handoff).toContain('do not offer task-pack execution');

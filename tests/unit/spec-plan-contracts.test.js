@@ -449,7 +449,10 @@ describe('spec_id planning contract', () => {
     expect(combined).toContain('this reduces single-run context load, broad review scope, and coupled rollback cost');
     expect(handoff).toContain('Load the standalone `spec-write-tasks` skill with the plan path.');
     expect(handoff).toContain('If it writes an executable task pack with matching `spec_id` and verifiable `source_plan_hash`');
+    expect(handoff).toContain('when it resolves to `review-task-pack`, surface the copy-ready current-host doc-review invocation');
+    expect(handoff).toContain('unless the invoking parent workflow or user explicitly authorized that single bounded continuation');
     expect(handoff).not.toContain('Use the standalone skill when the plan is large, dependency-heavy');
+    expect(handoff).not.toContain('continues directly into current-host headless doc-review');
     expect(skill).not.toContain('Use the standalone skill when the plan is large, dependency-heavy');
     expect(combined).not.toContain('automatically run `spec-write-tasks`');
     expect(combined).not.toContain('$spec-write-tasks');

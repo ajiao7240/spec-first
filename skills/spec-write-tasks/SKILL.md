@@ -1,7 +1,6 @@
 ---
 name: spec-write-tasks
 description: "Compile a settled spec-plan into an optional derived task pack for spec-work, or validate an existing task pack before execution. Use when the user asks to split a plan into tasks, write task docs, or when a work suitability check concludes a task pack would materially reduce execution risk or context load. Keep plan as the single source of truth; tasks are derived and optional."
-argument-hint: "[plan doc path, task-pack path, or task-splitting request]"
 ---
 
 # `spec-write-tasks`
@@ -78,7 +77,7 @@ When skipping, say explicitly that this is not an omission; this case does not n
 6. `context_refs` must point to the smallest useful section, file, test, contract, or pattern reference. They are bounded reading pointers, not scope authority; whole-plan or whole-directory refs are low-quality handoff unless paired with narrower anchors.
 7. Each task should solve one clear subproblem and should usually have one primary verification target.
 8. Task splitting should reflect file boundaries, dependencies, verification surfaces, and parallelization opportunities instead of restating the plan.
-9. Source reads before task-pack generation must be bounded source orientation: start from the source plan, plan-indicated source files, and nearby tests; reuse already-loaded host/project instructions; read `AGENTS.md` / `CLAUDE.md` source only when `docs/contracts/context-governance.md`'s Host Instruction Reuse Policy allows it; read `docs/contracts/` only by precise path or section when it materially improves task boundaries; optionally use LSP when available; and stop once task boundaries are accurate enough. Written project standards may become hard task constraints only when they apply to the changed files and remain consistent with the source plan. Other docs, prior plans, and external-tool facts are advisory context refs and must not become a workflow state machine or expand source-plan scope.
+9. Source reads before task-pack generation must be bounded source orientation: start from the source plan, plan-indicated source files, and nearby tests; reuse already-loaded host/project instructions; read `AGENTS.md` / `CLAUDE.md` source only when the active host/project instruction reuse policy allows it, such as a user-named path, missing or stale loaded context, source/runtime governance work, or directory-scoped instructions that may govern changed files; read local contract docs only by precise path or section when they exist and materially improve task boundaries; optionally use LSP when available; and stop once task boundaries are accurate enough. Written project standards may become hard task constraints only when they apply to the changed files and remain consistent with the source plan. Other docs, prior plans, and external-tool facts are advisory context refs and must not become a workflow state machine or expand source-plan scope.
 10. If the source plan was created from a parent workspace, it must carry a top-level `target_repo` for single-repo work or per-unit `target_repo` for cross-repo work. If repo scope is missing, return to `spec-plan`; do not invent child repo targets while deriving tasks.
 11. Prefer independently verifiable vertical slices over horizontal layers when the source plan permits it. A good slice closes one behavior with implementation, verification, and any necessary docs/config evidence. Docs-only and config-only tasks should use docs contract checks, schema/help/render checks, or diff-shape checks; do not force TDD where no behavior-bearing code changes.
 
@@ -275,6 +274,7 @@ Every `spec-write-tasks` run must end with a compact decision envelope. The enve
 
 ```yaml
 decision: compile | skip | return-to-plan | draft-only | validate-only
+reason_code: source_plan_missing | ambiguous_plan | missing_spec_id | wrong_chain | stale_hash | unverifiable_hash | invalid_contract | repo_scope_missing | scope_gap | small_plan | task_pack_compiled | task_pack_validated | not_applicable
 source_plan: docs/plans/... | null
 task_pack: docs/tasks/... | null
 task_pack_validity: valid | draft | stale | wrong-chain | invalid | unverifiable | not-applicable
@@ -282,6 +282,7 @@ deterministic_handoff: true | false
 validity_scope: identity-freshness-structure-only
 semantic_posture: generated-this-run | reviewed-existing | unchecked-existing | not-applicable
 reason: <one sentence>
+dispatch_authorization: authorized | missing | not_required | not_applicable
 validation:
   spec_id: matched | missing | mismatch | not_checked
   source_plan_hash: matched | missing | mismatch | unavailable | not_checked
@@ -296,21 +297,24 @@ orientation:
 next_action: spec-work-task-pack | review-task-pack | spec-work-plan | revise-plan | stop
 ```
 
+Use a `Failure Modes` code as `reason_code` whenever the run stops, downgrades, or rejects a handoff. Use `small_plan`, `task_pack_compiled`, `task_pack_validated`, or `not_applicable` only when no failure mode applies. The natural-language `reason` explains the code; it must not be the only machine-readable failure signal.
+
 Before filling `deterministic_handoff` and the `validation:` block, you must actually run the deterministic CLI and transcribe its result, not assert it from inspection. Run `spec-first tasks validate <task-pack-path> --json` (and `spec-first tasks hash <plan-path>` when computing or comparing the source plan hash), then copy `deterministic_handoff` and each `validation` field from that JSON output. If the `tasks` subcommand is not runtime-visible or returns an unknown-subcommand error, treat the run as `unverifiable_hash`, set `deterministic_handoff: false`, and downgrade to `draft-only`; never self-report `deterministic_handoff: true` or `validation` matches without the CLI JSON in hand.
 
 `next_action: spec-work-task-pack` is allowed only when `deterministic_handoff: true` and `semantic_posture` is `generated-this-run` or `reviewed-existing`. `deterministic_handoff` proves identity, freshness, and structure only; it does not prove semantic task quality.
 
 Use `next_action: review-task-pack` as the decisive handoff recommendation for high-risk task packs. Choose it when the pack contains `review_gate: required` tasks, touches shared contracts, public workflow prose, source/runtime boundaries, security/release/CI surfaces, or has enough tasks/dependencies that semantic drift or over-splitting would be costly. The output must include one concrete reason and a copy-ready current-host document-review invocation, such as `/spec:doc-review <task-pack-path>` for Claude or `$spec-doc-review <task-pack-path>` for Codex.
 
-For a high-risk pack that resolves to `review-task-pack`, continue directly into the current host's document review without a separate confirmation step, and only under all of these conditions:
+For a high-risk pack that resolves to `review-task-pack`, do not dispatch by default. Continue directly into the current host's document review without a separate confirmation step only under all of these conditions:
 
 - the pack is executable (`deterministic_handoff: true`) and `review-task-pack` was selected by the high-risk criteria above,
-- the current session is an interactive host that exposes a document-review dispatch primitive (`/spec:doc-review` on Claude, `$spec-doc-review` on Codex),
+- the invoking parent workflow or user explicitly authorized this single bounded continuation for the current run; a standalone skill trigger alone is not dispatch authorization,
+- the current session is an interactive host that exposes the document-review entrypoint (`/spec:doc-review` on Claude, `$spec-doc-review` on Codex),
 - the continuation targets exactly the doc-review of the just-written task pack; do not chain any further workflow, and do not invoke document review as an Agent/Task/subagent type.
 
 When continuing, invoke the current-host doc-review in headless mode on the task-pack path (`/spec:doc-review mode:headless <task-pack-path>` on Claude, `$spec-doc-review mode:headless <task-pack-path>` on Codex), then report the doc-review outcome alongside this envelope. Headless keeps the continuation bounded and non-interactive: doc-review applies its own safe fixes silently and returns structured findings without firing its interactive routing or walk-through prompts inside this run.
 
-This is bounded auto-continuation, not general workflow chaining: it covers only the single write-tasks → doc-review edge for high-risk packs, and `spec-write-tasks` still does not become an orchestrator or execution state machine. When any condition is not met — the pack is low-risk, `deterministic_handoff` is false, no doc-review primitive is available, or the run is autonomous/headless — do not dispatch. Surface the `review-task-pack` recommendation in the returned envelope instead and let the caller decide.
+This is bounded auto-continuation, not general workflow chaining: it covers only the single write-tasks → doc-review edge for high-risk packs, and `spec-write-tasks` still does not become an orchestrator or execution state machine. Set `dispatch_authorization: authorized` only when the explicit authorization condition is met. When any condition is not met — the pack is low-risk, `deterministic_handoff` is false, dispatch authorization is missing, no doc-review entrypoint is available, or the run is autonomous/headless — do not dispatch. Set `dispatch_authorization: missing`, `not_required`, or `not_applicable` as appropriate, surface the `review-task-pack` recommendation in the returned envelope, and let the caller decide.
 
 ## Required Task Card Semantics
 
@@ -420,11 +424,11 @@ Do not let scripts judge whether task splitting is semantically good. Splitting,
 - Do not include shell command choreography, commit order, or test pipeline scripts.
 - Do not invent scope, acceptance criteria, or product decisions.
 
+## Portability Boundary
+
+`spec-write-tasks` is a reusable user-facing skill. Runtime references must be packaged skill files (`references/`, `agents/`) or optional sibling workflow skills that are distributed with the same spec-first installation. Standalone `.skill` packages must remain usable when those sibling workflow files are absent; treat `spec-plan`, `spec-work`, and `spec-doc-review` as named integration points, not as required files to read from this package. `evals/` files are maintainer-only validation fixtures; the official `.skill` packager excludes root `evals/`, so do not require user-runtime access to them while compiling tasks. Repo-local technical plans, project-role documents, historical snapshots, and project review docs are maintainer design evidence, not user-runtime references; do not list them in this skill's `References` or require users to read them while compiling tasks.
+
 ## References
 
 - [Task Pack Schema](references/task-pack-schema.md)
 - [Task Quality Guide](references/task-quality-guide.md)
-- [Technical Plan](../../docs/03-实施方案/2026-04-26-spec-write-tasks-技术方案.md)
-- [spec-plan](../spec-plan/SKILL.md)
-- [spec-work](../spec-work/SKILL.md)
-- [Project Role](../../docs/10-prompt/历史快照/角色治理演化-历史/项目角色.md)
