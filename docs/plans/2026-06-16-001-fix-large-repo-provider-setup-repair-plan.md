@@ -1,12 +1,18 @@
 ---
 title: "fix: Harden large-repo provider setup repair"
 type: fix
-status: active
+status: completed
 date: 2026-06-16
 spec_id: 2026-06-16-001-large-repo-provider-setup-repair
 ---
 
 # fix: Harden large-repo provider setup repair
+
+## 完成说明
+
+本计划已在 v1.11.0 的 `fix(runtime-setup)` 批次落地，当前状态收口为 `completed`。完成证据包括 `CHANGELOG.md` 中 2026-06-16 02:23:52 的实现记录，以及当前 source 中 Graphify overwrite refusal 后的一次性 `graphify update . --force` repair、CodeGraph `codegraph sync` 后仍提示 full rebuild 时的一次性 `codegraph index -f` repair、guided confirmation 文案、`spec-mcp-setup` prose、provider registry、Bash/PowerShell contract tests 和 fake provider fixtures。
+
+下方 `Problem Frame`、`Direct Evidence Readiness` 和 `Direct Evidence` 中关于“current code”的描述是实施前规划证据，保留为历史上下文，不再代表当前代码状态。当前实现选择复用通用 `SPEC_FIRST_STAGE_TIMEOUT_SECONDS` / 900 秒默认 stage timeout 约束 provider rebuild；若后续真实大仓仍出现 rebuild timeout，再以独立 follow-up 评估 rebuild-specific timeout，而不是继续挂在本计划下开发。
 
 ## Summary
 

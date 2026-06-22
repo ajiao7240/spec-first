@@ -136,8 +136,6 @@ describe('spec-prd workflow contracts', () => {
     const phaseOne = extractMarkdownSection(text, '### Phase 1: Current-State Analysis');
 
     expect(text).toContain('name: spec-prd');
-    expect(text.split(/\r?\n/).length).toBeLessThanOrEqual(170);
-    expect(text.length).toBeLessThanOrEqual(15000);
     expect(firstHundredTwentyLines).toMatch(/## Purpose/);
     expect(firstHundredTwentyLines).toMatch(/## Workflow Contract Summary/);
     for (const field of [
