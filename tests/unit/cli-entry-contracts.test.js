@@ -131,6 +131,8 @@ describe('CLI entry contract', () => {
     expect(result.stdout).toContain('--all-repos');
     expect(result.stdout).toContain('--repo <path>');
     expect(result.stdout).toContain('--dry-run');
+    expect(result.stdout).toContain('--sync-user-language');
+    expect(result.stdout).toContain('--no-sync-user-language');
   });
 
   test('subcommand help does not consume the package version reminder gate', async () => {

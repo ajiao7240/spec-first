@@ -30,6 +30,14 @@ function effectiveCodexHome() {
   return path.join(os.homedir(), '.codex');
 }
 
+function resolveClaudeUserInstructionPath() {
+  return {
+    absolutePath: path.join(os.homedir(), '.claude', 'CLAUDE.md'),
+    displayPath: '~/.claude/CLAUDE.md',
+    basis: 'claude-user-instructions-claude-md-v1',
+  };
+}
+
 // Canonicalize for comparison without requiring the path to exist: realpath the deepest
 // existing ancestor, then re-append the missing tail. This makes the comparison robust to
 // symlinks (e.g. /var -> /private/var on macOS) while still working before the directory
@@ -66,8 +74,17 @@ function isCodexHomeProjectRoot(projectRoot) {
   return derivedRuntime === codexHome;
 }
 
+function samePhysicalPath(left, right) {
+  if (!left || !right) {
+    return false;
+  }
+  return canonicalize(left) === canonicalize(right);
+}
+
 module.exports = {
   CODEX_RUNTIME_ROOT,
   effectiveCodexHome,
   isCodexHomeProjectRoot,
+  resolveClaudeUserInstructionPath,
+  samePhysicalPath,
 };

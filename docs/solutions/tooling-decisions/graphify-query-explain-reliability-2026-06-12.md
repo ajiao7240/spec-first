@@ -1,6 +1,7 @@
 ---
 title: Graphify 命令可靠性分化与 mcp-setup 诚实暴露边界
 date: 2026-06-12
+last_updated: 2026-06-22
 category: docs/solutions/tooling-decisions
 module: spec-first
 problem_type: tooling_decision
@@ -29,12 +30,12 @@ source_refs:
   - "skills/spec-mcp-setup/scripts/provider-readiness-renderer.cjs"
 ---
 
-# Graphify 命令可靠性分化:query 弱定向、explain/path 可靠、.cjs 索引盲区
+# Graphify 命令可靠性分化:query 弱定向、explain/path 可靠、脚本索引覆盖需实测
 
 > 日期:2026-06-12
 > 类型:solution(provider 能力画像 + 消费/setup 边界判断,供后续 plan/work/mcp-setup 检索,避免重复评估)
 > 触发:评估"query/explain 不可用,能否在 mcp-setup 彻底解决",经只读运行时实测裁决
-> 证据来源:graphify v0.8.36 只读实测(query/explain/path/--help)+ graph.json 节点统计 + 源码读取(本仓库,HEAD `5cf92508`)
+> 证据来源:graphify v0.8.36 与 v0.8.39 只读实测(query/explain/path/--help)+ graph.json 节点统计 + 源码读取(本仓库,HEAD `5cf92508`)
 
 ---
 
@@ -75,7 +76,7 @@ mcp-setup 对此**只做诚实暴露,不修 provider**:`query_verified` fact 仅
 - **query 种子劫持**:`query "project graph consumption candidate evidence boundary"` → 种子 `['Trust', 'candidate()', 'candidate()']`(撞同名函数),召回全是 `spec-app-consistency-audit/scripts/` 工具函数,零召回 `provider-readiness.md`。`query "verify graphify artifact ... probe"` → 种子含 `graphify`,召回被 CLAUDE.md/AGENTS.md 的 graphify 小节**自指**占据。
 - **explain 可靠**:`explain "loadPluginManifest"` 与 `explain "loadPluginManifest()"` 均命中 `src/cli/plugin.js:106` 节点(degree 16)。
 - **path 可靠**:`path "init.js" "doctor.js"` → `init.js --imports--> loadPluginManifest() <--imports-- doctor.js`(准确 import 关系)。
-- **.cjs 索引盲区(确定性)**:`graph.json` 中 `.cjs` 出现 **0** 次、`.js` 出现 **10362** 次;5 个 `skills/spec-mcp-setup/scripts/*.cjs` 节点数全 **0**。`explain "knownCommandCandidates"`/`"buildEntry"` 找不到——不是 explain 坏,是文件未被提取。**上游归位**:graphify extractor 不处理 `.cjs` 扩展名,属 graphify 上游局限。
+- **关键 `.cjs` helper 覆盖仍需实测**:v0.8.36 当时观察到 `graph.json` 中 `.cjs` 出现 **0** 次,5 个 `skills/spec-mcp-setup/scripts/*.cjs` 节点数全 **0**。2026-06-22 用 graphify v0.8.39 与当前 `graphify-out/graph.json` 复核后,`.cjs` 已非全局 0 覆盖(`nodes_with_cjs=1`),因此不能再概括为 extractor 完全不处理 `.cjs`。但 `provider-readiness-renderer.cjs`、`knownCommandCandidates`、`buildEntry` 仍未进入当前图,`graphify explain` 也找不到这些节点。结论收窄为:关键 `.cjs` helper 的索引覆盖仍是未确认能力,涉及这些 helper 的结论必须直读源码确认。
 
 ## Source Refs
 

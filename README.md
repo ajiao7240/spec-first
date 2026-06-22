@@ -128,7 +128,9 @@ Initialize the host runtime you actually use:
 spec-first init
 ```
 
-`spec-first init` is interactive: select Claude Code and/or Codex, then confirm your developer name and language — when a global developer profile already exists, init asks once whether to reuse it instead of re-prompting for the name — preview the writes, then confirm. Use `spec-first init --codex` or `spec-first init --claude` to skip only the host selection step. Use `spec-first init -y` for scripted defaults, or combine `-y` with explicit host flags, `--all-repos`, `--repo <path>`, `-u <name>`, and `--lang <zh|en>`.
+`spec-first init` is interactive: select Claude Code and/or Codex, then confirm your developer name and language — when a global developer profile already exists, init asks once whether to reuse it instead of re-prompting for the name — optionally authorize user-level language sync, preview the writes, then confirm. Use `spec-first init --codex` or `spec-first init --claude` to skip only the host selection step. Use `spec-first init -y` for scripted defaults, or combine `-y` with explicit host flags, `--all-repos`, `--repo <path>`, `-u <name>`, `--lang <zh|en>`, and `--sync-user-language` / `--no-sync-user-language`.
+
+User-level language sync writes only a language preference block to Codex / Claude user instruction files after explicit opt-in, then records `sync_user_language=true` in the global developer profile for later init runs. `--no-sync-user-language` records `false` and removes spec-first's user-language block from supported hosts. This is instruction guidance, not hook-based language enforcement.
 
 Restart the host or open a new session so it loads the generated runtime assets.
 
@@ -295,7 +297,7 @@ CLI reference:
 spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
-spec-first init [--claude] [--codex] [-y] [--all-repos|--repo <path>] [-u <name>] [--lang <zh|en>]
+spec-first init [--claude] [--codex] [-y] [--all-repos|--repo <path>] [-u <name>] [--lang <zh|en>] [--sync-user-language|--no-sync-user-language]
 spec-first update   # runs `npm install -g spec-first@latest`, then refreshes runtime with fresh `spec-first init`
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first clean --workspace-orphans [--confirm]

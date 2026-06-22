@@ -42,6 +42,10 @@ const { removeManagedCodingGuidelinesBlock } = require('../coding-guidelines');
 const { buildInitialChangelog, formatChangelogTimestamp } = require('../changelog');
 const { applySpecFirstGitignoreBlock } = require('../gitignore-policy');
 const {
+  applyUserLanguageSyncPlan,
+  buildUserLanguageSyncPlan,
+} = require('../user-language-sync');
+const {
   applyManagedBootstrapBlock,
   buildBootstrapBlock,
   inspectInstructionBootstrap,
@@ -106,7 +110,7 @@ async function runInit(argv, promptOverrides = {}) {
 
   if (parsed.error) {
     console.error(parsed.error);
-    console.error('Usage: spec-first init [--claude] [--codex] [-y] [--all-repos|--repo <path>] [-u <name>] [--lang <zh|en>]');
+    console.error('Usage: spec-first init [--claude] [--codex] [-y] [--all-repos|--repo <path>] [-u <name>] [--lang <zh|en>] [--sync-user-language|--no-sync-user-language]');
     return 2;
   }
 
@@ -161,6 +165,12 @@ async function runInit(argv, promptOverrides = {}) {
     }
 
     const plans = buildInitPlans(interactiveInput);
+    const userLanguageSyncPlan = buildUserLanguageSyncPlan({
+      projectRoot: resolveUserLanguageSyncProjectRoot(interactiveInput),
+      platforms: interactiveInput.platforms,
+      lang: interactiveInput.lang,
+      preference: interactiveInput.userLanguageSyncPreference,
+    });
     for (const plan of plans) {
       printInitDiagnostics(plan);
     }
@@ -173,13 +183,13 @@ async function runInit(argv, promptOverrides = {}) {
     }
 
     if (parsed.dryRun) {
-      printInitPreviews(plans, { lang: interactiveInput.lang, useColor });
+      printInitPreviews(plans, { lang: interactiveInput.lang, useColor, userLanguageSyncPlan });
       return 0;
     }
 
     if (!parsed.yes) {
       const activeMessages = getInitMessages(interactiveInput.lang);
-      printInitPreviews(plans, { lang: interactiveInput.lang, useColor });
+      printInitPreviews(plans, { lang: interactiveInput.lang, useColor, userLanguageSyncPlan });
       const confirmed = await promptApi.confirm(activeMessages.confirmApply, { default: true });
       if (!confirmed) {
         console.log(activeMessages.cancelled);
@@ -195,18 +205,31 @@ async function runInit(argv, promptOverrides = {}) {
         printWorkspaceInitApplySuccess(plan, result);
       } else {
         printInitApplySuccess(plan, result, {
-          showNextSteps: plans.length === 1,
+          showNextSteps: false,
           suppressChangelogCreated: plans.length > 1 && index > 0,
         });
       }
     }
 
-    if (plans.length > 1) {
+    const userLanguageSyncResult = applyUserLanguageSyncPlan(userLanguageSyncPlan);
+    const summaryUpdateFailures = persistWorkspaceUserLanguageSyncSummaries(plans, results, userLanguageSyncResult);
+    printUserLanguageSyncApplySummary(userLanguageSyncResult, { lang: interactiveInput.lang });
+    for (const failure of summaryUpdateFailures) {
+      console.error(`Error: could not update workspace init summary with user-language sync result (${failure.reason_code}).`);
+    }
+
+    const exitCode = results.some((result) => result.exit_code !== 0)
+      || userLanguageSyncResult.exit_code !== 0
+      || summaryUpdateFailures.length > 0
+      ? 1
+      : 0;
+
+    if (exitCode === 0 && (plans.length > 1 || plans[0].mode !== 'all-repos')) {
       console.log('');
       printInitNextStepsForPlatforms(interactiveInput.platforms, interactiveInput.lang);
     }
 
-    return results.some((result) => result.exit_code !== 0) ? 1 : 0;
+    return exitCode;
   } catch (error) {
     if (error instanceof PromptCancelled || error.code === 'prompt_cancelled') {
       console.log(getInitMessages(activeLang).cancelled);
@@ -226,6 +249,8 @@ function parseInitArgs(args) {
     platforms: [],
     name: '',
     lang: '',
+    syncUserLanguage: null,
+    syncUserLanguageExplicit: false,
     error: '',
   };
   const platforms = new Set();
@@ -251,6 +276,16 @@ function parseInitArgs(args) {
     }
     if (arg === '--dry-run') {
       parsed.dryRun = true;
+      continue;
+    }
+    if (arg === '--sync-user-language') {
+      parsed.syncUserLanguage = true;
+      parsed.syncUserLanguageExplicit = true;
+      continue;
+    }
+    if (arg === '--no-sync-user-language') {
+      parsed.syncUserLanguage = false;
+      parsed.syncUserLanguageExplicit = true;
       continue;
     }
     if (arg === '--all-repos') {
@@ -310,6 +345,9 @@ function parseInitArgs(args) {
   }
   if (!parsed.error && parsed.allRepos && parsed.repo) {
     parsed.error = 'init: Cannot combine --repo and --all-repos.';
+  }
+  if (!parsed.error && args.includes('--sync-user-language') && args.includes('--no-sync-user-language')) {
+    parsed.error = 'init: Cannot combine --sync-user-language and --no-sync-user-language.';
   }
 
   parsed.platforms = [...platforms];
@@ -411,6 +449,12 @@ async function collectInitInput({
       validate: (value) => (String(value || '').trim().length > 0 ? true : activeMessages.nameRequired),
     });
   }
+  const userLanguageSyncPreference = await resolveUserLanguageSyncPreference({
+    parsed,
+    promptApi,
+    messages: activeMessages,
+    existingGlobal,
+  });
   const target = parsed.allRepos || parsed.repo
     ? collectExplicitInitTarget(root, parsed)
     : parsed.yes
@@ -440,6 +484,41 @@ async function collectInitInput({
     dryRun: parsed.dryRun,
     target,
     globalProfileConfirmed,
+    userLanguageSyncPreference,
+  };
+}
+
+async function resolveUserLanguageSyncPreference({
+  parsed,
+  promptApi,
+  messages = getInitMessages('zh'),
+  existingGlobal = null,
+}) {
+  if (parsed.syncUserLanguageExplicit) {
+    return {
+      value: parsed.syncUserLanguage,
+      source: 'explicit',
+    };
+  }
+
+  if (existingGlobal && typeof existingGlobal.syncUserLanguage === 'boolean') {
+    return {
+      value: existingGlobal.syncUserLanguage,
+      source: 'stored',
+    };
+  }
+
+  if (parsed.yes) {
+    return {
+      value: null,
+      source: 'unset',
+    };
+  }
+
+  const confirmed = await promptApi.confirm(messages.syncUserLanguageConsent, { default: false });
+  return {
+    value: Boolean(confirmed),
+    source: 'interactive',
   };
 }
 
@@ -496,6 +575,13 @@ function buildInitPlans(input) {
     platform,
     adapter: getAdapter(platform),
   }));
+}
+
+function resolveUserLanguageSyncProjectRoot(input = {}) {
+  if (input.target && input.target.mode === 'all-repos') {
+    return input.workspaceRoot || input.projectRoot || process.cwd();
+  }
+  return input.projectRoot || input.workspaceRoot || process.cwd();
 }
 
 function collectDefaultInitTarget(workspaceRoot) {
@@ -688,10 +774,11 @@ function printInitPreview(plan, options = {}) {
 }
 
 function printInitPreviews(plans, options = {}) {
-  const { lang = 'en', useColor = false } = options;
+  const { lang = 'en', useColor = false, userLanguageSyncPlan = null } = options;
   const messages = getInitMessages(lang);
   if (plans.length === 1) {
     printInitPreview(plans[0], { lang, useColor });
+    printUserLanguageSyncPreview(userLanguageSyncPlan, { lang });
     return;
   }
 
@@ -701,6 +788,7 @@ function printInitPreviews(plans, options = {}) {
     console.log(messages.previewHostRuntime(index + 1, plans.length, initPlatformLabel(plan.platform)));
     printInitPreview(plan, { lang, useColor });
   });
+  printUserLanguageSyncPreview(userLanguageSyncPlan, { lang });
 }
 
 function printWorkspaceInitApplySuccess(plan, result) {
@@ -1156,6 +1244,62 @@ function printGlobalDeveloperWriteSummary(globalWrite, messages = getInitMessage
   }
 }
 
+function printUserLanguageSyncPreview(plan, options = {}) {
+  if (!plan || plan.mode === 'skipped') {
+    return;
+  }
+  const messages = getInitMessages(options.lang || 'zh');
+  console.log('');
+  console.log(messages.previewUserLanguageSyncHeader);
+  printUserLanguageSyncDetails(plan);
+  if (plan.profileOperation) {
+    printUserLanguageProfileOperation(plan.profileOperation);
+  }
+  console.log(messages.previewUserLanguageSyncDryRun);
+}
+
+function printUserLanguageSyncApplySummary(result, options = {}) {
+  if (!result || result.status === 'skipped') {
+    return;
+  }
+  const messages = getInitMessages(options.lang || 'zh');
+  console.log('');
+  console.log(messages.applyUserLanguageSyncHeader(result.status, result.reason_code || 'none'));
+  printUserLanguageSyncDetails(result);
+  if (result.profileOperation) {
+    printUserLanguageProfileOperation(result.profileOperation);
+  }
+}
+
+function printUserLanguageSyncDetails(planOrResult) {
+  const operations = Array.isArray(planOrResult.operations) ? planOrResult.operations : [];
+  for (const operation of operations) {
+    console.log(`  - ${operation.host}: ${operation.action} (${operation.status})`);
+    console.log(`    path: ${operation.displayPath}`);
+    if (operation.reason) {
+      console.log(`    reason_code: ${operation.reason}`);
+    }
+    if (operation.overrideDisplayPath) {
+      console.log(`    override_path: ${operation.overrideDisplayPath}`);
+    }
+    if (operation.error) {
+      console.log(`    error: ${operation.error}`);
+    }
+  }
+}
+
+function printUserLanguageProfileOperation(operation) {
+  console.log(`  - profile: ${operation.action} (${operation.status})`);
+  console.log(`    path: ${operation.globalPath}`);
+  console.log(`    sync_user_language: ${operation.value}`);
+  if (operation.reason) {
+    console.log(`    reason_code: ${operation.reason}`);
+  }
+  if (operation.error) {
+    console.log(`    error: ${operation.error}`);
+  }
+}
+
 function hasInitDiagnostic(plan, code) {
   return Array.isArray(plan && plan.diagnostics)
     && plan.diagnostics.some((diagnostic) => diagnostic && diagnostic.code === code);
@@ -1540,6 +1684,65 @@ function buildWorkspaceInitSummary({
   };
 }
 
+function persistWorkspaceUserLanguageSyncSummaries(plans, results, userLanguageSyncResult) {
+  const failures = [];
+  const summary = buildUserLanguageSyncSummary(userLanguageSyncResult);
+  plans.forEach((plan, index) => {
+    const result = results[index];
+    if (!plan || plan.mode !== 'all-repos' || !result || !result.workspace_summary) {
+      return;
+    }
+    result.workspace_summary.user_language_sync = summary;
+    const writeResult = writeWorkspaceInitSummaryFiles(plan.workspaceRoot, result.workspace_summary);
+    if (!writeResult.ok) {
+      failures.push({
+        platform: plan.platform,
+        reason_code: writeResult.reason_code,
+      });
+      return;
+    }
+    result.workspace_summary.workspace_summary_index = writeResult.index_summary || null;
+    result.workspace_summary.workspace_summary_paths = writeResult.paths;
+    result.workspace_summary_paths = writeResult.paths;
+  });
+  return failures;
+}
+
+function buildUserLanguageSyncSummary(result) {
+  if (!result || typeof result !== 'object') {
+    return {
+      schema_version: 'user-language-sync-summary.v1',
+      status: 'skipped',
+      reason_code: 'user-language-sync-unset',
+      operations: [],
+      profile: null,
+    };
+  }
+  return {
+    schema_version: 'user-language-sync-summary.v1',
+    status: result.status || 'unknown',
+    reason_code: result.reason_code || null,
+    operations: (Array.isArray(result.operations) ? result.operations : []).map((operation) => ({
+      host: operation.host,
+      action: operation.action,
+      status: operation.status,
+      reason_code: operation.reason || null,
+      display_path: operation.displayPath,
+      basis: operation.basis || null,
+      override_display_path: operation.overrideDisplayPath || null,
+      error: operation.error || null,
+    })),
+    profile: result.profileOperation ? {
+      action: result.profileOperation.action,
+      status: result.profileOperation.status,
+      reason_code: result.profileOperation.reason || null,
+      path: result.profileOperation.globalPath,
+      value: result.profileOperation.value,
+      error: result.profileOperation.error || null,
+    } : null,
+  };
+}
+
 function writeWorkspaceInitSummaryFiles(workspaceRoot, summary) {
   const workspaceDir = path.join(workspaceRoot, '.spec-first', 'workspace');
   const platformSummaryPath = path.join(workspaceDir, workspaceInitSummaryFileName(summary.platform));
@@ -1627,6 +1830,7 @@ function buildWorkspaceInitSummaryIndex({
       memo[entry.platform] = entry;
       return memo;
     }, {}),
+    user_language_sync: currentSummary.user_language_sync || null,
     counts: {
       platform_total: entries.length,
       platform_ready: readyCount,
@@ -1683,6 +1887,7 @@ function buildWorkspaceInitPlatformEntry(summary, summaryRelativePath) {
     generated_at: summary.generated_at,
     overall_status: summary.overall_status,
     reason_code: summary.reason_code,
+    user_language_sync: summary.user_language_sync || null,
     counts: {
       total: numberOrZero(counts.total),
       ready: numberOrZero(counts.ready),
@@ -1852,7 +2057,7 @@ function printHelp() {
     '🚀 spec-first init',
     '',
     '📘 Usage:',
-    '  spec-first init [--claude] [--codex] [-y] [--all-repos|--repo <path>] [-u <name>] [--lang <zh|en>]',
+    '  spec-first init [--claude] [--codex] [-y] [--all-repos|--repo <path>] [-u <name>] [--lang <zh|en>] [--sync-user-language|--no-sync-user-language]',
     '',
     'Host selection:',
     '  spec-first init                         Select one or more host runtimes interactively',
@@ -1879,6 +2084,7 @@ function printHelp() {
     '  Use -y/--yes to skip prompts. Without -y, init requires an interactive terminal and exits 2 in CI/non-TTY environments.',
     '  Explicit --claude/--codex flags override the default host set.',
     '  Use --dry-run to preview writes without changing runtime assets.',
+    '  Use --sync-user-language to opt in to user-level language sync; use --no-sync-user-language to disable it and remove spec-first user-language blocks from supported hosts.',
     '',
     '➡️ After successful init:',
     '  Claude: restart Claude Code. For lightweight work, start the matching /spec:* workflow; for enhanced readiness, run /spec:mcp-setup, then route by user intent.',
@@ -2262,7 +2468,7 @@ function resolveGlobalDeveloperWriteAction(developer, options = {}) {
   if (!existing || !existing.name) {
     return {
       action: 'create',
-      developer,
+      developer: preserveSyncUserLanguage(developer, existing),
       globalPath: normalizeOperationPathLike(GLOBAL_DEVELOPER_RELATIVE_DISPLAY),
     };
   }
@@ -2276,7 +2482,10 @@ function resolveGlobalDeveloperWriteAction(developer, options = {}) {
     // name/lang/version 与 hosts,保留既有 initialized_at。
     return {
       action: 'overwrite',
-      developer: { ...developer, initializedAt: existing.initializedAt, hosts: effectiveHosts },
+      developer: preserveSyncUserLanguage(
+        { ...developer, initializedAt: existing.initializedAt, hosts: effectiveHosts },
+        existing,
+      ),
       globalPath: normalizeOperationPathLike(GLOBAL_DEVELOPER_RELATIVE_DISPLAY),
     };
   }
@@ -2297,6 +2506,20 @@ function resolveGlobalDeveloperWriteAction(developer, options = {}) {
     developer: existing,
     globalPath: normalizeOperationPathLike(GLOBAL_DEVELOPER_RELATIVE_DISPLAY),
   };
+}
+
+function preserveSyncUserLanguage(developer, existing) {
+  if (
+    existing &&
+    typeof existing.syncUserLanguage === 'boolean' &&
+    (!developer || typeof developer.syncUserLanguage !== 'boolean')
+  ) {
+    return {
+      ...(developer || {}),
+      syncUserLanguage: existing.syncUserLanguage,
+    };
+  }
+  return developer;
 }
 
 // 比较两个 host 集合是否相同。内部各自排序,不依赖调用方传入已排序数组,

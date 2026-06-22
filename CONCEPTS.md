@@ -76,6 +76,18 @@ A durable workflow output such as a requirements document, plan, task pack, revi
 
 A lightweight record of material decisions, rationale, consequences, and unresolved follow-up. It helps carry judgment across workflow nodes without replacing the LLM's responsibility to reason from current evidence.
 
+### Provider Readiness
+
+Mechanical setup evidence about an optional provider's installation, artifact presence, command liveness, and degraded-mode reason codes. It is not semantic truth about the provider's recall quality, correctness, or architectural fitness.
+
+### Project Graph
+
+An advisory provider output used for broad orientation, relationship navigation, or candidate discovery. Conclusion-tier claims from a project graph must be confirmed from source, tests, logs, contracts, or docs.
+
+### Managed Hook
+
+A host runtime hook installed or inspected by `spec-first init`, `doctor`, or setup helpers. Source templates and helper scripts remain the durable contract when a generated hook drifts, fails, or is missing.
+
 ## Knowledge
 
 ### Learning

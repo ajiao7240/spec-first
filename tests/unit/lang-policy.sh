@@ -61,7 +61,15 @@ assert_not_contains() {
 # Node helper: run a JS snippet and capture stdout
 node_run() {
   node -e "
-const { applyManagedBlock, buildManagedBlock } = require('$REPO_ROOT/src/cli/lang-policy');
+const {
+  USER_LANGUAGE_END,
+  USER_LANGUAGE_START,
+  applyManagedBlock,
+  buildManagedBlock,
+  buildUserLanguageBlock,
+  removeMarkerBlock,
+  upsertMarkerBlock,
+} = require('$REPO_ROOT/src/cli/lang-policy');
 const { bootstrapChangelog, buildInitialChangelog } = require('$REPO_ROOT/src/cli/changelog');
 $1
 "
@@ -116,8 +124,9 @@ assert_contains "en block has start marker" "<!-- spec-first:lang:start -->" "$e
 assert_contains "en block has end marker" "<!-- spec-first:lang:end -->" "$en_block"
 
 echo "1.12 zh block has strict generated-content language scope"
-assert_contains "zh block applies to generated docs and task prose" "生成文档、需求/计划/任务" "$zh_block"
-assert_contains "zh block applies to commit and PR text" "commit/PR 文案" "$zh_block"
+assert_contains "zh block has hard execution wording" "语言规则为绝对硬执行要求" "$zh_block"
+assert_contains "zh block applies to generated docs and task prose" "生成文档、需求、计划、任务" "$zh_block"
+assert_contains "zh block applies to commit and PR text" "commit message 和 PR 文案" "$zh_block"
 
 echo "1.13 en block contains changelog governance rule"
 assert_contains "en block has changelog rule" "CHANGELOG" "$en_block"
@@ -138,8 +147,51 @@ echo "1.18 en block does not contain governance file commit rule"
 assert_not_contains "en block omits governance file commit rule" "Governance File Commit Rule" "$en_block"
 
 echo "1.19 en block has strict generated-content language scope"
-assert_contains "en block applies to generated docs and task prose" "documentation, requirements/plans/tasks" "$en_block"
-assert_contains "en block applies to commit and PR text" "commit/PR text" "$en_block"
+assert_contains "en block has hard execution wording" "absolute hard-execution requirement" "$en_block"
+assert_contains "en block applies to generated docs and task prose" "generated documents, requirements, plans, tasks" "$en_block"
+assert_contains "en block applies to commit and PR text" "commit messages, and PR text" "$en_block"
+
+echo "1.20 user-language blocks use separate markers"
+zh_user_block=$(node_run "process.stdout.write(buildUserLanguageBlock('zh'))")
+en_user_block=$(node_run "process.stdout.write(buildUserLanguageBlock('en'))")
+assert_contains "zh user block has start marker" "<!-- spec-first:user-language:start -->" "$zh_user_block"
+assert_contains "zh user block has end marker" "<!-- spec-first:user-language:end -->" "$zh_user_block"
+assert_contains "en user block has start marker" "<!-- spec-first:user-language:start -->" "$en_user_block"
+assert_contains "en user block has end marker" "<!-- spec-first:user-language:end -->" "$en_user_block"
+
+echo "1.21 user-language blocks exclude project governance"
+assert_not_contains "zh user block excludes changelog" "CHANGELOG" "$zh_user_block"
+assert_not_contains "zh user block excludes refusal rule" "拒绝生成" "$zh_user_block"
+assert_not_contains "en user block excludes changelog" "CHANGELOG" "$en_user_block"
+assert_not_contains "en user block excludes refusal rule" "refuse to generate" "$en_user_block"
+
+echo "1.22 project and user blocks share normalized hard-execution prose"
+zh_parity=$(node_run "
+function normalize(block) {
+  return block
+    .replace(/<!-- spec-first:[^>]+-->/g, '')
+    .replace(/^## .*$/gm, '')
+    .replace(/^\\*\\*语言设置：\\*\\*.*$/gm, '')
+    .replace(/^\\*\\*Language setting:\\*\\*.*$/gm, '')
+    .replace(/### Changelog[\\s\\S]*$/m, '')
+    .trim();
+}
+process.stdout.write(normalize(buildManagedBlock('zh')) === normalize(buildUserLanguageBlock('zh')) ? 'yes' : 'no');
+")
+en_parity=$(node_run "
+function normalize(block) {
+  return block
+    .replace(/<!-- spec-first:[^>]+-->/g, '')
+    .replace(/^## .*$/gm, '')
+    .replace(/^\\*\\*语言设置：\\*\\*.*$/gm, '')
+    .replace(/^\\*\\*Language setting:\\*\\*.*$/gm, '')
+    .replace(/### Changelog[\\s\\S]*$/m, '')
+    .trim();
+}
+process.stdout.write(normalize(buildManagedBlock('en')) === normalize(buildUserLanguageBlock('en')) ? 'yes' : 'no');
+")
+assert_output "zh project/user normalized prose matches" "yes" "$zh_parity"
+assert_output "en project/user normalized prose matches" "yes" "$en_parity"
 
 echo ""
 
@@ -219,9 +271,51 @@ const corrupted = '# Repo\n<!-- spec-first:lang:start -->\nsome partial content\
 process.stdout.write(applyManagedBlock(corrupted, block));
 ")
 assert_contains "block appended to corrupted file" "<!-- spec-first:lang:end -->" "$result"
+assert_contains "orphan project marker text preserved" "some partial content" "$result"
 # At least one END marker should appear (from the appended block)
 end_count=$(printf '%s' "$result" | grep -c '<!-- spec-first:lang:end -->' || true)
 assert "end marker present after appending to corrupted" test "$end_count" -ge 1
+
+echo "5.2 user-language upsert appends without deleting orphan marker"
+result=$(node_run "
+const block = buildUserLanguageBlock('zh');
+const corrupted = '# User\n' + USER_LANGUAGE_START + '\npartial preference\n';
+process.stdout.write(upsertMarkerBlock(corrupted, block, USER_LANGUAGE_START, USER_LANGUAGE_END));
+")
+complete_count=$(printf '%s' "$result" | grep -c '<!-- spec-first:user-language:end -->' || true)
+assert_output "one complete user-language block appended" "1" "$complete_count"
+assert_contains "orphan user marker content preserved" "partial preference" "$result"
+
+echo "5.3 user-language repeated upsert replaces complete block and preserves orphan marker"
+result=$(node_run "
+const zhBlock = buildUserLanguageBlock('zh');
+const enBlock = buildUserLanguageBlock('en');
+const corrupted = '# User\n' + USER_LANGUAGE_START + '\npartial preference\n';
+const withBlock = upsertMarkerBlock(corrupted, zhBlock, USER_LANGUAGE_START, USER_LANGUAGE_END);
+process.stdout.write(upsertMarkerBlock(withBlock, enBlock, USER_LANGUAGE_START, USER_LANGUAGE_END));
+")
+complete_count=$(printf '%s' "$result" | grep -c '<!-- spec-first:user-language:end -->' || true)
+assert_output "still one complete user-language block after repeated upsert" "1" "$complete_count"
+assert_contains "orphan user marker still preserved" "partial preference" "$result"
+assert_contains "updated complete user-language block" "English" "$result"
+
+echo "5.4 user-language removal deletes complete block only"
+result=$(node_run "
+const block = buildUserLanguageBlock('zh');
+const existing = '# Before\n' + block + '\n# After\n';
+process.stdout.write(removeMarkerBlock(existing, USER_LANGUAGE_START, USER_LANGUAGE_END));
+")
+assert_contains "content before user block preserved" "# Before" "$result"
+assert_contains "content after user block preserved" "# After" "$result"
+assert_not_contains "complete user-language block removed" "<!-- spec-first:user-language:start -->" "$result"
+
+echo "5.5 user-language removal is no-op for orphan marker"
+result=$(node_run "
+const corrupted = '# User\n' + USER_LANGUAGE_START + '\npartial preference\n';
+process.stdout.write(removeMarkerBlock(corrupted, USER_LANGUAGE_START, USER_LANGUAGE_END));
+")
+assert_contains "orphan marker remains after remove no-op" "<!-- spec-first:user-language:start -->" "$result"
+assert_contains "orphan content remains after remove no-op" "partial preference" "$result"
 
 echo ""
 

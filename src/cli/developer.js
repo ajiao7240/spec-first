@@ -73,12 +73,16 @@ function resolveDeveloperIdentity(projectRoot, options = {}) {
     throw new Error(`Unsupported developer language: ${lang}. Expected zh or en.`);
   }
 
-  return {
+  const developer = {
     name,
     lang,
     initializedAt: new Date().toISOString(),
     version: PROJECT_VERSION,
   };
+  if (globalDeveloper && typeof globalDeveloper.syncUserLanguage === 'boolean') {
+    developer.syncUserLanguage = globalDeveloper.syncUserLanguage;
+  }
+  return developer;
 }
 
 function resolveChangelogAuthor(projectRoot, options = {}) {
@@ -148,6 +152,9 @@ function formatDeveloperContents(developer) {
   if (normalized.hosts.length > 0) {
     lines.push(`hosts=${normalized.hosts.join(',')}`);
   }
+  if (typeof normalized.syncUserLanguage === 'boolean') {
+    lines.push(`sync_user_language=${normalized.syncUserLanguage ? 'true' : 'false'}`);
+  }
   return `${lines.join('\n')}\n`;
 }
 
@@ -158,8 +165,20 @@ function normalizeDeveloper(raw) {
   const initializedAt = normalizeText(safe.initializedAt || safe.initialized_at);
   const version = normalizeText(safe.version);
   const hosts = normalizeHosts(safe.hosts);
+  const syncUserLanguage = normalizeSyncUserLanguage(
+    Object.prototype.hasOwnProperty.call(safe, 'syncUserLanguage')
+      ? safe.syncUserLanguage
+      : safe.sync_user_language,
+  );
 
-  if (!name && !lang && !initializedAt && !version && hosts.length === 0) {
+  if (
+    !name &&
+    !lang &&
+    !initializedAt &&
+    !version &&
+    hosts.length === 0 &&
+    typeof syncUserLanguage !== 'boolean'
+  ) {
     return null;
   }
 
@@ -169,6 +188,7 @@ function normalizeDeveloper(raw) {
     initializedAt: initializedAt || '',
     version: version || '',
     hosts,
+    syncUserLanguage,
   };
 }
 
@@ -195,6 +215,20 @@ function normalizeLang(value) {
   return text || '';
 }
 
+function normalizeSyncUserLanguage(value) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  const text = normalizeText(value).toLowerCase();
+  if (text === 'true') {
+    return true;
+  }
+  if (text === 'false') {
+    return false;
+  }
+  return null;
+}
+
 function normalizeText(value) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
@@ -219,6 +253,7 @@ function readGitUserName(projectRoot) {
 module.exports = {
   formatDeveloperContents,
   getGlobalDeveloperPath,
+  parseDeveloperContents,
   readDeveloperFile,
   readGitUserName,
   resolveChangelogAuthor,

@@ -6,6 +6,7 @@ const path = require('node:path');
 
 const { printInitDryRun, runInit } = require('../../src/cli/commands/init');
 const { BrandColors } = require('../../src/cli/brand');
+const { buildUserLanguageBlock } = require('../../src/cli/lang-policy');
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-init-interactive-'));
@@ -33,13 +34,21 @@ afterEach(() => {
   }
 });
 
-function writeGlobalDeveloperProfile({ name = 'leokuang', lang = 'zh', hosts = null } = {}) {
+function writeGlobalDeveloperProfile({
+  name = 'leokuang',
+  lang = 'zh',
+  hosts = null,
+  syncUserLanguage = null,
+} = {}) {
   const dir = path.join(isolatedHome, '.spec-first');
   fs.mkdirSync(dir, { recursive: true });
   const hostsLine = Array.isArray(hosts) && hosts.length > 0 ? `hosts=${hosts.join(',')}\n` : '';
+  const syncLine = typeof syncUserLanguage === 'boolean'
+    ? `sync_user_language=${syncUserLanguage ? 'true' : 'false'}\n`
+    : '';
   fs.writeFileSync(
     path.join(dir, '.developer'),
-    `name=${name}\nlang=${lang}\ninitialized_at=2026-06-04T00:00:00.000Z\nversion=test\n${hostsLine}`,
+    `name=${name}\nlang=${lang}\ninitialized_at=2026-06-04T00:00:00.000Z\nversion=test\n${hostsLine}${syncLine}`,
     'utf8',
   );
 }
@@ -84,12 +93,18 @@ function isReusePrompt(question) {
   return text.includes('沿用') || text.includes('Reuse');
 }
 
+function isUserLanguageSyncPrompt(question) {
+  const text = String(question || '');
+  return text.includes('用户级语言偏好') || text.includes('user-level language preference');
+}
+
 function interactivePrompts({
   platforms = ['codex'],
   name = 'reviewer',
   lang = 'zh',
   confirmed = true,
   reuseGlobalProfile = true,
+  syncUserLanguage = false,
   workspaceTarget = null,
 } = {}) {
   return {
@@ -105,9 +120,11 @@ function interactivePrompts({
       return Promise.resolve(options[0].value);
     }),
     textInput: jest.fn(() => Promise.resolve(name)),
-    // confirm 承载两个语义:沿用全局 profile(reuse)与应用更改(apply),按 question 文本分流。
+    // confirm 承载沿用 profile、用户级语言同步 consent 与应用更改,按 question 文本分流。
     confirm: jest.fn((question) => Promise.resolve(
-      isReusePrompt(question) ? reuseGlobalProfile : confirmed,
+      isReusePrompt(question)
+        ? reuseGlobalProfile
+        : (isUserLanguageSyncPrompt(question) ? syncUserLanguage : confirmed),
     )),
   };
 }
@@ -146,6 +163,8 @@ describe('interactive init command', () => {
       expect(result.stdout).toContain('spec-first init -y');
       expect(result.stdout).toContain('Explicit --claude/--codex flags override the default host set.');
       expect(result.stdout).toContain('--dry-run');
+      expect(result.stdout).toContain('--sync-user-language');
+      expect(result.stdout).toContain('--no-sync-user-language');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -160,6 +179,23 @@ describe('interactive init command', () => {
 
       expect(result.exitCode).toBe(2);
       expect(result.stderr).toContain('unknown option --bogus');
+      expect(result.stderr).toContain('Usage: spec-first init');
+      expect(prompts.checkbox).not.toHaveBeenCalled();
+      expect(snapshotTree(projectRoot)).toEqual([]);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('conflicting user-language sync flags are rejected before prompting', async () => {
+    const projectRoot = makeTempDir();
+    const prompts = interactivePrompts();
+
+    try {
+      const result = await captureInit(projectRoot, ['--sync-user-language', '--no-sync-user-language'], prompts);
+
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain('Cannot combine --sync-user-language and --no-sync-user-language');
       expect(result.stderr).toContain('Usage: spec-first init');
       expect(prompts.checkbox).not.toHaveBeenCalled();
       expect(snapshotTree(projectRoot)).toEqual([]);
@@ -354,6 +390,172 @@ describe('interactive init command', () => {
       expect(prompts.requireTty).not.toHaveBeenCalled();
       expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))).toBe(false);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('--sync-user-language with -y writes selected Codex user instructions and persists consent', async () => {
+    const projectRoot = makeTempDir();
+    const codexHome = makeTempDir();
+    const previousCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = codexHome;
+    const prompts = interactivePrompts();
+    prompts.requireTty = jest.fn(() => ({ ok: false, reason: 'no-stdin-tty' }));
+
+    try {
+      const result = await captureInit(projectRoot, [
+        '--codex',
+        '-y',
+        '-u',
+        'reviewer',
+        '--lang',
+        'zh',
+        '--sync-user-language',
+      ], prompts);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('User-level language sync');
+      expect(fs.readFileSync(path.join(codexHome, 'AGENTS.md'), 'utf8')).toContain('<!-- spec-first:user-language:start -->');
+      expect(readGlobalDeveloperProfile()).toContain('sync_user_language=true');
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = previousCodexHome;
+      }
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  test('--no-sync-user-language with -y removes all supported host user-language blocks and persists opt-out', async () => {
+    const projectRoot = makeTempDir();
+    const codexHome = makeTempDir();
+    const previousCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = codexHome;
+    fs.writeFileSync(path.join(codexHome, 'AGENTS.md'), `codex before\n${buildUserLanguageBlock('zh')}\ncodex after\n`, 'utf8');
+    fs.mkdirSync(path.join(isolatedHome, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(isolatedHome, '.claude', 'CLAUDE.md'), `claude before\n${buildUserLanguageBlock('zh')}\nclaude after\n`, 'utf8');
+
+    try {
+      const result = await captureInit(projectRoot, [
+        '--codex',
+        '-y',
+        '-u',
+        'reviewer',
+        '--lang',
+        'zh',
+        '--no-sync-user-language',
+      ]);
+
+      expect(result.exitCode).toBe(0);
+      const codexUser = fs.readFileSync(path.join(codexHome, 'AGENTS.md'), 'utf8');
+      const claudeUser = fs.readFileSync(path.join(isolatedHome, '.claude', 'CLAUDE.md'), 'utf8');
+      expect(codexUser).toContain('codex before');
+      expect(codexUser).not.toContain('spec-first:user-language:start');
+      expect(claudeUser).toContain('claude after');
+      expect(claudeUser).not.toContain('spec-first:user-language:start');
+      expect(readGlobalDeveloperProfile()).toContain('sync_user_language=false');
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = previousCodexHome;
+      }
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  test('user-language dry-run previews global writes without mutating user files or profile', async () => {
+    const projectRoot = makeTempDir();
+    const codexHome = makeTempDir();
+    const previousCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = codexHome;
+
+    try {
+      const result = await captureInit(projectRoot, [
+        '--codex',
+        '--dry-run',
+        '-u',
+        'reviewer',
+        '--lang',
+        'zh',
+        '--sync-user-language',
+      ], interactivePrompts());
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('User-level language sync');
+      expect(result.stdout).toContain('Dry run: 不会写入用户级 instruction 文件或全局 developer profile。');
+      expect(fs.existsSync(path.join(codexHome, 'AGENTS.md'))).toBe(false);
+      expect(readGlobalDeveloperProfile()).toBe('');
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = previousCodexHome;
+      }
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  test('interactive user-language consent yes persists true after final apply', async () => {
+    const projectRoot = makeTempDir();
+    const codexHome = makeTempDir();
+    const previousCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = codexHome;
+
+    try {
+      const result = await captureInit(projectRoot, ['--codex', '--lang', 'zh'], interactivePrompts({
+        platforms: ['codex'],
+        syncUserLanguage: true,
+      }));
+
+      expect(result.exitCode).toBe(0);
+      expect(fs.readFileSync(path.join(codexHome, 'AGENTS.md'), 'utf8')).toContain('语言规则为绝对硬执行要求');
+      expect(readGlobalDeveloperProfile()).toContain('sync_user_language=true');
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = previousCodexHome;
+      }
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  test('interactive user-language consent no persists false only after final apply', async () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      const result = await captureInit(projectRoot, ['--codex', '--lang', 'zh'], interactivePrompts({
+        platforms: ['codex'],
+        syncUserLanguage: false,
+        confirmed: true,
+      }));
+
+      expect(result.exitCode).toBe(0);
+      expect(readGlobalDeveloperProfile()).toContain('sync_user_language=false');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('cancel after declining user-language consent leaves the consent unset', async () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      const result = await captureInit(projectRoot, ['--codex', '--lang', 'zh'], interactivePrompts({
+        platforms: ['codex'],
+        syncUserLanguage: false,
+        confirmed: false,
+      }));
+
+      expect(result.exitCode).toBe(0);
+      expect(readGlobalDeveloperProfile()).toBe('');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -607,6 +809,47 @@ describe('interactive init command', () => {
     }
   });
 
+  test('all-repos applies user-language sync once and records it in the workspace summary', async () => {
+    const workspaceRoot = makeTempDir();
+    const childA = path.join(workspaceRoot, 'child-a');
+    const childB = path.join(workspaceRoot, 'child-b');
+    const codexHome = makeTempDir();
+    const previousCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = codexHome;
+
+    try {
+      fs.mkdirSync(path.join(childA, '.git'), { recursive: true });
+      fs.mkdirSync(path.join(childB, '.git'), { recursive: true });
+
+      const result = await captureInit(workspaceRoot, [
+        '--codex',
+        '--all-repos',
+        '-y',
+        '-u',
+        'reviewer',
+        '--lang',
+        'zh',
+        '--sync-user-language',
+      ]);
+
+      expect(result.exitCode).toBe(0);
+      expect(fs.readFileSync(path.join(codexHome, 'AGENTS.md'), 'utf8')).toContain('spec-first:user-language:start');
+      expect(fs.readdirSync(codexHome).filter((entry) => entry === 'AGENTS.md')).toHaveLength(1);
+      const summary = JSON.parse(fs.readFileSync(path.join(workspaceRoot, '.spec-first', 'workspace', 'init-summary-codex.json'), 'utf8'));
+      expect(summary.user_language_sync.status).toBe('ready');
+      expect(summary.user_language_sync.operations).toHaveLength(1);
+      expect(summary.user_language_sync.operations[0].host).toBe('codex');
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = previousCodexHome;
+      }
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+      fs.rmSync(codexHome, { recursive: true, force: true });
+    }
+  });
+
   test('-y install persists the default host runtimes to the global profile', async () => {
     const projectRoot = makeTempDir();
     const prompts = interactivePrompts();
@@ -618,8 +861,94 @@ describe('interactive init command', () => {
       expect(result.exitCode).toBe(0);
       // AE5:--yes 路径持久化 defaultForYes(claude+codex),不经过多选框。
       expect(readGlobalDeveloperProfile()).toMatch(/hosts=claude,codex/);
+      expect(readGlobalDeveloperProfile()).not.toContain('sync_user_language=');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('stored true silently syncs the selected user-language host', async () => {
+    const projectRoot = makeTempDir();
+    const codexHome = makeTempDir();
+    const previousCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = codexHome;
+    writeGlobalDeveloperProfile({ name: 'leokuang', lang: 'zh', hosts: ['codex'], syncUserLanguage: true });
+
+    try {
+      const result = await captureInit(projectRoot, ['--codex', '-y']);
+
+      expect(result.exitCode).toBe(0);
+      expect(fs.readFileSync(path.join(codexHome, 'AGENTS.md'), 'utf8')).toContain('spec-first:user-language:start');
+      expect(readGlobalDeveloperProfile()).toContain('sync_user_language=true');
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = previousCodexHome;
+      }
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  test('stored false retries residual all-host cleanup without recreating missing user files', async () => {
+    const projectRoot = makeTempDir();
+    const codexHome = makeTempDir();
+    const previousCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = codexHome;
+    writeGlobalDeveloperProfile({ name: 'leokuang', lang: 'zh', hosts: ['codex'], syncUserLanguage: false });
+    fs.writeFileSync(path.join(codexHome, 'AGENTS.md'), `before\n${buildUserLanguageBlock('zh')}\nafter\n`, 'utf8');
+
+    try {
+      const result = await captureInit(projectRoot, ['--codex', '-y']);
+
+      expect(result.exitCode).toBe(0);
+      expect(fs.readFileSync(path.join(codexHome, 'AGENTS.md'), 'utf8')).not.toContain('spec-first:user-language:start');
+      expect(fs.existsSync(path.join(isolatedHome, '.claude'))).toBe(false);
+      expect(readGlobalDeveloperProfile()).toContain('sync_user_language=false');
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = previousCodexHome;
+      }
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  test('Codex override shadowing returns non-zero after project init without persisting consent', async () => {
+    const projectRoot = makeTempDir();
+    const codexHome = makeTempDir();
+    const previousCodexHome = process.env.CODEX_HOME;
+    process.env.CODEX_HOME = codexHome;
+    fs.writeFileSync(path.join(codexHome, 'AGENTS.override.md'), 'manual override\n', 'utf8');
+
+    try {
+      const result = await captureInit(projectRoot, [
+        '--codex',
+        '-y',
+        '-u',
+        'reviewer',
+        '--lang',
+        'zh',
+        '--sync-user-language',
+      ]);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toContain('codex-global-override-active');
+      expect(fs.existsSync(path.join(projectRoot, 'AGENTS.md'))).toBe(true);
+      expect(fs.existsSync(path.join(codexHome, 'AGENTS.md'))).toBe(false);
+      expect(fs.readFileSync(path.join(codexHome, 'AGENTS.override.md'), 'utf8')).toBe('manual override\n');
+      expect(readGlobalDeveloperProfile()).not.toContain('sync_user_language=true');
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEX_HOME;
+      } else {
+        process.env.CODEX_HOME = previousCodexHome;
+      }
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(codexHome, { recursive: true, force: true });
     }
   });
 

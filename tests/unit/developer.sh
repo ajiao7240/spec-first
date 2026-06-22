@@ -262,6 +262,82 @@ EOF
 )
 assert_output "empty hosts omit the hosts line" "no-hosts" "$host_line"
 
+echo "16. sync_user_language true/false round-trips through the global developer file"
+sync_round_trip=$(HOME="$HOME_DIR" node - <<'EOF' "$REPO_ROOT"
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const {
+  writeGlobalDeveloperFile,
+  readDeveloperFile,
+  getGlobalDeveloperPath,
+} = require(path.join(repoRoot, 'src/cli/developer'));
+
+writeGlobalDeveloperFile({
+  name: 'sync-user',
+  lang: 'zh',
+  initializedAt: 't',
+  version: '1',
+  syncUserLanguage: false,
+});
+const first = readDeveloperFile(getGlobalDeveloperPath()).syncUserLanguage;
+writeGlobalDeveloperFile({
+  name: 'sync-user',
+  lang: 'zh',
+  initializedAt: 't',
+  version: '1',
+  syncUserLanguage: true,
+});
+const second = readDeveloperFile(getGlobalDeveloperPath()).syncUserLanguage;
+process.stdout.write(JSON.stringify([first, second]));
+EOF
+)
+assert_output "sync_user_language false and true round-trip" '[false,true]' "$sync_round_trip"
+
+echo "17. legacy files without sync_user_language stay unset"
+cat > "$HOME_DIR/.spec-first/.developer" <<'EOF'
+name=legacy-user
+lang=en
+EOF
+legacy_sync=$(HOME="$HOME_DIR" node - <<'EOF' "$REPO_ROOT"
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const { readDeveloperFile, getGlobalDeveloperPath } = require(path.join(repoRoot, 'src/cli/developer'));
+const value = readDeveloperFile(getGlobalDeveloperPath()).syncUserLanguage;
+process.stdout.write(value === null ? 'unset' : String(value));
+EOF
+)
+assert_output "legacy file yields unset sync preference" "unset" "$legacy_sync"
+
+echo "18. invalid sync_user_language values normalize to unset"
+cat > "$HOME_DIR/.spec-first/.developer" <<'EOF'
+name=invalid-sync
+lang=zh
+sync_user_language=maybe
+EOF
+invalid_sync=$(HOME="$HOME_DIR" node - <<'EOF' "$REPO_ROOT"
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const { readDeveloperFile, getGlobalDeveloperPath } = require(path.join(repoRoot, 'src/cli/developer'));
+const value = readDeveloperFile(getGlobalDeveloperPath()).syncUserLanguage;
+process.stdout.write(value === null ? 'unset' : String(value));
+EOF
+)
+assert_output "invalid sync preference yields unset" "unset" "$invalid_sync"
+
+echo "19. a developer record with only sync_user_language is preserved"
+cat > "$HOME_DIR/.spec-first/.developer" <<'EOF'
+sync_user_language=false
+EOF
+only_sync=$(HOME="$HOME_DIR" node - <<'EOF' "$REPO_ROOT"
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const { readDeveloperFile, getGlobalDeveloperPath } = require(path.join(repoRoot, 'src/cli/developer'));
+const record = readDeveloperFile(getGlobalDeveloperPath());
+process.stdout.write(record === null ? 'null' : String(record.syncUserLanguage));
+EOF
+)
+assert_output "only-sync record is preserved" "false" "$only_sync"
+
 echo ""
 echo "=== Results ==="
 echo "  Passed: $pass"

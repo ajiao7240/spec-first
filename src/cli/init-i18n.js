@@ -11,6 +11,7 @@ const MESSAGES = {
     reuseGlobalProfile: (name, lang) => (
       `检测到全局开发者: ${name} (${lang})。沿用?`
     ),
+    syncUserLanguageConsent: '是否同步用户级语言偏好到 Codex/Claude 用户 instruction 文件?（首次授权后后续 init 会自动维护；默认否）',
     globalProfileOverwrite: (display, name, lang) => (
       `全局 developer profile 已存在: ${display}。是否用 ${name} (${lang}) 覆盖?`
     ),
@@ -34,6 +35,8 @@ const MESSAGES = {
     previewRuntimeUntrackDiagnostic: (diagnostic) => `  ${diagnostic}`,
     previewOmittedPaths: (count) => `  ... 还有 ${count} 个 path 未在 preview 中展示`,
     previewNoFilesChanged: '不会修改文件。',
+    previewUserLanguageSyncHeader: 'User-level language sync / 用户级语言同步:',
+    previewUserLanguageSyncDryRun: 'Dry run: 不会写入用户级 instruction 文件或全局 developer profile。',
     applyInstalledClaudeHook: '🪝 已安装 Claude managed hook matchers 到 .claude/settings.json',
     applyInstalledCodexHook: '🪝 已安装 Codex SessionStart hook 到 .codex/hooks/',
     applyGeneratedCommands: (count, dir) => `📦 已在 ${dir} 生成 ${count} 个 command 文件`,
@@ -51,6 +54,7 @@ const MESSAGES = {
     applyRuntimeUntrackNone: '🧯 没有 managed runtime path 需要 untrack。',
     applyRuntimeUntrackSkipped: (reasonCode) => `🧯 Runtime untrack 已跳过: ${reasonCode}`,
     applyRefreshParentRuntime: '▶ 刷新父级宿主 runtime assets',
+    applyUserLanguageSyncHeader: (status, reasonCode) => `User-level language sync / 用户级语言同步: ${status}${reasonCode && reasonCode !== 'none' ? ` (${reasonCode})` : ''}`,
   },
   en: {
     selectHosts: 'Select host runtimes to initialize:',
@@ -64,6 +68,7 @@ const MESSAGES = {
     reuseGlobalProfile: (name, lang) => (
       `Detected global developer: ${name} (${lang}). Reuse it?`
     ),
+    syncUserLanguageConsent: 'Sync the user-level language preference to Codex/Claude user instruction files? (after the first opt-in, future init runs maintain it automatically; default no)',
     globalProfileOverwrite: (display, name, lang) => (
       `Global developer profile already exists: ${display}. Overwrite it with ${name} (${lang})?`
     ),
@@ -87,6 +92,8 @@ const MESSAGES = {
     previewRuntimeUntrackDiagnostic: (diagnostic) => `  ${diagnostic}`,
     previewOmittedPaths: (count) => `  ... ${count} more path(s) omitted from preview`,
     previewNoFilesChanged: 'No files were changed.',
+    previewUserLanguageSyncHeader: 'User-level language sync:',
+    previewUserLanguageSyncDryRun: 'Dry run: no user-level instruction file or global developer profile will be written.',
     applyInstalledClaudeHook: '🪝 Installed Claude managed hook matchers in .claude/settings.json',
     applyInstalledCodexHook: '🪝 Installed Codex SessionStart hook in .codex/hooks/',
     applyGeneratedCommands: (count, dir) => `📦 Generated ${count} command file(s) in ${dir}`,
@@ -104,6 +111,7 @@ const MESSAGES = {
     applyRuntimeUntrackNone: '🧯 No managed runtime paths require untracking.',
     applyRuntimeUntrackSkipped: (reasonCode) => `🧯 Runtime untrack skipped: ${reasonCode}`,
     applyRefreshParentRuntime: '▶ Refresh parent host runtime assets',
+    applyUserLanguageSyncHeader: (status, reasonCode) => `User-level language sync: ${status}${reasonCode && reasonCode !== 'none' ? ` (${reasonCode})` : ''}`,
   },
 };
 

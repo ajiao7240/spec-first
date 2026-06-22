@@ -13,6 +13,7 @@ describe('init i18n messages', () => {
     expect(messages.selectHosts).toContain('宿主');
     expect(messages.selectHosts).not.toContain('Select host');
     expect(messages.developerName).toContain('开发者');
+    expect(messages.syncUserLanguageConsent).toContain('用户级语言偏好');
     expect(messages.confirmApply).toContain('应用');
   });
 
@@ -21,6 +22,7 @@ describe('init i18n messages', () => {
 
     expect(messages.selectHosts).toContain('Select host');
     expect(messages.developerName).toContain('Developer name');
+    expect(messages.syncUserLanguageConsent).toContain('user-level language preference');
     expect(messages.confirmApply).toContain('Apply these changes');
   });
 

@@ -79,7 +79,7 @@ spec-first 项目长期假设 Codex CLI 没有与 Claude Code 对等的 hook 系
 
 4. **真正可以新增的 hook 用例**——这些场景以前被"Codex 没有 hook"挡住，现在解禁：
    - **PermissionRequest**（Codex 独有）在 mutation-capable GitNexus 调用前强制 preview-first；Claude 端用 `PreToolUse` matcher 等价兜底。
-   - **PreCompact / PostCompact**（Codex 事件存在但当前为 `StatelessHookOutcome`）可做无上下文状态记录或提示类处理；**不能**用于重新注入 spec-first bootstrap context。compact 后恢复仍依赖 `AGENTS.md` 静态 fallback 或未来平台扩展。
+   - **PreCompact / PostCompact**（Codex 事件存在但当前为 `StatelessHookOutcome`）可做无上下文状态记录或提示类处理；**不能直接**用于重新注入 spec-first bootstrap context。但 compact 会触发 `SessionStart(source=compact)`，当前 `SessionStart` hook 可通过 `additionalContext` 重新注入 bootstrap 指针；`AGENTS.md` 仍是 hook 缺失或失败时的静态 fallback。
    - **SubagentStart**（Codex 独有）在 reviewer / researcher dispatch 前注入 redaction policy 与 utilization 记录开关；Claude 端用主 agent 的 `PreToolUse` matcher=`Agent` 等价拦截。
    - **plugin 化**：Codex 的 Plugin 来源层意味着 spec-first 可作为 Codex plugin 发布，hook + skill 一起 ship。
 
@@ -88,7 +88,7 @@ spec-first 项目长期假设 Codex CLI 没有与 Claude Code 对等的 hook 系
 ## Why This Matters
 
 - **避免基于过时假设做架构决策**。spec-first dual-host governance 中任何"Codex 无 hook 所以..."的推理都需要重新看一遍——结论可能仍正确，但理由必须更新，否则会在后续设计审查中被同样发现并需要再次返工。
-- **打开新的设计空间**。`PermissionRequest` / `SubagentStart` 等事件 Claude Code 当前没有等价；spec-first 在 Codex 端可以做 Claude 端做不到的事（例如严格的 mutation gating、subagent 启动前的 redaction）。`PreCompact` / `PostCompact` 虽然存在，但当前 outcome 不消费 context，不能被当成 bootstrap 重注入通道。
+- **打开新的设计空间**。`PermissionRequest` / `SubagentStart` 等事件 Claude Code 当前没有等价；spec-first 在 Codex 端可以做 Claude 端做不到的事（例如严格的 mutation gating、subagent 启动前的 redaction）。`PreCompact` / `PostCompact` 虽然存在，但当前 outcome 不消费 context，不能被当成 bootstrap 直接重注入通道；实际可用的 compact 后注入点是 `SessionStart(source=compact)`。
 - **影响 Codex 端模板与 init 行为**。如果以为 Codex 没有 hook，就不会有 `templates/codex/hooks/` 也不会让 `spec-first init --codex` 写 hook 配置；这条假设错位会持续阻塞 Codex 端 plugin 化和 dual-host 治理对称化。
 - **训练知识可能仍过时**。截至 2026-05，多数 LLM 训练数据里的"Codex CLI 没有 PreToolUse hook"是历史事实但不是当前事实。任何依赖此事实的回答都应在调用前做一次 `gh api repos/openai/codex/contents/...` 校核（或读 `docs/config.md` 的 `## Lifecycle hooks` 节、`codex-rs/hooks/src/lib.rs`、`codex-rs/features/src/lib.rs` 中 `CodexHooks` 状态）。
 
@@ -155,7 +155,7 @@ gh api repos/openai/codex/contents/codex-rs/features/src/lib.rs \
 | Session 启动注入 spec-first bootstrap | `SessionStart` hook | `SessionStart` hook 或 `AGENTS.md` managed block |
 | Tool 调用前注入 redaction 校验 | `PreToolUse` matcher | `PreToolUse` matcher |
 | Mutation 操作前强制 preview-first | `PreToolUse` + 自定义判定 | `PermissionRequest` hook（更精确） |
-| 压缩后恢复 bootstrap 上下文 | （Claude 仅有 `PreCompact`，需 prompt 续接） | `PreCompact`/`PostCompact` 当前为 `StatelessHookOutcome`，不可注入 context；保留 `AGENTS.md` fallback |
+| 压缩后恢复 bootstrap 上下文 | （Claude 仅有 `PreCompact`，需 prompt 续接） | `PreCompact`/`PostCompact` 当前为 `StatelessHookOutcome`，不可直接注入 context；compact 后由 `SessionStart(source=compact)` 重新注入，`AGENTS.md` 作为 fallback |
 | Reviewer dispatch 前注入 utilization 记录 | 主 agent `PreToolUse` matcher=`Agent` | `SubagentStart` hook（更精确） |
 
 ## Related

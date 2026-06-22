@@ -128,7 +128,9 @@ spec-first doctor
 spec-first init
 ```
 
-`spec-first init` 是交互式流程：多选 Claude Code 和/或 Codex、确认开发者姓名与语言(若全局 developer profile 已存在,init 只询问一次是否沿用,而不再重复要求填名字)、预览写入内容,然后显式确认。可用 `spec-first init --codex` 或 `spec-first init --claude` 只跳过宿主选择步骤。脚本中可用 `spec-first init -y` 初始化默认宿主集合，或把 `-y` 与显式宿主 flag、`--all-repos`、`--repo <path>`、`-u <name>`、`--lang <zh|en>` 组合使用。
+`spec-first init` 是交互式流程：多选 Claude Code 和/或 Codex、确认开发者姓名与语言(若全局 developer profile 已存在,init 只询问一次是否沿用,而不再重复要求填名字)、按需授权用户级语言同步、预览写入内容,然后显式确认。可用 `spec-first init --codex` 或 `spec-first init --claude` 只跳过宿主选择步骤。脚本中可用 `spec-first init -y` 初始化默认宿主集合，或把 `-y` 与显式宿主 flag、`--all-repos`、`--repo <path>`、`-u <name>`、`--lang <zh|en>`、`--sync-user-language` / `--no-sync-user-language` 组合使用。
+
+用户级语言同步只在明确 opt-in 后向 Codex / Claude 用户 instruction 文件写入 language-only managed block,并在全局 developer profile 记录 `sync_user_language=true`,供后续 init 静默维护。`--no-sync-user-language` 会记录 `false`,并从受支持宿主移除 spec-first 写过的用户语言 block。这是 instruction guidance,不是通过 hook 强制改写回答语言。
 
 重启宿主或新开会话，让宿主加载刚生成的 runtime assets。
 
@@ -295,7 +297,7 @@ CLI reference：
 spec-first --help
 spec-first --version
 spec-first doctor [--json] [--claude|--codex]
-spec-first init [--claude] [--codex] [-y] [--all-repos|--repo <path>] [-u <name>] [--lang <zh|en>]
+spec-first init [--claude] [--codex] [-y] [--all-repos|--repo <path>] [-u <name>] [--lang <zh|en>] [--sync-user-language|--no-sync-user-language]
 spec-first update   # 执行 `npm install -g spec-first@latest`,随后用 fresh `spec-first init` 刷新 runtime
 spec-first clean (--claude|--codex) [--dry-run]
 spec-first clean --workspace-orphans [--confirm]
