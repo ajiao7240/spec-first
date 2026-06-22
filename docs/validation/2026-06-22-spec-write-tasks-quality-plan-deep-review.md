@@ -3,11 +3,12 @@
 - **审查对象:** `docs/plans/2026-06-22-002-refactor-spec-write-tasks-quality-evidence-closure-plan.md`
 - **审查类型:** 技术方案深度审查(结合源码 + 业界最佳实践 + 角色契约基线)
 - **审查时间:** 2026-06-22 23:54
-- **审查时仓库 revision:** `681ce9f0`(注:方案 Direct Evidence 记录的 `current_revision: 61c29f10` 已过期,见 F5)
+- **审查时仓库 revision:** `681ce9f0`(注:后续终审已将方案 Direct Evidence 的旧 `current_revision: 61c29f10` 拆为 `planning_snapshot_revision` 与 `current_review_revision`,避免把历史快照误读为当前事实)
 - **审查者:** leokuang(主审)+ 一个独立 general-purpose fresh-source 评审者(交叉验证)
 - **基线文档:** `docs/10-prompt/结构化项目角色契约.md`
 - **方法:** 不采信方案自述,逐条把方案关于 `spec-skill-audit` 计分的 load-bearing 断言对照真实源码与 live audit 验证;并行做一次独立 fresh-source 评审做结论交叉校验。
 - **2026-06-23 修订说明:** 后续复核确认本报告事实地基成立,但两处判断表述过强:现有 contract tests 并非全是字符串断言,第一条 P1 更准确应为 P2 过度治理/边际收益风险。本版同步修正这些表述,并指向已更名的 `quality-evidence-closure` 方案路径。
+- **2026-06-23 终审优化说明:** 方案已补充当前终审复核 revision 与只读审计事实;本报告保留当时审查证据,但不再把旧 `current_revision` 表述为当前字段。
 
 ---
 

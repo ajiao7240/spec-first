@@ -113,8 +113,9 @@ plan_depth: deep
   - `.spec-first/audits/skill-audit/latest/expert-scorecard.json`
   - `.spec-first/audits/skill-audit/latest/eval-readiness-report.json`
   - `.spec-first/audits/skill-audit/latest/trigger-routing-report.json`
-- current_revision: `61c29f10`
-- worktree_status: dirty before this plan; existing unrelated or prior-turn changes exist in `CHANGELOG.md`, plans, validation docs, `skills/spec-write-tasks/**`, fixtures, and task packs. Implementation must preserve and work with those changes rather than reverting them.
+- planning_snapshot_revision: `61c29f10` (original source/evidence snapshot used when this plan was drafted)
+- current_review_revision: `f2b4553e` (2026-06-23 terminal review; read-only `runSelfAudit({ targetPath: 'skills/spec-write-tasks' })` still confirms `90/A-`, `estimated_tokens: 5997`, `eval_case_count: 25`, and the same 90→92 premise)
+- worktree_status: dirty before this plan and dirty during terminal review; unrelated or parallel changes exist outside this plan. Implementation must re-run `git status`, preserve user/concurrent changes, and patch only targeted sections rather than reverting broad worktree state.
 - confidence: high for current score gaps and source boundaries; medium for runtime/cross-host evidence shape until implementation checks exact adapter/packager behavior.
 - limitations: planning did not execute new eval runner because it does not exist yet; `.spec-first/audits` is explicit review evidence, not source-of-truth runtime input.
 

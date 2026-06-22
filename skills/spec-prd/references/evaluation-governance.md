@@ -14,11 +14,11 @@ Review cadence: per release, or whenever trigger, requirements artifact, readine
 
 ## Eval Status
 
-`skills/spec-prd/evals/examples.json` is examples-as-context for routing, evidence, readiness, and helper-boundary coverage. It is structural fixture evidence, not a runtime state machine and not semantic output-quality proof.
+`skills/spec-prd/evals/examples.json` is source-owned examples-as-context for maintainers, focused contract tests, audits, and fresh-source eval prompts. It covers routing, evidence, readiness, and helper-boundary behavior with concise representative cases. It is not user documentation, not a runtime API, not packaged user-facing workflow state, not a runtime state machine, and not semantic output-quality proof.
 
 `skills/spec-prd/scripts/check-prd-artifact.js` and `check-glossary-drift.js` report deterministic script-owned facts (structure, trace gaps, placeholder lines, avoid-term drift). They never decide `ready-for-planning`; that judgment stays LLM-owned.
 
-Focused Jest tests (`tests/unit/spec-prd-contracts.test.js`) check the source package contract, the compressed 8-file source topology (`SKILL.md` + 5 references + 2 scripts), first-120-lines entrypoint anchors, reference reachability, both scripts against good/bad fixtures, fresh-source eval artifact records, and the human template mirror's evidence-tag enum. These are file-backed fixture checks, not provider-backed model execution.
+Focused Jest tests (`tests/unit/spec-prd-contracts.test.js`) check the source package contract, the compressed 8-file source topology (`SKILL.md` + 5 references + 2 scripts), first-120-lines entrypoint anchors, reference reachability, eval fixture structure, capability-bucket coverage, high-value sentinel cases, both scripts against good/bad fixtures, fresh-source eval artifact records, and the human template mirror's evidence-tag enum. These are file-backed fixture checks, not provider-backed model execution.
 
 Dispatched fresh-source eval records live in `docs/validation/spec-prd/`. Several behaviors are honestly recorded `not_run` with explicit reasons; dispatched reviewer passes carry `status:passed` or `passed-with-concerns`. The domain-grill behavior has a dispatched pass; Sanitization, Feature Slices, and topology-heavy behaviors were validated by a dispatched fresh-source pass on 2026-06-21 (`passed-with-concerns`, one minor non-blocking generated-runtime-boundary hardening note). The remaining `not_run` records name the specific behaviors still awaiting a dispatched semantic pass — see those records for current status.
 

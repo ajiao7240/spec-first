@@ -356,42 +356,28 @@
       "id": "pre-prd-clarification-loop-trigger",
       "intent": "refine",
       "input_shape": "rough PRD fragment with system anchor but missing actor, acceptance, and scope",
-      "expected": ["Pre-PRD Clarification Loop before final rewrite", "claim -> evidence/source -> gap -> question_or_assumption -> PRD write target", "bounded owner questions", "no standalone grill report"],
+      "expected": ["run Pre-PRD Clarification before final rewrite", "map claims to evidence, gaps, questions or assumptions, and PRD write targets", "ask only bounded owner questions", "do not create a standalone grill report"],
       "coverage_tags": ["trigger", "pre-prd-clarification", "boundary"]
-    },
-    {
-      "id": "shared-understanding-pressure-map",
-      "intent": "refine",
-      "input_shape": "draft contains several reference claims with mixed source evidence and assumptions",
-      "expected": ["shared understanding map", "claim/evidence/gap alignment", "question_or_assumption", "write_target points to existing PRD sections", "run-local scratch not persistent schema"],
-      "coverage_tags": ["expected", "pre-prd-clarification", "boundary"]
     },
     {
       "id": "requirements-grill-source-first",
       "intent": "validate",
       "input_shape": "rough PRD asks whether current behavior supports partial cancellation and source/docs can answer",
-      "expected": ["source/docs/tests/contracts lookup before owner question", "source-resolved gap", "no owner question for source-answerable fact", "evidence written into PRD-local section"],
+      "expected": ["look up source/docs/tests/contracts before owner questions", "source-resolved gaps should not become owner questions", "write resolved evidence into PRD-local sections"],
       "coverage_tags": ["expected", "source-first", "boundary"]
-    },
-    {
-      "id": "requirements-grill-recommended-answer",
-      "intent": "refine",
-      "input_shape": "one load-bearing owner decision remains after source lookup",
-      "expected": ["one question at a time", "recommended_answer", "why_recommended", "source_tag", "consequence_if_chosen", "consequence_if_not_chosen", "write_target"],
-      "coverage_tags": ["expected", "question-format"]
     },
     {
       "id": "requirements-grill-question-cap",
       "intent": "refine",
       "input_shape": "rough PRD has more than three load-bearing gaps across actors, scope, acceptance, and release",
-      "expected": ["prioritized blocker cluster", "recommended route", "acceptable assumptions", "affected write targets", "no long interview", "no ready-for-planning"],
+      "expected": ["prioritized blocker cluster", "recommended route", "acceptable assumptions", "affected write targets", "no long interview", "not ready-for-planning"],
       "coverage_tags": ["boundary", "failure", "question-cap"]
     },
     {
       "id": "requirements-grill-no-context-artifact",
       "intent": "refine",
       "input_shape": "owner asks to use grill-with-docs style context docs during a normal PRD refinement",
-      "expected": ["PRD-local Glossary", "PRD-local Decision Notes", "no CONTEXT.md default", "no CONTEXT-MAP.md default", "no docs/adr default", "preview-first promotion only"],
+      "expected": ["persist resolution in PRD-local sections", "do not create CONTEXT.md, CONTEXT-MAP.md, or docs/adr by default", "promotion candidates stay preview-first"],
       "coverage_tags": ["boundary", "no-context-artifact"]
     },
     {
@@ -405,42 +391,28 @@
       "id": "large-prd-map-reduce-source-refs",
       "intent": "refine",
       "input_shape": "oversized multi-section PRD input with meeting notes and screenshots",
-      "expected": ["large-input Map-Reduce", "Map row preserves source_ref and confidence", "semantic Shuffle", "conflict-preserving Reduce", "source_ref carry-forward", "no lossy chunk summary as source-of-truth"],
+      "expected": ["preserve source_ref through Map and Reduce", "surface cross-chunk conflicts", "do not treat lossy summaries as source-of-truth"],
       "coverage_tags": ["trigger", "large-input", "map-reduce"]
-    },
-    {
-      "id": "small-clear-prd-stays-compact",
-      "intent": "create",
-      "input_shape": "small anchored brownfield increment with clear actor, acceptance, scope, and source support",
-      "expected": ["small clear input stops at L0", "L0 compact PRD", "no Map-Reduce", "no forced P0/P1 full packs", "compact PRD stays compact"],
-      "coverage_tags": ["expected", "progressive-detail", "compact"]
-    },
-    {
-      "id": "source-answerable-no-owner-question",
-      "intent": "validate",
-      "input_shape": "current behavior is knowable from source/docs/tests before asking owner",
-      "expected": ["source-first stop rule", "records evidence", "asks no owner question", "source-resolved"],
-      "coverage_tags": ["expected", "source-first", "progressive-detail"]
     },
     {
       "id": "huge-prd-cross-chunk-conflict",
       "intent": "refine",
       "input_shape": "two PRD chunks disagree on exception behavior and release scope",
-      "expected": ["semantic Shuffle by exception and PRD section", "Reduce preserves conflicting supporting_refs", "conflict set", "affected_write_targets", "owner question candidate or blocker"],
+      "expected": ["group conflicting chunks by exception, release, and PRD section", "preserve conflicting supporting_refs", "route unresolved conflict to owner question or blocker"],
       "coverage_tags": ["failure", "large-input", "map-reduce"]
     },
     {
       "id": "deep-grill-seven-actions",
       "intent": "refine",
       "input_shape": "load-bearing fuzzy term plus scenario and code contradiction risk",
-      "expected": ["Deep Requirements Grill", "one-question-at-a-time progression", "recommended answer", "source/code/docs/tests/contracts lookup", "glossary conflict challenge", "fuzzy term sharpening", "concrete scenario stress", "code contradiction surfacing"],
+      "expected": ["ask one question at a time", "perform source-first lookup", "sharpen fuzzy terms through concrete scenarios", "surface code contradictions with consequences"],
       "coverage_tags": ["expected", "deep-requirements-grill"]
     },
     {
       "id": "deep-grill-closure-blocks-readiness",
       "intent": "validate",
       "input_shape": "load-bearing actor/flow/scope question remains unresolved after rough PRD rewrite",
-      "expected": ["load-bearing grill question must close", "source evidence or owner answer or accepted assumption or Outstanding Questions or blocker cluster or route-out", "unresolved question blocks ready-for-planning"],
+      "expected": ["load-bearing grill questions must close before planning", "closure can be source evidence, owner answer, accepted assumption, Outstanding Questions, blocker cluster, or route-out", "unresolved questions block ready-for-planning"],
       "coverage_tags": ["failure", "deep-requirements-grill", "readiness"]
     },
     {
@@ -454,14 +426,14 @@
       "id": "success-metrics-no-invention",
       "intent": "refine",
       "input_shape": "PRD says optimize experience and lower cost without source, baseline, target, or window",
-      "expected": ["Success Metrics / Measurement Readiness", "observable signal or assumption or Outstanding Question", "no invented target values", "fabricated metric rejected"],
+      "expected": ["write observable signals, assumptions, or Outstanding Questions", "do not invent target values", "reject fabricated metrics"],
       "coverage_tags": ["boundary", "p0-pack"]
     },
     {
       "id": "nfr-constraint-product-not-how",
       "intent": "refine",
       "input_shape": "rough PRD mentions privacy, permission, rollout, and API fields",
-      "expected": ["NFR / Constraint Pack", "product-level constraints", "Negative Acceptance", "Data / Compliance Boundaries", "API/database/architecture HOW excluded from PRD requirements"],
+      "expected": ["keep constraints product-level", "write privacy, permission, rollout, and failure semantics into PRD sections", "exclude API/database/architecture HOW from PRD requirements"],
       "coverage_tags": ["boundary", "p0-pack"]
     },
     {
@@ -475,14 +447,14 @@
       "id": "owner-closure-summary",
       "intent": "validate",
       "input_shape": "PRD refinement applied owner answers and accepted assumptions but still has blockers",
-      "expected": ["owner_answers_applied", "accepted_assumptions", "blocking_questions", "ready-for-planning: false when blockers remain", "planning_would_invent_what", "no separate approval artifact"],
+      "expected": ["summarize owner answers, accepted assumptions, and blockers", "mark ready-for-planning false when blockers remain", "name what planning would still invent", "do not create a separate approval artifact"],
       "coverage_tags": ["expected", "p0-pack", "closure"]
     },
     {
       "id": "actor-alignment-conditional",
       "intent": "refine",
       "input_shape": "mixed admin/backend PRD uses system, user, admin, and consumer ambiguously",
-      "expected": ["Stakeholder / Actor Alignment", "beneficiary/operator/admin/downstream consumer/owner", "conditional pack only when triggered"],
+      "expected": ["separate beneficiary, operator, admin, downstream consumer, and owner", "run only when actor distinctions affect WHAT or acceptance"],
       "coverage_tags": ["trigger", "p1-pack"]
     },
     {
@@ -507,13 +479,6 @@
       "coverage_tags": ["trigger", "p1-pack", "change-management"]
     },
     {
-      "id": "large-prd-reducer-conflict",
-      "intent": "refine",
-      "input_shape": "large PRD chunks disagree on scope and exception handling",
-      "expected": ["Reduce output", "conflict set", "supporting_refs", "affected_write_targets", "owner question candidate", "no deterministic script decides semantic completeness"],
-      "coverage_tags": ["failure", "map-reduce"]
-    },
-    {
       "id": "preliminary-vs-final-diagnosis",
       "intent": "validate",
       "input_shape": "preliminary diagnosis picks L1 but final PRD rewrite still has unresolved acceptance gap",
@@ -531,14 +496,14 @@
       "id": "context-map-routing",
       "intent": "refine",
       "input_shape": "existing CONTEXT-MAP.md routes PRD topic to a context-specific CONTEXT.md",
-      "expected": ["Context / ADR Topology Adapter", "existing CONTEXT-MAP.md routing", "evidence source", "one context routing question if ambiguous", "no mandatory topology creation"],
+      "expected": ["read existing CONTEXT-MAP.md as advisory routing evidence", "ask at most one context routing question when ownership is ambiguous", "do not require topology creation"],
       "coverage_tags": ["trigger", "topology-adapter"]
     },
     {
       "id": "context-glossary-conflict",
       "intent": "validate",
       "input_shape": "existing context glossary conflicts with rough PRD term wording",
-      "expected": ["context glossary conflict surfaced", "PRD-local Glossary resolution", "source_tag evidence", "not silently normalized", "not required for readiness if PRD-local closure complete"],
+      "expected": ["surface glossary conflict", "resolve in PRD-local Glossary or Decision Notes first", "do not silently normalize conflicting terminology"],
       "coverage_tags": ["expected", "topology-adapter"]
     },
     {
@@ -549,17 +514,10 @@
       "coverage_tags": ["expected", "topology-adapter"]
     },
     {
-      "id": "lazy-context-candidate",
-      "intent": "refine",
-      "input_shape": "no existing context topology but PRD creates a stable cross-team term",
-      "expected": ["lazy context candidate", "PRD-local Glossary first", "no topology required fallback", "preview-first candidate only"],
-      "coverage_tags": ["expected", "topology-adapter"]
-    },
-    {
       "id": "adr-promotion-three-conditions",
       "intent": "refine",
       "input_shape": "PRD contains a hard product tradeoff with long-lived consequences",
-      "expected": ["ADR promotion candidate", "hard-to-reverse", "surprising without context", "real tradeoff", "sparse ADR candidate with PRD source refs", "routine decision stays in Decision Notes"],
+      "expected": ["suggest ADR promotion only for hard-to-reverse, surprising tradeoffs", "keep ADR candidates sparse with PRD source refs", "routine decisions stay in Decision Notes"],
       "coverage_tags": ["expected", "topology-adapter"]
     },
     {

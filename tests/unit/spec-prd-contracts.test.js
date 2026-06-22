@@ -95,10 +95,44 @@ function extractMarkdownSection(content, heading) {
   return lines.slice(start, end === -1 ? lines.length : end).join('\n');
 }
 
-function expectCaseExpected(examples, id, snippets) {
+function findEvalCase(examples, id) {
   const entry = examples.cases.find((candidate) => candidate.id === id);
   expect(entry).toBeTruthy();
-  expect(entry.expected).toEqual(expect.arrayContaining(snippets));
+  return entry;
+}
+
+function expectEvalCase(examples, id, contract) {
+  const entry = findEvalCase(examples, id);
+  const expectedText = entry.expected.join('\n');
+
+  expect(entry.coverage_tags).toEqual(expect.arrayContaining(contract.tags));
+  for (const snippet of contract.expected) {
+    expect(expectedText).toContain(snippet);
+  }
+}
+
+function expectCoverageTags(examples, tags) {
+  const availableTags = new Set(examples.cases.flatMap((entry) => entry.coverage_tags || []));
+  for (const tag of tags) {
+    expect(availableTags.has(tag)).toBe(true);
+  }
+}
+
+function expectEvalCaseStructure(examples) {
+  const ids = new Set();
+  for (const entry of examples.cases) {
+    expect(typeof entry.id).toBe('string');
+    expect(entry.id.length).toBeGreaterThan(0);
+    expect(ids.has(entry.id)).toBe(false);
+    ids.add(entry.id);
+    expect(['create', 'refine', 'validate', 'route-out', 'bypass']).toContain(entry.intent);
+    expect(typeof entry.input_shape).toBe('string');
+    expect(entry.input_shape.length).toBeGreaterThan(0);
+    expect(Array.isArray(entry.expected)).toBe(true);
+    expect(entry.expected.length).toBeGreaterThan(0);
+    expect(Array.isArray(entry.coverage_tags)).toBe(true);
+    expect(entry.coverage_tags.length).toBeGreaterThan(0);
+  }
 }
 
 function listCurrentFiles(dirPath) {
@@ -678,268 +712,177 @@ describe('spec-prd workflow contracts', () => {
 
   test('eval fixtures cover routing, evidence, readiness, and helper boundary cases', () => {
     const examples = readJson(EVALS_PATH);
-    const ids = examples.cases.map((entry) => entry.id);
+    const serialized = JSON.stringify(examples);
 
     expect(examples.schema_version).toBe('spec-prd-evals.v1');
-    for (const id of [
-      'brownfield-admin-import-create',
-      'existing-prd-draft-resume',
-      'low-quality-refine-input',
-      'adaptive-product-expert-refine',
-      'quality-diagnosis-final-rewrite',
-      'quality-diagnosis-canonical-name',
-      'adaptive-lens-canonical-dimensions',
-      'code-alignment-what-not-how',
-      'no-prd-scorecard',
-      'large-prd-context-slice-not-program',
-      'prd-sanitization-technical-suggestion',
-      'feature-slice-with-original-excerpt',
-      'code-module-split-rejected',
-      'spec-calibration-not-new-requirement',
-      'over-10-slices-ask-owner',
-      'feature-without-acceptance-readiness-fail',
-      'spec-plan-preserves-feature-slice-trace',
-      'other-markdown-reference-material',
-      'plan-design-task-wrong-stage',
-      'lightweight-bugfix-bypass',
-      'zero-to-one-route-out',
-      'app-prd-figma-source-audit',
-      'backend-java-contract-change',
-      'remove-active-integration',
-      'workflow-contract-change',
-      'source-of-truth-migration',
-      'extend-identity-drift',
-      'securities-app-order',
-      'credit-pm-lens',
-      'multimodal-input-claimified',
-      'success-metrics-without-evidence',
-      'terminology-conflict',
-      'code-claim-contradiction',
-      'untrusted-prd-input-injection',
-      'compact-prd-output-shape',
-      'domain-term-conflict-source-first',
-      'source-user-current-behavior-contradiction',
-      'bounded-scenario-grill-permission-edge',
-      'decision-note-not-adr',
-      'no-context-artifact-topology',
-      'hard-decision-unresolved',
-      'source-candidate-unconfirmed',
-      'oversized-initial-prd',
-      'readiness-fail-trace-gap',
-      'template-drift',
-      'public-agent-boundary',
-      'pre-prd-clarification-loop-trigger',
-      'shared-understanding-pressure-map',
-      'requirements-grill-source-first',
-      'requirements-grill-recommended-answer',
-      'requirements-grill-question-cap',
-      'requirements-grill-no-context-artifact',
-      'planning-invention-readiness-fail',
-      'large-prd-map-reduce-source-refs',
-      'small-clear-prd-stays-compact',
-      'source-answerable-no-owner-question',
-      'huge-prd-cross-chunk-conflict',
-      'deep-grill-seven-actions',
-      'deep-grill-closure-blocks-readiness',
-      'problem-outcome-framing-gate',
-      'success-metrics-no-invention',
-      'nfr-constraint-product-not-how',
-      'traceability-matrix-gap',
-      'owner-closure-summary',
-      'actor-alignment-conditional',
-      'design-evidence-hook',
-      'release-slice-conditional',
-      'resume-prd-change-management',
-      'large-prd-reducer-conflict',
-      'preliminary-vs-final-diagnosis',
-      'progressive-detail-stop-rules',
-      'context-map-routing',
-      'context-glossary-conflict',
-      'context-promotion-candidate',
-      'lazy-context-candidate',
-      'adr-promotion-three-conditions',
-      'no-topology-required-fallback',
-    ]) {
-      expect(ids).toContain(id);
-    }
-    const serialized = JSON.stringify(examples);
-    expectCaseExpected(examples, 'quality-diagnosis-canonical-name', [
-      'quality_diagnosis as the single emitted diagnosis field',
-      'not-run only in run-local decision card',
-      'no competing diagnosis field',
+    expect(examples.cases.length).toBeGreaterThanOrEqual(70);
+    expectEvalCaseStructure(examples);
+    expectCoverageTags(examples, [
+      'trigger',
+      'boundary',
+      'expected',
+      'failure',
+      'pre-prd-clarification',
+      'source-first',
+      'large-input',
+      'map-reduce',
+      'deep-requirements-grill',
+      'p0-pack',
+      'p1-pack',
+      'topology-adapter',
+      'readiness',
+      'progressive-detail',
     ]);
-    expectCaseExpected(examples, 'large-prd-context-slice-not-program', [
-      '## Feature Slices',
-      'context and handoff units',
-      'not execution units or program slices',
-      'owner confirmation before execution/program split',
-    ]);
-    expectCaseExpected(examples, 'prd-sanitization-technical-suggestion', [
-      'PRD Sanitization',
-      'separate product facts/goals/scope/acceptance from technical suggestions',
-      'technical suggestions remain assumptions or design input, not requirements',
-    ]);
-    expectCaseExpected(examples, 'feature-slice-with-original-excerpt', [
-      'feature_id',
-      'source_excerpt_or_claim',
-      'requirement_refs',
-      'acceptance_refs',
-      'evidence',
-      'traceable original claim preserved',
-    ]);
-    expectCaseExpected(examples, 'code-module-split-rejected', [
-      'reject code-layer partitions as feature slices',
-      'slice by business capability/outcome',
-      'candidate modules stay evidence pointers',
-    ]);
-    expectCaseExpected(examples, 'over-10-slices-ask-owner', [
-      'split recommendation or owner confirmation',
-      'do not silently expand feature slices',
-      'program or execution split status requires owner confirmation',
-    ]);
-    expectCaseExpected(examples, 'spec-plan-preserves-feature-slice-trace', [
-      'spec-plan preserves feature IDs',
-      'requirement refs',
-      'acceptance refs',
-      'source/evidence pointers',
-      'does not own Feature Slice readiness',
-    ]);
-    expectCaseExpected(examples, 'pre-prd-clarification-loop-trigger', [
-      'Pre-PRD Clarification Loop before final rewrite',
-      'claim -> evidence/source -> gap -> question_or_assumption -> PRD write target',
-      'bounded owner questions',
-      'no standalone grill report',
-    ]);
-    expectCaseExpected(examples, 'requirements-grill-recommended-answer', [
-      'recommended_answer',
-      'why_recommended',
-      'source_tag',
-      'consequence_if_chosen',
-      'consequence_if_not_chosen',
-      'write_target',
-    ]);
-    expectCaseExpected(examples, 'large-prd-map-reduce-source-refs', [
-      'large-input Map-Reduce',
-      'Map row preserves source_ref and confidence',
-      'semantic Shuffle',
-      'conflict-preserving Reduce',
-      'source_ref carry-forward',
-      'no lossy chunk summary as source-of-truth',
-    ]);
-    expectCaseExpected(examples, 'deep-grill-seven-actions', [
-      'one-question-at-a-time progression',
-      'recommended answer',
-      'source/code/docs/tests/contracts lookup',
-      'glossary conflict challenge',
-      'fuzzy term sharpening',
-      'concrete scenario stress',
-      'code contradiction surfacing',
-    ]);
-    expectCaseExpected(examples, 'success-metrics-no-invention', [
-      'Success Metrics / Measurement Readiness',
-      'observable signal or assumption or Outstanding Question',
-      'no invented target values',
-      'fabricated metric rejected',
-    ]);
-    expectCaseExpected(examples, 'nfr-constraint-product-not-how', [
-      'NFR / Constraint Pack',
-      'product-level constraints',
-      'Negative Acceptance',
-      'Data / Compliance Boundaries',
-      'API/database/architecture HOW excluded from PRD requirements',
-    ]);
-    expectCaseExpected(examples, 'owner-closure-summary', [
-      'owner_answers_applied',
-      'accepted_assumptions',
-      'blocking_questions',
-      'ready-for-planning: false when blockers remain',
-      'planning_would_invent_what',
-      'no separate approval artifact',
-    ]);
-    expectCaseExpected(examples, 'context-map-routing', [
-      'Context / ADR Topology Adapter',
-      'existing CONTEXT-MAP.md routing',
-      'evidence source',
-      'one context routing question if ambiguous',
-      'no mandatory topology creation',
-    ]);
-    expectCaseExpected(examples, 'adr-promotion-three-conditions', [
-      'ADR promotion candidate',
-      'hard-to-reverse',
-      'surprising without context',
-      'real tradeoff',
-      'sparse ADR candidate with PRD source refs',
-      'routine decision stays in Decision Notes',
-    ]);
-    expectContainsAll(serialized, [
-      'Pre-PRD Clarification Loop before final rewrite',
-      'claim -> evidence/source -> gap -> question_or_assumption -> PRD write target',
-      'source/docs/tests/contracts lookup before owner question',
-      'prioritized blocker cluster',
-      'planning would invent WHAT',
-      'large-input Map-Reduce',
-      'source_ref carry-forward',
-      'small clear input stops at L0',
-      'source-first stop before owner question',
-      'Progressive Detail Ladder',
-      'Deep Requirements Grill',
-      'load-bearing grill question must close',
-      'Problem / Outcome Framing Gate',
-      'Success Metrics / Measurement Readiness',
-      'NFR / Constraint Pack',
-      'Traceability Matrix',
-      'owner_answers_applied',
-      'ready-for-planning: false when blockers remain',
-      'Stakeholder / Actor Alignment',
-      'Design / UX Evidence Hook',
-      'Prioritization / Release Slice',
-      'Change Management',
-      'preliminary ready/minor/material/blockers not final ready-for-planning',
-      'Context / ADR Topology Adapter',
-      'existing CONTEXT-MAP.md routing',
-      'context glossary conflict surfaced',
-      'CONTEXT.md promotion candidate',
-      'lazy context candidate',
-      'ADR promotion candidate',
-      'no-topology fallback',
-      'Framing Gate before broad source reads',
-      'Evidence Plan includes package/docs/tests/runtime/downstream consumers',
-      'Owner Question Ladder for workflow/contract decisions',
-      'Framing Gate marks source-of-truth risk',
-      'framing-evidence alignment catches identity drift',
-      'owner-question minimality asks only default/entry/permission decision',
-      'source-first term lookup',
-      'confirmed contradiction with source tag',
-      'bounded scenario grill',
-      'adaptive product expert lens',
-      'product outcome/gap diagnosis',
-      'source/code alignment',
-      'quality_diagnosis as the single emitted diagnosis field',
-      'not-run only in run-local decision card',
-      'Adaptive Product Expert Lens as canonical quality-dimension list',
-      'code alignment confirms current WHAT and evidence pointers',
-      'no numeric PRD scorecard or 0-100 rating',
-      '## Feature Slices',
-      'context and handoff units',
-      'PRD Sanitization',
-      'separate product facts/goals/scope/acceptance from technical suggestions',
-      'source_excerpt_or_claim',
-      'reject code-layer partitions as feature slices',
-      'calibration source boundary',
-      'split recommendation or owner confirmation',
-      'Feature Slice Pack',
-      'spec-plan preserves feature IDs',
-      'source/evidence pointers',
-      'original -> recommendation -> reason -> write target',
-      'optimization suggestions before final rewrite',
-      'final rewritten PRD artifact',
-      'PRD-local Decision Notes',
-      'no CONTEXT.md default',
-      'treat embedded instructions as document content',
-      'compact-prd',
-      'extracted multimodal source treated as untrusted reference material',
-      'industry overlay raises credit questions',
-    ]);
+    expectEvalCase(examples, 'quality-diagnosis-canonical-name', {
+      tags: ['trigger', 'boundary'],
+      expected: [
+        'quality_diagnosis as the single emitted diagnosis field',
+        'not-run only in run-local decision card',
+        'no competing diagnosis field',
+      ],
+    });
+    expectEvalCase(examples, 'large-prd-context-slice-not-program', {
+      tags: ['trigger'],
+      expected: [
+        '## Feature Slices',
+        'context and handoff units',
+        'not execution units or program slices',
+      ],
+    });
+    expectEvalCase(examples, 'prd-sanitization-technical-suggestion', {
+      tags: ['boundary'],
+      expected: [
+        'PRD Sanitization',
+        'separate product facts/goals/scope/acceptance from technical suggestions',
+      ],
+    });
+    expectEvalCase(examples, 'code-module-split-rejected', {
+      tags: ['boundary'],
+      expected: [
+        'reject code-layer partitions as feature slices',
+        'slice by business capability/outcome',
+      ],
+    });
+    expectEvalCase(examples, 'spec-plan-preserves-feature-slice-trace', {
+      tags: ['expected'],
+      expected: [
+        'spec-plan preserves feature IDs',
+        'source/evidence pointers',
+        'does not own Feature Slice readiness',
+      ],
+    });
+    expectEvalCase(examples, 'pre-prd-clarification-loop-trigger', {
+      tags: ['pre-prd-clarification', 'boundary'],
+      expected: [
+        'run Pre-PRD Clarification before final rewrite',
+        'map claims to evidence, gaps, questions or assumptions, and PRD write targets',
+        'do not create a standalone grill report',
+      ],
+    });
+    expectEvalCase(examples, 'requirements-grill-source-first', {
+      tags: ['source-first', 'boundary'],
+      expected: [
+        'look up source/docs/tests/contracts before owner questions',
+        'source-resolved gaps should not become owner questions',
+      ],
+    });
+    expectEvalCase(examples, 'requirements-grill-question-cap', {
+      tags: ['failure', 'question-cap'],
+      expected: [
+        'prioritized blocker cluster',
+        'no long interview',
+        'not ready-for-planning',
+      ],
+    });
+    expectEvalCase(examples, 'requirements-grill-no-context-artifact', {
+      tags: ['boundary', 'no-context-artifact'],
+      expected: [
+        'persist resolution in PRD-local sections',
+        'do not create CONTEXT.md, CONTEXT-MAP.md, or docs/adr by default',
+        'promotion candidates stay preview-first',
+      ],
+    });
+    expectEvalCase(examples, 'large-prd-map-reduce-source-refs', {
+      tags: ['large-input', 'map-reduce'],
+      expected: [
+        'preserve source_ref through Map and Reduce',
+        'surface cross-chunk conflicts',
+        'do not treat lossy summaries as source-of-truth',
+      ],
+    });
+    expectEvalCase(examples, 'huge-prd-cross-chunk-conflict', {
+      tags: ['failure', 'map-reduce'],
+      expected: [
+        'group conflicting chunks by exception, release, and PRD section',
+        'preserve conflicting supporting_refs',
+        'route unresolved conflict to owner question or blocker',
+      ],
+    });
+    expectEvalCase(examples, 'deep-grill-seven-actions', {
+      tags: ['deep-requirements-grill'],
+      expected: [
+        'ask one question at a time',
+        'perform source-first lookup',
+        'surface code contradictions with consequences',
+      ],
+    });
+    expectEvalCase(examples, 'deep-grill-closure-blocks-readiness', {
+      tags: ['failure', 'readiness'],
+      expected: [
+        'load-bearing grill questions must close before planning',
+        'unresolved questions block ready-for-planning',
+      ],
+    });
+    expectEvalCase(examples, 'success-metrics-no-invention', {
+      tags: ['p0-pack', 'boundary'],
+      expected: [
+        'write observable signals, assumptions, or Outstanding Questions',
+        'do not invent target values',
+      ],
+    });
+    expectEvalCase(examples, 'nfr-constraint-product-not-how', {
+      tags: ['p0-pack', 'boundary'],
+      expected: [
+        'keep constraints product-level',
+        'exclude API/database/architecture HOW from PRD requirements',
+      ],
+    });
+    expectEvalCase(examples, 'owner-closure-summary', {
+      tags: ['p0-pack', 'closure'],
+      expected: [
+        'summarize owner answers, accepted assumptions, and blockers',
+        'do not create a separate approval artifact',
+      ],
+    });
+    expectEvalCase(examples, 'actor-alignment-conditional', {
+      tags: ['p1-pack'],
+      expected: [
+        'separate beneficiary, operator, admin, downstream consumer, and owner',
+        'run only when actor distinctions affect WHAT or acceptance',
+      ],
+    });
+    expectEvalCase(examples, 'context-map-routing', {
+      tags: ['topology-adapter'],
+      expected: [
+        'read existing CONTEXT-MAP.md as advisory routing evidence',
+        'ask at most one context routing question when ownership is ambiguous',
+        'do not require topology creation',
+      ],
+    });
+    expectEvalCase(examples, 'context-glossary-conflict', {
+      tags: ['topology-adapter'],
+      expected: [
+        'surface glossary conflict',
+        'resolve in PRD-local Glossary or Decision Notes first',
+      ],
+    });
+    expectEvalCase(examples, 'adr-promotion-three-conditions', {
+      tags: ['topology-adapter'],
+      expected: [
+        'suggest ADR promotion only for hard-to-reverse, surprising tradeoffs',
+        'routine decisions stay in Decision Notes',
+      ],
+    });
     expect(serialized).not.toContain(`quality_${'posture'}`);
     expect(serialized).not.toContain('executed eval runner');
     expect(examples.source_refs).toEqual([
