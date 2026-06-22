@@ -1,119 +1,137 @@
 #!/usr/bin/env node
 'use strict';
 
-const { spawnSync } = require('node:child_process');
-const fs = require('node:fs');
-const path = require('node:path');
-
-// Codex writes the hook event payload to stdin and treats a broken stdin pipe as hook
-// failure. Drain it even though this hook currently needs only cwd/project files.
-try {
-  fs.readFileSync(0, 'utf8');
-} catch {
-  // Best effort: malformed or unavailable stdin should not block SessionStart.
-}
-
-const projectDir = process.env.CODEX_PROJECT_DIR || process.cwd();
-const instructionPath = path.join(projectDir, 'AGENTS.md');
-const SPEC_FIRST_CLI_PATH = "__SPEC_FIRST_CLI_PATH__";
-const BOOTSTRAP_START = '<!-- spec-first:bootstrap:start -->';
-const BOOTSTRAP_END = '<!-- spec-first:bootstrap:end -->';
-const missingMessage = [
+const FALLBACK_CONTEXT = [
   '[spec-first] using-spec-first SessionStart injection',
-  'Managed using-spec-first bootstrap is missing from `AGENTS.md`.',
-  'Run `spec-first init` in this project and choose Codex when prompted to restore the managed bootstrap block.',
+  'Managed using-spec-first bootstrap could not be inspected from `AGENTS.md`.',
+  'Run `spec-first doctor --codex` in this project to inspect the managed SessionStart hook.',
 ].join('\n');
 
-let additionalContext = missingMessage;
-// Read via try/catch (not existsSync + read) so an unreadable file (EACCES/EISDIR)
-// or a TOCTOU delete degrades to a pointer instead of throwing and aborting the hook.
-const instructionBody = readInstructionBody(instructionPath);
-if (instructionBody !== null) {
-  const startIdx = instructionBody.indexOf(BOOTSTRAP_START);
-  const endIdx = instructionBody.indexOf(BOOTSTRAP_END);
+main().catch(() => {
+  writeHookOutput(FALLBACK_CONTEXT);
+});
 
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    // AGENTS.md already carries the managed bootstrap block; inject a short pointer.
-    additionalContext = [
-      '[spec-first] using-spec-first SessionStart injection',
-      "Workflow entry governance is active in this repo's AGENTS.md (using-spec-first managed block): route substantial work through a public $spec-* workflow before non-trivial or risky edits, and in a parent multi-repo workspace keep writes within an explicit target_repo.",
-      'Full routing policy: skills/using-spec-first/SKILL.md.',
-    ].join('\n');
+async function main() {
+  // Dynamic import keeps this extensionless hook runnable in both CommonJS and
+  // `"type":"module"` projects.
+  const { spawnSync } = await import('node:child_process');
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+
+  // Codex writes the hook event payload to stdin and treats a broken stdin pipe as hook
+  // failure. Drain it even though this hook currently needs only cwd/project files.
+  try {
+    fs.readFileSync(0, 'utf8');
+  } catch {
+    // Best effort: malformed or unavailable stdin should not block SessionStart.
   }
-}
 
-if (additionalContext === missingMessage && instructionBody !== null) {
-  additionalContext = [
+  const projectDir = process.env.CODEX_PROJECT_DIR || process.cwd();
+  const instructionPath = path.join(projectDir, 'AGENTS.md');
+  const SPEC_FIRST_CLI_PATH = "__SPEC_FIRST_CLI_PATH__";
+  const BOOTSTRAP_START = '<!-- spec-first:bootstrap:start -->';
+  const BOOTSTRAP_END = '<!-- spec-first:bootstrap:end -->';
+  const missingMessage = [
     '[spec-first] using-spec-first SessionStart injection',
-    'Managed using-spec-first bootstrap markers are missing or incomplete in `AGENTS.md`.',
+    'Managed using-spec-first bootstrap is missing from `AGENTS.md`.',
     'Run `spec-first init` in this project and choose Codex when prompted to restore the managed bootstrap block.',
   ].join('\n');
-}
 
-const startupReminder = readStartupReminder(projectDir);
-if (startupReminder) {
-  additionalContext = [
-    additionalContext,
-    '',
-    startupReminder,
-  ].join('\n');
-}
+  let additionalContext = missingMessage;
+  // Read via try/catch (not existsSync + read) so an unreadable file (EACCES/EISDIR)
+  // or a TOCTOU delete degrades to a pointer instead of throwing and aborting the hook.
+  const instructionBody = readInstructionBody(instructionPath);
+  if (instructionBody !== null) {
+    const startIdx = instructionBody.indexOf(BOOTSTRAP_START);
+    const endIdx = instructionBody.indexOf(BOOTSTRAP_END);
 
-process.stdout.write(JSON.stringify({
-  hookSpecificOutput: {
-    hookEventName: 'SessionStart',
-    additionalContext,
-  },
-}));
-
-function readInstructionBody(filePath) {
-  try {
-    return fs.readFileSync(filePath, 'utf8');
-  } catch {
-    return null;
+    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+      // AGENTS.md already carries the managed bootstrap block; inject a short pointer.
+      additionalContext = [
+        '[spec-first] using-spec-first SessionStart injection',
+        "Workflow entry governance is active in this repo's AGENTS.md (using-spec-first managed block): route substantial work through a public $spec-* workflow before non-trivial or risky edits, and in a parent multi-repo workspace keep writes within an explicit target_repo.",
+        'Full routing policy: skills/using-spec-first/SKILL.md.',
+      ].join('\n');
+    }
   }
-}
 
-function readStartupReminder(cwd) {
-  try {
-    if (!isTrustedSpecFirstCliPath(SPEC_FIRST_CLI_PATH)) {
+  if (additionalContext === missingMessage && instructionBody !== null) {
+    additionalContext = [
+      '[spec-first] using-spec-first SessionStart injection',
+      'Managed using-spec-first bootstrap markers are missing or incomplete in `AGENTS.md`.',
+      'Run `spec-first init` in this project and choose Codex when prompted to restore the managed bootstrap block.',
+    ].join('\n');
+  }
+
+  const startupReminder = readStartupReminder(projectDir);
+  if (startupReminder) {
+    additionalContext = [
+      additionalContext,
+      '',
+      startupReminder,
+    ].join('\n');
+  }
+
+  writeHookOutput(additionalContext);
+
+  function readInstructionBody(filePath) {
+    try {
+      return fs.readFileSync(filePath, 'utf8');
+    } catch {
+      return null;
+    }
+  }
+
+  function readStartupReminder(cwd) {
+    try {
+      if (!isTrustedSpecFirstCliPath(SPEC_FIRST_CLI_PATH)) {
+        return '';
+      }
+
+      const result = spawnSync(process.execPath, [SPEC_FIRST_CLI_PATH, 'startup-reminder', '--codex'], {
+        cwd,
+        // Deliberate session-start latency cap. The child records its cooldown only after a
+        // successful display, so on a dead/slow network it re-spawns every session — a larger
+        // timeout would block every offline session-start by that much. The reminder is a
+        // best-effort cosmetic notice and still completes on a healthy network (~600ms).
+        encoding: 'utf8',
+        timeout: 1200,
+      });
+
+      if (result.error || result.status !== 0 || typeof result.stdout !== 'string') {
+        return '';
+      }
+
+      return result.stdout.trim();
+    } catch {
       return '';
     }
+  }
 
-    const result = spawnSync(process.execPath, [SPEC_FIRST_CLI_PATH, 'startup-reminder', '--codex'], {
-      cwd,
-      // Deliberate session-start latency cap. The child records its cooldown only after a
-      // successful display, so on a dead/slow network it re-spawns every session — a larger
-      // timeout would block every offline session-start by that much. The reminder is a
-      // best-effort cosmetic notice and still completes on a healthy network (~600ms).
-      encoding: 'utf8',
-      timeout: 1200,
-    });
-
-    if (result.error || result.status !== 0 || typeof result.stdout !== 'string') {
-      return '';
+  function isTrustedSpecFirstCliPath(cliPath) {
+    if (
+      typeof cliPath !== 'string'
+      || cliPath.length === 0
+      || cliPath === '__SPEC_FIRST_CLI_PATH__'
+      || !path.isAbsolute(cliPath)
+      || path.basename(cliPath) !== 'spec-first.js'
+    ) {
+      return false;
     }
 
-    return result.stdout.trim();
-  } catch {
-    return '';
+    try {
+      return fs.statSync(cliPath).isFile();
+    } catch {
+      return false;
+    }
   }
 }
 
-function isTrustedSpecFirstCliPath(cliPath) {
-  if (
-    typeof cliPath !== 'string'
-    || cliPath.length === 0
-    || cliPath === '__SPEC_FIRST_CLI_PATH__'
-    || !path.isAbsolute(cliPath)
-    || path.basename(cliPath) !== 'spec-first.js'
-  ) {
-    return false;
-  }
-
-  try {
-    return fs.statSync(cliPath).isFile();
-  } catch {
-    return false;
-  }
+function writeHookOutput(additionalContext) {
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'SessionStart',
+      additionalContext,
+    },
+  }));
 }

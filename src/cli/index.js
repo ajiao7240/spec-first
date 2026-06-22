@@ -34,7 +34,7 @@ async function runCli(argv) {
     return Promise.resolve(runStartupReminder(args.slice(1)));
   }
 
-  if (cmd === 'doctor' || cmd === 'init' || cmd === 'clean' || cmd === 'update') {
+  if (shouldRunVersionReminder(cmd, args.slice(1))) {
     await maybeShowVersionReminder({
       packageName: pkg.name,
       currentVersion: pkg.version,
@@ -77,6 +77,13 @@ async function runCli(argv) {
   console.error('Run `spec-first --help` to list available package CLI commands.');
   printHelp(true);
   return Promise.resolve(2);
+}
+
+function shouldRunVersionReminder(cmd, subcommandArgs) {
+  if (cmd !== 'doctor' && cmd !== 'init' && cmd !== 'clean' && cmd !== 'update') {
+    return false;
+  }
+  return !subcommandArgs.some((arg) => arg === '-h' || arg === '--help');
 }
 
 async function runStartupReminder(args) {

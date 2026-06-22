@@ -48,14 +48,17 @@ describe('spec-first update command', () => {
   test('successful npm install: calls installer once and refreshes runtime with fresh init', async () => {
     const { runInstall, calls } = makeInstaller({ status: 0, errorCode: null });
     const refresh = makeRuntimeRefresh({ status: 0, errorCode: null });
+    const clearVersionReminderCooldown = jest.fn();
     const { exitCode, stdout } = await captureUpdate([], {
       runInstall,
       runRuntimeRefresh: refresh.runRuntimeRefresh,
       resolveRuntimeRefreshCommand: () => ({ args: ['init', '-y'], cwd: '/repo' }),
+      clearVersionReminderCooldown,
     });
     expect(exitCode).toBe(0);
     expect(calls).toHaveLength(1);
     expect(refresh.calls).toEqual([{ args: ['init', '-y'], options: { cwd: '/repo' } }]);
+    expect(clearVersionReminderCooldown).toHaveBeenCalledTimes(1);
     expect(stdout).toContain('npm install -g spec-first@latest');
     expect(stdout).toContain('Refreshing runtime assets via: spec-first init -y');
     expect(stdout).toContain('Runtime refresh completed.');
@@ -124,17 +127,51 @@ describe('spec-first update command', () => {
   test('unknown refresh scope prints fallback commands without spawning init', async () => {
     const { runInstall } = makeInstaller({ status: 0, errorCode: null });
     const refresh = makeRuntimeRefresh({ status: 0, errorCode: null });
+    const clearVersionReminderCooldown = jest.fn();
     const { exitCode, stdout, stderr } = await captureUpdate([], {
       runInstall,
       runRuntimeRefresh: refresh.runRuntimeRefresh,
       resolveRuntimeRefreshCommand: () => ({ args: null, cwd: '/tmp', reason_code: 'scope-undetermined' }),
+      clearVersionReminderCooldown,
     });
 
     expect(exitCode).toBe(0);
     expect(refresh.calls).toHaveLength(0);
+    expect(clearVersionReminderCooldown).toHaveBeenCalledTimes(1);
     expect(stdout).toContain('Runtime refresh: skipped');
     expect(stderr).toContain('Single repo: spec-first init -y');
     expect(stderr).toContain('Parent workspace: spec-first init --all-repos -y');
+  });
+
+  test('successful update remains successful when version reminder cleanup fails', async () => {
+    const { runInstall } = makeInstaller({ status: 0, errorCode: null });
+    const refresh = makeRuntimeRefresh({ status: 0, errorCode: null });
+    const clearVersionReminderCooldown = jest.fn(() => {
+      throw new Error('cleanup failed');
+    });
+
+    const { exitCode, stdout } = await captureUpdate([], {
+      runInstall,
+      runRuntimeRefresh: refresh.runRuntimeRefresh,
+      resolveRuntimeRefreshCommand: () => ({ args: ['init', '-y'], cwd: '/repo' }),
+      clearVersionReminderCooldown,
+    });
+
+    expect(exitCode).toBe(0);
+    expect(clearVersionReminderCooldown).toHaveBeenCalledTimes(1);
+    expect(stdout).toContain('Runtime refresh completed.');
+  });
+
+  test('failed update does not clear the cli version reminder cooldown', async () => {
+    const { runInstall } = makeInstaller({ status: 1, errorCode: null });
+    const clearVersionReminderCooldown = jest.fn();
+    const { exitCode } = await captureUpdate([], {
+      runInstall,
+      clearVersionReminderCooldown,
+    });
+
+    expect(exitCode).not.toBe(0);
+    expect(clearVersionReminderCooldown).not.toHaveBeenCalled();
   });
 
   test('npm not found (ENOENT): explains npm is missing, exit non-zero', async () => {

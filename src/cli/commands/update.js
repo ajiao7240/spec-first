@@ -6,6 +6,9 @@ const {
   discoverChildGitRepos,
   findGitRoot,
 } = require('./init');
+const {
+  clearCliVersionReminderCooldown,
+} = require('../version-reminder');
 
 const PACKAGE_NAME = pkg.name;
 const UPGRADE_COMMAND = `npm install -g ${PACKAGE_NAME}@latest`;
@@ -39,6 +42,7 @@ async function runUpdate(argv, deps = {}) {
   const runInstall = deps.runInstall || defaultRunInstall;
   const runRuntimeRefresh = deps.runRuntimeRefresh || defaultRunRuntimeRefresh;
   const resolveRuntimeRefresh = deps.resolveRuntimeRefreshCommand || resolveRuntimeRefreshCommand;
+  const clearVersionReminderCooldown = deps.clearVersionReminderCooldown || clearCliVersionReminderCooldown;
   const cwd = deps.cwd || process.cwd();
 
   console.log(`Upgrading ${PACKAGE_NAME} via: ${UPGRADE_COMMAND}`);
@@ -88,6 +92,11 @@ async function runUpdate(argv, deps = {}) {
   console.log('');
   console.log('Note: if you installed spec-first as a Claude Code plugin (not via npm -g),');
   console.log('upgrade it with `claude plugin update` instead — npm -g manages a separate copy.');
+  try {
+    clearVersionReminderCooldown();
+  } catch {
+    // 缓存清理失败不能把成功升级变成失败命令。
+  }
   return 0;
 }
 

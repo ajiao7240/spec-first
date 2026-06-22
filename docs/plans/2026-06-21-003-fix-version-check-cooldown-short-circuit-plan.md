@@ -1,7 +1,7 @@
 ---
 title: "fix: 在 24h cooldown 内短路版本检查网络调用"
 type: fix
-status: active
+status: completed
 date: 2026-06-21
 spec_id: 2026-06-21-003-fix-version-check-cooldown-short-circuit
 origin: docs/brainstorms/2026-04-29-001-startup-version-update-reminder-requirements.md
@@ -300,3 +300,14 @@ implements_schemas: []
 - **已落地 timeout fix 的 prior art：** `docs/brainstorms/2026-06-01-001-spec-first-install-version-visibility-requirements.md`, `docs/plans/2026-06-01-001-feat-install-version-visibility-plan.md`
 - 相关代码：`src/cli/version-reminder.js`, `src/cli/index.js`, `templates/claude/hooks/session-start`, `templates/codex/hooks/session-start`, `tests/unit/version-reminder.sh`
 - Plan origin（范围决策）：本会话的 `/spec:brainstorm` 对话
+
+---
+
+## 完成证据
+
+- 实施范围：已落地到 `src/cli/version-reminder.js`, `src/cli/index.js`, `src/cli/commands/update.js`, `tests/unit/version-reminder.sh`, `tests/unit/version-reminder-contracts.test.js`, `tests/unit/cli-entry-contracts.test.js`, `tests/unit/update-contracts.test.js`, `docs/08-版本更新/README.md` 和 `CHANGELOG.md`。
+- 关键行为：`startup.claude` / `startup.codex` 与 `cli.package` scope 在 lookup 前 claim attempt；状态可写时使用短时本地 lock 避免同 scope 并发 lookup；`doctor` / `init` / `clean` / `update` 的子命令 `--help` / `-h` 不触发提醒、不写 CLI gate；成功 `spec-first update` 清理 CLI package gate。
+- 验证：`bash tests/unit/version-reminder.sh` 通过 96/96；`npx jest tests/unit/update-contracts.test.js tests/unit/cli-entry-contracts.test.js tests/unit/version-reminder-contracts.test.js --runInBand` 通过 30/30；`node --check src/cli/version-reminder.js && node --check src/cli/index.js && node --check src/cli/commands/update.js` 通过；`npm run typecheck` 通过 121 files；`npx jest tests/unit/changelog-format.test.js tests/unit/plan-status-taxonomy.test.js --runInBand` 通过 11/11；`npm run test:unit` 通过 154 suites / 1308 tests；`npm run test:smoke` 通过；`npm run test:integration` 通过 2 suites / 4 tests；`git diff --check` 通过。
+- 审查：`spec-code-review` 发现的子命令 help gate、完成证据中文化、并发 attempt gate 与覆盖缺口已逐项处理；最终代码审查结果以本轮收尾报告为准。
+- Generated runtime：未编辑 generated runtime mirrors；本计划未修改 hook templates 或 runtime generation。
+- Closeout artifact：上一轮记录为 `.spec-first/workflows/spec-work/spec-first/20260621-003-version-reminder-1782056866640/run.json`；本轮追加修复不依赖手改 runtime artifact。

@@ -160,9 +160,10 @@ assert_contains "formatted reminder includes upgrade hint" "npm install -g spec-
 
 echo "3. maybeShowVersionReminder"
 notify_output="$(
-  node - "$REPO_ROOT" <<'EOF'
+  node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
 const path = require('node:path');
 const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
 const { maybeShowVersionReminder } = require(path.join(repoRoot, 'src/cli/version-reminder'));
 
 (async () => {
@@ -170,6 +171,7 @@ const { maybeShowVersionReminder } = require(path.join(repoRoot, 'src/cli/versio
   const printed = await maybeShowVersionReminder({
     packageName: 'spec-first',
     currentVersion: '1.4.0',
+    homeRoot: path.join(tmpDir, 'home-notify'),
     lookupLatestVersion: async () => '1.4.1',
     output: {
       write(chunk) {
@@ -189,9 +191,10 @@ assert_contains "outdated reminder has update text" "Update available for spec-f
 assert_contains "outdated reminder has upgrade hint" "npm install -g spec-first@latest" "$notify_captured"
 
 skip_output="$(
-  node - "$REPO_ROOT" <<'EOF'
+  node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
 const path = require('node:path');
 const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
 const { maybeShowVersionReminder } = require(path.join(repoRoot, 'src/cli/version-reminder'));
 
 (async () => {
@@ -199,6 +202,7 @@ const { maybeShowVersionReminder } = require(path.join(repoRoot, 'src/cli/versio
   const printed = await maybeShowVersionReminder({
     packageName: 'spec-first',
     currentVersion: '1.4.0',
+    homeRoot: path.join(tmpDir, 'home-skip'),
     lookupLatestVersion: async () => '1.4.0',
     output: {
       write(chunk) {
@@ -215,6 +219,185 @@ skip_printed=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout
 skip_captured=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.captured);" "$skip_output")
 assert_output "current version does not print a reminder" "false" "$skip_printed"
 assert_output "current version prints no output" "" "$skip_captured"
+
+cli_gate_output="$(
+  node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
+const fs = require('node:fs');
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
+const { maybeShowVersionReminder } = require(path.join(repoRoot, 'src/cli/version-reminder'));
+
+(async () => {
+  const homeRoot = path.join(tmpDir, 'home-cli-gate');
+  const statePath = path.join(homeRoot, '.spec-first', 'version-reminder.json');
+  const nowMs = Date.parse('2026-06-21T00:00:00.000Z');
+  let calls = 0;
+  let captured = '';
+
+  const firstPrinted = await maybeShowVersionReminder({
+    packageName: 'spec-first',
+    currentVersion: '1.4.0',
+    homeRoot,
+    nowMs,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      calls += 1;
+      return '1.4.1';
+    },
+    output: { write(chunk) { captured += chunk; return true; } },
+  });
+
+  const secondPrinted = await maybeShowVersionReminder({
+    packageName: 'spec-first',
+    currentVersion: '1.4.0',
+    homeRoot,
+    nowMs: nowMs + 500,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      calls += 1;
+      return '9.9.9';
+    },
+    output: { write(chunk) { captured += chunk; return true; } },
+  });
+
+  const thirdPrinted = await maybeShowVersionReminder({
+    packageName: 'spec-first',
+    currentVersion: '1.4.0',
+    homeRoot,
+    nowMs: nowMs + 1001,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      calls += 1;
+      return '1.4.1';
+    },
+    output: { write(chunk) { captured += chunk; return true; } },
+  });
+
+  const state = fs.existsSync(statePath) ? fs.readFileSync(statePath, 'utf8') : '';
+  process.stdout.write(JSON.stringify({ firstPrinted, secondPrinted, thirdPrinted, calls, captured, state }));
+})();
+EOF
+)"
+cli_gate_first=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.firstPrinted));" "$cli_gate_output")
+cli_gate_second=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.secondPrinted));" "$cli_gate_output")
+cli_gate_third=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.thirdPrinted));" "$cli_gate_output")
+cli_gate_calls=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.calls));" "$cli_gate_output")
+cli_gate_state=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.state);" "$cli_gate_output")
+assert_output "cli reminder first attempt prints" "true" "$cli_gate_first"
+assert_output "cli reminder within window suppresses output" "false" "$cli_gate_second"
+assert_output "cli reminder after window checks again" "true" "$cli_gate_third"
+assert_output "cli reminder within window does not call lookup" "2" "$cli_gate_calls"
+assert_contains "cli reminder stores package scope attempt" '"cli.package"' "$cli_gate_state"
+
+cli_clear_gate_output="$(
+  node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
+const {
+  clearCliVersionReminderCooldown,
+  maybeShowVersionReminder,
+} = require(path.join(repoRoot, 'src/cli/version-reminder'));
+
+(async () => {
+  const homeRoot = path.join(tmpDir, 'home-cli-clear-gate');
+  const nowMs = Date.parse('2026-06-21T00:30:00.000Z');
+  let calls = 0;
+
+  const firstPrinted = await maybeShowVersionReminder({
+    packageName: 'spec-first',
+    currentVersion: '1.4.0',
+    homeRoot,
+    nowMs,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      calls += 1;
+      return '1.4.1';
+    },
+    output: { write() { return true; } },
+  });
+
+  clearCliVersionReminderCooldown({ homeRoot });
+
+  const secondPrinted = await maybeShowVersionReminder({
+    packageName: 'spec-first',
+    currentVersion: '1.4.0',
+    homeRoot,
+    nowMs: nowMs + 100,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      calls += 1;
+      return '1.4.1';
+    },
+    output: { write() { return true; } },
+  });
+
+  process.stdout.write(JSON.stringify({ firstPrinted, secondPrinted, calls }));
+})();
+EOF
+)"
+cli_clear_first=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.firstPrinted));" "$cli_clear_gate_output")
+cli_clear_second=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.secondPrinted));" "$cli_clear_gate_output")
+cli_clear_calls=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.calls));" "$cli_clear_gate_output")
+assert_output "cli clear starts with printed reminder" "true" "$cli_clear_first"
+assert_output "cli clear re-enables reminder within window" "true" "$cli_clear_second"
+assert_output "cli clear re-enables lookup within window" "2" "$cli_clear_calls"
+
+cli_failure_gate_output="$(
+  node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
+const fs = require('node:fs');
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
+const { maybeShowVersionReminder } = require(path.join(repoRoot, 'src/cli/version-reminder'));
+
+(async () => {
+  const homeRoot = path.join(tmpDir, 'home-cli-failure-gate');
+  const statePath = path.join(homeRoot, '.spec-first', 'version-reminder.json');
+  const nowMs = Date.parse('2026-06-21T01:00:00.000Z');
+  let calls = 0;
+  let stateAtLookup = '';
+
+  const firstPrinted = await maybeShowVersionReminder({
+    packageName: 'spec-first',
+    currentVersion: '1.4.0',
+    homeRoot,
+    nowMs,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      calls += 1;
+      stateAtLookup = fs.existsSync(statePath) ? fs.readFileSync(statePath, 'utf8') : '';
+      throw new Error('offline');
+    },
+    output: { write() { return true; } },
+  });
+
+  const secondPrinted = await maybeShowVersionReminder({
+    packageName: 'spec-first',
+    currentVersion: '1.4.0',
+    homeRoot,
+    nowMs: nowMs + 100,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      calls += 1;
+      return '9.9.9';
+    },
+    output: { write() { return true; } },
+  });
+
+  process.stdout.write(JSON.stringify({ firstPrinted, secondPrinted, calls, stateAtLookup }));
+})();
+EOF
+)"
+cli_failure_first=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.firstPrinted));" "$cli_failure_gate_output")
+cli_failure_second=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.secondPrinted));" "$cli_failure_gate_output")
+cli_failure_calls=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.calls));" "$cli_failure_gate_output")
+cli_failure_state_at_lookup=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stateAtLookup);" "$cli_failure_gate_output")
+assert_output "cli reminder failed lookup prints nothing" "false" "$cli_failure_first"
+assert_output "cli reminder failed lookup suppresses next attempt in window" "false" "$cli_failure_second"
+assert_output "cli reminder failed lookup is attempted once in window" "1" "$cli_failure_calls"
+assert_contains "cli reminder writes attempt before lookup failure" '"cli.package"' "$cli_failure_state_at_lookup"
 
 echo "4. startup reminder"
 startup_output="$(
@@ -369,6 +552,8 @@ function writeState(projectRoot) {
   const firstProject = path.join(tmpDir, 'cooldown-a');
   const secondProject = path.join(tmpDir, 'cooldown-b');
   const homeRoot = path.join(tmpDir, 'home-cooldown');
+  const nowMs = Date.parse('2026-06-21T02:00:00.000Z');
+  let lookupCalls = 0;
   writeState(firstProject);
   writeState(secondProject);
 
@@ -377,7 +562,12 @@ function writeState(projectRoot) {
     host: 'codex',
     projectRoot: firstProject,
     homeRoot,
-    lookupLatestVersion: async () => '1.6.2',
+    nowMs,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      lookupCalls += 1;
+      return '1.6.2';
+    },
     output: { write(chunk) { first += chunk; return true; } },
   });
 
@@ -386,7 +576,12 @@ function writeState(projectRoot) {
     host: 'codex',
     projectRoot: secondProject,
     homeRoot,
-    lookupLatestVersion: async () => '1.6.2',
+    nowMs: nowMs + 100,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      lookupCalls += 1;
+      return '1.6.2';
+    },
     output: { write(chunk) { second += chunk; return true; } },
   });
 
@@ -395,7 +590,12 @@ function writeState(projectRoot) {
     host: 'codex',
     projectRoot: secondProject,
     homeRoot,
-    lookupLatestVersion: async () => '1.6.3',
+    nowMs: nowMs + 200,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      lookupCalls += 1;
+      return '1.6.3';
+    },
     output: { write(chunk) { newer += chunk; return true; } },
   });
 
@@ -406,7 +606,12 @@ function writeState(projectRoot) {
     host: 'codex',
     projectRoot: secondProject,
     homeRoot,
-    lookupLatestVersion: async () => '1.6.2',
+    nowMs: nowMs + 300,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      lookupCalls += 1;
+      return '1.6.2';
+    },
     output: { write(chunk) { third += chunk; return true; } },
   });
 
@@ -415,6 +620,7 @@ function writeState(projectRoot) {
     secondPrinted,
     newerPrinted,
     thirdPrinted,
+    lookupCalls,
     first,
     second,
     newer,
@@ -427,10 +633,242 @@ cooldown_first=$(node -e "const data = JSON.parse(process.argv[1]); process.stdo
 cooldown_second=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.secondPrinted));" "$cooldown_output")
 cooldown_newer=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.newerPrinted));" "$cooldown_output")
 cooldown_third=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.thirdPrinted));" "$cooldown_output")
+cooldown_calls=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.lookupCalls));" "$cooldown_output")
 assert_output "first host/version startup reminder prints" "true" "$cooldown_first"
 assert_output "same host/version startup reminder is suppressed across projects" "false" "$cooldown_second"
-assert_output "newer latest version bypasses existing cooldown" "true" "$cooldown_newer"
+assert_output "newer latest version is suppressed within attempt window" "false" "$cooldown_newer"
 assert_output "reset clears startup reminder cooldown" "true" "$cooldown_third"
+assert_output "startup reminder within window does not call lookup" "2" "$cooldown_calls"
+
+startup_window_expiry_output="$(
+  node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
+const fs = require('node:fs');
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
+const { maybeShowStartupVersionReminder } = require(path.join(repoRoot, 'src/cli/version-reminder'));
+
+(async () => {
+  const projectRoot = path.join(tmpDir, 'startup-window-expiry');
+  const homeRoot = path.join(tmpDir, 'home-startup-window-expiry');
+  const nowMs = Date.parse('2026-06-21T03:00:00.000Z');
+  let calls = 0;
+  fs.mkdirSync(path.join(projectRoot, '.codex', 'spec-first'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, '.codex', 'spec-first', 'state.json'),
+    `${JSON.stringify({ manifestVersion: '1.6.1' })}\n`,
+    'utf8',
+  );
+
+  const firstPrinted = await maybeShowStartupVersionReminder({
+    host: 'codex',
+    projectRoot,
+    homeRoot,
+    nowMs,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      calls += 1;
+      return '1.6.2';
+    },
+    output: { write() { return true; } },
+  });
+
+  const secondPrinted = await maybeShowStartupVersionReminder({
+    host: 'codex',
+    projectRoot,
+    homeRoot,
+    nowMs: nowMs + 1001,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      calls += 1;
+      return '1.6.2';
+    },
+    output: { write() { return true; } },
+  });
+
+  process.stdout.write(JSON.stringify({ firstPrinted, secondPrinted, calls }));
+})();
+EOF
+)"
+startup_window_expiry_first=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.firstPrinted));" "$startup_window_expiry_output")
+startup_window_expiry_second=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.secondPrinted));" "$startup_window_expiry_output")
+startup_window_expiry_calls=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.calls));" "$startup_window_expiry_output")
+assert_output "startup reminder first attempt before expiry prints" "true" "$startup_window_expiry_first"
+assert_output "startup reminder after attempt window checks again" "true" "$startup_window_expiry_second"
+assert_output "startup reminder after window calls lookup again" "2" "$startup_window_expiry_calls"
+
+startup_failure_gate_output="$(
+  node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
+const fs = require('node:fs');
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
+const { maybeShowStartupVersionReminder } = require(path.join(repoRoot, 'src/cli/version-reminder'));
+
+(async () => {
+  const projectRoot = path.join(tmpDir, 'startup-failure-gate');
+  const homeRoot = path.join(tmpDir, 'home-startup-failure-gate');
+  const statePath = path.join(homeRoot, '.codex', 'spec-first', 'startup-version-reminder.json');
+  const nowMs = Date.parse('2026-06-21T04:00:00.000Z');
+  let calls = 0;
+  let stateAtLookup = '';
+  fs.mkdirSync(path.join(projectRoot, '.codex', 'spec-first'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, '.codex', 'spec-first', 'state.json'),
+    `${JSON.stringify({ manifestVersion: '1.6.1' })}\n`,
+    'utf8',
+  );
+
+  const firstPrinted = await maybeShowStartupVersionReminder({
+    host: 'codex',
+    projectRoot,
+    homeRoot,
+    nowMs,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      calls += 1;
+      stateAtLookup = fs.existsSync(statePath) ? fs.readFileSync(statePath, 'utf8') : '';
+      throw new Error('offline');
+    },
+    output: { write() { return true; } },
+  });
+
+  const secondPrinted = await maybeShowStartupVersionReminder({
+    host: 'codex',
+    projectRoot,
+    homeRoot,
+    nowMs: nowMs + 100,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      calls += 1;
+      return '1.6.2';
+    },
+    output: { write() { return true; } },
+  });
+
+  process.stdout.write(JSON.stringify({ firstPrinted, secondPrinted, calls, stateAtLookup }));
+})();
+EOF
+)"
+startup_failure_first=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.firstPrinted));" "$startup_failure_gate_output")
+startup_failure_second=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.secondPrinted));" "$startup_failure_gate_output")
+startup_failure_calls=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.calls));" "$startup_failure_gate_output")
+startup_failure_state_at_lookup=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stateAtLookup);" "$startup_failure_gate_output")
+assert_output "startup failed lookup prints nothing" "false" "$startup_failure_first"
+assert_output "startup failed lookup suppresses next attempt in window" "false" "$startup_failure_second"
+assert_output "startup failed lookup is attempted once in window" "1" "$startup_failure_calls"
+assert_contains "startup writes attempt before lookup failure" '"startup.codex"' "$startup_failure_state_at_lookup"
+
+scope_split_output="$(
+  node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
+const fs = require('node:fs');
+const path = require('node:path');
+const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
+const {
+  clearStartupVersionReminderCooldown,
+  maybeShowStartupVersionReminder,
+  maybeShowVersionReminder,
+} = require(path.join(repoRoot, 'src/cli/version-reminder'));
+
+function writeRuntime(projectRoot, host) {
+  fs.mkdirSync(path.join(projectRoot, `.${host}`, 'spec-first'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectRoot, `.${host}`, 'spec-first', 'state.json'),
+    `${JSON.stringify({ manifestVersion: '1.6.1' })}\n`,
+    'utf8',
+  );
+}
+
+(async () => {
+  const homeRoot = path.join(tmpDir, 'home-scope-split');
+  const codexProject = path.join(tmpDir, 'scope-split-codex');
+  const claudeProject = path.join(tmpDir, 'scope-split-claude');
+  const nowMs = Date.parse('2026-06-21T05:00:00.000Z');
+  let codexStartupCalls = 0;
+  let claudeStartupCalls = 0;
+  let cliCalls = 0;
+  writeRuntime(codexProject, 'codex');
+  writeRuntime(claudeProject, 'claude');
+
+  const codexStartupPrinted = await maybeShowStartupVersionReminder({
+    host: 'codex',
+    projectRoot: codexProject,
+    homeRoot,
+    nowMs,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      codexStartupCalls += 1;
+      return '1.6.2';
+    },
+    output: { write() { return true; } },
+  });
+
+  const cliPrinted = await maybeShowVersionReminder({
+    packageName: 'spec-first',
+    currentVersion: '1.4.0',
+    homeRoot,
+    nowMs: nowMs + 100,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      cliCalls += 1;
+      return '1.4.1';
+    },
+    output: { write() { return true; } },
+  });
+
+  const claudeStartupPrinted = await maybeShowStartupVersionReminder({
+    host: 'claude',
+    projectRoot: claudeProject,
+    homeRoot,
+    nowMs: nowMs + 200,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      claudeStartupCalls += 1;
+      return '1.6.2';
+    },
+    output: { write() { return true; } },
+  });
+
+  clearStartupVersionReminderCooldown({ host: 'codex', homeRoot });
+
+  const cliAfterStartupResetPrinted = await maybeShowVersionReminder({
+    packageName: 'spec-first',
+    currentVersion: '1.4.0',
+    homeRoot,
+    nowMs: nowMs + 300,
+    cooldownMs: 1000,
+    lookupLatestVersion: async () => {
+      cliCalls += 1;
+      return '1.4.1';
+    },
+    output: { write() { return true; } },
+  });
+
+  process.stdout.write(JSON.stringify({
+    codexStartupPrinted,
+    cliPrinted,
+    claudeStartupPrinted,
+    cliAfterStartupResetPrinted,
+    codexStartupCalls,
+    claudeStartupCalls,
+    cliCalls,
+  }));
+})();
+EOF
+)"
+scope_split_codex_startup=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.codexStartupPrinted));" "$scope_split_output")
+scope_split_cli=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.cliPrinted));" "$scope_split_output")
+scope_split_claude_startup=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.claudeStartupPrinted));" "$scope_split_output")
+scope_split_cli_after_reset=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.cliAfterStartupResetPrinted));" "$scope_split_output")
+scope_split_startup_calls=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write([data.codexStartupCalls,data.claudeStartupCalls].join(','));" "$scope_split_output")
+scope_split_cli_calls=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.cliCalls));" "$scope_split_output")
+assert_output "startup attempt does not suppress cli reminder" "true" "$scope_split_cli"
+assert_output "cli attempt does not suppress startup reminder" "true" "$scope_split_claude_startup"
+assert_output "startup scope split starts with codex reminder" "true" "$scope_split_codex_startup"
+assert_output "startup reset does not clear cli package gate" "false" "$scope_split_cli_after_reset"
+assert_output "startup scope split calls each startup lookup once" "1,1" "$scope_split_startup_calls"
+assert_output "startup reset leaves cli lookup suppressed" "1" "$scope_split_cli_calls"
 
 future_cooldown_output="$(
   node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
@@ -798,9 +1236,11 @@ mkdir -p "$project_dir"
 
 doctor_output="$(
   cd "$project_dir"
-  SPEC_FIRST_VERSION_REMINDER_LATEST="9.9.9" node - "$REPO_ROOT" <<'EOF'
+  SPEC_FIRST_VERSION_REMINDER_LATEST="9.9.9" node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
+const os = require('node:os');
 const path = require('node:path');
 const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
 const { runCli } = require(path.join(repoRoot, 'src/cli'));
 
 (async () => {
@@ -815,6 +1255,8 @@ const { runCli } = require(path.join(repoRoot, 'src/cli'));
     stderr += chunk;
     return true;
   };
+  os.userInfo = () => ({ homedir: path.join(tmpDir, 'home-runcli') });
+  os.homedir = () => path.join(tmpDir, 'home-runcli');
 
   const exitCode = await runCli(['doctor']);
 
@@ -833,9 +1275,11 @@ assert_contains "doctor prints reminder" "Update available for spec-first" "$doc
 
 init_output="$(
   cd "$project_dir"
-  SPEC_FIRST_VERSION_REMINDER_LATEST="9.9.9" node - "$REPO_ROOT" <<'EOF'
+  SPEC_FIRST_VERSION_REMINDER_LATEST="9.9.9" node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
+const os = require('node:os');
 const path = require('node:path');
 const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
 const { runCli } = require(path.join(repoRoot, 'src/cli'));
 
 (async () => {
@@ -850,6 +1294,8 @@ const { runCli } = require(path.join(repoRoot, 'src/cli'));
     stderr += chunk;
     return true;
   };
+  os.userInfo = () => ({ homedir: path.join(tmpDir, 'home-runcli') });
+  os.homedir = () => path.join(tmpDir, 'home-runcli');
 
   const exitCode = await runCli(['init', '--bogus']);
 
@@ -863,15 +1309,17 @@ init_exit=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.wr
 init_stdout=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stdout);" "$init_output")
 init_stderr=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stderr);" "$init_output")
 assert_output "init exits 2 for unsupported flags" "2" "$init_exit"
-assert_contains "init prints reminder" "Update available for spec-first" "$init_stderr"
+assert_not_contains "init reminder is suppressed by cli package gate" "Update available for spec-first" "$init_stderr"
 assert_contains "init rejects unsupported flags" "unknown option --bogus" "$init_stderr"
 assert_output "init does not generate runtime assets from unsupported flags" "" "$init_stdout"
 
 clean_output="$(
   cd "$project_dir"
-  SPEC_FIRST_VERSION_REMINDER_LATEST="9.9.9" node - "$REPO_ROOT" <<'EOF'
+  SPEC_FIRST_VERSION_REMINDER_LATEST="9.9.9" node - "$REPO_ROOT" "$TMP_DIR" <<'EOF'
+const os = require('node:os');
 const path = require('node:path');
 const repoRoot = process.argv[2];
+const tmpDir = process.argv[3];
 const { runCli } = require(path.join(repoRoot, 'src/cli'));
 
 (async () => {
@@ -886,6 +1334,8 @@ const { runCli } = require(path.join(repoRoot, 'src/cli'));
     stderr += chunk;
     return true;
   };
+  os.userInfo = () => ({ homedir: path.join(tmpDir, 'home-runcli') });
+  os.homedir = () => path.join(tmpDir, 'home-runcli');
 
   const exitCode = await runCli(['clean', '--claude']);
 
@@ -898,7 +1348,7 @@ EOF
 clean_exit=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(String(data.exitCode));" "$clean_output")
 clean_stderr=$(node -e "const data = JSON.parse(process.argv[1]); process.stdout.write(data.stderr);" "$clean_output")
 assert_output "clean exits successfully" "0" "$clean_exit"
-assert_contains "clean prints reminder" "Update available for spec-first" "$clean_stderr"
+assert_not_contains "clean reminder is suppressed by cli package gate" "Update available for spec-first" "$clean_stderr"
 
 echo ""
 echo "=== Results ==="

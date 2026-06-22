@@ -26,6 +26,64 @@ function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'spec-first-cli-entry-'));
 }
 
+async function captureRunCliInProcess(args, options = {}) {
+  const { runCli: runCliInProcess } = require('../../src/cli');
+  const stdoutChunks = [];
+  const stderrChunks = [];
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalStdoutWrite = process.stdout.write;
+  const originalStderrWrite = process.stderr.write;
+  const originalUserInfo = os.userInfo;
+  const originalHomedir = os.homedir;
+  const envKeys = Object.keys(options.env || {});
+  const previousEnv = {};
+
+  for (const key of envKeys) {
+    previousEnv[key] = process.env[key];
+    process.env[key] = options.env[key];
+  }
+
+  if (options.home) {
+    os.userInfo = () => ({ homedir: options.home });
+    os.homedir = () => options.home;
+  }
+
+  console.log = (message = '') => stdoutChunks.push(`${String(message)}\n`);
+  console.error = (message = '') => stderrChunks.push(`${String(message)}\n`);
+  process.stdout.write = (chunk) => {
+    stdoutChunks.push(String(chunk));
+    return true;
+  };
+  process.stderr.write = (chunk) => {
+    stderrChunks.push(String(chunk));
+    return true;
+  };
+
+  try {
+    const status = await runCliInProcess(args);
+    return {
+      status,
+      stdout: stdoutChunks.join(''),
+      stderr: stderrChunks.join(''),
+    };
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+    process.stdout.write = originalStdoutWrite;
+    process.stderr.write = originalStderrWrite;
+    os.userInfo = originalUserInfo;
+    os.homedir = originalHomedir;
+    for (const key of envKeys) {
+      if (previousEnv[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = previousEnv[key];
+      }
+    }
+  }
+}
+
 describe('CLI entry contract', () => {
   test('help exits successfully and advertises supported package commands', () => {
     const result = runCli(['--help']);
@@ -73,6 +131,31 @@ describe('CLI entry contract', () => {
     expect(result.stdout).toContain('--all-repos');
     expect(result.stdout).toContain('--repo <path>');
     expect(result.stdout).toContain('--dry-run');
+  });
+
+  test('subcommand help does not consume the package version reminder gate', async () => {
+    const home = makeTempDir();
+    const statePath = path.join(home, '.spec-first', 'version-reminder.json');
+
+    try {
+      for (const command of ['doctor', 'init', 'clean', 'update']) {
+        for (const helpFlag of ['--help', '-h']) {
+          const result = await captureRunCliInProcess([command, helpFlag], {
+            home,
+            env: {
+              SPEC_FIRST_VERSION_REMINDER_LATEST: '9.9.9',
+            },
+          });
+
+          expect(result.status).toBe(0);
+          expect(result.stderr).not.toContain('Update available for spec-first');
+        }
+      }
+
+      expect(fs.existsSync(statePath)).toBe(false);
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
   });
 
   test('init --all-repos dry-run uses the real CLI parser from a parent workspace', () => {

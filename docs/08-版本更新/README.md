@@ -9,6 +9,7 @@
 
 | 日期 | 类型 | 主题 | 价值 |
 |------|------|------|------|
+| 2026-06-21 | fix | `version-reminder-cooldown-short-circuit` | 版本提醒在 startup host scope 与 CLI package scope 内都会先检查 24h attempt gate，再决定是否触达网络；断网、慢网、已是最新或已提示都会暂停同 scope 的重复 lookup，startup 与 CLI 互不抑制，成功 `spec-first update` 会清理 CLI gate |
 | 2026-06-15 | refactor | `retire-coding-guidelines-block` | `spec-first init` 不再向 `CLAUDE.md` / `AGENTS.md` 注入 `coding-guidelines` managed block；`init` / `clean` 仍会清除存量与孤立 block，`doctor` 移除对应检查项，`coding-guidelines` 模块瘦身为 removal-only，执行姿势交还给项目自身 instruction 维护，managed 区收敛为 `lang` → `bootstrap` 两层 |
 | 2026-05-13 | refactor | `init-bootstrap-context-router` | 将 `spec-first init` 写入 `CLAUDE.md` / `AGENTS.md` 的 `spec-first:bootstrap` managed block 收敛为轻量 context router：根入口文档只保留 workflow 触发提醒、当前 host 入口边界、父 workspace 写入安全线、Codex startup/dispatch 边界和常用锚点，完整路由策略继续由 `skills/using-spec-first/SKILL.md` 维护 |
 | 2026-04-21 | docs | `bootstrap-database-handoff-doc-sync` | 同步刷新 `spec-graph-bootstrap` source/mirror skill、solution learning 与 contract test 的数据库 handoff 口径：明确 `database-routing.json` 中 `candidate_readiness` 才是主信息面板，顶层 `recommended_action` / `blockers[]` 只是 compatibility projection，避免 prompt / 文档继续沿用旧的 route/fallback/provenance 真源叙事 |
@@ -2140,24 +2141,32 @@ Codex 侧的 `spec-first init` 曾短暂生成 `/spec:*` compatibility command f
 
 ### 更新内容
 
-在执行 `doctor`、`init`、`clean` 等真实命令前，CLI 会异步向 npm registry 查询 `spec-first` 的最新版本，若当前版本落后则通过 stderr 输出一行更新提醒。`--help` 和 `--version` 不触发检查，避免打扰只需信息查询的场景。
+在执行 `doctor`、`init`、`clean`、`update` 等真实命令前，CLI 会先经过 package-level 24h gate；gate 允许时再异步向 npm registry 查询 `spec-first` 的最新版本，若当前版本落后则通过 stderr 输出一行更新提醒。`--help` 和 `--version` 不触发检查，避免打扰只需信息查询的场景。会话启动路径还会通过 `startup-reminder` 对 Claude/Codex runtime 版本做只读提醒。
 
 ### 主要能力
 
 - 版本比较实现零依赖：
   内置 `compareVersions` / `parseVersion`，完整支持 semver 核心版本号与预发布标识（`-beta.1` 等），无需引入 semver 包
 - 查询有超时保护：
-  默认 350 ms 超时，超时或网络失败时静默跳过，不阻塞命令执行
+  默认 2000 ms 超时，超时或网络失败时静默跳过，不阻塞命令执行
+- 网络调用前有 24h attempt gate：
+  startup reminder 使用 host scope（`startup.claude` / `startup.codex`）并写入 `~/.claude/spec-first/startup-version-reminder.json` 或 `~/.codex/spec-first/startup-version-reminder.json`；CLI reminder 使用 package scope（`cli.package`）并写入 `~/.spec-first/version-reminder.json`。每个 scope 内的任意 attempt 结果都会暂停 24h 内重复 lookup，包括已提示、已是最新、网络失败或慢网超时前的 attempt。状态可写时，同 scope attempt 会先通过短时本地 lock 完成 claim，避免并发进程同时进入 lookup。
+- startup 与 CLI scope 分离：
+  后台 startup/offline attempt 不会抑制用户显式运行的 `doctor` / `update` 检查；CLI attempt 也不会抑制后续 session-start startup 检查。成功执行 `spec-first update` 后会清理 CLI package gate。
 - 支持测试环境 override：
   通过 `SPEC_FIRST_VERSION_REMINDER_LATEST` 环境变量注入版本，测试无需真实网络请求
 - 提醒输出到 stderr：
   不干扰命令的 stdout 输出，脚本管道场景不受影响
 
+### 节流边界
+
+这次节流保护的是网络 lookup 成本和慢网延迟，不承诺 session-start hook 在 cooldown 内完全不启动 helper 进程。现有 1200 ms session-start spawn cap 是有意的启动延迟保护；runtime drift detection 仍由 `doctor` / `init` 负责，不放进 session-start 检查。代价是全新 release 最多可能延迟一个窗口才提示，一次临时离线也会让同 scope 检查暂停一个窗口。短时 lock 只保护状态目录可写的本地并发；若 lock/state 不可写，提醒逻辑会 fail-open，不阻断真实 CLI 命令。
+
 ### 交付物
 
 - `src/cli/version-reminder.js` — 版本查询、比较、格式化与提醒核心逻辑
-- `src/cli/index.js` — 集成点，真实命令前 await 提醒检查
-- `tests/unit/version-reminder.sh` — 覆盖版本比较、格式化、CLI 接线、静默超时等场景
+- `src/cli/index.js` — 集成点，真实命令前 await 提醒检查；子命令 `--help` / `-h` 跳过提醒 gate
+- `tests/unit/version-reminder.sh` 与 `tests/unit/version-reminder-contracts.test.js` — 覆盖版本比较、格式化、attempt gate、并发 lock、CLI 接线、静默超时等场景
 
 ### 版本意义
 

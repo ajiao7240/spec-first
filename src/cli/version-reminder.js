@@ -4,9 +4,12 @@ const path = require('node:path');
 
 const { getAdapter } = require('./adapters');
 
-const STARTUP_REMINDER_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const VERSION_REMINDER_ATTEMPT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const STARTUP_REMINDER_COOLDOWN_MS = VERSION_REMINDER_ATTEMPT_COOLDOWN_MS;
+const CLI_VERSION_REMINDER_SCOPE = 'cli.package';
 const UNKNOWN_RUNTIME_VERSION = 'unknown-runtime-version';
 const DEFAULT_VERSION_REMINDER_TIMEOUT_MS = 2000;
+const REMINDER_ATTEMPT_LOCK_STALE_MS = 5 * 60 * 1000;
 
 // 默认网络超时；可经 SPEC_FIRST_VERSION_REMINDER_TIMEOUT_MS 覆盖(慢网调大、CI 调小)。
 // 350ms 曾导致在常见网络下查询 registry.npmjs.org(实测约 630ms)每次静默超时,提醒形同虚设。
@@ -37,8 +40,16 @@ async function maybeShowVersionReminder(options = {}) {
     timeoutMs = resolveVersionReminderTimeoutMs(),
     lookupLatestVersion = defaultLookupLatestVersion,
   } = options;
+  const nowMs = Number.isFinite(options.nowMs) ? options.nowMs : Date.now();
+  const cooldownMs = Number.isFinite(options.cooldownMs)
+    ? options.cooldownMs
+    : VERSION_REMINDER_ATTEMPT_COOLDOWN_MS;
 
   if (!packageName || !currentVersion) {
+    return false;
+  }
+
+  if (!claimCliVersionReminderAttempt({ nowMs, cooldownMs }, options)) {
     return false;
   }
 
@@ -109,6 +120,10 @@ async function buildStartupVersionReminder(options = {}) {
   const runtime = resolveCurrentRuntimeVersion({ host, projectRoot });
 
   if (!runtime.runtimeExists) {
+    return null;
+  }
+
+  if (!claimStartupVersionReminderAttempt({ host, nowMs, cooldownMs }, options)) {
     return null;
   }
 
@@ -286,6 +301,107 @@ function isStartupReminderCooldownActive({ host, key, nowMs, cooldownMs }, optio
   return nowMs - shownAtMs < cooldownMs;
 }
 
+function claimStartupVersionReminderAttempt({ host, nowMs, cooldownMs }, options = {}) {
+  return claimReminderAttempt({
+    statePath: getStartupReminderStatePath(host, options),
+    scope: buildStartupAttemptScope(host),
+    nowMs,
+    cooldownMs,
+  });
+}
+
+function claimCliVersionReminderAttempt({ nowMs, cooldownMs }, options = {}) {
+  return claimReminderAttempt({
+    statePath: getCliVersionReminderStatePath(options),
+    scope: CLI_VERSION_REMINDER_SCOPE,
+    nowMs,
+    cooldownMs,
+  });
+}
+
+function claimReminderAttempt({ statePath, scope, nowMs, cooldownMs }) {
+  const lockPath = getReminderAttemptLockPath(statePath, scope);
+  const lockStatus = acquireReminderAttemptLock(lockPath);
+  if (lockStatus === 'busy') {
+    return false;
+  }
+  if (lockStatus === 'unavailable') {
+    return true;
+  }
+
+  try {
+    const state = readReminderStateFile(statePath);
+    if (isReminderAttemptCooldownActive({ state, scope, nowMs, cooldownMs })) {
+      return false;
+    }
+    recordReminderAttempt(state, { scope, nowMs });
+    writeReminderStateFile(statePath, state);
+    return true;
+  } catch {
+    return true;
+  } finally {
+    releaseReminderAttemptLock(lockPath);
+  }
+}
+
+function acquireReminderAttemptLock(lockPath) {
+  try {
+    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+    fs.mkdirSync(lockPath);
+    return 'acquired';
+  } catch (error) {
+    if (!error || error.code !== 'EEXIST') {
+      return 'unavailable';
+    }
+  }
+
+  if (!isReminderAttemptLockStale(lockPath)) {
+    return 'busy';
+  }
+
+  try {
+    fs.rmSync(lockPath, { recursive: true, force: true });
+    fs.mkdirSync(lockPath);
+    return 'acquired';
+  } catch {
+    return 'busy';
+  }
+}
+
+function isReminderAttemptLockStale(lockPath) {
+  try {
+    const stat = fs.statSync(lockPath);
+    return Date.now() - stat.mtimeMs > REMINDER_ATTEMPT_LOCK_STALE_MS;
+  } catch {
+    return false;
+  }
+}
+
+function releaseReminderAttemptLock(lockPath) {
+  try {
+    fs.rmSync(lockPath, { recursive: true, force: true });
+  } catch {
+    // lock 目录清理失败不应影响真实 CLI 命令。
+  }
+}
+
+function isReminderAttemptCooldownActive({ state, scope, nowMs, cooldownMs }) {
+  const record = state.attempts[scope];
+  if (!record || typeof record.attemptedAt !== 'string') {
+    return false;
+  }
+
+  const attemptedAtMs = Date.parse(record.attemptedAt);
+  if (!Number.isFinite(attemptedAtMs)) {
+    return false;
+  }
+  if (attemptedAtMs > nowMs) {
+    return false;
+  }
+
+  return nowMs - attemptedAtMs < cooldownMs;
+}
+
 function recordStartupReminderCooldown(reminder, options = {}) {
   try {
     const state = readStartupReminderState(reminder.host, options);
@@ -301,6 +417,13 @@ function recordStartupReminderCooldown(reminder, options = {}) {
   }
 }
 
+function recordReminderAttempt(state, { scope, nowMs }) {
+  state.attempts[scope] = {
+    scope,
+    attemptedAt: new Date(nowMs).toISOString(),
+  };
+}
+
 function clearStartupVersionReminderCooldown(options = {}) {
   const host = normalizeHost(options.host);
   if (!host) {
@@ -308,7 +431,20 @@ function clearStartupVersionReminderCooldown(options = {}) {
   }
 
   try {
-    fs.rmSync(getStartupReminderStatePath(host, options), { force: true });
+    const statePath = getStartupReminderStatePath(host, options);
+    fs.rmSync(statePath, { force: true });
+    clearReminderAttemptLock(statePath, buildStartupAttemptScope(host));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearCliVersionReminderCooldown(options = {}) {
+  try {
+    const statePath = getCliVersionReminderStatePath(options);
+    fs.rmSync(statePath, { force: true });
+    clearReminderAttemptLock(statePath, CLI_VERSION_REMINDER_SCOPE);
     return true;
   } catch {
     return false;
@@ -316,26 +452,55 @@ function clearStartupVersionReminderCooldown(options = {}) {
 }
 
 function readStartupReminderState(host, options = {}) {
-  const statePath = getStartupReminderStatePath(host, options);
-  try {
-    if (!fs.existsSync(statePath)) {
-      return { reminders: {} };
-    }
-    const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { reminders: {} };
-    }
-    const reminders = parsed.reminders && typeof parsed.reminders === 'object' && !Array.isArray(parsed.reminders)
-      ? parsed.reminders
-      : {};
-    return { reminders };
-  } catch {
-    return { reminders: {} };
-  }
+  return readReminderStateFile(getStartupReminderStatePath(host, options));
 }
 
 function writeStartupReminderState(host, state, options = {}) {
   const statePath = getStartupReminderStatePath(host, options);
+  writeReminderStateFile(statePath, state);
+}
+
+function readReminderStateFile(statePath) {
+  try {
+    if (!fs.existsSync(statePath)) {
+      return createEmptyReminderState();
+    }
+    const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    return normalizeReminderState(parsed);
+  } catch {
+    return createEmptyReminderState();
+  }
+}
+
+function getReminderAttemptLockPath(statePath, scope) {
+  return `${statePath}.${scope.replace(/[^a-zA-Z0-9._-]/g, '_')}.lock`;
+}
+
+function clearReminderAttemptLock(statePath, scope) {
+  fs.rmSync(getReminderAttemptLockPath(statePath, scope), { recursive: true, force: true });
+}
+
+function normalizeReminderState(parsed) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return createEmptyReminderState();
+  }
+  const reminders = parsed.reminders && typeof parsed.reminders === 'object' && !Array.isArray(parsed.reminders)
+    ? parsed.reminders
+    : {};
+  const attempts = parsed.attempts && typeof parsed.attempts === 'object' && !Array.isArray(parsed.attempts)
+    ? parsed.attempts
+    : {};
+  return { reminders, attempts };
+}
+
+function createEmptyReminderState() {
+  return {
+    reminders: {},
+    attempts: {},
+  };
+}
+
+function writeReminderStateFile(statePath, state) {
   const tmpPath = `${statePath}.${process.pid}.${Date.now()}.tmp`;
   fs.mkdirSync(path.dirname(statePath), { recursive: true });
   try {
@@ -357,6 +522,12 @@ function getStartupReminderStatePath(host, options = {}) {
   return path.join(homeRoot, `.${host}`, 'spec-first', 'startup-version-reminder.json');
 }
 
+function getCliVersionReminderStatePath(options = {}) {
+  const homeRoot = options.homeRoot
+    || getDefaultHomeRoot();
+  return path.join(homeRoot, '.spec-first', 'version-reminder.json');
+}
+
 function getDefaultHomeRoot() {
   try {
     const userInfo = os.userInfo();
@@ -372,6 +543,10 @@ function getDefaultHomeRoot() {
 
 function buildStartupReminderKey({ host, currentVersion, latestVersion }) {
   return [host, currentVersion, latestVersion].join('|');
+}
+
+function buildStartupAttemptScope(host) {
+  return `startup.${host}`;
 }
 
 function normalizeHost(host) {
@@ -556,6 +731,7 @@ function isNumericIdentifier(value) {
 module.exports = {
   DEFAULT_VERSION_REMINDER_TIMEOUT_MS,
   buildStartupVersionReminder,
+  clearCliVersionReminderCooldown,
   clearStartupVersionReminderCooldown,
   compareVersions,
   defaultLookupLatestVersion,

@@ -108,6 +108,8 @@ describe('Codex SessionStart hook runtime plan', () => {
       expect(sessionStart.contents).toContain('using-spec-first SessionStart injection');
       expect(sessionStart.contents).toContain('--codex');
       expect(sessionStart.contents).toContain('process.execPath');
+      expect(sessionStart.contents).toContain("await import('node:fs')");
+      expect(sessionStart.contents).not.toContain("require('node:fs')");
       expect(sessionStart.contents).toContain(TRUSTED_CLI_PATH);
       expect(sessionStart.contents).not.toContain('const SPEC_FIRST_CLI_PATH = "__SPEC_FIRST_CLI_PATH__";');
       expect(sessionStart.contents).not.toContain("spawnSync('spec-first'");
@@ -778,6 +780,38 @@ describe('Codex SessionStart hook script', () => {
         '<!-- spec-first:bootstrap:start -->',
         '- Codex workflow entrypoints use `$spec-*`.',
         '<!-- spec-first:bootstrap:end -->',
+      ].join('\n'), 'utf8');
+      const hookPath = writeRenderedCodexHook(projectRoot, (content) => (
+        replaceTrustedCliPath(content, path.join(projectRoot, 'missing-spec-first.js'))
+      ));
+
+      const result = runHook(hookPath, {
+        env: { CODEX_PROJECT_DIR: projectRoot },
+        input: JSON.stringify({ hook_event_name: 'SessionStart' }),
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      const payload = JSON.parse(result.stdout);
+      expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
+      expect(payload.hookSpecificOutput.additionalContext).toContain('using-spec-first SessionStart injection');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('runs inside a package with type module', () => {
+    const projectRoot = makeTempDir();
+
+    try {
+      fs.writeFileSync(path.join(projectRoot, 'package.json'), JSON.stringify({
+        type: 'module',
+      }, null, 2), 'utf8');
+      fs.writeFileSync(path.join(projectRoot, 'AGENTS.md'), [
+        '<!-- spec-first:bootstrap:start -->',
+        '- Codex workflow entrypoints use `$spec-*`.',
+        '<!-- spec-first:bootstrap:end -->',
+        '',
       ].join('\n'), 'utf8');
       const hookPath = writeRenderedCodexHook(projectRoot, (content) => (
         replaceTrustedCliPath(content, path.join(projectRoot, 'missing-spec-first.js'))
