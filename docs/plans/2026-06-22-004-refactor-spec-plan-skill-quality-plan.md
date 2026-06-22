@@ -495,7 +495,7 @@ flowchart TB
 
 **目标：** 完成语义复核、文档审查、验证记录和 changelog，避免只靠当前会话自评。
 
-**需求：** R13, R14
+**需求：** R13, R14, R15
 
 **依赖：** U1, U2, U3, U4, U5, U6
 
@@ -508,6 +508,7 @@ flowchart TB
 **方案：**
 - 按 `docs/contracts/workflows/fresh-source-eval-checklist.md` 或等价 fresh read-only reviewer，注入当前磁盘 source，而不是调用当前会话缓存的 skill。
 - 运行或记录 `$spec-doc-review` 对修改后的 `spec-plan` source/plan output 的 review；如果当前 host 没有 dispatch 授权，记录 `dispatch_authorization_missing` 和 fallback review。
+- 记录 resource-boundary before/after：实现前 baseline 包括当前 `SKILL.md` 756 行与 `$yao-meta-skill resource_boundary_check.py skills/spec-plan` estimated initial-load tokens `16633`；实现后重跑同一命令并在 validation artifact/changelog 中记录降幅、remaining warning/failure 和 waiver。
 - 若用户可见行为只有质量和边界收敛，README 通常不需要改；若 description、handoff menu 或 public entry semantics 发生明显变化，再更新 README EN/ZH。
 
 **参考模式：**
@@ -517,11 +518,13 @@ flowchart TB
 
 **测试场景：**
 - 正常路径：validation artifact 记录已读取 source files、reviewer prompt boundary、findings、accepted/rejected changes 和 limitations。
+- 正常路径：validation artifact 记录 `resource_boundary_check.py skills/spec-plan` before/after facts，且不把外部 1000 token budget 声称为本仓硬 gate。
 - 错误路径：如果 fresh-source eval 不能运行，artifact 记录 `not_run` 和具体原因，而不是声称 pass。
 - 集成：changelog entry 写明 source surfaces、tests run 和生成态 runtime mirror status。
 
 **验证：**
 - 存在 fresh-source review 或 documented fallback review。
+- Resource-boundary before/after 和 waiver 状态已记录。
 - Changelog format tests 通过。
 - 最终 diff check 没有 whitespace errors。
 
