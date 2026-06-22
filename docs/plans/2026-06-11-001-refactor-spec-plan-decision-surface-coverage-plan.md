@@ -66,7 +66,7 @@ The right answer is **not** to split the artifact into a human document and an A
 
 - target_repo: `spec-first`
 - evidence_sources: direct source reads, `rg`, git status, existing contract tests, prior `2026-06-11-004` validation docs, verified industry research report (deep-research run `wf_d7587d4a-88f`)
-- source_refs: `docs/10-prompt/结构化项目角色契约.md`, `skills/spec-plan/SKILL.md`, `skills/spec-plan/references/plan-sections.md`, `skills/spec-plan/references/plan-template.md`, `skills/spec-plan/references/markdown-rendering.md`, `skills/spec-plan/references/html-rendering.md`, `skills/spec-plan/references/synthesis-summary.md`, `tests/unit/spec-plan-contracts.test.js`, `docs/contracts/artifact-summary.md`, `docs/contracts/source-runtime-customization-boundary.md`, `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`, `docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md`
+- source_refs: `docs/10-prompt/结构化项目角色契约.md`, `skills/spec-plan/SKILL.md`, `skills/spec-plan/references/plan-sections.md`, `skills/spec-plan/references/plan-template.md`, `skills/spec-plan/references/markdown-rendering.md`, `skills/spec-plan/references/html-rendering.md`, `skills/spec-plan/references/synthesis-summary.md`, `tests/unit/spec-plan-contracts.test.js`, `docs/contracts/artifact-summary.md`, `docs/contracts/source-runtime-customization-boundary.md`, `agents/spec-learnings-researcher.agent.md`, `docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md`
 - external_refs: `https://github.com/github/spec-kit/blob/main/templates/plan-template.md`, `https://github.github.io/spec-kit/`, `https://docs.cline.bot/features/plan-and-act`, `https://github.com/kirodotdev/Kiro/blob/main/README.md`, `https://adr.github.io/`, `https://docs.anthropic.com/en/docs/claude-code/sub-agents`
 - current_revision: `387abe4a`
 - worktree_status: dirty before this plan; unrelated modified/deleted/untracked files were present and must not be reverted
@@ -118,7 +118,7 @@ The right answer is **not** to split the artifact into a human document and an A
 
 ### Institutional Learnings
 
-- `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`: distinct purposes (quick human handoff vs high-density agent reuse) can coexist in one durable file. Relevant pattern is the separation of *emphasis*, not a second artifact or reader-tier.
+- `agents/spec-learnings-researcher.agent.md`: distinct purposes (quick human handoff vs high-density agent reuse) can coexist in one durable file. Relevant pattern is the separation of *emphasis*, not a second artifact or reader-tier.
 - `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`: edit source assets, not generated artifacts.
 - `docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md`: keep `SKILL.md` as the workflow spine, not an encyclopedia.
 
@@ -485,7 +485,7 @@ Order: U1 → U2 → U3 → {U4, U5} → U6.
 - Plan contract tests: `tests/unit/spec-plan-contracts.test.js`
 - Artifact summary contract: `docs/contracts/artifact-summary.md`
 - Source/runtime boundary: `docs/contracts/source-runtime-customization-boundary.md`
-- Dual-view learning: `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`
+- Dual-view reuse contract: `agents/spec-learnings-researcher.agent.md`
 - Rebar simplification pattern: `docs/solutions/architecture-patterns/rebar-structure-skill-simplification-pattern-2026-06-04.md`
 - Prerequisite (governance-header slimming): `docs/plans/2026-06-11-004-refactor-spec-plan-skill-slimming-plan.md`
 - Deferred follow-up (surface-coverage lens): `docs/plans/2026-06-12-005-refactor-spec-plan-surface-coverage-lens-plan.md`

@@ -1,5 +1,5 @@
 ---
-title: "refactor: spec-write-tasks 质量冲刺到 100"
+title: "refactor: spec-write-tasks 质量证据闭环冲刺（审计确定性上限≈92）"
 type: refactor
 status: active
 date: 2026-06-22
@@ -7,18 +7,18 @@ spec_id: 2026-06-22-002-spec-write-tasks-quality-to-100
 plan_depth: deep
 ---
 
-# refactor: spec-write-tasks 质量冲刺到 100
+# refactor: spec-write-tasks 质量证据闭环冲刺（审计确定性上限≈92）
 
 ## Summary
 
-本计划把 `spec-write-tasks` 从当前 A- / 90 分推进到可解释的 100 分目标态：补齐 executable output eval、语义质量事实分析、进一步 entrypoint 瘦身、input/output/workflow 证据、runtime/cross-host portability 证据，以及高风险 task-pack doc-review 的 bounded continuation 证明。核心原则是增强证据闭环，而不是把任务拆分语义硬编码进脚本。
+本计划把 `spec-write-tasks` 从当前 A- / 90 分推进到 **evidence-complete 目标态**：每个非满分维度都有可复查证据，确定性审计分数到达其诚实上限（在 `--target` 审计与 KTD6/A4「不改 scorer」前提下约为 92），剩余分差逐一归因到具名的 scorer capability gap。具体补齐 executable output eval、语义质量事实分析、进一步 entrypoint 瘦身、input/output/workflow 证据、runtime/cross-host portability 证据，以及高风险 task-pack doc-review 的 bounded continuation 证明。核心原则是增强证据闭环，而不是把任务拆分语义硬编码进脚本，也不是把审计数字本身当成目标。
 
 ---
 
 ## Decision Brief
 
 - **Recommended approach:** 采用“证据层补强 + entrypoint 继续瘦身”的组合方案：脚本只产 deterministic facts / warnings / reports，LLM 和 reviewer 继续负责语义判断；`SKILL.md` 只保留触发、边界、分支和 reference map。
-- **Key decisions:** 100 分不是让审计脚本替代语义评审，而是让每个非满分维度都有可复查的 source evidence、runner evidence 或明确的 not-scored governance reason；runtime 和 cross-host portability 通过 packager / generated adapter smoke 证明，不手改 generated runtime mirrors。
+- **Key decisions:** 「evidence-complete」而非「机械 100」：deterministic scorer 把 input_contract / output_contract / workflow_explicitness / eval_readiness 硬封顶在 4，且 runtime_governance / cross_host_portability 在 `--target` 审计下恒为 null，因此 KTD6/A4 前提下确定性上限约 92；满分语义是让每个非满分维度都有可复查的 source evidence、runner evidence 或明确的 not-scored governance reason，而不是让审计脚本替代语义评审；runtime 和 cross-host portability 通过 packager / generated adapter smoke 证明，不手改 generated runtime mirrors。
 - **Validation focus:** 新增 runner 和 analyzer 的单测、eval fixture execution report、official `.skill` package smoke、Codex/Claude runtime sync smoke、task-pack fixture validation、`spec-skill-audit` 复跑与 changelog/plan hygiene。
 - **Largest risks / boundaries:** 最危险的偏差是为了“100 分”游戏化审计，把语义任务质量变成硬脚本门禁；本计划明确禁止该方向，只允许 advisory facts 和 human/LLM adjudication。
 
@@ -32,10 +32,10 @@ plan_depth: deep
 
 - `spec-skill-audit` 当前得分 `90/A-`，无 P0/P1/P2。
 - `trigger_precision`、`boundary_discipline`、`security_posture`、`spec_first_alignment` 已是 5 分。
-- `input_contract`、`output_contract`、`workflow_explicitness` 仍是 4 分，因为 deterministic audit 只能看到 section exists，不能确认语义完整性。
+- `input_contract`、`output_contract`、`workflow_explicitness` 仍是 4 分，因为 deterministic audit 只能看到 section exists，不能确认语义完整性。**scorer 对这三维度按 `hasSection ? 4 : 2` 评分，无任何代码路径给 5；语义证据只能由 reviewer 确认，不会提升审计数字。瘦身时必须保持 normalized heading `inputs` / `outputs` / `workflow`（或 `execution`）在场，否则会 4→2 倒退。**
 - `progressive_disclosure` 仍是 4 分，`SKILL.md` 已降到约 5997 estimated tokens，但还没达到更强的 entrypoint economy。
-- `eval_readiness` 仍是 4 分，因为 eval fixtures 存在且结构有效，但缺少 executable eval runner 和 output quality adjudication evidence。
-- `runtime_governance`、`cross_host_portability` 当前为 `not_checked` / `null`，不是失败，但缺少目标 skill 级证据。
+- `eval_readiness` 仍是 4 分，因为 eval fixtures 存在且结构有效，但缺少 executable eval runner 和 output quality adjudication evidence。**注意：`scoreEvalReadiness` 只读 `has_evals` / `eval_case_count` / `eval_has_negative_case`，最高返回 4，从不检测 runner；新增 runner 是 maintainer/reviewer 证据，不会把该维度提到 5（属具名 audit-tool-gap）。**
+- `runtime_governance`、`cross_host_portability` 当前为 `not_checked` / `null`，不是失败，但缺少目标 skill 级证据。**注意：这两维度由 governance 审计驱动，而 governance 仅在 spec-first self-audit 运行；`--target skills/spec-write-tasks` 审计恒 `skippedReport`，故二者在本计划的完成命令下保持 `null`（被排除出分母），U6 的 smoke 是 reviewer/测试证据，不进审计分。**
 
 本计划逐项解决这些缺口，同时保留 spec-first 的核心边界：scripts prepare, LLM decides；task pack 是 derived execution index，不是第二份 plan，不是 approval state，也不是 workflow state machine。
 
@@ -43,16 +43,16 @@ plan_depth: deep
 
 ## Requirements
 
-- R1. 定义 `spec-write-tasks` 的 100 分口径：审计分数是 signal not gate；满分目标必须解释 numeric dimension、not-scored dimension 和 semantic reviewer evidence 的关系。
+- R1. 定义 `spec-write-tasks` 的 **evidence-complete 口径（确定性上限≈92，非机械 100）**：审计分数是 signal not gate；目标必须解释 numeric dimension（含硬封顶维度）、not-scored dimension 和 semantic reviewer evidence 的关系，并显式声明 KTD6/A4 前提下机械 100 不可达。
 - R2. 为 `skills/spec-write-tasks/evals/output-quality-cases.json` 提供可执行 output eval runner，至少能在无 provider credential 的本地环境跑 deterministic fixture assertions，并生成 scorecard report。
 - R3. 增加 task-pack semantic quality analysis 的 deterministic facts 输出，覆盖 traceability、granularity、context_refs、review_gate、done_signal、stop_if、large unit fan-out 等风险，但不得把语义好坏变成 validator hard gate。
-- R4. 将 `skills/spec-write-tasks/SKILL.md` 进一步压到约 3000 estimated tokens 或更低；入口只保留触发、边界、分支、load-bearing rules 和 reference map。
-- R5. 强化 input/output/workflow contract 的语义证据，使审计不只看到“section exists”，还可以读取 source-owned contract checklist、owner/review cadence、rollback boundary 和 output contract reports。
-- R6. 为 runtime governance 和 cross-host portability 建立目标 skill 级证据：official package smoke、Codex runtime sync smoke、Claude runtime sync smoke、packaged reference closure、maintainer-only eval/report exclusion。
+- R4. 将 `skills/spec-write-tasks/SKILL.md` 严格压到 ≤3000 estimated tokens（即 chars ≤ ~12000，按 `ceil(chars/4)`；scorer 用严格 `> 3000` 判定，3001 仍判 4）；入口只保留触发、边界、分支、load-bearing rules 和 reference map。
+- R5. 强化 input/output/workflow contract 的语义证据，使审计不只看到“section exists”，还可以读取 source-owned contract checklist、owner/review cadence、rollback boundary 和 output contract reports。**该证据是 reviewer-confirmed 的语义闭环；这三维度在 scorer 中硬封顶 4，不因证据而提分。**
+- R6. 为 runtime governance 和 cross-host portability 建立目标 skill 级证据：official package smoke、Codex runtime sync smoke、Claude runtime sync smoke、packaged reference closure、maintainer-only eval/report exclusion。**这些证据是 reviewer/测试可见的；在 `--target` 审计下两维度按设计恒 null，不计入审计分。**
 - R7. 明确高风险 task-pack doc-review 自动衔接的边界：默认只推荐 `review-task-pack`；只有明确 bounded continuation authorization 时才允许单跳 headless doc-review，且不得链到 implementation。
 - R8. 所有新增 scripts/reports/tests 必须保持 source/runtime 边界：不改 `.claude/`、`.codex/`、`.agents/skills/` 作为 source，不依赖 `.spec-first/audits` 作为 runtime truth。
 - R9. 验证路径必须能同时证明 deterministic contract、semantic evidence posture、packaging portability 和 changelog 合规。
-- R10. 若最终审计仍不是机械 100 分，必须在 report 中记录剩余分数是 audit tool capability gap、semantic review pending，还是目标 skill 实质缺口，不能用文案遮盖。
+- R10. **（主成功契约）** 最终审计在 KTD6/A4 前提下不会是机械 100 分；closeout report 必须把每个非满分/未评分维度逐一归因为 audit tool capability gap、semantic review pending，还是目标 skill 实质缺口，不能用文案遮盖。**达到 evidence-complete 且残差全部具名归因即视为成功，而非追求数字 100。**
 
 ---
 
@@ -79,13 +79,13 @@ plan_depth: deep
 
 ## Completion Criteria
 
-- `skills/spec-write-tasks/SKILL.md` entrypoint estimated tokens 降到约 3000 以下，且 contract tests 仍锁定所有 load-bearing trigger/boundary/handoff rules。
+- `skills/spec-write-tasks/SKILL.md` entrypoint estimated tokens 严格 ≤3000（chars ≤ ~12000），且 contract tests 仍锁定所有 load-bearing trigger/boundary/handoff rules，并新增一条确定性 token 断言。
 - `skills/spec-write-tasks/scripts/run-output-evals.js` 可执行，能读取 output-quality cases 和 file-backed fixtures，输出 `reports/output_quality_scorecard.{md,json}`，并清楚标记 deterministic / recorded fixture / model-executed / human-adjudicated evidence。
 - `skills/spec-write-tasks/scripts/analyze-task-pack-quality.js` 可执行，输出 advisory quality facts，不作为 task-pack validator hard gate。
 - `skills/spec-write-tasks/reports/output_quality_scorecard.md` 记录 owner、review cadence、output contract、rollback boundary、missing evidence 和本次 run 结果。
-- runtime / cross-host smoke 能证明 packaged skill 只依赖 package-local runtime refs，maintainer-only evals/reports 不进入 runtime package，Codex/Claude generated mirrors 可从 source 生成或同步。
+- runtime / cross-host smoke 能证明 packaged skill 只依赖 package-local runtime refs，maintainer-only evals/reports 不进入 runtime package，Codex/Claude generated mirrors 可从 source 生成或同步。**（注：`runtime_governance` / `cross_host_portability` 在 `--target` 审计下仍为 null；此处 smoke 是测试/reviewer 证据，不改审计分。）**
 - 高风险 task-pack review handoff fixture 覆盖 `dispatch_authorization: missing|authorized|not_required`，并证明 standalone skill trigger 不会 silent auto-dispatch。
-- `node skills/spec-skill-audit/scripts/write-audit-artifacts.js --repo . --target skills/spec-write-tasks` 复跑后无 invalid eval cases；若不是 100，报告必须明确剩余维度的真实阻塞。
+- `node skills/spec-skill-audit/scripts/write-audit-artifacts.js --repo . --target skills/spec-write-tasks` 复跑后无 invalid eval cases；**目标分数是该命令在 KTD6/A4 前提下的确定性上限≈92（由 U4 把 `progressive_disclosure` 提到 5 实现），而非 100。低于上限或仍有未归因维度时，按 R10 在 report 中逐一说明真实阻塞（audit-tool gap / semantic review pending / 实质缺口）。若需让 governance 维度参与评分，改用 repo-wide self-audit 是另一条评分路径（见 Open Questions）。**
 
 ---
 
@@ -169,8 +169,8 @@ plan_depth: deep
 
 ## Key Technical Decisions
 
-- KTD1. **100 分解释为 evidence-complete, not automation-maximal.** Numeric dimensions should reach 5 only when source evidence and runner/report evidence make semantic review inspectable; not-scored dimensions can remain non-scored only with explicit governance reason.
-- KTD2. **Add an executable eval runner before adding more cases.** Current fixture count is enough; the gap is execution evidence and adjudication, not fixture volume.
+- KTD1. **100 分解释为 evidence-complete, not automation-maximal.** Numeric dimensions should reach 5 only when source evidence and runner/report evidence make semantic review inspectable; not-scored dimensions can remain non-scored only with explicit governance reason. **机械 100 在当前 scorer 下不可达：`input_contract` / `output_contract` / `workflow_explicitness` / `eval_readiness` 被硬封顶在 4，`runtime_governance` / `cross_host_portability` 在 `--target` 审计下恒 null。KTD6/A4 前提下确定性上限约 92（仅靠 U4 把 `progressive_disclosure` 提到 5）。这些封顶维度的「满分」由 reviewer 语义确认，不由审计数字体现。**
+- KTD2. **Add an executable eval runner before adding more cases.** Current fixture count is enough; the gap is execution evidence and adjudication, not fixture volume. **注意 runner 的价值是 maintainer/reviewer 证据与 adjudication：`scoreEvalReadiness` 不检测 runner，`eval_readiness` 仍封顶 4（具名 audit-tool-gap），runner 不会提升该维度的审计分。**
 - KTD3. **Keep semantic quality analysis advisory.** `analyze-task-pack-quality.js` may emit warnings and scorecard fields, but `spec-first tasks validate` remains identity/freshness/structure focused.
 - KTD4. **Use reports as maintainer evidence, not runtime dependency.** `skills/spec-write-tasks/reports/` can store scorecards and trust evidence; package tests must prove runtime archives exclude or do not require those reports.
 - KTD5. **Slim `SKILL.md` by moving stable detail, not by deleting contracts.** The entrypoint must still name use/not-use, core derived-artifact boundary, branch list, deterministic validation rule, final envelope requirement and reference map.
@@ -193,6 +193,11 @@ plan_depth: deep
 - Exact estimated-token threshold implementation: choose a simple deterministic estimator consistent with the audit script, then document its approximation.
 - Exact report file names beyond the required output scorecard: finalize after inspecting whether existing meta-skill report naming conventions are easiest to reuse.
 - Whether `spec-skill-audit` needs a small enhancement to consume target skill reports: decide only after U1-U6 evidence exists.
+
+### From 2026-06-22 doc-review
+
+- **U2/U3 tooling sizing (scope):** Are `run-output-evals.js` and `analyze-task-pack-quality.js` — each with a committed JSON/MD report schema and a dedicated test suite — justified for this one-skill quality push, or should they be right-sized (stdout-only, no committed schema, tests folded into the existing `spec-write-tasks-contracts.test.js`) unless there is a concrete cross-skill reuse plan? If the intent is a reusable harness for all `spec-*` skills, state that scope explicitly and route it as a feature rather than a one-skill refactor. (scope-guardian)
+- **U4/U5 reference-file structure (scope):** Create new `input-output-contract.md` and `workflow-branching.md`, or move the displaced `SKILL.md` content into the existing `execution-handoff-contract.md` (branch decision tree) and `task-quality-guide.md` (input/output enumeration) to avoid expanding a 2-file reference map into 4? Decide before U4/U5 implementation. (scope-guardian)
 
 ---
 
@@ -223,9 +228,9 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 
 ## Implementation Units
 
-### U1. Define the 100-Point Quality Contract
+### U1. Define the Evidence-Complete Quality Contract
 
-**Goal:** Make “100 分” auditable without pretending the score is a hard gate or a replacement for semantic review.
+**Goal:** Make the evidence-complete target auditable (define what “100 分” semantically means — reviewer-confirmed vs hard-capped vs not-scored — given the deterministic ceiling ≈92), without pretending the score is a hard gate or a replacement for semantic review.
 
 **Requirements:** R1, R5, R10
 
@@ -259,7 +264,7 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 
 ### U2. Add an Executable Output Eval Runner
 
-**Goal:** Convert output-quality fixtures from passive review examples into repeatable local execution evidence.
+**Goal:** Convert output-quality fixtures from passive review examples into repeatable local execution evidence. This is maintainer/reviewer evidence and adjudication; it does not raise the scorer's `eval_readiness` dimension (capped at 4 regardless of runner presence).
 
 **Requirements:** R2, R5, R9, R10
 
@@ -350,7 +355,7 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 **Approach:**
 - Keep `SKILL.md` as the routeable spine: description, purpose, use/not-use, core rules, input classification, branch list, deterministic validation rule, final envelope pointer, high-risk review boundary pointer, portability boundary and references.
 - Move detailed task-card semantics, failure mode descriptions, source orientation rules, handoff envelope details, scope backoff and quality-pass examples into references.
-- Add a deterministic estimated-token check to the contract test using the same approximation as audit when possible.
+- Add a deterministic estimated-token check to the contract test using the same approximation as audit (`ceil(chars/4)`); assert `estimated_tokens <= 3000` strictly (scorer uses `> 3000`, so 3001 still scores 4 — target chars ≤ ~12000).
 - Replace brittle exact prose assertions with load-bearing phrase assertions only where necessary; avoid making future slimming impossible.
 
 **Patterns to follow:**
@@ -358,18 +363,20 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 - Existing `spec-write-tasks` references
 
 **Test scenarios:**
-- Token budget: `SKILL.md` estimated tokens stay below the agreed threshold.
+- Token budget: `SKILL.md` estimated tokens are strictly `<= 3000` (not "约 3000"; 3001 scores 4).
+- Heading preservation: normalized headings `inputs` / `outputs` / `workflow` (or `execution`) remain present after slimming, so input/output/workflow dimensions do not regress 4→2.
 - Boundary preservation: tests still find derived-artifact, plan-as-SoT, not implementation execution, not remote package, and final envelope rules.
 - Package portability: source `SKILL.md` does not point at repo-local docs, historical plans, or maintainer-only evals as runtime references.
 
 **Verification:**
 - Audit progressive disclosure improves because details are in package-local references and entrypoint cost is visibly lower.
+- `progressive_disclosure` reaches 5 when `estimated_tokens <= 3000` AND (`has_references` || `has_scripts`). The `references/` dir already exists, so `has_references` is already true — landing U4's token reduction alone is sufficient to lift the dimension 4→5 and reach the ≈92 ceiling; U2/U3 are NOT a prerequisite for this score. Landing U4 at 3001 still leaves the dimension at 4.
 
 ---
 
 ### U5. Strengthen Input, Output, and Workflow Semantic Evidence
 
-**Goal:** Give the audit and human reviewers concrete evidence for the dimensions currently capped at “section exists”.
+**Goal:** Give human reviewers concrete evidence for the dimensions currently capped at “section exists”. Note these three dimensions (input/output/workflow) are hard-capped at 4 by the scorer (`hasSection ? 4 : 2`); the evidence is reviewer-confirmed semantic completeness, not an audit-score lift.
 
 **Requirements:** R1, R5, R10
 
@@ -405,7 +412,7 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 
 ### U6. Prove Runtime Governance and Cross-Host Portability
 
-**Goal:** Turn `runtime_governance` and `cross_host_portability` from not-checked into explicit target skill evidence.
+**Goal:** Produce explicit, test-backed runtime/portability evidence a reviewer reads alongside the audit. Note `runtime_governance` and `cross_host_portability` stay `null` under `--target` audits by design (governance only runs in spec-first self-audit, so the `--target` run emits `skippedReport` and both dimensions are excluded from the score); this unit does not change those audit numbers.
 
 **Requirements:** R6, R8, R9, R10
 
@@ -509,7 +516,7 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 - Package: runtime package remains usable without maintainer-only eval/report paths.
 
 **Verification:**
-- The final closeout can state which of the six original optimization points were closed, which remain pending, and why.
+- The final closeout maps each of the six original optimization points to the artifact that proves it, split by what the audit command can vs cannot show: (a) audit-scored points (progressive_disclosure → 5; overall ≈92 ceiling); (b) reviewer-confirmed semantic points (input/output/workflow/eval_readiness — capped at 4 in the scorer, proven by references/runner/reports); (c) test-backed but audit-invisible points (runtime_governance/cross_host_portability — null under `--target`, proven by smoke tests). The `--target` audit command alone proves only bucket (a).
 
 ---
 
@@ -517,7 +524,7 @@ The diagram separates runtime use from maintainer evidence. Users of the package
 
 - **Skill runtime:** Packaged users should see a smaller, clearer entrypoint with the same behavior boundaries.
 - **Maintainer workflow:** Maintainers gain repeatable output eval and quality analysis scripts, plus scorecard reports for future regressions.
-- **Audit workflow:** `spec-skill-audit` receives stronger evidence and clearer limitations; any remaining non-100 score becomes more actionable.
+- **Audit workflow:** `spec-skill-audit` receives stronger evidence and clearer limitations; any score gap below the ≈92 ceiling, or any remaining unattributed dimension, becomes more actionable.
 - **Task-pack validator:** No semantic validator expansion is planned; deterministic validation remains identity/freshness/structure focused.
 - **Documentation and reports:** New reports are maintainer evidence and must not become required runtime context.
 - **Generated runtime mirrors:** Out of scope as source edits; any runtime regeneration belongs to a separate `spec-first init` or setup/update action after source validation.

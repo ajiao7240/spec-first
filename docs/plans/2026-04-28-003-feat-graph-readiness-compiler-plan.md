@@ -104,7 +104,7 @@ deepened: 2026-04-28
 - `docs/10-prompt/项目角色.md`：确定性执行归脚本，语义判断归 LLM；本计划让脚本写 bounded machine facts，避免脚本替 LLM 选择 graph evidence。
 - `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`：修改 source-of-truth，不手改 `.claude/`、`.codex/`、`.agents/skills/` 或 `.spec-first/` runtime/generated artifacts。
 - `docs/solutions/developer-experience/bash-portability-pitfalls-2026-04-01.md`：shell 需按 macOS Bash 3.2 和 `set -euo pipefail` 约束设计，避免 `mapfile`、不安全数组展开和 jq hyphen key 坑。
-- `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`：新 artifact 要分清静态事实、runtime readiness 和 compatibility summary；对本计划同样适用，canonical graph facts 与 config summary 不能混成第二真相源。
+- `docs/contracts/provider-readiness.md`：新 artifact 要分清机械 readiness facts 与 downstream 语义使用；对本计划同样适用，canonical graph facts 与 config summary 不能混成第二真相源。
 - `docs/solutions/architecture-patterns/upstream-ce-sync-upgrade-methodology-2026-04-26.md`：跨 workflow 资产演进要先判定 ownership boundary，不能机械复制旧 CRG 或外部 provider 设计。
 
 ### External References
@@ -668,4 +668,3 @@ flowchart TD
 - Related tests: `tests/unit/mcp-setup-powershell-contracts.test.js`
 - Institutional learning: `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`
 - Institutional learning: `docs/solutions/developer-experience/bash-portability-pitfalls-2026-04-01.md`
-- Institutional learning: `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`

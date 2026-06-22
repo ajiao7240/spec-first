@@ -109,7 +109,7 @@ spec-brainstorm
 ### 机构知识沉淀
 
 - [docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md](docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md)：持久改动必须落在 source-of-truth 文件，而不是 generated runtime artifacts。本次应改 `src/cli/*`、`skills/*`、`tests/*` 和 root tracked instructions，不改 `.agents/skills/*` / `.claude/*` mirrors。
-- [docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md](docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md)：readiness facts 与 downstream semantic use 要分离。本次直接把 runtime tooling 从全局 prompt 移出，符合这一边界。
+- [docs/contracts/source-runtime-customization-boundary.md](docs/contracts/source-runtime-customization-boundary.md)：provider / tool facts 是 evidence，不是语义权威；本次直接把 runtime tooling 从全局 prompt 移出，符合这一边界。
 - [docs/solutions/architecture-patterns/workflow-entrypoint-exposure-contract-2026-04-26.md](docs/solutions/architecture-patterns/workflow-entrypoint-exposure-contract-2026-04-26.md)：dual-host surfaces 不同，init / doctor / clean 测试要同时覆盖 Claude 和 Codex 行为。
 
 ### 影响面说明

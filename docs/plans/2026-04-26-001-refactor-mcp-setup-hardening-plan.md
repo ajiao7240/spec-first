@@ -92,7 +92,7 @@ origin: docs/brainstorms/2026-04-01-mcp-setup-skill-requirements.md
 ### Institutional Learnings
 
 - `docs/solutions/developer-experience/bash-portability-pitfalls-2026-04-01.md`：Unix shell 需要按 macOS Bash 3.2 设计；空数组、`jq --arg`、同目录 tempfile、权限保留、`flock` feature-detect 与 `mkdir` lock 是底线。
-- `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`：不要把静态发现、runtime readiness 和顶层 compatibility projection 混成厚状态机；ledger 应保持轻 contract。
+- `docs/contracts/provider-readiness.md`：readiness facts 是 setup-owned advisory facts；lifecycle/display bits 不能替代 workflow health 或语义判断。
 - `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`：runtime artifacts 滞后不能推导为 source 缺陷；修改应追溯 source-of-truth。
 - `docs/solutions/architecture-patterns/workflow-entrypoint-exposure-contract-2026-04-26.md`：跨 Claude/Codex surface 需要维护 manifest、governance、adapter 边界；同理，MCP host 差异应由 registry 与脚本 adapter 承担，而不是散落在 prose。
 
@@ -198,7 +198,7 @@ flowchart TD
 **Patterns to follow:**
 - `skills/spec-mcp-setup/mcp-tools.json` existing schema v3 structure.
 - `skills/spec-graph-bootstrap/SKILL.md` Phase 0.2b ledger v1 field list.
-- `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md` for runtime readiness vs projection separation.
+- `docs/contracts/provider-readiness.md` for runtime readiness vs projection separation.
 
 **Test scenarios:**
 - Happy path: registry contains exactly the current supported tools with Serena/Sequential Thinking/Context7 required and Playwright optional.
@@ -503,6 +503,5 @@ flowchart TD
 - Downstream consumer: `skills/spec-graph-bootstrap/SKILL.md`
 - Tests: `tests/unit/mcp-setup.sh`, `tests/smoke/cli.sh`, `tests/e2e/spec-graph-bootstrap-mainline.sh`
 - Learning: `docs/solutions/developer-experience/bash-portability-pitfalls-2026-04-01.md`
-- Learning: `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`
 - Learning: `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`
 - Learning: `docs/solutions/architecture-patterns/workflow-entrypoint-exposure-contract-2026-04-26.md`

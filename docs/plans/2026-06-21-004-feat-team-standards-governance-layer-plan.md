@@ -16,7 +16,7 @@ deepened: 2026-06-21
 
 深化后的方案覆盖多端工程场景：App、H5、PC Web、Admin、Backend、Job/Event/Data 等 surface 通过 scope 标签和跨端契约统一治理；高层系统架构、分层、设计决策规范作为 architecture/design standards 进入最高优先级规则，而不是混入普通代码风格规范。方案同时增加“规范治理元提示词层”：它负责动态解释、选择、加载、候选生成、分级自治和生命周期引导。业界已有 Qodo Rule Miner、CodeRabbit learnings、Claude Code auto memory 等“自动学习/自动生成规则”实践，因此本方案不把 human confirmation 作为一刀切前提，而是引入 authority tier：LLM 在低风险和显式权威来源层尽量自治，高影响治理层保留明确 owner gate。
 
-本次继续深化后，计划增加“规范高质量获取层”：在写入 `docs/standards/**` 之前，先要求 acquisition task pack、证据质量评分、来源矩阵、brownfield 切片策略、角色化访谈、反例库、PR 回放和检索命中 eval。进一步补齐四个设计连接件：source authority hierarchy、rule selection contract、standards vs capability spec boundary table、skill reference loading map。这样解决的是“怎么高质量获取团队规范”，而不只是“规范存在哪里、如何治理”。
+本次继续深化后，方案按版本分层收敛：V1 先交付最小可用的 `docs/standards/**` source、`team-standards.md` 合同、scope-filtered consumption、code-review enforcement 和 proposal-only standalone skill skeleton；规范获取质量层（acquisition task pack、证据质量评分、来源矩阵、brownfield 切片、角色化访谈、PR 回放、检索命中 eval 和 ledger 体系）保留为 V2 evidence-gated 扩展。这样既解决“规范存在哪里、如何治理、如何被 workflow 按需加载”，也避免第一版在尚无真实 pilot 证据时把获取平台、评测平台和空账本一次性全建出来。
 
 ---
 
@@ -24,8 +24,18 @@ deepened: 2026-06-21
 
 - **推荐方案:** 先建立 `docs/standards/**` 作为团队开发规范的 confirmed source surface，并新增 `docs/contracts/team-standards.md` 定义 trust level、scope、lifecycle、注入边界和提升流程；再以 `skills/team-standards-governance/SKILL.md` 作为规范治理元提示词层，规定动态加载、候选生成、提升、废弃和审计方式；随后让 `spec-plan`、`spec-work`、`spec-write-tasks`、`spec-code-review`、`spec-doc-review`、`spec-debug` 按同一合同消费 confirmed standards。
 - **关键决策:** 不恢复 `$spec-standards` / `/spec:standards` public workflow，不复用 `.spec-first/standards/` 作为当前 source，不把代码扫描结果本身自动确认为团队规范，不全量注入大文档；多端适配靠 surface/layer/capability/workflow 标签过滤，架构规范单列为最高优先级规则；LLM 自主能力按 authority tier 放大，而不是用单一“必须人工确认”压平所有场景；规范获取必须先过 acquisition quality layer，避免把历史债、个人偏好或低质量证据包装成团队规则。
-- **验证重点:** 重点验证 public workflow catalog 仍不暴露 `spec-standards`，下游 workflow 只把 `confirmed` 且 scope 命中的规范当硬上下文，review persona findings 必须引用具体标准条款；同时验证索引加载不会要求全量读取 `docs/standards/**`，并用 PR replay / retrieval eval 验证“获取到的规范能否减少误判和正确命中”。
+- **验证重点:** V1 重点验证 public workflow catalog 仍不暴露 `spec-standards`，下游 workflow 只把 `confirmed` 且 scope 命中的规范当硬上下文，review persona findings 必须引用具体标准条款，索引加载不会要求全量读取 `docs/standards/**`，候选落盘前通过 privacy/secret/path/prompt-injection pre-write gate。PR replay / retrieval eval 属于 V2 价值验证，用真实 pilot 证明“获取到的规范能否减少误判和正确命中”。
 - **最大风险 / 边界:** 最大风险是把“规范治理”做成第二套流程引擎、大上下文注入器，或把模型置信度误当组织授权。本计划把第一版限定为轻合同、Markdown source、手工索引、focused contract tests 和分级自治的提升流程。
+
+### 版本分层决策
+
+| 层级 | 目标 | 第一版进入范围 | 延后条件 |
+|------|------|----------------|----------|
+| V1 core | 让团队规范成为可引用、可 review、可按 scope 选择的项目输入 | `docs/contracts/team-standards.md`、`docs/standards/index.md`、少量 confirmed seed/template、summary-first consumption、project-standards review enforcement、standalone skill skeleton 的 query/audit/proposal-only 边界、focused contract tests | 不依赖真实 PR replay 或角色访谈即可落地；但不得声称已完成 brownfield 自动获取能力 |
+| V1 candidate preview | 支持人工可审查的候选入口 | `docs/standards/candidates/README.md`、轻量 acquisition notes、候选写入前隐私/secret/path hygiene gate、confirmed-draft 不可 enforce 的硬边界 | 只允许 proposal/report；不创建空 ledger 矩阵，不批量采集历史 PR/事故/访谈 |
+| V2 evidence-gated | 高质量初始化存量项目规范 | U10-U12 的 acquisition task pack、source matrix、evidence/lineage/owner ledgers、role interviews、PR replay、retrieval eval、golden samples、surface-specific 文件按真实 slice 创建 | 至少有一个 repo/capability/surface pilot、可复核输入样本、owner 可用性和隐私边界后再进入 |
+
+这个分层回应审查报告 A-H/P2 的核心问题：V1 不再承诺一次性建立完整规范获取平台；V2 机制必须用真实 pilot 证据证明能减少误判、降低 owner 修改量或提升检索命中后再扩展。
 
 ---
 
@@ -114,8 +124,9 @@ OpenSpec 的本地源码显示，`openspec/config.yaml` 通过 `context` 和 `ru
 ### 延后到后续工作
 
 - CLI 辅助命令：如 `spec-first standards check/show/promote`，只有在文档 source 和 workflow consumption 被验证后再独立计划。
-- 自动候选挖掘：可从 graphify/codegraph、review findings、docs/solutions、历史代码中生成候选，但属于后续 advisory producer，不进入第一版核心。
-- 多项目团队规范包：可以借鉴历史 Team Pack 方案，但第一版先解决单仓 confirmed standards source 和 workflow consumption。
+- 自动候选挖掘：可从 graphify/codegraph、review findings、docs/solutions、历史代码中生成候选，但属于 V2 advisory producer，不进入 V1 core；V1 只保留手工/显式来源驱动的 proposal-only 候选入口。
+- 重型获取质量层：acquisition task pack、source matrix、fact/evidence/lineage ledger、owner-decision queue、role interviews、PR replay、retrieval eval 和 golden samples 均为 V2 evidence-gated 扩展；只有真实 slice pilot 证明有价值时创建对应 source 文件。
+- 多项目团队规范包：可以借鉴历史 Team Pack 方案，但 V1 先解决单仓 confirmed standards source 和 workflow consumption。
 
 ---
 
@@ -136,15 +147,13 @@ OpenSpec 的本地源码显示，`openspec/config.yaml` 通过 `context` 和 `ru
 - C13. 规范治理元提示词层文档明确 meta-prompt responsibilities、动态加载算法、自适应候选生成边界、handoff 输出格式和分级自治边界。
 - C14. 自适应扩展流程能从 workflow feedback 生成 `suggested` / `observed` candidates、conflict records 或 audit report，并明确哪些 authority tier 可自动生成 `confirmed-draft` patch、哪些必须 owner confirmation；`confirmed-draft` 不可被下游 workflow 当 hard context 消费。
 - C15. `docs/contracts/team-standards.md` 定义 authority-tier table、promotion decision rules 和 absence guards：模型 confidence 是 promotion 输入，不是独立 authority；high-impact governance 与 conflict-present 一律不可自动 enforce。
-- C16. 规范获取任务包模板存在，且能表达 scope、source、time window、privacy boundary、candidate output 和 non-goals。
-- C17. 候选规则必须带 evidence quality score；缺失关键证据、过期、冲突密度高或 owner 不明时只能保持 advisory。
-- C18. Brownfield 初始化文档包含切片策略和角色化访谈 playbook，明确大型项目不得默认全仓一次性提取。
-- C19. 规则质量验收清单和反例库存在，能阻止历史债、临时 workaround、个人偏好、旧架构残留和低频例外进入 confirmed。
-- C20. 获取质量验证方案包含 PR replay、retrieval eval、误报/漏报观察、adoption feedback 和最小 eval case 格式，且结果只作为证据输入，不作为 LLM 自评。
-- C21. 获取任务包模板包含 single extraction target、include/exclude scope、output mode 和 mixed-surface rejection 说明。
-- C22. 候选和 evidence ledger 明确 source anchor 字段，并禁止正式输出泄漏本机绝对路径。
-- C23. `acquisition-quality.md` 定义 gate table、warning routing 和 owner queue non-catch-all 规则。
-- C24. `authority-tiers.md` 或 promotion reference 定义 decision trace、autonomy policy、next action 和 derived artifact source boundary。
+- C16. V1 `candidates/README.md` 说明 proposal-only 候选入口、single extraction target 约束、include/exclude scope、output mode、privacy boundary 和 mixed-surface rejection；完整 acquisition task pack 模板延后到 V2。
+- C17. V1 候选规则必须说明 source refs、authority tier、owner 状态、privacy/redaction 状态和 why-not-confirmed；完整 evidence quality score 与 ledgers 延后到 V2。
+- C18. V1 Brownfield 初始化文档只给出 slice-first 路线和不得全仓一次性提取的规则；角色化访谈 playbook 延后到 V2。
+- C19. V1 confirmed 前必须通过轻量规则质量清单：atomic、actionable、falsifiable、scoped、owner、invalidation、migration；完整反例库延后到 V2。
+- C20. V1 成功指标以真实 slice pilot 的 query/review 命中与误报观察为主；完整 PR replay、retrieval eval、owner edit distance 和 golden samples 延后到 V2，并且结果只作为证据输入，不作为 LLM 自评。
+- C21. V1 候选写入前必须完成 deterministic privacy/secret/path hygiene pre-write gate；不通过不得落盘到 git-tracked `docs/standards/candidates/**`。
+- C22. V1 `authority-tiers.md` 或 promotion reference 定义 decision trace、autonomy policy、next_action/outcome 和 derived artifact source boundary。
 - C25. `docs/contracts/team-standards.md` 明确 source authority hierarchy、同级冲突处理、重复规则去重和“高权威指针优先于复制全文”的维护规则。
 - C26. `docs/contracts/team-standards.md` 或 `docs/standards/index.md` 定义 rule selection contract，包括输入字段、输出字段、fallback modes、unknown-scope 降级和禁止全量扫描的约束。
 - C27. 用户文档和 source contract 给出 standards、capability specs、contracts、solutions、candidates 的边界表和跨界示例，避免把产品能力真相写成开发规范，或把工程约束塞进能力 spec。
@@ -308,70 +317,72 @@ OpenSpec 的本地源码显示，`openspec/config.yaml` 通过 `context` 和 `ru
 
 ## 产物结构
 
+V1 只创建能被当前 workflow 直接消费和验证的 source；V2 文件按真实 acquisition run 或 pilot 需要创建，避免空账本和无生产者产物提前进入仓库。
+
 ```text
 docs/
   contracts/
-    team-standards.md
+    team-standards.md                 # V1 必建：规范合同
   standards/
-    index.md
-    shared.md
-    cross-surface.md
-    app.md
-    h5.md
-    pc.md
-    admin.md
-    backend.md
-    data.md
-    job-event.md
-    architecture.md
-    design.md
-    coding.md
-    testing.md
-    review.md
-    security.md
+    index.md                          # V1 必建：注册表、索引、加载地图
+    shared.md                         # V1 必建：跨项目/跨端通用规则或模板
+    architecture.md                   # V1 必建：高影响架构规则或模板
+    review.md                         # V1 必建：project-standards review 规则
+    security.md                       # V1 必建：隐私/安全/secret/path hygiene 最小规则
+    cross-surface.md                  # V1 按需：存在跨端规则时创建
+    design.md                         # V1 按需：存在设计决策规则时创建
+    coding.md                         # V1 按需：有明确 confirmed coding 规则时创建
+    testing.md                        # V1 按需：有明确 confirmed testing 规则时创建
+    app.md                            # V2/按需：真实 App surface 规则存在时创建
+    h5.md                             # V2/按需
+    pc.md                             # V2/按需
+    admin.md                          # V2/按需
+    backend.md                        # V2/按需
+    data.md                           # V2/按需
+    job-event.md                      # V2/按需
     candidates/
-      README.md
-      explicit-rules-inventory.md
-      acquisition-task-pack.md
-      fact-ledger.md
-      evidence-quality-ledger.md
-      lineage-ledger.md
-      owner-decision-queue.md
-      output-risk-profile.md
-      source-matrix.md
-      role-interview-notes.md
-      observed-patterns.md
-      suggested-candidates.md
-      conflicts.md
-      promotion-log.md
+      README.md                       # V1 必建：proposal-only 边界、pre-write gates、轻量 notes
+      explicit-rules-inventory.md     # V1 按需：显式来源盘点
+      observed-patterns.md            # V1 按需：少量手工候选
+      suggested-candidates.md         # V1 按需：少量手工候选
+      conflicts.md                    # V1 按需：实际冲突存在时创建
+      acquisition-task-pack.md        # V2：真实 acquisition run 后创建
+      fact-ledger.md                  # V2
+      evidence-quality-ledger.md      # V2
+      lineage-ledger.md               # V2
+      owner-decision-queue.md         # V2
+      output-risk-profile.md          # V2
+      source-matrix.md                # V2
+      role-interview-notes.md         # V2
+      promotion-log.md                # V2
     archive/
-      README.md
+      README.md                       # V1 按需：存在退役规则时创建
 skills/
   team-standards-governance/
-    SKILL.md
+    SKILL.md                          # V1 必建：query/audit/proposal-only skeleton
     references/
-      initialization.md
-      meta-prompt-governance.md
-      authority-tiers.md
-      acquisition-quality.md
-      source-matrix.md
-      role-interview-playbook.md
-      validation-and-replay.md
-      output-risk-profile.md
-      promotion-and-conflicts.md
-      loading-and-consumption.md
-      adaptive-expansion.md
-      lifecycle.md
+      initialization.md               # V1 必建
+      meta-prompt-governance.md       # V1 必建
+      authority-tiers.md              # V1 必建
+      promotion-and-conflicts.md      # V1 必建
+      loading-and-consumption.md      # V1 必建
+      lifecycle.md                    # V1 必建
+      acquisition-quality.md          # V1 轻量，V2 扩展
+      output-risk-profile.md          # V1 轻量，V2 扩展
+      adaptive-expansion.md           # V1 轻量，V2 扩展
+      source-matrix.md                # V2
+      role-interview-playbook.md      # V2
+      validation-and-replay.md        # V2
     evals/
-      README.md
-      trigger-cases.json
-      output-cases.json
-      examples.json                  # optional examples-as-context
+      README.md                       # V2
+      trigger-cases.json              # V2
+      output-cases.json               # V2
+      examples.json                  # V2 optional examples-as-context
       golden-samples/
-        README.md                    # optional replay fixture notes
+        README.md                    # V2 optional replay fixture notes
 ```
 
-上面的目录是目标 source 形态，不要求第一天就填满每个文件。`index.md` 是加载地图；`shared.md` 和 `cross-surface.md` 记录跨多个产品端的规则；端侧文件记录差异；`architecture.md` 和 `design.md` 记录高优先级系统决策；`candidates/**` 把获取任务包、fact/evidence/lineage ledger、owner queue、output risk profile、候选和冲突与 confirmed 规则分离；`archive/**` 保留退役规则历史，避免静默删除。`skills/team-standards-governance/references/**` 是分阶段补充的 skill source reference，`evals/**` 是 U12 引入的触发/输出质量 fixture，其中 `examples.json` 和 `golden-samples/**` 为可选扩展。`skills/team-standards-governance/` 是辅助规范工作的 standalone source skill，不能暴露成 `$spec-standards` 或 `/spec:standards`。
+`index.md` 是加载地图；`shared.md`、`architecture.md`、`review.md`、`security.md` 承载 V1 最小规则面；端侧文件只在项目确有对应 surface 且存在 confirmed 规则时创建；`candidates/README.md` 把 proposal-only、pre-write privacy gate、source anchor 和 no-absolute-path 边界先讲清楚。完整获取任务包、fact/evidence/lineage ledger、owner queue、output risk profile、role interview 和 replay eval 都是 V2 真实运行产物，不作为 V1 空模板批量创建。`skills/team-standards-governance/` 是辅助规范工作的 standalone source skill，不能暴露成 `$spec-standards` 或 `/spec:standards`。
 
 ---
 
@@ -460,23 +471,27 @@ skills/
 
 `promotion_state` 的 canonical 取值集合 `{none, proposed, confirmed-draft, reviewed, rejected, deferred}` 由 `docs/contracts/team-standards.md` 单一定义（single source of truth）；R2、candidate card 和生命周期表只引用、不各自重列。`none` 表示不在提升流程中（直接 confirmed 或纯 advisory 规则）；`candidates/**` 的 candidate card 因已在流程中，`promotion_state` **禁用 `none`**（最低为 `proposed`）。
 
-`owner`（owner_role）不手填，由确定性 owner-resolver 按规则所辖路径（`source_refs`/`applies_to`→目录）解析，precedence：`CODEOWNERS` → 目录级 `AGENTS.md`/`CLAUDE.md` ownership → git blame top committer → `unresolved`。CODEOWNERS 命中视为有效 owner；git-blame 命中为 advisory 候选，high-impact 规则须确认。`unresolved` 时该规则的 owner-gate 项走 `defer`/`not-run`，不伪造 owner。`invalidation_condition: owner gone` 由重跑解析确定性触发（CODEOWNERS 条目移除或 top committers 全部离开）。提出/确认者身份复用 `~/.spec-first/.developer`（global→git，与 CHANGELOG author 同源），不另设 rule-card 字段。
+`owner`（owner_role）不手填，由确定性 owner-resolver 按规则所辖路径（`source_refs`/`applies_to`→目录）解析，precedence：`CODEOWNERS` → `docs/standards/index.md` 的 Owner Registry → 目录级 `AGENTS.md`/`CLAUDE.md` ownership → ADR/design note owner → git blame top committer advisory → `unresolved`。本仓当前不应假设存在 CODEOWNERS/OWNERS，因此 Owner Registry 是 V1 必须支持的项目内显式 owner 来源；git-blame 命中只能作为 `owner_candidate`，不是有效 owner。`owner=unresolved` 是合法字段值，不是校验失败；但 `high_impact && owner=unresolved` 必须 fail-closed：promotion_state 只能是 `deferred`，不得进入 `confirmed-draft`、不得 enforce、不得生成 confirmed patch，下一步必须是显式指派 Owner Registry 条目或补 ADR/design note owner。`~/.spec-first/.developer` 只能作为 proposer/author 默认值，不可自动成为 rule owner；小团队若要把当前维护者作为 owner，必须在 Owner Registry 中显式 opt-in。`invalidation_condition: owner gone` 由重跑解析确定性触发（registry 条目删除、目录 ownership 删除或 ADR/design note owner 失效）。
 
-候选规则与 promotion proposal 需要比 confirmed rule 多保留获取过程字段，避免后续 reviewer 只看到抽象结论而无法判断证据质量。第一版 candidate card 至少包含：
+候选规则与 promotion proposal 需要比 confirmed rule 多保留获取过程字段，避免后续 reviewer 只看到抽象结论而无法判断证据质量。V1 candidate card 至少包含：
 
 | 字段 | 用途 |
 |-------|------|
 | `candidate_id` | 候选规则稳定锚点，提升后可写入 promotion log。 |
-| `acquisition_id` | 指向本次 acquisition task pack，说明该候选来自哪个 slice。 |
 | `candidate_type` | `explicit-rule`, `observed-pattern`, `suggested-rule`, `imported`, `conflict-record`, `promotion-proposal`。 |
 | `authority_tier` | `explicit-authority`, `machine-enforced-policy`, `inferred-from-code`, `repeated-review-or-incident`, `multi-source-high-confidence`, `high-impact-governance`, `conflict-present`。 |
-| `evidence_quality` | 多维评分摘要，至少引用 source strength、recency、consistency、coverage、owner trace 和 risk level。 |
 | `source_refs` | 可复核来源；provider 输出必须标记 `provider_untrusted` 并回到 source/test/doc/log 确认。 |
 | `privacy_review` | 是否经过隐私/敏感信息检查。 |
 | `redaction_status` | `not-needed`, `redacted`, `needs-redaction`, `blocked`。 |
-| `replay_status` | `not-run`, `replay-passed`, `replay-noisy`, `replay-failed`，只作为 promotion evidence。 |
 | `promotion_state` | `proposed`, `confirmed-draft`, `reviewed`, `rejected`, `deferred`。 |
 | `promotion_decision` | `keep-advisory`, `prepare-confirmed-patch`, `merge-confirmed-after-review`, `rejected`, `deferred`, `conflict`。 |
+| `owner` | resolved owner id 或 `unresolved`；high-impact unresolved fail-closed。 |
+| `why_not_confirmed` | 当前不能进入 confirmed 的原因。 |
+| `prewrite_gate` | secret/PII/absolute-path/prompt-injection gate 的结果摘要。 |
+
+V2 candidate card 再追加 `acquisition_id`、`evidence_quality`、`source_anchor`、`replay_status`、`owner_edit_distance` 和 lineage 字段。V1 不要求创建 acquisition task pack 或 evidence ledger 才能记录少量 proposal-only 候选。
+
+`promotion-proposal` 不是 init/propose 阶段的初始分类结果，而是 promote 阶段从候选生成的 proposal 产物类型。初始 classify 只产出 `explicit-rule`、`observed-pattern`、`suggested-rule`、`imported` 或 `conflict-record`；`promotion-proposal` 必须带 gate results、decision trace 和 diff-review handoff。
 
 `confirmed-draft` 是 promotion state，不是 trust level 的 hard-context 等价物。它表示 agent 已基于 explicit authority、mechanical enforcement 或多源高置信证据生成可审查 patch/proposal；只有该 patch 在 active `$spec-work` 或等价 source-edit workflow 中经普通 diff review 合入、更新 CHANGELOG/测试并标为 `trust=confirmed,lifecycle_state=active` 后，下游 workflow 才能 enforce。
 
@@ -486,11 +501,45 @@ skills/
 
 | 类别 | 字段 | 合法值来源 / 校验方式 |
 |------|------|----------------------|
-| **global-enum**（跨项目固定，校验器查合同枚举） | `trust`、`lifecycle_state`、`promotion_state`、`priority`、`category`、`enforcement`、`migration_impact`、`candidate_type`、`authority_tier`、`redaction_status`、`replay_status`、`promotion_decision`、`next_action`、`risk_domain` | 取值由 `docs/contracts/team-standards.md` 的 canonical 枚举段单一定义（single source of truth；`promotion_state` 与各 decision 词表的最终收敛由后续单元完成）。其中 `category`、`enforcement`、`migration_impact`、`risk_domain` 在本计划收为闭合：`category ∈ {architecture, design, coding, testing, security, review}`；`enforcement ∈ {review, tests, lint, plan-gate, manual-owner-review}`；`migration_impact ∈ {none, new-code-only, touched-files-only, backfill-required}`；`risk_domain ∈ {auth, permission, payment, funds, privacy, data-lifecycle, state-ownership, cross-surface-contract}`（可经 index 注册表项目扩展）。 |
+| **global-enum**（跨项目固定，校验器查合同枚举） | V1: `trust`、`lifecycle_state`、`promotion_state`、`priority`、`category`、`enforcement`、`migration_impact`、`candidate_type`、`authority_tier`、`redaction_status`、`promotion_decision`、`next_action`、`risk_domain`；V2: `replay_status` | 取值由 `docs/contracts/team-standards.md` 的 canonical 枚举段单一定义（single source of truth；`promotion_state` 与各 decision 词表的最终收敛由后续单元完成）。其中 `category`、`enforcement`、`migration_impact`、`risk_domain` 在本计划收为闭合：`category ∈ {architecture, design, coding, testing, security, review}`；`enforcement ∈ {review, tests, lint, plan-gate, manual-owner-review}`；`migration_impact ∈ {none, new-code-only, touched-files-only, backfill-required}`；`risk_domain ∈ {auth, permission, payment, funds, privacy, data-lifecycle, state-ownership, cross-surface-contract}`（可经 index 注册表项目扩展）。 |
 | **project-enum**（项目内闭合，取值由项目声明，解 A6） | `applies_to`(surface)、`layer`、`capability` | 取值由 `docs/standards/index.md` 的 **Surface / Layer / Capability Registry** 块按项目声明；校验器查该项目注册表的成员资格，不硬编码跨项目固定集合。项目可在注册表内扩展合法值（闭合但可扩）。 |
-| **format-free**（只查格式/存在） | `id`、`source_refs`、`effective_from`、`last_reviewed`、`owner`、`rule`、`rationale`、`exceptions`、`invalidation_condition`、`candidate_id`、`acquisition_id`、`evidence_quality`、`privacy_review` | `id` 用稳定 ID 正则（例如 `ARCH-STATE-001` 形态）；`source_refs` 必须 repo-relative 且禁本机绝对路径；`effective_from`、`last_reviewed` 为日期；`owner` 非空（有效性与自动识别另见 owner 相关决策）；其余为非空文本或结构摘要。 |
+| **format-free**（只查格式/存在） | V1: `id`、`source_refs`、`effective_from`、`last_reviewed`、`owner`、`rule`、`rationale`、`exceptions`、`invalidation_condition`、`candidate_id`、`privacy_review`、`why_not_confirmed`、`prewrite_gate`；V2: `acquisition_id`、`evidence_quality`、`source_anchor`、`owner_edit_distance` | `id` 用稳定 ID 正则（例如 `ARCH-STATE-001` 形态）；`source_refs` 必须 repo-relative 且禁本机绝对路径；`effective_from`、`last_reviewed` 为日期；`owner` 允许 resolved owner id 或 `unresolved`，有效性由 owner-resolver 与 high-impact fail-closed 规则判定；其余为非空文本或结构摘要。 |
 
 校验器据此消费三个取值来源：global-enum 查合同枚举、project-enum 查 `index.md` 注册表、format-free 查格式规则。这同时解决 A6 冲突（surface 由项目声明、校验器查注册表而非硬编码）并让全量结构校验可落地。
+
+V1 rule-card 序列化格式固定为 Markdown section + YAML metadata fenced block，避免实现期继续悬空：
+
+````markdown
+### ARCH-STATE-001 Backend Owns Business State
+
+```yaml
+id: ARCH-STATE-001
+trust: confirmed
+lifecycle_state: active
+promotion_state: none
+priority: P0-blocking
+category: architecture
+risk_domain: state-ownership
+applies_to: [backend, app, h5, pc, admin]
+layer: [domain, api, ui]
+capability: [order]
+owner: platform-team
+source_refs:
+  - docs/standards/index.md#owner-registry
+enforcement: [plan-gate, review]
+effective_from: 2026-06-21
+migration_impact: touched-files-only
+last_reviewed: 2026-06-21
+```
+
+Rule: Backend is the source of truth for order state transitions; clients may cache or render state but must not independently decide final business state.
+
+Rationale: ...
+Exceptions: ...
+Invalidation condition: ...
+````
+
+结构校验器 V1 若实现，文件建议为 `scripts/check-team-standards.js`，只做确定性检查：枚举合法性、Owner Registry 命中、high-impact unresolved fail-closed、index↔rule 双向一致性、source_refs 路径卫生和 pre-write privacy/path gates。它不判断规则是否“好”，不做语义 promotion；规则质量仍由 LLM/reviewer 判断。若实现期决定继续 docs-first 不写脚本，则必须保留最窄 grep/string contract tests，不能在文档里声称已有完整 parser/validator。
 
 首批文档应包含这类业务系统示例，但这些示例默认是 rule template 或 `suggested` candidate；只有具备当前权威 source、owner、scope、例外和冲突检查后，才能写成 `confirmed`：
 
@@ -533,7 +582,7 @@ skills/
 
 当技术或架构已消失、被其他规则替代、例外占主导、enforcement ROI 为负、规则无法评估或 owner 不再存在时，应 deprecate 而不是静默删除。预期路径是 `confirmed` -> `deprecated` -> `archived`，并由 `promotion-log.md` 或等价历史记录原因。
 
-冲突解决程序：进入 `trust=conflict` 的规则必须终结于一个明确出口，不得长期停留。优先级复用仓内 `skills/spec-prd/references/evidence-and-topology.md` 的 Contradiction Handling（`owner`/`user` decision > `confirmed` 权威来源 > 既有 standard；同级再比 authority_tier；两条都 confirmed 且真矛盾则强制 owner decision）。解决结果限定为：`superseded`（胜者留 confirmed，败者 `deprecated` + `superseded_by` -> archive）、`scoped-split`（收窄 `applies_to` 使不再重叠）、`merged`（合并为一条）、`deferred`（显式停放 + owner + 复审日期）、`both-rejected`。解决过程与结果写入 `lineage-ledger.md` 与 `promotion-log.md`，并据结果重新分级。
+冲突解决程序：进入 `trust=conflict` 的规则必须终结于一个明确出口，不得长期停留。V1 在 `docs/contracts/team-standards.md` 新定义 standards conflict precedence，不复用 PRD contradiction handling 作为权威来源：`owner/ADR/design note decision` > `confirmed` 高层 source > `confirmed` 更窄 scope > explicit-authority draft > machine-enforced evidence > observed/suggested/imported candidate；同级再比 `authority_tier`、source freshness 和 scope specificity；两条都 confirmed 且真矛盾时强制 owner decision。`skills/spec-prd/references/evidence-and-topology.md` 只能作为 evidence-tag 与 candidate-boundary 的设计参考，不提供 standards authority-tier precedence 或出口集。解决结果限定为：`superseded`（胜者留 confirmed，败者 `deprecated` + `superseded_by` -> archive）、`scoped-split`（收窄 `applies_to` 使不再重叠）、`merged`（合并为一条）、`deferred`（显式停放 + owner + 复审日期）、`both-rejected`。V1 可把解决过程写入 rule card 的 decision trace 或 `candidates/conflicts.md`；V2 再同步到 `lineage-ledger.md` 与 `promotion-log.md`。
 
 ---
 
@@ -603,6 +652,8 @@ output:
 5. 只读取 `matched_files` 中必要 section；unknown scope 只读取 safe defaults 和高优先级 summary，不打开全库。
 6. 对每个排除项记录原因，例如 scope mismatch、lifecycle inactive、trust advisory、conflict present、priority not applicable、workflow not applicable。
 7. 输出 limitations，说明未读哪些 source、哪些 scope 不确定、是否发生 fallback。
+
+Prompt injection 边界：confirmed rule text 即使来自 `docs/standards/**`，在下游 prompt 中也必须作为 data payload 处理，而不是与 system/developer/host instructions 同优先级拼接。handoff 应使用 fenced block、rule ID、source refs 和明确标签隔离规则正文；review 需要检查规则正文中是否包含“忽略上层指令”“修改 runtime mirror”“跳过验证”等越权指令式文本。若发现这类文本，规则进入 `conflict` 或 `needs-sanitization`，不得作为 hard context 注入。
 
 Fallback modes：
 
@@ -705,9 +756,9 @@ flowchart TD
 
 ---
 
-## 规范高质量获取层
+## V2 规范高质量获取层
 
-当前方案的核心补强点是：不要把“能生成规范”误认为“高质量获得规范”。规范获取需要像需求发现一样有 scope、证据、反例和验证。下面逐个问题收敛为 plan 中应明确支持的机制。
+当前方案的核心补强点是：不要把“能生成规范”误认为“高质量获得规范”。但完整规范获取层属于 V2 evidence-gated 扩展，不阻塞 V1 source/consumption/review 路径。V1 只保留轻量候选入口、pre-write gate、why-not-confirmed 和 owner fail-closed；下面 18 项机制在真实 pilot、样本、owner 和隐私边界具备后再逐步落地。
 
 | 问题 | 风险 | 方案补强 | 对应产物 |
 |------|------|----------|----------|
@@ -742,7 +793,7 @@ flowchart TD
 | `capability` | 业务能力 slice，如 `auth`、`payment`、`order`、`portfolio`。 |
 | `project_paths` | 只读项目路径或 repo-relative roots。 |
 | `scope.include` / `scope.exclude` | 文件包含/排除规则，默认排除 generated、build、dist、vendor、runtime mirrors。 |
-| `output.mode` | 第一版固定为 `candidate-only` 或 `promotion-proposal`；不得 silent write confirmed。 |
+| `output.mode` | V1 轻量候选入口固定为 `candidate-only` 或 `promotion-proposal`；V2 acquisition run 也不得 silent write confirmed。 |
 | `constraints` | 隐私、敏感文件、owner_required、high-risk categories、provider availability 等限制。 |
 
 如果输入显著跨端或跨多个无关能力，skill 应停止并要求拆成多个 acquisition task pack。大型项目的正确姿态是多次小批量获取，而不是一次全仓抽取。
@@ -793,7 +844,7 @@ flowchart TD
 
 ### 获取质量评分
 
-每条候选规则除了 `confidence_score`，还应有证据质量维度。评分不需要第一版自动计算，但字段和解释必须存在：
+每条候选规则除了 `confidence_score`，还应有证据质量维度。评分不要求 V2 第一轮自动计算，但字段和解释必须存在：
 
 | 维度 | 关注点 | 低分含义 |
 |------|--------|----------|
@@ -812,7 +863,7 @@ flowchart TD
 
 ### Source Anchor 与证据可复核性
 
-每条 deterministic fact 和候选规则都需要可复核锚点。第一版不要求实现完整 JSON schema，但文档模板必须说明这些字段：
+每条 deterministic fact 和候选规则都需要可复核锚点。V1 candidate 只要求 source refs 和 missing evidence reason；V2 acquisition run 再要求完整 source anchor 字段：
 
 | 字段 | 说明 |
 |------|------|
@@ -841,6 +892,17 @@ flowchart TD
 | Derivation | AI rules / review checklist 是否只从 accepted standard rule 派生 | 派生项缺 source rule 时不得输出给下游 workflow。 |
 | Anchor Integrity | Git 或非 Git source anchors 是否完整 | 锚点缺失则不能作为 promotion evidence。 |
 | Privacy | 是否含客户数据、敏感业务细节、人员信息或不能复用的事故细节 | `needs-redaction` 或 `blocked` 时不得进入 confirmed-draft。 |
+
+### Pre-write 隐私与路径卫生 Gate
+
+任何写入 `docs/standards/candidates/**`、候选报告、ledger、eval 输出或 derived checklist 的内容，必须先过确定性 pre-write gate。该 gate 只做机械事实检查，不判断规则价值：
+
+- secret pattern scan：常见 token/API key/private key/session/cookie/password/credential 形态。
+- PII pattern scan：邮箱、手机号、身份证/证件号、客户号、内部人员姓名列表（若项目配置提供）和原始事故/工单标识。
+- absolute path scan：禁止出现本机绝对路径；定位信息使用 repo-relative path、path hash、snapshot id、line range 和 snippet hash。
+- prompt-injection scan：规则正文中出现“忽略系统指令”“跳过验证”“修改 generated runtime mirror”等越权指令式文本时标记 `needs-sanitization`。
+
+不通过时不得落盘到 git-tracked candidates；只能输出 `redaction-blocked` / `path-hygiene-blocked` 的 report-only limitation，并提示先脱敏或替换 source refs。`needs-redaction` 不能长期留存在仓库：V1 处理方式是阻断写入并要求本轮内 redacted retry；V2 才可引入有保留期的临时隔离区。U13 的最窄验证必须包含 grep/Node hygiene check，至少覆盖 `docs/standards/**`、`skills/team-standards-governance/evals/**` 和本次生成的 validation report。
 
 Warning routing 必须显式：
 
@@ -908,7 +970,7 @@ Warning routing 必须显式：
 
 `confidence_score` 的定位是 promotion 输入，不是 authority 本身。它可以决定“是否值得 owner 快速批准”“是否生成 confirmed-draft”“是否需要再找反例”，但不能单独把 inferred rule 变成 enforced policy。
 
-**high-impact 判据（闭合、可判定）**：`high_impact ⇔ category ∈ {architecture, security} 或 risk_domain ≠ ∅`，其中 `risk_domain` 是闭合枚举 `{auth, permission, payment, funds, privacy, data-lifecycle, state-ownership, cross-surface-contract}`（项目可经 index 注册表扩展）。本计划其余对“高影响/高风险面”的列举（authority tier 的 `high-impact-governance`、规则质量门禁的 Risk gate、生命周期“新增规范”、brownfield 切片）统一引用该 `risk_domain` 集合并去掉开放式“等”。凡 `high_impact` 的 confirmed 规则必须有有效 `owner`（owner-gate）且不可自动 promote/enforce。
+**high-impact 判据（闭合、可判定）**：`high_impact ⇔ category ∈ {architecture, security} 或 risk_domain ≠ ∅`，其中 `risk_domain` 是闭合枚举 `{auth, permission, payment, funds, privacy, data-lifecycle, state-ownership, cross-surface-contract}`（项目可经 index 注册表扩展）。本计划其余对“高影响/高风险面”的列举（authority tier 的 `high-impact-governance`、规则质量门禁的 Risk gate、生命周期“新增规范”、brownfield 切片）统一引用该 `risk_domain` 集合并去掉开放式“等”。凡 `high_impact` 的 confirmed 规则必须有有效 `owner`（owner-gate）且不可自动 promote/enforce；`owner=unresolved` 时只能 `deferred`，不得进入 `confirmed-draft`、confirmed patch 或 hard context。
 
 `confirmed-draft` 的强约束是：它只是一份带 source refs、tier reason、evidence quality、conflict check 和 review 状态的 source patch/proposal。它可以降低 owner/reviewer 的整理成本，但不能进入 `docs/standards/index.md` 的 hard-context 查询结果，也不能被 `spec-plan`、`spec-work` 或 `spec-code-review` 当作可 enforce 规则。所谓“低影响偏好”只能缩短 review 队列或自动生成 draft patch，不能绕过普通 diff review、CHANGELOG 和 focused tests。
 
@@ -924,6 +986,19 @@ Warning routing 必须显式：
 | `next_action` | 下一个动作，必须是可执行的：收证、改写、冲突解决、owner review、diff review、reject。 |
 
 AI rules、review checklist、workflow handoff summary 都是 derived artifacts，只能从 `confirmed` standards 或明确标记的 `confirmed-draft` proposal 生成预览；下游 workflow 的 hard context 只能消费 `confirmed`。如果 review checklist 与 standard rule 不一致，以 standard rule 为准，并把派生项标记为 drift。
+
+### 为什么不能只靠普通 diff review
+
+普通 diff review 是 source mutation 的最终出口 gate，但它不负责在 review 前整理候选来源、隔离草案状态、判断组织授权或解释自动建议。authority-tier / confirmed-draft / owner queue / decision trace 的增益必须限定在这些 review 前置和审查输入质量问题上：
+
+| 构件 | 普通 diff review 不解决的问题 | 本方案中的最小职责 |
+|------|-------------------------------|--------------------|
+| `authority_tier` | reviewer 看到一段规则 patch 时，不知道它来自显式权威、机械配置、代码观察、事故复盘还是 LLM 归纳 | 在进入 diff review 前给候选贴来源权威和影响面标签，决定是否只可 advisory、是否 owner-gated、是否可准备 draft patch |
+| `confirmed-draft` | 草案容易被误读成可 enforce 的正式规范，或在 index/query 中被提前加载 | 明确隔离 draft 与 hard context；只作为可审查 patch/proposal，不进入 query hard result |
+| owner queue | diff review 可以看到文本质量，但不能自动代表组织 owner 授权高影响架构/安全/隐私/状态 ownership 规则 | 只承接 conflict、high-impact、explicit owner_required；证据薄/表达差/抽象差回到 AI 收证或改写 |
+| decision trace | reviewer 无法复核 LLM 为什么建议提升、为什么拒绝或为什么要求 owner | 记录 gate results、confidence signals、autonomy policy、source refs、next_action，让后续 reviewer 可审计自动建议 |
+
+若某个构件在实现期无法提供上述增益，应收敛为二元：`auto-draftable`（可自动生成 proposal，但不合入）或 `owner-required`（必须 owner/ADR/design note 后再 review），不要引入新的中间状态。
 
 ### 决策与下一步词表（单一来源）
 
@@ -975,7 +1050,7 @@ flowchart TD
 
 | 模式 | 目的 | 主要输入 | 主要输出 | 硬边界 |
 |------|---------|-------------|--------------|---------------|
-| `init` | 初始化 brownfield standards candidates | `AGENTS.md`, `CLAUDE.md`, README、contributing docs、architecture docs、lint/test/API configs、graph/code evidence、review findings、`docs/solutions/**` | acquisition report、candidate file patch previews、`explicit-rules-inventory.md`、`observed-patterns.md`、`suggested-candidates.md`、`conflicts.md`、`acquisition-task-pack.md`、`fact-ledger.md`、`evidence-quality-ledger.md`、`lineage-ledger.md`、promotion proposals | 直接调用默认 report/proposal-only；在 active source-edit workflow 中也只允许写 candidates、获取证据和 promotion proposals，不写 confirmed rules，不调用 promote |
+| `init` | 初始化 brownfield standards candidates | V1: `AGENTS.md`, `CLAUDE.md`, README、contributing docs、architecture docs、lint/test/API configs、少量用户指定 source refs；V2 才加入 graph/code evidence、review findings、`docs/solutions/**` 批量获取 | V1: acquisition notes、candidate file patch previews、`explicit-rules-inventory.md`、`observed-patterns.md`、`suggested-candidates.md`、`conflicts.md`；V2: acquisition task pack、fact/evidence/lineage ledgers、promotion proposals | 直接调用默认 report/proposal-only；V1 active source-edit workflow 也只允许写 candidates 与 promotion proposal，不写 confirmed rules、不写 V2 ledgers、不调用 promote |
 | `query` | 返回某个 workflow slice 相关规范 | workflow、changed paths、surface、layer、capability、category | 带 rule IDs 和 source refs 的 filtered summary | 默认绝不全量加载 standards |
 | `propose` | 基于重复证据草拟新候选规则 | issue/review/incident/source refs | `suggested` / `observed` candidate cards、confidence/evidence report、tier recommendation | 绝不把 confidence 当 policy authority |
 | `promote` | 按 authority tier 把 candidates 或显式规则转成 confirmed-draft 或 confirmed patch proposal | candidate card、explicit source refs、owner decision、scope、exceptions、gate results、decision trace | `confirmed-draft` patch proposal、面向 `confirmed` 的 rule patch proposal、index/lineage/owner queue patch preview | 只有 explicit-authority/machine-enforced-policy 可自动准备 patch preview；真正写 confirmed/index/lineage/owner queue 必须在 active source-edit workflow + diff review 中完成；high-impact/conflict 必须 owner gate |
@@ -996,12 +1071,12 @@ SKILL.md
 | 场景 | 读取 references | 不默认读取 |
 |------|-----------------|------------|
 | `query` | `loading-and-consumption.md`；遇到 conflict 或 tier 判断时再读 `authority-tiers.md` / `promotion-and-conflicts.md` | `initialization.md`、访谈、PR replay、acquisition scoring 细节 |
-| `init` | `initialization.md`、`acquisition-quality.md`、`source-matrix.md`、`output-risk-profile.md`；涉及 owner 空白时读 `role-interview-playbook.md` | `validation-and-replay.md` 的完整 eval 细节、`lifecycle.md` |
-| `propose` | `acquisition-quality.md`、`source-matrix.md`、`adaptive-expansion.md`、`promotion-and-conflicts.md` | 全量 standards rule files、无关 surface 的端侧 references |
-| `promote` | `authority-tiers.md`、`promotion-and-conflicts.md`、`loading-and-consumption.md`；涉及高影响或 owner gate 时读 `role-interview-playbook.md` | `initialization.md`、大规模 evidence collection playbook |
+| `init` | V1 读 `initialization.md`、`acquisition-quality.md`、`output-risk-profile.md`；V2 才读 `source-matrix.md`、`role-interview-playbook.md` | `validation-and-replay.md` 的完整 eval 细节、`lifecycle.md` |
+| `propose` | V1 读 `acquisition-quality.md`、`adaptive-expansion.md`、`promotion-and-conflicts.md`；V2 才读 `source-matrix.md` | 全量 standards rule files、无关 surface 的端侧 references |
+| `promote` | `authority-tiers.md`、`promotion-and-conflicts.md`、`loading-and-consumption.md`；涉及高影响或 owner gate 时引用 Owner Registry 或 ADR/design note，V2 才读访谈 playbook | `initialization.md`、大规模 evidence collection playbook |
 | `deprecate` | `lifecycle.md`、`promotion-and-conflicts.md`、`authority-tiers.md` | 获取任务包、访谈全量问题集 |
-| `audit` | `loading-and-consumption.md`、`lifecycle.md`、`output-risk-profile.md`；需要质量回放时读 `validation-and-replay.md` | `role-interview-playbook.md`，除非审计发现 owner 决策缺口 |
-| `eval/replay` | `validation-and-replay.md`、`output-risk-profile.md`、必要的 golden samples | init/propose/promote 的全部操作步骤 |
+| `audit` | `loading-and-consumption.md`、`lifecycle.md`、`output-risk-profile.md`；V2 需要质量回放时读 `validation-and-replay.md` | `role-interview-playbook.md`，除非审计发现 owner 决策缺口 |
+| `eval/replay` | V2 only: `validation-and-replay.md`、`output-risk-profile.md`、必要的 golden samples | init/propose/promote 的全部操作步骤 |
 
 引用加载原则：
 
@@ -1070,7 +1145,7 @@ flowchart TD
   Evidence --> Profile[确认单一 extraction target 与 blind spots]
   Profile --> Facts[生成 source anchors 与 fact ledger]
   Facts --> Patterns[聚合模式、正反例、冲突信号]
-  Patterns --> Classify[分类为 explicit、observed、suggested、imported 或 conflict]
+  Patterns --> Classify[分类 candidate_type: explicit-rule / observed-pattern / suggested-rule / imported / conflict-record]
   Classify --> Gates[跑 rule quality gates 与 warning routing]
   Gates --> Candidate[生成 candidates / lineage / owner queue patch preview]
 
@@ -1130,16 +1205,16 @@ docs/standards/index.md
 ### Skill 安全规则
 
 - standalone 直接调用默认是 report/proposal-only：可以生成 acquisition report、candidate cards、decision trace 和 patch preview，但不直接改 durable source。
-- 只有 active `$spec-work` 或等价 source-edit workflow 明确接管 source mutation 时，skill 才能辅助写 `docs/standards/candidates/**`、ledger、confirmed standards files、index updates、archive records 或 promotion/deprecation records；该外层 workflow 负责 preview-first、diff review、CHANGELOG 和 focused tests。
-- confirmed standards files、`docs/standards/index.md`、archive records、promotion log、lineage ledger 和 owner decision queue 都属于 durable source mutation；不能由一次 standalone skill 调用静默写入或合入。
+- 只有 active `$spec-work` 或等价 source-edit workflow 明确接管 source mutation 时，skill 才能辅助写 `docs/standards/candidates/**`、confirmed standards files、index updates、archive records 或 promotion/deprecation records；V2 才允许写 ledger/owner queue/run-level output risk profile。该外层 workflow 负责 preview-first、diff review、CHANGELOG 和 focused tests。
+- confirmed standards files、`docs/standards/index.md`、archive records、promotion log、lineage ledger 和 owner decision queue 都属于 durable source mutation；V1 不批量创建 lineage/owner queue，不能由一次 standalone skill 调用静默写入或合入。
 - skill 不得编辑 generated runtime mirrors、route maps、public workflow catalogs 或 `.spec-first/standards/`。
 - `query` mode 只读。
 - `init` 和 `propose` modes 在允许 source 写入时也只能写 candidates、获取证据和 promotion proposals，不写 confirmed rules；即使发现 explicit-authority 或 machine-enforced-policy，也必须把提升动作留给 `promote` mode 和普通 diff review。
-- `promote` mode 必须先判定 authority tier：显式权威来源和已存在机械 enforcement 可自动准备 confirmed-draft 或面向 confirmed 的 patch preview；`confirmed-draft` 在合入 confirmed 前不可被 query/enforce；真正写入 confirmed/index/archive/lineage/owner queue 必须经 active source-edit workflow 和普通 diff review；高影响治理、冲突、owner 不明或纯代码推断必须要求 owner decision。
+- `promote` mode 必须先判定 authority tier：显式权威来源和已存在机械 enforcement 可自动准备 confirmed-draft 或面向 confirmed 的 patch preview；`confirmed-draft` 在合入 confirmed 前不可被 query/enforce；V1 真正写入 confirmed/index/archive 必须经 active source-edit workflow 和普通 diff review；V2 写 lineage/owner queue 也必须走同样出口。高影响治理、冲突、owner 不明或纯代码推断必须要求 owner decision。
 - `audit` mode 只产出 advisory findings，不能独立阻断其他 workflows。
 - 交给 `spec-plan`、`spec-work`、`spec-code-review`、`spec-doc-review` 或 `spec-debug` 的 handoff 只能包含过滤后的 rule refs 和已知限制。
 - AI rules、review checklist、query summaries 和 handoff snippets 是 derived artifacts；它们必须引用 source standard rule IDs，不能作为独立 source truth。
-- Owner queue 只接收 conflict、high-risk 或显式 `owner_required`，不得承接普通低置信、证据薄或表达粗糙的候选；这些候选应继续 `collect-more-evidence` 或 `refine-rule`。
+- V1 owner queue 只是 report/patch-preview 概念；V2 若创建 `owner-decision-queue.md`，也只接收 conflict、high-risk 或显式 `owner_required`，不得承接普通低置信、证据薄或表达粗糙的候选；这些候选应继续 `collect-more-evidence` 或 `refine-rule`。
 
 ---
 
@@ -1201,9 +1276,9 @@ flowchart TB
   U6[U6 Brownfield 初始化指导]
   U7[U7 用户文档与路由说明]
   U9[U9 规范治理 skill skeleton 与架构收口]
-  U10[U10 获取任务包与证据质量模型]
-  U11[U11 Brownfield 切片与角色化访谈]
-  U12[U12 获取质量验证与回放 eval]
+  U10[U10 V2 获取任务包与证据质量模型]
+  U11[U11 V2 Brownfield 切片与角色化访谈]
+  U12[U12 V2 获取质量验证与回放 eval]
   U13[U13 测试、迁移审计与 review]
 
   U1 --> U2
@@ -1215,15 +1290,16 @@ flowchart TB
   U4 --> U7
   U3 --> U9
   U6 --> U9
-  U6 --> U10
-  U9 --> U10
-  U10 --> U11
-  U11 --> U12
-  U12 --> U13
   U5 --> U13
   U6 --> U13
   U7 --> U13
   U9 --> U13
+
+  U6 -.V2 evidence-gated.-> U10
+  U9 -.V2 evidence-gated.-> U10
+  U10 --> U11
+  U11 --> U12
+  U12 -.post-V1 validation.-> U13
 ```
 
 ### U1. 定义规范 source 合同与信任模型
@@ -1252,8 +1328,10 @@ flowchart TB
   - `lifecycle_state=deprecated`: 除非 migration 引用，否则仅作为历史信息。
   - `promotion_state=confirmed-draft`: 只表示可审查 proposal，不进入 hard-context 查询结果。
 - 定义 canonical 枚举段作为 single source of truth：`promotion_state`（含 `none`；candidate card 禁用 `none`）以及决策两正交轴 `next_action` 与 `outcome`；R2、candidate card、gate、authority、eval 等处只引用该枚举段并提供同义映射，不各自重列。
-- 要求每条 confirmed standard 都包含 scope、source refs、owner、enforcement mode 和 invalidation condition。
+- 要求每条 confirmed standard 都包含 scope、source refs、owner、enforcement mode 和 invalidation condition；`owner=unresolved` 是合法值，但 high-impact 规则 fail-closed，不得提升或 enforce。
 - 定义字段分类（global-enum / project-enum / format-free）及各类取值来源：global-enum 取值由本合同 canonical 枚举段定义并将 `category`/`enforcement`/`migration_impact` 收为闭合；project-enum（`applies_to`/`layer`/`capability`）由 `docs/standards/index.md` 注册表声明、校验器查成员资格而非硬编码；format-free 只查格式/存在（含 `source_refs` 禁本机绝对路径）。
+- 固定 V1 rule-card 序列化为 Markdown section + YAML metadata fenced block；若实现确定性校验器，归属为 `scripts/check-team-standards.js`，只做枚举、owner、index、路径和隐私 gate 检查，不做语义 promotion。
+- 定义 standards conflict precedence 为本合同的新规则；不得声称复用 PRD `evidence-and-topology.md` 的 contradiction handling 作为 authority-tier precedence。
 - 明确 scripts 可以收集 candidate facts，但不能确认 standards。
 - 定义 authority tier：`explicit-authority`、`machine-enforced-policy`、`inferred-from-code`、`repeated-review-or-incident`、`multi-source-high-confidence`、`high-impact-governance`、`conflict-present`。
 - 明确 LLM 可以自主抽取、评分、合并、反例搜索和生成 patch；能否 enforce 由 tier 决定。
@@ -1272,6 +1350,9 @@ flowchart TB
 - 正向：contract text 明确 source authority hierarchy、peer conflict 处理和 duplicate host-rule source_refs 策略。
 - 正向：contract text 明确 `docs/specs/<capability>/spec.md` 是能力行为 truth，不是 team standards source。
 - 正向：contract text 定义字段三分类与各自取值来源，且 `applies_to`/`layer`/`capability` 作为 project-enum 指向 `docs/standards/index.md` 注册表，不硬编码跨项目固定集合。
+- 正向：contract text 定义 Owner Registry fallback、`owner=unresolved` 合法值和 high-impact unresolved fail-closed。
+- 正向：contract text 定义 rule-card 序列化格式和可选 validator 归属；若不实现 parser，则 contract tests 不得声称 parser 已存在。
+- 正向：contract text 新定义 standards conflict precedence，并说明 PRD evidence/topology 只可作为 evidence-tag 参考。
 - 正向：explicit-authority 和 machine-enforced-policy 可生成 `confirmed-draft` 或面向 `confirmed` 的可审查 patch proposal，但必须带 source refs 和 conflict check，且真正 `confirmed` 需要 diff review 合入。
 - 负向：high-impact-governance、conflict-present 和 inferred-from-code 不能仅凭 confidence 自动 enforce。
 
@@ -1291,22 +1372,16 @@ flowchart TB
 **文件:**
 - 新增: `docs/standards/index.md`
 - 新增: `docs/standards/shared.md`
-- 新增: `docs/standards/cross-surface.md`
-- 新增: `docs/standards/app.md`
-- 新增: `docs/standards/h5.md`
-- 新增: `docs/standards/pc.md`
-- 新增: `docs/standards/admin.md`
-- 新增: `docs/standards/backend.md`
-- 新增: `docs/standards/data.md`
-- 新增: `docs/standards/job-event.md`
 - 新增: `docs/standards/architecture.md`
-- 新增: `docs/standards/design.md`
-- 新增: `docs/standards/coding.md`
-- 新增: `docs/standards/testing.md`
 - 新增: `docs/standards/review.md`
 - 新增: `docs/standards/security.md`
 - 新增: `docs/standards/candidates/README.md`
-- 新增: `docs/standards/archive/README.md`
+- 按需新增: `docs/standards/cross-surface.md`
+- 按需新增: `docs/standards/design.md`
+- 按需新增: `docs/standards/coding.md`
+- 按需新增: `docs/standards/testing.md`
+- V2/按需新增: `docs/standards/app.md`、`docs/standards/h5.md`、`docs/standards/pc.md`、`docs/standards/admin.md`、`docs/standards/backend.md`、`docs/standards/data.md`、`docs/standards/job-event.md`
+- 按需新增: `docs/standards/archive/README.md`
 - 可选修改: `docs/03-实施方案/06-开发规范.md`
 
 **方案:**
@@ -1314,7 +1389,8 @@ flowchart TB
 - `index.md` 必须包含 Surface / Layer / Capability Registry 块，声明本仓合法的 surface/layer/capability 取值，供 project-enum 字段校验（见 U1「字段分类与校验来源」）。
 - 实际 standards 放在主题文件和 surface 文件里，每个文件保持 scoped、scannable。
 - 使用紧凑 rule cards，而不是长篇 prose essays。字段采用 `id`、`trust`、`lifecycle_state`、`promotion_state`、`priority`、`category`、`applies_to`、`layer`、`capability`、`owner`、`source_refs`、`rule`、`rationale`、`enforcement`、`exceptions`、`effective_from`、`migration_impact`、`invalidation_condition`、`last_reviewed`。
-- 首批 confirmed seed 只包含本仓已有明确权威来源的治理规则，例如 source/runtime boundary、changelog discipline、generated runtime mirror 禁止手改等。业务状态 ownership、依赖方向和 design note trigger 可作为 architecture/design rule template 或 `suggested` candidate，只有存在 owner/ADR/design note/当前权威文档并通过冲突检查后才能提升为 `confirmed`。
+- 首批 confirmed seed 只包含本仓已有明确权威来源且 owner 可解析的治理规则，例如 source/runtime boundary、changelog discipline、generated runtime mirror 禁止手改等。业务状态 ownership、依赖方向和 design note trigger 可作为 architecture/design rule template 或 `suggested` candidate，只有存在 owner/ADR/design note/当前权威文档并通过冲突检查后才能提升为 `confirmed`。
+- 候选写入 `docs/standards/candidates/**` 前必须执行 deterministic privacy/secret/path hygiene pre-write gate；不通过不得落盘。
 - 将较早的 `docs/03-实施方案/06-开发规范.md` 当作 historical input；具体章节只有经过 review 和 promotion 才能进入 confirmed standards。
 
 **遵循模式:**
@@ -1562,26 +1638,26 @@ flowchart TB
 
 ### U9. 设计 standalone 规范治理 skill skeleton 与架构收口
 
-**目标:** 先新增一个 source skill skeleton，提供入口、模式、边界、progressive disclosure reference map 和目录骨架；随后由 U10-U12 填充获取质量、访谈和 eval references，并在本单元收口 skill 架构一致性，但不恢复 `spec-standards` public workflow。
+**目标:** 先新增一个 V1 source skill skeleton，提供入口、模式、边界、progressive disclosure reference map、query/audit/proposal-only 输出和目录骨架；U10-U12 的获取质量、访谈和 eval references 作为 V2 evidence-gated 扩展，不阻塞 V1 发布。
 
 **需求:** R17, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27, R28, R29, R30, R31, R32, R33, R34, R35, R36, R38, R7, R8, R13, R14, R15, R16
 
-**依赖:** U1, U2, U3, U6；U10-U12 会向本 skill 的 references 补充内容，U9 的最终收口验证发生在 U10-U12 完成后。
+**依赖:** U1, U2, U3, U6；U10-U12 后续会向本 skill 的 references 扩展内容，但 U9 的 V1 验证不依赖这些 V2 文件存在。
 
 **文件:**
 - 新增: `skills/team-standards-governance/SKILL.md`
 - 新增: `skills/team-standards-governance/references/initialization.md`
 - 新增: `skills/team-standards-governance/references/meta-prompt-governance.md`
 - 新增: `skills/team-standards-governance/references/authority-tiers.md`
-- 新增: `skills/team-standards-governance/references/acquisition-quality.md`
-- 新增: `skills/team-standards-governance/references/source-matrix.md`
-- 新增: `skills/team-standards-governance/references/role-interview-playbook.md`
-- 新增: `skills/team-standards-governance/references/validation-and-replay.md`
-- 新增: `skills/team-standards-governance/references/output-risk-profile.md`
 - 新增: `skills/team-standards-governance/references/promotion-and-conflicts.md`
 - 新增: `skills/team-standards-governance/references/loading-and-consumption.md`
-- 新增: `skills/team-standards-governance/references/adaptive-expansion.md`
 - 新增: `skills/team-standards-governance/references/lifecycle.md`
+- 新增或轻量新增: `skills/team-standards-governance/references/acquisition-quality.md`
+- 新增或轻量新增: `skills/team-standards-governance/references/output-risk-profile.md`
+- 新增或轻量新增: `skills/team-standards-governance/references/adaptive-expansion.md`
+- V2 新增: `skills/team-standards-governance/references/source-matrix.md`
+- V2 新增: `skills/team-standards-governance/references/role-interview-playbook.md`
+- V2 新增: `skills/team-standards-governance/references/validation-and-replay.md`
 - 新增测试: `tests/unit/team-standards-governance-contracts.test.js`
 - 测试: `tests/unit/lint-skill-entrypoints.test.js`
 - 测试: `tests/unit/runtime-capability-catalog.test.js`
@@ -1593,14 +1669,14 @@ flowchart TB
 - `SKILL.md` 必须包含 reference loading map：固定承载 trigger/mode/boundary/output contract；query 主要读 `loading-and-consumption.md`；init/propose 读取 acquisition/source matrix/output risk；promote/deprecate 读取 authority/promotion/lifecycle；audit/replay 读取 output risk/validation；任何 mode 都不得默认读取全部 references。
 - `meta-prompt-governance.md` 定义 AI 如何解释规范、抽取 scope、选择加载内容、生成 handoff，以及哪些动作必须禁止。
 - `authority-tiers.md` 定义 autonomy vs authority 的分层：显式来源、机械 enforcement、代码推断、重复 review、多源高置信、高影响治理和冲突规则分别如何处理。
-- `acquisition-quality.md` 定义获取任务包、证据质量评分、规则验收清单、反例库和隐私脱敏边界；具体内容由 U10 填充。
-- `source-matrix.md` 定义不同来源能产生的 trust level、candidate type 和必须补充的证据；具体内容由 U10 填充。
-- `promotion-and-conflicts.md` 定义 decision trace、owner queue、conflict resolution 程序（precedence + 出口集 `superseded`/`scoped-split`/`merged`/`deferred`/`both-rejected`，复用 `evidence-and-topology` Contradiction Handling）和 derived artifact 边界。
+- `acquisition-quality.md` 在 V1 只定义轻量规则质量清单、pre-write privacy/secret/path hygiene gate、proposal-only 边界；完整获取任务包、证据质量评分和反例库由 U10/V2 填充。
+- `source-matrix.md` 定义不同来源能产生的 trust level、candidate type 和必须补充的证据；V1 不必创建，U10/V2 再填充。
+- `promotion-and-conflicts.md` 定义 decision trace、owner queue、standards conflict precedence（新定义，不复用 PRD evidence/topology 的 contradiction handling）、出口集 `superseded`/`scoped-split`/`merged`/`deferred`/`both-rejected` 和 derived artifact 边界。
 - `loading-and-consumption.md` 定义 AI rules、review checklist、query summary 和 workflow handoff 只能从 confirmed standards 派生。
 - `loading-and-consumption.md` 同时承载 rule selection contract 的 mode-specific 应用，包含 matched/excluded/uncertainty/fallback/limitations 输出格式。
-- `role-interview-playbook.md` 定义架构、安全、测试、SRE、多端、后端、数据和业务 owner 的访谈问题；具体内容由 U11 填充。
-- `validation-and-replay.md` 定义 PR replay、retrieval eval、owner edit distance、noise budget 和 adoption feedback；具体内容由 U12 填充。
-- `output-risk-profile.md` 定义 missing evidence、输出失败模式、warning routing 和 no-absolute-path guard；具体内容由 U10/U12 填充。
+- `role-interview-playbook.md` 定义架构、安全、测试、SRE、多端、后端、数据和业务 owner 的访谈问题；V2/U11 再创建。
+- `validation-and-replay.md` 定义 PR replay、retrieval eval、owner edit distance、noise budget 和 adoption feedback；V2/U12 再创建。
+- `output-risk-profile.md` 在 V1 只定义 missing evidence、输出失败模式、pre-write gate 失败 reason_code 和 no-absolute-path guard；完整 replay 输出风险由 V2/U12 填充。
 - `adaptive-expansion.md` 定义从 workflow feedback 生成 `suggested` / `observed` candidates、conflict records 和 audit reports 的闭环。
 - 明确定义六个 mode：`init`、`query`、`propose`、`promote`、`deprecate`、`audit`。
 - standalone 直接调用默认 report/proposal-only；只有 active `$spec-work` 或等价 source-edit workflow 接管后，skill 才能辅助写 source。
@@ -1622,8 +1698,8 @@ flowchart TB
 - 正向：skill 文档包含元提示词层职责和自适应扩展边界。
 - 正向：skill 文档包含 reference loading map，说明 near-core references、mode-specific references 和 no-load-all 默认策略。
 - 正向：skill 文档包含 authority tier，并明确 confidence score 不是 authority。
-- 正向：skill 文档把 acquisition quality 作为候选生成前置条件，且不把 evidence score 当 authority。
-- 正向：skill 文档包含 single target acquisition、source anchors、quality gates、warning routing 和 decision trace。
+- 正向：skill 文档把 V1 轻量 rule quality / pre-write gate 作为候选写入前置条件，且不把 evidence score 当 authority。
+- 正向：skill 文档包含 V1 single target notes、pre-write gate、warning routing 和 decision trace；V2 再覆盖完整 acquisition/source anchors。
 - 正向：skill 文档声明 AI rules/review checklist 是 derived artifacts，必须引用 standard rule IDs。
 - 负向：route map、runtime capability catalog、README 命令列表不出现 `$spec-standards` / `/spec:standards`。
 - 负向：skill 文档不得声明代码推断或高影响治理规则可自动 promote confirmed rules。
@@ -1636,13 +1712,13 @@ flowchart TB
 
 ---
 
-### U10. 定义获取任务包与证据质量模型
+### U10. V2 定义获取任务包与证据质量模型
 
-**目标:** 让每次规范获取都有明确 scope、来源、证据质量和隐私边界，避免 LLM 做全仓泛化总结。
+**目标:** 在 V1 source/consumption 路径被真实 slice pilot 验证后，再让每次规范获取都有明确 scope、来源、证据质量和隐私边界，避免 LLM 做全仓泛化总结。
 
 **需求:** R22, R23, R24, R27, R29, R30, R31, R32
 
-**依赖:** U1, U2, U6, U9 skill skeleton
+**依赖:** U1, U2, U6, U9 skill skeleton；另需至少一个真实 repo/capability/surface pilot 输入，不能在无样本时创建空 ledger。
 
 **文件:**
 - 新增或修改: `docs/standards/candidates/acquisition-task-pack.md`
@@ -1658,13 +1734,14 @@ flowchart TB
 - 新增测试: `tests/unit/team-standards-governance-contracts.test.js`
 
 **方案:**
+- V1 只在 `candidates/README.md` 记录轻量 proposal-only acquisition notes 和 pre-write gate；本单元是 V2，不进入第一版开发清单。
 - 定义 acquisition task pack 最小字段：`target_repo`、`extraction_target.surface`、`extraction_target.sub_domain`、`capability`、`project_paths`、`scope.include`、`scope.exclude`、`time_window`、`evidence_sources`、`excluded_sources`、`privacy_boundary`、`expected_candidate_types`、`non_goals`、`owner_candidates`、`output.mode`、`constraints`。
-- 明确 mixed-surface / mixed-domain / unrelated capability 输入必须拆分；第一版不得一次性混合抽取多个端。
-- 定义 evidence quality score 字段和解释，不要求第一版自动计算，但要求每条 candidate 明确评分理由。
+- 明确 mixed-surface / mixed-domain / unrelated capability 输入必须拆分；V2 acquisition run 不得一次性混合抽取多个端。
+- 定义 evidence quality score 字段和解释，不要求 V2 第一轮自动计算，但要求每条 candidate 明确评分理由。
 - 定义 source anchor 字段：`source_type`、`snapshot_id`、`path_hash`、`file`、`line_range`、`snippet_hash`、`fact_id`、`scope`。
 - 定义 source matrix：显式文档、机械配置、ADR、PR review、incident、代码结构、测试、onboarding、访谈分别能产出的最高 trust/tier。
 - 定义 candidate card 最小字段：`candidate_id`、`acquisition_id`、`candidate_type`、`authority_tier`、`evidence_quality`、`privacy_review`、`redaction_status`、`replay_status`、`promotion_state`、`promotion_decision` 和 `source_refs`。
-- 新增 `lineage-ledger.md`、`owner-decision-queue.md`、`promotion-log.md` 模板（带 schema，v1 无真实条目）：lineage 记录 candidate→proposal→confirmed/deprecated/archive 演化；owner-decision-queue 只接 conflict/high-risk/`owner_required`；promotion-log 记录提升/废弃原因。三者字段与 `promotion_state`（F1 canonical 集合）、`outcome`/`next_action`（决策词表）、`risk_domain`（high-impact 判据）对齐。
+- 新增 `lineage-ledger.md`、`owner-decision-queue.md`、`promotion-log.md` 模板（V2 真实 acquisition run 后创建，不作为 V1 空模板）：lineage 记录 candidate→proposal→confirmed/deprecated/archive 演化；owner-decision-queue 只接 conflict/high-risk/`owner_required`；promotion-log 记录提升/废弃原因。三者字段与 `promotion_state`（F1 canonical 集合）、`outcome`/`next_action`（决策词表）、`risk_domain`（high-impact 判据）对齐。
 - 定义 quality gates 和 warning routing：证据薄继续收证，表达/抽象差继续 refine，冲突/高风险/owner_required 才进入 owner queue。
 - 定义 do-not-promote list：个人偏好、历史债、临时 workaround、低频例外、未确认 review opinion、旧架构残留、敏感业务细节。
 - 明确 privacy/redaction：候选规则应抽象为工程约束，只保留必要 source refs，不复制敏感日志、客户数据或人员信息。
@@ -1687,13 +1764,13 @@ flowchart TB
 
 ---
 
-### U11. 定义 Brownfield 切片策略与角色化访谈
+### U11. V2 定义 Brownfield 切片策略与角色化访谈
 
-**目标:** 为大型多端存量项目提供可执行的规范获取路线，补足代码扫描无法获得的隐性团队规则。
+**目标:** 在 V1 规范 source/consumption 路径跑通后，为大型多端存量项目提供可执行的规范获取路线，补足代码扫描无法获得的隐性团队规则。
 
 **需求:** R25, R26, R24, R29
 
-**依赖:** U10
+**依赖:** U10；需要真实 owner/角色参与或可用访谈输入，不以 LLM 想象补齐组织规则。
 
 **文件:**
 - 修改: `docs/standards/candidates/README.md`
@@ -1703,6 +1780,7 @@ flowchart TB
 - 可选修改: `docs/05-用户手册/团队开发规范治理.md`
 
 **方案:**
+- V1 用户文档只给出 slice-first 原则和不得全仓一次性提取；本单元是 V2，不阻塞 V1。
 - 定义 slice priority：高风险能力、核心链路、跨端一致性、高 churn、事故频发、新人/agent 高频误判、owner 可用。
 - 定义每类角色的问题集：
   - 架构负责人：分层、依赖方向、状态 ownership、设计决策门槛。
@@ -1725,13 +1803,13 @@ flowchart TB
 
 ---
 
-### U12. 增加获取质量验证与回放 eval
+### U12. V2 增加获取质量验证与回放 eval
 
-**目标:** 验证获取到的规范是否真实提升 plan/work/review/debug，而不是只增加文档数量。
+**目标:** 在存在真实获取候选和历史 PR/review 样本后，验证获取到的规范是否真实提升 plan/work/review/debug，而不是只增加文档数量。
 
 **需求:** R28, R23, R15, R16, R33, R34
 
-**依赖:** U10, U11, U5
+**依赖:** U10, U11, U5；需要可复现 PR/review 样本、expected rule IDs 或 owner 反馈，样本不足时只能记录 `not-enough-sample` / `not-run`。
 
 **文件:**
 - 新增: `skills/team-standards-governance/references/validation-and-replay.md`
@@ -1745,6 +1823,7 @@ flowchart TB
 - 测试: `tests/unit/spec-code-review-contracts.test.js`
 
 **方案:**
+- V1 只保留成功指标口径和可手工 pilot 的最小记录；本单元是 V2，不要求第一版创建 eval fixtures 或 golden samples。
 - 定义 PR replay：选定最近一批 PR 或 review findings，用新标准重放，记录应命中、误报、漏报、owner 修改量和 finding 可采纳率。
 - 定义 retrieval eval：给 plan/work/review/debug 场景，要求 agent 只通过 `docs/standards/index.md` 选择规则，评估是否命中正确 rule IDs。
 - 定义 owner edit distance：owner 对候选规则的改动越大，说明提取质量或 scope 识别越差。
@@ -1787,19 +1866,19 @@ flowchart TB
 
 **目标:** 证明新治理层可用、不会回归退役 standards 行为，并且不是只增加 prose。
 
-**需求:** R1 至 R38
+**需求:** V1 覆盖 R1-R21、R29、R32-R38；R22-R28、R30-R31 的完整获取/eval 验证作为 V2 扩展覆盖。
 
-**依赖:** U4, U5, U6, U7, U9, U10, U11, U12
+**依赖:** V1 依赖 U4, U5, U6, U7, U9；V2 扩展验证再依赖 U10, U11, U12。
 
 **文件:**
 - 修改: `CHANGELOG.md`
-- 修改: U1 到 U12 列出的 focused unit tests
-- 验证输入: `docs/standards/candidates/fact-ledger.md`
-- 验证输入: `docs/standards/candidates/lineage-ledger.md`
-- 验证输入: `docs/standards/candidates/owner-decision-queue.md`
-- 验证输入: `docs/standards/candidates/output-risk-profile.md`
-- 验证输入: `skills/team-standards-governance/evals/trigger-cases.json`
-- 验证输入: `skills/team-standards-governance/evals/output-cases.json`
+- 修改: U1 到 U9 列出的 focused unit tests
+- V2 验证输入: `docs/standards/candidates/fact-ledger.md`
+- V2 验证输入: `docs/standards/candidates/lineage-ledger.md`
+- V2 验证输入: `docs/standards/candidates/owner-decision-queue.md`
+- V2 验证输入: `docs/standards/candidates/output-risk-profile.md`
+- V2 验证输入: `skills/team-standards-governance/evals/trigger-cases.json`
+- V2 验证输入: `skills/team-standards-governance/evals/output-cases.json`
 - 可选验证报告: `docs/validation/standards-governance/2026-06-21-team-standards-governance-validation.md`
 
 **方案:**
@@ -1807,21 +1886,21 @@ flowchart TB
 - 跑 absence guards，确认 `spec-standards` public workflow 和退役 `.spec-first/standards/` references 未回归。
 - 跑 `git diff --check`。
 - 如果 standards source contract 或 skill prose 改变行为语义，跑 document review 或 fresh-source eval。
-- 增加 acquisition output audit，逐项检查 single extraction target、source anchors、quality gates、warning routing、decision trace、lineage ledger、owner queue 和 output risk profile 是否存在且互相引用。
+- V1 增加 candidate pre-write audit，检查 privacy/secret/path hygiene gate、prompt-injection scan、source refs 和 `owner=unresolved` high-impact fail-closed；V2 再增加 acquisition output audit，逐项检查 single extraction target、source anchors、quality gates、warning routing、decision trace、lineage ledger、owner queue 和 output risk profile 是否存在且互相引用。
 - 增加 derived artifact drift audit，确认 AI rules、review checklist、query summary 和 workflow handoff snippets 必须引用 source standard rule IDs，且不能独立成为 source truth。
 - 增加 source authority audit，确认 `docs/contracts/team-standards.md`、host instructions、`docs/standards/**`、directory rules、capability specs、solutions 和 candidates 的权威边界没有互相复制或冲突未标记。
 - 增加 rule selection contract audit，确认消费者输出 matched/excluded/uncertainty/fallback/limitations，且 unknown scope、index missing、conflict present 不会触发全量 standards 扫描。
 - 增加 standards/spec boundary audit，确认能力 spec 只记录当前行为真相，团队规范只记录工程约束；跨界引用必须用 `source_refs`。
 - 增加 skill reference loading audit，确认 `SKILL.md` 有 reference map，且 mode-specific references 不被入口文件全量内联。
-- 增加 path hygiene audit，确认正式候选、ledger、derived artifacts 和报告不输出本机绝对路径；需要定位时使用 repo-relative path、path hash、snapshot id 和 snippet hash。
+- 增加 path hygiene audit，确认正式候选、derived artifacts 和报告不输出本机绝对路径；V2 ledger 需要定位时使用 repo-relative path、path hash、snapshot id 和 snippet hash。
 - 增加 owner queue negative audit，确认 owner queue 只接收 conflict、high-risk、explicit owner_required；普通 evidence/actionability/abstraction warning 必须回到 AI 收证或改写。
-- 增加 trigger/output eval audit，确认 `trigger-cases.json` 与 `output-cases.json` 覆盖 should-trigger、should-not-trigger、near-neighbor、boundary、derived artifact citation 和 no-absolute-path cases。
+- V2 增加 trigger/output eval audit，确认 `trigger-cases.json` 与 `output-cases.json` 覆盖 should-trigger、should-not-trigger、near-neighbor、boundary、derived artifact citation 和 no-absolute-path cases。
 - 增加 migration audit section，把历史 standards docs 分类为：
   - 已提升的 confirmed rule；
   - 保留为 historical/advisory；
   - conflict/deferred；
   - stale/deprecated。
-- 对每条 migration 结果记录 lineage：historical source -> candidate/proposal -> confirmed/deprecated/archive；不能只有结论没有过程。
+- V1 对每条 migration 结果记录最小 decision trace；V2 再记录完整 lineage：historical source -> candidate/proposal -> confirmed/deprecated/archive；不能只有结论没有过程。
 
 **遵循模式:**
 - 已完成 plans 中的 completion evidence sections。
@@ -1834,23 +1913,23 @@ flowchart TB
 - 负向：sample suggested rule 不可 enforce。
 - 正向：explicit-authority sample 可生成 confirmed-draft 或面向 confirmed 的 patch preview，并保留 source refs。
 - 负向：high-impact/conflict sample 不可自动 enforce，即使 confidence 很高。
-- 正向：acquisition task pack/evidence quality/source matrix/replay eval 的 reference 文档存在并互相引用。
-- 负向：获取质量验证不得使用 LLM 自评作为通过依据。
+- V2 正向：acquisition task pack/evidence quality/source matrix/replay eval 的 reference 文档存在并互相引用。
+- V2 负向：获取质量验证不得使用 LLM 自评作为通过依据。
 - 正向：standalone 规范 skill 不出现在 public workflow route map。
-- 正向：每个 acquisition run 只绑定一个 extraction target；mixed-surface/mixed-domain 输入会被拆分或拒绝。
-- 正向：候选、fact ledger 和 evidence ledger 包含 source anchors，并且正式输出不包含本机绝对路径。
+- V2 正向：每个 acquisition run 只绑定一个 extraction target；mixed-surface/mixed-domain 输入会被拆分或拒绝。
+- 正向：候选包含 source refs，且正式输出不包含本机绝对路径；V2 fact/evidence ledger 还必须包含 source anchors。
 - 正向：quality gates 的 warning/fail 都有 next_action，且普通 evidence/actionability/abstraction warning 不进入 owner queue。
-- 正向：lineage ledger 能追踪 candidate/proposal/confirmed/deprecated/archive 的来源与状态变化。
+- V2 正向：lineage ledger 能追踪 candidate/proposal/confirmed/deprecated/archive 的来源与状态变化。
 - 正向：derived AI rules、review checklist、query summary 和 handoff snippets 都引用 standard rule IDs 或 reviewable proposal IDs。
 - 正向：source authority hierarchy 能解释同一规则在 host instruction、standards、capability spec 和 solutions 中出现时哪个是 source truth。
 - 正向：rule selection contract 在 scope 不明、index 缺失、冲突存在时返回明确 fallback，不加载全量规范库。
 - 正向：capability spec 与 standards 的边界示例存在，且互相引用只通过 `source_refs`。
 - 正向：skill reference loading map 能证明 query/promote/init/audit 只读取必要 references。
-- 正向：output risk profile 明确 missing evidence、known failure modes 和 guard checks。
+- V1 正向：output risk profile 或 skill reference 明确 missing evidence、known failure modes、pre-write gate 失败和 guard checks；V2 输出完整 run-level profile。
 - 负向：quality gate pass 或高 confidence 不可直接等同 owner decision 或 confirmed hard context。
 
 **验证:**
-- 实现可以用证据关闭：standards governance 可用、规范 skill 边界清晰、获取产物可复核、derived artifacts 不漂移、owner queue 不变垃圾桶，旧 `spec-standards` 仍保持 retired。
+- V1 实现可以用证据关闭：standards governance 可用、规范 skill 边界清晰、candidate 写入受 privacy/path/prompt-injection gate 保护、derived artifacts 不漂移、owner queue 不变垃圾桶，旧 `spec-standards` 仍保持 retired。V2 再用 replay/retrieval/lineage/owner-edit 证明获取产物可复核且有质量收益。
 
 ---
 
@@ -1863,14 +1942,14 @@ flowchart TB
 - **规则选择:** rule selection contract 让 workflow handoff 能说明命中、排除、降级和限制，减少“为什么加载这条规范”的黑盒感。
 - **能力规范边界:** capability spec 继续维护当前能力行为真相，standards 维护工程约束；二者通过 `source_refs` 互相引用，不互相吞并。
 - **Source/runtime 边界:** 新 source docs 位于 `docs/`；generated mirrors 不手改。`.spec-first/standards/` 保持 retired。
-- **Brownfield 采纳:** 已有大型 app 可以从显式文档和 observed patterns 初始化 standards，但不会声称代码扫描等于政策。
-- **规范获取质量:** 初始化不再等于全仓扫描总结；每次获取有任务包、证据质量、来源矩阵、切片策略和验证反馈。
-- **规范萃取工厂:** 获取流程被拆成 intake/profile/facts/patterns/synthesis/gates/decision/publisher；前几层只准备事实和候选，不能提升 hard context。
-- **证据可复核性:** source anchors、fact ledger 和 lineage ledger 让 reviewer 能复核候选从何而来、如何被改写、为何进入或没有进入 promotion。
-- **Owner 负载:** owner queue 只承接组织授权问题，如冲突、高风险和显式 owner_required；证据薄或表达差由 AI 继续收证/改写。
+- **Brownfield 采纳:** V1 已有大型 app 只能从显式文档和少量手工 observed patterns 建立 proposal-only 候选；不会声称代码扫描等于政策。V2 再进入批量获取。
+- **规范获取质量:** V1 初始化不等于全仓扫描总结；V2 每次获取必须有任务包、证据质量、来源矩阵、切片策略和验证反馈。
+- **规范萃取工厂:** V2 获取流程被拆成 intake/profile/facts/patterns/synthesis/gates/decision/publisher；前几层只准备事实和候选，不能提升 hard context。
+- **证据可复核性:** V1 先要求 source refs 和 why-not-confirmed；V2 source anchors、fact ledger 和 lineage ledger 让 reviewer 能复核候选从何而来、如何被改写、为何进入或没有进入 promotion。
+- **Owner 负载:** V1 owner queue 是 report/patch-preview 概念；V2 若创建正式 owner queue，也只承接组织授权问题，如冲突、高风险和显式 owner_required；证据薄或表达差由 AI 继续收证/改写。
 - **派生产物边界:** AI rules、review checklist、query summary 和 workflow handoff snippets 变成可再生成的 derived artifacts，不再与 confirmed standards 形成多真相源。
-- **输出风险透明度:** output risk profile 记录缺失证据、警告路由和输出失败模式，使自动化提取失败时可诊断而非静默污染规范库。
-- **组织知识获取:** 角色化访谈把代码无法表达的架构、安全、运维、业务 owner 约束转成候选规则，但仍受 evidence 和 authority tier 约束。
+- **输出风险透明度:** V1 output-risk reference 记录缺失证据、警告路由、pre-write gate 失败和输出失败模式；V2 run-level output risk profile 让自动化提取失败时可诊断而非静默污染规范库。
+- **组织知识获取:** V2 角色化访谈把代码无法表达的架构、安全、运维、业务 owner 约束转成候选规则，但仍受 evidence 和 authority tier 约束。
 - **Skill surface:** 新增 `team-standards-governance` 只作为 standalone source skill，不进入 public workflow route map。
 - **Skill 上下文成本:** reference loading map 让 `SKILL.md` 保持轻入口，query/init/propose/promote/deprecate/audit 只读取必要 references，不把获取、访谈、replay、生命周期细节一次性注入。
 - **元提示词层:** 规范治理的动态解释、加载、候选生成和生命周期引导集中在 skill source 中，不分散到每个 workflow 的临时 prompt。
@@ -1878,7 +1957,7 @@ flowchart TB
   - CLI/runtime：第一版 out-of-scope，除防 public workflow regression 的测试外不改 CLI/runtime。
   - Workflow prose：in-scope，用于共享 consumption contract。
   - Agent/reviewer：in-scope，用于扩展 project-standards reviewer。
-  - Standalone skill：in-scope，用于规范初始化、查询、提升、废弃和审计的 source skill。
+  - Standalone skill：in-scope，但 V1 只做 query/audit/proposal-only skeleton；初始化、提升、废弃可输出 patch preview/handoff，真正 source mutation 仍由 active source-edit workflow 承担，重型获取/回放能力进入 V2。
   - Docs/user guide：in-scope，用于 discoverability 和维护流程。
   - Tests：in-scope，用于 contract 和 absence guards。
   - Generated runtime mirrors：out-of-scope；未来如需 source-runtime projection，必须通过 `spec-first init` 再生成。
@@ -1907,7 +1986,8 @@ flowchart TB
 | LLM confidence 被误当 authority | 高 | 高 | 合同明确 confidence score 只是 promotion input；high-impact/conflict/inferred-from-code 不能仅凭高分 enforce。 |
 | 过度保守导致自动化价值不足 | 中 | 中 | explicit-authority 和 machine-enforced-policy 允许自动生成 confirmed-draft 或面向 confirmed 的 patch preview，multi-source-high-confidence 支持 fast review，但不绕过 diff review。 |
 | 自适应扩展形成隐性自进化 | 中 | 高 | `adaptive-expansion.md` 只允许在符合 authority tier 时生成 confirmed-draft proposal；confirmed-draft 不可 enforce；禁止自动修改角色契约、route map、runtime mirrors 或高影响 confirmed truth。 |
-| 获取范围过大导致低质候选 | 高 | 高 | acquisition task pack 必须定义 slice、time window、source 和 non-goals；大型项目禁止默认全仓一次性提取。 |
+| V1 范围过载 | 高 | 高 | V1 只交付 source contract、最小 standards 骨架、consumption/review enforcement 和 proposal-only skill skeleton；U10-U12 获取/eval/访谈层作为 V2 evidence-gated 扩展。 |
+| 获取范围过大导致低质候选 | 高 | 高 | V1 只允许轻量 proposal notes；V2 acquisition task pack 必须定义 slice、time window、source 和 non-goals；大型项目禁止默认全仓一次性提取。 |
 | 证据质量评分被当作机械真理 | 中 | 中 | evidence score 只解释证据强弱，不替代 authority tier、owner gate 或 PR replay。 |
 | 访谈内容泄漏敏感信息 | 中 | 高 | 获取任务包必须声明 privacy/redaction；候选规则只写抽象约束和必要 source refs。 |
 | PR replay 过拟合历史 PR | 中 | 中 | replay 只作为 acquisition evidence；结合 retrieval eval、owner edit distance 和后续 adoption feedback。 |
@@ -1915,6 +1995,9 @@ flowchart TB
 | Owner queue 变成垃圾桶 | 中 | 高 | warning routing 明确 evidence/actionability/abstraction 问题回到 AI 收证或改写；只有 conflict/high-risk/owner_required 进入 owner queue。 |
 | Source anchor 泄漏本机路径 | 中 | 中 | 正式输出禁止本机绝对路径；使用 repo-relative path、path hash、snapshot id、line range 和 snippet hash。 |
 | Source anchor 不可复核 | 中 | 高 | 非 Git 或缺 line/snippet 的来源只能作为 low-confidence advisory；promotion 前必须补 fact ledger。 |
+| 候选落盘前泄漏 secret/PII | 中 | 高 | 写入 candidates、derived artifacts、eval output 前跑 deterministic secret/PII/absolute-path/prompt-injection scan；不通过不得写入 git-tracked source，只输出 report-only limitation。 |
+| Owner resolver 在无 CODEOWNERS 仓库 fail-open | 中 | 高 | V1 引入 `docs/standards/index.md` Owner Registry fallback；`owner=unresolved` 合法但 high-impact fail-closed，不可提升或 enforce。 |
+| confirmed 规则正文成为 prompt injection 面 | 中 | 高 | 下游把 rule text 作为 data payload 注入，使用 fenced block/rule ID/source refs 隔离；检测越权指令式文本并进入 conflict/needs-sanitization。 |
 | Derived AI rules 漂移 | 中 | 高 | AI rules、review checklist、query summary 和 handoff snippets 必须从 confirmed standards 或 reviewable proposal 派生，并引用 rule/proposal IDs。 |
 | Skill references 膨胀为第二个巨型上下文 | 中 | 中 | `SKILL.md` 只保留 reference loading map；mode-specific references 按触发读取；contract tests 防止入口内联全量细节。 |
 | Quality gates 被误当最终 authority | 中 | 高 | gates 只产生 pass/warning/fail、confidence signals 和 next_action；authority 仍由 tier、owner/diff review 和 confirmed source 决定。 |
@@ -1938,35 +2021,44 @@ flowchart TB
 
 ## 成功指标
 
+### V1 成功指标
+
 - 下游 workflow 在 plan/work/review/debug 时可以稳定引用同一 standards contract，而不是各自发明读取规则。
 - project-standards reviewer 对规范 finding 的误报不增加，且 finding 都能引用具体 rule ID/section。
 - 同一条规则在 host instructions、standards、capability specs、solutions 中出现时，消费者能通过 source authority hierarchy 判断哪一处是 source truth、哪些只是引用或 advisory。
 - 每次 standards query/handoff 都能说明 matched rule IDs、excluded reason、fallback mode 和 limitations；scope 不明时不会默认打开全库。
 - 用户能根据边界表判断某条内容应写入 capability spec、team standards、contract、solution 还是 candidate 区。
-- 大型存量项目可以先建立 5 到 20 条 confirmed standards，而不是一次性写成巨文档。
+- 单个真实 slice 可以先建立 3 到 10 条 confirmed standards 或 templates，而不是一次性写成巨文档；如无 owner 或 source refs，只能保留候选。
 - `spec-standards` 相关 public entrypoint 和 `.spec-first/standards/` active consumption 仍保持 0。
 - 新增规范变更能通过普通 PR/review/changelog 流程治理。
-- `team-standards-governance` skill 能在 `query` mode 返回 bounded filtered refs；standalone 直接调用默认 report/proposal-only，只有 active source-edit workflow 接管时 `init/propose` 才能写 candidates。
+- `team-standards-governance` skill skeleton 能在 `query` mode 返回 bounded filtered refs；standalone 直接调用默认 report/proposal-only，只有 active source-edit workflow 接管时 `init/propose` 才能写 candidates。
 - lifecycle review 能把 stale rules 退到 `deprecated` 或 `archived`，而不是长期留在 confirmed。
 - architecture/design rules 能在 plan/review 中以 rule ID + source refs 形成可审查约束。
 - 元提示词层能把 workflow feedback 转成 `suggested`/`observed`/`conflict`/audit 输出；显式权威或机械 enforcement 场景可以生成 confirmed-draft 或面向 confirmed 的 patch preview，高影响治理仍走 owner gate，confirmed-draft 不进入 query mode hard context。
 - 高置信 promotion proposal 能减少 owner review 负担，但不会绕过 high-impact/conflict gate。
 - 每条自动生成的 confirmed patch preview 或 confirmed-draft 都能追溯到 explicit source ref、machine-enforced evidence、tier reason 和 conflict check。
+- 每条 candidate、promotion proposal 和 confirmed rule 都有 source refs、owner 状态、why-not-confirmed 或明确 missing evidence reason。
+- 候选、derived artifacts 和报告在写入前通过 deterministic secret/PII/absolute-path/prompt-injection hygiene gate；不通过不落盘。
+- high-impact 规则在 `owner=unresolved` 时 fail-closed，不会进入 confirmed-draft 或 hard enforcement。
+- Quality gate warning/fail 能稳定路由到 collect-more-evidence、refine-rule、owner-review、conflict-resolution 或 reject。
+- Owner queue 只包含 conflict、high-risk 或 explicit owner_required 项；普通低置信、证据薄、表达粗糙的问题不进入 owner queue。
+- Derived AI rules、review checklist、query summary 和 workflow handoff snippets 都引用 source rule IDs 或 reviewable proposal IDs，并能被重新生成。
+- Output risk profile 或 skill reference 明确本次候选/查询缺哪些证据、哪些输出被抑制、哪些 warning 需要下轮处理。
+- 下游 workflow 的 handoff 中能看到过滤后的 rule refs、source refs、exceptions 和 limitations，而不是整库 standards dump。
+- `team-standards-governance` 的 `SKILL.md` 保持轻入口，reference loading map 能指导 query/init/propose/promote/deprecate/audit 只加载必要 reference。
+
+### V2 价值指标
+
 - 每个规范获取批次都有 acquisition task pack，并明确目标 slice、证据来源、排除范围和隐私边界。
 - 每个规范获取批次只绑定一个 extraction target；mixed-surface、mixed-domain 或 unrelated capability 输入会被拆分。
 - 每条 candidate 都有 evidence quality score；低证据质量候选不会进入 confirmed。
 - 每条 candidate、promotion proposal 和 confirmed rule 都有可复核 source anchors 或明确 missing evidence reason。
-- Quality gate warning/fail 能稳定路由到 collect-more-evidence、refine-rule、owner-review、conflict-resolution 或 reject。
-- Owner queue 只包含 conflict、high-risk 或 explicit owner_required 项；普通低置信、证据薄、表达粗糙的问题不进入 owner queue。
 - Lineage ledger 能追踪 candidate -> proposal -> confirmed/deprecated/archive，且没有 orphan promotion。
-- Derived AI rules、review checklist、query summary 和 workflow handoff snippets 都引用 source rule IDs 或 reviewable proposal IDs，并能被重新生成。
 - Output risk profile 明确本次获取缺哪些证据、哪些输出被抑制、哪些 warning 需要下轮处理。
 - Brownfield pilot 能在单个 capability/surface slice 内产出小批量高质量候选，而不是全仓巨量候选。
 - PR replay 能显示新增规则对真实 review 问题的命中、误报和漏报，并输出可复核 case 记录。
 - Retrieval eval 能证明 plan/work/review/debug 场景可通过 index 命中正确 rule IDs，并暴露 expected hits、observed hits、false positives 和 false negatives。
 - Owner edit distance 和 candidate reject reason 能反向改善获取 prompt、source matrix 和切片策略。
-- 下游 workflow 的 handoff 中能看到过滤后的 rule refs、source refs、exceptions 和 limitations，而不是整库 standards dump。
-- `team-standards-governance` 的 `SKILL.md` 保持轻入口，reference loading map 能指导 query/init/propose/promote/deprecate/audit 只加载必要 reference。
 
 ---
 
@@ -1987,15 +2079,15 @@ flowchart TB
 - 完成 U5。
 - 目标是让 confirmed standards 真正进入 code review，但不产生 best-practice 噪音。
 
-### 阶段 4：Acquisition quality 与 brownfield 获取
+### 阶段 4：Docs、standalone skill skeleton 与 V1 语义 review
 
-- 完成 U6、U9 skill skeleton、U10、U11、U12。
-- 目标是让存量项目可以按 slice 高质量获取规范候选，并用证据质量、访谈、reference loading map 和回放验证减少误提取。
+- 完成 U6、U7、U9 V1 skeleton、U13 V1 验证。
+- 目标是证明旧 `spec-standards` 未回归，新治理层和 standalone skill skeleton 可被实际 workflow 消费，candidate 写入受 pre-write gate 保护，source/runtime 边界清晰。
 
-### 阶段 5：Docs、standalone skill 与语义 review
+### 阶段 5：V2 Acquisition quality 与 brownfield 获取
 
-- 完成 U7、U9 full skill 收口、U13。
-- 目标是证明旧 `spec-standards` 未回归，新治理层和 standalone skill 可被实际 workflow 消费，获取质量机制不会变成另一套隐性自动审批。
+- 在真实 repo/capability/surface pilot 具备样本、owner 和隐私边界后，完成 U10、U11、U12，并扩展 U13 V2 验证。
+- 目标是让存量项目可以按 slice 高质量获取规范候选，并用证据质量、访谈、reference loading map 和回放验证减少误提取；没有真实样本时只能记录 `not-enough-sample` / `not-run`。
 
 ---
 
@@ -2006,22 +2098,22 @@ flowchart TB
 - `skills/team-standards-governance/SKILL.md`: standalone source skill 入口，定义 mode、边界、输出、handoff 和 reference loading map。
 - `skills/team-standards-governance/references/meta-prompt-governance.md`: 定义规范治理元提示词层的职责、禁止事项和 handoff 规则。
 - `skills/team-standards-governance/references/authority-tiers.md`: 定义 LLM 分级自治、confidence scoring、auto-confirm 条件、owner gate 和 conflict handling。
-- `skills/team-standards-governance/references/acquisition-quality.md`: 定义获取任务包、证据质量评分、规则质量验收、反例库和隐私脱敏。
-- `skills/team-standards-governance/references/source-matrix.md`: 定义不同证据来源可产生的候选类型和最高默认 trust/tier。
-- `skills/team-standards-governance/references/promotion-and-conflicts.md`: 定义 decision trace、owner queue、conflict resolution、lineage update 和 derived artifact 边界。
+- `skills/team-standards-governance/references/acquisition-quality.md`: V1 定义轻量规则质量清单、pre-write privacy/secret/path hygiene gate 和 proposal-only 边界；V2 扩展获取任务包、证据质量评分、反例库。
+- `skills/team-standards-governance/references/source-matrix.md`: V2 定义不同证据来源可产生的候选类型和最高默认 trust/tier。
+- `skills/team-standards-governance/references/promotion-and-conflicts.md`: V1 定义 decision trace、owner queue、standards conflict precedence、出口集和 derived artifact 边界；V2 扩展 lineage update。
 - `skills/team-standards-governance/references/loading-and-consumption.md`: 定义 rule selection contract 在 skill mode 中的使用，以及 query summary、AI rules、review checklist 和 workflow handoff snippets 的派生与按需加载规则。
-- `skills/team-standards-governance/references/output-risk-profile.md`: 定义 missing evidence、output failure modes、warning routing 和 no-absolute-path guard。
-- `skills/team-standards-governance/references/role-interview-playbook.md`: 定义多角色访谈问题和 owner decision 记录规则。
-- `skills/team-standards-governance/references/validation-and-replay.md`: 定义 PR replay、retrieval eval、owner edit distance、noise budget 和 adoption feedback。
-- `skills/team-standards-governance/evals/README.md`: 定义可复用 eval case 字段；可选 `examples.json` 提供小样本。
-- `skills/team-standards-governance/evals/trigger-cases.json`: 覆盖 acquisition 应触发、不应触发、近邻和边界请求。
-- `skills/team-standards-governance/evals/output-cases.json`: 覆盖 candidates、lineage、owner queue、derived artifacts、source anchors 和 no-absolute-path 输出合同。
-- `skills/team-standards-governance/references/adaptive-expansion.md`: 定义受治理的自适应候选生成、冲突记录、审计和 owner review 流程。
+- `skills/team-standards-governance/references/output-risk-profile.md`: V1 定义 missing evidence、output failure modes、warning routing、pre-write gate failure 和 no-absolute-path guard；V2 扩展 run-level profile。
+- `skills/team-standards-governance/references/role-interview-playbook.md`: V2 定义多角色访谈问题和 owner decision 记录规则。
+- `skills/team-standards-governance/references/validation-and-replay.md`: V2 定义 PR replay、retrieval eval、owner edit distance、noise budget 和 adoption feedback。
+- `skills/team-standards-governance/evals/README.md`: V2 定义可复用 eval case 字段；可选 `examples.json` 提供小样本。
+- `skills/team-standards-governance/evals/trigger-cases.json`: V2 覆盖 acquisition 应触发、不应触发、近邻和边界请求。
+- `skills/team-standards-governance/evals/output-cases.json`: V2 覆盖 candidates、lineage、owner queue、derived artifacts、source anchors 和 no-absolute-path 输出合同。
+- `skills/team-standards-governance/references/adaptive-expansion.md`: V1 轻量定义受治理的自适应候选生成、冲突记录、审计和 owner review 流程；V2 扩展为真实 acquisition producer。
 - `skills/team-standards-governance/references/*.md`: 其他 references 分别承载初始化、提升/冲突、加载/消费、生命周期细则。
-- `docs/standards/candidates/fact-ledger.md`: 记录 deterministic facts、source anchors、hash 和 scope。
-- `docs/standards/candidates/lineage-ledger.md`: 记录 candidate/proposal/confirmed/deprecated/archive 的演化关系。
-- `docs/standards/candidates/owner-decision-queue.md`: 只承接 conflict/high-risk/owner_required 决策项。
-- `docs/standards/candidates/output-risk-profile.md`: 记录本次获取输出风险、缺失证据和被抑制输出。
+- `docs/standards/candidates/fact-ledger.md`: V2 记录 deterministic facts、source anchors、hash 和 scope。
+- `docs/standards/candidates/lineage-ledger.md`: V2 记录 candidate/proposal/confirmed/deprecated/archive 的演化关系。
+- `docs/standards/candidates/owner-decision-queue.md`: V2 只承接 conflict/high-risk/owner_required 决策项。
+- `docs/standards/candidates/output-risk-profile.md`: V2 记录本次获取输出风险、缺失证据和被抑制输出。
 - `README.md` / `README.zh-CN.md`: 简短介绍团队规范 source docs，不新增命令。
 - `docs/05-用户手册/团队开发规范治理.md`: 若内容过长，新增用户手册页承载 brownfield 初始化、维护流程、source authority hierarchy、rule selection contract 和 standards/capability spec 边界表。
 - `docs/05-用户手册/12-gitignore参考.md`: 更新 confirmed standards source 示例，避免隐藏 standards source。

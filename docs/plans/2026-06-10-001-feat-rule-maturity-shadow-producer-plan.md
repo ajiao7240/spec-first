@@ -201,7 +201,7 @@ SCALE 集成路线（`docs/01-需求分析/13.scale-integration/README.md`）中
 ### Institutional Learnings
 
 - `docs/solutions/architecture-patterns/ai-reviewer-capability-borrowing-gates-2026-06-09.md` — 无确定性证据时 LLM 评分≈随机；shadow_hits 只记可回查事实，不带评分/promote 建议。
-- `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md` — 新 artifact 合同收口五件套（schema + writer + 读取面 + unit tests + 必要 integration）；明确逐条 hit 记录是主真源，聚合计数只是 projection。
+- `docs/contracts/governance/rule-maturity.md` — rule-maturity reader 只产 projection facts；明确逐条 hit 记录是主真源，聚合计数只是 projection。
 - `docs/solutions/workflow-issues/self-reflection-cud-contract-loop-2026-05-05.md` — 「advisory fields, not a central state machine；证据流动后再升级」，直接背书 phase 1 切法。
 - `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md` — evidence artifact 不覆盖 `docs/contracts/**` 行为契约；产物错了先查 producer。
 - `docs/solutions/architecture-patterns/workflow-entrypoint-exposure-contract-2026-04-26.md` — internal helper 不登记为 workflow_command、不建 command template。

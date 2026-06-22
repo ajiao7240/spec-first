@@ -76,7 +76,7 @@ deepened: 2026-04-22
 
 - `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`
   明确要求先区分 source-of-truth 与 runtime artifact，再决定修改位置；这次修复必须把这条原则写进 `graph-bootstrap` 主 contract，而不是只留在 learnings 里。
-- `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`
+- `docs/contracts/source-runtime-customization-boundary.md`
   强调“轻 contract + 明确边界 + 让 LLM 决策”的具体落法：不同 artifact 只回答自己的问题，不把语义混进一个厚对象。
 
 ### External References
@@ -177,7 +177,7 @@ flowchart TD
 
 **Patterns to follow:**
 - `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`
-- `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`
+- `docs/contracts/source-runtime-customization-boundary.md`
 
 **Test scenarios:**
 - Happy path: source skill 和 mirror 都包含同一组 surface labels，且 source repo internal path 被放在明确标注区块中。
@@ -345,5 +345,4 @@ flowchart TD
 - Related code: `tests/e2e/spec-graph-bootstrap-mainline.sh`
 - Related plan: `docs/plans/2026-04-18-spec-first-ai-dev-quality-remediation-plan.md`
 - Institutional learning: `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`
-- Institutional learning: `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`
 - Incident log: `2026-04-22-015057-command-messagespecgraph-bootstrapcommand-me.txt`

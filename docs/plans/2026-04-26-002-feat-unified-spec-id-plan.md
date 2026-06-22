@@ -95,7 +95,7 @@ origin: 当前对话，围绕“需求文档、技术方案 plan、开发任务 
 
 - `docs/10-prompt/项目角色.md`：脚本执行确定性流程，LLM 执行语义分析；优先提升输入质量，而不是增加流程控制。
 - `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`：修改 source-of-truth 后通过 init/sync 生成 runtime assets，不手改 `.claude/` / `.agents/`。
-- `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`：不要把事实层、projection 和运行态 readiness 混成厚状态机；字段要单一职责。
+- `docs/contracts/artifact-summary.md`：不要把完整 artifact、summary projection 和下游语义判断混成厚状态机；字段要单一职责。
 
 ### External References
 

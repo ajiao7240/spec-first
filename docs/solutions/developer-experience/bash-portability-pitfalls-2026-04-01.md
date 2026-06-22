@@ -145,7 +145,3 @@ after=$(jq -S . "$config")
 # Test empty-array safety: simulate missing optional args
 HOME="$fake_home" bash script.sh --skip-all  # should not crash
 ```
-
-## Related
-
-- `docs/solutions/documentation-gaps/spec-graph-bootstrap-mysql-consistency-precheck-contract-2026-04-19.md` — different module, same tooling category

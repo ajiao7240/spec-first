@@ -93,10 +93,6 @@ deepened: 2026-04-21
 
 - `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`
   - 规划与实现必须从 `skills/` / `docs/contracts/` / compiler 真源出发，不能反向修改 runtime 生成物。
-- `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`
-  - 已明确“静态候选发现”和“runtime route 事实”要分层；本轮是在这条线上继续向前，把“项目类型感知的 extractor profile”和“schema-only generation”补齐。
-- `docs/solutions/documentation-gaps/spec-graph-bootstrap-mysql-consistency-precheck-contract-2026-04-19.md`
-  - 数据库 worker 的当前 source-of-truth 以 `skills/spec-graph-bootstrap/references/database-worker.md` 为准，不能让旧 learnings 覆盖当前 contract。
 
 ### Internal References
 
@@ -231,7 +227,6 @@ Repo files
 **Starting point:** `skills/spec-graph-bootstrap/references/phase1-degraded-extraction.md`
 
 **Patterns to follow:**
-- `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`
 - `docs/contracts/spec-graph-bootstrap/fact-inventory.schema.json`
 - `docs/01-需求分析/spec-graph-bootstrap需求/阶段2-集成方案.md`
 
@@ -468,7 +463,7 @@ Repo files
 
 - 只要涉及 source code / contract 变更，实施时必须同步更新 `CHANGELOG.md`。
 - 这是显著的 workflow contract 深化，实施时也应同步更新 `docs/08-版本更新/README.md`。
-- 如果本轮调整使 `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md` 或相关数据库 learnings 发生 by-omission drift，实施尾声需要补一次窄范围 refresh。
+- 如果本轮调整使相关数据库 learnings 发生 by-omission drift，实施尾声需要补一次窄范围 refresh。
 
 ## Verification
 
@@ -490,5 +485,4 @@ Repo files
 - Related reference: `skills/spec-graph-bootstrap/references/phase1-degraded-extraction.md`
 - Related reference: `skills/spec-graph-bootstrap/references/phase1-crg-extraction.md`
 - Related internal matrix: `docs/01-需求分析/spec-graph-bootstrap需求/阶段2-集成方案.md`
-- Related learning: `docs/solutions/workflow-issues/database-routing-and-dual-view-refresh-boundaries-2026-04-20.md`
 - Related learning: `docs/solutions/workflow-issues/modify-source-not-artifacts-2026-04-13.md`
