@@ -443,6 +443,7 @@ describe('spec-prd workflow contracts', () => {
       '## Acceptance Examples',
       '## Scope Boundaries',
       '## Evidence And Assumptions',
+      '## Planning Recheck',
       '## Surface Lenses',
       'App',
       'H5/PC',
@@ -451,6 +452,8 @@ describe('spec-prd workflow contracts', () => {
       'CLI/DevTool',
       'Mixed',
       'These are surface lenses, not role taxonomies.',
+      'Workflow / Skill / Runtime Quality Signals',
+      'generated runtime mirror status',
       'Project-Local Overlays',
       'Missing local overlay docs are a graceful absence',
       'Do not treat template industry facts as confirmed project rules',
@@ -468,7 +471,12 @@ describe('spec-prd workflow contracts', () => {
       'AE-01（对应 R-01）',
       'AE-02（对应 R-01，异常）',
       'Success Metrics are conditional',
+      'reduce drift',
+      'fresh-source eval status',
       'do not invent target values',
+      'Use `## Planning Recheck` only when it prevents advisory evidence from being consumed as confirmed truth',
+      'source-candidate, local pattern, code-index pointer',
+      'required before',
       'Framing Gate',
       'Evidence Plan',
       'evidence-and-topology.md',
@@ -488,6 +496,8 @@ describe('spec-prd workflow contracts', () => {
       'Traceability Matrix',
       'Review / Approval Closure',
       'R -> AE -> evidence/source -> open question',
+      'workflow, skill, prompt, CLI, eval, or runtime projection PRDs',
+      'generated runtime mirrors untouched',
       'Never fabricate target values',
       'API/database/architecture HOW excluded from PRD requirements',
       'P1 Conditional Enrichment Packs',
@@ -510,6 +520,7 @@ describe('spec-prd workflow contracts', () => {
       'Producer / Artifact / Consumer',
       'New IDs continue from the maximum current number',
       'Project-local IDs such as `US-*`, `FEAT-*`, or `NFR-*`',
+      'planning recheck item count',
       'uncovered requirements',
       'feature items without acceptance examples',
       'document_role: split-summary',
@@ -541,6 +552,7 @@ describe('spec-prd workflow contracts', () => {
     expectContainsAll(closeout, [
       'Every PRD handoff should report',
       'seed deterministic counts and trace facts from `scripts/check-prd-artifact.js <prd-path>`',
+      'planning recheck item count',
       'current-state claims without confirmed evidence',
       'When `## Feature Slices` is present',
       'PRD complexity was explicitly evaluated for slice need',
@@ -577,6 +589,8 @@ describe('spec-prd workflow contracts', () => {
       'Domain And Decision Pack',
       'Metrics And Overlay Pack',
       '`current-state provenance`',
+      '`planning recheck visibility`',
+      'source-candidate, local pattern, code-index pointer',
       '`change delta and boundary clarity`',
       '`planning-invention and trace risk`',
       '`pre-prd clarification closure`',
@@ -593,8 +607,12 @@ describe('spec-prd workflow contracts', () => {
       '`problem-outcome closure`',
       '`metrics readiness`',
       '`nfr-constraint closure`',
+      '`workflow-skill-runtime quality closure`',
+      'Workflow / Skill / Runtime Quality Signals',
+      'generated runtime mirrors untouched',
       '`traceability closure`',
       '`owner approval closure`',
+      '`readiness_outcome`',
       '`slice identity and trace`',
       'visible mapping to Change Delta or core requirements',
       '`business capability boundary`',
@@ -619,7 +637,10 @@ describe('spec-prd workflow contracts', () => {
       '`release-slice closure`',
       '`change-management closure`',
       '`goal-measurability`',
+      '`internal-tool quality signals`',
+      'internal workflow/skill/runtime quality signals',
       '`project-local overlay check`',
+      'Frontmatter `status` is document lifecycle posture',
       '`question`, `recommended_answer`, `source_tag`, `chosen_answer`, `consequence`, and `deferred_reason`',
       'must not require `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/`',
       'check-prd-artifact.js',
@@ -732,6 +753,8 @@ describe('spec-prd workflow contracts', () => {
       'topology-adapter',
       'readiness',
       'progressive-detail',
+      'workflow-runtime-quality',
+      'source-candidate-recheck',
     ]);
     expectEvalCase(examples, 'quality-diagnosis-canonical-name', {
       tags: ['trigger', 'boundary'],
@@ -769,6 +792,22 @@ describe('spec-prd workflow contracts', () => {
         'spec-plan preserves feature IDs',
         'source/evidence pointers',
         'does not own Feature Slice readiness',
+      ],
+    });
+    expectEvalCase(examples, 'workflow-skill-runtime-quality-lens', {
+      tags: ['workflow-runtime-quality', 'boundary'],
+      expected: [
+        'Workflow / Skill / Runtime Quality Signals',
+        'source/runtime boundary and generated runtime mirrors untouched',
+        'eval fixtures advisory-only',
+      ],
+    });
+    expectEvalCase(examples, 'planning-recheck-source-candidate', {
+      tags: ['source-candidate-recheck', 'boundary'],
+      expected: [
+        'Planning Recheck',
+        'source-candidate remains advisory',
+        'direct source confirmation required before planning uses the pattern',
       ],
     });
     expectEvalCase(examples, 'pre-prd-clarification-loop-trigger', {
@@ -838,6 +877,22 @@ describe('spec-prd workflow contracts', () => {
       expected: [
         'write observable signals, assumptions, or Outstanding Questions',
         'do not invent target values',
+      ],
+    });
+    expectEvalCase(examples, 'internal-tool-success-metrics-signals', {
+      tags: ['p0-pack', 'workflow-runtime-quality'],
+      expected: [
+        'Goals / Success Metrics',
+        'observable signals for hot-path load, output-drift cases, contract anchors, runtime projection checks, advisory fixture coverage, and fresh-source eval status',
+        'no invented target values',
+      ],
+    });
+    expectEvalCase(examples, 'readiness-outcome-draft-status', {
+      tags: ['readiness', 'boundary'],
+      expected: [
+        'frontmatter status is document lifecycle posture',
+        'readiness_outcome: ready-for-planning',
+        'draft does not by itself block planning',
       ],
     });
     expectEvalCase(examples, 'nfr-constraint-product-not-how', {

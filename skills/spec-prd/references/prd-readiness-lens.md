@@ -26,6 +26,7 @@ When a PRD artifact path exists, `skills/spec-prd/scripts/check-prd-artifact.js 
 ### Core Pack
 
 - `current-state provenance` - material current-system claims have evidence tags; user-stated, confirmed-source, source-candidate, external-research, and assumptions are not blended; stale pointers are not presented as confirmed.
+- `planning recheck visibility` - material source-candidate, local pattern, code-index pointer, prior artifact, or external/reference claim that planning must confirm before selecting HOW is visible in `Planning Recheck`, `Outstanding Questions`, or readiness closeout. It remains advisory until re-read or re-run.
 - `change delta and boundary clarity` - keep/extend/replace/remove/unknown is explicit for material changes, scope boundaries are visible, and priority/degrade/block-release semantics are present when relevant.
 - `planning-invention and trace risk` - planning would not need to invent actors, flows, acceptance, scope, priority, or current behavior; core requirements have acceptance coverage or an explicit trace gap.
 - `pre-prd clarification closure` - when a rough PRD triggered Pre-PRD Clarification, each load-bearing gap is closed by source evidence, owner answer, accepted assumption, explicit trace gap, `Outstanding Questions`, blocker cluster, or route-out before planning. A run-local shared understanding map is not itself readiness evidence.
@@ -47,10 +48,11 @@ Run this pack when the input is an existing PRD, requirements draft, rough notes
 Run this pack only when the corresponding P0 signal is triggered. Untriggered P0 packs are not missing sections and must not expand compact PRDs by default.
 
 - `problem-outcome closure` - if target user, product problem, desired observable outcome, or value framing would affect planning, it is source/owner-confirmed, labeled as an accepted assumption, or visible in `Outstanding Questions`. Missing load-bearing framing blocks `ready-for-planning`.
-- `metrics readiness` - improvement claims that affect acceptance or priority have metric/source/baseline/window when confirmed, or are downgraded to observable signal, assumption, or Outstanding Question. Fabricated target values block readiness.
+- `metrics readiness` - improvement claims that affect acceptance, priority, or release confidence have metric/source/baseline/window when confirmed, or are downgraded to observable signal, assumption, or Outstanding Question. Trigger words include improve, optimize, reduce, accelerate, lower cost, stabilize, prove, preserve, avoid regression, reduce drift/load, and increase coverage. Fabricated target values block readiness.
 - `nfr-constraint closure` - triggered security, permission, privacy, compliance, payment/transaction, external API, CLI/runtime, migration, bulk/async/sync, rollout, operational, or user-visible failure constraints are captured as product-level requirements, negative acceptance, data/compliance boundaries, or release/operation readiness. API/database/architecture HOW is not accepted as PRD closure.
+- `workflow-skill-runtime quality closure` - when the PRD concerns a workflow, skill, prompt, CLI, eval fixture, contract, or runtime projection change, the `Workflow / Skill / Runtime Quality Signals` lens has been applied and planning-critical quality signals are visible as product-level outcomes: public workflow identity, near-neighbor routing, source/runtime boundary, generated runtime mirrors untouched, eval fixtures advisory-only, source/reference contract tests, runtime projection checks, fresh-source eval status, and downstream consumer compatibility. File edits, exact test code, and implementation sequencing remain HOW.
 - `traceability closure` - planning-bound requirements trace to acceptance examples and evidence/source, or carry an explicit trace gap / open question. A load-bearing requirement without AE/evidence/trace-gap closure blocks readiness.
-- `owner approval closure` - owner answers applied, accepted assumptions, blocking questions, `planning_would_invent_what`, and final readiness posture are visible in PRD-local sections or closeout summary. A separate approval artifact is not required.
+- `owner approval closure` - owner answers applied, accepted assumptions, blocking questions, `readiness_outcome`, `planning_would_invent_what`, and final readiness posture are visible in PRD-local sections or closeout summary. A separate approval artifact is not required.
 
 ### Feature Slice Pack
 
@@ -93,12 +95,17 @@ Run this pack only for triggered conditional signals. It is not an all-section c
 
 ### Metrics And Overlay Pack
 
-Run this pack only when the PRD includes goals/metrics or applies a project-local industry/team/legal/compliance/privacy/safety overlay.
+Run this pack only when the PRD includes goals/metrics, internal workflow/skill/runtime quality signals, or applies a project-local industry/team/legal/compliance/privacy/safety overlay.
 
 - `goal-measurability` - when the PRD includes `Goals / Success Metrics`, each goal is measurable: it has a metric and target value, plus current baseline and measurement window when available, and vague verbs are replaced with observable口径. This is a standard for stated goals, not a demand to manufacture metrics. When no credible metric source exists, downgrade to an observable口径 or move the unproven metric into Assumptions / Outstanding Questions; never fabricate target values.
+- `internal-tool quality signals` - for workflow, skill, prompt, CLI, eval, contract, or runtime projection PRDs, observable signals may be behavioral or contract signals such as hot-path load/anchors, boundary drift cases, runtime projection checks, generated mirrors untouched, advisory fixture coverage, fresh-source eval status, and downstream consumer compatibility. They remain PRD outcomes, not task breakdown.
 - `project-local overlay check` - triggered legal, compliance, money, trading, data, audit, safety, or privacy boundaries are explicit. If they are not confirmed, keep them in `Evidence And Assumptions` or `Outstanding Questions`.
 
 ## Outcomes
+
+Frontmatter `status` is document lifecycle posture, not the planning-readiness verdict. A PRD may remain `status: draft` while the readiness lens returns `ready-for-planning` if no load-bearing WHAT remains unresolved. Conversely, a polished document can still return `revise-prd` or `ask-owner`.
+
+When closing a PRD handoff or writing `Readiness Self-Check`, state `readiness_outcome` explicitly using exactly one of:
 
 - `ready-for-planning` - planning can consume the PRD without inventing WHAT.
 - `revise-prd` - fix concrete PRD gaps before planning.

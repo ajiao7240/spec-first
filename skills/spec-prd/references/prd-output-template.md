@@ -68,9 +68,21 @@ Include these only when they reduce planning invention:
 - `## Data / Compliance Boundaries`
 - `## Release / Operation Readiness`
 - `## Outstanding Questions`
+- `## Planning Recheck`
 - `## Feature Slices`
 
 Success Metrics are conditional. When present, each goal should be measurable: metric, target value, and when available, current baseline and measurement window, with leading/lagging type for core goals. If there is no credible metric source, write an observable measurement口径 or record the assumption; do not invent target values.
+
+Trigger `## Goals / Success Metrics` when a planning-bound objective says improve, optimize, reduce, lower, accelerate, stabilize, prove, preserve, avoid regression, reduce drift, reduce prompt/runtime load, increase coverage, or similar and that objective affects priority, acceptance, or release confidence. For internal tools, workflows, skills, prompts, and runtime projection changes, acceptable observable signals include hot-path load or anchor count, output-drift or boundary regression cases, source/reference contract coverage, runtime projection or generated-mirror drift checks, eval fixture coverage, fresh-source eval status, and downstream consumer compatibility. When no credible baseline or target exists, write an observable signal or assumption; never invent a numeric target.
+
+Use `## Planning Recheck` only when it prevents advisory evidence from being consumed as confirmed truth. Add it when a source-candidate, local pattern, code-index pointer, prior artifact, or unconfirmed external/reference claim must be re-read or re-run before planning selects HOW. Keep it compact and PRD-local:
+
+```markdown
+## Planning Recheck
+
+| item | why recheck | required before | blocks planning? |
+| --- | --- | --- | --- |
+```
 
 ## Surface Lenses
 
@@ -82,10 +94,12 @@ Select one primary lens, then add secondary lenses only for real mixed-surface c
 | H5/PC | routes, form behavior, browser back/refresh, responsive viewports, login/session state, sharing/SEO if relevant |
 | Admin | menu placement, roles/permissions, list/search/filter/export, form validation, review flow, audit trail, bulk action, four-eyes/maker-checker when relevant |
 | Backend/Java | product-level state semantics, idempotency expectations, compatibility, transaction-visible outcomes, error semantics, observability expectations, operational readiness |
-| CLI/DevTool | command entry, arguments/config, dry-run or preview-first behavior, logs, cross-platform behavior, failure recovery, upgrade/migration path |
+| CLI/DevTool | command entry, arguments/config, dry-run or preview-first behavior, logs, cross-platform behavior, failure recovery, upgrade/migration path, workflow/skill/runtime quality signals when the change affects agent-facing tools |
 | Mixed | source-of-truth, cross-surface consistency, contract expectation, async sync, degradation, end-to-end acceptance, ownership boundary |
 
 These are surface lenses, not role taxonomies. They ask PRD questions; they do not prescribe implementation units.
+
+For workflow, skill, prompt, CLI, eval, contract, or runtime projection PRDs, apply a run-local `Workflow / Skill / Runtime Quality Signals` lens. Use it to ask whether the PRD names public workflow identity, near-neighbor routing, source/runtime boundary, generated runtime mirror status, advisory fixture limits, contract-test expectations, fresh-source eval status, and downstream consumer compatibility. Persist only the parts that reduce planning invention into existing PRD sections.
 
 ## Project-Local Overlays
 
@@ -244,7 +258,7 @@ Run these packs only when their trigger affects planning-invention risk. If a tr
 | Pack | Trigger | Write target |
 | --- | --- | --- |
 | Problem / Outcome Framing Gate | Draft describes functions but lacks target user, product problem, desired observable outcome, or value decision planning would otherwise invent | `Problem Frame`, `Summary`, `Goals / Success Metrics`, `Outstanding Questions` |
-| Success Metrics / Measurement Readiness | PRD says improve, optimize, reduce, accelerate, lower cost, or similar and the claim affects acceptance or priority | `Goals / Success Metrics`, `Evidence And Assumptions`, `Outstanding Questions` |
+| Success Metrics / Measurement Readiness | PRD says improve, optimize, reduce, accelerate, lower cost, stabilize, prove, preserve, avoid regression, reduce drift/load, increase coverage, or similar and the claim affects acceptance, priority, or release confidence | `Goals / Success Metrics`, `Evidence And Assumptions`, `Outstanding Questions` |
 | NFR / Constraint Pack | Security, permission, privacy, compliance, payment/transaction, external API, CLI/runtime, migration, bulk/async/sync, or user-visible failure signal affects WHAT, acceptance, or release boundary | `Data / Compliance Boundaries`, `Release / Operation Readiness`, `Exception Handling`, `Negative Acceptance` |
 | Traceability Matrix | Core requirement will be consumed by planning | `Requirements`, `Acceptance Examples`, `Evidence And Assumptions`, `Outstanding Questions` |
 | Review / Approval Closure | Closeout/readiness needs to show owner answers, accepted assumptions, blockers, and planning readiness | `Decision Notes`, `Evidence And Assumptions`, `Outstanding Questions`, closeout summary |
@@ -253,6 +267,7 @@ Rules:
 
 - A missing target user/problem/outcome becomes one owner question, an accepted assumption, or an `Outstanding Questions` blocker; 0-1 opportunity discovery routes to brainstorm.
 - A metric with source, baseline, target, and window can be written as a metric. Without credible evidence, write an observable signal, assumption, or Outstanding Question. Never fabricate target values.
+- For workflow, skill, prompt, CLI, eval, or runtime projection PRDs, write success signals at the behavior/contract level: hot-path anchors or load, route/boundary drift cases, source/reference contract tests, runtime projection checks, generated runtime mirrors untouched, eval fixtures as advisory-only evidence, fresh-source eval status, and downstream consumer compatibility. Do not turn these signals into implementation tasks.
 - NFR and constraint content stays product-level: permissions, privacy, compliance, compatibility, rollout, operational readiness, failure semantics, and negative acceptance. API/database/architecture HOW excluded from PRD requirements; implementation mechanisms stay out of PRD requirements.
 - Traceability is lightweight: `R -> AE -> evidence/source -> open question`. This is not a schema, scorecard, or mandatory table format.
 - Owner closure summarizes `owner_answers_applied`, `accepted_assumptions`, `blocking_questions`, `ready-for-planning`, and `planning_would_invent_what` when those signals exist. It does not create a separate approval artifact.
@@ -357,13 +372,14 @@ Every PRD handoff should report:
 - NFR count
 - assumption count
 - outstanding question count
+- planning recheck item count
 - uncovered requirements
 - feature items without acceptance examples
 - current-state claims without confirmed evidence
 
 When a PRD artifact path exists, seed deterministic counts and trace facts from `scripts/check-prd-artifact.js <prd-path>` before adding LLM-owned readiness judgment such as whether planning would still have to invent WHAT.
 
-The script seeds only the deterministic lines: sections included, requirement count, acceptance example count, priority distribution, NFR count, assumption count, outstanding question count, uncovered requirements, and feature-to-R/AE trace gaps. The lines `current-state claims without confirmed evidence` and whether planning would still have to invent WHAT stay LLM-owned: the checker intentionally does not and must not compute them, because deciding which sentence is a load-bearing current-state claim and whether its evidence genuinely confirms is semantic (the script reports `evidence_tags_present` by presence only, not sufficiency).
+The script seeds only the deterministic lines: sections included, requirement count, acceptance example count, priority distribution, NFR count, assumption count, outstanding question count, uncovered requirements, and feature-to-R/AE trace gaps. The lines `planning recheck item count`, `current-state claims without confirmed evidence`, and whether planning would still have to invent WHAT stay LLM-owned: the checker intentionally does not and must not compute them, because deciding which sentence is a load-bearing source-candidate recheck item or current-state claim and whether its evidence genuinely confirms is semantic (the script reports `evidence_tags_present` by presence only, not sufficiency).
 
 When `## Feature Slices` is present, or when PRD complexity was explicitly evaluated for slice need, additionally report:
 

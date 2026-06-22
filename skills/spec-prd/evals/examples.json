@@ -178,6 +178,13 @@
       "coverage_tags": ["trigger", "boundary"]
     },
     {
+      "id": "workflow-skill-runtime-quality-lens",
+      "intent": "create",
+      "input_shape": "refactor a public workflow skill, eval fixtures, contract tests, and runtime projection boundary without changing product code",
+      "expected": ["Workflow / Skill / Runtime Quality Signals", "public workflow identity and near-neighbor routing visible", "source/runtime boundary and generated runtime mirrors untouched", "eval fixtures advisory-only", "contract tests, runtime projection checks, fresh-source eval status, and downstream consumer compatibility visible"],
+      "coverage_tags": ["trigger", "boundary", "workflow-runtime-quality"]
+    },
+    {
       "id": "source-of-truth-migration",
       "intent": "create",
       "input_shape": "move canonical configuration from generated runtime mirror to source template with backward compatibility",
@@ -304,6 +311,13 @@
       "coverage_tags": ["expected", "boundary", "failure"]
     },
     {
+      "id": "planning-recheck-source-candidate",
+      "intent": "validate",
+      "input_shape": "PRD uses a local pattern file or source-candidate as the basis for future fixture fields but has not fully re-read it",
+      "expected": ["Planning Recheck", "source-candidate remains advisory", "direct source confirmation required before planning uses the pattern", "do not treat source-candidate as confirmed truth"],
+      "coverage_tags": ["expected", "boundary", "source-candidate-recheck"]
+    },
+    {
       "id": "oversized-initial-prd",
       "intent": "refine",
       "input_shape": "multi-module initial PRD",
@@ -388,6 +402,13 @@
       "coverage_tags": ["failure", "readiness"]
     },
     {
+      "id": "readiness-outcome-draft-status",
+      "intent": "validate",
+      "input_shape": "draft PRD has no blocking WHAT remaining but still uses status: draft in frontmatter",
+      "expected": ["frontmatter status is document lifecycle posture", "readiness_outcome: ready-for-planning", "planning_would_invent_what visible", "draft does not by itself block planning"],
+      "coverage_tags": ["expected", "readiness", "boundary"]
+    },
+    {
       "id": "large-prd-map-reduce-source-refs",
       "intent": "refine",
       "input_shape": "oversized multi-section PRD input with meeting notes and screenshots",
@@ -428,6 +449,13 @@
       "input_shape": "PRD says optimize experience and lower cost without source, baseline, target, or window",
       "expected": ["write observable signals, assumptions, or Outstanding Questions", "do not invent target values", "reject fabricated metrics"],
       "coverage_tags": ["boundary", "p0-pack"]
+    },
+    {
+      "id": "internal-tool-success-metrics-signals",
+      "intent": "refine",
+      "input_shape": "workflow/skill PRD says reduce entry load, reduce output drift, prove runtime boundary preservation, and increase fixture coverage",
+      "expected": ["Goals / Success Metrics", "observable signals for hot-path load, output-drift cases, contract anchors, runtime projection checks, advisory fixture coverage, and fresh-source eval status", "no invented target values"],
+      "coverage_tags": ["trigger", "p0-pack", "workflow-runtime-quality"]
     },
     {
       "id": "nfr-constraint-product-not-how",
