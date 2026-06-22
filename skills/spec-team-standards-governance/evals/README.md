@@ -1,8 +1,8 @@
-# Team Standards Governance Evals
+# 团队规范治理 Evals
 
 这些 fixtures 是 V2 获取质量的结构化样本，不是 LLM 语义质量证明。runner 或 reviewer 可以用它们检查 trigger/output 合同形状；真正 promotion 仍看 source refs、owner gate、replay/retrieval evidence 和 diff review。
 
-## Case Fields
+## Case 字段
 
 - `case_id`
 - `case_type`
@@ -18,10 +18,10 @@
 - `limitations`
 - `decision_trace`
 
-Use `not-enough-sample` when fewer than 5 replay cases are available. Use `not-run` when the case is a fixture contract or no historical PR/review sample exists.
+少于 5 个 replay cases 时使用 `not-enough-sample`。case 是 fixture contract，或没有 historical PR/review sample 时，使用 `not-run`。
 
-## Fixture Files
+## Fixture 文件
 
-- `trigger-cases.json`: acquisition should-trigger, should-not-trigger, near-neighbor and boundary cases.
-- `output-cases.json`: candidate, lineage, owner queue, derived artifact and source anchor output contract cases.
-- `golden-samples/README.md`: optional future e2e sample notes.
+- `trigger-cases.json`：acquisition 的 should-trigger、should-not-trigger、near-neighbor 和 boundary cases。
+- `output-cases.json`：candidate、lineage、owner queue、derived artifact 和 source anchor output contract cases。
+- `golden-samples/README.md`：后续可选 e2e sample notes。

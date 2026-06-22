@@ -17,6 +17,9 @@ const HANDOFF_CONTRACT_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks',
 const EVALS_DIR = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'evals');
 const EVALS_README_PATH = path.join(EVALS_DIR, 'README.md');
 const OUTPUT_QUALITY_CASES_PATH = path.join(EVALS_DIR, 'output-quality-cases.json');
+const YAO_TRIGGER_CASES_PATH = path.join(EVALS_DIR, 'yao-trigger-cases.json');
+const YAO_SEMANTIC_CONFIG_PATH = path.join(EVALS_DIR, 'semantic_config.json');
+const YAO_OUTPUT_CASES_PATH = path.join(EVALS_DIR, 'output', 'cases.jsonl');
 const BOUNDARY_CASES_PATH = path.join(EVALS_DIR, 'boundary-cases.json');
 const OPENAI_PATH = path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'agents', 'openai.yaml');
 const SPEC_WORK_PATH = path.join(REPO_ROOT, 'skills', 'spec-work', 'SKILL.md');
@@ -120,6 +123,8 @@ describe('spec-write-tasks contracts', () => {
 
     expect(fs.existsSync(path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'references', 'input-output-contract.md'))).toBe(false);
     expect(fs.existsSync(path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'references', 'workflow-branching.md'))).toBe(false);
+    expect(fs.existsSync(path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'manifest.json'))).toBe(false);
+    expect(fs.existsSync(path.join(REPO_ROOT, 'skills', 'spec-write-tasks', 'agents', 'interface.yaml'))).toBe(false);
   });
 
   test('quality score contract explains the 92-ish ceiling and semantic evidence posture', () => {
@@ -145,6 +150,11 @@ describe('spec-write-tasks contracts', () => {
     expect(contract).toContain('downstream_consumer_outcome.{json,md}');
     expect(contract).toContain('not_checked_with_reason');
     expect(contract).toContain('大型 source plan 处理仍然 deferred');
+    expect(contract).toContain('## Yao Gate Posture');
+    expect(contract).toContain('`trigger_eval.py` | runnable smoke');
+    expect(contract).toContain('`run_output_eval.py` | runnable smoke');
+    expect(contract).toContain('Do not add `skills/spec-write-tasks/manifest.json`');
+    expect(contract).toContain('at least two public workflows need lifecycle metadata');
     expect(contract).toContain('fresh-source-eval-2026-06-23-quality-evidence-closure.md');
     expect(fs.existsSync(FRESH_SOURCE_EVAL_PATH)).toBe(true);
     expect(read(FRESH_SOURCE_EVAL_PATH)).toContain('fresh_source_eval:');
@@ -232,6 +242,8 @@ describe('spec-write-tasks contracts', () => {
     const downstream = JSON.parse(read(DOWNSTREAM_OUTCOME_JSON));
 
     expect(readme).toContain('`deterministic_assertions` can be executed by the repo-level runner');
+    expect(readme).toContain('`yao-trigger-cases.json`, `semantic_config.json`, and `output/cases.jsonl` provide Yao-compatible smoke fixtures');
+    expect(readme).toContain('authoritative spec-first eval contract remains this directory');
     expect(readme).toContain('`objective_assertions` remain reviewer narrative');
     expect(readme).toContain('must be labeled as `missing evidence`');
     expect(readme).toContain('docs/validation/spec-write-tasks/output_quality_scorecard.{json,md}');
@@ -288,6 +300,29 @@ describe('spec-write-tasks contracts', () => {
       }),
     ]));
     expect(downstream.limitations.join('\n')).toContain('semantic task quality 仍由 reviewer 负责');
+  });
+
+  test('Yao-compatible eval smoke fixtures stay explicit and non-authoritative', () => {
+    const triggerSmoke = JSON.parse(read(YAO_TRIGGER_CASES_PATH));
+    const semanticConfig = JSON.parse(read(YAO_SEMANTIC_CONFIG_PATH));
+    const outputLines = read(YAO_OUTPUT_CASES_PATH).trim().split('\n').map((line) => JSON.parse(line));
+
+    expect(triggerSmoke.schema_version).toBe('yao.semantic-trigger-cases.v1');
+    expect(triggerSmoke.should_trigger.length).toBeGreaterThanOrEqual(3);
+    expect(triggerSmoke.should_not_trigger.length).toBeGreaterThanOrEqual(3);
+    expect(triggerSmoke.near_neighbor.length).toBeGreaterThanOrEqual(3);
+    expect(semanticConfig.fallback_positive_concepts).toEqual(expect.arrayContaining([
+      'source_plan',
+      'task_pack',
+      'compile_or_validate',
+    ]));
+
+    expect(outputLines.length).toBeGreaterThanOrEqual(2);
+    for (const evalCase of outputLines) {
+      expect(evalCase.metadata.evidence_status).toBe('recorded_static_smoke');
+      expect(evalCase.metadata.authoritative_runner).toBe('scripts/spec-write-tasks/run-output-evals.js');
+      expect(evalCase.assertions.length).toBeGreaterThanOrEqual(1);
+    }
   });
 
   test('eval cases cover trigger, boundary, failure, and expected behavior posture', () => {

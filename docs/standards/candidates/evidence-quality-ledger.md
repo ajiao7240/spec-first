@@ -1,8 +1,8 @@
-# Evidence Quality Ledger
+# 证据质量台账
 
 `acquisition_id: team-standards-v2-pilot-20260623`
 
-## Candidate: CAND-STANDARDS-ACQ-001
+## 候选: CAND-STANDARDS-ACQ-001
 
 ```yaml
 candidate_id: CAND-STANDARDS-ACQ-001
@@ -20,28 +20,28 @@ source_anchor:
   - FACT-STANDARDS-002
 privacy_review: checked
 redaction_status: not-needed
-why_not_confirmed: "The acquisition mechanism is validated as a pilot artifact, but replay samples and owner edit distance are not available yet."
+why_not_confirmed: "获取机制只作为 pilot artifact 验证；replay samples 和 owner edit distance 尚不可用。"
 ```
 
-| Dimension | Rating | Reason |
+| 维度 | 评级 | 理由 |
 | --- | --- | --- |
-| `source_strength` | high | Current plan and contract both define the V2 acquisition boundary. |
-| `recency` | high | Source refs are from the active V1/V2 implementation window. |
-| `consistency` | high | Plan, contract and skill boundaries agree that candidates are advisory until source-edit review. |
-| `coverage` | medium | Covers shared/team-standards slice only; no app/backend/business surface pilot. |
-| `conflict_density` | low | No conflicting source found in the scoped files. |
-| `enforcement_feasibility` | medium | Structure can be checked by focused contract tests; semantic quality still needs review. |
-| `owner_trace` | medium | Owner role exists as `spec-first-maintainers`; no separate owner interview was run. |
-| `migration_cost` | low | Adds proposal-only docs, eval fixtures and references. |
-| `risk_level` | low | Does not change confirmed standards or runtime mirrors. |
-| `retrieval_value` | medium | Helps future init/audit/eval modes select V2 evidence files without scanning unrelated standards. |
+| `source_strength` | high | 当前 plan 和 contract 都定义了 V2 acquisition boundary。 |
+| `recency` | high | Source refs 来自活跃的 V1/V2 implementation window。 |
+| `consistency` | high | Plan、contract 和 skill boundary 一致：source-edit review 前候选保持 advisory。 |
+| `coverage` | medium | 只覆盖 `shared/team-standards` slice；没有 app/backend/business surface pilot。 |
+| `conflict_density` | low | scoped files 中未发现冲突 source。 |
+| `enforcement_feasibility` | medium | 结构可由 focused contract tests 检查；语义质量仍需要 review。 |
+| `owner_trace` | medium | Owner role 为 `spec-first-maintainers`；未运行独立 owner interview。 |
+| `migration_cost` | low | 只新增 proposal-only docs、eval fixtures 和 references。 |
+| `risk_level` | low | 不修改 confirmed standards 或 runtime mirrors。 |
+| `retrieval_value` | medium | 帮助后续 init/audit/eval modes 选择 V2 evidence files，避免扫描无关 standards。 |
 
-## Gate Results
+## Gate 结果
 
-| Gate | Result | Next action |
+| Gate | 结果 | 下一步 |
 | --- | --- | --- |
-| Evidence | pass | `prepare-promotion-patch` only after replay/owner evidence exists |
-| Actionability | warning | `refine-rule` with a real acquisition run consumer if needed |
+| Evidence | pass | replay/owner evidence 存在后才执行 `prepare-promotion-patch` |
+| Actionability | warning | 如有真实 acquisition run consumer，再执行 `refine-rule` |
 | Abstraction | pass | `keep-advisory` |
 | Conflict | pass | `keep-advisory` |
 | Risk | pass | `keep-advisory` |

@@ -1,34 +1,60 @@
 {
   "schema_version": "team-standards-trigger-evals/v1",
+  "source_refs": [
+    "skills/spec-team-standards-governance/SKILL.md",
+    "skills/spec-team-standards-governance/references/validation-and-replay.md"
+  ],
+  "coverage_tags": ["trigger"],
   "cases": [
     {
+      "id": "trigger-acq-001",
       "case_id": "TRIGGER-ACQ-001",
       "case_type": "acquisition-trigger",
+      "input": "为 spec-first 的 shared/team-standards slice 初始化规范候选,有明确 repo、surface、capability 和 source refs。",
       "prompt": "为 spec-first 的 shared/team-standards slice 初始化规范候选,有明确 repo、surface、capability 和 source refs。",
+      "source_refs": ["docs/standards/candidates/acquisition-task-pack.md"],
+      "coverage_tags": ["trigger"],
+      "expected_outcome": "should-trigger",
       "expected_result": "should-trigger",
       "expected_mode": "init",
       "reason_code": "single-target-acquisition"
     },
     {
+      "id": "trigger-no-001",
       "case_id": "TRIGGER-NO-001",
       "case_type": "ordinary-query",
+      "input": "SHARED-SOURCE-001 是什么意思?",
       "prompt": "SHARED-SOURCE-001 是什么意思?",
+      "source_refs": ["docs/standards/index.md"],
+      "coverage_tags": ["trigger", "boundary"],
+      "expected_outcome": "should-not-trigger",
       "expected_result": "should-not-trigger",
       "expected_mode": "query",
       "reason_code": "rule-query-only"
     },
     {
+      "id": "trigger-near-001",
       "case_id": "TRIGGER-NEAR-001",
       "case_type": "near-neighbor",
+      "input": "审查这次代码是否违反 confirmed team standards。",
       "prompt": "审查这次代码是否违反 confirmed team standards。",
+      "source_refs": ["skills/spec-code-review/SKILL.md"],
+      "coverage_tags": ["trigger", "boundary"],
+      "expected_outcome": "near-neighbor",
       "expected_result": "near-neighbor",
       "expected_mode": "code-review-consumption",
       "reason_code": "review-not-acquisition"
     },
     {
+      "id": "trigger-boundary-001",
       "case_id": "TRIGGER-BOUNDARY-001",
       "case_type": "boundary",
+      "input": "一次性从 App、H5、Backend 和 Data 全仓总结团队规范。",
       "prompt": "一次性从 App、H5、Backend 和 Data 全仓总结团队规范。",
+      "source_refs": ["docs/standards/candidates/README.md"],
+      "coverage_tags": ["trigger", "boundary"],
+      "expected_outcome": "boundary",
+      "boundary_note": "Mixed surface acquisition 必须在 formal promotion 前拆分。",
       "expected_result": "boundary",
       "expected_mode": "blocked-or-split",
       "reason_code": "mixed-surface-requires-split"

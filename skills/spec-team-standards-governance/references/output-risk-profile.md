@@ -1,6 +1,6 @@
-# Output Risk Profile
+# 输出风险画像
 
-Every proposal/report should state missing evidence, suppressed outputs and guard failures.
+每个 proposal/report 都应说明 missing evidence、suppressed outputs 和 guard failures。
 
 V1 reason codes:
 
@@ -16,4 +16,4 @@ V1 reason codes:
 - `not-enough-sample`
 - `not-run`
 
-Formal outputs must not contain local absolute paths. Use repo-relative paths or, in V2, path hash, snapshot id, line range and snippet hash.
+正式输出不得包含 local absolute paths。使用 repo-relative paths；V2 中也可使用 path hash、snapshot id、line range 和 snippet hash。

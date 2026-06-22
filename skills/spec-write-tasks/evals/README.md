@@ -5,6 +5,7 @@ This directory stores maintainer-only LLM review fixtures. It is not an executab
 ## Contract
 
 - `trigger-cases.json`, `boundary-cases.json`, `failure-cases.json`, and `expected-behavior-cases.json` provide reviewable examples only; they do not replace LLM semantic judgment.
+- `yao-trigger-cases.json`, `semantic_config.json`, and `output/cases.jsonl` provide Yao-compatible smoke fixtures for trigger/output eval tooling. They are compatibility evidence only; the authoritative spec-first eval contract remains this directory's source JSON plus repo-level runners.
 - `output-quality-cases.json` records file-backed output-quality review cases for judging whether a skill-guided task pack is better than a generic task split. It is not a provider-backed model eval; `deterministic_assertions` can be executed by the repo-level runner, while `objective_assertions` remain reviewer narrative.
 - `expected_decision` must come from the `SKILL.md` Final Decision Envelope: `compile`, `skip`, `return-to-plan`, `draft-only`, or `validate-only`.
 - `expected_failure` must come from the `SKILL.md` Failure Modes enumeration.

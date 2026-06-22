@@ -1,41 +1,71 @@
 {
   "schema_version": "team-standards-output-evals/v1",
+  "source_refs": [
+    "docs/contracts/team-standards.md",
+    "skills/spec-team-standards-governance/references/validation-and-replay.md"
+  ],
+  "coverage_tags": ["expected"],
   "cases": [
     {
+      "id": "output-candidate-001",
       "case_id": "OUTPUT-CANDIDATE-001",
       "case_type": "candidate-card",
+      "input": "检查 V2 candidate card 是否包含 acquisition_id、evidence_quality、source_refs、replay_status 和 proposal-only posture。",
       "input_refs": ["docs/standards/candidates/acquisition-task-pack.md"],
+      "source_refs": ["docs/standards/candidates/evidence-quality-ledger.md"],
+      "coverage_tags": ["expected"],
+      "expected_outcome": "candidate-card-contract",
       "required_fields": ["candidate_id", "acquisition_id", "candidate_type", "authority_tier", "evidence_quality", "source_refs", "replay_status", "promotion_state"],
       "must_not": ["trust: confirmed"],
       "threshold_result": "not-run"
     },
     {
+      "id": "output-lineage-001",
       "case_id": "OUTPUT-LINEAGE-001",
       "case_type": "lineage-ledger",
+      "input": "检查 lineage ledger 是否记录 fact -> candidate -> keep-advisory 的可复核 transition。",
       "input_refs": ["docs/standards/candidates/lineage-ledger.md"],
+      "source_refs": ["docs/standards/candidates/lineage-ledger.md"],
+      "coverage_tags": ["expected"],
+      "expected_outcome": "lineage-ledger-contract",
       "required_fields": ["from", "to", "transition", "decision_trace", "source_refs"],
       "threshold_result": "not-run"
     },
     {
+      "id": "output-owner-001",
       "case_id": "OUTPUT-OWNER-001",
       "case_type": "owner-queue",
+      "input": "检查 owner queue 是否只承接 conflict、high-risk 或 explicit owner_required。",
       "input_refs": ["docs/standards/candidates/owner-decision-queue.md"],
+      "source_refs": ["docs/standards/candidates/owner-decision-queue.md"],
+      "coverage_tags": ["expected", "boundary"],
+      "expected_outcome": "owner-queue-contract",
       "required_fields": ["owner_required_reason", "risk_domain", "candidate_id", "next_action"],
       "must_route_away": ["evidence warning", "actionability warning", "abstraction warning"],
       "threshold_result": "not-run"
     },
     {
+      "id": "output-derived-001",
       "case_id": "OUTPUT-DERIVED-001",
       "case_type": "derived-artifact",
+      "input": "检查派生 AI rules、review checklist、query summary 或 handoff snippets 是否引用 rule/proposal source refs。",
       "input_refs": ["docs/contracts/team-standards.md"],
+      "source_refs": ["docs/contracts/team-standards.md"],
+      "coverage_tags": ["expected", "boundary"],
+      "expected_outcome": "derived-artifact-citation-contract",
       "required_fields": ["source_refs", "rule_ids_or_proposal_ids", "limitations"],
-      "must_not": ["independent source truth"],
+      "must_not": ["独立 source truth"],
       "threshold_result": "not-run"
     },
     {
+      "id": "output-anchor-001",
       "case_id": "OUTPUT-ANCHOR-001",
       "case_type": "source-anchor",
+      "input": "检查 fact ledger 是否使用 snapshot_id、path_hash、file、line_range、snippet_hash、fact_id 和 scope。",
       "input_refs": ["docs/standards/candidates/fact-ledger.md"],
+      "source_refs": ["docs/standards/candidates/fact-ledger.md"],
+      "coverage_tags": ["expected", "boundary"],
+      "expected_outcome": "source-anchor-contract",
       "required_fields": ["snapshot_id", "path_hash", "file", "line_range", "snippet_hash", "fact_id", "scope"],
       "must_not": ["local absolute path"],
       "threshold_result": "not-run"

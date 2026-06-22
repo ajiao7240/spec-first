@@ -1,4 +1,4 @@
-# Promotion Log
+# Promotion 日志
 
 `acquisition_id: team-standards-v2-pilot-20260623`
 
@@ -17,9 +17,9 @@ source_refs:
   - docs/standards/candidates/lineage-ledger.md
 decision_trace:
   gate_results: evidence=pass,actionability=warning,privacy=pass,anchor=pass
-  confidence_signals: explicit plan and contract agree on V2 acquisition boundary
+  confidence_signals: explicit plan 和 contract 对 V2 acquisition boundary 一致
   autonomy_policy: proposal-only
-  rationale: Keep the candidate advisory until replay cases and owner edit distance exist.
+  rationale: replay cases 和 owner edit distance 存在前，候选保持 advisory。
 ```
 
-No confirmed standards, index rows or archive records were changed by this promotion log.
+本 promotion log 没有修改 confirmed standards、index rows 或 archive records。

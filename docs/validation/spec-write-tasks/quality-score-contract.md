@@ -115,6 +115,22 @@ Official `.skill` package 只能包含 runtime 需要的 skill 文件。repo-lev
 
 Codex projection 通过 source sync 到临时 runtime 检查。Claude delivery 只有在当前 repo 存在 source adapter/generator 路径时才检查；否则记录 `not_checked_with_reason`，不能声称 pass。
 
+## Yao Gate Posture
+
+`$yao-meta-skill` release gates are useful compatibility probes, but they are not this repository's source-of-truth governance model. The current optimization posture is:
+
+| Gate | Status | Boundary |
+| --- | --- | --- |
+| `trigger_eval.py` | runnable smoke | Uses `skills/spec-write-tasks/evals/yao-trigger-cases.json` plus `semantic_config.json`; this checks route compatibility only. |
+| `run_output_eval.py` | runnable smoke | Uses `skills/spec-write-tasks/evals/output/cases.jsonl`; this is recorded static smoke evidence, not provider-backed or human-adjudicated proof. |
+| `validate_skill.py` | waived for release | It requires `agents/interface.yaml`; current repo governance forbids adding per-skill interface metadata for one skill. |
+| `run_conformance_suite.py` | waived for release | It requires per-skill `manifest.json`, neutral `agents/interface.yaml`, and Skill IR as release metadata. |
+| `trust_check.py` | waived for release | It reads trust metadata from `agents/interface.yaml`; no scripts in this skill require new permission policy. |
+| `cross_packager.py`, `verify_package.py`, `simulate_install.py` | waived for release | Yao package/install gates require the same per-skill manifest/interface topology; official `.skill` package smoke remains the repo-owned runtime packaging check. |
+| Skill Atlas owner/stale metadata | advisory gap | Owner/review cadence/maturity remain centralized or in validation artifacts until a real downstream consumer justifies a shared lifecycle contract. |
+
+Do not add `skills/spec-write-tasks/manifest.json` or `skills/spec-write-tasks/agents/interface.yaml` just to satisfy a single Yao gate. Revisit this only if at least two public workflows need lifecycle metadata and there is a tested downstream consumer for those fields.
+
 ## Fresh-Source Eval 状态
 
 本轮 source prose 变更需要 fresh-source 或等价独立审查记录。状态记录在 `docs/validation/spec-write-tasks/fresh-source-eval-2026-06-23-quality-evidence-closure.md`；该记录必须说明 source refs、review lens、已修复 findings、未覆盖限制，以及 generated runtime mirrors 未手改。

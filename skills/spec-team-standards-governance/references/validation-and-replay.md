@@ -1,16 +1,16 @@
-# Validation And Replay
+# 验证与回放
 
-V2 validation measures whether acquired standards improve selection and review quality. It does not promote rules by itself.
+V2 validation 衡量获取到的 standards 是否改善 selection 和 review quality。它本身不提升规则。
 
-## Replay Types
+## Replay 类型
 
-- PR replay: use historical PR or diff cases to check whether standards would have found real issues without adding unacceptable noise.
-- Review finding replay: replay accepted or rejected review findings to see whether a candidate rule maps to concrete evidence.
-- retrieval eval: ask plan/work/review/debug scenarios to select rules through `docs/standards/index.md` and compare expected rule IDs to observed hits.
-- noise budget: track false-positive findings from project-standards review.
-- owner edit distance: compare proposed rule text to owner-edited text; high edit distance means rewrite or collect more evidence.
+- PR replay：使用 historical PR 或 diff cases，检查 standards 是否能命中真实问题且不引入不可接受的噪音。
+- Review finding replay：回放 accepted 或 rejected review findings，确认 candidate rule 是否能映射到具体 evidence。
+- retrieval eval：让 plan/work/review/debug scenarios 通过 `docs/standards/index.md` 选择 rules，并比较 expected rule IDs 与 observed hits。
+- noise budget：追踪 project-standards review 的 false-positive findings。
+- owner edit distance：比较 proposed rule text 和 owner-edited text；edit distance 高表示需要重写或收集更多 evidence。
 
-## Minimum Case Fields
+## 最小 case 字段
 
 - `case_id`
 - `case_type`
@@ -26,18 +26,18 @@ V2 validation measures whether acquired standards improve selection and review q
 - `limitations`
 - `decision_trace`
 
-## Thresholds
+## 阈值
 
-- At least 5 replay cases before claiming replay coverage.
-- Retrieval expected-hit coverage should be at least 80%.
-- Project-standards false-positive rate should stay at or below 15%, or at most 1 invalid hard finding per 5 cases.
-- Promotion-ready owner normalized edit distance should be at or below 30%; above 50% requires rewrite.
+- 至少有 5 个 replay cases 后，才能声明 replay coverage。
+- Retrieval expected-hit coverage 应不低于 80%。
+- Project-standards false-positive rate 应保持在 15% 以下，或每 5 个 cases 最多 1 个 invalid hard finding。
+- Promotion-ready owner normalized edit distance 应不高于 30%；超过 50% 必须重写。
 
-If samples are missing, owner input is unavailable, or historical PRs are not reproducible, record `not-enough-sample` or `not-run`. 不得把 LLM 自评作为 pass 信号.
+如果 samples 缺失、owner input 不可用，或 historical PRs 无法复现，记录 `not-enough-sample` 或 `not-run`。不得把 LLM 自评作为 pass 信号。
 
-## Promotion Boundary
+## Promotion 边界
 
-Replay, retrieval and owner-edit results are promotion evidence only. They do not replace:
+Replay、retrieval 和 owner-edit results 只是 promotion evidence。它们不能替代：
 
 - `trust=confirmed,lifecycle_state=active` source writes
 - owner/high-impact gates
@@ -45,4 +45,4 @@ Replay, retrieval and owner-edit results are promotion evidence only. They do no
 - focused tests
 - CHANGELOG updates
 
-Derived AI rules, review checklists, query summaries and handoff snippets must cite standard rule IDs or reviewable proposal IDs. They cannot become independent source truth.
+Derived AI rules、review checklists、query summaries 和 handoff snippets 必须引用 standard rule IDs 或 reviewable proposal IDs。它们不能成为独立 source truth。

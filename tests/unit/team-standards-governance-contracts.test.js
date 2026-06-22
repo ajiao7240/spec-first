@@ -253,7 +253,7 @@ describe('team standards governance source contract', () => {
     expect(taskPack).toContain('confirmed standards 写入不在本次 scope');
 
     const factLedger = read('docs/standards/candidates/fact-ledger.md');
-    expect(factLedger).toContain('snapshot_id: 4d47b125');
+    expect(factLedger).toContain('snapshot_id: 6202e5a0');
     expect(factLedger).toContain('path_hash: sha256:');
     expect(factLedger).toContain('snippet_hash: sha256:');
     expect(factLedger).toContain('source_anchor');
@@ -290,7 +290,7 @@ describe('team standards governance source contract', () => {
     const outputCases = readJson('skills/spec-team-standards-governance/evals/output-cases.json');
 
     expect(sourceMatrix).toContain('provider_untrusted');
-    expect(sourceMatrix).toContain('cannot produce `confirmed`');
+    expect(sourceMatrix).toContain('不能单独产生 `confirmed` trust');
     expect(interview).toContain('不要为缺席角色补写答案');
     expect(interview).toContain('architecture owner');
     expect(interview).toContain('security/privacy owner');

@@ -1,0 +1,52 @@
+{
+  "schema_version": "yao.semantic-trigger-cases.v1",
+  "skill": "spec-write-tasks",
+  "recommended_threshold": 0.58,
+  "source_refs": [
+    "skills/spec-write-tasks/SKILL.md",
+    "skills/spec-write-tasks/evals/README.md"
+  ],
+  "coverage_tags": ["trigger", "boundary"],
+  "should_trigger": [
+    {
+      "text": "Split the settled spec-plan into a task pack with execution waves.",
+      "family": "compile"
+    },
+    {
+      "text": "Validate this existing task pack before handing it to spec-work.",
+      "family": "validate"
+    },
+    {
+      "text": "The source plan is large and dependency-heavy; compile derived tasks before execution.",
+      "family": "suitability"
+    }
+  ],
+  "should_not_trigger": [
+    {
+      "text": "Implement this plan and write the code changes.",
+      "family": "implementation"
+    },
+    {
+      "text": "Brainstorm the unresolved architecture and define the requirements.",
+      "family": "unresolved-scope"
+    },
+    {
+      "text": "Create a generic task list for a remote GitHub repository.",
+      "family": "remote-generic"
+    }
+  ],
+  "near_neighbor": [
+    {
+      "text": "Review this task pack for documentation quality without validating execution handoff.",
+      "family": "review-only"
+    },
+    {
+      "text": "Fix a one-file typo from a small low-risk plan.",
+      "family": "small-low-risk"
+    },
+    {
+      "text": "Find a marketplace skill that can split product roadmaps into tasks.",
+      "family": "skill-lookup"
+    }
+  ]
+}

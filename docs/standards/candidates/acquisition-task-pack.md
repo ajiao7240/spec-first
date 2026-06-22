@@ -1,11 +1,11 @@
-# V2 Acquisition Task Pack
+# V2 获取任务包
 
 ```yaml
 acquisition_id: team-standards-v2-pilot-20260623
 schema_version: team-standards-acquisition-task-pack/v1
 status: pilot-recorded
 target_repo: spec-first
-snapshot_id: 4d47b125
+snapshot_id: 6202e5a0
 extraction_target:
   surface: shared
   sub_domain: standards-governance
@@ -23,8 +23,8 @@ scope:
     - V2 acquisition evidence model
   exclude:
     - generated runtime mirrors
-    - unrelated product capability specs
-    - multi-surface business rules without owner input
+    - 无关 product capability specs
+    - 缺少 owner input 的 multi-surface business rules
 time_window:
   from: 2026-06-21
   to: 2026-06-23
@@ -37,8 +37,8 @@ excluded_sources:
   - incident logs
   - interviews without owner input
 privacy_boundary:
-  allowed: repo-relative source refs and abstract engineering constraints
-  disallowed: customer data, personal data, secrets, local absolute paths, raw private discussion
+  allowed: repo-relative source refs 和抽象工程约束
+  disallowed: customer data、personal data、secrets、local absolute paths、raw private discussion
 expected_candidate_types:
   - suggested-rule
   - promotion-proposal
@@ -51,16 +51,16 @@ constraints:
   promotion_policy: confirmed standards 写入不在本次 scope
   runtime_policy: do-not-edit-generated-mirrors
 non_goals:
-  - write confirmed standards
-  - restore spec-standards workflow
-  - claim PR replay pass without replay samples
+  - 写入 confirmed standards
+  - 恢复 spec-standards workflow
+  - 在缺少 replay samples 时声明 PR replay pass
 ```
 
-## Pilot Decision
+## Pilot 决策
 
 本 task pack 只验证 V2 获取层的 source shape：single target、source anchors、evidence quality、lineage、owner queue、promotion log 和 replay limitation。它不把任何候选提升为 `trust=confirmed`，也不把 replay/retrieval 样本不足包装成通过。
 
-## Candidate Produced
+## 产出的候选
 
 - `CAND-STANDARDS-ACQ-001`: 每次团队规范获取必须绑定一个 extraction target，并记录 source anchors、evidence quality、privacy boundary 和 replay status。
 

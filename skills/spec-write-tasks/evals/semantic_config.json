@@ -1,0 +1,39 @@
+{
+  "positive_concepts": {
+    "source_plan": {
+      "phrases": ["source plan", "settled plan", "spec-plan", "plan"],
+      "weight": 0.34
+    },
+    "task_pack": {
+      "phrases": ["task pack", "task-pack", "tasks", "execution waves"],
+      "weight": 0.34
+    },
+    "compile_or_validate": {
+      "phrases": ["compile", "split", "validate", "validation", "plan-splitting"],
+      "weight": 0.32
+    }
+  },
+  "negative_concepts": {
+    "implementation_execution": {
+      "phrases": ["implement", "write code", "fix bug", "execute the work", "run spec-work"],
+      "weight": 0.65,
+      "exclusive": true
+    },
+    "unresolved_scope": {
+      "phrases": ["unresolved scope", "decide the architecture", "define requirements", "brainstorm"],
+      "weight": 0.55,
+      "exclusive": true
+    },
+    "small_low_risk": {
+      "phrases": ["small change", "low-risk", "typo", "one file"],
+      "weight": 0.45,
+      "exclusive": true
+    },
+    "remote_or_generic": {
+      "phrases": ["remote repository", "github repo", "marketplace", "npm package", "generic task list"],
+      "weight": 0.55,
+      "exclusive": true
+    }
+  },
+  "fallback_positive_concepts": ["source_plan", "task_pack", "compile_or_validate"]
+}
