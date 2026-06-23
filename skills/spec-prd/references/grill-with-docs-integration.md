@@ -1,8 +1,8 @@
 # Grill-With-Docs Integration
 
-Load this reference when the user explicitly asks for `grill-with-docs`, asks for relentless PRD grilling, asks to update `CONTEXT.md` / ADRs while requirements are clarified, or when a rough PRD has load-bearing branches that cannot be safely closed by the normal bounded 1-3 question PRD loop.
+Load this reference when the user explicitly asks for `grill-with-docs`, asks for relentless PRD grilling, asks to update `CONTEXT.md` / ADRs while requirements are clarified, or when rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, multi-source notes, screenshots/OCR, meeting notes, or chat logs have material gaps or blockers.
 
-This reference preserves the original `grill-with-docs` behavior inside `spec-prd`. It is a deep clarification mode, not the default PRD path.
+This reference preserves the original `grill-with-docs` behavior inside `spec-prd`. It is the default deep clarification mode for rough or materially incomplete PRD inputs, while compact/bounded PRD remains available for anchored, low-ambiguity, source-supported increments.
 
 ## Contents
 
@@ -16,15 +16,18 @@ This reference preserves the original `grill-with-docs` behavior inside `spec-pr
 
 ## Trigger Boundary
 
-Normal PRD authoring keeps questions minimal and persists closure into the PRD. Switch to this integration mode only when one of these is true:
+Normal PRD authoring keeps questions minimal and persists closure into the PRD. Switch to this integration mode when one of these is true:
 
 - the user explicitly asks to use `grill-with-docs`
 - the user asks for sustained questioning, one question at a time, with feedback between questions
 - the user asks to update `CONTEXT.md`, `CONTEXT-MAP.md`, or ADRs as decisions crystallize
+- rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, multi-source notes, screenshots/OCR, meeting notes, or chat logs have material gaps or blockers
 - terminology, ownership, source-of-truth, hard product boundary, or decision-tree dependencies would make a capped PRD-local loop misleading
 - source/code/docs evidence contradicts the user's framing and the contradiction needs owner adjudication plus durable glossary or decision capture
+- normal PRD mode finds more than 3 load-bearing actor, flow, scope, acceptance, permission, release-slice, or decision-intersection questions that can be closed through guided owner adjudication
+- multiple load-bearing PRD gaps interact, so asking only one static blocking question would leave planning to invent WHAT
 
-Do not trigger this mode just because a normal PRD has a few missing acceptance details. Use the bounded PRD loop first unless the user asks for the original `grill-with-docs` behavior or the ambiguity genuinely requires a sustained interview.
+Do not trigger this mode just because a normal PRD has a few missing acceptance details. Use the bounded PRD loop first when 1-3 source-first questions can close the gaps, but auto-trigger this mode when the ambiguity genuinely requires a sustained interview.
 
 ## Original Behavior Contract
 
@@ -32,6 +35,7 @@ Interview the owner relentlessly about every aspect of the plan or PRD until the
 
 For each owner question:
 
+- Use the parent skill Interaction Method for every owner question; this mode still asks through the platform blocking question tool.
 - ask exactly one question at a time
 - wait for feedback before continuing to the next question
 - provide a recommended answer whenever defensible

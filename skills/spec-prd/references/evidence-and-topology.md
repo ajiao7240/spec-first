@@ -178,7 +178,7 @@ Ask only questions that decide scope, behavior, source-of-truth, or acceptance. 
 - `workflow-change`: Which public entry, internal helper, dispatch boundary, handoff artifact, generated runtime mirror, and downstream skill changes?
 - `contract-change`: Who produces the contract, who consumes it, what version/compatibility rule applies, and which fixtures/tests prove it?
 
-If more than three owner questions seem necessary, summarize the unresolved decision cluster and route to PRD refine/doc review instead of interrogating the owner through a long form.
+If more than three owner questions seem necessary, do not flatten them into a long form. When the target surface is anchored enough for guided owner adjudication, load `grill-with-docs-integration.md` and continue one-question-at-a-time under the parent Interaction Method. When the anchor is missing, the topic is broad discovery, or no defensible question sequence exists, summarize the unresolved decision cluster and route to PRD refine/doc review, brainstorm, or blocker closeout.
 
 ## Readiness Gates
 

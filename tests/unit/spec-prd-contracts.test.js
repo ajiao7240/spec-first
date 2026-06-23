@@ -203,12 +203,12 @@ describe('spec-prd workflow contracts', () => {
 
   test('entrypoint exposes compact workflow contract summary and decision-tree intake', () => {
     const text = read(SKILL_PATH);
-    const firstHundredTwentyLines = text.split(/\r?\n/).slice(0, 120).join('\n');
+    const firstHundredFortyLines = text.split(/\r?\n/).slice(0, 140).join('\n');
     const phaseOne = extractMarkdownSection(text, '### Phase 1: Current-State Analysis');
 
     expect(text).toContain('name: spec-prd');
-    expect(firstHundredTwentyLines).toMatch(/## Purpose/);
-    expect(firstHundredTwentyLines).toMatch(/## Workflow Contract Summary/);
+    expect(firstHundredFortyLines).toMatch(/## Purpose/);
+    expect(firstHundredFortyLines).toMatch(/## Workflow Contract Summary/);
     for (const field of [
       'When To Use',
       'When Not To Use',
@@ -219,9 +219,9 @@ describe('spec-prd workflow contracts', () => {
       'Workflow',
       'Downstream Consumers',
     ]) {
-      expect(firstHundredTwentyLines.toLowerCase()).toContain(field.toLowerCase());
+      expect(firstHundredFortyLines.toLowerCase()).toContain(field.toLowerCase());
     }
-    expectContainsAll(firstHundredTwentyLines, [
+    expectContainsAll(firstHundredFortyLines, [
       'docs/brainstorms/*-requirements.md',
       'artifact_kind: prd-requirements',
       'Do not create `docs/prds/`',
@@ -253,9 +253,9 @@ describe('spec-prd workflow contracts', () => {
       'authoring discipline, not a new schema or security parser',
     ]);
     expect(phaseOne.indexOf('Run PRD Sanitization')).toBeLessThan(phaseOne.indexOf('Use `evidence-and-topology.md`'));
-    expect(firstHundredTwentyLines).not.toContain('Input Mode Table');
-    expect(firstHundredTwentyLines).not.toContain('Tie-Break Rules');
-    expect(firstHundredTwentyLines).not.toContain('current year is 2026');
+    expect(firstHundredFortyLines).not.toContain('Input Mode Table');
+    expect(firstHundredFortyLines).not.toContain('Tie-Break Rules');
+    expect(firstHundredFortyLines).not.toContain('current year is 2026');
     expect(text).toContain('screenshots/OCR, PDFs, meeting notes, chat logs');
     expect(text).toContain('`code-align` is validation posture, not a fourth public intent');
   });
@@ -332,6 +332,31 @@ describe('spec-prd workflow contracts', () => {
     expect(codexAssets.commands.map((command) => command.name)).not.toContain('prd');
   });
 
+  test('owner-alignment questions use the platform blocking question tool', () => {
+    const skill = read(SKILL_PATH);
+    const domainLanguage = read(DOMAIN_LANGUAGE_PATH);
+    const grillIntegration = read(GRILL_WITH_DOCS_INTEGRATION_PATH);
+
+    expectContainsAll(skill, [
+      '## Interaction Method',
+      'When asking any owner question or confirmation',
+      '`AskUserQuestion` in Claude Code',
+      '`request_user_input` in Codex',
+      '`ToolSearch` with query `select:AskUserQuestion`',
+      'Fall back to numbered options in chat only when the harness genuinely lacks a blocking question tool',
+      'Never silently skip an owner question',
+      'no-input target request, Pre-PRD Clarification, Domain Grill, split confirmation, readiness `ask-owner`, and `grill-with-docs`',
+    ]);
+    expectContainsAll(domainLanguage, [
+      'Use the parent skill Interaction Method for every owner question',
+      'platform blocking question tool',
+    ]);
+    expectContainsAll(grillIntegration, [
+      'Use the parent skill Interaction Method for every owner question',
+      'platform blocking question tool',
+    ]);
+  });
+
   test('evidence and topology reference preserves source truth and system-shape boundaries', () => {
     const reference = read(EVIDENCE_TOPOLOGY_PATH);
 
@@ -382,6 +407,9 @@ describe('spec-prd workflow contracts', () => {
       'Negative Space',
       'Ask only questions that decide scope, behavior, source-of-truth, or acceptance',
       'If more than three owner questions seem necessary',
+      'do not flatten them into a long form',
+      'load `grill-with-docs-integration.md` and continue one-question-at-a-time',
+      'When the anchor is missing',
       'A current-state claim without an evidence tag cannot be treated as `confirmed-source`',
     ]);
     expect(reference).not.toContain('implementation units');
@@ -412,10 +440,15 @@ describe('spec-prd workflow contracts', () => {
       'compress it into that section\'s existing fields and do not add new fields',
       'Do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` by default in normal PRD mode',
       'Pre-PRD Clarification Loop',
+      'Default Clarification Posture',
+      'Rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, multi-source notes, screenshots/OCR, meeting notes, or chat logs with material gaps default to `grill-with-docs-integration.md`',
+      'Use compact or bounded clarification only when the target surface is anchored, the ambiguity is low, and source-first reads can close the remaining gaps',
       'claim -> evidence/source -> gap -> question_or_assumption -> PRD write target',
       'Progressive Detail Ladder',
       'L0 compact PRD',
       'L2 large-input Map-Reduce',
+      'L5 deep-grill or blocker / route-out',
+      'Anchored gaps are escalated to `grill-with-docs-integration.md`',
       'Large-Input Map-Reduce Discipline',
       'Map row = source_ref / claim / actor / flow / state / gap / confidence / write_target_candidate',
       'Reduce output = canonical_requirement / supporting_refs / conflicts / assumptions / load_bearing_gap / owner_question_candidate / affected_write_targets',
@@ -431,8 +464,11 @@ describe('spec-prd workflow contracts', () => {
       'concrete scenario stress',
       'code contradiction surfacing',
       'Every load-bearing grill question must close before planning',
+      'Auto-load `grill-with-docs-integration.md` when a PRD has unresolved load-bearing ambiguity that exceeds the normal cap',
+      'Do not require the user to name `grill-with-docs`',
       'Grill-With-Docs Integration Trigger',
       'Load `grill-with-docs-integration.md`',
+      'normal bounded loop cannot responsibly close the problem',
       'update the relevant `CONTEXT.md` inline when a project-specific term is resolved',
       'create ADRs only when the decision is hard to reverse, surprising without context, and a real tradeoff',
       'Context / ADR Topology Adapter',
@@ -445,6 +481,7 @@ describe('spec-prd workflow contracts', () => {
     ]);
     expectContainsAll(grillIntegration, [
       'Original Behavior Contract',
+      'rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, multi-source notes, screenshots/OCR, meeting notes, or chat logs have material gaps or blockers',
       'ask exactly one question at a time',
       'wait for feedback before continuing to the next question',
       'If a question can be answered by exploring the codebase, explore the codebase instead of asking the owner.',
@@ -464,6 +501,8 @@ describe('spec-prd workflow contracts', () => {
     expectContainsAll(skill, [
       'Bounded Scenario Grill / Domain Grill Gate',
       'PRD-local in normal mode',
+      'default to deep clarification through `grill-with-docs-integration.md`',
+      'compact/bounded path is the exception',
       'persist results into existing PRD sections',
       'switch to `grill-with-docs-integration.md`',
     ]);
@@ -911,11 +950,12 @@ describe('spec-prd workflow contracts', () => {
       ]),
     });
     expectEvalCase(examples, 'pre-prd-clarification-loop-trigger', {
-      tags: ['pre-prd-clarification', 'boundary'],
+      tags: ['pre-prd-clarification', 'boundary', 'grill-with-docs'],
       expected: [
+        'load grill-with-docs-integration.md by default for rough PRD material gaps',
         'run Pre-PRD Clarification before final rewrite',
         'map claims to evidence, gaps, questions or assumptions, and PRD write targets',
-        'do not create a standalone grill report',
+        'fold answers back into PRD-local sections',
       ],
     });
     expectEvalCase(examples, 'requirements-grill-source-first', {
@@ -936,9 +976,9 @@ describe('spec-prd workflow contracts', () => {
     expectEvalCase(examples, 'requirements-grill-question-cap', {
       tags: ['failure', 'question-cap'],
       expected: [
-        'prioritized blocker cluster',
-        'no long interview',
-        'not ready-for-planning',
+        'load grill-with-docs-integration.md when normal cap is exceeded by load-bearing gaps',
+        'continue one-question-at-a-time instead of silently downgrading to a static blocker cluster',
+        'not ready-for-planning until closure',
       ],
     });
     expectEvalCase(examples, 'requirements-grill-context-artifact-triggered', {

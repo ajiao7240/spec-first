@@ -496,8 +496,8 @@
       "case_type": "boundary",
       "quality_buckets": ["refine"],
       "input_shape": "rough PRD fragment with system anchor but missing actor, acceptance, and scope",
-      "expected": ["run Pre-PRD Clarification before final rewrite", "map claims to evidence, gaps, questions or assumptions, and PRD write targets", "ask only bounded owner questions", "do not create a standalone grill report"],
-      "coverage_tags": ["trigger", "pre-prd-clarification", "boundary"]
+      "expected": ["load grill-with-docs-integration.md by default for rough PRD material gaps", "run Pre-PRD Clarification before final rewrite", "map claims to evidence, gaps, questions or assumptions, and PRD write targets", "fold answers back into PRD-local sections"],
+      "coverage_tags": ["trigger", "pre-prd-clarification", "boundary", "grill-with-docs"]
     },
     {
       "id": "requirements-grill-source-first",
@@ -514,7 +514,7 @@
       "case_type": "failure",
       "quality_buckets": ["refine", "readiness-fail", "failure"],
       "input_shape": "rough PRD has more than three load-bearing gaps across actors, scope, acceptance, and release",
-      "expected": ["prioritized blocker cluster", "recommended route", "acceptable assumptions", "affected write targets", "no long interview", "not ready-for-planning"],
+      "expected": ["load grill-with-docs-integration.md when normal cap is exceeded by load-bearing gaps", "continue one-question-at-a-time instead of silently downgrading to a static blocker cluster", "not ready-for-planning until closure"],
       "must_not": ["must not mark the PRD ready-for-planning while trace or closure gaps remain"],
       "coverage_tags": ["boundary", "failure", "question-cap"]
     },
@@ -691,8 +691,8 @@
       "intent": "refine",
       "case_type": "positive",
       "quality_buckets": ["refine"],
-      "input_shape": "mix of compact source-supported gaps, source-answerable gaps, and over-cap blockers",
-      "expected": ["Progressive Detail Ladder", "L0 compact stop", "source-first stop before owner question", "over-cap gaps stop at blocker cluster", "trigger and stop condition per layer"],
+      "input_shape": "mix of compact source-supported gaps, source-answerable gaps, anchored over-cap gaps, and unanchored over-cap blockers",
+      "expected": ["Progressive Detail Ladder", "L0 compact stop", "source-first stop before owner question", "anchored over-cap gaps load grill-with-docs-integration.md", "unanchored over-cap gaps stop at blocker cluster or route-out", "trigger and stop condition per layer"],
       "coverage_tags": ["expected", "progressive-detail"]
     },
     {
