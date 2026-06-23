@@ -38,6 +38,8 @@ A public spec-first workflow entry that is command-backed in source governance: 
 
 A reusable skill delivered through host skill discovery rather than the public workflow command surface. It should not be documented as a `/spec:*` or `$spec-*` workflow entry unless `skills-governance.json` classifies it as `workflow_command`.
 
+When projected into host runtime, a standalone skill keeps the governed source skill name, including a `spec-` prefix when present; shortening the runtime `name` makes discovery inconsistent with source governance.
+
 ### Agent
 
 A specialized judgment role dispatched by a workflow for bounded analysis. Agents return findings, research, or synthesis; they are not source-of-truth and should not mutate the repo unless a workflow explicitly gives that role a mutation boundary.
