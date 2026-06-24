@@ -1,7 +1,7 @@
 ---
 title: "refactor: spec-prd product-expert-led clarification"
 type: refactor
-status: active
+status: completed
 date: 2026-06-24
 spec_id: 2026-06-24-002-spec-prd-product-expert-led-clarification
 origin: in-conversation owner target statement (2026-06-24)
@@ -650,6 +650,15 @@ Product Expert Lens 把判断前置：
 ## Current State Note
 
 `2026-06-24-001` 和 naming-only 思路保留为历史证据，但不再作为目标方案。它们正确识别了 `to-prd adapter` 不应固化，却低估了 Product Expert Lens 对目标实现的必要性。本方案取代它们。
+
+---
+
+## Completion Evidence
+
+- Implementation: `product-expert-lens.md` 成为 `$spec-prd` 默认热路径 canonical 产品判断层；`design-source-evidence.md` 与 `large-input-checkpoint.md` 作为 trigger-only references 接入；grill、write-in、readiness、eval、用户手册和 fresh-source eval artifact 已同步。
+- Verification: `npx jest tests/unit/spec-prd-contracts.test.js --runInBand`、`node skills/spec-prd/scripts/run-evals.js --json`、`npm run typecheck`、`npx jest tests/unit/changelog-format.test.js tests/unit/task-pack-command.test.js --runInBand`、`git diff --check` 均通过。
+- Review: 三个只读 reviewer 完成架构/边界、测试/eval、文档/用户面审查；已修复 `Planning Recheck` producer-side handoff 边界、eval sentinel 覆盖、provider-neutral 热路径、source topology drift 和 fresh-source artifact metadata。
+- Runtime boundary: 未手改 `.claude/`、`.codex/` 或 `.agents/skills/` generated runtime mirrors；本次变更保持 source-first。
 
 ---
 

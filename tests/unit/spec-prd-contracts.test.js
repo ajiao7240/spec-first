@@ -18,6 +18,9 @@ const DOMAIN_LANGUAGE_PATH = path.join(SKILL_DIR, 'references', 'domain-language
 const GRILL_WITH_DOCS_INTEGRATION_PATH = path.join(SKILL_DIR, 'references', 'grill-with-docs-integration.md');
 const OUTPUT_TEMPLATE_PATH = path.join(SKILL_DIR, 'references', 'prd-output-template.md');
 const READINESS_PATH = path.join(SKILL_DIR, 'references', 'prd-readiness-lens.md');
+const PRODUCT_LENS_PATH = path.join(SKILL_DIR, 'references', 'product-expert-lens.md');
+const DESIGN_SOURCE_PATH = path.join(SKILL_DIR, 'references', 'design-source-evidence.md');
+const EVALUATION_GOVERNANCE_PATH = path.join(SKILL_DIR, 'references', 'evaluation-governance.md');
 const GLOSSARY_PATH = path.join(REPO_ROOT, 'docs', 'contracts', 'domain-glossary.md');
 const DRIFT_SCRIPT_PATH = path.join(SKILL_DIR, 'scripts', 'check-glossary-drift.js');
 const PRD_ARTIFACT_SCRIPT_PATH = path.join(SKILL_DIR, 'scripts', 'check-prd-artifact.js');
@@ -77,6 +80,13 @@ const FRESH_SOURCE_EVAL_REQUIREMENTS_GRILL_PATH = path.join(
   'validation',
   'spec-prd',
   'fresh-source-eval-2026-06-22-requirements-grill.md',
+);
+const FRESH_SOURCE_EVAL_PRODUCT_EXPERT_LENS_PATH = path.join(
+  REPO_ROOT,
+  'docs',
+  'validation',
+  'spec-prd',
+  'fresh-source-eval-2026-06-24-product-expert-lens.md',
 );
 
 function read(filePath) {
@@ -199,26 +209,39 @@ describe('spec-prd workflow contracts', () => {
 
     expect(sourceFiles).toEqual([
       'skills/spec-prd/SKILL.md',
+      'skills/spec-prd/references/design-source-evidence.md',
       'skills/spec-prd/references/domain-language-and-decision-ledger.md',
       'skills/spec-prd/references/evaluation-governance.md',
       'skills/spec-prd/references/evidence-and-topology.md',
       'skills/spec-prd/references/grill-with-docs-integration.md',
+      'skills/spec-prd/references/large-input-checkpoint.md',
       'skills/spec-prd/references/prd-output-template.md',
       'skills/spec-prd/references/prd-readiness-lens.md',
+      'skills/spec-prd/references/product-expert-lens.md',
       'skills/spec-prd/scripts/check-glossary-drift.js',
       'skills/spec-prd/scripts/check-prd-artifact.js',
       'skills/spec-prd/scripts/run-evals.js',
     ]);
     expect(references).toEqual([
+      'skills/spec-prd/references/design-source-evidence.md',
       'skills/spec-prd/references/domain-language-and-decision-ledger.md',
       'skills/spec-prd/references/evaluation-governance.md',
       'skills/spec-prd/references/evidence-and-topology.md',
       'skills/spec-prd/references/grill-with-docs-integration.md',
+      'skills/spec-prd/references/large-input-checkpoint.md',
       'skills/spec-prd/references/prd-output-template.md',
       'skills/spec-prd/references/prd-readiness-lens.md',
+      'skills/spec-prd/references/product-expert-lens.md',
     ]);
-    expect(sourceFiles).toHaveLength(10);
+    expect(sourceFiles).toHaveLength(13);
     expect(fs.existsSync(path.join(SKILL_DIR, 'templates', 'standard'))).toBe(false);
+  });
+
+  test('evaluation governance records the current spec-prd source topology', () => {
+    const governance = read(EVALUATION_GOVERNANCE_PATH);
+
+    expect(governance).toContain('compressed 13-file source topology (`SKILL.md` + 9 references + 3 scripts)');
+    expect(governance).not.toContain('compressed 10-file source topology');
   });
 
   test('entrypoint exposes compact workflow contract summary and decision-tree intake', () => {
@@ -247,7 +270,7 @@ describe('spec-prd workflow contracts', () => {
       'Do not create `docs/prds/`',
       'do not hard-code calendar years',
       'planning-readiness',
-      'Not for PRD/Figma/source consistency audits',
+      'Not for PRD/design-source/source consistency audits',
       'spec-app-consistency-audit',
       'grill unresolved requirements',
       'untrusted document content',
@@ -257,7 +280,7 @@ describe('spec-prd workflow contracts', () => {
       'quality_diagnosis: not-run | minor-gaps | material-gaps | blockers | ready',
       'pre_prd_clarification_status: not-needed | source-resolved | asked-owner | blocker-cluster | route-out | not-run',
       'owner_question_progress: not-needed | source-resolved | closed | narrowed | accepted-assumption | outstanding-question | blocker | route-out',
-      'Adaptive product expert lens',
+      'Product Expert Lens',
       'Route out or bypass?',
       'Which PRD operation?',
       'What input posture?',
@@ -281,17 +304,24 @@ describe('spec-prd workflow contracts', () => {
     expect(text).toContain('`code-align` is validation posture, not a fourth public intent');
   });
 
-  test('entrypoint references only the six source references and keeps generated mirrors out of source fixes', () => {
+  test('entrypoint references only the governed source references and keeps generated mirrors out of source fixes', () => {
     const text = read(SKILL_PATH);
 
     expectContainsAll(text, [
       'references/evidence-and-topology.md',
       'references/domain-language-and-decision-ledger.md',
       'references/grill-with-docs-integration.md',
+      'references/product-expert-lens.md',
+      'references/design-source-evidence.md',
+      'references/large-input-checkpoint.md',
       'references/prd-output-template.md',
       'references/prd-readiness-lens.md',
       'references/evaluation-governance.md',
-      'adaptive product expert lens',
+      'Product Expert Lens',
+      'downstream-confirmation risk ranking',
+      'structured-input synthesis',
+      'trigger-only for front-end/UI inputs',
+      'trigger-only for oversized, multi-source, long-chain, or resume-risk PRDs',
       'PRD quality diagnosis',
       'Pre-PRD Clarification Loop',
       'shared understanding map',
@@ -307,6 +337,8 @@ describe('spec-prd workflow contracts', () => {
       'scripts/check-prd-artifact.js <prd-path>',
       'edit generated runtime mirrors',
     ]);
+    expect(text).not.toContain('Adaptive product expert lens');
+    expect(text).not.toContain('Adaptive Product Expert Lens');
     expect(text).not.toContain('references/intent-routing.md');
     expect(text).not.toContain('references/current-state-analysis.md');
     expect(text).not.toContain('references/change-topology-lens.md');
@@ -477,8 +509,9 @@ describe('spec-prd workflow contracts', () => {
       'L5 deep-grill or blocker / route-out',
       'Anchored gaps run through `grill-with-docs-integration.md`',
       'Large-Input Map-Reduce Discipline',
-      'Map row = source_ref / claim / actor / flow / state / gap / confidence / write_target_candidate',
+      'Map row = source_ref / claim / actor / flow / state / gap / evidence_tag / confirmation_posture / write_target_candidate',
       'Reduce output = canonical_requirement / supporting_refs / conflicts / assumptions / load_bearing_gap / owner_question_candidate / affected_write_targets',
+      'Reduce output feeds Product Expert Lens `downstream_confirmation_risk` ordering',
       'not schemas, artifacts, JSON contracts, durable PRD fields, or script output requirements',
       'Load-Bearing Gap Triage',
       'acceptance impact, behavior/scope irreversibility, number of affected PRD sections, source contradiction, and release/planning consequence',
@@ -542,6 +575,7 @@ describe('spec-prd workflow contracts', () => {
 
   test('output template owns section skeleton, surface lenses, overlays, and split topology', () => {
     const template = read(OUTPUT_TEMPLATE_PATH);
+    const productLens = read(PRODUCT_LENS_PATH);
     const featureSlices = extractMarkdownSection(template, '## Feature Slices');
     const closeout = extractMarkdownSection(template, '## Closeout Summary');
 
@@ -578,13 +612,12 @@ describe('spec-prd workflow contracts', () => {
       'Do not treat template industry facts as confirmed project rules',
       'Industry Overlay Triggers',
       'only raises questions and triggers conditional sections',
-      'Adaptive Product Expert Lens',
-      'not an agent type',
-      'current-state and code alignment',
-      'this confirms current WHAT and evidence pointers, not HOW to change implementation',
-      'use INVEST as an explanatory anchor',
-      'use EARS or Gherkin-style wording only when it reduces ambiguity',
-      'scope and handoff entropy',
+      'Product Expert Lens Write-In',
+      'product-expert-lens.md',
+      'downstream_confirmation_risk',
+      'does not copy the full lens or create a fallback checklist',
+      'structured or already-decided inputs',
+      'Do not introduce a named conversion field map',
       'canonical PRD quality-dimension list',
       'Embedded Standard Skeleton',
       'AE-01（对应 R-01）',
@@ -609,6 +642,8 @@ describe('spec-prd workflow contracts', () => {
       'Implementation-ready or direct route-out paths must state the bypass reason',
       'Rough PRD gap-to-target mapping',
       'Large-input Map-Reduce results must enter final PRD rewrite through the same section-level reducers',
+      'large-input-checkpoint.md',
+      'Ordinary short PRDs still wait until closure before durable write-in',
       'Never treat lossy chunk summaries as source-of-truth',
       'P0 PRD Quality Packs',
       'Problem / Outcome Framing Gate',
@@ -624,6 +659,11 @@ describe('spec-prd workflow contracts', () => {
       'P1 Conditional Enrichment Packs',
       'Stakeholder / Actor Alignment',
       'Design / UX Evidence Hook',
+      'design-source-evidence.md',
+      'External Evidence Interface',
+      'extracted_design_what',
+      'affected_PRD_write_targets',
+      'provider_untrusted',
       'Prioritization / Release Slice',
       'Change Management',
       'routes consistency audit to `spec-app-consistency-audit`',
@@ -643,6 +683,9 @@ describe('spec-prd workflow contracts', () => {
       'New IDs continue from the maximum current number',
       'Project-local IDs such as `US-*`, `FEAT-*`, or `NFR-*`',
       'planning recheck item count',
+      'Resolved before planning',
+      'Still carried',
+      'planning_would_invent_what',
       'uncovered requirements',
       'feature items without acceptance examples',
       'document_role: split-summary',
@@ -674,6 +717,9 @@ describe('spec-prd workflow contracts', () => {
     expectContainsAll(closeout, [
       'Every PRD handoff should report',
       'seed deterministic counts and trace facts from `scripts/check-prd-artifact.js <prd-path>`',
+      'Resolved before planning',
+      'Still carried',
+      'planning_would_invent_what',
       'planning recheck item count',
       'current-state claims without confirmed evidence',
       'When `## Feature Slices` is present',
@@ -685,11 +731,47 @@ describe('spec-prd workflow contracts', () => {
       'program or execution slicing',
     ]);
     expect(template).not.toContain('templates/standard/');
+    expect(template).not.toContain('Adaptive Product Expert Lens');
+    expect(template).not.toContain('entry, state, copy, empty/error/loading, permissions, i18n, and accessibility');
     expect(template).not.toContain(`quality_${'posture'}`);
     expect(template).not.toContain('program_slice_required');
     expect(template).not.toContain('C1 监管');
     expect(template).not.toContain('securities-pm');
     expect(template).not.toContain('credit-pm');
+
+    expectContainsAll(productLens, [
+      'single canonical source',
+      'downstream_confirmation_risk -> claim -> evidence/source -> gap',
+      'PRD_write_target -> closure_state',
+      'not persistent schema',
+      'Every gap that enters Requirements Grill must bind to `PRD_write_target`',
+      'Requirements Grill consumes only `gap + owner_question_or_assumption + PRD_write_target`',
+      'Product Judgment Dimensions',
+      'user/problem/outcome clarity',
+      'current-state and code alignment',
+      'this confirms current WHAT and evidence pointers, not HOW to change implementation',
+      'requirement quality',
+      'acceptance coverage',
+      'scope and handoff entropy',
+      'Structured Input Synthesis',
+      'Demote implementation-heavy or testing-heavy details to assumptions',
+      'Do not introduce a named conversion adapter',
+      'Design-Source Interface',
+      'design-source-evidence.md',
+      'source-candidate` / `provider_untrusted`',
+      'Large-Input Interface',
+      'large-input-checkpoint.md',
+      'Reduce output -> load_bearing_gap / owner_question_candidate / affected_write_targets',
+      'Escalation To Product Reviewer',
+      'dispatch_authorization_missing',
+      'adversarial product-review posture',
+    ]);
+    expect(productLens).not.toContain('Adaptive Product Expert Lens');
+    expect(productLens).not.toContain('Figma link');
+    expect(productLens).not.toContain('PRD/Figma/source');
+    expect(template).not.toContain('screenshots, Figma');
+    expect(template).not.toContain('PRD/Figma/source consistency remains outside `spec-prd`');
+    expect(read(SKILL_PATH)).not.toContain('front-end/UI inputs with Figma links');
   });
 
   test('readiness lens uses compound packs instead of long enumerated gate drift', () => {
@@ -719,10 +801,10 @@ describe('spec-prd workflow contracts', () => {
       '`wording and testability`',
       'INVEST, EARS, and Gherkin-style wording are optional clarity anchors, not scoring rubrics',
       '`interaction and exception readiness`',
-      '`adaptive product lens fit`',
+      '`product expert lens fit`',
       '`canonical lens reuse`',
       '`preliminary-vs-final diagnosis`',
-      "uses `prd-output-template.md`'s Adaptive Product Expert Lens as the quality-dimension source",
+      "uses `product-expert-lens.md`'s Product Expert Lens as the quality-dimension source",
       '`optimization suggestion closure`',
       '`rewrite integrity`',
       'P0 Quality Floor Pack',
@@ -734,6 +816,8 @@ describe('spec-prd workflow contracts', () => {
       'generated runtime mirrors untouched',
       '`traceability closure`',
       '`owner approval closure`',
+      '`Resolved before planning`',
+      '`Still carried`',
       '`readiness_outcome`',
       '`slice identity and trace`',
       'visible mapping to Change Delta or core requirements',
@@ -758,6 +842,9 @@ describe('spec-prd workflow contracts', () => {
       'P1 Conditional Pack',
       '`stakeholder-actor closure`',
       '`design-evidence closure`',
+      '`design-source-evidence.md`',
+      'External Evidence Interface',
+      'not a copied design WHAT extraction list',
       '`release-slice closure`',
       '`change-management closure`',
       '`goal-measurability`',
@@ -772,6 +859,7 @@ describe('spec-prd workflow contracts', () => {
       'spec-prd-artifact-check.v1',
       'script-owned facts',
       'handoff entropy check',
+      'open load-bearing WHAT gap',
       'unresolved framing risks',
       'do not introduce a second evidence enum',
       'ready-for-planning',
@@ -780,6 +868,8 @@ describe('spec-prd workflow contracts', () => {
       'avoid_term_used',
     ]);
     expect(readiness).not.toContain('Always Gate');
+    expect(readiness).not.toContain('Adaptive Product Expert Lens');
+    expect(readiness).not.toContain('entry, state, copy, empty/error/loading, permissions, i18n, and accessibility');
     expect(readiness).not.toContain('`current-state accuracy`');
   });
 
@@ -892,6 +982,9 @@ describe('spec-prd workflow contracts', () => {
       'readiness',
       'progressive-detail',
       'workflow-runtime-quality',
+      'product-judgment',
+      'design-source',
+      'checkpoint-resume',
       'source-candidate-recheck',
       'owner-question-avoidance',
       'direct-route-out',
@@ -917,6 +1010,42 @@ describe('spec-prd workflow contracts', () => {
         'quality_diagnosis as the single emitted diagnosis field',
         'not-run only in run-local decision card',
         'no competing diagnosis field',
+      ],
+    });
+    expectEvalCase(examples, 'product-expert-lens-risk-ranked-gaps', {
+      tags: ['product-judgment', 'source-first'],
+      expected: [
+        'Product Expert Lens',
+        'downstream_confirmation_risk',
+        'PRD_write_target',
+      ],
+    });
+    expect(examples.case_contract.sentinel_cases).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'product-judgment-naming-only-rejected',
+        requires: expect.objectContaining({
+          case_type: 'failure',
+          expected: expect.arrayContaining([
+            'risk-ranked gap plus PRD write target required',
+            'inline critique names product risk and affected PRD write target',
+          ]),
+          must_not: expect.arrayContaining([
+            'must not pass by only renaming the lens without risk-ranked product judgment',
+          ]),
+        }),
+      }),
+    ]));
+    expect(findEvalCase(examples, 'product-judgment-naming-only-rejected')).toMatchObject({
+      case_type: 'failure',
+      coverage_tags: expect.arrayContaining(['product-judgment']),
+      must_not: expect.arrayContaining(['must not pass by only renaming the lens without risk-ranked product judgment']),
+    });
+    expectEvalCase(examples, 'structured-input-how-demotion', {
+      tags: ['boundary', 'product-judgment'],
+      expected: [
+        'already-structured or already-decided input',
+        'write settled WHAT into normal PRD sections',
+        'Do not introduce a named conversion field map',
       ],
     });
     expectEvalCase(examples, 'large-prd-context-slice-not-program', {
@@ -1044,6 +1173,29 @@ describe('spec-prd workflow contracts', () => {
         'do not treat lossy summaries as source-of-truth',
       ],
     });
+    expectEvalCase(examples, 'large-input-checkpoint-resume', {
+      tags: ['large-input', 'checkpoint-resume'],
+      expected: [
+        'reduced candidates feed Product Expert Lens',
+        'PRD sections act as checkpoints',
+        'source_ref degraded re-reduce fallback',
+      ],
+    });
+    expectEvalCase(examples, 'design-source-figma-degraded', {
+      tags: ['design-source', 'boundary'],
+      expected: [
+        'URL parse -> tool discovery -> auth/access probe',
+        'source-candidate / provider_untrusted',
+        'Planning Recheck',
+      ],
+    });
+    expect(findEvalCase(examples, 'design-source-figma-degraded')).toMatchObject({
+      must_not: expect.arrayContaining([
+        'must not install MCP/plugins from spec-prd',
+        'must not claim design facts are confirmed scope without source or owner reconciliation',
+      ]),
+    });
+    expect(read(DESIGN_SOURCE_PATH)).toContain('do not install MCP/plugins from `spec-prd`');
     expectEvalCase(examples, 'huge-prd-cross-chunk-conflict', {
       tags: ['failure', 'map-reduce'],
       expected: [
@@ -1140,6 +1292,9 @@ describe('spec-prd workflow contracts', () => {
       'skills/spec-prd/references/evidence-and-topology.md',
       'skills/spec-prd/references/domain-language-and-decision-ledger.md',
       'skills/spec-prd/references/grill-with-docs-integration.md',
+      'skills/spec-prd/references/product-expert-lens.md',
+      'skills/spec-prd/references/design-source-evidence.md',
+      'skills/spec-prd/references/large-input-checkpoint.md',
       'skills/spec-prd/references/prd-output-template.md',
       'skills/spec-prd/references/prd-readiness-lens.md',
     ]);
@@ -1220,6 +1375,39 @@ describe('spec-prd workflow contracts', () => {
       });
       expect(failed.invalid_cases).toEqual(expect.arrayContaining([
         expect.objectContaining({ reason_code: 'required_quality_bucket_missing' }),
+      ]));
+
+      const missingSentinelRequirement = {
+        ...fixture,
+        cases: fixture.cases.map((entry) => {
+          if (entry.id !== 'product-judgment-naming-only-rejected') return entry;
+          return {
+            ...entry,
+            expected: entry.expected.filter((snippet) => snippet !== 'risk-ranked gap plus PRD write target required'),
+          };
+        }),
+      };
+      const missingSentinelPath = path.join(tmpDir, 'missing-sentinel.json');
+      fs.writeFileSync(missingSentinelPath, `${JSON.stringify(missingSentinelRequirement, null, 2)}\n`, 'utf8');
+
+      let missingSentinelError = null;
+      try {
+        execFileSync('node', [EVAL_RUNNER_PATH, '--fixture', missingSentinelPath, '--json'], {
+          encoding: 'utf8',
+          stdio: 'pipe',
+        });
+      } catch (err) {
+        missingSentinelError = err;
+      }
+      expect(missingSentinelError).not.toBeNull();
+      expect(missingSentinelError.status).toBe(1);
+      const sentinelFailed = JSON.parse(String(missingSentinelError.stdout));
+      expect(sentinelFailed.invalid_cases).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: 'product-judgment-naming-only-rejected',
+          reason_code: 'sentinel_case_requirement_missing',
+          field: 'expected',
+        }),
       ]));
 
       const badJsonPath = path.join(tmpDir, 'bad.json');
@@ -1377,6 +1565,31 @@ describe('spec-prd workflow contracts', () => {
       'status: not_measured',
     ]);
     expect(artifact).not.toContain('status: passed');
+  });
+
+  test('product expert lens eval artifact records dispatched provenance and advisory authority', () => {
+    const artifact = read(FRESH_SOURCE_EVAL_PRODUCT_EXPERT_LENS_PATH);
+
+    expectContainsAll(artifact, [
+      'fresh_source_eval:',
+      'schema_version: fresh-source-eval-record.v1',
+      'producer: spec-work',
+      'freshness: current-worktree',
+      'authority_level: advisory',
+      'reason_code: fresh-source-eval-dispatched',
+      'consumer: spec-prd contract tests and work closeout',
+      'status: passed',
+      'skills/spec-prd/SKILL.md',
+      'skills/spec-prd/references/product-expert-lens.md',
+      'skills/spec-prd/references/design-source-evidence.md',
+      'skills/spec-prd/references/large-input-checkpoint.md',
+      'runtime_paths_checked: []',
+      'fresh read-only Codex reviewers were dispatched',
+      'Generated runtime mirrors were not used as source',
+      'Product Expert Lens',
+      'naming-only failure coverage',
+    ]);
+    expect(artifact).not.toContain('reason_code: fresh-source-eval-not-run');
   });
 
   test('project domain glossary artifact defines the cross-PRD canonical layer with light contract', () => {

@@ -43,6 +43,8 @@ For each owner question:
 - explain the consequence of choosing or rejecting that recommendation when it affects WHAT, acceptance, scope, terminology, source-of-truth, or downstream planning
 - bind the question to a named gap, the source attempt already made, and the PRD write target it will close or narrow
 
+When called from `spec-prd`, consume Product Expert Lens ordering instead of copying its dimensions: take `gap + owner_question_or_assumption + PRD_write_target` from the Lens, ask the next source-backed owner question, then return closure state for PRD write-in and readiness.
+
 If a question can be answered by exploring the codebase, explore the codebase instead of asking the owner. Source-answerable gaps are not owner questions.
 
 ## Source-First Session Rules

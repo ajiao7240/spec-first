@@ -250,6 +250,23 @@ Preliminary Diagnosis 只决定“怎么澄清、怎么归约证据、是否 rou
 
 最终能否进入 planning，只能在 rewrite 后由 Final Readiness Diagnosis 判断。
 
+### 5. Product Expert Lens
+
+`$spec-prd` 的默认热路径现在是：
+
+```text
+Product Expert Lens -> Requirements Grill -> Standard PRD Write-In -> Readiness Lens
+```
+
+Product Expert Lens 不是一个新的公开 workflow，也不是默认独立 reviewer。它是需求澄清前的产品判断层：先识别用户、场景、结果、范围、权限、异常、验收和 downstream confirmation risk，再把每个 load-bearing gap 绑定到具体 PRD write target。Requirements Grill 只消费它产出的最小接口：
+
+```text
+downstream_confirmation_risk -> claim -> evidence/source -> gap
+  -> owner_question_or_assumption -> PRD_write_target -> closure_state
+```
+
+这让 owner 问题不再是 checklist 式追问，而是围绕“哪个问题会让 planning / work 发明 WHAT”排序。已经成型或已决策的输入会被综合进标准 PRD sections；其中 implementation/testing/API/schema/task 细节会降级为 HOW，除非它改变 scope、acceptance 或 source-of-truth。
+
 ## Progressive Detail Ladder
 
 流程按风险渐进展开，避免所有 PRD 都走最重路径。
@@ -270,7 +287,7 @@ Preliminary Diagnosis 只决定“怎么澄清、怎么归约证据、是否 rou
 ```text
 Map row:
   source_ref / claim / actor / flow / state / gap /
-  confidence / write_target_candidate
+  evidence_tag / confirmation_posture / write_target_candidate
 
 Reduce output:
   canonical_requirement / supporting_refs / conflicts /
@@ -278,9 +295,22 @@ Reduce output:
   affected_write_targets
 ```
 
-Map 负责从 chunk 里抽取需求原子并保留来源。Shuffle 按 actor、flow、feature、data、state、permission、exception、PRD section 和 source contradiction 聚组。Reduce 合并重复、保留冲突，并输出 blockers、assumptions、owner questions 和 PRD write targets。
+Map 负责从 chunk 里抽取需求原子并保留来源。Shuffle 按 actor、flow、feature、data、state、permission、exception、PRD section 和 source contradiction 聚组。Reduce 合并重复、保留冲突，并输出 blockers、assumptions、owner questions 和 PRD write targets。Reduce output 随后进入 Product Expert Lens 的风险排序，而不是绕过产品判断直接写入 PRD。
 
 这些都是 run-local scratch，不是持久 schema、JSON contract 或新 artifact。
+
+长链路、超大或多来源 PRD 可以把 reduced candidates 提前写入 PRD 文件本身作为 checkpoint：已闭合内容进入正式 sections，未确认内容进入 `Evidence And Assumptions`，owner 决策进入 `Outstanding Questions`，planning-time advisory 项进入 `Planning Recheck`。resume 时优先按 `source_ref` 恢复；如果 source_ref stale、缺失或冲突，则 degraded 重新归约相关 chunk 并记录原因。普通短 PRD 仍然闭合后再写，不新增 transcript 或 progress schema。`Planning Recheck` 是 `$spec-prd` producer-side advisory handoff：它说明下游在选 HOW 前必须复核，不等于 `$spec-plan` 已经完成 re-confirm。
+
+## 设计源 / Figma 输入
+
+当前端、H5、PC、Admin 或其他 UI PRD 带有 Figma 链接、截图、导出的设计上下文或交互状态说明时，`$spec-prd` 会把设计源作为 trigger-only evidence path 处理：
+
+```text
+URL parse -> tool discovery -> auth/access probe -> fetch or degraded reason
+  -> design-WHAT extraction -> code/owner reconciliation -> PRD write targets / Planning Recheck
+```
+
+设计源证据默认是 `source-candidate` / `provider_untrusted`，直到经过代码、文档或 owner 决策校准。工具不可用、未授权、无访问权限或 headless 无法抓取时，不阻断 PRD；它会 loud degrade 到截图、导出 context、本地 `figma-context:<path>`、reference-claim 或 owner 描述。`spec-prd` 只提取 PRD facts，例如 entry、state、copy、empty/error/loading、permission、i18n、accessibility 和 acceptance；PRD/Figma/source 一致性审计仍应 route 到 `$spec-app-consistency-audit`。
 
 ## Deep Requirements Grill
 
@@ -345,7 +375,7 @@ user-repo/
 | 消费方 | 何时读取 | 消费方式 |
 | --- | --- | --- |
 | `$spec-prd` | 写作或 refine PRD 时 | 校准术语、识别历史决策约束、发现需求 claim 与现有上下文冲突；输出仍先落在 PRD-local sections |
-| `$spec-plan` | 从 PRD 进入实施计划时 | 消费 PRD 中的 context/ADR source refs，避免重新发明术语、scope boundary、架构约束和 hard decision |
+| `$spec-plan` | 从 PRD 进入实施计划时 | 消费 PRD 中的 context/ADR source refs，避免重新发明术语、scope boundary、架构约束和 hard decision；`Planning Recheck` 项仍是 producer-side advisory handoff，只有被 planning 重新读取、重跑或 owner/source 确认后才可当作 confirmed truth |
 | standalone `write-tasks` | 从 plan 派生 task pack 时 | 保留计划中已经确认的术语、决策和非目标，避免任务拆分时丢掉上下文 |
 | `$spec-work` | 实现阶段 | 在代码变更前读取相关 context/ADR，确认实现没有违背领域语言、source-of-truth、runtime/source 边界或既有决策 |
 | `$spec-doc-review` | review PRD、plan 或 task 文档时 | 检查文档是否与稳定术语、ADR、scope boundary 冲突，或是否遗漏必须传递给下游的决策后果 |

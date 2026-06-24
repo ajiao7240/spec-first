@@ -51,8 +51,8 @@ When a PRD artifact path exists, `skills/spec-prd/scripts/check-prd-artifact.js 
 
 Run this pack when the input is an existing PRD, requirements draft, rough notes being refined/validated as PRD input, or the user asks for deep PRD quality analysis or optimization suggestions.
 
-- `adaptive product lens fit` - the applied surface/industry/product lens follows the actual target surface, current source evidence, and owner-stated objective; generic checklists are not applied as confirmed project facts.
-- `canonical lens reuse` - the diagnosis uses `prd-output-template.md`'s Adaptive Product Expert Lens as the quality-dimension source instead of copying a second near-duplicate dimension list.
+- `product expert lens fit` - the applied surface/industry/product lens follows the actual target surface, current source evidence, and owner-stated objective; generic checklists are not applied as confirmed project facts.
+- `canonical lens reuse` - the diagnosis uses `product-expert-lens.md`'s Product Expert Lens as the quality-dimension source instead of copying a second near-duplicate dimension list.
 - `preliminary-vs-final diagnosis` - Preliminary Diagnosis may choose source-resolved compact/L1/L2/L3/L4/L5 expansion, route-out, or blocker posture, but only Final Readiness Diagnosis after rewrite and closure may emit `ready-for-planning`.
 - `optimization suggestion closure` - major PRD gaps are expressed as `original -> recommendation -> reason -> write target`, prioritized by planning-invention risk, and either incorporated into the rewritten PRD or left as visible blockers.
 - `rewrite integrity` - the final PRD preserves stable IDs where applicable, separates critique from durable requirements, keeps HOW out of requirements, and does not drop confirmed source evidence, owner decisions, assumptions, or unresolved questions during cleanup.
@@ -66,7 +66,7 @@ Run this pack only when the corresponding P0 signal is triggered. Untriggered P0
 - `nfr-constraint closure` - triggered security, permission, privacy, compliance, payment/transaction, external API, CLI/runtime, migration, bulk/async/sync, rollout, operational, or user-visible failure constraints are captured as product-level requirements, negative acceptance, data/compliance boundaries, or release/operation readiness. API/database/architecture HOW is not accepted as PRD closure.
 - `workflow-skill-runtime quality closure` - when the PRD concerns a workflow, skill, prompt, CLI, eval fixture, contract, or runtime projection change, the `Workflow / Skill / Runtime Quality Signals` lens has been applied and planning-critical quality signals are visible as product-level outcomes: public workflow identity, near-neighbor routing, source/runtime boundary, generated runtime mirrors untouched, eval fixtures advisory-only, source/reference contract tests, runtime projection checks, fresh-source eval status, and downstream consumer compatibility. File edits, exact test code, and implementation sequencing remain HOW.
 - `traceability closure` - planning-bound requirements trace to acceptance examples and evidence/source, or carry an explicit trace gap / open question. A load-bearing requirement without AE/evidence/trace-gap closure blocks readiness.
-- `owner approval closure` - owner answers applied, accepted assumptions, blocking questions, `readiness_outcome`, `planning_would_invent_what`, and final readiness posture are visible in PRD-local sections or closeout summary. A separate approval artifact is not required.
+- `owner approval closure` - owner answers applied, accepted assumptions, blocking questions, `Resolved before planning`, `Still carried`, `readiness_outcome`, `planning_would_invent_what`, and final readiness posture are visible in PRD-local sections or closeout summary. A separate approval artifact is not required.
 
 ### Feature Slice Pack
 
@@ -103,7 +103,7 @@ Run this pack when terminology, domain boundary, source/user contradiction, owne
 Run this pack only for triggered conditional signals. It is not an all-section checklist.
 
 - `stakeholder-actor closure` - when Admin, Backend, CLI/DevTool, Mixed surface, permission, approval, producer/consumer, or downstream-consumer signals are present, beneficiary, operator, admin, downstream consumer, and owner are distinguished enough that planning will not invent roles.
-- `design-evidence closure` - when screenshot/Figma/page/interaction input is present, PRD-relevant facts such as entry, state, copy, empty/error/loading, permissions, i18n, and accessibility are captured or explicitly deferred. PRD/Figma/source consistency remains a route-out to `spec-app-consistency-audit`.
+- `design-evidence closure` - when screenshot/design-link/exported design context/page/interaction input is present, `design-source-evidence.md` External Evidence Interface has been consumed or explicitly deferred. Readiness checks the resulting PRD write targets and Planning Recheck residue, not a copied design WHAT extraction list. PRD/design-source/source consistency remains a route-out to `spec-app-consistency-audit`.
 - `release-slice closure` - when requirement count, goals, mixed surfaces, or release order affect scope/acceptance, the PRD records P0/P1/deferred, owner-confirmed split, or Feature Slices. Feature Slices remain PRD handoff units, not task or implementation units.
 - `change-management closure` - for `resume-prd`, existing PRD path, multi-round refine, or new meeting/screenshot/review conclusion input, stable R/AE IDs are preserved and added/replaced/deprecated/needs-confirmation deltas are visible.
 
@@ -131,4 +131,4 @@ Implementation-ready or direct route-out is a route-out/bypass exception, not a 
 
 If the user chooses to continue with assumptions, record the accepted risk in the PRD. Do not hide readiness gaps in the closeout.
 
-Before declaring `ready-for-planning`, run a handoff entropy check: list any remaining WHAT decisions that planning would otherwise have to invent across behavior, scope, affected surfaces, artifact consumers, source-of-truth, negative boundaries, and unresolved framing risks. If any load-bearing item remains unresolved, the outcome is `revise-prd` or `ask-owner`, not ready.
+Before declaring `ready-for-planning`, run a handoff entropy check: list `Resolved before planning`, `Still carried`, and any remaining WHAT decisions that planning would otherwise have to invent across behavior, scope, affected surfaces, artifact consumers, source-of-truth, negative boundaries, and unresolved framing risks. If any open load-bearing WHAT gap remains unresolved, the outcome is `revise-prd` or `ask-owner`, not ready.

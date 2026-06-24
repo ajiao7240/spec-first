@@ -83,6 +83,12 @@ function increment(map, key) {
   map[key] = (map[key] || 0) + 1;
 }
 
+function missingRequiredStrings(actual, required) {
+  if (!Array.isArray(required) || required.length === 0) return [];
+  const actualSet = new Set(Array.isArray(actual) ? actual : []);
+  return required.filter((value) => !actualSet.has(value));
+}
+
 function validateFixture(fixture, fixturePath) {
   const report = createReport(fixturePath);
 
@@ -138,6 +144,7 @@ function validateFixture(fixture, fixturePath) {
 
   report.case_count = fixture.cases.length;
   const ids = new Set();
+  const casesById = new Map();
 
   fixture.cases.forEach((entry, index) => {
     const id = isNonEmptyString(entry && entry.id) ? entry.id : `<case:${index}>`;
@@ -152,6 +159,7 @@ function validateFixture(fixture, fixturePath) {
       addInvalid(report, entry.id, 'id_duplicate', 'id', 'id must be unique');
     } else {
       ids.add(entry.id);
+      casesById.set(entry.id, entry);
     }
 
     if (!VALID_INTENTS.has(entry.intent)) {
@@ -192,6 +200,47 @@ function validateFixture(fixture, fixturePath) {
         );
       }
     }
+  });
+
+  const sentinelCases = contract && Array.isArray(contract.sentinel_cases)
+    ? contract.sentinel_cases
+    : [];
+  sentinelCases.forEach((sentinel, index) => {
+    const sentinelId = isNonEmptyString(sentinel && sentinel.id)
+      ? sentinel.id
+      : `<sentinel:${index}>`;
+    if (!sentinel || typeof sentinel !== 'object' || Array.isArray(sentinel)) {
+      addInvalid(report, sentinelId, 'sentinel_case_invalid', 'case_contract.sentinel_cases', 'sentinel case must be an object');
+      return;
+    }
+    if (!isNonEmptyString(sentinel.id)) {
+      addInvalid(report, sentinelId, 'sentinel_case_id_missing', 'case_contract.sentinel_cases.id', 'sentinel case id is required');
+      return;
+    }
+
+    const entry = casesById.get(sentinel.id);
+    if (!entry) {
+      addInvalid(report, sentinel.id, 'sentinel_case_missing', 'case_contract.sentinel_cases', 'required sentinel case is missing');
+      return;
+    }
+
+    const requires = sentinel.requires && typeof sentinel.requires === 'object' && !Array.isArray(sentinel.requires)
+      ? sentinel.requires
+      : {};
+    if (isNonEmptyString(requires.case_type) && entry.case_type !== requires.case_type) {
+      addInvalid(report, sentinel.id, 'sentinel_case_requirement_missing', 'case_type', `expected sentinel case_type: ${requires.case_type}`);
+    }
+    ['quality_buckets', 'coverage_tags', 'expected', 'must_not'].forEach((field) => {
+      missingRequiredStrings(entry[field], requires[field]).forEach((missing) => {
+        addInvalid(
+          report,
+          sentinel.id,
+          'sentinel_case_requirement_missing',
+          field,
+          `missing sentinel ${field}: ${missing}`,
+        );
+      });
+    });
   });
 
   report.missing_required_buckets = requiredBuckets.filter((bucket) => !report.coverage[bucket]);

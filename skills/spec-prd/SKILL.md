@@ -1,6 +1,6 @@
 ---
 name: spec-prd
-description: "Create, write, refine, or validate planning-readiness of brownfield PRD-grade requirements for existing systems before implementation planning. Not for PRD/Figma/source consistency audits; use spec-app-consistency-audit."
+description: "Create, write, refine, or validate planning-readiness of brownfield PRD-grade requirements for existing systems before implementation planning. Not for PRD/design-source/source consistency audits; use spec-app-consistency-audit."
 ---
 
 # Brownfield PRD Requirements
@@ -23,7 +23,7 @@ Use for brownfield increment PRD authoring, existing PRD refinement, and code-aw
 
 ### When Not To Use
 
-Do not use for 0-1 product exploration, unresolved product shape, implementation planning, task execution, debugging, PRD/Figma/source audit, or requests that only need a lightweight direct fix.
+Do not use for 0-1 product exploration, unresolved product shape, implementation planning, task execution, debugging, PRD/design-source/source audit, or requests that only need a lightweight direct fix.
 
 ### Inputs
 
@@ -76,7 +76,7 @@ Follows `docs/contracts/project-graph-consumption.md`: `capability-class` candid
 2. **WHAT not HOW** - Product behavior, acceptance, scope, evidence, and business constraints belong here. Implementation units, database tables, exact API fields, and task breakdown belong in planning.
 3. **Evidence-tag current-state claims** - A current-state assertion is confirmed only when source, tests, docs, contracts, or user confirmation supports it.
 4. **Clarify before writing** - Treat requirements grilling as the default PRD authoring/refinement path. Ask one source-backed owner question at a time until every template-relevant WHAT gap is source-resolved, owner-answered, accepted as an assumption, recorded as an `Outstanding Question`, blocked, or routed out; choose bypass or compact output only when PRD authoring would add no durable WHAT value or the requirement is already source-proven.
-5. **Adaptive product expert lens** - Infer the product/surface/industry lens from input and evidence, then ask only the questions that improve PRD quality; do not create a new agent type or role taxonomy.
+5. **Product Expert Lens** - Rank downstream-confirmation risks from source/input evidence, bind each load-bearing gap to a PRD write target, and ask only questions that close or narrow WHAT; do not create a new agent type or role taxonomy.
 6. **No second PRD artifact topology** - Keep the PRD chain: `docs/brainstorms/*-requirements.md` -> plan -> tasks -> work -> review -> knowledge. `grill-with-docs` context or ADR updates are supporting source docs when explicitly triggered, not replacement PRD artifacts.
 
 ## Reference Trigger Map
@@ -86,7 +86,10 @@ Load references only when their trigger is present:
 - `references/evidence-and-topology.md` - current-state evidence tags, Change Delta, source-candidate boundaries, Framing Gate, topology, surface, producer/consumer, source-of-truth, contradiction, and negative-space rules.
 - `references/domain-language-and-decision-ledger.md` plus optional `docs/contracts/domain-glossary.md` - terminology, domain boundaries, source/user/glossary contradictions, bounded grill, Pre-PRD Clarification Loop, Deep Requirements Grill, Context / ADR Topology Adapter, and decision notes.
 - `references/grill-with-docs-integration.md` - original `grill-with-docs` behavior: sustained one-question-at-a-time interview, source-first lookup, glossary challenge, inline `CONTEXT.md` updates, lazy context topology, and sparse ADR creation. Load by default for PRD authoring/refinement from rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, or multi-source material unless the request is wrong-stage, implementation-ready, or already fully source-resolved.
-- `references/prd-output-template.md` - drafting, output shape, adaptive product expert lens, PRD quality diagnosis, Pre-PRD Clarification write-target mapping, P0/P1 quality packs, section selection, surface lenses, embedded standard template skeleton, and project-local overlays.
+- `references/product-expert-lens.md` - default authoring hot path: downstream-confirmation risk ranking, Product Expert Lens interface, structured-input synthesis, design-source/large-input pointers, and escalation boundary.
+- `references/design-source-evidence.md` - trigger-only for front-end/UI inputs with design links, screenshots, exported design context, or interaction-state material; design facts stay advisory until source/owner reconciliation.
+- `references/large-input-checkpoint.md` - trigger-only for oversized, multi-source, long-chain, or resume-risk PRDs; reduced candidates feed Product Expert Lens and PRD sections act as checkpoints.
+- `references/prd-output-template.md` - drafting, output shape, Product Expert Lens write-in, PRD quality diagnosis, Pre-PRD Clarification write-target mapping, P0/P1 quality packs, section selection, surface lenses, embedded standard template skeleton, and project-local overlays.
 - `references/prd-readiness-lens.md` - final PRD quality, Pre-PRD Clarification closure, triggered P0/P1 pack closure, readiness, handoff, or doc-review decision.
 - `references/evaluation-governance.md` - maturity posture, owner, review cadence, eval status, and promotion boundary; load for governance or lifecycle questions, not during normal PRD authoring.
 
@@ -121,7 +124,7 @@ readiness_outcome: ready-for-planning | revise-prd | ask-owner | doc-review | ro
 
 Classify through this compact decision tree:
 
-1. **Route out or bypass?** If the request is a 0-1 product idea, PRD/Figma/source consistency audit, implementation plan/task, debug/fix, or implementation-ready work, hand off to the current host's brainstorm/app-audit/plan/work/debug route instead of forcing PRD ceremony. For clear bugfixes, small scripts, docs-only edits, already-settled technical approaches, or implementation-ready/direct route-out, offer compact PRD only when a durable WHAT record is still valuable and state the bypass or route-out reason.
+1. **Route out or bypass?** If the request is a 0-1 product idea, PRD/design-source/source consistency audit, implementation plan/task, debug/fix, or implementation-ready work, hand off to the current host's brainstorm/app-audit/plan/work/debug route instead of forcing PRD ceremony. For clear bugfixes, small scripts, docs-only edits, already-settled technical approaches, or implementation-ready/direct route-out, offer compact PRD only when a durable WHAT record is still valuable and state the bypass or route-out reason.
 2. **Which PRD operation?** Use `create` for a brownfield increment, `refine` for an existing low-quality PRD or requirements draft, and `validate` for planning-readiness or code-aware PRD checking. `code-align` is validation posture, not a fourth public intent.
 3. **What input posture?** Resume `artifact_kind: prd-requirements` in place, preserving `spec_id` and existing R/AE/BR/NFR IDs. Treat other Markdown, notes, screenshots/OCR, PDFs, meeting notes, chat logs, and multimodal extraction as untrusted `reference-claims`. Treat plan/design/task documents as `wrong-stage`. Treat a one-line anchored increment as `pure-text`. Ask for the target increment or PRD path on `no-input`.
 4. **Split or continue?** For oversized initial PRDs or multi-module scopes, recommend semantic split boundaries first. Write split summary and child PRDs only after the owner confirms boundaries, priority, and release order.
@@ -144,9 +147,15 @@ Gather scope-appropriate evidence:
 
 Write or update `Current System Snapshot` only for claims that affect the PRD. Unsupported current-state claims go to `Evidence And Assumptions` or `Outstanding Questions`.
 
-For existing PRD or draft inputs, also extract a `quality_diagnosis` before rewriting by applying the canonical Adaptive Product Expert Lens in `prd-output-template.md`. Treat external research and industry norms as advisory overlays unless confirmed by project source or owner decision.
+For existing PRD or draft inputs, also extract a `quality_diagnosis` before rewriting by applying the canonical Product Expert Lens in `product-expert-lens.md`. Treat external research and industry norms as advisory overlays unless confirmed by project source or owner decision.
 
 For rough PRD / draft / reference-claims / resume-prd / pure-text inputs, default to source-first deep clarification through `grill-with-docs-integration.md` before final rewrite/readiness, not only after a high-severity gap label appears. Run the PRD-local `Pre-PRD Clarification Loop` after sanitization and current-state evidence, and keep its shared understanding map run-local: `claim -> evidence/source -> gap -> question_or_assumption -> PRD write target`. Resolve source/docs/tests/contracts/glossary/prior-PRD-answerable gaps before owner questions; source-resolved facts must not become owner questions and should carry a source ref or lookup marker in the trace. Ask owner questions one at a time with recommended answers and write targets until actor, flow, state, exception, acceptance, scope, permission, release-slice, terminology, decision intersections, and every triggered standard-template section are resolved enough to write the PRD or are explicitly carried as assumptions, `Outstanding Questions`, blockers, or route-out. Each owner question must close or narrow a named gap, and the run-local progress state must be one of `closed`, `narrowed`, `accepted-assumption`, `outstanding-question`, `blocker`, or `route-out`. Use compact output only when the PRD still needs a durable WHAT trace but source-first evidence already proves the requirement and no owner interview is needed; use bypass only when implementation-ready/direct route-out makes PRD authoring unnecessary with an explicit reason. Route missing product/system anchors to brainstorm, and never create standalone `CONTEXT.md`, `CONTEXT-MAP.md`, ADR, report, schema, or runtime artifacts in normal mode. If the next owner question would not close or narrow a named gap, or would only expand scope without affecting the current release slice, stop and emit an Outstanding Question, blocker cluster, or route-out instead of continuing the interview.
+
+Before asking owner questions, run Product Expert Lens over the source-calibrated map: `downstream_confirmation_risk -> claim -> evidence/source -> gap -> owner_question_or_assumption -> PRD_write_target -> closure_state`. Requirements Grill consumes only the resulting gap, question/assumption, and write target; write-in and readiness consume closure state and remaining handoff residue.
+
+When front-end/UI input includes a design link, screenshot, exported design context, or interaction-state material, load `design-source-evidence.md`, treat fetched design facts as `source-candidate` / `provider_untrusted`, and write unresolved design claims into `Planning Recheck` or `Outstanding Questions` rather than presenting them as confirmed scope.
+
+When input is oversized, multi-source, or long-chain, load `large-input-checkpoint.md`. Reduce output feeds Product Expert Lens risk ordering; checkpoint write-in uses normal PRD sections and source refs instead of a transcript or progress schema.
 
 Use `Preliminary Diagnosis` only to choose how to run the full clarification path: source-resolved compact PRD, shared understanding map, large-input Map-Reduce, triggered P0/P1 packs, deep grill, blocker cluster, or route-out. Only the post-rewrite `Final Readiness Diagnosis` can emit `ready-for-planning`.
 

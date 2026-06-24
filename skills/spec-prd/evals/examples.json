@@ -6,6 +6,18 @@
     "case_types": ["positive", "boundary", "route-out", "failure", "adversarial", "source-candidate"],
     "required_quality_buckets": ["brownfield-create", "refine", "validate", "route-out", "wrong-stage", "source-candidate", "prompt-injection", "oversized-split", "glossary-advisory", "readiness-fail", "failure", "adversarial"],
     "must_not_required_quality_buckets": ["route-out", "wrong-stage", "source-candidate", "prompt-injection", "oversized-split", "glossary-advisory", "readiness-fail", "failure", "adversarial"],
+    "sentinel_cases": [
+      {
+        "id": "product-judgment-naming-only-rejected",
+        "requires": {
+          "case_type": "failure",
+          "quality_buckets": ["failure", "readiness-fail"],
+          "coverage_tags": ["product-judgment"],
+          "expected": ["risk-ranked gap plus PRD write target required", "inline critique names product risk and affected PRD write target"],
+          "must_not": ["must not pass by only renaming the lens without risk-ranked product judgment"]
+        }
+      }
+    ],
     "boundary": "Fixture metadata is deterministic coverage evidence only; it is not a semantic judge or runtime state machine."
   },
   "cases": [
@@ -37,13 +49,13 @@
       "coverage_tags": ["trigger", "boundary"]
     },
     {
-      "id": "adaptive-product-expert-refine",
+      "id": "product-expert-lens-refine",
       "intent": "refine",
       "case_type": "boundary",
       "quality_buckets": ["refine"],
       "input_shape": "existing low-quality PRD with known surface, industry context, and source pointers",
-      "expected": ["adaptive product expert lens", "product outcome/gap diagnosis", "source/code alignment", "industry overlay as questions", "no new agent type"],
-      "coverage_tags": ["trigger", "boundary"]
+      "expected": ["Product Expert Lens", "product outcome/gap diagnosis", "source/code alignment", "industry overlay as questions", "no new agent type"],
+      "coverage_tags": ["trigger", "boundary", "product-judgment"]
     },
     {
       "id": "quality-diagnosis-final-rewrite",
@@ -64,13 +76,32 @@
       "coverage_tags": ["trigger", "boundary"]
     },
     {
-      "id": "adaptive-lens-canonical-dimensions",
+      "id": "product-lens-canonical-dimensions",
       "intent": "validate",
       "case_type": "boundary",
       "quality_buckets": ["validate"],
       "input_shape": "request to audit PRD quality with product-expert dimensions",
-      "expected": ["Adaptive Product Expert Lens as canonical quality-dimension list", "readiness pack references lens by name", "no duplicate dimension checklist"],
-      "coverage_tags": ["expected", "boundary"]
+      "expected": ["Product Expert Lens as canonical quality-dimension list", "readiness pack references lens by name", "no duplicate dimension checklist"],
+      "coverage_tags": ["expected", "boundary", "product-judgment"]
+    },
+    {
+      "id": "product-expert-lens-risk-ranked-gaps",
+      "intent": "refine",
+      "case_type": "positive",
+      "quality_buckets": ["refine"],
+      "input_shape": "rough PRD has actor, permission, acceptance, and release-slice gaps after source calibration",
+      "expected": ["Product Expert Lens", "downstream_confirmation_risk", "PRD_write_target", "owner_question_or_assumption", "next question follows risk-ranked write target"],
+      "coverage_tags": ["expected", "product-judgment", "source-first"]
+    },
+    {
+      "id": "product-judgment-naming-only-rejected",
+      "intent": "validate",
+      "case_type": "failure",
+      "quality_buckets": ["validate", "readiness-fail", "failure"],
+      "input_shape": "workflow text mentions Product Expert Lens but asks generic checklist questions without risk-ranked gaps or PRD write targets",
+      "expected": ["naming-only Product Expert Lens mention is insufficient", "risk-ranked gap plus PRD write target required", "inline critique names product risk and affected PRD write target"],
+      "must_not": ["must not pass by only renaming the lens without risk-ranked product judgment"],
+      "coverage_tags": ["failure", "product-judgment"]
     },
     {
       "id": "code-alignment-what-not-how",
@@ -108,6 +139,15 @@
       "input_shape": "raw product note mixes goals, acceptance, and suggested API/database implementation",
       "expected": ["PRD Sanitization", "separate product facts/goals/scope/acceptance from technical suggestions", "technical suggestions remain assumptions or design input, not requirements"],
       "coverage_tags": ["trigger", "boundary"]
+    },
+    {
+      "id": "structured-input-how-demotion",
+      "intent": "refine",
+      "case_type": "boundary",
+      "quality_buckets": ["refine"],
+      "input_shape": "already-structured or already-decided PRD/design-doc/conversation synthesis with embedded implementation, API, testing, schema, and task details",
+      "expected": ["already-structured or already-decided input", "write settled WHAT into normal PRD sections", "demote implementation/testing/API/schema/task details to HOW unless they change scope, acceptance, or source-of-truth", "Do not introduce a named conversion field map"],
+      "coverage_tags": ["boundary", "product-judgment"]
     },
     {
       "id": "feature-slice-with-original-excerpt",
@@ -562,9 +602,9 @@
       "case_type": "positive",
       "quality_buckets": ["refine", "oversized-split", "large-input", "map-reduce"],
       "input_shape": "oversized multi-section PRD input with meeting notes and screenshots",
-      "expected": ["preserve source_ref through Map and Reduce", "surface cross-chunk conflicts", "do not treat lossy summaries as source-of-truth"],
+      "expected": ["preserve source_ref through Map and Reduce", "reduced candidates feed Product Expert Lens", "surface cross-chunk conflicts", "do not treat lossy summaries as source-of-truth"],
       "must_not": ["must not split by code modules or drop source refs while reducing large input"],
-      "coverage_tags": ["trigger", "large-input", "map-reduce"]
+      "coverage_tags": ["trigger", "large-input", "map-reduce", "product-judgment"]
     },
     {
       "id": "huge-prd-cross-chunk-conflict",
@@ -575,6 +615,16 @@
       "expected": ["group conflicting chunks by exception, release, and PRD section", "preserve conflicting supporting_refs", "route unresolved conflict to owner question or blocker"],
       "must_not": ["must not split by code modules or drop source refs while reducing large input"],
       "coverage_tags": ["failure", "large-input", "map-reduce"]
+    },
+    {
+      "id": "large-input-checkpoint-resume",
+      "intent": "refine",
+      "case_type": "positive",
+      "quality_buckets": ["refine", "oversized-split", "large-input", "map-reduce"],
+      "input_shape": "multi-source long-chain PRD run resumes from a partially written PRD with source_ref anchors",
+      "expected": ["reduced candidates feed Product Expert Lens", "PRD sections act as checkpoints", "source_ref degraded re-reduce fallback", "ordinary short PRDs still write after closure", "no transcript or progress schema"],
+      "must_not": ["must not create a second progress artifact for PRD state"],
+      "coverage_tags": ["trigger", "large-input", "map-reduce", "checkpoint-resume"]
     },
     {
       "id": "deep-grill-seven-actions",
@@ -665,8 +715,18 @@
       "case_type": "boundary",
       "quality_buckets": ["refine", "p1-pack"],
       "input_shape": "PRD draft includes screenshot/Figma notes and interaction states",
-      "expected": ["Design / UX Evidence Hook", "entry/state/copy/empty/error/loading/permission/i18n/accessibility facts", "routes consistency audit to spec-app-consistency-audit", "does not replace app consistency audit"],
-      "coverage_tags": ["boundary", "p1-pack"]
+      "expected": ["Design / UX Evidence Hook", "design-source-evidence.md", "entry/state/copy/empty/error/loading/permission/i18n/accessibility facts", "source-candidate / provider_untrusted", "routes consistency audit to spec-app-consistency-audit", "does not replace app consistency audit"],
+      "coverage_tags": ["boundary", "p1-pack", "design-source"]
+    },
+    {
+      "id": "design-source-figma-degraded",
+      "intent": "refine",
+      "case_type": "boundary",
+      "quality_buckets": ["refine", "p1-pack", "source-candidate"],
+      "input_shape": "front-end PRD input contains a Figma URL but current host has no accessible Figma tool or auth",
+      "expected": ["URL parse -> tool discovery -> auth/access probe", "degraded reason", "source-candidate / provider_untrusted", "Planning Recheck", "screenshot, exported context, figma-context:<path>, or owner description fallback"],
+      "must_not": ["must not install MCP/plugins from spec-prd", "must not claim design facts are confirmed scope without source or owner reconciliation"],
+      "coverage_tags": ["boundary", "design-source", "source-candidate-recheck"]
     },
     {
       "id": "release-slice-conditional",
@@ -752,6 +812,6 @@
     }
   ],
   "skill": "spec-prd",
-  "source_refs": ["skills/spec-prd/SKILL.md", "skills/spec-prd/references/evidence-and-topology.md", "skills/spec-prd/references/domain-language-and-decision-ledger.md", "skills/spec-prd/references/grill-with-docs-integration.md", "skills/spec-prd/references/prd-output-template.md", "skills/spec-prd/references/prd-readiness-lens.md"],
+  "source_refs": ["skills/spec-prd/SKILL.md", "skills/spec-prd/references/evidence-and-topology.md", "skills/spec-prd/references/domain-language-and-decision-ledger.md", "skills/spec-prd/references/grill-with-docs-integration.md", "skills/spec-prd/references/product-expert-lens.md", "skills/spec-prd/references/design-source-evidence.md", "skills/spec-prd/references/large-input-checkpoint.md", "skills/spec-prd/references/prd-output-template.md", "skills/spec-prd/references/prd-readiness-lens.md"],
   "source_ref_authority": "source"
 }

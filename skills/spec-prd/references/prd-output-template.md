@@ -11,7 +11,7 @@ This file owns the output shape, section skeleton, surface lenses, and embedded 
 - [Core Sections](#core-sections)
 - [Conditional Sections](#conditional-sections)
 - [Surface Lenses](#surface-lenses)
-- [Adaptive Product Expert Lens](#adaptive-product-expert-lens)
+- [Product Expert Lens Write-In](#product-expert-lens-write-in)
 - [Embedded Standard Skeleton](#embedded-standard-skeleton)
 - [PRD Quality Diagnosis And Optimization](#prd-quality-diagnosis-and-optimization)
 - [P0 PRD Quality Packs](#p0-prd-quality-packs)
@@ -139,23 +139,19 @@ When the increment's industry context is clear from input or project docs, layer
 
 If no industry context is detectable, skip this section and use the generic surface lens only.
 
-## Adaptive Product Expert Lens
+## Product Expert Lens Write-In
 
-Use this run-local lens for existing PRD refinement, validation, or any input asking for product-expert critique. It is not an agent type, persona taxonomy, scoring schema, or separate reviewer workflow.
+`product-expert-lens.md` is the canonical PRD quality-dimension list and downstream-confirmation source. This template consumes its run-local interface; it does not copy the full lens or create a fallback checklist.
 
-Infer the lens from the current surface, industry context, business objective, affected code/docs/tests, and owner-stated constraints. Then inspect the PRD against these dimensions:
+Write Lens output into existing PRD sections:
 
-- user/problem/outcome clarity, including who benefits and what changes in observable behavior
-- current-state and code alignment, including confirmed source, source-candidate limits, contradictions, and missing active surfaces; this confirms current WHAT and evidence pointers, not HOW to change implementation
-- requirement quality: atomic, necessary, prioritized, testable, implementation-free, and traceable to evidence; use INVEST as an explanatory anchor when it clarifies quality, not as a scoring rubric
-- acceptance coverage: happy path, exception path, negative acceptance, permissions, empty/loading/error, and cross-surface effects when relevant; use EARS or Gherkin-style wording only when it reduces ambiguity
-- goals and metrics: measurable口径, baseline/window when available, no invented target values
-- industry/domain overlay: compliance, money movement, privacy, safety, audit, and operational questions only when triggered
-- scope and handoff entropy: non-goals, dependencies, rollout/ops boundaries, and remaining WHAT decisions
+- `claim + evidence/source` supports `Current System Snapshot`, `Change Delta`, `Evidence And Assumptions`, or `Planning Recheck`.
+- `gap + PRD_write_target` decides which standard section must be updated or which owner question is worth asking.
+- `owner_question_or_assumption` becomes a one-question-at-a-time grill item, an accepted assumption, `Outstanding Questions`, or blocker.
+- `closure_state` informs closeout, readiness, and handoff residue.
+- `downstream_confirmation_risk` affects question order and handoff priority, not a numeric score or script-owned readiness verdict.
 
-This lens adapts the questions; it does not relax the evidence rules or replace owner confirmation for scope-changing product decisions.
-
-This lens is the canonical PRD quality-dimension list. Entrypoint and readiness prose should reference it by name and add only meta-checks such as lens fit, suggestion closure, rewrite integrity, or handoff entropy.
+For structured or already-decided inputs, synthesize settled WHAT into standard PRD sections and demote implementation/testing/API/schema/task details to HOW unless they change scope, acceptance, or source-of-truth. Do not introduce a named conversion field map, adapter, issue tracker, or second output artifact.
 
 ## Embedded Standard Skeleton
 
@@ -264,8 +260,11 @@ Rough PRD gap-to-target mapping:
 | design / UX evidence present | extract PRD facts only; app audit remains separate | `Interaction Requirements`, `Use Cases`, `Acceptance Examples`, `Evidence And Assumptions` |
 | release or slice ambiguity | owner-confirmed priority/split | `Feature Slices`, `Scope Boundaries`, `Release / Operation Readiness` |
 | existing PRD changed | stable IDs plus add/replace/deprecate notes | `Change Delta`, `Decision Notes`, `Evidence And Assumptions` |
+| structured/decided input with embedded HOW | synthesize settled WHAT, demote implementation/testing mechanics | standard PRD sections, assumptions, or planning context |
 
 Large-input Map-Reduce results must enter final PRD rewrite through the same section-level reducers: canonical candidates become requirements or feature slices, supporting refs become evidence, conflicts become Decision Notes / Evidence And Assumptions / Outstanding Questions, and blocker clusters stay blockers. Never treat lossy chunk summaries as source-of-truth.
+
+For oversized, multi-source, long-chain, or resume-risk runs, `large-input-checkpoint.md` may write reduced candidates earlier as PRD checkpoints. Ordinary short PRDs still wait until closure before durable write-in. Checkpoint content uses existing sections and source refs; it never creates a transcript or progress schema.
 
 ## P0 PRD Quality Packs
 
@@ -295,11 +294,11 @@ Run these only when the input surface warrants them and the detail reduces plann
 | Pack | Trigger | Write target |
 | --- | --- | --- |
 | Stakeholder / Actor Alignment | Admin, Backend, CLI/DevTool, Mixed surface, permission, approval, producer/consumer, downstream consumer, or ambiguous user/system/admin wording | `Actors`, `Requirements`, `Use Cases`, `Evidence And Assumptions` |
-| Design / UX Evidence Hook | App/H5/PC/Admin, screenshots, Figma, page description, or interaction-state input | `Interaction Requirements`, `Use Cases`, `Acceptance Examples`, `Evidence And Assumptions` |
+| Design / UX Evidence Hook | App/H5/PC/Admin, screenshots, design links, exported design context, page description, or interaction-state input | use `design-source-evidence.md` External Evidence Interface to choose `Interaction Requirements`, `Use Cases`, `Acceptance Examples`, `Evidence And Assumptions`, or `Planning Recheck` |
 | Prioritization / Release Slice | Many requirements, multiple goals, multi-surface scope, or release order affects scope or acceptance | `Feature Slices`, `Scope Boundaries`, `Release / Operation Readiness` |
 | Change Management | `resume-prd`, existing PRD path, multi-round refine, new meeting/screenshot/review conclusion, or changed owner decision | `Change Delta`, `Decision Notes`, `Evidence And Assumptions` |
 
-Actor alignment distinguishes beneficiary, operator, admin, downstream consumer, and owner only when the distinction changes WHAT or acceptance. Design evidence extracts PRD facts only: entry, state, copy, empty/error/loading, permissions, i18n, and accessibility. It routes consistency audit to `spec-app-consistency-audit`; PRD/Figma/source consistency remains outside `spec-prd`. Release slices are PRD handoff units, never tasks or implementation units. Change Management preserves stable R/AE IDs and records added, replaced, deprecated, or still-unconfirmed deltas instead of silently rewriting old requirements.
+Actor alignment distinguishes beneficiary, operator, admin, downstream consumer, and owner only when the distinction changes WHAT or acceptance. Design evidence loads `design-source-evidence.md` and consumes only its External Evidence Interface, especially `extracted_design_what` and `affected_PRD_write_targets`; the detailed extraction list stays in that reference. Fetched design context remains `source-candidate` / `provider_untrusted` until source/owner reconciliation; unresolved design claims go to `Planning Recheck` or `Outstanding Questions`. It routes consistency audit to `spec-app-consistency-audit`; PRD/design-source/source consistency remains outside `spec-prd`. Release slices are PRD handoff units, never tasks or implementation units. Change Management preserves stable R/AE IDs and records added, replaced, deprecated, or still-unconfirmed deltas instead of silently rewriting old requirements.
 
 ## Context / ADR Notes
 
@@ -383,6 +382,9 @@ Preserve existing IDs when refining a draft:
 
 Every PRD handoff should report:
 
+- Resolved before planning
+- Still carried
+- planning_would_invent_what
 - sections included
 - requirement count
 - acceptance example count
@@ -395,9 +397,9 @@ Every PRD handoff should report:
 - feature items without acceptance examples
 - current-state claims without confirmed evidence
 
-When a PRD artifact path exists, seed deterministic counts and trace facts from `scripts/check-prd-artifact.js <prd-path>` before adding LLM-owned readiness judgment such as whether planning would still have to invent WHAT.
+When a PRD artifact path exists, seed deterministic counts and trace facts from `scripts/check-prd-artifact.js <prd-path>` before adding LLM-owned readiness judgment such as `Resolved before planning`, `Still carried`, and whether planning would still have to invent WHAT.
 
-The script seeds only the deterministic lines: sections included, requirement count, acceptance example count, priority distribution, NFR count, assumption count, outstanding question count, uncovered requirements, and feature-to-R/AE trace gaps. The lines `planning recheck item count`, `current-state claims without confirmed evidence`, and whether planning would still have to invent WHAT stay LLM-owned: the checker intentionally does not and must not compute them, because deciding which sentence is a load-bearing source-candidate recheck item or current-state claim and whether its evidence genuinely confirms is semantic (the script reports `evidence_tags_present` by presence only, not sufficiency).
+The script seeds only the deterministic lines: sections included, requirement count, acceptance example count, priority distribution, NFR count, assumption count, outstanding question count, uncovered requirements, and feature-to-R/AE trace gaps. The lines `Resolved before planning`, `Still carried`, `planning recheck item count`, `current-state claims without confirmed evidence`, and whether planning would still have to invent WHAT stay LLM-owned: the checker intentionally does not and must not compute them, because deciding which sentence is a load-bearing source-candidate recheck item or current-state claim and whether its evidence genuinely confirms is semantic (the script reports `evidence_tags_present` by presence only, not sufficiency).
 
 When `## Feature Slices` is present, or when PRD complexity was explicitly evaluated for slice need, additionally report:
 

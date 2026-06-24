@@ -147,18 +147,20 @@ Preliminary Diagnosis selects this layer. It cannot emit final `ready-for-planni
 
 For large or multi-source rough PRDs, do not summarize chunks and treat the summary as truth. Use source-ref preserving Map-Reduce as run-local LLM-owned authoring discipline:
 
-1. Map chunk-level requirement atoms and keep `source_ref`, confidence, claim, actor/flow/state, gap, and write-target candidate.
+1. Map chunk-level requirement atoms and keep `source_ref`, evidence tag, confirmation posture, claim, actor/flow/state, gap, and write-target candidate.
 2. Shuffle semantically by actor, flow, feature, data object, state, permission, exception, PRD section, and source contradiction.
 3. Reduce duplicates into canonical requirement candidates while preserving conflicting refs, deduped assumptions, load-bearing gaps, prioritized blocker clusters, and owner question candidates that each name a gap, source attempt, and write target.
 
 Run-local scratch shapes:
 
 ```text
-Map row = source_ref / claim / actor / flow / state / gap / confidence / write_target_candidate
+Map row = source_ref / claim / actor / flow / state / gap / evidence_tag / confirmation_posture / write_target_candidate
 Reduce output = canonical_requirement / supporting_refs / conflicts / assumptions / load_bearing_gap / owner_question_candidate / affected_write_targets
 ```
 
 These shapes are prompt/reference guidance only. They are not schemas, artifacts, JSON contracts, durable PRD fields, or script output requirements. Scripts may report deterministic structure, counts, literal drift, or trace gaps, but must not decide semantic completeness, load-bearing status, or readiness.
+
+For oversized, multi-source, or resume-risk PRDs, load `large-input-checkpoint.md`: Reduce output feeds Product Expert Lens `downstream_confirmation_risk` ordering, and reduced candidates are checkpointed into normal PRD sections with source refs instead of a transcript or progress schema.
 
 ### Load-Bearing Gap Triage
 

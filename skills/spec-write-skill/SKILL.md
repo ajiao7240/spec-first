@@ -1,6 +1,6 @@
 ---
 name: spec-write-skill
-description: 编写、改写、迁移或审计修复 spec-first source skill 时使用：先判断是否值得做成 skill，再更新 skills/NAME/SKILL.md 的触发、边界、I/O、渐进披露、resources/evals、治理和验证。不要用于一次性回答、解释/总结/翻译、只审计、文档导出、第三方安装、普通代码评审、公开 /spec:* workflow 执行，或手改 generated runtime mirrors。
+description: 编写、改写、迁移或按 audit findings 修复 spec-first source skill 时使用：先判断是否值得做成 skill，再更新 skills/NAME/SKILL.md 的触发、边界、I/O、渐进披露、resources/evals、治理和验证。不要用于一次性回答、解释/总结/翻译、只审计、文档导出、第三方安装、普通代码评审、公开 /spec:* workflow 执行，或手改 generated runtime mirrors。
 ---
 
 # Spec Write Skill
