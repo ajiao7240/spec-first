@@ -1,8 +1,8 @@
 # Grill-With-Docs Integration
 
-Load this reference when the user explicitly asks for `grill-with-docs`, asks for relentless PRD grilling, asks to update `CONTEXT.md` / ADRs while requirements are clarified, or when rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, multi-source notes, screenshots/OCR, meeting notes, or chat logs have material gaps or blockers.
+Load this reference when the user explicitly asks for `grill-with-docs`, asks for relentless PRD grilling, asks to update `CONTEXT.md` / ADRs while requirements are clarified, or when `spec-prd` is authoring/refining a PRD from rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, multi-source notes, screenshots/OCR, meeting notes, or chat logs.
 
-This reference preserves the original `grill-with-docs` behavior inside `spec-prd`. It is the default deep clarification mode for rough or materially incomplete PRD inputs, while compact/bounded PRD remains available for anchored, low-ambiguity, source-supported increments.
+This reference preserves the original `grill-with-docs` behavior inside `spec-prd`. It is the default detailed clarification mode for PRD authoring/refinement. Compact PRD remains an output shape for already source-resolved increments, not a shortcut around requirements clarification; route-out/bypass remains available only when PRD authoring adds no durable WHAT value and the reason is explicit.
 
 ## Contents
 
@@ -16,18 +16,19 @@ This reference preserves the original `grill-with-docs` behavior inside `spec-pr
 
 ## Trigger Boundary
 
-Normal PRD authoring keeps questions minimal and persists closure into the PRD. Switch to this integration mode when one of these is true:
+PRD authoring keeps questions one-at-a-time and persists closure into the PRD. Use this integration mode when one of these is true:
 
 - the user explicitly asks to use `grill-with-docs`
 - the user asks for sustained questioning, one question at a time, with feedback between questions
 - the user asks to update `CONTEXT.md`, `CONTEXT-MAP.md`, or ADRs as decisions crystallize
-- rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, multi-source notes, screenshots/OCR, meeting notes, or chat logs have material gaps or blockers
-- terminology, ownership, source-of-truth, hard product boundary, or decision-tree dependencies would make a capped PRD-local loop misleading
+- rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, multi-source notes, screenshots/OCR, meeting notes, or chat logs are being turned into a PRD artifact
+- a PRD appears source-resolved but still needs source-first confirmation before owner questions are skipped
+- terminology, ownership, source-of-truth, hard product boundary, or decision-tree dependencies would make a compact PRD-local closure misleading
 - source/code/docs evidence contradicts the user's framing and the contradiction needs owner adjudication plus durable glossary or decision capture
-- normal PRD mode finds more than 3 load-bearing actor, flow, scope, acceptance, permission, release-slice, or decision-intersection questions that can be closed through guided owner adjudication
+- PRD mode finds actor, flow, scope, acceptance, permission, release-slice, or decision-intersection questions that need guided owner adjudication
 - multiple load-bearing PRD gaps interact, so asking only one static blocking question would leave planning to invent WHAT
 
-Do not trigger this mode just because a normal PRD has a few missing acceptance details. Use the bounded PRD loop first when 1-3 source-first questions can close the gaps, but auto-trigger this mode when the ambiguity genuinely requires a sustained interview.
+Do not skip this mode merely because the input looks small. First perform source-first confirmation. If source evidence fully closes the relevant PRD write targets, produce the standard compact/normal PRD without owner interview. If any owner decision is still needed, continue the one-question-at-a-time session until the branch closes, becomes an accepted assumption, moves to `Outstanding Questions`, blocks, or routes out.
 
 ## Original Behavior Contract
 
@@ -40,6 +41,7 @@ For each owner question:
 - wait for feedback before continuing to the next question
 - provide a recommended answer whenever defensible
 - explain the consequence of choosing or rejecting that recommendation when it affects WHAT, acceptance, scope, terminology, source-of-truth, or downstream planning
+- bind the question to a named gap, the source attempt already made, and the PRD write target it will close or narrow
 
 If a question can be answered by exploring the codebase, explore the codebase instead of asking the owner. Source-answerable gaps are not owner questions.
 
@@ -49,10 +51,10 @@ During the session, use the project language and docs as active constraints:
 
 - **Challenge against the glossary.** When user wording conflicts with existing `CONTEXT.md`, `CONTEXT-MAP.md`, context-specific `CONTEXT.md`, `docs/contracts/domain-glossary.md`, or ADR wording, call it out immediately and ask which meaning is intended.
 - **Sharpen fuzzy language.** When a term is vague or overloaded, propose a precise canonical term and list avoid terms or aliases.
-- **Discuss concrete scenarios.** Invent scenarios that stress boundaries between concepts, including happy path, permission/role edge, state transition, exception/failure, negative acceptance, and cross-context handoff.
+- **Discuss concrete scenarios.** Invent scenarios that stress boundaries between concepts, including happy path, permission/role edge, state transition, exception/failure, negative acceptance, and cross-context handoff, only when the scenario can change acceptance, scope, terminology, or a boundary decision.
 - **Cross-reference with code.** When the user states current behavior, check source/docs/tests/contracts where feasible. If code contradicts the statement, surface the contradiction with evidence and ask which source should win.
 
-Continue this loop until each load-bearing branch is resolved by source evidence, owner answer, accepted assumption, explicit Outstanding Question, blocker cluster, or route-out.
+Continue this loop only while the next question closes or narrows a named load-bearing branch. Resolve each branch by source evidence, owner answer, accepted assumption, explicit Outstanding Question, blocker cluster, or route-out. If the next question would only expand scope or does not affect the current release slice, stop the interview and output the blocker, route-out, or deferred Outstanding Question instead.
 
 ## Context Topology
 
@@ -166,7 +168,7 @@ Minimal template:
 ```md
 # {Short title of the decision}
 
-{1-3 sentences: what's the context, what did we decide, and why.}
+{One to three sentences: what's the context, what did we decide, and why.}
 ```
 
 Optional sections are allowed only when they add genuine value:

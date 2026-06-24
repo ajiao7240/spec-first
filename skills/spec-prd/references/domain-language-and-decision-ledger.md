@@ -7,7 +7,7 @@ Load this reference when terminology, product-domain boundaries, or source/user 
 - [Source-First Questioning](#source-first-questioning)
 - [Canonical Term Handling](#canonical-term-handling)
 - [Cross-PRD Glossary Promotion](#cross-prd-glossary-promotion)
-- [Bounded Scenario Grill](#bounded-scenario-grill)
+- [Requirements Scenario Grill](#requirements-scenario-grill)
 - [Default Clarification Posture](#default-clarification-posture)
 - [Pre-PRD Clarification Loop](#pre-prd-clarification-loop)
 - [Deep Requirements Grill](#deep-requirements-grill)
@@ -54,17 +54,17 @@ Promotion is **preview-first**: propose the canonical entry to the owner, and wr
 
 When a new PRD's term conflicts with an existing canonical entry, surface it immediately as a contradiction (see `evidence-and-topology.md` Contradiction Handling) rather than letting the language drift.
 
-## Bounded Scenario Grill
+## Requirements Scenario Grill
 
-> `spec-prd/SKILL.md` Phase 2 也把这套机制称为 Domain Grill Gate,readiness lens 用 `domain-grill coverage` 指代同一覆盖检查。三者是同一流程,不是独立概念。本文件是 normal-mode trigger / cadence / question format 的权威定义;`grill-with-docs-integration.md` 是 deep-mode context/ADR 行为的权威定义;SKILL.md 只做摘要引用。
+> `spec-prd/SKILL.md` Phase 2 也把这套机制称为 Requirements Grill / Domain Grill Gate,readiness lens 用 `domain-grill coverage` 指代同一覆盖检查。三者是同一流程,不是独立概念。本文件是 PRD-local trigger / cadence / question format 的权威定义;`grill-with-docs-integration.md` 是 sustained interview 与 context/ADR 行为的权威定义;SKILL.md 只做摘要引用。
 
-Use 1-3 concrete scenarios to stress-test domain boundaries only when the PRD would otherwise be ambiguous. Examples:
+Use concrete scenarios to stress-test requirements and domain boundaries whenever they can make the standard PRD more precise. Prioritize scenarios that change or confirm a PRD write target. Examples:
 
 - a normal happy path
 - a permission/role boundary
 - an exception or contradiction that changes acceptance
 
-Keep the normal PRD grill bounded. It is a source-backed precision tool, not a coaching script or a long interview. Auto-load `grill-with-docs-integration.md` when a PRD has unresolved load-bearing ambiguity that exceeds the normal cap, when a source/user contradiction needs sustained owner adjudication, or when a decision tree cannot be responsibly closed by a PRD-local question set. Do not require the user to name `grill-with-docs` for these cases.
+Keep the PRD grill thorough but progress-bound. It is a source-backed requirements-clarification tool, not a coaching transcript. Auto-load `grill-with-docs-integration.md` for rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, or multi-source inputs unless the request is wrong-stage, implementation-ready, or already source-resolved enough to write the standard PRD without owner input. Do not require the user to name `grill-with-docs`.
 
 Trigger only when one of these is true:
 
@@ -81,14 +81,14 @@ Do not trigger when:
 - the fact is cheap to confirm from source, docs, tests, glossary, or ADR-like artifacts
 - the term is a general engineering concept rather than a project/domain concept
 - the decision is easy to reverse, obvious, or not the result of a real tradeoff
-- the PRD can safely carry a labeled, non-load-bearing assumption
+- the PRD can safely carry a labeled, non-load-bearing assumption without weakening any required PRD section
 
 Question cadence:
 
 - Use the parent skill Interaction Method for every owner question; its platform blocking question tool requirement applies before the cadence rules below.
 - Ask at most one question at a time.
-- Ask no more than 1-3 grill questions in a normal PRD run.
-- If more than 3 load-bearing questions appear necessary in normal mode, switch to `grill-with-docs` integration when a sustained interview can close the problem; otherwise record blockers, route to PRD refine/doc-review, or ask the owner to choose assumptions.
+- Each question must bind to a `gap id`, a source attempt, a PRD write target, and a progress state: `closed`, `narrowed`, `accepted assumption`, `Outstanding Question`, `blocker`, or `route-out`.
+- Continue only while the next question can close or narrow a named load-bearing gap for the current release slice. When it cannot, record blockers, route to PRD refine/doc-review, or ask the owner to choose assumptions.
 - Always give a `recommended_answer` unless there is no defensible default.
 - If the owner says "you decide", use the recommended answer only when evidence supports it or it is safely labeled as an assumption.
 
@@ -108,13 +108,13 @@ This format is for asking the owner, not a third persistent field set. Persist t
 
 ## Default Clarification Posture
 
-Rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, multi-source notes, screenshots/OCR, meeting notes, or chat logs with material gaps default to `grill-with-docs-integration.md` after source-first evidence calibration. Use compact or bounded clarification only when the target surface is anchored, the ambiguity is low, and source-first reads can close the remaining gaps without planning inventing WHAT.
+Rough PRD, draft, `reference-claims`, `resume-prd`, `pure-text`, multi-source notes, screenshots/OCR, meeting notes, or chat logs default to `grill-with-docs-integration.md` after source-first evidence calibration. A high-severity `material-gaps` or `blockers` diagnosis is not required to trigger grilling; the workflow grills first so the final PRD template is complete enough for planning. Use compact output only when source-first reads have already closed the relevant requirements and no owner interview is needed.
 
 This is a default interaction posture, not a new artifact class. The run-local map, questions, owner answers, accepted assumptions, and resolved source evidence still fold back into PRD-local sections.
 
 ## Pre-PRD Clarification Loop
 
-Use this loop for rough PRD, draft, `reference-claims`, `resume-prd`, or `pure-text` input only when existing product/system anchors are sufficient for PRD refinement and unresolved gaps would make `spec-plan` invent WHAT. It is a PRD-local pressure loop, not a new workflow node, report, schema, JSON contract, state machine, or persistent extraction artifact.
+Use this loop for rough PRD, draft, `reference-claims`, `resume-prd`, or `pure-text` input whenever product/system anchors are sufficient for PRD refinement. It is the PRD-local pressure loop that drives source-first grilling before the standard PRD rewrite; it is not a new workflow node, report, schema, JSON contract, state machine, or persistent extraction artifact.
 
 Run it after PRD Sanitization and source/current-state evidence calibration, before final PRD rewrite and final readiness. Maintain a run-local shared understanding map:
 
@@ -126,20 +126,20 @@ The map is authoring scratch. It can guide questions and rewrite targets, but it
 
 Trigger when a rough PRD lacks load-bearing clarity for actor, beneficiary, observable behavior, flow, state, permission, exception/failure, negative acceptance, scope boundary, priority/degrade semantics, release slice, or decision intersection. If the draft lacks target user, product problem, system anchor, or core scenario, route to brainstorm instead of pretending `create|refine` can close 0-1 discovery.
 
-Do not trigger for implementation HOW, source-answerable facts, minor wording polish, already planning-ready PRDs, pure terminology already covered by Domain Grill, low-risk assumptions, or broad product discovery.
+Do not ask owner questions for implementation HOW, source-answerable facts, minor wording polish, pure terminology already covered by Domain Grill, low-risk assumptions, or broad product discovery. Already planning-ready PRDs may skip owner grilling only after source/current-state evidence confirms the PRD template has no unresolved planning-invention risk.
 
 ### Progressive Detail Ladder
 
-Use the smallest sufficient layer and stop as soon as planning-invention risk is closed or explicitly blocked:
+Use the full clarification layer needed to make the standard PRD template planning-ready, and stop only when planning-invention risk is closed or explicitly blocked:
 
 | Level | Trigger | Stop condition | Output |
 | --- | --- | --- | --- |
-| L0 compact PRD | Small, anchored, low ambiguity, source-supported input | PRD can be rewritten without planning inventing WHAT | Compact PRD plus none/zero closure where relevant |
+| L0 source-resolved PRD | Anchored input whose relevant requirements, acceptance, scope, evidence, and assumptions are already confirmed by source/owner context | PRD can be written without owner interview and without planning inventing WHAT | Compact or normal PRD using the standard core sections |
 | L1 shared understanding map | Rough claim needs source/gap/write-target alignment | Load-bearing gaps are resolved, assumed, or escalated | Run-local shared understanding map |
 | L2 large-input Map-Reduce | Oversized, multi-source, PDF/screenshot/meeting/chat mix, or too large for reliable whole-document judgment | Reduced candidates preserve source refs and conflicts | Run-local Map rows and Reduce outputs |
 | L3 P0 packs | Problem/outcome, metric, NFR, trace, or owner closure affects planning invention | P0 gap is resolved, assumed, questioned, or blocked | PRD-local core/conditional section updates |
 | L4 P1 packs | Actor/design/release/change-management signal is consequential | Conditional detail is captured or explicitly deferred | PRD-local conditional section updates |
-| L5 deep-grill or blocker / route-out | More than 3 load-bearing gaps, missing anchor, or unresolved owner decision set | Anchored gaps are escalated to `grill-with-docs-integration.md`; unanchored or non-adjudicable gaps have an explicit route and no `ready-for-planning` is emitted | Guided one-question-at-a-time owner adjudication, or prioritized blocker cluster with assumptions and affected write targets |
+| L5 deep-grill or blocker / route-out | Any PRD authoring/refinement input whose standard-template sections still depend on owner decisions, interacting gaps, source/user contradiction, or unresolved decision set | Anchored gaps run through `grill-with-docs-integration.md`; unanchored or non-adjudicable gaps have an explicit route and no `ready-for-planning` is emitted | Guided one-question-at-a-time owner adjudication with progress state, or prioritized blocker cluster with assumptions and affected write targets |
 
 Preliminary Diagnosis selects this layer. It cannot emit final `ready-for-planning`; only Final Readiness Diagnosis after rewrite and closure can do that.
 
@@ -149,7 +149,7 @@ For large or multi-source rough PRDs, do not summarize chunks and treat the summ
 
 1. Map chunk-level requirement atoms and keep `source_ref`, confidence, claim, actor/flow/state, gap, and write-target candidate.
 2. Shuffle semantically by actor, flow, feature, data object, state, permission, exception, PRD section, and source contradiction.
-3. Reduce duplicates into canonical requirement candidates while preserving conflicting refs, deduped assumptions, load-bearing gaps, prioritized blocker clusters, and at most 1-3 owner question candidates.
+3. Reduce duplicates into canonical requirement candidates while preserving conflicting refs, deduped assumptions, load-bearing gaps, prioritized blocker clusters, and owner question candidates that each name a gap, source attempt, and write target.
 
 Run-local scratch shapes:
 
@@ -164,27 +164,27 @@ These shapes are prompt/reference guidance only. They are not schemas, artifacts
 
 Before asking, sort gaps by acceptance impact, behavior/scope irreversibility, number of affected PRD sections, source contradiction, and release/planning consequence. Resolve source/docs/tests/contracts/glossary/prior-PRD-answerable gaps first. Owner questions are for product decisions, not facts already available from source.
 
-Normal PRD runs ask 1-3 load-bearing questions, one at a time, using the run-local question format above. If more than 3 load-bearing questions remain and the target surface is anchored enough for owner adjudication, load `grill-with-docs-integration.md` and continue one-question-at-a-time instead of silently downgrading to a static blocker cluster. If the anchor is missing, the issue is broad product discovery, or no defensible question sequence exists, output a prioritized blocker cluster with recommended route, acceptable assumptions when defensible, and affected write targets. Do not mark the PRD `ready-for-planning` until closure.
+Normal PRD authoring/refinement asks load-bearing questions one at a time using the run-local question format above. A question is allowed only after a source attempt and only when it can close or narrow a named gap that affects a PRD write target. If any standard-template section still depends on owner adjudication and the target surface is anchored, load `grill-with-docs-integration.md` and continue one-question-at-a-time instead of silently downgrading to a static blocker cluster. If the anchor is missing, the issue is broad product discovery, the next question would only expand scope without affecting the current release slice, or no defensible question sequence exists, output a prioritized blocker cluster with recommended route, acceptable assumptions when defensible, and affected write targets. Do not mark the PRD `ready-for-planning` until closure.
 
 ### Deep Requirements Grill
 
-For normal PRD mode, apply these seven `grill-with-docs` actions only to load-bearing WHAT or planning-readiness gaps:
+For PRD authoring/refinement, apply these seven `grill-with-docs` actions to every requirement branch that can affect the standard PRD template, with special attention to load-bearing WHAT and planning-readiness gaps:
 
-1. Keep one-question-at-a-time progression: progress one owner question at a time.
+1. Keep one-question-at-a-time progression: progress one owner question at a time and require the next question to close or narrow a named gap.
 2. Provide `recommended_answer` and `why_recommended` whenever defensible.
 3. Perform source/code/docs/tests/contracts lookup before asking owner; inspect glossary and prior PRDs when relevant.
 4. Run a glossary conflict challenge against existing glossary/context wording instead of normalizing drift.
 5. Use fuzzy term sharpening to turn overloaded words into observable actor/flow/state/scope language.
-6. Use concrete scenario stress for happy path, permission/state boundary, exception/failure, and negative acceptance.
+6. Use concrete scenario stress for happy path, permission/state boundary, exception/failure, and negative acceptance, only when the scenario can affect acceptance, scope, terminology, or a boundary decision.
 7. Perform code contradiction surfacing with evidence tags and consequences.
 
-Every load-bearing grill question must close before planning by one of: source evidence, owner answer, accepted assumption, `Outstanding Questions`, blocker cluster, or route-out. If unresolved actor, flow, state, exception, scope, acceptance, permission, release-slice, or decision-intersection uncertainty remains, the PRD is not `ready-for-planning`.
+Every load-bearing grill question must close before planning by one of: source evidence, owner answer, accepted assumption, `Outstanding Questions`, blocker cluster, or route-out. Track the closure state in run-local progress and persist only the resolved content into PRD-local sections. If unresolved actor, flow, state, exception, scope, acceptance, permission, release-slice, or decision-intersection uncertainty remains, the PRD is not `ready-for-planning`.
 
 Domain Grill and Pre-PRD Clarification share cadence and source-first discipline but have different centers of gravity: Domain Grill handles terminology, source/user/glossary contradiction, source-of-truth, ownership, permission/state/exception edges, and hard product boundaries; Pre-PRD Clarification handles rough PRD completeness, scenario coverage, acceptance, scope, and write-target closure.
 
 ## Grill-With-Docs Integration Trigger
 
-Load `grill-with-docs-integration.md` when the user explicitly names `grill-with-docs`, asks for sustained grilling, asks to update `CONTEXT.md` / ADRs inline, or when the normal bounded loop cannot responsibly close the problem: more than 3 load-bearing owner decisions remain, source/user contradictions need sustained adjudication, terminology or ownership affects multiple PRD sections, or decision-tree dependencies would make a static blocker cluster less useful than a guided one-question-at-a-time session.
+Load `grill-with-docs-integration.md` when the user explicitly names `grill-with-docs`, asks for sustained grilling, asks to update `CONTEXT.md` / ADRs inline, or when a PRD authoring/refinement run has any owner-adjudicated requirement branch left after source-first evidence calibration. This includes multiple load-bearing owner decisions, source/user contradictions, terminology or ownership affecting PRD sections, decision-tree dependencies, or ordinary rough requirements that need one-question-at-a-time closure before the standard PRD can be written.
 
 In this mode:
 
@@ -194,6 +194,7 @@ In this mode:
 - challenge glossary conflicts immediately
 - sharpen fuzzy terms into canonical project language
 - stress concrete scenarios across happy path, permission/role boundary, state transition, exception/failure, negative acceptance, and cross-context handoff
+- skip low-value questions that are source-answerable, only expand scope, or do not change the current release slice
 - surface code contradictions with evidence and consequences
 - update the relevant `CONTEXT.md` inline when a project-specific term is resolved
 - create `CONTEXT.md` / `CONTEXT-MAP.md` lazily only when there is resolved content to write

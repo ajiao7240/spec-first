@@ -37,12 +37,12 @@ Default path: `docs/brainstorms/YYYY-MM-DD-NNN-<slug>-requirements.md`.
 
 ## Output Shape
 
-Choose the lightest output that prevents downstream planning from inventing WHAT:
+Choose the standard PRD output shape after source-first grilling has either closed or explicitly carried the relevant requirement branches:
 
 | Shape | Use when | Default content |
 | --- | --- | --- |
-| `bypass` | The request is a clear bugfix, tiny script/docs edit, or implementation-ready task where PRD ceremony adds no durable value. | No PRD artifact; provide a compact plan/work handoff. |
-| `compact-prd` | A small brownfield increment needs durable WHAT trace but no broad surface or topology risk. | Core sections only, plus minimal evidence and assumptions. |
+| `bypass` | The request is a clear bugfix, tiny script/docs edit, or implementation-ready task where PRD authoring adds no durable WHAT value. | No PRD artifact; provide an explicit plan/work/debug handoff reason. |
+| `compact-prd` | A source-resolved brownfield increment needs durable WHAT trace but no owner interview, broad surface, or topology risk. | Standard core sections with source evidence, acceptance, scope, and assumptions sufficient for planning. |
 | `normal-prd` | An ordinary product/system increment needs planning-ready requirements, acceptance, and scope. | Core sections plus triggered surface/domain sections. |
 | `topology-heavy-prd` | Workflow, contract, migration, replace, remove, source-of-truth, or mixed-surface changes could leave active surfaces or consumers ambiguous. | Core sections plus topology, surface map, producer/consumer, source-of-truth, negative acceptance, and decision notes as needed. |
 
@@ -50,7 +50,7 @@ The selected shape is run-local authoring posture, not frontmatter, schema, or a
 
 ## Core Sections
 
-Every normal PRD includes:
+Every PRD artifact includes the standard core sections unless it is a route-out/bypass with no PRD artifact:
 
 - `## Summary`
 - `## Change Delta`
@@ -59,7 +59,7 @@ Every normal PRD includes:
 - `## Scope Boundaries`
 - `## Evidence And Assumptions`
 
-Compact PRDs may omit non-load-bearing detail but still need enough acceptance and scope boundary for planning. Bypass output writes no PRD artifact.
+Compact PRDs may omit non-load-bearing conditional detail, but they still need enough evidence, acceptance, and scope boundary for planning. Bypass output writes no PRD artifact.
 
 ## Conditional Sections
 
@@ -220,7 +220,7 @@ Use brownfield increment examples, not 0-1 expansion examples:
 
 ## PRD Quality Diagnosis And Optimization
 
-For refine or validate mode, diagnose before rewriting and keep the diagnosis compact:
+For refine or validate mode, diagnose before rewriting and keep the diagnosis concise:
 
 ```text
 quality_diagnosis: ready | minor-gaps | material-gaps | blockers
@@ -237,10 +237,12 @@ Then produce the final rewritten PRD using the standard skeleton and triggered s
 
 Use two different diagnosis moments:
 
-- `Preliminary Diagnosis` happens after sanitization and source/current-state evidence. It decides input scale, system anchor, whether Pre-PRD Clarification is needed, whether large-input Map-Reduce is needed, which P0/P1 packs are triggered, and whether to route out.
+- `Preliminary Diagnosis` happens after sanitization and source/current-state evidence. It decides input scale, system anchor, how to run Pre-PRD Clarification, whether large-input Map-Reduce is needed, which P0/P1 packs are triggered, and whether to route out.
 - `Final Readiness Diagnosis` happens after rewrite and closure. It decides whether unresolved gaps still force planning to invent WHAT. Preliminary labels such as `ready`, `minor-gaps`, `material-gaps`, or `blockers` are not final `ready-for-planning`.
 
 If Pre-PRD Clarification ran, feed its results into final PRD rewrite through section-level write targets. Do not leave a detached critique, interview transcript, chunk summary, Map row, Reduce output, or standalone grill report as the durable output.
+
+For a new PRD, keep the shared understanding map run-local until standard-template scope, acceptance, terminology, actor/flow/state, exception, permission, release, and boundary branches are source-resolved, owner-answered, accepted as assumptions, moved to `Outstanding Questions`, blocked, or routed out. Only then write the durable PRD sections. For resume/refine, incremental writes are allowed during clarification, but each write must be visibly confirmed by source evidence, owner answer, or a labeled assumption. Implementation-ready or direct route-out paths must state the bypass reason and the handoff target rather than silently producing a compact PRD.
 
 Rough PRD gap-to-target mapping:
 
@@ -267,7 +269,7 @@ Large-input Map-Reduce results must enter final PRD rewrite through the same sec
 
 ## P0 PRD Quality Packs
 
-Run these packs only when their trigger affects planning-invention risk. If a trigger is absent, keep compact PRDs compact and record none/zero only when closeout clarity needs it.
+Run these packs when their trigger affects planning-invention risk or standard-template completeness. If a trigger is absent, keep source-resolved compact PRDs focused and record none/zero only when closeout clarity needs it.
 
 | Pack | Trigger | Write target |
 | --- | --- | --- |
@@ -404,7 +406,7 @@ When `## Feature Slices` is present, or when PRD complexity was explicitly evalu
 - cross-cutting risk count
 - split recommendation / owner confirmation status when slice count, cross-owner scope, or cross-release risk suggests program or execution slicing
 
-If gaps remain, do not silently recommend planning. Ask the minimal blocking question, record accepted assumptions, or route to document review/refine.
+If gaps remain, do not silently recommend planning. Ask the source-backed grill question that closes or narrows the named PRD write target, record accepted assumptions, or route to document review/refine.
 
 ## Lightweight Split Topology
 

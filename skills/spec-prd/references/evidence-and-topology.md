@@ -87,7 +87,7 @@ owner_question_needed:
 evidence_plan:
 ```
 
-Use `unknown` where the prompt is not enough. Do not keep reading indefinitely to avoid one hard product decision; if the missing answer changes WHAT, ask the smallest owner question.
+Use `unknown` where the prompt is not enough. Do not keep reading indefinitely to avoid one hard product decision; if the missing answer changes WHAT, enter the one-question-at-a-time grill and ask the owner question that closes or narrows the named PRD write target.
 
 ## Evidence Plan
 
@@ -97,7 +97,7 @@ Before turning current-state observations into PRD claims, identify the evidence
 claim_or_question | surface | source_to_read_or_command | required_evidence_tag | why_load_bearing | fallback_if_unconfirmed
 ```
 
-Evidence planning is mandatory for workflow, contract, setup/runtime, migration, replace, remove, source-of-truth, generated/runtime, and mixed-surface PRDs. It is optional for small single-surface `add` or `extend` increments.
+Evidence planning is mandatory for workflow, contract, setup/runtime, migration, replace, remove, source-of-truth, generated/runtime, mixed-surface PRDs, and any increment whose standard PRD sections would otherwise rely on unconfirmed source claims. It can be abbreviated only when a small single-surface `add` or `extend` increment is already source-resolved.
 
 Use the plan to prevent two failure modes:
 
@@ -178,7 +178,7 @@ Ask only questions that decide scope, behavior, source-of-truth, or acceptance. 
 - `workflow-change`: Which public entry, internal helper, dispatch boundary, handoff artifact, generated runtime mirror, and downstream skill changes?
 - `contract-change`: Who produces the contract, who consumes it, what version/compatibility rule applies, and which fixtures/tests prove it?
 
-If more than three owner questions seem necessary, do not flatten them into a long form. When the target surface is anchored enough for guided owner adjudication, load `grill-with-docs-integration.md` and continue one-question-at-a-time under the parent Interaction Method. When the anchor is missing, the topic is broad discovery, or no defensible question sequence exists, summarize the unresolved decision cluster and route to PRD refine/doc review, brainstorm, or blocker closeout.
+If the owner-question sequence would become a long form, stop and inspect the progress contract instead of counting questions. Each owner question must name the gap it closes or narrows, the source attempt already made, and the PRD write target it changes. When the target surface is anchored enough for guided owner adjudication, load `grill-with-docs-integration.md` and continue one-question-at-a-time under the parent Interaction Method. When the anchor is missing, the topic is broad discovery, the next question would not close or narrow a named gap, or no defensible question sequence exists, summarize the unresolved decision cluster and route to PRD refine/doc review, brainstorm, or blocker closeout.
 
 ## Readiness Gates
 
@@ -186,7 +186,7 @@ If more than three owner questions seem necessary, do not flatten them into a lo
 - `replace` / `remove` / `migrate` / `merge` / `split`: exit/coexistence, active surfaces, generated outputs, docs/tests/package, rollback/archive, shared identity, old aliases, and consumer updates are explicit where relevant.
 - `policy-change` / `workflow-change` / `contract-change`: decision owner, effective date/default, public entry, internal helper boundary, artifacts, handoff, dispatch, generated runtime, schema/version, consumers, fixtures/tests, and release impact are explicit where relevant.
 
-If this lens exposes unanswered questions that would force `spec-plan` to decide WHAT, the PRD is not `ready-for-planning`. Ask the smallest owner question, record a visible assumption, or route to doc review.
+If this lens exposes unanswered questions that would force `spec-plan` to decide WHAT, the PRD is not `ready-for-planning`. Ask the source-backed grill question that closes or narrows the named PRD write target, record a visible assumption, or route to doc review.
 
 ## Contradiction Handling
 
@@ -195,7 +195,7 @@ A contradiction can arise from user wording, confirmed source, and the project d
 1. Record the mismatch as `contradiction`.
 2. Cite the source path or source tag for each side, including the glossary's `canonical_name` when relevant.
 3. Give an evidence-backed recommended default when one is safe. Prefer the established canonical term over a new ad-hoc one unless source proves the canonical is stale.
-4. Ask one minimal owner question that decides scope or acceptance.
+4. Ask one grill owner question that decides or narrows the named scope, acceptance, or PRD write-target gap.
 
 Do not silently convert user-stated claims into confirmed source facts, and do not silently override an established canonical term.
 

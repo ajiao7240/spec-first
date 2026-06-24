@@ -33,7 +33,7 @@
       "case_type": "boundary",
       "quality_buckets": ["refine"],
       "input_shape": "vague PRD fragment",
-      "expected": ["claim/gap extraction", "minimal blocking question", "no fake completeness"],
+      "expected": ["claim/gap extraction", "source-first requirements grill", "no fake completeness"],
       "coverage_tags": ["trigger", "boundary"]
     },
     {
@@ -264,7 +264,7 @@
       "case_type": "positive",
       "quality_buckets": ["validate"],
       "input_shape": "PRD says extend existing capability but changes default visibility and user entry behavior",
-      "expected": ["framing-evidence alignment catches identity drift", "owner-question minimality asks only default/entry/permission decision", "identity drift surfaced", "reclassify to replace or policy-change", "negative acceptance for unchanged permissions or explicit owner decision"],
+      "expected": ["framing-evidence alignment catches identity drift", "owner-question discipline asks the PRD write-target decision", "identity drift surfaced", "reclassify to replace or policy-change", "negative acceptance for unchanged permissions or explicit owner decision"],
       "coverage_tags": ["expected"]
     },
     {
@@ -345,9 +345,19 @@
       "intent": "create",
       "case_type": "boundary",
       "quality_buckets": ["brownfield-create"],
-      "input_shape": "small brownfield copy or setting increment with clear owner decision and no topology risk",
-      "expected": ["compact-prd", "core sections only", "no topology-heavy sections", "no long owner interview"],
+      "input_shape": "small brownfield copy or setting increment with clear owner decision, source-resolved facts, and no topology risk",
+      "expected": ["compact-prd", "standard core sections", "no topology-heavy sections", "explicit source-resolved no-owner-interview reason"],
       "coverage_tags": ["trigger", "boundary"]
+    },
+    {
+      "id": "implementation-ready-direct-route-out",
+      "intent": "create",
+      "case_type": "route-out",
+      "quality_buckets": ["route-out"],
+      "input_shape": "request already contains implementation-ready work and no durable PRD WHAT record is needed",
+      "expected": ["direct route-out to spec-work or debug", "explicit route-out reason", "no PRD ceremony"],
+      "must_not": ["must not treat implementation-ready work as normal spec-prd authoring"],
+      "coverage_tags": ["trigger", "boundary", "direct-route-out"]
     },
     {
       "id": "domain-term-conflict-source-first",
@@ -364,7 +374,7 @@
       "case_type": "positive",
       "quality_buckets": ["validate"],
       "input_shape": "user says partial cancellation is supported while source only confirms whole-order cancellation",
-      "expected": ["confirmed contradiction with source tag", "recommended default", "one minimal owner question", "Decision Notes or Outstanding Questions"],
+      "expected": ["confirmed contradiction with source tag", "recommended default", "one grill owner question", "Decision Notes or Outstanding Questions"],
       "coverage_tags": ["expected"]
     },
     {
@@ -373,7 +383,7 @@
       "case_type": "boundary",
       "quality_buckets": ["brownfield-create"],
       "input_shape": "PRD boundary depends on a role or permission edge case",
-      "expected": ["bounded scenario grill", "specific permission scenario", "no generic permission interview", "1-3 question cap"],
+      "expected": ["requirements scenario grill", "specific permission scenario", "no generic permission interview", "named gap and PRD write target", "closure state"],
       "coverage_tags": ["trigger", "boundary"]
     },
     {
@@ -477,7 +487,7 @@
       "case_type": "boundary",
       "quality_buckets": ["brownfield-create"],
       "input_shape": "two separately ratified owner decisions whose intersection behavior in one flow is unadjudicated",
-      "expected": ["bounded scenario grill triggered on the convergence", "recommended default given", "labeled assumption recorded in Outstanding Questions", "not left only to readiness handoff entropy check"],
+      "expected": ["requirements scenario grill triggered on the convergence", "recommended default given", "labeled assumption recorded in Outstanding Questions", "not left only to readiness handoff entropy check"],
       "coverage_tags": ["trigger", "boundary"]
     },
     {
@@ -496,7 +506,7 @@
       "case_type": "boundary",
       "quality_buckets": ["refine"],
       "input_shape": "rough PRD fragment with system anchor but missing actor, acceptance, and scope",
-      "expected": ["load grill-with-docs-integration.md by default for rough PRD material gaps", "run Pre-PRD Clarification before final rewrite", "map claims to evidence, gaps, questions or assumptions, and PRD write targets", "fold answers back into PRD-local sections"],
+      "expected": ["load grill-with-docs-integration.md by default for PRD authoring/refinement", "run Pre-PRD Clarification before final rewrite", "map claims to evidence, gaps, questions or assumptions, and PRD write targets", "fold answers back into PRD-local sections"],
       "coverage_tags": ["trigger", "pre-prd-clarification", "boundary", "grill-with-docs"]
     },
     {
@@ -505,18 +515,18 @@
       "case_type": "boundary",
       "quality_buckets": ["validate", "source-first"],
       "input_shape": "rough PRD asks whether current behavior supports partial cancellation and source/docs can answer",
-      "expected": ["look up source/docs/tests/contracts before owner questions", "source-resolved gaps should not become owner questions", "write resolved evidence into PRD-local sections"],
-      "coverage_tags": ["expected", "source-first", "boundary"]
+      "expected": ["look up source/docs/tests/contracts before owner questions", "source lookup marker or source ref in trace", "source-resolved gaps should not become owner questions", "write resolved evidence into PRD-local sections"],
+      "coverage_tags": ["expected", "source-first", "owner-question-avoidance", "boundary"]
     },
     {
-      "id": "requirements-grill-question-cap",
+      "id": "requirements-grill-no-fixed-cap",
       "intent": "refine",
       "case_type": "failure",
       "quality_buckets": ["refine", "readiness-fail", "failure"],
-      "input_shape": "rough PRD has more than three load-bearing gaps across actors, scope, acceptance, and release",
-      "expected": ["load grill-with-docs-integration.md when normal cap is exceeded by load-bearing gaps", "continue one-question-at-a-time instead of silently downgrading to a static blocker cluster", "not ready-for-planning until closure"],
+      "input_shape": "rough PRD has multiple interacting load-bearing gaps across actors, scope, acceptance, and release",
+      "expected": ["no fixed owner-question count as the stop condition", "continue one-question-at-a-time only while each question closes or narrows a named gap", "not ready-for-planning until closure"],
       "must_not": ["must not mark the PRD ready-for-planning while trace or closure gaps remain"],
-      "coverage_tags": ["boundary", "failure", "question-cap"]
+      "coverage_tags": ["boundary", "failure", "no-fixed-cap"]
     },
     {
       "id": "requirements-grill-context-artifact-triggered",
@@ -691,8 +701,8 @@
       "intent": "refine",
       "case_type": "positive",
       "quality_buckets": ["refine"],
-      "input_shape": "mix of compact source-supported gaps, source-answerable gaps, anchored over-cap gaps, and unanchored over-cap blockers",
-      "expected": ["Progressive Detail Ladder", "L0 compact stop", "source-first stop before owner question", "anchored over-cap gaps load grill-with-docs-integration.md", "unanchored over-cap gaps stop at blocker cluster or route-out", "trigger and stop condition per layer"],
+      "input_shape": "mix of compact source-supported gaps, source-answerable gaps, anchored multi-gap owner decisions, and unanchored blocker clusters",
+      "expected": ["Progressive Detail Ladder", "L0 source-resolved PRD", "source-first stop before owner question", "anchored PRD branches load grill-with-docs-integration.md", "unanchored blocker clusters stop at blocker cluster or route-out", "trigger and stop condition per layer"],
       "coverage_tags": ["expected", "progressive-detail"]
     },
     {
