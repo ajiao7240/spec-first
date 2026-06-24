@@ -1378,9 +1378,7 @@ function transformedContentIntegrityIssues(actualContent, adapter, { kind, skill
     issues.push('codex_agent_rewrite_drift');
   }
 
-  const expectedSkillName = adapter.id === 'codex' && !isWorkflowSkill && typeof skillName === 'string' && skillName.startsWith('spec-')
-    ? skillName.replace(/^spec-/, '')
-    : skillName;
+  const expectedSkillName = skillName;
 
   if (adapter.id === 'codex' && kind === 'skill' && expectedSkillName && !actualContent.includes(`name: ${expectedSkillName}`)) {
     issues.push('skill_name_rewrite_drift');

@@ -22,6 +22,7 @@ const VALID_CATEGORIES = new Set([
   'tooling-decisions',
   'patterns',
   'architecture-patterns',
+  'conventions',
 ]);
 const KNOWLEDGE_TYPES = new Set([
   'best_practice',

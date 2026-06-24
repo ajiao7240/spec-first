@@ -204,6 +204,14 @@ describe('spec-plan context orientation contract', () => {
 
     expect(frontmatter).toContain('name: spec-plan');
     expect(frontmatter).toContain('description:');
+    expect(frontmatter).toContain('needs a HOW plan');
+    expect(frontmatter).toContain('deepen an existing plan');
+    expect(frontmatter).toContain('spec-brainstorm for unresolved WHAT/product exploration');
+    expect(frontmatter).toContain('spec-work for implementation or tests');
+    expect(frontmatter).toContain('spec-doc-review for independent plan review');
+    expect(frontmatter).not.toContain('plan a trip');
+    expect(frontmatter).not.toContain('create a study plan');
+    expect(frontmatter).not.toContain('break this down');
     expect(frontmatter).not.toContain('argument-hint:');
     expect(command).toContain('argument-hint: "[requirements doc path or topic]"');
   });
@@ -211,7 +219,12 @@ describe('spec-plan context orientation contract', () => {
   test('has a hot-path plan-only safety contract and strict question-tool fallback rules', () => {
     const text = fs.readFileSync(SKILL_PATH, 'utf8');
 
+    const purposeIndex = text.indexOf('## Purpose');
     const safetyIndex = text.indexOf('## Plan-Only Safety Contract');
+    expect(purposeIndex).toBeGreaterThan(text.indexOf('# Create Technical Plan'));
+    expect(purposeIndex).toBeLessThan(safetyIndex);
+    expect(text).toContain('Turn a clear goal, requirements artifact, bug, project, or existing plan into an evidence-grounded HOW plan or structured planning answer');
+    expect(text).toContain('preserving planning-only boundaries and explicit handoff before execution');
     expect(safetyIndex).toBeGreaterThan(-1);
     expect(safetyIndex).toBeLessThan(text.indexOf('## Workflow Contract Summary'));
     expect(safetyIndex).toBeLessThan(text.indexOf('### Phase 0'));
@@ -405,11 +418,34 @@ describe('spec-plan context orientation contract', () => {
   test('deepening research fallback distinguishes sequential dispatch from inline current-agent fallback', () => {
     const text = fs.readFileSync(DEEPENING_PATH, 'utf8');
 
+    expect(text).toContain('dispatch authorization is present for this run');
+    expect(text).toContain('a public `$spec-plan` invocation authorizes the workflow itself; it does not by itself authorize `spawn_agent`');
+    expect(text).toContain('If the user did not explicitly request subagents, delegation, parallel research, or research-agent dispatch');
+    expect(text).toContain('record `dispatch_authorization_missing`');
+    expect(text).toContain('Use fully-qualified agent names inside dispatch prompts or agent invocations.');
+    expect(text).not.toContain('inside Task calls');
     expect(text).toContain('supports dispatch but not parallel dispatch');
     expect(text).toContain('run the same selected agents sequentially through the host dispatch primitive');
-    expect(text).toContain('If dispatch is unavailable, explicitly disabled, or unsafe');
+    expect(text).toContain('If dispatch is unavailable, explicitly disabled, unauthorized, or unsafe');
     expect(text).toContain('perform the selected research sequentially in the current agent');
     expect(text).toContain('dispatch_fallback: inline-current-agent');
+  });
+
+  test('deepening artifact-backed scratch cleanup has one explicit branch policy', () => {
+    const deepening = fs.readFileSync(DEEPENING_PATH, 'utf8');
+    const handoff = fs.readFileSync(PLAN_HANDOFF_PATH, 'utf8');
+
+    expect(deepening).toContain('their cleanup policy is handled by 5.3.6b and 5.3.9');
+    expect(deepening).toContain('If artifact-backed mode was used, preserve `<scratch-dir>` for debugging rejected artifacts');
+    expect(deepening).toContain('report `Artifacts left at <scratch-dir>`');
+    expect(deepening).toContain('This interactive-mode-only skip does not apply in auto mode');
+    expect(deepening).not.toContain('cleaned up when deepening ends');
+    expect(deepening).not.toContain('No explicit scratch cleanup needed');
+    expect(handoff).toContain('In auto mode, or in interactive mode where findings were accepted and the plan was safely updated');
+    expect(handoff).toContain('clean up the temporary scratch directory');
+    expect(handoff).toContain('If cleanup fails or is not practical on the current platform');
+    expect(handoff).toContain('Do not apply this cleanup to the interactive no-accepted-findings branch in 5.3.6b');
+    expect(handoff).toContain('that branch preserves `<scratch-dir>` for debugging and reports the path before Phase 5.4');
   });
 
   test('planning can recommend workers only behind a suitability gate', () => {
@@ -657,6 +693,12 @@ describe('spec_id planning contract', () => {
     expect(skill).toContain('Read `skills/spec-plan/references/markdown-rendering.md` before writing the canonical markdown plan.');
     expect(skill).toContain('Read `skills/spec-plan/references/plan-template.md` before writing the plan.');
     expect(skill).toContain('Do not reconstruct the template from memory and do not inline the full template in this skill.');
+    expect(skill).toContain('Use the current host\'s file-write mechanism to save the complete plan to:');
+    expect(skill).not.toContain('Use the Write tool to save the complete plan to:');
+    expect(skill).toContain('Implementation unit field contract lives in `skills/spec-plan/references/plan-sections.md`');
+    expect(skill).toContain('Plan document path rules live in `skills/spec-plan/references/plan-sections.md`');
+    expect(skill).not.toContain('/Users/name/Code/project/src/file.ts');
+    expect(skill).not.toContain('For each unit, include:');
     expect(skill).toContain('Markdown remains the source artifact for `spec-work`, `spec-write-tasks`, `spec-doc-review`, and plan deepening.');
     expect(skill).toContain('Include `## Decision Brief` when the first human pass needs recommended approach');
     expect(skill).toContain('does the first human pass (`## Summary` plus material `## Decision Brief`) answer what is being built');
@@ -678,6 +720,9 @@ describe('spec_id planning contract', () => {
     expect(planSections).toContain('## Prose Economy');
     expect(planSections).toContain('Resolve in place; do not stratify');
     expect(planSections).toContain('Precision is not padding');
+    expect(planSections).toContain('All paths in the plan body are repo-relative.');
+    expect(planSections).toContain('Never use absolute paths such as `/Users/name/Code/project/src/file.ts`');
+    expect(planSections).toContain('When a plan targets a different repo than the document\'s home');
     expect(planSections).not.toContain('Decide whether a plan doc is warranted at all');
     expect(planSections).not.toContain('Plans carry **no `status` field**');
     expect(planSections).toContain('optional HTML sidecar');
@@ -706,6 +751,17 @@ describe('spec_id planning contract', () => {
     expect(template.indexOf('## Requirements')).toBeLessThan(template.indexOf('## Assumptions'));
     expect(template.indexOf('## Assumptions')).toBeLessThan(template.indexOf('## Scope Boundaries'));
     expect(template).toContain('### U1. [Name]');
+    for (const unitField of [
+      '**Goal:**',
+      '**Requirements:**',
+      '**Dependencies:**',
+      '**Files:**',
+      '**Approach:**',
+      '**Test scenarios:**',
+      '**Verification:**',
+    ]) {
+      expect(template).toContain(unitField);
+    }
     expect(template).not.toContain('- U1. **[Name]**');
     expect(skill).toContain('Use `### U1. [Name]` heading-style implementation units for new plans.');
     expect(skill).toContain('continue to recognize legacy `- U1. **[Name]**` list-item units as valid anchors.');
@@ -920,6 +976,11 @@ describe('spec_id planning contract', () => {
     expect(text).toContain('Code changes belong in the software work entrypoint');
     expect(text).toContain('Do not write a plan file and do not run the Step 3 save/share menu by default');
     expect(text).toContain('Veil Of Value');
+    expect(text).toContain('use the current host\'s available web/search capability');
+    expect(text).toContain('Run searches in parallel when the host supports it, or sequentially in the current agent when it does not.');
+    expect(text).toContain('If no current-facts research tool is available');
+    expect(text).not.toContain('Agent tool with `model: "haiku"`');
+    expect(text).not.toContain('model: "haiku"');
     expect(text).not.toContain('Use `/spec:plan` directly');
     expect(text).not.toContain('The user invoked `/spec:plan`');
     expect(text).not.toContain('Do not offer `/spec:work`');

@@ -95,7 +95,7 @@ Strengthening [section names] — [brief reason for each, e.g., "decision ration
 
 For each selected section, choose the smallest useful agent set. Do **not** run every agent. Use at most **1-3 agents per section** and usually no more than **8 agents total**.
 
-Use fully-qualified agent names inside Task calls.
+Use fully-qualified agent names inside dispatch prompts or agent invocations.
 
 **Deterministic Section-to-Agent Mapping:**
 
@@ -170,7 +170,7 @@ Signals that justify artifact-backed mode:
 
 If artifact-backed mode is not clearly warranted, stay in direct mode.
 
-Artifact-backed mode uses a per-run OS-temp scratch directory. Create it once before dispatching sub-agents and capture its **absolute path** — pass that absolute path to each sub-agent so they write to it directly. Do not use `.context/`; the artifacts are per-run throwaway that are cleaned up when deepening ends (see 5.3.6b), matching the repo Scratch Space convention for one-shot artifacts. Do not pass unresolved shell-variable strings to sub-agents; they need the resolved absolute path.
+Artifact-backed mode uses a per-run OS-temp scratch directory. Create it once before dispatching sub-agents and capture its **absolute path** — pass that absolute path to each sub-agent so they write to it directly. Do not use `.context/`; the artifacts are per-run throwaway and their cleanup policy is handled by 5.3.6b and 5.3.9, matching the repo Scratch Space convention for one-shot artifacts. Do not pass unresolved shell-variable strings to sub-agents; they need the resolved absolute path.
 
 ```bash
 SCRATCH_DIR="$(mktemp -d -t spec-plan-deepen-XXXXXX)"
@@ -181,7 +181,9 @@ Refer to the echoed absolute path as `<scratch-dir>` throughout the rest of this
 
 ## 5.3.6 Run Targeted Research
 
-Launch the selected agents in parallel using the execution mode chosen above. If the current platform supports dispatch but not parallel dispatch, run the same selected agents sequentially through the host dispatch primitive. If dispatch is unavailable, explicitly disabled, or unsafe, read the corresponding agent profiles and perform the selected research sequentially in the current agent, marking the deepening report with `dispatch_fallback: inline-current-agent`. Omit the `mode` parameter when dispatching so the user's configured permission settings apply.
+Launch the selected agents in parallel using the execution mode chosen above only when host capability exists and dispatch authorization is present for this run. In Codex, a public `$spec-plan` invocation authorizes the workflow itself; it does not by itself authorize `spawn_agent`. If the user did not explicitly request subagents, delegation, parallel research, or research-agent dispatch, use the inline fallback and record `dispatch_authorization_missing`.
+
+If dispatch is authorized and the current platform supports dispatch but not parallel dispatch, run the same selected agents sequentially through the host dispatch primitive. If dispatch is unavailable, explicitly disabled, unauthorized, or unsafe, read the corresponding agent profiles and perform the selected research sequentially in the current agent, marking the deepening report with `dispatch_fallback: inline-current-agent`. Omit the `mode` parameter when dispatching so the user's configured permission settings apply.
 
 Prefer local repo and institutional evidence first. Use external research only when the gap cannot be closed responsibly from repo context or already-cited sources.
 
@@ -217,7 +219,7 @@ When presenting findings from multiple agents targeting the same section, presen
 
 After all agents have been reviewed, carry only the accepted findings forward to 5.3.7.
 
-If the user accepted no findings, report "No findings accepted — plan unchanged." Then proceed directly to Phase 5.4 (skip spec-doc-review and synthesis — the plan was not modified). This interactive-mode-only skip does not apply in auto mode; auto mode always proceeds through 5.3.7 and 5.3.8. No explicit scratch cleanup needed — `$SCRATCH_DIR` is OS temp and will be cleaned up by the OS; leaving it in place preserves the rejected agent artifacts for debugging.
+If the user accepted no findings, report "No findings accepted — plan unchanged." If artifact-backed mode was used, preserve `<scratch-dir>` for debugging rejected artifacts and report `Artifacts left at <scratch-dir>`. Then proceed directly to Phase 5.4 (skip spec-doc-review and synthesis — the plan was not modified). This interactive-mode-only skip does not apply in auto mode; auto mode always proceeds through 5.3.7 and 5.3.8.
 
 If findings were accepted and the plan was modified, proceed through 5.3.7 and 5.3.8 as normal — spec-doc-review acts as a quality gate on the changes.
 

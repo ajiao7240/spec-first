@@ -311,6 +311,17 @@
       }
     },
     {
+      "skill_name": "spec-write-skill",
+      "entry_surface": "standalone_skill",
+      "command_name": null,
+      "host_scope": "dual_host",
+      "owner_host": null,
+      "host_delivery": {
+        "claude": "skill",
+        "codex": "skill"
+      }
+    },
+    {
       "skill_name": "spec-skill-audit",
       "entry_surface": "workflow_command",
       "command_name": "skill-audit",

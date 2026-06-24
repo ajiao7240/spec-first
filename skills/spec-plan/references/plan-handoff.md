@@ -24,8 +24,9 @@ Before proceeding to post-generation options:
 - Confirm origin decisions were preserved when an origin document exists
 
 If artifact-backed mode was used:
-- Clean up the temporary scratch directory after the plan is safely updated
-- If cleanup is not practical on the current platform, note where the artifacts were left
+- In auto mode, or in interactive mode where findings were accepted and the plan was safely updated, clean up the temporary scratch directory
+- If cleanup fails or is not practical on the current platform, note where the artifacts were left
+- Do not apply this cleanup to the interactive no-accepted-findings branch in 5.3.6b; that branch preserves `<scratch-dir>` for debugging and reports the path before Phase 5.4
 
 ## 5.4 Post-Generation Options
 

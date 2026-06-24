@@ -43,6 +43,7 @@ describe('runtime capability catalog', () => {
     expect(catalog).not.toContain('/spec:standards');
     expect(catalog).not.toContain('$spec-standards');
     expect(catalog).toContain('| spec-team-standards-governance | standalone skill: spec-team-standards-governance | standalone skill: spec-team-standards-governance |');
+    expect(catalog).toContain('| spec-write-skill | standalone skill: spec-write-skill | standalone skill: spec-write-skill |');
     expect(catalog).toContain('| spec-write-tasks | standalone skill: spec-write-tasks | standalone skill: spec-write-tasks |');
     expect(catalog).toContain('| Delivered agent-facing internal skills | git-worktree |');
     expect(catalog).not.toContain('spec-session-extract');

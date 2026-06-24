@@ -92,7 +92,8 @@ Never rename existing metadata fields or repurpose their semantics.
 
 - Stable IDs do not get renumbered to clean up gaps.
 - Use plain visible prefixes such as `R1.`, `U1.`, `AE1.`, and `KTD1.`.
-- All paths in the plan body are repo-relative.
+- All paths in the plan body are repo-relative. Never use absolute paths such as `/Users/name/Code/project/src/file.ts`; use `src/file.ts` instead so plans remain portable across machines, worktrees, and teammates.
+- When a plan targets a different repo than the document's home, state the target repo once at the top of the plan, for example `**Target repo:** my-other-project`, and use paths relative to that repo throughout the body.
 - Plans do not carry execution progress checkboxes; progress is derived from git and spec-work evidence.
 - Engineering process metadata belongs in closeout, commits, or run artifacts, not the plan body.
 

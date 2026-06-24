@@ -18,12 +18,12 @@
 
 | 范围 | 当前值 |
 |---|---|
-| Bundled source skills | 36 |
+| Bundled source skills | 37 |
 | Bundled source agents | 51 |
 | Bundled agent support files | 0 |
-| Governance records by entry surface | internal_only: 15, standalone_skill: 3, workflow_command: 18 |
-| Claude runtime delivery | 18 commands, 18 workflow skills, 3 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
-| Codex runtime delivery | 0 commands, 18 workflow skills, 3 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Governance records by entry surface | internal_only: 15, standalone_skill: 4, workflow_command: 18 |
+| Claude runtime delivery | 18 commands, 18 workflow skills, 4 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
+| Codex runtime delivery | 0 commands, 18 workflow skills, 4 standalone skills, 1 agent-facing internal skills, 51 agents, 0 agent support files |
 | Beta workflow entries | spec-polish-beta |
 | Workflow runtime contracts | 2 |
 | Planned runtime contracts | 0 |
@@ -58,6 +58,7 @@ Standalone skills 会安装为宿主可发现的 skills，不是 command-backed 
 | Skill | Claude Delivery | Codex Delivery | Description |
 |---|---|---|---|
 | spec-team-standards-governance | standalone skill: spec-team-standards-governance | standalone skill: spec-team-standards-governance | Govern team development standards as source documents: query confirmed standards, audit standards health, draft candidates, and prepare promotion/deprecation proposals without restoring spec-standards. |
+| spec-write-skill | standalone skill: spec-write-skill | standalone skill: spec-write-skill | 编写、改写、迁移或审计修复 spec-first source skill 时使用：先判断是否值得做成 skill，再更新 skills/NAME/SKILL.md 的触发、边界、I/O、渐进披露、resources/evals、治理和验证。不要用于一次性回答、解释/总结/翻译、只审计、文档导出、第三方安装、普通代码评审、公开 /spec:* workflow 执行，或手改 generated runtime mirrors。 |
 | spec-write-tasks | standalone skill: spec-write-tasks | standalone skill: spec-write-tasks | Compile a settled spec-plan into an optional derived task pack for spec-work, or validate an existing task pack before execution. Use for explicit plan-splitting/task-doc requests or high-complexity work suitability; do not use for implementation execution, unresolved scope, small low-risk plans, or remote/generic task lists. Keep plan as the single source of truth; tasks are derived and optional. |
 | using-spec-first | standalone skill: using-spec-first | standalone skill: using-spec-first | Use before substantial work in a spec-first project, and when users ask what spec-first workflow or command to run next. Decide whether to route into a public spec-first workflow before non-trivial or risky edits, running state-changing commands, debugging, reviewing, planning, setup, update, or architecture/prompt/workflow decisions. |
 

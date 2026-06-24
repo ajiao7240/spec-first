@@ -1,0 +1,117 @@
+{
+  "schema_version": "spec-first.spec-write-skill-trigger-cases.v1",
+  "skill": "spec-write-skill",
+  "source_refs": [
+    "skills/spec-write-skill/SKILL.md",
+    "skills/spec-write-skill/references/authoring-method.md",
+    "skills/spec-write-skill/references/delivery-gates.md",
+    "skills/spec-write-skill/references/skill-quality-vocabulary.md"
+  ],
+  "source_ref_authority": "source",
+  "cases": [
+    {
+      "id": "new-skill-authoring",
+      "case_id": "WRITE-SKILL-TRIGGER-001",
+      "case_type": "should-trigger",
+      "input": "新增一个 spec-first skill，用来把安全审计 findings 转成可复用修复流程。",
+      "prompt": "新增一个 spec-first skill，用来把安全审计 findings 转成可复用修复流程。",
+      "coverage_tags": ["trigger"],
+      "expected_outcome": "should-trigger",
+      "expected_result": "should-trigger",
+      "expected_mode": "new-skill",
+      "reason_code": "new-source-skill-authoring"
+    },
+    {
+      "id": "revise-existing-skill",
+      "case_id": "WRITE-SKILL-TRIGGER-002",
+      "case_type": "should-trigger",
+      "input": "优化 skills/spec-debug/SKILL.md 的触发描述和 references 渐进披露。",
+      "prompt": "优化 skills/spec-debug/SKILL.md 的触发描述和 references 渐进披露。",
+      "coverage_tags": ["trigger"],
+      "expected_outcome": "should-trigger",
+      "expected_result": "should-trigger",
+      "expected_mode": "revise-skill",
+      "reason_code": "existing-skill-revision"
+    },
+    {
+      "id": "audit-only-neighbor",
+      "case_id": "WRITE-SKILL-NEAR-001",
+      "case_type": "near-neighbor",
+      "input": "审查 skills/spec-prd/SKILL.md 有没有边界和治理问题，不要修改文件。",
+      "prompt": "审查 skills/spec-prd/SKILL.md 有没有边界和治理问题，不要修改文件。",
+      "coverage_tags": ["trigger", "boundary"],
+      "expected_outcome": "near-neighbor",
+      "expected_result": "near-neighbor",
+      "expected_mode": "spec-skill-audit",
+      "boundary_note": "Audit-only requests should route to spec-skill-audit instead of write-skill source mutation.",
+      "reason_code": "audit-not-authoring"
+    },
+    {
+      "id": "runtime-repair-boundary",
+      "case_id": "WRITE-SKILL-BOUNDARY-001",
+      "case_type": "boundary",
+      "input": "直接修改 .agents/skills/spec-prd/SKILL.md 让当前 Codex runtime 生效。",
+      "prompt": "直接修改 .agents/skills/spec-prd/SKILL.md 让当前 Codex runtime 生效。",
+      "coverage_tags": ["boundary"],
+      "expected_outcome": "boundary",
+      "expected_result": "boundary",
+      "expected_mode": "refuse-runtime-mirror-patch",
+      "boundary_note": "Generated runtime mirrors are evidence only; source fixes must edit skills/ and regenerate runtime.",
+      "forbidden_signals": ["edit .agents/skills directly", "patch generated runtime mirror"],
+      "reason_code": "generated-runtime-not-source"
+    },
+    {
+      "id": "one-off-answer-not-skill",
+      "case_id": "WRITE-SKILL-NEG-001",
+      "case_type": "should-not-trigger",
+      "input": "帮我写一个一次性的提示词回答这个客户问题，不要创建 skill。",
+      "prompt": "帮我写一个一次性的提示词回答这个客户问题，不要创建 skill。",
+      "coverage_tags": ["trigger", "boundary"],
+      "expected_outcome": "should-not-trigger",
+      "expected_result": "should-not-trigger",
+      "expected_mode": "do-not-create-skill",
+      "boundary_note": "One-off answer or prompt creation is not reusable skill authoring.",
+      "reason_code": "one-off-vs-reusable"
+    },
+    {
+      "id": "explain-only-not-package",
+      "case_id": "WRITE-SKILL-NEG-002",
+      "case_type": "should-not-trigger",
+      "input": "解释一下这段 workflow notes 是什么意思，不要包装成可复用能力。",
+      "prompt": "解释一下这段 workflow notes 是什么意思，不要包装成可复用能力。",
+      "coverage_tags": ["trigger", "boundary"],
+      "expected_outcome": "should-not-trigger",
+      "expected_result": "should-not-trigger",
+      "expected_mode": "direct-explanation",
+      "boundary_note": "Explanation, summary, and translation requests require positive reusable-packaging intent before authoring.",
+      "reason_code": "explain-not-package"
+    },
+    {
+      "id": "document-export-not-agent-skill",
+      "case_id": "WRITE-SKILL-NEG-003",
+      "case_type": "near-neighbor",
+      "input": "把这份方法论整理成 Markdown 文档，不要做成 agent skill。",
+      "prompt": "把这份方法论整理成 Markdown 文档，不要做成 agent skill。",
+      "coverage_tags": ["trigger", "boundary"],
+      "expected_outcome": "near-neighbor",
+      "expected_result": "near-neighbor",
+      "expected_mode": "document-editing-or-direct-write",
+      "boundary_note": "Document export is a document task unless reusable agent execution is explicitly requested.",
+      "reason_code": "document-export-vs-agent-skill"
+    },
+    {
+      "id": "future-outline-not-build",
+      "case_id": "WRITE-SKILL-NEG-004",
+      "case_type": "boundary",
+      "input": "先帮我构思一个未来可能要做的 skill 大纲，暂时不要创建任何文件。",
+      "prompt": "先帮我构思一个未来可能要做的 skill 大纲，暂时不要创建任何文件。",
+      "coverage_tags": ["trigger", "boundary"],
+      "expected_outcome": "boundary",
+      "expected_result": "boundary",
+      "expected_mode": "idea-outline-only",
+      "boundary_note": "Future outline requests are pre-build design, not source mutation.",
+      "forbidden_signals": ["create skills/", "write SKILL.md"],
+      "reason_code": "future-outline-vs-build"
+    }
+  ]
+}

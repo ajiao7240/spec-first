@@ -1,9 +1,13 @@
 ---
 name: spec-plan
-description: "Create structured plans for any multi-step task -- software features, research workflows, events, study plans, or any goal that benefits from structured breakdown. Also deepen existing plans with interactive review of sub-agent findings. Use for plan creation when the user says 'plan this', 'create a plan', 'write a tech plan', 'plan the implementation', 'how should we build', 'what's the approach for', 'break this down', 'plan a trip', 'create a study plan', or when a brainstorm/requirements document is ready for planning. Use for plan deepening when the user says 'deepen the plan', 'deepen my plan', 'deepening pass', or uses 'deepen' in reference to a plan. For exploratory or ambiguous requests where the user is unsure what to do, prefer spec-brainstorm first."
+description: "Create a structured plan when the user has a clear goal, requirements document, brainstorm/PRD handoff, feature, bug, or project that needs a HOW plan; also deepen an existing plan when the user asks to strengthen the plan as a whole. Prefer spec-brainstorm for unresolved WHAT/product exploration, spec-work for implementation or tests, and spec-doc-review for independent plan review."
 ---
 
 # Create Technical Plan
+
+## Purpose
+
+Turn a clear goal, requirements artifact, bug, project, or existing plan into an evidence-grounded HOW plan or structured planning answer while preserving planning-only boundaries and explicit handoff before execution.
 
 Use the current host/session date when dating plans and searching for recent documentation. If the date is unavailable, read it with a deterministic command; do not hard-code calendar years in this source file.
 
@@ -82,7 +86,7 @@ Ask one question at a time. Prefer a concise single-select choice when natural o
 
 If the input is present but unclear or underspecified, do not abandon — ask one or two clarifying questions, or proceed to Phase 0.4's planning bootstrap to establish enough context. The goal is always to help the user plan, never to exit the workflow.
 
-**IMPORTANT: All file references in the plan document must use repo-relative paths (e.g., `src/models/user.rb`), never absolute paths (e.g., `/Users/name/Code/project/src/models/user.rb`). This applies everywhere — implementation unit file lists, pattern references, origin document links, and prose mentions. Absolute paths break portability across machines, worktrees, and teammates.**
+Plan document path rules live in `skills/spec-plan/references/plan-sections.md` and rendering checks live in `skills/spec-plan/references/markdown-rendering.md`. Plan contents use repo-relative paths; chat confirmations may use absolute paths for clickable terminal output.
 
 ## Core Principles
 
@@ -232,21 +236,7 @@ Each unit's heading carries a stable U-ID prefix matching the format used for R/
 
 **Stability rule.** Once assigned, a U-ID is never renumbered. Reordering units leaves their IDs in place (e.g., U1, U3, U5 in their new order is correct; renumbering to U1, U2, U3 is not). Splitting a unit keeps the original U-ID on the original concept and assigns the next unused number to the new unit. Deletion leaves a gap; gaps are fine. This rule matters most during deepening (Phase 5.3), which is the most likely accidental-renumber vector.
 
-For each unit, include:
-- **Goal** - what this unit accomplishes
-- **Requirements** - which requirements or success criteria it advances (cite R-IDs, and A/F/AE IDs when origin supplies them)
-- **Dependencies** - what must exist first (cite by U-ID, e.g., "U1, U3")
-- **Files** - repo-relative file paths to create, modify, or test (never absolute paths)
-- **Approach** - key decisions, data flow, component boundaries, or integration notes
-- **Execution note** - optional, only when the unit benefits from a non-default execution posture such as test-first or characterization-first
-- **Technical design** - optional pseudo-code or diagram when the unit's approach is non-obvious and prose alone would leave it ambiguous. Frame explicitly as directional guidance, not implementation specification
-- **Patterns to follow** - existing code or conventions to mirror
-- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank. **AE-link convention:** when a test scenario directly enforces an origin Acceptance Example, prefix it with `Covers AE<N>.` (or `Covers F<N> / AE<N>.`). This is sparse-by-design — most test scenarios are finer-grained than AEs and do not link. Do not force AE links onto tests that only cover lower-level implementation details.
-  - **Happy path behaviors** - core functionality with expected inputs and outputs
-  - **Edge cases** (when the unit has meaningful boundaries) - boundary values, empty inputs, nil/null states, concurrent access
-  - **Error and failure paths** (when the unit has failure modes) - invalid input, downstream service failures, timeout behavior, permission denials
-  - **Integration scenarios** (when the unit crosses layers) - behaviors that mocks alone will not prove, e.g., "creating X triggers callback Y which persists Z". Include these for any unit touching callbacks, middleware, or multi-layer interactions
-- **Verification** - how an implementer should know the unit is complete, expressed as outcomes rather than shell command scripts
+Implementation unit field contract lives in `skills/spec-plan/references/plan-sections.md`; the concrete markdown skeleton lives in `skills/spec-plan/references/plan-template.md`. Do not duplicate or reconstruct the field list here. In the generated plan, each feature-bearing unit still needs enough file, pattern, test-scenario, and verification detail for `spec-work` to execute without inventing coverage.
 
 Every feature-bearing unit should include the test file path in `**Files:**`.
 
@@ -322,7 +312,7 @@ Use `### U1. [Name]` heading-style implementation units for new plans. Continue 
 #### 4.3 Planning Rules
 
 - **Horizontal rules (`---`) between top-level sections** in Standard and Deep plans, mirroring the `spec-brainstorm` requirements doc convention. Improves scannability of dense plans where many H2 sections sit close together. Omit for Lightweight plans where the whole doc fits on a single screen.
-- **All file paths must be repo-relative** — never use absolute paths like `/Users/name/Code/project/src/file.ts`. Use `src/file.ts` instead. Absolute paths make plans non-portable across machines, worktrees, and teammates. When a plan targets a different repo than the document's home, state the target repo once at the top of the plan (e.g., `**Target repo:** my-other-project`) and use repo-relative paths throughout
+- Apply the path, metadata, ID, and content rules from `plan-sections.md` and the post-write markdown audit from `markdown-rendering.md`
 - Prefer path plus class/component/pattern references over brittle line numbers
 - Do not include implementation code — no imports, exact method signatures, or framework-specific syntax
 - Pseudo-code sketches and DSL grammars are allowed in the High-Level Technical Design section and per-unit technical design fields when they communicate design direction. Frame them explicitly as directional guidance, not implementation specification
@@ -382,7 +372,7 @@ In headless mode, compose the synthesis but do not ask for confirmation. Proceed
 
 **REQUIRED: Write the plan file to disk before presenting any options.**
 
-Use the Write tool to save the complete plan to:
+Use the current host's file-write mechanism to save the complete plan to:
 
 ```text
 docs/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md

@@ -65,7 +65,7 @@ It reviews:
 - trigger clarity
 - scope boundaries
 - input and output contracts
-- workflow steps
+- workflow steps and completion criteria
 - scripts, references, examples, assets, and eval organization
 - failure modes
 - eval readiness
@@ -83,6 +83,8 @@ In a spec-first repository, it also checks:
 ## Progressive Disclosure Checks
 
 Treat skill entry prompts as progressive-disclosure surfaces. Flag source skills whose main `SKILL.md` entrypoint carries long examples, duplicate rubrics, provider-specific details, large checklists, or operational reference material that should live in `references/`, `scripts/`, `assets/`, or eval files. The finding is an optimization/risk signal, not an automatic rewrite order.
+
+When the concern is skill writing quality, judge description-as-trigger, entry surface fit, information hierarchy, completion criteria, pruning, leading words, and failure modes using `references/skill-authoring-quality.md`.
 
 Audit facts may identify public-surface or runtime drift, but scripts only report deterministic evidence. The LLM explains whether the drift affects governance, catalog, README/user-doc visibility, or source/runtime boundaries. Hard dependency gaps should point to setup/doctor/init repair commands; soft context gaps only lower confidence.
 
@@ -120,7 +122,7 @@ This workflow is an explicit exception to the ordinary runtime context exclusion
    ```
 
 6. Read `skill-audit-summary.md`, `skill-improvement-plan.md`, and the JSON reports relevant to the user's question. For repo-wide spec-first source audits, read `reviewer-guard-coverage-report.json` before judging reviewer-agent guard completeness, and read `rule-maturity-observations.json` before judging whether rule-maturity evidence is empty, degraded, or awaiting later human adjudication.
-7. Review the deterministic findings and reviewer guard coverage facts using `references/expert-audit-rubric.md`.
+7. Review the deterministic findings and reviewer guard coverage facts using `references/expert-audit-rubric.md`; load `references/skill-authoring-quality.md` when findings concern skill writing quality.
 8. Security matches inside an audited skill's own `evals/`, `examples/`, or `references/` are expected `scope_limited` fixtures (see `references/security-threat-model.md`): treat them as counter-evidenced P3 noise and do not surface them as review items unless an executable code path actually performs the action.
 9. Treat scorecards as signals, not gates.
 10. For each P0/P1 finding you surface to the user, include signal, file/section evidence, counter-evidence status, decision, reason, recommendation, and confidence.
@@ -160,6 +162,7 @@ Deterministic failure reason codes (`NO_SKILLS_FOUND`, deferred generic-collecti
 Use these files only when needed:
 
 - `references/expert-audit-rubric.md`
+- `references/skill-authoring-quality.md`
 - `references/report-format.md`
 - `references/security-threat-model.md`
 - `references/source-vs-runtime-contract.md`

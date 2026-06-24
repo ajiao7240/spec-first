@@ -6,6 +6,10 @@ Use deterministic reports as evidence, not as final judgment.
 
 Scripts prepare facts. The LLM decides whether those facts imply a real quality issue.
 
+## Skill Authoring Quality Rule
+
+When judging how a skill is written or migrated, also apply `references/skill-authoring-quality.md`: check description-as-trigger, entry surface fit, information hierarchy, completion criteria, granularity, pruning, leading words, and failure modes. These are semantic review signals, not deterministic gates or automatic rewrite orders.
+
 ## P0
 
 Treat as P0 when evidence shows:
@@ -41,6 +45,7 @@ Treat as P2 when evidence shows:
 - references are stale or broken
 - scoring or reporting is present but lacks human review guidance
 - a review-style agent declares what it is hunting for but lacks a corresponding `What you don't flag` guard section or the guard does not cover its highest false-positive-risk dimensions; use `reviewer-guard-coverage-report.json` as section-presence evidence, then check counter-evidence before deciding. Agents whose role is explicitly adversarial or challenge-only may be N/A rather than findings.
+- authoring quality issues from `references/skill-authoring-quality.md` create maintainability or variance risk but do not change ownership, routing, safety, or runtime behavior.
 
 ## Scorecard Rule
 
