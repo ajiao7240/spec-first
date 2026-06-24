@@ -151,6 +151,16 @@ downstream_confirmation_risk -> claim -> evidence/source -> gap
 - `closure_state`：closed / narrowed / accepted-assumption / outstanding-question / blocker / route-out。
 - 它与现有 `Run-Local Decision Card` 同级：light run-local authoring contract，不持久化、不 emit JSON/artifact、不跨 run 传递。`closure_state` 复用现有 `owner_question_progress` 的同一组枚举（不新造）；净新增字段只有 `downstream_confirmation_risk`。停止用“不成 schema”豁免质疑——判据是“固定字段是否被 test 锁、被固定环节按名消费”，按此它就是 light contract，接受与 Decision Card 同等纪律：contract test 只锁这些字段锚点“存在于 reference”，绝不锁语义内容或排序结果（那是 LLM 判断）。grill 消费它的 gap + write_target，readiness 消费它的 closure_state。
 
+### Product Expert Lens Interface Invariants
+
+保持 Lens 成为深模块：调用方只学习小 interface，产品判断、排序和 evidence 协调复杂度留在 Lens implementation 内。
+
+- 每个进入 grill queue 的 gap 必须绑定 `PRD_write_target`；无法绑定 write target 的 gap 只能留在 Lens 内继续归约，或显式转成 `Outstanding Questions` / blocker / route-out。
+- `downstream_confirmation_risk` 只决定下一问排序和 handoff priority，不是分数、schema enum 或 readiness 判定结果。
+- grill 只消费 `gap + owner_question_or_assumption + PRD_write_target`；write-in 只消费 `PRD_write_target + closure_state`；readiness 只消费 `closure_state` 与仍会导致 planning/work 发明 WHAT 的 handoff residue。
+- 无法排序但会影响 planning 的 load-bearing gap 不得静默丢弃；必须通过 accepted assumption、Outstanding Question、blocker 或 route-out carry。
+- Tests 锁 interface 字段、消费方向和 forbidden duplicate surfaces；不锁 Lens 的语义排序结果、问题措辞或产品判断内容。
+
 ### Progressive Disclosure Boundary
 
 `product-expert-lens.md` 是默认 authoring 热路径文件，只承载每个 PRD 都需要的产品判断核心：actor/outcome/scope/risk、downstream-confirmation 排序、grill/write/readiness 接口、escalation 边界。它不承载低频分支的完整操作手册。
@@ -162,6 +172,8 @@ downstream_confirmation_risk -> claim -> evidence/source -> gap
 - structured-input synthesis（U6）留在 Standard PRD Write-In 路径，因为它是输入形态处理，不是 Product Expert Lens 的第二套分支协议。
 
 这条边界是本方案的 sprawl 控制：默认热路径不因低频能力变长，分支能力不因被拆出而变成 public workflow、第二 artifact topology 或 provider contract。
+
+**§10 最小方案论证（为何独立 file 而非现有 reference 内 trigger-gated section）：** design-source / large-input 的内容**本可挂现有 reference**（design WHAT ∈ `prd-output-template.md` 的 Design/UX Evidence Hook；Map-Reduce ∈ `domain-language-and-decision-ledger.md`），那样 topology 仅 6→7。本方案选独立 file（6→9）的依据是：① 两块内容体量大（design-source 含 URL parse、跨平台 host/tool/auth probe、external+internal card、ASCII flow；large-input 含 Map/Shuffle/Reduce + checkpoint + resume），挂进现有 reference 会让 `prd-output-template.md`（已是 drafting 热路径大文件）与 `domain-language` 显著膨胀，每次触发都被迫整文件加载；② 独立 file 是 trigger-only，仅在前端/超大场景加载，对默认热路径与常规 trigger-load 都更省 context；③ 各自被独立触发条件激活（前端 surface vs 超大输入），是真实 disclosure 边界而非硬凑。**判据（防 file-count sprawl）**：低频分支独立成 file 仅当「实质 implementation 体量 + 独立触发条件 + 独立 locality 收益」三者都成立，否则用现有 reference 内的 trigger-gated section；design-source / large-input 满足三者故独立，未来更小的低频分支默认用 section、不默认拆 file。
 
 ### Large-Input Coordination (Map-Reduce × Lens)
 
@@ -185,6 +197,15 @@ downstream_confirmation_risk -> claim -> evidence/source -> gap
 - **resume 恢复工作态**：中断/失忆后用 resume-prd posture 从 PRD 文件恢复——已闭合 sections + Outstanding/Planning Recheck + source_ref 共同重建工作态，Lens 在此基础上继续排 risk / grill。
 - **write-timing 校准**：普通 PRD 闭合后写（避免半成品，现有规则不变）；超大/长链路 PRD 改为“归约即 checkpoint”，与 resume-prd 的增量写一致。
 - **边界**：复用单一 PRD artifact + resume-prd，不新增 transcript、scratch 文件、progress schema 或第二 artifact topology；reduced 草稿内容必须带 evidence tag / confirmation posture 和未确认标注，不得伪装成 confirmed。
+
+---
+
+## Downstream Consumption Contract
+
+spec-prd 的唯一判据是下游（spec-plan / spec-write-tasks / spec-work）不再发明 WHAT。该判据的兑现依赖 PRD **持久 sections**，而非 spec-prd 的 run-time handoff 报告，并依赖下游正确消费 advisory 项。本节显式声明这层 handoff 契约（§4 handoff gate 是双向的：产出端与消费端都要 honored）。
+
+- **closeout 三项是 same-session handoff 摘要，不是 PRD 持久 section。** U3 的 `Resolved before planning` / `Still carried` / `planning_would_invent_what` 出现在 Closeout Summary（handoff report），不写进 `docs/brainstorms/*-requirements.md` 的 Core Sections。**跨会话消费契约**：下游不依赖 closeout 报告，而是从 PRD 持久 sections 推断 readiness——`Outstanding Questions` / `Planning Recheck` / `Evidence And Assumptions（source-candidate）` 为空或已显式 carry = ready，非空 = 仍需 owner/source 确认。closeout 三项只在 same-session 直接 handoff 时附加可读摘要，不作为跨会话唯一证明。这意味着 G4「closeout 证明 downstream reduction」的跨会话载体是持久 sections 本身，而非 closeout 文本。
+- **advisory 项依赖下游 re-confirm，这是已声明的跨 workflow 依赖，不是静默假设。** U7 设计源 WHAT、U8 reduced candidate 等未校准内容进 `Planning Recheck` / `Evidence And Assumptions（source-candidate / provider_untrusted）`，期望下游在 planning 选 HOW 前 re-read/re-run（`prd-output-template.md` 的 Planning Recheck 语义）。本方案**单侧产出**带齐 evidence tag + source_ref + limitations（满足 §4 handoff gate 产出端）；**消费端**——spec-plan 对 `Planning Recheck` advisory 项做 planning-time re-confirm——是本方案显式依赖的下游契约。若当前 spec-plan 未专门 honor 该 re-confirm 语义，属跨 workflow gap，应在 spec-plan 侧单独立项，**不在本方案内假装已兑现**；不得把「已写进 Planning Recheck」等同于「下游已 re-confirm」。
 
 ---
 
@@ -214,7 +235,7 @@ downstream_confirmation_risk -> claim -> evidence/source -> gap
 - R4. PRD output template 必须消费 Product Expert Lens 的结果，把用户、结果、边界、异常、权限、验收、assumption/blocker 写入标准 sections。
 - R5. Readiness Lens 必须判断 PRD 是否仍会让 planning/work 发明 WHAT，并要求 closeout 显式列出已前置解决和仍需 handoff 的确认项。
 - R6. 独立 product reviewer 只能作为高风险升级路径，不成为 public workflow 或默认依赖。Dispatch 需同时满足 host 能力与显式 subagent 授权；任一不满足只能 inline 并记录 reason code，不静默 spawn、不依赖 reviewer 基建。contract/eval 必须锁这条边界（无授权 → inline、不新增 public workflow）。
-- R7. 本方案必须抽出 `references/product-expert-lens.md`，并把现有 `Adaptive Product Expert Lens` 移动/提升为单一真相源，并**正式改名 `Adaptive Product Expert Lens` → `Product Expert Lens`（owner 决策 2026-06-24）**；同时为低频分支新增触发 reference：`references/design-source-evidence.md` 与 `references/large-input-checkpoint.md`。必须同步更新受影响的 contract tests，逐项明确：① `source topology stays compressed` 的 `sourceFiles` 与 `references` 严格数组从当前 10/6 更新为 13/9（新增 product lens、design-source、large-input checkpoint 三个 source references；不新增 public workflow / artifact topology）；② `examples.json` 的 `source_refs`（`eval fixtures...` test 的 `toEqual` 严格数组）同步 6→9；③ `canonical lens reuse`：改 `prd-readiness-lens.md` 中“uses prd-output-template.md's Adaptive Product Expert Lens as the quality-dimension source”一句指向 `product-expert-lens.md`，并同步该 test 的断言字符串；④ `entrypoint references only the six source references` 的引用集合与测试标题同步改为 governed source references（6→9），且断言 `design-source-evidence.md` / `large-input-checkpoint.md` 是 trigger-only，不是 authoring 主路径默认加载；⑤ **改名触发的 test 锚点（此前遗漏，必补）**：`'Adaptive product expert lens'`（前 140 行 decision-tree，约 `:260`）、`'adaptive product expert lens'`（全文 references test，约 `:294`）、`'adaptive product lens fit'`（readiness pack，约 `:722`）全部改为对应 `Product Expert Lens` 措辞；⑥ **source 改名**：`prd-output-template.md` 的 `## Adaptive Product Expert Lens` 标题与 canonical 声明句（`:142`/`:158`）、`prd-readiness-lens.md` 的 canonical 句（`:55`）同步去掉 `Adaptive`，且 ③ 的 readiness 句改为 “uses `product-expert-lens.md`'s Product Expert Lens as the quality-dimension source”。改名为等长或更短替换，不新增前 140 行行数。`SKILL.md` 前 140 行预算实测**有余量**：前 140 行（`firstHundredFortyLines`，test `:226`）真正的最后强制锚点是 Phase 0 decision-tree `'Split or continue?'`（`SKILL.md:127`），约 13 行余量；`PRD Sanitization` 由 `phaseOne`（`extractMarkdownSection`，test `:227/:266`）整节校验，**不占** 前 140 行预算（R7 旧表述混淆了两套校验）。U2 仅加 Reference Trigger Map 一条 `product-expert-lens.md` 默认主路径 + 两条 trigger-only 分支 reference + 改名缩短 + Purpose/Core Principle 措辞微调（净增仍应控制在前 140 行外或少量行内），无需放宽 140 阈值。**guard**：仅当未来改动逼近 140 边界或需放宽阈值时再显式论证为容纳重构。现有 test 不得成为阻止合理架构重构的理由，但更新 test 是为容纳重构、不是削弱守护。
+- R7. 本方案必须抽出 `references/product-expert-lens.md`，并把现有 `Adaptive Product Expert Lens` 移动/提升为单一真相源，并**正式改名 `Adaptive Product Expert Lens` → `Product Expert Lens`（owner 决策 2026-06-24）**；同时为低频分支新增触发 reference：`references/design-source-evidence.md` 与 `references/large-input-checkpoint.md`。必须同步更新受影响的 contract tests，逐项明确：① `source topology stays compressed` 的 `sourceFiles` 与 `references` 严格数组**终态**从 10/6 更新为 13/9（新增 product lens、design-source、large-input checkpoint 三个 source references；不新增 public workflow / artifact topology）。**该 test 用 `fs.readdirSync`（`test:178`）读实际文件，`toEqual` + `toHaveLength` 基于磁盘——必须随每个创建 reference 的 U 渐进推进：U1 后 11/7、U7 后 12/8、U8 后 13/9；严禁在 U1 一次改到终态 13/9，否则 design-source/large-input 文件尚未创建、`toEqual` 立即失败（feasibility 硬死结）**；② `examples.json` 的 `source_refs`（`eval fixtures...` test 的 `toEqual` 严格数组）**终态** 6→9，同样随 design-source(U7)/large-input(U8) 的 eval case 落地而 7→8→9 推进，不提前列入尚未产出 case 的 source；③ `canonical lens reuse`：改 `prd-readiness-lens.md` 中“uses prd-output-template.md's Adaptive Product Expert Lens as the quality-dimension source”一句指向 `product-expert-lens.md`，并同步该 test 的断言字符串；④ `entrypoint references only the six source references` 的引用集合与测试标题同步改为 governed source references（6→9），且断言 `design-source-evidence.md` / `large-input-checkpoint.md` 是 trigger-only，不是 authoring 主路径默认加载；⑤ **改名触发的 test 锚点（此前遗漏，必补）**：`'Adaptive product expert lens'`（前 140 行 decision-tree，约 `:260`）、`'adaptive product expert lens'`（全文 references test，约 `:294`）、`'adaptive product lens fit'`（readiness pack，约 `:722`）全部改为对应 `Product Expert Lens` 措辞；⑥ **source 改名**：`prd-output-template.md` 的 `## Adaptive Product Expert Lens` 标题与 canonical 声明句（`:142`/`:158`）、`prd-readiness-lens.md` 的 canonical 句（`:55`）同步去掉 `Adaptive`，且 ③ 的 readiness 句改为 “uses `product-expert-lens.md`'s Product Expert Lens as the quality-dimension source”。改名为等长或更短替换，不新增前 140 行行数。`SKILL.md` 前 140 行预算实测**有余量**：前 140 行（`firstHundredFortyLines`，test `:226`）真正的最后强制锚点是 Phase 0 decision-tree `'Split or continue?'`（`SKILL.md:127`），约 13 行余量；`PRD Sanitization` 由 `phaseOne`（`extractMarkdownSection`，test `:227/:266`）整节校验，**不占** 前 140 行预算（R7 旧表述混淆了两套校验）。U2 仅加 Reference Trigger Map 一条 `product-expert-lens.md` 默认主路径（两条 trigger-only 分支 reference 的 SKILL 引用由 U7/U8 各自加）+ 改名缩短 + Purpose/Core Principle 措辞微调（净增仍应控制在前 140 行外或少量行内），无需放宽 140 阈值。**guard**：仅当未来改动逼近 140 边界或需放宽阈值时再显式论证为容纳重构。现有 test 不得成为阻止合理架构重构的理由，但更新 test 是为容纳重构、不是削弱守护。**test strategy**：采用 replace-not-layer；旧 `prd-output-template.md` lens 细节断言必须删除或改成“引用 `product-expert-lens.md` canonical interface”，不得同时保留新旧两套 canonical test surface。
 - R8. source/docs/test 变更必须同步 `CHANGELOG.md`；skill prose 行为语义变更需要 fresh-source eval 或明确 not-run reason。
 - R9. Standard PRD Write-In 必须把 Product Expert Lens 识别出的“成型/已决策输入”综合成标准 PRD sections，并把其中的 Implementation/Testing 决策降级为 HOW；只有影响 scope、acceptance、source-of-truth 的部分进入 PRD requirements。这是一等能力，不是可选注解，也不引入 `to-prd` 专名或固定字段表。
 - R10. 前端/UI 需求且输入含 Figma（或其他设计源）链接时，spec-prd 必须先检测对应 MCP/tool readiness，而不是直接要求用户截图或把设计链接降级为普通 reference：可用则拉取并提取设计 WHAT（evidence-tag 为 source-candidate / provider_untrusted，需与 code/owner 校准、矛盾暴露），不可用或未授权则 loud 引导用户启用/安装当前宿主的 Figma MCP/plugin，并降级（截图/描述/reference-claim + Planning Recheck），never-block。Figma MCP 当前不是 `spec-mcp-setup` required baseline；除非 runtime setup 后续显式新增 optional `figma` entry，否则不得声称 `/spec:mcp-setup` 或 `$spec-mcp-setup` 会安装 Figma。spec-prd 只提取 PRD facts，**不自己执行 MCP 安装**，**不做 PRD/Figma/源码一致性审计**（route 到 `spec-app-consistency-audit`）。套用现有 Capability-Class Evidence Boundary 通用模式，不为 Figma 硬编码独立协议。
@@ -274,8 +295,7 @@ Product Expert Lens -> Requirements Grill -> Standard PRD Write-In -> Readiness 
 
 **Reference Trigger Map 改动（关键，否则 lens 落不了热路径）:**
 - 把 `references/product-expert-lens.md` 加入 Reference Trigger Map，加载层级与 `grill-with-docs-integration.md` 同级——即 **create / refine / validate 的 PRD authoring 主路径默认加载**，而非普通 trigger-load。
-- 把 `references/design-source-evidence.md` 作为 trigger-only：仅前端/UI surface 且输入含 Figma / design URL / screenshot / exported context 时加载。
-- 把 `references/large-input-checkpoint.md` 作为 trigger-only：仅超大、多来源、长链路、resume-risk 或 Map-Reduce 分块时加载。
+- `references/design-source-evidence.md` 与 `references/large-input-checkpoint.md` 的 Reference Trigger Map 引用**不在 U2 一次加全**——它们分别由 **U7/U8 在创建对应文件的同一单元内加**（trigger-only：design-source 仅前端/UI surface 且含设计源 URL/screenshot/exported context 时；large-input 仅超大/多来源/长链路/resume-risk/Map-Reduce 分块时）。这样「文件创建 + SKILL 引用 + source topology test 推进」对每个 reference **原子同步**，避免 U2 引用尚未创建的 file 造成中间态 `entrypoint references`（文本=9）与 `source topology`（fs=7）数字打架。
 - 触发措辞参照现有 grill-with-docs 行：rough PRD、draft、reference-claims、resume-prd、pure-text、多来源材料默认加载；wrong-stage / implementation-ready / 已 source-resolved 到无需产品判断时可不加载。
 - **Fallback:** 若 lens reference 在迁移期未加载或加载失败，inline 使用 `SKILL.md` 的 Product Expert Lens 摘要并记录 degraded reason code；不得长期退回 `prd-output-template.md` 的旧 lens 作为第二真相源。实现完成后，正常路径必须从 `product-expert-lens.md` 加载。
 
@@ -287,7 +307,7 @@ Product Expert Lens -> Requirements Grill -> Standard PRD Write-In -> Readiness 
 
 **Test scenarios:**
 - Happy path: contract test 确认 SKILL.md Reference Trigger Map 列出 `product-expert-lens.md` 且声明 authoring 主路径默认加载。
-- Happy path: contract test 确认 `design-source-evidence.md` / `large-input-checkpoint.md` 是 trigger-only，未声明普通 PRD authoring 默认加载。
+- Happy path（终态，U7/U8 完成后）: contract test 确认 `design-source-evidence.md` / `large-input-checkpoint.md` 是 trigger-only，未声明普通 PRD authoring 默认加载（U2 单独完成时这两个引用尚未加，属预期中间态）。
 - Edge case: 已 source-resolved 的 compact 输入不强制重型 lens（避免过度提问）。
 - Error path: contract test 确认 SKILL.md 仍只引用受治理的 reference 集合，并与 R7 的 governed references 更新同步（6→9 references）。
 - Error path: grill 衔接只声明“按 Lens 排序提问”，未在 `grill-with-docs-integration.md` 复制第二份 lens 维度清单（单一真相源仍是 `product-expert-lens.md`）。
@@ -422,8 +442,8 @@ node bin/spec-first.js init --claude --codex -y --lang zh
 **Files:**
 - Add: `skills/spec-prd/references/design-source-evidence.md`
 - Modify: `skills/spec-prd/references/product-expert-lens.md`（只保留“前端/UI 需求可触发 design-source evidence”的接口指针，不放完整 Figma 协议）
-- Modify: `skills/spec-prd/references/prd-output-template.md`（Design / UX Evidence Hook：引用 `design-source-evidence.md` 的触发和降级规则，保留只提取 PRD facts、一致性审计 route 到 `spec-app-consistency-audit`）
-- Modify: `skills/spec-prd/SKILL.md`（保持 graph capability 边界仍引用 `project-graph-consumption.md`；另以 provider-neutral 方式提示前端/UI 输入可触发 external `design-source` evidence，但 **不写 `Figma` 等 provider name**；provider-specific details 只出现在 `design-source-evidence.md`）
+- Modify: `skills/spec-prd/references/prd-output-template.md`（Design / UX Evidence Hook：改为**按名引用** `design-source-evidence.md` 的触发、降级与 **design WHAT 提取清单**，**不在 Design Hook 复制提取维度清单**——`design-source-evidence.md` 是 design 提取的**单一真相源**（§3：避免 template Design Hook 与 design-source-evidence 两份 design 提取清单互相漂移，与 lens 单一真相源同纪律）；保留只提取 PRD facts、一致性审计 route 到 `spec-app-consistency-audit`）
+- Modify: `skills/spec-prd/SKILL.md`（保持 graph capability 边界仍引用 `project-graph-consumption.md`；另以 provider-neutral 方式提示前端/UI 输入可触发 external `design-source` evidence，但 **不写 `Figma` 等 provider name**；provider-specific details 只出现在 `design-source-evidence.md`。**本单元同时把 `design-source-evidence.md` 的 Reference Trigger Map trigger-only 引用加入 SKILL，并把 `source topology` test 从 U1 后的 11/7 推进到 12/8——文件创建 + SKILL 引用 + topology test 在 U7 原子落地，见 R7① P1-1 渐进同步**）
 - Do not modify: `docs/contracts/project-graph-consumption.md`（该 contract 只管 `project-graph` / `code-graph` provider consumption；`design-source` 不挂进它，避免把设计源误归入项目图证据合同。若未来要抽通用 external-evidence contract，另起方案，不在本轮借 graph contract 扩容）
 - Test: `tests/unit/spec-prd-contracts.test.js`、`skills/spec-prd/evals/examples.json`
 
@@ -443,20 +463,27 @@ node bin/spec-first.js init --claude --codex -y --lang zh
 
 **Run-local design source card（light run-local contract, not a persistent schema）:**
 
-这些字段会被 U7 authoring flow 与 tests 按名引用，因此它不是“随手示例”。它与 Decision Card 同级：不持久化、不 emit JSON、不跨 run 传递；contract tests 只锁字段锚点存在于 `design-source-evidence.md`，不锁字段值、排序、提取结论或 provider 结果。
+这些字段会被 U7 authoring flow 与 tests 按名引用，因此它不是“随手示例”。它与 Decision Card 同级：不持久化、不 emit JSON、不跨 run 传递。为避免把 provider 探测实现细节暴露成调用方必学 interface，将 design-source 分成 **外部 evidence interface** 与 **内部 probe trace**：Product Expert Lens / write-in / readiness 只消费外部 interface；URL parse、host/tool/auth/fetch/setup 细节留在 `design-source-evidence.md` 的私有执行段。contract tests 只锁外部字段锚点与必要 degraded anchors，不锁字段值、排序、提取结论或 provider 结果。
+
+```text
+design_source_kind: figma-design | figma-make | figjam | slides | screenshot | exported-context | unknown
+source_ref: <url/path/user-provided artifact>
+evidence_posture: provider_untrusted | source-candidate | owner-confirmed | degraded-reference-claim
+design_what: entry | flow | state | copy | permission | exception | responsive | i18n | accessibility | annotation
+reconciliation: source-aligned | owner-confirmed | contradiction | needs-planning-recheck
+PRD_write_target: Interaction Requirements | Use Cases | Acceptance Examples | Evidence And Assumptions | Planning Recheck | Outstanding Questions
+degraded_reason: missing-tool | unauthorized | permission-denied | rate-limited | fetch-failed | missing-node | no-fetch-mode | unsupported-platform | unknown-host | none
+```
+
+**Internal probe trace（private implementation, not external interface）:**
 
 ```text
 host_surface: codex | claude | other | unknown
 platform: darwin | win32 | linux | unknown
-design_source_kind: figma-design | figma-make | figjam | slides | screenshot | exported-context | unknown
-source_ref: <url/path/user-provided artifact>
 parse_result: fileKey | branchKey | nodeId | missing-node | unsupported
 tool_status: available | missing | unauthorized | permission-denied | rate-limited | fetch-failed | no-fetch-mode | unsupported-platform | unknown-host
 fetch_result: design-context | metadata-only | screenshot-only | user-provided-context | degraded-reference-claim
 setup_guidance: current-host-plugin | optional-setup-if-registered | screenshot-or-export | owner-description
-design_what: entry | flow | state | copy | permission | exception | responsive | i18n | accessibility | annotation
-reconciliation: source-aligned | owner-confirmed | contradiction | needs-planning-recheck
-PRD_write_target: Interaction Requirements | Use Cases | Acceptance Examples | Evidence And Assumptions | Planning Recheck | Outstanding Questions
 ```
 
 **ASCII flow:**
@@ -508,6 +535,7 @@ Continue normal Product Expert Lens      Product Expert Lens
 - Error path: 不把 Figma 内容当 confirmed scope authority；不做 PRD/Figma/源码一致性审计（route-out）。
 - Error path: 无 node-specific URL 时不猜测节点；先 metadata/page list 或向 owner 请求目标 node。
 - Error path: `mode:headless` / `mode:report-only` 不远程 fetch Figma，除非上游已 materialize 本地 context。
+- Error path: contract tests 不要求 Product Expert Lens / write-in / readiness 读取 internal probe trace 字段；它们只消费 external evidence interface。
 
 **Planned verification:** contract/eval 应覆盖 URL parse → tool/readiness detect → design context consume / setup guidance → degraded fallback → advisory-tag → contradiction handling → tool-discovery-before-screenshot → per-user/per-host/per-OS detection → no maintainer-local facts in contract → no OS-specific install commands → headless no-fetch → 一致性审计 route-out。
 
@@ -525,7 +553,7 @@ Continue normal Product Expert Lens      Product Expert Lens
 
 **Files:**
 - Add: `skills/spec-prd/references/large-input-checkpoint.md`
-- Modify: `skills/spec-prd/SKILL.md`（Phase 3 Draft / write-timing：超大/长链路改“归约即 checkpoint”，普通 PRD 仍“闭合后写”）
+- Modify: `skills/spec-prd/SKILL.md`（Phase 3 Draft / write-timing：超大/长链路改“归约即 checkpoint”，普通 PRD 仍“闭合后写”。**本单元同时把 `large-input-checkpoint.md` 的 Reference Trigger Map trigger-only 引用加入 SKILL，并把 `source topology` test 从 U7 后的 12/8 推进到终态 13/9——文件创建 + SKILL 引用 + topology test 在 U8 原子落地，见 R7① P1-1 渐进同步**）
 - Modify: `skills/spec-prd/references/prd-output-template.md`（write-timing 段 + reduced candidate 落点规则；并在 `:245`「new 闭合后写 / resume 增量写」邻近加一句 size 例外指针：超大/长链路按 U8 走归约即 checkpoint，size/chain 轴叠加于 new/resume 之上）
 - Modify: `skills/spec-prd/references/prd-readiness-lens.md`（planning-recheck / provenance visibility：reduced candidate 的 evidence tag / confirmation posture + source_ref 可见且仍 advisory）
 - Test: `tests/unit/spec-prd-contracts.test.js`
@@ -536,6 +564,14 @@ Continue normal Product Expert Lens      Product Expert Lens
 - 跨 planning 必须 re-confirm 的写进现有 **`Planning Recheck`**（`item | why recheck | required before | blocks planning?`）：`item` 含 `source_ref`，`why recheck` = “from large-input Map-Reduce, needs owner/source confirmation”，`required before` = planning。
 - 已闭合的照常进正式 sections（Requirements / Acceptance / Decision Notes）。
 - **不为 checkpoint 新增列、字段、transcript 或 progress schema。**
+
+**External interface vs internal implementation（对齐 U7 design-source 的深模块拆分）:**
+
+`large-input-checkpoint.md` 同 design-source 一样是 trigger-only branch reference，须按深模块拆分——调用方只学外部 interface，Map-Reduce/checkpoint 复杂度留在内部：
+
+- **外部 interface（caller 消费：`product-expert-lens.md` 接口指针 / write-in / readiness）**：Reduce output 消费 shape `load_bearing_gap | owner_question_candidate | affected_write_targets | source_ref`、checkpoint 落点分类结果（已闭合→正式 sections / 未确认→`Evidence And Assumptions` / 跨 planning→`Planning Recheck`）、resume 锚点 `source_ref`。
+- **内部 implementation（private to `large-input-checkpoint.md`）**：Map / Shuffle / Reduce 分块算法、跨块去重与冲突归约细节、chunk 协调、checkpoint 写时机内部步骤。
+- **test 只锁外部 interface 字段锚点与消费方向**（grill/write-in/readiness 消费哪些外部字段），**不锁** Map-Reduce 内部归约算法、分块策略或归约结论（那是 LLM 语义判断）；与 U7 `:528`「不要求消费方读 internal probe trace」同构。
 
 **Approach:**
 - write-timing 二分（**size/chain 轴叠加在 `prd-output-template.md:245` 的 new/resume 轴之上，非并列**）：普通短链路 PRD 闭合后写（现有 new/resume 规则不变）；超大/长链路“归约即 checkpoint”——**`new + 超大` 走带标注 checkpoint，覆盖 new 的“闭合后写”**，但正式 sections 仍只接已闭合项，未确认项进 `Evidence And Assumptions` / `Planning Recheck`（符合 `:245` 避免半成品 durable sections 的本意：未确认项显式标注，不伪装成正式 section）。
@@ -582,9 +618,11 @@ Product Expert Lens 把判断前置：
 | 引入新 reference 被旧 topology test 阻止。 | 更新 test，因为 test 守护目标，不应反过来限制合理架构。 |
 | 抽 lens 后出现两份 product lens 互相漂移。 | U1 强制单一真相源：移动而非新增，output template 改为按名引用，同步 `canonical lens reuse` 断言。 |
 | Product Expert Lens 默认文件承载过多低频分支，导致 skill 变长、变散、触发不稳定。 | Progressive Disclosure Boundary：`product-expert-lens.md` 只承载核心判断与接口；design-source 与 large-input/checkpoint 拆到 trigger-only references，并由 tests 锁“默认加载 vs 触发加载”边界。 |
+| Product Expert Lens interface 只列字段、不列消费不变量，导致 grill/write/readiness 各自解释排序和 closure。 | Product Expert Lens Interface Invariants：明确 gap 必须绑定 write target、risk 只排序不评分、各调用方只消费自己的小 interface、无法排序但 load-bearing 的 gap 必须显式 carry。 |
 | SKILL.md 改动撑破前 140 行必含锚点预算 / 负向断言自引用。 | 优先扩写现有 mental map 行；负向断言用字符串拆分构造（沿用 retired-anchor test 既有 pattern）。 |
 | 成型输入综合被误做成 to-prd 字段表。 | R9/U6 上限为 WHAT/HOW 分离的反向补充，禁 `to-prd` 专名与固定字段表。 |
 | design-source card 固定字段被测试/消费，却继续宣称“not a schema”导致 contract 纪律不清。 | U7 明确它是 light run-local contract，不是 persistent schema；tests 只锁字段锚点存在，不锁 provider 结果或语义判断。 |
+| design-source card 过宽，把 provider 探测实现细节变成调用方 interface，导致浅模块化。 | U7 将 external evidence interface 与 internal probe trace 分开；Lens / write-in / readiness 只消费 source_ref、evidence posture、design WHAT、reconciliation、write target 与 degraded reason。 |
 | Figma 设计稿被当 confirmed scope authority，或 spec-prd 越界做一致性审计 / 自己装 MCP。 | Figma 是 capability-class advisory evidence，与 code/owner 校准；先探测当前 host Figma MCP/plugin，可用则读取，不可用则引导安装当前 host 官方 Figma MCP/plugin 或请求截图/导出 context；除非未来 registry 显式支持 optional `figma`，否则不指向 `$spec-mcp-setup`；一致性审计 route 到 `spec-app-consistency-audit`；never-block。 |
 | design-source 被误挂到 project-graph/code-graph contract，导致 provider 边界漂移。 | U7 不修改 `project-graph-consumption.md`，设计源边界先由 `product-expert-lens.md` / `prd-output-template.md` 承载；`SKILL.md` 只写 provider-neutral design-source 提示，不把 Figma 或 graph contract 变成 scope authority。 |
 | 超大文档下 Lens 与 Map-Reduce 各跑各的（两套并列 shape），或 Lens 试图一次吞整个文档。 | R13 / Large-Input Coordination：Map-Reduce 先归约，Reduce output 首尾接 Lens 排 risk；Lens 只消费归约结果；复用现有 Map-Reduce/Split，不新造。 |
@@ -597,6 +635,7 @@ Product Expert Lens 把判断前置：
 
 - `SKILL.md` 明确 Product Expert Lens 是 `$spec-prd` 的 first-class internal flow layer。
 - Product Expert Lens 产出的 gap 必须连接到 owner question、PRD write target、readiness closeout。
+- Product Expert Lens 的 interface invariants 可见：grill/write-in/readiness 各自只消费小 interface，排序、归约和产品判断复杂度不泄漏给调用方。
 - PRD closeout 明确回答“哪些下游确认已前置解决，哪些仍 carry”。
 - 高风险场景有 product reviewer escalation rule，但无 public helper workflow。
 - Contract tests/evals 覆盖产品判断质量，而不是只覆盖流程命名。
