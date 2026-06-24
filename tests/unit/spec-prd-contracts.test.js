@@ -88,6 +88,13 @@ const FRESH_SOURCE_EVAL_PRODUCT_EXPERT_LENS_PATH = path.join(
   'spec-prd',
   'fresh-source-eval-2026-06-24-product-expert-lens.md',
 );
+const FRESH_SOURCE_EVAL_CLARIFICATION_EVIDENCE_PATH = path.join(
+  REPO_ROOT,
+  'docs',
+  'validation',
+  'spec-prd',
+  'fresh-source-eval-2026-06-24-clarification-evidence.md',
+);
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -280,6 +287,11 @@ describe('spec-prd workflow contracts', () => {
       'quality_diagnosis: not-run | minor-gaps | material-gaps | blockers | ready',
       'pre_prd_clarification_status: not-needed | source-resolved | asked-owner | blocker-cluster | route-out | not-run',
       'owner_question_progress: not-needed | source-resolved | closed | narrowed | accepted-assumption | outstanding-question | blocker | route-out',
+      'write_mode: ask-owner-first | checkpoint-prd | final-prd | route-out | not-run',
+      'highest_risk_gap:',
+      'next_owner_question:',
+      'question_delivery: blocking-tool | chat-fallback | true-headless-unavailable | not-needed',
+      'clarification_evidence: asked-owner | source-proven-no-ask | headless-degraded-logged | skipped',
       'Product Expert Lens',
       'Route out or bypass?',
       'Which PRD operation?',
@@ -399,6 +411,11 @@ describe('spec-prd workflow contracts', () => {
       'Fall back to numbered options in chat only when the harness genuinely lacks a blocking question tool',
       'Never silently skip an owner question',
       'no-input target request, Pre-PRD Clarification, Domain Grill, split confirmation, readiness `ask-owner`, and `grill-with-docs`',
+      'question_delivery=chat-fallback',
+      'question_delivery=true-headless-unavailable',
+      'clarification_evidence=headless-degraded-logged',
+      'blocking question tool unavailable does not mean true headless',
+      'missing this trail is `clarification_evidence=skipped`',
     ]);
     expectContainsAll(domainLanguage, [
       'Use the parent skill Interaction Method for every owner question',
@@ -408,6 +425,30 @@ describe('spec-prd workflow contracts', () => {
       'Use the parent skill Interaction Method for every owner question',
       'platform blocking question tool',
     ]);
+  });
+
+  test('clarification evidence write-mode contract blocks silent final PRD shortcuts', () => {
+    const skill = read(SKILL_PATH);
+
+    expectContainsAll(skill, [
+      'reason-then-act / 先规划后执行',
+      'owner question -> `highest_risk_gap` / `next_owner_question` / `question_delivery`',
+      'PRD write -> `write_mode`',
+      'readiness -> checker findings plus `readiness_outcome` / `can_enter_spec-plan`',
+      'handoff -> `readiness_outcome` and next action',
+      'reuse existing Decision Card fields and do not add phase-status enums, progress files, or transcripts',
+      'route-out, bypass, and source-proven paths use one concise reason instead of full ceremony',
+      'Pre-Write Closure Gate',
+      'write_mode=ask-owner-first',
+      'highest-risk gap can be closed by one owner question',
+      'large input is not permission to skip the owner question',
+      'write_mode=checkpoint-prd',
+      'write_mode=final-prd',
+      'source evidence, owner answer, or evidence-backed `accepted-assumption`',
+      'Outstanding Questions, Planning Recheck, blocker cluster, or route-out residue still in the PRD prevents `final-prd`',
+      'set `write_mode=checkpoint-prd` when preserving recoverable PRD context is necessary while keeping `readiness_outcome=revise-prd` or `readiness_outcome=ask-owner`',
+    ]);
+    expect(skill).not.toContain('degrade to `revise-prd`, `ask-owner`, `checkpoint-prd`, or `route-out`');
   });
 
   test('evidence and topology reference preserves source truth and system-shape boundaries', () => {
@@ -694,6 +735,22 @@ describe('spec-prd workflow contracts', () => {
       'parent_spec_id:',
       'source_prd:',
       'split_summary:',
+      'checkpoint-prd',
+      'not a final PRD',
+      'can_enter_spec-plan: no',
+      'write_mode',
+      'clarification_evidence',
+      'design_source_coverage',
+      'first_unclosed_owner_question',
+      'why_not',
+      'recommended default',
+      'Use `accepted-assumption` only when owner accepted it or source evidence proves it safe',
+      'PRD-owned owner question must not be marked non-blocking Planning Recheck',
+      'design_source_inventory',
+      'source_or_node',
+      'read_status',
+      'PRD write target',
+      'readiness consequence',
     ]);
     expectContainsAll(featureSlices, [
       'Feature Slices are context and handoff units',
@@ -759,6 +816,9 @@ describe('spec-prd workflow contracts', () => {
       'Design-Source Interface',
       'design-source-evidence.md',
       'source-candidate` / `provider_untrusted`',
+      'Outstanding Questions` or `Planning Recheck` is not settled WHAT',
+      'attempt one grill question or record why this run cannot clarify it',
+      'source/owner-supported settled WHAT does not need to be re-asked',
       'Large-Input Interface',
       'large-input-checkpoint.md',
       'Reduce output -> load_bearing_gap / owner_question_candidate / affected_write_targets',
@@ -772,6 +832,28 @@ describe('spec-prd workflow contracts', () => {
     expect(template).not.toContain('screenshots, Figma');
     expect(template).not.toContain('PRD/Figma/source consistency remains outside `spec-prd`');
     expect(read(SKILL_PATH)).not.toContain('front-end/UI inputs with Figma links');
+
+    const designSource = read(DESIGN_SOURCE_PATH);
+    const checkpoint = read(path.join(SKILL_DIR, 'references', 'large-input-checkpoint.md'));
+    expectContainsAll(designSource, [
+      'design_source_inventory',
+      'design_sources_read',
+      'design_sources_unread',
+      'source_or_node',
+      'read_status',
+      'PRD write target',
+      'readiness consequence',
+      'explicit input refs',
+      'Figma-discoverable nodes',
+      'design-dependent states referenced by requirements',
+      'must block `ready-for-planning`',
+    ]);
+    expectContainsAll(checkpoint, [
+      '`checkpoint-prd` is not a final PRD',
+      'can_enter_spec-plan: no',
+      'next_owner_question',
+      'write_mode=checkpoint-prd',
+    ]);
   });
 
   test('readiness lens uses compound packs instead of long enumerated gate drift', () => {
@@ -860,6 +942,27 @@ describe('spec-prd workflow contracts', () => {
       'script-owned facts',
       'handoff entropy check',
       'open load-bearing WHAT gap',
+      '`write_mode`',
+      '`clarification_evidence`',
+      'write_mode=ask-owner-first',
+      'write_mode=checkpoint-prd',
+      'clarification_evidence=skipped',
+      'Outstanding Questions or Planning Recheck',
+      'clarification did not happen',
+      'PRD-owned owner question',
+      'blocks planning? no',
+      'Figma/design-source',
+      'page structure, state, interaction, acceptance, or scope',
+      'headless-degraded-logged',
+      'source-proven-no-ask',
+      'clarification_evidence_undeclared',
+      'write_mode_undeclared',
+      'can_enter_spec_plan_undeclared',
+      'design_source_inventory_undeclared',
+      'design_source_coverage_undeclared',
+      'set `write_mode=checkpoint-prd` when preserving recoverable PRD context is necessary while keeping `readiness_outcome=revise-prd` or `readiness_outcome=ask-owner`',
+      'degrades readiness to `revise-prd`, `ask-owner`, or `route-out`',
+      'must not return `ready-for-planning`',
       'unresolved framing risks',
       'do not introduce a second evidence enum',
       'ready-for-planning',
@@ -869,6 +972,7 @@ describe('spec-prd workflow contracts', () => {
     ]);
     expect(readiness).not.toContain('Always Gate');
     expect(readiness).not.toContain('Adaptive Product Expert Lens');
+    expect(readiness).not.toContain('degrade to `revise-prd`, `ask-owner`, `checkpoint-prd`, or `route-out`');
     expect(readiness).not.toContain('entry, state, copy, empty/error/loading, permissions, i18n, and accessibility');
     expect(readiness).not.toContain('`current-state accuracy`');
   });
@@ -1034,11 +1138,164 @@ describe('spec-prd workflow contracts', () => {
           ]),
         }),
       }),
+      expect.objectContaining({
+        id: 'clarification-skipped-structured-input-rejected',
+        requires: expect.objectContaining({
+          case_type: 'failure',
+          quality_buckets: expect.arrayContaining(['failure', 'readiness-fail']),
+          coverage_tags: expect.arrayContaining(['readiness']),
+          expected: expect.arrayContaining([
+            'write_mode must be ask-owner-first or checkpoint-prd before final PRD write',
+            'clarification_evidence must be declared',
+          ]),
+          must_not: expect.arrayContaining([
+            'must not return ready-for-planning with zero owner interaction and unresolved Outstanding',
+          ]),
+        }),
+      }),
+      expect.objectContaining({
+        id: 'headless-degraded-abuse-rejected',
+        requires: expect.objectContaining({
+          case_type: 'failure',
+          quality_buckets: expect.arrayContaining(['failure', 'readiness-fail']),
+          coverage_tags: expect.arrayContaining(['readiness']),
+          expected: expect.arrayContaining([
+            'chat-fallback required when chat can wait',
+          ]),
+          must_not: expect.arrayContaining([
+            'must not claim true-headless-unavailable when chat fallback is possible',
+          ]),
+        }),
+      }),
+      expect.objectContaining({
+        id: 'large-input-ask-owner-priority',
+        requires: expect.objectContaining({
+          case_type: 'boundary',
+          quality_buckets: expect.arrayContaining(['refine']),
+          coverage_tags: expect.arrayContaining(['readiness', 'boundary']),
+          expected: expect.arrayContaining([
+            'write_mode=ask-owner-first even for large input when gap is closable by one question',
+          ]),
+          must_not: expect.arrayContaining([
+            'must not jump to checkpoint-prd merely because input is large',
+          ]),
+        }),
+      }),
+      expect.objectContaining({
+        id: 'prd-owned-question-nonblocking-ready-rejected',
+        requires: expect.objectContaining({
+          case_type: 'failure',
+          quality_buckets: expect.arrayContaining(['failure', 'readiness-fail']),
+          coverage_tags: expect.arrayContaining(['readiness', 'owner-question-avoidance']),
+          expected: expect.arrayContaining([
+            'PRD-owned owner questions must be grilled or block readiness',
+          ]),
+          must_not: expect.arrayContaining([
+            'must not mark ready-for-planning when unresolved owner questions can change WHAT, acceptance, data authority, interface availability, fallback display, analytics acceptance, or source-of-truth',
+          ]),
+        }),
+      }),
+      expect.objectContaining({
+        id: 'figma-unread-prd-ready-rejected',
+        requires: expect.objectContaining({
+          case_type: 'failure',
+          quality_buckets: expect.arrayContaining(['failure', 'readiness-fail']),
+          coverage_tags: expect.arrayContaining(['readiness', 'owner-question-avoidance']),
+          expected: expect.arrayContaining([
+            'Figma/design-source nodes affecting UI structure, state, interaction, acceptance, or scope must be read during PRD output or block readiness',
+          ]),
+          must_not: expect.arrayContaining([
+            'must not mark ready-for-planning when unread Figma/design nodes can change WHAT or acceptance',
+          ]),
+        }),
+      }),
+      expect.objectContaining({
+        id: 'core-declarations-omitted-ready-rejected',
+        requires: expect.objectContaining({
+          case_type: 'failure',
+          quality_buckets: expect.arrayContaining(['failure', 'readiness-fail']),
+          coverage_tags: expect.arrayContaining(['readiness', 'owner-question-avoidance']),
+          expected: expect.arrayContaining([
+            'core readiness declarations are required for PRD artifacts or ready-for-planning outputs',
+          ]),
+          must_not: expect.arrayContaining([
+            'must not avoid checker findings by omitting Outstanding Questions and Planning Recheck',
+          ]),
+        }),
+      }),
+      expect.objectContaining({
+        id: 'figma-omitted-from-coverage-ready-rejected',
+        requires: expect.objectContaining({
+          case_type: 'failure',
+          quality_buckets: expect.arrayContaining(['failure', 'readiness-fail']),
+          coverage_tags: expect.arrayContaining(['readiness', 'owner-question-avoidance']),
+          expected: expect.arrayContaining([
+            'design_source_inventory must include explicit input refs, Figma-discoverable nodes, and design-dependent states referenced by requirements',
+          ]),
+          must_not: expect.arrayContaining([
+            'must not mark ready-for-planning when unread design nodes are omitted from design_source_coverage',
+          ]),
+        }),
+      }),
     ]));
     expect(findEvalCase(examples, 'product-judgment-naming-only-rejected')).toMatchObject({
       case_type: 'failure',
       coverage_tags: expect.arrayContaining(['product-judgment']),
       must_not: expect.arrayContaining(['must not pass by only renaming the lens without risk-ranked product judgment']),
+    });
+    expectEvalCase(examples, 'clarification-skipped-structured-input-rejected', {
+      tags: ['readiness'],
+      expected: [
+        'write_mode must be ask-owner-first or checkpoint-prd before final PRD write',
+        'clarification_evidence must be declared',
+        'skipped or missing with Outstanding/Planning Recheck blocks ready-for-planning',
+      ],
+    });
+    expect(findEvalCase(examples, 'clarification-skipped-structured-input-rejected')).toMatchObject({
+      case_type: 'failure',
+      quality_buckets: expect.arrayContaining(['failure', 'readiness-fail']),
+      must_not: expect.arrayContaining(['must not treat checkpoint-prd as final-prd']),
+    });
+    expectEvalCase(examples, 'headless-degraded-abuse-rejected', {
+      tags: ['readiness'],
+      expected: [
+        'chat-fallback required when chat can wait',
+        'must declare question_delivery=chat-fallback not true-headless-unavailable',
+      ],
+    });
+    expectEvalCase(examples, 'large-input-ask-owner-priority', {
+      tags: ['readiness', 'boundary'],
+      expected: [
+        'write_mode=ask-owner-first even for large input when gap is closable by one question',
+      ],
+    });
+    expectEvalCase(examples, 'prd-owned-question-nonblocking-ready-rejected', {
+      tags: ['readiness', 'owner-question-avoidance'],
+      expected: [
+        'PRD-owned owner questions must be grilled or block readiness',
+        'Planning Recheck only carries HOW or integration recheck after product default and acceptance are closed',
+      ],
+    });
+    expectEvalCase(examples, 'figma-unread-prd-ready-rejected', {
+      tags: ['readiness', 'owner-question-avoidance'],
+      expected: [
+        'Figma/design-source nodes affecting UI structure, state, interaction, acceptance, or scope must be read during PRD output or block readiness',
+        'unread design nodes must map to PRD write targets with source/node id, unread reason, evidence level, and readiness consequence',
+      ],
+    });
+    expectEvalCase(examples, 'core-declarations-omitted-ready-rejected', {
+      tags: ['readiness', 'owner-question-avoidance'],
+      expected: [
+        'core readiness declarations are required for PRD artifacts or ready-for-planning outputs',
+        'checker reports missing declaration findings even when Outstanding/Planning Recheck sections are absent',
+      ],
+    });
+    expectEvalCase(examples, 'figma-omitted-from-coverage-ready-rejected', {
+      tags: ['readiness', 'owner-question-avoidance'],
+      expected: [
+        'design_source_inventory must include explicit input refs, Figma-discoverable nodes, and design-dependent states referenced by requirements',
+        'unread design nodes omitted from coverage block readiness',
+      ],
     });
     expectEvalCase(examples, 'structured-input-how-demotion', {
       tags: ['boundary', 'product-judgment'],
@@ -1592,6 +1849,43 @@ describe('spec-prd workflow contracts', () => {
     expect(artifact).not.toContain('reason_code: fresh-source-eval-not-run');
   });
 
+  test('clarification evidence eval artifact records dispatched behavior review and anti-ceremony boundary', () => {
+    const artifact = read(FRESH_SOURCE_EVAL_CLARIFICATION_EVIDENCE_PATH);
+
+    expectContainsAll(artifact, [
+      'fresh_source_eval:',
+      'schema_version: fresh-source-eval-record.v1',
+      'producer: spec-work',
+      'freshness: current-worktree',
+      'authority_level: advisory',
+      'reason_code: fresh-source-eval-dispatched',
+      'consumer: spec-prd contract tests and work closeout',
+      'status: passed',
+      'skills/spec-prd/SKILL.md',
+      'skills/spec-prd/references/product-expert-lens.md',
+      'skills/spec-prd/references/design-source-evidence.md',
+      'skills/spec-prd/references/large-input-checkpoint.md',
+      'skills/spec-prd/references/prd-output-template.md',
+      'skills/spec-prd/references/prd-readiness-lens.md',
+      'skills/spec-prd/scripts/check-prd-artifact.js',
+      'skills/spec-prd/evals/examples.json',
+      'tests/unit/spec-prd-contracts.test.js',
+      'runtime_paths_checked: []',
+      'structured_zero_interaction_not_ready: passed',
+      'codex_chat_fallback_not_headless: passed',
+      'source_resolved_no_reask: passed',
+      'large_input_ask_owner_priority: passed',
+      'prd_owned_nonblocking_blocks_ready: passed',
+      'checker_finding_consumption: passed',
+      'figma_unread_or_omitted_blocks_ready: passed',
+      'anti_ceremony_one_question_stop_and_compact_closeout: passed',
+      'Generated runtime mirrors were not used as source',
+    ]);
+    expect(artifact).not.toContain('large-input priority: not_run');
+    expect(artifact).not.toContain('Figma unread/omitted: not_run');
+    expect(artifact).not.toContain('status: not_run');
+  });
+
   test('project domain glossary artifact defines the cross-PRD canonical layer with light contract', () => {
     const glossary = read(GLOSSARY_PATH);
 
@@ -1772,6 +2066,12 @@ describe('spec-prd workflow contracts', () => {
           '| --- | --- | --- | --- |',
           '| Should failed-row feedback show row numbers? | no | show row count only | owner |',
           '',
+          '## Readiness Self-Check',
+          'write_mode: final-prd',
+          'clarification_evidence: asked-owner',
+          'can_enter_spec-plan: yes',
+          'design_source_coverage: not-needed',
+          '',
         ].join('\n'),
         'utf8',
       );
@@ -1786,6 +2086,13 @@ describe('spec-prd workflow contracts', () => {
       expect(good.facts.nfr_count).toBe(1);
       expect(good.facts.assumption_row_count).toBe(1);
       expect(good.facts.outstanding_question_count).toBe(1);
+      expect(good.facts.outstanding_questions_present).toBe(true);
+      expect(good.facts.outstanding_questions_count).toBe(1);
+      expect(good.facts.planning_recheck_present).toBe(false);
+      expect(good.facts.write_mode_declared_valid).toBe(true);
+      expect(good.facts.clarification_evidence_declared_valid).toBe(true);
+      expect(good.facts.can_enter_spec_plan_declared_valid).toBe(true);
+      expect(good.facts.design_source_refs_present).toBe(false);
       expect(good.findings).toEqual([]);
 
       const badPrd = path.join(tmpDir, 'bad-requirements.md');
@@ -1833,6 +2140,376 @@ describe('spec-prd workflow contracts', () => {
       expect(extraArgError).not.toBeNull();
       expect(extraArgError.status).toBe(2);
       expect(String(extraArgError.stderr)).toContain('unexpected extra argument');
+
+      const readyWithoutDeclarations = path.join(tmpDir, 'ready-without-declarations.md');
+      fs.writeFileSync(
+        readyWithoutDeclarations,
+        [
+          '---',
+          'artifact_kind: prd-requirements',
+          '---',
+          '',
+          '## Summary',
+          'ready-for-planning',
+          '',
+          '## Change Delta',
+          '| item | current | target | delta | evidence |',
+          '| --- | --- | --- | --- | --- |',
+          '| Import | absent | available | extend | user-stated |',
+          '',
+          '## Requirements',
+          '| id | priority | requirement | rationale/source |',
+          '| --- | --- | --- | --- |',
+          '| R-01 | P0 | Users can import a CSV file. | user-stated |',
+          '',
+          '## Acceptance Examples',
+          'AE-01（对应 R-01）',
+          '',
+          '## Scope Boundaries',
+          'No background scheduling.',
+          '',
+          '## Evidence And Assumptions',
+          '| claim | tag | source / owner | note |',
+          '| --- | --- | --- | --- |',
+          '| CSV import is requested. | user-stated | owner | direct request |',
+        ].join('\n'),
+        'utf8',
+      );
+      const undeclared = JSON.parse(execFileSync('node', [PRD_ARTIFACT_SCRIPT_PATH, readyWithoutDeclarations], { encoding: 'utf8' }));
+      expect(undeclared.findings).toEqual(expect.arrayContaining([
+        expect.objectContaining({ reason_code: 'write_mode_undeclared' }),
+        expect.objectContaining({ reason_code: 'clarification_evidence_undeclared' }),
+        expect.objectContaining({ reason_code: 'can_enter_spec_plan_undeclared' }),
+      ]));
+
+      const readyNonPrdWithoutDeclarations = path.join(tmpDir, 'ready-non-prd-without-declarations.md');
+      fs.writeFileSync(
+        readyNonPrdWithoutDeclarations,
+        [
+          '# Ad-hoc PRD summary',
+          '',
+          'readiness_outcome: ready-for-planning',
+        ].join('\n'),
+        'utf8',
+      );
+      const nonPrdReady = JSON.parse(execFileSync('node', [PRD_ARTIFACT_SCRIPT_PATH, readyNonPrdWithoutDeclarations], { encoding: 'utf8' }));
+      expect(nonPrdReady.findings).toEqual(expect.arrayContaining([
+        expect.objectContaining({ reason_code: 'frontmatter_missing' }),
+        expect.objectContaining({ reason_code: 'write_mode_undeclared' }),
+        expect.objectContaining({ reason_code: 'clarification_evidence_undeclared' }),
+        expect.objectContaining({ reason_code: 'can_enter_spec_plan_undeclared' }),
+      ]));
+
+      const bulletOutstanding = path.join(tmpDir, 'bullet-outstanding.md');
+      fs.writeFileSync(
+        bulletOutstanding,
+        [
+          '---',
+          'artifact_kind: prd-requirements',
+          '---',
+          '',
+          '## Summary',
+          'A PRD with bullet questions.',
+          '',
+          '## Change Delta',
+          '| item | current | target | delta | evidence |',
+          '| --- | --- | --- | --- | --- |',
+          '| Import | absent | available | extend | user-stated |',
+          '',
+          '## Requirements',
+          '| id | priority | requirement | rationale/source |',
+          '| --- | --- | --- | --- |',
+          '| R-01 | P0 | Users can import a CSV file. | user-stated |',
+          '',
+          '## Acceptance Examples',
+          'AE-01（对应 R-01）',
+          '',
+          '## Scope Boundaries',
+          'No background scheduling.',
+          '',
+          '## Evidence And Assumptions',
+          '| claim | tag | source / owner | note |',
+          '| --- | --- | --- | --- |',
+          '| CSV import is requested. | user-stated | owner | direct request |',
+          '',
+          '## Outstanding Questions',
+          '- Should failed rows include row numbers?',
+        ].join('\n'),
+        'utf8',
+      );
+      const bullet = JSON.parse(execFileSync('node', [PRD_ARTIFACT_SCRIPT_PATH, bulletOutstanding], { encoding: 'utf8' }));
+      expect(bullet.facts.outstanding_questions_present).toBe(true);
+      expect(bullet.findings).toEqual(expect.arrayContaining([
+        expect.objectContaining({ reason_code: 'write_mode_undeclared' }),
+        expect.objectContaining({ reason_code: 'clarification_evidence_undeclared' }),
+      ]));
+
+      const templateOnlyFields = path.join(tmpDir, 'template-only-fields.md');
+      fs.writeFileSync(
+        templateOnlyFields,
+        [
+          '---',
+          'artifact_kind: prd-requirements',
+          '---',
+          '',
+          '## Summary',
+          'The template mentions write_mode and clarification_evidence in prose.',
+          '',
+          '```text',
+          'write_mode:',
+          'clarification_evidence:',
+          'can_enter_spec-plan:',
+          '```',
+          '',
+          '## Change Delta',
+          '| item | current | target | delta | evidence |',
+          '| --- | --- | --- | --- | --- |',
+          '| Import | absent | available | extend | user-stated |',
+          '',
+          '## Requirements',
+          '| id | priority | requirement | rationale/source |',
+          '| --- | --- | --- | --- |',
+          '| R-01 | P0 | Users can import a CSV file. | user-stated |',
+          '',
+          '## Acceptance Examples',
+          'AE-01（对应 R-01）',
+          '',
+          '## Scope Boundaries',
+          'No background scheduling.',
+          '',
+          '## Evidence And Assumptions',
+          '| claim | tag | source / owner | note |',
+          '| --- | --- | --- | --- |',
+          '| CSV import is requested. | user-stated | owner | direct request |',
+        ].join('\n'),
+        'utf8',
+      );
+      const templateOnly = JSON.parse(execFileSync('node', [PRD_ARTIFACT_SCRIPT_PATH, templateOnlyFields], { encoding: 'utf8' }));
+      expect(templateOnly.findings).toEqual(expect.arrayContaining([
+        expect.objectContaining({ reason_code: 'write_mode_undeclared' }),
+        expect.objectContaining({ reason_code: 'clarification_evidence_undeclared' }),
+        expect.objectContaining({ reason_code: 'can_enter_spec_plan_undeclared' }),
+      ]));
+
+      const figmaWithoutCoverage = path.join(tmpDir, 'figma-without-coverage.md');
+      fs.writeFileSync(
+        figmaWithoutCoverage,
+        [
+          '---',
+          'artifact_kind: prd-requirements',
+          '---',
+          '',
+          '## Summary',
+          'Figma: https://www.figma.com/design/abc/File?node-id=1-2',
+          '',
+          '## Change Delta',
+          '| item | current | target | delta | evidence |',
+          '| --- | --- | --- | --- | --- |',
+          '| App | absent | available | extend | source-candidate |',
+          '',
+          '## Requirements',
+          '| id | priority | requirement | rationale/source |',
+          '| --- | --- | --- | --- |',
+          '| R-01 | P0 | Users can open the market page. | source-candidate |',
+          '',
+          '## Acceptance Examples',
+          'AE-01（对应 R-01）',
+          '',
+          '## Scope Boundaries',
+          'No backend changes.',
+          '',
+          '## Evidence And Assumptions',
+          '| claim | tag | source / owner | note |',
+          '| --- | --- | --- | --- |',
+          '| Design exists. | source-candidate | figma | provider_untrusted |',
+          '',
+          '## Readiness Self-Check',
+          'write_mode: final-prd',
+          'clarification_evidence: source-proven-no-ask',
+          'can_enter_spec-plan: yes',
+        ].join('\n'),
+        'utf8',
+      );
+      const figmaMissing = JSON.parse(execFileSync('node', [PRD_ARTIFACT_SCRIPT_PATH, figmaWithoutCoverage], { encoding: 'utf8' }));
+      expect(figmaMissing.facts.design_source_refs_present).toBe(true);
+      expect(figmaMissing.findings).toEqual(expect.arrayContaining([
+        expect.objectContaining({ reason_code: 'design_source_inventory_undeclared' }),
+        expect.objectContaining({ reason_code: 'design_source_coverage_undeclared' }),
+        expect.objectContaining({ reason_code: 'design_sources_read_undeclared' }),
+        expect.objectContaining({ reason_code: 'design_sources_unread_undeclared' }),
+      ]));
+
+      const figmaEmptyCoverage = path.join(tmpDir, 'figma-empty-coverage.md');
+      fs.writeFileSync(
+        figmaEmptyCoverage,
+        [
+          '---',
+          'artifact_kind: prd-requirements',
+          '---',
+          '',
+          '## Summary',
+          'Figma node 1:2 informs the market page.',
+          '',
+          '## Change Delta',
+          '| item | current | target | delta | evidence |',
+          '| --- | --- | --- | --- | --- |',
+          '| App | absent | available | extend | source-candidate |',
+          '',
+          '## Requirements',
+          '| id | priority | requirement | rationale/source |',
+          '| --- | --- | --- | --- |',
+          '| R-01 | P0 | Users can open the market page. | source-candidate |',
+          '',
+          '## Acceptance Examples',
+          'AE-01（对应 R-01）',
+          '',
+          '## Scope Boundaries',
+          'No backend changes.',
+          '',
+          '## Evidence And Assumptions',
+          '| claim | tag | source / owner | note |',
+          '| --- | --- | --- | --- |',
+          '| Design exists. | source-candidate | Figma node 1:2 | provider_untrusted |',
+          '',
+          '## Design Source Coverage',
+          'design_source_inventory:',
+          '- source_or_node: Figma node 1:2',
+          '  read_status: read',
+          'design_source_coverage:',
+          '',
+          '## Readiness Self-Check',
+          'write_mode: final-prd',
+          'clarification_evidence: source-proven-no-ask',
+          'can_enter_spec-plan: yes',
+        ].join('\n'),
+        'utf8',
+      );
+      const figmaEmpty = JSON.parse(execFileSync('node', [PRD_ARTIFACT_SCRIPT_PATH, figmaEmptyCoverage], { encoding: 'utf8' }));
+      expect(figmaEmpty.facts.design_source_coverage_declared).toBe(false);
+      expect(figmaEmpty.findings).toEqual(expect.arrayContaining([
+        expect.objectContaining({ reason_code: 'design_source_coverage_undeclared' }),
+        expect.objectContaining({ reason_code: 'design_sources_read_undeclared' }),
+        expect.objectContaining({ reason_code: 'design_sources_unread_undeclared' }),
+      ]));
+
+      const figmaThinCoverage = path.join(tmpDir, 'figma-thin-coverage.md');
+      fs.writeFileSync(
+        figmaThinCoverage,
+        [
+          '---',
+          'artifact_kind: prd-requirements',
+          '---',
+          '',
+          '## Summary',
+          'Figma node 1:2 informs the market page.',
+          '',
+          '## Change Delta',
+          '| item | current | target | delta | evidence |',
+          '| --- | --- | --- | --- | --- |',
+          '| App | absent | available | extend | source-candidate |',
+          '',
+          '## Requirements',
+          '| id | priority | requirement | rationale/source |',
+          '| --- | --- | --- | --- |',
+          '| R-01 | P0 | Users can open the market page. | source-candidate |',
+          '',
+          '## Acceptance Examples',
+          'AE-01（对应 R-01）',
+          '',
+          '## Scope Boundaries',
+          'No backend changes.',
+          '',
+          '## Evidence And Assumptions',
+          '| claim | tag | source / owner | note |',
+          '| --- | --- | --- | --- |',
+          '| Design exists. | source-candidate | Figma node 1:2 | provider_untrusted |',
+          '',
+          '## Design Source Coverage',
+          'design_source_inventory:',
+          '- source_or_node: Figma node 1:2',
+          '  read_status: read',
+          '  design_source_coverage: read status confirmed',
+          '',
+          'design_sources_read:',
+          'design_sources_unread:',
+          'design_source_coverage: read status confirmed',
+          '',
+          '## Readiness Self-Check',
+          'write_mode: final-prd',
+          'clarification_evidence: source-proven-no-ask',
+          'can_enter_spec-plan: yes',
+        ].join('\n'),
+        'utf8',
+      );
+      const figmaThin = JSON.parse(execFileSync('node', [PRD_ARTIFACT_SCRIPT_PATH, figmaThinCoverage], { encoding: 'utf8' }));
+      expect(figmaThin.facts.design_sources_read_present).toBe(false);
+      expect(figmaThin.facts.design_sources_unread_present).toBe(false);
+      expect(figmaThin.findings).toEqual(expect.arrayContaining([
+        expect.objectContaining({ reason_code: 'design_sources_read_undeclared' }),
+        expect.objectContaining({ reason_code: 'design_sources_unread_undeclared' }),
+      ]));
+
+      const figmaWithCoverage = path.join(tmpDir, 'figma-with-coverage.md');
+      fs.writeFileSync(
+        figmaWithCoverage,
+        [
+          '---',
+          'artifact_kind: prd-requirements',
+          '---',
+          '',
+          '## Summary',
+          'Figma node 1:2 informs the market page.',
+          '',
+          '## Change Delta',
+          '| item | current | target | delta | evidence |',
+          '| --- | --- | --- | --- | --- |',
+          '| App | absent | available | extend | source-candidate |',
+          '',
+          '## Requirements',
+          '| id | priority | requirement | rationale/source |',
+          '| --- | --- | --- | --- |',
+          '| R-01 | P0 | Users can open the market page. | source-candidate |',
+          '',
+          '## Acceptance Examples',
+          'AE-01（对应 R-01）',
+          '',
+          '## Scope Boundaries',
+          'No backend changes.',
+          '',
+          '## Evidence And Assumptions',
+          '| claim | tag | source / owner | note |',
+          '| --- | --- | --- | --- |',
+          '| Design exists. | source-candidate | Figma node 1:2 | provider_untrusted |',
+          '',
+          '## Design Source Coverage',
+          'design_source_inventory:',
+          '- source_or_node: Figma node 1:2',
+          '  read_status: read',
+          '  design_source_coverage: read status confirmed',
+          '',
+          'design_sources_read:',
+          '- Figma node 1:2 -> Acceptance Examples -> source-candidate/provider_untrusted',
+          '',
+          'design_sources_unread:',
+          '- none',
+          '',
+          'design_source_coverage: read status confirmed',
+          '',
+          '## Readiness Self-Check',
+          'write_mode: final-prd',
+          'clarification_evidence: source-proven-no-ask',
+          'can_enter_spec-plan: yes',
+        ].join('\n'),
+        'utf8',
+      );
+      const figmaCovered = JSON.parse(execFileSync('node', [PRD_ARTIFACT_SCRIPT_PATH, figmaWithCoverage], { encoding: 'utf8' }));
+      expect(figmaCovered.facts.design_source_inventory_declared).toBe(true);
+      expect(figmaCovered.facts.design_sources_read_present).toBe(true);
+      expect(figmaCovered.facts.design_sources_unread_present).toBe(true);
+      expect(figmaCovered.facts.design_source_coverage_declared).toBe(true);
+      expect(figmaCovered.findings.map((finding) => finding.reason_code)).not.toContain('design_source_coverage_undeclared');
+      expect(figmaCovered.findings.map((finding) => finding.reason_code)).not.toContain('design_sources_read_undeclared');
+      expect(figmaCovered.findings.map((finding) => finding.reason_code)).not.toContain('design_sources_unread_undeclared');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

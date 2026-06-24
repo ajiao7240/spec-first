@@ -70,13 +70,13 @@ These dimensions adapt the question set; they do not relax source-first evidence
 
 ## Structured Input Synthesis
 
-When the input is already a structured or decided PRD, design doc, issue summary, or conversation synthesis, do not re-ask settled WHAT by default. First separate:
+When the input is already a structured or decided PRD, design doc, issue summary, or conversation synthesis, do not re-ask source/owner-supported settled WHAT by default. First separate:
 
 - scope, actor, outcome, acceptance, source-of-truth, and owner decisions that belong in standard PRD sections
 - implementation, testing, API, schema, task, or rollout mechanics that are HOW unless they change scope, acceptance, or source-of-truth
 - rejected ideas, thinking-aloud, superseded drafts, and unconfirmed claims that stay reference-claims
 
-Write settled WHAT into normal PRD sections. Demote implementation-heavy or testing-heavy details to assumptions, design input, or planning context only when they affect WHAT. Do not introduce a named conversion adapter, fixed field map, or second output artifact.
+Write settled WHAT into normal PRD sections. Demote implementation-heavy or testing-heavy details to assumptions, design input, or planning context only when they affect WHAT. Any gap that lands in `Outstanding Questions` or `Planning Recheck` is not settled WHAT: attempt one grill question or record why this run cannot clarify it, such as true headless, missing source, or unavailable owner. This does not require re-asking source/owner-supported settled WHAT; source/owner-supported settled WHAT does not need to be re-asked. Do not introduce a named conversion adapter, fixed field map, or second output artifact.
 
 ## Design-Source Interface
 

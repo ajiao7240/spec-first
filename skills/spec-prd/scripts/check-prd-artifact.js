@@ -145,6 +145,75 @@ function countSectionRows(lines, headings, title) {
   return section ? tableRows(section.text).length : 0;
 }
 
+function sectionPresent(lines, headings, title) {
+  return Boolean(sectionRange(lines, headings, title));
+}
+
+function stripFencedCode(text) {
+  return text.replace(/```[\s\S]*?```/g, '');
+}
+
+function hasValidDeclaration(text, fieldPattern, values) {
+  const body = stripFencedCode(text);
+  const valuePattern = values.map((value) => value.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
+  const regex = new RegExp(`^\\s*(?:[-*]\\s*)?${fieldPattern}\\s*:\\s*(${valuePattern})\\s*$`, 'im');
+  return regex.test(body);
+}
+
+function hasConcreteFieldBlock(text, fieldPattern) {
+  const lines = splitLines(stripFencedCode(text));
+  const fieldRegex = new RegExp(`^\\s*(?:[-*]\\s*)?${fieldPattern}\\s*:\\s*(.*)$`, 'i');
+  for (let i = 0; i < lines.length; i += 1) {
+    const match = lines[i].match(fieldRegex);
+    if (!match) continue;
+    const inlineValue = match[1].trim();
+    if (inlineValue && !/^<.*>$/.test(inlineValue) && !/^n\/?a$/i.test(inlineValue)) {
+      return true;
+    }
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const line = lines[j];
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (/^#{1,6}\s+/.test(trimmed)) break;
+      if (/^\s*[-*]\s+\S/.test(line)) {
+        return !/^[-*]\s*<.*>$/.test(trimmed);
+      }
+      if (/^[A-Za-z_][A-Za-z0-9_-]*\s*:/.test(trimmed)) break;
+      if (!/^<.*>$/.test(trimmed) && !/^n\/?a$/i.test(trimmed)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function detectDesignSourceRefs(text) {
+  const body = stripFencedCode(text);
+  return /figma\.com|figma\s+(?:node|file)|node-id=|design-source|design_source_inventory|design_sources_|Design\s*\/\s*UX Evidence Hook/i.test(body);
+}
+
+function detectDesignSourceInventory(text) {
+  return /^\s*(?:[-*]\s*)?design_source_inventory\s*:/im.test(stripFencedCode(text));
+}
+
+function detectDesignSourceCoverage(text) {
+  const body = stripFencedCode(text);
+  return splitLines(body).some((line) => {
+    if (!/^\s*(?:[-*]\s*)?design_source_coverage\s*:/i.test(line)) return false;
+    if (!hasConcreteValueAfterColon(line)) return false;
+    const value = line.slice(line.indexOf(':') + 1);
+    return /\b(read|unread|status|degraded)\b/i.test(value);
+  });
+}
+
+function detectDesignSourcesRead(text) {
+  return hasConcreteFieldBlock(text, 'design_sources_read');
+}
+
+function detectDesignSourcesUnread(text) {
+  return hasConcreteFieldBlock(text, 'design_sources_unread');
+}
+
 function countAssumptionRows(lines, headings) {
   const section = sectionRange(lines, headings, 'Evidence And Assumptions');
   if (!section) return 0;
@@ -214,7 +283,34 @@ function buildReport(target, text) {
   const featureSliceGaps = detectFeatureSliceGaps(lines, headings);
   const priorities = priorityDistribution(lines, headings);
   const assumptionRowCount = countAssumptionRows(lines, headings);
+  const outstandingQuestionsPresent = sectionPresent(lines, headings, 'Outstanding Questions');
+  const planningRecheckPresent = sectionPresent(lines, headings, 'Planning Recheck');
   const outstandingQuestionCount = countSectionRows(lines, headings, 'Outstanding Questions');
+  const planningRecheckCount = countSectionRows(lines, headings, 'Planning Recheck');
+  const writeModeDeclaredValid = hasValidDeclaration(text, 'write_mode', [
+    'ask-owner-first',
+    'checkpoint-prd',
+    'final-prd',
+    'route-out',
+    'not-run',
+  ]);
+  const clarificationEvidenceDeclaredValid = hasValidDeclaration(text, 'clarification_evidence', [
+    'asked-owner',
+    'source-proven-no-ask',
+    'headless-degraded-logged',
+    'skipped',
+  ]);
+  const canEnterSpecPlanDeclaredValid = hasValidDeclaration(text, 'can_enter_spec-plan', [
+    'yes',
+    'no',
+  ]);
+  const designSourceRefsPresent = detectDesignSourceRefs(text);
+  const designSourceInventoryDeclared = detectDesignSourceInventory(text);
+  const designSourceCoverageDeclared = detectDesignSourceCoverage(text);
+  const designSourcesReadPresent = detectDesignSourcesRead(text);
+  const designSourcesUnreadPresent = detectDesignSourcesUnread(text);
+  const needsReadinessDeclarations = frontmatter.fields.artifact_kind === 'prd-requirements'
+    || /\bready-for-planning\b/i.test(text);
 
   const findings = [];
   if (!frontmatter.present) {
@@ -241,6 +337,27 @@ function buildReport(target, text) {
     findings.push({ reason_code: 'placeholder_or_todo_present', line });
   });
   featureSliceGaps.forEach((finding) => findings.push(finding));
+  if (needsReadinessDeclarations && !writeModeDeclaredValid) {
+    findings.push({ reason_code: 'write_mode_undeclared' });
+  }
+  if (needsReadinessDeclarations && !clarificationEvidenceDeclaredValid) {
+    findings.push({ reason_code: 'clarification_evidence_undeclared' });
+  }
+  if (needsReadinessDeclarations && !canEnterSpecPlanDeclaredValid) {
+    findings.push({ reason_code: 'can_enter_spec_plan_undeclared' });
+  }
+  if (designSourceRefsPresent && !designSourceInventoryDeclared) {
+    findings.push({ reason_code: 'design_source_inventory_undeclared' });
+  }
+  if (designSourceRefsPresent && !designSourceCoverageDeclared) {
+    findings.push({ reason_code: 'design_source_coverage_undeclared' });
+  }
+  if (designSourceRefsPresent && !designSourcesReadPresent) {
+    findings.push({ reason_code: 'design_sources_read_undeclared' });
+  }
+  if (designSourceRefsPresent && !designSourcesUnreadPresent) {
+    findings.push({ reason_code: 'design_sources_unread_undeclared' });
+  }
 
   return {
     schema_version: 'spec-prd-artifact-check.v1',
@@ -260,6 +377,18 @@ function buildReport(target, text) {
       nfr_count: nfrIds.length,
       assumption_row_count: assumptionRowCount,
       outstanding_question_count: outstandingQuestionCount,
+      outstanding_questions_present: outstandingQuestionsPresent,
+      outstanding_questions_count: outstandingQuestionCount,
+      planning_recheck_present: planningRecheckPresent,
+      planning_recheck_count: planningRecheckCount,
+      write_mode_declared_valid: writeModeDeclaredValid,
+      clarification_evidence_declared_valid: clarificationEvidenceDeclaredValid,
+      can_enter_spec_plan_declared_valid: canEnterSpecPlanDeclaredValid,
+      design_source_refs_present: designSourceRefsPresent,
+      design_source_inventory_declared: designSourceInventoryDeclared,
+      design_source_coverage_declared: designSourceCoverageDeclared,
+      design_sources_read_present: designSourcesReadPresent,
+      design_sources_unread_present: designSourcesUnreadPresent,
       placeholder_line_count: placeholderLines.length,
       feature_slice_trace_gap_count: featureSliceGaps.length,
     },

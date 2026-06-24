@@ -183,7 +183,7 @@ flowchart TD
   H5 --> J6
 
   J6 --> K["Phase 4<br/>Readiness And Handoff"]
-  K --> K1["Script-owned advisory facts<br/>check-prd-artifact.js: frontmatter / core sections / R-AE trace / placeholder / feature slice trace<br/>check-glossary-drift.js: avoid term literal hits when glossary exists"]
+  K --> K1["Script-owned advisory facts<br/>check-prd-artifact.js: frontmatter / core sections / R-AE trace / placeholder / feature slice trace<br/>readiness declaration gaps / design-source coverage declaration gaps<br/>check-glossary-drift.js: avoid term literal hits when glossary exists"]
   K1 --> K2["LLM-owned readiness lens<br/>Core Pack always<br/>conditional packs only when triggered<br/>script findings do not decide readiness"]
   K2 --> K3{"readiness_outcome"}
   K3 -->|ready-for-planning| K4["Handoff to current host plan workflow<br/>Claude: /spec:plan<br/>Codex: $spec-plan"]
@@ -267,6 +267,25 @@ downstream_confirmation_risk -> claim -> evidence/source -> gap
 
 这让 owner 问题不再是 checklist 式追问，而是围绕“哪个问题会让 planning / work 发明 WHAT”排序。已经成型或已决策的输入会被综合进标准 PRD sections；其中 implementation/testing/API/schema/task 细节会降级为 HOW，除非它改变 scope、acceptance 或 source-of-truth。
 
+## 写前门槛与澄清证据
+
+`$spec-prd` 现在在写 PRD 前先做一个轻量的 run-local 判定，避免“材料看起来完整，所以直接生成 PRD”。这个判定不新增持久状态机，也不要求每次都表演式提问；它只要求在提问、写 PRD、readiness 和 handoff 这些会改变用户可见结果的动作前，先说明理由和关键字段。
+
+核心字段是：
+
+- `write_mode=ask-owner-first`：最高风险 gap 可以由一个 owner 问题关闭时，先问这一题并等待，不直接写 final PRD。
+- `write_mode=checkpoint-prd`：多来源、长链路或 true headless 恢复场景下的中间态，只能作为恢复点，必须写 `can_enter_spec-plan: no` 和 `next_owner_question`。
+- `write_mode=final-prd`：只有 load-bearing WHAT 已由 source evidence、owner answer 或 evidence-backed accepted assumption 闭合时才可使用。
+- `write_mode=route-out`：输入属于 brainstorm、plan、work、debug 或无 durable PRD 价值时路由出去。
+- `clarification_evidence=asked-owner`：本轮实际通过 blocking question tool 或 chat fallback 问过 owner 并获得回答。
+- `clarification_evidence=source-proven-no-ask`：无需 owner 提问，因为 source refs 已能闭合相关 WHAT。
+- `clarification_evidence=headless-degraded-logged`：确实无法等待用户时才允许降级，并且必须记录降级原因和被降级问题清单。
+- `clarification_evidence=skipped`：违规态，不能支撑 `ready-for-planning`。
+
+Codex 或当前 host 没有 blocking question tool，不等于 true headless。只要还能在 chat 里等待用户，就必须用 `question_delivery=chat-fallback` 问一个 source-backed owner question。只有明确 headless/report-only、上游禁止交互或运行时无法接收回复时，才可用 `question_delivery=true-headless-unavailable`。
+
+source 已闭合的简单需求不需要反复问 owner，这属于 `source-proven-no-ask`，不是跳过流程。相反，如果问题会改变用户行为、范围、验收、数据权威、接口可用性、降级展示、埋点验收或 source-of-truth，它就是 PRD-owned 问题，必须在 PRD 输出过程中逐一确认、写成有证据的 accepted assumption，或阻塞 readiness；不能放进 `Planning Recheck` 后宣称 `ready-for-planning`。
+
 ## Progressive Detail Ladder
 
 流程按风险渐进展开，避免所有 PRD 都走最重路径。
@@ -299,7 +318,7 @@ Map 负责从 chunk 里抽取需求原子并保留来源。Shuffle 按 actor、f
 
 这些都是 run-local scratch，不是持久 schema、JSON contract 或新 artifact。
 
-长链路、超大或多来源 PRD 可以把 reduced candidates 提前写入 PRD 文件本身作为 checkpoint：已闭合内容进入正式 sections，未确认内容进入 `Evidence And Assumptions`，owner 决策进入 `Outstanding Questions`，planning-time advisory 项进入 `Planning Recheck`。resume 时优先按 `source_ref` 恢复；如果 source_ref stale、缺失或冲突，则 degraded 重新归约相关 chunk 并记录原因。普通短 PRD 仍然闭合后再写，不新增 transcript 或 progress schema。`Planning Recheck` 是 `$spec-prd` producer-side advisory handoff：它说明下游在选 HOW 前必须复核，不等于 `$spec-plan` 已经完成 re-confirm。
+长链路、超大或多来源 PRD 可以把 reduced candidates 提前写入 PRD 文件本身作为 checkpoint：已闭合内容进入正式 sections，未确认内容进入 `Evidence And Assumptions`，owner 决策进入 `Outstanding Questions`，planning-time advisory 项进入 `Planning Recheck`。checkpoint PRD 不是 final PRD，不能进入 `$spec-plan`；它必须保留下一步 owner/source 问题和 `can_enter_spec-plan: no`。resume 时优先按 `source_ref` 恢复；如果 source_ref stale、缺失或冲突，则 degraded 重新归约相关 chunk 并记录原因。普通短 PRD 仍然闭合后再写，不新增 transcript 或 progress schema。`Planning Recheck` 是 `$spec-prd` producer-side advisory handoff：它说明下游在选 HOW 前必须复核，不等于 `$spec-plan` 已经完成 re-confirm。
 
 ## 设计源 / Figma 输入
 
@@ -311,6 +330,8 @@ URL parse -> tool discovery -> auth/access probe -> fetch or degraded reason
 ```
 
 设计源证据默认是 `source-candidate` / `provider_untrusted`，直到经过代码、文档或 owner 决策校准。工具不可用、未授权、无访问权限或 headless 无法抓取时，不阻断 PRD；它会 loud degrade 到截图、导出 context、本地 `figma-context:<path>`、reference-claim 或 owner 描述。`spec-prd` 只提取 PRD facts，例如 entry、state、copy、empty/error/loading、permission、i18n、accessibility 和 acceptance；PRD/Figma/source 一致性审计仍应 route 到 `$spec-app-consistency-audit`。
+
+如果 Figma 或其它 design-source 会影响页面结构、二级页/详情页入口、模块状态、错误/空/加载态、交互触发、验收或范围，`$spec-prd` 必须先建立 `design_source_inventory` 分母，再记录 `design_sources_read`、`design_sources_unread` 和 `design_source_coverage`。每个条目应说明 `source_or_node`、`read_status`、影响的 PRD write target、未读原因、evidence level 和 readiness consequence。未读节点仍会改变 WHAT 或 acceptance 时，readiness 不得返回 `ready-for-planning`；这些问题不能只作为 non-blocking `Planning Recheck` 后移给 `$spec-plan`。
 
 ## Deep Requirements Grill
 

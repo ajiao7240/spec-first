@@ -98,6 +98,8 @@ Use `## Planning Recheck` only when it prevents advisory evidence from being con
 | --- | --- | --- | --- |
 ```
 
+`Planning Recheck` must not be used as a parking lot for PRD-owned owner questions. A PRD-owned owner question must not be marked non-blocking Planning Recheck when it can change user behavior, scope, acceptance, data authority, interface availability, fallback display, analytics acceptance, or source-of-truth. Only HOW/integration/source-refresh checks that do not require planning to invent WHAT may be non-blocking.
+
 ## Surface Lenses
 
 Select one primary lens, then add secondary lenses only for real mixed-surface changes.
@@ -151,6 +153,8 @@ Write Lens output into existing PRD sections:
 - `closure_state` informs closeout, readiness, and handoff residue.
 - `downstream_confirmation_risk` affects question order and handoff priority, not a numeric score or script-owned readiness verdict.
 
+Use `accepted-assumption` only when owner accepted it or source evidence proves it safe. A recommended default without owner/source support stays as `recommended default` and must appear in `Outstanding Questions`, `Evidence And Assumptions`, or `Planning Recheck` with its consequence.
+
 For structured or already-decided inputs, synthesize settled WHAT into standard PRD sections and demote implementation/testing/API/schema/task details to HOW unless they change scope, acceptance, or source-of-truth. Do not introduce a named conversion field map, adapter, issue tracker, or second output artifact.
 
 ## Embedded Standard Skeleton
@@ -200,6 +204,34 @@ Then <observable outcome or explicit non-goal>
 
 | question | blocks planning? | recommended default | owner |
 | --- | --- | --- | --- |
+
+## Design Source Coverage
+
+design_source_inventory:
+- source_or_node: <explicit input ref, Figma-discoverable node, or design-dependent state referenced by requirements>
+  read_status: read | unread | degraded
+  PRD write target: <Interaction Requirements | Use Cases | Acceptance Examples | Evidence And Assumptions | Planning Recheck | Outstanding Questions>
+  evidence_level: source-candidate/provider_untrusted | confirmed owner/source | assumption
+  unread_reason:
+  readiness consequence:
+
+design_sources_read:
+- <source_or_node + affected PRD write target + evidence level>
+
+design_sources_unread:
+- <source_or_node + unread reason + readiness consequence>
+
+design_source_coverage: <read/unread/status summary>
+
+## Readiness Self-Check
+
+write_mode:
+clarification_evidence:
+design_source_coverage:
+first_unclosed_owner_question:
+recommended default:
+can_enter_spec-plan:
+why_not:
 ```
 
 Use the surface lens and project-local overlay to add only the conditional sections the increment needs.
@@ -266,6 +298,8 @@ Large-input Map-Reduce results must enter final PRD rewrite through the same sec
 
 For oversized, multi-source, long-chain, or resume-risk runs, `large-input-checkpoint.md` may write reduced candidates earlier as PRD checkpoints. Ordinary short PRDs still wait until closure before durable write-in. Checkpoint content uses existing sections and source refs; it never creates a transcript or progress schema.
 
+When the run uses `checkpoint-prd`, write it as a recovery checkpoint, not a final PRD. A checkpoint-prd must include `can_enter_spec-plan: no`, `next_owner_question`, open owner/source gaps, and `write_mode=checkpoint-prd` in `Readiness Self-Check` or closeout. It is not a final PRD and must not be presented as planning-ready.
+
 ## P0 PRD Quality Packs
 
 Run these packs when their trigger affects planning-invention risk or standard-template completeness. If a trigger is absent, keep source-resolved compact PRDs focused and record none/zero only when closeout clarity needs it.
@@ -294,7 +328,7 @@ Run these only when the input surface warrants them and the detail reduces plann
 | Pack | Trigger | Write target |
 | --- | --- | --- |
 | Stakeholder / Actor Alignment | Admin, Backend, CLI/DevTool, Mixed surface, permission, approval, producer/consumer, downstream consumer, or ambiguous user/system/admin wording | `Actors`, `Requirements`, `Use Cases`, `Evidence And Assumptions` |
-| Design / UX Evidence Hook | App/H5/PC/Admin, screenshots, design links, exported design context, page description, or interaction-state input | use `design-source-evidence.md` External Evidence Interface to choose `Interaction Requirements`, `Use Cases`, `Acceptance Examples`, `Evidence And Assumptions`, or `Planning Recheck` |
+| Design / UX Evidence Hook | App/H5/PC/Admin, screenshots, design links, exported design context, page description, or interaction-state input | use `design-source-evidence.md` External Evidence Interface to choose `Interaction Requirements`, `Use Cases`, `Acceptance Examples`, `Evidence And Assumptions`, or `Planning Recheck`; list `design_source_inventory`, `design_sources_read`, `design_sources_unread`, `source_or_node`, `read_status`, PRD write target, evidence level, unread reason, and readiness consequence |
 | Prioritization / Release Slice | Many requirements, multiple goals, multi-surface scope, or release order affects scope or acceptance | `Feature Slices`, `Scope Boundaries`, `Release / Operation Readiness` |
 | Change Management | `resume-prd`, existing PRD path, multi-round refine, new meeting/screenshot/review conclusion, or changed owner decision | `Change Delta`, `Decision Notes`, `Evidence And Assumptions` |
 

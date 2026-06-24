@@ -16,6 +16,76 @@
           "expected": ["risk-ranked gap plus PRD write target required", "inline critique names product risk and affected PRD write target"],
           "must_not": ["must not pass by only renaming the lens without risk-ranked product judgment"]
         }
+      },
+      {
+        "id": "clarification-skipped-structured-input-rejected",
+        "requires": {
+          "case_type": "failure",
+          "quality_buckets": ["failure", "readiness-fail"],
+          "coverage_tags": ["readiness"],
+          "expected": ["write_mode must be ask-owner-first or checkpoint-prd before final PRD write", "clarification_evidence must be declared"],
+          "must_not": ["must not return ready-for-planning with zero owner interaction and unresolved Outstanding"]
+        }
+      },
+      {
+        "id": "headless-degraded-abuse-rejected",
+        "requires": {
+          "case_type": "failure",
+          "quality_buckets": ["failure", "readiness-fail"],
+          "coverage_tags": ["readiness"],
+          "expected": ["chat-fallback required when chat can wait"],
+          "must_not": ["must not claim true-headless-unavailable when chat fallback is possible"]
+        }
+      },
+      {
+        "id": "large-input-ask-owner-priority",
+        "requires": {
+          "case_type": "boundary",
+          "quality_buckets": ["refine"],
+          "coverage_tags": ["readiness", "boundary"],
+          "expected": ["write_mode=ask-owner-first even for large input when gap is closable by one question"],
+          "must_not": ["must not jump to checkpoint-prd merely because input is large"]
+        }
+      },
+      {
+        "id": "prd-owned-question-nonblocking-ready-rejected",
+        "requires": {
+          "case_type": "failure",
+          "quality_buckets": ["failure", "readiness-fail"],
+          "coverage_tags": ["readiness", "owner-question-avoidance"],
+          "expected": ["PRD-owned owner questions must be grilled or block readiness"],
+          "must_not": ["must not mark ready-for-planning when unresolved owner questions can change WHAT, acceptance, data authority, interface availability, fallback display, analytics acceptance, or source-of-truth"]
+        }
+      },
+      {
+        "id": "figma-unread-prd-ready-rejected",
+        "requires": {
+          "case_type": "failure",
+          "quality_buckets": ["failure", "readiness-fail"],
+          "coverage_tags": ["readiness", "owner-question-avoidance"],
+          "expected": ["Figma/design-source nodes affecting UI structure, state, interaction, acceptance, or scope must be read during PRD output or block readiness"],
+          "must_not": ["must not mark ready-for-planning when unread Figma/design nodes can change WHAT or acceptance"]
+        }
+      },
+      {
+        "id": "core-declarations-omitted-ready-rejected",
+        "requires": {
+          "case_type": "failure",
+          "quality_buckets": ["failure", "readiness-fail"],
+          "coverage_tags": ["readiness", "owner-question-avoidance"],
+          "expected": ["core readiness declarations are required for PRD artifacts or ready-for-planning outputs"],
+          "must_not": ["must not avoid checker findings by omitting Outstanding Questions and Planning Recheck"]
+        }
+      },
+      {
+        "id": "figma-omitted-from-coverage-ready-rejected",
+        "requires": {
+          "case_type": "failure",
+          "quality_buckets": ["failure", "readiness-fail"],
+          "coverage_tags": ["readiness", "owner-question-avoidance"],
+          "expected": ["design_source_inventory must include explicit input refs, Figma-discoverable nodes, and design-dependent states referenced by requirements"],
+          "must_not": ["must not mark ready-for-planning when unread design nodes are omitted from design_source_coverage"]
+        }
       }
     ],
     "boundary": "Fixture metadata is deterministic coverage evidence only; it is not a semantic judge or runtime state machine."
@@ -102,6 +172,76 @@
       "expected": ["naming-only Product Expert Lens mention is insufficient", "risk-ranked gap plus PRD write target required", "inline critique names product risk and affected PRD write target"],
       "must_not": ["must not pass by only renaming the lens without risk-ranked product judgment"],
       "coverage_tags": ["failure", "product-judgment"]
+    },
+    {
+      "id": "clarification-skipped-structured-input-rejected",
+      "intent": "validate",
+      "case_type": "failure",
+      "quality_buckets": ["failure", "readiness-fail"],
+      "input_shape": "structured multi-doc input with zero owner interaction, unresolved Outstanding Questions, and a final PRD readiness claim",
+      "expected": ["write_mode must be ask-owner-first or checkpoint-prd before final PRD write", "clarification_evidence must be declared", "skipped or missing with Outstanding/Planning Recheck blocks ready-for-planning", "readiness emits revise-prd or ask-owner with clarification-not-performed note"],
+      "must_not": ["must not return ready-for-planning with zero owner interaction and unresolved Outstanding", "must not treat checkpoint-prd as final-prd"],
+      "coverage_tags": ["readiness"]
+    },
+    {
+      "id": "headless-degraded-abuse-rejected",
+      "intent": "validate",
+      "case_type": "failure",
+      "quality_buckets": ["failure", "readiness-fail"],
+      "input_shape": "Codex run can chat and wait but claims true-headless-unavailable to skip owner questions",
+      "expected": ["chat-fallback required when chat can wait", "must declare question_delivery=chat-fallback not true-headless-unavailable"],
+      "must_not": ["must not claim true-headless-unavailable when chat fallback is possible", "must not direct-write large checkpoint-prd to bypass owner interaction"],
+      "coverage_tags": ["readiness"]
+    },
+    {
+      "id": "large-input-ask-owner-priority",
+      "intent": "refine",
+      "case_type": "boundary",
+      "quality_buckets": ["refine"],
+      "input_shape": "large multi-doc input and the highest_risk_gap is closable by one owner question",
+      "expected": ["write_mode=ask-owner-first even for large input when gap is closable by one question"],
+      "must_not": ["must not jump to checkpoint-prd merely because input is large"],
+      "coverage_tags": ["readiness", "boundary"]
+    },
+    {
+      "id": "prd-owned-question-nonblocking-ready-rejected",
+      "intent": "validate",
+      "case_type": "failure",
+      "quality_buckets": ["failure", "readiness-fail"],
+      "input_shape": "PRD marks product, data-source, interface, fallback, analytics, or source-of-truth owner questions as blocks planning=no and returns ready-for-planning",
+      "expected": ["PRD-owned owner questions must be grilled or block readiness", "Planning Recheck only carries HOW or integration recheck after product default and acceptance are closed"],
+      "must_not": ["must not mark ready-for-planning when unresolved owner questions can change WHAT, acceptance, data authority, interface availability, fallback display, analytics acceptance, or source-of-truth"],
+      "coverage_tags": ["readiness", "owner-question-avoidance"]
+    },
+    {
+      "id": "figma-unread-prd-ready-rejected",
+      "intent": "validate",
+      "case_type": "failure",
+      "quality_buckets": ["failure", "readiness-fail"],
+      "input_shape": "PRD has Figma or design-dependent page/state nodes not read, parks them in Planning Recheck, and returns ready-for-planning",
+      "expected": ["Figma/design-source nodes affecting UI structure, state, interaction, acceptance, or scope must be read during PRD output or block readiness", "unread design nodes must map to PRD write targets with source/node id, unread reason, evidence level, and readiness consequence"],
+      "must_not": ["must not mark ready-for-planning when unread Figma/design nodes can change WHAT or acceptance", "must not use Planning Recheck as a parking lot for unread design pages, module failure states, detail states, or secondary list states that affect PRD requirements"],
+      "coverage_tags": ["readiness", "owner-question-avoidance"]
+    },
+    {
+      "id": "core-declarations-omitted-ready-rejected",
+      "intent": "validate",
+      "case_type": "failure",
+      "quality_buckets": ["failure", "readiness-fail"],
+      "input_shape": "PRD has unresolved load-bearing WHAT but omits Outstanding/Planning Recheck, omits write_mode/clarification_evidence/can_enter_spec-plan, and returns ready-for-planning",
+      "expected": ["core readiness declarations are required for PRD artifacts or ready-for-planning outputs", "checker reports missing declaration findings even when Outstanding/Planning Recheck sections are absent"],
+      "must_not": ["must not avoid checker findings by omitting Outstanding Questions and Planning Recheck", "must not mark ready-for-planning without valid write_mode, clarification_evidence, and can_enter_spec-plan declarations"],
+      "coverage_tags": ["readiness", "owner-question-avoidance"]
+    },
+    {
+      "id": "figma-omitted-from-coverage-ready-rejected",
+      "intent": "validate",
+      "case_type": "failure",
+      "quality_buckets": ["failure", "readiness-fail"],
+      "input_shape": "PRD input has Figma secondary/detail/error-state refs, but output only lists already-read homepage nodes in design_source_coverage and returns ready-for-planning",
+      "expected": ["design_source_inventory must include explicit input refs, Figma-discoverable nodes, and design-dependent states referenced by requirements", "unread design nodes omitted from coverage block readiness"],
+      "must_not": ["must not mark ready-for-planning when unread design nodes are omitted from design_source_coverage", "must not treat a self-reported read-only list as full design coverage"],
+      "coverage_tags": ["readiness", "owner-question-avoidance"]
     },
     {
       "id": "code-alignment-what-not-how",

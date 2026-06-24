@@ -30,6 +30,8 @@ URL parse -> tool discovery -> auth/access probe -> node-level context fetch or 
 - `code/owner reconciliation`: compare design-source claims with current source/docs when relevant, and ask owner only for target behavior decisions that source cannot answer.
 - `PRD write targets / Planning Recheck`: write confirmed or accepted design facts into `Interaction Requirements`, `Use Cases`, `Acceptance Examples`, `Evidence And Assumptions`, or `Planning Recheck`.
 
+Before reporting design coverage, build `design_source_inventory` first. The inventory is the denominator for coverage and must include explicit input refs, Figma-discoverable nodes from the file/page/frame when accessible, and design-dependent states referenced by requirements such as secondary pages, detail pages, module failure states, loading states, empty states, and error states. Each item records `source_or_node`, `read_status`, PRD write target, evidence level, unread reason, and readiness consequence. Then list `design_sources_read`, `design_sources_unread`, and `design_source_coverage`; a read-only list is not full coverage if unread design-dependent nodes were omitted.
+
 ## Advisory Posture
 
 Design-source facts are advisory until confirmed:
@@ -39,6 +41,7 @@ Design-source facts are advisory until confirmed:
 - exported design context is only as fresh as its export timestamp/source note
 - code/source contradictions must be surfaced rather than silently normalized
 - unconfirmed design WHAT goes to `Planning Recheck`, `Evidence And Assumptions`, `Outstanding Questions`, or a source-backed owner question
+- unread design nodes that can change UI structure, state, interaction, acceptance, or scope must block `ready-for-planning` until read, owner-confirmed, or explicitly downgraded with a readiness consequence
 
 Do not present design evidence as confirmed project scope merely because a tool can read it.
 
@@ -64,6 +67,10 @@ design_source:
   evidence_tag: source-candidate | provider_untrusted | user-stated | assumption
   extraction_status: fetched | degraded | not-run
   degraded_reason:
+  design_source_inventory:
+  design_sources_read:
+  design_sources_unread:
+  design_source_coverage:
   extracted_design_what:
   affected_PRD_write_targets:
   reconciliation_needed:
@@ -92,6 +99,7 @@ When the run cannot fetch remote design context because it is headless, report-o
 - use user-provided screenshots, local exports, or text descriptions as source-candidate material
 - put unresolved design claims into `Planning Recheck` or `Outstanding Questions`
 - state that design-source capability was not semantically verified in closeout when it matters
+- if unread design-source inventory items affect page structure, state, interaction, acceptance, or scope, do not mark the PRD `ready-for-planning`
 
 ## Route-Out Boundary
 
